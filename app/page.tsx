@@ -1,10 +1,10 @@
-import Link from 'next/link';
+import { Metadata } from "next";
+import Link from "next/link";
 
 // Technical SEO Foundation: Server-Side Metadata for localized search
-export const metadata = {
-  title: 'Find Physically Verified Home Tutors in Lahore | TutorMint',
-  description: 'The only freemium platform in Lahore guaranteeing safety through mandatory in-person degree and CNIC verification. Book free demos in DHA, Johar Town, and Gulberg.',
-  keywords: 'home tutor Lahore, verified tutors DHA, O level tutor Johar Town, private tuition Lahore',
+export const metadata: Metadata = {
+  title: "TutorMint | Verified Home Tutors in Lahore",
+  description: "Connect with physically verified home tutors for online and in-person learning.",
 };
 
 export default function Home() {
@@ -59,10 +59,10 @@ export default function Home() {
            Highly Requested Neighborhoods
          </h2>
          <div className="flex flex-wrap justify-center gap-6 md:gap-12 text-[#F1A80A] font-extrabold text-xl md:text-2xl opacity-90">
-            <span>DHA Phase 1-8</span>
-            <span>Johar Town</span>
-            <span>Gulberg</span>
-            <span>Bahria Town</span>
+           <span>DHA Phase 1-8</span>
+           <span>Johar Town</span>
+           <span>Gulberg</span>
+           <span>Bahria Town</span>
          </div>
       </section>
 
