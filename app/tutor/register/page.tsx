@@ -100,7 +100,7 @@ export default function TutorRegistration() {
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               <div>
                 <label className="block text-sm font-semibold mb-1">Full Name</label>
-                <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="e.g. Ali Raza" />
+                <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="e.g. Rai Mohsin Raza" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -211,7 +211,7 @@ export default function TutorRegistration() {
             </div>
             <h2 className="text-2xl font-extrabold mb-3 text-gray-900">Success!</h2>
             <p className="text-gray-600 mb-8 font-medium leading-relaxed">
-              Tutor Appliction received our team will contact you on your provide contact details
+              Tutor Appliction received our team will contact you on your provided contact details
             </p>
             <button 
               onClick={() => window.location.href = '/'}
