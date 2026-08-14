@@ -32,7 +32,6 @@ export default function TutorRegistration() {
   const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
 
-    // Manually trigger HTML5 validation since we disconnected the native form submission
     const form = document.getElementById("tutor-registration-form") as HTMLFormElement;
     if (form && !form.checkValidity()) {
       form.reportValidity();
@@ -55,6 +54,7 @@ export default function TutorRegistration() {
         throw new Error(result.error || "Failed to submit application. Please try again later.");
       }
 
+      // Trigger the popup modal instead of a full page redirect
       setIsSuccess(true);
     } catch (error: any) {
       setErrorMessage(error.message);
@@ -63,30 +63,8 @@ export default function TutorRegistration() {
     }
   };
 
-  // Success Screen
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-4 font-sans text-[#161616]">
-        <div className="bg-white max-w-lg w-full rounded-xl shadow-sm border border-[#EDEDED] p-10 text-center">
-          <div className="text-[#10B981] mb-4">
-            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-          </div>
-          <h2 className="text-3xl font-extrabold mb-4">Application Received!</h2>
-          <p className="text-gray-600 mb-8">
-            Your profile is currently <span className="font-bold text-[#F1A80A]">Pending</span>. Our team will contact you shortly on your provided phone number for manual verification.
-          </p>
-          <Link href="/" className="bg-[#161616] text-white px-8 py-3 rounded-md font-bold hover:bg-gray-800 transition-colors">
-            Return to Homepage
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center pt-12 px-4 font-sans text-[#161616]">
+    <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center pt-12 px-4 font-sans text-[#161616] relative">
       <Link href="/" className="text-3xl font-bold tracking-tight mb-8">
         Tutor<span className="text-[#B3191F]">Mint</span>
       </Link>
@@ -116,7 +94,6 @@ export default function TutorRegistration() {
           ))}
         </div>
 
-        {/* Form is decoupled from submission to prevent auto-submits */}
         <form id="tutor-registration-form" className="space-y-6">
           {/* STEP 1: IDENTITY */}
           {currentStep === 1 && (
@@ -222,6 +199,29 @@ export default function TutorRegistration() {
           </div>
         </form>
       </div>
+
+      {/* SUCCESS POPUP MODAL */}
+      {isSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full text-center animate-in zoom-in-95 duration-200">
+            <div className="text-[#10B981] mb-4">
+              <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <h2 className="text-2xl font-extrabold mb-3 text-gray-900">Success!</h2>
+            <p className="text-gray-600 mb-8 font-medium leading-relaxed">
+              Tutor Appliction received our team will contact you on your provide contact details
+            </p>
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="w-full px-6 py-3 bg-[#B3191F] text-white rounded-md font-bold hover:bg-red-800 transition-colors"
+            >
+              Okay
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

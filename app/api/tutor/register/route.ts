@@ -10,7 +10,16 @@ export async function POST(req: Request) {
     // 2. Parse the incoming form data
     const body = await req.json();
 
-    // 3. Create a new Tutor document based on our updated schema
+    // 3. Format strings into arrays for MongoDB's strict schema requirements
+    const degreesArray = body.degrees 
+      ? body.degrees.split(',').map((item: string) => item.trim()).filter(Boolean)
+      : [];
+      
+    const platformsArray = body.onlinePlatforms 
+      ? body.onlinePlatforms.split(',').map((item: string) => item.trim()).filter(Boolean)
+      : [];
+
+    // 4. Create a new Tutor document based on our updated schema
     const newTutor = new Tutor({
       fullName: body.fullName,
       email: body.email,
@@ -19,17 +28,15 @@ export async function POST(req: Request) {
       whatsapp_number: body.whatsapp_number,
       province: body.province,
       city: body.city,
-      degrees: body.degrees,
       teachingMode: body.teachingMode,
-      onlinePlatforms: body.onlinePlatforms,
-      // status defaults to 'pending'
-      // connects and balances default to 0
+      degrees: degreesArray,
+      onlinePlatforms: platformsArray,
     });
 
-    // 4. Save to MongoDB
+    // 5. Save to MongoDB
     await newTutor.save();
 
-    // 5. Send success response back to the frontend
+    // 6. Send success response back to the frontend
     return NextResponse.json(
       { message: "Tutor application received successfully", tutorId: newTutor._id },
       { status: 201 }
