@@ -5,6 +5,10 @@ import Link from "next/link";
 
 export default function TutorRegistration() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -27,10 +31,51 @@ export default function TutorRegistration() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // API wiring will go here in the next step
-    console.log("Ready to send to MongoDB:", formData);
-    alert("Form architecture ready! Check console for payload.");
+    setIsSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      const response = await fetch("/api/tutor/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to submit application.");
+      }
+
+      setIsSuccess(true);
+    } catch (error: any) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  // Success Screen
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-4 font-sans text-[#161616]">
+        <div className="bg-white max-w-lg w-full rounded-xl shadow-sm border border-[#EDEDED] p-10 text-center">
+          <div className="text-[#10B981] mb-4">
+            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h2 className="text-3xl font-extrabold mb-4">Application Received!</h2>
+          <p className="text-gray-600 mb-8">
+            Your profile is currently <span className="font-bold text-[#F1A80A]">Pending</span>. Our team will contact you shortly on your provided phone number for manual verification.
+          </p>
+          <Link href="/" className="bg-[#161616] text-white px-8 py-3 rounded-md font-bold hover:bg-gray-800 transition-colors">
+            Return to Homepage
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center pt-12 px-4 font-sans text-[#161616]">
@@ -44,12 +89,19 @@ export default function TutorRegistration() {
           <p className="text-gray-500">Step {currentStep} of 3: Create your nationwide profile.</p>
         </div>
 
-        {/* Tab Indicators */}
-        <div className="flex justify-between mb-8 border-b border-gray-200 pb-4">
+        {/* Error Banner */}
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm font-semibold">
+            {errorMessage}
+          </div>
+        )}
+
+        {/* Tab Indicators - UPDATED UI */}
+        <div className="flex justify-between mb-8 border-b border-gray-200">
           {["Identity", "Location & Academics", "Preferences"].map((label, index) => (
             <div 
               key={label} 
-              className={`flex-1 text-center font-semibold text-sm ${currentStep === index + 1 ? "text-[#B3191F]" : "text-gray-400"}`}
+              className={`flex-1 text-center font-semibold text-sm pb-4 ${currentStep === index + 1 ? "text-[#B3191F] border-b-2 border-[#B3191F]" : "text-gray-400"}`}
             >
               {label}
             </div>
@@ -134,23 +186,23 @@ export default function TutorRegistration() {
             </div>
           )}
 
-          {/* Form Navigation Controls */}
+          {/* Form Navigation Controls - UPDATED UI */}
           <div className="flex justify-between pt-6 mt-6 border-t border-gray-100">
             {currentStep > 1 ? (
-              <button type="button" onClick={prevStep} className="px-6 py-3 border-2 border-gray-300 rounded-md font-bold text-gray-600 hover:bg-gray-50 transition-colors">
+              <button type="button" onClick={prevStep} disabled={isSubmitting} className="px-6 py-3 border-2 border-gray-300 rounded-md font-bold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
                 Back
               </button>
             ) : (
-              <div></div> // Empty div to keep 'Next' button on the right
+              <div></div>
             )}
             
             {currentStep < 3 ? (
-              <button type="button" onClick={nextStep} className="px-8 py-3 bg-[#161616] text-white rounded-md font-bold hover:bg-gray-800 transition-colors">
+              <button type="button" onClick={nextStep} className="px-8 py-3 bg-[#B3191F] text-white rounded-md font-bold hover:bg-red-800 transition-colors">
                 Continue
               </button>
             ) : (
-              <button type="submit" className="px-8 py-3 bg-[#B3191F] text-white rounded-md font-bold hover:bg-red-800 transition-colors">
-                Submit Application
+              <button type="submit" disabled={isSubmitting} className="px-8 py-3 bg-[#B3191F] text-white rounded-md font-bold hover:bg-red-800 transition-colors disabled:opacity-50 flex items-center gap-2">
+                {isSubmitting ? "Submitting..." : "Submit Application"}
               </button>
             )}
           </div>
