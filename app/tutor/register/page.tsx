@@ -29,8 +29,16 @@ export default function TutorRegistration() {
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 3));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+
+    // Manually trigger HTML5 validation since we disconnected the native form submission
+    const form = document.getElementById("tutor-registration-form") as HTMLFormElement;
+    if (form && !form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage("");
 
@@ -44,7 +52,7 @@ export default function TutorRegistration() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to submit application.");
+        throw new Error(result.error || "Failed to submit application. Please try again later.");
       }
 
       setIsSuccess(true);
@@ -96,7 +104,7 @@ export default function TutorRegistration() {
           </div>
         )}
 
-        {/* Tab Indicators - UPDATED UI */}
+        {/* Tab Indicators */}
         <div className="flex justify-between mb-8 border-b border-gray-200">
           {["Identity", "Location & Academics", "Preferences"].map((label, index) => (
             <div 
@@ -108,21 +116,14 @@ export default function TutorRegistration() {
           ))}
         </div>
 
-        <form 
-            onSubmit={handleSubmit} 
-            className="space-y-6" 
-            onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-            e.preventDefault();
-            }
-          }}
-        >
+        {/* Form is decoupled from submission to prevent auto-submits */}
+        <form id="tutor-registration-form" className="space-y-6">
           {/* STEP 1: IDENTITY */}
           {currentStep === 1 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               <div>
                 <label className="block text-sm font-semibold mb-1">Full Name</label>
-                <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="e.g. Rai Mohsin Raza" />
+                <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="e.g. Ali Raza" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -153,7 +154,7 @@ export default function TutorRegistration() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold mb-1">Province</label>
-                  <select name="province" value={formData.province} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md p-3 bg-white focus:outline-none focus:border-[#B3191F]">
+                  <select name="province" value={formData.province} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md p-3 bg-white focus:outline-none focus:border-[#B3191F]" required>
                     <option value="">Select Province</option>
                     <option value="Punjab">Punjab</option>
                     <option value="Sindh">Sindh</option>
@@ -194,7 +195,7 @@ export default function TutorRegistration() {
             </div>
           )}
 
-          {/* Form Navigation Controls - UPDATED UI */}
+          {/* Form Navigation Controls */}
           <div className="flex justify-between pt-6 mt-6 border-t border-gray-100">
             {currentStep > 1 ? (
               <button type="button" onClick={prevStep} disabled={isSubmitting} className="px-6 py-3 border-2 border-gray-300 rounded-md font-bold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
@@ -209,7 +210,12 @@ export default function TutorRegistration() {
                 Continue
               </button>
             ) : (
-              <button type="submit" disabled={isSubmitting} className="px-8 py-3 bg-[#B3191F] text-white rounded-md font-bold hover:bg-red-800 transition-colors disabled:opacity-50 flex items-center gap-2">
+              <button 
+                type="button" 
+                onClick={handleSubmit} 
+                disabled={isSubmitting} 
+                className="px-8 py-3 bg-[#B3191F] text-white rounded-md font-bold hover:bg-red-800 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
                 {isSubmitting ? "Submitting..." : "Submit Application"}
               </button>
             )}
