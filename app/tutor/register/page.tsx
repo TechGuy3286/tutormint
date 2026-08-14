@@ -1,183 +1,159 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
-export default function TutorRegisterPage() {
+export default function TutorRegistration() {
+  const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     cnic: "",
-    teachingMode: "Both",
-    preferredApps: [] as string[],
+    phone_number: "",
+    whatsapp_number: "",
+    province: "",
+    city: "",
+    degrees: "",
+    teachingMode: "Physical",
+    onlinePlatforms: "",
   });
 
-  const appOptions = ["WhatsApp", "Zoom", "Google Meet", "Skype", "Other"];
-
-  const handleAppToggle = (app: string) => {
-    setFormData((prev) => {
-      const exists = prev.preferredApps.includes(app);
-      return {
-        ...prev,
-        preferredApps: exists
-          ? prev.preferredApps.filter((a) => a !== app)
-          : [...prev.preferredApps, app],
-      };
-    });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+
+  const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 3));
+  const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    try {
-      // Send the data to our new API route
-      const response = await fetch('/api/tutor/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        alert("Success! Your profile has been created.");
-        // Clear the form fields after successful submission
-        setFormData({
-          fullName: "",
-          email: "",
-          cnic: "",
-          teachingMode: "Both",
-          preferredApps: [],
-        });
-      } else {
-        // Show the error (like duplicate email/CNIC)
-        alert(`Error: ${data.error}`);
-      }
-    } catch (error) {
-      alert("A network error occurred. Please try again.");
-    }
+    // API wiring will go here in the next step
+    console.log("Ready to send to MongoDB:", formData);
+    alert("Form architecture ready! Check console for payload.");
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+    <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center pt-12 px-4 font-sans text-[#161616]">
+      <Link href="/" className="text-3xl font-bold tracking-tight mb-8">
+        Tutor<span className="text-[#B3191F]">Mint</span>
+      </Link>
+
+      <div className="bg-white max-w-2xl w-full rounded-xl shadow-sm border border-[#EDEDED] p-8">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">Join as a Tutor</h2>
-          <p className="text-gray-600 mt-2">
-            Create your profile to start connecting with students in Lahore.
-          </p>
+          <h1 className="text-3xl font-extrabold mb-2">Join as a Tutor</h1>
+          <p className="text-gray-500">Step {currentStep} of 3: Create your nationwide profile.</p>
+        </div>
+
+        {/* Tab Indicators */}
+        <div className="flex justify-between mb-8 border-b border-gray-200 pb-4">
+          {["Identity", "Location & Academics", "Preferences"].map((label, index) => (
+            <div 
+              key={label} 
+              className={`flex-1 text-center font-semibold text-sm ${currentStep === index + 1 ? "text-[#B3191F]" : "text-gray-400"}`}
+            >
+              {label}
+            </div>
+          ))}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Full Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name
-            </label>
-            <input
-              type="text"
-              required
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-              placeholder="e.g. Ali Raza"
-              value={formData.fullName}
-              onChange={(e) =>
-                setFormData({ ...formData, fullName: e.target.value })
-              }
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              required
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-              placeholder="ali@example.com"
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-            />
-          </div>
-
-          {/* CNIC */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              CNIC Number (for verification)
-            </label>
-            <input
-              type="text"
-              required
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-600"
-              placeholder="35202-XXXXXXX-X"
-              value={formData.cnic}
-              onChange={(e) =>
-                setFormData({ ...formData, cnic: e.target.value })
-              }
-            />
-          </div>
-
-          {/* Teaching Mode */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Teaching Mode
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {["Physical", "Online", "Both"].map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, teachingMode: mode })}
-                  className={`py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
-                    formData.teachingMode === mode
-                      ? "bg-red-600 text-white shadow-sm"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  {mode}
-                </button>
-              ))}
+          {/* STEP 1: IDENTITY */}
+          {currentStep === 1 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1">Full Name</label>
+                <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="e.g. Ali Raza" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Email Address</label>
+                  <input type="email" name="email" value={formData.email} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="ali@example.com" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1">CNIC Number</label>
+                  <input type="text" name="cnic" value={formData.cnic} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="35202-XXXXXXX-X" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Phone Number</label>
+                  <input type="text" name="phone_number" value={formData.phone_number} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="0300-1234567" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1">WhatsApp Number</label>
+                  <input type="text" name="whatsapp_number" value={formData.whatsapp_number} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="Same as phone" />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Preferred Apps */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Preferred Online Platforms / Apps
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {appOptions.map((app) => {
-                const isSelected = formData.preferredApps.includes(app);
-                return (
-                  <button
-                    key={app}
-                    type="button"
-                    onClick={() => handleAppToggle(app)}
-                    className={`py-2 px-3.5 rounded-lg text-xs font-medium border transition-all ${
-                      isSelected
-                        ? "border-red-600 bg-red-50 text-red-700"
-                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                    }`}
-                  >
-                    {isSelected ? "✓ " : "+ "}
-                    {app}
-                  </button>
-                );
-              })}
+          {/* STEP 2: LOCATION & ACADEMICS */}
+          {currentStep === 2 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Province</label>
+                  <select name="province" value={formData.province} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md p-3 bg-white focus:outline-none focus:border-[#B3191F]">
+                    <option value="">Select Province</option>
+                    <option value="Punjab">Punjab</option>
+                    <option value="Sindh">Sindh</option>
+                    <option value="KPK">Khyber Pakhtunkhwa</option>
+                    <option value="Balochistan">Balochistan</option>
+                    <option value="Federal">Federal (Islamabad)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1">City</label>
+                  <input type="text" name="city" value={formData.city} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="e.g. Lahore, Karachi, Islamabad" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Highest Academic Degree(s)</label>
+                <input type="text" name="degrees" value={formData.degrees} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="e.g. BS Computer Science (PU), MSc Physics" />
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="w-full py-3.5 px-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl shadow-md transition-all mt-4"
-          >
-            Complete Registration
-          </button>
+          {/* STEP 3: PREFERENCES */}
+          {currentStep === 3 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1">Teaching Mode</label>
+                <select name="teachingMode" value={formData.teachingMode} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md p-3 bg-white focus:outline-none focus:border-[#B3191F]">
+                  <option value="Physical">Physical (In-Person)</option>
+                  <option value="Online">Online Only</option>
+                  <option value="Both">Both (Physical & Online)</option>
+                </select>
+              </div>
+              {formData.teachingMode !== "Physical" && (
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Preferred Online Platforms</label>
+                  <input type="text" name="onlinePlatforms" value={formData.onlinePlatforms} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="e.g. Zoom, Google Meet, Skype" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Form Navigation Controls */}
+          <div className="flex justify-between pt-6 mt-6 border-t border-gray-100">
+            {currentStep > 1 ? (
+              <button type="button" onClick={prevStep} className="px-6 py-3 border-2 border-gray-300 rounded-md font-bold text-gray-600 hover:bg-gray-50 transition-colors">
+                Back
+              </button>
+            ) : (
+              <div></div> // Empty div to keep 'Next' button on the right
+            )}
+            
+            {currentStep < 3 ? (
+              <button type="button" onClick={nextStep} className="px-8 py-3 bg-[#161616] text-white rounded-md font-bold hover:bg-gray-800 transition-colors">
+                Continue
+              </button>
+            ) : (
+              <button type="submit" className="px-8 py-3 bg-[#B3191F] text-white rounded-md font-bold hover:bg-red-800 transition-colors">
+                Submit Application
+              </button>
+            )}
+          </div>
         </form>
       </div>
     </div>
