@@ -108,13 +108,21 @@ export default function TutorRegistration() {
           ))}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form 
+            onSubmit={handleSubmit} 
+            className="space-y-6" 
+            onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+            e.preventDefault();
+            }
+          }}
+        >
           {/* STEP 1: IDENTITY */}
           {currentStep === 1 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               <div>
                 <label className="block text-sm font-semibold mb-1">Full Name</label>
-                <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="e.g. Ali Raza" />
+                <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} required className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" placeholder="e.g. Rai Mohsin Raza" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>

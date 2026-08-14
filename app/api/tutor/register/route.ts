@@ -1,36 +1,53 @@
 import { NextResponse } from "next/server";
-import connectToDatabase from "../../../../lib/mongodb";
-import Tutor from "../../../../lib/models/Tutor";
+import connectDB from "@/lib/mongodb";
+import Tutor from "@/lib/models/Tutor";
 
 export async function POST(req: Request) {
   try {
-    // 1. Connect to MongoDB
-    await connectToDatabase();
-    
-    // 2. Grab the data sent from the frontend form
+    // 1. Connect to the database
+    await connectDB();
+
+    // 2. Parse the incoming form data
     const body = await req.json();
 
-    // 3. Save it to the database using our Schema
-    const newTutor = await Tutor.create(body);
+    // 3. Create a new Tutor document based on our updated schema
+    const newTutor = new Tutor({
+      fullName: body.fullName,
+      email: body.email,
+      cnic: body.cnic,
+      phone_number: body.phone_number,
+      whatsapp_number: body.whatsapp_number,
+      province: body.province,
+      city: body.city,
+      degrees: body.degrees,
+      teachingMode: body.teachingMode,
+      onlinePlatforms: body.onlinePlatforms,
+      // status defaults to 'pending'
+      // connects and balances default to 0
+    });
 
-    // 4. Send a success message back to the frontend
+    // 4. Save to MongoDB
+    await newTutor.save();
+
+    // 5. Send success response back to the frontend
     return NextResponse.json(
-      { message: "Tutor registered successfully!", tutor: newTutor },
+      { message: "Tutor application received successfully", tutorId: newTutor._id },
       { status: 201 }
     );
   } catch (error: any) {
-    console.error("Database Error:", error);
-    
-    // Handle duplicate Email or CNIC (MongoDB throws code 11000 for unique field clashes)
+    console.error("Registration Error:", error);
+
+    // Handle MongoDB duplicate key errors (e.g., someone reusing an email or CNIC)
     if (error.code === 11000) {
+      const duplicateField = Object.keys(error.keyValue)[0];
       return NextResponse.json(
-        { error: "A tutor with this email or CNIC already exists in the system." },
-        { status: 400 }
+        { error: `This ${duplicateField} is already registered.` },
+        { status: 409 }
       );
     }
-    
+
     return NextResponse.json(
-      { error: "Failed to register tutor. Please try again." },
+      { error: "Failed to submit application. Please try again later." },
       { status: 500 }
     );
   }
