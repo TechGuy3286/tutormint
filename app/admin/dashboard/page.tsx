@@ -8,6 +8,7 @@ interface Tutor {
   fullName: string;
   email: string;
   phone_number: string;
+  whatsapp?: string;
   cnic?: string;
   city: string;
   province: string;
@@ -81,7 +82,7 @@ export default function AdminDashboard() {
       <main className="max-w-6xl mx-auto p-6 mt-6 space-y-6">
         <div className="bg-white rounded-xl shadow-sm border border-[#EDEDED] p-6">
           <h1 className="text-2xl font-extrabold mb-1">Tutor Applications</h1>
-          <p className="text-gray-500 text-sm mb-6">Click on any tutor's name to review their full credentials and verify their application before approval.</p>
+          <p className="text-gray-500 text-sm mb-6">Click on any tutor's name to review their full credentials and chat via WhatsApp before approval.</p>
 
           {loading ? (
             <p className="text-center py-12 text-gray-500 text-sm">Loading tutors...</p>
@@ -170,7 +171,7 @@ export default function AdminDashboard() {
             <div className="flex justify-between items-start border-b border-gray-100 pb-4">
               <div>
                 <h2 className="text-xl font-extrabold text-gray-900">{selectedTutor.fullName}</h2>
-                <p className="text-xs text-gray-500">Registered Application Credentials</p>
+                <p className="text-xs text-gray-500">Registered Application Credentials & Contact</p>
               </div>
               <button 
                 onClick={() => setSelectedTutor(null)}
@@ -189,6 +190,20 @@ export default function AdminDashboard() {
                 <div>
                   <span className="block text-xs font-semibold text-gray-400 uppercase">Phone Number</span>
                   <span className="font-medium text-gray-800">{selectedTutor.phone_number}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-gray-400 uppercase">WhatsApp Number</span>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <span className="font-bold text-gray-900">{selectedTutor.whatsapp || selectedTutor.phone_number}</span>
+                    <a
+                      href={`https://wa.me/${(selectedTutor.whatsapp || selectedTutor.phone_number).replace(/[^0-9]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white font-bold text-xs rounded-md shadow-xs transition-colors inline-flex items-center gap-1"
+                    >
+                      <span>💬 Chat</span>
+                    </a>
+                  </div>
                 </div>
                 {selectedTutor.cnic && (
                   <div>
