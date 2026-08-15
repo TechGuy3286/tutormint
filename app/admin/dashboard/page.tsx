@@ -17,7 +17,7 @@ interface Tutor {
   experience?: string;
   status: string;
   createdAt: string;
-  [key:-string]: any; // Catch-all for any extra credential fields
+  [key: string]: any;
 }
 
 export default function AdminDashboard() {
@@ -70,7 +70,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616]">
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-xs">
         <Link href="/" className="text-2xl font-bold tracking-tight">
           Tutor<span className="text-[#B3191F]">Mint</span>
@@ -79,7 +78,6 @@ export default function AdminDashboard() {
         <span className="text-sm font-semibold text-gray-600">Platform Management Portal</span>
       </header>
 
-      {/* Main Container */}
       <main className="max-w-6xl mx-auto p-6 mt-6 space-y-6">
         <div className="bg-white rounded-xl shadow-sm border border-[#EDEDED] p-6">
           <h1 className="text-2xl font-extrabold mb-1">Tutor Applications</h1>
@@ -166,7 +164,6 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* Tutor Credentials Detail Modal */}
       {selectedTutor && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
