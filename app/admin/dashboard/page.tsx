@@ -8,18 +8,23 @@ interface Tutor {
   fullName: string;
   email: string;
   phone_number: string;
+  cnic?: string;
   city: string;
   province: string;
   teachingMode: string;
-  degrees: string[];
+  degrees: string[] | string;
+  subjects?: string[] | string;
+  experience?: string;
   status: string;
   createdAt: string;
+  [key:-string]: any; // Catch-all for any extra credential fields
 }
 
 export default function AdminDashboard() {
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [selectedTutor, setSelectedTutor] = useState<Tutor | null>(null);
 
   useEffect(() => {
     fetchTutors();
@@ -50,6 +55,9 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (res.ok) {
         setTutors(tutors.map((t) => (t._id === tutorId ? { ...t, status: newStatus } : t)));
+        if (selectedTutor && selectedTutor._id === tutorId) {
+          setSelectedTutor({ ...selectedTutor, status: newStatus });
+        }
       } else {
         alert(data.error || "Failed to update status");
       }
@@ -75,7 +83,7 @@ export default function AdminDashboard() {
       <main className="max-w-6xl mx-auto p-6 mt-6 space-y-6">
         <div className="bg-white rounded-xl shadow-sm border border-[#EDEDED] p-6">
           <h1 className="text-2xl font-extrabold mb-1">Tutor Applications</h1>
-          <p className="text-gray-500 text-sm mb-6">Review registered educators and approve them to make them visible on the parent catalog.</p>
+          <p className="text-gray-500 text-sm mb-6">Click on any tutor's name to review their full credentials and verify their application before approval.</p>
 
           {loading ? (
             <p className="text-center py-12 text-gray-500 text-sm">Loading tutors...</p>
@@ -97,7 +105,12 @@ export default function AdminDashboard() {
                   {tutors.map((tutor) => (
                     <tr key={tutor._id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="py-4 px-4">
-                        <div className="font-bold text-gray-900">{tutor.fullName}</div>
+                        <button 
+                          onClick={() => setSelectedTutor(tutor)}
+                          className="font-bold text-blue-600 hover:underline text-left"
+                        >
+                          {tutor.fullName}
+                        </button>
                         <div className="text-xs text-gray-500">{tutor.email}</div>
                         <div className="text-xs text-gray-500">{tutor.phone_number}</div>
                       </td>
@@ -120,6 +133,12 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="py-4 px-4 text-right space-x-2">
+                        <button
+                          onClick={() => setSelectedTutor(tutor)}
+                          className="px-3 py-1.5 bg-gray-100 text-gray-800 rounded-md text-xs font-bold hover:bg-gray-200 transition-colors"
+                        >
+                          View
+                        </button>
                         {tutor.status !== "approved" ? (
                           <button
                             onClick={() => handleStatusChange(tutor._id, "approved")}
@@ -146,6 +165,115 @@ export default function AdminDashboard() {
           )}
         </div>
       </main>
+
+      {/* Tutor Credentials Detail Modal */}
+      {selectedTutor && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
+            <div className="flex justify-between items-start border-b border-gray-100 pb-4">
+              <div>
+                <h2 className="text-xl font-extrabold text-gray-900">{selectedTutor.fullName}</h2>
+                <p className="text-xs text-gray-500">Registered Application Credentials</p>
+              </div>
+              <button 
+                onClick={() => setSelectedTutor(null)}
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                <div>
+                  <span className="block text-xs font-semibold text-gray-400 uppercase">Email Address</span>
+                  <span className="font-medium text-gray-800">{selectedTutor.email}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-gray-400 uppercase">Phone Number</span>
+                  <span className="font-medium text-gray-800">{selectedTutor.phone_number}</span>
+                </div>
+                {selectedTutor.cnic && (
+                  <div>
+                    <span className="block text-xs font-semibold text-gray-400 uppercase">CNIC / ID</span>
+                    <span className="font-medium text-gray-800">{selectedTutor.cnic}</span>
+                  </div>
+                )}
+                <div>
+                  <span className="block text-xs font-semibold text-gray-400 uppercase">Teaching Mode</span>
+                  <span className="font-medium text-gray-800">{selectedTutor.teachingMode}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-gray-400 uppercase">City & Province</span>
+                  <span className="font-medium text-gray-800">{selectedTutor.city}, {selectedTutor.province}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-gray-400 uppercase">Current Status</span>
+                  <span className={`inline-block px-2 py-0.5 text-xs font-bold rounded-full uppercase ${
+                    selectedTutor.status === "approved" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                  }`}>
+                    {selectedTutor.status || "pending"}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">Education & Degrees</h3>
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-800">
+                  {Array.isArray(selectedTutor.degrees) ? selectedTutor.degrees.join(", ") : selectedTutor.degrees || "Not provided"}
+                </div>
+              </div>
+
+              {selectedTutor.subjects && (
+                <div>
+                  <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">Subjects</h3>
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-800">
+                    {Array.isArray(selectedTutor.subjects) ? selectedTutor.subjects.join(", ") : selectedTutor.subjects}
+                  </div>
+                </div>
+              )}
+
+              {selectedTutor.experience && (
+                <div>
+                  <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">Experience</h3>
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-800">
+                    {selectedTutor.experience}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
+              <button
+                onClick={() => setSelectedTutor(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors"
+              >
+                Close
+              </button>
+
+              <div className="space-x-2">
+                {selectedTutor.status !== "approved" ? (
+                  <button
+                    onClick={() => handleStatusChange(selectedTutor._id, "approved")}
+                    disabled={actionLoading === selectedTutor._id}
+                    className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    {actionLoading === selectedTutor._id ? "Processing..." : "Approve Tutor"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleStatusChange(selectedTutor._id, "pending")}
+                    disabled={actionLoading === selectedTutor._id}
+                    className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    {actionLoading === selectedTutor._id ? "Processing..." : "Revoke Status"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
