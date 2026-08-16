@@ -33,7 +33,7 @@ export default function TutorJobMarket() {
         fetchJobs();
       }
     } catch (err) {
-      console.error("Auto-login error", err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -51,10 +51,10 @@ export default function TutorJobMarket() {
         localStorage.setItem("tutorEmail", email);
         fetchJobs();
       } else {
-        setErrorMsg(data.error || "Tutor profile not found.");
+        setErrorMsg("Tutor profile not found.");
       }
     } catch (err) {
-      setErrorMsg("Failed to authenticate session.");
+      setErrorMsg("Authentication error.");
     } finally {
       setLoading(false);
     }
@@ -64,11 +64,9 @@ export default function TutorJobMarket() {
     try {
       const res = await fetch("/api/parent/jobs");
       const data = await res.json();
-      if (res.ok) {
-        setJobs(data.jobs);
-      }
+      if (res.ok) setJobs(data.jobs);
     } catch (err) {
-      console.error("Failed to fetch jobs", err);
+      console.error(err);
     }
   };
 
@@ -85,7 +83,7 @@ export default function TutorJobMarket() {
       });
       const data = await res.json();
       if (res.ok) {
-        setMsg(data.message);
+        setMsg("✨ Application submitted successfully!");
         const profileRes = await fetch(`/api/tutor/profile?email=${email}`);
         const profileData = await profileRes.json();
         if (profileRes.ok) setTutor(profileData.tutor);
@@ -101,7 +99,7 @@ export default function TutorJobMarket() {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-sm text-gray-500 font-medium">Loading Job Market...</div>;
+    return <div className="min-h-screen flex items-center justify-center text-xs font-bold text-gray-400 uppercase tracking-widest">Loading Job Market...</div>;
   }
 
   const rawStatus = tutor?.profileCompletionStatus;
@@ -110,101 +108,115 @@ export default function TutorJobMarket() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616]">
+      {/* Sleek Modern Header */}
       <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-xs">
-        <Link href="/" className="text-2xl font-bold tracking-tight">
+        <Link href="/" className="text-2xl font-black tracking-tight">
           Tutor<span className="text-[#B3191F]">Mint</span>
-          <span className="ml-2 text-xs bg-gray-900 text-white px-2 py-0.5 rounded uppercase font-semibold">Job Market</span>
+          <span className="ml-2 text-[10px] bg-gray-900 text-white px-2 py-0.5 rounded uppercase font-bold tracking-wider">Job Market</span>
         </Link>
         <div className="flex items-center space-x-4">
           {tutor && (
-            <span className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full">
-              ⚡ Application Credits: {creditsBalance}
+            <span className="text-xs font-bold bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+              ⚡ Credits: {creditsBalance}
             </span>
           )}
-          <Link href="/tutor/dashboard" className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors">
-            ← Back to Dashboard
+          <Link href="/tutor/dashboard" className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors">
+            ← Dashboard
           </Link>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto p-6 mt-6 space-y-6">
         {!tutor ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-            <h1 className="text-2xl font-extrabold mb-2">Tutor Job Market Access</h1>
-            <p className="text-gray-500 text-sm mb-6">Enter your registered email address to view available tuitions and apply using your application credits.</p>
-            
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-w-md mx-auto space-y-6">
+            <div className="text-center space-y-2">
+              <span className="text-3xl">🎓</span>
+              <h1 className="text-xl font-extrabold tracking-tight">Tutor Portal Access</h1>
+              <p className="text-xs text-gray-500">Enter your registered email to browse and apply for tuitions.</p>
+            </div>
+
             <form onSubmit={handleManualLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Registered Email</label>
+                <label className="block text-[10px] font-black uppercase text-gray-400 tracking-wider mb-1">Email Address</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. tutor@gmail.com"
+                  placeholder="tutor@gmail.com"
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black"
                 />
               </div>
               {errorMsg && <p className="text-red-600 text-xs font-semibold">{errorMsg}</p>}
               <button
                 type="submit"
-                className="w-full py-3 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold rounded-xl text-sm transition-colors shadow-sm"
+                className="w-full py-3 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shadow-sm"
               >
-                Open Job Market
+                Access Market →
               </button>
             </form>
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Verification Status Banner */}
             {completionStatus !== "verified" ? (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-2xl text-xs font-bold flex justify-between items-center">
-                <span>⚠️ Your profile status is '{completionStatus}'. You must be 100% verified by admin to apply for tuition jobs.</span>
-                <Link href="/tutor/dashboard" className="underline font-extrabold">Go to Dashboard →</Link>
+              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs font-bold flex justify-between items-center shadow-xs">
+                <span className="flex items-center gap-2">⚠️ Status: <span className="uppercase">{completionStatus}</span>. 100% Admin Verification required to apply.</span>
+                <Link href="/tutor/dashboard" className="underline font-black hover:text-black">Complete Profile →</Link>
               </div>
             ) : (
-              <div className="p-4 bg-green-50 border border-green-200 text-green-800 rounded-2xl text-xs font-bold flex justify-between items-center">
-                <span>✅ Profile 100% Verified! You can apply to any tuition job below (costs 3 application credits per application).</span>
+              <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xs">
+                <span>✅ Profile 100% Verified! You can apply to any tuition requirement below (Cost: 3 credits per application).</span>
               </div>
             )}
 
-            {msg && <div className="p-4 bg-green-50 border border-green-200 text-green-800 text-xs font-bold rounded-xl">{msg}</div>}
-            {errorMsg && <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-xl">{errorMsg}</div>}
+            {msg && <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl">{msg}</div>}
+            {errorMsg && <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-xl">{errorMsg}</div>}
 
-            <h2 className="text-xl font-extrabold text-gray-900">Available Tuition Opportunities ({jobs.length})</h2>
+            <div className="flex justify-between items-center bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+              <h2 className="text-base font-extrabold tracking-tight">Available Tuition Opportunities</h2>
+              <span className="px-3 py-1 bg-gray-100 font-black text-xs rounded-full">
+                📋 {jobs.length} Active Jobs
+              </span>
+            </div>
 
             <div className="space-y-4">
               {jobs.length === 0 ? (
-                <p className="text-center py-12 text-gray-500 text-sm bg-white rounded-2xl border border-gray-200">No active tuition jobs posted right now. Check back soon!</p>
+                <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center text-gray-400 text-xs">
+                  No active tuition opportunities posted right now. Check back soon!
+                </div>
               ) : (
                 jobs.map((job) => (
                   <div key={job._id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-lg font-bold text-gray-900">{job.title}</h3>
-                        <p className="text-xs text-gray-500">{job.city}, {job.province} • <span className="font-semibold">{job.teachingMode}</span></p>
+                        <h3 className="text-sm font-extrabold text-gray-900">{job.title}</h3>
+                        <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                          📍 {job.city}, {job.province} • <span className="font-bold text-gray-700">{job.teachingMode}</span>
+                        </p>
                       </div>
-                      <span className="px-3 py-1 bg-gray-100 text-gray-900 font-black text-xs rounded-full">
-                        💰 {job.budget}
+                      <span className="px-3 py-1 bg-emerald-50 text-emerald-800 font-black text-xs rounded-full">
+                        💵 {job.budget}
                       </span>
                     </div>
 
-                    <p className="text-sm text-gray-700">{job.description}</p>
+                    <p className="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl">{job.description}</p>
 
-                    <div className="flex flex-wrap gap-2">
-                      <span className="px-2.5 py-1 bg-blue-50 text-blue-800 font-bold text-xs rounded-md">Class: {job.classLevel}</span>
-                      {job.subjects.map((sub: string, i: number) => (
-                        <span key={i} className="px-2.5 py-1 bg-gray-100 text-gray-700 font-medium text-xs rounded-md">{sub}</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="px-2.5 py-1 bg-blue-50 text-blue-700 font-bold text-[10px] rounded-md">🎓 {job.classLevel}</span>
+                      {job.subjects?.map((sub: string, i: number) => (
+                        <span key={i} className="px-2.5 py-1 bg-gray-100 text-gray-700 font-medium text-[10px] rounded-md">📚 {sub}</span>
                       ))}
                     </div>
 
-                    <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
-                      <span className="text-xs text-gray-400">Applicants: {job.applicants?.length || 0}</span>
+                    <div className="border-t border-gray-100 pt-4 flex justify-between items-center text-xs">
+                      <span className="font-bold text-gray-500">👥 Applicants: {job.applicants?.length || 0} Tutors</span>
                       <button
                         onClick={() => handleApply(job._id)}
                         disabled={applyingId === job._id || completionStatus !== "verified" || creditsBalance < 3}
-                        className="px-5 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold text-xs rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                        className="px-5 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors shadow-sm disabled:opacity-50"
                       >
-                        {applyingId === job._id ? "Applying..." : "Apply Now (Cost: 3 Credits)"}
+                        {applyingId === job._id ? "Applying..." : "⚡ Apply Now (3 Credits)"}
                       </button>
                     </div>
                   </div>
