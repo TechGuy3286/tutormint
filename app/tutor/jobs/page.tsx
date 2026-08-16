@@ -2,17 +2,45 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function TutorJobMarket() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [tutor, setTutor] = useState<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleLogin = async (e: React.FormEvent) => {
+  useEffect(() => {
+    // Auto-load logged-in tutor session from localStorage
+    const storedEmail = localStorage.getItem("tutorEmail");
+    if (storedEmail) {
+      setEmail(storedEmail);
+      autoLogin(storedEmail);
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  const autoLogin = async (tutorEmail: string) => {
+    try {
+      const res = await fetch(`/api/tutor/profile?email=${tutorEmail}`);
+      const data = await res.json();
+      if (res.ok) {
+        setTutor(data.tutor);
+        fetchJobs();
+      }
+    } catch (err) {
+      console.error("Auto-login error", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg("");
@@ -21,6 +49,7 @@ export default function TutorJobMarket() {
       const data = await res.json();
       if (res.ok) {
         setTutor(data.tutor);
+        localStorage.setItem("tutorEmail", email);
         fetchJobs();
       } else {
         setErrorMsg(data.error || "Tutor profile not found.");
@@ -58,7 +87,6 @@ export default function TutorJobMarket() {
       const data = await res.json();
       if (res.ok) {
         setMsg(data.message);
-        // Refresh tutor profile to update remaining connects balance
         const profileRes = await fetch(`/api/tutor/profile?email=${email}`);
         const profileData = await profileRes.json();
         if (profileRes.ok) setTutor(profileData.tutor);
@@ -73,6 +101,13 @@ export default function TutorJobMarket() {
     }
   };
 
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-sm text-gray-500 font-medium">Loading Job Market...</div>;
+  }
+
+  const completionStatus = tutor?.profileCompletionStatus || "incomplete";
+  const connectsBalance = tutor?.connectsBalance ?? 15;
+
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616]">
       <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-xs">
@@ -80,13 +115,16 @@ export default function TutorJobMarket() {
           Tutor<span className="text-[#B3191F]">Mint</span>
           <span className="ml-2 text-xs bg-gray-900 text-white px-2 py-0.5 rounded uppercase font-semibold">Job Market</span>
         </Link>
-        {tutor && (
-          <div className="flex items-center space-x-4">
-            <span className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
-              ⚡ Connects Balance: {tutor.connectsBalance}
+        <div className="flex items-center space-x-4">
+          {tutor && (
+            <span className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full">
+              ⚡ Connects Balance: {connectsBalance}
             </span>
-          </div>
-        )}
+          )}
+          <Link href="/tutor/dashboard" className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors">
+            ← Back to Dashboard
+          </Link>
+        </div>
       </header>
 
       <main className="max-w-4xl mx-auto p-6 mt-6 space-y-6">
@@ -95,7 +133,7 @@ export default function TutorJobMarket() {
             <h1 className="text-2xl font-extrabold mb-2">Tutor Job Market Access</h1>
             <p className="text-gray-500 text-sm mb-6">Enter your registered email address to view available tuitions and apply using your connects.</p>
             
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleManualLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Registered Email</label>
                 <input
@@ -110,20 +148,19 @@ export default function TutorJobMarket() {
               {errorMsg && <p className="text-red-600 text-xs font-semibold">{errorMsg}</p>}
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
+                className="w-full py-3 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold rounded-xl text-sm transition-colors shadow-sm"
               >
-                {loading ? "Authenticating..." : "Open Job Market"}
+                Open Job Market
               </button>
             </form>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Status & Verification Alert */}
-            {tutor.profileCompletionStatus !== "verified" ? (
+            {completionStatus !== "verified" ? (
               <div className="p-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-2xl text-xs font-bold flex justify-between items-center">
-                <span>⚠️ Your profile is currently '{tutor.profileCompletionStatus}'. You must be 100% verified by admin to apply for tuition jobs.</span>
-                <Link href="/tutor/complete-profile" className="underline font-extrabold">Complete Profile →</Link>
+                <span>⚠️ Your profile status is '{completionStatus}'. You must be 100% verified by admin to apply for tuition jobs.</span>
+                <Link href="/tutor/dashboard" className="underline font-extrabold">Go to Dashboard →</Link>
               </div>
             ) : (
               <div className="p-4 bg-green-50 border border-green-200 text-green-800 rounded-2xl text-xs font-bold flex justify-between items-center">
@@ -165,7 +202,7 @@ export default function TutorJobMarket() {
                       <span className="text-xs text-gray-400">Applicants: {job.applicants?.length || 0}</span>
                       <button
                         onClick={() => handleApply(job._id)}
-                        disabled={applyingId === job._id || tutor.profileCompletionStatus !== "verified" || tutor.connectsBalance < 3}
+                        disabled={applyingId === job._id || completionStatus !== "verified" || connectsBalance < 3}
                         className="px-5 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold text-xs rounded-xl transition-colors shadow-sm disabled:opacity-50"
                       >
                         {applyingId === job._id ? "Applying..." : "Apply Now (Cost: 3 Connects)"}
