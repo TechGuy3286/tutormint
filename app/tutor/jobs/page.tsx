@@ -15,7 +15,6 @@ export default function TutorJobMarket() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    // Auto-load logged-in tutor session from localStorage
     const storedEmail = localStorage.getItem("tutorEmail");
     if (storedEmail) {
       setEmail(storedEmail);
@@ -105,7 +104,8 @@ export default function TutorJobMarket() {
     return <div className="min-h-screen flex items-center justify-center text-sm text-gray-500 font-medium">Loading Job Market...</div>;
   }
 
-  const completionStatus = tutor?.profileCompletionStatus || "incomplete";
+  const rawStatus = tutor?.profileCompletionStatus;
+  const completionStatus = (!rawStatus || rawStatus === "") ? "incomplete" : rawStatus;
   const connectsBalance = tutor?.connectsBalance ?? 15;
 
   return (
@@ -156,7 +156,6 @@ export default function TutorJobMarket() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Status & Verification Alert */}
             {completionStatus !== "verified" ? (
               <div className="p-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-2xl text-xs font-bold flex justify-between items-center">
                 <span>⚠️ Your profile status is '{completionStatus}'. You must be 100% verified by admin to apply for tuition jobs.</span>
