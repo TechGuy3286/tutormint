@@ -98,7 +98,7 @@ export default function TutorDashboard() {
         </Link>
         <div className="flex items-center space-x-6">
           <span className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full">
-            ⚡ Connects Available: {tutor.connectsBalance}
+            ⚡ Application Credits: {tutor.connectsBalance}
           </span>
           <span className="text-sm font-bold text-gray-800">{tutor.fullName}</span>
           <button
@@ -115,7 +115,7 @@ export default function TutorDashboard() {
         <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-2xl p-6 flex justify-between items-center shadow-sm">
           <div>
             <h2 className="text-lg font-extrabold">Tuition Job Market</h2>
-            <p className="text-xs text-gray-300 mt-1">Browse available student requirements and apply using your connects.</p>
+            <p className="text-xs text-gray-300 mt-1">Browse available student requirements and apply using your application credits.</p>
           </div>
           <Link
             href="/tutor/jobs"
