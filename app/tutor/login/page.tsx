@@ -8,13 +8,13 @@ export default function TutorLogin() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [cnic, setCnic] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
+    setErrorMsg("");
 
     try {
       const res = await fetch("/api/tutor/login", {
@@ -25,69 +25,79 @@ export default function TutorLogin() {
 
       const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || "Login failed");
+      if (res.ok) {
+        // Save session email to localStorage so dashboard can load profile
+        localStorage.setItem("tutorEmail", email);
+        router.push("/tutor/dashboard");
+      } else {
+        setErrorMsg(data.error || "Invalid login credentials.");
       }
-
-      sessionStorage.setItem("tutorData", JSON.stringify(data.tutor));
-      router.push("/tutor/dashboard");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setErrorMsg("Server error during login. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-4 font-sans text-[#161616]">
-      <Link href="/" className="text-3xl font-bold tracking-tight mb-8">
-        Tutor<span className="text-[#B3191F]">Mint</span>
-      </Link>
+    <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-center items-center p-6 font-sans text-[#161616]">
+      <div className="mb-6">
+        <Link href="/" className="text-3xl font-extrabold tracking-tight">
+          Tutor<span className="text-[#B3191F]">Mint</span>
+        </Link>
+      </div>
 
-      <div className="bg-white max-w-md w-full rounded-xl shadow-sm border border-[#EDEDED] p-8">
-        <h1 className="text-2xl font-extrabold mb-2 text-center">Tutor Portal Login</h1>
-        <p className="text-gray-500 text-center mb-6 text-sm">Enter your registered credentials to view your profile.</p>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-w-md w-full space-y-6">
+        <div>
+          <h1 className="text-2xl font-extrabold text-center mb-1">Tutor Portal Login</h1>
+          <p className="text-gray-500 text-xs text-center">Enter your registered credentials to access your dashboard.</p>
+        </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm font-semibold">
-            {error}
+        {errorMsg && (
+          <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-xl text-center">
+            {errorMsg}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold mb-1">Email Address</label>
-            <input 
-              type="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              required 
-              className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" 
-              placeholder="ali@example.com" 
+            <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Email Address</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. ali@example.com"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black"
             />
           </div>
+
           <div>
-            <label className="block text-sm font-semibold mb-1">CNIC Number</label>
-            <input 
-              type="text" 
-              value={cnic} 
-              onChange={(e) => setCnic(e.target.value)} 
-              required 
-              className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:border-[#B3191F]" 
-              placeholder="35202-XXXXXXX-X" 
+            <label className="block text-xs font-bold uppercase text-gray-500 mb-1">CNIC Number</label>
+            <input
+              type="text"
+              required
+              value={cnic}
+              onChange={(e) => setCnic(e.target.value)}
+              placeholder="35202-XXXXXXX-X"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black"
             />
           </div>
-          <button 
-            type="submit" 
-            disabled={loading} 
-            className="w-full py-3 bg-[#B3191F] text-white rounded-md font-bold hover:bg-red-800 transition-colors disabled:opacity-50"
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
           >
-            {loading ? "Logging in..." : "Access Dashboard"}
+            {loading ? "Authenticating..." : "Access Dashboard"}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          Don't have a profile yet? <Link href="/tutor/register" className="text-[#B3191F] font-bold hover:underline">Register as Tutor</Link>
+        <div className="text-center text-xs text-gray-500">
+          Don't have a profile yet?{" "}
+          <Link href="/tutor/register" className="text-[#B3191F] font-bold hover:underline">
+            Register as Tutor
+          </Link>
         </div>
       </div>
     </div>
