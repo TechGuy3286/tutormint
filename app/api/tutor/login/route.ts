@@ -5,26 +5,20 @@ import Tutor from "@/lib/models/Tutor";
 export async function POST(req: Request) {
   try {
     await connectDB();
-    const { email, cnic } = await req.json();
+    const { email } = await req.json();
 
-    const tutor = await Tutor.findOne({ email, cnic });
-
-    if (!tutor) {
-      return NextResponse.json(
-        { error: "Invalid email or CNIC. Please check your credentials." },
-        { status: 401 }
-      );
+    if (!email) {
+      return NextResponse.json({ error: "Email address is required" }, { status: 400 });
     }
 
-    return NextResponse.json(
-      { message: "Login successful", tutor },
-      { status: 200 }
-    );
+    const tutor = await Tutor.findOne({ email: email.trim().toLowerCase() });
+    if (!tutor) {
+      return NextResponse.json({ error: "Tutor profile not found. Please register first." }, { status: 404 });
+    }
+
+    return NextResponse.json({ message: "Login successful", tutor }, { status: 200 });
   } catch (error: any) {
-    console.error("Login Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    console.error("Tutor Login Error:", error);
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
