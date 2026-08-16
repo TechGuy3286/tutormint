@@ -106,7 +106,7 @@ export default function TutorJobMarket() {
 
   const rawStatus = tutor?.profileCompletionStatus;
   const completionStatus = (!rawStatus || rawStatus === "") ? "incomplete" : rawStatus;
-  const connectsBalance = tutor?.connectsBalance ?? 15;
+  const creditsBalance = tutor?.connectsBalance ?? tutor?.connects ?? 15;
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616]">
@@ -118,7 +118,7 @@ export default function TutorJobMarket() {
         <div className="flex items-center space-x-4">
           {tutor && (
             <span className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full">
-              ⚡ Connects Balance: {connectsBalance}
+              ⚡ Application Credits: {creditsBalance}
             </span>
           )}
           <Link href="/tutor/dashboard" className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors">
@@ -131,7 +131,7 @@ export default function TutorJobMarket() {
         {!tutor ? (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <h1 className="text-2xl font-extrabold mb-2">Tutor Job Market Access</h1>
-            <p className="text-gray-500 text-sm mb-6">Enter your registered email address to view available tuitions and apply using your connects.</p>
+            <p className="text-gray-500 text-sm mb-6">Enter your registered email address to view available tuitions and apply using your application credits.</p>
             
             <form onSubmit={handleManualLogin} className="space-y-4">
               <div>
@@ -163,7 +163,7 @@ export default function TutorJobMarket() {
               </div>
             ) : (
               <div className="p-4 bg-green-50 border border-green-200 text-green-800 rounded-2xl text-xs font-bold flex justify-between items-center">
-                <span>✅ Profile 100% Verified! You can apply to any tuition job below (costs 3 connects per application).</span>
+                <span>✅ Profile 100% Verified! You can apply to any tuition job below (costs 3 application credits per application).</span>
               </div>
             )}
 
@@ -201,10 +201,10 @@ export default function TutorJobMarket() {
                       <span className="text-xs text-gray-400">Applicants: {job.applicants?.length || 0}</span>
                       <button
                         onClick={() => handleApply(job._id)}
-                        disabled={applyingId === job._id || completionStatus !== "verified" || connectsBalance < 3}
+                        disabled={applyingId === job._id || completionStatus !== "verified" || creditsBalance < 3}
                         className="px-5 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold text-xs rounded-xl transition-colors shadow-sm disabled:opacity-50"
                       >
-                        {applyingId === job._id ? "Applying..." : "Apply Now (Cost: 3 Connects)"}
+                        {applyingId === job._id ? "Applying..." : "Apply Now (Cost: 3 Credits)"}
                       </button>
                     </div>
                   </div>

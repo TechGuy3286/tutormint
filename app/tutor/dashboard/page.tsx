@@ -87,6 +87,7 @@ export default function TutorDashboard() {
   if (!tutor) return null;
 
   const progress = tutor.introVideo ? 100 : 50;
+  const credits = tutor.connectsBalance ?? tutor.connects ?? 15;
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616]">
@@ -98,7 +99,7 @@ export default function TutorDashboard() {
         </Link>
         <div className="flex items-center space-x-6">
           <span className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full">
-            ⚡ Application Credits: {tutor.connectsBalance}
+            ⚡ Application Credits: {credits}
           </span>
           <span className="text-sm font-bold text-gray-800">{tutor.fullName}</span>
           <button
