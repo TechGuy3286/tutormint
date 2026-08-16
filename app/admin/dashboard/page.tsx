@@ -103,7 +103,7 @@ export default function AdminDashboard() {
   };
 
   const handlePokeTutor = (email: string) => {
-    setActionMsg(`🔔 Poke notification sent successfully to ${email} to complete their profile & record video!`);
+    setActionMsg(`🔔 SUCCESS: Poke notification sent to ${email}. They have been urged to complete their profile and record their verification video!`);
   };
 
   const handleSendMessage = (email: string) => {

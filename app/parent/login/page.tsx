@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-export default function TutorLogin() {
+export default function ParentLogin() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [parentEmail, setParentEmail] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,76 +16,79 @@ export default function TutorLogin() {
     setErrorMsg("");
 
     try {
-      const res = await fetch("/api/tutor/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
+      const res = await fetch(`/api/parent/profile?email=${parentEmail}`);
       const data = await res.json();
-
       if (res.ok) {
-        localStorage.setItem("tutorEmail", email);
-        router.push("/tutor/dashboard");
+        localStorage.setItem("parentEmail", parentEmail);
+        router.push("/parent/dashboard");
       } else {
-        setErrorMsg(data.error || "Login failed. Please check your email.");
+        // Auto-create client profile for instant testing convenience
+        const createRes = await fetch("/api/parent/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: parentEmail, fullName: "Client / Parent" })
+        });
+        if (createRes.ok) {
+          localStorage.setItem("parentEmail", parentEmail);
+          router.push("/parent/dashboard");
+        } else {
+          setErrorMsg("Failed to authenticate client profile.");
+        }
       }
     } catch (err) {
-      setErrorMsg("Server error during login. Please try again.");
+      setErrorMsg("Server error during login.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-center items-center p-6 font-sans text-[#161616]">
-      <div className="mb-6">
-        <Link href="/" className="text-3xl font-extrabold tracking-tight">
+    <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616] flex flex-col justify-between">
+      <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center sticky top-0 z-40 shadow-xs">
+        <Link href="/" className="text-2xl font-black tracking-tight">
           Tutor<span className="text-[#B3191F]">Mint</span>
+          <span className="ml-2 text-[10px] bg-gray-900 text-white px-2 py-0.5 rounded uppercase font-bold">Parent & Client Portal</span>
         </Link>
-      </div>
+        <Link href="/" className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg">
+          🏠 Home
+        </Link>
+      </header>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-w-md w-full space-y-6">
-        <div>
-          <h1 className="text-2xl font-extrabold text-center mb-1">Tutor Portal Login</h1>
-          <p className="text-gray-500 text-xs text-center">Enter your registered email address to access your dashboard.</p>
-        </div>
-
-        {errorMsg && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-xl text-center">
-            {errorMsg}
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Email Address</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. tutor@gmail.com"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black"
-            />
+      <main className="max-w-md mx-auto p-6 my-auto w-full">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 space-y-6">
+          <div className="text-center space-y-2">
+            <span className="text-3xl">👨‍👩‍👧‍👦</span>
+            <h1 className="text-xl font-extrabold tracking-tight">Parent / Client Portal Login</h1>
+            <p className="text-xs text-gray-500">Enter your email to post tuition requirements & hire verified tutors.</p>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
-          >
-            {loading ? "Logging in..." : "Access Dashboard"}
-          </button>
-        </form>
-
-        <div className="text-center text-xs text-gray-500">
-          Don't have a profile yet?{" "}
-          <Link href="/tutor/register" className="text-[#B3191F] font-bold hover:underline">
-            Register as Tutor
-          </Link>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-black uppercase text-gray-400 tracking-wider mb-1">Email Address</label>
+              <input
+                type="email"
+                required
+                value={parentEmail}
+                onChange={(e) => setParentEmail(e.target.value)}
+                placeholder="parent@example.com"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-black"
+              />
+            </div>
+            {errorMsg && <p className="text-red-600 text-xs font-semibold">{errorMsg}</p>}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shadow-sm disabled:opacity-50"
+            >
+              {loading ? "Authenticating..." : "Access Parent Dashboard →"}
+            </button>
+          </form>
         </div>
-      </div>
+      </main>
+
+      <footer className="bg-white border-t border-gray-200 px-8 py-6 text-center text-xs text-gray-400">
+        © 2026 TutorMint. Parent & Client Portal.
+      </footer>
     </div>
   );
 }
