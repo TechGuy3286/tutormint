@@ -14,7 +14,6 @@ export default function TutorDashboard() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    // Retrieve logged-in tutor email from localStorage or session
     const storedEmail = localStorage.getItem("tutorEmail");
     if (!storedEmail) {
       router.push("/tutor/login");
@@ -42,7 +41,7 @@ export default function TutorDashboard() {
   const handleVideoUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!videoFile) {
-      setErrorMsg("Please select your 60-second video file.");
+      setErrorMsg("Please select your 60-second video file showing your degree.");
       return;
     }
 
@@ -99,9 +98,9 @@ export default function TutorDashboard() {
         </Link>
         <div className="flex items-center space-x-6">
           <span className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full">
-            ⚡ Connects Balance: {tutor.connectsBalance}
+            ⚡ Connects Available: {tutor.connectsBalance}
           </span>
-          <span className="text-sm font-bold text-gray-800">Welcome, {tutor.fullName}</span>
+          <span className="text-sm font-bold text-gray-800">{tutor.fullName}</span>
           <button
             onClick={handleLogout}
             className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors"
@@ -132,7 +131,7 @@ export default function TutorDashboard() {
             <div>
               <h3 className="text-lg font-extrabold">Verification & Profile Completion</h3>
               <p className="text-xs text-gray-500">
-                Status: <span className="uppercase font-bold text-blue-600">{tutor.profileCompletionStatus}</span>
+                Status: <span className="uppercase font-bold text-blue-600">{tutor.profileCompletionStatus || "incomplete"}</span>
               </p>
             </div>
             <div className="text-right">
@@ -159,7 +158,7 @@ export default function TutorDashboard() {
           <div>
             <h3 className="text-lg font-bold text-gray-900">Upload 60-Second Video Introduction</h3>
             <p className="text-xs text-gray-500 mt-1">
-              Record a 60-second video introducing yourself and <strong>clearly showing your degree/certificates</strong> on camera. Videos upload directly to our platform and sync to the official TutorMint YouTube channel.
+              Upload a 60-second video introducing yourself and <strong>clearly showing your degree/certificates</strong> on camera. Videos upload directly to our platform and sync to the official TutorMint YouTube channel.
             </p>
           </div>
 
