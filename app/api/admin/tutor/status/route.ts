@@ -2,31 +2,24 @@
 import connectDB from "@/lib/mongodb";
 import Tutor from "@/lib/models/Tutor";
 
-export async function PATCH(req: Request) {
+export async function GET(req: Request) {
   try {
     await connectDB();
-    const { tutorId, status } = await req.json();
+    const { searchParams } = new URL(req.url);
+    const email = searchParams.get("email");
 
-    if (!tutorId || !["approved", "pending"].includes(status)) {
-      return NextResponse.json({ error: "Invalid request data" }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: "Email query parameter is required" }, { status: 400 });
     }
 
-    const updatedTutor = await Tutor.findByIdAndUpdate(
-      tutorId,
-      { status },
-      { new: true }
-    );
-
-    if (!updatedTutor) {
-      return NextResponse.json({ error: "Tutor not found" }, { status: 404 });
+    const tutor = await Tutor.findOne({ email });
+    if (!tutor) {
+      return NextResponse.json({ error: "Tutor profile not found" }, { status: 404 });
     }
 
-    return NextResponse.json(
-      { message: "Status updated successfully", tutor: updatedTutor },
-      { status: 200 }
-    );
+    return NextResponse.json({ tutor }, { status: 200 });
   } catch (error: any) {
-    console.error("Update Status Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("Fetch Tutor Profile Error:", error);
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
