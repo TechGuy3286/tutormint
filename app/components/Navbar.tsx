@@ -4,7 +4,7 @@ export default function Navbar() {
   return (
     <header className="bg-white border-b border-gray-200 px-6 sm:px-12 py-3.5 flex justify-between items-center sticky top-0 z-40 shadow-xs">
       <Link href="/" className="flex items-center">
-        <img src="/logo.jpeg" alt="TutorMint Logo" className="h-14 sm:h-16 w-auto object-contain" />
+        <img src="/logo2.jpeg" alt="TutorMint Logo" className="h-14 sm:h-16 w-auto object-contain" />
       </Link>
       <div className="flex items-center space-x-3">
         <Link href="/parent/dashboard" className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-bold rounded-xl transition-colors">
