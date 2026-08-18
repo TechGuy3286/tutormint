@@ -6,22 +6,26 @@ import Link from "next/link";
 const heroVariations = [
   {
     tag: "🛡️ ZERO FAKE CREDENTIALS • 100% CAMERA VERIFIED",
-    title: "Find Trusted, Camera-Verified Home Tutors in Pakistan",
+    titlePrefix: "Find Trusted, Camera-Verified Home Tutors in ",
+    highlight: "Pakistan",
     description: "Eliminate uncertainty. Every educator on TutorMint records a live 60-second video introduction showcasing their actual degrees on camera, rigorously reviewed and approved by our administrative team."
   },
   {
     tag: "🎓 SAY GOODBYE TO FAKE CVS • ELITE EDUCATORS",
-    title: "Hire Verified, Camera-Audited Tutors Instantly",
+    titlePrefix: "Hire Verified, Camera-Audited Tutors ",
+    highlight: "Instantly & Securely",
     description: "Your child's safety and education deserve real credentials, not unvetted strangers. Browse background-checked teachers with verified academic proofs."
   },
   {
     tag: "🏫 DESIGNED FOR PARENTS & TOP SCHOOLS",
-    title: "The Smarter Way to Secure Qualified Teaching Talent",
+    titlePrefix: "The Smarter Way to Secure ",
+    highlight: "Qualified Teaching Talent",
     description: "Whether you're a parent protecting your child's future or an academy seeking reliable staff, TutorMint delivers pre-screened educators ready to excel."
   },
   {
     tag: "✨ REAL DEGREES • REAL VIDEO PROOF • ZERO RISK",
-    title: "Discover Top-Rated Home Tutors Across Major Cities",
+    titlePrefix: "Discover Top-Rated Home Tutors Across ",
+    highlight: "All Major Cities",
     description: "From Lahore to Islamabad, Karachi to Multan—connect with elite, camera-verified educators who meet the highest standards of academic excellence."
   }
 ];
@@ -31,7 +35,6 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"verification" | "safety" | "matching">("verification");
 
   useEffect(() => {
-    // Dynamically pick a random hero variation on session load/visit
     const randomIndex = Math.floor(Math.random() * heroVariations.length);
     setHero(heroVariations[randomIndex]);
   }, []);
@@ -64,7 +67,7 @@ export default function HomePage() {
               {hero.tag}
             </div>
             <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
-              {hero.title.replace("Pakistan", "")} <span className="text-[#B3191F]">Pakistan</span>
+              {hero.titlePrefix}<span className="text-[#B3191F]">{hero.highlight}</span>
             </h1>
             <p className="text-sm sm:text-base text-gray-600 font-medium leading-relaxed">
               {hero.description}
