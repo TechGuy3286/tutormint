@@ -8,10 +8,10 @@ const heroVariations = [
     tag: "🛡️ ZERO FAKE CREDENTIALS • 100% CAMERA VERIFIED",
     titlePrefix: "Find Trusted, Camera-Verified Home Tutors in ",
     highlight: "Pakistan",
-    description: "Eliminate uncertainty. Every educator on TutorMint records a live 60-second video introduction showcasing their actual degrees on camera, rigorously reviewed and approved by our administrative team."
+    description: "Eliminate uncertainty. Every educator on TutorMint records a live 60-second video introduction showcasing their actual degrees on camera, rigorously reviewed."
   },
   {
-    tag: "🎓 SAY GOODBYE TO FAKE CVS • ELITE EDUCATORS",
+    tag: "🎓 Pakistan's Largest Tutors Database",
     titlePrefix: "Hire Verified, Camera-Audited Tutors ",
     highlight: "Instantly & Securely",
     description: "Your child's safety and education deserve real credentials, not unvetted strangers. Browse background-checked teachers with verified academic proofs."
