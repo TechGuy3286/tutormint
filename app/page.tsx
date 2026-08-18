@@ -157,7 +157,7 @@ export default function HomePage() {
                   <p className="text-gray-600">Every tutor must hold their physical degree on camera and speak live during registration. Our admins manually audit every file before approval.</p>
                 </div>
                 <div className="text-right">
-                  <Link href="/support" className="text-[#B3191F] font-extrabold hover:underline inline-flex items-center gap-1">Learn More ➔</Link>
+                  <Link href="/faq" className="text-[#B3191F] font-extrabold hover:underline inline-flex items-center gap-1">Learn More ➔</Link>
                 </div>
               </>
             )}
@@ -168,7 +168,7 @@ export default function HomePage() {
                   <p className="text-gray-600">Never let unvetted strangers into your home. Know exactly who is teaching your child with complete location and ID tracking.</p>
                 </div>
                 <div className="text-right">
-                  <Link href="/support" className="text-[#B3191F] font-extrabold hover:underline inline-flex items-center gap-1">Learn More ➔</Link>
+                  <Link href="/faq" className="text-[#B3191F] font-extrabold hover:underline inline-flex items-center gap-1">Learn More ➔</Link>
                 </div>
               </>
             )}
@@ -179,7 +179,7 @@ export default function HomePage() {
                   <p className="text-gray-600">Browse tutors instantly by city or post a personalized job requirement to have matching educators contact you within minutes.</p>
                 </div>
                 <div className="text-right">
-                  <Link href="/support" className="text-[#B3191F] font-extrabold hover:underline inline-flex items-center gap-1">Learn More ➔</Link>
+                  <Link href="/faq" className="text-[#B3191F] font-extrabold hover:underline inline-flex items-center gap-1">Learn More ➔</Link>
                 </div>
               </>
             )}
@@ -266,7 +266,8 @@ export default function HomePage() {
         <div>© 2026 TutorMint. All rights reserved. Verified Education Platform.</div>
         <div className="flex space-x-6 text-[11px]">
           <Link href="/privacy" className="hover:text-gray-600">Privacy Policy</Link>
-          <Link href="/support" className="hover:text-gray-600">Support</Link>
+          <Link href="/faq" className="hover:text-gray-600">FAQs</Link>
+          <Link href="/faq" className="hover:text-gray-600">Support</Link>
           <Link href="/about" className="hover:text-gray-600">About</Link>
           <Link href="/blog" className="hover:text-gray-600">Blog</Link>
         </div>
