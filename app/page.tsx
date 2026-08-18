@@ -1,10 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
+const heroVariations = [
+  {
+    tag: "🛡️ ZERO FAKE CREDENTIALS • 100% CAMERA VERIFIED",
+    title: "Find Trusted, Camera-Verified Home Tutors in Pakistan",
+    description: "Eliminate uncertainty. Every educator on TutorMint records a live 60-second video introduction showcasing their actual degrees on camera, rigorously reviewed and approved by our administrative team."
+  },
+  {
+    tag: "🎓 SAY GOODBYE TO FAKE CVS • ELITE EDUCATORS",
+    title: "Hire Verified, Camera-Audited Tutors Instantly",
+    description: "Your child's safety and education deserve real credentials, not unvetted strangers. Browse background-checked teachers with verified academic proofs."
+  },
+  {
+    tag: "🏫 DESIGNED FOR PARENTS & TOP SCHOOLS",
+    title: "The Smarter Way to Secure Qualified Teaching Talent",
+    description: "Whether you're a parent protecting your child's future or an academy seeking reliable staff, TutorMint delivers pre-screened educators ready to excel."
+  },
+  {
+    tag: "✨ REAL DEGREES • REAL VIDEO PROOF • ZERO RISK",
+    title: "Discover Top-Rated Home Tutors Across Major Cities",
+    description: "From Lahore to Islamabad, Karachi to Multan—connect with elite, camera-verified educators who meet the highest standards of academic excellence."
+  }
+];
+
 export default function HomePage() {
+  const [hero, setHero] = useState(heroVariations[0]);
   const [activeTab, setActiveTab] = useState<"verification" | "safety" | "matching">("verification");
+
+  useEffect(() => {
+    // Dynamically pick a random hero variation on session load/visit
+    const randomIndex = Math.floor(Math.random() * heroVariations.length);
+    setHero(heroVariations[randomIndex]);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616] flex flex-col justify-between">
@@ -28,16 +58,16 @@ export default function HomePage() {
       <main className="max-w-6xl mx-auto px-6 py-12 sm:py-16 space-y-16 flex-1 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
-          {/* Left Column: Value Prop & Dual CTAs */}
+          {/* Left Column: Dynamic Value Prop & Dual CTAs */}
           <div className="lg:col-span-7 space-y-6 text-left">
             <div className="inline-flex items-center gap-2 bg-red-50 border border-red-100 text-[#B3191F] px-3 py-1.5 rounded-full text-xs font-extrabold tracking-wide uppercase">
-              🛡️ Zero Fake Credentials • 100% Camera Verified
+              {hero.tag}
             </div>
             <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
-              Find Trusted, Camera-Verified Home Tutors in <span className="text-[#B3191F]">Pakistan</span>
+              {hero.title.replace("Pakistan", "")} <span className="text-[#B3191F]">Pakistan</span>
             </h1>
             <p className="text-sm sm:text-base text-gray-600 font-medium leading-relaxed">
-              Eliminate uncertainty. Every educator on TutorMint records a live 60-second video introduction showcasing their actual degrees on camera, rigorously reviewed and approved by our administrative team.
+              {hero.description}
             </p>
 
             {/* Dual Action CTAs */}
@@ -51,7 +81,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Right Column: Interactive Verification Feature (Replacing ticker bar) */}
+          {/* Right Column: Interactive Verification Feature */}
           <div className="lg:col-span-5 bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6">
             <h3 className="text-sm font-black uppercase text-gray-400 tracking-wider">How Trust is Verified</h3>
             
