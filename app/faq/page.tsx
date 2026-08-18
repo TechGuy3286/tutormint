@@ -27,10 +27,9 @@ export default function FAQPage() {
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616] flex flex-col justify-between">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 sm:px-12 py-4 flex justify-between items-center sticky top-0 z-40 shadow-xs">
-        <Link href="/" className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
-          <span>Tutor<span className="text-[#B3191F]">Mint</span></span>
-          <span className="text-[10px] bg-gray-900 text-white px-2 py-0.5 rounded uppercase font-bold">Pakistan</span>
+      <header className="bg-white border-b border-gray-200 px-6 sm:px-12 py-3 flex justify-between items-center sticky top-0 z-40 shadow-xs">
+        <Link href="/" className="flex items-center">
+          <img src="/logo.jpeg" alt="TutorMint Logo" className="h-10 sm:h-12 w-auto object-contain" />
         </Link>
         <div className="flex items-center space-x-3">
           <Link href="/parent/dashboard" className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-bold rounded-xl transition-colors">

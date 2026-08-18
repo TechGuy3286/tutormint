@@ -8,10 +8,10 @@ const heroVariations = [
     tag: "🛡️ ZERO FAKE CREDENTIALS • 100% CAMERA VERIFIED",
     titlePrefix: "Find Trusted, Camera-Verified Home Tutors in ",
     highlight: "Pakistan",
-    description: "Eliminate uncertainty. Every educator on TutorMint records a live 60-second video introduction showcasing their actual degrees on camera, rigorously reviewed."
+    description: "Eliminate uncertainty. Every educator on TutorMint records a live 60-second video introduction showcasing their actual degrees on camera, rigorously reviewed and approved by our administrative team."
   },
   {
-    tag: "🎓 Pakistan's Largest Tutors Database",
+    tag: "🎓 SAY GOODBYE TO FAKE CVS • ELITE EDUCATORS",
     titlePrefix: "Hire Verified, Camera-Audited Tutors ",
     highlight: "Instantly & Securely",
     description: "Your child's safety and education deserve real credentials, not unvetted strangers. Browse background-checked teachers with verified academic proofs."
@@ -64,7 +64,6 @@ export default function HomePage() {
     setMessages(newMessages);
     setInputMessage("");
 
-    // Improved smart chatbot response logic with accurate keyword routing
     setTimeout(() => {
       let botReply = "Thank you for reaching out! Our team will connect with you via WhatsApp/Call within 10 minutes.";
       const lower = userText.toLowerCase();
@@ -89,11 +88,10 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616] flex flex-col justify-between relative">
-      {/* Top Header / Navigation */}
-      <header className="bg-white border-b border-gray-200 px-6 sm:px-12 py-4 flex justify-between items-center sticky top-0 z-40 shadow-xs">
-        <Link href="/" className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
-          <span>Tutor<span className="text-[#B3191F]">Mint</span></span>
-          <span className="text-[10px] bg-gray-900 text-white px-2 py-0.5 rounded uppercase font-bold">Pakistan</span>
+      {/* Top Header / Navigation with Image Logo */}
+      <header className="bg-white border-b border-gray-200 px-6 sm:px-12 py-3 flex justify-between items-center sticky top-0 z-40 shadow-xs">
+        <Link href="/" className="flex items-center">
+          <img src="/logo.jpeg" alt="TutorMint Logo" className="h-10 sm:h-12 w-auto object-contain" />
         </Link>
         <div className="flex items-center space-x-3">
           <Link href="/parent/dashboard" className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-bold rounded-xl transition-colors">
@@ -108,7 +106,7 @@ export default function HomePage() {
       {/* Main Content Vertically Stacked */}
       <main className="max-w-5xl mx-auto px-6 py-12 sm:py-16 space-y-16 flex-1 w-full">
         
-        {/* 1. TOP HERO PANEL (Auto-looping with locked container height to eliminate shifting) */}
+        {/* 1. TOP HERO PANEL */}
         <div className="text-center space-y-6 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-red-50 border border-red-100 text-[#B3191F] px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-wide uppercase shadow-2xs">
             {hero.tag}
@@ -134,21 +132,19 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 2. MIDDLE SECTION: 3-Tabbed "How Trust is Verified" Box with Learn More routing to Support */}
+        {/* 2. MIDDLE SECTION: 3-Tabbed Trust Box */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6 max-w-3xl mx-auto w-full">
           <div className="text-center space-y-1">
             <h3 className="text-sm font-black uppercase text-gray-400 tracking-wider">How Trust is Verified</h3>
             <p className="text-xs text-gray-500">Explore our rigorous compliance and safety measures</p>
           </div>
           
-          {/* Interactive Tab Selectors */}
           <div className="flex bg-gray-100 p-1 rounded-xl text-xs font-bold">
             <button onClick={() => setActiveTab("verification")} className={`flex-1 py-2 rounded-lg transition-all ${activeTab === "verification" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>🎥 Video & Degrees</button>
             <button onClick={() => setActiveTab("safety")} className={`flex-1 py-2 rounded-lg transition-all ${activeTab === "safety" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>🛡️ Parent Safety</button>
             <button onClick={() => setActiveTab("matching")} className={`flex-1 py-2 rounded-lg transition-all ${activeTab === "matching" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>⚡ Quick Match</button>
           </div>
 
-          {/* Dynamic Content Card with Learn More Link */}
           <div className="p-5 bg-gray-50 rounded-2xl text-xs leading-relaxed space-y-3 border border-gray-100 flex flex-col justify-between min-h-[130px]">
             {activeTab === "verification" && (
               <>
@@ -206,11 +202,10 @@ export default function HomePage() {
         </div>
       </main>
 
-      {/* FLOATING CHATBOT WIDGET AT BOTTOM RIGHT */}
+      {/* FLOATING CHATBOT WIDGET */}
       <div className="fixed bottom-6 right-6 z-50">
         {chatOpen ? (
           <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-80 sm:w-96 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-            {/* Chat Header */}
             <div className="bg-gray-900 text-white p-4 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse"></span>
@@ -222,7 +217,6 @@ export default function HomePage() {
               <button onClick={() => setChatOpen(false)} className="text-gray-400 hover:text-white font-bold text-sm px-2">✕</button>
             </div>
 
-            {/* Chat Body / Messages */}
             <div className="p-4 h-80 overflow-y-auto space-y-3 bg-gray-50 text-xs flex flex-col">
               {messages.map((m, idx) => (
                 <div key={idx} className={`flex ${m.sender === "user" ? "justify-end" : "justify-start"}`}>
@@ -234,7 +228,6 @@ export default function HomePage() {
               <div ref={chatEndRef} />
             </div>
 
-            {/* Chat Input Form */}
             <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-gray-100 flex gap-2">
               <input
                 type="text"
@@ -265,9 +258,9 @@ export default function HomePage() {
       <footer className="bg-white border-t border-gray-200 px-8 py-6 text-center text-xs text-gray-400 flex flex-col sm:flex-row justify-between items-center max-w-5xl mx-auto w-full gap-4">
         <div>© 2026 TutorMint. All rights reserved. Verified Education Platform.</div>
         <div className="flex space-x-6 text-[11px]">
-          <Link href="/privacy" className="hover:text-gray-600">Privacy Policy</Link>
           <Link href="/faq" className="hover:text-gray-600">FAQs</Link>
-          <Link href="/faq" className="hover:text-gray-600">Support</Link>
+          <Link href="/privacy" className="hover:text-gray-600">Privacy Policy</Link>
+          <Link href="/support" className="hover:text-gray-600">Support</Link>
           <Link href="/about" className="hover:text-gray-600">About</Link>
           <Link href="/blog" className="hover:text-gray-600">Blog</Link>
         </div>
