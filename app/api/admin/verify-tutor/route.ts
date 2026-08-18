@@ -10,7 +10,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Email and status are required" }, { status: 400 });
     }
 
-    const client = await clientPromise;
+    const client = typeof clientPromise === "function" ? await clientPromise() : await clientPromise;
     const db = client.db("tutormint");
 
     const result = await db.collection("tutors").updateOne(

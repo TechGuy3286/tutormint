@@ -10,15 +10,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Email parameter is required" }, { status: 400 });
     }
 
-    const client = await clientPromise;
+    const client = typeof clientPromise === "function" ? await clientPromise() : await clientPromise;
     const db = client.db("tutormint");
-    const tutor = await db.collection("tutors").findOne({ email: email.toLowerCase().trim() });
+    const profile = await db.collection("tutors").findOne({ email: email.toLowerCase().trim() });
 
-    if (!tutor) {
-      return NextResponse.json({ error: "Tutor profile not found" }, { status: 404 });
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ tutor }, { status: 200 });
+    return NextResponse.json({ profile }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }

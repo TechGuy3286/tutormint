@@ -10,7 +10,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Email parameter is required" }, { status: 400 });
     }
 
-    const client = await clientPromise;
+    const client = typeof clientPromise === "function" ? await clientPromise() : await clientPromise;
     const db = client.db("tutormint");
     const parent = await db.collection("parents").findOne({ email: email.toLowerCase().trim() });
 
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    const client = await clientPromise;
+    const client = typeof clientPromise === "function" ? await clientPromise() : await clientPromise;
     const db = client.db("tutormint");
 
     const existing = await db.collection("parents").findOne({ email: email.toLowerCase().trim() });
