@@ -62,20 +62,24 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <main className="max-w-6xl mx-auto px-6 py-12 sm:py-16 space-y-16 flex-1 w-full">
+      <main className="max-w-6xl mx-auto px-6 py-12 sm:py-16 space-y-20 flex-1 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
-          {/* Left Column: Auto-Looping Dynamic Value Prop & Dual CTAs */}
-          <div className="lg:col-span-7 space-y-6 text-left transition-all duration-300">
+          {/* Left Column: Auto-Looping Dynamic Value Prop with Fixed Height to Prevent Shifting */}
+          <div className="lg:col-span-7 space-y-6 text-left">
             <div className="inline-flex items-center gap-2 bg-red-50 border border-red-100 text-[#B3191F] px-3 py-1.5 rounded-full text-xs font-extrabold tracking-wide uppercase">
               {hero.tag}
             </div>
-            <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
-              {hero.titlePrefix}<span className="text-[#B3191F]">{hero.highlight}</span>
-            </h1>
-            <p className="text-sm sm:text-base text-gray-600 font-medium leading-relaxed">
-              {hero.description}
-            </p>
+
+            {/* Fixed Height Container locks the layout so text changes never cause button/card shifting */}
+            <div className="min-h-[200px] sm:min-h-[180px] flex flex-col justify-start space-y-4">
+              <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+                {hero.titlePrefix}<span className="text-[#B3191F]">{hero.highlight}</span>
+              </h1>
+              <p className="text-sm sm:text-base text-gray-600 font-medium leading-relaxed">
+                {hero.description}
+              </p>
+            </div>
 
             {/* Dual Action CTAs */}
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
@@ -123,8 +127,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Quick Stats / Trust Badges */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 border-t border-gray-200">
+        {/* Quick Stats / Trust Badges (Lowered down with generous separation) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-10 border-t border-gray-200">
           <div className="bg-white p-6 rounded-2xl border border-gray-200 space-y-1">
             <div className="text-xl font-black text-[#B3191F]">100%</div>
             <div className="text-xs font-bold text-gray-900">Camera-Verified Degrees</div>
