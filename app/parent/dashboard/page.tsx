@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
-export default function ParentBrowseMarketplace() {
+export default function UnifiedClientMarketplace() {
   const [parentEmail, setParentEmail] = useState("");
   const [parent, setParent] = useState<any>(null);
   const [tutors, setTutors] = useState<any[]>([]);
@@ -169,7 +169,7 @@ export default function ParentBrowseMarketplace() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616] flex flex-col justify-between">
-      {/* Header */}
+      {/* Global Header */}
       <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex justify-between items-center sticky top-0 z-40 shadow-xs">
         <Link href="/" className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
           <span>Tutor<span className="text-[#B3191F]">Mint</span></span>
