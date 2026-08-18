@@ -64,15 +64,17 @@ export default function HomePage() {
     setMessages(newMessages);
     setInputMessage("");
 
-    // Automated smart bot response logic based on keywords
+    // Improved smart chatbot response logic with accurate keyword routing
     setTimeout(() => {
       let botReply = "Thank you for reaching out! Our team will connect with you via WhatsApp/Call within 10 minutes.";
       const lower = userText.toLowerCase();
       
-      if (lower.includes("price") || lower.includes("fee") || lower.includes("cost") || lower.includes("rates")) {
+      if (lower.includes("how are you") || lower.includes("hello") || lower.includes("hi") || lower.includes("hey")) {
+        botReply = "Hello! I'm doing great, thank you for asking. How can I assist you with finding a verified tutor or navigating TutorMint today?";
+      } else if (lower.includes("video") || lower.includes("verification") || lower.includes("verify") || lower.includes("degree")) {
+        botReply = "Video verification means every tutor records a 60-second live video holding their actual physical degree. Our admins manually audit every file before approval.";
+      } else if (lower.includes("price") || lower.includes("fee") || lower.includes("cost") || lower.includes("rates")) {
         botReply = "Tutor rates vary by grade level and subject (usually ranging from PKR 15,000 to 45,000/month for home tuition). You can browse tutors directly or post a job to receive custom quotes!";
-      } else if (lower.includes("verified") || lower.includes("degree") || lower.includes("fake")) {
-        botReply = "Every TutorMint educator undergoes strict 60-second on-camera degree verification by our administrative team. No forged CVs allowed!";
       } else if (lower.includes("lahore") || lower.includes("city") || lower.includes("karachi") || lower.includes("islamabad") || lower.includes("multan")) {
         botReply = "We currently have verified tutors active in Lahore, Karachi, Islamabad, Multan, and surrounding areas.";
       } else if (lower.includes("job") || lower.includes("post")) {
@@ -103,84 +105,100 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <main className="max-w-6xl mx-auto px-6 py-12 sm:py-16 space-y-20 flex-1 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
-          {/* Left Column: Auto-Looping Dynamic Value Prop with Fixed Height */}
-          <div className="lg:col-span-7 space-y-6 text-left">
-            <div className="inline-flex items-center gap-2 bg-red-50 border border-red-100 text-[#B3191F] px-3 py-1.5 rounded-full text-xs font-extrabold tracking-wide uppercase">
-              {hero.tag}
-            </div>
-
-            <div className="min-h-[200px] sm:min-h-[180px] flex flex-col justify-start space-y-4">
-              <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
-                {hero.titlePrefix}<span className="text-[#B3191F]">{hero.highlight}</span>
-              </h1>
-              <p className="text-sm sm:text-base text-gray-600 font-medium leading-relaxed">
-                {hero.description}
-              </p>
-            </div>
-
-            {/* Dual Action CTAs */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <Link href="/parent/dashboard" className="px-6 py-3.5 bg-gray-900 hover:bg-black text-white text-xs font-extrabold rounded-2xl shadow-sm text-center transition-all flex items-center justify-center gap-2">
-                👨‍👩‍👧‍👦 Browse Verified Tutors Instantly ➔
-              </Link>
-              <Link href="/tutor/register" className="px-6 py-3.5 bg-[#B3191F] hover:bg-[#9a151b] text-white text-xs font-extrabold rounded-2xl shadow-sm text-center transition-all flex items-center justify-center gap-2">
-                🚀 Register as a Tutor (Fast Sign Up)
-              </Link>
-            </div>
+      {/* Main Content Vertically Stacked */}
+      <main className="max-w-5xl mx-auto px-6 py-12 sm:py-16 space-y-16 flex-1 w-full">
+        
+        {/* 1. TOP HERO PANEL (Auto-looping with locked container height to eliminate shifting) */}
+        <div className="text-center space-y-6 max-w-3xl mx-auto">
+          <div className="inline-flex items-center gap-2 bg-red-50 border border-red-100 text-[#B3191F] px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-wide uppercase shadow-2xs">
+            {hero.tag}
           </div>
 
-          {/* Right Column: Interactive Verification Feature */}
-          <div className="lg:col-span-5 bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6">
-            <h3 className="text-sm font-black uppercase text-gray-400 tracking-wider">How Trust is Verified</h3>
-            
-            {/* Interactive Tab Selectors */}
-            <div className="flex bg-gray-100 p-1 rounded-xl text-xs font-bold">
-              <button onClick={() => setActiveTab("verification")} className={`flex-1 py-2 rounded-lg transition-all ${activeTab === "verification" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>🎥 Video & Degrees</button>
-              <button onClick={() => setActiveTab("safety")} className={`flex-1 py-2 rounded-lg transition-all ${activeTab === "safety" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>🛡️ Parent Safety</button>
-              <button onClick={() => setActiveTab("matching")} className={`flex-1 py-2 rounded-lg transition-all ${activeTab === "matching" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>⚡ Quick Match</button>
-            </div>
+          <div className="min-h-[160px] sm:min-h-[140px] flex flex-col justify-center space-y-3">
+            <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+              {hero.titlePrefix}<span className="text-[#B3191F]">{hero.highlight}</span>
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 font-medium leading-relaxed max-w-2xl mx-auto">
+              {hero.description}
+            </p>
+          </div>
 
-            {/* Dynamic Content Card */}
-            <div className="p-4 bg-gray-50 rounded-2xl text-xs leading-relaxed space-y-2 border border-gray-100 min-h-[120px] flex flex-col justify-center">
-              {activeTab === "verification" && (
-                <>
-                  <strong className="text-gray-900 text-sm block">60-Second On-Camera Verification</strong>
-                  <p className="text-gray-600">Every tutor must hold their physical degree on camera and speak live during registration. Our admins manually audit every file before approval.</p>
-                </>
-              )}
-              {activeTab === "safety" && (
-                <>
-                  <strong className="text-gray-900 text-sm block">Peace of Mind for Pakistani Families</strong>
-                  <p className="text-gray-600">Never let unvetted strangers into your home. Know exactly who is teaching your child with complete location and ID tracking.</p>
-                </>
-              )}
-              {activeTab === "matching" && (
-                <>
-                  <strong className="text-gray-900 text-sm block">Direct Connect & Job Posting</strong>
-                  <p className="text-gray-600">Browse tutors instantly by city or post a personalized job requirement to have matching educators contact you within minutes.</p>
-                </>
-              )}
-            </div>
+          {/* Dual Action CTAs */}
+          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
+            <Link href="/parent/dashboard" className="px-6 py-3.5 bg-gray-900 hover:bg-black text-white text-xs font-extrabold rounded-2xl shadow-sm text-center transition-all flex items-center justify-center gap-2">
+              👨‍👩‍👧‍👦 Browse Verified Tutors Instantly ➔
+            </Link>
+            <Link href="/tutor/register" className="px-6 py-3.5 bg-[#B3191F] hover:bg-[#9a151b] text-white text-xs font-extrabold rounded-2xl shadow-sm text-center transition-all flex items-center justify-center gap-2">
+              🚀 Register as a Tutor (Fast Sign Up)
+            </Link>
           </div>
         </div>
 
-        {/* Quick Stats / Trust Badges */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-10 border-t border-gray-200">
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 space-y-1">
+        {/* 2. MIDDLE SECTION: 3-Tabbed "How Trust is Verified" Box with Learn More routing to Support */}
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6 max-w-3xl mx-auto w-full">
+          <div className="text-center space-y-1">
+            <h3 className="text-sm font-black uppercase text-gray-400 tracking-wider">How Trust is Verified</h3>
+            <p className="text-xs text-gray-500">Explore our rigorous compliance and safety measures</p>
+          </div>
+          
+          {/* Interactive Tab Selectors */}
+          <div className="flex bg-gray-100 p-1 rounded-xl text-xs font-bold">
+            <button onClick={() => setActiveTab("verification")} className={`flex-1 py-2 rounded-lg transition-all ${activeTab === "verification" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>🎥 Video & Degrees</button>
+            <button onClick={() => setActiveTab("safety")} className={`flex-1 py-2 rounded-lg transition-all ${activeTab === "safety" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>🛡️ Parent Safety</button>
+            <button onClick={() => setActiveTab("matching")} className={`flex-1 py-2 rounded-lg transition-all ${activeTab === "matching" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>⚡ Quick Match</button>
+          </div>
+
+          {/* Dynamic Content Card with Learn More Link */}
+          <div className="p-5 bg-gray-50 rounded-2xl text-xs leading-relaxed space-y-3 border border-gray-100 flex flex-col justify-between min-h-[130px]">
+            {activeTab === "verification" && (
+              <>
+                <div>
+                  <strong className="text-gray-900 text-sm block mb-1">60-Second On-Camera Verification</strong>
+                  <p className="text-gray-600">Every tutor must hold their physical degree on camera and speak live during registration. Our admins manually audit every file before approval.</p>
+                </div>
+                <div className="text-right">
+                  <Link href="/support" className="text-[#B3191F] font-extrabold hover:underline inline-flex items-center gap-1">Learn More ➔</Link>
+                </div>
+              </>
+            )}
+            {activeTab === "safety" && (
+              <>
+                <div>
+                  <strong className="text-gray-900 text-sm block mb-1">Peace of Mind for Pakistani Families</strong>
+                  <p className="text-gray-600">Never let unvetted strangers into your home. Know exactly who is teaching your child with complete location and ID tracking.</p>
+                </div>
+                <div className="text-right">
+                  <Link href="/support" className="text-[#B3191F] font-extrabold hover:underline inline-flex items-center gap-1">Learn More ➔</Link>
+                </div>
+              </>
+            )}
+            {activeTab === "matching" && (
+              <>
+                <div>
+                  <strong className="text-gray-900 text-sm block mb-1">Direct Connect & Job Posting</strong>
+                  <p className="text-gray-600">Browse tutors instantly by city or post a personalized job requirement to have matching educators contact you within minutes.</p>
+                </div>
+                <div className="text-right">
+                  <Link href="/support" className="text-[#B3191F] font-extrabold hover:underline inline-flex items-center gap-1">Learn More ➔</Link>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 3. BOTTOM SECTION: 3 Separate Trust Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-gray-200">
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 space-y-1 shadow-2xs">
             <div className="text-xl font-black text-[#B3191F]">100%</div>
             <div className="text-xs font-bold text-gray-900">Camera-Verified Degrees</div>
             <p className="text-xs text-gray-500">No forged certificates or unvetted profiles.</p>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 space-y-1">
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 space-y-1 shadow-2xs">
             <div className="text-xl font-black text-gray-900">Lahore & Beyond</div>
             <div className="text-xs font-bold text-gray-900">Active Across Major Cities</div>
             <p className="text-xs text-gray-500">Multan, Karachi, Islamabad, and Lahore.</p>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 space-y-1">
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 space-y-1 shadow-2xs">
             <div className="text-xl font-black text-emerald-600">10 Min Response</div>
             <div className="text-xs font-bold text-gray-900">Fast WhatsApp Coordination</div>
             <p className="text-xs text-gray-500">Connect with educators instantly.</p>
@@ -244,7 +262,7 @@ export default function HomePage() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 px-8 py-6 text-center text-xs text-gray-400 flex flex-col sm:flex-row justify-between items-center max-w-6xl mx-auto w-full gap-4">
+      <footer className="bg-white border-t border-gray-200 px-8 py-6 text-center text-xs text-gray-400 flex flex-col sm:flex-row justify-between items-center max-w-5xl mx-auto w-full gap-4">
         <div>© 2026 TutorMint. All rights reserved. Verified Education Platform.</div>
         <div className="flex space-x-6 text-[11px]">
           <Link href="/privacy" className="hover:text-gray-600">Privacy Policy</Link>
