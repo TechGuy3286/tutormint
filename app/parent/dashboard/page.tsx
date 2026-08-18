@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 // Mock data for tutors with detailed filtering attributes
@@ -111,7 +110,7 @@ export default function BrowseTutorsPage() {
 
   // Soft-gate check for actions requiring login/signup
   const handleProtectedAction = (actionType: string, tutorData?: any) => {
-    const isLoggedIn = typeof window !== "undefined" && localStorage.getItem("parentToken");
+    const isLoggedIn = typeof window !== "undefined" && (localStorage.getItem("parentToken") || sessionStorage.getItem("parentData"));
 
     if (!isLoggedIn) {
       alert("Please log in or sign up to contact or hire tutors.");
@@ -138,11 +137,9 @@ export default function BrowseTutorsPage() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#000000] flex flex-col justify-between relative">
-      {/* Consistent Navbar */}
-      <Navbar />
-
+      
       {/* Main Container */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-8 flex-1 w-full">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-8 flex-1 w-full">
         
         {/* Page Header */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
