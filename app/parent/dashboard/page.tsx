@@ -1,354 +1,364 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useState } from "react";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
-export default function UnifiedClientMarketplace() {
-  const [parentEmail, setParentEmail] = useState("");
-  const [parent, setParent] = useState<any>(null);
-  const [tutors, setTutors] = useState<any[]>([]);
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedCity, setSelectedCity] = useState("all");
-  const [audienceType, setAudienceType] = useState<"parent" | "academy">("parent");
+// Mock data for tutors with detailed filtering attributes
+const allTutors = [
+  {
+    id: 1,
+    name: "Ayesha Khan",
+    city: "Lahore",
+    area: "Gulberg",
+    subject: "Mathematics",
+    grade: "10th Class",
+    rating: 4.9,
+    reviewCount: 24,
+    degree: "BS Mathematics (LUMS)",
+    mode: "Physical",
+    budget: "25,000 PKR / mo",
+    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
+  },
+  {
+    id: 2,
+    name: "Muhammad Ali",
+    city: "Lahore",
+    area: "DHA",
+    subject: "Physics",
+    grade: "FSc Part 2",
+    rating: 4.8,
+    reviewCount: 19,
+    degree: "BS Computer Science (PU)",
+    mode: "Physical",
+    budget: "30,000 PKR / mo",
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
+  },
+  {
+    id: 3,
+    name: "Alee Sabeer",
+    city: "Karachi",
+    area: "Clifton",
+    subject: "Computer Science",
+    grade: "O-Levels",
+    rating: 5.0,
+    reviewCount: 32,
+    degree: "BS Software Engineering",
+    mode: "Online / Physical",
+    budget: "35,000 PKR / mo",
+    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150"
+  },
+  {
+    id: 4,
+    name: "Amir Sohail",
+    city: "Multan",
+    area: "Bosan Road",
+    subject: "Chemistry",
+    grade: "9th Class",
+    rating: 4.7,
+    reviewCount: 15,
+    degree: "MSc Chemistry",
+    mode: "Physical",
+    budget: "20,000 PKR / mo",
+    image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"
+  },
+  {
+    id: 5,
+    name: "Rai Raza",
+    city: "Islamabad",
+    area: "F-7",
+    subject: "English Literature",
+    grade: "A-Levels",
+    rating: 4.9,
+    reviewCount: 28,
+    degree: "MA English (NUST)",
+    mode: "Online",
+    budget: "40,000 PKR / mo",
+    image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150"
+  },
+  {
+    id: 6,
+    name: "Fatima Noor",
+    city: "Lahore",
+    area: "Johar Town",
+    subject: "Biology",
+    grade: "FSc Part 1",
+    rating: 4.8,
+    reviewCount: 21,
+    degree: "MBBS (King Edward)",
+    mode: "Physical",
+    budget: "28,000 PKR / mo",
+    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150"
+  }
+];
 
-  // Interaction modals & state
-  const [loginModalOpen, setLoginModalOpen] = useState(false);
-  const [postJobModalOpen, setPostJobModalOpen] = useState(false);
-  const [reportModalTutor, setReportModalTutor] = useState<any | null>(null);
-  const [pendingTutor, setPendingTutor] = useState<any | null>(null);
-  const [successModalMsg, setSuccessModalMsg] = useState("");
-  
-  const [reportReason, setReportReason] = useState("");
-  const [reportSuccess, setReportSuccess] = useState(false);
-  const [posting, setPosting] = useState(false);
-  const [msg, setMsg] = useState("");
+// Dynamic areas mapping based on selected city
+const cityAreasMap: Record<string, string[]> = {
+  Lahore: ["Gulberg", "DHA", "Johar Town", "Model Town", "Bahria Town"],
+  Karachi: ["Clifton", "DHA", "Gulshan-e-Iqbal", "North Nazimabad"],
+  Islamabad: ["F-6", "F-7", "G-8", "Bahria Town"],
+  Multan: ["Cantt", "Shah Rukn-e-Alam", "Bosan Road"]
+};
 
-  // Job form state
-  const [title, setTitle] = useState("");
-  const [subjectInput, setSubjectInput] = useState("");
-  const [classLevel, setClassLevel] = useState("");
-  const [budget, setBudget] = useState("");
-  const [city, setCity] = useState("");
-  const [teachingMode, setTeachingMode] = useState("Home Tuition");
-  const [description, setDescription] = useState("");
+export default function BrowseTutorsPage() {
+  // Filter States
+  const [selectedCity, setSelectedCity] = useState("All");
+  const [selectedArea, setSelectedArea] = useState("All");
+  const [selectedSkill, setSelectedSkill] = useState("All");
+  const [selectedGrade, setSelectedGrade] = useState("All");
+  const [selectedRating, setSelectedRating] = useState("All");
+  const [selectedBudget, setSelectedBudget] = useState("All");
 
-  useEffect(() => {
-    const stored = localStorage.getItem("parentEmail");
-    if (stored) {
-      setParentEmail(stored);
-      fetchParentData(stored);
-    }
-    fetchTutors();
-  }, []);
+  // Soft-gate check for actions requiring login/signup
+  const handleProtectedAction = (actionType: string, tutorData?: any) => {
+    const isLoggedIn = typeof window !== "undefined" && localStorage.getItem("parentToken");
 
-  const fetchParentData = async (email: string) => {
-    try {
-      const res = await fetch(`/api/parent/profile?email=${email}`);
-      const data = await res.json();
-      if (res.ok && data.parent) {
-        setParent(data.parent);
-        fetchJobs();
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchTutors = async () => {
-    try {
-      const res = await fetch("/api/admin/tutors");
-      const data = await res.json();
-      if (res.ok) {
-        setTutors(data.tutors || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchJobs = async () => {
-    try {
-      const res = await fetch("/api/parent/jobs");
-      const data = await res.json();
-      if (res.ok) setJobs(data.jobs || []);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleHireClick = (tutor: any) => {
-    if (!parent) {
-      setPendingTutor(tutor);
-      setLoginModalOpen(true);
-    } else {
-      setSuccessModalMsg(`🎉 Success! Your contact request for ${tutor.fullName} has been logged. Our matching team will connect you via WhatsApp/Call within 10 minutes.`);
-    }
-  };
-
-  const handleLoginOrRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!parentEmail) return;
-    try {
-      const res = await fetch("/api/parent/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: parentEmail, fullName: "Client / Parent" })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setParent(data.parent || { email: parentEmail });
-        localStorage.setItem("parentEmail", parentEmail);
-        setLoginModalOpen(false);
-        fetchJobs();
-        
-        if (pendingTutor) {
-          setSuccessModalMsg(`🎉 Success! You are logged in as ${parentEmail}. Your contact request for ${pendingTutor.fullName} has been logged!`);
-          setPendingTutor(null);
-        } else {
-          setSuccessModalMsg(`✅ Successfully logged in as ${parentEmail}! You can now hire tutors and post jobs.`);
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handlePostJob = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!parent) {
-      setLoginModalOpen(true);
+    if (!isLoggedIn) {
+      alert("Please log in or sign up to contact or hire tutors.");
+      window.location.href = "/parent/login";
       return;
     }
-    setPosting(true);
-    setMsg("");
-    const subjects = subjectInput.split(",").map((s) => s.trim()).filter(Boolean);
 
-    try {
-      const res = await fetch("/api/parent/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          parentEmail: parent.email || parentEmail,
-          title,
-          subjects,
-          classLevel,
-          budget,
-          city,
-          province: "Punjab",
-          teachingMode,
-          description,
-        }),
-      });
-      if (res.ok) {
-        setMsg("✨ Job posted successfully! Matching tutors will now contact you.");
-        setTitle("");
-        setSubjectInput("");
-        setClassLevel("");
-        setBudget("");
-        setCity("");
-        setDescription("");
-        fetchJobs();
-        setTimeout(() => setPostJobModalOpen(false), 2000);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setPosting(false);
+    if (actionType === "hire") {
+      window.open(`https://wa.me/923211045245?text=Hi%20I%20want%20to%20hire%20${encodeURIComponent(tutorData.name)}%20for%20${encodeURIComponent(tutorData.subject)}`, "_blank");
+    } else if (actionType === "post-job") {
+      window.location.href = "/parent/dashboard/post-job";
     }
   };
 
-  const filteredTutors = tutors.filter((t) => {
-    if (selectedCity === "all") return true;
-    return t.city?.toLowerCase() === selectedCity.toLowerCase();
+  // Filter Logic
+  const filteredTutors = allTutors.filter((tutor) => {
+    const matchCity = selectedCity === "All" || tutor.city === selectedCity;
+    const matchArea = selectedArea === "All" || tutor.area === selectedArea;
+    const matchSkill = selectedSkill === "All" || tutor.subject === selectedSkill;
+    const matchGrade = selectedGrade === "All" || tutor.grade === selectedGrade;
+    const matchRating = selectedRating === "All" || tutor.rating >= parseFloat(selectedRating);
+    return matchCity && matchArea && matchSkill && matchGrade && matchRating;
   });
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616] flex flex-col justify-between">
-      {/* Global Header */}
-      <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex justify-between items-center sticky top-0 z-40 shadow-xs">
-        <Link href="/" className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
-          <span>Tutor<span className="text-[#B3191F]">Mint</span></span>
-          <span className="text-[10px] bg-gray-900 text-white px-2 py-0.5 rounded uppercase font-bold">Client Marketplace</span>
-        </Link>
-        <div className="flex items-center space-x-3">
-          {parent ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full">🟢 {parent.email || parentEmail}</span>
-              <button onClick={() => { localStorage.removeItem("parentEmail"); setParent(null); }} className="text-xs text-gray-400 hover:text-black font-bold">Logout</button>
-            </div>
-          ) : (
-            <button onClick={() => setLoginModalOpen(true)} className="px-4 py-2 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-sm">Client Login / Register 🔑</button>
-          )}
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#000000] flex flex-col justify-between relative">
+      {/* Consistent Navbar */}
+      <Navbar />
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full">
-        {successModalMsg && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-extrabold flex justify-between items-center shadow-sm">
-            <span>{successModalMsg}</span>
-            <button onClick={() => setSuccessModalMsg("")} className="text-emerald-700 font-bold ml-4">✕</button>
+      {/* Main Container */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-8 flex-1 w-full">
+        
+        {/* Page Header */}
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#000000]">
+              Verified Tutors
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-600 font-medium">
+              Explore verified educators, ratings, and academic credentials below.
+            </p>
           </div>
-        )}
-
-        <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight">Browse Verified Home Tutors</h1>
-              <p className="text-xs text-gray-500">Explore camera-verified educators, ratings, and academic credentials below.</p>
-            </div>
-            <button onClick={() => setPostJobModalOpen(true)} className="px-4 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white text-xs font-bold rounded-xl shadow-sm transition-colors">
-              📝 Post Personalized Job Requirement
-            </button>
-          </div>
-
-          <div className="flex bg-gray-100 p-1 rounded-xl max-w-sm">
-            <button onClick={() => setAudienceType("parent")} className={`flex-1 px-4 py-2 text-xs font-bold rounded-lg ${audienceType === "parent" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>👨‍👩‍👧‍👦 Parents & Students</button>
-            <button onClick={() => setAudienceType("academy")} className={`flex-1 px-4 py-2 text-xs font-bold rounded-lg ${audienceType === "academy" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>🏫 Schools & Academies</button>
-          </div>
-
-          <div className="flex flex-wrap gap-2 pt-2 items-center text-xs">
-            <span className="font-bold text-gray-400 uppercase text-[10px]">Filter City:</span>
-            {["all", "Lahore", "Multan", "Karachi", "Islamabad"].map((city) => (
-              <button key={city} onClick={() => setSelectedCity(city)} className={`px-3 py-1.5 rounded-lg font-bold capitalize ${selectedCity === city ? "bg-[#B3191F] text-white" : "bg-gray-100 text-gray-700"}`}>{city}</button>
-            ))}
-          </div>
+          <button 
+            onClick={() => handleProtectedAction("post-job")}
+            className="px-5 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-bold rounded-xl shadow-md shadow-[#d60008]/20 transition-all flex items-center gap-2"
+          >
+            <span>📋 Post Personalized Job Requirement</span>
+          </button>
         </div>
 
-        {loading ? (
-          <div className="text-center py-16 text-xs font-bold text-gray-400 uppercase">Loading Verified Tutors...</div>
-        ) : filteredTutors.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center space-y-3">
-            <p className="text-xs text-gray-500 font-bold">No tutors found matching your location.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTutors.map((t, index) => {
-              // Deterministic professional portrait fallback if t.profilePic is missing
-              const defaultAvatars = [
-                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-                "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
-                "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-                "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150"
-              ];
-              const avatarImg = t.profilePic || defaultAvatars[index % defaultAvatars.length];
+        {/* CATEGORIZED FILTER BOXES */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-6">
+          <h3 className="text-xs font-black uppercase tracking-wider text-gray-400">
+            Advanced Filter Tutors
+          </h3>
 
-              return (
-                <div key={t._id} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4 flex flex-col justify-between">
-                  <div className="space-y-4">
-                    {/* Profile Picture, Name, Rating & Badge */}
-                    <div className="flex items-center space-x-4">
-                      <img src={avatarImg} alt={t.fullName} className="w-14 h-14 rounded-2xl object-cover border border-gray-200 shadow-xs" />
-                      <div className="space-y-1 flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <h3 className="text-base font-black text-gray-900 truncate">{t.fullName}</h3>
-                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-black rounded-full shrink-0 flex items-center gap-1">
-                            🛡️ Verified
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 font-medium truncate">📍 {t.city} ({t.areaName || "General"})</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            
+            {/* 1. Location & Dynamic Area Filter Box */}
+            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <label className="text-xs font-bold text-[#1f1f7a] block">📍 Location Filter</label>
+              <select 
+                value={selectedCity} 
+                onChange={(e) => {
+                  setSelectedCity(e.target.value);
+                  setSelectedArea("All");
+                }}
+                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
+              >
+                <option value="All">All Cities (Pakistan)</option>
+                <option value="Lahore">Lahore</option>
+                <option value="Karachi">Karachi</option>
+                <option value="Islamabad">Islamabad</option>
+                <option value="Multan">Multan</option>
+              </select>
+
+              {selectedCity !== "All" && cityAreasMap[selectedCity] && (
+                <select 
+                  value={selectedArea}
+                  onChange={(e) => setSelectedArea(e.target.value)}
+                  className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a] mt-2 animate-in fade-in"
+                >
+                  <option value="All">All Areas in {selectedCity}</option>
+                  {cityAreasMap[selectedCity].map((areaName) => (
+                    <option key={areaName} value={areaName}>{areaName}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* 2. Skill Wise Filter Box */}
+            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <label className="text-xs font-bold text-[#1f1f7a] block">📚 Skill / Subject</label>
+              <select 
+                value={selectedSkill}
+                onChange={(e) => setSelectedSkill(e.target.value)}
+                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
+              >
+                <option value="All">All Subjects</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="Physics">Physics</option>
+                <option value="Computer Science">Computer Science</option>
+                <option value="Chemistry">Chemistry</option>
+                <option value="English Literature">English Literature</option>
+                <option value="Biology">Biology</option>
+              </select>
+            </div>
+
+            {/* 3. Grade Filter Box */}
+            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <label className="text-xs font-bold text-[#1f1f7a] block">🎓 Grade / Level</label>
+              <select 
+                value={selectedGrade}
+                onChange={(e) => setSelectedGrade(e.target.value)}
+                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
+              >
+                <option value="All">All Grades</option>
+                <option value="9th Class">9th Class</option>
+                <option value="10th Class">10th Class</option>
+                <option value="FSc Part 1">FSc Part 1</option>
+                <option value="FSc Part 2">FSc Part 2</option>
+                <option value="O-Levels">O-Levels</option>
+                <option value="A-Levels">A-Levels</option>
+              </select>
+            </div>
+
+            {/* 4. Rating Wise Filter Box */}
+            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <label className="text-xs font-bold text-[#1f1f7a] block">⭐ Rating Filter</label>
+              <select 
+                value={selectedRating}
+                onChange={(e) => setSelectedRating(e.target.value)}
+                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
+              >
+                <option value="All">All Ratings</option>
+                <option value="4.9">4.9 & above</option>
+                <option value="4.8">4.8 & above</option>
+                <option value="4.7">4.7 & above</option>
+              </select>
+            </div>
+
+            {/* 5. Budget / Amount Filter Box */}
+            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <label className="text-xs font-bold text-[#1f1f7a] block">💰 Budget / Fees</label>
+              <select 
+                value={selectedBudget}
+                onChange={(e) => setSelectedBudget(e.target.value)}
+                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
+              >
+                <option value="All">Any Budget</option>
+                <option value="20000">Under 25,000 PKR</option>
+                <option value="30000">Under 35,000 PKR</option>
+                <option value="40000">Flexible / High</option>
+              </select>
+            </div>
+
+          </div>
+        </div>
+
+        {/* SCROLLABLE TUTORS GRID / LIST */}
+        <div className="space-y-4">
+          <div className="flex justify-between items-center px-2">
+            <h2 className="text-sm font-black uppercase tracking-wider text-gray-500">
+              Showing Verified Tutors ({filteredTutors.length})
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[800px] overflow-y-auto pr-2">
+            {filteredTutors.length > 0 ? (
+              filteredTutors.map((tutor) => (
+                <div 
+                  key={tutor.id} 
+                  className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-5"
+                >
+                  {/* Tutor Header Info */}
+                  <div className="flex items-start gap-4">
+                    <img 
+                      src={tutor.image} 
+                      alt={tutor.name} 
+                      className="w-14 h-14 rounded-2xl object-cover border border-gray-100 shadow-2xs"
+                    />
+                    <div className="space-y-1 flex-1">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-sm font-black text-[#000000]">{tutor.name}</h4>
+                        <span className="text-[10px] font-extrabold bg-[#98FB98]/40 text-[#000000] px-2 py-0.5 rounded-full flex items-center gap-1">
+                          🛡️ Verified
+                        </span>
                       </div>
-                    </div>
-
-                    {/* Rating & Review Badge */}
-                    <div className="p-2.5 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-between text-xs">
-                      <span className="text-amber-800 font-bold">⭐ Tutor Rating:</span>
-                      <span className="bg-white text-amber-900 font-extrabold px-2.5 py-0.5 rounded shadow-2xs">
-                        {t.rating || "4.9 / 5.0 (24 Reviews)"}
-                      </span>
-                    </div>
-
-                    <div className="bg-gray-50 p-3 rounded-xl text-xs space-y-1">
-                      <div><span className="text-gray-400 text-[10px] uppercase font-bold">Degree:</span> <strong className="text-gray-800">{t.degrees || "Verified Academic Profile"}</strong></div>
-                      <div><span className="text-gray-400 text-[10px] uppercase font-bold">Mode:</span> <strong className="text-gray-800">{t.teachingMode || "Physical & Online"}</strong></div>
+                      <p className="text-[11px] text-gray-500 font-medium">📍 {tutor.area}, {tutor.city}</p>
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-gray-100 flex items-center gap-2">
-                    <button onClick={() => handleHireClick(t)} className="flex-1 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white text-center font-bold text-xs rounded-xl shadow-sm transition-colors">
-                      Hire / Contact ➔
-                    </button>
-                    <button onClick={() => setReportModalTutor(t)} className="px-3.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold rounded-xl" title="Report">⚠️</button>
+                  {/* Rating Box */}
+                  <div className="bg-amber-50/60 border border-amber-100 p-3 rounded-2xl flex justify-between items-center text-xs">
+                    <span className="font-bold text-gray-700">Rating:</span>
+                    <span className="font-extrabold text-amber-800">
+                      {tutor.rating} / 5.0 ({tutor.reviewCount})
+                    </span>
                   </div>
+
+                  {/* Subject & Class Expertise */}
+                  <div className="space-y-1.5 text-xs bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                    <p className="font-bold text-[#1f1f7a]">
+                      Expert in {tutor.subject}
+                    </p>
+                    <p className="text-gray-600 font-medium">
+                      Expert of <span className="font-bold text-gray-900">{tutor.grade}</span>
+                    </p>
+                    <p className="text-[11px] text-gray-500 pt-1 border-t border-gray-200">
+                      Degree: <strong className="text-gray-800">{tutor.degree}</strong>
+                    </p>
+                  </div>
+
+                  {/* Contact / Hire CTA (Protected Action Gate) */}
+                  <button 
+                    onClick={() => handleProtectedAction("hire", tutor)}
+                    className="w-full py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl text-center shadow-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    <span>Hire / Contact ➔</span>
+                  </button>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </main>
-
-      {/* LOGIN MODAL */}
-      {loginModalOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-              <h3 className="text-sm font-extrabold">Client Login / Register</h3>
-              <button onClick={() => setLoginModalOpen(false)} className="text-gray-400 hover:text-black font-bold">✕</button>
-            </div>
-            <p className="text-xs text-gray-500">Enter your email to instantly sign in and connect with verified tutors.</p>
-            <form onSubmit={handleLoginOrRegister} className="space-y-3">
-              <input type="email" required value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} placeholder="parent@example.com" className="w-full p-3 border border-gray-200 rounded-xl text-xs" />
-              <button type="submit" className="w-full py-3 bg-[#B3191F] text-white font-bold text-xs rounded-xl">Continue & Connect ➔</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* POST JOB MODAL */}
-      {postJobModalOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full space-y-4">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-              <h3 className="text-sm font-extrabold">Post Job Requirement</h3>
-              <button onClick={() => setPostJobModalOpen(false)} className="text-gray-400 hover:text-black font-bold">✕</button>
-            </div>
-            {msg && <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold">{msg}</div>}
-            <form onSubmit={handlePostJob} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Job Title</label>
-                <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. O-Level Math Tutor" className="w-full p-3 border border-gray-200 rounded-xl" />
-              </div>
-              <button type="submit" className="w-full py-3 bg-[#B3191F] text-white font-bold rounded-xl">Publish Requirement 🚀</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* REPORT MODAL */}
-      {reportModalTutor && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-              <h3 className="text-sm font-extrabold text-red-600">Report Tutor</h3>
-              <button onClick={() => setReportModalTutor(null)} className="text-gray-400 hover:text-black font-bold">✕</button>
-            </div>
-            {reportSuccess ? (
-              <div className="p-4 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold text-center">✅ Report submitted successfully.</div>
+              ))
             ) : (
-              <form onSubmit={(e) => { e.preventDefault(); setReportSuccess(true); setTimeout(() => { setReportSuccess(false); setReportModalTutor(null); }, 2000); }} className="space-y-3">
-                <textarea rows={3} required value={reportReason} onChange={(e) => setReportReason(e.target.value)} placeholder="Reason for report..." className="w-full p-3 border border-gray-200 rounded-xl text-xs"></textarea>
-                <button type="submit" className="w-full py-2.5 bg-[#B3191F] text-white font-bold text-xs rounded-xl">Submit Report ➔</button>
-              </form>
+              <div className="col-span-full py-16 text-center bg-white rounded-3xl border border-gray-200">
+                <p className="text-sm font-bold text-gray-500">No tutors found matching your filter criteria.</p>
+                <button 
+                  onClick={() => {
+                    setSelectedCity("All");
+                    setSelectedArea("All");
+                    setSelectedSkill("All");
+                    setSelectedGrade("All");
+                    setSelectedRating("All");
+                    setSelectedBudget("All");
+                  }}
+                  className="mt-3 px-4 py-2 bg-gray-900 text-white text-xs font-bold rounded-xl"
+                >
+                  Reset Filters
+                </button>
+              </div>
             )}
           </div>
         </div>
-      )}
 
-      {/* Global Footer */}
-      <footer className="bg-white border-t border-gray-200 px-8 py-6 text-center text-xs text-gray-400 flex flex-col sm:flex-row justify-between items-center max-w-6xl mx-auto w-full gap-4">
-        <div>© 2026 TutorMint. All rights reserved. Client Marketplace.</div>
-        <div className="flex space-x-6 text-[11px]">
-          <Link href="/privacy" className="hover:text-gray-600">Privacy Policy</Link>
-          <Link href="/support" className="hover:text-gray-600">Support</Link>
-          <Link href="/about" className="hover:text-gray-600">About</Link>
-          <Link href="/blog" className="hover:text-gray-600">Blog</Link>
-        </div>
-      </footer>
+      </main>
+
+      {/* Consistent Footer */}
+      <Footer />
     </div>
   );
 }

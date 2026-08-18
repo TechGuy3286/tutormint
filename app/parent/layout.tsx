@@ -13,23 +13,22 @@ export default function ParentLayout({
   const pathname = usePathname();
   const [parentName, setParentName] = useState("");
 
-  // Skip layout shell and session check on auth pages
   const isAuthPage = pathname === "/parent/login" || pathname === "/parent/register";
 
   useEffect(() => {
     if (!isAuthPage) {
+      // Soft check: Only load the name if logged in, but DO NOT redirect them away if they aren't.
       const data = sessionStorage.getItem("parentData");
-      if (!data) {
-        router.push("/parent/login");
-      } else {
+      if (data) {
         const parsed = JSON.parse(data);
         setParentName(parsed.fullName || "");
       }
     }
-  }, [pathname, router, isAuthPage]);
+  }, [pathname, isAuthPage]);
 
   const handleLogout = () => {
     sessionStorage.removeItem("parentData");
+    sessionStorage.removeItem("parentToken");
     router.push("/parent/login");
   };
 
@@ -63,18 +62,28 @@ export default function ParentLayout({
         </div>
 
         <div className="flex items-center gap-4">
-          {parentName && (
+          {parentName ? (
             <div className="hidden sm:flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
               <span className="text-xs font-bold text-gray-700">Family: {parentName}</span>
             </div>
+          ) : (
+            <Link 
+              href="/parent/login"
+              className="text-xs font-bold text-[#1f1f7a] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3.5 py-2 rounded-lg transition-colors shadow-xs"
+            >
+              Login / Sign Up
+            </Link>
           )}
-          <button 
-            onClick={handleLogout}
-            className="text-xs font-bold text-[#B3191F] bg-red-50 hover:bg-red-100 border border-red-200 px-3.5 py-2 rounded-lg transition-colors shadow-xs"
-          >
-            Logout
-          </button>
+
+          {parentName && (
+            <button 
+              onClick={handleLogout}
+              className="text-xs font-bold text-[#B3191F] bg-red-50 hover:bg-red-100 border border-red-200 px-3.5 py-2 rounded-lg transition-colors shadow-xs"
+            >
+              Logout
+            </button>
+          )}
         </div>
       </header>
 
