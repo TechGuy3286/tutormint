@@ -31,13 +31,17 @@ const heroVariations = [
 ];
 
 export default function HomePage() {
-  const [hero, setHero] = useState(heroVariations[0]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<"verification" | "safety" | "matching">("verification");
 
   useEffect(() => {
-    const randomIndex = Math.floor(Math.random() * heroVariations.length);
-    setHero(heroVariations[randomIndex]);
+    const interval = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % heroVariations.length);
+    }, 4500); // Loops automatically every 4.5 seconds
+    return () => clearInterval(interval);
   }, []);
+
+  const hero = heroVariations[currentIndex];
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616] flex flex-col justify-between">
@@ -61,8 +65,8 @@ export default function HomePage() {
       <main className="max-w-6xl mx-auto px-6 py-12 sm:py-16 space-y-16 flex-1 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
-          {/* Left Column: Dynamic Value Prop & Dual CTAs */}
-          <div className="lg:col-span-7 space-y-6 text-left">
+          {/* Left Column: Auto-Looping Dynamic Value Prop & Dual CTAs */}
+          <div className="lg:col-span-7 space-y-6 text-left transition-all duration-300">
             <div className="inline-flex items-center gap-2 bg-red-50 border border-red-100 text-[#B3191F] px-3 py-1.5 rounded-full text-xs font-extrabold tracking-wide uppercase">
               {hero.tag}
             </div>
