@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
 const heroVariations = [
   {
@@ -88,20 +90,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616] flex flex-col justify-between relative">
-      {/* Top Header / Navigation with Image Logo */}
-      <header className="bg-white border-b border-gray-200 px-6 sm:px-12 py-3 flex justify-between items-center sticky top-0 z-40 shadow-xs">
-        <Link href="/" className="flex items-center">
-          <img src="/logo.jpeg" alt="TutorMint Logo" className="h-10 sm:h-12 w-auto object-contain" />
-        </Link>
-        <div className="flex items-center space-x-3">
-          <Link href="/parent/dashboard" className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-bold rounded-xl transition-colors">
-            Browse Tutors 🔍
-          </Link>
-          <Link href="/tutor/register" className="px-4 py-2 bg-[#B3191F] hover:bg-[#9a151b] text-white text-xs font-bold rounded-xl shadow-sm transition-colors">
-            Tutor Sign Up 🚀
-          </Link>
-        </div>
-      </header>
+      {/* Reusable Navbar Component */}
+      <Navbar />
 
       {/* Main Content Vertically Stacked */}
       <main className="max-w-5xl mx-auto px-6 py-12 sm:py-16 space-y-16 flex-1 w-full">
@@ -254,17 +244,8 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 px-8 py-6 text-center text-xs text-gray-400 flex flex-col sm:flex-row justify-between items-center max-w-5xl mx-auto w-full gap-4">
-        <div>© 2026 TutorMint. All rights reserved. Verified Education Platform.</div>
-        <div className="flex space-x-6 text-[11px]">
-          <Link href="/faq" className="hover:text-gray-600">FAQs</Link>
-          <Link href="/privacy" className="hover:text-gray-600">Privacy Policy</Link>
-          <Link href="/support" className="hover:text-gray-600">Support</Link>
-          <Link href="/about" className="hover:text-gray-600">About</Link>
-          <Link href="/blog" className="hover:text-gray-600">Blog</Link>
-        </div>
-      </footer>
+      {/* Reusable Footer Component */}
+      <Footer />
     </div>
   );
 }
