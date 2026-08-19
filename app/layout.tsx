@@ -8,6 +8,12 @@ export const metadata: Metadata = {
     template: "%s | TutorMint",
   },
   description: "Find camera-verified home and online tutors in Lahore, Karachi, Islamabad, and Multan. Browse top-rated educators, check credentials, or post a tuition job for free.",
+  
+  // Google Search Console Site Verification
+  verification: {
+    google: "VIV7Ej84jonEk8vzQY5Ax2NXnecpFt5CrTZBw75z-W4",
+  },
+
   keywords: [
     "home tutors pakistan",
     "verified tutors lahore",
