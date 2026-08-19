@@ -168,120 +168,130 @@ export default function UnifiedClientMarketplace() {
   });
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616] flex flex-col justify-between">
-      {/* Global Header */}
-      <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-4 flex justify-between items-center sticky top-0 z-40 shadow-xs">
-        <Link href="/" className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
-          <span>Tutor<span className="text-[#B3191F]">Mint</span></span>
-          <span className="text-[10px] bg-gray-900 text-white px-2 py-0.5 rounded uppercase font-bold">Client Marketplace</span>
-        </Link>
-        <div className="flex items-center space-x-3">
+    <div className="space-y-8 py-6 max-w-6xl mx-auto px-4 sm:px-6 w-full">
+      
+      {/* Client Session Bar */}
+      <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm flex justify-between items-center text-xs">
+        <div>
           {parent ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full">🟢 {parent.email}</span>
-              <button onClick={() => { localStorage.removeItem("parentEmail"); setParent(null); }} className="text-xs text-gray-400 hover:text-black font-bold">Logout</button>
-            </div>
+            <span className="font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full">🟢 Logged in as: {parent.email}</span>
           ) : (
-            <button onClick={() => setLoginModalOpen(true)} className="px-4 py-2 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-sm">Client Login / Register 🔑</button>
+            <span className="text-gray-500 font-medium">Browsing as Guest.</span>
           )}
         </div>
-      </header>
+        <div>
+          {parent ? (
+            <button onClick={() => { localStorage.removeItem("parentEmail"); setParent(null); }} className="text-gray-400 hover:text-black font-bold">Logout</button>
+          ) : (
+            <button onClick={() => setLoginModalOpen(true)} className="px-4 py-2 bg-gray-900 hover:bg-black text-white font-bold rounded-xl shadow-xs">Client Login / Register 🔑</button>
+          )}
+        </div>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full">
-        {successModalMsg && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-extrabold flex justify-between items-center shadow-sm">
-            <span>{successModalMsg}</span>
-            <button onClick={() => setSuccessModalMsg("")} className="text-emerald-700 font-bold ml-4">✕</button>
-          </div>
-        )}
+      {successModalMsg && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-extrabold flex justify-between items-center shadow-sm">
+          <span>{successModalMsg}</span>
+          <button onClick={() => setSuccessModalMsg("")} className="text-emerald-700 font-bold ml-4">✕</button>
+        </div>
+      )}
 
-        <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight">Browse Verified Home Tutors & Slots</h1>
-              <p className="text-xs text-gray-500">Explore camera-verified educators, profile pictures, and available teaching hours below.</p>
-            </div>
-            <button onClick={() => setPostJobModalOpen(true)} className="px-4 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white text-xs font-bold rounded-xl shadow-sm transition-colors">
-              📝 Post Personalized Job Requirement
-            </button>
+      {/* Hero Control Box */}
+      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">Browse Verified Home Tutors & Slots</h1>
+            <p className="text-xs text-gray-500">Explore camera-verified educators, profile pictures, and available teaching hours below.</p>
           </div>
-
-          <div className="flex bg-gray-100 p-1 rounded-xl max-w-sm">
-            <button onClick={() => setAudienceType("parent")} className={`flex-1 px-4 py-2 text-xs font-bold rounded-lg ${audienceType === "parent" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>👨‍👩‍👧‍👦 Parents & Students</button>
-            <button onClick={() => setAudienceType("academy")} className={`flex-1 px-4 py-2 text-xs font-bold rounded-lg ${audienceType === "academy" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>🏫 Schools & Academies</button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100 text-xs">
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="font-bold text-gray-400 uppercase text-[10px]">City:</span>
-              {["all", "Lahore", "Multan", "Karachi", "Islamabad"].map((city) => (
-                <button key={city} onClick={() => setSelectedCity(city)} className={`px-3 py-1.5 rounded-lg font-bold capitalize ${selectedCity === city ? "bg-[#B3191F] text-white" : "bg-gray-100 text-gray-700"}`}>{city}</button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="font-bold text-gray-400 uppercase text-[10px]">Time Slot:</span>
-              {["all", "Morning", "Evening", "Weekends"].map((slot) => (
-                <button key={slot} onClick={() => setSelectedSlot(slot)} className={`px-3 py-1.5 rounded-lg font-bold capitalize ${selectedSlot === slot ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}>{slot}</button>
-              ))}
-            </div>
-          </div>
+          <button onClick={() => setPostJobModalOpen(true)} className="px-4 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white text-xs font-bold rounded-xl shadow-sm transition-colors">
+            📝 Post Personalized Job Requirement
+          </button>
         </div>
 
-        {loading ? (
-          <div className="text-center py-16 text-xs font-bold text-gray-400 uppercase">Loading Verified Tutors...</div>
-        ) : filteredTutors.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center space-y-3">
-            <p className="text-xs text-gray-500 font-bold">No tutors found matching your filters.</p>
+        <div className="flex bg-gray-100 p-1 rounded-xl max-w-sm">
+          <button onClick={() => setAudienceType("parent")} className={`flex-1 px-4 py-2 text-xs font-bold rounded-lg ${audienceType === "parent" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>👨‍👩‍👧‍👦 Parents & Students</button>
+          <button onClick={() => setAudienceType("academy")} className={`flex-1 px-4 py-2 text-xs font-bold rounded-lg ${audienceType === "academy" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>🏫 Schools & Academies</button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100 text-xs">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="font-bold text-gray-400 uppercase text-[10px]">City:</span>
+            {["all", "Lahore", "Multan", "Karachi", "Islamabad"].map((city) => (
+              <button key={city} onClick={() => setSelectedCity(city)} className={`px-3 py-1.5 rounded-lg font-bold capitalize ${selectedCity === city ? "bg-[#B3191F] text-white" : "bg-gray-100 text-gray-700"}`}>{city}</button>
+            ))}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTutors.map((t) => (
-              <div key={t._id} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4 flex flex-col justify-between">
-                <div className="space-y-4">
-                  {/* Profile Picture & Name Header */}
-                  <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="font-bold text-gray-400 uppercase text-[10px]">Time Slot:</span>
+            {["all", "Morning", "Evening", "Weekends"].map((slot) => (
+              <button key={slot} onClick={() => setSelectedSlot(slot)} className={`px-3 py-1.5 rounded-lg font-bold capitalize ${selectedSlot === slot ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}>{slot}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-16 text-xs font-bold text-gray-400 uppercase">Loading Verified Tutors...</div>
+      ) : filteredTutors.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center space-y-3">
+          <p className="text-xs text-gray-500 font-bold">No tutors found matching your filters.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredTutors.map((t) => (
+            <div key={t._id} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4 flex flex-col justify-between">
+              <div className="space-y-4">
+                
+                {/* Profile Picture & Name Header (Linked to Individual Profile for SEO) */}
+                <div className="flex items-center space-x-4">
+                  <Link href={`/tutor/${t._id}`}>
                     {t.profilePic ? (
-                      <img src={t.profilePic} alt={t.fullName} className="w-14 h-14 rounded-2xl object-cover border border-gray-200 shadow-xs" />
+                      <img src={t.profilePic} alt={t.fullName} className="w-14 h-14 rounded-2xl object-cover border border-gray-200 shadow-xs hover:opacity-90 transition-opacity" />
                     ) : (
                       <div className="w-14 h-14 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center text-xl shadow-xs">
                         🧑‍🏫
                       </div>
                     )}
-                    <div className="space-y-1 flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <h3 className="text-base font-black text-gray-900 truncate">{t.fullName}</h3>
-                        <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-black rounded-full shrink-0">🟢 Verified</span>
-                      </div>
-                      <p className="text-xs text-gray-500 font-medium truncate">📍 {t.city} ({t.areaName || "General"})</p>
+                  </Link>
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <Link href={`/tutor/${t._id}`}>
+                        <h3 className="text-base font-black text-gray-900 truncate hover:text-[#B3191F] transition-colors">{t.fullName}</h3>
+                      </Link>
+                      <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-black rounded-full shrink-0">🟢 Verified</span>
                     </div>
-                  </div>
-
-                  {/* Availability Slot Badge */}
-                  <div className="p-2.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between text-xs">
-                    <span className="text-blue-700 font-bold">⏰ Time Slot:</span>
-                    <span className="bg-white text-blue-900 font-extrabold px-2 py-0.5 rounded shadow-2xs">
-                      {t.availability || "Evening (4 PM - 8 PM)"}
-                    </span>
-                  </div>
-
-                  <div className="bg-gray-50 p-3 rounded-xl text-xs space-y-1">
-                    <div><span className="text-gray-400 text-[10px] uppercase font-bold">Degree:</span> <strong className="text-gray-800">{t.degrees || "Verified Academic Profile"}</strong></div>
-                    <div><span className="text-gray-400 text-[10px] uppercase font-bold">Mode:</span> <strong className="text-gray-800">{t.teachingMode || "Physical & Online"}</strong></div>
+                    <p className="text-xs text-gray-500 font-medium truncate">📍 {t.city} ({t.areaName || "General"})</p>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-100 flex items-center gap-2">
-                  <button onClick={() => handleHireClick(t)} className="flex-1 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white text-center font-bold text-xs rounded-xl shadow-sm transition-colors">
-                    Hire / Contact ➔
-                  </button>
-                  <button onClick={() => setReportModalTutor(t)} className="px-3.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold rounded-xl" title="Report">⚠️</button>
+                {/* Availability Slot Badge */}
+                <div className="p-2.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between text-xs">
+                  <span className="text-blue-700 font-bold">⏰ Time Slot:</span>
+                  <span className="bg-white text-blue-900 font-extrabold px-2 py-0.5 rounded shadow-2xs">
+                    {t.availability || "Evening (4 PM - 8 PM)"}
+                  </span>
+                </div>
+
+                <div className="bg-gray-50 p-3 rounded-xl text-xs space-y-1">
+                  <div><span className="text-gray-400 text-[10px] uppercase font-bold">Degree:</span> <strong className="text-gray-800">{t.degrees || "Verified Academic Profile"}</strong></div>
+                  <div><span className="text-gray-400 text-[10px] uppercase font-bold">Mode:</span> <strong className="text-gray-800">{t.teachingMode || "Physical & Online"}</strong></div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </main>
+
+              {/* Actions: Hire & Tiny Red Report User Button */}
+              <div className="pt-4 border-t border-gray-100 flex items-center gap-2">
+                <button onClick={() => handleHireClick(t)} className="flex-1 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white text-center font-bold text-xs rounded-xl shadow-sm transition-colors">
+                  Hire / Contact ➔
+                </button>
+                <button 
+                  onClick={() => setReportModalTutor(t)} 
+                  className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-extrabold rounded-lg transition-colors border border-red-100"
+                >
+                  ⚠️ Report User
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* LOGIN MODAL */}
       {loginModalOpen && (
@@ -321,7 +331,7 @@ export default function UnifiedClientMarketplace() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
             <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-              <h3 className="text-sm font-extrabold text-red-600">Report Tutor</h3>
+              <h3 className="text-sm font-extrabold text-red-600">Report User</h3>
               <button onClick={() => setReportModalTutor(null)} className="text-gray-400 hover:text-black font-bold">✕</button>
             </div>
             {reportSuccess ? (
@@ -336,16 +346,6 @@ export default function UnifiedClientMarketplace() {
         </div>
       )}
 
-      {/* Global Footer */}
-      <footer className="bg-white border-t border-gray-200 px-8 py-6 text-center text-xs text-gray-400 flex flex-col sm:flex-row justify-between items-center max-w-6xl mx-auto w-full gap-4">
-        <div>© 2026 TutorMint. All rights reserved. Client Marketplace.</div>
-        <div className="flex space-x-6 text-[11px]">
-          <Link href="/privacy" className="hover:text-gray-600">Privacy Policy</Link>
-          <Link href="/support" className="hover:text-gray-600">Support</Link>
-          <Link href="/about" className="hover:text-gray-600">About</Link>
-          <Link href="/blog" className="hover:text-gray-600">Blog</Link>
-        </div>
-      </footer>
     </div>
   );
 }

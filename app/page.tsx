@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 
 export default function HomePage() {
   const [chatOpen, setChatOpen] = useState(false);
@@ -49,12 +47,10 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#000000] flex flex-col justify-between relative">
-      {/* Navbar Component */}
-      <Navbar />
-
+    <div className="space-y-10 py-10 sm:py-16 max-w-3xl mx-auto px-6 w-full flex-1 flex flex-col justify-between relative">
+      
       {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-6 py-10 sm:py-16 space-y-10 flex-1 w-full">
+      <div className="space-y-10">
         
         {/* HERO HEADING */}
         <div className="text-center space-y-3">
@@ -70,6 +66,7 @@ export default function HomePage() {
             For Parents
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
             {/* Square Button 1: Find Tutor (Navy Blue Background) */}
             <Link 
               href="/parent/dashboard" 
@@ -117,7 +114,7 @@ export default function HomePage() {
           </Link>
         </div>
 
-      </main>
+      </div>
 
       {/* FLOATING CHATBOT WIDGET */}
       <div className="fixed bottom-6 right-6 z-50">
@@ -171,8 +168,6 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Footer Component */}
-      <Footer />
     </div>
   );
 }

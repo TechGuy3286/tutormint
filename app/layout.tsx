@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
 // 1. Define SEO Meta Information for Google & Social Media
 export const metadata: Metadata = {
@@ -97,8 +99,17 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="font-sans antialiased">
-        {children}
+      <body className="font-sans antialiased flex flex-col min-h-screen bg-[#F9FAFB]">
+        {/* Global Navbar */}
+        <Navbar />
+
+        {/* Main Content */}
+        <main className="flex-1">
+          {children}
+        </main>
+
+        {/* Global Footer */}
+        <Footer />
       </body>
     </html>
   );
