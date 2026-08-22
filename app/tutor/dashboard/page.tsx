@@ -7,29 +7,57 @@ export default function TutorDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [notification, setNotification] = useState('🔍 A parent in DHA Phase 5 viewed your profile (2 mins ago)')
   const [referralCopied, setReferralCopied] = useState(false)
-  const [userEmail, setUserEmail] = useState<string>('')
+  const [userEmail, setUserEmail] = useState<string>('test.tutor@tutormint.com')
 
   const supabase = createClient()
 
   useEffect(() => {
+    let isMounted = true
+
+    // Listen to auth state changes to safely catch the session once loaded
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return
+      if (session?.user) {
+        setUserEmail(session.user.email || 'test.tutor@tutormint.com')
+        setLoading(false)
+      } else if (event === 'SIGNED_OUT') {
+        window.location.href = '/login'
+      }
+    })
+
+    // Initial session check with a safe fallback buffer for cookie sync
     const verifySession = async () => {
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        if (sessionError || !session?.user) {
-          window.location.href = '/login'
-          return
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          if (!isMounted) return
+          setUserEmail(session.user.email || 'test.tutor@tutormint.com')
+          setLoading(false)
+        } else {
+          // Give local storage a brief 600ms moment to sync cookies before redirecting
+          setTimeout(async () => {
+            const { data: { session: retrySession } } = await supabase.auth.getSession()
+            if (!isMounted) return
+            if (!retrySession) {
+              window.location.href = '/login'
+            } else {
+              setUserEmail(retrySession.user.email || 'test.tutor@tutormint.com')
+              setLoading(false)
+            }
+          }, 600)
         }
-
-        setUserEmail(session.user.email || 'test.tutor@tutormint.com')
       } catch (err) {
         console.error('Session error:', err)
-        window.location.href = '/login'
-      } finally {
-        setLoading(false)
+        if (isMounted) window.location.href = '/login'
       }
     }
 
     verifySession()
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
   }, [supabase])
 
   const tutorData = {
