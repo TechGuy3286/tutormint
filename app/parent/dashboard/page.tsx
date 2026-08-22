@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import ProfileCompletionWidget from "@/components/ProfileCompletionWidget";
 
 // Mock data for tutors
 const allTutors = [
@@ -70,30 +71,47 @@ export default function ParentDashboardPage() {
   const [selectedGrade, setSelectedGrade] = useState("All");
   
   const [myJobs, setMyJobs] = useState<any[]>([]);
+  const [parentProfile, setParentProfile] = useState<any>(null);
   const [loadingJobs, setLoadingJobs] = useState(true);
 
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
-    fetchMyJobs();
+    fetchDashboardData();
   }, []);
 
-  const fetchMyJobs = async () => {
+  const fetchDashboardData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      // Fetch posted jobs
+      const { data: jobsData, error: jobsError } = await supabase
         .from('parent_jobs')
         .select('*')
         .eq('parent_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setMyJobs(data || []);
+      if (jobsError) throw jobsError;
+      setMyJobs(jobsData || []);
+
+      // Fetch parent profile data for checklist
+      const { data: profileData } = await supabase
+        .from('parent_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      setParentProfile(profileData || {
+        full_name: user.email?.split('@')[0] || 'Parent',
+        city: 'Lahore',
+        area: 'Gulberg',
+        student_grade: 'Matriculation'
+      });
+
     } catch (err: any) {
-      console.error("Error fetching posted jobs:", err.message);
+      console.error("Error fetching dashboard data:", err.message);
     } finally {
       setLoadingJobs(false);
     }
@@ -134,6 +152,17 @@ export default function ParentDashboardPage() {
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#000000] flex flex-col justify-between">
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-8 flex-1 w-full">
         
+        {/* First-Month Trial & Fee Notice Banner */}
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded-3xl flex items-center justify-between gap-4 shadow-xs">
+          <div className="space-y-0.5">
+            <h4 className="text-xs font-black text-blue-900 uppercase">🛡️ First Month Trial Active (Direct 2-Party Connection)</h4>
+            <p className="text-[11px] text-blue-700">
+              Your first month is considered a trial. Upon successful completion of the first month, a nominal service fee of 199 PKR applies.
+            </p>
+          </div>
+          <span className="text-xl flex-shrink-0">✨</span>
+        </div>
+
         {/* Header & Post Job CTA */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
@@ -141,16 +170,19 @@ export default function ParentDashboardPage() {
               Parent Dashboard
             </h1>
             <p className="text-xs sm:text-sm text-gray-600 font-medium">
-              Manage your posted requirements or browse verified tutors.
+              Manage your posted requirements or browse verified tutors directly with zero middlemen.
             </p>
           </div>
           <button 
             onClick={() => handleProtectedAction("post-job")}
-            className="px-5 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2"
+            className="px-5 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
           >
             <span>📋 Post New Job Requirement</span>
           </button>
         </div>
+
+        {/* Profile Completion & Checklist Widget */}
+        <ProfileCompletionWidget userRole="parent" profileData={parentProfile} />
 
         {/* MY POSTED JOBS SECTION */}
         <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
@@ -189,7 +221,7 @@ export default function ParentDashboardPage() {
 
                   <button
                     onClick={() => router.push(`/chat/${job.job_tx_id}`)}
-                    className="px-4 py-2.5 bg-slate-900 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl transition-all"
+                    className="px-4 py-2.5 bg-slate-900 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap"
                   >
                     Open Chat & Tutors ➔
                   </button>
@@ -221,7 +253,7 @@ export default function ParentDashboardPage() {
                 </div>
                 <button 
                   onClick={() => handleProtectedAction("hire", tutor)}
-                  className="px-6 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl transition-all"
+                  className="px-6 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl transition-all whitespace-nowrap"
                 >
                   Hire / Contact ➔
                 </button>
