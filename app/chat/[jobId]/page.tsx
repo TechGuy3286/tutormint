@@ -57,7 +57,6 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
   const [awarding, setAwarding] = useState(false)
   const [tutorId, setTutorId] = useState<string | null>(null)
   
-  // Branded Modal Notification State
   const [modalNotification, setModalNotification] = useState<{ title: string; message: string } | null>(null)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -156,14 +155,21 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
     }
   }
 
-  const handleSendDemoClassRequest = (tutorName: string) => {
+  const handleSendDemoClassRequest = async (tutorName: string) => {
     const demoMessage = `📅 Demo Class Request sent to ${tutorName} for requirement [${job?.job_tx_id}]: "${job?.title}". Please confirm your available time slot!`
+    
+    // Update job status to pending acceptance in database
+    await supabase
+      .from('parent_jobs')
+      .update({ status: 'Pending Tutor Acceptance' })
+      .eq('job_tx_id', jobId)
+
+    setJob((prev: any) => ({ ...prev, status: 'Pending Tutor Acceptance' }))
     handleSendMessage({ preventDefault: () => {} } as any, demoMessage)
     
-    // Show Branded Acknowledgement Popup
     setModalNotification({
       title: "Demo Class Request Dispatched! 🚀",
-      message: `Your trial class invitation has been successfully sent to ${tutorName} for Job ID: ${job?.job_tx_id}. They will respond with their availability.`
+      message: `Your trial invitation has been sent to ${tutorName}. The chat room will fully unlock once the tutor accepts your request.`
     })
   }
 
@@ -204,6 +210,9 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
   }
 
   const matchedTutors = allAvailableTutors.filter(t => !job?.city || t.city.toLowerCase() === job.city.toLowerCase());
+  
+  // Check if chat is unlocked (Accepted by tutor or awarded)
+  const isChatUnlocked = job?.status === 'Accepted by Tutor' || job?.status === 'Awarded';
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 my-8 space-y-6 font-sans">
@@ -221,7 +230,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
           <p className="text-xs text-slate-300 mt-1">📍 {job?.area}, {job?.city} • 📚 {job?.subject} • 💵 {job?.budget}</p>
         </div>
 
-        {job?.status === 'active' && (
+        {isChatUnlocked && job?.status !== 'Awarded' && (
           <button
             onClick={handleAwardJob}
             disabled={awarding}
@@ -259,40 +268,52 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
         </div>
       </div>
 
-      {/* Chat Messages Box */}
-      <div className="bg-white border border-gray-200 rounded-3xl p-6 h-[400px] flex flex-col justify-between shadow-sm">
-        <div className="overflow-y-auto space-y-3 pr-2 flex-1">
-          {messages.length === 0 ? (
-            <div className="text-center text-xs text-gray-400 py-16">
-              No messages yet. Send a demo class request or start discussing timings above!
+      {/* Chat Room Area (Locked until Tutor Accepts) */}
+      <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
+        {!isChatUnlocked ? (
+          <div className="py-16 text-center space-y-3">
+            <span className="text-3xl">🔒</span>
+            <h3 className="text-sm font-black text-slate-900 uppercase">Chat Room Locked</h3>
+            <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+              To preserve our direct 2-party handshake model, personalized messaging unlocks only after the tutor explicitly accepts your Demo Class request above.
+            </p>
+          </div>
+        ) : (
+          <div className="h-[400px] flex flex-col justify-between">
+            <div className="overflow-y-auto space-y-3 pr-2 flex-1">
+              {messages.length === 0 ? (
+                <div className="text-center text-xs text-gray-400 py-16">
+                  Chat unlocked! Start discussing schedule and demo class details below.
+                </div>
+              ) : (
+                messages.map((msg, idx) => (
+                  <div key={msg.id || idx} className="p-3 bg-gray-50 border border-gray-100 rounded-2xl max-w-lg space-y-1">
+                    <p className="text-xs text-slate-900 font-medium">{msg.message}</p>
+                    <span className="text-[10px] text-gray-400 block">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
             </div>
-          ) : (
-            messages.map((msg, idx) => (
-              <div key={msg.id || idx} className="p-3 bg-gray-50 border border-gray-100 rounded-2xl max-w-lg space-y-1">
-                <p className="text-xs text-slate-900 font-medium">{msg.message}</p>
-                <span className="text-[10px] text-gray-400 block">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-            ))
-          )}
-          <div ref={messagesEndRef} />
-        </div>
 
-        {/* Message Input Form */}
-        <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-3 pt-4 border-t border-gray-100 mt-4">
-          <input
-            type="text"
-            placeholder="Type your message regarding demo classes or timings..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 text-slate-900"
-          />
-          <button
-            type="submit"
-            className="px-6 py-3 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs uppercase rounded-xl transition-all"
-          >
-            Send
-          </button>
-        </form>
+            {/* Message Input Form */}
+            <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-3 pt-4 border-t border-gray-100 mt-4">
+              <input
+                type="text"
+                placeholder="Type your message regarding demo classes or timings..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 text-slate-900"
+              />
+              <button
+                type="submit"
+                className="px-6 py-3 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs uppercase rounded-xl transition-all"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Brand-Consistent Acknowledgement Modal Popup */}
