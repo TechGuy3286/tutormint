@@ -73,18 +73,44 @@ export default function ParentDashboardPage() {
   const [myJobs, setMyJobs] = useState<any[]>([]);
   const [parentProfile, setParentProfile] = useState<any>(null);
   const [loadingJobs, setLoadingJobs] = useState(true);
+  const [loadingRole, setLoadingRole] = useState(true);
 
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
-    fetchDashboardData();
+    verifyRoleAndFetchData();
   }, []);
 
-  const fetchDashboardData = async () => {
+  const verifyRoleAndFetchData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        router.replace('/parent/login');
+        return;
+      }
+
+      // Role Guard: Verify if user exists in the 'parents' table
+      const { data: parentProfileData, error: parentError } = await supabase
+        .from('parents')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      if (parentError || !parentProfileData) {
+        // Check if they are actually registered as a tutor
+        const { data: tutorProfile } = await supabase
+          .from('tutors')
+          .select('id')
+          .eq('id', user.id)
+          .single();
+
+        if (tutorProfile) {
+          // Caught a tutor trying to access parent dashboard -> redirect to tutor dashboard!
+          router.replace('/tutor/dashboard');
+          return;
+        }
+      }
 
       // Fetch posted jobs
       const { data: jobsData, error: jobsError } = await supabase
@@ -111,8 +137,9 @@ export default function ParentDashboardPage() {
       });
 
     } catch (err: any) {
-      console.error("Error fetching dashboard data:", err.message);
+      console.error("Error verifying role or fetching data:", err.message);
     } finally {
+      setLoadingRole(false);
       setLoadingJobs(false);
     }
   };
@@ -147,6 +174,16 @@ export default function ParentDashboardPage() {
     
     return matchSearch && matchCity && matchArea && matchSkill && matchGrade;
   });
+
+  if (loadingRole) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
+          Verifying parent permissions...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#000000] flex flex-col justify-between">
