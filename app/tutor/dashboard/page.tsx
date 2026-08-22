@@ -12,15 +12,17 @@ export default function TutorDashboardPage() {
   const supabase = createClient()
   const router = useRouter()
 
-  // Role Guard: Verify if the logged-in user is actually a tutor
+  // Role Guard: Verify if the logged-in user is actually a tutor using getSession()
   useEffect(() => {
     const verifyTutorRole = async () => {
       try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-        if (authError || !user) {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError || !session?.user) {
           window.location.href = '/login'
           return
         }
+
+        const user = session.user
 
         // Check if user exists in the 'tutors' table using maybeSingle()
         const { data: tutorProfile, error: tutorError } = await supabase
@@ -38,11 +40,9 @@ export default function TutorDashboardPage() {
             .maybeSingle()
 
           if (parentProfile) {
-            // Caught a parent trying to access tutor dashboard! Redirect them.
             window.location.href = '/parent/dashboard'
             return
           } else {
-            // Neither table has them, redirect to unified login
             window.location.href = '/login'
             return
           }
