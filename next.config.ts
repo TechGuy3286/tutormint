@@ -13,28 +13,6 @@ const nextConfig: NextConfig = {
         destination: '/login',
         permanent: true,
       },
-    ];
-  },
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'X-Content-Type-Options',
-            nosniff: 'nosniff',
-          },
-        ],
-      },
-    ];
-  },
-};
-
-// Force canonical www domain consistency
-module.exports = {
-  ...nextConfig,
-  async redirects() {
-    return [
       {
         source: '/:path*',
         has: [
