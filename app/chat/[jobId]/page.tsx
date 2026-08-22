@@ -156,9 +156,17 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
   }
 
   const handleSendDemoClassRequest = async (tutorName: string) => {
+    // Prevent duplicate requests if already sent or pending acceptance
+    if (job?.status === 'Pending Tutor Acceptance' || job?.status === 'Accepted by Tutor' || job?.status === 'Awarded') {
+      setModalNotification({
+        title: "Demo Request Already Sent! ⚠️",
+        message: "A Demo Class Request has already been dispatched for this job requirement. Please wait for the tutor to accept or respond."
+      })
+      return
+    }
+
     const demoMessage = `📅 Demo Class Request sent to ${tutorName} for requirement [${job?.job_tx_id}]: "${job?.title}". Please confirm your available time slot!`
     
-    // Update job status to pending acceptance in database
     await supabase
       .from('parent_jobs')
       .update({ status: 'Pending Tutor Acceptance' })
@@ -210,9 +218,8 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
   }
 
   const matchedTutors = allAvailableTutors.filter(t => !job?.city || t.city.toLowerCase() === job.city.toLowerCase());
-  
-  // Check if chat is unlocked (Accepted by tutor or awarded)
   const isChatUnlocked = job?.status === 'Accepted by Tutor' || job?.status === 'Awarded';
+  const isRequestAlreadySent = job?.status === 'Pending Tutor Acceptance' || job?.status === 'Accepted by Tutor' || job?.status === 'Awarded';
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 my-8 space-y-6 font-sans">
@@ -259,9 +266,13 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
               </div>
               <button
                 onClick={() => handleSendDemoClassRequest(tutor.name)}
-                className="px-4 py-2.5 bg-[#d60008] hover:bg-[#b50007] text-white text-[11px] font-extrabold rounded-xl transition-all shadow-sm whitespace-nowrap"
+                className={`px-4 py-2.5 text-[11px] font-extrabold rounded-xl transition-all shadow-sm whitespace-nowrap ${
+                  isRequestAlreadySent 
+                    ? 'bg-amber-100 text-amber-800 cursor-pointer' 
+                    : 'bg-[#d60008] hover:bg-[#b50007] text-white'
+                }`}
               >
-                📅 Send Demo Class
+                {isRequestAlreadySent ? '⏳ Request Sent' : '📅 Send Demo Class'}
               </button>
             </div>
           ))}
