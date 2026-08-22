@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 
 const verifiedTutorsList = [
   {
@@ -24,6 +26,57 @@ const verifiedTutorsList = [
 export default function AdminSocialSharePage() {
   const [selectedTutor, setSelectedTutor] = useState(verifiedTutorsList[0]);
   const [copied, setCopied] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const router = useRouter()
+  const supabase = createClient()
+
+  useEffect(() => {
+    checkAdminAccess();
+  }, []);
+
+  const checkAdminAccess = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Restrict access strictly to your admin email address
+      if (user && user.email === 'techguy3286@gmail.com') {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    } catch (err) {
+      setIsAdmin(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-sm font-bold text-slate-900">Verifying admin credentials...</div>;
+  }
+
+  // If not admin, display strict Access Denied screen
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+        <div className="bg-white p-8 rounded-3xl max-w-md w-full text-center space-y-4 shadow-xl border border-gray-200">
+          <span className="text-4xl">🔒</span>
+          <h1 className="text-xl font-black text-slate-900">Access Restricted</h1>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            This is a secure admin-only area. Regular users and parents do not have permission to view or generate social media posts.
+          </p>
+          <button
+            onClick={() => router.push('/parent/dashboard')}
+            className="w-full py-3 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md"
+          >
+            Return to Dashboard ➔
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const hashtags = "#TutorMint #VerifiedTutor #HomeTutorPakistan #EducationGrowth #DirectTutors";
   
@@ -43,8 +96,15 @@ export default function AdminSocialSharePage() {
   return (
     <div className="max-w-4xl mx-auto p-6 my-10 space-y-8 font-sans">
       <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
-        <h1 className="text-xl font-black text-slate-900">Admin Social Media Post Generator</h1>
-        <p className="text-xs text-gray-500 mt-1">Select any verified tutor to instantly generate brand-themed promotional posts for social media.</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-xl font-black text-slate-900">Admin Social Media Post Generator</h1>
+            <p className="text-xs text-gray-500 mt-1">Select any verified tutor to instantly generate brand-themed promotional posts for social media.</p>
+          </div>
+          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold rounded-full uppercase">
+            Admin Verified
+          </span>
+        </div>
         
         <div className="mt-4 flex gap-3">
           {verifiedTutorsList.map((tutor) => (
