@@ -13,8 +13,9 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [awarding, setAwarding] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [tutorId, setTutorId] = useState<string | null>(null)
   
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -34,7 +35,6 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
         },
         (payload) => {
           setMessages((prev) => {
-            // Prevent duplicate entries if already added optimistically
             if (prev.some((msg) => msg.id === payload.new.id)) return prev
             return [...prev, payload.new]
           })
@@ -53,6 +53,8 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
 
   const fetchJobAndMessages = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+
       const { data: jobData, error: jobError } = await supabase
         .from('parent_jobs')
         .select('*')
@@ -70,6 +72,14 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
 
       if (msgError) throw msgError
       setMessages(msgData || [])
+
+      // Automatically find the tutor's ID (the sender who is not the current user)
+      if (msgData && user) {
+        const foundTutorMsg = msgData.find((m: any) => m.sender_id !== user.id)
+        if (foundTutorMsg) {
+          setTutorId(foundTutorMsg.sender_id)
+        }
+      }
     } catch (err: any) {
       console.error(err.message)
     } finally {
@@ -82,7 +92,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
     if (!newMessage.trim()) return
 
     const messageText = newMessage.trim()
-    setNewMessage('') // Clear input immediately for snappy UX
+    setNewMessage('')
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -100,20 +110,26 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
     }
   }
 
-  const handleAwardJob = async (tutorUserId: string, tutorName: string) => {
-    if (!confirm(`Are you sure you want to award this job to ${tutorName}? This will close the listing and lock their time slot.`)) return
+  const handleAwardJob = async () => {
+    if (!tutorId) {
+      alert('Unable to identify the tutor in this conversation yet. Wait for a message from them.')
+      return
+    }
+
+    if (!confirm('Are you sure you want to award this job? This will close the listing and lock their time slot.')) return
     setAwarding(true)
 
     try {
       const res = await fetch('/api/parent/jobs/close', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobTxId: jobId, awardedTutorId: tutorUserId }),
+        body: JSON.stringify({ jobTxId: jobId, awardedTutorId: tutorId }),
       })
 
-      if (!res.ok) throw new Error('Failed to close and award job')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to close and award job')
 
-      alert('Job successfully awarded! Time slot locked and stakeholder tutors notified.')
+      alert('Job successfully awarded! Time slot locked.')
       router.push('/parent/dashboard')
     } catch (err: any) {
       alert(err.message)
@@ -143,8 +159,8 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
 
         {job?.status === 'active' && (
           <button
-            onClick={() => handleAwardJob('tutor-user-id-placeholder', 'Assigned Tutor')}
-            disabled={awarding}
+            onClick={handleAwardJob}
+            disabled={awarding || !tutorId}
             className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md disabled:opacity-50"
           >
             {awarding ? 'Processing...' : 'Award Job & Lock Slot'}
