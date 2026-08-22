@@ -1,64 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function UnifiedLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [checkingSession, setCheckingSession] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const supabase = createClient()
-
-  useEffect(() => {
-    const checkActiveSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user) {
-          await routeUserToDashboard(session.user.id)
-          return
-        }
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setCheckingSession(false)
-      }
-    }
-    checkActiveSession()
-  }, [supabase])
-
-  const routeUserToDashboard = async (userId: string) => {
-    // 1. Check if user is a tutor
-    const { data: tutorProfile, error: tutorErr } = await supabase
-      .from('tutors')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle()
-
-    if (tutorProfile) {
-      window.location.href = '/tutor/dashboard'
-      return
-    }
-
-    // 2. Check if user is a parent
-    const { data: parentProfile, error: parentErr } = await supabase
-      .from('parents')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle()
-
-    if (parentProfile) {
-      window.location.href = '/parent/dashboard'
-      return
-    }
-
-    // 3. If neither profile exists, log them out and show error
-    await supabase.auth.signOut()
-    setError('No profile found for this account in the database. Please register first.')
-    setLoading(false)
-  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,17 +27,34 @@ export default function UnifiedLoginPage() {
       return
     }
 
-    await routeUserToDashboard(data.session.user.id)
-  }
+    const userId = data.session.user.id
 
-  if (checkingSession) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Verifying active session...
-        </div>
-      </div>
-    )
+    // Check role and route accordingly
+    const { data: tutorProfile } = await supabase
+      .from('tutors')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (tutorProfile) {
+      window.location.href = '/tutor/dashboard'
+      return
+    }
+
+    const { data: parentProfile } = await supabase
+      .from('parents')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (parentProfile) {
+      window.location.href = '/parent/dashboard'
+      return
+    }
+
+    await supabase.auth.signOut()
+    setError('No profile found for this account in the database.')
+    setLoading(false)
   }
 
   return (
