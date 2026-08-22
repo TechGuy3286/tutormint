@@ -4,7 +4,6 @@ import { useState, useEffect, use, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-// Mock database of verified tutors to match dynamically with the job
 const allAvailableTutors = [
   {
     id: 1,
@@ -57,6 +56,9 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
   const [loading, setLoading] = useState(true)
   const [awarding, setAwarding] = useState(false)
   const [tutorId, setTutorId] = useState<string | null>(null)
+  
+  // Branded Modal Notification State
+  const [modalNotification, setModalNotification] = useState<{ title: string; message: string } | null>(null)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
@@ -147,13 +149,22 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
 
       if (error) throw error
     } catch (err: any) {
-      alert(err.message)
+      setModalNotification({
+        title: "Action Error",
+        message: err.message
+      })
     }
   }
 
   const handleSendDemoClassRequest = (tutorName: string) => {
     const demoMessage = `📅 Demo Class Request sent to ${tutorName} for requirement [${job?.job_tx_id}]: "${job?.title}". Please confirm your available time slot!`
     handleSendMessage({ preventDefault: () => {} } as any, demoMessage)
+    
+    // Show Branded Acknowledgement Popup
+    setModalNotification({
+      title: "Demo Class Request Dispatched! 🚀",
+      message: `Your trial class invitation has been successfully sent to ${tutorName} for Job ID: ${job?.job_tx_id}. They will respond with their availability.`
+    })
   }
 
   const handleAwardJob = async () => {
@@ -170,10 +181,19 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to close and award job')
 
-      alert('Job successfully awarded! Time slot locked.')
-      router.push('/parent/dashboard')
+      setModalNotification({
+        title: "Job Successfully Awarded! 🎉",
+        message: "The time slot has been securely locked and stakeholder tutors have been notified."
+      })
+      
+      setTimeout(() => {
+        router.push('/parent/dashboard')
+      }, 2000)
     } catch (err: any) {
-      alert(err.message)
+      setModalNotification({
+        title: "Error",
+        message: err.message
+      })
     } finally {
       setAwarding(false)
     }
@@ -183,7 +203,6 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
     return <div className="min-h-screen flex items-center justify-center text-sm font-bold text-slate-900">Loading secure conversation...</div>
   }
 
-  // Filter matched tutors based on the job's city
   const matchedTutors = allAvailableTutors.filter(t => !job?.city || t.city.toLowerCase() === job.city.toLowerCase());
 
   return (
@@ -275,6 +294,27 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
           </button>
         </form>
       </div>
+
+      {/* Brand-Consistent Acknowledgement Modal Popup */}
+      {modalNotification && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-8 rounded-3xl max-w-md w-full space-y-6 shadow-2xl animate-in fade-in zoom-in-95 text-center">
+            <div className="space-y-2">
+              <span className="text-3xl">✨</span>
+              <h3 className="text-lg font-black text-slate-900">{modalNotification.title}</h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                {modalNotification.message}
+              </p>
+            </div>
+            <button
+              onClick={() => setModalNotification(null)}
+              className="w-full py-3 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md"
+            >
+              Got It, Continue ➔
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   )
