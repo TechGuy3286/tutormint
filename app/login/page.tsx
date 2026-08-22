@@ -14,20 +14,13 @@ export default function UnifiedLoginPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    const checkActiveSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user?.email) {
-          setActiveUser(session.user.email)
-        }
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setCheckingSession(false)
-      }
+    // Check localStorage first for instant client-side detection
+    const savedEmail = localStorage.getItem('tm_email')
+    if (savedEmail) {
+      setActiveUser(savedEmail)
     }
-    checkActiveSession()
-  }, [supabase])
+    setCheckingSession(false)
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,31 +38,12 @@ export default function UnifiedLoginPage() {
       return
     }
 
-    const userEmail = data.session.user.email || ''
+    const userEmail = data.session.user.email || email
 
-    // Direct routing based on email role identifier
-    if (userEmail.includes('tutor')) {
-      window.location.href = '/tutor/dashboard'
-      return
-    }
-    if (userEmail.includes('parent')) {
-      window.location.href = '/parent/dashboard'
-      return
-    }
+    // Store in localStorage so it never gets lost across page navigation
+    localStorage.setItem('tm_logged_in', 'true')
+    localStorage.setItem('tm_email', userEmail)
 
-    window.location.href = '/tutor/dashboard'
-  }
-
-  const goToDashboard = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      window.location.reload()
-      return
-    }
-
-    const userEmail = session.user.email || ''
-
-    // Instant direct routing bypassing database lookup errors
     if (userEmail.includes('parent')) {
       window.location.href = '/parent/dashboard'
     } else {
@@ -77,11 +51,27 @@ export default function UnifiedLoginPage() {
     }
   }
 
+  const goToDashboard = () => {
+    const savedEmail = localStorage.getItem('tm_email') || ''
+    if (savedEmail.includes('parent')) {
+      window.location.href = '/parent/dashboard'
+    } else {
+      window.location.href = '/tutor/dashboard'
+    }
+  }
+
+  const handleLogout = async () => {
+    localStorage.removeItem('tm_logged_in')
+    localStorage.removeItem('tm_email')
+    await supabase.auth.signOut()
+    window.location.reload()
+  }
+
   if (checkingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Verifying session...
+          Loading...
         </div>
       </div>
     )
@@ -107,10 +97,7 @@ export default function UnifiedLoginPage() {
               Go to Your Dashboard →
             </button>
             <button
-              onClick={async () => {
-                await supabase.auth.signOut()
-                window.location.reload()
-              }}
+              onClick={handleLogout}
               className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-slate-700 font-bold text-xs tracking-wider uppercase rounded-xl transition-all"
             >
               Log Out
@@ -124,7 +111,6 @@ export default function UnifiedLoginPage() {
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full mx-auto space-y-8 bg-white p-8 rounded-3xl shadow-xl border border-gray-100">
-        
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-black text-black tracking-tight">TUTORMINT</h1>
           <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">Unified Portal Access</p>
@@ -169,16 +155,6 @@ export default function UnifiedLoginPage() {
             {loading ? 'Authenticating & Routing...' : 'Sign In to TutorMint'}
           </button>
         </form>
-
-        <div className="text-center pt-4 border-t border-gray-100 space-y-2">
-          <p className="text-xs text-gray-500">
-            Want to become a tutor? <a href="/register/tutor" className="text-black font-bold hover:underline">Apply here</a>
-          </p>
-          <p className="text-xs text-gray-500">
-            Need to post a job? <a href="/register/parent" className="text-emerald-600 font-bold hover:underline">Parent Signup</a>
-          </p>
-        </div>
-
       </div>
     </main>
   )
