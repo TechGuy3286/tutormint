@@ -1,226 +1,144 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useState } from 'react'
 
-export default function TutorDashboard() {
-  const router = useRouter();
-  const [tutor, setTutor] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
-
-  useEffect(() => {
-    const storedEmail = localStorage.getItem("tutorEmail");
-    if (!storedEmail) {
-      router.push("/tutor/login");
-      return;
-    }
-    fetchTutorProfile(storedEmail);
-  }, []);
-
-  const fetchTutorProfile = async (email: string) => {
-    try {
-      const res = await fetch(`/api/tutor/profile?email=${email}`);
-      const data = await res.json();
-      if (res.ok) {
-        setTutor(data.tutor);
-      } else {
-        router.push("/tutor/login");
-      }
-    } catch (err) {
-      console.error("Failed to load profile", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVideoUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!videoFile) {
-      setErrorMsg("Please select your 60-second video file showing your degree.");
-      return;
-    }
-
-    setUploading(true);
-    setMsg("");
-    setErrorMsg("");
-
-    try {
-      const simulatedYouTubeUrl = `https://youtube.com/watch?v=tutormint_${Date.now()}`;
-
-      const res = await fetch("/api/tutor/complete-profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: tutor.email,
-          introVideo: simulatedYouTubeUrl,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setTutor(data.tutor);
-        setMsg("Video uploaded successfully and submitted to admin for final verification!");
-      } else {
-        setErrorMsg(data.error || "Upload failed.");
-      }
-    } catch (err) {
-      setErrorMsg("Server error during upload.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("tutorEmail");
-    router.push("/tutor/login");
-  };
-
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-sm text-gray-500 font-medium">Loading your dashboard...</div>;
+export default function TutorDashboardPage() {
+  const tutorData = {
+    id: 'TM-8821',
+    name: 'Sir Bilal Ahmed',
+    title: 'Expert O/A Level Mathematics & Physics Tutor',
+    area: 'DHA Phase 5, Lahore',
+    description: 'Over 5 years of verified experience helping students score A* grades in Cambridge exams.',
+    profileLink: 'https://www.tutormint.org/tutor/sir-bilal-ahmed',
+    demoRating: '4.9 ★',
+    methodRating: '4.8 ★',
+    completionPercentage: 100,
+    trialStatus: 'First Month Free Trial Active (Trust Fee 199 PKR due on completion)'
   }
 
-  if (!tutor) return null;
+  const [notification, setNotification] = useState('🔍 A parent in DHA Phase 5 viewed your profile (2 mins ago)')
+  const [referralCopied, setReferralCopied] = useState(false)
 
-  const progress = tutor.introVideo ? 100 : 50;
-  const credits = tutor.connectsBalance ?? tutor.connects ?? 15;
+  const whatsappShareText = encodeURIComponent(
+    `🎓 *TutorMint Verified Tutor Profile*\n\n` +
+    `*Name:* ${tutorData.name}\n` +
+    `*Title:* ${tutorData.title}\n` +
+    `*Area:* ${tutorData.area}\n\n` +
+    `"${tutorData.description}"\n\n` +
+    `🔗 *View & Connect Directly (Zero Commission):*\n${tutorData.profileLink}`
+  )
+
+  const handleWhatsAppShare = () => {
+    window.open(`https://wa.me/?text=${whatsappShareText}`, '_blank')
+  }
+
+  const handleCopyReferral = () => {
+    navigator.clipboard.writeText('https://www.tutormint.org/register?ref=TM-8821')
+    setReferralCopied(true)
+    setTimeout(() => setReferralCopied(false), 2000)
+  }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616]">
-      {/* Top Navbar */}
-      <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-xs">
-        <Link href="/" className="text-2xl font-bold tracking-tight">
-          Tutor<span className="text-[#B3191F]">Mint</span>
-          <span className="ml-2 text-xs bg-gray-900 text-white px-2 py-0.5 rounded uppercase font-semibold">Tutor Portal</span>
-        </Link>
-        <div className="flex items-center space-x-6">
-          <span className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full">
-            ⚡ Application Credits: {credits}
+    <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+        {/* Curiosity Notification Banner */}
+        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse"></span>
+            <p className="text-xs font-bold text-emerald-900">{notification}</p>
+          </div>
+          <span className="text-[10px] font-mono text-emerald-700 uppercase bg-emerald-100 px-2.5 py-1 rounded-full font-semibold">
+            Live Alert
           </span>
-          <span className="text-sm font-bold text-gray-800">{tutor.fullName}</span>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors"
-          >
-            Logout
-          </button>
         </div>
-      </header>
 
-      <main className="max-w-4xl mx-auto p-6 mt-6 space-y-6">
-        {/* Quick Links & Job Market Banner */}
-        <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-2xl p-6 flex justify-between items-center shadow-sm">
-          <div>
-            <h2 className="text-lg font-extrabold">Tuition Job Market</h2>
-            <p className="text-xs text-gray-300 mt-1">Browse available student requirements and apply using your application credits.</p>
+        {/* Profile Header & Status Card */}
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono font-bold text-slate-400 bg-gray-100 px-2 py-0.5 rounded">{tutorData.id}</span>
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200">
+                100% Profile Completed ✓
+              </span>
+            </div>
+            <h1 className="text-2xl font-black text-slate-900 mt-2">{tutorData.name}</h1>
+            <p className="text-sm font-medium text-slate-600">{tutorData.title}</p>
+            <p className="text-xs text-gray-400">📍 {tutorData.area}</p>
           </div>
-          <Link
-            href="/tutor/jobs"
-            className="px-5 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold text-xs rounded-xl transition-colors shadow-sm"
-          >
-            Browse Jobs →
-          </Link>
+
+          <div className="bg-slate-900 text-white p-5 rounded-xl text-center space-y-1 w-full md:w-auto">
+            <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-400">Billing Status</span>
+            <p className="text-xs font-medium text-gray-200 max-w-[220px]">{tutorData.trialStatus}</p>
+          </div>
         </div>
 
-        {/* Profile Completion & Verification Meter */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
-          <div className="flex justify-between items-center">
+        {/* Two-Tier Ratings Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex justify-between items-center">
             <div>
-              <h3 className="text-lg font-extrabold">Verification & Profile Completion</h3>
-              <p className="text-xs text-gray-500">
-                Status: <span className="uppercase font-bold text-blue-600">{tutor.profileCompletionStatus || "incomplete"}</span>
-              </p>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Demo Class Rating</span>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{tutorData.demoRating}</h3>
+              <p className="text-[11px] text-gray-500 mt-0.5">Based on demo acceptance & response speed</p>
             </div>
-            <div className="text-right">
-              <span className="text-2xl font-black text-gray-900">{progress}%</span>
-              <span className="block text-xs text-gray-400">Completion Meter</span>
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl font-bold">
+              ★
             </div>
           </div>
 
-          <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all duration-500 ${progress === 100 ? "bg-green-600" : "bg-[#B3191F]"}`}
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
-
-          <div className="flex justify-between text-xs text-gray-500 font-medium">
-            <span>✓ Email Verified & Auto-Approved</span>
-            <span>{tutor.introVideo ? "✓" : "○"} 60s Video Intro & Degree Showcase</span>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex justify-between items-center">
+            <div>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Teaching Method Rating</span>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{tutorData.methodRating}</h3>
+              <p className="text-[11px] text-gray-500 mt-0.5">Based on parent post-tuition feedback</p>
+            </div>
+            <div className="w-12 h-12 bg-slate-100 text-slate-900 rounded-2xl flex items-center justify-center text-xl font-bold">
+              📚
+            </div>
           </div>
         </div>
 
-        {/* Video Upload & Degree Showcase Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 space-y-6">
+        {/* WhatsApp Profile Sharing Section */}
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 space-y-6">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Upload 60-Second Video Introduction</h3>
+            <h2 className="text-lg font-bold text-slate-900">Share Profile on WhatsApp</h2>
             <p className="text-xs text-gray-500 mt-1">
-              Upload a 60-second video introducing yourself and <strong>clearly showing your degree/certificates</strong> on camera. Videos upload directly to our platform and sync to the official TutorMint YouTube channel.
+              Instantly broadcast your verified profile card, description, and direct link to WhatsApp groups or prospective parents.
             </p>
           </div>
 
-          {msg && <div className="p-4 bg-green-50 border border-green-200 text-green-800 text-xs font-bold rounded-xl">{msg}</div>}
-          {errorMsg && <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-xl">{errorMsg}</div>}
-
-          <form onSubmit={handleVideoUpload} className="space-y-5">
-            <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:border-gray-400 transition-colors">
-              <input
-                type="file"
-                accept="video/*"
-                onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-gray-900 file:text-white hover:file:bg-black cursor-pointer"
-              />
-              <p className="text-xs text-gray-400 mt-2">MP4, MOV, or WebM up to 100MB (Max 60 seconds)</p>
-            </div>
-
-            {tutor.introVideo && (
-              <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-xs space-y-1">
-                <span className="font-bold text-blue-900">Submitted Verification Video:</span>
-                <div>
-                  <a href={tutor.introVideo} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-medium">
-                    View Synced YouTube Verification Video
-                  </a>
-                </div>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={uploading}
-              className="w-full py-3 bg-gray-900 hover:bg-black text-white font-bold rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
-            >
-              {uploading ? "Uploading to Platform & YouTube..." : "Submit Video for Final Admin Verification"}
-            </button>
-          </form>
-        </div>
-
-        {/* Tutor Details Summary Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
-          <h3 className="text-sm font-bold uppercase text-gray-400">Registered Profile Details</h3>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="block text-xs text-gray-400 uppercase">Full Name</span>
-              <span className="font-medium text-gray-900">{tutor.fullName}</span>
-            </div>
-            <div>
-              <span className="block text-xs text-gray-400 uppercase">Email Address</span>
-              <span className="font-medium text-gray-900">{tutor.email}</span>
-            </div>
-            <div>
-              <span className="block text-xs text-gray-400 uppercase">Phone & WhatsApp</span>
-              <span className="font-medium text-gray-900">{tutor.phone_number}</span>
-            </div>
-            <div>
-              <span className="block text-xs text-gray-400 uppercase">Location</span>
-              <span className="font-medium text-gray-900">{tutor.city}, {tutor.province}</span>
-            </div>
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2 font-mono text-xs text-slate-700">
+            <p><strong>Name:</strong> {tutorData.name}</p>
+            <p><strong>Title:</strong> {tutorData.title}</p>
+            <p className="text-gray-500 italic">"{tutorData.description}"</p>
+            <p className="text-emerald-600 underline">{tutorData.profileLink}</p>
           </div>
+
+          <button
+            onClick={handleWhatsAppShare}
+            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs tracking-widest uppercase rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+          >
+            <span>💬 Share Directly to WhatsApp</span>
+          </button>
         </div>
-      </main>
-    </div>
-  );
+
+        {/* Refer-a-Friend Section */}
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Refer a Fellow Tutor</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Help grow Pakistan's largest verified tutor network. Share your unique referral link with qualified colleagues.
+            </p>
+          </div>
+          <button
+            onClick={handleCopyReferral}
+            className="w-full md:w-auto px-6 py-3.5 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs tracking-wider uppercase rounded-xl shadow transition-all whitespace-nowrap"
+          >
+            {referralCopied ? 'Referral Link Copied! ✓' : 'Copy Referral Link'}
+          </button>
+        </div>
+
+      </div>
+    </main>
+  )
 }

@@ -1,351 +1,157 @@
-"use client";
+'use client'
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useState } from 'react'
+import Link from 'next/link'
 
-export default function UnifiedClientMarketplace() {
-  const [parentEmail, setParentEmail] = useState("");
-  const [parent, setParent] = useState<any>(null);
-  const [tutors, setTutors] = useState<any[]>([]);
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedCity, setSelectedCity] = useState("all");
-  const [selectedSlot, setSelectedSlot] = useState("all");
-  const [audienceType, setAudienceType] = useState<"parent" | "academy">("parent");
+// Sample mock data for verified tutors matching TutorMint standards
+const sampleTutors = [
+  {
+    id: 'TM-8821',
+    name: 'Sir Bilal Ahmed',
+    title: 'Expert O/A Level Mathematics & Physics',
+    area: 'DHA Phase 5, Lahore',
+    subjects: ['Mathematics', 'Physics'],
+    demoRating: '4.9 ★',
+    methodRating: '4.8 ★',
+    rate: 'Rs. 25,000 / month',
+    verified: true,
+  },
+  {
+    id: 'TM-9104',
+    name: 'Ms. Ayesha Khan',
+    title: 'Primary & Middle School All-Subjects Specialist',
+    area: 'Gulberg III, Lahore',
+    subjects: ['English', 'Science', 'Urdu'],
+    demoRating: '5.0 ★',
+    methodRating: '4.9 ★',
+    rate: 'Rs. 20,000 / month',
+    verified: true,
+  },
+  {
+    id: 'TM-7342',
+    name: 'Sir Zeeshan Haider',
+    title: 'Computer Science & Programming Tutor',
+    area: 'Model Town, Lahore',
+    subjects: ['Computer Science', 'Python', 'Math'],
+    demoRating: '4.7 ★',
+    methodRating: '4.8 ★',
+    rate: 'Rs. 30,000 / month',
+    verified: true,
+  },
+]
 
-  // Interaction modals & state
-  const [loginModalOpen, setLoginModalOpen] = useState(false);
-  const [postJobModalOpen, setPostJobModalOpen] = useState(false);
-  const [reportModalTutor, setReportModalTutor] = useState<any | null>(null);
-  const [pendingTutor, setPendingTutor] = useState<any | null>(null);
-  const [successModalMsg, setSuccessModalMsg] = useState("");
-  
-  const [reportReason, setReportReason] = useState("");
-  const [reportSuccess, setReportSuccess] = useState(false);
-  const [posting, setPosting] = useState(false);
-  const [msg, setMsg] = useState("");
+export default function ParentBrowsePage() {
+  const [searchSubject, setSearchSubject] = useState('')
+  const [selectedArea, setSelectedArea] = useState('All')
 
-  // Job form state
-  const [title, setTitle] = useState("");
-  const [subjectInput, setSubjectInput] = useState("");
-  const [classLevel, setClassLevel] = useState("");
-  const [budget, setBudget] = useState("");
-  const [city, setCity] = useState("");
-  const [teachingMode, setTeachingMode] = useState("Home Tuition");
-  const [description, setDescription] = useState("");
-
-  useEffect(() => {
-    const stored = localStorage.getItem("parentEmail");
-    if (stored) {
-      setParentEmail(stored);
-      fetchParentData(stored);
-    }
-    fetchTutors();
-  }, []);
-
-  const fetchParentData = async (email: string) => {
-    try {
-      const res = await fetch(`/api/parent/profile?email=${email}`);
-      const data = await res.json();
-      if (res.ok) {
-        setParent(data.parent);
-        fetchJobs();
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchTutors = async () => {
-    try {
-      const res = await fetch("/api/admin/tutors");
-      const data = await res.json();
-      if (res.ok) {
-        setTutors(data.tutors || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchJobs = async () => {
-    try {
-      const res = await fetch("/api/parent/jobs");
-      const data = await res.json();
-      if (res.ok) setJobs(data.jobs || []);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleHireClick = (tutor: any) => {
-    if (!parent) {
-      setPendingTutor(tutor);
-      setLoginModalOpen(true);
-    } else {
-      setSuccessModalMsg(`🎉 Success! Your contact request for ${tutor.fullName} has been logged. Our matching team will connect you via WhatsApp/Call within 10 minutes.`);
-    }
-  };
-
-  const handleLoginOrRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!parentEmail) return;
-    try {
-      const res = await fetch("/api/parent/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: parentEmail, fullName: "Client / Parent" })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setParent(data.parent);
-        localStorage.setItem("parentEmail", parentEmail);
-        setLoginModalOpen(false);
-        fetchJobs();
-        
-        if (pendingTutor) {
-          setSuccessModalMsg(`🎉 Success! Your contact request for ${pendingTutor.fullName} has been logged. Our team will connect you shortly.`);
-          setPendingTutor(null);
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handlePostJob = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!parent) {
-      setLoginModalOpen(true);
-      return;
-    }
-    setPosting(true);
-    setMsg("");
-    const subjects = subjectInput.split(",").map((s) => s.trim()).filter(Boolean);
-
-    try {
-      const res = await fetch("/api/parent/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          parentEmail: parent.email,
-          title,
-          subjects,
-          classLevel,
-          budget,
-          city,
-          province: "Punjab",
-          teachingMode,
-          description,
-        }),
-      });
-      if (res.ok) {
-        setMsg("✨ Job posted successfully! Matching tutors will now contact you.");
-        setTitle("");
-        setSubjectInput("");
-        setClassLevel("");
-        setBudget("");
-        setCity("");
-        setDescription("");
-        fetchJobs();
-        setTimeout(() => setPostJobModalOpen(false), 2000);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setPosting(false);
-    }
-  };
-
-  const filteredTutors = tutors.filter((t) => {
-    const matchesCity = selectedCity === "all" || t.city?.toLowerCase() === selectedCity.toLowerCase();
-    const matchesSlot = selectedSlot === "all" || t.availability?.toLowerCase().includes(selectedSlot.toLowerCase());
-    return matchesCity && matchesSlot;
-  });
+  const filteredTutors = sampleTutors.filter(tutor => {
+    const matchesSubject = tutor.subjects.some(s => s.toLowerCase().includes(searchSubject.toLowerCase())) ||
+                           tutor.name.toLowerCase().includes(searchSubject.toLowerCase())
+    const matchesArea = selectedArea === 'All' || tutor.area.includes(selectedArea)
+    return matchesSubject && matchesArea
+  })
 
   return (
-    <div className="space-y-8 py-6 max-w-6xl mx-auto px-4 sm:px-6 w-full">
-      
-      {/* Client Session Bar */}
-      <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm flex justify-between items-center text-xs">
-        <div>
-          {parent ? (
-            <span className="font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full">🟢 Logged in as: {parent.email}</span>
-          ) : (
-            <span className="text-gray-500 font-medium">Browsing as Guest.</span>
-          )}
-        </div>
-        <div>
-          {parent ? (
-            <button onClick={() => { localStorage.removeItem("parentEmail"); setParent(null); }} className="text-gray-400 hover:text-black font-bold">Logout</button>
-          ) : (
-            <button onClick={() => setLoginModalOpen(true)} className="px-4 py-2 bg-gray-900 hover:bg-black text-white font-bold rounded-xl shadow-xs">Client Login / Register 🔑</button>
-          )}
-        </div>
-      </div>
-
-      {successModalMsg && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-extrabold flex justify-between items-center shadow-sm">
-          <span>{successModalMsg}</span>
-          <button onClick={() => setSuccessModalMsg("")} className="text-emerald-700 font-bold ml-4">✕</button>
-        </div>
-      )}
-
-      {/* Hero Control Box */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4">
+    <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+        
+        {/* Header & Ad Posting Banner */}
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center gap-6">
           <div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight">Browse Verified Home Tutors & Slots</h1>
-            <p className="text-xs text-gray-500">Explore camera-verified educators, profile pictures, and available teaching hours below.</p>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Find Verified Tutors</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Browse directly through verified tutors in your neighborhood. No middlemen, direct peer-to-peer connection.
+            </p>
           </div>
-          <button onClick={() => setPostJobModalOpen(true)} className="px-4 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white text-xs font-bold rounded-xl shadow-sm transition-colors">
-            📝 Post Personalized Job Requirement
-          </button>
-        </div>
-
-        <div className="flex bg-gray-100 p-1 rounded-xl max-w-sm">
-          <button onClick={() => setAudienceType("parent")} className={`flex-1 px-4 py-2 text-xs font-bold rounded-lg ${audienceType === "parent" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>👨‍👩‍👧‍👦 Parents & Students</button>
-          <button onClick={() => setAudienceType("academy")} className={`flex-1 px-4 py-2 text-xs font-bold rounded-lg ${audienceType === "academy" ? "bg-white text-black shadow-xs" : "text-gray-500"}`}>🏫 Schools & Academies</button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100 text-xs">
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="font-bold text-gray-400 uppercase text-[10px]">City:</span>
-            {["all", "Lahore", "Multan", "Karachi", "Islamabad"].map((city) => (
-              <button key={city} onClick={() => setSelectedCity(city)} className={`px-3 py-1.5 rounded-lg font-bold capitalize ${selectedCity === city ? "bg-[#B3191F] text-white" : "bg-gray-100 text-gray-700"}`}>{city}</button>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="font-bold text-gray-400 uppercase text-[10px]">Time Slot:</span>
-            {["all", "Morning", "Evening", "Weekends"].map((slot) => (
-              <button key={slot} onClick={() => setSelectedSlot(slot)} className={`px-3 py-1.5 rounded-lg font-bold capitalize ${selectedSlot === slot ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}>{slot}</button>
-            ))}
+          <div className="w-full md:w-auto text-center">
+            <Link 
+              href="/parent/post-job" 
+              className="inline-block px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs tracking-wider uppercase rounded-xl shadow-md transition-all"
+            >
+              Didn't Find a Match? Post an Ad
+            </Link>
           </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="text-center py-16 text-xs font-bold text-gray-400 uppercase">Loading Verified Tutors...</div>
-      ) : filteredTutors.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center space-y-3">
-          <p className="text-xs text-gray-500 font-bold">No tutors found matching your filters.</p>
+        {/* Filter Controls */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Search Subject or Tutor Name</label>
+            <input
+              type="text"
+              value={searchSubject}
+              onChange={(e) => setSearchSubject(e.target.value)}
+              placeholder="e.g. Mathematics, Bilal..."
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Filter by Area (Lahore)</label>
+            <select
+              value={selectedArea}
+              onChange={(e) => setSelectedArea(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+            >
+              <option value="All">All Areas</option>
+              <option value="DHA">DHA</option>
+              <option value="Gulberg">Gulberg</option>
+              <option value="Model Town">Model Town</option>
+            </select>
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTutors.map((t) => (
-            <div key={t._id} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4 flex flex-col justify-between">
-              <div className="space-y-4">
-                
-                {/* Profile Picture & Name Header (Linked to Individual Profile for SEO) */}
-                <div className="flex items-center space-x-4">
-                  <Link href={`/tutor/${t._id}`}>
-                    {t.profilePic ? (
-                      <img src={t.profilePic} alt={t.fullName} className="w-14 h-14 rounded-2xl object-cover border border-gray-200 shadow-xs hover:opacity-90 transition-opacity" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center text-xl shadow-xs">
-                        🧑‍🏫
-                      </div>
-                    )}
-                  </Link>
-                  <div className="space-y-1 flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <Link href={`/tutor/${t._id}`}>
-                        <h3 className="text-base font-black text-gray-900 truncate hover:text-[#B3191F] transition-colors">{t.fullName}</h3>
-                      </Link>
-                      <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-black rounded-full shrink-0">🟢 Verified</span>
-                    </div>
-                    <p className="text-xs text-gray-500 font-medium truncate">📍 {t.city} ({t.areaName || "General"})</p>
+
+        {/* Tutor Directory Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {filteredTutors.length > 0 ? (
+            filteredTutors.map((tutor) => (
+              <div key={tutor.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col justify-between space-y-4 hover:border-emerald-500 transition-all">
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xs font-bold text-slate-400">{tutor.id}</span>
+                    <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-lg border border-emerald-200">
+                      Verified Tutor ✓
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900">{tutor.name}</h3>
+                  <p className="text-xs font-medium text-slate-600 mt-0.5">{tutor.title}</p>
+                  <p className="text-xs text-gray-400 mt-1">📍 {tutor.area}</p>
+
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {tutor.subjects.map(sub => (
+                      <span key={sub} className="px-2.5 py-1 bg-gray-100 text-slate-700 text-xs font-medium rounded-lg">
+                        {sub}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
-                {/* Availability Slot Badge */}
-                <div className="p-2.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between text-xs">
-                  <span className="text-blue-700 font-bold">⏰ Time Slot:</span>
-                  <span className="bg-white text-blue-900 font-extrabold px-2 py-0.5 rounded shadow-2xs">
-                    {t.availability || "Evening (4 PM - 8 PM)"}
-                  </span>
-                </div>
-
-                <div className="bg-gray-50 p-3 rounded-xl text-xs space-y-1">
-                  <div><span className="text-gray-400 text-[10px] uppercase font-bold">Degree:</span> <strong className="text-gray-800">{t.degrees || "Verified Academic Profile"}</strong></div>
-                  <div><span className="text-gray-400 text-[10px] uppercase font-bold">Mode:</span> <strong className="text-gray-800">{t.teachingMode || "Physical & Online"}</strong></div>
+                <div className="pt-4 border-t border-gray-100 space-y-3">
+                  <div className="flex justify-between text-xs font-semibold text-slate-700">
+                    <span>Demo: <strong className="text-emerald-600">{tutor.demoRating}</strong></span>
+                    <span>Method: <strong className="text-slate-900">{tutor.methodRating}</strong></span>
+                  </div>
+                  <div className="text-sm font-bold text-slate-900">{tutor.rate}</div>
+                  
+                  <button 
+                    onClick={() => alert(`Demo request sent to ${tutor.name}. Awaiting acceptance.`)}
+                    className="w-full py-3 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs tracking-wider uppercase rounded-xl shadow transition-all"
+                  >
+                    Request Free Demo Class
+                  </button>
                 </div>
               </div>
-
-              {/* Actions: Hire & Tiny Red Report User Button */}
-              <div className="pt-4 border-t border-gray-100 flex items-center gap-2">
-                <button onClick={() => handleHireClick(t)} className="flex-1 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white text-center font-bold text-xs rounded-xl shadow-sm transition-colors">
-                  Hire / Contact ➔
-                </button>
-                <button 
-                  onClick={() => setReportModalTutor(t)} 
-                  className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-extrabold rounded-lg transition-colors border border-red-100"
-                >
-                  ⚠️ Report User
-                </button>
-              </div>
+            ))
+          ) : (
+            <div className="col-span-3 text-center py-12 bg-white rounded-2xl border border-gray-200">
+              <p className="text-gray-500 text-sm">No tutors match your specific filter.</p>
+              <Link href="/parent/post-job" className="mt-3 inline-block text-emerald-600 font-bold text-xs uppercase tracking-wider underline">
+                Post a Job Ad instead →
+              </Link>
             </div>
-          ))}
+          )}
         </div>
-      )}
 
-      {/* LOGIN MODAL */}
-      {loginModalOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-              <h3 className="text-sm font-extrabold">Client Login</h3>
-              <button onClick={() => setLoginModalOpen(false)} className="text-gray-400 hover:text-black font-bold">✕</button>
-            </div>
-            <form onSubmit={handleLoginOrRegister} className="space-y-3">
-              <input type="email" required value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} placeholder="parent@example.com" className="w-full p-3 border border-gray-200 rounded-xl text-xs" />
-              <button type="submit" className="w-full py-3 bg-[#B3191F] text-white font-bold text-xs rounded-xl">Continue to Dashboard ➔</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* POST JOB MODAL */}
-      {postJobModalOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full space-y-4">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-              <h3 className="text-sm font-extrabold">Post Job Requirement</h3>
-              <button onClick={() => setPostJobModalOpen(false)} className="text-gray-400 hover:text-black font-bold">✕</button>
-            </div>
-            {msg && <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold">{msg}</div>}
-            <form onSubmit={handlePostJob} className="space-y-3 text-xs">
-              <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Job Title (e.g. Math Tutor)" className="w-full p-3 border border-gray-200 rounded-xl" />
-              <button type="submit" className="w-full py-3 bg-[#B3191F] text-white font-bold rounded-xl">Publish Requirement 🚀</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* REPORT MODAL */}
-      {reportModalTutor && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-              <h3 className="text-sm font-extrabold text-red-600">Report User</h3>
-              <button onClick={() => setReportModalTutor(null)} className="text-gray-400 hover:text-black font-bold">✕</button>
-            </div>
-            {reportSuccess ? (
-              <div className="p-4 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold text-center">✅ Report submitted successfully.</div>
-            ) : (
-              <form onSubmit={(e) => { e.preventDefault(); setReportSuccess(true); setTimeout(() => { setReportSuccess(false); setReportModalTutor(null); }, 2000); }} className="space-y-3">
-                <textarea rows={3} required value={reportReason} onChange={(e) => setReportReason(e.target.value)} placeholder="Reason for report..." className="w-full p-3 border border-gray-200 rounded-xl text-xs"></textarea>
-                <button type="submit" className="w-full py-2.5 bg-[#B3191F] text-white font-bold text-xs rounded-xl">Submit Report ➔</button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
+      </div>
+    </main>
+  )
 }

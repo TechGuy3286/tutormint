@@ -1,231 +1,130 @@
-"use client";
+'use client'
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
-export default function TutorJobMarket() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [tutor, setTutor] = useState<any>(null);
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [applyingId, setApplyingId] = useState<string | null>(null);
-  const [msg, setMsg] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
+export default function TutorJobsPage() {
+  const [requests, setRequests] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const supabase = createClient()
 
   useEffect(() => {
-    const storedEmail = localStorage.getItem("tutorEmail");
-    if (storedEmail) {
-      setEmail(storedEmail);
-      autoLogin(storedEmail);
-    } else {
-      setLoading(false);
-    }
-  }, []);
+    fetchRequests()
+  }, [])
 
-  const autoLogin = async (tutorEmail: string) => {
+  const fetchRequests = async () => {
     try {
-      const res = await fetch(`/api/tutor/profile?email=${tutorEmail}`);
-      const data = await res.json();
-      if (res.ok) {
-        setTutor(data.tutor);
-        fetchJobs();
-      }
-    } catch (err) {
-      console.error(err);
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('tutor_applications')
+        .select('*, parent_jobs(*)')
+        .eq('tutor_user_id', user.id)
+
+      if (error) throw error
+      setRequests(data || [])
+    } catch (err: any) {
+      console.error(err.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
-
-  const handleManualLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMsg("");
-    try {
-      const res = await fetch(`/api/tutor/profile?email=${email}`);
-      const data = await res.json();
-      if (res.ok) {
-        setTutor(data.tutor);
-        localStorage.setItem("tutorEmail", email);
-        fetchJobs();
-      } else {
-        setErrorMsg("Tutor profile not found.");
-      }
-    } catch (err) {
-      setErrorMsg("Authentication error.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchJobs = async () => {
-    try {
-      const res = await fetch("/api/parent/jobs");
-      const data = await res.json();
-      if (res.ok) setJobs(data.jobs);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleApply = async (jobId: string) => {
-    setApplyingId(jobId);
-    setMsg("");
-    setErrorMsg("");
-
-    try {
-      const res = await fetch("/api/tutor/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tutorEmail: email, jobId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMsg("✨ Application submitted successfully!");
-        const profileRes = await fetch(`/api/tutor/profile?email=${email}`);
-        const profileData = await profileRes.json();
-        if (profileRes.ok) setTutor(profileData.tutor);
-        fetchJobs();
-      } else {
-        setErrorMsg(data.error || "Failed to apply.");
-      }
-    } catch (err) {
-      setErrorMsg("Server error during application.");
-    } finally {
-      setApplyingId(null);
-    }
-  };
-
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-xs font-bold text-gray-400 uppercase tracking-widest">Loading Job Market...</div>;
   }
 
-  const rawStatus = tutor?.profileCompletionStatus;
-  const completionStatus = (!rawStatus || rawStatus === "") ? "incomplete" : rawStatus;
-  const creditsBalance = tutor?.connectsBalance ?? tutor?.connects ?? 15;
+  const handleResponse = async (applicationId: string, status: 'accepted' | 'rejected', jobTxId: string) => {
+    try {
+      const res = await fetch('/api/tutor/apply', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicationId, status, jobTxId })
+      })
+
+      if (!res.ok) throw new Error('Failed to update status')
+
+      alert(`Request ${status} successfully!`)
+      if (status === 'accepted') {
+        router.push(`/chat/${jobTxId}`)
+      } else {
+        fetchRequests()
+      }
+    } catch (err: any) {
+      alert(err.message)
+    }
+  }
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-sm font-bold">Loading requests...</div>
+  }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616]">
-      {/* Sleek Modern Header */}
-      <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-xs">
-        <Link href="/" className="text-2xl font-black tracking-tight">
-          Tutor<span className="text-[#B3191F]">Mint</span>
-          <span className="ml-2 text-[10px] bg-gray-900 text-white px-2 py-0.5 rounded uppercase font-bold tracking-wider">Job Market</span>
-        </Link>
-        <div className="flex items-center space-x-4">
-          {tutor && (
-            <span className="text-xs font-bold bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full flex items-center gap-1.5">
-              ⚡ Credits: {creditsBalance}
-            </span>
-          )}
-          <Link href="/tutor/dashboard" className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors">
-            ← Dashboard
-          </Link>
-        </div>
-      </header>
+    <div className="max-w-4xl mx-auto p-6 space-y-6 my-10">
+      <div>
+        <h1 className="text-2xl font-black text-slate-900">Incoming Tuition & Demo Requests</h1>
+        <p className="text-xs text-gray-500">Manage direct parent inquiries and bound transaction IDs.</p>
+      </div>
 
-      <main className="max-w-4xl mx-auto p-6 mt-6 space-y-6">
-        {!tutor ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-w-md mx-auto space-y-6">
-            <div className="text-center space-y-2">
-              <span className="text-3xl">🎓</span>
-              <h1 className="text-xl font-extrabold tracking-tight">Tutor Portal Access</h1>
-              <p className="text-xs text-gray-500">Enter your registered email to browse and apply for tuitions.</p>
-            </div>
-
-            <form onSubmit={handleManualLogin} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-black uppercase text-gray-400 tracking-wider mb-1">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tutor@gmail.com"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black"
-                />
-              </div>
-              {errorMsg && <p className="text-red-600 text-xs font-semibold">{errorMsg}</p>}
-              <button
-                type="submit"
-                className="w-full py-3 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shadow-sm"
-              >
-                Access Market →
-              </button>
-            </form>
+      <div className="space-y-4">
+        {requests.length === 0 ? (
+          <div className="p-8 bg-white border border-gray-200 rounded-2xl text-center text-xs text-gray-500">
+            No active tuition requests at the moment. Keep your profile 100% complete to receive matches!
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Verification Status Banner */}
-            {completionStatus !== "verified" ? (
-              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs font-bold flex justify-between items-center shadow-xs">
-                <span className="flex items-center gap-2">⚠️ Status: <span className="uppercase">{completionStatus}</span>. 100% Admin Verification required to apply.</span>
-                <Link href="/tutor/dashboard" className="underline font-black hover:text-black">Complete Profile →</Link>
-              </div>
-            ) : (
-              <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xs">
-                <span>✅ Profile 100% Verified! You can apply to any tuition requirement below (Cost: 3 credits per application).</span>
-              </div>
-            )}
-
-            {msg && <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl">{msg}</div>}
-            {errorMsg && <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-xl">{errorMsg}</div>}
-
-            <div className="flex justify-between items-center bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
-              <h2 className="text-base font-extrabold tracking-tight">Available Tuition Opportunities</h2>
-              <span className="px-3 py-1 bg-gray-100 font-black text-xs rounded-full">
-                📋 {jobs.length} Active Jobs
-              </span>
-            </div>
-
-            <div className="space-y-4">
-              {jobs.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center text-gray-400 text-xs">
-                  No active tuition opportunities posted right now. Check back soon!
+          requests.map((req) => (
+            <div key={req.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="px-3 py-1 bg-slate-100 text-slate-800 text-[10px] font-mono font-bold rounded-full uppercase">
+                    {req.parent_jobs?.job_tx_id}
+                  </span>
+                  <h2 className="text-lg font-bold text-slate-900 mt-2">{req.parent_jobs?.title}</h2>
+                  <p className="text-xs text-gray-500">{req.parent_jobs?.subject} • {req.parent_jobs?.grade} • {req.parent_jobs?.location}</p>
                 </div>
-              ) : (
-                jobs.map((job) => (
-                  <div key={job._id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-sm font-extrabold text-gray-900">{job.title}</h3>
-                        <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                          📍 {job.city}, {job.province} • <span className="font-bold text-gray-700">{job.teachingMode}</span>
-                        </p>
-                      </div>
-                      <span className="px-3 py-1 bg-emerald-50 text-emerald-800 font-black text-xs rounded-full">
-                        💵 {job.budget}
-                      </span>
-                    </div>
+                <span className={`px-3 py-1 text-xs font-bold rounded-full uppercase ${
+                  req.status === 'accepted' ? 'bg-emerald-50 text-emerald-700' :
+                  req.status === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                }`}>
+                  {req.status}
+                </span>
+              </div>
 
-                    <p className="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl">{job.description}</p>
+              <p className="text-xs text-slate-700 bg-gray-50 p-3 rounded-xl">
+                {req.parent_jobs?.description}
+              </p>
 
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2.5 py-1 bg-blue-50 text-blue-700 font-bold text-[10px] rounded-md">🎓 {job.classLevel}</span>
-                      {job.subjects?.map((sub: string, i: number) => (
-                        <span key={i} className="px-2.5 py-1 bg-gray-100 text-gray-700 font-medium text-[10px] rounded-md">📚 {sub}</span>
-                      ))}
-                    </div>
+              {req.status === 'pending' && (
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => handleResponse(req.id, 'accepted', req.parent_jobs?.job_tx_id)}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md"
+                  >
+                    Accept Request & Open Chat
+                  </button>
+                  <button
+                    onClick={() => handleResponse(req.id, 'rejected', req.parent_jobs?.job_tx_id)}
+                    className="px-6 py-3 bg-gray-100 hover:bg-red-50 hover:text-red-700 text-slate-700 font-bold text-xs uppercase rounded-xl transition-all"
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
 
-                    <div className="border-t border-gray-100 pt-4 flex justify-between items-center text-xs">
-                      <span className="font-bold text-gray-500">👥 Applicants: {job.applicants?.length || 0} Tutors</span>
-                      <button
-                        onClick={() => handleApply(job._id)}
-                        disabled={applyingId === job._id || completionStatus !== "verified" || creditsBalance < 3}
-                        className="px-5 py-2.5 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors shadow-sm disabled:opacity-50"
-                      >
-                        {applyingId === job._id ? "Applying..." : "⚡ Apply Now (3 Credits)"}
-                      </button>
-                    </div>
-                  </div>
-                ))
+              {req.status === 'accepted' && (
+                <div className="pt-2">
+                  <Link
+                    href={`/chat/${req.parent_jobs?.job_tx_id}`}
+                    className="block text-center py-3 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs uppercase rounded-xl transition-all"
+                  >
+                    Go to Sticky Transaction Chat
+                  </Link>
+                </div>
               )}
             </div>
-          </div>
+          ))
         )}
-      </main>
+      </div>
     </div>
-  );
+  )
 }

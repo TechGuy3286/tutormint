@@ -1,76 +1,120 @@
-"use client";
+'use client'
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function ParentLoginPage() {
-  const [emailOrPhone, setEmailOrPhone] = useState("");
-  const router = useRouter();
+  const [identifier, setIdentifier] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [step, setStep] = useState<'input' | 'otp'>('input')
+  const [otpCode, setOtpCode] = useState('')
+  const router = useRouter()
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!emailOrPhone.trim()) {
-      alert("Please enter your email or phone number.");
-      return;
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/auth/parent-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+
+      alert(data.message)
+      if (data.method === 'phone') {
+        setStep('otp')
+      } else {
+        // Email magic link sent
+        setIdentifier('')
+      }
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    // Simulate successful login/signup by setting the token
-    localStorage.setItem("parentToken", "active_session");
-    
-    // Redirect back to the browse tutors dashboard
-    router.push("/parent/dashboard");
-  };
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/auth/otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: identifier, otpCode, action: 'verify' })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+
+      alert('Login successful!')
+      router.push('/parent/profile')
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#000000] flex flex-col justify-between relative">
-      {/* Consistent Navbar */}
-      <Navbar />
+    <div className="max-w-md mx-auto p-8 bg-white rounded-2xl shadow-sm border border-gray-200 my-20 space-y-6">
+      <div>
+        <h1 className="text-2xl font-black text-slate-900">Parent Portal Login</h1>
+        <p className="text-xs text-gray-500 mt-1">Sign in or create an account instantly to contact verified tutors and post jobs.</p>
+      </div>
 
-      {/* Main Container */}
-      <main className="max-w-md mx-auto px-4 py-16 flex-1 w-full flex items-center justify-center">
-        <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm w-full space-y-6">
-          
-          <div className="text-center space-y-2">
-            <h1 className="text-2xl font-black text-[#000000]">Parent Portal Login</h1>
-            <p className="text-xs text-gray-500 font-medium">
-              Sign in or create an account instantly to contact verified tutors and post jobs.
-            </p>
+      {step === 'input' ? (
+        <form onSubmit={handleLoginSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Email or Phone Number</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g., 03001234567 or parent@gmail.com"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500"
+            />
           </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#1f1f7a] block">Email or Phone Number</label>
-              <input
-                type="text"
-                value={emailOrPhone}
-                onChange={(e) => setEmailOrPhone(e.target.value)}
-                placeholder="e.g., 03001234567 or parent@gmail.com"
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a] focus:bg-white transition-all"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-3.5 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl shadow-md shadow-[#d60008]/20 transition-all flex items-center justify-center gap-2"
-            >
-              <span>Continue to Tutors Portal ➔</span>
-            </button>
-          </form>
-
-          <div className="text-center pt-2 border-t border-gray-100">
-            <p className="text-[11px] text-gray-500">
-              Are you an educator? <a href="/tutor/login" className="text-[#1f1f7a] font-bold hover:underline">Tutor Login here</a>
-            </p>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl shadow-lg transition-all disabled:opacity-50"
+          >
+            {loading ? 'Processing...' : 'Continue to Parent Portal →'}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleVerifyOtp} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Enter 4-Digit OTP Code Sent to Phone</label>
+            <input
+              type="text"
+              required
+              maxLength={4}
+              placeholder="1234"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value)}
+              className="w-full text-center tracking-widest text-lg px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl font-mono outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500"
+            />
           </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl shadow-lg transition-all disabled:opacity-50"
+          >
+            {loading ? 'Verifying...' : 'Verify Code & Login'}
+          </button>
+        </form>
+      )}
 
-        </div>
-      </main>
-
-      {/* Consistent Footer */}
-      <Footer />
+      <div className="text-center pt-2 border-t border-gray-100">
+        <p className="text-xs text-gray-500">Are you an educator? <a href="/tutor/login" className="text-emerald-600 font-bold hover:underline">Tutor Login here</a></p>
+      </div>
     </div>
-  );
+  )
 }
