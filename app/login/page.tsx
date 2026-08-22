@@ -1,15 +1,33 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function UnifiedLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
+  const [activeUser, setActiveUser] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const supabase = createClient()
+
+  useEffect(() => {
+    const checkActiveSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user?.email) {
+          setActiveUser(session.user.email)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setCheckingSession(false)
+      }
+    }
+    checkActiveSession()
+  }, [supabase])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,7 +47,6 @@ export default function UnifiedLoginPage() {
 
     const userId = data.session.user.id
 
-    // Check role and route accordingly
     const { data: tutorProfile } = await supabase
       .from('tutors')
       .select('user_id')
@@ -52,9 +69,71 @@ export default function UnifiedLoginPage() {
       return
     }
 
-    await supabase.auth.signOut()
-    setError('No profile found for this account in the database.')
-    setLoading(false)
+    window.location.href = '/login'
+  }
+
+  const goToDashboard = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const userId = session.user.id
+
+    const { data: tutorProfile } = await supabase
+      .from('tutors')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (tutorProfile) {
+      window.location.href = '/tutor/dashboard'
+      return
+    }
+
+    window.location.href = '/parent/dashboard'
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
+          Verifying session...
+        </div>
+      </div>
+    )
+  }
+
+  // If already logged in, show a clean management card instead of the login form
+  if (activeUser) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full mx-auto space-y-6 bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
+          <h1 className="text-2xl font-black text-black tracking-tight">TUTORMINT</h1>
+          <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">Active Session</p>
+          
+          <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-emerald-900 text-xs font-medium space-y-1">
+            <p>You are logged in as</p>
+            <strong className="font-bold text-sm">{activeUser}</strong>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={goToDashboard}
+              className="w-full py-4 bg-black hover:bg-emerald-600 text-white font-bold text-xs tracking-widest uppercase rounded-xl shadow-lg transition-all"
+            >
+              Go to Your Dashboard →
+            </button>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut()
+                window.location.reload()
+              }}
+              className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-slate-700 font-bold text-xs tracking-wider uppercase rounded-xl transition-all"
+            >
+              Log Out
+            </button>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
