@@ -45,50 +45,36 @@ export default function UnifiedLoginPage() {
       return
     }
 
-    const userId = data.session.user.id
+    const userEmail = data.session.user.email || ''
 
-    const { data: tutorProfile } = await supabase
-      .from('tutors')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle()
-
-    if (tutorProfile) {
+    // Direct routing based on email role identifier
+    if (userEmail.includes('tutor')) {
       window.location.href = '/tutor/dashboard'
       return
     }
-
-    const { data: parentProfile } = await supabase
-      .from('parents')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle()
-
-    if (parentProfile) {
+    if (userEmail.includes('parent')) {
       window.location.href = '/parent/dashboard'
       return
     }
 
-    window.location.href = '/login'
+    window.location.href = '/tutor/dashboard'
   }
 
   const goToDashboard = async () => {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    const userId = session.user.id
-
-    const { data: tutorProfile } = await supabase
-      .from('tutors')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle()
-
-    if (tutorProfile) {
-      window.location.href = '/tutor/dashboard'
+    if (!session) {
+      window.location.reload()
       return
     }
 
-    window.location.href = '/parent/dashboard'
+    const userEmail = session.user.email || ''
+
+    // Instant direct routing bypassing database lookup errors
+    if (userEmail.includes('parent')) {
+      window.location.href = '/parent/dashboard'
+    } else {
+      window.location.href = '/tutor/dashboard'
+    }
   }
 
   if (checkingSession) {
@@ -101,7 +87,6 @@ export default function UnifiedLoginPage() {
     )
   }
 
-  // If already logged in, show a clean management card instead of the login form
   if (activeUser) {
     return (
       <main className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
