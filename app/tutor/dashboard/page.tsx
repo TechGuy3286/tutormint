@@ -1,8 +1,62 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 
 export default function TutorDashboardPage() {
+  const [loadingRole, setLoadingRole] = useState(true)
+  const [notification, setNotification] = useState('🔍 A parent in DHA Phase 5 viewed your profile (2 mins ago)')
+  const [referralCopied, setReferralCopied] = useState(false)
+
+  const supabase = createClient()
+  const router = useRouter()
+
+  // Role Guard: Verify if the logged-in user is actually a tutor
+  useEffect(() => {
+    const verifyTutorRole = async () => {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError || !user) {
+          router.replace('/tutor/login')
+          return
+        }
+
+        // Check if user exists in the 'tutors' table using user_id
+        const { data: tutorProfile, error: tutorError } = await supabase
+          .from('tutors')
+          .select('user_id')
+          .eq('user_id', user.id)
+          .single()
+
+        if (tutorError || !tutorProfile) {
+          // Not found in tutors table, check if they are a parent
+          const { data: parentProfile } = await supabase
+            .from('parents')
+            .select('user_id')
+            .eq('user_id', user.id)
+            .single()
+
+          if (parentProfile) {
+            // Caught a parent trying to access tutor dashboard! Redirect them home.
+            router.replace('/parent/dashboard')
+            return
+          } else {
+            // Neither table has them, redirect to login
+            router.replace('/tutor/login')
+            return
+          }
+        }
+      } catch (err) {
+        console.error('Role verification error:', err)
+      } finally {
+        setLoadingRole(false)
+      }
+    }
+
+    verifyTutorRole()
+  }, [router, supabase])
+
   const tutorData = {
     id: 'TM-8821',
     name: 'Sir Bilal Ahmed',
@@ -15,9 +69,6 @@ export default function TutorDashboardPage() {
     completionPercentage: 100,
     trialStatus: 'First Month Free Trial Active (Trust Fee 199 PKR due on completion)'
   }
-
-  const [notification, setNotification] = useState('🔍 A parent in DHA Phase 5 viewed your profile (2 mins ago)')
-  const [referralCopied, setReferralCopied] = useState(false)
 
   const whatsappShareText = encodeURIComponent(
     `🎓 *TutorMint Verified Tutor Profile*\n\n` +
@@ -36,6 +87,16 @@ export default function TutorDashboardPage() {
     navigator.clipboard.writeText('https://www.tutormint.org/register?ref=TM-8821')
     setReferralCopied(true)
     setTimeout(() => setReferralCopied(false), 2000)
+  }
+
+  if (loadingRole) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
+          Verifying tutor permissions...
+        </div>
+      </div>
+    )
   }
 
   return (
