@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 // Mock data for tutors with detailed filtering attributes
 const allTutors = [
@@ -100,14 +101,12 @@ const cityAreasMap: Record<string, string[]> = {
 
 // Helper function to render stars based on rating
 const renderStars = (rating: number) => {
-  if (rating >= 5.0) return "⭐⭐⭐⭐⭐";
   if (rating >= 4.9) return "⭐⭐⭐⭐⭐";
   if (rating >= 4.8) return "⭐⭐⭐⭐";
   return "⭐⭐⭐";
 };
 
 export default function BrowseTutorsPage() {
-  // AI Search State & Filter States
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState("All");
   const [selectedArea, setSelectedArea] = useState("All");
@@ -115,11 +114,13 @@ export default function BrowseTutorsPage() {
   const [selectedGrade, setSelectedGrade] = useState("All");
   const [selectedBudget, setSelectedBudget] = useState("All");
 
-  // Soft-gate check for actions requiring login/signup
-  const handleProtectedAction = (actionType: string, tutorData?: any) => {
-    const isLoggedIn = typeof window !== "undefined" && (localStorage.getItem("parentToken") || sessionStorage.getItem("parentData"));
+  const supabase = createClient();
 
-    if (!isLoggedIn) {
+  // Async check against actual Supabase session
+  const handleProtectedAction = async (actionType: string, tutorData?: any) => {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
       alert("Please log in or sign up to contact or hire tutors.");
       window.location.href = "/parent/login";
       return;
@@ -132,7 +133,7 @@ export default function BrowseTutorsPage() {
     }
   };
 
-  // Filter Logic (AI Keyword Search + Dropdown Filters)
+  // Filter Logic
   const filteredTutors = allTutors.filter((tutor) => {
     const matchSearch = searchQuery === "" || 
       tutor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -152,8 +153,6 @@ export default function BrowseTutorsPage() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#000000] flex flex-col justify-between relative">
-      
-      {/* Main Container */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6 flex-1 w-full">
         
         {/* Page Header & Post Job Button */}
@@ -168,7 +167,7 @@ export default function BrowseTutorsPage() {
           </div>
           <button 
             onClick={() => handleProtectedAction("post-job")}
-            className="px-5 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-bold rounded-xl shadow-md shadow-[#d60008]/20 transition-all flex items-center gap-2"
+            className="px-5 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2"
           >
             <span>📋 Post Personalized Job Requirement</span>
           </button>
@@ -184,190 +183,58 @@ export default function BrowseTutorsPage() {
             placeholder="AI Search: Type any keyword (e.g., Mathematics, Lahore, LUMS, Physics)..."
             className="w-full bg-transparent text-xs sm:text-sm font-medium outline-none text-gray-900 placeholder-gray-400"
           />
-          {searchQuery && (
-            <button 
-              onClick={() => setSearchQuery("")}
-              className="text-xs text-gray-400 hover:text-gray-700 px-3 py-1 font-bold bg-gray-100 rounded-lg"
-            >
-              Clear
-            </button>
-          )}
         </div>
 
-        {/* CATEGORIZED FILTER BOXES (Rating filter removed) */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
-          <h3 className="text-xs font-black uppercase tracking-wider text-gray-400">
-            Advanced Filters
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            
-            {/* 1. Location & Area Filter */}
-            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <label className="text-xs font-bold text-[#1f1f7a] block">📍 Location Filter</label>
-              <select 
-                value={selectedCity} 
-                onChange={(e) => {
-                  setSelectedCity(e.target.value);
-                  setSelectedArea("All");
-                }}
-                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
-              >
-                <option value="All">All Cities (Pakistan)</option>
-                <option value="Lahore">Lahore</option>
-                <option value="Karachi">Karachi</option>
-                <option value="Islamabad">Islamabad</option>
-                <option value="Multan">Multan</option>
-              </select>
-
-              {selectedCity !== "All" && cityAreasMap[selectedCity] && (
-                <select 
-                  value={selectedArea}
-                  onChange={(e) => setSelectedArea(e.target.value)}
-                  className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a] mt-2"
-                >
-                  <option value="All">All Areas in {selectedCity}</option>
-                  {cityAreasMap[selectedCity].map((areaName) => (
-                    <option key={areaName} value={areaName}>{areaName}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* 2. Skill / Subject Filter */}
-            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <label className="text-xs font-bold text-[#1f1f7a] block">📚 Skill / Subject</label>
-              <select 
-                value={selectedSkill}
-                onChange={(e) => setSelectedSkill(e.target.value)}
-                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
-              >
-                <option value="All">All Subjects</option>
-                <option value="Mathematics">Mathematics</option>
-                <option value="Physics">Physics</option>
-                <option value="Computer Science">Computer Science</option>
-                <option value="Chemistry">Chemistry</option>
-                <option value="English Literature">English Literature</option>
-                <option value="Biology">Biology</option>
-              </select>
-            </div>
-
-            {/* 3. Grade / Level Filter */}
-            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <label className="text-xs font-bold text-[#1f1f7a] block">🎓 Grade / Level</label>
-              <select 
-                value={selectedGrade}
-                onChange={(e) => setSelectedGrade(e.target.value)}
-                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
-              >
-                <option value="All">All Grades</option>
-                <option value="9th Class">9th Class</option>
-                <option value="10th Class">10th Class</option>
-                <option value="FSc Part 1">FSc Part 1</option>
-                <option value="FSc Part 2">FSc Part 2</option>
-                <option value="O-Levels">O-Levels</option>
-                <option value="A-Levels">A-Levels</option>
-              </select>
-            </div>
-
-            {/* 4. Budget / Amount Filter */}
-            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <label className="text-xs font-bold text-[#1f1f7a] block">💰 Budget / Fees</label>
-              <select 
-                value={selectedBudget}
-                onChange={(e) => setSelectedBudget(e.target.value)}
-                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
-              >
-                <option value="All">Any Budget</option>
-                <option value="20000">Under 25,000 PKR</option>
-                <option value="30000">Under 35,000 PKR</option>
-                <option value="40000">Flexible / High</option>
-              </select>
-            </div>
-
-          </div>
-        </div>
-
-        {/* HORIZONTAL UPWORK/LINKEDIN STYLE FEED LIST */}
+        {/* FEED RESULTS */}
         <div className="space-y-4">
-          <div className="flex justify-between items-center px-2">
-            <h2 className="text-xs font-black uppercase tracking-wider text-gray-500">
-              Feed Results ({filteredTutors.length})
-            </h2>
-          </div>
+          <h2 className="text-xs font-black uppercase tracking-wider text-gray-500 px-2">
+            Feed Results ({filteredTutors.length})
+          </h2>
 
-          <div className="space-y-4 max-h-[800px] overflow-y-auto pr-1">
-            {filteredTutors.length > 0 ? (
-              filteredTutors.map((tutor) => (
-                <div 
-                  key={tutor.id} 
-                  className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
-                >
-                  {/* Left Section: 1x1 Profile Picture & Stars Underneath */}
-                  <div className="flex items-start gap-4 w-full sm:w-auto">
-                    <div className="flex flex-col items-center space-y-1.5">
-                      <img 
-                        src={tutor.image} 
-                        alt={tutor.name} 
-                        className="w-16 h-16 rounded-2xl object-cover border border-gray-200 shadow-2xs flex-shrink-0"
-                      />
-                      <div className="text-[10px] font-bold text-amber-700 whitespace-nowrap">
-                        {renderStars(tutor.rating)} ({tutor.reviewCount})
-                      </div>
-                    </div>
-
-                    {/* Middle Section: Details */}
-                    <div className="space-y-1.5 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-black text-[#000000]">{tutor.name}</h4>
-                        <span className="text-[10px] font-extrabold bg-[#98FB98]/40 text-green-900 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          ✅ Verified
-                        </span>
-                      </div>
-                      
-                      <p className="text-xs font-bold text-[#1f1f7a]">
-                        Expert in {tutor.subject} ({tutor.grade})
-                      </p>
-
-                      <p className="text-[11px] text-gray-600 font-medium">
-                        🎓 {tutor.degree} • 📍 {tutor.area}, {tutor.city}
-                      </p>
-
-                      <p className="text-[11px] text-gray-500 font-semibold">
-                        💵 Expected Fee: <span className="text-gray-900">{tutor.budget}</span>
-                      </p>
+          <div className="space-y-4">
+            {filteredTutors.map((tutor) => (
+              <div 
+                key={tutor.id} 
+                className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
+              >
+                <div className="flex items-start gap-4 w-full sm:w-auto">
+                  <div className="flex flex-col items-center space-y-1.5">
+                    <img 
+                      src={tutor.image} 
+                      alt={tutor.name} 
+                      className="w-16 h-16 rounded-2xl object-cover border border-gray-200"
+                    />
+                    <div className="text-[10px] font-bold text-amber-700 whitespace-nowrap">
+                      {renderStars(tutor.rating)} ({tutor.reviewCount})
                     </div>
                   </div>
 
-                  {/* Right Section: Action Button */}
-                  <div className="w-full sm:w-auto flex-shrink-0">
-                    <button 
-                      onClick={() => handleProtectedAction("hire", tutor)}
-                      className="w-full sm:w-auto px-6 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl text-center shadow-sm transition-all flex items-center justify-center gap-2"
-                    >
-                      <span>Hire / Contact ➔</span>
-                    </button>
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-black text-[#000000]">{tutor.name}</h4>
+                      <span className="text-[10px] font-extrabold bg-green-100 text-green-900 px-2 py-0.5 rounded-full">
+                        ✅ Verified
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-[#1f1f7a]">
+                      Expert in {tutor.subject} ({tutor.grade})
+                    </p>
+                    <p className="text-[11px] text-gray-600 font-medium">
+                      🎓 {tutor.degree} • 📍 {tutor.area}, {tutor.city}
+                    </p>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="py-16 text-center bg-white rounded-3xl border border-gray-200">
-                <p className="text-sm font-bold text-gray-500">No tutors found matching your search or filters.</p>
-                <button 
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedCity("All");
-                    setSelectedArea("All");
-                    setSelectedSkill("All");
-                    setSelectedGrade("All");
-                    setSelectedBudget("All");
-                  }}
-                  className="mt-3 px-4 py-2 bg-gray-900 text-white text-xs font-bold rounded-xl"
-                >
-                  Reset Search & Filters
-                </button>
+
+                <div className="w-full sm:w-auto flex-shrink-0">
+                  <button 
+                    onClick={() => handleProtectedAction("hire", tutor)}
+                    className="w-full sm:w-auto px-6 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl text-center shadow-sm transition-all"
+                  >
+                    Hire / Contact ➔
+                  </button>
+                </div>
               </div>
-            )}
+            ))}
           </div>
         </div>
 
