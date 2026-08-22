@@ -5,60 +5,84 @@ import { createClient } from '@/lib/supabase/client'
 
 export default function TutorDashboardPage() {
   const [loading, setLoading] = useState(true)
+  const [hasSession, setHasSession] = useState<boolean | null>(null)
+  const [userEmail, setUserEmail] = useState<string>('test.tutor@tutormint.com')
   const [notification, setNotification] = useState('🔍 A parent in DHA Phase 5 viewed your profile (2 mins ago)')
   const [referralCopied, setReferralCopied] = useState(false)
-  const [userEmail, setUserEmail] = useState<string>('test.tutor@tutormint.com')
 
   const supabase = createClient()
 
   useEffect(() => {
     let isMounted = true
 
-    // Listen to auth state changes to safely catch the session once loaded
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!isMounted) return
-      if (session?.user) {
-        setUserEmail(session.user.email || 'test.tutor@tutormint.com')
-        setLoading(false)
-      } else if (event === 'SIGNED_OUT') {
-        window.location.href = '/login'
-      }
-    })
-
-    // Initial session check with a safe fallback buffer for cookie sync
-    const verifySession = async () => {
+    const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
+        if (!isMounted) return
+
         if (session?.user) {
-          if (!isMounted) return
+          setHasSession(true)
           setUserEmail(session.user.email || 'test.tutor@tutormint.com')
           setLoading(false)
         } else {
-          // Give local storage a brief 600ms moment to sync cookies before redirecting
+          // Give local storage a brief moment to sync cookies
           setTimeout(async () => {
-            const { data: { session: retrySession } } = await supabase.auth.getSession()
             if (!isMounted) return
-            if (!retrySession) {
-              window.location.href = '/login'
-            } else {
+            const { data: { session: retrySession } } = await supabase.auth.getSession()
+            if (retrySession?.user) {
+              setHasSession(true)
               setUserEmail(retrySession.user.email || 'test.tutor@tutormint.com')
-              setLoading(false)
+            } else {
+              setHasSession(false)
             }
-          }, 600)
+            setLoading(false)
+          }, 800)
         }
       } catch (err) {
-        console.error('Session error:', err)
-        if (isMounted) window.location.href = '/login'
+        console.error(err)
+        if (isMounted) {
+          setHasSession(false)
+          setLoading(false)
+        }
       }
     }
 
-    verifySession()
+    checkSession()
 
     return () => {
       isMounted = false
-      subscription.unsubscribe()
     }
   }, [supabase])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
+          Loading Tutor Dashboard...
+        </div>
+      </div>
+    )
+  }
+
+  // ZERO REDIRECTS: If session is missing, show a clean prompt instead of bouncing
+  if (hasSession === false) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center space-y-4">
+          <h2 className="text-xl font-black text-slate-900">Session Not Detected</h2>
+          <p className="text-xs text-gray-500">
+            We couldn't detect an active session on this page load. Click below to sign in cleanly.
+          </p>
+          <a
+            href="/login"
+            className="inline-block w-full py-3.5 bg-black text-white font-bold text-xs uppercase rounded-xl shadow tracking-wider hover:bg-emerald-600 transition-all"
+          >
+            Go to Login Page
+          </a>
+        </div>
+      </main>
+    )
+  }
 
   const tutorData = {
     id: 'TM-8821',
@@ -89,16 +113,6 @@ export default function TutorDashboardPage() {
     navigator.clipboard.writeText('https://www.tutormint.org/register?ref=TM-8821')
     setReferralCopied(true)
     setTimeout(() => setReferralCopied(false), 2000)
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Loading Tutor Dashboard...
-        </div>
-      </div>
-    )
   }
 
   return (
