@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 // Full Taxonomy Hierarchy loaded from Spreadsheet
 const taxonomyData: Record<string, Record<string, string[]>> = {
@@ -283,7 +284,6 @@ const renderStars = (rating: number) => {
 export default function PostJobPage() {
   const levelsList = Object.keys(taxonomyData);
 
-  // Search filter states for filter boxes
   const [levelSearch, setLevelSearch] = useState("");
   const [gradeSearch, setGradeSearch] = useState("");
   const [subjectSearch, setSubjectSearch] = useState("");
@@ -295,20 +295,19 @@ export default function PostJobPage() {
   const availableSubjects = taxonomyData[selectedLevel]?.[selectedGrade] || [];
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
 
-  // Section 2 States
   const [selectedCity, setSelectedCity] = useState("Lahore");
   const [selectedArea, setSelectedArea] = useState("Gulberg");
   const [tuitionTime, setTuitionTime] = useState("05:00 PM");
   const [preferredGender, setPreferredGender] = useState("No Preference");
 
-  // AI Output States
   const [aiTitle, setAiTitle] = useState("");
   const [aiDescription, setAiDescription] = useState("");
   const [aiSkills, setAiSkills] = useState("");
   const [isGenerated, setIsGenerated] = useState(false);
   const [matchedTutors, setMatchedTutors] = useState<any[]>([]);
 
-  // Filtered lists for searchable boxes
+  const supabase = createClient();
+
   const filteredLevels = useMemo(() => {
     return levelsList.filter(lvl => lvl.toLowerCase().includes(levelSearch.toLowerCase()));
   }, [levelSearch, levelsList]);
@@ -360,9 +359,38 @@ export default function PostJobPage() {
     setMatchedTutors(results);
   };
 
-  const handlePublishJob = () => {
-    alert("🎉 Job published successfully! Matching verified tutors have been notified.");
-    window.location.href = "/parent/dashboard";
+  // Real Database Insertion
+  const handlePublishJob = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Please log in to publish a job.");
+        window.location.href = "/parent/login";
+        return;
+      }
+
+      const jobTxId = `JOB-TRK-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+      const { error } = await supabase.from('parent_jobs').insert({
+        parent_id: user.id,
+        job_tx_id: jobTxId,
+        title: aiTitle,
+        description: aiDescription,
+        subject: selectedSubjects.join(", ") || "General",
+        grade: selectedGrade,
+        city: selectedCity,
+        area: selectedArea,
+        budget: "25,000 PKR / mo",
+        status: "Active"
+      });
+
+      if (error) throw error;
+
+      alert("🎉 Job published successfully! Matching verified tutors have been notified.");
+      window.location.href = "/parent/dashboard";
+    } catch (err: any) {
+      alert(`Error publishing job: ${err.message}`);
+    }
   };
 
   return (
@@ -389,7 +417,6 @@ export default function PostJobPage() {
       {/* FILTER BUILDER FORM */}
       <form onSubmit={handleGenerateAIJob} className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6">
         
-        {/* SECTION 1: Searchable Levels, Grades & Subjects */}
         <div className="space-y-4">
           <h3 className="text-xs font-black uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-3">
             Section 1: Academic Taxonomy (Searchable Level ➔ Grade ➔ Subjects)
@@ -397,7 +424,6 @@ export default function PostJobPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
-            {/* Searchable Level Box */}
             <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
               <label className="text-xs font-bold text-[#1f1f7a] block">📚 Level (Searchable)</label>
               <input 
@@ -425,7 +451,6 @@ export default function PostJobPage() {
               </select>
             </div>
 
-            {/* Searchable Grade Box */}
             <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
               <label className="text-xs font-bold text-[#1f1f7a] block">🎓 Grade / Specialisation (Searchable)</label>
               <input 
@@ -452,7 +477,6 @@ export default function PostJobPage() {
 
           </div>
 
-          {/* Searchable Subjects Checkboxes */}
           <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
               <label className="text-xs font-bold text-[#1f1f7a] block">📖 Select Subjects</label>
@@ -490,7 +514,6 @@ export default function PostJobPage() {
           </div>
         </div>
 
-        {/* SECTION 2: Location, Time & Preferences */}
         <div className="space-y-4 pt-2">
           <h3 className="text-xs font-black uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-3">
             Section 2: Location, Time & Preferences
@@ -498,7 +521,6 @@ export default function PostJobPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             
-            {/* City */}
             <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
               <label className="text-xs font-bold text-[#1f1f7a] block">📍 City</label>
               <select 
@@ -516,7 +538,6 @@ export default function PostJobPage() {
               </select>
             </div>
 
-            {/* Area */}
             <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
               <label className="text-xs font-bold text-[#1f1f7a] block">🏘️ Area</label>
               <select 
@@ -530,7 +551,6 @@ export default function PostJobPage() {
               </select>
             </div>
 
-            {/* Tuition Time */}
             <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
               <label className="text-xs font-bold text-[#1f1f7a] block">⏰ Tuition Time</label>
               <select 
@@ -547,7 +567,6 @@ export default function PostJobPage() {
               </select>
             </div>
 
-            {/* Preferred Gender */}
             <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
               <label className="text-xs font-bold text-[#1f1f7a] block">👤 Preferred Gender</label>
               <select 
@@ -567,14 +586,13 @@ export default function PostJobPage() {
         <div className="pt-4 flex justify-end">
           <button 
             type="submit"
-            className="px-6 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl shadow-md shadow-[#d60008]/20 transition-all flex items-center gap-2"
+            className="px-6 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2"
           >
             <span>✨ Generate AI Job Post & Find Tutors</span>
           </button>
         </div>
       </form>
 
-      {/* AI GENERATED RESULT & WIDE TUTOR CARDS WITH STAR RATINGS */}
       {isGenerated && (
         <div className="space-y-6 animate-in fade-in duration-300">
           
@@ -608,49 +626,24 @@ export default function PostJobPage() {
                 matchedTutors.map((tutor) => (
                   <div 
                     key={tutor.id} 
-                    className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
+                    className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
                   >
                     <div className="flex items-start gap-4 w-full sm:w-auto">
-                      <div className="flex flex-col items-center space-y-1.5">
-                        <img 
-                          src={tutor.image} 
-                          alt={tutor.name} 
-                          className="w-16 h-16 rounded-2xl object-cover border border-gray-200 shadow-2xs flex-shrink-0"
-                        />
-                        <div className="text-[10px] font-bold text-amber-700 whitespace-nowrap">
-                          {renderStars(tutor.rating)} ({tutor.reviewCount})
-                        </div>
-                      </div>
-
+                      <img src={tutor.image} alt={tutor.name} className="w-16 h-16 rounded-2xl object-cover border border-gray-200" />
                       <div className="space-y-1.5 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-black text-[#000000]">{tutor.name}</h4>
-                          <span className="text-[10px] font-extrabold bg-[#98FB98]/40 text-green-900 px-2 py-0.5 rounded-full">
-                            ✅ Verified
-                          </span>
-                        </div>
-                        <p className="text-xs font-bold text-[#1f1f7a]">
-                          Expert in {tutor.subject} ({tutor.grade}) • Gender: {tutor.gender}
-                        </p>
-                        <p className="text-[11px] text-gray-600 font-medium">
-                          🎓 {tutor.degree} • 📍 {tutor.area}, {tutor.city} • Time Slot: {tuitionTime}
-                        </p>
-                        <p className="text-[11px] text-gray-500 font-semibold">
-                          💵 Expected Fee: <span className="text-gray-900">{tutor.budget}</span>
-                        </p>
+                        <h4 className="text-sm font-black text-[#000000]">{tutor.name}</h4>
+                        <p className="text-xs font-bold text-[#1f1f7a]">Expert in {tutor.subject} ({tutor.grade}) • Gender: {tutor.gender}</p>
+                        <p className="text-[11px] text-gray-600 font-medium">🎓 {tutor.degree} • 📍 {tutor.area}, {tutor.city} • Time Slot: {tuitionTime}</p>
                       </div>
                     </div>
-
-                    <div className="w-full sm:w-auto flex-shrink-0">
-                      <a 
-                        href={`https://wa.me/923211045245?text=Hi%20I%20want%20to%20hire%20${encodeURIComponent(tutor.name)}%20for%20${encodeURIComponent(tutor.subject)}`} 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full sm:w-auto px-6 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl text-center shadow-sm transition-all block"
-                      >
-                        Hire / Contact ➔
-                      </a>
-                    </div>
+                    <a 
+                      href={`https://wa.me/923211045245?text=Hi%20I%20want%20to%20hire%20${encodeURIComponent(tutor.name)}%20for%20${encodeURIComponent(tutor.subject)}`} 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-6 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl text-center shadow-sm block"
+                    >
+                      Hire / Contact ➔
+                    </a>
                   </div>
                 ))
               ) : (
