@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 
 export default function TutorDashboardPage() {
   const [loading, setLoading] = useState(true)
-  const [hasSession, setHasSession] = useState<boolean | null>(null)
   const [userEmail, setUserEmail] = useState<string>('test.tutor@tutormint.com')
   const [notification, setNotification] = useState('🔍 A parent in DHA Phase 5 viewed your profile (2 mins ago)')
   const [referralCopied, setReferralCopied] = useState(false)
@@ -13,75 +12,25 @@ export default function TutorDashboardPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    let isMounted = true
+    // Check localStorage for the email directly
+    const email = localStorage.getItem('tm_email')
 
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!isMounted) return
-
-        if (session?.user) {
-          setHasSession(true)
-          setUserEmail(session.user.email || 'test.tutor@tutormint.com')
-          setLoading(false)
-        } else {
-          // Give local storage a brief moment to sync cookies
-          setTimeout(async () => {
-            if (!isMounted) return
-            const { data: { session: retrySession } } = await supabase.auth.getSession()
-            if (retrySession?.user) {
-              setHasSession(true)
-              setUserEmail(retrySession.user.email || 'test.tutor@tutormint.com')
-            } else {
-              setHasSession(false)
-            }
-            setLoading(false)
-          }, 800)
-        }
-      } catch (err) {
-        console.error(err)
-        if (isMounted) {
-          setHasSession(false)
-          setLoading(false)
-        }
-      }
+    if (!email) {
+      window.location.href = '/login'
+      return
     }
 
-    checkSession()
+    setUserEmail(email)
+    // Ensure tm_logged_in is also set to keep things in sync
+    localStorage.setItem('tm_logged_in', 'true')
+    setLoading(false)
+  }, [])
 
-    return () => {
-      isMounted = false
-    }
-  }, [supabase])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Loading Tutor Dashboard...
-        </div>
-      </div>
-    )
-  }
-
-  // ZERO REDIRECTS: If session is missing, show a clean prompt instead of bouncing
-  if (hasSession === false) {
-    return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center space-y-4">
-          <h2 className="text-xl font-black text-slate-900">Session Not Detected</h2>
-          <p className="text-xs text-gray-500">
-            We couldn't detect an active session on this page load. Click below to sign in cleanly.
-          </p>
-          <a
-            href="/login"
-            className="inline-block w-full py-3.5 bg-black text-white font-bold text-xs uppercase rounded-xl shadow tracking-wider hover:bg-emerald-600 transition-all"
-          >
-            Go to Login Page
-          </a>
-        </div>
-      </main>
-    )
+  const handleLogout = async () => {
+    localStorage.removeItem('tm_logged_in')
+    localStorage.removeItem('tm_email')
+    await supabase.auth.signOut()
+    window.location.href = '/login'
   }
 
   const tutorData = {
@@ -115,6 +64,16 @@ export default function TutorDashboardPage() {
     setTimeout(() => setReferralCopied(false), 2000)
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
+          Loading Tutor Dashboard...
+        </div>
+      </div>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -125,10 +84,7 @@ export default function TutorDashboardPage() {
             Signed in as: <span className="text-emerald-600">{userEmail}</span>
           </div>
           <button
-            onClick={async () => {
-              await supabase.auth.signOut()
-              window.location.href = '/login'
-            }}
+            onClick={handleLogout}
             className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold uppercase rounded-xl transition-all"
           >
             Log Out
