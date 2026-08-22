@@ -156,7 +156,6 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
   }
 
   const handleSendDemoClassRequest = async (tutorName: string) => {
-    // Prevent duplicate requests if already sent or pending acceptance
     if (job?.status === 'Pending Tutor Acceptance' || job?.status === 'Accepted by Tutor' || job?.status === 'Awarded') {
       setModalNotification({
         title: "Demo Request Already Sent! ⚠️",
@@ -214,7 +213,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-sm font-bold text-slate-900">Loading secure conversation...</div>
+    return <div className="min-h-screen flex items-center justify-center text-sm font-bold text-[#0F172A]">Loading secure conversation...</div>
   }
 
   const matchedTutors = allAvailableTutors.filter(t => !job?.city || t.city.toLowerCase() === job.city.toLowerCase());
@@ -222,18 +221,18 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
   const isRequestAlreadySent = job?.status === 'Pending Tutor Acceptance' || job?.status === 'Accepted by Tutor' || job?.status === 'Awarded';
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 my-8 space-y-6 font-sans">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 my-8 space-y-6 font-sans text-[#334155]">
       
       {/* Sticky Transaction Header */}
-      <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="bg-[#0F172A] text-white p-6 rounded-3xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-emerald-400 text-slate-900 text-[10px] font-mono font-bold rounded-full uppercase">
+            <span className="px-3 py-1 bg-emerald-400 text-[#0F172A] text-[10px] font-mono font-bold rounded-full uppercase">
               Sticky Tx ID: {jobId}
             </span>
             <span className="text-xs text-emerald-400 font-bold uppercase">Status: {job?.status || 'Active'}</span>
           </div>
-          <h1 className="text-xl font-black mt-2">{job?.title}</h1>
+          <h1 className="text-xl font-black mt-2 text-white">{job?.title}</h1>
           <p className="text-xs text-slate-300 mt-1">📍 {job?.area}, {job?.city} • 📚 {job?.subject} • 💵 {job?.budget}</p>
         </div>
 
@@ -241,7 +240,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
           <button
             onClick={handleAwardJob}
             disabled={awarding}
-            className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md disabled:opacity-50 whitespace-nowrap"
+            className="px-5 py-3 bg-[#059669] hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md disabled:opacity-50 whitespace-nowrap"
           >
             {awarding ? 'Processing...' : 'Award Job & Lock Slot'}
           </button>
@@ -250,17 +249,17 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
 
       {/* AI-Matched Tutors Panel for this Job */}
       <div className="bg-white border border-gray-200 p-6 rounded-3xl shadow-sm space-y-4">
-        <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">
+        <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
           AI-Matched Tutors for this Requirement ({matchedTutors.length})
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {matchedTutors.map((tutor) => (
-            <div key={tutor.id} className="p-4 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-between gap-4">
+            <div key={tutor.id} className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <img src={tutor.image} alt={tutor.name} className="w-12 h-12 rounded-xl object-cover border" />
                 <div>
-                  <h4 className="text-xs font-black text-slate-900">{tutor.name}</h4>
-                  <p className="text-[10px] text-[#1f1f7a] font-bold">⭐ {tutor.rating} ({tutor.reviewCount}) • {tutor.subject}</p>
+                  <h4 className="text-xs font-black text-[#0F172A]">{tutor.name}</h4>
+                  <p className="text-[10px] text-[#059669] font-bold">⭐ {tutor.rating} ({tutor.reviewCount}) • {tutor.subject}</p>
                   <p className="text-[10px] text-gray-500">{tutor.degree}</p>
                 </div>
               </div>
@@ -269,7 +268,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
                 className={`px-4 py-2.5 text-[11px] font-extrabold rounded-xl transition-all shadow-sm whitespace-nowrap ${
                   isRequestAlreadySent 
                     ? 'bg-amber-100 text-amber-800 cursor-pointer' 
-                    : 'bg-[#d60008] hover:bg-[#b50007] text-white'
+                    : 'bg-[#d60008] hover:bg-red-700 text-white'
                 }`}
               >
                 {isRequestAlreadySent ? '⏳ Request Sent' : '📅 Send Demo Class'}
@@ -284,7 +283,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
         {!isChatUnlocked ? (
           <div className="py-16 text-center space-y-3">
             <span className="text-3xl">🔒</span>
-            <h3 className="text-sm font-black text-slate-900 uppercase">Chat Room Locked</h3>
+            <h3 className="text-sm font-black text-[#0F172A] uppercase">Chat Room Locked</h3>
             <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
               To preserve our direct 2-party handshake model, personalized messaging unlocks only after the tutor explicitly accepts your Demo Class request above.
             </p>
@@ -298,8 +297,8 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
                 </div>
               ) : (
                 messages.map((msg, idx) => (
-                  <div key={msg.id || idx} className="p-3 bg-gray-50 border border-gray-100 rounded-2xl max-w-lg space-y-1">
-                    <p className="text-xs text-slate-900 font-medium">{msg.message}</p>
+                  <div key={msg.id || idx} className="p-3 bg-[#F8FAFC] border border-gray-100 rounded-2xl max-w-lg space-y-1">
+                    <p className="text-xs text-[#334155] font-medium">{msg.message}</p>
                     <span className="text-[10px] text-gray-400 block">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                 ))
@@ -314,11 +313,11 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
                 placeholder="Type your message regarding demo classes or timings..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 text-slate-900"
+                className="flex-1 px-4 py-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-[#059669] text-[#334155]"
               />
               <button
                 type="submit"
-                className="px-6 py-3 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs uppercase rounded-xl transition-all"
+                className="px-6 py-3 bg-[#0F172A] hover:bg-[#059669] text-white font-bold text-xs uppercase rounded-xl transition-all"
               >
                 Send
               </button>
@@ -333,14 +332,14 @@ export default function ChatRoomPage({ params }: { params: Promise<{ jobId: stri
           <div className="bg-white p-8 rounded-3xl max-w-md w-full space-y-6 shadow-2xl animate-in fade-in zoom-in-95 text-center">
             <div className="space-y-2">
               <span className="text-3xl">✨</span>
-              <h3 className="text-lg font-black text-slate-900">{modalNotification.title}</h3>
+              <h3 className="text-lg font-black text-[#0F172A]">{modalNotification.title}</h3>
               <p className="text-xs text-gray-600 leading-relaxed">
                 {modalNotification.message}
               </p>
             </div>
             <button
               onClick={() => setModalNotification(null)}
-              className="w-full py-3 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md"
+              className="w-full py-3 bg-[#0F172A] hover:bg-[#059669] text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md"
             >
               Got It, Continue ➔
             </button>

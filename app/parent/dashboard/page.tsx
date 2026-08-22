@@ -51,18 +51,6 @@ const allTutors = [
   }
 ];
 
-const cityAreasMap: Record<string, string[]> = {
-  Lahore: ["Gulberg", "DHA", "Johar Town", "Model Town", "Bahria Town"],
-  Karachi: ["Clifton", "DHA", "Gulshan-e-Iqbal", "North Nazimabad"],
-  Islamabad: ["F-6", "F-7", "G-8", "Bahria Town"],
-  Multan: ["Cantt", "Shah Rukn-e-Alam", "Bosan Road"]
-};
-
-const renderStars = (rating: number) => {
-  if (rating >= 4.9) return "⭐⭐⭐⭐⭐";
-  return "⭐⭐⭐⭐";
-};
-
 export default function ParentDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState("All");
@@ -98,7 +86,6 @@ export default function ParentDashboardPage() {
         .single();
 
       if (parentError || !parentProfileData) {
-        // Check if they are actually registered as a tutor
         const { data: tutorProfile } = await supabase
           .from('tutors')
           .select('id')
@@ -106,7 +93,6 @@ export default function ParentDashboardPage() {
           .single();
 
         if (tutorProfile) {
-          // Caught a tutor trying to access parent dashboard -> redirect to tutor dashboard!
           router.replace('/tutor/dashboard');
           return;
         }
@@ -177,7 +163,7 @@ export default function ParentDashboardPage() {
 
   if (loadingRole) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
         <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
           Verifying parent permissions...
         </div>
@@ -186,14 +172,14 @@ export default function ParentDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#000000] flex flex-col justify-between">
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-8 flex-1 w-full">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#334155] flex flex-col justify-between">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full">
         
         {/* First-Month Trial & Fee Notice Banner */}
-        <div className="bg-blue-50 border border-blue-200 p-4 rounded-3xl flex items-center justify-between gap-4 shadow-xs">
+        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-3xl flex items-center justify-between gap-4 shadow-xs">
           <div className="space-y-0.5">
-            <h4 className="text-xs font-black text-blue-900 uppercase">🛡️ First Month Trial Active (Direct 2-Party Connection)</h4>
-            <p className="text-[11px] text-blue-700">
+            <h4 className="text-xs font-black text-emerald-900 uppercase">🛡️ First Month Trial Active (Direct 2-Party Connection)</h4>
+            <p className="text-[11px] text-emerald-700">
               Your first month is considered a trial. Upon successful completion of the first month, a nominal service fee of 199 PKR applies.
             </p>
           </div>
@@ -203,7 +189,7 @@ export default function ParentDashboardPage() {
         {/* Header & Post Job CTA */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#000000]">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A]">
               Parent Dashboard
             </h1>
             <p className="text-xs sm:text-sm text-gray-600 font-medium">
@@ -212,7 +198,7 @@ export default function ParentDashboardPage() {
           </div>
           <button 
             onClick={() => handleProtectedAction("post-job")}
-            className="px-5 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
+            className="px-5 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
           >
             <span>📋 Post New Job Requirement</span>
           </button>
@@ -224,7 +210,7 @@ export default function ParentDashboardPage() {
         {/* MY POSTED JOBS SECTION */}
         <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">
+            <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
               My Posted Jobs ({myJobs.length})
             </h2>
           </div>
@@ -232,11 +218,11 @@ export default function ParentDashboardPage() {
           {loadingJobs ? (
             <div className="text-center py-6 text-xs text-gray-400">Loading your postings...</div>
           ) : myJobs.length === 0 ? (
-            <div className="text-center py-8 bg-gray-50 rounded-2xl border border-gray-100">
+            <div className="text-center py-8 bg-[#F8FAFC] rounded-2xl border border-gray-100">
               <p className="text-xs text-gray-500 font-medium">You haven't posted any jobs yet.</p>
               <button 
                 onClick={() => router.push("/parent/dashboard/post-job")}
-                className="mt-3 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-emerald-600 transition-all"
+                className="mt-3 px-4 py-2 bg-[#0F172A] text-white text-xs font-bold rounded-xl hover:bg-emerald-600 transition-all"
               >
                 Post Your First Job →
               </button>
@@ -244,7 +230,7 @@ export default function ParentDashboardPage() {
           ) : (
             <div className="space-y-3">
               {myJobs.map((job) => (
-                <div key={job.job_tx_id || job.id} className="p-4 bg-gray-50 border border-gray-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div key={job.job_tx_id || job.id} className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold rounded-full uppercase">
@@ -252,13 +238,13 @@ export default function ParentDashboardPage() {
                       </span>
                       <span className="text-[10px] font-bold text-slate-500 uppercase">Status: {job.status || 'Active'}</span>
                     </div>
-                    <h4 className="text-sm font-bold text-slate-900">{job.title}</h4>
+                    <h4 className="text-sm font-bold text-[#0F172A]">{job.title}</h4>
                     <p className="text-xs text-gray-600">{job.subject} • {job.grade} • Budget: {job.budget}</p>
                   </div>
 
                   <button
                     onClick={() => router.push(`/chat/${job.job_tx_id}`)}
-                    className="px-4 py-2.5 bg-slate-900 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap"
+                    className="px-4 py-2.5 bg-[#0F172A] hover:bg-[#059669] text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap"
                   >
                     Open Chat & Tutors ➔
                   </button>
@@ -283,14 +269,14 @@ export default function ParentDashboardPage() {
                 <div className="flex items-start gap-4 w-full sm:w-auto">
                   <img src={tutor.image} alt={tutor.name} className="w-16 h-16 rounded-2xl object-cover border border-gray-200" />
                   <div className="space-y-1.5 flex-1">
-                    <h4 className="text-sm font-black text-[#000000]">{tutor.name}</h4>
-                    <p className="text-xs font-bold text-[#1f1f7a]">Expert in {tutor.subject} ({tutor.grade})</p>
+                    <h4 className="text-sm font-black text-[#0F172A]">{tutor.name}</h4>
+                    <p className="text-xs font-bold text-[#059669]">Expert in {tutor.subject} ({tutor.grade})</p>
                     <p className="text-[11px] text-gray-600 font-medium">🎓 {tutor.degree} • 📍 {tutor.area}, {tutor.city}</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => handleProtectedAction("hire", tutor)}
-                  className="px-6 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl transition-all whitespace-nowrap"
+                  className="px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-extrabold rounded-xl transition-all whitespace-nowrap"
                 >
                   Hire / Contact ➔
                 </button>

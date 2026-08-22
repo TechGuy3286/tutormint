@@ -274,13 +274,6 @@ const allAvailableTutors = [
   }
 ];
 
-const renderStars = (rating: number) => {
-  if (rating >= 5.0) return "⭐⭐⭐⭐⭐";
-  if (rating >= 4.9) return "⭐⭐⭐⭐⭐";
-  if (rating >= 4.8) return "⭐⭐⭐⭐";
-  return "⭐⭐⭐";
-};
-
 export default function PostJobPage() {
   const levelsList = Object.keys(taxonomyData);
 
@@ -394,12 +387,12 @@ export default function PostJobPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 font-sans text-[#000000]">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 font-sans text-[#334155]">
       
       {/* TOP PANEL */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#000000]">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A]">
             Post Personalized Job Requirement
           </h1>
           <p className="text-xs sm:text-sm text-gray-600 font-medium">
@@ -408,7 +401,7 @@ export default function PostJobPage() {
         </div>
         <Link 
           href="/parent/dashboard" 
-          className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl transition-colors"
+          className="px-4 py-2.5 bg-[#F8FAFC] hover:bg-gray-200 text-[#334155] text-xs font-bold rounded-xl border border-gray-200 transition-colors"
         >
           ← Back to Feed
         </Link>
@@ -424,14 +417,14 @@ export default function PostJobPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
-            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <label className="text-xs font-bold text-[#1f1f7a] block">📚 Level (Searchable)</label>
+            <div className="space-y-2 bg-[#F8FAFC] p-4 rounded-2xl border border-gray-100">
+              <label className="text-xs font-bold text-[#0F172A] block">📚 Level (Searchable)</label>
               <input 
                 type="text"
                 placeholder="Search levels..."
                 value={levelSearch}
                 onChange={(e) => setLevelSearch(e.target.value)}
-                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2"
+                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-[#334155]"
               />
               <select 
                 value={selectedLevel} 
@@ -442,7 +435,7 @@ export default function PostJobPage() {
                   setSelectedGrade(newGrades[0] || "");
                   setSelectedSubjects([]);
                 }}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
+                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#0F172A]"
                 size={4}
               >
                 {filteredLevels.map((lvl) => (
@@ -451,14 +444,14 @@ export default function PostJobPage() {
               </select>
             </div>
 
-            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <label className="text-xs font-bold text-[#1f1f7a] block">🎓 Grade / Specialisation (Searchable)</label>
+            <div className="space-y-2 bg-[#F8FAFC] p-4 rounded-2xl border border-gray-100">
+              <label className="text-xs font-bold text-[#0F172A] block">🎓 Grade / Specialisation (Searchable)</label>
               <input 
                 type="text"
                 placeholder="Search grades..."
                 value={gradeSearch}
                 onChange={(e) => setGradeSearch(e.target.value)}
-                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2"
+                className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-[#334155]"
               />
               <select 
                 value={selectedGrade} 
@@ -466,7 +459,7 @@ export default function PostJobPage() {
                   setSelectedGrade(e.target.value);
                   setSelectedSubjects([]);
                 }}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
+                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#0F172A]"
                 size={4}
               >
                 {filteredGrades.map((grd) => (
@@ -477,16 +470,16 @@ export default function PostJobPage() {
 
           </div>
 
-          <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+          <div className="space-y-2 bg-[#F8FAFC] p-4 rounded-2xl border border-gray-100">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
-              <label className="text-xs font-bold text-[#1f1f7a] block">📖 Select Subjects</label>
+              <label className="text-xs font-bold text-[#0F172A] block">📖 Select Subjects</label>
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <input 
                   type="text"
                   placeholder="Search subjects..."
                   value={subjectSearch}
                   onChange={(e) => setSubjectSearch(e.target.value)}
-                  className="p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none flex-1 sm:w-48"
+                  className="p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none flex-1 sm:w-48 text-[#334155]"
                 />
                 <button 
                   type="button" 
@@ -521,8 +514,8 @@ export default function PostJobPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             
-            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <label className="text-xs font-bold text-[#1f1f7a] block">📍 City</label>
+            <div className="space-y-2 bg-[#F8FAFC] p-4 rounded-2xl border border-gray-100">
+              <label className="text-xs font-bold text-[#0F172A] block">📍 City</label>
               <select 
                 value={selectedCity} 
                 onChange={(e) => {
@@ -530,7 +523,7 @@ export default function PostJobPage() {
                   const areas = cityAreasMap[e.target.value] || ["Gulberg"];
                   setSelectedArea(areas[0]);
                 }}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
+                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#0F172A]"
               >
                 {Object.keys(cityAreasMap).map((city) => (
                   <option key={city} value={city}>{city}</option>
@@ -538,12 +531,12 @@ export default function PostJobPage() {
               </select>
             </div>
 
-            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <label className="text-xs font-bold text-[#1f1f7a] block">🏘️ Area</label>
+            <div className="space-y-2 bg-[#F8FAFC] p-4 rounded-2xl border border-gray-100">
+              <label className="text-xs font-bold text-[#0F172A] block">🏘️ Area</label>
               <select 
                 value={selectedArea} 
                 onChange={(e) => setSelectedArea(e.target.value)}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
+                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#0F172A]"
               >
                 {(cityAreasMap[selectedCity] || ["Gulberg"]).map((area) => (
                   <option key={area} value={area}>{area}</option>
@@ -551,12 +544,12 @@ export default function PostJobPage() {
               </select>
             </div>
 
-            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <label className="text-xs font-bold text-[#1f1f7a] block">⏰ Tuition Time</label>
+            <div className="space-y-2 bg-[#F8FAFC] p-4 rounded-2xl border border-gray-100">
+              <label className="text-xs font-bold text-[#0F172A] block">⏰ Tuition Time</label>
               <select 
                 value={tuitionTime} 
                 onChange={(e) => setTuitionTime(e.target.value)}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
+                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#0F172A]"
               >
                 <option value="03:00 PM">03:00 PM</option>
                 <option value="04:00 PM">04:00 PM</option>
@@ -567,12 +560,12 @@ export default function PostJobPage() {
               </select>
             </div>
 
-            <div className="space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <label className="text-xs font-bold text-[#1f1f7a] block">👤 Preferred Gender</label>
+            <div className="space-y-2 bg-[#F8FAFC] p-4 rounded-2xl border border-gray-100">
+              <label className="text-xs font-bold text-[#0F172A] block">👤 Preferred Gender</label>
               <select 
                 value={preferredGender} 
                 onChange={(e) => setPreferredGender(e.target.value)}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#1f1f7a]"
+                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#0F172A]"
               >
                 <option value="No Preference">No Preference</option>
                 <option value="Male">Male Tutor</option>
@@ -586,7 +579,7 @@ export default function PostJobPage() {
         <div className="pt-4 flex justify-end">
           <button 
             type="submit"
-            className="px-6 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2"
+            className="px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2"
           >
             <span>✨ Generate AI Job Post & Find Tutors</span>
           </button>
@@ -598,12 +591,13 @@ export default function PostJobPage() {
           
           <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-3xl space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-xs font-black uppercase tracking-wider text-emerald-800">
+              <h3 className="text-xs font-black uppercase tracking-wider text-emerald-900">
                 🤖 AI-Generated Job Post Preview
               </h3>
               <button 
+                type="button"
                 onClick={handlePublishJob}
-                className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm"
+                className="px-5 py-2.5 bg-[#059669] hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
               >
                 Publish Job Requirement 🚀
               </button>
@@ -612,7 +606,7 @@ export default function PostJobPage() {
             <div className="space-y-2 bg-white p-4 rounded-2xl border border-emerald-100 text-xs">
               <div><span className="text-gray-400 font-bold uppercase text-[10px]">Title:</span> <strong className="text-gray-900 text-sm">{aiTitle}</strong></div>
               <div><span className="text-gray-400 font-bold uppercase text-[10px]">Description:</span> <p className="text-gray-700 mt-0.5">{aiDescription}</p></div>
-              <div><span className="text-gray-400 font-bold uppercase text-[10px]">Required Skills:</span> <span className="font-semibold text-[#1f1f7a]">{aiSkills}</span></div>
+              <div><span className="text-gray-400 font-bold uppercase text-[10px]">Required Skills:</span> <span className="font-semibold text-[#059669]">{aiSkills}</span></div>
             </div>
           </div>
 
@@ -631,8 +625,8 @@ export default function PostJobPage() {
                     <div className="flex items-start gap-4 w-full sm:w-auto">
                       <img src={tutor.image} alt={tutor.name} className="w-16 h-16 rounded-2xl object-cover border border-gray-200" />
                       <div className="space-y-1.5 flex-1">
-                        <h4 className="text-sm font-black text-[#000000]">{tutor.name}</h4>
-                        <p className="text-xs font-bold text-[#1f1f7a]">Expert in {tutor.subject} ({tutor.grade}) • Gender: {tutor.gender}</p>
+                        <h4 className="text-sm font-black text-[#0F172A]">{tutor.name}</h4>
+                        <p className="text-xs font-bold text-[#059669]">Expert in {tutor.subject} ({tutor.grade}) • Gender: {tutor.gender}</p>
                         <p className="text-[11px] text-gray-600 font-medium">🎓 {tutor.degree} • 📍 {tutor.area}, {tutor.city} • Time Slot: {tuitionTime}</p>
                       </div>
                     </div>
@@ -640,7 +634,7 @@ export default function PostJobPage() {
                       href={`https://wa.me/923211045245?text=Hi%20I%20want%20to%20hire%20${encodeURIComponent(tutor.name)}%20for%20${encodeURIComponent(tutor.subject)}`} 
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-6 py-3 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-extrabold rounded-xl text-center shadow-sm block"
+                      className="px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-extrabold rounded-xl text-center shadow-sm block"
                     >
                       Hire / Contact ➔
                     </a>
