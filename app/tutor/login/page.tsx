@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -12,6 +12,18 @@ export default function LoginPage() {
 
   const supabase = createClient()
   const router = useRouter()
+
+  // Active Session Check: Redirect if already logged in
+  useEffect(() => {
+    const checkActiveSession = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        // You can change this to '/tutor/complete-profile' if needed
+        router.push('/tutor/dashboard') 
+      }
+    }
+    checkActiveSession()
+  }, [router, supabase])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
