@@ -47,70 +47,86 @@ export default function HomePage() {
   };
 
   return (
-    <div className="space-y-10 py-10 sm:py-16 max-w-3xl mx-auto px-6 w-full flex-1 flex flex-col justify-between relative">
+    <div className="space-y-12 py-12 sm:py-20 max-w-3xl mx-auto px-6 w-full flex-1 flex flex-col justify-between relative">
       
       {/* Main Content */}
-      <div className="space-y-10">
+      <div className="space-y-12">
         
-        {/* HERO HEADING */}
-        <div className="text-center space-y-3">
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight text-[#000000]">
+        {/* HERO HEADING & SUBTITLE */}
+        <div className="text-center space-y-4">
+          <span className="px-3 py-1 bg-emerald-50 text-[#059669] border border-emerald-200 text-[11px] font-bold uppercase tracking-widest rounded-full">
+            Pakistan's Largest Verified Tutors Network
+          </span>
+          <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight text-[#0F172A]">
             Find Verified & Trusted<br />
             Tutors <span className="text-[#d60008]">FREE</span>
           </h1>
+          <p className="text-sm text-[#334155] max-w-lg mx-auto font-medium">
+            Connect directly with camera-verified home & online tutors. Zero commission, rigorous degree audits, and trusted local educators.
+          </p>
         </div>
 
         {/* SECTION: FOR PARENTS */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 text-center sm:text-left">
-            For Parents
-          </h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-[#334155]">
+              For Parents & Students
+            </h3>
+            <span className="text-[10px] text-gray-400 font-semibold uppercase">Free Job Postings</span>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
-            {/* Square Button 1: Find Tutor (Navy Blue Background) */}
+            {/* Square Button 1: Find Tutor (Deep Slate Navy) */}
             <Link 
               href="/parent/dashboard" 
-              className="p-6 bg-[#1f1f7a] hover:bg-[#16165c] text-white rounded-2xl shadow-lg shadow-[#1f1f7a]/30 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
+              className="p-6 bg-[#0F172A] hover:bg-slate-800 text-white rounded-2xl shadow-lg shadow-slate-900/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
             >
-              <div className="text-2xl mb-2">🔍</div>
+              <div className="text-2xl mb-2 p-3 bg-white/10 rounded-xl w-fit">🔍</div>
               <div>
-                <h4 className="text-sm font-black text-white group-hover:text-gray-200 transition-colors">Find Tutor</h4>
-                <p className="text-xs text-blue-100 mt-1">Browse camera-verified educators instantly.</p>
+                <h4 className="text-sm font-black text-white group-hover:text-emerald-400 transition-colors">Find Tutor</h4>
+                <p className="text-xs text-slate-300 mt-1">Browse camera-verified educators instantly.</p>
               </div>
             </Link>
 
-            {/* Square Button 2: Post a Tuition/Job (Mint Green Background) */}
+            {/* Square Button 2: Post a Tuition/Job (Emerald Green Theme) */}
             <Link 
               href="/parent/dashboard" 
-              className="p-6 bg-[#98FB98] hover:bg-[#85e685] text-[#000000] rounded-2xl shadow-lg shadow-emerald-200/50 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
+              className="p-6 bg-[#059669] hover:bg-emerald-700 text-white rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
             >
-              <div className="text-2xl mb-2">📋</div>
+              <div className="text-2xl mb-2 p-3 bg-white/10 rounded-xl w-fit">📋</div>
               <div>
-                <h4 className="text-sm font-black text-[#000000] transition-colors">Post a Tuition / Job</h4>
-                <p className="text-xs text-gray-800 mt-1">Receive custom quotes from qualified tutors.</p>
+                <h4 className="text-sm font-black text-white transition-colors">Post a Tuition / Job</h4>
+                <p className="text-xs text-emerald-100 mt-1">Receive custom quotes from qualified tutors.</p>
               </div>
             </Link>
           </div>
         </div>
 
         {/* SECTION: FOR TUTORS */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 text-center sm:text-left">
-            For Tutors
-          </h3>
-          {/* Big Horizontal Button (Black Background with Red Shadow Accent) */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-[#334155]">
+              For Educators & Tutors
+            </h3>
+            <span className="text-[10px] text-[#d60008] font-bold uppercase bg-red-50 px-2 py-0.5 rounded border border-red-100">
+              First Month Trial Active
+            </span>
+          </div>
+
+          {/* Big Horizontal Button (Deep Slate Navy with Red Accent) */}
           <Link 
             href="/tutor/register" 
-            className="w-full p-5 bg-[#000000] hover:bg-gray-900 text-white rounded-2xl shadow-lg shadow-[#d60008]/30 transition-all flex items-center justify-between group"
+            className="w-full p-6 bg-[#0F172A] hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-800 transition-all flex items-center justify-between group"
           >
-            <div className="flex items-center gap-3">
-              <span className="text-xl">🎓</span>
+            <div className="flex items-center gap-4">
+              <span className="text-2xl p-3 bg-white/10 rounded-xl">🎓</span>
               <div className="text-left">
-                <h4 className="text-sm font-black uppercase tracking-wider text-white group-hover:text-gray-200 transition-colors">Find Tuition</h4>
-                <p className="text-[11px] text-gray-400 font-medium">Register, upload video proof & get verified</p>
+                <h4 className="text-sm font-black uppercase tracking-wider text-white group-hover:text-emerald-400 transition-colors">Find Tuition & Register Profile</h4>
+                <p className="text-[11px] text-slate-300 font-medium mt-0.5">Upload video proof, get verified & connect with local parents</p>
               </div>
             </div>
-            <span className="text-lg font-bold pr-2 text-[#d60008] group-hover:translate-x-1 transition-transform">➔</span>
+            <span className="text-xl font-bold pr-2 text-[#d60008] group-hover:translate-x-1.5 transition-transform">➔</span>
           </Link>
         </div>
 
@@ -120,21 +136,21 @@ export default function HomePage() {
       <div className="fixed bottom-6 right-6 z-50">
         {chatOpen ? (
           <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-80 sm:w-96 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div className="bg-[#000000] text-white p-4 flex justify-between items-center">
+            <div className="bg-[#0F172A] text-white p-4 flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 bg-[#98FB98] rounded-full animate-pulse"></span>
+                <span className="w-2.5 h-2.5 bg-[#059669] rounded-full animate-pulse"></span>
                 <div>
                   <h4 className="text-xs font-black">TutorMint Assistant</h4>
-                  <p className="text-[10px] text-gray-400">Ask anything about verified tutors</p>
+                  <p className="text-[10px] text-slate-300">Ask anything about verified tutors</p>
                 </div>
               </div>
-              <button onClick={() => setChatOpen(false)} className="text-gray-400 hover:text-white font-bold text-sm px-2">✕</button>
+              <button onClick={() => setChatOpen(false)} className="text-slate-400 hover:text-white font-bold text-sm px-2">✕</button>
             </div>
 
-            <div className="p-4 h-80 overflow-y-auto space-y-3 bg-gray-50 text-xs flex flex-col">
+            <div className="p-4 h-80 overflow-y-auto space-y-3 bg-[#F8FAFC] text-xs flex flex-col">
               {messages.map((m, idx) => (
                 <div key={idx} className={`flex ${m.sender === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`p-3 rounded-2xl max-w-[80%] leading-relaxed ${m.sender === "user" ? "bg-[#d60008] text-white rounded-br-none" : "bg-white text-gray-800 border border-gray-200 rounded-bl-none shadow-2xs"}`}>
+                  <div className={`p-3 rounded-2xl max-w-[80%] leading-relaxed ${m.sender === "user" ? "bg-[#d60008] text-white rounded-br-none" : "bg-white text-[#334155] border border-gray-200 rounded-bl-none shadow-2xs"}`}>
                     {m.text}
                   </div>
                 </div>
@@ -148,9 +164,9 @@ export default function HomePage() {
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 placeholder="Type your question here..."
-                className="flex-1 p-2.5 bg-gray-100 rounded-xl text-xs border border-transparent focus:border-gray-300 focus:bg-white outline-none"
+                className="flex-1 p-2.5 bg-[#F8FAFC] text-[#334155] rounded-xl text-xs border border-gray-200 focus:border-[#0F172A] focus:bg-white outline-none"
               />
-              <button type="submit" className="px-4 py-2.5 bg-[#d60008] hover:bg-[#b50007] text-white text-xs font-bold rounded-xl transition-colors">
+              <button type="submit" className="px-4 py-2.5 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-colors">
                 Send ➔
               </button>
             </form>
@@ -158,12 +174,12 @@ export default function HomePage() {
         ) : (
           <button
             onClick={() => setChatOpen(true)}
-            className="bg-[#d60008] hover:bg-[#b50007] text-white p-4 rounded-full shadow-2xl flex items-center gap-2 font-extrabold text-xs transition-all hover:scale-105 group relative"
+            className="bg-[#d60008] hover:bg-red-700 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 font-extrabold text-xs transition-all hover:scale-105 group relative"
           >
             <span className="text-lg">💬</span>
             <span className="hidden sm:inline pr-1">Need Help? Chat with Us</span>
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#98FB98] rounded-full animate-ping"></span>
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#98FB98] rounded-full"></span>
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#059669] rounded-full animate-ping"></span>
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#059669] rounded-full"></span>
           </button>
         )}
       </div>
