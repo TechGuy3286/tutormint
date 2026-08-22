@@ -115,7 +115,7 @@ export default function HomePage() {
           </div>
 
           {/* Big Horizontal Button (Deep Slate Navy with Vibrant Coral Accent) */}
-          <Link 
+        <Link 
           href="/tutor/register" 
           className="w-full p-6 bg-[#0F172A] hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-800 transition-all flex items-center justify-between group"
           >
@@ -124,13 +124,13 @@ export default function HomePage() {
           <div className="text-left">
           <h4 className="text-sm font-black uppercase tracking-wider text-white group-hover:text-emerald-400 transition-colors">Find Tuition & Register Profile</h4>
           <p className="text-[11px] text-slate-300 font-medium mt-0.5">Upload video proof, get verified & connect with local parents</p>
-    </div>
-  </div>
-  <span className="text-xl font-bold pr-2 text-[#F97316] group-hover:translate-x-1.5 transition-transform">➔</span>
-</Link>
+          </div>
+          </div>
+          <span className="text-xl font-bold pr-2 text-[#F97316] group-hover:translate-x-1.5 transition-transform">➔</span>
+        </Link>
         </div>
 
-      </div>
+        </div>
 
       {/* FLOATING CHATBOT WIDGET */}
       <div className="fixed bottom-6 right-6 z-50">
