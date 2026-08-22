@@ -12,7 +12,6 @@ export default function UnifiedLoginPage() {
 
   const supabase = createClient()
 
-  // Active Session Check: Hard redirect if already logged in
   useEffect(() => {
     const checkActiveSession = async () => {
       try {
@@ -30,34 +29,35 @@ export default function UnifiedLoginPage() {
     checkActiveSession()
   }, [supabase])
 
-  // Smart Role Routing based on database membership
   const routeUserToDashboard = async (userId: string) => {
-    // 1. Check if user is a tutor using user_id
-    const { data: tutorProfile } = await supabase
+    // 1. Check if user is a tutor
+    const { data: tutorProfile, error: tutorErr } = await supabase
       .from('tutors')
       .select('user_id')
       .eq('user_id', userId)
-      .single()
+      .maybeSingle()
 
     if (tutorProfile) {
       window.location.href = '/tutor/dashboard'
       return
     }
 
-    // 2. Check if user is a parent using user_id
-    const { data: parentProfile } = await supabase
+    // 2. Check if user is a parent
+    const { data: parentProfile, error: parentErr } = await supabase
       .from('parents')
       .select('user_id')
       .eq('user_id', userId)
-      .single()
+      .maybeSingle()
 
     if (parentProfile) {
       window.location.href = '/parent/dashboard'
       return
     }
 
-    // Fallback default routing
-    window.location.href = '/parent/dashboard'
+    // 3. If neither profile exists, log them out and show error
+    await supabase.auth.signOut()
+    setError('No profile found for this account in the database. Please register first.')
+    setLoading(false)
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -76,7 +76,6 @@ export default function UnifiedLoginPage() {
       return
     }
 
-    // Intelligently route based on role tables
     await routeUserToDashboard(data.session.user.id)
   }
 
@@ -113,7 +112,7 @@ export default function UnifiedLoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="test.tutor@tutormint.com"
+              placeholder="name@example.com"
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-black placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-black focus:border-black outline-none transition-all"
             />
           </div>
