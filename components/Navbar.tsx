@@ -56,12 +56,12 @@ export default function Navbar() {
       <div className="relative" ref={menuRef}>
         {user ? (
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-slate-700 hidden sm:inline">
+            <span className="text-xs font-bold text-[#334155] hidden sm:inline">
               Welcome, {user.email || user.phone || 'User'}
             </span>
             <button
               onClick={handleLogout}
-              className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl transition-all shadow-2xs"
+              className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-[#d60008] text-xs font-bold rounded-xl transition-all shadow-2xs"
             >
               Logout
             </button>
@@ -71,7 +71,7 @@ export default function Navbar() {
             <button
               onClick={() => setIsOpen(!isOpen)}
               onMouseEnter={() => setIsOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-[#000000] text-xs font-bold rounded-xl transition-all shadow-2xs"
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#F8FAFC] hover:bg-gray-200 text-[#0F172A] text-xs font-bold rounded-xl border border-gray-200 transition-all shadow-2xs"
               aria-label="Login Menu"
             >
               <span>🔐 Login</span>
@@ -87,7 +87,7 @@ export default function Navbar() {
                 <Link
                   href="/parent/login"
                   onClick={() => setIsOpen(false)}
-                  className="px-4 py-2.5 text-xs font-bold text-[#1f1f7a] hover:bg-gray-50 flex items-center justify-between transition-colors"
+                  className="px-4 py-2.5 text-xs font-bold text-[#0F172A] hover:bg-[#F8FAFC] flex items-center justify-between transition-colors"
                 >
                   <span>👨‍👩‍👧‍👦 Parents Login</span>
                   <span className="text-gray-400">➔</span>
