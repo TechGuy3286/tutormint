@@ -8,18 +8,25 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const supabase = createClient()
   const router = useRouter()
 
-  // Active Session Check: Redirect if already logged in
+  // Active Session Check: Instant redirect without form flashing
   useEffect(() => {
     const checkActiveSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        // You can change this to '/tutor/complete-profile' if needed
-        router.push('/tutor/dashboard') 
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          router.replace('/tutor/dashboard')
+          return
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setCheckingSession(false)
       }
     }
     checkActiveSession()
@@ -41,9 +48,20 @@ export default function LoginPage() {
       return
     }
 
-    // Redirect to profile setup/dashboard on success
-    router.push('/tutor/complete-profile')
+    // Redirect to dashboard on success
+    router.replace('/tutor/dashboard')
     setLoading(false)
+  }
+
+  // Prevent login form from flashing while checking active session
+  if (checkingSession) {
+    return (
+      <main className="max-w-md mx-auto mt-24 p-8 text-center bg-white rounded-2xl shadow-xl border border-gray-100">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
+          Verifying active session...
+        </div>
+      </main>
+    )
   }
 
   return (
