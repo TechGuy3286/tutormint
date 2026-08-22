@@ -1,61 +1,46 @@
-import { NextResponse } from "next/server";
-import connectDB from "@/lib/mongodb";
-import Tutor from "@/lib/models/Tutor";
+import mongoose, { Schema, models } from "mongoose";
 
-function generateSlug(name: string) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
+const tutorSchema = new Schema(
+  {
+    // 1. Basic Info & Contact
+    fullName: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    cnic: { type: String, required: true, unique: true },
+    phone_number: { type: String },
+    whatsapp_number: { type: String },
 
-export async function POST(req: Request) {
-  try {
-    await connectDB();
-    const body = await req.json();
+    // 2. National Location (Pakistan-wide)
+    province: { type: String },
+    city: { type: String },
+    areaName: { type: String },
 
-    // Check if tutor already exists by email or cnic
-    const existingTutor = await Tutor.findOne({
-      $or: [{ email: body.email }, { cnic: body.cnic }]
-    });
+    // 3. Teaching Preferences & Academics
+    teachingMode: { 
+      type: String, 
+      enum: ['Physical', 'Online', 'Both'], 
+      required: true 
+    },
+    onlinePlatforms: { type: [String] },
+    degrees: { type: [String] },
 
-    if (existingTutor) {
-      return NextResponse.json(
-        { error: "A tutor with this email or CNIC already exists." },
-        { status: 400 }
-      );
-    }
+    // 4. Security & Manual Activation Gate
+    status: { 
+      type: String, 
+      enum: ['pending', 'active', 'suspended'], 
+      default: 'pending'
+    },
+    username: { type: String, unique: true, sparse: true },
+    password: { type: String },
+    is_activation_paid: { type: Boolean, default: false },
+    activation_date: { type: Date },
 
-    // Generate clean profile username slug
-    const baseSlug = generateSlug(body.fullName || "tutor");
-    let username = baseSlug;
-    let counter = 1;
-    while (await Tutor.findOne({ username })) {
-      username = `${baseSlug}-${counter}`;
-      counter++;
-    }
+    // 5. The "Connects" Economy
+    monthly_connects_quota: { type: Number, default: 0 },
+    purchased_connects_balance: { type: Number, default: 0 },
+  },
+  { timestamps: true }
+);
 
-    // Convert comma-separated degrees string into an array of strings
-    const degreesArray = body.degrees 
-      ? body.degrees.split(',').map((d: string) => d.trim()).filter(Boolean) 
-      : [];
+const Tutor = models.Tutor || mongoose.model("Tutor", tutorSchema);
 
-    const newTutor = await Tutor.create({
-      ...body,
-      degrees: degreesArray,
-      username,
-      monthly_connects_quota: 15, // Allocating the 15 bonus credits mentioned on signup
-      status: "pending", 
-    });
-
-    return NextResponse.json(
-      { message: "Tutor registered successfully", tutorId: newTutor._id, username },
-      { status: 201 }
-    );
-  } catch (error: any) {
-    console.error("Tutor Registration Error:", error);
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
-  }
-}
+export default Tutor;
