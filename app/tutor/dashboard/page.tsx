@@ -18,16 +18,16 @@ export default function TutorDashboardPage() {
       try {
         const { data: { user }, error: authError } = await supabase.auth.getUser()
         if (authError || !user) {
-          router.replace('/tutor/login')
+          window.location.href = '/login'
           return
         }
 
-        // Check if user exists in the 'tutors' table using user_id
+        // Check if user exists in the 'tutors' table using maybeSingle()
         const { data: tutorProfile, error: tutorError } = await supabase
           .from('tutors')
           .select('user_id')
           .eq('user_id', user.id)
-          .single()
+          .maybeSingle()
 
         if (tutorError || !tutorProfile) {
           // Not found in tutors table, check if they are a parent
@@ -35,27 +35,28 @@ export default function TutorDashboardPage() {
             .from('parents')
             .select('user_id')
             .eq('user_id', user.id)
-            .single()
+            .maybeSingle()
 
           if (parentProfile) {
-            // Caught a parent trying to access tutor dashboard! Redirect them home.
-            router.replace('/parent/dashboard')
+            // Caught a parent trying to access tutor dashboard! Redirect them.
+            window.location.href = '/parent/dashboard'
             return
           } else {
-            // Neither table has them, redirect to login
-            router.replace('/tutor/login')
+            // Neither table has them, redirect to unified login
+            window.location.href = '/login'
             return
           }
         }
       } catch (err) {
         console.error('Role verification error:', err)
+        window.location.href = '/login'
       } finally {
         setLoadingRole(false)
       }
     }
 
     verifyTutorRole()
-  }, [router, supabase])
+  }, [supabase])
 
   const tutorData = {
     id: 'TM-8821',
