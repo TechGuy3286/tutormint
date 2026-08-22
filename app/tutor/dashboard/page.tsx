@@ -1,35 +1,31 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 
 export default function TutorDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [userEmail, setUserEmail] = useState<string>('test.tutor@tutormint.com')
   const [notification, setNotification] = useState('🔍 A parent in DHA Phase 5 viewed your profile (2 mins ago)')
   const [referralCopied, setReferralCopied] = useState(false)
-
-  const supabase = createClient()
+  const [appliedJobs, setAppliedJobs] = useState<number[]>([])
 
   useEffect(() => {
-    // Check localStorage for the email directly
+    const loggedIn = localStorage.getItem('tm_logged_in')
     const email = localStorage.getItem('tm_email')
 
-    if (!email) {
+    if (!loggedIn && !email) {
       window.location.href = '/login'
       return
     }
 
-    setUserEmail(email)
-    // Ensure tm_logged_in is also set to keep things in sync
-    localStorage.setItem('tm_logged_in', 'true')
+    if (email) {
+      setUserEmail(email)
+    }
     setLoading(false)
   }, [])
 
-  const handleLogout = async () => {
-    localStorage.removeItem('tm_logged_in')
-    localStorage.removeItem('tm_email')
-    await supabase.auth.signOut()
+  const handleLogout = () => {
+    localStorage.clear()
     window.location.href = '/login'
   }
 
@@ -42,7 +38,45 @@ export default function TutorDashboardPage() {
     profileLink: 'https://www.tutormint.org/tutor/sir-bilal-ahmed',
     demoRating: '4.9 ★',
     methodRating: '4.8 ★',
-    trialStatus: 'First Month Free Trial Active (Trust Fee 199 PKR due on completion)'
+    trialStatus: 'First Month Free Trial Active (Trust Fee 199 PKR due on completion)',
+    verifications: {
+      video: 'Approved & Verified ✓',
+      cnic: 'Verified via NADRA ✓',
+      degree: 'Physical Degree Audited ✓'
+    }
+  }
+
+  const nearbyLeads = [
+    {
+      id: 1,
+      subject: 'O-Level Mathematics (Class 10)',
+      location: 'DHA Phase 5, Lahore',
+      budget: '35,000 PKR / month',
+      timing: 'Evening (4:00 PM - 6:00 PM)',
+      posted: '15 mins ago'
+    },
+    {
+      id: 2,
+      subject: 'A-Level Physics (H2 / Mechanics)',
+      location: 'Gulberg III, Lahore',
+      budget: '45,000 PKR / month',
+      timing: 'Flexible Weekdays',
+      posted: '1 hour ago'
+    },
+    {
+      id: 3,
+      subject: 'Grade 9 General Science & Math',
+      location: 'Model Town, Lahore',
+      budget: '25,000 PKR / month',
+      timing: 'After School',
+      posted: '3 hours ago'
+    }
+  ]
+
+  const handleApplyJob = (id: number) => {
+    if (!appliedJobs.includes(id)) {
+      setAppliedJobs([...appliedJobs, id])
+    }
   }
 
   const whatsappShareText = encodeURIComponent(
@@ -91,7 +125,7 @@ export default function TutorDashboardPage() {
           </button>
         </div>
 
-        {/* Curiosity Notification Banner */}
+        {/* Live Alert Banner */}
         <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse"></span>
@@ -119,6 +153,68 @@ export default function TutorDashboardPage() {
           <div className="bg-slate-900 text-white p-5 rounded-xl text-center space-y-1 w-full md:w-auto">
             <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-400">Billing Status</span>
             <p className="text-xs font-medium text-gray-200 max-w-[220px]">{tutorData.trialStatus}</p>
+          </div>
+        </div>
+
+        {/* NEW: Verification & Badge Center */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Camera & Credential Verification Status</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase">Video Interview</span>
+              <p className="text-xs font-bold text-emerald-600">{tutorData.verifications.video}</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase">CNIC Status</span>
+              <p className="text-xs font-bold text-emerald-600">{tutorData.verifications.cnic}</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase">Academic Degree</span>
+              <p className="text-xs font-bold text-emerald-600">{tutorData.verifications.degree}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* NEW: Nearby Tuition Leads Feed */}
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Active Tuition Leads Near You</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Parents actively looking for verified tutors in your preferred zones.</p>
+            </div>
+            <span className="px-3 py-1 bg-red-50 text-red-600 font-bold text-[10px] uppercase tracking-widest rounded-full border border-red-100">
+              3 New Today
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {nearbyLeads.map((lead) => {
+              const hasApplied = appliedJobs.includes(lead.id)
+              return (
+                <div key={lead.id} className="p-5 bg-gray-50 border border-gray-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-900">{lead.subject}</span>
+                      <span className="text-[10px] text-gray-400 font-mono">• {lead.posted}</span>
+                    </div>
+                    <p className="text-xs text-gray-600">📍 {lead.location} | ⏰ {lead.timing}</p>
+                    <p className="text-xs font-black text-emerald-600">{lead.budget}</p>
+                  </div>
+
+                  <button
+                    onClick={() => handleApplyJob(lead.id)}
+                    disabled={hasApplied}
+                    className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all whitespace-nowrap ${
+                      hasApplied 
+                        ? 'bg-emerald-100 text-emerald-800 cursor-default' 
+                        : 'bg-black hover:bg-emerald-600 text-white shadow'
+                    }`}
+                  >
+                    {hasApplied ? 'Applied ✓' : 'Apply for Lead'}
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </div>
 
