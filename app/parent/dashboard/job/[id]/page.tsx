@@ -206,7 +206,7 @@ export default function JobDetailPage() {
                       {isShortlisted ? '⭐ Favorited' : '☆ Shortlist'}
                     </button>
                     <button
-                      onClick={() => router.push(`/chat/${jobId}`)}
+                      onClick={() => router.push(`/chat/${jobId}?tutor=${encodeURIComponent(tutor.name)}&avatar=${encodeURIComponent(tutor.image)}`)}
                       className="px-3.5 py-2.5 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-md"
                     >
                       💬 Chat
