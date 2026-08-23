@@ -24,9 +24,9 @@ export default function ParentLoginPage() {
       setError(error.message)
       setLoading(false)
     } else {
-      // Check if there's a saved job form waiting to be published
-      const pendingJob = sessionStorage.getItem('pendingJobForm')
-      if (pendingJob) {
+      // Check for saved job session using the correct key 'savedJobSession'
+      const savedSession = sessionStorage.getItem('savedJobSession')
+      if (savedSession) {
         router.push('/parent/dashboard/post-job')
       } else {
         router.push('/parent/dashboard')
@@ -79,7 +79,7 @@ export default function ParentLoginPage() {
             disabled={loading}
             className="w-full py-3.5 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all disabled:opacity-50"
           >
-            {loading ? 'Logging in...' : 'Login & Publish Job ➔'}
+            {loading ? 'Logging in...' : 'Login & Restore Job ➔'}
           </button>
         </form>
 
