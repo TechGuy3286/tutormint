@@ -84,21 +84,7 @@ export default function ChatPage() {
     setMessages(updated);
     localStorage.setItem(`chat_msgs_${jobId}`, JSON.stringify(updated));
     setInputText("");
-
-    setTimeout(() => {
-      const replyMsg = {
-        sender: "tutor",
-        name: "Ayesha Khan",
-        text: "Thanks for your message! Let's schedule a trial demo class at your earliest convenience.",
-        time: "Just now",
-        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
-      };
-      setMessages(prev => {
-        const next = [...prev, replyMsg];
-        localStorage.setItem(`chat_msgs_${jobId}`, JSON.stringify(next));
-        return next;
-      });
-    }, 1000);
+    // Automated reply removed so chat stays silent until real response
   };
 
   if (loading) {
