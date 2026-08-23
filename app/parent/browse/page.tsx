@@ -126,7 +126,7 @@ function BrowseContent() {
                   key={tutor.id} 
                   className="bg-white p-5 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:shadow-md transition-all"
                 >
-                  {/* Left: 1x1 Avatar & Consistent Typography Layout */}
+                  {/* Left: 1x1 Avatar & Info */}
                   <div className="flex items-center gap-4 w-full sm:w-auto">
                     <img 
                       src={avatarUrl} 
@@ -137,9 +137,9 @@ function BrowseContent() {
                     <div className="space-y-1 flex-1">
                       {/* Name & Status Badges */}
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-black text-[#0F172A]">
+                        <Link href={`/parent/browse/${tutor.id}`} className="text-sm font-black text-[#0F172A] hover:underline">
                           {tutor.full_name || 'Verified Tutor'}
-                        </h3>
+                        </Link>
                         
                         {isNew ? (
                           <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-black rounded-md border border-green-200">
@@ -171,11 +171,17 @@ function BrowseContent() {
                     </div>
                   </div>
 
-                  {/* Right: Consistent Hire Button */}
-                  <div className="w-full sm:w-auto flex justify-end shrink-0">
+                  {/* Right: Dual Buttons (View Profile & Hire) */}
+                  <div className="w-full sm:w-auto flex items-center gap-2 justify-end shrink-0">
                     <Link
                       href={`/parent/browse/${tutor.id}`}
-                      className="w-full sm:w-auto text-center px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all tracking-wider"
+                      className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-[#0F172A] font-bold text-xs rounded-xl transition-all border border-gray-200"
+                    >
+                      View Profile
+                    </Link>
+                    <Link
+                      href={`/parent/browse/${tutor.id}`}
+                      className="px-5 py-2.5 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all tracking-wider"
                     >
                       Hire / Contact ➔
                     </Link>
