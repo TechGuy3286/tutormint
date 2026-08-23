@@ -83,7 +83,6 @@ export default function JobDetailPage() {
   };
 
   const handleHireTutor = async (tutorName: string) => {
-    // Trigger internal notification technology simulation / backend call
     setNotificationMsg(`✅ Success! Hire notification dispatched to ${tutorName} via internal TutorMint notification network for Job [${jobId}].`);
     setTimeout(() => setNotificationMsg(""), 5000);
   };
@@ -112,22 +111,18 @@ export default function JobDetailPage() {
 
   return (
     <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-[#334155]">
-      
-      {/* Back Button */}
       <div>
         <Link href="/parent/dashboard" className="text-xs font-bold text-gray-500 hover:text-[#0F172A] transition-colors">
           ← Back to Dashboard
         </Link>
       </div>
 
-      {/* Notification Banner */}
       {notificationMsg && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-bold shadow-sm animate-in fade-in">
           {notificationMsg}
         </div>
       )}
 
-      {/* Job Meta Info Card */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-mono font-bold rounded-full uppercase">
@@ -141,7 +136,6 @@ export default function JobDetailPage() {
         </p>
       </div>
 
-      {/* Requested & Matched Tutors Section */}
       <div className="space-y-4">
         <div className="flex justify-between items-center px-2">
           <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
@@ -176,16 +170,22 @@ export default function JobDetailPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
                   <button
                     onClick={() => toggleShortlist(tutor.id)}
-                    className={`px-4 py-3 text-xs font-bold rounded-xl border transition-all ${isShortlisted ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                    className={`px-3.5 py-3 text-xs font-bold rounded-xl border transition-all ${isShortlisted ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
                   >
                     {isShortlisted ? '⭐ Favorited' : '☆ Shortlist'}
                   </button>
+                  <button
+                    onClick={() => router.push(`/chat/${jobId}`)}
+                    className="px-4 py-3 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-md"
+                  >
+                    💬 Chat
+                  </button>
                   <button 
                     onClick={() => handleHireTutor(tutor.name)}
-                    className="px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-extrabold rounded-xl transition-all whitespace-nowrap shadow-md"
+                    className="px-5 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-extrabold rounded-xl transition-all whitespace-nowrap shadow-md"
                   >
                     HIRE ➔
                   </button>
@@ -195,7 +195,6 @@ export default function JobDetailPage() {
           })}
         </div>
       </div>
-
     </main>
   );
 }
