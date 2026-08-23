@@ -13,10 +13,10 @@ export const metadata: Metadata = {
     siteName: 'TutorMint',
     images: [
       {
-        url: '/logo.png',
+        url: 'https://www.tutormint.org/tutormint-logo1200x630.png',
         width: 1200,
         height: 630,
-        alt: 'TutorMint Logo',
+        alt: 'TutorMint - Pakistan\'s Largest Tutors Network',
       },
     ],
     locale: 'en_PK',
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: "TutorMint - Pakistan's Largest Tutors Network",
     description: "Connect directly with verified tutors and parents across Pakistan.",
-    images: ['/logo.png'],
+    images: ['https://www.tutormint.org/tutormint-logo1200x630.png'],
   },
 };
 
