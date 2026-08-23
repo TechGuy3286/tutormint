@@ -1,157 +1,183 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
-// Sample mock data for verified tutors matching TutorMint standards
-const sampleTutors = [
-  {
-    id: 'TM-8821',
-    name: 'Sir Bilal Ahmed',
-    title: 'Expert O/A Level Mathematics & Physics',
-    area: 'DHA Phase 5, Lahore',
-    subjects: ['Mathematics', 'Physics'],
-    demoRating: '4.9 ★',
-    methodRating: '4.8 ★',
-    rate: 'Rs. 25,000 / month',
-    verified: true,
-  },
-  {
-    id: 'TM-9104',
-    name: 'Ms. Ayesha Khan',
-    title: 'Primary & Middle School All-Subjects Specialist',
-    area: 'Gulberg III, Lahore',
-    subjects: ['English', 'Science', 'Urdu'],
-    demoRating: '5.0 ★',
-    methodRating: '4.9 ★',
-    rate: 'Rs. 20,000 / month',
-    verified: true,
-  },
-  {
-    id: 'TM-7342',
-    name: 'Sir Zeeshan Haider',
-    title: 'Computer Science & Programming Tutor',
-    area: 'Model Town, Lahore',
-    subjects: ['Computer Science', 'Python', 'Math'],
-    demoRating: '4.7 ★',
-    methodRating: '4.8 ★',
-    rate: 'Rs. 30,000 / month',
-    verified: true,
-  },
-]
+function BrowseContent() {
+  const [tutors, setTutors] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [modeFilter, setModeFilter] = useState('all') // 'all', 'online', 'home'
+  const [isSoftMatch, setIsSoftMatch] = useState(false)
 
-export default function ParentBrowsePage() {
-  const [searchSubject, setSearchSubject] = useState('')
-  const [selectedArea, setSelectedArea] = useState('All')
+  const supabase = createClient()
+  const searchParams = useSearchParams()
 
-  const filteredTutors = sampleTutors.filter(tutor => {
-    const matchesSubject = tutor.subjects.some(s => s.toLowerCase().includes(searchSubject.toLowerCase())) ||
-                           tutor.name.toLowerCase().includes(searchSubject.toLowerCase())
-    const matchesArea = selectedArea === 'All' || tutor.area.includes(selectedArea)
-    return matchesSubject && matchesArea
-  })
+  useEffect(() => {
+    const initialQuery = searchParams.get('subject') || ''
+    if (initialQuery) {
+      setSearchTerm(initialQuery)
+    }
+    fetchTutors(initialQuery)
+  }, [searchParams])
+
+  const fetchTutors = async (query = '') => {
+    setLoading(true)
+    setIsSoftMatch(false)
+
+    try {
+      // Base query: fetch all active tutors for open discovery
+      let dbQuery = supabase
+        .from('tutors')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      const { data, error } = await dbQuery
+
+      if (error) throw error
+
+      if (data) {
+        if (!query.trim()) {
+          setTutors(data)
+        } else {
+          // Attempt exact/close matching on subjects or headline
+          const filtered = data.filter((tutor: any) => 
+            tutor.subjects?.toLowerCase().includes(query.toLowerCase()) ||
+            tutor.full_name?.toLowerCase().includes(query.toLowerCase()) ||
+            tutor.bio?.toLowerCase().includes(query.toLowerCase())
+          )
+
+          if (filtered.length > 0) {
+            setTutors(filtered)
+          } else {
+            // Soft Matching Fallback: If no strict match, display all tutors politely instead of empty screen
+            setIsSoftMatch(true)
+            setTutors(data)
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching tutors:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    fetchTutors(searchTerm)
+  }
 
   return (
-    <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#F8FAFC] py-10 px-4 sm:px-12 text-[#334155]">
       <div className="max-w-6xl mx-auto space-y-8">
         
-        {/* Header & Ad Posting Banner */}
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Find Verified Tutors</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Browse directly through verified tutors in your neighborhood. No middlemen, direct peer-to-peer connection.
-            </p>
+        {/* Header & Search Bar */}
+        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-black text-[#0F172A]">Find Verified Tutors</h1>
+            <p className="text-xs text-gray-500">Browse available tutors for home or online sessions and connect instantly.</p>
           </div>
-          <div className="w-full md:w-auto text-center">
-            <Link 
-              href="/parent/post-job" 
-              className="inline-block px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs tracking-wider uppercase rounded-xl shadow-md transition-all"
+
+          <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-3">
+            <input 
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by subject (e.g. Math, Physics, English)..."
+              className="flex-1 p-3.5 bg-[#F8FAFC] border border-gray-200 rounded-2xl text-xs outline-none focus:border-[#0F172A] focus:bg-white text-[#334155]"
+            />
+            <button
+              type="submit"
+              className="px-6 py-3.5 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all"
             >
-              Didn't Find a Match? Post an Ad
+              Search Tutors
+            </button>
+          </form>
+        </div>
+
+        {/* Soft Match Notification Banner */}
+        {isSoftMatch && (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-800 font-medium flex items-center justify-between">
+            <span>⚠️ We couldn't find an exact match for your search, but here are all available top tutors ready to help!</span>
+            <button onClick={() => { setSearchTerm(''); fetchTutors(''); }} className="font-bold underline ml-4">
+              Clear Search
+            </button>
+          </div>
+        )}
+
+        {/* Tutor Grid */}
+        {loading ? (
+          <div className="text-center py-20 text-xs font-bold text-gray-400">Loading available tutors...</div>
+        ) : tutors.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-3xl border border-gray-200 p-8 space-y-3">
+            <h3 className="text-sm font-black text-[#0F172A]">No Tutors Available Yet</h3>
+            <p className="text-xs text-gray-500">Be the first parent to post a job requirement and let tutors apply directly!</p>
+            <Link href="/parent/dashboard/post-job" className="inline-block mt-2 px-6 py-3 bg-[#0F172A] text-white font-bold text-xs rounded-xl">
+              Post a Tuition Job ➔
             </Link>
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {tutors.map((tutor) => {
+              // Check if tutor is new (created within last 30 days)
+              const isNew = new Date(tutor.created_at).getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000
 
-        {/* Filter Controls */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Search Subject or Tutor Name</label>
-            <input
-              type="text"
-              value={searchSubject}
-              onChange={(e) => setSearchSubject(e.target.value)}
-              placeholder="e.g. Mathematics, Bilal..."
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Filter by Area (Lahore)</label>
-            <select
-              value={selectedArea}
-              onChange={(e) => setSelectedArea(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-            >
-              <option value="All">All Areas</option>
-              <option value="DHA">DHA</option>
-              <option value="Gulberg">Gulberg</option>
-              <option value="Model Town">Model Town</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Tutor Directory Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {filteredTutors.length > 0 ? (
-            filteredTutors.map((tutor) => (
-              <div key={tutor.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col justify-between space-y-4 hover:border-emerald-500 transition-all">
-                <div>
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-bold text-slate-400">{tutor.id}</span>
-                    <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-lg border border-emerald-200">
-                      Verified Tutor ✓
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900">{tutor.name}</h3>
-                  <p className="text-xs font-medium text-slate-600 mt-0.5">{tutor.title}</p>
-                  <p className="text-xs text-gray-400 mt-1">📍 {tutor.area}</p>
-
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {tutor.subjects.map(sub => (
-                      <span key={sub} className="px-2.5 py-1 bg-gray-100 text-slate-700 text-xs font-medium rounded-lg">
-                        {sub}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-gray-100 space-y-3">
-                  <div className="flex justify-between text-xs font-semibold text-slate-700">
-                    <span>Demo: <strong className="text-emerald-600">{tutor.demoRating}</strong></span>
-                    <span>Method: <strong className="text-slate-900">{tutor.methodRating}</strong></span>
-                  </div>
-                  <div className="text-sm font-bold text-slate-900">{tutor.rate}</div>
+              return (
+                <div key={tutor.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
                   
-                  <button 
-                    onClick={() => alert(`Demo request sent to ${tutor.name}. Awaiting acceptance.`)}
-                    className="w-full py-3 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs tracking-wider uppercase rounded-xl shadow transition-all"
-                  >
-                    Request Free Demo Class
-                  </button>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-0.5">
+                        <h3 className="text-sm font-black text-[#0F172A]">{tutor.full_name || 'Verified Tutor'}</h3>
+                        <p className="text-[11px] text-gray-400">{tutor.city || 'Available Online & On-site'}</p>
+                      </div>
+                      {isNew && (
+                        <span className="px-2.5 py-1 bg-green-50 text-green-700 text-[10px] font-black rounded-lg border border-green-200">
+                          New Talent ⭐
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-3 bg-[#F8FAFC] rounded-2xl space-y-1">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Expertise / Subjects</span>
+                      <p className="text-xs font-bold text-[#334155]">{tutor.subjects || tutor.headline || 'General Tutoring & Academic Coaching'}</p>
+                    </div>
+
+                    <p className="text-xs text-gray-500 line-clamp-2">{tutor.bio || 'Dedicated educator focused on building strong conceptual foundations and student confidence.'}</p>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-gray-400 block">Expected Fee</span>
+                      <span className="text-xs font-black text-[#0F172A]">{tutor.hourly_rate ? `Rs. ${tutor.hourly_rate}/hr` : 'Negotiable'}</span>
+                    </div>
+
+                    <Link
+                      href={`/parent/browse/${tutor.id}`}
+                      className="px-4 py-2.5 bg-[#0F172A] hover:bg-gray-800 text-white font-bold text-xs rounded-xl transition-all shadow-sm"
+                    >
+                      View Profile ➔
+                    </Link>
+                  </div>
+
                 </div>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-3 text-center py-12 bg-white rounded-2xl border border-gray-200">
-              <p className="text-gray-500 text-sm">No tutors match your specific filter.</p>
-              <Link href="/parent/post-job" className="mt-3 inline-block text-emerald-600 font-bold text-xs uppercase tracking-wider underline">
-                Post a Job Ad instead →
-              </Link>
-            </div>
-          )}
-        </div>
+              )
+            })}
+          </div>
+        )}
 
       </div>
     </main>
+  )
+}
+
+export default function BrowsePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-xs font-bold text-gray-500">Loading directory...</div>}>
+      <BrowseContent />
+    </Suspense>
   )
 }
