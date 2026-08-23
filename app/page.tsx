@@ -39,7 +39,7 @@ export default function HomePage() {
       } else if (lower.includes("lahore") || lower.includes("city") || lower.includes("karachi") || lower.includes("islamabad") || lower.includes("multan")) {
         botReply = "We currently have verified tutors active in Lahore, Karachi, Islamabad, Multan, and surrounding areas.";
       } else if (lower.includes("job") || lower.includes("post")) {
-        botReply = "You can click 'Find Tutor' or post a personalized job requirement on our parent dashboard so exact-match tutors can contact you!";
+        botReply = "You can click 'Find Tutor' or post a personalized job requirement on our dashboard so exact-match tutors can contact you!";
       }
 
       setMessages((prev) => [...prev, { sender: "bot", text: botReply }]);
@@ -77,7 +77,7 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
-            {/* Square Button 1: Find Tutor (Points to public /tutor browse page) */}
+            {/* Square Button 1: Find Tutor */}
             <Link 
               href="/tutor" 
               className="p-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-600/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
@@ -89,9 +89,9 @@ export default function HomePage() {
               </div>
             </Link>
 
-            {/* Square Button 2: Post a Tuition/Job */}
+            {/* Square Button 2: Post a Tuition/Job (Points to public /parent/post-job filter page) */}
             <Link 
-              href="/parent/dashboard" 
+              href="/parent/post-job" 
               className="p-6 bg-[#059669] hover:bg-emerald-700 text-white rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
             >
               <div className="text-2xl mb-2 p-3 bg-white/10 rounded-xl w-fit">📋</div>
