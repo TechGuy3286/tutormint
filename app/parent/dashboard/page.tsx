@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import ProfileCompletionWidget from "@/components/ProfileCompletionWidget";
 
 // Mock data for tutors
@@ -186,7 +187,7 @@ export default function ParentDashboardPage() {
           <span className="text-xl flex-shrink-0">✨</span>
         </div>
 
-        {/* Header & Post Job CTA */}
+        {/* Header, Settings CTA & Post Job CTA */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A]">
@@ -196,12 +197,20 @@ export default function ParentDashboardPage() {
               Manage your posted requirements or browse verified tutors directly with zero middlemen.
             </p>
           </div>
-          <button 
-            onClick={() => handleProtectedAction("post-job")}
-            className="px-5 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
-          >
-            <span>📋 Post New Job Requirement</span>
-          </button>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <Link 
+              href="/parent/dashboard/settings"
+              className="px-4 py-3 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
+            >
+              <span>⚙️ Account Settings</span>
+            </Link>
+            <button 
+              onClick={() => handleProtectedAction("post-job")}
+              className="px-5 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
+            >
+              <span>📋 Post New Job Requirement</span>
+            </button>
+          </div>
         </div>
 
         {/* Profile Completion & Checklist Widget */}
