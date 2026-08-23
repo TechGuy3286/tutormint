@@ -63,19 +63,12 @@ export default function Navbar() {
 
   return (
     <header className="bg-white border-b border-gray-200 px-4 sm:px-12 py-3.5 flex justify-between items-center sticky top-0 z-50 shadow-xs">
-      {/* Logo & Public Navigation Links */}
-      <div className="flex items-center gap-8">
-        <Link href="/" className="flex items-center group">
-          <img src="/logo.png" alt="TutorMint Logo" className="h-12 sm:h-16 w-auto object-contain" />
-        </Link>
-        <nav className="hidden md:flex items-center gap-6">
-          <Link href="/tutors" className="text-xs font-bold text-[#334155] hover:text-[#d60008] transition-colors">
-            🔍 Find Tutors
-          </Link>
-        </nav>
-      </div>
+      {/* Logo Only */}
+      <Link href="/" className="flex items-center group mx-auto sm:mx-0">
+        <img src="/logo.png" alt="TutorMint Logo" className="h-12 sm:h-16 w-auto object-contain" />
+      </Link>
 
-      {/* Right Side: Only show user info and logout when logged in. Completely hidden when logged out. */}
+      {/* Right Side: Only show user info and logout when logged in */}
       <div>
         {user ? (
           <div className="flex items-center gap-3">
