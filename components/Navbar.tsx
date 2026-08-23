@@ -8,21 +8,49 @@ import { useRouter } from "next/navigation";
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [displayName, setDisplayName] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
-    // Fetch active session user on mount
-    const fetchUser = async () => {
+    const fetchUserData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-    };
-    fetchUser();
 
-    // Listen for real-time login/logout auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (user) {
+        // Try fetching from parent_profiles first
+        let { data: profile } = await supabase
+          .from('parent_profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        // If not found in parent, try tutor_profiles/tutors
+        if (!profile?.full_name) {
+          const { data: tutor } = await supabase
+            .from('tutors')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+          profile = tutor;
+        }
+
+        if (profile?.full_name) {
+          setDisplayName(profile.full_name);
+        } else {
+          setDisplayName(user.email?.split('@')[0] || 'User');
+        }
+      }
+    };
+
+    fetchUserData();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserData();
+      }
     });
 
     function handleClickOutside(event: MouseEvent) {
@@ -57,7 +85,7 @@ export default function Navbar() {
         {user ? (
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold text-[#334155] hidden sm:inline">
-              Welcome, {user.email || user.phone || 'User'}
+              Welcome, {displayName || user.email || 'User'}
             </span>
             <button
               onClick={handleLogout}
