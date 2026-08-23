@@ -15,6 +15,8 @@ const cityAreasMap: Record<string, string[]> = {
 export default function ParentSettingsPage() {
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
+  const [cnicNumber, setCnicNumber] = useState('')
+  const [cnicScanUrl, setCnicScanUrl] = useState('')
   const [city, setCity] = useState('Lahore')
   const [area, setArea] = useState('Gulberg')
   const [avatarUrl, setAvatarUrl] = useState('')
@@ -48,6 +50,8 @@ export default function ParentSettingsPage() {
       if (profile) {
         setFullName(profile.full_name || '')
         setPhone(profile.phone || '')
+        setCnicNumber(profile.cnic_number || '')
+        setCnicScanUrl(profile.cnic_scan_url || '')
         setCity(profile.city || 'Lahore')
         setArea(profile.area || 'Gulberg')
         setAvatarUrl(profile.avatar_url || '')
@@ -71,6 +75,17 @@ export default function ParentSettingsPage() {
     }
   }
 
+  const handleCnicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setCnicScanUrl(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   const handleAddChild = () => {
     setChildren([...children, { name: '', grade: '', subjects: '' }])
   }
@@ -87,8 +102,18 @@ export default function ParentSettingsPage() {
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSaving(true)
     setMessage({ type: '', text: '' })
+
+    // Hard mandatory check for CNIC verification
+    if (!cnicNumber.trim() || !cnicScanUrl) {
+      setMessage({ 
+        type: 'error', 
+        text: '❌ Mandatory Verification Check Failed: Both CNIC Number and CNIC Scanned Copy are hard mandatory to verify your profile and send tutor demo requests!' 
+      })
+      return
+    }
+
+    setSaving(true)
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -98,6 +123,8 @@ export default function ParentSettingsPage() {
         id: user.id,
         full_name: fullName,
         phone,
+        cnic_number: cnicNumber,
+        cnic_scan_url: cnicScanUrl,
         city,
         area,
         avatar_url: avatarUrl,
@@ -111,7 +138,7 @@ export default function ParentSettingsPage() {
 
       if (error) throw error
 
-      setMessage({ type: 'success', text: '✅ Profile and children details saved successfully!' })
+      setMessage({ type: 'success', text: '✅ Profile verified and updated successfully! You can now send demo requests.' })
     } catch (err: any) {
       setMessage({ type: 'error', text: `❌ Error: ${err.message}` })
     } finally {
@@ -138,13 +165,13 @@ export default function ParentSettingsPage() {
         <nav className="flex items-center space-x-2 text-xs font-bold text-gray-500 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
           <Link href="/parent/dashboard" className="hover:text-[#0F172A] transition-colors">Parent Dashboard</Link>
           <span className="text-gray-300">/</span>
-          <span className="text-[#059669]">Account Settings</span>
+          <span className="text-[#059669]">Account Settings & Verification</span>
         </nav>
 
         <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 flex justify-between items-center">
           <div className="space-y-1">
             <h1 className="text-2xl font-black text-[#0F172A]">Parent Account Settings</h1>
-            <p className="text-xs text-gray-500">Manage your contact details and register children needing tutors.</p>
+            <p className="text-xs text-gray-500">Manage contact details, CNIC verification, and student requirements.</p>
           </div>
           <Link 
             href="/parent/dashboard" 
@@ -157,17 +184,17 @@ export default function ParentSettingsPage() {
         <form onSubmit={handleSaveSettings} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 space-y-8">
           
           {message.text && (
-            <div className={`p-4 rounded-2xl text-xs font-bold text-center ${
+            <div className={`p-4 rounded-2xl text-xs font-bold text-center leading-relaxed ${
               message.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-[#d60008] border border-red-200'
             }`}>
               {message.text}
             </div>
           )}
 
-          {/* Personal Information */}
+          {/* Personal Information & CNIC Verification */}
           <div className="space-y-4">
             <h3 className="text-xs font-black uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-3">
-              Personal Information
+              Personal Information & Mandatory CNIC Verification
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -191,6 +218,46 @@ export default function ParentSettingsPage() {
                   placeholder="0300 1234567"
                   className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none focus:border-[#0F172A] focus:bg-white text-[#334155]"
                 />
+              </div>
+            </div>
+
+            {/* CNIC Number & Scanned Copy Upload */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[#0F172A]">
+                  CNIC Number <span className="text-[#d60008]">* (Mandatory for Verification)</span>
+                </label>
+                <input 
+                  type="text" 
+                  value={cnicNumber}
+                  onChange={(e) => setCnicNumber(e.target.value)}
+                  placeholder="35202-1234567-1"
+                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none focus:border-[#0F172A] focus:bg-white text-[#334155]"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[#0F172A]">
+                  CNIC Scanned Copy <span className="text-[#d60008]">* (Mandatory)</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  {cnicScanUrl ? (
+                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-lg">
+                      ✓ CNIC Uploaded
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-lg">
+                      ⚠️ Required
+                    </span>
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*,.pdf"
+                    onChange={handleCnicUpload}
+                    className="file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-[11px] file:font-bold file:bg-[#0F172A] file:text-white hover:file:bg-black text-xs text-gray-500 cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
 
@@ -333,7 +400,7 @@ export default function ParentSettingsPage() {
               disabled={saving}
               className="px-6 py-3.5 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all disabled:opacity-50"
             >
-              {saving ? 'Saving Changes...' : 'Save Profile & Children ➔'}
+              {saving ? 'Verifying & Saving...' : 'Save Profile & Verify CNIC ➔'}
             </button>
           </div>
 

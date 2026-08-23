@@ -63,12 +63,25 @@ export default function Navbar() {
 
   return (
     <header className="bg-white border-b border-gray-200 px-4 sm:px-12 py-3.5 flex justify-between items-center sticky top-0 z-50 shadow-xs">
-      {/* Logo Only */}
-      <Link href="/" className="flex items-center group mx-auto sm:mx-0">
-        <img src="/logo.png" alt="TutorMint Logo" className="h-12 sm:h-16 w-auto object-contain" />
-      </Link>
+      {/* Left / Logo & Public Navigation Links */}
+      <div className="flex items-center gap-8">
+        <Link href="/" className="flex items-center group">
+          <img src="/logo.png" alt="TutorMint Logo" className="h-12 sm:h-16 w-auto object-contain" />
+        </Link>
+        <nav className="hidden md:flex items-center gap-6">
+          <Link href="/tutors" className="text-xs font-bold text-[#334155] hover:text-[#d60008] transition-colors">
+            🔍 Find Tutors
+          </Link>
+          <Link href="/blog" className="text-xs font-bold text-[#334155] hover:text-[#d60008] transition-colors">
+            📰 Blog
+          </Link>
+          <Link href="/faq" className="text-xs font-bold text-[#334155] hover:text-[#d60008] transition-colors">
+            ❓ FAQs
+          </Link>
+        </nav>
+      </div>
 
-      {/* Right Side: Only show user info and logout when logged in */}
+      {/* Right Side: User info and logout OR public auth buttons */}
       <div>
         {user ? (
           <div className="flex items-center gap-3">
@@ -76,13 +89,29 @@ export default function Navbar() {
               Welcome, {displayName || user.email || 'User'}
             </span>
             <button
+              path-action="logout"
               onClick={handleLogout}
               className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-[#d60008] text-xs font-bold rounded-xl transition-all shadow-2xs"
             >
               Logout
             </button>
           </div>
-        ) : null}
+        ) : (
+          <div className="flex items-center gap-2">
+            <Link 
+              href="/parent/login"
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-[#0F172A] text-xs font-bold rounded-xl transition-all"
+            >
+              Login
+            </Link>
+            <Link 
+              href="/parent/register"
+              className="px-4 py-2 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all shadow-md"
+            >
+              Get Started
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   );
