@@ -25,7 +25,6 @@ function LoginForm() {
       setError(error.message)
       setLoading(false)
     } else {
-      // Read the redirect query parameter, or default to post-job if saved session exists, or dashboard
       const redirectParam = searchParams.get('redirect')
       const hasSavedJob = sessionStorage.getItem('savedJobSession') !== null
 
@@ -99,7 +98,7 @@ function LoginForm() {
   )
 }
 
-export default function ParentLoginPage() {
+export default function LoginPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-xs font-bold text-gray-500">Loading...</div>}>
       <LoginForm />
