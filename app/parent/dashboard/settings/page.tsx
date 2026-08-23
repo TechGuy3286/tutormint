@@ -19,9 +19,7 @@ export default function ParentSettingsPage() {
   const [area, setArea] = useState('Gulberg')
   const [avatarUrl, setAvatarUrl] = useState('')
   
-  // Children state: array of objects { name, grade, subjects }
   const [children, setChildren] = useState<{ name: string; grade: string; subjects: string }[]>([])
-
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
@@ -41,7 +39,7 @@ export default function ParentSettingsPage() {
         return
       }
 
-      const { data: profile, error } = await supabase
+      const { data: profile } = await supabase
         .from('parent_profiles')
         .select('*')
         .eq('id', user.id)
@@ -59,6 +57,17 @@ export default function ParentSettingsPage() {
       console.error("Error fetching profile:", err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setAvatarUrl(reader.result as string)
+      }
+      reader.readAsDataURL(file)
     }
   }
 
@@ -92,7 +101,7 @@ export default function ParentSettingsPage() {
         city,
         area,
         avatar_url: avatarUrl,
-        children: children, // saves the dynamic array directly
+        children: children,
         updated_at: new Date(),
       }
 
@@ -124,7 +133,6 @@ export default function ParentSettingsPage() {
     <main className="min-h-screen bg-[#F8FAFC] py-12 px-4 sm:px-6 lg:px-8 text-[#334155]">
       <div className="max-w-3xl mx-auto space-y-8">
         
-        {/* Top Header */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 flex justify-between items-center">
           <div className="space-y-1">
             <h1 className="text-2xl font-black text-[#0F172A]">Parent Account Settings</h1>
@@ -138,7 +146,6 @@ export default function ParentSettingsPage() {
           </Link>
         </div>
 
-        {/* Settings Form Card */}
         <form onSubmit={handleSaveSettings} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 space-y-8">
           
           {message.text && (
@@ -179,15 +186,24 @@ export default function ParentSettingsPage() {
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#0F172A]">Profile Picture URL (Optional)</label>
-              <input 
-                type="text" 
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none focus:border-[#0F172A] focus:bg-white text-[#334155]"
-              />
+            {/* Direct Profile Picture File Upload */}
+            <div className="space-y-2 pt-2">
+              <label className="text-xs font-bold text-[#0F172A]">Profile Picture</label>
+              <div className="flex items-center gap-4">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar Preview" className="w-14 h-14 rounded-2xl object-cover border border-gray-200 shadow-sm" />
+                ) : (
+                  <div className="w-14 h-14 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center text-xs text-gray-400 font-bold">
+                    No Img
+                  </div>
+                )}
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0F172A] file:text-white hover:file:bg-black text-xs text-gray-500 cursor-pointer"
+                />
+              </div>
             </div>
           </div>
 

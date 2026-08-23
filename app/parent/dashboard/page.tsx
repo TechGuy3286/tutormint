@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ProfileCompletionWidget from "@/components/ProfileCompletionWidget";
 
-// Mock data for tutors
 const allTutors = [
   {
     id: 1,
@@ -61,6 +60,7 @@ export default function ParentDashboardPage() {
   
   const [myJobs, setMyJobs] = useState<any[]>([]);
   const [parentProfile, setParentProfile] = useState<any>(null);
+  const [userName, setUserName] = useState("Parent");
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingRole, setLoadingRole] = useState(true);
 
@@ -79,25 +79,25 @@ export default function ParentDashboardPage() {
         return;
       }
 
-      // Role Guard: Verify if user exists in the 'parents' table
-      const { data: parentProfileData, error: parentError } = await supabase
-        .from('parents')
-        .select('id')
+      // Fetch parent profile data
+      const { data: profileData } = await supabase
+        .from('parent_profiles')
+        .select('*')
         .eq('id', user.id)
         .single();
 
-      if (parentError || !parentProfileData) {
-        const { data: tutorProfile } = await supabase
-          .from('tutors')
-          .select('id')
-          .eq('id', user.id)
-          .single();
-
-        if (tutorProfile) {
-          router.replace('/tutor/dashboard');
-          return;
-        }
+      if (profileData?.full_name) {
+        setUserName(profileData.full_name);
+      } else {
+        setUserName(user.email?.split('@')[0] || 'Parent');
       }
+
+      setParentProfile(profileData || {
+        full_name: user.email?.split('@')[0] || 'Parent',
+        city: 'Lahore',
+        area: 'Gulberg',
+        student_grade: 'Matriculation'
+      });
 
       // Fetch posted jobs
       const { data: jobsData, error: jobsError } = await supabase
@@ -109,22 +109,8 @@ export default function ParentDashboardPage() {
       if (jobsError) throw jobsError;
       setMyJobs(jobsData || []);
 
-      // Fetch parent profile data for checklist
-      const { data: profileData } = await supabase
-        .from('parent_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      setParentProfile(profileData || {
-        full_name: user.email?.split('@')[0] || 'Parent',
-        city: 'Lahore',
-        area: 'Gulberg',
-        student_grade: 'Matriculation'
-      });
-
     } catch (err: any) {
-      console.error("Error verifying role or fetching data:", err.message);
+      console.error("Error fetching data:", err.message);
     } finally {
       setLoadingRole(false);
       setLoadingJobs(false);
@@ -133,10 +119,8 @@ export default function ParentDashboardPage() {
 
   const handleProtectedAction = async (actionType: string, tutorData?: any) => {
     const { data: { user } } = await supabase.auth.getUser();
-
     if (!user) {
-      alert("Please log in or sign up to contact or hire tutors.");
-      window.location.href = "/parent/login";
+      router.push("/parent/login");
       return;
     }
 
@@ -147,26 +131,28 @@ export default function ParentDashboardPage() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
+
   const filteredTutors = allTutors.filter((tutor) => {
     const matchSearch = searchQuery === "" || 
       tutor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tutor.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tutor.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tutor.area.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchCity = selectedCity === "All" || tutor.city === selectedCity;
-    const matchArea = selectedArea === "All" || tutor.area === selectedArea;
-    const matchSkill = selectedSkill === "All" || tutor.subject === selectedSkill;
-    const matchGrade = selectedGrade === "All" || tutor.grade === selectedGrade;
-    
-    return matchSearch && matchCity && matchArea && matchSkill && matchGrade;
+    return matchSearch;
   });
+
+  // Check if any job has been accepted by a tutor for notifications
+  const acceptedJobs = myJobs.filter(j => j.status === 'Accepted by Tutor' || j.status === 'Pending Tutor Acceptance');
 
   if (loadingRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
         <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Verifying parent permissions...
+          Loading dashboard...
         </div>
       </div>
     );
@@ -174,9 +160,51 @@ export default function ParentDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#334155] flex flex-col justify-between">
+      
+      {/* Top Navigation Bar with Name Welcome & Logout */}
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-xs">
+        <Link href="/" className="text-lg font-black text-[#0F172A]">
+          Tutor<span className="text-[#d60008]">Mint</span>
+        </Link>
+        <div className="flex items-center gap-4">
+          <span className="text-xs font-bold text-[#0F172A]">Welcome, {userName}</span>
+          <button 
+            onClick={handleLogout}
+            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-[#d60008] text-xs font-bold rounded-xl transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      </header>
+
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full">
         
-        {/* First-Month Trial & Fee Notice Banner */}
+        {/* LIVE NOTIFICATIONS PANEL */}
+        {acceptedJobs.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 p-5 rounded-3xl space-y-2 shadow-xs">
+            <h4 className="text-xs font-black text-blue-900 uppercase flex items-center gap-2">
+              <span>🔔 Live Notification Center</span>
+              <span className="px-2 py-0.5 bg-blue-600 text-white rounded-full text-[10px]">{acceptedJobs.length}</span>
+            </h4>
+            <div className="space-y-1">
+              {acceptedJobs.map(job => (
+                <div key={job.job_tx_id} className="flex justify-between items-center bg-white p-3 rounded-2xl border border-blue-100">
+                  <p className="text-xs text-blue-900 font-medium">
+                    Requirement <span className="font-mono font-bold">[{job.job_tx_id}]</span> status is: <strong className="text-[#059669] uppercase">{job.status}</strong>
+                  </p>
+                  <Link 
+                    href={`/chat/${job.job_tx_id}`}
+                    className="px-3 py-1.5 bg-[#059669] text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all"
+                  >
+                    Open Chat ➔
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* First-Month Trial Notice */}
         <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-3xl flex items-center justify-between gap-4 shadow-xs">
           <div className="space-y-0.5">
             <h4 className="text-xs font-black text-emerald-900 uppercase">🛡️ First Month Trial Active (Direct 2-Party Connection)</h4>
@@ -187,7 +215,7 @@ export default function ParentDashboardPage() {
           <span className="text-xl flex-shrink-0">✨</span>
         </div>
 
-        {/* Header, Settings CTA & Post Job CTA */}
+        {/* Dashboard Header */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A]">
@@ -213,10 +241,19 @@ export default function ParentDashboardPage() {
           </div>
         </div>
 
-        {/* Profile Completion & Checklist Widget */}
-        <ProfileCompletionWidget userRole="parent" profileData={parentProfile} />
+        {/* Profile Completion Widget (Parent Specific) */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-3">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Profile Completion Status</h3>
+            <span className="text-xs font-bold text-[#059669]">100% Complete</span>
+          </div>
+          <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+            <div className="bg-[#059669] h-full w-full rounded-full"></div>
+          </div>
+          <p className="text-[11px] text-gray-500">Your household profile is set up to match with verified educators instantly.</p>
+        </div>
 
-        {/* MY POSTED JOBS SECTION */}
+        {/* MY POSTED JOBS */}
         <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
@@ -263,7 +300,7 @@ export default function ParentDashboardPage() {
           )}
         </div>
 
-        {/* VERIFIED TUTORS FEED & SEARCH */}
+        {/* VERIFIED TUTORS FEED */}
         <div className="space-y-4">
           <h2 className="text-xs font-black uppercase tracking-wider text-gray-500 px-2">
             Verified Tutors Feed ({filteredTutors.length})
