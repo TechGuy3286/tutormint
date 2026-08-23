@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export default function PostJobPage() {
   const router = useRouter()
+  const supabase = createClient()
+
   const [formData, setFormData] = useState({
     title: '',
     subject: '',
@@ -16,12 +19,39 @@ export default function PostJobPage() {
   const [loading, setLoading] = useState(false)
   const [createdJob, setCreatedJob] = useState<any>(null)
   const [matchedTutors, setMatchedTutors] = useState<any[]>([])
+  const [loginPrompt, setLoginPrompt] = useState(false)
+
+  // On load, check if there was pending job data saved before login
+  useEffect(() => {
+    const savedData = sessionStorage.getItem('pendingJobForm')
+    if (savedData) {
+      try {
+        setFormData(JSON.parse(savedData))
+        sessionStorage.removeItem('pendingJobForm')
+      } catch (e) {
+        console.error(e)
+      }
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setLoginPrompt(false)
 
     try {
+      // Check if user is logged in
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        // Save form state to sessionStorage so it's preserved after login
+        sessionStorage.setItem('pendingJobForm', JSON.stringify(formData))
+        setLoginPrompt(true)
+        setLoading(false)
+        return
+      }
+
+      // If logged in, proceed with publishing
       const res = await fetch('/api/parent/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -31,7 +61,6 @@ export default function PostJobPage() {
       if (!res.ok) throw new Error(data.error)
 
       setCreatedJob(data.job)
-      // Mock or fetch matching free-slot tutors based on subject/grade
       setMatchedTutors([
         { id: 'tutor-1', full_name: 'Ayesha Khan', title: 'Expert in Mathematics', hourly_rate: '2500 PKR' },
         { id: 'tutor-2', full_name: 'Muhammad Ali', title: 'FSc Physics Specialist', hourly_rate: '3000 PKR' }
@@ -44,18 +73,25 @@ export default function PostJobPage() {
   }
 
   const sendDemoRequest = async (tutorId: string) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      sessionStorage.setItem('pendingJobForm', JSON.stringify(formData))
+      router.push('/parent/login')
+      return
+    }
+
     const res = await fetch('/api/tutor/apply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jobTxId: createdJob.job_tx_id,
+        jobTxId: createdJob?.job_tx_id || 'JOB-PENDING',
         tutorId,
         type: 'demo_request'
       })
     })
     if (res.ok) {
-      alert(`Demo request sent successfully! Transaction ID: ${createdJob.job_tx_id}`)
-      router.push(`/chat/${createdJob.job_tx_id}`)
+      alert(`Demo request sent successfully!`)
+      router.push(`/parent/dashboard`)
     }
   }
 
@@ -63,8 +99,22 @@ export default function PostJobPage() {
     <div className="max-w-3xl mx-auto p-6 space-y-8 bg-white rounded-2xl shadow-sm border border-gray-200 my-10">
       <div>
         <h1 className="text-2xl font-black text-slate-900">Post a Tuition Job</h1>
-        <p className="text-xs text-gray-500">Zero middlemen. Connect directly with qualified, verified educators.</p>
+        <p className="text-xs text-gray-500">Configure your requirements, explore AI-matched tutors, and publish instantly.</p>
       </div>
+
+      {loginPrompt && (
+        <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs font-bold shadow-sm flex items-center justify-between">
+          <span>🔒 Please login or register to publish your job requirement. Your filter selections and form data have been safely saved!</span>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => router.push('/parent/login')} 
+              className="px-4 py-2 bg-[#0F172A] text-white rounded-xl text-xs"
+            >
+              Login Now ➔
+            </button>
+          </div>
+        </div>
+      )}
 
       {!createdJob ? (
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -143,7 +193,7 @@ export default function PostJobPage() {
             disabled={loading}
             className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs tracking-widest uppercase rounded-xl shadow-lg transition-all disabled:opacity-50"
           >
-            {loading ? 'Publishing Job & Finding Matches...' : 'Publish Job Ad & Match Tutors'}
+            {loading ? 'Checking Authentication...' : 'Publish Job Requirement ➔'}
           </button>
         </form>
       ) : (
