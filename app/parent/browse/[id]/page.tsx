@@ -7,28 +7,33 @@ import { useParams } from 'next/navigation'
 
 export default function TutorProfilePage() {
   const [tutor, setTutor] = useState<any>(null)
+  const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const params = useParams()
   const supabase = createClient()
 
   useEffect(() => {
     if (params?.id) {
-      fetchTutorProfile(params.id as string)
+      fetchTutorAndReviews(params.id as string)
     }
   }, [params])
 
-  const fetchTutorProfile = async (id: string) => {
+  const fetchTutorAndReviews = async (id: string) => {
     setLoading(true)
     try {
-      // 1. Try fetching by 'id' column
+      let tutorData = null
+
+      // 1. Try fetching tutor by 'id'
       let { data, error } = await supabase
         .from('tutors')
         .select('*')
         .eq('id', id)
         .single()
 
-      // 2. If not found, try fetching by 'user_id' column
-      if (error || !data) {
+      if (!error && data) {
+        tutorData = data
+      } else {
+        // 2. Fallback to 'user_id'
         const { data: userData, error: userError } = await supabase
           .from('tutors')
           .select('*')
@@ -36,13 +41,27 @@ export default function TutorProfilePage() {
           .single()
 
         if (!userError && userData) {
-          data = userData
+          tutorData = userData
         }
       }
 
-      setTutor(data)
+      setTutor(tutorData)
+
+      // 3. Fetch reviews for this tutor
+      if (tutorData) {
+        const tutorKey = tutorData.id || tutorData.user_id
+        const { data: reviewData, error: reviewError } = await supabase
+          .from('reviews')
+          .select('*')
+          .or(`tutor_id.eq.${tutorKey},tutor_user_id.eq.${tutorKey}`)
+          .order('created_at', { ascending: false })
+
+        if (!reviewError && reviewData) {
+          setReviews(reviewData)
+        }
+      }
     } catch (err) {
-      console.error('Error fetching tutor profile:', err)
+      console.error('Error fetching tutor profile & reviews:', err)
     } finally {
       setLoading(false)
     }
@@ -64,6 +83,7 @@ export default function TutorProfilePage() {
     )
   }
 
+  const tutorId = tutor.id || tutor.user_id
   const avatarUrl = tutor.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.full_name || 'Tutor'}`
 
   return (
@@ -87,7 +107,7 @@ export default function TutorProfilePage() {
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black text-[#0F172A]">{tutor.full_name || 'Verified Tutor'}</h1>
                 <span className="px-2.5 py-1 bg-amber-50 text-amber-800 text-xs font-extrabold rounded-lg border border-amber-200 flex items-center gap-1">
-                  ⭐ {tutor.rating || '5.0'} ({tutor.reviews_count || '12'} reviews)
+                  ⭐ {tutor.rating || '5.0'} ({reviews.length > 0 ? reviews.length : (tutor.reviews_count || '12')} reviews)
                 </span>
               </div>
               <p className="text-xs sm:text-sm font-bold text-[#0d9488]">
@@ -103,7 +123,7 @@ export default function TutorProfilePage() {
 
           <div className="w-full sm:w-auto flex flex-col gap-2 shrink-0">
             <Link
-              href={`/parent/dashboard/messages?tutor=${tutor.id || tutor.user_id}`}
+              href={`/parent/dashboard/messages?tutor=${tutorId}`}
               className="w-full text-center px-8 py-3.5 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all"
             >
               Hire / Contact Tutor ➔
@@ -111,11 +131,13 @@ export default function TutorProfilePage() {
           </div>
         </div>
 
-        {/* Detailed Information Grid */}
+        {/* Detailed Information & Feedback Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
-          {/* Left / Main Column: About & Bio */}
+          {/* Left / Main Column: About, Expertise & Reviews */}
           <div className="md:col-span-2 space-y-6">
+            
+            {/* About Educator */}
             <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
               <h3 className="text-sm font-black text-[#0F172A] uppercase tracking-wider">About Educator</h3>
               <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
@@ -123,6 +145,7 @@ export default function TutorProfilePage() {
               </p>
             </div>
 
+            {/* Subjects & Expertise */}
             <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
               <h3 className="text-sm font-black text-[#0F172A] uppercase tracking-wider">Subjects & Expertise</h3>
               <div className="flex flex-wrap gap-2">
@@ -133,6 +156,35 @@ export default function TutorProfilePage() {
                 ))}
               </div>
             </div>
+
+            {/* Parent Feedback & Reviews Section */}
+            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black text-[#0F172A] uppercase tracking-wider">Parent Feedback & Reviews</h3>
+                <span className="text-xs font-bold text-gray-400">{reviews.length} Verified Reviews</span>
+              </div>
+
+              {reviews.length === 0 ? (
+                <div className="p-6 bg-[#F8FAFC] rounded-2xl text-center space-y-2 border border-gray-100">
+                  <p className="text-xs font-bold text-[#0F172A]">No reviews written yet</p>
+                  <p className="text-[11px] text-gray-500">Be the first parent to hire and leave a review for this educator!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {reviews.map((rev, idx) => (
+                    <div key={idx} className="p-4 bg-[#F8FAFC] rounded-2xl border border-gray-100 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-[#0F172A]">{rev.parent_name || 'Verified Parent'}</span>
+                        <span className="text-xs font-extrabold text-amber-600">⭐ {rev.rating || '5.0'}</span>
+                      </div>
+                      <p className="text-xs text-gray-600">{rev.comment || rev.feedback || 'Great experience working with this tutor!'}</p>
+                      <span className="text-[10px] text-gray-400 block">{new Date(rev.created_at || Date.now()).toLocaleDateString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
 
           {/* Right Column: Key Details Sidebar */}
