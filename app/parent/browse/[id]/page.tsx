@@ -20,13 +20,26 @@ export default function TutorProfilePage() {
   const fetchTutorProfile = async (id: string) => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
+      // 1. Try fetching by 'id' column
+      let { data, error } = await supabase
         .from('tutors')
         .select('*')
         .eq('id', id)
         .single()
 
-      if (error) throw error
+      // 2. If not found, try fetching by 'user_id' column
+      if (error || !data) {
+        const { data: userData, error: userError } = await supabase
+          .from('tutors')
+          .select('*')
+          .eq('user_id', id)
+          .single()
+
+        if (!userError && userData) {
+          data = userData
+        }
+      }
+
       setTutor(data)
     } catch (err) {
       console.error('Error fetching tutor profile:', err)
@@ -90,7 +103,7 @@ export default function TutorProfilePage() {
 
           <div className="w-full sm:w-auto flex flex-col gap-2 shrink-0">
             <Link
-              href={`/parent/dashboard/messages?tutor=${tutor.id}`}
+              href={`/parent/dashboard/messages?tutor=${tutor.id || tutor.user_id}`}
               className="w-full text-center px-8 py-3.5 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all"
             >
               Hire / Contact Tutor ➔

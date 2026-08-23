@@ -118,12 +118,13 @@ function BrowseContent() {
         ) : (
           <div className="space-y-4">
             {tutors.map((tutor) => {
+              const tutorId = tutor.id || tutor.user_id
               const avatarUrl = tutor.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.full_name || 'Tutor'}`
               const isNew = new Date(tutor.created_at || Date.now()).getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000
 
               return (
                 <div 
-                  key={tutor.id} 
+                  key={tutorId} 
                   className="bg-white p-5 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:shadow-md transition-all"
                 >
                   {/* Left: 1x1 Avatar & Info */}
@@ -137,7 +138,7 @@ function BrowseContent() {
                     <div className="space-y-1 flex-1">
                       {/* Name & Status Badges */}
                       <div className="flex flex-wrap items-center gap-2">
-                        <Link href={`/parent/browse/${tutor.id}`} className="text-sm font-black text-[#0F172A] hover:underline">
+                        <Link href={`/parent/browse/${tutorId}`} className="text-sm font-black text-[#0F172A] hover:underline">
                           {tutor.full_name || 'Verified Tutor'}
                         </Link>
                         
@@ -171,16 +172,16 @@ function BrowseContent() {
                     </div>
                   </div>
 
-                  {/* Right: Dual Buttons (View Profile & Hire) */}
+                  {/* Right: Dual Buttons */}
                   <div className="w-full sm:w-auto flex items-center gap-2 justify-end shrink-0">
                     <Link
-                      href={`/parent/browse/${tutor.id}`}
+                      href={`/parent/browse/${tutorId}`}
                       className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-[#0F172A] font-bold text-xs rounded-xl transition-all border border-gray-200"
                     >
                       View Profile
                     </Link>
                     <Link
-                      href={`/parent/browse/${tutor.id}`}
+                      href={`/parent/browse/${tutorId}`}
                       className="px-5 py-2.5 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all tracking-wider"
                     >
                       Hire / Contact ➔
