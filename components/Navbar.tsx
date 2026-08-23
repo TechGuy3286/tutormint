@@ -73,20 +73,9 @@ export default function Navbar() {
 
   return (
     <header className="bg-white border-b border-gray-200 px-4 sm:px-12 py-3.5 flex justify-between items-center sticky top-0 z-50 shadow-xs">
-      {/* Logo with Fallback */}
-      <Link href="/" className="flex items-center gap-2 group mx-auto sm:mx-0">
-        <img 
-          src="/logo.png" 
-          alt="TutorMint Logo" 
-          className="h-10 sm:h-12 w-auto object-contain"
-          onError={(e) => {
-            // Fallback to text if image fails to load
-            e.currentTarget.style.display = 'none';
-          }}
-        />
-        <span className="text-xl font-black text-[#0F172A] tracking-tight">
-          Tutor<span className="text-[#d60008]">Mint</span>
-        </span>
+      {/* Logo Only */}
+      <Link href="/" className="flex items-center group mx-auto sm:mx-0">
+        <img src="/logo.png" alt="TutorMint Logo" className="h-12 sm:h-16 w-auto object-contain" />
       </Link>
 
       {/* Right Side: Conditional User Info or Login Menu */}
