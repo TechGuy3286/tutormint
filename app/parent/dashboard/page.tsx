@@ -95,20 +95,17 @@ export default function ParentDashboardPage() {
       return;
     }
 
-    if (actionType === "hire") {
-      window.open(`https://wa.me/923211045245?text=Hi%20I%20want%20to%20hire%20${encodeURIComponent(tutorData.name)}%20for%20${encodeURIComponent(tutorData.subject)}`, "_blank");
-    } else if (actionType === "post-job") {
+    if (actionType === "post-job") {
       router.push("/parent/dashboard/post-job");
     }
   };
 
   const filteredTutors = allTutors.filter((tutor) => {
-    const matchSearch = searchQuery === "" || 
+    return searchQuery === "" || 
       tutor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tutor.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tutor.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tutor.area.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchSearch;
   });
 
   const acceptedJobs = myJobs.filter(j => j.status === 'Accepted by Tutor' || j.status === 'Pending Tutor Acceptance');
@@ -143,17 +140,17 @@ export default function ParentDashboardPage() {
                   Requirement <span className="font-mono font-bold">[{job.job_tx_id}]</span> status is: <strong className="text-[#059669] uppercase">{job.status}</strong>
                 </p>
                 <Link 
-                  href={`/chat/${job.job_tx_id}`}
+                  href={`/parent/dashboard/job/${job.job_tx_id}`}
                   className="px-3 py-1.5 bg-[#059669] text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all"
                 >
-                  Open Chat ➔
+                  View Job & Tutors ➔
                 </Link>
               </div>
             ))}
           </div>
         ) : (
           <div className="bg-white p-3.5 rounded-2xl border border-blue-100 text-xs text-blue-800 font-medium flex items-center justify-between">
-            <span>No demo class acceptances or active alerts right now. When a tutor accepts your requirement, you'll be instantly notified here.</span>
+            <span>No demo class acceptances or active alerts right now. When a tutor accepts your requirement, you'll be notified here.</span>
             <span className="text-blue-400 font-mono text-[10px]">Active & Listening</span>
           </div>
         )}
@@ -185,11 +182,11 @@ export default function ParentDashboardPage() {
         </div>
       </div>
 
-      {/* MY POSTED JOBS WITH PERSONALIZED ACTIVITY HISTORY */}
+      {/* MY POSTED JOBS (CLICKABLE CARDS TO DEDICATED URL) */}
       <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
-            My Posted Jobs & Activity Logs ({myJobs.length})
+            My Posted Jobs ({myJobs.length})
           </h2>
         </div>
 
@@ -206,73 +203,31 @@ export default function ParentDashboardPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {myJobs.map((job) => (
-              <div key={job.job_tx_id || job.id} className="p-5 bg-[#F8FAFC] border border-gray-200 rounded-2xl space-y-3">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold rounded-full uppercase">
-                        {job.job_tx_id}
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase">Status: {job.status || 'Active'}</span>
-                    </div>
-                    <h4 className="text-sm font-bold text-[#0F172A]">{job.title}</h4>
-                    <p className="text-xs text-gray-600">{job.subject} • {job.grade} • Budget: {job.budget}</p>
+              <div 
+                key={job.job_tx_id || job.id} 
+                onClick={() => router.push(`/parent/dashboard/job/${job.job_tx_id}`)}
+                className="p-4 bg-[#F8FAFC] hover:bg-slate-100 border border-gray-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer transition-all group"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold rounded-full uppercase">
+                      {job.job_tx_id}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Status: {job.status || 'Active'}</span>
                   </div>
-
-                  <button
-                    onClick={() => router.push(`/chat/${job.job_tx_id}`)}
-                    className="px-4 py-2.5 bg-[#0F172A] hover:bg-[#059669] text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap"
-                  >
-                    Open Chat & Tutors ➔
-                  </button>
+                  <h4 className="text-sm font-bold text-[#0F172A] group-hover:text-blue-600 transition-colors">{job.title}</h4>
+                  <p className="text-xs text-gray-600">{job.subject} • {job.grade} • Budget: {job.budget}</p>
                 </div>
 
-                {/* Personalized Activity Log Box for Job X */}
-                <div className="bg-white p-3 rounded-xl border border-gray-200 text-xs space-y-1">
-                  <span className="font-bold text-[#0F172A] uppercase tracking-wider text-[10px]">Activity Log for [{job.job_tx_id}]:</span>
-                  <p className="text-gray-500 text-[11px]">
-                    {job.status === 'Accepted by Tutor' 
-                      ? '✅ Tutor matched and accepted this requirement. Secure chat session active.' 
-                      : '🔍 Requirement broadcasted. Shortlisted tutors and connection logs will update here in real-time.'}
-                  </p>
-                </div>
+                <span className="px-4 py-2.5 bg-[#0F172A] group-hover:bg-[#059669] text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap">
+                  View Job & Tutors ➔
+                </span>
               </div>
             ))}
           </div>
         )}
-      </div>
-
-      {/* VERIFIED TUTORS FEED */}
-      <div className="space-y-4">
-        <h2 className="text-xs font-black uppercase tracking-wider text-gray-500 px-2">
-          Verified Tutors Feed ({filteredTutors.length})
-        </h2>
-
-        <div className="space-y-4">
-          {filteredTutors.map((tutor) => (
-            <div 
-              key={tutor.id} 
-              className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
-            >
-              <div className="flex items-start gap-4 w-full sm:w-auto">
-                <img src={tutor.image} alt={tutor.name} className="w-16 h-16 rounded-2xl object-cover border border-gray-200" />
-                <div className="space-y-1.5 flex-1">
-                  <h4 className="text-sm font-black text-[#0F172A]">{tutor.name}</h4>
-                  <p className="text-xs font-bold text-[#059669]">Expert in {tutor.subject} ({tutor.grade})</p>
-                  <p className="text-[11px] text-gray-600 font-medium">🎓 {tutor.degree} • 📍 {tutor.area}, {tutor.city}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => handleProtectedAction("hire", tutor)}
-                className="px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-extrabold rounded-xl transition-all whitespace-nowrap"
-              >
-                Hire / Contact ➔
-              </button>
-            </div>
-          ))}
-        </div>
       </div>
 
     </main>
