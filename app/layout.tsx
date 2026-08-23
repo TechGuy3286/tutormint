@@ -1,116 +1,82 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import './globals.css'
+import Link from 'next/link'
 
-// 1. Define SEO Meta Information for Google & Social Media
-export const metadata: Metadata = {
-  title: {
-    default: "TutorMint | Verified Home & Online Tutors Network in Pakistan",
-    template: "%s | TutorMint",
-  },
-  description: "Find camera-verified home and online tutors in Lahore, Karachi, Islamabad, and Multan. Browse top-rated educators, check credentials, or post a tuition job for free.",
-  
-  // Google Search Console Site Verification
-  verification: {
-    google: "VIV7Ej84jonEk8vzQY5Ax2NXnecpFt5CrTZBw75z-W4",
-  },
-
-  keywords: [
-    "home tutors pakistan",
-    "verified tutors lahore",
-    "online tuition karachi",
-    "find home tutor islamabad",
-    "tutor mint",
-  ],
-  authors: [{ name: "TutorMint Team" }],
-  creator: "TutorMint",
-  publisher: "TutorMint",
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
-  metadataBase: new URL("https://tutormint.org"),
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    title: "TutorMint | Verified Home Tutors Network",
-    description: "Connect with camera-verified home and online educators across Pakistan.",
-    url: "https://tutormint.org",
-    siteName: "TutorMint",
-    locale: "en_PK",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "TutorMint | Verified Home Tutors Network",
-    description: "Connect with camera-verified home and online educators across Pakistan.",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
-};
+export const metadata = {
+  title: 'TutorMint | Verified Home & Online Tutors Network',
+  description: 'Find verified private tutors instantly with zero middlemen.',
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
-  // 2. Define JSON-LD Schema Structure for Google Rich Results
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "EducationalOrganization",
-    "name": "TutorMint",
-    "alternateName": "TutorMint Pakistan",
-    "url": "https://tutormint.org",
-    "logo": "https://tutormint.org/logo.png",
-    "description": "Pakistan's trusted network of camera-verified home and online tutors.",
-    "address": {
-      "@type": "PostalAddress",
-      "addressCountry": "PK"
-    },
-    "areaServed": [
-      { "@type": "City", "name": "Lahore" },
-      { "@type": "City", "name": "Karachi" },
-      { "@type": "City", "name": "Islamabad" },
-      { "@type": "City", "name": "Multan" }
-    ],
-    "sameAs": [
-      "https://linkedin.com/company/tutormint"
-    ]
-  };
-
   return (
     <html lang="en">
-      <head>
-        {/* Injecting JSON-LD Structured Data */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-      </head>
-      <body className="font-sans antialiased flex flex-col min-h-screen bg-[#F9FAFB]">
-        {/* Global Navbar */}
-        <Navbar />
+      <body className="min-h-screen bg-[#F8FAFC] font-sans text-[#334155] flex flex-col justify-between antialiased">
+        
+        {/* GLOBAL CONSISTENT HEADER */}
+        <header className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-50 shadow-xs">
+          <div className="max-w-6xl mx-auto flex justify-between items-center">
+            <Link href="/" className="text-xl font-black text-[#0F172A] tracking-tight">
+              Tutor<span className="text-[#d60008]">Mint</span>
+            </Link>
 
-        {/* Main Content */}
-        <main className="flex-1">
+            <div className="flex items-center gap-6 text-xs font-bold text-[#0F172A]">
+              <Link href="/parent/dashboard" className="hover:text-[#059669] transition-colors hidden sm:inline-block">
+                Parent Portal
+              </Link>
+              <Link href="/tutor/dashboard" className="hover:text-[#059669] transition-colors hidden sm:inline-block">
+                Tutor Portal
+              </Link>
+              <Link 
+                href="/login" 
+                className="px-4 py-2.5 bg-[#0F172A] hover:bg-black text-white rounded-xl shadow-sm transition-all"
+              >
+                Sign In ➔
+              </Link>
+            </div>
+          </div>
+        </header>
+
+        {/* MAIN DYNAMIC CONTENT */}
+        <div className="flex-1">
           {children}
-        </main>
+        </div>
 
-        {/* Global Footer */}
-        <Footer />
+        {/* GLOBAL CONSISTENT FOOTER */}
+        <footer className="bg-[#0F172A] text-white py-12 px-6 mt-20 border-t border-slate-800">
+          <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-center md:text-left">
+            <div className="space-y-2">
+              <h3 className="text-lg font-black tracking-tight">
+                Tutor<span className="text-[#d60008]">Mint</span>
+              </h3>
+              <p className="text-xs text-slate-400 max-w-sm">
+                Pakistan's Largest Verified Tutors Network. Direct 2-party connection with zero hidden middleman commissions.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-6 text-xs text-slate-300 font-medium">
+              <div className="space-y-1">
+                <p className="font-bold text-white uppercase text-[10px] tracking-wider text-slate-400">Navigation</p>
+                <p><Link href="/parent/dashboard" className="hover:underline">Parent Dashboard</Link></p>
+                <p><Link href="/tutor/dashboard" className="hover:underline">Tutor Dashboard</Link></p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-bold text-white uppercase text-[10px] tracking-wider text-slate-400">Legal & Support</p>
+                <p>Privacy Policy</p>
+                <p>Terms of Service</p>
+              </div>
+            </div>
+
+            <div className="text-xs text-slate-400 space-y-1 text-right md:text-right">
+              <p>© {new Date().getFullYear()} TutorMint Inc. All rights reserved.</p>
+              <p className="text-[10px] text-slate-500">Lahore, Pakistan • Direct Verified Connections</p>
+            </div>
+          </div>
+        </footer>
+
       </body>
     </html>
-  );
+  )
 }
