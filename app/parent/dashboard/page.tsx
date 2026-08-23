@@ -88,7 +88,7 @@ export default function ParentDashboardPage() {
     }
   };
 
-  const handleProtectedAction = async (actionType: string, tutorData?: any) => {
+  const handleProtectedAction = async (actionType: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       router.push("/parent/login");
@@ -100,21 +100,14 @@ export default function ParentDashboardPage() {
     }
   };
 
-  const filteredTutors = allTutors.filter((tutor) => {
-    return searchQuery === "" || 
-      tutor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tutor.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tutor.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tutor.area.toLowerCase().includes(searchQuery.toLowerCase());
-  });
-
   const acceptedJobs = myJobs.filter(j => j.status === 'Accepted by Tutor' || j.status === 'Pending Tutor Acceptance');
 
   if (loadingRole) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Loading dashboard...
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] space-y-4">
+        <div className="w-12 h-12 border-4 border-[#d60008] border-t-transparent rounded-full animate-spin shadow-md"></div>
+        <div className="text-xs font-black text-[#0F172A] uppercase tracking-widest animate-pulse">
+          Preparing your dashboard ✨
         </div>
       </div>
     );
@@ -182,7 +175,7 @@ export default function ParentDashboardPage() {
         </div>
       </div>
 
-      {/* MY POSTED JOBS (CLICKABLE CARDS TO DEDICATED URL) */}
+      {/* MY POSTED JOBS */}
       <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
@@ -191,7 +184,10 @@ export default function ParentDashboardPage() {
         </div>
 
         {loadingJobs ? (
-          <div className="text-center py-6 text-xs text-gray-400">Loading your postings...</div>
+          <div className="flex flex-col items-center justify-center py-8 space-y-3">
+            <div className="w-8 h-8 border-3 border-[#059669] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-xs text-gray-500 font-bold">Loading your active postings...</p>
+          </div>
         ) : myJobs.length === 0 ? (
           <div className="text-center py-8 bg-[#F8FAFC] rounded-2xl border border-gray-100">
             <p className="text-xs text-gray-500 font-medium">You haven't posted any jobs yet.</p>
