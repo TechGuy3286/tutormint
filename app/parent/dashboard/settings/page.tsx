@@ -121,9 +121,10 @@ export default function ParentSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Loading settings...
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] space-y-4">
+        <div className="w-12 h-12 border-4 border-[#d60008] border-t-transparent rounded-full animate-spin shadow-md"></div>
+        <div className="text-xs font-black text-[#0F172A] uppercase tracking-widest animate-pulse">
+          Loading settings ⚙️
         </div>
       </div>
     )
@@ -133,6 +134,13 @@ export default function ParentSettingsPage() {
     <main className="min-h-screen bg-[#F8FAFC] py-12 px-4 sm:px-6 lg:px-8 text-[#334155]">
       <div className="max-w-3xl mx-auto space-y-8">
         
+        {/* HIERARCHY BREADCRUMBS */}
+        <nav className="flex items-center space-x-2 text-xs font-bold text-gray-500 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
+          <Link href="/parent/dashboard" className="hover:text-[#0F172A] transition-colors">Parent Dashboard</Link>
+          <span className="text-gray-300">/</span>
+          <span className="text-[#059669]">Account Settings</span>
+        </nav>
+
         <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 flex justify-between items-center">
           <div className="space-y-1">
             <h1 className="text-2xl font-black text-[#0F172A]">Parent Account Settings</h1>
