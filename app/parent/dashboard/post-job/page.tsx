@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -301,6 +301,32 @@ export default function PostJobPage() {
 
   const supabase = createClient();
 
+  // Restore saved session data on page load (e.g. after returning from login)
+  useEffect(() => {
+    const savedSession = sessionStorage.getItem('savedJobSession');
+    if (savedSession) {
+      try {
+        const parsed = JSON.parse(savedSession);
+        if (parsed.selectedLevel) setSelectedLevel(parsed.selectedLevel);
+        if (parsed.selectedGrade) setSelectedGrade(parsed.selectedGrade);
+        if (parsed.selectedSubjects) setSelectedSubjects(parsed.selectedSubjects);
+        if (parsed.selectedCity) setSelectedCity(parsed.selectedCity);
+        if (parsed.selectedArea) setSelectedArea(parsed.selectedArea);
+        if (parsed.tuitionTime) setTuitionTime(parsed.tuitionTime);
+        if (parsed.preferredGender) setPreferredGender(parsed.preferredGender);
+        if (parsed.aiTitle) setAiTitle(parsed.aiTitle);
+        if (parsed.aiDescription) setAiDescription(parsed.aiDescription);
+        if (parsed.aiSkills) setAiSkills(parsed.aiSkills);
+        if (parsed.matchedTutors) setMatchedTutors(parsed.matchedTutors);
+        if (parsed.isGenerated) setIsGenerated(parsed.isGenerated);
+
+        sessionStorage.removeItem('savedJobSession');
+      } catch (err) {
+        console.error("Error restoring session:", err);
+      }
+    }
+  }, []);
+
   const filteredLevels = useMemo(() => {
     return levelsList.filter(lvl => lvl.toLowerCase().includes(levelSearch.toLowerCase()));
   }, [levelSearch, levelsList]);
@@ -352,13 +378,30 @@ export default function PostJobPage() {
     setMatchedTutors(results);
   };
 
-  // Real Database Insertion
+  // Real Database Insertion with Auth & Session Backup
   const handlePublishJob = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        alert("Please log in to publish a job.");
-        window.location.href = "/parent/login";
+        // Save current session payload before redirecting to login
+        const sessionPayload = {
+          selectedLevel,
+          selectedGrade,
+          selectedSubjects,
+          selectedCity,
+          selectedArea,
+          tuitionTime,
+          preferredGender,
+          aiTitle,
+          aiDescription,
+          aiSkills,
+          matchedTutors,
+          isGenerated
+        };
+        sessionStorage.setItem('savedJobSession', JSON.stringify(sessionPayload));
+        
+        alert("🔒 Please log in to publish your job. Your selected filters and generated job preview have been safely saved!");
+        window.location.href = "/parent/login?redirect=/parent/dashboard/post-job";
         return;
       }
 
