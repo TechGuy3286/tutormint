@@ -25,7 +25,7 @@ function LoginForm() {
       setError(error.message)
       setLoading(false)
     } else {
-      // Explicitly check for saved session or query param
+      // Read the redirect query parameter, or default to post-job if saved session exists, or dashboard
       const redirectParam = searchParams.get('redirect')
       const hasSavedJob = sessionStorage.getItem('savedJobSession') !== null
 
