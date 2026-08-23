@@ -126,7 +126,7 @@ export default function ParentDashboardPage() {
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full">
       
-      {/* ALWAYS VISIBLE LIVE NOTIFICATION CENTER */}
+      {/* LIVE NOTIFICATION CENTER */}
       <div className="bg-blue-50 border border-blue-200 p-5 rounded-3xl space-y-3 shadow-xs">
         <div className="flex justify-between items-center">
           <h4 className="text-xs font-black text-blue-900 uppercase flex items-center gap-2">
@@ -185,23 +185,11 @@ export default function ParentDashboardPage() {
         </div>
       </div>
 
-      {/* Profile Completion Widget */}
-      <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-3">
-        <div className="flex justify-between items-center">
-          <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Profile Completion Status</h3>
-          <span className="text-xs font-bold text-[#059669]">100% Complete</span>
-        </div>
-        <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
-          <div className="bg-[#059669] h-full w-full rounded-full"></div>
-        </div>
-        <p className="text-[11px] text-gray-500">Your household profile is set up to match with verified educators instantly.</p>
-      </div>
-
-      {/* MY POSTED JOBS */}
+      {/* MY POSTED JOBS WITH PERSONALIZED ACTIVITY HISTORY */}
       <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
-            My Posted Jobs ({myJobs.length})
+            My Posted Jobs & Activity Logs ({myJobs.length})
           </h2>
         </div>
 
@@ -218,26 +206,38 @@ export default function ParentDashboardPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {myJobs.map((job) => (
-              <div key={job.job_tx_id || job.id} className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold rounded-full uppercase">
-                      {job.job_tx_id}
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Status: {job.status || 'Active'}</span>
+              <div key={job.job_tx_id || job.id} className="p-5 bg-[#F8FAFC] border border-gray-200 rounded-2xl space-y-3">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold rounded-full uppercase">
+                        {job.job_tx_id}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Status: {job.status || 'Active'}</span>
+                    </div>
+                    <h4 className="text-sm font-bold text-[#0F172A]">{job.title}</h4>
+                    <p className="text-xs text-gray-600">{job.subject} • {job.grade} • Budget: {job.budget}</p>
                   </div>
-                  <h4 className="text-sm font-bold text-[#0F172A]">{job.title}</h4>
-                  <p className="text-xs text-gray-600">{job.subject} • {job.grade} • Budget: {job.budget}</p>
+
+                  <button
+                    onClick={() => router.push(`/chat/${job.job_tx_id}`)}
+                    className="px-4 py-2.5 bg-[#0F172A] hover:bg-[#059669] text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap"
+                  >
+                    Open Chat & Tutors ➔
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => router.push(`/chat/${job.job_tx_id}`)}
-                  className="px-4 py-2.5 bg-[#0F172A] hover:bg-[#059669] text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap"
-                >
-                  Open Chat & Tutors ➔
-                </button>
+                {/* Personalized Activity Log Box for Job X */}
+                <div className="bg-white p-3 rounded-xl border border-gray-200 text-xs space-y-1">
+                  <span className="font-bold text-[#0F172A] uppercase tracking-wider text-[10px]">Activity Log for [{job.job_tx_id}]:</span>
+                  <p className="text-gray-500 text-[11px]">
+                    {job.status === 'Accepted by Tutor' 
+                      ? '✅ Tutor matched and accepted this requirement. Secure chat session active.' 
+                      : '🔍 Requirement broadcasted. Shortlisted tutors and connection logs will update here in real-time.'}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
