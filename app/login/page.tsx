@@ -28,7 +28,6 @@ function LoginForm() {
 
       if (error) throw error
 
-      // Set session flags safely
       localStorage.setItem('tm_logged_in', 'true')
       localStorage.setItem('tm_email', email)
 
@@ -39,7 +38,6 @@ function LoginForm() {
         .eq('id', userId)
         .single()
 
-      // Check for pending job session or explicit redirect query parameter
       const redirectParam = searchParams.get('redirect')
       const hasSavedJob = sessionStorage.getItem('savedJobSession') !== null
 
@@ -122,7 +120,7 @@ function LoginForm() {
   )
 }
 
-export default function LoginPage() {
+export default function ParentLoginPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-xs font-bold text-gray-500">Loading...</div>}>
       <LoginForm />
