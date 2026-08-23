@@ -222,7 +222,7 @@ export default function ParentDashboardPage() {
               <p className="text-xs text-gray-500 font-medium">You haven't posted any jobs yet.</p>
               <button 
                 onClick={() => router.push("/parent/dashboard/post-job")}
-                className="mt-3 px-4 py-2 bg-[#0F172A] text-white text-xs font-bold rounded-xl hover:bg-emerald-600 transition-all"
+                className="mt-3 px-4 py-2 bg-[#0F172A] text-white text-xs font-bold rounded-xl hover:bg-[#059669] transition-all"
               >
                 Post Your First Job →
               </button>
