@@ -1,17 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -31,7 +32,6 @@ export default function LoginPage() {
       localStorage.setItem('tm_logged_in', 'true')
       localStorage.setItem('tm_email', email)
 
-      // Check if user is a tutor or parent and route accordingly
       const userId = data.user?.id
       const { data: tutorProfile } = await supabase
         .from('tutors')
@@ -39,14 +39,22 @@ export default function LoginPage() {
         .eq('id', userId)
         .single()
 
-      if (tutorProfile) {
+      // Check for pending job session or explicit redirect query parameter
+      const redirectParam = searchParams.get('redirect')
+      const hasSavedJob = sessionStorage.getItem('savedJobSession') !== null
+
+      if (redirectParam) {
+        router.push(redirectParam)
+      } else if (hasSavedJob) {
+        router.push('/parent/dashboard/post-job')
+      } else if (tutorProfile) {
         router.push('/tutor/dashboard')
       } else {
         router.push('/parent/dashboard')
       }
+      router.refresh()
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid login credentials')
-    } finally {
       setLoading(false)
     }
   }
@@ -111,5 +119,13 @@ export default function LoginPage() {
 
       </div>
     </main>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-xs font-bold text-gray-500">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   )
 }
