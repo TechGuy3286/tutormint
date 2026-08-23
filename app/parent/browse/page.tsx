@@ -9,7 +9,6 @@ function BrowseContent() {
   const [tutors, setTutors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [modeFilter, setModeFilter] = useState('all') // 'all', 'online', 'home'
   const [isSoftMatch, setIsSoftMatch] = useState(false)
 
   const supabase = createClient()
@@ -28,7 +27,6 @@ function BrowseContent() {
     setIsSoftMatch(false)
 
     try {
-      // Base query: fetch all active tutors for open discovery
       let dbQuery = supabase
         .from('tutors')
         .select('*')
@@ -42,7 +40,6 @@ function BrowseContent() {
         if (!query.trim()) {
           setTutors(data)
         } else {
-          // Attempt exact/close matching on subjects or headline
           const filtered = data.filter((tutor: any) => 
             tutor.subjects?.toLowerCase().includes(query.toLowerCase()) ||
             tutor.full_name?.toLowerCase().includes(query.toLowerCase()) ||
@@ -52,9 +49,8 @@ function BrowseContent() {
           if (filtered.length > 0) {
             setTutors(filtered)
           } else {
-            // Soft Matching Fallback: If no strict match, display all tutors politely instead of empty screen
             setIsSoftMatch(true)
-            setTutors(data)
+            setTutors(data) // Soft matching fallback
           }
         }
       }
@@ -72,13 +68,13 @@ function BrowseContent() {
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] py-10 px-4 sm:px-12 text-[#334155]">
-      <div className="max-w-6xl mx-auto space-y-8">
+      <div className="max-w-5xl mx-auto space-y-6">
         
         {/* Header & Search Bar */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
           <div className="space-y-1">
             <h1 className="text-2xl font-black text-[#0F172A]">Find Verified Tutors</h1>
-            <p className="text-xs text-gray-500">Browse available tutors for home or online sessions and connect instantly.</p>
+            <p className="text-xs text-gray-500">Browse available tutors and connect instantly.</p>
           </div>
 
           <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-3">
@@ -86,7 +82,7 @@ function BrowseContent() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by subject (e.g. Math, Physics, English)..."
+              placeholder="Search by subject (e.g. Mathematics, Physics, English)..."
               className="flex-1 p-3.5 bg-[#F8FAFC] border border-gray-200 rounded-2xl text-xs outline-none focus:border-[#0F172A] focus:bg-white text-[#334155]"
             />
             <button
@@ -108,7 +104,7 @@ function BrowseContent() {
           </div>
         )}
 
-        {/* Tutor Grid */}
+        {/* Tutors List */}
         {loading ? (
           <div className="text-center py-20 text-xs font-bold text-gray-400">Loading available tutors...</div>
         ) : tutors.length === 0 ? (
@@ -120,49 +116,52 @@ function BrowseContent() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-4">
             {tutors.map((tutor) => {
-              // Check if tutor is new (created within last 30 days)
-              const isNew = new Date(tutor.created_at).getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000
+              const avatarUrl = tutor.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.full_name || 'Tutor'}`
 
               return (
-                <div key={tutor.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col justify-between space-y-4 hover:shadow-md transition-all">
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-0.5">
-                        <h3 className="text-sm font-black text-[#0F172A]">{tutor.full_name || 'Verified Tutor'}</h3>
-                        <p className="text-[11px] text-gray-400">{tutor.city || 'Available Online & On-site'}</p>
-                      </div>
-                      {isNew && (
-                        <span className="px-2.5 py-1 bg-green-50 text-green-700 text-[10px] font-black rounded-lg border border-green-200">
-                          New Talent ⭐
-                        </span>
-                      )}
-                    </div>
+                <div 
+                  key={tutor.id} 
+                  className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:shadow-md transition-all"
+                >
+                  {/* Left: Avatar & Info */}
+                  <div className="flex items-center gap-4">
+                    <img 
+                      src={avatarUrl} 
+                      alt={tutor.full_name || 'Tutor'} 
+                      className="h-14 w-14 rounded-full object-cover bg-gray-100 border border-gray-200 shrink-0" 
+                    />
 
-                    <div className="p-3 bg-[#F8FAFC] rounded-2xl space-y-1">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Expertise / Subjects</span>
-                      <p className="text-xs font-bold text-[#334155]">{tutor.subjects || tutor.headline || 'General Tutoring & Academic Coaching'}</p>
-                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-black text-[#0F172A]">
+                        {tutor.full_name || 'Verified Tutor'}
+                      </h3>
+                      
+                      <p className="text-xs font-bold text-[#0d9488]">
+                        {tutor.subjects ? `Expert in ${tutor.subjects}` : (tutor.headline || 'Expert Tutor')} 
+                        {tutor.gender ? ` • Gender: ${tutor.gender}` : ''}
+                      </p>
 
-                    <p className="text-xs text-gray-500 line-clamp-2">{tutor.bio || 'Dedicated educator focused on building strong conceptual foundations and student confidence.'}</p>
+                      <p className="text-[11px] text-gray-500 flex flex-wrap items-center gap-2">
+                        <span>🎓 {tutor.degree || 'Qualified Educator'}</span>
+                        <span>•</span>
+                        <span>📍 {tutor.city || 'Available Online & On-site'}</span>
+                        <span>•</span>
+                        <span>Time Slot: {tutor.time_slot || 'Flexible'}</span>
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] text-gray-400 block">Expected Fee</span>
-                      <span className="text-xs font-black text-[#0F172A]">{tutor.hourly_rate ? `Rs. ${tutor.hourly_rate}/hr` : 'Negotiable'}</span>
-                    </div>
-
+                  {/* Right: Hire / Contact Button */}
+                  <div className="w-full sm:w-auto flex justify-end">
                     <Link
                       href={`/parent/browse/${tutor.id}`}
-                      className="px-4 py-2.5 bg-[#0F172A] hover:bg-gray-800 text-white font-bold text-xs rounded-xl transition-all shadow-sm"
+                      className="w-full sm:w-auto text-center px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all tracking-wider"
                     >
-                      View Profile ➔
+                      Hire / Contact ➔
                     </Link>
                   </div>
-
                 </div>
               )
             })}
