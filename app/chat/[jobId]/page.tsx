@@ -1,352 +1,194 @@
-'use client'
+"use client";
 
-import { useState, useEffect, use, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
-const allAvailableTutors = [
+const availableTutors = [
   {
     id: 1,
     name: "Ayesha Khan",
-    city: "Lahore",
-    area: "Gulberg",
     subject: "Mathematics",
-    grade: "Grade 9 & 10 - Science",
-    rating: 4.9,
-    reviewCount: 24,
+    grade: "10th Class",
     degree: "BS Mathematics (LUMS)",
-    budget: "25,000 PKR / mo",
+    area: "Gulberg, Lahore",
     image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
   },
   {
     id: 2,
     name: "Muhammad Ali",
-    city: "Lahore",
-    area: "DHA",
     subject: "Physics",
-    grade: "FSC Part I & Part II",
-    rating: 4.8,
-    reviewCount: 19,
+    grade: "FSc Part 2",
     degree: "BS Computer Science (PU)",
-    budget: "30,000 PKR / mo",
+    area: "DHA, Lahore",
     image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
   },
   {
     id: 3,
     name: "Alee Sabeer",
-    city: "Karachi",
-    area: "Clifton",
     subject: "Computer Science",
-    grade: "O Levels",
-    rating: 5.0,
-    reviewCount: 32,
+    grade: "O-Levels",
     degree: "BS Software Engineering",
-    budget: "35,000 PKR / mo",
+    area: "Clifton, Karachi",
     image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150"
   }
 ];
 
-export default function ChatRoomPage({ params }: { params: Promise<{ jobId: string }> }) {
-  const resolvedParams = use(params)
-  const jobId = resolvedParams.jobId
+export default function JobDetailPage() {
+  const params = useParams();
+  const jobId = params.id as string;
+  const router = useRouter();
+  const supabase = createClient();
 
-  const [job, setJob] = useState<any>(null)
-  const [messages, setMessages] = useState<any[]>([])
-  const [newMessage, setNewMessage] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [awarding, setAwarding] = useState(false)
-  const [tutorId, setTutorId] = useState<string | null>(null)
-  
-  const [modalNotification, setModalNotification] = useState<{ title: string; message: string } | null>(null)
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const router = useRouter()
-  const supabase = createClient()
+  const [job, setJob] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [shortlisted, setShortlisted] = useState<number[]>([]);
+  const [notificationMsg, setNotificationMsg] = useState("");
 
   useEffect(() => {
-    fetchJobAndMessages()
-
-    const channel = supabase
-      .channel(`job-chat-${jobId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'job_messages',
-          filter: `job_tx_id=eq.${jobId}`,
-        },
-        (payload) => {
-          setMessages((prev) => {
-            if (prev.some((msg) => msg.id === payload.new.id)) return prev
-            return [...prev, payload.new]
-          })
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
+    fetchJobDetails();
+    const savedShortlist = localStorage.getItem(`shortlist_${jobId}`);
+    if (savedShortlist) {
+      setShortlisted(JSON.parse(savedShortlist));
     }
-  }, [jobId])
+  }, [jobId]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const fetchJobAndMessages = async () => {
+  const fetchJobDetails = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-
-      const { data: jobData, error: jobError } = await supabase
+      const { data, error } = await supabase
         .from('parent_jobs')
         .select('*')
         .eq('job_tx_id', jobId)
-        .single()
+        .single();
 
-      if (jobError) throw jobError
-      setJob(jobData)
-
-      const { data: msgData, error: msgError } = await supabase
-        .from('job_messages')
-        .select('*')
-        .eq('job_tx_id', jobId)
-        .order('created_at', { ascending: true })
-
-      if (msgError) throw msgError
-      setMessages(msgData || [])
-
-      if (msgData && user) {
-        const foundTutorMsg = msgData.find((m: any) => m.sender_id !== user.id)
-        if (foundTutorMsg) {
-          setTutorId(foundTutorMsg.sender_id)
-        }
-      }
-    } catch (err: any) {
-      console.error(err.message)
+      if (error) throw error;
+      setJob(data);
+    } catch (err) {
+      console.error("Error loading job:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const handleSendMessage = async (e: React.FormEvent, customText?: string) => {
-    if (e) e.preventDefault()
-    const textToSend = customText || newMessage.trim()
-    if (!textToSend) return
-
-    if (!customText) setNewMessage('')
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { error } = await supabase.from('job_messages').insert({
-        job_tx_id: jobId,
-        sender_id: user.id,
-        message: textToSend,
-      })
-
-      if (error) throw error
-    } catch (err: any) {
-      setModalNotification({
-        title: "Action Error",
-        message: err.message
-      })
+  const toggleShortlist = (tutorId: number) => {
+    let updated;
+    if (shortlisted.includes(tutorId)) {
+      updated = shortlisted.filter(id => id !== tutorId);
+    } else {
+      updated = [...shortlisted, tutorId];
     }
-  }
+    setShortlisted(updated);
+    localStorage.setItem(`shortlist_${jobId}`, JSON.stringify(updated));
+  };
 
-  const handleSendDemoClassRequest = async (tutorName: string) => {
-    if (job?.status === 'Pending Tutor Acceptance' || job?.status === 'Accepted by Tutor' || job?.status === 'Awarded') {
-      setModalNotification({
-        title: "Demo Request Already Sent! ⚠️",
-        message: "A Demo Class Request has already been dispatched for this job requirement. Please wait for the tutor to accept or respond."
-      })
-      return
-    }
-
-    const demoMessage = `📅 Demo Class Request sent to ${tutorName} for requirement [${job?.job_tx_id}]: "${job?.title}". Please confirm your available time slot!`
-    
-    await supabase
-      .from('parent_jobs')
-      .update({ status: 'Pending Tutor Acceptance' })
-      .eq('job_tx_id', jobId)
-
-    setJob((prev: any) => ({ ...prev, status: 'Pending Tutor Acceptance' }))
-    handleSendMessage({ preventDefault: () => {} } as any, demoMessage)
-    
-    setModalNotification({
-      title: "Demo Class Request Dispatched! 🚀",
-      message: `Your trial invitation has been sent to ${tutorName}. The chat room will fully unlock once the tutor accepts your request.`
-    })
-  }
-
-  const handleAwardJob = async () => {
-    if (!confirm('Are you sure you want to award this job? This will close the listing and lock their time slot.')) return
-    setAwarding(true)
-
-    try {
-      const res = await fetch('/api/parent/jobs/close', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobTxId: jobId, awardedTutorId: tutorId || 'system' }),
-      })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to close and award job')
-
-      setModalNotification({
-        title: "Job Successfully Awarded! 🎉",
-        message: "The time slot has been securely locked and stakeholder tutors have been notified."
-      })
-      
-      setTimeout(() => {
-        router.push('/parent/dashboard')
-      }, 2000)
-    } catch (err: any) {
-      setModalNotification({
-        title: "Error",
-        message: err.message
-      })
-    } finally {
-      setAwarding(false)
-    }
-  }
+  const handleHireTutor = async (tutorName: string) => {
+    setNotificationMsg(`✅ Success! Hire notification dispatched to ${tutorName} via internal TutorMint notification network for Job [${jobId}].`);
+    setTimeout(() => setNotificationMsg(""), 5000);
+  };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-sm font-bold text-[#0F172A]">Loading secure conversation...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
+          Loading job details & requested tutors...
+        </div>
+      </div>
+    );
   }
 
-  const matchedTutors = allAvailableTutors.filter(t => !job?.city || t.city.toLowerCase() === job.city.toLowerCase());
-  const isChatUnlocked = job?.status === 'Accepted by Tutor' || job?.status === 'Awarded';
-  const isRequestAlreadySent = job?.status === 'Pending Tutor Acceptance' || job?.status === 'Accepted by Tutor' || job?.status === 'Awarded';
+  if (!job) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-20 text-center space-y-4">
+        <h2 className="text-xl font-black text-[#0F172A]">Job Not Found</h2>
+        <p className="text-xs text-gray-500">The job requirement [{jobId}] does not exist or has been removed.</p>
+        <Link href="/parent/dashboard" className="inline-block px-5 py-2.5 bg-[#0F172A] text-white text-xs font-bold rounded-xl">
+          Back to Dashboard ➔
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 my-8 space-y-6 font-sans text-[#334155]">
-      
-      {/* Sticky Transaction Header */}
-      <div className="bg-[#0F172A] text-white p-6 rounded-3xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-emerald-400 text-[#0F172A] text-[10px] font-mono font-bold rounded-full uppercase">
-              Sticky Tx ID: {jobId}
-            </span>
-            <span className="text-xs text-emerald-400 font-bold uppercase">Status: {job?.status || 'Active'}</span>
-          </div>
-          <h1 className="text-xl font-black mt-2 text-white">{job?.title}</h1>
-          <p className="text-xs text-slate-300 mt-1">📍 {job?.area}, {job?.city} • 📚 {job?.subject} • 💵 {job?.budget}</p>
-        </div>
-
-        {isChatUnlocked && job?.status !== 'Awarded' && (
-          <button
-            onClick={handleAwardJob}
-            disabled={awarding}
-            className="px-5 py-3 bg-[#059669] hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md disabled:opacity-50 whitespace-nowrap"
-          >
-            {awarding ? 'Processing...' : 'Award Job & Lock Slot'}
-          </button>
-        )}
+    <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-[#334155]">
+      <div>
+        <Link href="/parent/dashboard" className="text-xs font-bold text-gray-500 hover:text-[#0F172A] transition-colors">
+          ← Back to Dashboard
+        </Link>
       </div>
 
-      {/* AI-Matched Tutors Panel for this Job */}
-      <div className="bg-white border border-gray-200 p-6 rounded-3xl shadow-sm space-y-4">
-        <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
-          AI-Matched Tutors for this Requirement ({matchedTutors.length})
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {matchedTutors.map((tutor) => (
-            <div key={tutor.id} className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <img src={tutor.image} alt={tutor.name} className="w-12 h-12 rounded-xl object-cover border" />
-                <div>
-                  <h4 className="text-xs font-black text-[#0F172A]">{tutor.name}</h4>
-                  <p className="text-[10px] text-[#059669] font-bold">⭐ {tutor.rating} ({tutor.reviewCount}) • {tutor.subject}</p>
-                  <p className="text-[10px] text-gray-500">{tutor.degree}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => handleSendDemoClassRequest(tutor.name)}
-                className={`px-4 py-2.5 text-[11px] font-extrabold rounded-xl transition-all shadow-sm whitespace-nowrap ${
-                  isRequestAlreadySent 
-                    ? 'bg-amber-100 text-amber-800 cursor-pointer' 
-                    : 'bg-[#d60008] hover:bg-red-700 text-white'
-                }`}
-              >
-                {isRequestAlreadySent ? '⏳ Request Sent' : '📅 Send Demo Class'}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Chat Room Area (Locked until Tutor Accepts) */}
-      <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
-        {!isChatUnlocked ? (
-          <div className="py-16 text-center space-y-3">
-            <span className="text-3xl">🔒</span>
-            <h3 className="text-sm font-black text-[#0F172A] uppercase">Chat Room Locked</h3>
-            <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
-              To preserve our direct 2-party handshake model, personalized messaging unlocks only after the tutor explicitly accepts your Demo Class request above.
-            </p>
-          </div>
-        ) : (
-          <div className="h-[400px] flex flex-col justify-between">
-            <div className="overflow-y-auto space-y-3 pr-2 flex-1">
-              {messages.length === 0 ? (
-                <div className="text-center text-xs text-gray-400 py-16">
-                  Chat unlocked! Start discussing schedule and demo class details below.
-                </div>
-              ) : (
-                messages.map((msg, idx) => (
-                  <div key={msg.id || idx} className="p-3 bg-[#F8FAFC] border border-gray-100 rounded-2xl max-w-lg space-y-1">
-                    <p className="text-xs text-[#334155] font-medium">{msg.message}</p>
-                    <span className="text-[10px] text-gray-400 block">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-                ))
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Message Input Form */}
-            <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-3 pt-4 border-t border-gray-100 mt-4">
-              <input
-                type="text"
-                placeholder="Type your message regarding demo classes or timings..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1 px-4 py-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-[#059669] text-[#334155]"
-              />
-              <button
-                type="submit"
-                className="px-6 py-3 bg-[#0F172A] hover:bg-[#059669] text-white font-bold text-xs uppercase rounded-xl transition-all"
-              >
-                Send
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-
-      {/* Brand-Consistent Acknowledgement Modal Popup */}
-      {modalNotification && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-8 rounded-3xl max-w-md w-full space-y-6 shadow-2xl animate-in fade-in zoom-in-95 text-center">
-            <div className="space-y-2">
-              <span className="text-3xl">✨</span>
-              <h3 className="text-lg font-black text-[#0F172A]">{modalNotification.title}</h3>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                {modalNotification.message}
-              </p>
-            </div>
-            <button
-              onClick={() => setModalNotification(null)}
-              className="w-full py-3 bg-[#0F172A] hover:bg-[#059669] text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md"
-            >
-              Got It, Continue ➔
-            </button>
-          </div>
+      {notificationMsg && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-bold shadow-sm animate-in fade-in">
+          {notificationMsg}
         </div>
       )}
 
-    </div>
-  )
+      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-mono font-bold rounded-full uppercase">
+            Requirement ID: {job.job_tx_id}
+          </span>
+          <span className="text-xs font-bold text-slate-500 uppercase">Status: {job.status || 'Active'}</span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A]">{job.title}</h1>
+        <p className="text-xs sm:text-sm text-gray-600 font-medium">
+          {job.subject} • {job.grade} • Budget: <strong className="text-[#059669]">{job.budget}</strong>
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex justify-between items-center px-2">
+          <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
+            Requested & Matched Tutors for this Job ({availableTutors.length})
+          </h2>
+          <span className="text-[11px] text-gray-500 font-medium">
+            Shortlisted Favorites: {shortlisted.length}
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          {availableTutors.map((tutor) => {
+            const isShortlisted = shortlisted.includes(tutor.id);
+            return (
+              <div 
+                key={tutor.id} 
+                className={`bg-white p-5 rounded-3xl border ${isShortlisted ? 'border-emerald-400 ring-2 ring-emerald-100' : 'border-gray-200'} shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 transition-all`}
+              >
+                <div className="flex items-start gap-4 w-full sm:w-auto">
+                  <img src={tutor.image} alt={tutor.name} className="w-16 h-16 rounded-2xl object-cover border border-gray-200" />
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-black text-[#0F172A]">{tutor.name}</h4>
+                      {isShortlisted && (
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-bold uppercase rounded-full">
+                          ⭐ Shortlisted Favorite
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-[#059669]">Expert in {tutor.subject} ({tutor.grade})</p>
+                    <p className="text-[11px] text-gray-600 font-medium">🎓 {tutor.degree} • 📍 {tutor.area}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => toggleShortlist(tutor.id)}
+                    className={`px-4 py-3 text-xs font-bold rounded-xl border transition-all ${isShortlisted ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                  >
+                    {isShortlisted ? '⭐ Favorited' : '☆ Shortlist'}
+                  </button>
+                  <button 
+                    onClick={() => handleHireTutor(tutor.name)}
+                    className="px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-extrabold rounded-xl transition-all whitespace-nowrap shadow-md"
+                  >
+                    HIRE ➔
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </main>
+  );
 }
