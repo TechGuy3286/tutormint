@@ -119,24 +119,36 @@ function BrowseContent() {
           <div className="space-y-4">
             {tutors.map((tutor) => {
               const avatarUrl = tutor.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.full_name || 'Tutor'}`
+              const isNew = new Date(tutor.created_at).getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000
 
               return (
                 <div 
                   key={tutor.id} 
-                  className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:shadow-md transition-all"
+                  className="bg-white p-5 rounded-3xl shadow-xs border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:shadow-md transition-all"
                 >
-                  {/* Left: Avatar & Info */}
-                  <div className="flex items-center gap-4">
+                  {/* Left: 1x1 Avatar & Info */}
+                  <div className="flex items-center gap-4 w-full sm:w-auto">
                     <img 
                       src={avatarUrl} 
                       alt={tutor.full_name || 'Tutor'} 
-                      className="h-14 w-14 rounded-full object-cover bg-gray-100 border border-gray-200 shrink-0" 
+                      className="h-16 w-16 aspect-square rounded-2xl object-cover bg-gray-100 border border-gray-200 shrink-0" 
                     />
 
-                    <div className="space-y-1">
-                      <h3 className="text-sm font-black text-[#0F172A]">
-                        {tutor.full_name || 'Verified Tutor'}
-                      </h3>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center justify-between sm:justify-start gap-3">
+                        <h3 className="text-sm font-black text-[#0F172A]">
+                          {tutor.full_name || 'Verified Tutor'}
+                        </h3>
+                        {isNew ? (
+                          <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-black rounded-md border border-green-200">
+                            ⭐ New Talent
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-amber-600">
+                            ⭐ {tutor.rating || '5.0'} ({tutor.reviews_count || '12'})
+                          </span>
+                        )}
+                      </div>
                       
                       <p className="text-xs font-bold text-[#0d9488]">
                         {tutor.subjects ? `Expert in ${tutor.subjects}` : (tutor.headline || 'Expert Tutor')} 
@@ -148,13 +160,13 @@ function BrowseContent() {
                         <span>•</span>
                         <span>📍 {tutor.city || 'Available Online & On-site'}</span>
                         <span>•</span>
-                        <span>Time Slot: {tutor.time_slot || 'Flexible'}</span>
+                        <span className="font-bold text-[#0F172A]">💰 {tutor.hourly_rate ? `Rs. ${tutor.hourly_rate}/hr` : 'Negotiable'}</span>
                       </p>
                     </div>
                   </div>
 
                   {/* Right: Hire / Contact Button */}
-                  <div className="w-full sm:w-auto flex justify-end">
+                  <div className="w-full sm:w-auto flex justify-end shrink-0">
                     <Link
                       href={`/parent/browse/${tutor.id}`}
                       className="w-full sm:w-auto text-center px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all tracking-wider"
