@@ -124,24 +124,23 @@ function BrowseContent() {
               return (
                 <div 
                   key={tutor.id} 
-                  className="bg-white p-6 sm:p-7 rounded-3xl shadow-xs border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 hover:shadow-md transition-all"
+                  className="bg-white p-5 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:shadow-md transition-all"
                 >
-                  {/* Left: Larger 1x1 Avatar & Spatious Info */}
-                  <div className="flex items-center gap-5 w-full sm:w-auto">
+                  {/* Left: 1x1 Avatar & Consistent Typography Layout */}
+                  <div className="flex items-center gap-4 w-full sm:w-auto">
                     <img 
                       src={avatarUrl} 
                       alt={tutor.full_name || 'Tutor'} 
-                      className="h-20 w-20 sm:h-24 sm:w-24 aspect-square rounded-2xl object-cover bg-gray-100 border border-gray-200 shrink-0 shadow-xs" 
+                      className="h-14 w-14 aspect-square rounded-2xl object-cover bg-gray-100 border border-gray-200 shrink-0" 
                     />
 
-                    <div className="space-y-2 flex-1">
+                    <div className="space-y-1 flex-1">
                       {/* Name & Status Badges */}
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm sm:text-base font-black text-[#0F172A]">
+                        <h3 className="text-sm font-black text-[#0F172A]">
                           {tutor.full_name || 'Verified Tutor'}
                         </h3>
                         
-                        {/* Status Badges */}
                         {isNew ? (
                           <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-black rounded-md border border-green-200">
                             ⭐ New Talent
@@ -152,18 +151,17 @@ function BrowseContent() {
                           </span>
                         )}
 
-                        {/* Yellow Star Rating Badge */}
-                        <span className="px-2.5 py-0.5 bg-amber-50 text-amber-800 text-[11px] font-extrabold rounded-md border border-amber-200 flex items-center gap-1">
+                        <span className="px-2 py-0.5 bg-amber-50 text-amber-800 text-[10px] font-extrabold rounded-md border border-amber-200 flex items-center gap-1">
                           ⭐ {tutor.rating || '5.0'} <span className="text-gray-400 font-normal">({tutor.reviews_count || '12'})</span>
                         </span>
                       </div>
                       
-                      <p className="text-xs sm:text-sm font-bold text-[#0d9488]">
+                      <p className="text-xs font-bold text-[#0d9488]">
                         {tutor.subjects ? `Expert in ${tutor.subjects}` : (tutor.headline || 'Expert Tutor')} 
                         {tutor.gender ? ` • Gender: ${tutor.gender}` : ''}
                       </p>
 
-                      <p className="text-xs text-gray-500 flex flex-wrap items-center gap-2 pt-0.5">
+                      <p className="text-[11px] text-gray-500 flex flex-wrap items-center gap-2">
                         <span>🎓 {tutor.degree || 'Qualified Educator'}</span>
                         <span>•</span>
                         <span>📍 {tutor.city || 'Available Online & On-site'}</span>
@@ -173,11 +171,11 @@ function BrowseContent() {
                     </div>
                   </div>
 
-                  {/* Right: Hire / Contact Button */}
-                  <div className="w-full sm:w-auto flex justify-end shrink-0 pt-2 sm:pt-0">
+                  {/* Right: Consistent Hire Button */}
+                  <div className="w-full sm:w-auto flex justify-end shrink-0">
                     <Link
                       href={`/parent/browse/${tutor.id}`}
-                      className="w-full sm:w-auto text-center px-6 py-3.5 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all tracking-wider"
+                      className="w-full sm:w-auto text-center px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all tracking-wider"
                     >
                       Hire / Contact ➔
                     </Link>
