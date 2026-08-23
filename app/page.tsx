@@ -89,9 +89,9 @@ export default function HomePage() {
               </div>
             </Link>
 
-            {/* Square Button 2: Post a Tuition/Job (Points to public /parent/post-job filter page) */}
+            {/* Square Button 2: Post a Tuition/Job (Points directly to your rich filter & AI matching page) */}
             <Link 
-              href="/parent/post-job" 
+              href="/parent/dashboard/post-job" 
               className="p-6 bg-[#059669] hover:bg-emerald-700 text-white rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
             >
               <div className="text-2xl mb-2 p-3 bg-white/10 rounded-xl w-fit">📋</div>
