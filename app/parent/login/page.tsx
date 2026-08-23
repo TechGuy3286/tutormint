@@ -1,16 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function ParentLoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -24,9 +25,13 @@ export default function ParentLoginPage() {
       setError(error.message)
       setLoading(false)
     } else {
-      // Check for saved job session using the correct key 'savedJobSession'
-      const savedSession = sessionStorage.getItem('savedJobSession')
-      if (savedSession) {
+      // Explicitly check for saved session or query param
+      const redirectParam = searchParams.get('redirect')
+      const hasSavedJob = sessionStorage.getItem('savedJobSession') !== null
+
+      if (redirectParam) {
+        router.push(redirectParam)
+      } else if (hasSavedJob) {
         router.push('/parent/dashboard/post-job')
       } else {
         router.push('/parent/dashboard')
@@ -91,5 +96,13 @@ export default function ParentLoginPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function ParentLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-xs font-bold text-gray-500">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   )
 }
