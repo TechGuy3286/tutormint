@@ -89,9 +89,10 @@ export default function JobDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Loading job details & requested tutors...
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] space-y-4">
+        <div className="w-12 h-12 border-4 border-[#d60008] border-t-transparent rounded-full animate-spin shadow-md"></div>
+        <div className="text-xs font-black text-[#0F172A] uppercase tracking-widest animate-pulse">
+          Fetching job details & requested tutors ⚡
         </div>
       </div>
     );
