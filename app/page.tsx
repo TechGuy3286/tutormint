@@ -59,7 +59,7 @@ export default function HomePage() {
           </span>
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight text-[#0F172A]">
             Find Verified & Trusted<br />
-            Tutors <span className="text-[#d60008]">FREE</span>
+            Tutors <span className="text-[#d60008]">FOREVER FREE</span>
           </h1>
           <p className="text-sm text-[#334155] max-w-lg mx-auto font-medium">
             Connect directly with camera-verified home & online tutors. Zero commission, rigorous degree audits, and trusted local educators.
@@ -72,12 +72,12 @@ export default function HomePage() {
             <h3 className="text-xs font-bold uppercase tracking-widest text-[#334155]">
               For Parents & Students
             </h3>
-            <span className="text-[10px] text-gray-400 font-semibold uppercase">Free Job Postings</span>
+            <span className="text-[10px] text-emerald-700 font-semibold uppercase bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Forever Free Postings</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
-            {/* Square Button 1: Find Tutor (Logo 'T' Blue) */}
+            {/* Square Button 1: Find Tutor */}
             <Link 
               href="/parent/dashboard" 
               className="p-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-600/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
@@ -89,7 +89,7 @@ export default function HomePage() {
               </div>
             </Link>
 
-            {/* Square Button 2: Post a Tuition/Job (Logo 'M' Emerald Green) */}
+            {/* Square Button 2: Post a Tuition/Job */}
             <Link 
               href="/parent/dashboard" 
               className="p-6 bg-[#059669] hover:bg-emerald-700 text-white rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
@@ -109,12 +109,12 @@ export default function HomePage() {
             <h3 className="text-xs font-bold uppercase tracking-widest text-[#334155]">
               For Educators & Tutors
             </h3>
-            <span className="text-[10px] text-[#d60008] font-bold uppercase bg-red-50 px-2 py-0.5 rounded border border-red-100">
-              First Month Trial Active
+            <span className="text-[10px] text-[#059669] font-bold uppercase bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+              Forever Free Platform
             </span>
           </div>
 
-          {/* Big Horizontal Button (Deep Slate Navy with Brand Red Accent) */}
+          {/* Big Horizontal Button */}
           <Link 
             href="/tutor/register" 
             className="w-full p-6 bg-[#0F172A] hover:bg-black text-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-800 transition-all flex items-center justify-between group"

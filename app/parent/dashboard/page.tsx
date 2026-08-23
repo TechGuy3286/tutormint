@@ -159,17 +159,6 @@ export default function ParentDashboardPage() {
         )}
       </div>
 
-      {/* First-Month Trial Notice */}
-      <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-3xl flex items-center justify-between gap-4 shadow-xs">
-        <div className="space-y-0.5">
-          <h4 className="text-xs font-black text-emerald-900 uppercase">🛡️ First Month Trial Active (Direct 2-Party Connection)</h4>
-          <p className="text-[11px] text-emerald-700">
-            Your first month is considered a trial. Upon successful completion of the first month, a nominal service fee of 199 PKR applies.
-          </p>
-        </div>
-        <span className="text-xl flex-shrink-0">✨</span>
-      </div>
-
       {/* Dashboard Header */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="space-y-1">
