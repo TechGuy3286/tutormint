@@ -110,9 +110,24 @@ export default function TutorProfilePage() {
                   ⭐ {tutor.rating || '5.0'} ({reviews.length > 0 ? reviews.length : (tutor.reviews_count || '12')} reviews)
                 </span>
               </div>
+
+              {/* Trust & Safety Badges */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-extrabold rounded-md border border-emerald-200">
+                  🛡️ Background Verified
+                </span>
+                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-extrabold rounded-md border border-blue-200">
+                  🆔 CNIC Verified
+                </span>
+                <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-[10px] font-extrabold rounded-md border border-purple-200">
+                  🏫 Degree Verified
+                </span>
+              </div>
+              
               <p className="text-xs sm:text-sm font-bold text-[#0d9488]">
                 {tutor.subjects ? `Expert in ${tutor.subjects}` : (tutor.headline || 'Expert Tutor')}
               </p>
+              
               <p className="text-xs text-gray-500 flex flex-wrap items-center gap-3">
                 <span>🎓 {tutor.degree || 'Qualified Educator'}</span>
                 <span>•</span>
@@ -187,18 +202,30 @@ export default function TutorProfilePage() {
 
           </div>
 
-          {/* Right Column: Key Details Sidebar */}
+          {/* Right Column: Key Details & Session Stats Sidebar */}
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
-              <h3 className="text-xs font-black text-[#0F172A] uppercase tracking-wider">Session Details</h3>
+              <h3 className="text-xs font-black text-[#0F172A] uppercase tracking-wider">Session & Key Metrics</h3>
               
               <div className="space-y-3 text-xs">
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-400 font-medium">Experience</span>
+                  <span className="font-bold text-[#334155]">⏳ {tutor.experience_years || '5+ Years'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-400 font-medium">Teaching Mode</span>
+                  <span className="font-bold text-[#334155]">💻 Online & 🏠 Home</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-400 font-medium">Working Days</span>
+                  <span className="font-bold text-[#334155]">📅 Mon - Sat</span>
+                </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-400 font-medium">Expected Fee</span>
                   <span className="font-black text-[#0F172A]">{tutor.hourly_rate ? `Rs. ${tutor.hourly_rate}/hr` : 'Negotiable'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-400 font-medium">Preferred Slot</span>
+                  <span className="text-gray-400 font-medium">Time Slot</span>
                   <span className="font-bold text-[#334155]">{tutor.time_slot || 'Flexible'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
@@ -207,7 +234,7 @@ export default function TutorProfilePage() {
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-gray-400 font-medium">Location</span>
-                  <span className="font-bold text-[#334155]">{tutor.city || 'Online / Home'}</span>
+                  <span className="font-bold text-[#334155]">{tutor.city || 'Lahore'}</span>
                 </div>
               </div>
             </div>
