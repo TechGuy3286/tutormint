@@ -66,7 +66,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* SECTION: FOR PARENTS */}
+        {/* SECTION: FOR PARENTS & STUDENTS */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-widest text-[#334155]">
@@ -77,19 +77,19 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
-            {/* Square Button 1: Find Tutor (Deep Slate Navy) */}
+            {/* Square Button 1: Find Tutor (Logo 'T' Blue) */}
             <Link 
               href="/parent/dashboard" 
-              className="p-6 bg-[#0F172A] hover:bg-slate-800 text-white rounded-2xl shadow-lg shadow-slate-900/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
+              className="p-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-600/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
             >
               <div className="text-2xl mb-2 p-3 bg-white/10 rounded-xl w-fit">🔍</div>
               <div>
-                <h4 className="text-sm font-black text-white group-hover:text-emerald-400 transition-colors">Find Tutor</h4>
-                <p className="text-xs text-slate-300 mt-1">Browse camera-verified educators instantly.</p>
+                <h4 className="text-sm font-black text-white group-hover:text-blue-100 transition-colors">Find Tutor</h4>
+                <p className="text-xs text-blue-100 mt-1">Browse camera-verified educators instantly.</p>
               </div>
             </Link>
 
-            {/* Square Button 2: Post a Tuition/Job (Emerald Green Theme) */}
+            {/* Square Button 2: Post a Tuition/Job (Logo 'M' Emerald Green) */}
             <Link 
               href="/parent/dashboard" 
               className="p-6 bg-[#059669] hover:bg-emerald-700 text-white rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
@@ -103,7 +103,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* SECTION: FOR TUTORS */}
+        {/* SECTION: FOR EDUCATORS & TUTORS */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-widest text-[#334155]">
@@ -114,23 +114,23 @@ export default function HomePage() {
             </span>
           </div>
 
-          {/* Big Horizontal Button (Deep Slate Navy with Vibrant Coral Accent) */}
-        <Link 
-          href="/tutor/register" 
-          className="w-full p-6 bg-[#0F172A] hover:bg-slate-800 text-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-800 transition-all flex items-center justify-between group"
+          {/* Big Horizontal Button (Deep Slate Navy with Brand Red Accent) */}
+          <Link 
+            href="/tutor/register" 
+            className="w-full p-6 bg-[#0F172A] hover:bg-black text-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-800 transition-all flex items-center justify-between group"
           >
-          <div className="flex items-center gap-4">
-          <span className="text-2xl p-3 bg-white/10 rounded-xl">🎓</span>
-          <div className="text-left">
-          <h4 className="text-sm font-black uppercase tracking-wider text-white group-hover:text-emerald-400 transition-colors">Find Tuition & Register Profile</h4>
-          <p className="text-[11px] text-slate-300 font-medium mt-0.5">Upload video proof, get verified & connect with local parents</p>
-          </div>
-          </div>
-          <span className="text-xl font-bold pr-2 text-[#F97316] group-hover:translate-x-1.5 transition-transform">➔</span>
-        </Link>
+            <div className="flex items-center gap-4">
+              <span className="text-2xl p-3 bg-white/10 rounded-xl">🎓</span>
+              <div className="text-left">
+                <h4 className="text-sm font-black uppercase tracking-wider text-white group-hover:text-red-400 transition-colors">Find Tuition & Register Profile</h4>
+                <p className="text-[11px] text-slate-300 font-medium mt-0.5">Upload video proof, get verified & connect with local parents</p>
+              </div>
+            </div>
+            <span className="text-xl font-bold pr-2 text-[#d60008] group-hover:translate-x-1.5 transition-transform">➔</span>
+          </Link>
         </div>
 
-        </div>
+      </div>
 
       {/* FLOATING CHATBOT WIDGET */}
       <div className="fixed bottom-6 right-6 z-50">
