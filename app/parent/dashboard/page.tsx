@@ -126,14 +126,17 @@ export default function ParentDashboardPage() {
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full">
       
-      {/* LIVE NOTIFICATIONS PANEL */}
-      {acceptedJobs.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 p-5 rounded-3xl space-y-2 shadow-xs">
+      {/* ALWAYS VISIBLE LIVE NOTIFICATION CENTER */}
+      <div className="bg-blue-50 border border-blue-200 p-5 rounded-3xl space-y-3 shadow-xs">
+        <div className="flex justify-between items-center">
           <h4 className="text-xs font-black text-blue-900 uppercase flex items-center gap-2">
             <span>🔔 Live Notification Center</span>
             <span className="px-2 py-0.5 bg-blue-600 text-white rounded-full text-[10px]">{acceptedJobs.length}</span>
           </h4>
-          <div className="space-y-1">
+        </div>
+
+        {acceptedJobs.length > 0 ? (
+          <div className="space-y-2">
             {acceptedJobs.map(job => (
               <div key={job.job_tx_id} className="flex justify-between items-center bg-white p-3 rounded-2xl border border-blue-100">
                 <p className="text-xs text-blue-900 font-medium">
@@ -148,8 +151,13 @@ export default function ParentDashboardPage() {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="bg-white p-3.5 rounded-2xl border border-blue-100 text-xs text-blue-800 font-medium flex items-center justify-between">
+            <span>No demo class acceptances or active alerts right now. When a tutor accepts your requirement, you'll be instantly notified here.</span>
+            <span className="text-blue-400 font-mono text-[10px]">Active & Listening</span>
+          </div>
+        )}
+      </div>
 
       {/* First-Month Trial Notice */}
       <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-3xl flex items-center justify-between gap-4 shadow-xs">
