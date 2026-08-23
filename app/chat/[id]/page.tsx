@@ -1,43 +1,51 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
-export default function ChatPage() {
+function ChatContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const jobId = params.id as string;
   const router = useRouter();
   const supabase = createClient();
 
+  const tutorName = searchParams.get("tutor") || "Ayesha Khan";
+  const tutorAvatar = searchParams.get("avatar") || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150";
+
   const [job, setJob] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [messages, setMessages] = useState<any[]>([
-    {
-      sender: "system",
-      text: `Secure chat channel initialized for requirement ${jobId}. You can now coordinate demo classes and terms directly.`,
-      time: "Just now",
-      avatar: "🛡️"
-    },
-    {
-      sender: "tutor",
-      name: "Ayesha Khan",
-      text: "Hello! I saw your requirement and I am very interested in teaching mathematics for this grade level.",
-      time: "2 mins ago",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
-    }
-  ]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const storageKey = `chat_msgs_${jobId}_${tutorName}`;
+
   useEffect(() => {
     fetchJob();
-    const savedMessages = localStorage.getItem(`chat_msgs_${jobId}`);
+    const savedMessages = localStorage.getItem(storageKey);
     if (savedMessages) {
       setMessages(JSON.parse(savedMessages));
+    } else {
+      setMessages([
+        {
+          sender: "system",
+          text: `Secure chat channel initialized with ${tutorName} for requirement ${jobId}.`,
+          time: "Just now",
+          avatar: "🛡️"
+        },
+        {
+          sender: "tutor",
+          name: tutorName,
+          text: `Hello! I received your job requirement. Let's discuss the schedule and demo class.`,
+          time: "Just now",
+          avatar: tutorAvatar
+        }
+      ]);
     }
-  }, [jobId]);
+  }, [jobId, tutorName]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -82,9 +90,8 @@ export default function ChatPage() {
 
     const updated = [...messages, newMsg];
     setMessages(updated);
-    localStorage.setItem(`chat_msgs_${jobId}`, JSON.stringify(updated));
+    localStorage.setItem(storageKey, JSON.stringify(updated));
     setInputText("");
-    // Automated reply removed so chat stays silent until real response
   };
 
   if (loading) {
@@ -119,15 +126,22 @@ export default function ChatPage() {
         <span className="text-gray-300">/</span>
         <Link href={`/parent/dashboard/job/${job.job_tx_id || jobId}`} className="hover:text-[#0F172A] transition-colors font-mono">Job [{job.job_tx_id || jobId}]</Link>
         <span className="text-gray-300">/</span>
-        <span className="text-[#d60008]">Live Discussion</span>
+        <span className="text-[#d60008]">Chat with {tutorName}</span>
       </nav>
 
-      <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-2">
+      <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-2 flex items-center justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <img src={tutorAvatar} alt={tutorName} className="w-10 h-10 rounded-full object-cover border border-gray-200" />
+            <div>
+              <h1 className="text-sm font-black text-[#0F172A]">Chat with {tutorName}</h1>
+              <p className="text-[11px] text-gray-500 font-medium">Requirement: {job.title} ({job.job_tx_id})</p>
+            </div>
+          </div>
+        </div>
         <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold rounded-full uppercase">
-          {job.job_tx_id}
+          Active Chat
         </span>
-        <h1 className="text-xl font-black text-[#0F172A]">{job.title}</h1>
-        <p className="text-xs text-gray-600">{job.subject} • {job.grade} • Budget: {job.budget}</p>
       </div>
 
       <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm h-[480px] flex flex-col justify-between">
@@ -171,7 +185,7 @@ export default function ChatPage() {
             type="text" 
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="Type your message to the tutor..." 
+            placeholder={`Type your message to ${tutorName}...`} 
             className="flex-1 bg-[#F8FAFC] border border-gray-200 rounded-xl p-3 text-xs outline-none focus:bg-white focus:border-[#0F172A]"
           />
           <button type="submit" className="px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md transition-all">
@@ -180,5 +194,20 @@ export default function ChatPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] space-y-4">
+        <div className="w-12 h-12 border-4 border-[#d60008] border-t-transparent rounded-full animate-spin shadow-md"></div>
+        <div className="text-xs font-black text-[#0F172A] uppercase tracking-widest animate-pulse">
+          Loading chat room 💬
+        </div>
+      </div>
+    }>
+      <ChatContent />
+    </Suspense>
   );
 }
