@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -33,6 +33,7 @@ function PublicBrowseContent() {
   const [selectedArea, setSelectedArea] = useState('')
   const [selectedGender, setSelectedGender] = useState('No Preference')
 
+  const resultsRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
   const searchParams = useSearchParams()
 
@@ -64,11 +65,10 @@ function PublicBrowseContent() {
     }
   }
 
-  // Apply filters dynamically whenever filter states or search term change
-  useEffect(() => {
+  // Filter execution triggered by CTA button
+  const handleApplyFilters = () => {
     let result = [...tutors]
 
-    // Search term filter
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase()
       result = result.filter(t => 
@@ -79,40 +79,40 @@ function PublicBrowseContent() {
       )
     }
 
-    // Level filter
     if (selectedLevel) {
       result = result.filter(t => t.level?.toLowerCase() === selectedLevel.toLowerCase() || t.subjects?.toLowerCase().includes(selectedLevel.toLowerCase()))
     }
 
-    // Grade filter
     if (selectedGrade) {
       result = result.filter(t => t.grade?.toLowerCase().includes(selectedGrade.toLowerCase()) || t.subjects?.toLowerCase().includes(selectedGrade.toLowerCase()))
     }
 
-    // Subjects filter (if any selected)
     if (selectedSubjects.length > 0) {
       result = result.filter(t => 
         selectedSubjects.some(subj => t.subjects?.toLowerCase().includes(subj.toLowerCase()))
       )
     }
 
-    // City filter
     if (selectedCity) {
       result = result.filter(t => t.city?.toLowerCase().includes(selectedCity.toLowerCase()))
     }
 
-    // Area filter
     if (selectedArea) {
       result = result.filter(t => t.city?.toLowerCase().includes(selectedArea.toLowerCase()) || t.bio?.toLowerCase().includes(selectedArea.toLowerCase()))
     }
 
-    // Gender filter
     if (selectedGender && selectedGender !== 'No Preference') {
       result = result.filter(t => t.gender?.toLowerCase() === selectedGender.toLowerCase())
     }
 
-    setFilteredTutors(result)
-  }, [searchTerm, selectedLevel, selectedGrade, selectedSubjects, selectedCity, selectedArea, selectedGender, tutors])
+    if (result.length === 0 && tutors.length > 0) {
+      setFilteredTutors(tutors)
+    } else {
+      setFilteredTutors(result)
+    }
+
+    resultsRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   const toggleSubject = (subject: string) => {
     if (selectedSubjects.includes(subject)) {
@@ -130,6 +130,7 @@ function PublicBrowseContent() {
     setSelectedCity('')
     setSelectedArea('')
     setSelectedGender('No Preference')
+    setFilteredTutors(tutors)
   }
 
   return (
@@ -143,11 +144,11 @@ function PublicBrowseContent() {
           <span className="text-[#0F172A]">Find Verified Tutors</span>
         </div>
 
-        {/* Header & AI Search Bar */}
+        {/* Header & Advanced Filter Box */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-6">
           <div className="space-y-1">
             <h1 className="text-2xl font-black text-[#0F172A]">Find Verified Tutors</h1>
-            <p className="text-xs text-gray-500">Search by subject, level, or keyword to connect with top educators instantly.</p>
+            <p className="text-xs text-gray-500">Configure your requirements below to search and connect with top educators instantly.</p>
           </div>
 
           {/* Search Bar */}
@@ -156,17 +157,9 @@ function PublicBrowseContent() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="🔍 AI Search: e.g. Mathematics, O-Level Physics, English..."
+              placeholder="🔍 Search by subject, name, or keyword..."
               className="flex-1 p-3.5 bg-[#F8FAFC] border border-gray-200 rounded-2xl text-xs outline-none focus:border-[#0F172A] focus:bg-white text-[#334155]"
             />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="px-4 py-3.5 bg-gray-100 hover:bg-gray-200 text-[#0F172A] font-bold text-xs rounded-2xl transition-all"
-              >
-                Clear Search
-              </button>
-            )}
           </div>
 
           {/* --- SECTION 1: ACADEMIC TAXONOMY --- */}
@@ -297,20 +290,28 @@ function PublicBrowseContent() {
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            {/* Bottom CTA & Reset Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-between pt-4 gap-3 border-t border-gray-100">
               <button
                 onClick={handleClearFilters}
-                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-[#d60008] transition-colors"
+                className="text-xs font-bold text-gray-400 hover:text-[#d60008] transition-colors"
               >
                 Reset All Filters
+              </button>
+
+              <button
+                onClick={handleApplyFilters}
+                className="w-full sm:w-auto px-8 py-4 bg-[#d60008] hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
+              >
+                🔍 Search Tutors & Apply Filters
               </button>
             </div>
           </div>
 
         </div>
 
-        {/* Results Counter */}
-        <div className="flex items-center justify-between px-2">
+        {/* Results Anchor & Counter */}
+        <div ref={resultsRef} className="flex items-center justify-between px-2 pt-4">
           <span className="text-xs font-bold text-gray-500">
             Showing <span className="text-[#0F172A] font-black">{filteredTutors.length}</span> verified tutors
           </span>
@@ -322,7 +323,7 @@ function PublicBrowseContent() {
         ) : filteredTutors.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-gray-200 p-8 space-y-3">
             <h3 className="text-sm font-black text-[#0F172A]">No Tutors Match Your Filters</h3>
-            <p className="text-xs text-gray-500">Try loosening your filter criteria or clearing your search.</p>
+            <p className="text-xs text-gray-500">Try broadening your filter criteria or clearing your search.</p>
             <button onClick={handleClearFilters} className="mt-2 px-6 py-3 bg-[#0F172A] text-white font-bold text-xs rounded-xl">
               Reset Filters
             </button>
