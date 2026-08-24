@@ -37,7 +37,7 @@ export default function ParentDashboardPage() {
       
       // Merge with local storage hired status to ensure instant UI reflection
       const enrichedJobs = (jobsData || []).map(job => {
-        const isLocallyClosed = localStorage.getItem(`hired_tutor_${job.job_tx_id}`);
+        const isLocallyClosed = localStorage.getItem(`hired_tutor_${job.job_tx_id}`) || localStorage.getItem(`hired_tutor_${job.id}`);
         if (isLocallyClosed) {
           return { ...job, status: 'Closed' };
         }
@@ -99,7 +99,13 @@ export default function ParentDashboardPage() {
             Manage your posted requirements ({activeJobsCount} Active Jobs) or browse verified tutors directly.
           </p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+          <Link 
+            href="/parent/dashboard/hired-tutors"
+            className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
+          >
+            <span>🎓 My Hired Tutors</span>
+          </Link>
           <Link 
             href="/parent/dashboard/settings"
             className="px-4 py-3 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
@@ -161,9 +167,22 @@ export default function ParentDashboardPage() {
                     <p className="text-xs text-gray-600">{job.subject} • {job.grade} • Budget: {job.budget}</p>
                   </div>
 
-                  <span className="px-4 py-2.5 bg-[#0F172A] group-hover:bg-[#059669] text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap">
-                    View Job & Tutors ➔
-                  </span>
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    {!isClosed && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/parent/dashboard/job/${job.job_tx_id}/edit`);
+                        }}
+                        className="px-3.5 py-2.5 bg-gray-200 hover:bg-gray-300 text-[#0F172A] text-xs font-bold rounded-xl transition-all whitespace-nowrap shadow-xs"
+                      >
+                        ✏️ Edit
+                      </button>
+                    )}
+                    <span className="px-4 py-2.5 bg-[#0F172A] group-hover:bg-[#059669] text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap shadow-xs">
+                      View Job & Tutors ➔
+                    </span>
+                  </div>
                 </div>
               );
             })}
