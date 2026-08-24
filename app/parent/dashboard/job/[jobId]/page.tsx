@@ -64,6 +64,12 @@ export default function JobDetailPage() {
 
   const fetchJobDetails = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/parent/login');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('parent_jobs')
         .select('*')
@@ -101,28 +107,42 @@ export default function JobDetailPage() {
   };
 
   const handleHireTutor = async (tutor: any) => {
-    if (job?.status === 'Closed') {
+    if (job?.status?.toLowerCase() === 'closed') {
       alert("This job is already closed.");
       return;
     }
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Please log in to perform this action.");
+        router.push('/parent/login');
+        return;
+      }
+
       const updatePayload = { 
         status: 'Closed',
         hired_tutor_id: tutor.id,
         hired_tutor_name: tutor.name
       };
 
-      const { error } = await supabase
+      // Secure update matching both job_tx_id and parent_id for Supabase RLS
+      const { data, error } = await supabase
         .from('parent_jobs')
         .update(updatePayload)
-        .eq('job_tx_id', jobId);
+        .eq('job_tx_id', jobId)
+        .eq('parent_id', user.id)
+        .select();
 
-      if (error) {
-        await supabase
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        const { error: err2 } = await supabase
           .from('parent_jobs')
           .update(updatePayload)
-          .eq('id', jobId);
+          .eq('id', job.id)
+          .eq('parent_id', user.id);
+        if (err2) throw err2;
       }
 
       setJob((prev: any) => ({ ...prev, ...updatePayload }));
@@ -130,7 +150,7 @@ export default function JobDetailPage() {
       router.refresh();
     } catch (err: any) {
       console.error("Error closing job on hire:", err);
-      setNotificationMsg(`✅ Hire notification dispatched to ${tutor.name}.`);
+      alert(`Error closing job: ${err.message}`);
     }
     setTimeout(() => setNotificationMsg(""), 6000);
   };
@@ -159,7 +179,7 @@ export default function JobDetailPage() {
   }
 
   const activeTutors = availableTutors.filter(t => !removed.includes(t.id));
-  const isJobClosed = job.status === 'Closed';
+  const isJobClosed = job.status?.toLowerCase() === 'closed';
 
   return (
     <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-[#334155]">
@@ -248,7 +268,6 @@ export default function JobDetailPage() {
                       💬 Chat
                     </button>
                     
-                    {/* Hide Remove button if job is closed or tutor is hired */}
                     {!isJobClosed && (
                       <button
                         onClick={() => handleRemoveTutor(tutor.id)}

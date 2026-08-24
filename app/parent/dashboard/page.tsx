@@ -67,7 +67,7 @@ export default function ParentDashboardPage() {
     );
   }
 
-  const activeJobsCount = myJobs.filter(j => j.status !== 'Closed').length;
+  const activeJobsCount = myJobs.filter(j => j.status?.toLowerCase() !== 'closed').length;
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-[#334155]">
@@ -131,7 +131,7 @@ export default function ParentDashboardPage() {
         ) : (
           <div className="space-y-3">
             {myJobs.map((job) => {
-              const isClosed = job.status === 'Closed';
+              const isClosed = job.status?.toLowerCase() === 'closed';
               return (
                 <div 
                   key={job.job_tx_id || job.id} 
