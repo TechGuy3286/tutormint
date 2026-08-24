@@ -462,7 +462,7 @@ function PublicBrowseContent() {
           </span>
         </div>
 
-        {/* Tutors List with Spacious Cards & Perfectly Aligned Round Avatars */}
+        {/* Tutors List with Round Avatar & Heart Badge Placed Directly on the Avatar */}
         {loading ? (
           <div className="text-center py-20 text-sm font-bold text-gray-400">Loading available tutors...</div>
         ) : filteredTutors.length === 0 ? (
@@ -485,24 +485,25 @@ function PublicBrowseContent() {
               return (
                 <div 
                   key={tutorId} 
-                  className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 hover:shadow-md transition-all relative group"
+                  className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 hover:shadow-md transition-all relative"
                 >
-                  {/* Absolute Top-Right Bookmark Heart Button (Guarantees Perfect Row Alignment) */}
-                  <button 
-                    onClick={(e) => toggleBookmark(tutorId, e)}
-                    className="absolute top-6 right-6 p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all text-sm shadow-xs"
-                    title={isSaved ? "Remove from Shortlist" : "Shortlist Tutor"}
-                  >
-                    {isSaved ? '❤️' : '🤍'}
-                  </button>
-
-                  {/* Left: Perfect Round Avatar & Content */}
-                  <div className="flex items-center gap-6 w-full sm:w-auto pr-10 sm:pr-0">
-                    <img 
-                      src={avatarUrl} 
-                      alt={tutor.full_name || 'Tutor'} 
-                      className="h-20 w-20 sm:h-24 sm:w-24 aspect-square rounded-full object-cover bg-gray-50 border-2 border-gray-100 shrink-0 shadow-sm" 
-                    />
+                  {/* Left: Round Avatar with Heart Badge Directly Attached */}
+                  <div className="flex items-center gap-6 w-full sm:w-auto">
+                    <div className="relative shrink-0">
+                      <img 
+                        src={avatarUrl} 
+                        alt={tutor.full_name || 'Tutor'} 
+                        className="h-20 w-20 sm:h-24 sm:w-24 aspect-square rounded-full object-cover bg-gray-50 border-2 border-gray-100 shadow-sm" 
+                      />
+                      {/* Red Heart Badge on Avatar */}
+                      <button 
+                        onClick={(e) => toggleBookmark(tutorId, e)}
+                        className="absolute bottom-0 right-0 p-2 bg-white hover:bg-red-50 rounded-full border border-gray-200 shadow-sm transition-all text-xs flex items-center justify-center text-red-600"
+                        title={isSaved ? "Remove from Shortlist" : "Shortlist Tutor"}
+                      >
+                        {isSaved ? '❤️' : '🤍'}
+                      </button>
+                    </div>
 
                     <div className="space-y-2 flex-1">
                       <div className="flex flex-wrap items-center gap-2.5">
