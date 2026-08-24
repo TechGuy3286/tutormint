@@ -20,27 +20,28 @@ const LEVELS = [
   'Computer & IT Skills'
 ]
 
-const GRADES = [
-  'Playgroup / Nursery / Prep',
-  'Grade 1 to 3',
-  'Grade 4 & 5',
-  'Grade 6 to 8',
-  '9th Science',
-  '9th Arts',
-  '10th Science',
-  '10th Arts',
-  '1st Year Pre-Medical',
-  '1st Year Pre-Engineering',
-  '1st Year Computer Science',
-  '2nd Year Pre-Medical',
-  '2nd Year Pre-Engineering',
-  '2nd Year Computer Science',
-  'O-Level Year 1',
-  'O-Level Year 2',
-  'A-Level Year 1',
-  'A-Level Year 2',
-  'University / BS Semester 1-8'
-]
+// Level 2: Dependent Grades mapped to Level 1 Academic Levels
+const LEVEL_TO_GRADES: Record<string, string[]> = {
+  'Playgroup to Class 5 (Primary)': ['Playgroup / Nursery / Prep', 'Grade 1 to 3', 'Grade 4 & 5'],
+  'Class 6 to 8 (Middle)': ['Grade 6 to 8'],
+  'Matriculation (9th & 10th)': ['9th Science', '9th Arts', '10th Science', '10th Arts'],
+  'O-Levels': ['O-Level Year 1', 'O-Level Year 2'],
+  'FSc / Intermediate (11th & 12th)': [
+    '1st Year Pre-Medical',
+    '1st Year Pre-Engineering',
+    '1st Year Computer Science',
+    '2nd Year Pre-Medical',
+    '2nd Year Pre-Engineering',
+    '2nd Year Computer Science'
+  ],
+  'A-Levels': ['A-Level Year 1', 'A-Level Year 2'],
+  'Bachelor / BS (University)': ['University / BS Semester 1-8'],
+  'Master / MPhil': ['University / BS Semester 1-8'],
+  'Entry Tests (MDCAT / ECAT / SAT)': ['MDCAT Preparation', 'ECAT Preparation', 'SAT Preparation'],
+  'Holy Quran & Tajweed': ['Beginner Noorani Qaida', 'Quran with Tajweed', 'Hifz-e-Quran'],
+  'Foreign Languages': ['Spoken English', 'Arabic Language', 'Chinese / German'],
+  'Computer & IT Skills': ['Basic Computing & MS Office', 'Programming & Coding', 'Web Development']
+}
 
 const SUBJECTS_LIST = [
   'Mathematics', 'Physics', 'Chemistry', 'Biology',
@@ -66,7 +67,7 @@ function PublicBrowseContent() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Comprehensive filter states
+  // Filter states
   const [selectedLevel, setSelectedLevel] = useState('')
   const [selectedGrade, setSelectedGrade] = useState('')
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([])
@@ -106,6 +107,15 @@ function PublicBrowseContent() {
       setLoading(false)
     }
   }
+
+  // Handle Level 1 change: resets dependent Grade selection
+  const handleLevelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedLevel(e.target.value)
+    setSelectedGrade('') // Reset dependent grade filter
+  }
+
+  // Get available dependent grades based on selected level
+  const availableGrades = selectedLevel ? (LEVEL_TO_GRADES[selectedLevel] || []) : []
 
   // Comprehensive filtering execution triggered by CTA button
   const handleApplyFilters = () => {
@@ -222,40 +232,47 @@ function PublicBrowseContent() {
             />
           </div>
 
-          {/* --- SECTION 1: ACADEMIC TAXONOMY --- */}
+          {/* --- SECTION 1: ACADEMIC TAXONOMY (Dependent Levels) --- */}
           <div className="pt-4 border-t border-gray-100 space-y-4">
             <h3 className="text-xs font-black uppercase tracking-wider text-gray-400">
-              Section 1: Academic Taxonomy (Level → Grade → Subjects)
+              Section 1: Academic Taxonomy (Level 1 → Level 2 Dependent Grade)
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Level Filter */}
+              {/* Level 1: Academic Level */}
               <div className="bg-[#F8FAFC] p-4 rounded-2xl border border-gray-200 space-y-2">
                 <label className="text-xs font-black text-[#0F172A] flex items-center gap-1.5">
-                  📚 Academic Level
+                  📚 Academic Level (Level 1)
                 </label>
                 <select
                   value={selectedLevel}
-                  onChange={(e) => setSelectedLevel(e.target.value)}
+                  onChange={handleLevelChange}
                   className="w-full p-3 bg-white border border-gray-200 rounded-xl text-xs outline-none font-bold text-[#334155]"
                 >
-                  <option value="">All Academic Levels</option>
+                  <option value="">Select Academic Level First</option>
                   {LEVELS.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
                 </select>
               </div>
 
-              {/* Grade Filter */}
+              {/* Level 2: Dependent Grade / Specialisation */}
               <div className="bg-[#F8FAFC] p-4 rounded-2xl border border-gray-200 space-y-2">
                 <label className="text-xs font-black text-[#0F172A] flex items-center gap-1.5">
-                  🎓 Grade / Specialisation
+                  🎓 Grade / Specialisation (Level 2 Dependent)
                 </label>
                 <select
                   value={selectedGrade}
                   onChange={(e) => setSelectedGrade(e.target.value)}
-                  className="w-full p-3 bg-white border border-gray-200 rounded-xl text-xs outline-none font-bold text-[#334155]"
+                  disabled={!selectedLevel}
+                  className={`w-full p-3 border rounded-xl text-xs outline-none font-bold ${
+                    !selectedLevel 
+                      ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' 
+                      : 'bg-white border-gray-200 text-[#334155]'
+                  }`}
                 >
-                  <option value="">All Grades / Specialisations</option>
-                  {GRADES.map(grd => <option key={grd} value={grd}>{grd}</option>)}
+                  <option value="">
+                    {!selectedLevel ? 'Select Academic Level above first' : 'All Grades in this Level'}
+                  </option>
+                  {availableGrades.map(grd => <option key={grd} value={grd}>{grd}</option>)}
                 </select>
               </div>
             </div>
