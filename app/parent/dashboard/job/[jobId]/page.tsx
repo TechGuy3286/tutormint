@@ -45,6 +45,7 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [shortlisted, setShortlisted] = useState<number[]>([]);
   const [removed, setRemoved] = useState<number[]>([]);
+  const [hiredTutorId, setHiredTutorId] = useState<number | null>(null);
   const [animatingOut, setAnimatingOut] = useState<number | null>(null);
   const [notificationMsg, setNotificationMsg] = useState("");
 
@@ -58,6 +59,10 @@ export default function JobDetailPage() {
       const savedRemoved = localStorage.getItem(`removed_${jobId}`);
       if (savedRemoved) {
         setRemoved(JSON.parse(savedRemoved));
+      }
+      const savedHired = localStorage.getItem(`hired_tutor_${jobId}`);
+      if (savedHired) {
+        setHiredTutorId(Number(savedHired));
       }
     }
   }, [jobId]);
@@ -120,13 +125,9 @@ export default function JobDetailPage() {
         return;
       }
 
-      const updatePayload = { 
-        status: 'Closed',
-        hired_tutor_id: tutor.id,
-        hired_tutor_name: tutor.name
-      };
+      // Update only status in Supabase to avoid missing column errors
+      const updatePayload = { status: 'Closed' };
 
-      // Secure update matching both job_tx_id and parent_id for Supabase RLS
       const { data, error } = await supabase
         .from('parent_jobs')
         .update(updatePayload)
@@ -145,7 +146,10 @@ export default function JobDetailPage() {
         if (err2) throw err2;
       }
 
-      setJob((prev: any) => ({ ...prev, ...updatePayload }));
+      setJob((prev: any) => ({ ...prev, status: 'Closed' }));
+      setHiredTutorId(tutor.id);
+      localStorage.setItem(`hired_tutor_${jobId}`, String(tutor.id));
+
       setNotificationMsg(`🎉 Success! You have hired ${tutor.name}. Job requirement [${jobId}] is now CLOSED.`);
       router.refresh();
     } catch (err: any) {
@@ -231,7 +235,7 @@ export default function JobDetailPage() {
             {activeTutors.map((tutor) => {
               const isShortlisted = shortlisted.includes(tutor.id);
               const isAnimating = animatingOut === tutor.id;
-              const isThisTutorHired = String(job.hired_tutor_id) === String(tutor.id) || job.hired_tutor_name === tutor.name;
+              const isThisTutorHired = Number(hiredTutorId) === Number(tutor.id);
 
               return (
                 <div 
