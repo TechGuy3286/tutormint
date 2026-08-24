@@ -79,7 +79,7 @@ export default function HomePage() {
             
             {/* Square Button 1: Find Tutor */}
             <Link 
-              href="/tutor" 
+              href="/browse" 
               className="p-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-600/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
             >
               <div className="text-2xl mb-2 p-3 bg-white/10 rounded-xl w-fit">🔍</div>
