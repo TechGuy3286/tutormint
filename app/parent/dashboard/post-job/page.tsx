@@ -303,7 +303,6 @@ export default function PostJobPage() {
 
   const supabase = createClient();
 
-  // Restore saved session data on page load (e.g. after returning from login) and load saved bookmarks
   useEffect(() => {
     const storedBookmarks = localStorage.getItem('tutormint_saved_tutors');
     if (storedBookmarks) {
@@ -398,7 +397,6 @@ export default function PostJobPage() {
     setMatchedTutors(results);
   };
 
-  // Real Database Insertion with Auth & Session Backup
   const handlePublishJob = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -451,6 +449,21 @@ export default function PostJobPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 font-sans text-[#334155]">
       
+      {/* Top Bar: Breadcrumbs on Left, Account Settings on Top Right */}
+      <nav className="flex items-center justify-between bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
+        <div className="flex items-center space-x-2 text-xs font-bold text-gray-500">
+          <Link href="/parent/dashboard" className="hover:text-[#0F172A] transition-colors">Parent Dashboard</Link>
+          <span className="text-gray-300">/</span>
+          <span className="text-[#059669]">Post Job</span>
+        </div>
+        <Link 
+          href="/parent/dashboard/settings"
+          className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-[#0F172A] text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 border border-gray-200 shadow-2xs"
+        >
+          <span>⚙️ Account Settings</span>
+        </Link>
+      </nav>
+
       {/* TOP PANEL */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="space-y-1">
@@ -463,9 +476,9 @@ export default function PostJobPage() {
         </div>
         <Link 
           href="/parent/dashboard" 
-          className="px-4 py-2.5 bg-[#F8FAFC] hover:bg-gray-200 text-[#334155] text-xs font-bold rounded-xl border border-gray-200 transition-colors"
+          className="px-4 py-2.5 bg-[#F8FAFC] hover:bg-gray-200 text-[#334155] text-xs font-bold rounded-xl border border-gray-200 transition-colors whitespace-nowrap"
         >
-          ← Back to Feed
+          ← Back to Dashboard
         </Link>
       </div>
 
@@ -683,7 +696,6 @@ export default function PostJobPage() {
                   const tutorId = String(tutor.id);
                   const isSaved = savedTutorIds.includes(tutorId);
                   
-                  // Normalize mock tutor object to fit the global TutorCard schema
                   const normalizedTutor = {
                     id: tutor.id,
                     full_name: tutor.name,
