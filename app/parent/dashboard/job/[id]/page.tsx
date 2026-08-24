@@ -99,8 +99,28 @@ export default function JobDetailPage() {
   };
 
   const handleHireTutor = async (tutorName: string) => {
-    setNotificationMsg(`✅ Success! Hire notification dispatched to ${tutorName} via internal TutorMint notification network for Job [${jobId}].`);
-    setTimeout(() => setNotificationMsg(""), 5000);
+    try {
+      // Automatically update job status to Closed in Supabase
+      const { error } = await supabase
+        .from('parent_jobs')
+        .update({ status: 'Closed' })
+        .eq('job_tx_id', jobId);
+
+      if (error) {
+        // Fallback update query by id
+        await supabase
+          .from('parent_jobs')
+          .update({ status: 'Closed' })
+          .eq('id', jobId);
+      }
+
+      setJob((prev: any) => ({ ...prev, status: 'Closed' }));
+      setNotificationMsg(`🎉 Success! You have hired ${tutorName}. Job requirement [${jobId}] status is now automatically set to CLOSED.`);
+    } catch (err: any) {
+      console.error("Error closing job on hire:", err);
+      setNotificationMsg(`✅ Hire notification dispatched to ${tutorName}, but status update failed: ${err.message}`);
+    }
+    setTimeout(() => setNotificationMsg(""), 6000);
   };
 
   if (loading) {
@@ -149,7 +169,9 @@ export default function JobDetailPage() {
           <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-mono font-bold rounded-full uppercase">
             Requirement ID: {job.job_tx_id}
           </span>
-          <span className="text-xs font-bold text-slate-500 uppercase">Status: {job.status || 'Active'}</span>
+          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${job.status === 'Closed' ? 'bg-red-100 text-red-800' : 'bg-emerald-50 text-emerald-700'}`}>
+            Status: {job.status || 'Active'}
+          </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A]">{job.title}</h1>
         <p className="text-xs sm:text-sm text-gray-600 font-medium">
