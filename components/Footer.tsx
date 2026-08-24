@@ -34,7 +34,7 @@ export default function Footer() {
         {/* Col 4: Contact */}
         <div className="space-y-2">
           <h4 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Contact Support</h4>
-          <p className="text-xs text-gray-500">WhatsApp: +92 321 1045245</p>
+          <p className="text-xs text-gray-500">WhatsApp: +92 321 5872222</p>
           <p className="text-xs text-gray-500">Email: support@tutormint.org</p>
         </div>
 
