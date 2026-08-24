@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import TutorCard from "@/components/TutorCard";
 
 // Full Taxonomy Hierarchy loaded from Spreadsheet
 const taxonomyData: Record<string, Record<string, string[]>> = {
@@ -298,11 +299,17 @@ export default function PostJobPage() {
   const [aiSkills, setAiSkills] = useState("");
   const [isGenerated, setIsGenerated] = useState(false);
   const [matchedTutors, setMatchedTutors] = useState<any[]>([]);
+  const [savedTutorIds, setSavedTutorIds] = useState<string[]>([]);
 
   const supabase = createClient();
 
-  // Restore saved session data on page load (e.g. after returning from login)
+  // Restore saved session data on page load (e.g. after returning from login) and load saved bookmarks
   useEffect(() => {
+    const storedBookmarks = localStorage.getItem('tutormint_saved_tutors');
+    if (storedBookmarks) {
+      try { setSavedTutorIds(JSON.parse(storedBookmarks)); } catch (e) {}
+    }
+
     const savedSession = sessionStorage.getItem('savedJobSession');
     if (savedSession) {
       try {
@@ -326,6 +333,19 @@ export default function PostJobPage() {
       }
     }
   }, []);
+
+  const toggleBookmark = (tutorId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    let updated: string[] = [];
+    if (savedTutorIds.includes(tutorId)) {
+      updated = savedTutorIds.filter(id => id !== tutorId);
+    } else {
+      updated = [...savedTutorIds, tutorId];
+    }
+    setSavedTutorIds(updated);
+    localStorage.setItem('tutormint_saved_tutors', JSON.stringify(updated));
+  };
 
   const filteredLevels = useMemo(() => {
     return levelsList.filter(lvl => lvl.toLowerCase().includes(levelSearch.toLowerCase()));
@@ -383,7 +403,6 @@ export default function PostJobPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        // Save current session payload before redirecting to login
         const sessionPayload = {
           selectedLevel,
           selectedGrade,
@@ -658,31 +677,36 @@ export default function PostJobPage() {
               Instant AI-Matched Tutors ({matchedTutors.length})
             </h3>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
               {matchedTutors.length > 0 ? (
-                matchedTutors.map((tutor) => (
-                  <div 
-                    key={tutor.id} 
-                    className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
-                  >
-                    <div className="flex items-start gap-4 w-full sm:w-auto">
-                      <img src={tutor.image} alt={tutor.name} className="w-16 h-16 rounded-2xl object-cover border border-gray-200" />
-                      <div className="space-y-1.5 flex-1">
-                        <h4 className="text-sm font-black text-[#0F172A]">{tutor.name}</h4>
-                        <p className="text-xs font-bold text-[#059669]">Expert in {tutor.subject} ({tutor.grade}) • Gender: {tutor.gender}</p>
-                        <p className="text-[11px] text-gray-600 font-medium">🎓 {tutor.degree} • 📍 {tutor.area}, {tutor.city} • Time Slot: {tuitionTime}</p>
-                      </div>
-                    </div>
-                    <a 
-                      href={`https://wa.me/923211045245?text=Hi%20I%20want%20to%20hire%20${encodeURIComponent(tutor.name)}%20for%20${encodeURIComponent(tutor.subject)}`} 
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-extrabold rounded-xl text-center shadow-sm block"
-                    >
-                      Hire / Contact ➔
-                    </a>
-                  </div>
-                ))
+                matchedTutors.map((tutor) => {
+                  const tutorId = String(tutor.id);
+                  const isSaved = savedTutorIds.includes(tutorId);
+                  
+                  // Normalize mock tutor object to fit the global TutorCard schema
+                  const normalizedTutor = {
+                    id: tutor.id,
+                    full_name: tutor.name,
+                    avatar_url: tutor.image,
+                    rating: tutor.rating,
+                    reviews_count: tutor.reviewCount,
+                    subjects: `${tutor.subject} (${tutor.grade})`,
+                    gender: tutor.gender,
+                    degree: tutor.degree,
+                    city: `${tutor.area}, ${tutor.city}`,
+                    hourly_rate: tutor.budget,
+                    phone: "923215872222"
+                  };
+
+                  return (
+                    <TutorCard 
+                      key={tutorId} 
+                      tutor={normalizedTutor} 
+                      isSaved={isSaved} 
+                      onToggleBookmark={toggleBookmark} 
+                    />
+                  );
+                })
               ) : (
                 <div className="p-8 bg-white rounded-3xl border border-gray-200 text-center text-xs font-bold text-gray-500">
                   No exact matching tutors found for this specific location. Publish your job requirement so tutors can apply directly!
