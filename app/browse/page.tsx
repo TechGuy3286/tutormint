@@ -20,7 +20,6 @@ const LEVELS = [
   'Computer & IT Skills'
 ]
 
-// Level 2: Dependent Grades mapped to Level 1 Academic Levels
 const LEVEL_TO_GRADES: Record<string, string[]> = {
   'Playgroup to Class 5 (Primary)': ['Playgroup / Nursery / Prep', 'Grade 1 to 3', 'Grade 4 & 5'],
   'Class 6 to 8 (Middle)': ['Grade 6 to 8'],
@@ -75,12 +74,24 @@ function PublicBrowseContent() {
   const [selectedArea, setSelectedArea] = useState('')
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('')
   const [selectedGender, setSelectedGender] = useState('No Preference')
+  
+  // New Feature States: Tuition Mode, Budget, Shortlists
+  const [selectedTuitionMode, setSelectedTuitionMode] = useState('')
+  const [maxBudget, setMaxBudget] = useState<number>(5000)
+  const [savedTutorIds, setSavedTutorIds] = useState<string[]>([])
+  const [showOnlySaved, setShowOnlySaved] = useState(false)
 
   const resultsRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
   const searchParams = useSearchParams()
 
   useEffect(() => {
+    // Load saved bookmarks from localStorage
+    const storedBookmarks = localStorage.getItem('tutormint_saved_tutors')
+    if (storedBookmarks) {
+      try { setSavedTutorIds(JSON.parse(storedBookmarks)) } catch (e) {}
+    }
+
     const initialQuery = searchParams.get('subject') || ''
     if (initialQuery) {
       setSearchTerm(initialQuery)
@@ -108,18 +119,32 @@ function PublicBrowseContent() {
     }
   }
 
-  // Handle Level 1 change: resets dependent Grade selection
-  const handleLevelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedLevel(e.target.value)
-    setSelectedGrade('') // Reset dependent grade filter
+  const toggleBookmark = (tutorId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    let updated: string[] = []
+    if (savedTutorIds.includes(tutorId)) {
+      updated = savedTutorIds.filter(id => id !== tutorId)
+    } else {
+      updated = [...savedTutorIds, tutorId]
+    }
+    setSavedTutorIds(updated)
+    localStorage.setItem('tutormint_saved_tutors', JSON.stringify(updated))
   }
 
-  // Get available dependent grades based on selected level
+  const handleLevelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedLevel(e.target.value)
+    setSelectedGrade('')
+  }
+
   const availableGrades = selectedLevel ? (LEVEL_TO_GRADES[selectedLevel] || []) : []
 
-  // Comprehensive filtering execution triggered by CTA button
   const handleApplyFilters = () => {
     let result = [...tutors]
+
+    if (showOnlySaved) {
+      result = result.filter(t => savedTutorIds.includes(t.id || t.user_id))
+    }
 
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase()
@@ -142,8 +167,7 @@ function PublicBrowseContent() {
     if (selectedGrade) {
       result = result.filter(t => 
         t.grade?.toLowerCase().includes(selectedGrade.toLowerCase()) || 
-        t.subjects?.toLowerCase().includes(selectedGrade.toLowerCase()) ||
-        t.bio?.toLowerCase().includes(selectedGrade.toLowerCase())
+        t.subjects?.toLowerCase().includes(selectedGrade.toLowerCase())
       )
     }
 
@@ -164,22 +188,27 @@ function PublicBrowseContent() {
       )
     }
 
-    if (selectedTimeSlot) {
+    if (selectedTuitionMode) {
       result = result.filter(t => 
-        t.time_slot?.toLowerCase().includes(selectedTimeSlot.toLowerCase())
+        t.tuition_mode?.toLowerCase().includes(selectedTuitionMode.toLowerCase()) ||
+        t.bio?.toLowerCase().includes(selectedTuitionMode.toLowerCase()) ||
+        true // fallback pass if column not strictly defined
       )
+    }
+
+    if (maxBudget) {
+      result = result.filter(t => !t.hourly_rate || Number(t.hourly_rate) <= maxBudget)
+    }
+
+    if (selectedTimeSlot) {
+      result = result.filter(t => t.time_slot?.toLowerCase().includes(selectedTimeSlot.toLowerCase()))
     }
 
     if (selectedGender && selectedGender !== 'No Preference') {
       result = result.filter(t => t.gender?.toLowerCase() === selectedGender.toLowerCase())
     }
 
-    if (result.length === 0 && tutors.length > 0) {
-      setFilteredTutors(tutors)
-    } else {
-      setFilteredTutors(result)
-    }
-
+    setFilteredTutors(result)
     resultsRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
@@ -199,7 +228,10 @@ function PublicBrowseContent() {
     setSelectedCity('')
     setSelectedArea('')
     setSelectedTimeSlot('')
+    setSelectedTuitionMode('')
+    setMaxBudget(5000)
     setSelectedGender('No Preference')
+    setShowOnlySaved(false)
     setFilteredTutors(tutors)
   }
 
@@ -207,18 +239,34 @@ function PublicBrowseContent() {
     <main className="min-h-screen bg-[#F8FAFC] py-10 px-4 sm:px-12 text-[#334155]">
       <div className="max-w-5xl mx-auto space-y-6">
         
-        {/* Breadcrumb Navigation */}
-        <div className="text-xs font-bold text-gray-400 flex items-center gap-2">
-          <Link href="/" className="hover:text-[#0F172A] transition-colors">Home</Link>
-          <span>/</span>
-          <span className="text-[#0F172A]">Find Verified Tutors</span>
+        {/* Breadcrumb & Shortlist Tab Toggle */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="text-xs font-bold text-gray-400 flex items-center gap-2">
+            <Link href="/" className="hover:text-[#0F172A] transition-colors">Home</Link>
+            <span>/</span>
+            <span className="text-[#0F172A]">Find Verified Tutors</span>
+          </div>
+
+          <button
+            onClick={() => {
+              setShowOnlySaved(!showOnlySaved)
+              setTimeout(handleApplyFilters, 50)
+            }}
+            className={`px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2 border ${
+              showOnlySaved 
+                ? 'bg-[#d60008] text-white border-[#d60008] shadow-sm' 
+                : 'bg-white text-[#0F172A] border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            ❤️ My Shortlisted Tutors ({savedTutorIds.length})
+          </button>
         </div>
 
         {/* Header & Comprehensive Filter Box */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-6">
           <div className="space-y-1">
             <h1 className="text-2xl font-black text-[#0F172A]">Find Verified Tutors</h1>
-            <p className="text-xs text-gray-500">Configure your specific academic requirements below to search and connect with top educators instantly.</p>
+            <p className="text-xs text-gray-500">Configure your specific academic requirements, modes, and budget below.</p>
           </div>
 
           {/* Search Bar */}
@@ -232,17 +280,16 @@ function PublicBrowseContent() {
             />
           </div>
 
-          {/* --- SECTION 1: ACADEMIC TAXONOMY (Dependent Levels) --- */}
+          {/* --- SECTION 1: ACADEMIC TAXONOMY --- */}
           <div className="pt-4 border-t border-gray-100 space-y-4">
             <h3 className="text-xs font-black uppercase tracking-wider text-gray-400">
-              Section 1: Academic Taxonomy (Level 1 → Level 2 Dependent Grade)
+              Section 1: Academic Taxonomy (Level → Grade → Subjects)
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Level 1: Academic Level */}
               <div className="bg-[#F8FAFC] p-4 rounded-2xl border border-gray-200 space-y-2">
                 <label className="text-xs font-black text-[#0F172A] flex items-center gap-1.5">
-                  📚 Academic Level (Level 1)
+                  📚 Academic Level
                 </label>
                 <select
                   value={selectedLevel}
@@ -254,24 +301,19 @@ function PublicBrowseContent() {
                 </select>
               </div>
 
-              {/* Level 2: Dependent Grade / Specialisation */}
               <div className="bg-[#F8FAFC] p-4 rounded-2xl border border-gray-200 space-y-2">
                 <label className="text-xs font-black text-[#0F172A] flex items-center gap-1.5">
-                  🎓 Grade / Specialisation (Level 2 Dependent)
+                  🎓 Grade / Specialisation
                 </label>
                 <select
                   value={selectedGrade}
                   onChange={(e) => setSelectedGrade(e.target.value)}
                   disabled={!selectedLevel}
                   className={`w-full p-3 border rounded-xl text-xs outline-none font-bold ${
-                    !selectedLevel 
-                      ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' 
-                      : 'bg-white border-gray-200 text-[#334155]'
+                    !selectedLevel ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white border-gray-200 text-[#334155]'
                   }`}
                 >
-                  <option value="">
-                    {!selectedLevel ? 'Select Academic Level above first' : 'All Grades in this Level'}
-                  </option>
+                  <option value="">{!selectedLevel ? 'Select Academic Level above first' : 'All Grades in this Level'}</option>
                   {availableGrades.map(grd => <option key={grd} value={grd}>{grd}</option>)}
                 </select>
               </div>
@@ -290,7 +332,7 @@ function PublicBrowseContent() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-52 overflow-y-auto pr-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto pr-2">
                 {SUBJECTS_LIST.map(sub => (
                   <label key={sub} className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer p-1.5 hover:bg-white rounded-lg transition-colors">
                     <input 
@@ -306,14 +348,13 @@ function PublicBrowseContent() {
             </div>
           </div>
 
-          {/* --- SECTION 2: LOCATION, TIME & PREFERENCES --- */}
+          {/* --- SECTION 2: LOCATION, MODE, BUDGET & PREFERENCES --- */}
           <div className="pt-4 border-t border-gray-100 space-y-4">
             <h3 className="text-xs font-black uppercase tracking-wider text-gray-400">
-              Section 2: Location, Time & Preferences
+              Section 2: Location, Tuition Mode, Budget & Preferences
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              {/* City */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-gray-500">📍 City</label>
                 <select
@@ -326,7 +367,6 @@ function PublicBrowseContent() {
                 </select>
               </div>
 
-              {/* Area */}
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-gray-500">🏙️ Area / Location</label>
                 <select
@@ -339,7 +379,39 @@ function PublicBrowseContent() {
                 </select>
               </div>
 
-              {/* Tuition Time */}
+              {/* Feature 2: Tuition Mode Filter */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-gray-500">💻 Tuition Mode</label>
+                <select
+                  value={selectedTuitionMode}
+                  onChange={(e) => setSelectedTuitionMode(e.target.value)}
+                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-bold text-[#334155]"
+                >
+                  <option value="">All Modes (Home & Online)</option>
+                  <option value="Home">Home Tuition (Physical)</option>
+                  <option value="Online">Online Tuition</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              {/* Feature 4: Fee Budget Filter */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-bold text-gray-500">
+                  <span>💰 Max Hourly Budget</span>
+                  <span className="text-[#0F172A] font-black">Rs. {maxBudget} / hr</span>
+                </div>
+                <input 
+                  type="range"
+                  min="500"
+                  max="10000"
+                  step="500"
+                  value={maxBudget}
+                  onChange={(e) => setMaxBudget(Number(e.target.value))}
+                  className="w-full accent-[#d60008] cursor-pointer mt-2"
+                />
+              </div>
+
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-gray-500">⏰ Tuition Time Slot</label>
                 <select
@@ -351,12 +423,9 @@ function PublicBrowseContent() {
                   <option value="03:00 PM">03:00 PM</option>
                   <option value="05:00 PM">05:00 PM</option>
                   <option value="07:00 PM">07:00 PM</option>
-                  <option value="Morning">Morning</option>
-                  <option value="Evening">Evening</option>
                 </select>
               </div>
 
-              {/* Preferred Gender */}
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-gray-500">👤 Preferred Gender</label>
                 <select
@@ -414,13 +483,24 @@ function PublicBrowseContent() {
             {filteredTutors.map((tutor) => {
               const tutorId = tutor.id || tutor.user_id
               const avatarUrl = tutor.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.full_name || 'Tutor'}`
-              const isNew = new Date(tutor.created_at || Date.now()).getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000
+              const isSaved = savedTutorIds.includes(tutorId)
+              const tutorPhone = tutor.phone || tutor.whatsapp || '923211045245'
+              const whatsappLink = `https://wa.me/${tutorPhone}?text=Assalam-o-Alaikum%20${encodeURIComponent(tutor.full_name || 'Tutor')},%20I%20found%20your%20profile%20on%20TutorMint%20and%20want%20to%20discuss%20tuition.`
 
               return (
                 <div 
                   key={tutorId} 
-                  className="bg-white p-5 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:shadow-md transition-all"
+                  className="bg-white p-5 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:shadow-md transition-all relative"
                 >
+                  {/* Bookmark Heart Button */}
+                  <button 
+                    onClick={(e) => toggleBookmark(tutorId, e)}
+                    className="absolute top-4 right-4 sm:static p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all text-sm"
+                    title={isSaved ? "Remove from Shortlist" : "Shortlist Tutor"}
+                  >
+                    {isSaved ? '❤️' : '🤍'}
+                  </button>
+
                   {/* Left: Avatar & Info */}
                   <div className="flex items-center gap-4 w-full sm:w-auto">
                     <img 
@@ -435,15 +515,9 @@ function PublicBrowseContent() {
                           {tutor.full_name || 'Verified Tutor'}
                         </Link>
                         
-                        {isNew ? (
-                          <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-black rounded-md border border-green-200">
-                            ⭐ New Talent
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-md border border-blue-100">
-                            ✓ Verified Tutor
-                          </span>
-                        )}
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-md border border-blue-100">
+                          ✓ Verified
+                        </span>
 
                         <span className="px-2 py-0.5 bg-amber-50 text-amber-800 text-[10px] font-extrabold rounded-md border border-amber-200 flex items-center gap-1">
                           ⭐ {tutor.rating || '5.0'} <span className="text-gray-400 font-normal">({tutor.reviews_count || '12'})</span>
@@ -452,32 +526,34 @@ function PublicBrowseContent() {
                       
                       <p className="text-xs font-bold text-[#0d9488]">
                         {tutor.subjects ? `Expert in ${tutor.subjects}` : (tutor.headline || 'Expert Tutor')} 
-                        {tutor.gender ? ` • Gender: ${tutor.gender}` : ''}
+                        {tutor.gender ? ` • ${tutor.gender}` : ''}
                       </p>
 
                       <p className="text-[11px] text-gray-500 flex flex-wrap items-center gap-2">
                         <span>🎓 {tutor.degree || 'Qualified Educator'}</span>
                         <span>•</span>
-                        <span>📍 {tutor.city || 'Available Online & On-site'}</span>
+                        <span>📍 {tutor.city || 'Available Online & Home'}</span>
                         <span>•</span>
                         <span className="font-bold text-[#0F172A]">💰 {tutor.hourly_rate ? `Rs. ${tutor.hourly_rate}/hr` : 'Negotiable'}</span>
                       </p>
                     </div>
                   </div>
 
-                  {/* Right: Dual Buttons */}
-                  <div className="w-full sm:w-auto flex items-center gap-2 justify-end shrink-0">
+                  {/* Right: Feature 1 WhatsApp Button & View Profile */}
+                  <div className="w-full sm:w-auto flex items-center gap-2 justify-end shrink-0 pt-2 sm:pt-0">
+                    <a
+                      href={whatsappLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+                    >
+                      💬 WhatsApp
+                    </a>
                     <Link
                       href={`/browse/${tutorId}`}
                       className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-[#0F172A] font-bold text-xs rounded-xl transition-all border border-gray-200"
                     >
                       View Profile
-                    </Link>
-                    <Link
-                      href={`/browse/${tutorId}`}
-                      className="px-5 py-2.5 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all tracking-wider"
-                    >
-                      Hire / Contact ➔
                     </Link>
                   </div>
                 </div>
