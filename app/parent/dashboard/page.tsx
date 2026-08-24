@@ -5,51 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const allTutors = [
-  {
-    id: 1,
-    name: "Ayesha Khan",
-    city: "Lahore",
-    area: "Gulberg",
-    subject: "Mathematics",
-    grade: "10th Class",
-    rating: 4.9,
-    reviewCount: 24,
-    degree: "BS Mathematics (LUMS)",
-    mode: "Physical",
-    budget: "25,000 PKR / mo",
-    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
-  },
-  {
-    id: 2,
-    name: "Muhammad Ali",
-    city: "Lahore",
-    area: "DHA",
-    subject: "Physics",
-    grade: "FSc Part 2",
-    rating: 4.8,
-    reviewCount: 19,
-    degree: "BS Computer Science (PU)",
-    mode: "Physical",
-    budget: "30,000 PKR / mo",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
-  },
-  {
-    id: 3,
-    name: "Alee Sabeer",
-    city: "Karachi",
-    area: "Clifton",
-    subject: "Computer Science",
-    grade: "O-Levels",
-    rating: 5.0,
-    reviewCount: 32,
-    degree: "BS Software Engineering",
-    mode: "Online / Physical",
-    budget: "35,000 PKR / mo",
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150"
-  }
-];
-
 export default function ParentDashboardPage() {
   const [userEmail, setUserEmail] = useState("");
   const [myJobs, setMyJobs] = useState<any[]>([]);
@@ -106,8 +61,6 @@ export default function ParentDashboardPage() {
     }
   };
 
-  const acceptedJobs = myJobs.filter(j => j.status === 'Accepted by Tutor' || j.status === 'Pending Tutor Acceptance');
-
   if (loadingRole) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] space-y-4">
@@ -120,6 +73,7 @@ export default function ParentDashboardPage() {
   }
 
   const parentName = userEmail ? userEmail.split('@')[0] : 'Test Parent';
+  const activeJobsCount = myJobs.filter(j => j.status !== 'Closed').length;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col text-[#334155]">
@@ -140,38 +94,12 @@ export default function ParentDashboardPage() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full">
         
-        {/* LIVE NOTIFICATION CENTER */}
-        <div className="bg-blue-50 border border-blue-200 p-5 rounded-3xl space-y-3 shadow-xs">
-          <div className="flex justify-between items-center">
-            <h4 className="text-xs font-black text-blue-900 uppercase flex items-center gap-2">
-              <span>🔔 Live Notification Center</span>
-              <span className="px-2 py-0.5 bg-blue-600 text-white rounded-full text-[10px]">{acceptedJobs.length}</span>
-            </h4>
-          </div>
-
-          {acceptedJobs.length > 0 ? (
-            <div className="space-y-2">
-              {acceptedJobs.map(job => (
-                <div key={job.job_tx_id} className="flex justify-between items-center bg-white p-3 rounded-2xl border border-blue-100">
-                  <p className="text-xs text-blue-900 font-medium">
-                    Requirement <span className="font-mono font-bold">[{job.job_tx_id}]</span> status is: <strong className="text-[#059669] uppercase">{job.status}</strong>
-                  </p>
-                  <Link 
-                    href={`/parent/dashboard/job/${job.job_tx_id}`}
-                    className="px-3 py-1.5 bg-[#059669] text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all"
-                  >
-                    View Job & Tutors ➔
-                  </Link>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white p-3.5 rounded-2xl border border-blue-100 text-xs text-blue-800 font-medium flex items-center justify-between">
-              <span>No demo class acceptances or active alerts right now. When a tutor accepts your requirement, you'll be notified here.</span>
-              <span className="text-blue-400 font-mono text-[10px]">Active & Listening</span>
-            </div>
-          )}
-        </div>
+        {/* Clean Breadcrumb Navigation */}
+        <nav className="flex items-center space-x-2 text-xs font-bold text-gray-500 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
+          <Link href="/" className="hover:text-[#0F172A] transition-colors">Home</Link>
+          <span className="text-gray-300">/</span>
+          <span className="text-[#059669]">Parent Dashboard</span>
+        </nav>
 
         {/* Dashboard Header */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -180,7 +108,7 @@ export default function ParentDashboardPage() {
               Parent Dashboard
             </h1>
             <p className="text-xs sm:text-sm text-gray-600 font-medium">
-              Manage your posted requirements or browse verified tutors directly with zero middlemen.
+              Manage your posted requirements ({activeJobsCount} Active Jobs) or browse verified tutors directly.
             </p>
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -203,7 +131,7 @@ export default function ParentDashboardPage() {
         <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
-              My Posted Jobs ({myJobs.length})
+              My Posted Jobs ({myJobs.length}) • Active: {activeJobsCount}
             </h2>
           </div>
 
