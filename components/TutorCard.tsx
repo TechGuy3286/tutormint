@@ -53,19 +53,19 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
     setShowModal(true)
     setLoadingJobs(true)
     try {
-      // Fetch only active/open jobs from Supabase directly
+      // Fetch all jobs for this parent from Supabase
       const { data, error } = await supabase
         .from('parent_jobs')
         .select('*')
         .eq('parent_id', user.id)
-        .neq('status', 'Closed')
 
       if (error) throw error
 
-      // Double check client-side filtering for safety against null or casing variations
+      // Bulletproof client-side filter: Keep only jobs whose status is NOT explicitly 'closed'
       const activeJobs = (data || []).filter(job => {
-        const status = job.status ? job.status.toLowerCase().trim() : 'active'
-        return status !== 'closed'
+        if (!job.status) return true // Include jobs with null/empty status as active
+        const statusStr = String(job.status).toLowerCase().trim()
+        return statusStr !== 'closed'
       })
       
       setMyJobs(activeJobs)
