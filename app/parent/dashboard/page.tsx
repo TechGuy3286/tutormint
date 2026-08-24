@@ -82,14 +82,22 @@ export default function ParentDashboardPage() {
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-[#334155]">
       
-      {/* Clean Breadcrumb Navigation */}
-      <nav className="flex items-center space-x-2 text-xs font-bold text-gray-500 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
-        <Link href="/" className="hover:text-[#0F172A] transition-colors">Home</Link>
-        <span className="text-gray-300">/</span>
-        <span className="text-[#059669]">Parent Dashboard</span>
+      {/* Top Bar: Breadcrumbs on Left, Account Settings on Top Right */}
+      <nav className="flex items-center justify-between bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
+        <div className="flex items-center space-x-2 text-xs font-bold text-gray-500">
+          <Link href="/" className="hover:text-[#0F172A] transition-colors">Home</Link>
+          <span className="text-gray-300">/</span>
+          <span className="text-[#059669]">Parent Dashboard</span>
+        </div>
+        <Link 
+          href="/parent/dashboard/settings"
+          className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-[#0F172A] text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 border border-gray-200 shadow-2xs"
+        >
+          <span>⚙️ Account Settings</span>
+        </Link>
       </nav>
 
-      {/* Dashboard Header */}
+      {/* Dashboard Header Container with Exactly Two Buttons */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A]">
@@ -105,12 +113,6 @@ export default function ParentDashboardPage() {
             className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
           >
             <span>🎓 My Hired Tutors</span>
-          </Link>
-          <Link 
-            href="/parent/dashboard/settings"
-            className="px-4 py-3 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
-          >
-            <span>⚙️ Account Settings</span>
           </Link>
           <button 
             onClick={() => handleProtectedAction("post-job")}
