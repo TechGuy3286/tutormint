@@ -116,7 +116,7 @@ export default function ParentDashboardPage() {
             onClick={() => handleProtectedAction("post-job")}
             className="px-5 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
           >
-            <span>📋 Post New Job Requirement</span>
+            <span>📋 Post Job</span>
           </button>
         </div>
       </div>
