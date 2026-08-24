@@ -60,7 +60,6 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
 
       if (error) throw error
 
-      // Bulletproof filter checking both DB status and localStorage closure flags
       const activeJobs = (data || []).filter(job => {
         const dbStatus = job.status ? String(job.status).toLowerCase().trim() : ''
         if (dbStatus === 'closed') return false
@@ -102,20 +101,25 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
 
       if (updateError) throw updateError
 
-      // Save closure state to localStorage to instantly sync everywhere
       if (selectedJob) {
         if (selectedJob.job_tx_id) {
           localStorage.setItem(`hired_tutor_${selectedJob.job_tx_id}`, String(tutorId))
+          localStorage.setItem(`hired_tutor_name_${selectedJob.job_tx_id}`, String(tutor.full_name || ''))
         }
         localStorage.setItem(`hired_tutor_${selectedJob.id}`, String(tutorId))
+        localStorage.setItem(`hired_tutor_name_${selectedJob.id}`, String(tutor.full_name || ''))
       }
 
       setSuccessMsg("🎉 Tutor successfully invited and job automatically closed!")
       setTimeout(() => {
         setShowModal(false)
         setSuccessMsg('')
-        window.location.reload()
-      }, 2000)
+        if (selectedJob && selectedJob.job_tx_id) {
+          window.location.href = `/parent/dashboard/job/${selectedJob.job_tx_id}`
+        } else {
+          window.location.reload()
+        }
+      }, 1500)
     } catch (err: any) {
       console.error("Error hiring/inviting tutor:", err)
       alert(`Error: ${err.message}`)
@@ -127,8 +131,6 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
   return (
     <>
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 hover:shadow-md transition-all relative">
-        
-        {/* Left: Round Avatar with Heart Badge */}
         <div className="flex items-center gap-6 w-full sm:w-auto">
           <div className="relative shrink-0">
             <img 
@@ -175,7 +177,6 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
           </div>
         </div>
 
-        {/* Right: Action Buttons (Invite, WhatsApp, View Profile) */}
         <div className="w-full sm:w-auto flex flex-wrap items-center gap-2.5 justify-end shrink-0 pt-2 sm:pt-0">
           <button
             onClick={handleOpenInviteModal}
@@ -200,7 +201,6 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
         </div>
       </div>
 
-      {/* Invite to Job Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white p-6 sm:p-8 rounded-3xl max-w-md w-full space-y-4 shadow-xl">

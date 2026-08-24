@@ -46,6 +46,7 @@ export default function JobDetailPage() {
   const [shortlisted, setShortlisted] = useState<number[]>([]);
   const [removed, setRemoved] = useState<number[]>([]);
   const [hiredTutorId, setHiredTutorId] = useState<number | null>(null);
+  const [hiredTutorName, setHiredTutorName] = useState<string | null>(null);
   const [animatingOut, setAnimatingOut] = useState<number | null>(null);
   const [notificationMsg, setNotificationMsg] = useState("");
 
@@ -64,8 +65,21 @@ export default function JobDetailPage() {
       if (savedHired) {
         setHiredTutorId(Number(savedHired));
       }
+      const savedHiredName = localStorage.getItem(`hired_tutor_name_${jobId}`);
+      if (savedHiredName) {
+        setHiredTutorName(savedHiredName);
+      }
     }
   }, [jobId]);
+
+  useEffect(() => {
+    if (job?.id && !hiredTutorId && !hiredTutorName) {
+      const savedHired = localStorage.getItem(`hired_tutor_${job.id}`);
+      if (savedHired) setHiredTutorId(Number(savedHired));
+      const savedHiredName = localStorage.getItem(`hired_tutor_name_${job.id}`);
+      if (savedHiredName) setHiredTutorName(savedHiredName);
+    }
+  }, [job]);
 
   const fetchJobDetails = async () => {
     try {
@@ -147,7 +161,13 @@ export default function JobDetailPage() {
 
       setJob((prev: any) => ({ ...prev, status: 'Closed' }));
       setHiredTutorId(tutor.id);
+      setHiredTutorName(tutor.name);
       localStorage.setItem(`hired_tutor_${jobId}`, String(tutor.id));
+      localStorage.setItem(`hired_tutor_name_${jobId}`, String(tutor.name));
+      if (job?.id) {
+        localStorage.setItem(`hired_tutor_${job.id}`, String(tutor.id));
+        localStorage.setItem(`hired_tutor_name_${job.id}`, String(tutor.name));
+      }
 
       setNotificationMsg(`🎉 Success! You have hired ${tutor.name}. Job requirement [${jobId}] is now CLOSED.`);
       router.refresh();
@@ -182,7 +202,7 @@ export default function JobDetailPage() {
   }
 
   const activeTutors = availableTutors.filter(t => !removed.includes(t.id));
-  const isJobClosed = job.status?.toLowerCase() === 'closed' || hiredTutorId !== null;
+  const isJobClosed = job.status?.toLowerCase() === 'closed' || hiredTutorId !== null || hiredTutorName !== null;
 
   return (
     <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-[#334155]">
@@ -234,7 +254,10 @@ export default function JobDetailPage() {
             {activeTutors.map((tutor) => {
               const isShortlisted = shortlisted.includes(tutor.id);
               const isAnimating = animatingOut === tutor.id;
-              const isThisTutorHired = Number(hiredTutorId) === Number(tutor.id);
+              
+              const isThisTutorHired = 
+                (hiredTutorName && tutor.name && hiredTutorName.toLowerCase().trim() === tutor.name.toLowerCase().trim()) || 
+                (hiredTutorId !== null && Number(hiredTutorId) === Number(tutor.id));
 
               return (
                 <div 
