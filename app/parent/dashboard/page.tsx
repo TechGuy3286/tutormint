@@ -34,7 +34,17 @@ export default function ParentDashboardPage() {
         .order('created_at', { ascending: false });
 
       if (jobsError) throw jobsError;
-      setMyJobs(jobsData || []);
+      
+      // Merge with local storage hired status to ensure instant UI reflection
+      const enrichedJobs = (jobsData || []).map(job => {
+        const isLocallyClosed = localStorage.getItem(`hired_tutor_${job.job_tx_id}`);
+        if (isLocallyClosed) {
+          return { ...job, status: 'Closed' };
+        }
+        return job;
+      });
+
+      setMyJobs(enrichedJobs);
 
     } catch (err: any) {
       console.error("Error fetching data:", err.message);
@@ -144,7 +154,7 @@ export default function ParentDashboardPage() {
                         {job.job_tx_id}
                       </span>
                       <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-md uppercase ${isClosed ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                        Status: {job.status || 'Active'}
+                        Status: {isClosed ? 'CLOSED' : (job.status || 'Active')}
                       </span>
                     </div>
                     <h4 className="text-sm font-bold text-[#0F172A] group-hover:text-blue-600 transition-colors">{job.title}</h4>

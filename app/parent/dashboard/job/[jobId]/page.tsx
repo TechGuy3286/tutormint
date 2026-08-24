@@ -125,7 +125,6 @@ export default function JobDetailPage() {
         return;
       }
 
-      // Update only status in Supabase to avoid missing column errors
       const updatePayload = { status: 'Closed' };
 
       const { data, error } = await supabase
@@ -183,7 +182,7 @@ export default function JobDetailPage() {
   }
 
   const activeTutors = availableTutors.filter(t => !removed.includes(t.id));
-  const isJobClosed = job.status?.toLowerCase() === 'closed';
+  const isJobClosed = job.status?.toLowerCase() === 'closed' || hiredTutorId !== null;
 
   return (
     <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-[#334155]">
@@ -207,7 +206,7 @@ export default function JobDetailPage() {
             Requirement ID: {job.job_tx_id}
           </span>
           <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${isJobClosed ? 'bg-red-100 text-red-800' : 'bg-emerald-50 text-emerald-700'}`}>
-            Status: {job.status || 'Active'}
+            Status: {isJobClosed ? 'CLOSED' : (job.status || 'Active')}
           </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A]">{job.title}</h1>
@@ -265,6 +264,7 @@ export default function JobDetailPage() {
                     >
                       {isShortlisted ? '⭐ Favorited' : '☆ Shortlist'}
                     </button>
+                    
                     <button
                       onClick={() => router.push(`/chat/${jobId}?tutor=${encodeURIComponent(tutor.name)}&avatar=${encodeURIComponent(tutor.image)}`)}
                       className="px-3.5 py-2.5 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-md"
@@ -272,6 +272,7 @@ export default function JobDetailPage() {
                       💬 Chat
                     </button>
                     
+                    {/* Hide Remove button if job is closed */}
                     {!isJobClosed && (
                       <button
                         onClick={() => handleRemoveTutor(tutor.id)}
