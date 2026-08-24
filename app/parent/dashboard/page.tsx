@@ -16,7 +16,7 @@ export default function ParentDashboardPage() {
 
   useEffect(() => {
     verifyRoleAndFetchData();
-  }, []);
+  }, [router]);
 
   const verifyRoleAndFetchData = async () => {
     try {
@@ -44,11 +44,6 @@ export default function ParentDashboardPage() {
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/parent/login');
-  };
-
   const handleProtectedAction = async (actionType: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -72,118 +67,100 @@ export default function ParentDashboardPage() {
     );
   }
 
-  const parentName = userEmail ? userEmail.split('@')[0] : 'Test Parent';
   const activeJobsCount = myJobs.filter(j => j.status !== 'Closed').length;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col text-[#334155]">
+    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-[#334155]">
       
-      {/* Top Header Bar with Welcome & Dashboard Quick Link */}
-      <header className="bg-white border-b border-gray-200 py-4 px-6 sm:px-12 flex items-center justify-between">
-        <Link href="/" className="text-lg font-black text-[#0F172A]">TutorMint</Link>
-        <div className="flex items-center gap-3 text-xs font-bold">
-          <span className="text-gray-600">Welcome, {parentName}</span>
-          <span className="text-gray-300">|</span>
-          <Link href="/parent/dashboard" className="text-[#059669] hover:underline font-extrabold">Dashboard</Link>
-          <span className="text-gray-300">|</span>
-          <button onClick={handleLogout} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-[#0F172A] rounded-xl transition-colors">
-            Logout
+      {/* Clean Breadcrumb Navigation */}
+      <nav className="flex items-center space-x-2 text-xs font-bold text-gray-500 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
+        <Link href="/" className="hover:text-[#0F172A] transition-colors">Home</Link>
+        <span className="text-gray-300">/</span>
+        <span className="text-[#059669]">Parent Dashboard</span>
+      </nav>
+
+      {/* Dashboard Header */}
+      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A]">
+            Parent Dashboard
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-600 font-medium">
+            Manage your posted requirements ({activeJobsCount} Active Jobs) or browse verified tutors directly.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Link 
+            href="/parent/dashboard/settings"
+            className="px-4 py-3 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
+          >
+            <span>⚙️ Account Settings</span>
+          </Link>
+          <button 
+            onClick={() => handleProtectedAction("post-job")}
+            className="px-5 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
+          >
+            <span>📋 Post New Job Requirement</span>
           </button>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full">
-        
-        {/* Clean Breadcrumb Navigation */}
-        <nav className="flex items-center space-x-2 text-xs font-bold text-gray-500 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
-          <Link href="/" className="hover:text-[#0F172A] transition-colors">Home</Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-[#059669]">Parent Dashboard</span>
-        </nav>
+      {/* MY POSTED JOBS */}
+      <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
+            My Posted Jobs ({myJobs.length}) • Active: {activeJobsCount}
+          </h2>
+        </div>
 
-        {/* Dashboard Header */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A]">
-              Parent Dashboard
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-600 font-medium">
-              Manage your posted requirements ({activeJobsCount} Active Jobs) or browse verified tutors directly.
-            </p>
+        {loadingJobs ? (
+          <div className="flex flex-col items-center justify-center py-8 space-y-3">
+            <div className="w-8 h-8 border-3 border-[#059669] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-xs text-gray-500 font-bold">Loading your active postings...</p>
           </div>
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <Link 
-              href="/parent/dashboard/settings"
-              className="px-4 py-3 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
-            >
-              <span>⚙️ Account Settings</span>
-            </Link>
+        ) : myJobs.length === 0 ? (
+          <div className="text-center py-8 bg-[#F8FAFC] rounded-2xl border border-gray-100">
+            <p className="text-xs text-gray-500 font-medium">You haven't posted any jobs yet.</p>
             <button 
-              onClick={() => handleProtectedAction("post-job")}
-              className="px-5 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
+              onClick={() => router.push("/parent/dashboard/post-job")}
+              className="mt-3 px-4 py-2 bg-[#0F172A] text-white text-xs font-bold rounded-xl hover:bg-[#059669] transition-all"
             >
-              <span>📋 Post New Job Requirement</span>
+              Post Your First Job →
             </button>
           </div>
-        </div>
-
-        {/* MY POSTED JOBS */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
-              My Posted Jobs ({myJobs.length}) • Active: {activeJobsCount}
-            </h2>
-          </div>
-
-          {loadingJobs ? (
-            <div className="flex flex-col items-center justify-center py-8 space-y-3">
-              <div className="w-8 h-8 border-3 border-[#059669] border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-xs text-gray-500 font-bold">Loading your active postings...</p>
-            </div>
-          ) : myJobs.length === 0 ? (
-            <div className="text-center py-8 bg-[#F8FAFC] rounded-2xl border border-gray-100">
-              <p className="text-xs text-gray-500 font-medium">You haven't posted any jobs yet.</p>
-              <button 
-                onClick={() => router.push("/parent/dashboard/post-job")}
-                className="mt-3 px-4 py-2 bg-[#0F172A] text-white text-xs font-bold rounded-xl hover:bg-[#059669] transition-all"
-              >
-                Post Your First Job →
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {myJobs.map((job) => {
-                const isClosed = job.status === 'Closed';
-                return (
-                  <div 
-                    key={job.job_tx_id || job.id} 
-                    onClick={() => router.push(`/parent/dashboard/job/${job.job_tx_id}`)}
-                    className="p-4 bg-[#F8FAFC] hover:bg-slate-100 border border-gray-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer transition-all group"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold rounded-full uppercase">
-                          {job.job_tx_id}
-                        </span>
-                        <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-md uppercase ${isClosed ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                          Status: {job.status || 'Active'}
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-bold text-[#0F172A] group-hover:text-blue-600 transition-colors">{job.title}</h4>
-                      <p className="text-xs text-gray-600">{job.subject} • {job.grade} • Budget: {job.budget}</p>
+        ) : (
+          <div className="space-y-3">
+            {myJobs.map((job) => {
+              const isClosed = job.status === 'Closed';
+              return (
+                <div 
+                  key={job.job_tx_id || job.id} 
+                  onClick={() => router.push(`/parent/dashboard/job/${job.job_tx_id}`)}
+                  className="p-4 bg-[#F8FAFC] hover:bg-slate-100 border border-gray-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer transition-all group"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold rounded-full uppercase">
+                        {job.job_tx_id}
+                      </span>
+                      <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-md uppercase ${isClosed ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                        Status: {job.status || 'Active'}
+                      </span>
                     </div>
-
-                    <span className="px-4 py-2.5 bg-[#0F172A] group-hover:bg-[#059669] text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap">
-                      View Job & Tutors ➔
-                    </span>
+                    <h4 className="text-sm font-bold text-[#0F172A] group-hover:text-blue-600 transition-colors">{job.title}</h4>
+                    <p className="text-xs text-gray-600">{job.subject} • {job.grade} • Budget: {job.budget}</p>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
-      </main>
-    </div>
+                  <span className="px-4 py-2.5 bg-[#0F172A] group-hover:bg-[#059669] text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap">
+                    View Job & Tutors ➔
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+    </main>
   );
 }

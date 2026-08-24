@@ -37,7 +37,7 @@ const availableTutors = [
 
 export default function JobDetailPage() {
   const params = useParams();
-  const jobId = params.jobId as string; // Fixed from params.id to params.jobId
+  const jobId = params.jobId as string;
   const router = useRouter();
   const supabase = createClient();
 
@@ -100,30 +100,36 @@ export default function JobDetailPage() {
     }, 400);
   };
 
-  const handleHireTutor = async (tutorName: string) => {
+  const handleHireTutor = async (tutor: any) => {
     if (job?.status === 'Closed') {
       alert("This job is already closed.");
       return;
     }
 
     try {
+      const updatePayload = { 
+        status: 'Closed',
+        hired_tutor_id: tutor.id,
+        hired_tutor_name: tutor.name
+      };
+
       const { error } = await supabase
         .from('parent_jobs')
-        .update({ status: 'Closed' })
+        .update(updatePayload)
         .eq('job_tx_id', jobId);
 
       if (error) {
         await supabase
           .from('parent_jobs')
-          .update({ status: 'Closed' })
+          .update(updatePayload)
           .eq('id', jobId);
       }
 
-      setJob((prev: any) => ({ ...prev, status: 'Closed' }));
-      setNotificationMsg(`🎉 Success! You have hired ${tutorName}. Job requirement [${jobId}] is now CLOSED.`);
+      setJob((prev: any) => ({ ...prev, ...updatePayload }));
+      setNotificationMsg(`🎉 Success! You have hired ${tutor.name}. Job requirement [${jobId}] is now CLOSED.`);
     } catch (err: any) {
       console.error("Error closing job on hire:", err);
-      setNotificationMsg(`✅ Hire notification dispatched to ${tutorName}.`);
+      setNotificationMsg(`✅ Hire notification dispatched to ${tutor.name}.`);
     }
     setTimeout(() => setNotificationMsg(""), 6000);
   };
@@ -204,6 +210,7 @@ export default function JobDetailPage() {
             {activeTutors.map((tutor) => {
               const isShortlisted = shortlisted.includes(tutor.id);
               const isAnimating = animatingOut === tutor.id;
+              const isThisTutorHired = String(job.hired_tutor_id) === String(tutor.id) || job.hired_tutor_name === tutor.name;
 
               return (
                 <div 
@@ -247,13 +254,17 @@ export default function JobDetailPage() {
                       ✕ Remove
                     </button>
                     
-                    {isJobClosed ? (
+                    {isThisTutorHired ? (
+                      <span className="px-5 py-2.5 bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-xl">
+                        🎉 Hired
+                      </span>
+                    ) : isJobClosed ? (
                       <span className="px-5 py-2.5 bg-gray-200 text-gray-500 text-xs font-extrabold rounded-xl cursor-not-allowed">
-                        🔒 Job Closed / Hired
+                        🔒 Job Closed
                       </span>
                     ) : (
                       <button 
-                        onClick={() => handleHireTutor(tutor.name)}
+                        onClick={() => handleHireTutor(tutor)}
                         className="px-5 py-2.5 bg-[#d60008] hover:bg-red-700 text-white text-xs font-extrabold rounded-xl transition-all whitespace-nowrap shadow-md"
                       >
                         HIRE ➔
