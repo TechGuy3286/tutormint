@@ -5,19 +5,60 @@ import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
-const SUBJECTS_LIST = [
-  'English', 'Urdu', 'Mathematics', 'Islamiyat / Islamic Studies',
-  'Pakistan Studies', 'General Science', 'Economics', 'Civics',
-  'Education', 'History', 'Geography', 'Arabic',
-  'Persian', 'Punjabi', 'Home Economics', 'Fine Arts',
-  'Drawing', 'Computer Science', 'Information Technology', 'Physical Education',
-  'Health & Physical Education', 'Additional Mathematics'
+const LEVELS = [
+  'Playgroup to Class 5 (Primary)',
+  'Class 6 to 8 (Middle)',
+  'Matriculation (9th & 10th)',
+  'O-Levels',
+  'FSc / Intermediate (11th & 12th)',
+  'A-Levels',
+  'Bachelor / BS (University)',
+  'Master / MPhil',
+  'Entry Tests (MDCAT / ECAT / SAT)',
+  'Holy Quran & Tajweed',
+  'Foreign Languages',
+  'Computer & IT Skills'
 ]
 
-const LEVELS = ['Matriculation / O-Levels', 'FSc / A-Levels', 'ADP (2 Years)', 'BS (4 Years)', 'Holy Quran', 'IB', 'IGCSE']
-const GRADES = ['Grade 9 & 10 - Science', 'Grade 9 & 10 - Arts', 'First Year (11th)', 'Second Year (12th)', 'O-Level Year 1', 'O-Level Year 2']
-const CITIES = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad']
-const AREAS = ['Gulberg', 'DHA', 'Bahria Town', 'Model Town', 'Johar Town', 'Clifton']
+const GRADES = [
+  'Playgroup / Nursery / Prep',
+  'Grade 1 to 3',
+  'Grade 4 & 5',
+  'Grade 6 to 8',
+  '9th Science',
+  '9th Arts',
+  '10th Science',
+  '10th Arts',
+  '1st Year Pre-Medical',
+  '1st Year Pre-Engineering',
+  '1st Year Computer Science',
+  '2nd Year Pre-Medical',
+  '2nd Year Pre-Engineering',
+  '2nd Year Computer Science',
+  'O-Level Year 1',
+  'O-Level Year 2',
+  'A-Level Year 1',
+  'A-Level Year 2',
+  'University / BS Semester 1-8'
+]
+
+const SUBJECTS_LIST = [
+  'Mathematics', 'Physics', 'Chemistry', 'Biology',
+  'English', 'Urdu', 'Islamiyat / Islamic Studies', 'Pakistan Studies',
+  'Computer Science', 'Information Technology', 'General Science',
+  'Economics', 'Accounting', 'Business Studies', 'Commerce',
+  'History', 'Geography', 'Civics', 'Sociology', 'Psychology',
+  'Arabic', 'Persian', 'French', 'Drawing / Fine Arts',
+  'Home Economics', 'Statistics', 'Additional Mathematics', 'Quran & Hifz'
+]
+
+const CITIES = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Sialkot', 'Gujranwala']
+
+const AREAS = [
+  'Gulberg', 'DHA', 'Bahria Town', 'Model Town', 'Johar Town', 
+  'Wapda Town', 'Faisal Town', 'Cantt', 'Garden Town', 'Shadman', 
+  'F-6', 'F-7', 'F-8', 'G-8', 'G-9', 'H-8', 'Clifton', 'PECHS', 'Gulshan-e-Iqbal'
+]
 
 function PublicBrowseContent() {
   const [tutors, setTutors] = useState<any[]>([])
@@ -25,12 +66,13 @@ function PublicBrowseContent() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Filter states
+  // Comprehensive filter states
   const [selectedLevel, setSelectedLevel] = useState('')
   const [selectedGrade, setSelectedGrade] = useState('')
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([])
   const [selectedCity, setSelectedCity] = useState('')
   const [selectedArea, setSelectedArea] = useState('')
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState('')
   const [selectedGender, setSelectedGender] = useState('No Preference')
 
   const resultsRef = useRef<HTMLDivElement>(null)
@@ -65,7 +107,7 @@ function PublicBrowseContent() {
     }
   }
 
-  // Filter execution triggered by CTA button
+  // Comprehensive filtering execution triggered by CTA button
   const handleApplyFilters = () => {
     let result = [...tutors]
 
@@ -80,11 +122,19 @@ function PublicBrowseContent() {
     }
 
     if (selectedLevel) {
-      result = result.filter(t => t.level?.toLowerCase() === selectedLevel.toLowerCase() || t.subjects?.toLowerCase().includes(selectedLevel.toLowerCase()))
+      result = result.filter(t => 
+        t.level?.toLowerCase().includes(selectedLevel.toLowerCase()) || 
+        t.subjects?.toLowerCase().includes(selectedLevel.toLowerCase()) ||
+        t.bio?.toLowerCase().includes(selectedLevel.toLowerCase())
+      )
     }
 
     if (selectedGrade) {
-      result = result.filter(t => t.grade?.toLowerCase().includes(selectedGrade.toLowerCase()) || t.subjects?.toLowerCase().includes(selectedGrade.toLowerCase()))
+      result = result.filter(t => 
+        t.grade?.toLowerCase().includes(selectedGrade.toLowerCase()) || 
+        t.subjects?.toLowerCase().includes(selectedGrade.toLowerCase()) ||
+        t.bio?.toLowerCase().includes(selectedGrade.toLowerCase())
+      )
     }
 
     if (selectedSubjects.length > 0) {
@@ -98,7 +148,16 @@ function PublicBrowseContent() {
     }
 
     if (selectedArea) {
-      result = result.filter(t => t.city?.toLowerCase().includes(selectedArea.toLowerCase()) || t.bio?.toLowerCase().includes(selectedArea.toLowerCase()))
+      result = result.filter(t => 
+        t.city?.toLowerCase().includes(selectedArea.toLowerCase()) || 
+        t.bio?.toLowerCase().includes(selectedArea.toLowerCase())
+      )
+    }
+
+    if (selectedTimeSlot) {
+      result = result.filter(t => 
+        t.time_slot?.toLowerCase().includes(selectedTimeSlot.toLowerCase())
+      )
     }
 
     if (selectedGender && selectedGender !== 'No Preference') {
@@ -129,6 +188,7 @@ function PublicBrowseContent() {
     setSelectedSubjects([])
     setSelectedCity('')
     setSelectedArea('')
+    setSelectedTimeSlot('')
     setSelectedGender('No Preference')
     setFilteredTutors(tutors)
   }
@@ -144,11 +204,11 @@ function PublicBrowseContent() {
           <span className="text-[#0F172A]">Find Verified Tutors</span>
         </div>
 
-        {/* Header & Advanced Filter Box */}
+        {/* Header & Comprehensive Filter Box */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-6">
           <div className="space-y-1">
             <h1 className="text-2xl font-black text-[#0F172A]">Find Verified Tutors</h1>
-            <p className="text-xs text-gray-500">Configure your requirements below to search and connect with top educators instantly.</p>
+            <p className="text-xs text-gray-500">Configure your specific academic requirements below to search and connect with top educators instantly.</p>
           </div>
 
           {/* Search Bar */}
@@ -157,7 +217,7 @@ function PublicBrowseContent() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="🔍 Search by subject, name, or keyword..."
+              placeholder="🔍 Search by subject, tutor name, or keyword..."
               className="flex-1 p-3.5 bg-[#F8FAFC] border border-gray-200 rounded-2xl text-xs outline-none focus:border-[#0F172A] focus:bg-white text-[#334155]"
             />
           </div>
@@ -172,7 +232,7 @@ function PublicBrowseContent() {
               {/* Level Filter */}
               <div className="bg-[#F8FAFC] p-4 rounded-2xl border border-gray-200 space-y-2">
                 <label className="text-xs font-black text-[#0F172A] flex items-center gap-1.5">
-                  📚 Level (Searchable)
+                  📚 Academic Level
                 </label>
                 <select
                   value={selectedLevel}
@@ -213,7 +273,7 @@ function PublicBrowseContent() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto pr-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-52 overflow-y-auto pr-2">
                 {SUBJECTS_LIST.map(sub => (
                   <label key={sub} className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer p-1.5 hover:bg-white rounded-lg transition-colors">
                     <input 
@@ -266,12 +326,16 @@ function PublicBrowseContent() {
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-gray-500">⏰ Tuition Time Slot</label>
                 <select
+                  value={selectedTimeSlot}
+                  onChange={(e) => setSelectedTimeSlot(e.target.value)}
                   className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-bold text-[#334155]"
                 >
                   <option value="">Any Time Slot</option>
                   <option value="03:00 PM">03:00 PM</option>
                   <option value="05:00 PM">05:00 PM</option>
                   <option value="07:00 PM">07:00 PM</option>
+                  <option value="Morning">Morning</option>
+                  <option value="Evening">Evening</option>
                 </select>
               </div>
 
