@@ -57,12 +57,15 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
         .from('parent_jobs')
         .select('*')
         .eq('parent_id', user.id)
-        .eq('status', 'Active')
 
       if (error) throw error
-      setMyJobs(data || [])
-      if (data && data.length > 0) {
-        setSelectedJobId(data[0].id)
+
+      // Filter strictly for Open / Active jobs (exclude Closed)
+      const activeJobs = (data || []).filter(job => !job.status || job.status.toLowerCase() !== 'closed');
+      
+      setMyJobs(activeJobs)
+      if (activeJobs.length > 0) {
+        setSelectedJobId(activeJobs[0].id)
       }
     } catch (err) {
       console.error("Error fetching jobs:", err)
@@ -82,22 +85,17 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
       // Automatically close job upon hiring/inviting tutor
       const { error: updateError } = await supabase
         .from('parent_jobs')
-        .update({ status: 'Closed', hired_tutor_id: tutorId })
+        .update({ status: 'Closed' })
         .eq('id', selectedJobId)
 
-      if (updateError) {
-        const { error: fallbackError } = await supabase
-          .from('parent_jobs')
-          .update({ status: 'Closed' })
-          .eq('id', selectedJobId)
-        if (fallbackError) throw fallbackError
-      }
+      if (updateError) throw updateError
 
       setSuccessMsg("🎉 Tutor successfully invited and job automatically closed!")
       setTimeout(() => {
         setShowModal(false)
         setSuccessMsg('')
-      }, 2500)
+        window.location.reload()
+      }, 2000)
     } catch (err: any) {
       console.error("Error hiring/inviting tutor:", err)
       alert(`Error: ${err.message}`)
