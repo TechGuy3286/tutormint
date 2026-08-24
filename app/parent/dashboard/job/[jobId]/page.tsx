@@ -127,6 +127,7 @@ export default function JobDetailPage() {
 
       setJob((prev: any) => ({ ...prev, ...updatePayload }));
       setNotificationMsg(`🎉 Success! You have hired ${tutor.name}. Job requirement [${jobId}] is now CLOSED.`);
+      router.refresh();
     } catch (err: any) {
       console.error("Error closing job on hire:", err);
       setNotificationMsg(`✅ Hire notification dispatched to ${tutor.name}.`);
@@ -246,13 +247,17 @@ export default function JobDetailPage() {
                     >
                       💬 Chat
                     </button>
-                    <button
-                      onClick={() => handleRemoveTutor(tutor.id)}
-                      className="px-3 py-2.5 bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 text-xs font-bold rounded-xl transition-all"
-                      title="Remove from list"
-                    >
-                      ✕ Remove
-                    </button>
+                    
+                    {/* Hide Remove button if job is closed or tutor is hired */}
+                    {!isJobClosed && (
+                      <button
+                        onClick={() => handleRemoveTutor(tutor.id)}
+                        className="px-3 py-2.5 bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 text-xs font-bold rounded-xl transition-all"
+                        title="Remove from list"
+                      >
+                        ✕ Remove
+                      </button>
+                    )}
                     
                     {isThisTutorHired ? (
                       <span className="px-5 py-2.5 bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-xl">
