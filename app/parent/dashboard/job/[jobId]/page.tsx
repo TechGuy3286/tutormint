@@ -37,7 +37,7 @@ const availableTutors = [
 
 export default function JobDetailPage() {
   const params = useParams();
-  const jobId = params.id as string;
+  const jobId = params.jobId as string; // Fixed from params.id to params.jobId
   const router = useRouter();
   const supabase = createClient();
 
@@ -49,14 +49,16 @@ export default function JobDetailPage() {
   const [notificationMsg, setNotificationMsg] = useState("");
 
   useEffect(() => {
-    fetchJobDetails();
-    const savedShortlist = localStorage.getItem(`shortlist_${jobId}`);
-    if (savedShortlist) {
-      setShortlisted(JSON.parse(savedShortlist));
-    }
-    const savedRemoved = localStorage.getItem(`removed_${jobId}`);
-    if (savedRemoved) {
-      setRemoved(JSON.parse(savedRemoved));
+    if (jobId) {
+      fetchJobDetails();
+      const savedShortlist = localStorage.getItem(`shortlist_${jobId}`);
+      if (savedShortlist) {
+        setShortlisted(JSON.parse(savedShortlist));
+      }
+      const savedRemoved = localStorage.getItem(`removed_${jobId}`);
+      if (savedRemoved) {
+        setRemoved(JSON.parse(savedRemoved));
+      }
     }
   }, [jobId]);
 
