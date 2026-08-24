@@ -3,11 +3,11 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "TutorMint - Pakistan's Largest Tutors Network",
+  title: "TutorMint - Pakistan's Largest Verified Tutors Network",
   description: "Connect directly with verified tutors and parents across Pakistan.",
   metadataBase: new URL('https://www.tutormint.org'),
   openGraph: {
-    title: "TutorMint - Pakistan's Largest Tutors Network",
+    title: "TutorMint - Pakistan's Largest Verified Tutors Network",
     description: "Connect directly with verified tutors and parents across Pakistan.",
     url: 'https://www.tutormint.org',
     siteName: 'TutorMint',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
         url: 'https://www.tutormint.org/tutormint-logo1200x630.png',
         width: 1200,
         height: 630,
-        alt: 'TutorMint - Pakistan\'s Largest Tutors Network',
+        alt: 'TutorMint - Pakistan\'s Largest Verified Tutors Network',
       },
     ],
     locale: 'en_PK',
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: "TutorMint - Pakistan's Largest Tutors Network",
+    title: "TutorMint - Pakistan's Largest Verified Tutors Network",
     description: "Connect directly with verified tutors and parents across Pakistan.",
     images: ['https://www.tutormint.org/tutormint-logo1200x630.png'],
   },
