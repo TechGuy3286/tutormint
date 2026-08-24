@@ -53,7 +53,6 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
     setShowModal(true)
     setLoadingJobs(true)
     try {
-      // Fetch all jobs for this parent from Supabase
       const { data, error } = await supabase
         .from('parent_jobs')
         .select('*')
@@ -61,11 +60,18 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
 
       if (error) throw error
 
-      // Bulletproof client-side filter: Keep only jobs whose status is NOT explicitly 'closed'
+      // Bulletproof filter checking both DB status and localStorage closure flags
       const activeJobs = (data || []).filter(job => {
-        if (!job.status) return true // Include jobs with null/empty status as active
-        const statusStr = String(job.status).toLowerCase().trim()
-        return statusStr !== 'closed'
+        const dbStatus = job.status ? String(job.status).toLowerCase().trim() : ''
+        if (dbStatus === 'closed') return false
+
+        const isLocallyClosed = 
+          (job.job_tx_id && localStorage.getItem(`hired_tutor_${job.job_tx_id}`)) ||
+          (job.id && localStorage.getItem(`hired_tutor_${job.id}`))
+
+        if (isLocallyClosed) return false
+
+        return true
       })
       
       setMyJobs(activeJobs)
@@ -87,12 +93,22 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
 
     setSubmitting(true)
     try {
+      const selectedJob = myJobs.find(j => String(j.id) === String(selectedJobId))
+
       const { error: updateError } = await supabase
         .from('parent_jobs')
         .update({ status: 'Closed' })
         .eq('id', selectedJobId)
 
       if (updateError) throw updateError
+
+      // Save closure state to localStorage to instantly sync everywhere
+      if (selectedJob) {
+        if (selectedJob.job_tx_id) {
+          localStorage.setItem(`hired_tutor_${selectedJob.job_tx_id}`, String(tutorId))
+        }
+        localStorage.setItem(`hired_tutor_${selectedJob.id}`, String(tutorId))
+      }
 
       setSuccessMsg("🎉 Tutor successfully invited and job automatically closed!")
       setTimeout(() => {
