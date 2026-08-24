@@ -258,46 +258,50 @@ export default function JobDetailPage() {
                   </div>
 
                   <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-                    <button
-                      onClick={() => toggleShortlist(tutor.id)}
-                      className={`px-3 py-2.5 text-xs font-bold rounded-xl border transition-all ${isShortlisted ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
-                    >
-                      {isShortlisted ? '⭐ Favorited' : '☆ Shortlist'}
-                    </button>
-                    
-                    <button
-                      onClick={() => router.push(`/chat/${jobId}?tutor=${encodeURIComponent(tutor.name)}&avatar=${encodeURIComponent(tutor.image)}`)}
-                      className="px-3.5 py-2.5 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-md"
-                    >
-                      💬 Chat
-                    </button>
-                    
-                    {/* Hide Remove button if job is closed */}
-                    {!isJobClosed && (
-                      <button
-                        onClick={() => handleRemoveTutor(tutor.id)}
-                        className="px-3 py-2.5 bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 text-xs font-bold rounded-xl transition-all"
-                        title="Remove from list"
-                      >
-                        ✕ Remove
-                      </button>
-                    )}
-                    
                     {isThisTutorHired ? (
-                      <span className="px-5 py-2.5 bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-xl">
-                        🎉 Hired
-                      </span>
+                      <>
+                        <button
+                          onClick={() => router.push(`/chat/${jobId}?tutor=${encodeURIComponent(tutor.name)}&avatar=${encodeURIComponent(tutor.image)}`)}
+                          className="px-3.5 py-2.5 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-md"
+                        >
+                          💬 Chat
+                        </button>
+                        <span className="px-5 py-2.5 bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-xl">
+                          🎉 Hired
+                        </span>
+                      </>
                     ) : isJobClosed ? (
                       <span className="px-5 py-2.5 bg-gray-200 text-gray-500 text-xs font-extrabold rounded-xl cursor-not-allowed">
                         🔒 Job Closed
                       </span>
                     ) : (
-                      <button 
-                        onClick={() => handleHireTutor(tutor)}
-                        className="px-5 py-2.5 bg-[#d60008] hover:bg-red-700 text-white text-xs font-extrabold rounded-xl transition-all whitespace-nowrap shadow-md"
-                      >
-                        HIRE ➔
-                      </button>
+                      <>
+                        <button
+                          onClick={() => toggleShortlist(tutor.id)}
+                          className={`px-3 py-2.5 text-xs font-bold rounded-xl border transition-all ${isShortlisted ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                        >
+                          {isShortlisted ? '⭐ Favorited' : '☆ Shortlist'}
+                        </button>
+                        <button
+                          onClick={() => router.push(`/chat/${jobId}?tutor=${encodeURIComponent(tutor.name)}&avatar=${encodeURIComponent(tutor.image)}`)}
+                          className="px-3.5 py-2.5 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-md"
+                        >
+                          💬 Chat
+                        </button>
+                        <button
+                          onClick={() => handleRemoveTutor(tutor.id)}
+                          className="px-3 py-2.5 bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 text-xs font-bold rounded-xl transition-all"
+                          title="Remove from list"
+                        >
+                          ✕ Remove
+                        </button>
+                        <button 
+                          onClick={() => handleHireTutor(tutor)}
+                          className="px-5 py-2.5 bg-[#d60008] hover:bg-red-700 text-white text-xs font-extrabold rounded-xl transition-all whitespace-nowrap shadow-md"
+                        >
+                          HIRE ➔
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
