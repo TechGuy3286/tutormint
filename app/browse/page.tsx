@@ -75,7 +75,7 @@ function PublicBrowseContent() {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('')
   const [selectedGender, setSelectedGender] = useState('No Preference')
   
-  // New Feature States
+  // Feature states
   const [selectedTuitionMode, setSelectedTuitionMode] = useState('')
   const [maxBudget, setMaxBudget] = useState<number>(5000)
   const [savedTutorIds, setSavedTutorIds] = useState<string[]>([])
@@ -233,15 +233,15 @@ function PublicBrowseContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] py-10 px-4 sm:px-12 text-[#334155]">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <main className="min-h-screen bg-[#F8FAFC] py-12 px-4 sm:px-12 text-[#1E293B]">
+      <div className="max-w-5xl mx-auto space-y-8">
         
-        {/* Breadcrumb & Shortlist Tab Toggle */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="text-xs font-bold text-gray-400 flex items-center gap-2">
+        {/* Breadcrumb & Shortlist Toggle */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="text-sm font-semibold text-gray-500 flex items-center gap-2">
             <Link href="/" className="hover:text-[#0F172A] transition-colors">Home</Link>
             <span>/</span>
-            <span className="text-[#0F172A]">Find Verified Tutors</span>
+            <span className="text-[#0F172A] font-bold">Find Verified Tutors</span>
           </div>
 
           <button
@@ -249,7 +249,7 @@ function PublicBrowseContent() {
               setShowOnlySaved(!showOnlySaved)
               setTimeout(handleApplyFilters, 50)
             }}
-            className={`px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2 border ${
+            className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border ${
               showOnlySaved 
                 ? 'bg-[#d60008] text-white border-[#d60008] shadow-sm' 
                 : 'bg-white text-[#0F172A] border-gray-200 hover:bg-gray-50'
@@ -259,11 +259,11 @@ function PublicBrowseContent() {
           </button>
         </div>
 
-        {/* Header & Comprehensive Filter Box */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-6">
-          <div className="space-y-1">
+        {/* Filter Box */}
+        <div className="bg-white p-6 sm:p-10 rounded-3xl shadow-sm border border-gray-200 space-y-6">
+          <div className="space-y-1.5">
             <h1 className="text-2xl font-black text-[#0F172A]">Find Verified Tutors</h1>
-            <p className="text-xs text-gray-500">Configure your specific academic requirements, modes, and budget below.</p>
+            <p className="text-sm text-gray-600">Configure your specific academic requirements, modes, and budget below.</p>
           </div>
 
           {/* Search Bar */}
@@ -273,25 +273,25 @@ function PublicBrowseContent() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="🔍 Search by subject, tutor name, or keyword..."
-              className="flex-1 p-3.5 bg-[#F8FAFC] border border-gray-200 rounded-2xl text-xs outline-none focus:border-[#0F172A] focus:bg-white text-[#334155]"
+              className="flex-1 p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl text-sm outline-none focus:border-[#0F172A] focus:bg-white text-[#1E293B] font-medium"
             />
           </div>
 
-          {/* --- SECTION 1: ACADEMIC TAXONOMY --- */}
+          {/* SECTION 1: ACADEMIC TAXONOMY */}
           <div className="pt-4 border-t border-gray-100 space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-gray-400">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">
               Section 1: Academic Taxonomy (Level → Grade → Subjects)
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-[#F8FAFC] p-4 rounded-2xl border border-gray-200 space-y-2">
-                <label className="text-xs font-black text-[#0F172A] flex items-center gap-1.5">
+                <label className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
                   📚 Academic Level
                 </label>
                 <select
                   value={selectedLevel}
                   onChange={handleLevelChange}
-                  className="w-full p-3 bg-white border border-gray-200 rounded-xl text-xs outline-none font-bold text-[#334155]"
+                  className="w-full p-3.5 bg-white border border-gray-200 rounded-xl text-xs outline-none font-semibold text-[#1E293B]"
                 >
                   <option value="">Select Academic Level First</option>
                   {LEVELS.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
@@ -299,15 +299,15 @@ function PublicBrowseContent() {
               </div>
 
               <div className="bg-[#F8FAFC] p-4 rounded-2xl border border-gray-200 space-y-2">
-                <label className="text-xs font-black text-[#0F172A] flex items-center gap-1.5">
+                <label className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
                   🎓 Grade / Specialisation
                 </label>
                 <select
                   value={selectedGrade}
                   onChange={(e) => setSelectedGrade(e.target.value)}
                   disabled={!selectedLevel}
-                  className={`w-full p-3 border rounded-xl text-xs outline-none font-bold ${
-                    !selectedLevel ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white border-gray-200 text-[#334155]'
+                  className={`w-full p-3.5 border rounded-xl text-xs outline-none font-semibold ${
+                    !selectedLevel ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white border-gray-200 text-[#1E293B]'
                   }`}
                 >
                   <option value="">{!selectedLevel ? 'Select Academic Level above first' : 'All Grades in this Level'}</option>
@@ -316,14 +316,14 @@ function PublicBrowseContent() {
               </div>
             </div>
 
-            {/* Select Subjects Checkbox Grid */}
+            {/* Subjects Grid */}
             <div className="bg-[#F8FAFC] p-5 rounded-2xl border border-gray-200 space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-black text-[#0F172A] flex items-center gap-1.5">
+                <label className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
                   📖 Select Subjects ({selectedSubjects.length} selected)
                 </label>
                 {selectedSubjects.length > 0 && (
-                  <button onClick={() => setSelectedSubjects([])} className="text-[11px] font-bold text-[#d60008] hover:underline">
+                  <button onClick={() => setSelectedSubjects([])} className="text-xs font-bold text-[#d60008] hover:underline">
                     Clear Subjects
                   </button>
                 )}
@@ -331,12 +331,12 @@ function PublicBrowseContent() {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto pr-2">
                 {SUBJECTS_LIST.map(sub => (
-                  <label key={sub} className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer p-1.5 hover:bg-white rounded-lg transition-colors">
+                  <label key={sub} className="flex items-center gap-2.5 text-xs font-medium text-gray-700 cursor-pointer p-2 hover:bg-white rounded-xl transition-colors">
                     <input 
                       type="checkbox"
                       checked={selectedSubjects.includes(sub)}
                       onChange={() => toggleSubject(sub)}
-                      className="rounded border-gray-300 text-[#d60008] focus:ring-0"
+                      className="rounded border-gray-300 text-[#d60008] focus:ring-0 w-4 h-4"
                     />
                     <span className="truncate">{sub}</span>
                   </label>
@@ -345,43 +345,43 @@ function PublicBrowseContent() {
             </div>
           </div>
 
-          {/* --- SECTION 2: LOCATION, MODE, BUDGET & PREFERENCES --- */}
+          {/* SECTION 2: LOCATION, MODE & BUDGET */}
           <div className="pt-4 border-t border-gray-100 space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-gray-400">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">
               Section 2: Location, Tuition Mode, Budget & Preferences
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-gray-500">📍 City</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-600">📍 City</label>
                 <select
                   value={selectedCity}
                   onChange={(e) => setSelectedCity(e.target.value)}
-                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-bold text-[#334155]"
+                  className="w-full p-3.5 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-semibold text-[#1E293B]"
                 >
                   <option value="">All Cities</option>
                   {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-gray-500">🏙️ Area / Location</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-600">🏙️ Area / Location</label>
                 <select
                   value={selectedArea}
                   onChange={(e) => setSelectedArea(e.target.value)}
-                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-bold text-[#334155]"
+                  className="w-full p-3.5 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-semibold text-[#1E293B]"
                 >
                   <option value="">All Areas</option>
                   {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-gray-500">💻 Tuition Mode</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-600">💻 Tuition Mode</label>
                 <select
                   value={selectedTuitionMode}
                   onChange={(e) => setSelectedTuitionMode(e.target.value)}
-                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-bold text-[#334155]"
+                  className="w-full p-3.5 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-semibold text-[#1E293B]"
                 >
                   <option value="">All Modes (Home & Online)</option>
                   <option value="Home">Home Tuition (Physical)</option>
@@ -391,8 +391,8 @@ function PublicBrowseContent() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-bold text-gray-500">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs font-bold text-gray-600">
                   <span>💰 Max Hourly Budget</span>
                   <span className="text-[#0F172A] font-black">Rs. {maxBudget} / hr</span>
                 </div>
@@ -403,16 +403,16 @@ function PublicBrowseContent() {
                   step="500"
                   value={maxBudget}
                   onChange={(e) => setMaxBudget(Number(e.target.value))}
-                  className="w-full accent-[#d60008] cursor-pointer mt-2"
+                  className="w-full accent-[#d60008] cursor-pointer mt-3"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-gray-500">⏰ Tuition Time Slot</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-600">⏰ Tuition Time Slot</label>
                 <select
                   value={selectedTimeSlot}
                   onChange={(e) => setSelectedTimeSlot(e.target.value)}
-                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-bold text-[#334155]"
+                  className="w-full p-3.5 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-semibold text-[#1E293B]"
                 >
                   <option value="">Any Time Slot</option>
                   <option value="03:00 PM">03:00 PM</option>
@@ -421,12 +421,12 @@ function PublicBrowseContent() {
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-gray-500">👤 Preferred Gender</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-600">👤 Preferred Gender</label>
                 <select
                   value={selectedGender}
                   onChange={(e) => setSelectedGender(e.target.value)}
-                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-bold text-[#334155]"
+                  className="w-full p-3.5 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs outline-none font-semibold text-[#1E293B]"
                 >
                   <option value="No Preference">No Preference</option>
                   <option value="Female">Female</option>
@@ -435,8 +435,8 @@ function PublicBrowseContent() {
               </div>
             </div>
 
-            {/* Bottom CTA & Reset Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-between pt-4 gap-3 border-t border-gray-100">
+            {/* Bottom CTA & Reset */}
+            <div className="flex flex-col sm:flex-row items-center justify-between pt-6 gap-4 border-t border-gray-100">
               <button
                 onClick={handleClearFilters}
                 className="text-xs font-bold text-gray-400 hover:text-[#d60008] transition-colors"
@@ -446,7 +446,7 @@ function PublicBrowseContent() {
 
               <button
                 onClick={handleApplyFilters}
-                className="w-full sm:w-auto px-8 py-4 bg-[#d60008] hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-9 py-4 bg-[#d60008] hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
               >
                 🔍 Search Tutors & Apply Filters
               </button>
@@ -455,66 +455,66 @@ function PublicBrowseContent() {
 
         </div>
 
-        {/* Results Anchor & Counter */}
-        <div ref={resultsRef} className="flex items-center justify-between px-2 pt-4">
-          <span className="text-xs font-bold text-gray-500">
+        {/* Results Counter */}
+        <div ref={resultsRef} className="flex items-center justify-between px-2 pt-2">
+          <span className="text-sm font-semibold text-gray-600">
             Showing <span className="text-[#0F172A] font-black">{filteredTutors.length}</span> verified tutors
           </span>
         </div>
 
-        {/* Tutors List with Improved Spacious Cards */}
+        {/* Tutors List with Spacious Cards & Perfectly Aligned Round Avatars */}
         {loading ? (
-          <div className="text-center py-20 text-xs font-bold text-gray-400">Loading available tutors...</div>
+          <div className="text-center py-20 text-sm font-bold text-gray-400">Loading available tutors...</div>
         ) : filteredTutors.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-gray-200 p-8 space-y-3">
-            <h3 className="text-sm font-black text-[#0F172A]">No Tutors Match Your Filters</h3>
-            <p className="text-xs text-gray-500">Try broadening your filter criteria or clearing your search.</p>
+            <h3 className="text-base font-black text-[#0F172A]">No Tutors Match Your Filters</h3>
+            <p className="text-sm text-gray-500">Try broadening your filter criteria or clearing your search.</p>
             <button onClick={handleClearFilters} className="mt-2 px-6 py-3 bg-[#0F172A] text-white font-bold text-xs rounded-xl">
               Reset Filters
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {filteredTutors.map((tutor) => {
               const tutorId = tutor.id || tutor.user_id
               const avatarUrl = tutor.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.full_name || 'Tutor'}`
               const isSaved = savedTutorIds.includes(tutorId)
-              const tutorPhone = tutor.phone || tutor.whatsapp || '923211045245'
+              const tutorPhone = tutor.phone || tutor.whatsapp || '923215872222'
               const whatsappLink = `https://wa.me/${tutorPhone}?text=Assalam-o-Alaikum%20${encodeURIComponent(tutor.full_name || 'Tutor')},%20I%20found%20your%20profile%20on%20TutorMint%20and%20want%20to%20discuss%20tuition.`
 
               return (
                 <div 
                   key={tutorId} 
-                  className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 hover:shadow-md transition-all relative"
+                  className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 hover:shadow-md transition-all relative group"
                 >
-                  {/* Bookmark Heart Button */}
+                  {/* Absolute Top-Right Bookmark Heart Button (Guarantees Perfect Row Alignment) */}
                   <button 
                     onClick={(e) => toggleBookmark(tutorId, e)}
-                    className="absolute top-5 right-5 sm:static p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all text-sm"
+                    className="absolute top-6 right-6 p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all text-sm shadow-xs"
                     title={isSaved ? "Remove from Shortlist" : "Shortlist Tutor"}
                   >
                     {isSaved ? '❤️' : '🤍'}
                   </button>
 
-                  {/* Left: Avatar & Info */}
-                  <div className="flex items-center gap-5 w-full sm:w-auto">
+                  {/* Left: Perfect Round Avatar & Content */}
+                  <div className="flex items-center gap-6 w-full sm:w-auto pr-10 sm:pr-0">
                     <img 
                       src={avatarUrl} 
                       alt={tutor.full_name || 'Tutor'} 
-                      className="h-16 w-16 sm:h-20 sm:w-20 aspect-square rounded-2xl object-cover bg-gray-100 border border-gray-200 shrink-0 shadow-xs" 
+                      className="h-20 w-20 sm:h-24 sm:w-24 aspect-square rounded-full object-cover bg-gray-50 border-2 border-gray-100 shrink-0 shadow-sm" 
                     />
 
                     <div className="space-y-2 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link href={`/browse/${tutorId}`} className="text-sm sm:text-base font-black text-[#0F172A] hover:underline">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <Link href={`/browse/${tutorId}`} className="text-base sm:text-lg font-black text-[#0F172A] hover:underline">
                           {tutor.full_name || 'Verified Tutor'}
                         </Link>
                         
-                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-md border border-blue-100">
+                        <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-[11px] font-bold rounded-lg border border-blue-100">
                           ✓ Verified
                         </span>
 
-                        <span className="px-2 py-0.5 bg-amber-50 text-amber-800 text-[10px] font-extrabold rounded-md border border-amber-200 flex items-center gap-1">
+                        <span className="px-2.5 py-1 bg-amber-50 text-amber-800 text-[11px] font-extrabold rounded-lg border border-amber-200 flex items-center gap-1">
                           ⭐ {tutor.rating || '5.0'} <span className="text-gray-400 font-normal">({tutor.reviews_count || '12'})</span>
                         </span>
                       </div>
@@ -524,7 +524,7 @@ function PublicBrowseContent() {
                         {tutor.gender ? ` • ${tutor.gender}` : ''}
                       </p>
 
-                      <p className="text-xs text-gray-500 flex flex-wrap items-center gap-3">
+                      <p className="text-xs text-gray-600 flex flex-wrap items-center gap-3 font-medium">
                         <span>🎓 {tutor.degree || 'Qualified Educator'}</span>
                         <span>•</span>
                         <span>📍 {tutor.city || 'Available Online & Home'}</span>
@@ -534,13 +534,13 @@ function PublicBrowseContent() {
                     </div>
                   </div>
 
-                  {/* Right: WhatsApp Button & View Profile */}
-                  <div className="w-full sm:w-auto flex items-center gap-2.5 justify-end shrink-0 pt-2 sm:pt-0">
+                  {/* Right: WhatsApp & View Profile Buttons */}
+                  <div className="w-full sm:w-auto flex items-center gap-3 justify-end shrink-0 pt-2 sm:pt-0">
                     <a
                       href={whatsappLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+                      className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-2"
                     >
                       💬 WhatsApp
                     </a>
@@ -564,7 +564,7 @@ function PublicBrowseContent() {
 
 export default function PublicBrowsePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-xs font-bold text-gray-500">Loading directory...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm font-bold text-gray-500">Loading directory...</div>}>
       <PublicBrowseContent />
     </Suspense>
   )
