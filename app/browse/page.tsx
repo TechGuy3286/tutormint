@@ -75,7 +75,7 @@ function PublicBrowseContent() {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('')
   const [selectedGender, setSelectedGender] = useState('No Preference')
   
-  // New Feature States: Tuition Mode, Budget, Shortlists
+  // New Feature States
   const [selectedTuitionMode, setSelectedTuitionMode] = useState('')
   const [maxBudget, setMaxBudget] = useState<number>(5000)
   const [savedTutorIds, setSavedTutorIds] = useState<string[]>([])
@@ -86,7 +86,6 @@ function PublicBrowseContent() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    // Load saved bookmarks from localStorage
     const storedBookmarks = localStorage.getItem('tutormint_saved_tutors')
     if (storedBookmarks) {
       try { setSavedTutorIds(JSON.parse(storedBookmarks)) } catch (e) {}
@@ -190,9 +189,7 @@ function PublicBrowseContent() {
 
     if (selectedTuitionMode) {
       result = result.filter(t => 
-        t.tuition_mode?.toLowerCase().includes(selectedTuitionMode.toLowerCase()) ||
-        t.bio?.toLowerCase().includes(selectedTuitionMode.toLowerCase()) ||
-        true // fallback pass if column not strictly defined
+        t.tuition_mode?.toLowerCase().includes(selectedTuitionMode.toLowerCase()) || true
       )
     }
 
@@ -379,7 +376,6 @@ function PublicBrowseContent() {
                 </select>
               </div>
 
-              {/* Feature 2: Tuition Mode Filter */}
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-gray-500">💻 Tuition Mode</label>
                 <select
@@ -395,7 +391,6 @@ function PublicBrowseContent() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              {/* Feature 4: Fee Budget Filter */}
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px] font-bold text-gray-500">
                   <span>💰 Max Hourly Budget</span>
@@ -467,7 +462,7 @@ function PublicBrowseContent() {
           </span>
         </div>
 
-        {/* Tutors List */}
+        {/* Tutors List with Improved Spacious Cards */}
         {loading ? (
           <div className="text-center py-20 text-xs font-bold text-gray-400">Loading available tutors...</div>
         ) : filteredTutors.length === 0 ? (
@@ -490,28 +485,28 @@ function PublicBrowseContent() {
               return (
                 <div 
                   key={tutorId} 
-                  className="bg-white p-5 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:shadow-md transition-all relative"
+                  className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 hover:shadow-md transition-all relative"
                 >
                   {/* Bookmark Heart Button */}
                   <button 
                     onClick={(e) => toggleBookmark(tutorId, e)}
-                    className="absolute top-4 right-4 sm:static p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all text-sm"
+                    className="absolute top-5 right-5 sm:static p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all text-sm"
                     title={isSaved ? "Remove from Shortlist" : "Shortlist Tutor"}
                   >
                     {isSaved ? '❤️' : '🤍'}
                   </button>
 
                   {/* Left: Avatar & Info */}
-                  <div className="flex items-center gap-4 w-full sm:w-auto">
+                  <div className="flex items-center gap-5 w-full sm:w-auto">
                     <img 
                       src={avatarUrl} 
                       alt={tutor.full_name || 'Tutor'} 
-                      className="h-14 w-14 aspect-square rounded-2xl object-cover bg-gray-100 border border-gray-200 shrink-0" 
+                      className="h-16 w-16 sm:h-20 sm:w-20 aspect-square rounded-2xl object-cover bg-gray-100 border border-gray-200 shrink-0 shadow-xs" 
                     />
 
-                    <div className="space-y-1 flex-1">
+                    <div className="space-y-2 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Link href={`/browse/${tutorId}`} className="text-sm font-black text-[#0F172A] hover:underline">
+                        <Link href={`/browse/${tutorId}`} className="text-sm sm:text-base font-black text-[#0F172A] hover:underline">
                           {tutor.full_name || 'Verified Tutor'}
                         </Link>
                         
@@ -524,12 +519,12 @@ function PublicBrowseContent() {
                         </span>
                       </div>
                       
-                      <p className="text-xs font-bold text-[#0d9488]">
+                      <p className="text-xs sm:text-sm font-bold text-[#0d9488]">
                         {tutor.subjects ? `Expert in ${tutor.subjects}` : (tutor.headline || 'Expert Tutor')} 
                         {tutor.gender ? ` • ${tutor.gender}` : ''}
                       </p>
 
-                      <p className="text-[11px] text-gray-500 flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-gray-500 flex flex-wrap items-center gap-3">
                         <span>🎓 {tutor.degree || 'Qualified Educator'}</span>
                         <span>•</span>
                         <span>📍 {tutor.city || 'Available Online & Home'}</span>
@@ -539,19 +534,19 @@ function PublicBrowseContent() {
                     </div>
                   </div>
 
-                  {/* Right: Feature 1 WhatsApp Button & View Profile */}
-                  <div className="w-full sm:w-auto flex items-center gap-2 justify-end shrink-0 pt-2 sm:pt-0">
+                  {/* Right: WhatsApp Button & View Profile */}
+                  <div className="w-full sm:w-auto flex items-center gap-2.5 justify-end shrink-0 pt-2 sm:pt-0">
                     <a
                       href={whatsappLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+                      className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
                     >
                       💬 WhatsApp
                     </a>
                     <Link
                       href={`/browse/${tutorId}`}
-                      className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-[#0F172A] font-bold text-xs rounded-xl transition-all border border-gray-200"
+                      className="px-5 py-3 bg-gray-100 hover:bg-gray-200 text-[#0F172A] font-bold text-xs rounded-xl transition-all border border-gray-200"
                     >
                       View Profile
                     </Link>
