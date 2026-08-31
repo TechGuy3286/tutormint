@@ -1,37 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+
+// Supabase email-confirmation callback.
+//
+// This path previously held the YouTube OAuth handler, which has moved to
+// /api/auth/youtube/callback. CLAUDE.md assigns /api/auth/callback to the
+// Supabase code exchange, and the YouTube flow is a one-off developer tool for
+// minting a refresh token.
+// ACTION REQUIRED: update YOUTUBE_REDIRECT_URI and the Authorised redirect URI
+// in the Google Cloud console to the new path before using that flow again.
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const code = searchParams.get('code');
+  const { searchParams, origin } = request.nextUrl
+  const code = searchParams.get('code')
+  const next = searchParams.get('next') ?? '/'
+
+  // Only same-origin paths, never an absolute URL from the query string.
+  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/'
 
   if (!code) {
-    return NextResponse.json({ error: 'No authorization code provided' }, { status: 400 });
+    return NextResponse.redirect(`${origin}/login?error=missing_code`)
   }
 
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.YOUTUBE_CLIENT_ID,
-    process.env.YOUTUBE_CLIENT_SECRET,
-    process.env.YOUTUBE_REDIRECT_URI
-  );
+  const supabase = await createClient()
+  const { error } = await supabase.auth.exchangeCodeForSession(code)
 
-  try {
-    const { tokens } = await oauth2Client.getToken(code);
-    
-    return new NextResponse(`
-      <html>
-        <body style="font-family: sans-serif; padding: 40px; text-align: center; background: #F8FAFC;">
-          <div style="max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <h2 style="color: #059669; margin-top: 0;">🎉 YouTube Authorization Successful!</h2>
-            <p style="color: #334155; font-size: 14px;">Copy your Refresh Token below and save it into your <b>.env.local</b> and <b>Vercel Environment Variables</b> as <b>YOUTUBE_REFRESH_TOKEN</b>:</p>
-            <textarea style="width: 100%; height: 120px; padding: 12px; font-family: monospace; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f1f5f9;" readonly>${tokens.refresh_token}</textarea>
-          </div>
-        </body>
-      </html>
-    `, {
-      headers: { 'Content-Type': 'text/html' },
-    });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)
   }
+
+  return NextResponse.redirect(`${origin}${safeNext}`)
 }

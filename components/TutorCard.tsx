@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import AuthGateModal, { type AuthIntent } from '@/components/AuthGateModal'
 
 interface TutorCardProps {
   tutor: {
@@ -32,6 +33,8 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
   const [selectedJobId, setSelectedJobId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
+  const [gateOpen, setGateOpen] = useState(false)
+  const [gateIntent, setGateIntent] = useState<AuthIntent>('message')
 
   const supabase = createClient()
   const tutorId = String(tutor.id || tutor.user_id || '')
@@ -45,8 +48,11 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      alert("🔒 Please log in as a parent to invite tutors to your open jobs.")
-      window.location.href = "/parent/login"
+      // Guests get the sign-in-to-continue modal instead of an alert() and a
+      // hard redirect that lost where they were. The tutor they were acting on
+      // is preserved as a draft and handed back after sign-in.
+      setGateIntent('message')
+      setGateOpen(true)
       return
     }
 
@@ -139,7 +145,17 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
               className="h-20 w-20 sm:h-24 sm:w-24 aspect-square rounded-full object-cover bg-gray-50 border-2 border-gray-100 shadow-sm" 
             />
             <button 
-              onClick={(e) => onToggleBookmark(tutorId, e)}
+              onClick={async (e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) {
+                  setGateIntent('shortlist')
+                  setGateOpen(true)
+                  return
+                }
+                onToggleBookmark(tutorId, e)
+              }}
               className="absolute bottom-0 right-0 p-2 bg-white hover:bg-red-50 rounded-full border border-gray-200 shadow-sm transition-all text-xs flex items-center justify-center text-red-600"
               title={isSaved ? "Remove from Shortlist" : "Shortlist Tutor"}
             >
@@ -257,6 +273,13 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
           </div>
         </div>
       )}
+
+      <AuthGateModal
+        open={gateOpen}
+        intent={gateIntent}
+        draft={{ tutorId, tutorName: tutor.full_name ?? null }}
+        onClose={() => setGateOpen(false)}
+      />
     </>
   )
 }

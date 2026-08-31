@@ -32,26 +32,13 @@ export default function AdminSocialSharePage() {
   const router = useRouter()
   const supabase = createClient()
 
+  // Access is enforced server-side by app/admin/layout.tsx, which requires
+  // profiles.role = 'admin'. The old check compared user.email against a
+  // hardcoded address in the browser bundle, which gated nothing on the server.
   useEffect(() => {
-    checkAdminAccess();
+    setIsAdmin(true);
+    setLoading(false);
   }, []);
-
-  const checkAdminAccess = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Restrict access strictly to your admin email address
-      if (user && user.email === 'techguy3286@gmail.com') {
-        setIsAdmin(true);
-      } else {
-        setIsAdmin(false);
-      }
-    } catch (err) {
-      setIsAdmin(false);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-sm font-bold text-slate-900">Verifying admin credentials...</div>;

@@ -1,32 +1,15 @@
-"use client";
+// Server component (was a client component gating on sessionStorage
+// "tutorData" -- a key nothing ever set, so every tutor page bounced to
+// /tutor/login and the dashboard was unreachable).
+//
+// This layout deliberately does NOT gate. It wraps public pages too:
+// /tutor/[slug] profiles, /tutor, /tutor/login, /tutor/register. Browsing
+// stays open per the product philosophy, and /tutor/[slug] has to remain
+// server-rendered and public for SEO.
+//
+// The real gate is one level down, in app/tutor/dashboard/layout.tsx.
 
-import { useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
-
-export default function TutorLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const router = useRouter();
-  const pathname = usePathname();
-
-  // Exempt the public /tutor browse page, login, and register from mandatory login checks
-  const isPublicPage = 
-    pathname === "/tutor" || 
-    pathname === "/tutor/login" || 
-    pathname === "/tutor/register";
-
-  useEffect(() => {
-    if (!isPublicPage) {
-      const data = sessionStorage.getItem("tutorData");
-      if (!data) {
-        router.push("/tutor/login");
-      }
-    }
-  }, [pathname, router, isPublicPage]);
-
-  // Global Navbar and Footer are handled in root app/layout.tsx.
-  // Rendering children directly prevents duplicate wrapper bars.
-  return <>{children}</>;
+export default function TutorLayout({ children }: { children: React.ReactNode }) {
+  // Navbar and Footer come from the root layout.
+  return <>{children}</>
 }

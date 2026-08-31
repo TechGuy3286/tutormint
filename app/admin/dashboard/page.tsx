@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [password, setPassword] = useState("");
   const [tutors, setTutors] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
   const [filterTab, setFilterTab] = useState<"all" | "verified" | "unverified">("all");
@@ -17,30 +15,13 @@ export default function AdminDashboard() {
   const [actionMsg, setActionMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Access is enforced server-side by app/admin/layout.tsx (profiles.role =
+  // 'admin'). The old client-side password prompt and the adminAuth
+  // localStorage flag are gone -- both shipped in the browser bundle and the
+  // flag alone was enough to get in.
   useEffect(() => {
-    const auth = localStorage.getItem("adminAuth");
-    if (auth === "true") {
-      setIsAdmin(true);
-      fetchAdminData();
-    }
+    fetchAdminData();
   }, []);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === "admin123" || password === "tutormint2026") {
-      setIsAdmin(true);
-      localStorage.setItem("adminAuth", "true");
-      fetchAdminData();
-      setErrorMsg("");
-    } else {
-      setErrorMsg("Invalid Admin Password");
-    }
-  };
-
-  const handleLogout = () => {
-    setIsAdmin(false);
-    localStorage.removeItem("adminAuth");
-  };
 
   const fetchAdminData = async () => {
     setLoading(true);
@@ -112,39 +93,6 @@ export default function AdminDashboard() {
     setMessageText("");
   };
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center p-6 font-sans">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-w-md w-full space-y-6">
-          <div className="text-center space-y-2">
-            <span className="text-3xl">🛡️</span>
-            <h1 className="text-xl font-extrabold tracking-tight">Admin Management Panel</h1>
-            <p className="text-xs text-gray-400">Secure authorization required to access business management.</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-black uppercase text-gray-400 tracking-wider mb-1">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-black"
-              />
-            </div>
-            {errorMsg && <p className="text-red-600 text-xs font-semibold">{errorMsg}</p>}
-            <button type="submit" className="w-full py-3 bg-[#B3191F] hover:bg-[#9a151b] text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shadow-sm">
-              Secure Login →
-            </button>
-          </form>
-          <div className="text-center">
-            <Link href="/" className="text-xs text-gray-400 hover:text-black font-semibold">← Back to Home</Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const filteredTutors = tutors.filter((t) => {
     const isVer = t.profileCompletionStatus === "verified";
@@ -165,9 +113,9 @@ export default function AdminDashboard() {
           <span className="text-xs font-bold bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-full flex items-center gap-1.5">
             🟢 Authorized Admin
           </span>
-          <button onClick={handleLogout} className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors">
-            Logout
-          </button>
+          <Link href="/" className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors">
+            Back to site
+          </Link>
         </div>
       </header>
 
