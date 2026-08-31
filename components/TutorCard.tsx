@@ -149,7 +149,7 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
 
           <div className="space-y-2 flex-1">
             <div className="flex flex-wrap items-center gap-2.5">
-              <Link href={`/browse/${tutorId}`} className="text-base sm:text-lg font-black text-[#0F172A] hover:underline">
+              <Link href={`/browse/tutors/${tutorId}`} className="text-base sm:text-lg font-black text-[#0F172A] hover:underline">
                 {tutor.full_name || 'Verified Tutor'}
               </Link>
               
@@ -193,7 +193,7 @@ export default function TutorCard({ tutor, isSaved, onToggleBookmark }: TutorCar
             💬 WhatsApp
           </a>
           <Link
-            href={`/browse/${tutorId}`}
+            href={`/browse/tutors/${tutorId}`}
             className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-[#0F172A] font-bold text-xs rounded-xl transition-all border border-gray-200"
           >
             View Profile

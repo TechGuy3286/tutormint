@@ -60,7 +60,7 @@ export default function PostJobPage() {
               Publish your requirement. Our system will generate a unique tracking ID and match you with tutors having free hourly slots.
             </p>
           </div>
-          <Link href="/parent/browse" className="text-xs font-bold text-emerald-600 uppercase tracking-wider hover:underline">
+          <Link href="/browse/tutors" className="text-xs font-bold text-emerald-600 uppercase tracking-wider hover:underline">
             ← Back to Browse
           </Link>
         </div>
