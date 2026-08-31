@@ -96,7 +96,7 @@ Delete: the whole Mongo layer, `/parent/browse`, `/parent/post-job`, `/parent/si
 - [ ] **T5 Parent side** — post job (quota-checked), job detail + applicants, hire flow writes `jobs.status`, `/browse/tuitions`, chat on `threads/messages`.
 - [ ] **T6 Packages** — `/tutor/packages`, `/parent/packages`, payment submission, `lib/entitlements.ts`, badges + Featured tag on `TutorCard` and job cards, contact-field filtering, `usage_counters`, expiry downgrade function (pg_cron or Vercel cron).
 - [ ] **T7 Admin** — layout gate, tutor verification queue (video / CNIC / degrees), parent verification queue, payments approval, quota usage view, YouTube visibility toggle.
-- [ ] **T8 Hardening** — RLS audit, `.env` on Vercel, remove every `techguy3286@gmail.com` / test phone fallback, `npm run build` clean.
+- [ ] **T8 Hardening** — RLS audit, `.env` on Vercel, remove every `techguy3286@gmail.com` / test phone fallback, `npm run build` clean. **SMTP provider (Resend or Brevo) configured in Supabase Auth, then re-enable "Confirm email"** — it is currently OFF because the project has no sender and `auth.signUp()` failed with "Error sending confirmation email"; registration is unprotected until this lands.
 
 ## Design system & responsiveness (applies to every task)
 
@@ -244,3 +244,15 @@ Existing tables: academy_affiliations, advertisements, demo_feedback, job_messag
 - Every ad renders with a visible "Sponsored" label. Ads NEVER appear as tutor cards or inside search ranking — ranking is sold only via plans; ads are banners. This protects Featured-badge value.
 - v1 sales are manual: owner/manager creates the academy's ad with an end date after off-platform payment. Self-serve ad purchase = v2 backlog.
 - Permission: owner + manager (matrix updated).
+
+## Search ranking algorithm (T4 — /browse/tutors and matching)
+
+1. Eligibility filter (hard): profile_completion=100, not suspended, matches query filters (subject via taxonomy master_id exact, city, teaching_mode).
+2. Tier (absolute, never blended): featured > premium > verified(paid) > free-complete. Sort key 1.
+3. Within tier, sort by:
+   a. location closeness: searched area match > same city > online-only.
+   b. weighted rating (IMDb-style Bayesian): score=(n/(n+m))*tutor_avg+(m/(n+m))*platform_avg with m=10. Zero-review tutors start at platform average.
+   c. tie rotation: stable daily shuffle for near-equal scores — order by md5(tutor_id || current_date) — so equal-tier tutors share top positions across days.
+4. Excluded signals (deliberate): last-active recency, profile_views, message volume — nothing grindable or rich-get-richer. v2 backlog: responsiveness signal (median reply time) once real messaging data exists.
+5. Jobs ranking (browse/tuitions): featured jobs first, then created_at desc.
+Implement as a SQL view or function (rank inputs computable in one query); the browse page must not rank client-side.

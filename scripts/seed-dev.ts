@@ -58,6 +58,18 @@ function die(msg: string): never {
   process.exit(1)
 }
 
+/**
+ * Every write goes through here. An earlier version ignored the error field,
+ * so two silent failures (a UNIQUE violation on profiles.cnic_number and a
+ * CHECK violation on demo_requests.status) went unnoticed because the summary
+ * printed the spec rather than the database. Fail loudly instead.
+ */
+async function must<T>(what: string, p: PromiseLike<{ data: T; error: { message: string } | null }>): Promise<T> {
+  const { data, error } = await p
+  if (error) die(`${what}: ${error.message}`)
+  return data
+}
+
 function refOf(url: string | undefined, kind: 'db' | 'api'): string | null {
   if (!url) return null
   try {
@@ -93,6 +105,8 @@ type ParentSpec = {
   cnicVerified: boolean
   addressVerified: boolean
   plan: 'parent_featured' | null
+  /** profiles.cnic_number is UNIQUE, so every verified parent needs its own. */
+  cnic: string | null
 }
 
 const TUTORS: TutorSpec[] = [
@@ -140,10 +154,10 @@ const TUTORS: TutorSpec[] = [
 ]
 
 const PARENTS: ParentSpec[] = [
-  { name: 'unverified-zain', fullName: 'Zain Malik', city: 'Lahore', cnicVerified: false, addressVerified: false, plan: null },
-  { name: 'verified-fatima', fullName: 'Fatima Noor', city: 'Lahore', cnicVerified: true, addressVerified: true, plan: null },
-  { name: 'featured-ayesha', fullName: 'Ayesha Siddiqui', city: 'Karachi', cnicVerified: true, addressVerified: true, plan: 'parent_featured' },
-  { name: 'verified-kamran', fullName: 'Kamran Butt', city: 'Islamabad', cnicVerified: true, addressVerified: true, plan: null },
+  { name: 'unverified-zain', fullName: 'Zain Malik', city: 'Lahore', cnicVerified: false, addressVerified: false, plan: null, cnic: null },
+  { name: 'verified-fatima', fullName: 'Fatima Noor', city: 'Lahore', cnicVerified: true, addressVerified: true, plan: null, cnic: '35202-1000001-1' },
+  { name: 'featured-ayesha', fullName: 'Ayesha Siddiqui', city: 'Karachi', cnicVerified: true, addressVerified: true, plan: 'parent_featured', cnic: '42101-1000002-2' },
+  { name: 'verified-kamran', fullName: 'Kamran Butt', city: 'Islamabad', cnicVerified: true, addressVerified: true, plan: null, cnic: '61101-1000003-3' },
 ]
 
 const emailFor = (name: string) => `${SEED_PREFIX}${name}${SEED_DOMAIN}`
@@ -269,9 +283,10 @@ async function main() {
   // ---- 3. flesh out tutor rows -------------------------------------------
   for (const t of TUTORS) {
     const id = ids[t.name]
-    await db.from('profiles').update({ profile_completion: t.completion, city: t.city }).eq('id', id)
+    await must(`profiles update (${t.name})`,
+      db.from('profiles').update({ profile_completion: t.completion, city: t.city }).eq('id', id).select('id'))
 
-    await db
+    await must(`tutor_profiles update (${t.name})`, db
       .from('tutor_profiles')
       .update({
         slug: t.name,
@@ -291,44 +306,56 @@ async function main() {
         degrees: ['BS Physics — Punjab University (2019)'],
       })
       .eq('id', id)
+      .select('id'))
 
     const masterIds = await resolveMasterIds(db, t.subjects)
     for (const master_id of masterIds) {
-      await db.from('tutor_subjects').insert({ tutor_id: id, master_id })
+      await must(`tutor_subjects (${t.name})`,
+        db.from('tutor_subjects').insert({ tutor_id: id, master_id }).select('master_id'))
     }
 
     if (t.plan) {
-      await db.from('subscriptions').insert({
+      await must(`subscription (${t.name})`, db.from('subscriptions').insert({
         user_id: id,
         plan_code: t.plan,
         starts_at: daysFromNow(-28),
         // featured-ali expires in 2 days, for the T-3 reminder path.
         expires_at: t.name === 'featured-ali' ? daysFromNow(2) : daysFromNow(30),
         status: 'active',
-      })
+      }).select('id'))
     }
   }
 
   // ---- 4. flesh out parent rows ------------------------------------------
   for (const p of PARENTS) {
     const id = ids[p.name]
-    await db
-      .from('profiles')
-      .update({
-        city: p.city,
-        cnic_number: p.cnicVerified ? '35202-0000000-0' : null,
-        cnic_verified_at: p.cnicVerified ? new Date().toISOString() : null,
-        address_verified_at: p.addressVerified ? new Date().toISOString() : null,
-        address: p.addressVerified ? `House 1, ${p.city}` : null,
-        profile_completion: p.cnicVerified ? 100 : 30,
-      })
-      .eq('id', id)
+    await must(
+      `profiles update (${p.name})`,
+      db
+        .from('profiles')
+        .update({
+          city: p.city,
+          cnic_number: p.cnic,
+          cnic_verified_at: p.cnicVerified ? new Date().toISOString() : null,
+          address_verified_at: p.addressVerified ? new Date().toISOString() : null,
+          address: p.addressVerified ? `House 1, ${p.city}` : null,
+          profile_completion: p.cnicVerified ? 100 : 30,
+        })
+        .eq('id', id)
+        .select('id'),
+    )
 
     if (p.plan) {
-      await db.from('subscriptions').insert({
-        user_id: id, plan_code: p.plan,
-        starts_at: daysFromNow(-5), expires_at: daysFromNow(25), status: 'active',
-      })
+      await must(
+        `subscription (${p.name})`,
+        db
+          .from('subscriptions')
+          .insert({
+            user_id: id, plan_code: p.plan,
+            starts_at: daysFromNow(-5), expires_at: daysFromNow(25), status: 'active',
+          })
+          .select('id'),
+      )
     }
   }
 
@@ -385,7 +412,8 @@ async function main() {
 
     if (error) die(`job insert (${j.title}): ${error.message}`)
     jobIds[j.title] = data.id
-    await db.from('job_subjects').insert({ job_id: data.id, master_id: masterId })
+    await must(`job_subjects (${j.title})`,
+      db.from('job_subjects').insert({ job_id: data.id, master_id: masterId }).select('master_id'))
   }
 
   // ---- 6. applications ----------------------------------------------------
@@ -396,12 +424,12 @@ async function main() {
     ['Matric Science tutor (filled)', 'verified-usman', 'hired'],
   ]
   for (const [title, tutor, status] of APPLICATIONS) {
-    await db.from('applications').insert({
+    await must(`application (${tutor} -> ${title})`, db.from('applications').insert({
       job_id: jobIds[title],
       tutor_id: ids[tutor],
       status,
       message: 'Seeded application for development testing.',
-    })
+    }).select('id'))
   }
 
   // ---- 7. thread + message containing a phone number ----------------------
@@ -419,7 +447,7 @@ async function main() {
 
   // Body deliberately contains a phone number, for the T5 masking work.
   const body = 'Assalam-o-Alaikum, can you call me on 0321-4567890 to discuss timings?'
-  await db.from('messages').insert({
+  await must('message', db.from('messages').insert({
     thread_id: thread.id,
     sender_id: ids['verified-fatima'],
     body,
@@ -428,58 +456,112 @@ async function main() {
     sender: emailFor('verified-fatima'),
     recipient: emailFor('featured-ali'),
     message: body,
-  })
+  }).select('id'))
 
   // ---- 8. demo request, profile views -------------------------------------
-  await db.from('demo_requests').insert({
-    parent_id: ids['verified-fatima'],
-    tutor_id: ids['featured-ali'],
-    status: 'pending',
-  })
+  // demo_requests.status is CHECKed against
+  // requested|accepted|declined|completed|cancelled -- there is no 'pending'.
+  // 'requested' is the awaiting-tutor-response state the cast calls for.
+  await must(
+    'demo_request',
+    db
+      .from('demo_requests')
+      .insert({
+        parent_id: ids['verified-fatima'],
+        tutor_id: ids['featured-ali'],
+        status: 'requested',
+      })
+      .select('id'),
+  )
 
   for (const [tutor, desc] of [
     ['featured-ali', 'A parent searching O-Level Physics in DHA Phase 5 viewed your profile'],
     ['featured-ali', 'A parent searching A-Level Physics in Gulberg viewed your profile'],
     ['free-hina', 'A parent searching Primary Maths in Gulberg viewed your profile'],
   ] as const) {
-    await db.from('profile_views').insert({
+    await must('profile_view', db.from('profile_views').insert({
       tutor_id: ids[tutor], viewer_description: desc, time_ago: '2 hours ago',
-    })
+    }).select('id'))
   }
 
   // ---- 9. summary ---------------------------------------------------------
+  // Read back from the database rather than printing the spec. An earlier
+  // version printed what it meant to create, which hid two silent write
+  // failures. Everything below is what the database actually holds.
   const pad = (s: string, n: number) => s.padEnd(n)
-  console.log('\n  ' + pad('ACCOUNT', 26) + pad('ROLE', 8) + pad('PLAN', 17) + pad('STATE', 22) + 'SUBJECTS')
-  console.log('  ' + '-'.repeat(96))
+  const seedEmails = [...TUTORS, ...PARENTS].map((x) => emailFor(x.name))
+
+  const rows = await must(
+    'summary: profiles',
+    db
+      .from('profiles')
+      .select('id, email, role, profile_completion, cnic_verified_at, address_verified_at')
+      .in('email', seedEmails),
+  )
+  const subs = await must('summary: subscriptions', db.from('subscriptions').select('user_id, plan_code, expires_at'))
+  const tps = await must(
+    'summary: tutor_profiles',
+    db.from('tutor_profiles').select('id, email, verification_status, video_status, rating_avg').in('email', seedEmails),
+  )
+
+  const planOf = (id: string) => subs?.find((s) => s.user_id === id)?.plan_code ?? 'none'
+  const W = 36
+
+  console.log('\n  ' + pad('ACCOUNT', W) + pad('ROLE', 8) + pad('PLAN', 17) + pad('STATE', 24) + 'SUBJECTS')
+  console.log('  ' + '-'.repeat(108))
+
   for (const t of TUTORS) {
+    const row = rows?.find((r) => r.email === emailFor(t.name))
+    const tp = tps?.find((x) => x.email === emailFor(t.name))
+    const nSubjects = row
+      ? (await must('summary: tutor_subjects', db.from('tutor_subjects').select('master_id').eq('tutor_id', row.id)))?.length ?? 0
+      : 0
     console.log(
-      '  ' + pad(emailFor(t.name), 26) + pad('tutor', 8) + pad(t.plan ?? 'none', 17) +
-        pad(`${t.verification}, ${t.completion}%`, 22) + t.subjects.map((s) => s[2] ?? s[1]).join(', '),
+      '  ' + pad(emailFor(t.name), W) + pad('tutor', 8) + pad(planOf(row!.id), 17) +
+        pad(`${tp?.verification_status}, ${row?.profile_completion}%, ★${tp?.rating_avg}`, 24) +
+        `${nSubjects} via taxonomy_master`,
     )
   }
+
   for (const p of PARENTS) {
-    const state = p.cnicVerified ? 'CNIC+address verified' : 'unverified'
-    console.log('  ' + pad(emailFor(p.name), 26) + pad('parent', 8) + pad(p.plan ?? 'free', 17) + pad(state, 22) + '—')
+    const row = rows?.find((r) => r.email === emailFor(p.name))
+    const state = row?.cnic_verified_at && row?.address_verified_at ? 'CNIC+address verified' : 'unverified'
+    console.log(
+      '  ' + pad(emailFor(p.name), W) + pad('parent', 8) + pad(planOf(row!.id), 17) +
+        pad(`${state}, ${row?.profile_completion}%`, 24) + '—',
+    )
   }
 
-  console.log('\n  ' + pad('OBJECT', 26) + 'COUNT')
-  console.log('  ' + '-'.repeat(96))
-  const counts: [string, number][] = [
-    ['jobs', JOBS.length],
-    ['  open', JOBS.filter((j) => j.status === 'open').length],
-    ['  featured', JOBS.filter((j) => j.featured).length],
-    ['  hired', JOBS.filter((j) => j.status === 'hired').length],
-    ['applications', APPLICATIONS.length],
-    ['threads', 1],
-    ['messages (1 w/ phone no.)', 1],
-    ['demo_requests (pending)', 1],
-    ['subscriptions', TUTORS.filter((t) => t.plan).length + PARENTS.filter((p) => p.plan).length],
-    ['profile_views', 3],
+  const countOf = async (table: string, col: string, ids: string[]) =>
+    (await must(`summary: ${table}`, db.from(table).select(col).in(col, ids)))?.length ?? 0
+
+  const seedIds = rows!.map((r) => r.id)
+  const jobRows = await must('summary: jobs', db.from('jobs').select('id, status, is_featured').in('parent_id', seedIds))
+  const jobIdList = jobRows!.map((j) => j.id)
+
+  console.log('\n  ' + pad('OBJECT', W) + 'COUNT (read back from the database)')
+  console.log('  ' + '-'.repeat(108))
+  const counts: [string, number | string][] = [
+    ['jobs', jobRows!.length],
+    ['  open', jobRows!.filter((j) => j.status === 'open').length],
+    ['  featured tag', jobRows!.filter((j) => j.is_featured).length],
+    ['  hired', jobRows!.filter((j) => j.status === 'hired').length],
+    ['job_subjects', await countOf('job_subjects', 'job_id', jobIdList)],
+    ['tutor_subjects', await countOf('tutor_subjects', 'tutor_id', seedIds)],
+    ['applications', await countOf('applications', 'tutor_id', seedIds)],
+    ['threads', await countOf('threads', 'participant_a', seedIds)],
+    ['messages (1 with a phone no.)', (await must('summary: messages', db.from('messages').select('id, body').in('sender_id', seedIds)))!.length],
+    ['demo_requests (requested)', await countOf('demo_requests', 'parent_id', seedIds)],
+    ['subscriptions', await countOf('subscriptions', 'user_id', seedIds)],
+    ['profile_views', await countOf('profile_views', 'tutor_id', seedIds)],
   ]
-  for (const [k, v] of counts) console.log('  ' + pad(k, 26) + v)
+  for (const [k, v] of counts) console.log('  ' + pad(k, W) + v)
+
+  const aliSub = subs?.find((s) => s.user_id === rows?.find((r) => r.email === emailFor('featured-ali'))?.id)
+  const daysLeft = aliSub ? Math.round((new Date(aliSub.expires_at).getTime() - Date.now()) / 86_400_000) : null
 
   console.log(`\n  All passwords: ${SEED_PASSWORD}`)
-  console.log('  featured-ali subscription expires in 2 days (T-3 reminder path)\n')
+  console.log(`  featured-ali subscription expires in ${daysLeft} day(s) — T-3 reminder path\n`)
 }
 
 main().catch((e) => die(e instanceof Error ? e.message : String(e)))
