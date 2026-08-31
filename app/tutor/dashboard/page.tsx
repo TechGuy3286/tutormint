@@ -1,99 +1,249 @@
 import Link from 'next/link'
+import { Eye, TrendingUp, AlertTriangle, Info } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { getEntitlements } from '@/lib/entitlements'
+import { computeCompletion } from '@/lib/completion'
+import { viewTeasers } from '@/lib/profileViews'
+import { matchingJobsForTutor } from '@/lib/jobFeed'
+import ProfileCompletionWidget from '@/components/ProfileCompletionWidget'
+import BadgeRow from '@/components/badges/BadgeRow'
+import JobCard from '@/components/JobCard'
 
-// Minimal real dashboard. The previous version was entirely mock data
-// ("Sir Bilal Ahmed", fake leads, fake ratings) and granted itself a session
-// by writing tm_logged_in/tm_email to localStorage when none was found.
+// The real tutor dashboard.
 //
-// This is deliberately small: it exists to prove the auth spine works end to
-// end. The real dashboard -- completion widget, plan, quota, matching jobs --
-// is T4.
+// What a tutor needs the moment they land: am I listed, what does my plan buy
+// me, is anyone looking at me, and is there work that matches. In that order.
+//
+// The Apply action is NOT here. Applications, quota spending and the
+// applications table are T5; a present-but-dead Apply button would be worse
+// than none, so matching jobs are shown as details-only until T5 wires the
+// real thing.
+
+export const dynamic = 'force-dynamic'
 
 export default async function TutorDashboardPage() {
   // The layout has already guaranteed a tutor session.
   const session = await getSessionUser()
+  const userId = session!.user.id
   const supabase = await createClient()
 
-  const { data: tutorProfile } = await supabase
-    .from('tutor_profiles')
-    .select('headline, city, area, verification_status, video_status')
-    .eq('id', session!.user.id)
-    .maybeSingle()
+  const [{ data: tutorProfile }, completion, ent] = await Promise.all([
+    supabase
+      .from('tutor_profiles')
+      .select('slug, city, area, verification_status, video_status, video_attempts')
+      .eq('id', userId)
+      .maybeSingle(),
+    // Read-only: shows the tutor exactly where they stand without writing.
+    // Persisting happens on the write paths that change profile data.
+    computeCompletion(userId),
+    getEntitlements(userId),
+  ])
 
-  const completion = session?.profile?.profile_completion ?? 0
+  const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
+  const listed = percent >= 100 && tutorProfile?.verification_status !== 'suspended'
+
+  const [{ teasers, total: viewTotal }, jobs] = await Promise.all([
+    viewTeasers(userId, ent.canViewContact),
+    matchingJobsForTutor(userId, tutorProfile?.city ?? null),
+  ])
+
   const firstName = (session?.profile?.full_name ?? 'there').split(' ')[0]
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] py-8 px-4 sm:px-6 lg:px-8 text-[#334155]">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <header className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-1">
-          <h1 className="text-xl sm:text-2xl font-black text-[#0F172A]">
-            Welcome back, {firstName}
-          </h1>
+    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+      <div className="mx-auto max-w-3xl space-y-4">
+        <header className="space-y-1">
+          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Welcome back, {firstName}</h1>
           <p className="text-xs text-gray-500">
-            Signed in as {session?.user.email}
-            {tutorProfile?.city ? ` · ${tutorProfile.city}` : ''}
+            {listed ? (
+              <>
+                You are listed in the tutor directory
+                {tutorProfile?.slug && (
+                  <>
+                    {' · '}
+                    <Link href={`/tutor/${tutorProfile.slug}`} className="font-bold text-[#d60008] hover:underline">
+                      view your public profile
+                    </Link>
+                  </>
+                )}
+              </>
+            ) : (
+              'You are not listed yet'
+            )}
           </p>
         </header>
 
-        <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-3">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-sm font-bold text-[#0F172A]">Profile completion</h2>
-            <span className="text-sm font-black text-[#0F172A]">{completion}%</span>
-          </div>
-          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[#059669] rounded-full transition-all"
-              style={{ width: `${Math.min(Math.max(completion, 0), 100)}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-500 leading-relaxed">
-            You need 100% before your profile is listed in the tutor directory.
+        {/* ------------------------------------------------------ notices --- */}
+        {tutorProfile?.verification_status === 'suspended' && (
+          <p className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold leading-relaxed text-[#991B1B]">
+            <AlertTriangle size={16} className="mt-px shrink-0" />
+            Your profile is suspended and is not shown to parents. Check your email for the reason,
+            or contact support.
           </p>
+        )}
+
+        {tutorProfile?.video_status === 'uploaded' && (
+          <p className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold leading-relaxed text-[#92400E]">
+            <Info size={16} className="mt-px shrink-0" />
+            Your video is with our team. It stays private on the channel until it is approved.
+          </p>
+        )}
+
+        {tutorProfile?.video_status === 'rejected' && (
+          <p className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold leading-relaxed text-[#92400E]">
+            <AlertTriangle size={16} className="mt-px shrink-0" />
+            Your video was not accepted ({tutorProfile.video_attempts ?? 0} of 3 attempts used).
+            {(tutorProfile.video_attempts ?? 0) >= 3
+              ? ' Uploads are now locked — please contact support.'
+              : ' You can record and upload a new one.'}
+          </p>
+        )}
+
+        {/* --------------------------------------------------- completion --- */}
+        {completion && (
+          <ProfileCompletionWidget percent={percent} items={completion.items} role="tutor" />
+        )}
+
+        {/* --------------------------------------------------------- plan --- */}
+        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-black text-[#0F172A]">
+              {ent.planName ? `${ent.planName} plan` : 'No active plan'}
+            </h2>
+            {ent.expiresAt && (
+              <span className="text-[11px] font-semibold text-gray-500">
+                renews or ends{' '}
+                {new Date(ent.expiresAt).toLocaleDateString('en-PK', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </span>
+            )}
+          </div>
+
+          {ent.badges.length > 0 ? (
+            <BadgeRow badges={ent.badges} size="md" showLabel />
+          ) : ent.plan ? (
+            <p className="text-xs font-semibold text-amber-700">
+              Your badges appear once your profile reaches 100%.
+            </p>
+          ) : null}
+
+          <dl className="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                Applications left
+              </dt>
+              <dd className="text-lg font-black text-[#0F172A]">
+                {ent.plan ? ent.quotaLeft : '—'}
+                {ent.plan && (
+                  <span className="text-xs font-semibold text-gray-400">
+                    {' '}
+                    of {ent.displayedQuota}
+                  </span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                Search position
+              </dt>
+              <dd className="text-lg font-black text-[#0F172A]">
+                {ent.plan === 'featured'
+                  ? 'Top'
+                  : ent.plan === 'premium'
+                    ? 'High'
+                    : ent.plan === 'verified'
+                      ? 'Standard'
+                      : 'Lowest'}
+              </dd>
+            </div>
+          </dl>
+
           <Link
-            href="/tutor/complete-profile"
-            className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 bg-[#0F172A] hover:bg-[#059669] text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
+            href="/tutor/packages"
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white transition-colors hover:bg-[#1E293B] sm:w-auto"
           >
-            Complete your profile
+            {ent.plan ? 'Compare packages' : 'See packages'}
           </Link>
         </section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-1">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">Your plan</h2>
-            <p className="text-base font-black text-[#0F172A]">No active plan</p>
-            <p className="text-xs text-gray-500">Packages arrive in a later release.</p>
-          </section>
-
-          <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-1">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
-              Verification
+        {/* ------------------------------------------------ view teasers ---- */}
+        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-sm font-black text-[#0F172A]">
+              <Eye size={16} className="text-gray-400" />
+              Who looked at you
             </h2>
-            <p className="text-base font-black text-[#0F172A] capitalize">
-              {tutorProfile?.verification_status ?? 'pending'}
-            </p>
-            <p className="text-xs text-gray-500">
-              Video: {tutorProfile?.video_status ?? 'none'}
-            </p>
-          </section>
-        </div>
+            {viewTotal > 0 && (
+              <span className="text-[11px] font-bold text-gray-500">{viewTotal} total</span>
+            )}
+          </div>
 
-        <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-2">
-          <h2 className="text-sm font-bold text-[#0F172A]">Matching tuition jobs</h2>
-          <div className="py-8 text-center space-y-2">
-            <p className="text-xs font-bold text-gray-500">No matching jobs yet</p>
-            <p className="text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">
-              Once your profile lists the subjects and levels you teach, open jobs that match will
-              appear here.
+          {teasers.length === 0 ? (
+            <p className="text-xs text-gray-400">
+              No profile views yet. Views appear here as parents find you in search.
             </p>
-            <Link
-              href="/browse/tuitions"
-              className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 mt-1 bg-[#F8FAFC] hover:bg-gray-100 border border-gray-200 text-[#334155] font-bold text-xs rounded-xl transition-colors"
-            >
-              Browse all tuitions
+          ) : (
+            <>
+              <ul className="space-y-2">
+                {teasers.map((t) => (
+                  <li key={t.id} className="flex items-start justify-between gap-3">
+                    <p className="text-xs leading-relaxed">
+                      {t.identified ? (
+                        <span className="font-bold text-[#0F172A]">{t.text}</span>
+                      ) : (
+                        /* Blur, not omission: the tutor can see that a real
+                           person looked, without being told who. */
+                        <span className="text-[#334155]">{t.text}</span>
+                      )}
+                    </p>
+                    <span className="shrink-0 text-[10px] text-gray-400">{t.when}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {!ent.canViewContact && (
+                <Link
+                  href="/tutor/packages"
+                  className="flex items-center gap-2 rounded-xl bg-[#FFFBEB] p-3 text-xs font-bold text-[#92400E]"
+                >
+                  <TrendingUp size={14} />
+                  Upgrade to Featured to see who these parents are
+                </Link>
+              )}
+            </>
+          )}
+        </section>
+
+        {/* ------------------------------------------------ matching jobs --- */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-black text-[#0F172A]">Tuitions that match you</h2>
+            <Link href="/tutor/dashboard/jobs" className="text-xs font-bold text-[#d60008] hover:underline">
+              See all
             </Link>
           </div>
+
+          <p className="flex items-start gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-[#334155]">
+            <Info size={14} className="mt-px shrink-0 text-gray-400" />
+            Only Featured parents can complete a hire. Every job card says which kind of parent
+            posted it, so you know before you spend an application.
+          </p>
+
+          {jobs.length === 0 ? (
+            <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+              No open tuitions match your subjects right now.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {jobs.map((job) => (
+                <JobCard key={job.id} job={job} href={`/tutor/dashboard/jobs#${job.id}`} />
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </main>

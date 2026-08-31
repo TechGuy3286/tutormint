@@ -274,7 +274,7 @@ Implement as a SQL view or function (rank inputs computable in one query); the b
 
 ## Member activity timeline (spec now; events logged from T3 onward; admin UI in T7)
 
-- user_activity_log (id, user_id, event text, target_type, target_id, meta jsonb, created_at). Written via lib/activity.ts logActivity() from server code paths only. RLS: user reads own; admins (owner/manager/support) read all; no updates/deletes.
+- user_activity_log (id, user_id, event text, target_type, target_id, meta jsonb, created_at). Written via lib/activityLog.ts logActivity() from server code paths only. RLS: user reads own; admins (owner/manager/support) read all; no updates/deletes.
 - Events: registered, login, otp_verified, profile_updated, completion_changed, subjects_changed, document_uploaded, video_submitted, job_posted/edited/closed, application_submitted/withdrawn, demo_requested/accepted/declined/completed, message_sent (thread id only — never message content), shortlist_added/removed, plan_purchased/expired, block/report given and received, verification decisions received.
 - Every task from T3 onward MUST log its events through this helper as the feature is built (add to each task's checklist).
 - Admin UI (T7): members list → member detail page = profile summary + verification state + plan/subscription history + filterable event timeline (newest first), alongside admin_audit_log entries targeting that member.

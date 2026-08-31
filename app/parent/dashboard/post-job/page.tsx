@@ -696,26 +696,32 @@ export default function PostJobPage() {
                   const tutorId = String(tutor.id);
                   const isSaved = savedTutorIds.includes(tutorId);
                   
+                  // Mapped onto the T4 card shape. This whole "AI-matched"
+                  // block is still placeholder data and is rebuilt in T5; the
+                  // hardcoded phone number it used to pass is gone, since the
+                  // card no longer accepts contact details at all.
                   const normalizedTutor = {
-                    id: tutor.id,
-                    full_name: tutor.name,
-                    avatar_url: tutor.image,
-                    rating: tutor.rating,
-                    reviews_count: tutor.reviewCount,
-                    subjects: `${tutor.subject} (${tutor.grade})`,
-                    gender: tutor.gender,
-                    degree: tutor.degree,
-                    city: `${tutor.area}, ${tutor.city}`,
-                    hourly_rate: tutor.budget,
-                    phone: "923215872222"
+                    id: tutorId,
+                    slug: null,
+                    full_name: String(tutor.name),
+                    headline: `${tutor.subject} (${tutor.grade})`,
+                    avatar_url: tutor.image ?? null,
+                    city: tutor.city ?? null,
+                    area: tutor.area ?? null,
+                    teaching_mode: null,
+                    hourly_rate_pkr: null,
+                    experience_years: null,
+                    rating_avg: tutor.rating ?? null,
+                    rating_count: tutor.reviewCount ?? null,
+                    subject_labels: [String(tutor.subject)],
+                    plan_code: null,
                   };
 
                   return (
-                    <TutorCard 
-                      key={tutorId} 
-                      tutor={normalizedTutor} 
-                      isSaved={isSaved} 
-                      onToggleBookmark={toggleBookmark} 
+                    <TutorCard
+                      key={tutorId}
+                      tutor={normalizedTutor}
+                      initiallySaved={isSaved}
                     />
                   );
                 })

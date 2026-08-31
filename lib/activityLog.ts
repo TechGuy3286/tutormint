@@ -37,6 +37,12 @@ export type ActivityEvent =
   | 'message_sent'
   | 'shortlist_added'
   | 'shortlist_removed'
+  // T4 growth instrumentation. Both are written to the VIEWER's own timeline
+  // and never carry personal data about anyone else: profile_viewed records
+  // which tutor was opened, search_performed records the filters used and how
+  // many results came back -- never the free-text query.
+  | 'profile_viewed'
+  | 'search_performed'
   | 'plan_purchased'
   | 'plan_granted'
   | 'plan_revoked'

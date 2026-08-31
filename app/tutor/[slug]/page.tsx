@@ -1,402 +1,540 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { use } from 'react'
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
+import { MapPin, Building2, Briefcase, Wallet, Lock, Phone, MessageCircle } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlements'
+import { logActivity } from '@/lib/activityLog'
+import BadgeRow from '@/components/badges/BadgeRow'
+import FeaturedTag from '@/components/badges/FeaturedTag'
+import SecureDocumentPreview from '@/components/SecureDocumentPreview'
+import ProfileActions from './ProfileActions'
 
-export default function PublicTutorProfile({ params }: { params: Promise<{ slug: string }> }) {
-  const resolvedParams = use(params)
-  const supabase = createClient()
+// The public tutor profile. Server component, results in the HTML.
+//
+// Everything a search engine and a parent need is rendered on the server:
+// name, headline, subjects, area, experience, reviews. The only client pieces
+// are the shortlist/demo buttons and the sign-in modal.
+//
+// Contact details are the one thing this page is careful about. They are not
+// in tutor_public_page() at all -- that function's column list is the
+// allowlist -- so they cannot leak into the HTML by accident. When the viewer
+// is entitled to them, they are fetched separately, after getEntitlements()
+// has said yes.
 
-  const [loading, setLoading] = useState(true)
-  const [showSecureModal, setShowSecureModal] = useState(false)
-  const [isVerifiedProfile, setIsVerifiedProfile] = useState(false)
-  
-  const [tutorInfo, setTutorInfo] = useState({
-    fullName: resolvedParams.slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-    title: "Expert O/A Level & Academic Tutor",
-    area: "DHA Phase 5, Lahore",
-    city: "Lahore",
-    specialty: "Mathematics & Physics",
-    experience: "Verified Teaching Experience",
-    availableTime: "Flexible Schedule",
-    availabilityList: [] as { day: string; timeSlot: string }[],
-    demoRating: "4.9 ★",
-    methodRating: "4.8 ★",
-    earnedJobs: 12,
-    profileImage: "",
-    coverPhoto: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
-    videoIntroUrl: "",
-    specialtyList: [] as { subject: string; level: string }[],
-    degrees: [
-      { title: "Academic Degree", institute: "Lahore", year: "2022" }
-    ],
-    certifications: [] as { title: string; issuer: string; year: string }[],
-    verifications: {
-      video: "Pending Review ⏳",
-      cnic: "Pending NADRA Check ❌",
-      degree: "Pending Audit ⚡"
-    }
-  })
+export const dynamic = 'force-dynamic'
 
-  useEffect(() => {
-    const fetchTutorFromSupabase = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('tutor_profiles')
-          .select('*')
+type Params = Promise<{ slug: string }>
 
-        if (error) {
-          console.error("Error fetching tutor profile from Supabase:", error.message)
-          setLoading(false)
-          return
-        }
+type PublicTutor = {
+  id: string
+  slug: string
+  full_name: string
+  headline: string | null
+  bio: string | null
+  avatar_url: string | null
+  city: string | null
+  area: string | null
+  teaching_mode: string | null
+  online_platforms: string[] | null
+  gender: string | null
+  hourly_rate_pkr: number | null
+  experience_years: number | null
+  degrees: string[] | null
+  video_youtube_id: string | null
+  video_status: string | null
+  rating_avg: string | number | null
+  rating_count: number | null
+  created_at: string
+  plan_code: string | null
+  subjects: { master_id: number; category: string; level: string; subject: string | null }[]
+  slots: { id: string; text: string; booked: boolean }[]
+  reviews: { id: string; rating: number; comment: string | null; created_at: string; reviewer: string }[]
+  degree_documents: { id: string; label: string | null }[]
+}
 
-        if (data && data.length > 0) {
-          const matched = data.find((p: any) => {
-            const nameSlug = (p.full_name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-            return nameSlug === resolvedParams.slug;
-          })
+async function loadTutor(slug: string): Promise<PublicTutor | null> {
+  const supabase = await createClient()
+  const { data } = await supabase.rpc('tutor_public_page', { p_slug: slug })
+  const row = (data as PublicTutor[] | null)?.[0]
+  return row ?? null
+}
 
-          if (matched) {
-            const hasPicture = Boolean(matched.avatar_url);
-            const hasCnic = Boolean(matched.cnic_front_url);
+export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  const { slug } = await params
+  const tutor = await loadTutor(slug)
+  if (!tutor) return { title: 'Tutor not found | TutorMint' }
 
-            setIsVerifiedProfile(hasPicture && hasCnic);
+  const subjects = Array.from(
+    new Set(tutor.subjects.map((s) => s.subject ?? s.level).filter(Boolean)),
+  ).slice(0, 3)
 
-            setTutorInfo({
-              fullName: matched.full_name || resolvedParams.slug,
-              title: matched.specialty_subjects ? `Expert ${matched.specialty_subjects} Tutor` : "Expert Academic Tutor",
-              area: matched.area_name || "DHA Phase 5",
-              city: matched.city || "Lahore",
-              specialty: matched.specialty_subjects || "General Academic",
-              experience: "Verified Teaching Experience",
-              availableTime: matched.teaching_mode ? `Mode: ${matched.teaching_mode}` : "Flexible Schedule",
-              availabilityList: matched.availability_list || [],
-              demoRating: "4.9 ★",
-              methodRating: "4.8 ★",
-              earnedJobs: 12,
-              profileImage: matched.avatar_url || "",
-              coverPhoto: matched.cover_image_url || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
-              videoIntroUrl: matched.video_intro_url || "",
-              specialtyList: matched.specialty_list || [],
-              degrees: matched.degrees && matched.degrees.length > 0 ? matched.degrees : [{ title: "Verified Degree", institute: matched.city || "Lahore", year: "2021" }],
-              certifications: matched.certifications || [],
-              verifications: {
-                video: matched.video_intro_url ? "Approved & Verified ✓" : "Pending Optional Video",
-                cnic: hasCnic ? "NADRA Verified ✓" : "Pending NADRA Check ❌",
-                degree: matched.degrees && matched.degrees.length > 0 ? "Physical Degree Audited ✓" : "Pending Audit"
-              }
-            })
-          }
-        }
-      } catch (err) {
-        console.error("Supabase fetch exception:", err)
-      } finally {
-        setLoading(false)
+  const subjectText = subjects.length > 0 ? subjects.join(', ') : 'Verified'
+  const city = tutor.city ?? 'Pakistan'
+  const title = `${tutor.full_name} — ${subjectText} tutor in ${city} | TutorMint`
+  const description =
+    tutor.headline ??
+    `${tutor.full_name} teaches ${subjectText} in ${city}. Verified profile on TutorMint.`
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/tutor/${tutor.slug}` },
+    openGraph: {
+      title,
+      description,
+      type: 'profile',
+      images: tutor.avatar_url ? [tutor.avatar_url] : undefined,
+    },
+  }
+}
+
+/**
+ * Record the view for the tutor's dashboard teaser.
+ *
+ * Written with the service-role client because profile_views is admin-read
+ * only: if tutors could select their own rows with the anon key, the
+ * "anonymised until you upgrade" teaser would be decoration, since viewer_id
+ * would be one query away.
+ *
+ * The search context comes from the Referer when it is one of our own browse
+ * URLs -- that is what turns the teaser from "someone viewed you" into "a
+ * parent searching O Level Physics in Gulberg viewed you".
+ */
+async function recordView(tutorId: string, viewerId: string | null, viewerRole: string | null) {
+  const admin = createAdminClient()
+  if (!admin) return
+  if (viewerId === tutorId) return // your own profile is not a lead
+
+  if (viewerId) {
+    // One row per viewer per hour, so a refresh is not a new "view".
+    const hourAgo = new Date(Date.now() - 3600_000).toISOString()
+    const { data: recent } = await admin
+      .from('profile_views')
+      .select('id')
+      .eq('tutor_id', tutorId)
+      .eq('viewer_id', viewerId)
+      .gt('created_at', hourAgo)
+      .maybeSingle()
+    if (recent) return
+  }
+
+  let searchSubject: string | null = null
+  let searchArea: string | null = null
+  let searchCity: string | null = null
+
+  try {
+    const referer = (await headers()).get('referer')
+    if (referer) {
+      const url = new URL(referer)
+      if (url.pathname.startsWith('/browse/')) {
+        searchSubject = url.searchParams.get('subject')
+        searchArea = url.searchParams.get('area')
+        searchCity = url.searchParams.get('city')
       }
     }
+  } catch {
+    // A malformed Referer must never cost us the view row.
+  }
 
-    fetchTutorFromSupabase()
-  }, [resolvedParams.slug, supabase])
+  await admin.from('profile_views').insert({
+    tutor_id: tutorId,
+    viewer_id: viewerId,
+    viewer_role: viewerRole,
+    search_subject: searchSubject,
+    search_area: searchArea,
+    search_city: searchCity,
+    source: searchSubject || searchArea || searchCity ? 'search' : 'direct',
+  })
+}
 
-  const getEmbedUrl = (url: string) => {
-    if (!url) return "";
-    if (url.includes("embed/")) return url;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return match && match[2].length === 11 ? `https://www.youtube.com/embed/${match[2]}` : url;
-  };
+export default async function TutorPublicProfile({ params }: { params: Params }) {
+  const { slug } = await params
+  const tutor = await loadTutor(slug)
+  if (!tutor) notFound()
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Loading Verified Tutor Profile...
-        </div>
-      </div>
-    )
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const ent = user ? await getEntitlements(user.id) : null
+  const canViewContact = !!ent?.canViewContact
+  const isSelf = user?.id === tutor.id
+
+  await recordView(tutor.id, user?.id ?? null, ent?.role ?? null)
+
+  if (user && !isSelf) {
+    await logActivity({
+      userId: user.id,
+      event: 'profile_viewed',
+      targetType: 'tutor_profile',
+      targetId: tutor.id,
+    })
+  }
+
+  // Only fetched once entitlements have allowed it.
+  //
+  // The canonical number is profiles.phone_number -- that is what the OTP
+  // route writes when a tutor verifies ownership -- with profiles.whatsapp
+  // alongside it. tutor_profiles still carries the pre-migration copies, so
+  // they are the fallback for rows that predate T3.
+  let contact: { phone: string | null; whatsapp: string | null } | null = null
+  if (canViewContact || isSelf) {
+    const admin = createAdminClient()
+    if (admin) {
+      const [{ data: p }, { data: tp }] = await Promise.all([
+        admin.from('profiles').select('phone_number, whatsapp').eq('id', tutor.id).maybeSingle(),
+        admin
+          .from('tutor_profiles')
+          .select('phone_number, whatsapp_number')
+          .eq('id', tutor.id)
+          .maybeSingle(),
+      ])
+      const phone = (p?.phone_number as string) || (tp?.phone_number as string) || null
+      const whatsapp = (p?.whatsapp as string) || (tp?.whatsapp_number as string) || null
+      contact = { phone, whatsapp }
+    }
+  }
+
+  // "Unlocked but empty" and "locked" are different things, and showing the
+  // upgrade prompt to someone who has already paid would be selling them
+  // something they own. A Featured parent is told the tutor has no number yet.
+  const contactUnlocked = canViewContact || isSelf
+  const hasContact = !!(contact?.phone || contact?.whatsapp)
+
+  let saved = false
+  if (user) {
+    const { data } = await supabase
+      .from('shortlists')
+      .select('tutor_id')
+      .eq('tutor_id', tutor.id)
+      .maybeSingle()
+    saved = !!data
+  }
+
+  const badges = badgesForPlan(tutor.plan_code, true)
+  const rating = Number(tutor.rating_avg ?? 0)
+  const reviews = tutor.rating_count ?? 0
+
+  // Subjects grouped by the level they are taught at.
+  const byLevel = new Map<string, string[]>()
+  for (const s of tutor.subjects) {
+    const key = `${s.category} — ${s.level}`
+    if (!byLevel.has(key)) byLevel.set(key, [])
+    if (s.subject) byLevel.get(key)!.push(s.subject)
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] pb-16 font-sans text-[#334155]">
-      
-      {/* PUBLIC HEADER */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="text-lg font-black text-[#0F172A] tracking-tight flex items-center gap-2">
-            <span className="text-[#d60008]">TutorMint</span> Network
-          </Link>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setShowSecureModal(true)}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
-            >
-              💬 Request Secure Connection
-            </button>
-            <Link 
-              href="/tutor/login" 
-              className="px-4 py-2 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl shadow-xs transition-all"
-            >
-              Tutor Login
-            </Link>
-          </div>
-        </div>
-      </header>
+    <main className="min-h-screen bg-[#F8FAFC] px-4 pb-28 pt-6 text-[#334155] sm:px-6 sm:pb-8 lg:px-8">
+      <div className="mx-auto max-w-3xl space-y-4">
+        <Link
+          href="/browse/tutors"
+          className="inline-flex min-h-[44px] items-center text-xs font-bold text-[#d60008] hover:underline"
+        >
+          ← All tutors
+        </Link>
 
-      {/* COVER PHOTO HEADER */}
-      <div className="w-full h-48 sm:h-64 bg-slate-900 relative overflow-hidden">
-        <img 
-          src={tutorInfo.coverPhoto} 
-          alt="Cover" 
-          className="w-full h-full object-cover opacity-60"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent"></div>
-      </div>
+        {/* ------------------------------------------------------- header --- */}
+        <section className="relative rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+          {isFeaturedPlan(tutor.plan_code) && (
+            <FeaturedTag className="absolute right-3 top-3 sm:right-4 sm:top-4" />
+          )}
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 -mt-20 relative z-10 space-y-6">
-        
-        {/* BREADCRUMBS */}
-        <nav className="flex items-center space-x-2 text-xs font-bold text-gray-500 bg-white px-5 py-3.5 rounded-2xl border border-gray-200 shadow-sm">
-          <Link href="/" className="hover:text-[#0F172A] transition-colors">Home</Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-[#059669]">{tutorInfo.fullName}</span>
-        </nav>
-
-        {/* VERIFICATION WARNING BANNER IF INCOMPLETE */}
-        {!isVerifiedProfile && (
-          <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center justify-between gap-4 text-xs font-medium text-amber-900 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="text-xl">⚠️</span>
-              <div>
-                <strong className="font-bold">Profile Verification Incomplete:</strong> This database record is missing required verifications. Parents cannot discover unverified profiles in search results.
+          <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+            {tutor.avatar_url ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={tutor.avatar_url}
+                alt={tutor.full_name}
+                className="h-24 w-24 shrink-0 rounded-full border-2 border-gray-100 object-cover sm:h-36 sm:w-36"
+              />
+            ) : (
+              <div
+                aria-hidden="true"
+                className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-2 border-gray-100 bg-[#F8FAFC] text-2xl font-black text-[#0F172A] sm:h-36 sm:w-36 sm:text-4xl"
+              >
+                {tutor.full_name
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((w) => w[0])
+                  .join('')
+                  .toUpperCase()}
               </div>
-            </div>
-            <Link href="/tutor/login" className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl shrink-0 shadow-xs">
-              Sign In to Update ➔
-            </Link>
-          </div>
-        )}
+            )}
 
-        {/* MAIN PROFILE CARD */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-gray-200 space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-            <div className="flex items-center gap-4">
-              {tutorInfo.profileImage ? (
-                <img 
-                  src={tutorInfo.profileImage} 
-                  alt={tutorInfo.fullName} 
-                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-4 border-white shadow-lg shrink-0"
-                />
-              ) : (
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-3xl font-black border-4 border-white shadow-lg shrink-0">
-                  {tutorInfo.fullName.charAt(0)}
-                </div>
+            <div className="min-w-0 flex-1 space-y-2">
+              <h1 className="text-xl font-black leading-tight text-[#0F172A] sm:text-2xl">
+                {tutor.full_name}
+              </h1>
+              {tutor.headline && (
+                <p className="text-sm font-bold text-[#059669]">{tutor.headline}</p>
               )}
-              <div className="space-y-1">
-                <span className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border ${isVerifiedProfile ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-amber-700 bg-amber-50 border-amber-200'}`}>
-                  {isVerifiedProfile ? "Verified Tutor Profile ✓ (Searchable)" : "Verification Pending ⏳ (Not Searchable)"}
-                </span>
-                <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] mt-1">{tutorInfo.fullName}</h1>
-                <p className="text-xs sm:text-sm font-semibold text-slate-600">{tutorInfo.title}</p>
-                <p className="text-xs text-gray-400">📍 {tutorInfo.area}, {tutorInfo.city}</p>
+              {badges.length > 0 && <BadgeRow badges={badges} size="md" showLabel />}
+
+              <p className="text-xs font-bold text-[#334155]">
+                {reviews > 0 ? (
+                  <>
+                    ★ {rating.toFixed(1)}{' '}
+                    <span className="font-normal text-gray-400">({reviews} reviews)</span>
+                  </>
+                ) : (
+                  <span className="font-normal text-gray-400">No reviews yet</span>
+                )}
+              </p>
+
+              <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-2">
+                <p className="flex items-center gap-2 text-xs">
+                  <MapPin size={14} className="text-gray-400" />
+                  {tutor.area ?? 'Area not set'}
+                </p>
+                <p className="flex items-center gap-2 text-xs">
+                  <Building2 size={14} className="text-gray-400" />
+                  {tutor.city ?? 'Online'}
+                  {tutor.teaching_mode ? ` · ${tutor.teaching_mode}` : ''}
+                </p>
+                <p className="flex items-center gap-2 text-xs">
+                  <Briefcase size={14} className="text-gray-400" />
+                  {tutor.experience_years
+                    ? `${tutor.experience_years} years experience`
+                    : 'New to TutorMint'}
+                </p>
+                {tutor.hourly_rate_pkr ? (
+                  <p className="flex items-center gap-2 text-xs font-black text-[#0F172A]">
+                    <Wallet size={14} className="text-gray-400" />
+                    Rs. {tutor.hourly_rate_pkr.toLocaleString('en-PK')} / month
+                  </p>
+                ) : null}
               </div>
             </div>
-
-            <button 
-              onClick={() => setShowSecureModal(true)}
-              className="w-full sm:w-auto px-6 py-3.5 bg-[#059669] hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all text-center whitespace-nowrap cursor-pointer"
-            >
-              🔒 Request Secure Connection
-            </button>
           </div>
+        </section>
 
-          {/* QUICK METRICS GRID */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-gray-100 text-center">
-            <div className="p-3 bg-[#F8FAFC] rounded-2xl border border-gray-100">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">Experience</span>
-              <p className="text-xs font-black text-[#0F172A] mt-0.5">{tutorInfo.experience}</p>
+        {/* ------------------------------------------------------ contact --- */}
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+          <h2 className="text-sm font-black text-[#0F172A]">Contact</h2>
+          {contactUnlocked && !hasContact ? (
+            <p className="mt-3 rounded-xl bg-[#F8FAFC] p-4 text-xs text-gray-500">
+              {isSelf
+                ? 'You have not verified a phone number yet. Add one from your dashboard so Featured parents can reach you.'
+                : 'This tutor has not added a phone number yet. Request a demo and they will reply here.'}
+            </p>
+          ) : contact && hasContact ? (
+            <div className="space-y-2 pt-3">
+              {contact.phone && (
+                <a
+                  href={`tel:${contact.phone}`}
+                  className="flex min-h-[44px] items-center gap-2 text-sm font-bold text-[#0F172A]"
+                >
+                  <Phone size={16} className="text-gray-400" />
+                  {contact.phone}
+                </a>
+              )}
+              {contact.whatsapp && (
+                <a
+                  href={`https://wa.me/${contact.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                    `Assalam-o-Alaikum ${tutor.full_name}, I found your profile on TutorMint and would like to discuss tuition.`,
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-h-[44px] items-center gap-2 text-sm font-bold text-[#059669]"
+                >
+                  <MessageCircle size={16} />
+                  WhatsApp {contact.whatsapp}
+                </a>
+              )}
+              {isSelf && (
+                <p className="text-[11px] text-gray-400">
+                  This is your own profile. Featured parents see these details.
+                </p>
+              )}
             </div>
-            <div className="p-3 bg-[#F8FAFC] rounded-2xl border border-gray-100">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">Earned Jobs</span>
-              <p className="text-xs font-black text-[#059669] mt-0.5">{tutorInfo.earnedJobs} Tuitions Completed</p>
+          ) : (
+            <div className="mt-3 flex flex-col gap-3 rounded-xl bg-[#F8FAFC] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="flex items-center gap-2 text-xs font-semibold text-gray-500">
+                <Lock size={14} />
+                Phone and WhatsApp are hidden
+              </p>
+              <Link
+                href="/parent/packages"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#F59E0B] px-4 text-xs font-black text-[#0F172A]"
+              >
+                Unlock with Featured
+              </Link>
             </div>
-            <div className="p-3 bg-[#F8FAFC] rounded-2xl border border-gray-100">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">Demo Rating</span>
-              <p className="text-xs font-black text-[#0F172A] mt-0.5">{tutorInfo.demoRating}</p>
-            </div>
-            <div className="p-3 bg-[#F8FAFC] rounded-2xl border border-gray-100">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">Teaching Rating</span>
-              <p className="text-xs font-black text-[#0F172A] mt-0.5">{tutorInfo.methodRating}</p>
-            </div>
-          </div>
-        </div>
+          )}
+        </section>
 
-        {/* VERIFICATION BADGES FLOW */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Audited Verification Badges</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className={`p-4 rounded-2xl space-y-1 border ${isVerifiedProfile ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'}`}>
-              <span className={`text-[10px] font-bold uppercase ${isVerifiedProfile ? 'text-emerald-700' : 'text-gray-500'}`}>Video Interview</span>
-              <p className={`text-xs font-black ${isVerifiedProfile ? 'text-emerald-900' : 'text-gray-700'}`}>{tutorInfo.verifications.video}</p>
-            </div>
-            <div className={`p-4 rounded-2xl space-y-1 border ${isVerifiedProfile ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'}`}>
-              <span className={`text-[10px] font-bold uppercase ${isVerifiedProfile ? 'text-emerald-700' : 'text-gray-500'}`}>CNIC Status</span>
-              <p className={`text-xs font-black ${isVerifiedProfile ? 'text-emerald-900' : 'text-gray-700'}`}>{tutorInfo.verifications.cnic}</p>
-            </div>
-            <div className={`p-4 rounded-2xl space-y-1 border ${isVerifiedProfile ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'}`}>
-              <span className={`text-[10px] font-bold uppercase ${isVerifiedProfile ? 'text-emerald-700' : 'text-gray-500'}`}>Academic Degree</span>
-              <p className={`text-xs font-black ${isVerifiedProfile ? 'text-emerald-900' : 'text-gray-700'}`}>{tutorInfo.verifications.degree}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* SPECIALTY SUBJECTS */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Specialty Subject(s) & Expertise Levels</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {tutorInfo.specialtyList && tutorInfo.specialtyList.length > 0 ? (
-              tutorInfo.specialtyList.map((item: any, idx: number) => (
-                <div key={idx} className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#0F172A]">{item.subject}</span>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-extrabold rounded-lg border border-emerald-200">
-                    Level: {item.level}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl text-xs font-bold text-[#0F172A]">
-                {tutorInfo.specialty}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* AVAILABLE TIMINGS & BOOKING SLOTS */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Available Timings & Booking Slots</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {tutorInfo.availabilityList && tutorInfo.availabilityList.length > 0 ? (
-              tutorInfo.availabilityList.map((slot: any, idx: number) => (
-                <div key={idx} className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#0F172A]">📅 {slot.day}</span>
-                  <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                    {slot.timeSlot}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl text-xs text-gray-500 font-medium">
-                {tutorInfo.availableTime} — Flexible slots for home tuition and online tutoring sessions.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* TEACHING STYLE & VIDEO INTRO */}
-        {tutorInfo.videoIntroUrl && (
-          <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Teaching Style & Video Introduction</h3>
-            <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-md">
-              <iframe 
-                src={getEmbedUrl(tutorInfo.videoIntroUrl)} 
-                title="Tutor Introduction Video" 
-                className="w-full h-full border-0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowFullScreen 
+        {/* -------------------------------------------------------- video --- */}
+        {tutor.video_youtube_id && (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+            <h2 className="pb-3 text-sm font-black text-[#0F172A]">Video introduction</h2>
+            <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${tutor.video_youtube_id}`}
+                title={`${tutor.full_name} introduction`}
+                allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full"
               />
             </div>
-          </div>
+          </section>
         )}
 
-        {/* QUALIFICATIONS & DEGREES */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Academic Qualifications & Degrees</h3>
-          <div className="space-y-3">
-            {tutorInfo.degrees.map((deg: any, idx: number) => (
-              <div key={idx} className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl flex justify-between items-center text-xs">
-                <div>
-                  <strong className="text-[#0F172A] text-sm">{deg.title}</strong>
-                  <p className="text-gray-600 mt-0.5">{deg.institute} • Year: {deg.year}</p>
-                </div>
-                <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-full text-[10px]">Audited ✓</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* ---------------------------------------------------------- bio --- */}
+        {tutor.bio && (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+            <h2 className="pb-2 text-sm font-black text-[#0F172A]">About</h2>
+            <p className="whitespace-pre-line text-xs leading-relaxed">{tutor.bio}</p>
+          </section>
+        )}
 
-        {/* CERTIFICATIONS */}
-        {tutorInfo.certifications && tutorInfo.certifications.length > 0 && (
-          <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Certifications</h3>
+        {/* ----------------------------------------------------- subjects --- */}
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+          <h2 className="pb-3 text-sm font-black text-[#0F172A]">Subjects and levels</h2>
+          {byLevel.size === 0 ? (
+            <p className="text-xs text-gray-400">Subjects are being added.</p>
+          ) : (
             <div className="space-y-3">
-              {tutorInfo.certifications.map((cert: any, idx: number) => (
-                <div key={idx} className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl flex justify-between items-center text-xs">
-                  <div>
-                    <strong className="text-[#0F172A] text-sm">{cert.title}</strong>
-                    <p className="text-gray-600 mt-0.5">{cert.issuer} • Year: {cert.year}</p>
+              {[...byLevel.entries()].map(([level, subjects]) => (
+                <div key={level} className="space-y-1.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                    {level}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {subjects.length === 0 ? (
+                      <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold ring-1 ring-gray-200">
+                        {level.split(' — ')[1] ?? level}
+                      </span>
+                    ) : (
+                      subjects.map((s) => (
+                        <span
+                          key={s}
+                          className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold ring-1 ring-gray-200"
+                        >
+                          {s}
+                        </span>
+                      ))
+                    )}
                   </div>
-                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-full text-[10px]">Verified ✓</span>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </section>
 
-        {/* MASKED CONTACT NOTICE */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-[#0F172A]">Direct Contact & Personal Information</h3>
-            <p className="text-xs text-gray-500">🔒 Personal phone numbers and WhatsApp links are securely locked to protect tutor privacy.</p>
-          </div>
-          <span className="px-3 py-1.5 bg-slate-100 text-[#0F172A] text-xs font-bold rounded-xl whitespace-nowrap">
-            Protected by TutorMint Secure Gateway
-          </span>
-        </div>
+        {/* ------------------------------------------------------ degrees --- */}
+        {(tutor.degrees?.length ?? 0) > 0 || tutor.degree_documents.length > 0 ? (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+            <h2 className="pb-3 text-sm font-black text-[#0F172A]">Qualifications</h2>
+            <ul className="space-y-1.5">
+              {(tutor.degrees ?? []).map((d) => (
+                <li key={d} className="text-xs font-semibold text-[#0F172A]">
+                  {d}
+                </li>
+              ))}
+            </ul>
 
-        {/* BOTTOM CTA */}
-        <div className="bg-[#0F172A] text-white p-8 rounded-3xl shadow-xl text-center space-y-4">
-          <h2 className="text-xl font-black">Hire {tutorInfo.fullName} Securely</h2>
-          <p className="text-xs text-gray-300 max-w-md mx-auto">
-            All communications and connection requests are managed safely through our secure in-platform messaging system with 0% commission.
-          </p>
-          <button 
-            onClick={() => setShowSecureModal(true)}
-            className="inline-block px-8 py-4 bg-[#d60008] hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all cursor-pointer"
-          >
-            Request Secure Connection ➔
-          </button>
-        </div>
+            {tutor.degree_documents.length > 0 && (
+              <div className="pt-4">
+                <p className="pb-2 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                  Certificates
+                </p>
+                {user ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {tutor.degree_documents.map((doc) => (
+                      <SecureDocumentPreview
+                        key={doc.id}
+                        documentId={doc.id}
+                        alt={doc.label ?? 'Degree certificate'}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-xl bg-[#F8FAFC] p-3 text-xs text-gray-500">
+                    <Link href="/login" className="font-bold text-[#d60008] hover:underline">
+                      Sign in
+                    </Link>{' '}
+                    to view {tutor.degree_documents.length} uploaded certificate
+                    {tutor.degree_documents.length === 1 ? '' : 's'}.
+                  </p>
+                )}
+                <p className="pt-2 text-[10px] leading-relaxed text-gray-400">
+                  Certificates are shown as watermarked previews and are protected against casual
+                  copying. Originals are never published.
+                </p>
+              </div>
+            )}
+          </section>
+        ) : null}
 
+        {/* ------------------------------------------------- availability --- */}
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+          <h2 className="pb-3 text-sm font-black text-[#0F172A]">Availability</h2>
+          {tutor.slots.length === 0 ? (
+            <p className="text-xs text-gray-400">
+              No fixed slots published. Request a demo and agree a time directly.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {tutor.slots.map((s) => (
+                <span
+                  key={s.id}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${
+                    s.booked
+                      ? 'bg-gray-100 text-gray-400 ring-gray-200 line-through'
+                      : 'bg-[#F8FAFC] text-[#0F172A] ring-gray-200'
+                  }`}
+                >
+                  {s.text}
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ------------------------------------------------------ reviews --- */}
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+          <h2 className="pb-3 text-sm font-black text-[#0F172A]">
+            Reviews {reviews > 0 ? `(${reviews})` : ''}
+          </h2>
+          {tutor.reviews.length === 0 ? (
+            <p className="text-xs text-gray-400">
+              No written reviews yet. Reviews are left by parents after a tuition.
+            </p>
+          ) : (
+            <ul className="space-y-4">
+              {tutor.reviews.map((r) => (
+                <li key={r.id} className="space-y-1 border-b border-gray-100 pb-3 last:border-0">
+                  <p className="text-xs font-black text-[#0F172A]">
+                    ★ {Number(r.rating).toFixed(1)}{' '}
+                    <span className="font-semibold text-gray-500">· {r.reviewer}</span>
+                  </p>
+                  {r.comment && <p className="text-xs leading-relaxed">{r.comment}</p>}
+                  <p className="text-[10px] text-gray-400">
+                    {new Date(r.created_at).toLocaleDateString('en-PK', {
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
-      {/* SECURE CONNECTION MODAL */}
-      {showSecureModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white p-8 rounded-3xl max-w-md w-full space-y-6 shadow-2xl border border-gray-200 text-center">
-            <span className="text-3xl">🛡️</span>
-            <h3 className="text-lg font-black text-[#0F172A]">Secure In-Platform Connection</h3>
-            <p className="text-xs text-gray-600 font-medium leading-relaxed">
-              To protect tutor privacy and prevent unauthorized external contact, direct phone numbers are hidden. Please submit a connection request through your dashboard to start chatting securely.
-            </p>
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setShowSecureModal(false)}
-                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-[#0F172A] font-bold text-xs uppercase rounded-xl transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <a
-                href="/tutor/login"
-                className="flex-1 py-3 bg-[#059669] hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all text-center flex items-center justify-center"
-              >
-                Go to Portal ➔
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Sticky primary actions on mobile, inline from sm. */}
+      <ProfileActions
+        tutorId={tutor.id}
+        tutorName={tutor.full_name}
+        signedIn={!!user}
+        isSelf={isSelf}
+        initiallySaved={saved}
+      />
     </main>
   )
 }

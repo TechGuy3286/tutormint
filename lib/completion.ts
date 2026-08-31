@@ -12,11 +12,16 @@ import {
 } from '@/lib/profileChecklist'
 
 /**
- * Recalculates the completion percentage for a user from live data and writes
- * it to profiles.profile_completion. Returns the full checklist so callers can
- * hand it straight back to the client.
+ * Works out the checklist from live data WITHOUT writing anything.
+ *
+ * Split out of recomputeCompletion so a page can show a tutor where they stand
+ * without persisting a side effect. That mattered: the dashboard used to call
+ * the writing version on every render, which meant simply opening the
+ * dashboard could rewrite profile_completion and, because listing is keyed on
+ * that column, drop a tutor out of the public directory as a side effect of
+ * looking at a page. Reads read; writes write.
  */
-export async function recomputeCompletion(userId: string): Promise<Completion | null> {
+export async function computeCompletion(userId: string): Promise<Completion | null> {
   const supabase = await createClient()
 
   const { data: profile } = await supabase
@@ -61,6 +66,21 @@ export async function recomputeCompletion(userId: string): Promise<Completion | 
     completion = calculateParentCompletion({ profile })
   }
 
+  return completion
+}
+
+/**
+ * Recalculates and PERSISTS profiles.profile_completion.
+ *
+ * Called from routes that write profile data, so the stored percentage can
+ * never drift from what the checklist says. Never call this from a page
+ * render.
+ */
+export async function recomputeCompletion(userId: string): Promise<Completion | null> {
+  const completion = await computeCompletion(userId)
+  if (!completion) return null
+
+  const supabase = await createClient()
   await supabase
     .from('profiles')
     .update({ profile_completion: completion.percent })

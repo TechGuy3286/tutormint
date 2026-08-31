@@ -1,580 +1,271 @@
-'use client'
-
-import { useState, useEffect, Suspense, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import TutorCard from '@/components/TutorCard'
-import { fetchLevels, fetchGradesForLevel, fetchSubjectsForGrade } from '@/lib/taxonomy'
+import { createClient } from '@/lib/supabase/server'
+import { getEntitlements } from '@/lib/entitlements'
+import { logActivity } from '@/lib/activityLog'
+import TutorCard, { type TutorCardData, type CardViewer } from '@/components/TutorCard'
+import AdSlot from '@/components/ads/AdSlot'
+import TutorFilterBar, { type FilterValues } from './TutorFilterBar'
 
-const CITIES = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Sialkot', 'Gujranwala']
+// /browse/tutors -- a server component, on purpose.
+//
+// This page and /tutor/[slug] are the platform's organic-search surface.
+// CLAUDE.md: results must be present in the HTML, and a client-side
+// "Loading directory..." fetch is not acceptable. Everything below is
+// rendered on the server; the only client code on the page is the filter bar,
+// the shortlist/demo buttons and the sign-in modal.
+//
+// Ranking is not done here either. rank_tutors() in the database applies the
+// whole algorithm -- tier, then location, then Bayesian rating, then the daily
+// rotation -- and this page renders the rows in the order it got them.
 
-const CITY_TO_AREAS: Record<string, string[]> = {
-  'Lahore': ['Gulberg', 'DHA', 'Bahria Town', 'Model Town', 'Johar Town', 'Wapda Town', 'Faisal Town', 'Cantt', 'Garden Town', 'Shadman'],
-  'Islamabad': ['F-6', 'F-7', 'F-8', 'G-8', 'G-9', 'H-8', 'Blue Area', 'I-8'],
-  'Karachi': ['Clifton', 'PECHS', 'Gulshan-e-Iqbal', 'Defence', 'North Nazimabad', 'Korangi'],
-  'Rawalpindi': ['Saddar', 'Satellite Town', 'Bahria Town Rawalpindi', 'Chaklala'],
-  'Faisalabad': ["People's Colony", 'D-Ground', 'Madina Town', 'Sargodha Road'],
-  'Multan': ['Gulgasht Colony', 'Bosan Road', 'Shah Rukn-e-Alam', 'Mumtazabad'],
-  'Peshawar': ['University Town', 'Hayatabad', 'Saddar', 'Dabgari Gardens'],
-  'Quetta': ['Jinnah Town', 'Model Town', 'Shahbaz Town', 'Satellite Town'],
-  'Sialkot': ['Model Town', 'Paris Road', 'Cantt', 'Defence Road'],
-  'Gujranwala': ['Model Town', 'Peoples Colony', 'Satellite Town', 'Civil Lines']
+export const dynamic = 'force-dynamic'
+
+const PAGE_SIZE = 12
+const AD_EVERY = 8
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>
+
+function one(v: string | string[] | undefined): string {
+  return (Array.isArray(v) ? v[0] : v)?.trim() ?? ''
 }
 
-function PublicBrowseTutorsContent() {
-  const [tutors, setTutors] = useState<any[]>([])
-  const [filteredTutors, setFilteredTutors] = useState<any[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
-  const [searchTerm, setSearchTerm] = useState<string>('')
+function intOrNull(v: string): number | null {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null
+}
 
-  const [levelsList, setLevelsList] = useState<string[]>([])
-  const [gradesList, setGradesList] = useState<string[]>([])
-  const [subjectsList, setSubjectsList] = useState<string[]>([])
+/** Display label for a taxonomy_master id, for headings and <title>. */
+async function subjectLabel(masterId: number | null): Promise<string | null> {
+  if (!masterId) return null
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('taxonomy_master')
+    .select('level_slug, subject_slug')
+    .eq('id', masterId)
+    .maybeSingle()
+  if (!data) return null
 
-  const [levelSearch, setLevelSearch] = useState<string>('')
-  const [gradeSearch, setGradeSearch] = useState<string>('')
-  const [subjectSearch, setSubjectSearch] = useState<string>('')
+  const [level, subject] = await Promise.all([
+    supabase.from('taxonomy_levels').select('name').eq('slug', data.level_slug).maybeSingle(),
+    data.subject_slug
+      ? supabase.from('taxonomy_subjects').select('name').eq('slug', data.subject_slug).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
 
-  const [selectedLevel, setSelectedLevel] = useState<string>('')
-  const [selectedGrade, setSelectedGrade] = useState<string>('')
-  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([])
-  const [selectedCity, setSelectedCity] = useState<string>('')
-  const [selectedArea, setSelectedArea] = useState<string>('')
-  const [selectedTuitionMode, setSelectedTuitionMode] = useState<string>('')
-  const [maxMonthlyBudget, setMaxMonthlyBudget] = useState<number>(150000)
-  const [selectedSession, setSelectedSession] = useState<string>('')
-  const [selectedGender, setSelectedGender] = useState<string>('No Preference')
+  const levelName = level.data?.name ?? null
+  const subjectName = (subject.data as { name?: string } | null)?.name ?? null
+  if (subjectName && levelName) return `${levelName} ${subjectName}`
+  return subjectName ?? levelName
+}
 
-  const [savedTutorIds, setSavedTutorIds] = useState<string[]>([])
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParams
+}): Promise<Metadata> {
+  const sp = await searchParams
+  const city = one(sp.city)
+  const label = await subjectLabel(intOrNull(one(sp.subject)))
 
-  const resultsRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
-  const searchParams = useSearchParams()
+  const what = label ? `${label} tutors` : 'Verified tutors'
+  const where = city ? ` in ${city}` : ' in Pakistan'
+  const title = `${what}${where} | TutorMint`
+  const description = label
+    ? `Browse verified ${label} tutors${where}. Real profiles, verified identity, video introductions. Free to browse on TutorMint.`
+    : `Browse verified home and online tutors${where}. Real profiles, verified identity, video introductions. Free to browse on TutorMint.`
 
-  useEffect(() => {
-    const storedBookmarks = localStorage.getItem('tutormint_saved_tutors')
-    if (storedBookmarks) {
-      try { setSavedTutorIds(JSON.parse(storedBookmarks)) } catch (e) {}
+  return {
+    title,
+    description,
+    alternates: { canonical: city ? `/browse/tutors?city=${encodeURIComponent(city)}` : '/browse/tutors' },
+    openGraph: { title, description, type: 'website' },
+  }
+}
+
+export default async function BrowseTutorsPage({ searchParams }: { searchParams: SearchParams }) {
+  const sp = await searchParams
+
+  const subjectId = intOrNull(one(sp.subject))
+  const city = one(sp.city)
+  const area = one(sp.area)
+  const mode = one(sp.mode)
+  const gender = one(sp.gender)
+  const feeMin = one(sp.feeMin)
+  const feeMax = one(sp.feeMax)
+  const q = one(sp.q)
+  const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
+
+  const supabase = await createClient()
+
+  const { data: rows, error } = await supabase.rpc('rank_tutors', {
+    p_master_id: subjectId,
+    p_city: city || null,
+    p_area: area || null,
+    p_teaching_mode: mode || null,
+    p_gender: gender || null,
+    p_fee_min: intOrNull(feeMin),
+    p_fee_max: intOrNull(feeMax),
+    p_query: q || null,
+    p_limit: PAGE_SIZE,
+    p_offset: (page - 1) * PAGE_SIZE,
+  })
+
+  const tutors = (rows ?? []) as (TutorCardData & { total_count: number })[]
+  const total = tutors[0]?.total_count ?? 0
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // Who is looking. Guests get the full page -- browsing never asks for an
+  // account -- and only the transactional buttons behave differently.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  let viewer: CardViewer = {
+    signedIn: false,
+    role: null,
+    verifiedParent: false,
+    canInitiateMessage: false,
+  }
+  let saved = new Set<string>()
+
+  if (user) {
+    const ent = await getEntitlements(user.id)
+    viewer = {
+      signedIn: true,
+      role: ent.role,
+      verifiedParent: ent.audience === 'parent' && !!ent.plan,
+      canInitiateMessage: ent.canInitiateMessage,
     }
 
-    const initialQuery = searchParams.get('subject') || ''
-    if (initialQuery) {
-      setSearchTerm(initialQuery)
-    }
-    loadTaxonomyLevels()
-    fetchTutors()
-  }, [])
+    const { data: shortlisted } = await supabase.from('shortlists').select('tutor_id')
+    saved = new Set((shortlisted ?? []).map((s) => s.tutor_id as string))
 
-  const toggleBookmark = (tutorId: string, e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const updated = savedTutorIds.includes(tutorId)
-      ? savedTutorIds.filter(id => id !== tutorId)
-      : [...savedTutorIds, tutorId]
-    setSavedTutorIds(updated)
-    localStorage.setItem('tutormint_saved_tutors', JSON.stringify(updated))
+    // Instrumentation: what was searched, never who it was for beyond the
+    // member's own timeline. No free-text query is stored.
+    const filtered = !!(subjectId || city || area || mode || gender || feeMin || feeMax || q)
+    if (filtered) {
+      await logActivity({
+        userId: user.id,
+        event: 'search_performed',
+        targetType: 'browse',
+        meta: {
+          surface: 'tutors',
+          master_id: subjectId,
+          city: city || null,
+          area: area || null,
+          mode: mode || null,
+          gender: gender || null,
+          results: total,
+        },
+      })
+    }
   }
 
-  const loadTaxonomyLevels = async () => {
-    const lvls = await fetchLevels()
-    setLevelsList(lvls)
+  const label = await subjectLabel(subjectId)
+  const heading = label ? `${label} tutors` : 'Verified tutors'
+
+  const filters: FilterValues = {
+    subject: subjectId ? String(subjectId) : '',
+    subjectLabel: label,
+    city,
+    area,
+    mode,
+    gender,
+    feeMin,
+    feeMax,
+    q,
   }
 
-  useEffect(() => {
-    if (!selectedLevel) {
-      setGradesList([])
-      setSelectedGrade('')
-      setSubjectsList([])
-      return
+  const pageHref = (n: number) => {
+    const params = new URLSearchParams()
+    for (const [k, v] of Object.entries({ subject: filters.subject, city, area, mode, gender, feeMin, feeMax, q })) {
+      if (v) params.set(k, v)
     }
-    async function loadGrades() {
-      const grades = await fetchGradesForLevel(selectedLevel)
-      setGradesList(grades)
-      setSelectedGrade('')
-      setSubjectsList([])
-    }
-    loadGrades()
-  }, [selectedLevel])
-
-  useEffect(() => {
-    if (!selectedLevel || !selectedGrade) {
-      setSubjectsList([])
-      return
-    }
-    async function loadSubs() {
-      const subs = await fetchSubjectsForGrade(selectedLevel, selectedGrade)
-      setSubjectsList(subs)
-    }
-    loadSubs()
-  }, [selectedLevel, selectedGrade])
-
-  const fetchTutors = async () => {
-    setLoading(true)
-    try {
-      const [profilesRes, tutorsRes] = await Promise.all([
-        supabase.from('tutor_profiles').select('*'),
-        supabase.from('tutors').select('*')
-      ])
-
-      const combinedMap = new Map()
-      const processRecord = (record: any) => {
-        const id = record.id || record.user_id || record.tutor_id
-        if (!id) return
-        const existing = combinedMap.get(id) || {}
-        combinedMap.set(id, { ...existing, ...record })
-      }
-
-      const profiles = profilesRes.data || []
-      profiles.forEach(processRecord)
-
-      const tutorsList = tutorsRes.data || []
-      tutorsList.forEach(processRecord)
-
-      const finalTutors = Array.from(combinedMap.values())
-      setTutors(finalTutors)
-      setFilteredTutors(finalTutors)
-    } catch (err) {
-      console.error('Error fetching tutors:', err)
-    } finally {
-      setLoading(false)
-    }
+    if (n > 1) params.set('page', String(n))
+    return params.toString() ? `/browse/tutors?${params}` : '/browse/tutors'
   }
-
-  useEffect(() => {
-    let result = [...tutors]
-
-    if (searchTerm.trim()) {
-      const tokens = searchTerm.toLowerCase().split(/\s+/).filter(t => t.length > 0)
-
-      result = result.filter(t => {
-        const textBlob = Object.values(t || {})
-          .map(val => {
-            if (Array.isArray(val)) return val.join(' ')
-            if (val && typeof val === 'object') return JSON.stringify(val)
-            return String(val || '')
-          })
-          .join(' ')
-          .toLowerCase()
-        
-        if (tokens.length > 0) {
-          return tokens.every(token => textBlob.includes(token))
-        }
-        return textBlob.includes(searchTerm.toLowerCase())
-      })
-    }
-
-    if (selectedLevel) {
-      result = result.filter(t => {
-        const blob = Object.values(t || {}).join(' ').toLowerCase()
-        return blob.includes(selectedLevel.toLowerCase())
-      })
-    }
-
-    if (selectedGrade) {
-      result = result.filter(t => {
-        const blob = Object.values(t || {}).join(' ').toLowerCase()
-        return blob.includes(selectedGrade.toLowerCase())
-      })
-    }
-
-    if (selectedSubjects.length > 0) {
-      result = result.filter(t => {
-        const blob = Object.values(t || {}).join(' ').toLowerCase()
-        return selectedSubjects.some(subj => blob.includes(subj.toLowerCase()))
-      })
-    }
-
-    if (selectedCity) {
-      result = result.filter(t => {
-        const blob = Object.values(t || {}).join(' ').toLowerCase()
-        return blob.includes(selectedCity.toLowerCase())
-      })
-    }
-
-    if (selectedArea) {
-      result = result.filter(t => {
-        const blob = Object.values(t || {}).join(' ').toLowerCase()
-        return blob.includes(selectedArea.toLowerCase())
-      })
-    }
-
-    if (selectedTuitionMode) {
-      result = result.filter(t => {
-        const blob = Object.values(t || {}).join(' ').toLowerCase()
-        return blob.includes(selectedTuitionMode.toLowerCase())
-      })
-    }
-
-    if (maxMonthlyBudget) {
-      result = result.filter(t => !t.monthly_rate || Number(t.monthly_rate) <= maxMonthlyBudget)
-    }
-
-    if (selectedSession) {
-      result = result.filter(t => {
-        const blob = Object.values(t || {}).join(' ').toLowerCase()
-        return blob.includes(selectedSession.toLowerCase())
-      })
-    }
-
-    if (selectedGender && selectedGender !== 'No Preference') {
-      result = result.filter(t => {
-        const blob = Object.values(t || {}).join(' ').toLowerCase()
-        return blob.includes(selectedGender.toLowerCase())
-      })
-    }
-
-    setFilteredTutors(result)
-  }, [searchTerm, selectedLevel, selectedGrade, selectedSubjects, selectedCity, selectedArea, selectedTuitionMode, maxMonthlyBudget, selectedSession, selectedGender, tutors])
-
-  const handleClearFilters = () => {
-    setSearchTerm('')
-    setSelectedLevel('')
-    setSelectedGrade('')
-    setSelectedSubjects([])
-    setSelectedCity('')
-    setSelectedArea('')
-    setSelectedTuitionMode('')
-    setMaxMonthlyBudget(150000)
-    setSelectedSession('')
-    setSelectedGender('No Preference')
-    setFilteredTutors(tutors)
-  }
-
-  const filteredLevels = levelsList.filter(l => l.toLowerCase().includes(levelSearch.toLowerCase()))
-  const filteredGrades = gradesList.filter(g => g.toLowerCase().includes(gradeSearch.toLowerCase()))
-  const filteredSubjects = subjectsList.filter(s => s.toLowerCase().includes(subjectSearch.toLowerCase()))
-  const availableAreas = selectedCity ? (CITY_TO_AREAS[selectedCity] || []) : []
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] pt-[5px] pb-12 px-4 sm:px-12 text-[#1E293B] font-sans">
-      <div className="max-w-5xl mx-auto space-y-4">
-        
-        {/* Filter Box */}
-        <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl sm:text-2xl font-black text-[#0F172A]">Find Tutors / Teachers</h1>
-            <button
-              onClick={fetchTutors}
-              className="text-xs font-bold text-[#059669] hover:underline flex items-center gap-1 cursor-pointer"
+    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <header className="space-y-1">
+          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">
+            {heading}
+            {city ? ` in ${city}` : ''}
+          </h1>
+          <p className="text-xs text-gray-500">
+            {total === 0
+              ? 'No tutors match these filters yet.'
+              : `${total} tutor${total === 1 ? '' : 's'} · free to browse, no account needed`}
+          </p>
+        </header>
+
+        <TutorFilterBar values={filters} />
+
+        {error && (
+          <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-[#d60008]">
+            The directory could not be loaded. Please try again.
+          </p>
+        )}
+
+        {tutors.length === 0 && !error ? (
+          <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-8 text-center">
+            <p className="text-sm font-black text-[#0F172A]">Nothing matches those filters</p>
+            <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
+              Try a wider area, or clear the subject filter. Tutors appear here once their profile
+              is complete.
+            </p>
+            <Link
+              href="/browse/tutors"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white"
             >
-              🔄 Refresh Tutors
-            </button>
-          </div>
-
-          {/* Prominent Search Bar */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input 
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="🔍 Search by subject (e.g. Physics), tutor name, specialty, or location..."
-              className="flex-1 p-4 bg-amber-50/70 hover:bg-amber-50 focus:bg-white border-2 border-amber-400 focus:border-[#0F172A] rounded-2xl text-xs outline-none text-[#1E293B] font-bold transition-all shadow-md"
-            />
-          </div>
-
-          {/* Full Collapsible Filters List */}
-          <div className="space-y-1.5 pt-2">
-            
-            {/* Filter 1: Academic Level */}
-            <details className="bg-[#F8FAFC] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-[#0F172A] cursor-pointer">
-              <summary className="outline-none flex justify-between items-center">
-                <span>📚 Academic Level {selectedLevel && <span className="text-[#059669]">({selectedLevel})</span>}</span>
-                <span className="text-gray-400 font-normal">▼</span>
-              </summary>
-              <div className="pt-3 pb-1 space-y-2">
-                <input 
-                  type="text"
-                  placeholder="Search levels..."
-                  value={levelSearch}
-                  onChange={(e) => setLevelSearch(e.target.value)}
-                  className="w-full p-2 bg-white border border-gray-200 rounded-lg text-xs outline-none text-[#1E293B]"
-                />
-                <select
-                  value={selectedLevel}
-                  onChange={(e) => {
-                    setSelectedLevel(e.target.value)
-                    setSelectedGrade('')
-                  }}
-                  className="w-full p-2.5 bg-white border border-gray-200 rounded-lg text-xs outline-none font-semibold text-[#1E293B]"
-                  size={4}
-                >
-                  <option value="">All Levels</option>
-                  {filteredLevels.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
-                </select>
-              </div>
-            </details>
-
-            {/* Filter 2: Grade */}
-            <details className="bg-[#F8FAFC] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-[#0F172A] cursor-pointer">
-              <summary className="outline-none flex justify-between items-center">
-                <span>🎓 Grade {selectedGrade && <span className="text-[#059669]">({selectedGrade})</span>}</span>
-                <span className="text-gray-400 font-normal">▼</span>
-              </summary>
-              <div className="pt-3 pb-1 space-y-2">
-                <input 
-                  type="text"
-                  placeholder="Search grades..."
-                  value={gradeSearch}
-                  onChange={(e) => setGradeSearch(e.target.value)}
-                  className="w-full p-2 bg-white border border-gray-200 rounded-lg text-xs outline-none text-[#1E293B]"
-                />
-                <select
-                  value={selectedGrade}
-                  onChange={(e) => setSelectedGrade(e.target.value)}
-                  disabled={!selectedLevel}
-                  className={`w-full p-2.5 border rounded-lg text-xs outline-none font-semibold ${
-                    !selectedLevel ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white border-gray-200 text-[#1E293B]'
-                  }`}
-                  size={4}
-                >
-                  <option value="">{!selectedLevel ? 'Select Academic Level first' : 'All Grades'}</option>
-                  {filteredGrades.map(grd => <option key={grd} value={grd}>{grd}</option>)}
-                </select>
-              </div>
-            </details>
-
-            {/* Filter 3: Subjects */}
-            <details className="bg-[#F8FAFC] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-[#0F172A] cursor-pointer">
-              <summary className="outline-none flex justify-between items-center">
-                <span>📖 Subjects {selectedSubjects.length > 0 && <span className="text-[#059669]">({selectedSubjects.length} selected)</span>}</span>
-                <span className="text-gray-400 font-normal">▼</span>
-              </summary>
-              <div className="pt-3 pb-1 space-y-2">
-                <input 
-                  type="text"
-                  placeholder="Search subjects..."
-                  value={subjectSearch}
-                  onChange={(e) => setSubjectSearch(e.target.value)}
-                  className="w-full p-2 bg-white border border-gray-200 rounded-lg text-xs outline-none text-[#1E293B]"
-                />
-                {subjectsList.length === 0 ? (
-                  <p className="text-[11px] text-gray-400 italic p-2">Select an Academic Level & Grade above to view subjects.</p>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-44 overflow-y-auto pr-2 bg-white p-2.5 rounded-lg border border-gray-200">
-                    {filteredSubjects.map(sub => (
-                      <label key={sub} className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer p-1 hover:bg-slate-50 rounded transition-colors">
-                        <input 
-                          type="checkbox"
-                          checked={selectedSubjects.includes(sub)}
-                          onChange={() => {
-                            if (selectedSubjects.includes(sub)) {
-                              setSelectedSubjects(selectedSubjects.filter(s => s !== sub))
-                            } else {
-                              setSelectedSubjects([...selectedSubjects, sub])
-                            }
-                          }}
-                          className="rounded border-gray-300 text-[#d60008] focus:ring-0 w-3.5 h-3.5"
-                        />
-                        <span className="truncate">{sub}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </details>
-
-            {/* Filter 4: City */}
-            <details className="bg-[#F8FAFC] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-[#0F172A] cursor-pointer">
-              <summary className="outline-none flex justify-between items-center">
-                <span>📍 City {selectedCity && <span className="text-[#059669]">({selectedCity})</span>}</span>
-                <span className="text-gray-400 font-normal">▼</span>
-              </summary>
-              <div className="pt-3 pb-1">
-                <select
-                  value={selectedCity}
-                  onChange={(e) => {
-                    setSelectedCity(e.target.value)
-                    setSelectedArea('')
-                  }}
-                  className="w-full p-2.5 bg-white border border-gray-200 rounded-lg text-xs outline-none font-semibold text-[#1E293B]"
-                >
-                  <option value="">All Cities</option>
-                  {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </details>
-
-            {/* Filter 5: Area */}
-            <details className="bg-[#F8FAFC] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-[#0F172A] cursor-pointer">
-              <summary className="outline-none flex justify-between items-center">
-                <span>🏙️ Area {selectedArea && <span className="text-[#059669]">({selectedArea})</span>}</span>
-                <span className="text-gray-400 font-normal">▼</span>
-              </summary>
-              <div className="pt-3 pb-1">
-                <select
-                  value={selectedArea}
-                  onChange={(e) => setSelectedArea(e.target.value)}
-                  disabled={!selectedCity}
-                  className={`w-full p-2.5 border rounded-lg text-xs outline-none font-semibold ${
-                    !selectedCity ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white border-gray-200 text-[#1E293B]'
-                  }`}
-                >
-                  <option value="">{!selectedCity ? 'Select City first' : 'All Areas in City'}</option>
-                  {availableAreas.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-              </div>
-            </details>
-
-            {/* Filter 6: Mode */}
-            <details className="bg-[#F8FAFC] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-[#0F172A] cursor-pointer">
-              <summary className="outline-none flex justify-between items-center">
-                <span>💻 Mode {selectedTuitionMode && <span className="text-[#059669]">({selectedTuitionMode})</span>}</span>
-                <span className="text-gray-400 font-normal">▼</span>
-              </summary>
-              <div className="pt-3 pb-1">
-                <select
-                  value={selectedTuitionMode}
-                  onChange={(e) => setSelectedTuitionMode(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-gray-200 rounded-lg text-xs outline-none font-semibold text-[#1E293B]"
-                >
-                  <option value="">All Modes</option>
-                  <option value="Physical">Physical</option>
-                  <option value="Online">Online</option>
-                  <option value="School">School</option>
-                </select>
-              </div>
-            </details>
-
-            {/* Filter 7: Monthly Budget */}
-            <details className="bg-[#F8FAFC] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-[#0F172A] cursor-pointer">
-              <summary className="outline-none flex justify-between items-center">
-                <span>💰 Monthly Budget <span className="text-[#059669]">(Up to Rs. {maxMonthlyBudget.toLocaleString()})</span></span>
-                <span className="text-gray-400 font-normal">▼</span>
-              </summary>
-              <div className="pt-3 pb-1 bg-white p-3 rounded-lg border border-gray-200 space-y-2">
-                <input 
-                  type="range"
-                  min="5000"
-                  max="150000"
-                  step="5000"
-                  value={maxMonthlyBudget}
-                  onChange={(e) => setMaxMonthlyBudget(Number(e.target.value))}
-                  className="w-full accent-[#d60008] cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                  <span>Rs. 5,000</span>
-                  <span>Rs. 75,000</span>
-                  <span>Rs. 150,000+</span>
-                </div>
-              </div>
-            </details>
-
-            {/* Filter 8: Timing / Session */}
-            <details className="bg-[#F8FAFC] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-[#0F172A] cursor-pointer">
-              <summary className="outline-none flex justify-between items-center">
-                <span>⏰ Timing / Session {selectedSession && <span className="text-[#059669]">({selectedSession})</span>}</span>
-                <span className="text-gray-400 font-normal">▼</span>
-              </summary>
-              <div className="pt-3 pb-1">
-                <select
-                  value={selectedSession}
-                  onChange={(e) => setSelectedSession(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-gray-200 rounded-lg text-xs outline-none font-semibold text-[#1E293B]"
-                >
-                  <option value="">Any Timing</option>
-                  <option value="School">School</option>
-                  <option value="Morning">Morning</option>
-                  <option value="Afternoon">Afternoon</option>
-                  <option value="Evening">Evening</option>
-                </select>
-              </div>
-            </details>
-
-            {/* Filter 9: Gender */}
-            <details className="bg-[#F8FAFC] border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold text-[#0F172A] cursor-pointer">
-              <summary className="outline-none flex justify-between items-center">
-                <span>👤 Gender {selectedGender !== 'No Preference' && <span className="text-[#059669]">({selectedGender})</span>}</span>
-                <span className="text-gray-400 font-normal">▼</span>
-              </summary>
-              <div className="pt-3 pb-1">
-                <select
-                  value={selectedGender}
-                  onChange={(e) => setSelectedGender(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-gray-200 rounded-lg text-xs outline-none font-semibold text-[#1E293B]"
-                >
-                  <option value="No Preference">No Preference</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
-              </div>
-            </details>
-
-          </div>
-
-          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-            <button
-              onClick={handleClearFilters}
-              className="text-xs font-bold text-gray-400 hover:text-[#d60008] transition-colors cursor-pointer"
-            >
-              Reset All Filters
-            </button>
-
-            <button
-              onClick={() => {
-                resultsRef.current?.scrollIntoView({ behavior: 'smooth' })
-              }}
-              className="px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              🔍 Apply Filters & Search
-            </button>
-          </div>
-
-        </div>
-
-        {/* Results Counter */}
-        <div ref={resultsRef} className="flex items-center justify-between px-2 pt-1">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-            Showing <span className="text-[#0F172A] font-black">{filteredTutors.length}</span> verified tutors
-          </span>
-        </div>
-
-        {/* Tutors List */}
-        {loading ? (
-          <div className="flex justify-center items-center py-16">
-            <div className="w-8 h-8 border-3 border-[#059669] border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : filteredTutors.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-3xl border border-gray-200 p-8 space-y-3 shadow-sm">
-            <h3 className="text-base font-black text-[#0F172A]">No Tutors Match Your Filters</h3>
-            <p className="text-xs text-gray-500 font-medium">Try broadening your filter criteria or clearing your search.</p>
-            <button onClick={handleClearFilters} className="mt-2 px-5 py-2.5 bg-[#0F172A] hover:bg-[#059669] text-white font-bold text-xs rounded-xl transition-all cursor-pointer">
-              Reset Filters
-            </button>
+              Show all tutors
+            </Link>
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredTutors.map((tutor) => {
-              const tutorId = String(tutor.id || tutor.user_id || '')
-              const isSaved = savedTutorIds.includes(tutorId)
-
-              return (
-                <TutorCard
-                  key={tutorId}
-                  tutor={tutor}
-                  isSaved={isSaved}
-                  onToggleBookmark={toggleBookmark}
-                />
-              )
-            })}
+            {tutors.map((t, i) => (
+              <div key={t.id} className="space-y-4">
+                <TutorCard tutor={t} viewer={viewer} initiallySaved={saved.has(t.id)} />
+                {/* One inline slot after every 8 results, never inside the
+                    ranking itself. */}
+                {(i + 1) % AD_EVERY === 0 && i + 1 < tutors.length && (
+                  <AdSlot audience="parents" index={Math.floor(i / AD_EVERY)} />
+                )}
+              </div>
+            ))}
           </div>
         )}
 
+        {pages > 1 && (
+          <nav className="flex items-center justify-between gap-3 pt-2" aria-label="Pagination">
+            {page > 1 ? (
+              <Link
+                href={pageHref(page - 1)}
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#0F172A]"
+              >
+                Previous
+              </Link>
+            ) : (
+              <span />
+            )}
+            <span className="text-xs font-bold text-gray-500">
+              Page {page} of {pages}
+            </span>
+            {page < pages ? (
+              <Link
+                href={pageHref(page + 1)}
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#0F172A]"
+              >
+                Next
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        )}
       </div>
     </main>
-  )
-}
-
-export default function PublicBrowseTutorsPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Loading directory...
-        </div>
-      </div>
-    }>
-      <PublicBrowseTutorsContent />
-    </Suspense>
   )
 }

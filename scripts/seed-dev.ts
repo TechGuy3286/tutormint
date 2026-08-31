@@ -30,6 +30,30 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { readFileSync } from 'node:fs'
+import sharp from 'sharp'
+import { storeDocument } from '../lib/documents'
+import { calculateTutorCompletion } from '../lib/profileChecklist'
+
+/**
+ * A plain coloured PNG, used as a stand-in avatar and as the "scan" behind the
+ * seeded CNIC and degree documents. Generated rather than committed so no
+ * image that could be mistaken for a real person's identity document is ever
+ * in the repository. The document path still runs the real watermarking, so a
+ * seeded certificate preview looks exactly like a live one.
+ */
+async function solidPng(colour: string): Promise<Uint8Array<ArrayBuffer>> {
+  const buf = await sharp({
+    create: { width: 600, height: 400, channels: 3, background: colour },
+  })
+    .png()
+    .toBuffer()
+  // Copied into a plain ArrayBuffer: File/Blob will not accept a view whose
+  // backing store TypeScript widens to SharedArrayBuffer, which is what a
+  // Node Buffer's type says.
+  const out = new Uint8Array(new ArrayBuffer(buf.byteLength))
+  out.set(buf)
+  return out
+}
 
 const DEV_PROJECT_REF = 'flhiraqouizzwnasuraj'
 const SEED_PREFIX = 'seed+'
@@ -87,6 +111,13 @@ type TutorSpec = {
   fullName: string
   city: string
   area: string
+  /** Synthetic dev number, so the contact-reveal path has something to reveal. */
+  phone: string
+  gender: 'male' | 'female'
+  /** Synthetic CNIC. Unique -- profiles.cnic_number carries a UNIQUE index. */
+  cnic: string
+  /** Spread across the three values so the browse mode filter is testable. */
+  teachingMode: 'Physical' | 'Online' | 'Both'
   headline: string
   completion: number
   verification: 'pending' | 'verified' | 'rejected' | 'suspended'
@@ -111,41 +142,54 @@ type ParentSpec = {
 
 const TUTORS: TutorSpec[] = [
   {
-    name: 'featured-ali', fullName: 'Ali Raza', city: 'Lahore', area: 'DHA Phase 5',
+    name: 'featured-ali', teachingMode: 'Physical', gender: 'male', cnic: '35201-2000001-1', phone: '03000000001', fullName: 'Ali Raza', city: 'Lahore', area: 'DHA Phase 5',
     headline: 'O/A Level Physics & Mathematics specialist',
     completion: 100, verification: 'verified', videoStatus: 'approved',
     plan: 'featured', rating: 4.9, ratingCount: 27,
     subjects: [['IGCSE', 'O Levels', 'Physics'], ['IGCSE', 'O Levels', 'Mathematics'], ['IGCSE', 'AS & A Levels', 'Physics']],
   },
   {
-    name: 'premium-sara', fullName: 'Sara Khan', city: 'Karachi', area: 'Clifton',
+    name: 'premium-sara', teachingMode: 'Both', gender: 'female', cnic: '42101-2000002-2', phone: '03000000002', fullName: 'Sara Khan', city: 'Karachi', area: 'Clifton',
     headline: 'A Level Chemistry and Mathematics tutor',
     completion: 100, verification: 'verified', videoStatus: 'approved',
     plan: 'premium', rating: 4.7, ratingCount: 14,
     subjects: [['IGCSE', 'AS & A Levels', 'Chemistry'], ['IGCSE', 'AS & A Levels', 'Mathematics']],
   },
   {
-    name: 'verified-usman', fullName: 'Usman Tariq', city: 'Islamabad', area: 'F-8',
+    name: 'verified-usman', teachingMode: 'Online', gender: 'male', cnic: '61101-2000003-3', phone: '03000000003', fullName: 'Usman Tariq', city: 'Islamabad', area: 'F-8',
     headline: 'Matric Science tutor, 6 years experience',
     completion: 100, verification: 'verified', videoStatus: 'approved',
     plan: 'verified', rating: 4.5, ratingCount: 9,
     subjects: [['Matriculation', 'Grade 9 & 10 - Science', 'Physics'], ['Matriculation', 'Grade 9 & 10 - Science', 'Mathematics']],
   },
   {
-    name: 'free-hina', fullName: 'Hina Aslam', city: 'Lahore', area: 'Gulberg',
+    name: 'free-hina', teachingMode: 'Both', gender: 'female', cnic: '35202-2000004-4', phone: '03000000004', fullName: 'Hina Aslam', city: 'Lahore', area: 'Gulberg',
     headline: 'Primary years English and Maths',
     completion: 100, verification: 'verified', videoStatus: 'approved',
     plan: null, rating: 4.6, ratingCount: 11,
     subjects: [['Primary', 'Grade 1 to 5', 'English'], ['Primary', 'Grade 1 to 5', 'Mathematics']],
   },
   {
-    name: 'incomplete-bilal', fullName: 'Bilal Ahmed', city: 'Rawalpindi', area: 'Satellite Town',
+    // The free-but-complete tier. Ranking needs one: without it there is no
+    // fixture for tier 0, and "featured > premium > verified > free" cannot be
+    // demonstrated end to end. free-hina used to serve this purpose until T3.5
+    // granted her Premium for testing.
+    name: 'free-nadia', teachingMode: 'Both', gender: 'female', cnic: '35201-2000007-7', phone: '03000000007', fullName: 'Nadia Iqbal', city: 'Lahore', area: 'Johar Town',
+    headline: 'Matric and O Level Mathematics',
+    completion: 100, verification: 'verified', videoStatus: 'approved',
+    plan: null, rating: 4.3, ratingCount: 6,
+    subjects: [['Matriculation', 'Grade 9 & 10 - Science', 'Mathematics'], ['IGCSE', 'O Levels', 'Mathematics']],
+  },
+  {
+    // Deliberately incomplete: proves that a tutor below 100% is not listed,
+    // however good their intentions. Do not "fix" this fixture.
+    name: 'incomplete-bilal', teachingMode: 'Both', gender: 'male', cnic: '37405-2000005-5', phone: '03000000005', fullName: 'Bilal Ahmed', city: 'Rawalpindi', area: 'Satellite Town',
     headline: '', completion: 40, verification: 'pending', videoStatus: 'none',
     plan: null, rating: 0, ratingCount: 0,
     subjects: [['Matriculation', 'Grade 9 & 10 - Arts', 'Mathematics']],
   },
   {
-    name: 'suspended-omar', fullName: 'Omar Sheikh', city: 'Multan', area: 'Bosan Road',
+    name: 'suspended-omar', teachingMode: 'Physical', gender: 'male', cnic: '36302-2000006-6', phone: '03000000006', fullName: 'Omar Sheikh', city: 'Multan', area: 'Bosan Road',
     headline: 'Mathematics tutor',
     completion: 100, verification: 'suspended', videoStatus: 'rejected',
     plan: null, rating: 3.2, ratingCount: 4,
@@ -283,8 +327,23 @@ async function main() {
   // ---- 3. flesh out tutor rows -------------------------------------------
   for (const t of TUTORS) {
     const id = ids[t.name]
+
+    // A tutor the spec marks as complete gets every checklist item filled for
+    // real. An intentionally incomplete one gets only the basics, so the
+    // checklist arrives at a number below 100 on its own merits.
+    const wantComplete = t.completion >= 100
+
     await must(`profiles update (${t.name})`,
-      db.from('profiles').update({ profile_completion: t.completion, city: t.city }).eq('id', id).select('id'))
+      db.from('profiles').update({
+        city: t.city,
+        cnic_number: wantComplete ? t.cnic : null,
+        // Synthetic dev numbers so the contact-reveal path is testable: a
+        // Featured parent has to have something to reveal. profiles is the
+        // canonical home for these -- it is where the OTP route writes.
+        phone_number: t.phone,
+        whatsapp: t.phone,
+        phone_verified_at: wantComplete ? new Date().toISOString() : null,
+      }).eq('id', id).select('id'))
 
     await must(`tutor_profiles update (${t.name})`, db
       .from('tutor_profiles')
@@ -301,6 +360,8 @@ async function main() {
         rating_avg: t.rating,
         rating_count: t.ratingCount,
         is_featured: t.plan === 'featured',
+        gender: wantComplete ? t.gender : null,
+        teaching_mode: t.teachingMode,
         hourly_rate_pkr: 2000,
         experience_years: 5,
         degrees: ['BS Physics — Punjab University (2019)'],
@@ -308,11 +369,94 @@ async function main() {
       .eq('id', id)
       .select('id'))
 
+    // Real documents and a real photo, so profile_completion can be COMPUTED
+    // rather than asserted. The seed used to write profile_completion = 100
+    // while leaving gender, photo, CNIC and certificates empty; the first time
+    // such a tutor opened their dashboard the checklist recomputed against
+    // live data and the tutor silently dropped out of the public directory.
+    // A fixture that only looks complete is worse than no fixture.
+    if (wantComplete) {
+    const avatarPath = `${id}/seed-avatar.png`
+    const avatarBytes = await solidPng(t.gender === 'female' ? '#d60008' : '#0F172A')
+    await db.storage.from('avatars').upload(avatarPath, avatarBytes, {
+      contentType: 'image/png',
+      upsert: true,
+    })
+    const avatarUrl = db.storage.from('avatars').getPublicUrl(avatarPath).data.publicUrl
+
+    const { data: existingDocs } = await db
+      .from('user_documents')
+      .select('id, kind, original_path')
+      .eq('user_id', id)
+
+    let cnicPath = (existingDocs ?? []).find((d) => d.kind === 'cnic')?.original_path ?? null
+
+    if (!cnicPath) {
+      const cnicDoc = await storeDocument(
+        db,
+        id,
+        'cnic',
+        new File([await solidPng('#334155')], 'cnic.png', { type: 'image/png' }),
+      )
+      if (!cnicDoc.ok) die(`cnic document (${t.name}): ${cnicDoc.error}`)
+      cnicPath = cnicDoc.doc.originalPath
+    }
+
+    if (!(existingDocs ?? []).some((d) => d.kind === 'degree')) {
+      const degreeDoc = await storeDocument(
+        db,
+        id,
+        'degree',
+        new File([await solidPng('#059669')], 'degree.png', { type: 'image/png' }),
+        'BS Physics — Punjab University (2019)',
+      )
+      if (!degreeDoc.ok) die(`degree document (${t.name}): ${degreeDoc.error}`)
+    }
+
+    await must(`profiles docs (${t.name})`,
+      db.from('profiles').update({ cnic_image_path: cnicPath }).eq('id', id).select('id'))
+    await must(`tutor_profiles avatar (${t.name})`,
+      db.from('tutor_profiles').update({ avatar_url: avatarUrl }).eq('id', id).select('id'))
+    }
+
     const masterIds = await resolveMasterIds(db, t.subjects)
     for (const master_id of masterIds) {
       await must(`tutor_subjects (${t.name})`,
         db.from('tutor_subjects').insert({ tutor_id: id, master_id }).select('master_id'))
     }
+
+    // Now that every item exists, let the shipping checklist decide the number.
+    const { data: freshProfile } = await db
+      .from('profiles')
+      .select('full_name, city, cnic_number, cnic_image_path, phone_verified_at')
+      .eq('id', id)
+      .maybeSingle()
+    const { data: freshTutor } = await db
+      .from('tutor_profiles')
+      .select('gender, area, avatar_url, headline, bio, experience_years, hourly_rate_pkr, teaching_mode, degrees, video_youtube_id, video_status')
+      .eq('id', id)
+      .maybeSingle()
+
+    const computed = calculateTutorCompletion({
+      profile: freshProfile,
+      tutorProfile: freshTutor,
+      subjectCount: masterIds.length,
+      degreeDocCount: wantComplete ? 1 : 0,
+    })
+
+    // Assert the intent, not a magic number: a "complete" fixture must reach
+    // 100 through the real checklist, and an incomplete one must not.
+    if (wantComplete && computed.percent !== 100) {
+      die(
+        `${t.name}: expected a complete profile but the checklist says ${computed.percent}%. ` +
+          `Missing: ${computed.items.filter((i) => !i.done).map((i) => i.key).join(', ')}`,
+      )
+    }
+    if (!wantComplete && computed.percent >= 100) {
+      die(`${t.name}: expected an incomplete profile but the checklist says 100%.`)
+    }
+    await must(`profile_completion (${t.name})`,
+      db.from('profiles').update({ profile_completion: computed.percent }).eq('id', id).select('id'))
 
     if (t.plan) {
       await must(`subscription (${t.name})`, db.from('subscriptions').insert({
