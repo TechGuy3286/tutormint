@@ -1,0 +1,58 @@
+-- 09_drop_legacy_policies.sql  -- DRAFT, NOT APPLIED
+--
+-- Every statement here is a DROP POLICY, which the T1 safety rails require to
+-- be signed off before running. Nothing in this file has been executed.
+--
+-- WHY THIS IS NEEDED
+-- Postgres RLS policies are permissive and OR'd together. The policies added
+-- in 06_rls_policies.sql restrict access correctly, but they sit alongside
+-- pre-existing policies with "USING true", and a single permissive policy is
+-- enough to grant access. The net effect today is that 06 has NOT closed
+-- anything on these tables.
+--
+-- Verified live against the anon key after 06 was applied:
+--   supabase.from('tutor_profiles').select('id,phone_number')  -> returns rows
+-- i.e. tutor phone numbers, WhatsApp numbers, emails and CNIC image URLs are
+-- readable by anonymous visitors, which is exactly what CLAUDE.md forbids.
+--
+-- The policies below are the pre-existing ones. The "USING true" policies
+-- created by 06 itself (plans, taxonomy_*, tutor_subjects, job_subjects,
+-- reviews_public_read) are deliberate public reference data and are NOT
+-- dropped.
+
+begin;
+
+-- CRITICAL -- exposes contact columns to anonymous users -------------------
+drop policy if exists "Allow public read access on tutor profiles" on public.tutor_profiles;
+
+-- CRITICAL -- ALL/public: anyone may read AND write every message ----------
+drop policy if exists "Allow public read/write on messages" on public.messages;
+
+-- CRITICAL -- ALL/public: any caller may update any parent row -------------
+drop policy if exists "Enable update/select for authenticated users" on public.parents;
+
+-- CRITICAL -- three overlapping ALL/public policies ------------------------
+drop policy if exists "Allow all operations on tuition_applications"          on public.tuition_applications;
+drop policy if exists "Allow public insert and select on tuition_applications" on public.tuition_applications;
+drop policy if exists "Allow public read/write access on tuition applications" on public.tuition_applications;
+
+-- ALL/public on tutor_slots ------------------------------------------------
+drop policy if exists "Tutors can manage their slots" on public.tutor_slots;
+drop policy if exists "Slots are viewable by everyone" on public.tutor_slots;
+
+-- Public SELECT on tables that should be owner/participant scoped ----------
+drop policy if exists "Jobs are viewable by everyone"                on public.jobs;
+drop policy if exists "Allow public read access on parent jobs"      on public.parent_jobs;
+drop policy if exists "Enable select for authenticated users on jobs" on public.parent_jobs;
+drop policy if exists "Enable read access for authenticated users"   on public.parent_profiles;
+drop policy if exists "Allow authenticated select"                   on public.job_messages;
+
+-- Duplicate of reviews_public_read created by 06 ---------------------------
+drop policy if exists "Reviews are viewable by everyone" on public.reviews;
+
+commit;
+
+-- AFTER APPLYING, re-check with the anon key. Expected results:
+--   tutor_profiles base table -> 0 rows for anon
+--   tutor_directory view      -> verified tutors, no contact columns
+--   messages                  -> 0 rows for anon
