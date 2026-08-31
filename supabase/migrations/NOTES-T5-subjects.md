@@ -20,26 +20,29 @@ level itself is the selectable item and there is no subject beneath it.
 So job editing in T5 must let a parent pick a **level-type leaf**, not only a
 subject. Once a parent next edits one of these jobs, the value maps naturally.
 
-## One correction to how you detect a level-leaf
+## Detecting a level-leaf
 
-CLAUDE.md says these are `leaf_type='level'` rows. **They are not**, in the
-data as seeded. Verified against the live table:
+`leaf_type = 'level'` is now the reliable marker. `subject_slug IS NULL` is
+equivalent — the two agree on exactly the same 120 rows — so either works:
 
-```
-Translation of Quran -> category: Holy Quran       (leaf_type=subject, subject_slug NULL)
-Basketball Skills    -> category: Sports & Games   (leaf_type=subject, subject_slug NULL)
-Carrom               -> category: Sports & Games   (leaf_type=subject, subject_slug NULL)
-Ludo                 -> category: Sports & Games   (leaf_type=subject, subject_slug NULL)
-IELTS Preparation    -> category: Test Preparations (leaf_type=subject, subject_slug NULL)
+```sql
+select count(*) from taxonomy_master where leaf_type = 'level';        -- 120
+select count(*) from taxonomy_master where subject_slug is null;       -- 120
 ```
 
-All 896 rows in `taxonomy_master` carry `leaf_type='subject'`; the seed never
-emits `'level'`. What actually distinguishes a level-leaf is
-**`subject_slug IS NULL`** — 120 of the 896 rows.
+Current distribution of `taxonomy_master` (896 rows):
 
-**T5 and `TaxonomySelector` must branch on `subject_slug IS NULL`, not on
-`leaf_type`.** Filtering on `leaf_type='level'` returns zero rows.
+| leaf_type | rows | subject_slug null |
+|---|---:|---:|
+| `level`   | 120 | 120 |
+| `subject` | 776 | 0 |
 
-Either the seed generator should be fixed to emit `leaf_type='level'` for
-those 120 rows, or CLAUDE.md's taxonomy section should be corrected to describe
-the `subject_slug IS NULL` rule. Owner's call — flagged, not changed here.
+### History
+
+As originally seeded this was **not** true: the generator emitted
+`leaf_type='subject'` for all 896 rows, so filtering on `leaf_type='level'`
+returned nothing, and only `subject_slug IS NULL` worked. Fixed in
+`12_taxonomy_leaf_type.sql` (120 rows updated), and in
+`supabase/seed/seed_taxonomy.sql` itself so a re-seed produces the right value
+directly. `03_taxonomy.sql` was regenerated from the corrected seed, so all
+three are consistent and CLAUDE.md's description is now accurate.
