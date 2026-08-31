@@ -19,12 +19,14 @@ type Check = { group: string; name: string; pass: boolean; detail: string }
 
 const EXPECTED_TABLES: Record<string, string[]> = {
   profiles: [
+    'verification_state', 'verification_submitted_at',
     'id', 'role', 'account_type', 'full_name', 'email', 'phone_number', 'whatsapp',
     'phone_verified_at', 'city', 'province', 'address', 'cnic_number',
     'cnic_image_path', 'cnic_verified_at', 'address_verified_at', 'avatar_url',
     'profile_completion', 'created_at',
   ],
   tutor_profiles: [
+    'gender', 'video_attempts',
     'id', 'slug', 'headline', 'bio', 'subjects', 'class_levels', 'degrees',
     'teaching_mode', 'online_platforms', 'area', 'hourly_rate_pkr',
     'experience_years', 'video_youtube_id', 'video_status', 'verification_status',
@@ -50,11 +52,12 @@ const EXPECTED_TABLES: Record<string, string[]> = {
   threads: ['id', 'job_id', 'participant_a', 'participant_b', 'initiated_by'],
   messages: ['id', 'thread_id', 'sender_id', 'body', 'created_at'],
   reviews: ['id', 'tutor_id', 'parent_id', 'rating', 'comment', 'created_at'],
-  phone_otps: ['phone', 'expires_at', 'consumed_at', 'attempts'],
+  phone_otps: ['phone', 'code', 'expires_at', 'consumed_at', 'attempts'],
   shortlists: ['user_id', 'tutor_id'],
   demo_requests: ['id', 'parent_id', 'tutor_id', 'status', 'created_at'],
   tutor_subjects: ['tutor_id', 'master_id'],
   job_subjects: ['job_id', 'master_id'],
+  user_documents: ['id', 'user_id', 'kind', 'original_path', 'preview_path', 'created_at'],
 }
 
 const EXPECTED_PLANS = ['verified', 'premium', 'featured', 'parent_verified', 'parent_featured']

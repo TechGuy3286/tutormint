@@ -10,6 +10,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized parent session' }, { status: 401 })
     }
 
+    // A parent cannot post until admin has approved CNIC + address. Enforced
+    // here as well as in the UI: hiding the button is not a control.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('cnic_verified_at, address_verified_at, verification_state')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (!profile?.cnic_verified_at || !profile?.address_verified_at) {
+      return NextResponse.json(
+        {
+          error:
+            profile?.verification_state === 'submitted'
+              ? 'Your verification is still being reviewed. You can post once it is approved.'
+              : 'Verify your CNIC and address before posting a job.',
+          verificationState: profile?.verification_state ?? 'none',
+          verifyUrl: '/parent/verify',
+        },
+        { status: 403 },
+      )
+    }
+
     const body = await request.json()
     const { title, subject, grade, location, budget, description } = body
 

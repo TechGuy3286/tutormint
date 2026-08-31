@@ -96,7 +96,7 @@ Delete: the whole Mongo layer, `/parent/browse`, `/parent/post-job`, `/parent/si
 - [ ] **T5 Parent side** — post job (quota-checked), job detail + applicants, hire flow writes `jobs.status`, `/browse/tuitions`, chat on `threads/messages`.
 - [ ] **T6 Packages** — `/tutor/packages`, `/parent/packages`, payment submission, `lib/entitlements.ts`, badges + Featured tag on `TutorCard` and job cards, contact-field filtering, `usage_counters`, expiry downgrade function (pg_cron or Vercel cron).
 - [ ] **T7 Admin** — layout gate, tutor verification queue (video / CNIC / degrees), parent verification queue, payments approval, quota usage view, YouTube visibility toggle.
-- [ ] **T8 Hardening** — RLS audit, `.env` on Vercel, remove every `techguy3286@gmail.com` / test phone fallback, `npm run build` clean. **SMTP provider (Resend or Brevo) configured in Supabase Auth, then re-enable "Confirm email"** — it is currently OFF because the project has no sender and `auth.signUp()` failed with "Error sending confirmation email"; registration is unprotected until this lands.
+- [ ] **T8 Hardening** — RLS audit, `.env` on Vercel, remove every `techguy3286@gmail.com` / test phone fallback, `npm run build` clean. **SMS/WhatsApp provider for phone OTP** — `lib/sms.ts` is a provider interface with a dev-console implementation only; production returns a failure rather than pretending a code was sent, so phone verification does not work in production until a real provider is wired in. **`SUPABASE_SERVICE_ROLE_KEY` must be added to the Vercel environment** — the OTP route and document previews need it server-side.
 
 ## Design system & responsiveness (applies to every task)
 
@@ -256,3 +256,27 @@ Existing tables: academy_affiliations, advertisements, demo_feedback, job_messag
 4. Excluded signals (deliberate): last-active recency, profile_views, message volume — nothing grindable or rich-get-richer. v2 backlog: responsiveness signal (median reply time) once real messaging data exists.
 5. Jobs ranking (browse/tuitions): featured jobs first, then created_at desc.
 Implement as a SQL view or function (rank inputs computable in one query); the browse page must not rank client-side.
+
+## Bulk tutor import (T7, owner + manager) + mobile-as-username login
+
+- /admin/import: CSV/XLSX upload against a downloadable template (name, mobile, whatsapp, city, area, gender, subjects, levels, experience_years, expected_fee). Full-file validation BEFORE any insert: phone format (Pakistani mobile), subjects/levels resolved against taxonomy, duplicate mobile (in file and in DB) → per-row errors; only clean rows import.
+- Each imported row: auth user with synthetic internal email <msisdn>@users.tutormint.org + random password (must_change_password=true, forced reset on first login), profiles row (role=tutor, phone), tutor_profiles row (imported=true, claimed_at NULL), slug generated.
+- Results file returned to admin: name | username (mobile) | password | profile URL | status. Distribution happens over WhatsApp manually.
+- Login form (/login) accepts email OR Pakistani mobile number; mobile input maps to the synthetic internal email server-side before signInWithPassword. No SMS-based auth (cost); the T3 profile OTP still verifies number ownership.
+- Imported profiles: direct URL /tutor/[slug] renders, but EXCLUDED from search/browse until the tutor claims: first login + accept terms (incl. photo consent) + OTP-verify mobile + 100% completion. Sets claimed_at. Imported tutors start with plan=none — import never bypasses payment or verification rules.
+- tutor_profiles gains: imported bool default false, claimed_at timestamptz, must-change-password handled at auth level.
+
+## Security hardening additions (owner-approved)
+
+- T3.5 addition: admin_audit_log (id, actor_id, actor_role, action, target_type, target_id, detail jsonb, created_at). EVERY admin mutation writes a row (verification decisions, plan grants/revokes, payment approvals, suspensions, staff changes, ad CRUD, imports). Read-only screen in T7 (owner + manager). Insert via server code path only; RLS: admins read, nobody updates/deletes.
+- T8 checklist additions: Cloudflare Turnstile CAPTCHA on /login + /register via Supabase attack-protection integration; enable Supabase leaked-password protection; security headers in next.config.ts (CSP, X-Frame-Options DENY, Referrer-Policy, Permissions-Policy); weekly scheduled pg_dump job documented in README (owner runs or schedules); admin session lifetime shorter than default.
+- Owner personal actions (not code): 2FA on GitHub, Vercel, Supabase, and the underlying Gmail.
+
+## Member activity timeline (spec now; events logged from T3 onward; admin UI in T7)
+
+- user_activity_log (id, user_id, event text, target_type, target_id, meta jsonb, created_at). Written via lib/activity.ts logActivity() from server code paths only. RLS: user reads own; admins (owner/manager/support) read all; no updates/deletes.
+- Events: registered, login, otp_verified, profile_updated, completion_changed, subjects_changed, document_uploaded, video_submitted, job_posted/edited/closed, application_submitted/withdrawn, demo_requested/accepted/declined/completed, message_sent (thread id only — never message content), shortlist_added/removed, plan_purchased/expired, block/report given and received, verification decisions received.
+- Every task from T3 onward MUST log its events through this helper as the feature is built (add to each task's checklist).
+- Admin UI (T7): members list → member detail page = profile summary + verification state + plan/subscription history + filterable event timeline (newest first), alongside admin_audit_log entries targeting that member.
+- Privacy line: message CONTENT is admin-readable only through the reports queue when a participant reports the thread; there is no general chat-browsing screen. Timeline shows message events, never bodies.
+- Legacy tutor_activities is superseded; migrate/rename in T8.

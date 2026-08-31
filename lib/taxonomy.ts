@@ -19,7 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 
 export type TaxonomyNode = Record<string, Record<string, string[]>>
 
-type Row = { category: string; level: string; subject: string | null }
+type Row = { id: number; category: string; level: string; subject: string | null; isLevelLeaf: boolean }
 
 let cache: { rows: Row[]; tree: TaxonomyNode } | null = null
 let inFlight: Promise<{ rows: Row[]; tree: TaxonomyNode }> | null = null
@@ -40,7 +40,7 @@ async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode }> {
       supabase.from('taxonomy_categories').select('slug, name, sort_order'),
       supabase.from('taxonomy_levels').select('slug, category_slug, name, sort_order'),
       supabase.from('taxonomy_subjects').select('slug, name'),
-      supabase.from('taxonomy_master').select('category_slug, level_slug, subject_slug'),
+      supabase.from('taxonomy_master').select('id, category_slug, level_slug, subject_slug, leaf_type'),
     ])
 
     const failed = [categories, levels, subjects, master].find((r) => r.error)
@@ -80,7 +80,16 @@ async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode }> {
       const level = levelName.get(m.level_slug)
       if (!category || !level) continue
       // subject_slug is null for the 120 level-only rows in the seed.
-      rows.push({ category, level, subject: m.subject_slug ? subjectName.get(m.subject_slug) ?? null : null })
+      rows.push({
+        id: m.id,
+        category,
+        level,
+        subject: m.subject_slug ? subjectName.get(m.subject_slug) ?? null : null,
+        // Level-leaf: the level itself is the selectable item (Test
+        // Preparations, Sports & Games, Holy Quran). leaf_type is reliable
+        // since 12_taxonomy_leaf_type.sql; subject_slug IS NULL is equivalent.
+        isLevelLeaf: m.leaf_type === 'level' || m.subject_slug === null,
+      })
     }
 
     const tree: TaxonomyNode = {}
@@ -136,4 +145,40 @@ export async function fetchSubjectsForGrade(level1: string, level2: string): Pro
 export async function fetchAllSubjects(): Promise<string[]> {
   const { rows } = await load()
   return Array.from(new Set(rows.filter((r) => r.subject).map((r) => r.subject as string))).sort()
+}
+
+/**
+ * Resolve display-name selections to taxonomy_master ids -- the only thing
+ * tutor_subjects / job_subjects store.
+ *
+ * For a level-leaf (Test Preparations, Sports & Games, Holy Quran) pass
+ * subjects: [] and the level's own master row is returned.
+ */
+export async function resolveMasterIds(
+  category: string,
+  level: string,
+  subjects: string[],
+): Promise<number[]> {
+  const { rows } = await load()
+  const inLevel = rows.filter((r) => r.category === category && r.level === level)
+
+  if (subjects.length === 0) {
+    const leaf = inLevel.find((r) => r.isLevelLeaf)
+    return leaf ? [leaf.id] : []
+  }
+
+  return inLevel.filter((r) => r.subject && subjects.includes(r.subject)).map((r) => r.id)
+}
+
+/** True when this level is selectable on its own, with no subject beneath it. */
+export async function isLevelLeaf(category: string, level: string): Promise<boolean> {
+  const { rows } = await load()
+  return rows.some((r) => r.category === category && r.level === level && r.isLevelLeaf)
+}
+
+/** Display labels for a set of master ids, for showing what is already saved. */
+export async function labelsForMasterIds(ids: number[]): Promise<string[]> {
+  const { rows } = await load()
+  const set = new Set(ids)
+  return rows.filter((r) => set.has(r.id)).map((r) => (r.subject ? `${r.level} — ${r.subject}` : r.level))
 }
