@@ -1,7 +1,7 @@
--- 09_drop_legacy_policies.sql  -- DRAFT, NOT APPLIED
+-- 09_drop_legacy_policies.sql
 --
--- Every statement here is a DROP POLICY, which the T1 safety rails require to
--- be signed off before running. Nothing in this file has been executed.
+-- Every statement here is a DROP POLICY. Signed off and applied.
+
 --
 -- WHY THIS IS NEEDED
 -- Postgres RLS policies are permissive and OR'd together. The policies added
