@@ -53,8 +53,8 @@ const EXPECTED_TABLES: Record<string, string[]> = {
   phone_otps: ['phone', 'expires_at', 'consumed_at', 'attempts'],
   shortlists: ['user_id', 'tutor_id'],
   demo_requests: ['id', 'parent_id', 'tutor_id', 'status', 'created_at'],
-  tutor_subjects: ['tutor_id', 'subject_slug'],
-  job_subjects: ['job_id', 'subject_slug'],
+  tutor_subjects: ['tutor_id', 'master_id'],
+  job_subjects: ['job_id', 'master_id'],
 }
 
 const EXPECTED_PLANS = ['verified', 'premium', 'featured', 'parent_verified', 'parent_featured']
