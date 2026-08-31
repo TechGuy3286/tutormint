@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# database dumps — contain CNICs and phone numbers, never commit
+supabase/backups/

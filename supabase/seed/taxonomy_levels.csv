@@ -1,0 +1,134 @@
+slug,category_slug,name,sort_order
+pre-primary-pre-school-pre-nursery-play-group-kg-i,pre-primary-pre-school,Pre-Nursery / Play Group / KG-I,1
+primary-grade-1-to-5,primary,Grade 1 to 5,1
+middle-lower-secondary-grade-6-to-8,middle-lower-secondary,Grade 6 to 8,1
+matriculation-grade-9-and-10-arts,matriculation,Grade 9 & 10 - Arts,1
+matriculation-grade-9-and-10-science,matriculation,Grade 9 & 10 - Science,2
+igcse-igcse-core,igcse,IGCSE Core,1
+igcse-o-levels,igcse,O Levels,2
+igcse-as-and-a-levels,igcse,AS & A Levels,3
+intermediate-fa-part-i-and-part-ii,intermediate,FA (Part I & Part II),1
+intermediate-fsc-part-i-and-part-ii,intermediate,FSC Part I & Part II,2
+adp-2-years-all,adp-2-years,All,1
+bs-4-years-semester-1-8,bs-4-years,Semester 1 - 8,1
+test-preparations-gre-preparation,test-preparations,GRE Preparation,1
+test-preparations-gmat-preparation,test-preparations,GMAT Preparation,2
+test-preparations-ielts-preparation,test-preparations,IELTS Preparation,3
+test-preparations-toefl-preparation,test-preparations,TOEFL Preparation,4
+test-preparations-pte-academic-preparation,test-preparations,PTE Academic Preparation,5
+test-preparations-mdcat-preparation,test-preparations,MDCAT Preparation,6
+test-preparations-ecat-preparation,test-preparations,ECAT Preparation,7
+test-preparations-net-preparation,test-preparations,NET Preparation,8
+test-preparations-fast-nu-admission-test-preparation,test-preparations,FAST-NU Admission Test Preparation,9
+test-preparations-giki-admission-test-preparation,test-preparations,GIKI Admission Test Preparation,10
+test-preparations-comsats-admission-test-preparation,test-preparations,COMSATS Admission Test Preparation,11
+test-preparations-lums-admission-test-preparation,test-preparations,LUMS Admission Test Preparation,12
+test-preparations-nts-test-preparation,test-preparations,NTS Test Preparation,13
+test-preparations-nat-preparation,test-preparations,NAT Preparation,14
+test-preparations-gat-general-preparation,test-preparations,GAT General Preparation,15
+test-preparations-gat-subject-preparation,test-preparations,GAT Subject Preparation,16
+test-preparations-etea-test-preparation,test-preparations,ETEA Test Preparation,17
+test-preparations-ecat-engineering-entry-test-preparation,test-preparations,ECAT Engineering Entry Test Preparation,18
+test-preparations-university-admission-test-preparation,test-preparations,University Admission Test Preparation,19
+test-preparations-medical-entry-test-preparation,test-preparations,Medical Entry Test Preparation,20
+test-preparations-engineering-entry-test-preparation,test-preparations,Engineering Entry Test Preparation,21
+test-preparations-law-admission-test-lat-preparation,test-preparations,Law Admission Test (LAT) Preparation,22
+test-preparations-law-gat-preparation,test-preparations,Law GAT Preparation,23
+test-preparations-css-preparation,test-preparations,CSS Preparation,24
+test-preparations-pms-preparation,test-preparations,PMS Preparation,25
+test-preparations-fpsc-test-preparation,test-preparations,FPSC Test Preparation,26
+test-preparations-ppsc-test-preparation,test-preparations,PPSC Test Preparation,27
+test-preparations-spsc-test-preparation,test-preparations,SPSC Test Preparation,28
+test-preparations-kppsc-test-preparation,test-preparations,KPPSC Test Preparation,29
+test-preparations-bpsc-test-preparation,test-preparations,BPSC Test Preparation,30
+test-preparations-ajkpsc-test-preparation,test-preparations,AJKPSC Test Preparation,31
+test-preparations-nts-recruitment-test-preparation,test-preparations,NTS Recruitment Test Preparation,32
+test-preparations-fpsc-competitive-exam-preparation,test-preparations,FPSC Competitive Exam Preparation,33
+test-preparations-police-recruitment-test-preparation,test-preparations,Police Recruitment Test Preparation,34
+test-preparations-armed-forces-test-preparation,test-preparations,Armed Forces Test Preparation,35
+test-preparations-issb-preparation,test-preparations,ISSB Preparation,36
+test-preparations-pakistan-army-initial-test-preparation,test-preparations,Pakistan Army Initial Test Preparation,37
+test-preparations-pakistan-navy-test-preparation,test-preparations,Pakistan Navy Test Preparation,38
+test-preparations-pakistan-air-force-test-preparation,test-preparations,Pakistan Air Force Test Preparation,39
+test-preparations-cadet-college-entry-test-preparation,test-preparations,Cadet College Entry Test Preparation,40
+test-preparations-military-college-entry-test-preparation,test-preparations,Military College Entry Test Preparation,41
+test-preparations-scholarship-test-preparation,test-preparations,Scholarship Test Preparation,42
+test-preparations-school-admission-test-preparation,test-preparations,School Admission Test Preparation,43
+test-preparations-college-admission-test-preparation,test-preparations,College Admission Test Preparation,44
+test-preparations-university-entrance-test-preparation,test-preparations,University Entrance Test Preparation,45
+test-preparations-english-proficiency-test-preparation,test-preparations,English Proficiency Test Preparation,46
+test-preparations-general-aptitude-test-preparation,test-preparations,General Aptitude Test Preparation,47
+test-preparations-verbal-reasoning,test-preparations,Verbal Reasoning,48
+test-preparations-quantitative-reasoning,test-preparations,Quantitative Reasoning,49
+test-preparations-logical-reasoning,test-preparations,Logical Reasoning,50
+test-preparations-analytical-reasoning,test-preparations,Analytical Reasoning,51
+test-preparations-non-verbal-reasoning,test-preparations,Non-Verbal Reasoning,52
+test-preparations-iq-test-preparation,test-preparations,IQ Test Preparation,53
+test-preparations-general-knowledge-test-preparation,test-preparations,General Knowledge Test Preparation,54
+test-preparations-current-affairs-test-preparation,test-preparations,Current Affairs Test Preparation,55
+test-preparations-subject-specialist-test-preparation,test-preparations,Subject Specialist Test Preparation,56
+test-preparations-teaching-recruitment-test-preparation,test-preparations,Teaching Recruitment Test Preparation,57
+test-preparations-educator-test-preparation,test-preparations,Educator Test Preparation,58
+test-preparations-banking-test-preparation,test-preparations,Banking Test Preparation,59
+test-preparations-accounting-and-finance-test-preparation,test-preparations,Accounting & Finance Test Preparation,60
+test-preparations-computer-based-test-preparation,test-preparations,Computer-Based Test Preparation,61
+test-preparations-typing-test-preparation,test-preparations,Typing Test Preparation,62
+test-preparations-driving-license-test-preparation,test-preparations,Driving License Test Preparation,63
+test-preparations-vocational-test-preparation,test-preparations,Vocational Test Preparation,64
+ms-mphil-semester-1-6,ms-mphil,Semester 1 - 6,1
+holy-quran-nazra-quran,holy-quran,Nazra Quran,1
+holy-quran-hifzul-quran,holy-quran,Hifzul Quran,2
+holy-quran-translation-of-quran,holy-quran,Translation of Quran,3
+sports-and-games-chess,sports-and-games,Chess,1
+sports-and-games-ludo,sports-and-games,Ludo,2
+sports-and-games-carrom,sports-and-games,Carrom,3
+sports-and-games-scrabble,sports-and-games,Scrabble,4
+sports-and-games-rubik-s-cube,sports-and-games,Rubik's Cube,5
+sports-and-games-darts,sports-and-games,Darts,6
+sports-and-games-table-tennis,sports-and-games,Table Tennis,7
+sports-and-games-badminton,sports-and-games,Badminton,8
+sports-and-games-basketball-skills,sports-and-games,Basketball Skills,9
+sports-and-games-football-skills,sports-and-games,Football Skills,10
+sports-and-games-cricket-skills,sports-and-games,Cricket Skills,11
+sports-and-games-tennis-skills,sports-and-games,Tennis Skills,12
+sports-and-games-hockey-skills,sports-and-games,Hockey Skills,13
+sports-and-games-futsal-skills,sports-and-games,Futsal Skills,14
+sports-and-games-volleyball-skills,sports-and-games,Volleyball Skills,15
+sports-and-games-athletics,sports-and-games,Athletics,16
+sports-and-games-running,sports-and-games,Running,17
+sports-and-games-fitness-training,sports-and-games,Fitness Training,18
+sports-and-games-physical-fitness,sports-and-games,Physical Fitness,19
+sports-and-games-yoga,sports-and-games,Yoga,20
+sports-and-games-gymnastics,sports-and-games,Gymnastics,21
+sports-and-games-skipping,sports-and-games,Skipping,22
+sports-and-games-cycling,sports-and-games,Cycling,23
+sports-and-games-roller-skating,sports-and-games,Roller Skating,24
+sports-and-games-skating,sports-and-games,Skating,25
+sports-and-games-karate,sports-and-games,Karate,26
+sports-and-games-taekwondo,sports-and-games,Taekwondo,27
+sports-and-games-judo,sports-and-games,Judo,28
+sports-and-games-martial-arts,sports-and-games,Martial Arts,29
+sports-and-games-self-defense,sports-and-games,Self-Defense,30
+sports-and-games-boxing-fitness,sports-and-games,Boxing Fitness,31
+sports-and-games-wrestling,sports-and-games,Wrestling,32
+sports-and-games-archery,sports-and-games,Archery,33
+sports-and-games-dance,sports-and-games,Dance,34
+sports-and-games-ballet,sports-and-games,Ballet,35
+sports-and-games-swimming-theory-and-dry-training,sports-and-games,Swimming Theory & Dry Training,36
+sports-and-games-sports-skills-development,sports-and-games,Sports Skills Development,37
+sports-and-games-motor-skills-development,sports-and-games,Motor Skills Development,38
+sports-and-games-coordination-training,sports-and-games,Coordination Training,39
+sports-and-games-balance-training,sports-and-games,Balance Training,40
+sports-and-games-agility-training,sports-and-games,Agility Training,41
+sports-and-games-speed-and-reaction-training,sports-and-games,Speed & Reaction Training,42
+sports-and-games-strength-and-conditioning,sports-and-games,Strength & Conditioning,43
+sports-and-games-endurance-training,sports-and-games,Endurance Training,44
+sports-and-games-sports-fitness,sports-and-games,Sports Fitness,45
+sports-and-games-sports-psychology,sports-and-games,Sports Psychology,46
+sports-and-games-sports-strategy-and-tactics,sports-and-games,Sports Strategy & Tactics,47
+sports-and-games-referee-and-rules-training,sports-and-games,Referee & Rules Training,48
+sports-and-games-e-sports,sports-and-games,E-Sports,49
+sports-and-games-gaming-skills,sports-and-games,Gaming Skills,50
+sports-and-games-mind-games,sports-and-games,Mind Games,51
+sports-and-games-board-games,sports-and-games,Board Games,52
+ib-pyp-myp-and-diploma,ib,"PYP, MYP and Diploma",1

@@ -1,0 +1,14 @@
+slug,name,sort_order
+pre-primary-pre-school,Pre-Primary / Pre-School,1
+primary,Primary,2
+middle-lower-secondary,Middle / Lower Secondary,3
+matriculation,Matriculation,4
+igcse,IGCSE,5
+intermediate,Intermediate,6
+adp-2-years,ADP (2 Years),7
+bs-4-years,BS (4 Years),8
+test-preparations,Test Preparations,9
+ms-mphil,MS / MPhil,10
+holy-quran,Holy Quran,11
+sports-and-games,Sports & Games,12
+ib,IB,13
