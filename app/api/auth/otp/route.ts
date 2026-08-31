@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSmsProvider } from '@/lib/sms'
 import { recomputeCompletion } from '@/lib/completion'
+import { logActivity } from '@/lib/activityLog'
 
 // Phone / WhatsApp OTP.
 //
@@ -158,6 +159,7 @@ export async function POST(request: Request) {
         .update({ phone_number: phone, phone_verified_at: new Date().toISOString(), phone_verified: true })
         .eq('id', user.id)
       await recomputeCompletion(user.id)
+      await logActivity({ userId: user.id, event: 'otp_verified', targetType: 'profile', targetId: user.id })
     }
 
     // Dev bypass: accepted without touching the stored code, so several test

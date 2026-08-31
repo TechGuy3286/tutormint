@@ -1,30 +1,99 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { getSessionUser } from '@/lib/auth'
+import { getAdminActor, roleSatisfies, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
 
-// Server gate for the whole /admin subtree. Every admin page is private, so
-// unlike /tutor and /parent this layout gates at the top level.
+// Server gate for the whole /admin subtree, plus the shell.
 //
-// Replaces the client-side password prompt in app/admin/dashboard/page.tsx
-// (which compared against literals shipped in the browser bundle and was
-// bypassable by setting localStorage.adminAuth = "true") and the hardcoded
-// email comparison in app/admin/social-share/page.tsx.
+// Replaces the old client-side password prompt (literals shipped in the
+// browser bundle, bypassable via localStorage.adminAuth) and the hardcoded
+// email check. role='admin' plus a non-null admin_role is required, and both
+// are settable only by SQL — 14_handle_new_user.sql refuses to mint an admin
+// from signup metadata.
 //
-// role='admin' is set by SQL only -- 14_handle_new_user.sql refuses to mint an
-// admin from signup metadata, so this cannot be self-assigned.
+// The nav lists only screens this admin_role may open; every screen and every
+// mutation route re-checks independently, so hiding a link is presentation,
+// never the control.
 //
-// A non-admin gets redirect('/') rather than a 403: the existence of the admin
-// area is not worth advertising.
+// Mobile-first: bottom nav under sm, sidebar from sm up.
+
+const NAV: { href: string; label: string; icon: string; allowed: AdminRole[] }[] = [
+  { href: '/admin/tutors', label: 'Tutors', icon: '🎓', allowed: SCREEN_ACCESS.tutors },
+  { href: '/admin/parents', label: 'Parents', icon: '👪', allowed: SCREEN_ACCESS.parents },
+  { href: '/admin/plans', label: 'Plans', icon: '💳', allowed: SCREEN_ACCESS.plans },
+]
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSessionUser()
+  const actor = await getAdminActor()
 
-  if (!session) {
-    redirect(`/login?next=${encodeURIComponent('/admin/dashboard')}`)
-  }
-
-  if (session.profile?.role !== 'admin') {
+  if (!actor) {
+    // Not an admin: the existence of this area is not worth advertising.
     redirect('/')
   }
 
-  return <>{children}</>
+  const visible = NAV.filter((n) => roleSatisfies(actor.adminRole, n.allowed))
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] text-[#334155]">
+      <header className="bg-[#0F172A] text-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+          <Link href="/admin" className="font-black text-sm">
+            Tutor<span className="text-[#d60008]">Mint</span>
+            <span className="ml-2 text-[10px] uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded">
+              Admin
+            </span>
+          </Link>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[10px] uppercase tracking-wider bg-[#059669] px-2 py-1 rounded font-bold shrink-0">
+              {actor.adminRole}
+            </span>
+            <span className="text-[11px] text-gray-300 truncate hidden sm:block">{actor.email}</span>
+            <Link href="/" className="text-[11px] font-bold text-gray-300 hover:text-white shrink-0 min-h-[44px] flex items-center">
+              Exit
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-6xl mx-auto sm:flex sm:gap-6 sm:px-6 sm:py-6">
+        <nav className="hidden sm:block w-44 shrink-0" aria-label="Admin sections">
+          <ul className="space-y-1 sticky top-6">
+            {visible.map((n) => (
+              <li key={n.href}>
+                <Link
+                  href={n.href}
+                  className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-white border border-gray-200 hover:border-[#0F172A] text-xs font-bold transition-colors"
+                >
+                  <span aria-hidden="true">{n.icon}</span>
+                  {n.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <main className="flex-1 min-w-0 px-4 py-5 sm:p-0 pb-24 sm:pb-0">{children}</main>
+      </div>
+
+      {/* Bottom nav on mobile */}
+      {visible.length > 0 && (
+        <nav
+          className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex"
+          aria-label="Admin sections"
+        >
+          {visible.map((n) => (
+            <Link
+              key={n.href}
+              href={n.href}
+              className="flex-1 min-h-[56px] flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-[#334155]"
+            >
+              <span className="text-base" aria-hidden="true">
+                {n.icon}
+              </span>
+              {n.label}
+            </Link>
+          ))}
+        </nav>
+      )}
+    </div>
+  )
 }

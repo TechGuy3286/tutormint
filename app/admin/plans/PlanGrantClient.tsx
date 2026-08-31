@@ -1,0 +1,257 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+
+export type PlanRow = {
+  code: string
+  name: string
+  audience: string
+  price_pkr: number
+  monthly_quota: number
+  displayed_quota: string
+}
+
+export type AccountRow = {
+  id: string
+  fullName: string
+  email: string
+  role: string
+  activePlan: string | null
+  expiresAt: string | null
+  source: string | null
+  note: string | null
+}
+
+export default function PlanGrantClient({
+  plans,
+  accounts,
+  canMutate,
+}: {
+  plans: PlanRow[]
+  accounts: AccountRow[]
+  canMutate: boolean
+}) {
+  const router = useRouter()
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState<AccountRow | null>(null)
+  const [planCode, setPlanCode] = useState('')
+  const [days, setDays] = useState('30')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [msg, setMsg] = useState('')
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    if (!needle) return accounts.slice(0, 40)
+    return accounts
+      .filter((a) => a.fullName?.toLowerCase().includes(needle) || a.email?.toLowerCase().includes(needle))
+      .slice(0, 40)
+  }, [q, accounts])
+
+  // Only plans matching the selected account's audience are offered.
+  const eligiblePlans = useMemo(() => {
+    if (!open) return []
+    const audience = open.role === 'tutor' ? 'tutor' : 'parent'
+    return plans.filter((p) => p.audience === audience)
+  }, [open, plans])
+
+  async function submit(action: 'grant' | 'revoke') {
+    if (!open) return
+    setBusy(true)
+    setErr('')
+    setMsg('')
+
+    const res = await fetch('/api/admin/plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: open.id,
+        action,
+        planCode: action === 'grant' ? planCode : undefined,
+        days: action === 'grant' ? Number(days) : undefined,
+        note,
+      }),
+    })
+    const json = await res.json()
+    setBusy(false)
+
+    if (!res.ok) {
+      setErr(json.error ?? 'Action failed.')
+      return
+    }
+
+    setMsg(
+      action === 'grant'
+        ? `${planCode} granted to ${open.fullName} until ${new Date(json.expiresAt).toLocaleDateString()}.`
+        : `Revoked ${json.revoked} active subscription(s) for ${open.fullName}.`,
+    )
+    setOpen(null)
+    setPlanCode('')
+    setNote('')
+    router.refresh()
+  }
+
+  return (
+    <div className="space-y-4">
+      <header className="space-y-1">
+        <h1 className="text-xl sm:text-2xl font-black text-[#0F172A]">Plans</h1>
+        <p className="text-xs text-gray-500">
+          Grant or revoke a plan on any account. Grants are recorded as{' '}
+          <code className="text-[10px]">admin_grant</code> so they can be told apart from real
+          purchases.
+        </p>
+      </header>
+
+      {!canMutate && (
+        <p className="p-3 bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold rounded-xl">
+          Read-only: your admin role can view plans but not change them.
+        </p>
+      )}
+
+      {msg && (
+        <p className="p-3 bg-emerald-50 border border-emerald-200 text-[#059669] text-xs font-bold rounded-xl">
+          {msg}
+        </p>
+      )}
+
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search by name or email…"
+        className="w-full min-h-[44px] p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A]"
+      />
+
+      <ul className="space-y-2">
+        {filtered.map((a) => (
+          <li key={a.id}>
+            <button
+              onClick={() => {
+                if (!canMutate) return
+                setOpen(a)
+                setPlanCode('')
+                setDays('30')
+                setNote('')
+                setErr('')
+              }}
+              disabled={!canMutate}
+              className="w-full text-left bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 hover:border-[#0F172A] transition-colors flex items-center gap-3 min-h-[44px] disabled:cursor-default disabled:hover:border-gray-200"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black text-[#0F172A] truncate">{a.fullName}</p>
+                <p className="text-[11px] text-gray-500 truncate">
+                  {a.email} · {a.role}
+                </p>
+              </div>
+              <span
+                className={`shrink-0 px-2 py-1 rounded-lg border text-[10px] font-bold ${
+                  a.activePlan
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : 'bg-gray-50 text-gray-500 border-gray-200'
+                }`}
+              >
+                {a.activePlan ?? 'none'}
+                {a.source === 'admin_grant' ? ' ·granted' : ''}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center sm:justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Plan for ${open.fullName}`}
+          onClick={() => setOpen(null)}
+        >
+          <div
+            className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-base font-black text-[#0F172A] truncate">{open.fullName}</h2>
+                <p className="text-[11px] text-gray-500 truncate">
+                  {open.role} · current: {open.activePlan ?? 'none'}
+                  {open.expiresAt ? ` (until ${new Date(open.expiresAt).toLocaleDateString()})` : ''}
+                </p>
+              </div>
+              <button onClick={() => setOpen(null)} className="text-gray-400 text-xl min-h-[44px] px-2" aria-label="Close">
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="plan" className="text-[11px] font-bold text-[#0F172A]">
+                Plan ({open.role === 'tutor' ? 'tutor' : 'parent'} plans only)
+              </label>
+              <select
+                id="plan"
+                value={planCode}
+                onChange={(e) => setPlanCode(e.target.value)}
+                className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A]"
+              >
+                <option value="">Select a plan…</option>
+                {eligiblePlans.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.name} — {p.price_pkr} PKR ({p.displayed_quota})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="days" className="text-[11px] font-bold text-[#0F172A]">
+                Duration (days)
+              </label>
+              <input
+                id="days"
+                type="number"
+                min={1}
+                max={3650}
+                value={days}
+                onChange={(e) => setDays(e.target.value)}
+                className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A]"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="note" className="text-[11px] font-bold text-[#0F172A]">
+                Note (recorded in the audit log)
+              </label>
+              <input
+                id="note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Pre-launch testing"
+                className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A]"
+              />
+            </div>
+
+            {err && <p className="text-[11px] font-bold text-[#d60008]">{err}</p>}
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => submit('grant')}
+                disabled={busy || !planCode}
+                className="min-h-[44px] py-3 bg-[#059669] hover:bg-emerald-700 text-white text-xs font-bold rounded-xl disabled:opacity-50"
+              >
+                Grant
+              </button>
+              <button
+                onClick={() => submit('revoke')}
+                disabled={busy || !open.activePlan}
+                className="min-h-[44px] py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl disabled:opacity-50"
+              >
+                Revoke active
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

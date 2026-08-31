@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { recomputeCompletion } from '@/lib/completion'
 import { calculateParentCompletion } from '@/lib/profileChecklist'
+import { logActivity } from '@/lib/activityLog'
 
 // Submit parent CNIC + address for admin verification.
 //
@@ -52,6 +53,9 @@ export async function POST() {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
   await recomputeCompletion(user.id)
+  await logActivity({
+    userId: user.id, event: 'verification_submitted', targetType: 'profile', targetId: user.id,
+  })
 
   return NextResponse.json({
     success: true,

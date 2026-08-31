@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { createClient } from '@/lib/supabase/server'
 import { recomputeCompletion } from '@/lib/completion'
+import { logActivity } from '@/lib/activityLog'
 
 // Tutor introduction video.
 //
@@ -120,6 +121,11 @@ export async function POST(req: NextRequest) {
         video_attempts: attempts + 1,
       })
       .eq('id', user.id)
+
+    await logActivity({
+      userId: user.id, event: 'video_submitted', targetType: 'tutor_profile', targetId: user.id,
+      meta: { attempt: attempts + 1, videoId },
+    })
 
     const completion = await recomputeCompletion(user.id)
 

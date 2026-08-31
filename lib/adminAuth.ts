@@ -1,0 +1,91 @@
+// lib/adminAuth.ts
+//
+// Admin permission checks for server components and route handlers.
+//
+// The matrix (CLAUDE.md "Admin team hierarchy"):
+//   owner    everything, plus staff management (the Team screen is T7)
+//   manager  everything except Team management
+//   verifier tutor moderation queue + parent verification queue only
+//   finance  payments, subscriptions and quota views (read-only here in T3.5)
+//   support  reports, blocks, penalties, demos -- none of the T3.5 screens
+//
+// 'owner' satisfies every check, so callers list the specific roles that also
+// qualify and never have to remember to add owner.
+
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+
+export type AdminRole = 'owner' | 'manager' | 'verifier' | 'finance' | 'support'
+
+export type AdminActor = {
+  id: string
+  email: string | null
+  adminRole: AdminRole
+}
+
+/** The current user if they are an admin, else null. Never throws. */
+export async function getAdminActor(): Promise<AdminActor | null> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, admin_role, email')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (profile?.role !== 'admin' || !profile.admin_role) return null
+
+  return {
+    id: user.id,
+    email: profile.email ?? user.email ?? null,
+    adminRole: profile.admin_role as AdminRole,
+  }
+}
+
+export function roleSatisfies(actorRole: AdminRole, allowed: AdminRole[]): boolean {
+  return actorRole === 'owner' || allowed.includes(actorRole)
+}
+
+/**
+ * For SERVER COMPONENTS. Redirects rather than returning an error:
+ *   not an admin at all -> '/' (the admin area is not worth advertising)
+ *   an admin without the right sub-role -> '/admin', which lands them on a
+ *   screen they can actually use.
+ */
+export async function requireAdminRole(...allowed: AdminRole[]): Promise<AdminActor> {
+  const actor = await getAdminActor()
+  if (!actor) redirect('/')
+  if (!roleSatisfies(actor.adminRole, allowed)) redirect('/admin')
+  return actor
+}
+
+/**
+ * For ROUTE HANDLERS. Returns a discriminated result instead of redirecting,
+ * so the caller can answer with a real status code. Every admin mutation route
+ * must call this -- a role must not be able to do through the API what the UI
+ * hides from it.
+ */
+export async function checkAdminRole(
+  ...allowed: AdminRole[]
+): Promise<{ ok: true; actor: AdminActor } | { ok: false; status: 401 | 403; error: string }> {
+  const actor = await getAdminActor()
+  if (!actor) return { ok: false, status: 401, error: 'Admin access required.' }
+  if (!roleSatisfies(actor.adminRole, allowed)) {
+    return { ok: false, status: 403, error: 'Your admin role cannot perform this action.' }
+  }
+  return { ok: true, actor }
+}
+
+/** Which of the T3.5 screens a role may open. Drives the nav and the guards. */
+export const SCREEN_ACCESS = {
+  tutors: ['manager', 'verifier'] as AdminRole[],
+  parents: ['manager', 'verifier'] as AdminRole[],
+  // finance sees the plans screen read-only; only owner/manager may mutate.
+  plans: ['manager', 'finance'] as AdminRole[],
+  plansMutate: ['manager'] as AdminRole[],
+}

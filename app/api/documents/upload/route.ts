@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { storeDocument } from '@/lib/documents'
 import { recomputeCompletion } from '@/lib/completion'
+import { logActivity } from '@/lib/activityLog'
 
 // Upload a CNIC scan or a degree certificate.
 //
@@ -59,6 +60,11 @@ export async function POST(request: Request) {
       .update({ cnic_image_path: result.doc.originalPath })
       .eq('id', user.id)
   }
+
+  await logActivity({
+    userId: user.id, event: 'document_uploaded', targetType: 'user_document', targetId: result.doc.id,
+    meta: { kind },
+  })
 
   const completion = await recomputeCompletion(user.id)
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { recomputeCompletion } from '@/lib/completion'
+import { logActivity } from '@/lib/activityLog'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
 // then recomputes profiles.profile_completion so the stored percentage can
@@ -80,6 +81,20 @@ export async function POST(request: Request) {
   }
 
   const completion = await recomputeCompletion(user.id)
+
+  const changed = [...Object.keys(profilePatch)]
+  if (Array.isArray(body.subjectMasterIds)) {
+    await logActivity({
+      userId: user.id, event: 'subjects_changed', targetType: 'tutor_profile', targetId: user.id,
+      meta: { count: body.subjectMasterIds.length },
+    })
+  }
+  if (changed.length > 0 || body.tutorProfile) {
+    await logActivity({
+      userId: user.id, event: 'profile_updated', targetType: 'profile', targetId: user.id,
+      meta: { step: body.step ?? null, fields: changed },
+    })
+  }
 
   return NextResponse.json({
     success: true,
