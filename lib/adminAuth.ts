@@ -111,4 +111,12 @@ export const SCREEN_ACCESS = {
   // Publishing a tutor's video to the world is a bigger decision than
   // approving it for review, so it stops at manager rather than verifier.
   videoVisibility: ['manager'] as AdminRole[],
+  // T7b — the growth tools. All owner + manager: each of them either spends
+  // the platform's reputation (ads, social posts published as us) or creates
+  // accounts and deletes them, which is not a queue-worker's job.
+  ads: ['manager'] as AdminRole[],
+  social: ['manager'] as AdminRole[],
+  import: ['manager'] as AdminRole[],
+  // Deleting accounts is owner-only: it is the one admin action with no undo.
+  cleanup: [] as AdminRole[],
 }

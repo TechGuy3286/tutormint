@@ -6,7 +6,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 
-export type Role = 'tutor' | 'parent' | 'academy' | 'admin'
+export type { Role } from '@/lib/authRoutes'
+import type { Role } from '@/lib/authRoutes'
 
 export type SessionProfile = {
   id: string
@@ -63,38 +64,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   }
 }
 
-/** Where a role belongs after signing in. */
-export function homeForRole(role: Role | null | undefined): string {
-  switch (role) {
-    case 'admin':
-      // /admin is the dashboard. The old '/admin/dashboard' was a 404: no such
-      // route has ever existed, so every admin sign-in landed on a broken page.
-      return '/admin'
-    case 'tutor':
-      return '/tutor/dashboard'
-    default:
-      return '/parent/dashboard'
-  }
-}
-
-/**
- * True when `next` is a safe same-origin path this role is allowed to land on.
- * Guards against open redirects (protocol-relative or absolute URLs) and stops
- * a parent being sent to a tutor page just because ?next= said so.
- */
-export function nextForRole(next: string | null | undefined, role: Role | null | undefined): string | null {
-  if (!next) return null
-  if (!next.startsWith('/') || next.startsWith('//')) return null
-
-  const area = next.startsWith('/tutor')
-    ? 'tutor'
-    : next.startsWith('/parent')
-      ? 'parent'
-      : next.startsWith('/admin')
-        ? 'admin'
-        : null
-
-  if (area === null) return next // a public page: anyone may be returned to it
-  if (area === 'admin') return role === 'admin' ? next : null
-  return area === role ? next : null
-}
+// The pure routing helpers live in lib/authRoutes.ts so the login page can
+// import them without pulling next/headers into the browser bundle. Re-exported
+// here so server callers still have one import.
+export { homeForRole, nextForRole } from '@/lib/authRoutes'

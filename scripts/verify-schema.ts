@@ -36,6 +36,8 @@ const EXPECTED_TABLES: Record<string, string[]> = {
     'rating_avg', 'rating_count',
     // T7a
     'video_visibility', 'video_visibility_set_at', 'video_visibility_set_by',
+    // T7b — imported profiles and the claim flow.
+    'imported', 'claimed_at', 'terms_accepted_at', 'imported_at', 'imported_by',
   ],
   plans: [
     'code', 'audience', 'name', 'price_pkr', 'duration_days', 'monthly_quota',
@@ -80,6 +82,13 @@ const EXPECTED_TABLES: Record<string, string[]> = {
   penalties_log: ['id', 'user_id', 'reason', 'created_at', 'kind', 'issued_by', 'report_id', 'detail'],
   admin_audit_log: ['id', 'actor_id', 'actor_role', 'actor_email', 'action', 'target_type', 'target_id', 'detail', 'created_at'],
   user_activity_log: ['id', 'user_id', 'event', 'target_type', 'target_id', 'meta', 'created_at'],
+  // T7b — the revenue spec's ad columns on the legacy table, plus events.
+  advertisements: [
+    'id', 'title', 'client_name', 'description', 'cta_link', 'is_active', 'created_at',
+    'image_path', 'target_url', 'audience', 'starts_at', 'ends_at', 'weight', 'status',
+    'created_by', 'impressions', 'clicks', 'updated_at',
+  ],
+  ad_events: ['id', 'ad_id', 'kind', 'slot', 'viewer_role', 'occurred_at'],
 }
 
 const EXPECTED_PLANS = ['verified', 'premium', 'featured', 'parent_verified', 'parent_featured']
@@ -96,6 +105,8 @@ const EXPECTED_BUCKETS: Record<string, boolean> = {
   'identity-docs': false,
   // T6 — a payment receipt shows an account number and usually a name.
   'payment-proofs': false,
+  // T7b — ad creatives are banners on public pages, so this one is public.
+  ads: true,
 }
 
 function dbUrl(): string {

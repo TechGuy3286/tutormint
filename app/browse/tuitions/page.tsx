@@ -220,7 +220,11 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
                   applied={appliedIds.has(job.id)}
                 />
                 {(i + 1) % AD_EVERY === 0 && i + 1 < jobs.length && (
-                  <AdSlot audience="tutors" index={Math.floor(i / AD_EVERY)} />
+                  <AdSlot
+                    slot="browse-inline"
+                    audience="tutors"
+                    index={Math.floor(i / AD_EVERY)}
+                  />
                 )}
               </div>
             ))}

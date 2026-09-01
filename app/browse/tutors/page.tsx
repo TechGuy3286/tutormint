@@ -236,7 +236,12 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
                 {/* One inline slot after every 8 results, never inside the
                     ranking itself. */}
                 {(i + 1) % AD_EVERY === 0 && i + 1 < tutors.length && (
-                  <AdSlot audience="parents" index={Math.floor(i / AD_EVERY)} />
+                  <AdSlot
+                    slot="browse-inline"
+                    audience="parents"
+                    index={Math.floor(i / AD_EVERY)}
+                    viewerRole={viewer.role ?? null}
+                  />
                 )}
               </div>
             ))}

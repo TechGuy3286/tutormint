@@ -1,6 +1,8 @@
 import Link from 'next/link'
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { findJunkAccounts } from '@/lib/cleanup'
+import CleanupClient from './CleanupClient'
 
 // The member directory. owner / manager / support.
 //
@@ -31,10 +33,18 @@ type Row = {
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; role?: string; status?: string }>
+  searchParams: Promise<{ q?: string; role?: string; status?: string; filter?: string }>
 }) {
-  await requireAdminRole(...SCREEN_ACCESS.users)
-  const { q = '', role = 'all', status = 'all' } = await searchParams
+  const actor = await requireAdminRole(...SCREEN_ACCESS.users)
+  const { q = '', role = 'all', status = 'all', filter } = await searchParams
+
+  // ?filter=suspicious is the junk-account cleanup, and it is owner-only —
+  // narrower than the directory it lives inside. A manager or support admin
+  // who types the URL gets the ordinary list, not a 403 they cannot act on.
+  if (filter === 'suspicious' && roleSatisfies(actor.adminRole, SCREEN_ACCESS.cleanup)) {
+    const { candidates, scanned } = await findJunkAccounts()
+    return <CleanupClient candidates={candidates} scanned={scanned} />
+  }
 
   const admin = createAdminClient()
   if (!admin) {
@@ -184,6 +194,14 @@ export default async function AdminUsersPage({
         {chip('role', 'parent', 'Parents', role)}
         {chip('role', 'admin', 'Staff', role)}
         {chip('status', 'suspended', 'Suspended only', status)}
+        {roleSatisfies(actor.adminRole, SCREEN_ACCESS.cleanup) && (
+          <Link
+            href="/admin/users?filter=suspicious"
+            className="inline-flex min-h-[44px] items-center rounded-xl border border-amber-300 bg-amber-50 px-4 text-xs font-bold text-[#92400E]"
+          >
+            Junk accounts
+          </Link>
+        )}
       </div>
 
       {rows.length === 0 ? (

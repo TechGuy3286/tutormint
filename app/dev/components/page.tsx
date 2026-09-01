@@ -186,10 +186,10 @@ export default function DevComponentsPage() {
           </div>
         </Section>
 
-        <Section title="Ad slot" note="House creative. Real rotation is T7.">
+        <Section title="Ad slot" note="Weighted rotation; falls back to a house creative.">
           <div className="space-y-4">
-            <AdSlot audience="parents" />
-            <AdSlot audience="tutors" />
+            <AdSlot slot="browse-inline" audience="parents" />
+            <AdSlot slot="tutor-dashboard" audience="tutors" />
           </div>
         </Section>
       </div>

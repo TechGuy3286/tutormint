@@ -8,6 +8,7 @@ import { computeCompletion } from '@/lib/completion'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import ProfileCompletionWidget from '@/components/ProfileCompletionWidget'
+import AdSlot from '@/components/ads/AdSlot'
 import { reviewableEngagements } from '@/lib/reviews'
 import ChildrenManager, { type Child } from './ChildrenManager'
 import DemoInbox, { type DemoRow } from './DemoInbox'
@@ -260,6 +261,9 @@ export default async function ParentDashboardPage() {
         </section>
 
         <DemoInbox role="parent" demos={demoRows} />
+
+        {/* The parent dashboard slot from the revenue spec. One per page. */}
+        <AdSlot slot="parent-sidebar" audience="parents" viewerRole="parent" />
 
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link

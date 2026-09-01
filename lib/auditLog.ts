@@ -34,6 +34,13 @@ export type AuditAction =
   | 'report.dismiss'
   | 'report.action'
   | 'video.visibility'
+  | 'ad.create'
+  | 'ad.edit'
+  | 'ad.status'
+  | 'ad.delete'
+  | 'social.generate'
+  | 'tutor.import'
+  | 'user.delete'
 
 export async function logAdminAction(params: {
   actorId: string

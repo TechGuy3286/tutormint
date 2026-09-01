@@ -68,6 +68,11 @@ export type ActivityEvent =
   | 'staff_suspended'
   | 'staff_reactivated'
   | 'video_visibility_changed'
+  // T7b — imported accounts and the claim flow.
+  | 'imported'
+  | 'password_changed'
+  | 'terms_accepted'
+  | 'profile_claimed'
 
 export async function logActivity(params: {
   userId: string

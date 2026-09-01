@@ -24,6 +24,9 @@ const NAV: { href: string; label: string; icon: string; allowed: AdminRole[] }[]
   { href: '/admin/reports', label: 'Reports', icon: '🚩', allowed: SCREEN_ACCESS.reports },
   { href: '/admin/users', label: 'Members', icon: '🧑', allowed: SCREEN_ACCESS.users },
   { href: '/admin/audit', label: 'Audit', icon: '📜', allowed: SCREEN_ACCESS.audit },
+  { href: '/admin/ads', label: 'Ads', icon: '📢', allowed: SCREEN_ACCESS.ads },
+  { href: '/admin/social', label: 'Social', icon: '📸', allowed: SCREEN_ACCESS.social },
+  { href: '/admin/import', label: 'Import', icon: '📥', allowed: SCREEN_ACCESS.import },
   { href: '/admin/team', label: 'Team', icon: '🔑', allowed: SCREEN_ACCESS.team },
 ]
 

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { upgradeHref } from '@/lib/upgradePath'
+import AdSlot from '@/components/ads/AdSlot'
 import { computeCompletion } from '@/lib/completion'
 import { viewTeasers } from '@/lib/profileViews'
 import { matchingJobsForTutor } from '@/lib/jobFeed'
@@ -292,6 +293,10 @@ export default async function TutorDashboardPage() {
         </section>
 
         <DemoInbox role="tutor" demos={demoRows} />
+
+        {/* The tutor dashboard slot. House and promo creatives only, per the
+            revenue spec -- tutors are not sold to advertisers. */}
+        <AdSlot slot="tutor-dashboard" audience="tutors" viewerRole="tutor" />
       </div>
     </main>
   )

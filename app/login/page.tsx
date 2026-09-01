@@ -4,111 +4,107 @@ import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { homeForRole, nextForRole, type Role } from '@/lib/authRoutes'
 
-// The single sign-in page. /parent/login and /tutor/login are server redirects
-// here. After sign-in we read profiles.role exactly once and route on it --
-// no probing several tables to guess who this is.
-
-type Role = 'tutor' | 'parent' | 'academy' | 'admin'
-
-function homeForRole(role: Role | null): string {
-  if (role === 'admin') return '/admin/dashboard'
-  if (role === 'tutor') return '/tutor/dashboard'
-  return '/parent/dashboard'
-}
-
-/** Only honour ?next= when it is same-origin and matches the user's own area. */
-function nextForRole(next: string | null, role: Role | null): string | null {
-  if (!next || !next.startsWith('/') || next.startsWith('//')) return null
-  const area = next.startsWith('/tutor')
-    ? 'tutor'
-    : next.startsWith('/parent')
-      ? 'parent'
-      : next.startsWith('/admin')
-        ? 'admin'
-        : null
-  if (area === null) return next
-  if (area === 'admin') return role === 'admin' ? next : null
-  if (area === 'parent') return role === 'parent' || role === 'academy' ? next : null
-  return area === role ? next : null
-}
+// The single sign-in page. /parent/login and /tutor/login redirect here.
+//
+// Accepts an email address OR a Pakistani mobile number. Imported tutors were
+// created from a spreadsheet with no email of their own and sign in with their
+// number and a temporary password; everyone else uses the address they
+// registered with. The mapping is done by /api/auth/login, on the server —
+// resolving a number to an account needs a lookup a browser must not make, and
+// keeping it server-side is also what lets every failure return the same
+// message instead of confirming which numbers are registered.
+//
+// After sign-in there are three destinations and they are checked in order:
+// a suspended account goes to the page that explains itself, a temporary
+// password must be replaced before anything else, and otherwise the member
+// goes to their own dashboard.
 
 function LoginForm() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
-  const [needsConfirm, setNeedsConfirm] = useState(false)
+  const [needsConfirm, setNeedsConfirm] = useState<string | null>(null)
   const [resendMsg, setResendMsg] = useState('')
 
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setErrorMsg('')
     setResendMsg('')
-    setNeedsConfirm(false)
+    setNeedsConfirm(null)
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password }),
+      })
+      const json = await res.json()
 
-    if (error) {
-      const msg = error.message.toLowerCase()
-      if (msg.includes('not confirmed') || msg.includes('confirm')) {
-        setNeedsConfirm(true)
-        setErrorMsg('Your email address has not been confirmed yet.')
-      } else if (msg.includes('invalid login credentials')) {
-        setErrorMsg('That email and password combination is not right. Please try again.')
-      } else {
-        setErrorMsg(error.message)
+      if (!res.ok) {
+        setErrorMsg(json.error ?? 'Could not sign you in.')
+        if (json.needsConfirm) setNeedsConfirm(json.email ?? identifier)
+        setLoading(false)
+        return
       }
+
+      if (json.suspended) {
+        router.push('/suspended')
+      } else if (json.mustChangePassword) {
+        // A temporary password is good for exactly one sign-in.
+        const next = nextForRole(searchParams.get('next'), json.role as Role | null)
+        router.push(`/account/password${next ? `?next=${encodeURIComponent(next)}` : ''}`)
+      } else {
+        const role = (json.role as Role | null) ?? null
+        router.push(nextForRole(searchParams.get('next'), role) ?? homeForRole(role))
+      }
+      router.refresh()
+    } catch {
+      setErrorMsg('Could not reach the server. Please try again.')
       setLoading(false)
-      return
     }
-
-    // One role read, then route on it.
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', data.user!.id)
-      .maybeSingle()
-
-    const role = (profile?.role as Role | undefined) ?? null
-    const target = nextForRole(searchParams.get('next'), role) ?? homeForRole(role)
-
-    router.push(target)
-    router.refresh()
   }
 
   const handleResend = async () => {
     setResendMsg('')
-    const { error } = await supabase.auth.resend({ type: 'signup', email })
+    const supabase = createClient()
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: needsConfirm ?? identifier,
+    })
     setResendMsg(
       error ? `Could not resend: ${error.message}` : 'Confirmation email sent — check your inbox.',
     )
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 sm:p-6 text-[#334155]">
-      <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-gray-200 space-y-6">
-        <div className="text-center space-y-2">
-          <Link href="/" className="text-xl font-black text-[#0F172A] inline-block">
+    <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] p-4 text-[#334155] sm:p-6">
+      <div className="w-full max-w-md space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl sm:p-8">
+        <div className="space-y-2 text-center">
+          <Link
+            href="/"
+            className="inline-flex min-h-[44px] items-center justify-center text-xl font-black text-[#0F172A]"
+          >
             Tutor<span className="text-[#d60008]">Mint</span>
           </Link>
-          <h1 className="text-xl font-black text-[#0F172A]">Sign In to Your Account</h1>
+          <h1 className="text-xl font-black text-[#0F172A]">Sign in to your account</h1>
           <p className="text-xs text-gray-500">Tutors, parents and schools all sign in here.</p>
         </div>
 
         {errorMsg && (
-          <div className="p-3 bg-red-50 border border-red-200 text-[#d60008] text-xs font-bold rounded-xl text-center space-y-2">
+          <div className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3 text-center text-xs font-bold text-[#d60008]">
             <p>{errorMsg}</p>
             {needsConfirm && (
               <button
                 type="button"
                 onClick={handleResend}
-                className="w-full min-h-[44px] px-4 py-2 bg-[#0F172A] hover:bg-[#059669] text-white rounded-xl text-xs font-bold transition-colors"
+                className="min-h-[44px] w-full rounded-xl bg-[#0F172A] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#059669]"
               >
                 Resend confirmation email
               </button>
@@ -117,25 +113,25 @@ function LoginForm() {
         )}
 
         {resendMsg && (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 text-[#059669] text-xs font-bold rounded-xl text-center">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center text-xs font-bold text-[#059669]">
             {resendMsg}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1">
-            <label htmlFor="email" className="text-xs font-bold text-[#0F172A]">
-              Email Address
+            <label htmlFor="identifier" className="text-xs font-bold text-[#0F172A]">
+              Email or mobile number
             </label>
             <input
-              id="email"
-              type="email"
+              id="identifier"
+              type="text"
               required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A] focus:bg-white"
+              autoComplete="username"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="name@example.com or 0300 1234567"
+              className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-[#F8FAFC] p-3 text-sm outline-none focus:border-[#0F172A] focus:bg-white"
             />
           </div>
 
@@ -151,22 +147,22 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A] focus:bg-white"
+              className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-[#F8FAFC] p-3 text-sm outline-none focus:border-[#0F172A] focus:bg-white"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full min-h-[44px] py-3.5 bg-[#d60008] hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all disabled:opacity-50"
+            className="min-h-[44px] w-full rounded-xl bg-[#d60008] py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:bg-red-700 disabled:opacity-50"
           >
-            {loading ? 'Signing In…' : 'Sign In'}
+            {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
         <p className="text-center text-xs text-gray-500">
           New to TutorMint?{' '}
-          <Link href="/register" className="text-[#d60008] font-bold hover:underline">
+          <Link href="/register" className="font-bold text-[#d60008] hover:underline">
             Create an account
           </Link>
         </p>
@@ -179,7 +175,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center text-xs font-bold text-gray-500">
+        <div className="flex min-h-screen items-center justify-center text-xs font-bold text-gray-500">
           Loading…
         </div>
       }

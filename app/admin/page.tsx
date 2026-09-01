@@ -57,6 +57,8 @@ export default async function AdminHome() {
     activeSubs,
     revenueRows,
     staff,
+    liveAds,
+    unclaimed,
   ] = await Promise.all([
     count(admin.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'tutor')),
     count(
@@ -110,6 +112,21 @@ export default async function AdminHome() {
         .select('id', { count: 'exact', head: true })
         .eq('role', 'admin')
         .not('admin_role', 'is', null),
+    ),
+    count(
+      admin
+        .from('advertisements')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active')
+        .lte('starts_at', now.toISOString())
+        .or(`ends_at.is.null,ends_at.gt.${now.toISOString()}`),
+    ),
+    count(
+      admin
+        .from('tutor_profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('imported', true)
+        .is('claimed_at', null),
     ),
   ])
 
@@ -185,6 +202,20 @@ export default async function AdminHome() {
       hint: 'Members currently locked out',
       href: '/admin/users?status=suspended',
       allowed: SCREEN_ACCESS.users,
+    },
+    {
+      label: 'Live ads',
+      value: String(liveAds.count ?? 0),
+      hint: 'Sponsored banners in rotation',
+      href: '/admin/ads',
+      allowed: SCREEN_ACCESS.ads,
+    },
+    {
+      label: 'Unclaimed imports',
+      value: String(unclaimed.count ?? 0),
+      hint: 'Imported tutors yet to claim their profile',
+      href: '/admin/import',
+      allowed: SCREEN_ACCESS.import,
     },
     {
       label: 'Staff',

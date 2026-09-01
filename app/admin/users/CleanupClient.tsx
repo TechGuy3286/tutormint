@@ -1,0 +1,167 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { AlertTriangle } from 'lucide-react'
+
+export type Candidate = {
+  id: string
+  email: string | null
+  createdAt: string
+  confirmed: boolean
+  hasProfile: boolean
+  role: string | null
+  reason: string
+}
+
+// Junk accounts: what a scan found, and the one screen that can delete them.
+//
+// Nothing is pre-selected. The list is a suggestion from a heuristic, and
+// heuristics are wrong sometimes; the owner ticks what they recognise as junk,
+// and types DELETE, and only then does anything happen. The server recomputes
+// the whole candidate list before deleting, so a tick on this page can never
+// remove an account the scan would not have offered.
+
+export default function CleanupClient({
+  candidates,
+  scanned,
+}: {
+  candidates: Candidate[]
+  scanned: number
+}) {
+  const router = useRouter()
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState<string | null>(null)
+
+  const toggle = (id: string) => {
+    const next = new Set(selected)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelected(next)
+  }
+
+  const remove = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selected), confirm }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'That did not work.')
+      setDone(
+        `Deleted ${json.deleted} account${json.deleted === 1 ? '' : 's'}` +
+          (json.refused ? ` · ${json.refused} refused (they have activity now)` : ''),
+      )
+      setSelected(new Set())
+      setConfirm('')
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That did not work.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <header className="space-y-2">
+        <Link href="/admin/users" className="text-xs font-bold text-[#d60008] hover:underline">
+          ← All members
+        </Link>
+        <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Junk accounts</h1>
+        <p className="text-xs leading-relaxed text-gray-500">
+          {candidates.length} of {scanned} accounts look like junk: an address that cannot receive
+          mail, or a domain one keystroke from a real provider, or unconfirmed for over a month.
+        </p>
+        <p className="rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-gray-500">
+          Never listed, whatever the address looks like: seed fixtures, staff accounts, and any
+          account with a job, application, payment, subscription, message, report, review or demo
+          behind it. That last rule is what keeps a real account with a scruffy-looking address
+          safe.
+        </p>
+      </header>
+
+      {done && (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-[#059669]">
+          {done}
+        </p>
+      )}
+      {error && (
+        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-[#d60008]">
+          {error}
+        </p>
+      )}
+
+      {candidates.length === 0 ? (
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+          Nothing to clean up.
+        </p>
+      ) : (
+        <>
+          <ul className="space-y-2">
+            {candidates.map((c) => (
+              <li key={c.id}>
+                <label
+                  className={`flex cursor-pointer items-start gap-3 rounded-2xl border bg-white p-3 ${
+                    selected.has(c.id) ? 'border-[#d60008]' : 'border-gray-200'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(c.id)}
+                    onChange={() => toggle(c.id)}
+                    className="mt-0.5 h-5 w-5 shrink-0"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-black text-[#0F172A]">
+                      {c.email ?? '(no email)'}
+                    </span>
+                    <span className="block text-[11px] text-gray-500">{c.reason}</span>
+                    <span className="block text-[11px] text-gray-400">
+                      Created {new Date(c.createdAt).toLocaleDateString('en-PK')} ·{' '}
+                      {c.confirmed ? 'confirmed' : 'never confirmed'} ·{' '}
+                      {c.hasProfile ? `profile (${c.role})` : 'no profile row'}
+                    </span>
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+
+          <section className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-[#92400E]">
+              <AlertTriangle size={16} className="mt-px shrink-0" />
+              {selected.size === 0
+                ? 'Tick the accounts you want removed.'
+                : `${selected.size} account${selected.size === 1 ? '' : 's'} will be deleted from authentication permanently. There is no undo.`}
+            </p>
+
+            <input
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="Type DELETE to confirm"
+              aria-label="Type DELETE to confirm"
+              className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs font-semibold"
+            />
+
+            <button
+              type="button"
+              disabled={busy || selected.size === 0 || confirm.trim().toUpperCase() !== 'DELETE'}
+              onClick={remove}
+              className="min-h-[44px] w-full rounded-xl bg-[#d60008] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+            >
+              {busy ? 'Deleting…' : `Delete ${selected.size || ''} selected`}
+            </button>
+          </section>
+        </>
+      )}
+    </div>
+  )
+}
