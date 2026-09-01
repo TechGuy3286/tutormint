@@ -21,7 +21,7 @@ export default function SecureDocumentPreview({
 }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border border-gray-200 bg-[#F8FAFC] select-none ${className}`}
+      className={`relative overflow-hidden rounded-xl border border-gray-200 bg-tm-bg select-none ${className}`}
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}

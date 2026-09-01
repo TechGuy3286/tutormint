@@ -42,34 +42,34 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] p-4 text-[#334155] sm:p-6">
+    <main className="flex min-h-screen items-center justify-center bg-tm-bg p-4 text-slate-700 sm:p-6">
       <div className="w-full max-w-md space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl sm:p-8">
         <div className="space-y-2 text-center">
           <Link
             href="/"
-            className="inline-flex min-h-[44px] items-center justify-center text-xl font-black text-[#0F172A]"
+            className="inline-flex min-h-[44px] items-center justify-center text-xl font-black text-tm-navy"
           >
-            Tutor<span className="text-[#d60008]">Mint</span>
+            Tutor<span className="text-tm-red">Mint</span>
           </Link>
-          <h1 className="text-xl font-black text-[#0F172A]">Reset your password</h1>
+          <h1 className="text-xl font-black text-tm-navy">Reset your password</h1>
         </div>
 
         {sent ? (
           <div className="space-y-4">
-            <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs leading-relaxed text-[#059669]">
+            <p className="rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-4 text-xs leading-relaxed text-tm-green-deep">
               If there is an account for <strong>{email}</strong>, a reset link is on its way. It is
               valid for one hour.
             </p>
             <p className="text-center text-xs leading-relaxed text-gray-500">
               Signed up with your mobile number rather than an email address?{' '}
-              <Link href="/support" className="font-bold text-[#d60008] hover:underline">
+              <Link href="/support" className="font-bold text-tm-red hover:underline">
                 Message us
               </Link>{' '}
               from that number and we will help.
             </p>
             <Link
               href="/login"
-              className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#0F172A] hover:border-[#0F172A]"
+              className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy hover:border-tm-navy"
             >
               Back to sign in
             </Link>
@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
             </p>
 
             <div className="space-y-1">
-              <label htmlFor="email" className="text-xs font-bold text-[#0F172A]">
+              <label htmlFor="email" className="text-xs font-bold text-tm-navy">
                 Email address
               </label>
               <input
@@ -93,21 +93,21 @@ export default function ForgotPasswordPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
-                className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-[#F8FAFC] p-3 text-sm outline-none focus:border-[#0F172A] focus:bg-white"
+                className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-sm outline-none focus:border-tm-navy focus:bg-white"
               />
             </div>
 
             <button
               type="submit"
               disabled={busy}
-              className="min-h-[44px] w-full rounded-xl bg-[#d60008] py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-red-700 disabled:opacity-50"
+              className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
             >
               {busy ? 'Sending…' : 'Send reset link'}
             </button>
 
             <Link
               href="/login"
-              className="flex min-h-[44px] items-center justify-center text-xs font-bold text-gray-500 hover:text-[#0F172A]"
+              className="flex min-h-[44px] items-center justify-center text-xs font-bold text-gray-500 hover:text-tm-navy"
             >
               Back to sign in
             </Link>

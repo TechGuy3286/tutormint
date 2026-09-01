@@ -27,7 +27,7 @@ export default async function AdminAuditPage({
   const admin = createAdminClient()
   if (!admin) {
     return (
-      <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-[#d60008]">
+      <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
         SUPABASE_SERVICE_ROLE_KEY is not configured on the server.
       </p>
     )
@@ -82,7 +82,7 @@ export default async function AdminAuditPage({
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Audit</h1>
+        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Audit</h1>
         <p className="text-xs text-gray-500">
           Every admin mutation, append-only. Nothing on this page can change a row.
         </p>
@@ -99,7 +99,7 @@ export default async function AdminAuditPage({
         {action !== 'all' && <input type="hidden" name="action" value={action} />}
         <button
           type="submit"
-          className="min-h-[44px] rounded-xl bg-[#0F172A] px-6 text-xs font-bold text-white"
+          className="min-h-[44px] rounded-xl bg-tm-black px-6 text-xs font-bold text-white"
         >
           Filter
         </button>
@@ -112,8 +112,8 @@ export default async function AdminAuditPage({
             href={chipHref(f)}
             className={`inline-flex min-h-[44px] items-center rounded-xl px-4 text-xs font-bold capitalize ${
               action === f
-                ? 'bg-[#0F172A] text-white'
-                : 'border border-gray-200 bg-white text-[#334155]'
+                ? 'bg-tm-black text-white'
+                : 'border border-gray-200 bg-white text-slate-700'
             }`}
           >
             {f}
@@ -138,7 +138,7 @@ export default async function AdminAuditPage({
                     address used to eat it entirely: the email truncates inside
                     its own span, the role never shrinks. */}
                 <span className="flex min-w-0 flex-1 items-baseline gap-1">
-                  <span className="min-w-0 truncate text-xs font-semibold text-[#0F172A]">
+                  <span className="min-w-0 truncate text-xs font-semibold text-tm-navy">
                     {(e.actor_email as string) ?? 'system'}
                   </span>
                   <span className="shrink-0 text-xs font-normal text-gray-400">
@@ -155,7 +155,7 @@ export default async function AdminAuditPage({
                 {e.target_id && nameById.has(e.target_id as string) ? (
                   <Link
                     href={`/admin/users/${e.target_id}`}
-                    className="font-bold text-[#0F172A] hover:underline"
+                    className="font-bold text-tm-navy hover:underline"
                   >
                     {nameById.get(e.target_id as string)}
                   </Link>
@@ -181,7 +181,7 @@ export default async function AdminAuditPage({
         {pageNum > 1 ? (
           <Link
             href={pageHref(pageNum - 1)}
-            className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#334155]"
+            className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
           >
             ← Newer
           </Link>
@@ -191,7 +191,7 @@ export default async function AdminAuditPage({
         {(entries ?? []).length === PAGE_SIZE && (
           <Link
             href={pageHref(pageNum + 1)}
-            className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#334155]"
+            className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
           >
             Older →
           </Link>

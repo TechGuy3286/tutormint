@@ -365,18 +365,18 @@ export default function TutorSettingsPage() {
   };
 
   return (
-    <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-[#334155] font-sans">
+    <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-slate-700 font-sans">
       
       {/* BREADCRUMBS */}
       <nav className="flex items-center justify-between bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
         <div className="flex items-center space-x-2 text-xs font-bold text-gray-500">
-          <Link href="/tutor/dashboard" className="hover:text-[#0F172A] transition-colors">Tutor Dashboard</Link>
+          <Link href="/tutor/dashboard" className="hover:text-tm-navy transition-colors">Tutor Dashboard</Link>
           <span className="text-gray-300">/</span>
-          <span className="text-[#059669]">Settings</span>
+          <span className="text-tm-green-deep">Settings</span>
         </div>
         <Link 
           href="/tutor/dashboard" 
-          className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-[#0F172A] text-xs font-bold rounded-xl transition-all"
+          className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-tm-navy text-xs font-bold rounded-xl transition-all"
         >
           ← Back to Dashboard
         </Link>
@@ -385,7 +385,7 @@ export default function TutorSettingsPage() {
       {/* HEADER CARD */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A]">Settings</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-tm-navy">Settings</h1>
           <p className="text-xs sm:text-sm text-gray-600 font-medium">
             Manage your Professional Credentials, Available Timings, Multiple Teaching Modes, Verification Documents, and Security Settings.
           </p>
@@ -393,7 +393,7 @@ export default function TutorSettingsPage() {
       </div>
 
       {uploading && (
-        <div className="p-3 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl text-xs font-bold animate-pulse">
+        <div className="p-3 bg-tm-tint-navy border border-tm-navy/30 text-tm-navy rounded-xl text-xs font-bold animate-pulse">
           ⏳ Processing and uploading media securely...
         </div>
       )}
@@ -404,20 +404,20 @@ export default function TutorSettingsPage() {
           
           {/* SECTION: PERSONAL & CONTACT INFORMATION */}
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Personal & Contact Information</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Personal & Contact Information</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-[#0F172A]">Full Name</label>
+                <label className="block text-xs font-bold text-tm-navy">Full Name</label>
                 <input 
                   type="text" 
                   value={formData.fullName} 
                   onChange={(e) => setFormData({...formData, fullName: e.target.value})} 
-                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium focus:outline-none focus:border-[#0F172A]" 
+                  className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium focus:outline-none focus:border-tm-navy" 
                   required 
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-[#0F172A]">Email (Locked)</label>
+                <label className="block text-xs font-bold text-tm-navy">Email (Locked)</label>
                 <input 
                   type="email" 
                   value={tutorEmail} 
@@ -429,21 +429,21 @@ export default function TutorSettingsPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-[#0F172A]">Phone Number</label>
+                <label className="block text-xs font-bold text-tm-navy">Phone Number</label>
                 <input 
                   type="text" 
                   value={formData.phone_number} 
                   onChange={(e) => setFormData({...formData, phone_number: e.target.value})} 
-                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" 
+                  className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-[#0F172A]">WhatsApp Number</label>
+                <label className="block text-xs font-bold text-tm-navy">WhatsApp Number</label>
                 <input 
                   type="text" 
                   value={formData.whatsapp_number} 
                   onChange={(e) => setFormData({...formData, whatsapp_number: e.target.value})} 
-                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" 
+                  className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
                 />
               </div>
             </div>
@@ -454,10 +454,10 @@ export default function TutorSettingsPage() {
           {/* SECTION: COVER IMAGE */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Cover Image</h3>
+              <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Cover Image</h3>
               <span className="text-[11px] text-gray-400 font-medium">Recommended size: 1200 × 400 px</span>
             </div>
-            <div className="space-y-2 p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl">
+            <div className="space-y-2 p-4 bg-tm-bg border border-gray-200 rounded-2xl">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 {formData.coverImageUrl ? (
                   <img 
@@ -470,7 +470,7 @@ export default function TutorSettingsPage() {
                     No Cover Image
                   </div>
                 )}
-                <label className="px-4 py-2.5 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
+                <label className="px-4 py-2.5 bg-tm-black hover:bg-black text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
                   Browse Cover
                   <input 
                     type="file" 
@@ -487,19 +487,19 @@ export default function TutorSettingsPage() {
 
           {/* SECTION: PROFILE & VERIFICATION PHOTOS */}
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Profile & Verification Photos</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Profile & Verification Photos</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               
               {/* Profile Picture */}
-              <div className="space-y-2 p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl">
-                <label className="block text-xs font-bold text-[#0F172A]">Profile Picture</label>
+              <div className="space-y-2 p-4 bg-tm-bg border border-gray-200 rounded-2xl">
+                <label className="block text-xs font-bold text-tm-navy">Profile Picture</label>
                 <div className="flex items-center gap-4">
                   <img 
                     src={formData.profileImage} 
                     alt="Profile" 
-                    className="w-28 h-28 rounded-2xl object-cover border-2 border-emerald-500 shadow-md shrink-0" 
+                    className="w-28 h-28 rounded-2xl object-cover border-2 border-tm-green-deep shadow-md shrink-0" 
                   />
-                  <label className="px-4 py-2.5 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
+                  <label className="px-4 py-2.5 bg-tm-black hover:bg-black text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
                     Browse
                     <input 
                       type="file" 
@@ -512,16 +512,16 @@ export default function TutorSettingsPage() {
               </div>
 
               {/* Selfie */}
-              <div className="space-y-2 p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl">
-                <label className="block text-xs font-bold text-[#0F172A]">Selfie</label>
+              <div className="space-y-2 p-4 bg-tm-bg border border-gray-200 rounded-2xl">
+                <label className="block text-xs font-bold text-tm-navy">Selfie</label>
                 <div className="flex items-center gap-4">
                   <img 
                     src={formData.selfieUrl || "/logo.png"} 
                     alt="Selfie" 
-                    className="w-28 h-28 rounded-2xl object-cover border-2 border-blue-500 shadow-md shrink-0" 
+                    className="w-28 h-28 rounded-2xl object-cover border-2 border-tm-navy shadow-md shrink-0" 
                   />
                   <div className="space-y-1">
-                    <label className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
+                    <label className="px-4 py-2.5 bg-tm-navy hover:bg-tm-navy-hover text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
                       Browse (Take Selfie)
                       <input 
                         type="file" 
@@ -542,25 +542,25 @@ export default function TutorSettingsPage() {
 
           {/* SECTION: LOCATION & MULTIPLE TEACHING MODES */}
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Location & Teaching Modes</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Location & Teaching Modes</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-[#0F172A]">City</label>
+                <label className="block text-xs font-bold text-tm-navy">City</label>
                 <input 
                   type="text" 
                   value={formData.city} 
                   onChange={(e) => setFormData({...formData, city: e.target.value})} 
-                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" 
+                  className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
                   required 
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-[#0F172A]">Area Name</label>
+                <label className="block text-xs font-bold text-tm-navy">Area Name</label>
                 <input 
                   type="text" 
                   value={formData.areaName} 
                   onChange={(e) => setFormData({...formData, areaName: e.target.value})} 
-                  className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" 
+                  className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
                   required 
                 />
               </div>
@@ -568,7 +568,7 @@ export default function TutorSettingsPage() {
 
             {/* MULTIPLE TEACHING MODES CHECKBOXES */}
             <div className="space-y-2 pt-2">
-              <label className="block text-xs font-bold text-[#0F172A]">Teaching Modes (Select all that you are comfortable with)</label>
+              <label className="block text-xs font-bold text-tm-navy">Teaching Modes (Select all that you are comfortable with)</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {["Physical", "Online", "School"].map((mode) => {
                   const isChecked = formData.teachingModes.includes(mode);
@@ -576,7 +576,7 @@ export default function TutorSettingsPage() {
                     <label 
                       key={mode} 
                       className={`flex items-center gap-3 p-3.5 rounded-2xl border text-xs font-bold cursor-pointer transition-all ${
-                        isChecked ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-2xs' : 'bg-[#F8FAFC] border-gray-200 text-gray-700 hover:bg-gray-100'
+                        isChecked ? 'bg-tm-tint-green border-tm-green-deep/30 text-tm-green-deep shadow-2xs' : 'bg-tm-bg border-gray-200 text-gray-700 hover:bg-gray-100'
                       }`}
                     >
                       <input 
@@ -588,7 +588,7 @@ export default function TutorSettingsPage() {
                             : [...formData.teachingModes, mode];
                           setFormData({...formData, teachingModes: updated});
                         }}
-                        className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" 
+                        className="w-4 h-4 rounded border-gray-300 text-tm-green-deep focus:ring-tm-green-deep" 
                       />
                       <span>{mode} Tutoring</span>
                     </label>
@@ -602,18 +602,18 @@ export default function TutorSettingsPage() {
 
           {/* SECTION: SPECIALTY SUBJECTS */}
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Specialty Subject(s)</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Specialty Subject(s)</h3>
             <div className="space-y-2">
               {specialtyList.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs">
-                  <span className="font-bold text-[#0F172A]">{item.subject}</span>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold rounded-lg border border-emerald-200">
+                <div key={idx} className="flex items-center justify-between p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs">
+                  <span className="font-bold text-tm-navy">{item.subject}</span>
+                  <span className="px-2.5 py-1 bg-tm-tint-green text-tm-green-deep font-bold rounded-lg border border-tm-green-deep/30">
                     Level: {item.level}
                   </span>
                   <button 
                     type="button" 
                     onClick={() => setSpecialtyList(specialtyList.filter((_, i) => i !== idx))} 
-                    className="text-red-600 font-bold cursor-pointer"
+                    className="text-tm-red font-bold cursor-pointer"
                   >
                     Remove ✕
                   </button>
@@ -621,7 +621,7 @@ export default function TutorSettingsPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 items-center bg-[#F8FAFC] p-4 rounded-2xl border border-gray-200">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 items-center bg-tm-bg p-4 rounded-2xl border border-gray-200">
               <input 
                 type="text" 
                 value={newSubjInput} 
@@ -629,7 +629,7 @@ export default function TutorSettingsPage() {
                 placeholder="Enter Subject (e.g. Chemistry)" 
                 className="p-3 bg-white border border-gray-200 rounded-xl text-xs font-medium" 
               />
-              <div className="flex items-center gap-4 text-xs font-bold text-[#0F172A]">
+              <div className="flex items-center gap-4 text-xs font-bold text-tm-navy">
                 <label className="flex items-center gap-1 cursor-pointer">
                   <input 
                     type="radio" 
@@ -661,7 +661,7 @@ export default function TutorSettingsPage() {
               <button 
                 type="button" 
                 onClick={addSpecialtySubject} 
-                className="px-4 py-3 bg-[#0F172A] text-white font-bold rounded-xl text-xs cursor-pointer hover:bg-black transition-colors"
+                className="px-4 py-3 bg-tm-black text-white font-bold rounded-xl text-xs cursor-pointer hover:bg-black transition-colors"
               >
                 + Add Subject
               </button>
@@ -672,17 +672,17 @@ export default function TutorSettingsPage() {
 
           {/* SECTION: AVAILABLE TIMINGS & SCHEDULE */}
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Available Timings & Booking Schedule</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Available Timings & Booking Schedule</h3>
             <div className="space-y-2">
               {availabilityList.map((slot, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs">
+                <div key={idx} className="flex items-center justify-between p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs">
                   <div>
-                    <strong className="text-[#0F172A]">{slot.day}</strong> — <span className="text-gray-600 font-medium">{slot.timeSlot}</span>
+                    <strong className="text-tm-navy">{slot.day}</strong> — <span className="text-gray-600 font-medium">{slot.timeSlot}</span>
                   </div>
                   <button 
                     type="button" 
                     onClick={() => setAvailabilityList(availabilityList.filter((_, i) => i !== idx))} 
-                    className="text-red-600 font-bold cursor-pointer"
+                    className="text-tm-red font-bold cursor-pointer"
                   >
                     Remove ✕
                   </button>
@@ -690,7 +690,7 @@ export default function TutorSettingsPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 items-center bg-[#F8FAFC] p-4 rounded-2xl border border-gray-200">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 items-center bg-tm-bg p-4 rounded-2xl border border-gray-200">
               <select 
                 value={newDayInput} 
                 onChange={(e) => setNewDayInput(e.target.value)} 
@@ -714,7 +714,7 @@ export default function TutorSettingsPage() {
               <button 
                 type="button" 
                 onClick={addAvailabilitySlot} 
-                className="px-4 py-3 bg-[#0F172A] text-white font-bold rounded-xl text-xs cursor-pointer hover:bg-black transition-colors"
+                className="px-4 py-3 bg-tm-black text-white font-bold rounded-xl text-xs cursor-pointer hover:bg-black transition-colors"
               >
                 + Add Timing Slot
               </button>
@@ -725,19 +725,19 @@ export default function TutorSettingsPage() {
 
           {/* SECTION: VIDEO PORTFOLIO */}
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Video Portfolio</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Video Portfolio</h3>
             <div className="p-5 bg-slate-900 rounded-2xl text-white space-y-3">
-              <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400">YouTube Portfolio Video</h4>
+              <h4 className="text-xs font-black uppercase tracking-wider text-tm-mint">YouTube Portfolio Video</h4>
               <p className="text-xs text-slate-300">
                 Upload your portfolio video to showcase your teaching style directly.
               </p>
-              <label className="inline-block px-5 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl cursor-pointer shadow-md">
+              <label className="inline-block px-5 py-3 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl cursor-pointer shadow-md">
                 {uploadingVideo ? "Uploading Portfolio..." : "Upload portfolio Video"}
                 <input type="file" accept="video/*" className="hidden" onChange={handlePortfolioVideoUpload} disabled={uploadingVideo} />
               </label>
-              {youtubeStatus && <p className="text-xs font-bold text-emerald-400">{youtubeStatus}</p>}
+              {youtubeStatus && <p className="text-xs font-bold text-tm-mint">{youtubeStatus}</p>}
               {formData.videoIntroUrl && (
-                <p className="text-[11px] text-blue-400 font-mono">🔗 Portfolio Video Linked: {formData.videoIntroUrl}</p>
+                <p className="text-[11px] text-slate-300 font-mono">🔗 Portfolio Video Linked: {formData.videoIntroUrl}</p>
               )}
             </div>
           </div>
@@ -746,19 +746,19 @@ export default function TutorSettingsPage() {
 
           {/* SECTION: ANTI-DOWNLOAD PROTECTED DOCUMENTS */}
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Anti-Download Protected Documents</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Anti-Download Protected Documents</h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               
               {/* CNIC Front */}
-              <div className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl space-y-2">
+              <div className="p-4 bg-tm-bg border border-gray-200 rounded-2xl space-y-2">
                 <div className="flex justify-between items-center text-xs font-bold">
                   <span>🆔 CNIC Front Verification</span>
-                  <span className={formData.cnicFrontUrl ? "text-emerald-600 font-bold" : "text-gray-400"}>
+                  <span className={formData.cnicFrontUrl ? "text-tm-green-deep font-bold" : "text-gray-400"}>
                     {formData.cnicFrontUrl ? "Uploaded ✓" : "Not Uploaded"}
                   </span>
                 </div>
-                <label className="block w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-[#0F172A] cursor-pointer hover:bg-gray-50 transition-colors">
+                <label className="block w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-tm-navy cursor-pointer hover:bg-gray-50 transition-colors">
                   {formData.cnicFrontUrl ? "Change File" : "Browse"}
                   <input 
                     type="file" 
@@ -768,9 +768,9 @@ export default function TutorSettingsPage() {
                   />
                 </label>
                 {formData.cnicFrontUrl && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs">
-                    <span className="text-emerald-900 font-bold truncate">📄 CNIC Front File Linked</span>
-                    <a href={formData.cnicFrontUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline shrink-0 ml-2">
+                  <div className="p-3 bg-tm-tint-green border border-tm-green-deep/30 rounded-xl flex items-center justify-between text-xs">
+                    <span className="text-tm-green-deep font-bold truncate">📄 CNIC Front File Linked</span>
+                    <a href={formData.cnicFrontUrl} target="_blank" rel="noreferrer" className="text-tm-navy font-bold hover:underline shrink-0 ml-2">
                       View Securely ↗
                     </a>
                   </div>
@@ -778,14 +778,14 @@ export default function TutorSettingsPage() {
               </div>
 
               {/* CNIC Back */}
-              <div className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl space-y-2">
+              <div className="p-4 bg-tm-bg border border-gray-200 rounded-2xl space-y-2">
                 <div className="flex justify-between items-center text-xs font-bold">
                   <span>🆔 CNIC Back Verification</span>
-                  <span className={formData.cnicBackUrl ? "text-emerald-600 font-bold" : "text-gray-400"}>
+                  <span className={formData.cnicBackUrl ? "text-tm-green-deep font-bold" : "text-gray-400"}>
                     {formData.cnicBackUrl ? "Uploaded ✓" : "Not Uploaded"}
                   </span>
                 </div>
-                <label className="block w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-[#0F172A] cursor-pointer hover:bg-gray-50 transition-colors">
+                <label className="block w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-tm-navy cursor-pointer hover:bg-gray-50 transition-colors">
                   {formData.cnicBackUrl ? "Change File" : "Browse"}
                   <input 
                     type="file" 
@@ -795,9 +795,9 @@ export default function TutorSettingsPage() {
                   />
                 </label>
                 {formData.cnicBackUrl && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs">
-                    <span className="text-emerald-900 font-bold truncate">📄 CNIC Back File Linked</span>
-                    <a href={formData.cnicBackUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline shrink-0 ml-2">
+                  <div className="p-3 bg-tm-tint-green border border-tm-green-deep/30 rounded-xl flex items-center justify-between text-xs">
+                    <span className="text-tm-green-deep font-bold truncate">📄 CNIC Back File Linked</span>
+                    <a href={formData.cnicBackUrl} target="_blank" rel="noreferrer" className="text-tm-navy font-bold hover:underline shrink-0 ml-2">
                       View Securely ↗
                     </a>
                   </div>
@@ -811,58 +811,58 @@ export default function TutorSettingsPage() {
 
           {/* SECTION: DEGREES */}
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Degrees</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Degrees</h3>
             <div className="space-y-2">
               {degrees.map((deg, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs">
+                <div key={idx} className="flex items-center justify-between p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs">
                   <div>
-                    <strong className="text-[#0F172A]">{deg.title}</strong> — <span className="text-gray-600">{deg.institute} ({deg.year})</span>
-                    <div className="text-[10px] text-emerald-700 font-mono">🔒 Protected</div>
+                    <strong className="text-tm-navy">{deg.title}</strong> — <span className="text-gray-600">{deg.institute} ({deg.year})</span>
+                    <div className="text-[10px] text-tm-green-deep font-mono">🔒 Protected</div>
                   </div>
-                  <button type="button" onClick={() => setDegrees(degrees.filter((_, i) => i !== idx))} className="text-red-600 font-bold px-2 py-1 cursor-pointer">Remove ✕</button>
+                  <button type="button" onClick={() => setDegrees(degrees.filter((_, i) => i !== idx))} className="text-tm-red font-bold px-2 py-1 cursor-pointer">Remove ✕</button>
                 </div>
               ))}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 items-center">
-              <input type="text" value={newDegree.title} onChange={(e) => setNewDegree({...newDegree, title: e.target.value})} placeholder="Degree Title" className="p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" />
-              <input type="text" value={newDegree.institute} onChange={(e) => setNewDegree({...newDegree, institute: e.target.value})} placeholder="Institute" className="p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" />
-              <input type="text" value={newDegree.year} onChange={(e) => setNewDegree({...newDegree, year: e.target.value})} placeholder="Year" className="p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" />
-              <label className="block p-3 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-[#0F172A] cursor-pointer hover:bg-gray-50 transition-colors">
+              <input type="text" value={newDegree.title} onChange={(e) => setNewDegree({...newDegree, title: e.target.value})} placeholder="Degree Title" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
+              <input type="text" value={newDegree.institute} onChange={(e) => setNewDegree({...newDegree, institute: e.target.value})} placeholder="Institute" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
+              <input type="text" value={newDegree.year} onChange={(e) => setNewDegree({...newDegree, year: e.target.value})} placeholder="Year" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
+              <label className="block p-3 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-tm-navy cursor-pointer hover:bg-gray-50 transition-colors">
                 Browse
                 <input type="file" onChange={handleAddDegree} className="hidden" />
               </label>
             </div>
-            <button type="button" onClick={pushDegree} className="px-4 py-2.5 bg-[#0F172A] text-white font-bold rounded-xl text-xs cursor-pointer">+ Add Degree Document</button>
+            <button type="button" onClick={pushDegree} className="px-4 py-2.5 bg-tm-black text-white font-bold rounded-xl text-xs cursor-pointer">+ Add Degree Document</button>
           </div>
 
           <hr className="border-gray-200 my-6" />
 
           {/* SECTION: CERTIFICATIONS */}
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Certifications & Document Uploads</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Certifications & Document Uploads</h3>
             <div className="space-y-2">
               {certifications.map((cert, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs">
+                <div key={idx} className="flex items-center justify-between p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs">
                   <div>
-                    <strong className="text-[#0F172A]">{cert.title}</strong> — <span className="text-gray-600">{cert.issuer} ({cert.year})</span>
-                    <div className="text-[10px] text-emerald-700 font-mono">🔒 Protected</div>
+                    <strong className="text-tm-navy">{cert.title}</strong> — <span className="text-gray-600">{cert.issuer} ({cert.year})</span>
+                    <div className="text-[10px] text-tm-green-deep font-mono">🔒 Protected</div>
                   </div>
-                  <button type="button" onClick={() => setCertifications(certifications.filter((_, i) => i !== idx))} className="text-red-600 font-bold px-2 py-1 cursor-pointer">Remove ✕</button>
+                  <button type="button" onClick={() => setCertifications(certifications.filter((_, i) => i !== idx))} className="text-tm-red font-bold px-2 py-1 cursor-pointer">Remove ✕</button>
                 </div>
               ))}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 items-center">
-              <input type="text" value={newCert.title} onChange={(e) => setNewCert({...newCert, title: e.target.value})} placeholder="Certification Title" className="p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" />
-              <input type="text" value={newCert.issuer} onChange={(e) => setNewCert({...newCert, issuer: e.target.value})} placeholder="Issuer" className="p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" />
-              <input type="text" value={newCert.year} onChange={(e) => setNewCert({...newCert, year: e.target.value})} placeholder="Year" className="p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" />
-              <label className="block p-3 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-[#0F172A] cursor-pointer hover:bg-gray-50 transition-colors">
+              <input type="text" value={newCert.title} onChange={(e) => setNewCert({...newCert, title: e.target.value})} placeholder="Certification Title" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
+              <input type="text" value={newCert.issuer} onChange={(e) => setNewCert({...newCert, issuer: e.target.value})} placeholder="Issuer" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
+              <input type="text" value={newCert.year} onChange={(e) => setNewCert({...newCert, year: e.target.value})} placeholder="Year" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
+              <label className="block p-3 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-tm-navy cursor-pointer hover:bg-gray-50 transition-colors">
                 Browse
                 <input type="file" onChange={handleAddCert} className="hidden" />
               </label>
             </div>
-            <button type="button" onClick={pushCert} className="px-4 py-2.5 bg-[#0F172A] text-white font-bold rounded-xl text-xs cursor-pointer">+ Add Certification Document</button>
+            <button type="button" onClick={pushCert} className="px-4 py-2.5 bg-tm-black text-white font-bold rounded-xl text-xs cursor-pointer">+ Add Certification Document</button>
           </div>
 
           {/* SAVE BUTTON & SUCCESS MESSAGE POSITIONED TOGETHER */}
@@ -870,13 +870,13 @@ export default function TutorSettingsPage() {
             <button 
               type="submit" 
               disabled={uploading} 
-              className="flex-1 w-full py-4 bg-[#d60008] hover:bg-red-700 text-white font-extrabold rounded-xl text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+              className="flex-1 w-full py-4 bg-tm-red hover:bg-tm-red-hover text-white font-extrabold rounded-xl text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
             >
               {uploading ? "Saving Profile Settings..." : "Save Profile Settings & Media ➔"}
             </button>
 
             {successMsg && (
-              <div className="w-full sm:w-auto px-5 py-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-bold shadow-sm shrink-0 flex items-center justify-center">
+              <div className="w-full sm:w-auto px-5 py-4 bg-tm-tint-green border border-tm-green-deep/30 text-tm-green-deep rounded-xl text-xs font-bold shadow-sm shrink-0 flex items-center justify-center">
                 {successMsg}
               </div>
             )}
@@ -887,12 +887,12 @@ export default function TutorSettingsPage() {
       {/* SECTION: CHANGE PASSWORD (SEPARATE CARD) */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6">
         <div className="space-y-1">
-          <h3 className="text-sm font-black uppercase tracking-wider text-[#0F172A]">Change Password</h3>
+          <h3 className="text-sm font-black uppercase tracking-wider text-tm-navy">Change Password</h3>
           <p className="text-xs text-gray-500 font-medium">Update your account password securely.</p>
         </div>
 
         {passwordMsg && (
-          <div className={`p-3 rounded-xl text-xs font-bold ${passwordMsg.startsWith('✅') ? 'bg-emerald-50 text-emerald-900 border border-emerald-200' : 'bg-red-50 text-red-900 border border-red-200'}`}>
+          <div className={`p-3 rounded-xl text-xs font-bold ${passwordMsg.startsWith('✅') ? 'bg-tm-tint-green text-tm-green-deep border border-tm-green-deep/30' : 'bg-tm-tint-red text-tm-red border border-tm-red/30'}`}>
             {passwordMsg}
           </div>
         )}
@@ -900,24 +900,24 @@ export default function TutorSettingsPage() {
         <form onSubmit={handlePasswordChange} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-[#0F172A]">New Password</label>
+              <label className="block text-xs font-bold text-tm-navy">New Password</label>
               <input 
                 type="password" 
                 value={newPassword} 
                 onChange={(e) => setNewPassword(e.target.value)} 
                 placeholder="••••••••" 
-                className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" 
+                className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
                 required 
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-[#0F172A]">Confirm New Password</label>
+              <label className="block text-xs font-bold text-tm-navy">Confirm New Password</label>
               <input 
                 type="password" 
                 value={confirmPassword} 
                 onChange={(e) => setConfirmPassword(e.target.value)} 
                 placeholder="••••••••" 
-                className="w-full p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-xs font-medium" 
+                className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
                 required 
               />
             </div>
@@ -925,7 +925,7 @@ export default function TutorSettingsPage() {
           <button 
             type="submit" 
             disabled={passwordLoading} 
-            className="px-6 py-3.5 bg-[#0F172A] hover:bg-black text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer"
+            className="px-6 py-3.5 bg-tm-black hover:bg-black text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer"
           >
             {passwordLoading ? "Updating Password..." : "Update Password ➔"}
           </button>

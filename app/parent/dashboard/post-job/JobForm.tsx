@@ -53,7 +53,7 @@ const EMPTY: JobFormValues = {
 }
 
 const FIELD =
-  'w-full min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-[#0F172A] outline-none focus:border-[#d60008]'
+  'w-full min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-tm-navy outline-none focus:border-tm-red'
 
 export default function JobForm({
   children,
@@ -201,9 +201,9 @@ export default function JobForm({
       </section>
 
       <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-        <h2 className="text-sm font-black text-[#0F172A]">Subject</h2>
+        <h2 className="text-sm font-black text-tm-navy">Subject</h2>
         {!ready ? (
-          <p className="rounded-xl bg-[#F8FAFC] p-3 text-[11px] text-gray-500">
+          <p className="rounded-xl bg-tm-bg p-3 text-[11px] text-gray-500">
             Loading the subjects on this job…
           </p>
         ) : (
@@ -217,14 +217,14 @@ export default function JobForm({
         />
         )}
         {levelLeaf && (
-          <p className="rounded-xl bg-[#F8FAFC] p-3 text-[11px] text-gray-500">
+          <p className="rounded-xl bg-tm-bg p-3 text-[11px] text-gray-500">
             {v.level} is chosen on its own — there is no subject list beneath it.
           </p>
         )}
       </section>
 
       <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-        <h2 className="text-sm font-black text-[#0F172A]">Where and how</h2>
+        <h2 className="text-sm font-black text-tm-navy">Where and how</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className="space-y-1">
             <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">City</span>
@@ -304,13 +304,13 @@ export default function JobForm({
             onChange={(e) => set('description', e.target.value)}
             rows={4}
             placeholder="Current grades, exam board, what you are hoping to achieve…"
-            className="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs outline-none focus:border-[#d60008]"
+            className="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs outline-none focus:border-tm-red"
           />
         </label>
       </section>
 
       {error && (
-        <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-[#d60008]">
+        <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
           {error}{' '}
           {upgrade && (
             <Link href={upgrade} className="underline">
@@ -327,7 +327,7 @@ export default function JobForm({
           type="button"
           onClick={submit}
           disabled={busy}
-          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#d60008] px-5 text-xs font-bold text-white transition-colors hover:bg-red-700 disabled:bg-gray-300 sm:w-auto"
+          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:bg-gray-300 sm:w-auto"
         >
           {busy ? 'Saving…' : mode === 'edit' ? 'Save changes' : 'Post this tuition'}
         </button>

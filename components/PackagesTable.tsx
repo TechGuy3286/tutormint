@@ -72,9 +72,9 @@ export default function PackagesTable({
               key={p.code}
               className={`relative flex flex-col gap-3 rounded-2xl border bg-white p-5 ${
                 mine
-                  ? 'border-[#059669] ring-1 ring-[#059669]'
+                  ? 'border-tm-green-deep ring-1 ring-tm-green-deep'
                   : spotlit
-                    ? 'border-[#d60008] ring-2 ring-[#d60008]/30'
+                    ? 'border-tm-red ring-2 ring-tm-red/30'
                     : 'border-gray-200'
               }`}
             >
@@ -85,8 +85,8 @@ export default function PackagesTable({
               )}
 
               <div className="space-y-1">
-                <h2 className="text-base font-black text-[#0F172A]">{p.name}</h2>
-                <p className="text-2xl font-black text-[#0F172A]">
+                <h2 className="text-base font-black text-tm-navy">{p.name}</h2>
+                <p className="text-2xl font-black text-tm-navy">
                   {free ? (
                     'Free'
                   ) : (
@@ -101,10 +101,10 @@ export default function PackagesTable({
               <BadgeRow badges={(p.badges ?? []) as BadgeName[]} size="sm" showLabel />
 
               <ul className="flex-1 space-y-1.5 text-xs">
-                <li className="font-semibold text-[#0F172A]">
+                <li className="font-semibold text-tm-navy">
                   {p.displayed_quota ?? '0'} {quotaNoun} per month
                 </li>
-                <li className="font-semibold text-[#0F172A]">{rankWords(audience, p.search_rank)}</li>
+                <li className="font-semibold text-tm-navy">{rankWords(audience, p.search_rank)}</li>
                 <Feature on={p.can_view_contact}>
                   See {audience === 'tutor' ? 'parent' : 'tutor'} phone and WhatsApp
                 </Feature>
@@ -119,10 +119,10 @@ export default function PackagesTable({
               </ul>
 
               {mine ? (
-                <div className="space-y-1 rounded-xl bg-[#059669]/10 p-3 text-center">
-                  <p className="text-[11px] font-black text-[#059669]">Your current plan</p>
+                <div className="space-y-1 rounded-xl bg-tm-green-deep/10 p-3 text-center">
+                  <p className="text-[11px] font-black text-tm-green-deep">Your current plan</p>
                   {expiresAt && (
-                    <p className="text-[10px] font-semibold text-[#059669]">
+                    <p className="text-[10px] font-semibold text-tm-green-deep">
                       Runs until {new Date(expiresAt).toLocaleDateString('en-PK')}
                     </p>
                   )}
@@ -130,7 +130,7 @@ export default function PackagesTable({
               ) : free ? (
                 <Link
                   href="/parent/verify"
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                 >
                   Verify to unlock
                 </Link>
@@ -151,27 +151,27 @@ export default function PackagesTable({
 
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed">
         <p>
-          <strong className="text-[#0F172A]">Changing plan.</strong> Buying a different plan
+          <strong className="text-tm-navy">Changing plan.</strong> Buying a different plan
           replaces the one you are on and runs a fresh 30 days from the moment it activates. There
           is no proration and no partial credit for the days left on your old plan — we keep it
           simple rather than clever.
         </p>
         <p>
-          <strong className="text-[#0F172A]">Activation.</strong>{' '}
+          <strong className="text-tm-navy">Activation.</strong>{' '}
           {instantActivation
             ? 'Card and wallet payments activate as soon as the payment is confirmed.'
             : 'Bank and wallet transfers are confirmed by a person, usually within a few hours. You will get a notification the moment your plan starts.'}
         </p>
         <p>
-          <strong className="text-[#0F172A]">No refunds.</strong> Plans are non-refundable once
+          <strong className="text-tm-navy">No refunds.</strong> Plans are non-refundable once
           activated, including if you change plan part-way through a month. This is set out in the{' '}
-          <Link href="/terms" className="font-bold text-[#d60008] hover:underline">
+          <Link href="/terms" className="font-bold text-tm-red hover:underline">
             Terms
           </Link>
           .
         </p>
         <p>
-          <strong className="text-[#0F172A]">When a plan ends.</strong> There is no grace period,
+          <strong className="text-tm-navy">When a plan ends.</strong> There is no grace period,
           and nothing is deleted. Your chats, applications, shortlists and posts all stay in your
           dashboard — only the plan powers switch off.
         </p>
@@ -191,9 +191,9 @@ function rankWords(audience: 'tutor' | 'parent', rank: number): string {
 
 function Feature({ on, children }: { on: boolean; children: React.ReactNode }) {
   return (
-    <li className={`flex items-start gap-1.5 ${on ? 'text-[#334155]' : 'text-gray-300'}`}>
+    <li className={`flex items-start gap-1.5 ${on ? 'text-slate-700' : 'text-gray-300'}`}>
       {on ? (
-        <Check size={14} className="mt-px shrink-0 text-[#059669]" aria-hidden="true" />
+        <Check size={14} className="mt-px shrink-0 text-tm-green-deep" aria-hidden="true" />
       ) : (
         <X size={14} className="mt-px shrink-0" aria-hidden="true" />
       )}

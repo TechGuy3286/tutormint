@@ -55,7 +55,7 @@ export default function ReviewForm({
 
   if (done) {
     return (
-      <p className="text-[11px] font-bold text-[#059669]">
+      <p className="text-[11px] font-bold text-tm-green-deep">
         Thank you — your review is now on {tutorName.split(' ')[0]}&apos;s profile.
       </p>
     )
@@ -68,8 +68,8 @@ export default function ReviewForm({
         onClick={() => setOpen(true)}
         className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-colors ${
           compact
-            ? 'text-[#d60008] underline'
-            : 'w-full bg-[#059669] px-4 text-white hover:bg-emerald-700 sm:w-auto'
+            ? 'text-tm-red underline'
+            : 'w-full bg-tm-green-deep px-4 text-white hover:bg-tm-green-deep-hover sm:w-auto'
         }`}
       >
         <Star size={14} className={compact ? '' : 'fill-white'} />
@@ -79,8 +79,8 @@ export default function ReviewForm({
   }
 
   return (
-    <div className="space-y-2 rounded-xl bg-[#F8FAFC] p-3">
-      <p className="text-[11px] font-bold text-[#0F172A]">
+    <div className="space-y-2 rounded-xl bg-tm-bg p-3">
+      <p className="text-[11px] font-bold text-tm-navy">
         How was {tutorName.split(' ')[0]}?
       </p>
 
@@ -97,7 +97,7 @@ export default function ReviewForm({
           >
             <Star
               size={20}
-              className={n <= rating ? 'fill-[#F59E0B] text-[#F59E0B]' : 'fill-gray-200 text-gray-200'}
+              className={n <= rating ? 'fill-tm-gold stroke-tm-gold' : 'fill-gray-200 stroke-gray-200'}
             />
           </button>
         ))}
@@ -109,24 +109,24 @@ export default function ReviewForm({
         rows={3}
         placeholder="What went well? What could be better? Other parents read this."
         aria-label="Your review"
-        className="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs outline-none focus:border-[#d60008]"
+        className="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs outline-none focus:border-tm-red"
       />
 
-      {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
 
       <div className="flex gap-2">
         <button
           type="button"
           onClick={submit}
           disabled={busy || comment.trim().length < 10}
-          className="min-h-[44px] flex-1 rounded-xl bg-[#059669] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+          className="min-h-[44px] flex-1 rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white disabled:bg-gray-300"
         >
           {busy ? 'Saving…' : 'Publish review'}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+          className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
         >
           Cancel
         </button>

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { BRAND } from '@/lib/brand'
 
 // Shared shell for the four badges, so they cannot drift apart.
 //
@@ -18,6 +19,7 @@ export default function BadgeBase({
   size = 'sm',
   showLabel = false,
   colour,
+  labelColour,
   label,
   title,
   labelClassName,
@@ -26,6 +28,9 @@ export default function BadgeBase({
   size?: BadgeSize
   showLabel?: boolean
   colour: string
+  /** Text colour for the label. Defaults to `colour`; the gold badge
+      overrides it: tm-gold on a light ground is 2.05:1. */
+  labelColour?: string
   label: string
   /** Tooltip / accessible name. Defaults to the label. */
   title?: string
@@ -58,11 +63,11 @@ export default function BadgeBase({
         <circle cx="12" cy="12" r="11" fill={colour} />
         <path
           d="M24 0 L24 24 L0 24 Z"
-          fill="#000000"
+          fill={BRAND.black}
           opacity="0.08"
           clipPath={`url(#badge-clip-${label})`}
         />
-        <g fill="#FFFFFF" stroke="#FFFFFF">
+        <g fill={BRAND.white} stroke={BRAND.white}>
           {children}
         </g>
       </svg>
@@ -72,7 +77,7 @@ export default function BadgeBase({
             labelClassName ??
             'text-[11px] font-bold leading-none whitespace-nowrap'
           }
-          style={{ color: colour }}
+          style={{ color: labelColour ?? colour }}
         >
           {label}
         </span>

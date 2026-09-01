@@ -75,10 +75,10 @@ export default function CleanupClient({
   return (
     <div className="space-y-5">
       <header className="space-y-2">
-        <Link href="/admin/users" className="text-xs font-bold text-[#d60008] hover:underline">
+        <Link href="/admin/users" className="text-xs font-bold text-tm-red hover:underline">
           ← All members
         </Link>
-        <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Junk accounts</h1>
+        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Junk accounts</h1>
         <p className="text-xs leading-relaxed text-gray-500">
           {candidates.length} of {scanned} accounts look like junk: an address that cannot receive
           mail, or a domain one keystroke from a real provider, or unconfirmed for over a month.
@@ -92,12 +92,12 @@ export default function CleanupClient({
       </header>
 
       {done && (
-        <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-[#059669]">
+        <p className="rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
           {done}
         </p>
       )}
       {error && (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-[#d60008]">
+        <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
           {error}
         </p>
       )}
@@ -113,7 +113,7 @@ export default function CleanupClient({
               <li key={c.id}>
                 <label
                   className={`flex cursor-pointer items-start gap-3 rounded-2xl border bg-white p-3 ${
-                    selected.has(c.id) ? 'border-[#d60008]' : 'border-gray-200'
+                    selected.has(c.id) ? 'border-tm-red' : 'border-gray-200'
                   }`}
                 >
                   <input
@@ -123,7 +123,7 @@ export default function CleanupClient({
                     className="mt-0.5 h-5 w-5 shrink-0"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-black text-[#0F172A]">
+                    <span className="block truncate text-xs font-black text-tm-navy">
                       {c.email ?? '(no email)'}
                     </span>
                     <span className="block text-[11px] text-gray-500">{c.reason}</span>
@@ -138,8 +138,8 @@ export default function CleanupClient({
             ))}
           </ul>
 
-          <section className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-[#92400E]">
+          <section className="space-y-2 rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4">
+            <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-tm-gold-ink">
               <AlertTriangle size={16} className="mt-px shrink-0" />
               {selected.size === 0
                 ? 'Tick the accounts you want removed.'
@@ -158,7 +158,7 @@ export default function CleanupClient({
               type="button"
               disabled={busy || selected.size === 0 || confirm.trim().toUpperCase() !== 'DELETE'}
               onClick={remove}
-              className="min-h-[44px] w-full rounded-xl bg-[#d60008] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+              className="min-h-[44px] w-full rounded-xl bg-tm-red px-4 text-xs font-bold text-white disabled:bg-gray-300"
             >
               {busy ? 'Deleting…' : `Delete ${selected.size || ''} selected`}
             </button>

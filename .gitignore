@@ -43,3 +43,6 @@ next-env.d.ts
 
 # database dumps — contain CNICs and phone numbers, never commit
 supabase/backups/
+
+# scratch: local screenshot evidence, never committed
+.tmp-ui/

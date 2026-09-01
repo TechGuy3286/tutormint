@@ -28,11 +28,11 @@ export default function LegalDoc({
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-black text-[#0F172A] sm:text-3xl">{title}</h1>
+        <h1 className="text-2xl font-black text-tm-navy sm:text-3xl">{title}</h1>
         <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
           Last updated {updated}
         </p>
-        <p className="text-sm leading-relaxed text-[#334155]">{intro}</p>
+        <p className="text-sm leading-relaxed text-slate-700">{intro}</p>
       </header>
 
       <nav className="rounded-2xl border border-gray-200 bg-white p-4">
@@ -42,7 +42,7 @@ export default function LegalDoc({
             <li key={s.id}>
               <a
                 href={`#${s.id}`}
-                className="flex min-h-[44px] items-center gap-2 text-sm leading-relaxed text-[#334155] hover:text-[#d60008]"
+                className="flex min-h-[44px] items-center gap-2 text-sm leading-relaxed text-slate-700 hover:text-tm-red"
               >
                 <span className="shrink-0 font-bold text-gray-400">{i + 1}.</span>
                 <span>{s.heading}</span>
@@ -59,10 +59,10 @@ export default function LegalDoc({
             id={s.id}
             className="scroll-mt-6 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5"
           >
-            <h2 className="text-base font-black text-[#0F172A]">
+            <h2 className="text-base font-black text-tm-navy">
               <span className="text-gray-400">{i + 1}.</span> {s.heading}
             </h2>
-            <div className="space-y-3 text-sm leading-relaxed text-[#334155] [&_a]:font-bold [&_a]:text-[#d60008] [&_a:hover]:underline [&_li]:pl-1 [&_strong]:text-[#0F172A] [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5">
+            <div className="space-y-3 text-sm leading-relaxed text-slate-700 [&_a]:font-bold [&_a]:text-tm-red [&_a:hover]:underline [&_li]:pl-1 [&_strong]:text-tm-navy [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5">
               {s.body}
             </div>
           </section>

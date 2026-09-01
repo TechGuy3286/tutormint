@@ -32,7 +32,7 @@ export default function FAQPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] font-sans text-[#161616] flex flex-col justify-between">
+    <div className="min-h-screen bg-gray-50 font-sans text-tm-black flex flex-col justify-between">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 sm:px-12 py-3 flex justify-between items-center sticky top-0 z-40 shadow-xs">
         <Link href="/" className="flex items-center">
@@ -42,7 +42,7 @@ export default function FAQPage() {
           <Link href="/parent/dashboard" className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-bold rounded-xl transition-colors">
             Browse Tutors 🔍
           </Link>
-          <Link href="/tutor/register" className="px-4 py-2 bg-[#B3191F] hover:bg-[#9a151b] text-white text-xs font-bold rounded-xl shadow-sm transition-colors">
+          <Link href="/tutor/register" className="px-4 py-2 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl shadow-sm transition-colors">
             Tutor Sign Up 🚀
           </Link>
         </div>
@@ -51,7 +51,7 @@ export default function FAQPage() {
       {/* Content */}
       <main className="max-w-4xl mx-auto px-6 py-12 sm:py-16 space-y-8 flex-1 w-full">
         <div className="text-center space-y-3">
-          <span className="bg-red-50 text-[#B3191F] px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider">Help Center</span>
+          <span className="bg-tm-tint-red text-tm-red-hover px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider">Help Center</span>
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Frequently Asked Questions</h1>
           <p className="text-xs sm:text-sm text-gray-500 max-w-lg mx-auto">Got questions about how TutorMint verifies educators and connects families? Find your answers below.</p>
         </div>
@@ -60,7 +60,7 @@ export default function FAQPage() {
           {faqs.map((faq, idx) => (
             <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-2">
               <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
-                <span className="text-[#B3191F]">Q:</span> {faq.q}
+                <span className="text-tm-red-hover">Q:</span> {faq.q}
               </h3>
               <p className="text-xs text-gray-600 leading-relaxed pl-5">
                 {faq.a}
@@ -73,22 +73,12 @@ export default function FAQPage() {
           <h3 className="text-base font-black">Still have questions?</h3>
           <p className="text-xs text-gray-400 max-w-md mx-auto">Our support team is always ready to assist you via WhatsApp or our support portal.</p>
           <div className="flex justify-center gap-3">
-            <Link href="/support" className="px-5 py-2.5 bg-[#B3191F] text-white text-xs font-bold rounded-xl hover:bg-[#9a151b] transition-colors">Visit Support Center</Link>
+            <Link href="/support" className="px-5 py-2.5 bg-tm-red text-white text-xs font-bold rounded-xl hover:bg-tm-red-hover transition-colors">Visit Support Center</Link>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 px-8 py-6 text-center text-xs text-gray-400 flex flex-col sm:flex-row justify-between items-center max-w-5xl mx-auto w-full gap-4">
-        <div>© 2026 TutorMint. All rights reserved. Verified Education Platform.</div>
-        <div className="flex space-x-6 text-[11px]">
-          <Link href="/faq" className="hover:text-gray-600 font-bold text-gray-700">FAQs</Link>
-          <Link href="/privacy" className="hover:text-gray-600">Privacy Policy</Link>
-          <Link href="/support" className="hover:text-gray-600">Support</Link>
-          <Link href="/about" className="hover:text-gray-600">About</Link>
-          <Link href="/blog" className="hover:text-gray-600">Blog</Link>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -27,7 +27,7 @@ export default function ReviewPage() {
         
         {/* Header */}
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 text-center space-y-3">
-          <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200 uppercase tracking-widest">
+          <span className="px-3 py-1 bg-tm-tint-green text-tm-green-deep text-xs font-bold rounded-full border border-tm-green-deep/30 uppercase tracking-widest">
             Mutual Accountability System
           </span>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Post-Tuition Feedback & Ratings</h1>
@@ -77,7 +77,7 @@ export default function ReviewPage() {
                   <select
                     value={demoRating}
                     onChange={(e) => setDemoRating(Number(e.target.value))}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-tm-green-deep outline-none"
                   >
                     <option value={5}>⭐⭐⭐⭐⭐ (5/5 - Exceptional & Punctual)</option>
                     <option value={4}>⭐⭐⭐⭐ (4/5 - Good)</option>
@@ -92,7 +92,7 @@ export default function ReviewPage() {
                   <select
                     value={methodRating}
                     onChange={(e) => setMethodRating(Number(e.target.value))}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-tm-green-deep outline-none"
                   >
                     <option value={5}>⭐⭐⭐⭐⭐ (5/5 - Excellent Explanation & Engagement)</option>
                     <option value={4}>⭐⭐⭐⭐ (4/5 - Very Good)</option>
@@ -110,7 +110,7 @@ export default function ReviewPage() {
                     value={parentComment}
                     onChange={(e) => setParentComment(e.target.value)}
                     placeholder="Share how the tutor handled the sessions and student progress..."
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-tm-green-deep outline-none resize-none"
                   />
                 </div>
               </>
@@ -126,7 +126,7 @@ export default function ReviewPage() {
                   <select
                     value={parentReliabilityRating}
                     onChange={(e) => setParentReliabilityRating(Number(e.target.value))}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-tm-green-deep outline-none"
                   >
                     <option value={5}>⭐⭐⭐⭐⭐ (5/5 - Highly Professional & Respectful)</option>
                     <option value={4}>⭐⭐⭐⭐ (4/5 - Good)</option>
@@ -144,7 +144,7 @@ export default function ReviewPage() {
                     value={tutorComment}
                     onChange={(e) => setTutorComment(e.target.value)}
                     placeholder="Share your experience teaching for this parent to guide future tutors..."
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-tm-green-deep outline-none resize-none"
                   />
                 </div>
               </>
@@ -152,14 +152,14 @@ export default function ReviewPage() {
 
             <button
               type="submit"
-              className="w-full py-4 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs tracking-widest uppercase rounded-xl shadow-lg transition-all"
+              className="w-full py-4 bg-slate-900 hover:bg-tm-green-deep text-white font-bold text-xs tracking-widest uppercase rounded-xl shadow-lg transition-all"
             >
               Submit Review & Publish to Profile
             </button>
           </form>
         ) : (
           <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-2xl font-bold mx-auto">
+            <div className="w-16 h-16 bg-tm-tint-green text-tm-green-deep rounded-full flex items-center justify-center text-2xl font-bold mx-auto">
               ✓
             </div>
             <h2 className="text-xl font-bold text-slate-900">Review Submitted Successfully!</h2>

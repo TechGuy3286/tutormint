@@ -1,4 +1,5 @@
 import BadgeBase, { type BadgeSize } from './BadgeBase'
+import { BRAND } from '@/lib/brand'
 
 // Green check. Earned by a tutor with a finished profile and an active
 // verified-or-higher plan; by a parent whose CNIC and address are approved.
@@ -17,7 +18,7 @@ export default function VerifiedBadge({
     <BadgeBase
       size={size}
       showLabel={showLabel}
-      colour="#059669"
+      colour={BRAND.greenDeep}
       label="Verified"
       title="Verified member"
     >

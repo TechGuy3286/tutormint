@@ -68,3 +68,28 @@ export function whatsappHref(msisdn: string | null, prefill?: string): string | 
   const q = prefill ? `?text=${encodeURIComponent(prefill)}` : ''
   return `https://wa.me/${msisdn}${q}`
 }
+
+/**
+ * The env-only view of the same contacts, with no database read.
+ *
+ * The Footer renders inside the root layout, on every page in the app.
+ * getSupportContact() reaches Supabase through the cookie-backed server client,
+ * and a cookies() read in a layout opts EVERY route into dynamic rendering --
+ * including /about, /terms and /faq, which have no per-request content and
+ * should be generated once at build time. Paying for a database round trip on
+ * every page render to put an email address in the footer is the wrong trade.
+ *
+ * So the footer takes the env values and the /support page -- the screen
+ * someone actually opens to get help -- keeps the app_settings-backed version,
+ * where an owner's change without a deploy is worth having.
+ *
+ * Same fallback order minus the first step, so the two can only disagree when
+ * app_settings has been edited; the footer then trails until the next deploy.
+ */
+export function supportContactFromEnv(): SupportContact {
+  return {
+    whatsapp: normaliseWhatsapp(process.env.SUPPORT_WHATSAPP?.trim() || null),
+    email: process.env.SUPPORT_EMAIL?.trim() || null,
+    hours: process.env.SUPPORT_HOURS?.trim() || null,
+  }
+}

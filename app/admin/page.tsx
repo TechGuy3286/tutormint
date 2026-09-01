@@ -32,7 +32,7 @@ export default async function AdminHome() {
   const admin = createAdminClient()
   if (!admin) {
     return (
-      <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-[#d60008]">
+      <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
         SUPABASE_SERVICE_ROLE_KEY is not configured on the server, so the dashboard cannot be
         loaded.
       </p>
@@ -229,7 +229,7 @@ export default async function AdminHome() {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Admin</h1>
+        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Admin</h1>
         <p className="text-xs text-gray-500">
           Signed in as {actor.email} · role <strong>{actor.adminRole}</strong>
         </p>
@@ -237,7 +237,7 @@ export default async function AdminHome() {
 
       {tiles.length === 0 ? (
         <div className="space-y-1 rounded-2xl border border-gray-200 bg-white p-6 text-center">
-          <p className="text-sm font-bold text-[#0F172A]">Nothing here yet for your role</p>
+          <p className="text-sm font-bold text-tm-navy">Nothing here yet for your role</p>
           <p className="text-xs text-gray-500">
             Ask the owner if you should have access to a queue you cannot see.
           </p>
@@ -248,15 +248,15 @@ export default async function AdminHome() {
             <Link
               key={t.label}
               href={t.href}
-              className={`flex min-h-[96px] flex-col justify-between rounded-2xl border bg-white p-4 transition-colors hover:border-[#0F172A] ${
-                t.urgent ? 'border-[#F59E0B]' : 'border-gray-200'
+              className={`flex min-h-[96px] flex-col justify-between rounded-2xl border bg-white p-4 transition-colors hover:border-tm-navy ${
+                t.urgent ? 'border-tm-gold' : 'border-gray-200'
               }`}
             >
               <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
                 {t.label}
               </p>
               <p
-                className={`text-2xl font-black ${t.urgent ? 'text-[#d60008]' : 'text-[#0F172A]'}`}
+                className={`text-2xl font-black ${t.urgent ? 'text-tm-red' : 'text-tm-navy'}`}
               >
                 {t.value}
               </p>

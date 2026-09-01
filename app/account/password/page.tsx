@@ -50,13 +50,13 @@ export default async function PasswordPage({
     : false
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] p-4 text-[#334155] sm:p-6">
+    <main className="flex min-h-screen items-center justify-center bg-tm-bg p-4 text-slate-700 sm:p-6">
       <div className="w-full max-w-md space-y-5 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl sm:p-8">
         <div className="space-y-2 text-center">
-          <p className="text-xl font-black text-[#0F172A]">
-            Tutor<span className="text-[#d60008]">Mint</span>
+          <p className="text-xl font-black text-tm-navy">
+            Tutor<span className="text-tm-red">Mint</span>
           </p>
-          <h1 className="text-lg font-black text-[#0F172A]">Choose your own password</h1>
+          <h1 className="text-lg font-black text-tm-navy">Choose your own password</h1>
           <p className="text-xs leading-relaxed text-gray-500">
             You signed in with a temporary password that somebody else generated. Replace it now —
             it stops working once you do.

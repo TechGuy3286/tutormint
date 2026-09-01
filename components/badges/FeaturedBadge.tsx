@@ -1,4 +1,5 @@
 import BadgeBase, { type BadgeSize } from './BadgeBase'
+import { BRAND } from '@/lib/brand'
 
 // Gold crown. Tutor plan featured, parent plan parent_featured.
 // The card also carries FeaturedTag; this is the badge that sits in the row.
@@ -14,7 +15,8 @@ export default function FeaturedBadge({
     <BadgeBase
       size={size}
       showLabel={showLabel}
-      colour="#F59E0B"
+      colour={BRAND.gold}
+      labelColour={BRAND.goldInk}
       label="Featured"
       title="Featured member"
     >

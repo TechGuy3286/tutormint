@@ -23,9 +23,9 @@ export default function TutorReferralBox({ tutorUniqueId, profileCompleted }: { 
   }
 
   return (
-    <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-3xl space-y-3 shadow-sm">
-      <h3 className="text-xs font-black uppercase tracking-wider text-emerald-900">🎁 Refer a Fellow Tutor</h3>
-      <p className="text-xs text-emerald-700 leading-relaxed">
+    <div className="bg-tm-tint-green border border-tm-green-deep/30 p-6 rounded-3xl space-y-3 shadow-sm">
+      <h3 className="text-xs font-black uppercase tracking-wider text-tm-green-deep">🎁 Refer a Fellow Tutor</h3>
+      <p className="text-xs text-tm-green-deep leading-relaxed">
         Your profile is fully verified! Share your unique referral link below to invite other educators to TutorMint.
       </p>
       <div className="flex gap-2">
@@ -33,11 +33,11 @@ export default function TutorReferralBox({ tutorUniqueId, profileCompleted }: { 
           type="text" 
           readOnly 
           value={referralLink} 
-          className="flex-1 p-3 bg-white border border-emerald-200 rounded-xl text-xs font-mono text-slate-800 outline-none" 
+          className="flex-1 p-3 bg-white border border-tm-green-deep/30 rounded-xl text-xs font-mono text-slate-800 outline-none" 
         />
         <button 
           onClick={handleCopy} 
-          className="px-5 py-3 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold rounded-xl transition-all shadow-sm whitespace-nowrap"
+          className="px-5 py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-extrabold rounded-xl transition-all shadow-sm whitespace-nowrap"
         >
           {copied ? '✅ Copied!' : '📋 Copy Link'}
         </button>

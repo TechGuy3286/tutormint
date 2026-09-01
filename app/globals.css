@@ -1,1 +1,103 @@
 @import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   TutorMint brand colour system — the ONLY permitted colours.
+
+   Source of truth: the logo palette (red / navy / mint / black), signed off by
+   the owner on 1 Sep 2026. These tokens supersede the earlier ad-hoc values
+   #d60008, #B3191F, #0F172A and #059669, which are gone from app/ and
+   components/ entirely.
+
+   THE RULE: no raw hex outside this file. Tailwind v4 turns each --color-* here
+   into a full utility family (bg-tm-red, text-tm-red, border-tm-red, ring-,
+   from-, …), so there is never a reason to write an arbitrary value. A grep for
+   `#rrggbb` under app/ and components/ is part of the verification pass, and it
+   is meant to stay at zero.
+
+   The only exception is components/badges/, whose inline SVG `fill` attributes
+   are presentation attributes rather than CSS and cannot read a custom
+   property through Tailwind. Those carry the token's own hex value, and the
+   badge files name the token they are echoing so the two cannot drift silently.
+
+   Tailwind's default grays (slate-*, gray-*) stay in use for borders, muted
+   text and neutral surfaces. They are not brand colours and are not duplicated
+   here.
+
+   ACCESSIBILITY. Every foreground/background pair used in the app is asserted
+   by `npm run check:contrast` (scripts/contrast-check.ts) at WCAG AA — 4.5:1
+   for body text, 3:1 for large text and UI boundaries. Two facts drove the
+   token list:
+
+     * tm-gold is a FILL, never a text colour. #F59E0B on the page background is
+       2.05:1, which is unreadable. Text on gold is tm-black (9.22:1); gold text
+       on a light surface is tm-gold-ink.
+     * tm-mint is a FILL, and never carries text. It is light enough that only
+       near-black would pass on it, and the design does not ask for that. Mint
+       appears as a foreground only on tm-black, in the footer, at 13.55:1.
+--------------------------------------------------------------------------- */
+
+@theme {
+  /* Brand core */
+  --color-tm-red: #c20202;
+  --color-tm-red-hover: #a10202;
+  --color-tm-navy: #151e6b;
+  --color-tm-navy-hover: #0e1450;
+  --color-tm-mint: #9ae899;
+  --color-tm-black: #0a0a0a;
+  --color-tm-green-deep: #2e7d4f;
+  --color-tm-green-deep-hover: #24633f;
+  --color-tm-gold: #f59e0b;
+  --color-tm-gold-hover: #d98a08;
+
+  /* Derived, and required rather than decorative.
+
+     tm-gold-ink is the readable member of the gold family: gold itself cannot
+     be text. It is #92400E, which the pre-migration code already used for text
+     on amber panels — so every one of those call sites moved onto a token with
+     no visual change at all.
+
+     tm-tint-gold is the fourth tint. The owner's list carries three (red, navy,
+     green); the Featured badge and the quota/expiry warnings are gold, and a
+     gold panel needs a gold ground. It is the same relationship to tm-gold that
+     the other three have to their parents. */
+  --color-tm-gold-ink: #92400e;
+
+  /* Tints — panel and chip backgrounds. Each pairs with dark text from its own
+     family: tm-red on tint-red, tm-navy on tint-navy, tm-green-deep on
+     tint-green, tm-gold-ink on tint-gold. All four clear AA. */
+  --color-tm-tint-red: #fbeaea;
+  --color-tm-tint-navy: #e8eaf5;
+  --color-tm-tint-green: #eefbee;
+  --color-tm-tint-gold: #fef6e6;
+
+  /* Page ground. */
+  --color-tm-bg: #f8fafc;
+}
+
+/* The document ground, so a page that sets no background still sits on the
+   brand surface rather than on the browser's white. */
+html {
+  background-color: var(--color-tm-bg);
+}
+
+/* Reference-design touches that have no Tailwind utility.
+
+   The homepage headline is set tighter than Tailwind's tightest tracking, which
+   is what gives "Trusted, Degree-Verified Tutors/Teachers FREE" its weight in
+   design/reference/homepage.png. */
+.tm-headline {
+  letter-spacing: -0.03em;
+}
+
+/* Respect a reader who has asked for less motion. Every transition in the app
+   is decorative; none of them carries information. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

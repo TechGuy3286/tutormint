@@ -105,7 +105,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
   if (tutors.length === 0) {
     return (
       <div className="space-y-3">
-        <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Social posts</h1>
+        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Social posts</h1>
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
           No listed tutors to post about yet.
         </p>
@@ -116,7 +116,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Social posts</h1>
+        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Social posts</h1>
         <p className="text-xs leading-relaxed text-gray-500">
           Everything but the headline comes from the tutor&rsquo;s live profile. Only listed tutors
           appear here — suspended accounts and unclaimed imports are not promoted.
@@ -150,7 +150,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
                     type="button"
                     onClick={() => setTemplate(t.code)}
                     className={`min-h-[44px] rounded-xl border px-3 py-2 text-left text-xs font-bold ${
-                      template === t.code ? 'border-[#0F172A] bg-[#F8FAFC]' : 'border-gray-200'
+                      template === t.code ? 'border-tm-navy bg-tm-bg' : 'border-gray-200'
                     }`}
                   >
                     {t.label}
@@ -169,7 +169,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
                     type="button"
                     onClick={() => setFormat(f.code)}
                     className={`min-h-[44px] rounded-xl border px-3 py-2 text-left text-xs font-bold ${
-                      format === f.code ? 'border-[#0F172A] bg-[#F8FAFC]' : 'border-gray-200'
+                      format === f.code ? 'border-tm-navy bg-tm-bg' : 'border-gray-200'
                     }`}
                   >
                     {f.label}
@@ -200,18 +200,18 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
               type="button"
               onClick={download}
               disabled={busy}
-              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-[#d60008] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-tm-red px-4 text-xs font-bold text-white disabled:bg-gray-300"
             >
               <Download size={14} />
               {busy ? 'Rendering…' : 'Download PNG'}
             </button>
 
-            {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+            {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
           </section>
 
           <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-black text-[#0F172A]">Caption</h2>
+              <h2 className="text-sm font-black text-tm-navy">Caption</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -219,20 +219,20 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
                   setCopied(true)
                   setTimeout(() => setCopied(false), 1500)
                 }}
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-xs font-bold text-[#334155]"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
               >
                 <Copy size={14} />
                 {copied ? 'Copied' : 'Copy'}
               </button>
             </div>
-            <pre className="whitespace-pre-wrap break-words rounded-xl bg-[#F8FAFC] p-3 font-sans text-xs leading-relaxed">
+            <pre className="whitespace-pre-wrap break-words rounded-xl bg-tm-bg p-3 font-sans text-xs leading-relaxed">
               {caption}
             </pre>
           </section>
         </div>
 
         <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-black text-[#0F172A]">Preview</h2>
+          <h2 className="text-sm font-black text-tm-navy">Preview</h2>
           {/* eslint-disable-next-line @next/next/no-img-element -- this is a
               generated PNG from our own route, deliberately not optimised so
               the preview is byte-for-byte what downloads. */}

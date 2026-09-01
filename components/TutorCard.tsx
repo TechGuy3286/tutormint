@@ -67,12 +67,12 @@ function Stars({ rating, count }: { rating: number; count: number }) {
             key={i}
             size={14}
             className={
-              i < Math.round(rating) ? 'fill-[#F59E0B] text-[#F59E0B]' : 'fill-gray-200 text-gray-200'
+              i < Math.round(rating) ? 'fill-tm-gold stroke-tm-gold' : 'fill-gray-200 stroke-gray-200'
             }
           />
         ))}
       </span>
-      <span className="text-[11px] font-bold text-[#334155]">
+      <span className="text-[11px] font-bold text-slate-700">
         {count > 0 ? (
           <>
             {rating.toFixed(1)}
@@ -96,10 +96,10 @@ function DetailLine({
   value: string
 }) {
   return (
-    <p className="flex items-start gap-2 text-xs leading-snug text-[#334155]">
+    <p className="flex items-start gap-2 text-xs leading-snug text-slate-700">
       <span className="mt-px shrink-0 text-gray-400">{icon}</span>
       <span className="min-w-0">
-        <span className="font-bold text-[#0F172A]">{label}:</span> <span>{value}</span>
+        <span className="font-bold text-tm-navy">{label}:</span> <span>{value}</span>
       </span>
     </p>
   )
@@ -222,14 +222,14 @@ export default function TutorCard({
               <img
                 src={tutor.avatar_url}
                 alt={tutor.full_name}
-                className="h-[72px] w-[72px] rounded-full border-2 border-gray-100 bg-[#F8FAFC] object-cover sm:h-[140px] sm:w-[140px]"
+                className="h-[72px] w-[72px] rounded-full border-2 border-gray-100 bg-tm-bg object-cover sm:h-[140px] sm:w-[140px]"
               />
             ) : (
               /* Initials rather than a stock photo: a placeholder face on a
                  tutor profile is a small lie about a real person. */
               <div
                 aria-hidden="true"
-                className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-2 border-gray-100 bg-[#F8FAFC] text-lg font-black text-[#0F172A] sm:h-[140px] sm:w-[140px] sm:text-3xl"
+                className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-2 border-gray-100 bg-tm-bg text-lg font-black text-tm-navy sm:h-[140px] sm:w-[140px] sm:text-3xl"
               >
                 {tutor.full_name
                   .split(' ')
@@ -243,14 +243,14 @@ export default function TutorCard({
           </div>
 
           <div className="col-start-2 row-start-1 min-w-0 space-y-1.5 pr-16 sm:pr-20">
-            <h3 className="truncate text-base font-black text-[#0F172A] sm:text-lg">
-              <Link href={profileHref} className="hover:underline">
+            <h3 className="truncate text-base font-black text-tm-navy sm:text-lg">
+              <Link href={profileHref} className="inline-block py-0.5 hover:underline">
                 {tutor.full_name}
               </Link>
             </h3>
             <Stars rating={rating} count={reviews} />
             {tutor.headline && (
-              <p className="line-clamp-2 text-xs font-semibold text-[#059669]">{tutor.headline}</p>
+              <p className="line-clamp-2 text-xs font-semibold text-tm-green-deep">{tutor.headline}</p>
             )}
           </div>
 
@@ -288,7 +288,7 @@ export default function TutorCard({
             </div>
 
             {tutor.hourly_rate_pkr ? (
-              <p className="pt-0.5 text-xs font-black text-[#0F172A]">
+              <p className="pt-0.5 text-xs font-black text-tm-navy">
                 Rs. {tutor.hourly_rate_pkr.toLocaleString('en-PK')}
                 <span className="font-semibold text-gray-400"> / month</span>
               </p>
@@ -299,7 +299,7 @@ export default function TutorCard({
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <Link
                 href={profileHref}
-                className={`${btn} bg-[#0F172A] text-white hover:bg-[#1E293B]`}
+                className={`${btn} bg-tm-black text-white hover:bg-tm-navy`}
               >
                 View Profile
               </Link>
@@ -309,9 +309,9 @@ export default function TutorCard({
                 onClick={toggleShortlist}
                 disabled={busy}
                 aria-pressed={saved}
-                className={`${btn} border border-[#d60008] text-[#d60008] hover:bg-red-50`}
+                className={`${btn} border border-tm-red text-tm-red hover:bg-tm-tint-red`}
               >
-                <Heart size={14} className={saved ? 'fill-[#d60008]' : ''} />
+                <Heart size={14} className={saved ? 'fill-tm-red' : ''} />
                 {saved ? 'Shortlisted' : 'Shortlist'}
               </button>
 
@@ -319,7 +319,7 @@ export default function TutorCard({
                 type="button"
                 onClick={requestDemo}
                 disabled={busy}
-                className={`${btn} bg-[#d60008] text-white hover:bg-red-700`}
+                className={`${btn} bg-tm-red text-white hover:bg-tm-red-hover`}
               >
                 <Play size={14} className="fill-white" />
                 Demo
@@ -330,7 +330,7 @@ export default function TutorCard({
                   type="button"
                   onClick={onMessage}
                   disabled={busy}
-                  className={`${btn} bg-[#059669] text-white hover:bg-emerald-700`}
+                  className={`${btn} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}
                 >
                   <Mail size={14} />
                   Send Message
@@ -339,7 +339,7 @@ export default function TutorCard({
             </div>
 
             {notice && (
-              <p className="pt-2 text-[11px] font-semibold leading-snug text-[#334155]">{notice}</p>
+              <p className="pt-2 text-[11px] font-semibold leading-snug text-slate-700">{notice}</p>
             )}
           </div>
         </div>

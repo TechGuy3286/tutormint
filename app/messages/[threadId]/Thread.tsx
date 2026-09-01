@@ -112,7 +112,7 @@ export default function Thread({
     <>
       <div className="mx-auto w-full max-w-2xl flex-1 space-y-3 px-4 py-4 sm:px-6">
         {notice && (
-          <p className="rounded-xl border border-gray-200 bg-white p-3 text-[11px] font-semibold text-[#334155]">
+          <p className="rounded-xl border border-gray-200 bg-white p-3 text-[11px] font-semibold text-slate-700">
             {notice}
           </p>
         )}
@@ -126,7 +126,7 @@ export default function Thread({
             <div key={m.id} className={`flex ${m.mine ? 'justify-end' : 'justify-start'}`}>
               <div
                 className={`max-w-[85%] space-y-1 rounded-2xl px-3 py-2 sm:max-w-[70%] ${
-                  m.mine ? 'bg-[#0F172A] text-white' : 'border border-gray-200 bg-white'
+                  m.mine ? 'bg-tm-black text-white' : 'border border-gray-200 bg-white'
                 }`}
               >
                 <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">{m.body}</p>
@@ -144,7 +144,7 @@ export default function Thread({
         )}
 
         {anyMasked && !canShareContact && (
-          <p className="flex items-start gap-2 rounded-xl bg-[#FFFBEB] p-3 text-[11px] leading-relaxed text-[#92400E]">
+          <p className="flex items-start gap-2 rounded-xl bg-tm-tint-gold p-3 text-[11px] leading-relaxed text-tm-gold-ink">
             <Lock size={14} className="mt-px shrink-0" />
             <span>
               Phone numbers are hidden in this conversation.{' '}
@@ -159,7 +159,7 @@ export default function Thread({
 
       <div className="sticky bottom-0 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
         <div className="mx-auto max-w-2xl space-y-2">
-          {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+          {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
 
           <div className="flex gap-2">
             <textarea
@@ -168,14 +168,14 @@ export default function Thread({
               rows={1}
               placeholder="Write a message"
               aria-label="Message"
-              className="min-h-[44px] flex-1 resize-none rounded-xl border border-gray-200 bg-white px-3 py-3 text-xs outline-none focus:border-[#d60008]"
+              className="min-h-[44px] flex-1 resize-none rounded-xl border border-gray-200 bg-white px-3 py-3 text-xs outline-none focus:border-tm-red"
             />
             <button
               type="button"
               onClick={send}
               disabled={busy || !draft.trim()}
               aria-label="Send message"
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-[#059669] px-4 text-white disabled:bg-gray-300"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-tm-green-deep px-4 text-white disabled:bg-gray-300"
             >
               <Send size={16} />
             </button>
@@ -196,7 +196,7 @@ export default function Thread({
                   type="button"
                   onClick={report}
                   disabled={busy}
-                  className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-[11px] font-bold text-[#334155]"
+                  className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-[11px] font-bold text-slate-700"
                 >
                   Report
                 </button>
@@ -204,7 +204,7 @@ export default function Thread({
                   type="button"
                   onClick={block}
                   disabled={busy}
-                  className="min-h-[44px] rounded-xl border border-[#d60008] px-3 text-[11px] font-bold text-[#d60008]"
+                  className="min-h-[44px] rounded-xl border border-tm-red px-3 text-[11px] font-bold text-tm-red"
                 >
                   Block
                 </button>

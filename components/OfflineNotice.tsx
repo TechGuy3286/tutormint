@@ -41,7 +41,7 @@ export default function OfflineNotice() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-x-0 bottom-0 z-[100] flex items-center justify-center gap-2 bg-[#0F172A] px-4 py-3 text-center text-xs font-bold text-white"
+      className="fixed inset-x-0 bottom-0 z-[100] flex items-center justify-center gap-2 bg-tm-black px-4 py-3 text-center text-xs font-bold text-white"
     >
       <WifiOff size={16} className="shrink-0" aria-hidden />
       <span>You are offline. Anything you type is safe — it will send when you reconnect.</span>

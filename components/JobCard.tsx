@@ -106,8 +106,8 @@ export default function JobCard({
 
         <div className="space-y-3">
           <div className="space-y-1 pr-16 sm:pr-20">
-            <h3 className="text-base font-black leading-snug text-[#0F172A] sm:text-lg">
-              <Link href={detailHref} className="hover:underline">
+            <h3 className="text-base font-black leading-snug text-tm-navy sm:text-lg">
+              <Link href={detailHref} className="inline-block py-0.5 hover:underline">
                 {job.title}
               </Link>
             </h3>
@@ -117,7 +117,7 @@ export default function JobCard({
               {job.parent_name && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span className="font-semibold text-[#334155]">{job.parent_name}</span>
+                  <span className="font-semibold text-slate-700">{job.parent_name}</span>
                 </>
               )}
               {job.parent_badges.length > 0 && <BadgeRow badges={job.parent_badges} size="sm" />}
@@ -129,7 +129,7 @@ export default function JobCard({
               {job.subjects.map((s) => (
                 <span
                   key={s}
-                  className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#334155] ring-1 ring-gray-200"
+                  className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-gray-200"
                 >
                   {s}
                 </span>
@@ -139,23 +139,23 @@ export default function JobCard({
 
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {job.class_level && (
-              <p className="flex items-center gap-2 text-xs text-[#334155]">
+              <p className="flex items-center gap-2 text-xs text-slate-700">
                 <GraduationCap size={14} className="shrink-0 text-gray-400" />
                 {job.class_level}
               </p>
             )}
-            <p className="flex items-center gap-2 text-xs text-[#334155]">
+            <p className="flex items-center gap-2 text-xs text-slate-700">
               <MapPin size={14} className="shrink-0 text-gray-400" />
               {[job.area, job.city].filter(Boolean).join(', ') || job.teaching_mode || 'Flexible'}
             </p>
             {job.teaching_mode && (
-              <p className="flex items-center gap-2 text-xs text-[#334155]">
+              <p className="flex items-center gap-2 text-xs text-slate-700">
                 <Building2 size={14} className="shrink-0 text-gray-400" />
                 {job.teaching_mode}
               </p>
             )}
             {job.budget_pkr ? (
-              <p className="flex items-center gap-2 text-xs font-black text-[#0F172A]">
+              <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
                 <Wallet size={14} className="shrink-0 text-gray-400" />
                 Rs. {job.budget_pkr.toLocaleString('en-PK')} / month
               </p>
@@ -163,7 +163,7 @@ export default function JobCard({
           </div>
 
           {job.description && (
-            <p className="line-clamp-2 text-xs leading-relaxed text-[#334155]">{job.description}</p>
+            <p className="line-clamp-2 text-xs leading-relaxed text-slate-700">{job.description}</p>
           )}
 
           {/* Tutor-side steering: say plainly who can finish a hire. */}
@@ -176,7 +176,7 @@ export default function JobCard({
           <div className="flex flex-col gap-2 pt-1 sm:flex-row">
             <Link
               href={detailHref}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-[#F8FAFC] px-4 text-xs font-bold text-[#334155] transition-colors hover:bg-gray-100"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-tm-bg px-4 text-xs font-bold text-slate-700 transition-colors hover:bg-gray-100"
             >
               View details
             </Link>
@@ -185,7 +185,7 @@ export default function JobCard({
                 type="button"
                 onClick={apply}
                 disabled={state !== 'idle'}
-                className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-[#d60008] px-4 text-xs font-bold text-white transition-colors hover:bg-red-700 disabled:bg-gray-300"
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:bg-gray-300"
               >
                 {state === 'done' ? 'Applied' : state === 'sending' ? 'Sending…' : 'Apply'}
               </button>
@@ -204,10 +204,10 @@ export default function JobCard({
           )}
 
           {notice && (
-            <p className="text-[11px] font-semibold leading-snug text-[#334155]">
+            <p className="text-[11px] font-semibold leading-snug text-slate-700">
               {notice}{' '}
               {upgrade && (
-                <Link href={upgrade} className="font-bold text-[#d60008] underline">
+                <Link href={upgrade} className="font-bold text-tm-red underline">
                   See options
                 </Link>
               )}

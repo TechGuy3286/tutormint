@@ -67,13 +67,13 @@ export default async function HiredTutorsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-2xl space-y-4">
         <header className="space-y-1">
-          <Link href="/parent/dashboard" className="text-xs font-bold text-[#d60008] hover:underline">
+          <Link href="/parent/dashboard" className="text-xs font-bold text-tm-red hover:underline">
             ← Dashboard
           </Link>
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Hired tutors</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Hired tutors</h1>
         </header>
 
         {(jobs ?? []).length === 0 ? (
@@ -90,7 +90,7 @@ export default async function HiredTutorsPage() {
                   className="space-y-1 rounded-2xl border border-gray-200 bg-white p-4"
                 >
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="text-xs font-black text-[#0F172A]">
+                    <span className="text-xs font-black text-tm-navy">
                       {t?.slug ? (
                         <Link href={`/tutor/${t.slug}`} className="hover:underline">
                           {t.name}
@@ -113,7 +113,7 @@ export default async function HiredTutorsPage() {
 
                   {/* Offered only where it has been earned and not yet used. */}
                   {reviewable.reviewedJobIds.has(j.id as string) ? (
-                    <p className="text-[11px] font-bold text-[#059669]">You reviewed this tutor</p>
+                    <p className="text-[11px] font-bold text-tm-green-deep">You reviewed this tutor</p>
                   ) : (
                     <div className="pt-1">
                       <ReviewForm

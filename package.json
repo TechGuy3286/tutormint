@@ -12,8 +12,9 @@
     "verify:schema": "tsx scripts/verify-schema.ts",
     "seed:cleanup": "tsx scripts/seed-cleanup.ts",
     "backup": "bash scripts/backup.sh",
-    "check": "tsc --noEmit && next build",
-    "test:delivery": "tsx --test scripts/test-delivery.ts"
+    "check": "tsc --noEmit && next build && npm run check:contrast",
+    "test:delivery": "tsx --test scripts/test-delivery.ts",
+    "check:contrast": "tsx scripts/contrast-check.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

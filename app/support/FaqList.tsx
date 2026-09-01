@@ -44,13 +44,13 @@ export default function FaqList({ groups }: { groups: FaqGroup[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search — refunds, verification, hiring…"
-          className="min-h-[44px] w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm outline-none focus:border-[#0F172A]"
+          className="min-h-[44px] w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm outline-none focus:border-tm-navy"
         />
       </div>
 
       {filtered.length === 0 && (
         <div className="space-y-2 rounded-2xl border border-gray-200 bg-white p-6 text-center">
-          <p className="text-sm font-bold text-[#0F172A]">Nothing matches “{query}”</p>
+          <p className="text-sm font-bold text-tm-navy">Nothing matches “{query}”</p>
           <p className="text-xs leading-relaxed text-gray-500">
             Try a single word — “refund”, “video”, “hire”, “CNIC” — or message us and we will answer
             it directly.
@@ -67,7 +67,7 @@ export default function FaqList({ groups }: { groups: FaqGroup[] }) {
             {group.items.map((item) => (
               <li key={item.q}>
                 <details className="group rounded-2xl border border-gray-200 bg-white [&_summary::-webkit-details-marker]:hidden">
-                  <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-bold text-[#0F172A]">
+                  <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-bold text-tm-navy">
                     <span className="min-w-0 flex-1">{item.q}</span>
                     <ChevronDown
                       size={18}
@@ -75,7 +75,7 @@ export default function FaqList({ groups }: { groups: FaqGroup[] }) {
                       aria-hidden
                     />
                   </summary>
-                  <p className="px-4 pb-4 text-sm leading-relaxed text-[#334155]">{item.a}</p>
+                  <p className="px-4 pb-4 text-sm leading-relaxed text-slate-700">{item.a}</p>
                 </details>
               </li>
             ))}

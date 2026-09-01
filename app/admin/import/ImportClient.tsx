@@ -81,7 +81,7 @@ export default function ImportClient() {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Import tutors</h1>
+        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Import tutors</h1>
         <p className="text-xs leading-relaxed text-gray-500">
           Imported profiles are reachable by direct link but stay out of search until the tutor
           claims theirs — first sign-in, terms, and an OTP on their number. Import never skips
@@ -91,7 +91,7 @@ export default function ImportClient() {
 
       <a
         href="/api/admin/import"
-        className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#334155]"
+        className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
       >
         <Download size={14} />
         Download the CSV template
@@ -117,20 +117,20 @@ export default function ImportClient() {
           type="button"
           disabled={!file || busy !== null}
           onClick={() => post('validate')}
-          className="min-h-[44px] w-full rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white disabled:bg-gray-300 sm:w-auto sm:px-6"
+          className="min-h-[44px] w-full rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300 sm:w-auto sm:px-6"
         >
           {busy === 'validate' ? 'Checking…' : 'Check the file'}
         </button>
       </section>
 
       {error && (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-[#d60008]">
+        <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
           {error}
         </p>
       )}
 
       {summary && (
-        <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs font-bold text-[#0F172A]">
+        <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs font-bold text-tm-navy">
           {results
             ? `${summary.clean} of ${summary.total} rows imported · ${summary.rejected} rejected`
             : `${summary.clean} of ${summary.total} rows are ready · ${summary.rejected} would be rejected`}
@@ -145,16 +145,16 @@ export default function ImportClient() {
               <li
                 key={v.line}
                 className={`space-y-1 rounded-2xl border bg-white p-3 ${
-                  v.ok ? 'border-gray-200' : 'border-red-200'
+                  v.ok ? 'border-gray-200' : 'border-tm-red/30'
                 }`}
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="min-w-0 truncate text-xs font-black text-[#0F172A]">
+                  <p className="min-w-0 truncate text-xs font-black text-tm-navy">
                     Row {v.line}: {v.name || '(no name)'}
                   </p>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
-                      v.ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                      v.ok ? 'bg-tm-tint-green text-tm-green-deep' : 'bg-tm-tint-red text-tm-red'
                     }`}
                   >
                     {v.ok ? 'ready' : 'rejected'}
@@ -162,7 +162,7 @@ export default function ImportClient() {
                 </div>
                 <p className="text-[11px] text-gray-500">{v.mobile || '(no mobile)'}</p>
                 {v.errors.map((e, i) => (
-                  <p key={i} className="text-[11px] font-semibold text-[#d60008]">
+                  <p key={i} className="text-[11px] font-semibold text-tm-red">
                     • {e}
                   </p>
                 ))}
@@ -171,8 +171,8 @@ export default function ImportClient() {
           </ul>
 
           {summary && summary.clean > 0 && (
-            <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-[#92400E]">
+            <div className="space-y-2 rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4">
+              <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-tm-gold-ink">
                 <AlertTriangle size={16} className="mt-px shrink-0" />
                 This creates {summary.clean} real account{summary.clean === 1 ? '' : 's'} with
                 temporary passwords. Rejected rows are skipped — fix them and upload again.
@@ -181,7 +181,7 @@ export default function ImportClient() {
                 type="button"
                 disabled={busy !== null}
                 onClick={() => post('apply')}
-                className="min-h-[44px] w-full rounded-xl bg-[#d60008] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+                className="min-h-[44px] w-full rounded-xl bg-tm-red px-4 text-xs font-bold text-white disabled:bg-gray-300"
               >
                 {busy === 'apply' ? 'Importing…' : `Import ${summary.clean} tutor${summary.clean === 1 ? '' : 's'}`}
               </button>
@@ -194,21 +194,21 @@ export default function ImportClient() {
       {results && (
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 text-sm font-black text-[#059669]">
+            <h2 className="flex items-center gap-2 text-sm font-black text-tm-green-deep">
               <Check size={16} />
               Import finished
             </h2>
             <button
               type="button"
               onClick={downloadResults}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-tm-black px-4 text-xs font-bold text-white"
             >
               <Download size={14} />
               Download results
             </button>
           </div>
 
-          <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] leading-relaxed text-[#92400E]">
+          <p className="rounded-xl border border-tm-gold/30 bg-tm-tint-gold p-3 text-[11px] leading-relaxed text-tm-gold-ink">
             Download this now. The passwords are shown once, are not stored anywhere we can read
             them back, and are not in the audit log — leaving this page loses them.
           </p>
@@ -228,14 +228,14 @@ export default function ImportClient() {
                 {results.map((r) => (
                   <tr key={r.line} className="border-b border-gray-100 last:border-0">
                     <td className="p-3 text-gray-400">{r.line}</td>
-                    <td className="p-3 font-bold text-[#0F172A]">
+                    <td className="p-3 font-bold text-tm-navy">
                       {r.name}
                       {r.profileUrl && (
                         <a
                           href={r.profileUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="block text-[11px] font-normal text-[#d60008] hover:underline"
+                          className="block text-[11px] font-normal text-tm-red hover:underline"
                         >
                           {r.profileUrl.replace(/^https?:\/\/[^/]+/, '')}
                         </a>
@@ -244,7 +244,7 @@ export default function ImportClient() {
                     <td className="p-3 font-mono text-[11px]">{r.username}</td>
                     <td className="p-3 font-mono text-[11px]">{r.password || '—'}</td>
                     <td
-                      className={`p-3 ${r.status === 'Created' ? 'text-[#059669]' : 'text-[#d60008]'}`}
+                      className={`p-3 ${r.status === 'Created' ? 'text-tm-green-deep' : 'text-tm-red'}`}
                     >
                       {r.status}
                     </td>

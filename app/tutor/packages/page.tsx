@@ -40,16 +40,16 @@ export default async function TutorPackagesPage({
   const provider = getProvider()
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-4xl space-y-5">
         <header className="space-y-1">
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Tutor packages</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Tutor packages</h1>
           <p className="text-xs text-gray-500">
             Your plan decides how many jobs you can apply to, where you rank in search, and which
             badges parents see.
           </p>
           {ent && !ent.profileComplete && (
-            <p className="rounded-xl bg-[#FFFBEB] p-3 text-[11px] leading-relaxed text-[#92400E]">
+            <p className="rounded-xl bg-tm-tint-gold p-3 text-[11px] leading-relaxed text-tm-gold-ink">
               You can buy a plan now, but badges stay hidden until your profile reaches 100% and
               your video is approved. Nothing is lost — the badge appears the moment you get there.
             </p>

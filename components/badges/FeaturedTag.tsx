@@ -9,7 +9,7 @@
 export default function FeaturedTag({ className = '' }: { className?: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full bg-[#F59E0B] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#0F172A] ${className}`}
+      className={`inline-flex items-center rounded-full bg-tm-gold px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-tm-navy ${className}`}
     >
       Featured
     </span>

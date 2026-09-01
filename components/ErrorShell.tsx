@@ -27,13 +27,13 @@ export default function ErrorShell({
   detail?: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-[70vh] items-center justify-center bg-[#F8FAFC] p-4 sm:p-6">
+    <div className="flex min-h-[70vh] items-center justify-center bg-tm-bg p-4 sm:p-6">
       <div className="w-full max-w-md space-y-5 rounded-3xl border border-gray-200 bg-white p-6 text-center shadow-sm sm:p-8">
         <Link
           href="/"
-          className="inline-flex min-h-[44px] items-center justify-center text-xl font-black text-[#0F172A]"
+          className="inline-flex min-h-[44px] items-center justify-center text-xl font-black text-tm-navy"
         >
-          Tutor<span className="text-[#d60008]">Mint</span>
+          Tutor<span className="text-tm-red">Mint</span>
         </Link>
 
         {code && (
@@ -41,8 +41,8 @@ export default function ErrorShell({
         )}
 
         <div className="space-y-2">
-          <h1 className="text-lg font-black leading-tight text-[#0F172A] sm:text-xl">{title}</h1>
-          <p className="text-sm leading-relaxed text-[#334155]">{message}</p>
+          <h1 className="text-lg font-black leading-tight text-tm-navy sm:text-xl">{title}</h1>
+          <p className="text-sm leading-relaxed text-slate-700">{message}</p>
         </div>
 
         {detail}
@@ -54,8 +54,8 @@ export default function ErrorShell({
               href={a.href}
               className={
                 a.tone === 'quiet'
-                  ? 'flex min-h-[44px] w-full items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#0F172A] transition-colors hover:border-[#0F172A]'
-                  : 'flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#d60008] px-4 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-red-700'
+                  ? 'flex min-h-[44px] w-full items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy'
+                  : 'flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-red-hover'
               }
             >
               {a.label}

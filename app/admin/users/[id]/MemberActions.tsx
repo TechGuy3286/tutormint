@@ -68,7 +68,7 @@ export default function MemberActions({
     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
       <h2 className="text-xs font-black uppercase tracking-wide text-gray-400">Actions</h2>
 
-      {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
 
       {isSelf ? (
         <p className="text-xs text-gray-500">This is your own account.</p>
@@ -95,7 +95,7 @@ export default function MemberActions({
               type="button"
               disabled={busy || reason.trim().length < 5}
               onClick={() => act(open)}
-              className="min-h-[44px] rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+              className="min-h-[44px] rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
             >
               {busy ? 'Working…' : `Confirm ${open}`}
             </button>
@@ -105,7 +105,7 @@ export default function MemberActions({
                 setOpen(null)
                 setReason('')
               }}
-              className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+              className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
             >
               Cancel
             </button>
@@ -116,7 +116,7 @@ export default function MemberActions({
           <button
             type="button"
             onClick={() => setOpen('warn')}
-            className="min-h-[44px] rounded-xl bg-[#F59E0B] px-4 text-xs font-bold text-[#0F172A]"
+            className="min-h-[44px] rounded-xl bg-tm-gold px-4 text-xs font-bold text-tm-navy"
           >
             Warn
           </button>
@@ -124,7 +124,7 @@ export default function MemberActions({
             <button
               type="button"
               onClick={() => setOpen('unsuspend')}
-              className="min-h-[44px] rounded-xl bg-[#059669] px-4 text-xs font-bold text-white"
+              className="min-h-[44px] rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white"
             >
               Reinstate
             </button>
@@ -132,7 +132,7 @@ export default function MemberActions({
             <button
               type="button"
               onClick={() => setOpen('suspend')}
-              className="min-h-[44px] rounded-xl bg-[#d60008] px-4 text-xs font-bold text-white"
+              className="min-h-[44px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white"
             >
               Suspend
             </button>
@@ -144,7 +144,7 @@ export default function MemberActions({
         {!isStaff && (
           <Link
             href="/admin/plans"
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
           >
             Grant or revoke a plan
           </Link>
@@ -152,7 +152,7 @@ export default function MemberActions({
         {isTutor && (
           <Link
             href="/admin/tutors"
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
           >
             Open moderation queue
           </Link>

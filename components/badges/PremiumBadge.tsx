@@ -1,4 +1,5 @@
 import BadgeBase, { type BadgeSize } from './BadgeBase'
+import { BRAND } from '@/lib/brand'
 
 // Navy lightning bolt. Tutor plans premium and featured.
 
@@ -13,7 +14,7 @@ export default function PremiumBadge({
     <BadgeBase
       size={size}
       showLabel={showLabel}
-      colour="#1E293B"
+      colour={BRAND.navy}
       label="Premium"
       title="Premium member"
     >

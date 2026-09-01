@@ -40,7 +40,7 @@ export default async function AdminUsagePage({
   const admin = createAdminClient()
   if (!admin) {
     return (
-      <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-[#d60008]">
+      <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
         SUPABASE_SERVICE_ROLE_KEY is not configured on the server.
       </p>
     )
@@ -116,7 +116,7 @@ export default async function AdminUsagePage({
     <div className="space-y-5">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="space-y-1">
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Quota usage</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Quota usage</h1>
           <p className="text-xs text-gray-500">
             Period {period}. Real counts against the real cap, including for members whose plan
             says &ldquo;Unlimited&rdquo;.
@@ -124,7 +124,7 @@ export default async function AdminUsagePage({
         </div>
         <Link
           href="/admin/payments"
-          className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#334155]"
+          className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
         >
           Back to payments
         </Link>
@@ -139,9 +139,9 @@ export default async function AdminUsagePage({
           <ul className="space-y-2 sm:hidden">
             {rows.map((r) => (
               <li key={r.userId} className="space-y-1 rounded-2xl border border-gray-200 bg-white p-3">
-                <p className="truncate text-xs font-black text-[#0F172A]">{r.name}</p>
+                <p className="truncate text-xs font-black text-tm-navy">{r.name}</p>
                 <p className="truncate text-[11px] text-gray-500">{r.email}</p>
-                <p className="text-[11px] font-semibold text-[#0F172A]">
+                <p className="text-[11px] font-semibold text-tm-navy">
                   {r.planName ?? 'No plan'} · {r.field === 'jobs_applied' ? 'applications' : 'job posts'}
                 </p>
                 <UsageBar used={r.used} cap={r.cap} displayed={r.displayedQuota} />
@@ -164,7 +164,7 @@ export default async function AdminUsagePage({
                 {rows.map((r) => (
                   <tr key={r.userId} className="border-b border-gray-100 last:border-0">
                     <td className="p-3">
-                      <span className="block font-bold text-[#0F172A]">{r.name}</span>
+                      <span className="block font-bold text-tm-navy">{r.name}</span>
                       <span className="block text-[11px] text-gray-500">{r.email}</span>
                     </td>
                     <td className="p-3 capitalize text-gray-500">{r.role}</td>
@@ -199,7 +199,7 @@ function UsageBar({
 
   return (
     <div className="space-y-1">
-      <p className="text-[11px] font-bold text-[#0F172A]">
+      <p className="text-[11px] font-bold text-tm-navy">
         {used} / {cap || '—'}
         {marketingDiffers && (
           <span className="font-semibold text-gray-400"> (shown as &ldquo;{displayed}&rdquo;)</span>
@@ -207,7 +207,7 @@ function UsageBar({
       </p>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
         <div
-          className={`h-full rounded-full ${pct >= 90 ? 'bg-[#d60008]' : pct >= 60 ? 'bg-[#F59E0B]' : 'bg-[#059669]'}`}
+          className={`h-full rounded-full ${pct >= 90 ? 'bg-tm-red' : pct >= 60 ? 'bg-tm-gold' : 'bg-tm-green-deep'}`}
           style={{ width: `${pct}%` }}
         />
       </div>

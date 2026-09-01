@@ -101,7 +101,7 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Advertisements</h1>
+        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Advertisements</h1>
         <p className="text-xs leading-relaxed text-gray-500">
           Banners only. Ads never appear as tutor cards and never enter search ranking — ranking is
           sold through plans. Slots: after every 8 browse results, the parent dashboard, and the
@@ -110,14 +110,14 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
       </header>
 
       {error && (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-[#d60008]">
+        <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
           {error}
         </p>
       )}
 
       {creating ? (
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-black text-[#0F172A]">New advertisement</h2>
+          <h2 className="text-sm font-black text-tm-navy">New advertisement</h2>
 
           <Field label="Title">
             <input
@@ -205,7 +205,7 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
             </Field>
           </div>
 
-          <p className="rounded-xl bg-[#F8FAFC] p-3 text-[11px] leading-relaxed text-gray-500">
+          <p className="rounded-xl bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
             New ads are created as drafts. Nothing appears on a public page until you set it live.
           </p>
 
@@ -214,14 +214,14 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
               type="button"
               onClick={create}
               disabled={busy === 'new' || form.title.trim().length < 3}
-              className="min-h-[44px] rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+              className="min-h-[44px] rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
             >
               {busy === 'new' ? 'Saving…' : 'Create as draft'}
             </button>
             <button
               type="button"
               onClick={() => setCreating(false)}
-              className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+              className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
             >
               Cancel
             </button>
@@ -231,7 +231,7 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="min-h-[44px] w-full rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white sm:w-auto sm:px-6"
+          className="min-h-[44px] w-full rounded-xl bg-tm-black px-4 text-xs font-bold text-white sm:w-auto sm:px-6"
         >
           New advertisement
         </button>
@@ -249,7 +249,7 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
               <li key={a.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-[#0F172A]">{a.title}</p>
+                    <p className="truncate text-sm font-black text-tm-navy">{a.title}</p>
                     <p className="truncate text-[11px] text-gray-500">
                       {a.clientName || 'No advertiser named'} · {a.audience} · weight {a.weight}
                     </p>
@@ -257,10 +257,10 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
                       a.live
-                        ? 'bg-emerald-100 text-emerald-700'
+                        ? 'bg-tm-tint-green text-tm-green-deep'
                         : a.expired
                           ? 'bg-gray-100 text-gray-500'
-                          : 'bg-amber-100 text-amber-700'
+                          : 'bg-tm-tint-gold text-tm-gold-ink'
                     }`}
                   >
                     {a.live ? 'live' : a.expired ? 'expired' : a.status}
@@ -296,7 +296,7 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
                       type="button"
                       disabled={busy === a.id || a.expired}
                       onClick={() => setStatus(a.id, 'active')}
-                      className="min-h-[44px] rounded-xl bg-[#059669] px-3 text-xs font-bold text-white disabled:bg-gray-300"
+                      className="min-h-[44px] rounded-xl bg-tm-green-deep px-3 text-xs font-bold text-white disabled:bg-gray-300"
                     >
                       {a.expired ? 'Expired' : 'Set live'}
                     </button>
@@ -305,7 +305,7 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
                       type="button"
                       disabled={busy === a.id}
                       onClick={() => setStatus(a.id, 'paused')}
-                      className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-[#334155]"
+                      className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
                     >
                       Pause
                     </button>
@@ -314,7 +314,7 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
                     type="button"
                     disabled={busy === a.id}
                     onClick={() => remove(a.id, a.title)}
-                    className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-[#d60008]"
+                    className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-tm-red"
                   >
                     Delete
                   </button>
@@ -341,7 +341,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</dt>
-      <dd className="text-sm font-black text-[#0F172A]">{value}</dd>
+      <dd className="text-sm font-black text-tm-navy">{value}</dd>
     </div>
   )
 }

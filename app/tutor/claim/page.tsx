@@ -21,7 +21,7 @@ export default async function ClaimPage() {
   const admin = createAdminClient()
   if (!admin) {
     return (
-      <main className="min-h-screen bg-[#F8FAFC] p-6 text-center text-xs font-bold text-[#d60008]">
+      <main className="min-h-screen bg-tm-bg p-6 text-center text-xs font-bold text-tm-red">
         The server is not configured. Please contact support.
       </main>
     )
@@ -49,13 +49,13 @@ export default async function ClaimPage() {
   const msisdn = normalisePkMobile(profile?.phone_number as string)
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-10">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-lg space-y-4">
         <header className="space-y-1 text-center">
-          <p className="text-xl font-black text-[#0F172A]">
-            Tutor<span className="text-[#d60008]">Mint</span>
+          <p className="text-xl font-black text-tm-navy">
+            Tutor<span className="text-tm-red">Mint</span>
           </p>
-          <h1 className="text-lg font-black text-[#0F172A]">Is this you?</h1>
+          <h1 className="text-lg font-black text-tm-navy">Is this you?</h1>
           <p className="text-xs leading-relaxed text-gray-500">
             We created this profile from details we were given. Check it over, then claim it — until
             you do, it does not appear in search.
@@ -91,7 +91,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-100 pb-2 last:border-0">
       <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{label}</dt>
-      <dd className="text-right text-xs font-semibold text-[#0F172A]">{value}</dd>
+      <dd className="text-right text-xs font-semibold text-tm-navy">{value}</dd>
     </div>
   )
 }

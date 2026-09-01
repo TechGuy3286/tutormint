@@ -63,16 +63,16 @@ export default function ClaimFlow({
     <div className="space-y-3">
       {/* ------------------------------------------------------- 1. terms --- */}
       <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-        <h2 className="flex items-center gap-2 text-sm font-black text-[#0F172A]">
-          {accepted && <Check size={16} className="text-[#059669]" />}
+        <h2 className="flex items-center gap-2 text-sm font-black text-tm-navy">
+          {accepted && <Check size={16} className="text-tm-green-deep" />}
           1. Accept the terms
         </h2>
 
         {accepted ? (
-          <p className="text-xs font-bold text-[#059669]">Accepted.</p>
+          <p className="text-xs font-bold text-tm-green-deep">Accepted.</p>
         ) : (
           <>
-            <label className="flex cursor-pointer items-start gap-2 rounded-xl bg-[#F8FAFC] p-3">
+            <label className="flex cursor-pointer items-start gap-2 rounded-xl bg-tm-bg p-3">
               <input
                 type="checkbox"
                 checked={checked}
@@ -81,11 +81,11 @@ export default function ClaimFlow({
               />
               <span className="text-xs leading-relaxed">
                 I agree to the{' '}
-                <Link href="/terms" className="font-bold text-[#d60008] underline">
+                <Link href="/terms" className="font-bold text-tm-red underline">
                   Terms
                 </Link>{' '}
                 and{' '}
-                <Link href="/privacy" className="font-bold text-[#d60008] underline">
+                <Link href="/privacy" className="font-bold text-tm-red underline">
                   Privacy Policy
                 </Link>
                 , and I agree that TutorMint may use my profile photo and profile details in its
@@ -103,7 +103,7 @@ export default function ClaimFlow({
                 })
                 if (json) setAccepted(true)
               }}
-              className="min-h-[44px] w-full rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+              className="min-h-[44px] w-full rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
             >
               Accept and continue
             </button>
@@ -113,13 +113,13 @@ export default function ClaimFlow({
 
       {/* --------------------------------------------------------- 2. OTP --- */}
       <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-        <h2 className="flex items-center gap-2 text-sm font-black text-[#0F172A]">
-          {verified && <Check size={16} className="text-[#059669]" />}
+        <h2 className="flex items-center gap-2 text-sm font-black text-tm-navy">
+          {verified && <Check size={16} className="text-tm-green-deep" />}
           2. Verify {phone || 'your mobile number'}
         </h2>
 
         {verified ? (
-          <p className="text-xs font-bold text-[#059669]">Verified.</p>
+          <p className="text-xs font-bold text-tm-green-deep">Verified.</p>
         ) : !accepted ? (
           <p className="text-xs text-gray-400">Accept the terms first.</p>
         ) : (
@@ -140,7 +140,7 @@ export default function ClaimFlow({
                     setNote(json.message ?? 'Code sent.')
                   }
                 }}
-                className="min-h-[44px] w-full rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+                className="min-h-[44px] w-full rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
               >
                 Send me a code
               </button>
@@ -165,7 +165,7 @@ export default function ClaimFlow({
                     })
                     if (json) setVerified(true)
                   }}
-                  className="min-h-[44px] w-full rounded-xl bg-[#059669] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+                  className="min-h-[44px] w-full rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white disabled:bg-gray-300"
                 >
                   Verify
                 </button>
@@ -175,8 +175,8 @@ export default function ClaimFlow({
         )}
       </section>
 
-      {note && <p className="text-[11px] font-bold text-[#059669]">{note}</p>}
-      {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+      {note && <p className="text-[11px] font-bold text-tm-green-deep">{note}</p>}
+      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
 
       {/* ------------------------------------------------------- 3. claim --- */}
       <button
@@ -189,7 +189,7 @@ export default function ClaimFlow({
             router.refresh()
           }
         }}
-        className="min-h-[44px] w-full rounded-xl bg-[#d60008] px-4 text-xs font-bold uppercase tracking-wider text-white disabled:bg-gray-300"
+        className="min-h-[44px] w-full rounded-xl bg-tm-red px-4 text-xs font-bold uppercase tracking-wider text-white disabled:bg-gray-300"
       >
         Claim my profile
       </button>

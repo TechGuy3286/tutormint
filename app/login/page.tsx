@@ -84,27 +84,27 @@ function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] p-4 text-[#334155] sm:p-6">
+    <main className="flex min-h-screen items-center justify-center bg-tm-bg p-4 text-slate-700 sm:p-6">
       <div className="w-full max-w-md space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl sm:p-8">
         <div className="space-y-2 text-center">
           <Link
             href="/"
-            className="inline-flex min-h-[44px] items-center justify-center text-xl font-black text-[#0F172A]"
+            className="inline-flex min-h-[44px] items-center justify-center text-xl font-black text-tm-navy"
           >
-            Tutor<span className="text-[#d60008]">Mint</span>
+            Tutor<span className="text-tm-red">Mint</span>
           </Link>
-          <h1 className="text-xl font-black text-[#0F172A]">Sign in to your account</h1>
+          <h1 className="text-xl font-black text-tm-navy">Sign in to your account</h1>
           <p className="text-xs text-gray-500">Tutors, parents and schools all sign in here.</p>
         </div>
 
         {errorMsg && (
-          <div className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3 text-center text-xs font-bold text-[#d60008]">
+          <div className="space-y-2 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red">
             <p>{errorMsg}</p>
             {needsConfirm && (
               <button
                 type="button"
                 onClick={handleResend}
-                className="min-h-[44px] w-full rounded-xl bg-[#0F172A] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#059669]"
+                className="min-h-[44px] w-full rounded-xl bg-tm-black px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep"
               >
                 Resend confirmation email
               </button>
@@ -113,14 +113,14 @@ function LoginForm() {
         )}
 
         {resendMsg && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center text-xs font-bold text-[#059669]">
+          <div className="rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-center text-xs font-bold text-tm-green-deep">
             {resendMsg}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1">
-            <label htmlFor="identifier" className="text-xs font-bold text-[#0F172A]">
+            <label htmlFor="identifier" className="text-xs font-bold text-tm-navy">
               Email or mobile number
             </label>
             <input
@@ -131,12 +131,12 @@ function LoginForm() {
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               placeholder="name@example.com or 0300 1234567"
-              className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-[#F8FAFC] p-3 text-sm outline-none focus:border-[#0F172A] focus:bg-white"
+              className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-sm outline-none focus:border-tm-navy focus:bg-white"
             />
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="password" className="text-xs font-bold text-[#0F172A]">
+            <label htmlFor="password" className="text-xs font-bold text-tm-navy">
               Password
             </label>
             <input
@@ -147,14 +147,14 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-[#F8FAFC] p-3 text-sm outline-none focus:border-[#0F172A] focus:bg-white"
+              className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-sm outline-none focus:border-tm-navy focus:bg-white"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="min-h-[44px] w-full rounded-xl bg-[#d60008] py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:bg-red-700 disabled:opacity-50"
+            className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:bg-tm-red-hover disabled:opacity-50"
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
@@ -163,13 +163,13 @@ function LoginForm() {
         <div className="space-y-2 text-center">
           <Link
             href="/forgot-password"
-            className="flex min-h-[44px] items-center justify-center text-xs font-bold text-[#0F172A] hover:underline"
+            className="flex min-h-[44px] items-center justify-center text-xs font-bold text-tm-navy hover:underline"
           >
             Forgot your password?
           </Link>
           <p className="text-xs text-gray-500">
             New to TutorMint?{' '}
-            <Link href="/register" className="font-bold text-[#d60008] hover:underline">
+            <Link href="/register" className="font-bold text-tm-red hover:underline">
               Create an account
             </Link>
           </p>

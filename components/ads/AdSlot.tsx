@@ -60,9 +60,9 @@ export default async function AdSlot({
             <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
               Sponsored{paid.clientName ? ` · ${paid.clientName}` : ''}
             </p>
-            <h3 className="text-sm font-black text-[#0F172A]">{paid.title}</h3>
+            <h3 className="text-sm font-black text-tm-navy">{paid.title}</h3>
             {paid.description && (
-              <p className="text-xs leading-relaxed text-[#334155]">{paid.description}</p>
+              <p className="text-xs leading-relaxed text-slate-700">{paid.description}</p>
             )}
           </div>
         </Link>
@@ -75,14 +75,14 @@ export default async function AdSlot({
   return (
     <aside
       aria-label="TutorMint"
-      className="rounded-2xl border border-dashed border-[#F59E0B]/50 bg-[#FFFBEB] p-4 sm:p-6"
+      className="rounded-2xl border border-dashed border-tm-gold/50 bg-tm-tint-gold p-4 sm:p-6"
     >
-      <p className="text-[10px] font-black uppercase tracking-wider text-[#B45309]">TutorMint</p>
-      <h3 className="pt-1 text-sm font-black text-[#0F172A]">{house.title}</h3>
-      <p className="pt-1 text-xs leading-relaxed text-[#334155]">{house.body}</p>
+      <p className="text-[10px] font-black uppercase tracking-wider text-tm-gold-ink">TutorMint</p>
+      <h3 className="pt-1 text-sm font-black text-tm-navy">{house.title}</h3>
+      <p className="pt-1 text-xs leading-relaxed text-slate-700">{house.body}</p>
       <Link
         href={house.href}
-        className="mt-3 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white transition-colors hover:bg-[#1E293B]"
+        className="mt-3 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-4 text-xs font-bold text-white transition-colors hover:bg-tm-navy"
       >
         {house.cta}
       </Link>

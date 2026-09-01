@@ -55,23 +55,23 @@ export default function MyApplications({ applications }: { applications: MyAppli
 
   return (
     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-      <h2 className="text-sm font-black text-[#0F172A]">Your applications</h2>
-      {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+      <h2 className="text-sm font-black text-tm-navy">Your applications</h2>
+      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
 
       <ul className="space-y-2">
         {applications.map((a) => (
-          <li key={a.id} className="space-y-2 rounded-xl bg-[#F8FAFC] p-3">
+          <li key={a.id} className="space-y-2 rounded-xl bg-tm-bg p-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="min-w-0 truncate text-xs font-bold text-[#0F172A]">{a.jobTitle}</span>
+              <span className="min-w-0 truncate text-xs font-bold text-tm-navy">{a.jobTitle}</span>
               <span
                 className={`shrink-0 text-[10px] font-bold uppercase tracking-wide ${
                   a.withdrawn
                     ? 'text-gray-400'
                     : a.status === 'hired'
-                      ? 'text-[#059669]'
+                      ? 'text-tm-green-deep'
                       : a.status === 'rejected'
                         ? 'text-gray-500'
-                        : 'text-[#0F172A]'
+                        : 'text-tm-navy'
                 }`}
               >
                 {a.withdrawn ? 'Withdrawn' : LABEL[a.status]}
@@ -82,7 +82,7 @@ export default function MyApplications({ applications }: { applications: MyAppli
               <>
                 {confirming === a.id ? (
                   <div className="space-y-2">
-                    <p className="text-[11px] leading-relaxed text-[#334155]">
+                    <p className="text-[11px] leading-relaxed text-slate-700">
                       Withdrawing does not return the application to your monthly allowance.
                     </p>
                     <div className="flex gap-2">
@@ -90,14 +90,14 @@ export default function MyApplications({ applications }: { applications: MyAppli
                         type="button"
                         onClick={() => withdraw(a.id)}
                         disabled={busy}
-                        className="min-h-[44px] flex-1 rounded-xl bg-[#d60008] px-3 text-xs font-bold text-white"
+                        className="min-h-[44px] flex-1 rounded-xl bg-tm-red px-3 text-xs font-bold text-white"
                       >
                         {busy ? 'Withdrawing…' : 'Withdraw anyway'}
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirming(null)}
-                        className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-[#334155]"
+                        className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
                       >
                         Keep it
                       </button>

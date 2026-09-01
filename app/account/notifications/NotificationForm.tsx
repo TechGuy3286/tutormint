@@ -43,7 +43,7 @@ export default function NotificationForm({ optedOut }: { optedOut: boolean }) {
           className="mt-0.5 h-5 w-5 shrink-0"
         />
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-bold text-[#0F172A]">
+          <span className="block text-sm font-bold text-tm-navy">
             Email me about new messages and updates
           </span>
           <span className="block pt-1 text-xs leading-relaxed text-gray-500">
@@ -57,8 +57,8 @@ export default function NotificationForm({ optedOut }: { optedOut: boolean }) {
         <p
           className={`rounded-xl border p-3 text-xs font-bold ${
             message.kind === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-[#059669]'
-              : 'border-red-200 bg-red-50 text-[#d60008]'
+              ? 'border-tm-green-deep/30 bg-tm-tint-green text-tm-green-deep'
+              : 'border-tm-red/30 bg-tm-tint-red text-tm-red'
           }`}
         >
           {message.text}

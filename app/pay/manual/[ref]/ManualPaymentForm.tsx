@@ -64,7 +64,7 @@ export default function ManualPaymentForm({
           value={payerReference}
           onChange={(e) => setPayerReference(e.target.value)}
           placeholder="e.g. 4429183756"
-          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold outline-none focus:border-[#d60008]"
+          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold outline-none focus:border-tm-red"
         />
       </label>
 
@@ -81,13 +81,13 @@ export default function ManualPaymentForm({
         </span>
       </label>
 
-      {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
 
       <button
         type="button"
         onClick={submit}
         disabled={busy || payerReference.trim().length < 4}
-        className="min-h-[44px] w-full rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white disabled:bg-gray-300"
+        className="min-h-[44px] w-full rounded-xl bg-tm-black px-5 text-xs font-bold text-white disabled:bg-gray-300"
       >
         {busy ? 'Sending…' : 'Submit for review'}
       </button>

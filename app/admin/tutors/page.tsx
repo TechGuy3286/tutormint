@@ -19,7 +19,7 @@ export default async function AdminTutorsPage({
   const admin = createAdminClient()
   if (!admin) {
     return (
-      <p className="text-xs font-bold text-[#d60008] bg-red-50 border border-red-200 rounded-xl p-4">
+      <p className="text-xs font-bold text-tm-red bg-tm-tint-red border border-tm-red/30 rounded-xl p-4">
         SUPABASE_SERVICE_ROLE_KEY is not configured on the server, so the queue cannot be loaded.
       </p>
     )

@@ -41,13 +41,13 @@ export default async function PayReturnPage({
   const status = (payment?.status as string) ?? 'unknown'
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-10 text-[#334155] sm:px-6">
+    <main className="min-h-screen bg-tm-bg px-4 py-10 text-slate-700 sm:px-6">
       <div className="mx-auto max-w-md space-y-4">
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-5 text-center">
           {status === 'approved' ? (
             <>
-              <CheckCircle2 size={40} className="mx-auto text-[#059669]" />
-              <h1 className="text-lg font-black text-[#0F172A]">Your plan is active</h1>
+              <CheckCircle2 size={40} className="mx-auto text-tm-green-deep" />
+              <h1 className="text-lg font-black text-tm-navy">Your plan is active</h1>
               <p className="text-xs leading-relaxed text-gray-500">
                 {ent.planName} · {ent.displayedQuota} this month
                 {ent.expiresAt
@@ -62,8 +62,8 @@ export default async function PayReturnPage({
             </>
           ) : status === 'pending' ? (
             <>
-              <Clock size={40} className="mx-auto text-[#F59E0B]" />
-              <h1 className="text-lg font-black text-[#0F172A]">We are confirming your payment</h1>
+              <Clock size={40} className="mx-auto text-tm-gold-ink" />
+              <h1 className="text-lg font-black text-tm-navy">We are confirming your payment</h1>
               <p className="text-xs leading-relaxed text-gray-500">
                 Nothing more to do. Your plan starts as soon as the payment is confirmed — usually
                 within a few hours for a bank or wallet transfer.
@@ -71,8 +71,8 @@ export default async function PayReturnPage({
             </>
           ) : status === 'rejected' ? (
             <>
-              <XCircle size={40} className="mx-auto text-[#d60008]" />
-              <h1 className="text-lg font-black text-[#0F172A]">That payment did not go through</h1>
+              <XCircle size={40} className="mx-auto text-tm-red" />
+              <h1 className="text-lg font-black text-tm-navy">That payment did not go through</h1>
               <p className="text-xs leading-relaxed text-gray-500">
                 {(payment?.rejection_reason as string) ??
                   'Nothing was charged and your plan is unchanged.'}
@@ -81,7 +81,7 @@ export default async function PayReturnPage({
           ) : (
             <>
               <Clock size={40} className="mx-auto text-gray-300" />
-              <h1 className="text-lg font-black text-[#0F172A]">Nothing to show here</h1>
+              <h1 className="text-lg font-black text-tm-navy">Nothing to show here</h1>
               <p className="text-xs leading-relaxed text-gray-500">
                 We could not find that payment on your account.
               </p>
@@ -96,13 +96,13 @@ export default async function PayReturnPage({
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
             href={home}
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white"
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
           >
             Go to my dashboard
           </Link>
           <Link
             href={packages}
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-[#334155]"
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
           >
             Packages
           </Link>

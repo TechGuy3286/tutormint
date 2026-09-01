@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { badgesForPlan } from '@/lib/planBadges'
+import { BRAND, NEUTRAL } from '@/lib/brand'
 
 // Render a promotional PNG from a tutor's live profile.
 //
@@ -26,11 +27,11 @@ const FORMATS: Record<string, { width: number; height: number }> = {
   wide: { width: 1200, height: 630 },
 }
 
-const RED = '#d60008'
-const NAVY = '#0F172A'
-const SLATE = '#334155'
-const GREEN = '#059669'
-const GOLD = '#F59E0B'
+const RED = BRAND.red
+const NAVY = BRAND.navy
+const SLATE = NEUTRAL.slate700
+const GREEN = BRAND.greenDeep
+const GOLD = BRAND.gold
 
 export async function GET(request: Request) {
   // Not checkAdminRole: this returns an image, and an HTML error page in an
@@ -81,9 +82,9 @@ export async function GET(request: Request) {
   const scale = isWide ? 0.62 : isStory ? 1.05 : 1
 
   const dark = template === 'bold'
-  const bg = dark ? NAVY : '#FFFFFF'
-  const fg = dark ? '#FFFFFF' : NAVY
-  const muted = dark ? '#CBD5E1' : SLATE
+  const bg = dark ? NAVY : BRAND.white
+  const fg = dark ? BRAND.white : NAVY
+  const muted = dark ? NEUTRAL.slate300 : SLATE
 
   const avatarSize = Math.round((isWide ? 180 : 300) * (isStory ? 1.1 : 1))
 
@@ -133,7 +134,7 @@ export async function GET(request: Request) {
               width: avatarSize,
               height: avatarSize,
               borderRadius: avatarSize,
-              background: dark ? '#1E293B' : '#F1F5F9',
+              background: dark ? NEUTRAL.slate800 : NEUTRAL.slate100,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -173,8 +174,8 @@ export async function GET(request: Request) {
                     borderRadius: 999,
                     fontSize: Math.round(22 * scale),
                     fontWeight: 800,
-                    color: '#FFFFFF',
-                    background: b === 'Verified' ? GREEN : b === 'Premium' ? '#1E293B' : GOLD,
+                    color: b === 'Featured' ? BRAND.black : BRAND.white,
+                    background: b === 'Verified' ? GREEN : b === 'Premium' ? BRAND.navy : GOLD,
                   }}
                 >
                   {b}
@@ -198,7 +199,7 @@ export async function GET(request: Request) {
                       fontSize: Math.round(22 * scale),
                       fontWeight: 700,
                       color: fg,
-                      background: dark ? '#1E293B' : '#F1F5F9',
+                      background: dark ? NEUTRAL.slate800 : NEUTRAL.slate100,
                     }}
                   >
                     {s}
@@ -225,7 +226,7 @@ export async function GET(request: Request) {
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 16,
-            borderTop: `2px solid ${dark ? '#1E293B' : '#E2E8F0'}`,
+            borderTop: `2px solid ${dark ? NEUTRAL.slate800 : NEUTRAL.slate200}`,
             paddingTop: Math.round(28 * scale),
           }}
         >
@@ -238,7 +239,7 @@ export async function GET(request: Request) {
               padding: `${Math.round(14 * scale)}px ${Math.round(30 * scale)}px`,
               borderRadius: 16,
               background: RED,
-              color: '#FFFFFF',
+              color: BRAND.white,
               fontSize: Math.round(26 * scale),
               fontWeight: 900,
             }}

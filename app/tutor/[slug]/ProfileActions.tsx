@@ -113,7 +113,7 @@ export default function ProfileActions({
     <>
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:mx-auto sm:mt-4 sm:max-w-3xl sm:rounded-2xl sm:border sm:p-4">
         {notice && (
-          <p className="pb-2 text-center text-[11px] font-semibold text-[#334155]">{notice}</p>
+          <p className="pb-2 text-center text-[11px] font-semibold text-slate-700">{notice}</p>
         )}
         <div className="mx-auto flex max-w-3xl gap-2">
           <button
@@ -121,16 +121,16 @@ export default function ProfileActions({
             onClick={toggleShortlist}
             disabled={busy}
             aria-pressed={saved}
-            className={`${btn} border border-[#d60008] text-[#d60008] hover:bg-red-50`}
+            className={`${btn} border border-tm-red text-tm-red hover:bg-tm-tint-red`}
           >
-            <Heart size={14} className={saved ? 'fill-[#d60008]' : ''} />
+            <Heart size={14} className={saved ? 'fill-tm-red' : ''} />
             {saved ? 'Shortlisted' : 'Shortlist'}
           </button>
           <button
             type="button"
             onClick={requestDemo}
             disabled={busy}
-            className={`${btn} bg-[#d60008] text-white hover:bg-red-700`}
+            className={`${btn} bg-tm-red text-white hover:bg-tm-red-hover`}
           >
             <Play size={14} className="fill-white" />
             Request demo
@@ -140,7 +140,7 @@ export default function ProfileActions({
               type="button"
               onClick={message}
               disabled={busy}
-              className={`${btn} bg-[#059669] text-white hover:bg-emerald-700`}
+              className={`${btn} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}
             >
               <Mail size={14} />
               Message

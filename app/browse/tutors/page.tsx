@@ -206,10 +206,10 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-1">
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">
             {heading}
             {city ? ` in ${city}` : ''}
           </h1>
@@ -223,7 +223,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
         <TutorFilterBar values={filters} />
 
         {error && (
-          <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-[#d60008]">
+          <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
             The directory could not be loaded. Please try again.
           </p>
         )}
@@ -241,7 +241,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
           */
           <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 text-center sm:p-8">
             <div className="space-y-1.5">
-              <p className="text-sm font-black text-[#0F172A]">No tutors match that yet</p>
+              <p className="text-sm font-black text-tm-navy">No tutors match that yet</p>
               <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
                 {area && city
                   ? `Nobody in ${area} matches. There may well be someone nearby.`
@@ -253,7 +253,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
               {area && (
                 <Link
                   href={widen({ area: undefined })}
-                  className="flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#0F172A] transition-colors hover:border-[#0F172A]"
+                  className="flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
                 >
                   Search all of {city || 'the city'}
                 </Link>
@@ -261,20 +261,20 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
               {mode !== 'Online' && (
                 <Link
                   href={widen({ mode: undefined, area: undefined })}
-                  className="flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#0F172A] transition-colors hover:border-[#0F172A]"
+                  className="flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
                 >
                   Include tutors who teach online
                 </Link>
               )}
               <Link
                 href="/parent/dashboard/post-job"
-                className="flex min-h-[44px] items-center justify-center rounded-xl bg-[#d60008] px-4 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-red-700"
+                className="flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-red-hover"
               >
                 Post your tuition instead
               </Link>
               <Link
                 href="/browse/tutors"
-                className="flex min-h-[44px] items-center justify-center text-xs font-bold text-gray-500 hover:text-[#0F172A]"
+                className="flex min-h-[44px] items-center justify-center text-xs font-bold text-gray-500 hover:text-tm-navy"
               >
                 Clear every filter
               </Link>
@@ -310,7 +310,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
             {page > 1 ? (
               <Link
                 href={pageHref(page - 1)}
-                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#0F172A]"
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy"
               >
                 Previous
               </Link>
@@ -323,7 +323,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
             {page < pages ? (
               <Link
                 href={pageHref(page + 1)}
-                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#0F172A]"
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy"
               >
                 Next
               </Link>

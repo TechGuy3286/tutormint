@@ -132,62 +132,62 @@ export default function ParentVerifyPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] py-6 px-4 sm:px-6 text-[#334155]">
+    <main className="min-h-screen bg-tm-bg py-6 px-4 sm:px-6 text-slate-700">
       <div className="max-w-2xl mx-auto space-y-5">
         <header className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-black text-[#0F172A]">Verify your account</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-tm-navy">Verify your account</h1>
           <p className="text-xs text-gray-500">
             We verify every parent before they can post a job. It keeps tutors safe and gets you better responses.
           </p>
         </header>
 
         {state === 'approved' && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl">
-            <p className="text-xs font-black text-emerald-900">✓ Verified — you can post jobs</p>
+          <div className="p-4 bg-tm-tint-green border border-tm-green-deep/30 rounded-2xl">
+            <p className="text-xs font-black text-tm-green-deep">✓ Verified — you can post jobs</p>
           </div>
         )}
         {state === 'submitted' && (
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-1">
-            <p className="text-xs font-black text-amber-900">Awaiting review</p>
-            <p className="text-[11px] text-amber-800">
+          <div className="p-4 bg-tm-tint-gold border border-tm-gold/30 rounded-2xl space-y-1">
+            <p className="text-xs font-black text-tm-gold-ink">Awaiting review</p>
+            <p className="text-[11px] text-tm-gold-ink">
               Our team is checking your details, usually within a few hours.
               <strong> You cannot post a job until this is approved.</strong>
             </p>
           </div>
         )}
         {state === 'rejected' && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-1">
-            <p className="text-xs font-black text-[#d60008]">We could not verify these details</p>
-            {rejectionReason && <p className="text-[11px] text-red-800">{rejectionReason}</p>}
-            <p className="text-[11px] text-red-800">Please correct them below and submit again.</p>
+          <div className="p-4 bg-tm-tint-red border border-tm-red/30 rounded-2xl space-y-1">
+            <p className="text-xs font-black text-tm-red">We could not verify these details</p>
+            {rejectionReason && <p className="text-[11px] text-tm-red">{rejectionReason}</p>}
+            <p className="text-[11px] text-tm-red">Please correct them below and submit again.</p>
           </div>
         )}
         {state === 'none' && (
-          <div className="p-4 bg-[#0F172A] text-white rounded-2xl space-y-1">
+          <div className="p-4 bg-tm-black text-white rounded-2xl space-y-1">
             <p className="text-xs font-black">Not verified yet</p>
             <p className="text-[11px] text-gray-200">You cannot post a job until your CNIC and address are approved.</p>
           </div>
         )}
 
-        {err && <div className="p-3 bg-red-50 border border-red-200 text-[#d60008] text-xs font-bold rounded-xl">{err}</div>}
-        {msg && !err && <div className="p-3 bg-emerald-50 border border-emerald-200 text-[#059669] text-xs font-bold rounded-xl">{msg}</div>}
+        {err && <div className="p-3 bg-tm-tint-red border border-tm-red/30 text-tm-red text-xs font-bold rounded-xl">{err}</div>}
+        {msg && !err && <div className="p-3 bg-tm-tint-green border border-tm-green-deep/30 text-tm-green-deep text-xs font-bold rounded-xl">{msg}</div>}
 
         <section className="bg-white border border-gray-200 rounded-3xl p-4 sm:p-6 space-y-4">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-sm font-bold text-[#0F172A]">Your details</h2>
-            <span className="text-xs font-black text-[#0F172A]">{completion.percent}%</span>
+            <h2 className="text-sm font-bold text-tm-navy">Your details</h2>
+            <span className="text-xs font-black text-tm-navy">{completion.percent}%</span>
           </div>
 
           <F id="full_name" label="Full name" value={fullName} onChange={setFullName} />
           <F id="city" label="City" value={city} onChange={setCity} />
           <div className="space-y-1" id="address">
-            <label htmlFor="address-input" className="text-xs font-bold text-[#0F172A]">Home address</label>
+            <label htmlFor="address-input" className="text-xs font-bold text-tm-navy">Home address</label>
             <textarea id="address-input" rows={2} value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} />
           </div>
           <F id="cnic_number" label="CNIC number" value={cnic} onChange={setCnic} placeholder="35202-1234567-8" />
 
           <div className="space-y-1" id="cnic_image">
-            <label className="text-xs font-bold text-[#0F172A]">CNIC image</label>
+            <label className="text-xs font-bold text-tm-navy">CNIC image</label>
             <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadCnic(e.target.files[0])} className="block w-full text-xs min-h-[44px]" />
             {docs.length > 0 && (
               <div className="grid grid-cols-2 gap-2 pt-2">
@@ -198,9 +198,9 @@ export default function ParentVerifyPage() {
           </div>
 
           <div className="space-y-2 pt-1" id="phone">
-            <label className="text-xs font-bold text-[#0F172A]">Mobile number</label>
+            <label className="text-xs font-bold text-tm-navy">Mobile number</label>
             {phoneVerified ? (
-              <p className="text-xs font-bold text-[#059669] bg-emerald-50 border border-emerald-200 rounded-xl p-3">✓ Verified</p>
+              <p className="text-xs font-bold text-tm-green-deep bg-tm-tint-green border border-tm-green-deep/30 rounded-xl p-3">✓ Verified</p>
             ) : (
               <>
                 <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="03214567890" className={inputCls} />
@@ -213,7 +213,7 @@ export default function ParentVerifyPage() {
                     <button onClick={verifyOtp} disabled={!otp} className={btnRed}>Verify</button>
                   </>
                 )}
-                {otpMsg && <p className="text-[11px] font-bold text-[#059669]">{otpMsg}</p>}
+                {otpMsg && <p className="text-[11px] font-bold text-tm-green-deep">{otpMsg}</p>}
               </>
             )}
           </div>
@@ -221,25 +221,25 @@ export default function ParentVerifyPage() {
 
         {completion.missing.length > 0 && (
           <ul className="bg-white border border-gray-200 rounded-2xl p-4 space-y-1">
-            <li className="text-xs font-bold text-[#0F172A] pb-1">Still needed</li>
+            <li className="text-xs font-bold text-tm-navy pb-1">Still needed</li>
             {completion.missing.map((m) => <li key={m.key} className="text-xs text-gray-600">• {m.label}</li>)}
           </ul>
         )}
 
         <div className="flex flex-col sm:flex-row gap-2">
-          <button onClick={saveDetails} disabled={saving} className="flex-1 min-h-[44px] py-3 bg-[#F8FAFC] border border-gray-200 text-[#334155] font-bold text-xs rounded-xl disabled:opacity-50">
+          <button onClick={saveDetails} disabled={saving} className="flex-1 min-h-[44px] py-3 bg-tm-bg border border-gray-200 text-slate-700 font-bold text-xs rounded-xl disabled:opacity-50">
             Save for later
           </button>
           <button
             onClick={submitForReview}
             disabled={saving || completion.percent < 100 || state === 'submitted'}
-            className="flex-[2] min-h-[44px] py-3 bg-[#d60008] hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-50"
+            className="flex-[2] min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-50"
           >
             {state === 'submitted' ? 'Awaiting review' : 'Submit for verification'}
           </button>
         </div>
 
-        <Link href="/parent/dashboard" className="block text-center text-xs font-bold text-gray-500 hover:text-[#0F172A] min-h-[44px] flex items-center justify-center">
+        <Link href="/parent/dashboard" className="block text-center text-xs font-bold text-gray-500 hover:text-tm-navy min-h-[44px] flex items-center justify-center">
           ← Back to dashboard
         </Link>
       </div>
@@ -248,18 +248,18 @@ export default function ParentVerifyPage() {
 }
 
 const inputCls =
-  'w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A] focus:bg-white'
+  'w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy focus:bg-white'
 const btnDark =
-  'w-full min-h-[44px] py-3 bg-[#0F172A] hover:bg-[#059669] text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'w-full min-h-[44px] py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
 const btnRed =
-  'w-full min-h-[44px] py-3 bg-[#d60008] hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'w-full min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
 
 function F({ id, label, value, onChange, placeholder }: {
   id: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string
 }) {
   return (
     <div className="space-y-1" id={id}>
-      <label htmlFor={`${id}-input`} className="text-xs font-bold text-[#0F172A]">{label}</label>
+      <label htmlFor={`${id}-input`} className="text-xs font-bold text-tm-navy">{label}</label>
       <input id={`${id}-input`} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={inputCls} />
     </div>
   )

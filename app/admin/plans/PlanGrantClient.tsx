@@ -99,7 +99,7 @@ export default function PlanGrantClient({
   return (
     <div className="space-y-4">
       <header className="space-y-1">
-        <h1 className="text-xl sm:text-2xl font-black text-[#0F172A]">Plans</h1>
+        <h1 className="text-xl sm:text-2xl font-black text-tm-navy">Plans</h1>
         <p className="text-xs text-gray-500">
           Grant or revoke a plan on any account. Grants are recorded as{' '}
           <code className="text-[10px]">admin_grant</code> so they can be told apart from real
@@ -108,13 +108,13 @@ export default function PlanGrantClient({
       </header>
 
       {!canMutate && (
-        <p className="p-3 bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold rounded-xl">
+        <p className="p-3 bg-tm-tint-gold border border-tm-gold/30 text-tm-gold-ink text-xs font-bold rounded-xl">
           Read-only: your admin role can view plans but not change them.
         </p>
       )}
 
       {msg && (
-        <p className="p-3 bg-emerald-50 border border-emerald-200 text-[#059669] text-xs font-bold rounded-xl">
+        <p className="p-3 bg-tm-tint-green border border-tm-green-deep/30 text-tm-green-deep text-xs font-bold rounded-xl">
           {msg}
         </p>
       )}
@@ -123,7 +123,7 @@ export default function PlanGrantClient({
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search by name or email…"
-        className="w-full min-h-[44px] p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A]"
+        className="w-full min-h-[44px] p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy"
       />
 
       <ul className="space-y-2">
@@ -139,10 +139,10 @@ export default function PlanGrantClient({
                 setErr('')
               }}
               disabled={!canMutate}
-              className="w-full text-left bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 hover:border-[#0F172A] transition-colors flex items-center gap-3 min-h-[44px] disabled:cursor-default disabled:hover:border-gray-200"
+              className="w-full text-left bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 hover:border-tm-navy transition-colors flex items-center gap-3 min-h-[44px] disabled:cursor-default disabled:hover:border-gray-200"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-black text-[#0F172A] truncate">{a.fullName}</p>
+                <p className="text-xs font-black text-tm-navy truncate">{a.fullName}</p>
                 <p className="text-[11px] text-gray-500 truncate">
                   {a.email} · {a.role}
                 </p>
@@ -150,7 +150,7 @@ export default function PlanGrantClient({
               <span
                 className={`shrink-0 px-2 py-1 rounded-lg border text-[10px] font-bold ${
                   a.activePlan
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    ? 'bg-tm-tint-green text-tm-green-deep border-tm-green-deep/30'
                     : 'bg-gray-50 text-gray-500 border-gray-200'
                 }`}
               >
@@ -176,7 +176,7 @@ export default function PlanGrantClient({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-base font-black text-[#0F172A] truncate">{open.fullName}</h2>
+                <h2 className="text-base font-black text-tm-navy truncate">{open.fullName}</h2>
                 <p className="text-[11px] text-gray-500 truncate">
                   {open.role} · current: {open.activePlan ?? 'none'}
                   {open.expiresAt ? ` (until ${new Date(open.expiresAt).toLocaleDateString()})` : ''}
@@ -188,14 +188,14 @@ export default function PlanGrantClient({
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="plan" className="text-[11px] font-bold text-[#0F172A]">
+              <label htmlFor="plan" className="text-[11px] font-bold text-tm-navy">
                 Plan ({open.role === 'tutor' ? 'tutor' : 'parent'} plans only)
               </label>
               <select
                 id="plan"
                 value={planCode}
                 onChange={(e) => setPlanCode(e.target.value)}
-                className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A]"
+                className="w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy"
               >
                 <option value="">Select a plan…</option>
                 {eligiblePlans.map((p) => (
@@ -207,7 +207,7 @@ export default function PlanGrantClient({
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="days" className="text-[11px] font-bold text-[#0F172A]">
+              <label htmlFor="days" className="text-[11px] font-bold text-tm-navy">
                 Duration (days)
               </label>
               <input
@@ -217,12 +217,12 @@ export default function PlanGrantClient({
                 max={3650}
                 value={days}
                 onChange={(e) => setDays(e.target.value)}
-                className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A]"
+                className="w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy"
               />
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="note" className="text-[11px] font-bold text-[#0F172A]">
+              <label htmlFor="note" className="text-[11px] font-bold text-tm-navy">
                 Note (recorded in the audit log)
               </label>
               <input
@@ -230,24 +230,24 @@ export default function PlanGrantClient({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Pre-launch testing"
-                className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A]"
+                className="w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy"
               />
             </div>
 
-            {err && <p className="text-[11px] font-bold text-[#d60008]">{err}</p>}
+            {err && <p className="text-[11px] font-bold text-tm-red">{err}</p>}
 
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => submit('grant')}
                 disabled={busy || !planCode}
-                className="min-h-[44px] py-3 bg-[#059669] hover:bg-emerald-700 text-white text-xs font-bold rounded-xl disabled:opacity-50"
+                className="min-h-[44px] py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-bold rounded-xl disabled:opacity-50"
               >
                 Grant
               </button>
               <button
                 onClick={() => submit('revoke')}
                 disabled={busy || !open.activePlan}
-                className="min-h-[44px] py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl disabled:opacity-50"
+                className="min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl disabled:opacity-50"
               >
                 Revoke active
               </button>

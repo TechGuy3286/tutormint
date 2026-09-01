@@ -49,7 +49,7 @@ export default async function AdminUsersPage({
   const admin = createAdminClient()
   if (!admin) {
     return (
-      <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-[#d60008]">
+      <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
         SUPABASE_SERVICE_ROLE_KEY is not configured on the server.
       </p>
     )
@@ -151,8 +151,8 @@ export default async function AdminUsersPage({
         href={href}
         className={`inline-flex min-h-[44px] items-center rounded-xl px-4 text-xs font-bold ${
           current === value
-            ? 'bg-[#0F172A] text-white'
-            : 'border border-gray-200 bg-white text-[#334155]'
+            ? 'bg-tm-black text-white'
+            : 'border border-gray-200 bg-white text-slate-700'
         }`}
       >
         {label}
@@ -163,7 +163,7 @@ export default async function AdminUsersPage({
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Members</h1>
+        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Members</h1>
         <p className="text-xs text-gray-500">
           {rows.length === 100 ? 'First 100 matches' : `${rows.length} member${rows.length === 1 ? '' : 's'}`}
           {term ? ` matching “${term}”` : ''}
@@ -182,7 +182,7 @@ export default async function AdminUsersPage({
         {status !== 'all' && <input type="hidden" name="status" value={status} />}
         <button
           type="submit"
-          className="min-h-[44px] rounded-xl bg-[#0F172A] px-6 text-xs font-bold text-white"
+          className="min-h-[44px] rounded-xl bg-tm-black px-6 text-xs font-bold text-white"
         >
           Search
         </button>
@@ -197,7 +197,7 @@ export default async function AdminUsersPage({
         {roleSatisfies(actor.adminRole, SCREEN_ACCESS.cleanup) && (
           <Link
             href="/admin/users?filter=suspicious"
-            className="inline-flex min-h-[44px] items-center rounded-xl border border-amber-300 bg-amber-50 px-4 text-xs font-bold text-[#92400E]"
+            className="inline-flex min-h-[44px] items-center rounded-xl border border-tm-gold/30 bg-tm-tint-gold px-4 text-xs font-bold text-tm-gold-ink"
           >
             Junk accounts
           </Link>
@@ -214,15 +214,15 @@ export default async function AdminUsersPage({
             <li key={r.id}>
               <Link
                 href={`/admin/users/${r.id}`}
-                className={`block space-y-1 rounded-2xl border bg-white p-4 transition-colors hover:border-[#0F172A] ${
-                  r.suspended ? 'border-amber-300' : 'border-gray-200'
+                className={`block space-y-1 rounded-2xl border bg-white p-4 transition-colors hover:border-tm-navy ${
+                  r.suspended ? 'border-tm-gold/30' : 'border-gray-200'
                 }`}
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="min-w-0 truncate text-sm font-black text-[#0F172A]">{r.name}</p>
+                  <p className="min-w-0 truncate text-sm font-black text-tm-navy">{r.name}</p>
                   <span className="flex shrink-0 items-center gap-1.5">
                     {r.suspended && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase text-amber-700">
+                      <span className="rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-black uppercase text-tm-gold-ink">
                         suspended
                       </span>
                     )}

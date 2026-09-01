@@ -97,8 +97,8 @@ export default function ReportQueue({
             href={`/admin/reports?filter=${f.key}`}
             className={`inline-flex min-h-[44px] items-center rounded-xl px-4 text-xs font-bold ${
               filter === f.key
-                ? 'bg-[#0F172A] text-white'
-                : 'border border-gray-200 bg-white text-[#334155]'
+                ? 'bg-tm-black text-white'
+                : 'border border-gray-200 bg-white text-slate-700'
             }`}
           >
             {f.label}
@@ -107,7 +107,7 @@ export default function ReportQueue({
       </nav>
 
       {error && (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-[#d60008]">
+        <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
           {error}
         </p>
       )}
@@ -122,7 +122,7 @@ export default function ReportQueue({
             <li key={r.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-black text-[#0F172A]">
+                  <p className="text-sm font-black text-tm-navy">
                     {REASON_LABEL[r.reason] ?? r.reason}
                     <span className="ml-2 text-[11px] font-semibold text-gray-400">
                       on a {r.targetType}
@@ -133,7 +133,7 @@ export default function ReportQueue({
                     {r.reportedId ? (
                       <Link
                         href={`/admin/users/${r.reportedId}`}
-                        className="font-bold text-[#0F172A] hover:underline"
+                        className="font-bold text-tm-navy hover:underline"
                       >
                         {r.reportedName}
                       </Link>
@@ -147,9 +147,9 @@ export default function ReportQueue({
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
                     r.status === 'open'
-                      ? 'bg-amber-100 text-amber-700'
+                      ? 'bg-tm-tint-gold text-tm-gold-ink'
                       : r.status === 'actioned'
-                        ? 'bg-red-100 text-red-700'
+                        ? 'bg-tm-tint-red text-tm-red'
                         : 'bg-gray-100 text-gray-500'
                   }`}
                 >
@@ -158,7 +158,7 @@ export default function ReportQueue({
               </div>
 
               {r.detail && (
-                <p className="rounded-xl bg-[#F8FAFC] p-3 text-xs leading-relaxed">{r.detail}</p>
+                <p className="rounded-xl bg-tm-bg p-3 text-xs leading-relaxed">{r.detail}</p>
               )}
 
               {/* ------------------------------------------ thread content --- */}
@@ -168,7 +168,7 @@ export default function ReportQueue({
                     <button
                       type="button"
                       onClick={() => setOpenThread(openThread === r.id ? null : r.id)}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                     >
                       <MessageSquare size={14} />
                       {openThread === r.id
@@ -177,7 +177,7 @@ export default function ReportQueue({
                     </button>
 
                     {openThread === r.id && (
-                      <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border border-gray-200 bg-[#F8FAFC] p-3">
+                      <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border border-gray-200 bg-tm-bg p-3">
                         {r.messages.map((m, i) => (
                           <div key={i} className="space-y-0.5">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
@@ -204,7 +204,7 @@ export default function ReportQueue({
               )}
 
               {r.status !== 'open' && r.resolutionNote && (
-                <p className="rounded-xl bg-[#F8FAFC] p-3 text-[11px] leading-relaxed text-gray-500">
+                <p className="rounded-xl bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
                   <strong className="uppercase tracking-wide">{r.actionTaken}</strong> —{' '}
                   {r.resolutionNote}
                   {r.reviewedAt ? ` · ${new Date(r.reviewedAt).toLocaleString('en-PK')}` : ''}
@@ -227,7 +227,7 @@ export default function ReportQueue({
                         type="button"
                         disabled={reason.trim().length < 5 || busy === r.id}
                         onClick={() => decide(r.id, acting.action)}
-                        className="min-h-[44px] rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+                        className="min-h-[44px] rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
                       >
                         {busy === r.id ? 'Working…' : `Confirm ${acting.action}`}
                       </button>
@@ -237,7 +237,7 @@ export default function ReportQueue({
                           setActing(null)
                           setReason('')
                         }}
-                        className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+                        className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                       >
                         Cancel
                       </button>
@@ -248,7 +248,7 @@ export default function ReportQueue({
                     <button
                       type="button"
                       onClick={() => setActing({ id: r.id, action: 'dismiss' })}
-                      className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-[#334155]"
+                      className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
                     >
                       Dismiss
                     </button>
@@ -257,7 +257,7 @@ export default function ReportQueue({
                         <button
                           type="button"
                           onClick={() => setActing({ id: r.id, action: 'warn' })}
-                          className="min-h-[44px] rounded-xl bg-[#F59E0B] px-3 text-xs font-bold text-[#0F172A]"
+                          className="min-h-[44px] rounded-xl bg-tm-gold px-3 text-xs font-bold text-tm-navy"
                         >
                           Warn
                         </button>
@@ -270,7 +270,7 @@ export default function ReportQueue({
                             })
                           }
                           className={`min-h-[44px] rounded-xl px-3 text-xs font-bold text-white ${
-                            r.reportedSuspended ? 'bg-[#059669]' : 'bg-[#d60008]'
+                            r.reportedSuspended ? 'bg-tm-green-deep' : 'bg-tm-red'
                           }`}
                         >
                           {r.reportedSuspended ? 'Unsuspend' : 'Suspend'}
@@ -286,7 +286,7 @@ export default function ReportQueue({
 
       {/* --------------------------------------------------------- blocks --- */}
       <section className="space-y-2">
-        <h2 className="text-sm font-black text-[#0F172A]">Blocks</h2>
+        <h2 className="text-sm font-black text-tm-navy">Blocks</h2>
         <p className="text-[11px] leading-relaxed text-gray-500">
           Read-only. A block is a member&rsquo;s own decision and admins do not undo it — this list
           exists so a report can be read in context when two people have already stopped talking.

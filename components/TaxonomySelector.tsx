@@ -73,14 +73,14 @@ export default function TaxonomySelector({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         
         {/* Level Selector */}
-        <div className="space-y-2 bg-[#F8FAFC] p-4 rounded-2xl border border-gray-100">
-          <label className="text-xs font-bold text-[#0F172A] block">📚 Level (Searchable)</label>
+        <div className="space-y-2 bg-tm-bg p-4 rounded-2xl border border-gray-100">
+          <label className="text-xs font-bold text-tm-navy block">📚 Level (Searchable)</label>
           <input 
             type="text"
             placeholder="Search levels..."
             value={levelSearch}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSearch(e.target.value)}
-            className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-[#334155]"
+            className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-slate-700"
           />
           <select 
             value={selectedLevel} 
@@ -89,7 +89,7 @@ export default function TaxonomySelector({
               setSelectedGrade('');
               setSelectedSubjects([]);
             }}
-            className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#0F172A]"
+            className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-tm-navy"
             size={4}
           >
             {filteredLevels.map((lvl: string) => (
@@ -99,14 +99,14 @@ export default function TaxonomySelector({
         </div>
 
         {/* Grade Selector */}
-        <div className="space-y-2 bg-[#F8FAFC] p-4 rounded-2xl border border-gray-100">
-          <label className="text-xs font-bold text-[#0F172A] block">🎓 Grade / Specialisation (Searchable)</label>
+        <div className="space-y-2 bg-tm-bg p-4 rounded-2xl border border-gray-100">
+          <label className="text-xs font-bold text-tm-navy block">🎓 Grade / Specialisation (Searchable)</label>
           <input 
             type="text"
             placeholder="Search grades..."
             value={gradeSearch}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGradeSearch(e.target.value)}
-            className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-[#334155]"
+            className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-slate-700"
           />
           <select 
             value={selectedGrade} 
@@ -114,7 +114,7 @@ export default function TaxonomySelector({
               setSelectedGrade(e.target.value);
               setSelectedSubjects([]);
             }}
-            className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-[#0F172A]"
+            className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-tm-navy"
             size={4}
           >
             {filteredGrades.map((grd: string) => (
@@ -126,16 +126,16 @@ export default function TaxonomySelector({
       </div>
 
       {/* Subjects Checkboxes */}
-      <div className="space-y-2 bg-[#F8FAFC] p-4 rounded-2xl border border-gray-100">
+      <div className="space-y-2 bg-tm-bg p-4 rounded-2xl border border-gray-100">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
-          <label className="text-xs font-bold text-[#0F172A] block">📖 Select Subjects</label>
+          <label className="text-xs font-bold text-tm-navy block">📖 Select Subjects</label>
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <input 
               type="text"
               placeholder="Search subjects..."
               value={subjectSearch}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubjectSearch(e.target.value)}
-              className="p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none flex-1 sm:w-48 text-[#334155]"
+              className="p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none flex-1 sm:w-48 text-slate-700"
             />
             <button 
               type="button" 
@@ -146,7 +146,7 @@ export default function TaxonomySelector({
                   setSelectedSubjects([...availableSubjects]);
                 }
               }}
-              className="inline-flex min-h-[44px] items-center text-[11px] font-extrabold text-[#d60008] hover:underline whitespace-nowrap cursor-pointer"
+              className="inline-flex min-h-[44px] items-center text-[11px] font-extrabold text-tm-red hover:underline whitespace-nowrap cursor-pointer"
             >
               {selectedSubjects.length === availableSubjects.length ? "Deselect All" : "Select All"}
             </button>
@@ -166,7 +166,7 @@ export default function TaxonomySelector({
                     setSelectedSubjects([...selectedSubjects, sub]);
                   }
                 }}
-                className="rounded border-gray-300 text-[#d60008] focus:ring-0"
+                className="rounded border-gray-300 text-tm-red focus:ring-0"
               />
               <span className="truncate">{sub}</span>
             </label>

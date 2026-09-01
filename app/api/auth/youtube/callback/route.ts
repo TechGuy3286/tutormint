@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { BRAND, NEUTRAL } from '@/lib/brand'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -20,11 +21,11 @@ export async function GET(request: NextRequest) {
     
     return new NextResponse(`
       <html>
-        <body style="font-family: sans-serif; padding: 40px; text-align: center; background: #F8FAFC;">
+        <body style="font-family: sans-serif; padding: 40px; text-align: center; background: ${BRAND.bg};">
           <div style="max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <h2 style="color: #059669; margin-top: 0;">🎉 YouTube Authorization Successful!</h2>
-            <p style="color: #334155; font-size: 14px;">Copy your Refresh Token below and save it into your <b>.env.local</b> and <b>Vercel Environment Variables</b> as <b>YOUTUBE_REFRESH_TOKEN</b>:</p>
-            <textarea style="width: 100%; height: 120px; padding: 12px; font-family: monospace; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f1f5f9;" readonly>${tokens.refresh_token}</textarea>
+            <h2 style="color: ${BRAND.greenDeep}; margin-top: 0;">🎉 YouTube Authorization Successful!</h2>
+            <p style="color: ${NEUTRAL.slate700}; font-size: 14px;">Copy your Refresh Token below and save it into your <b>.env.local</b> and <b>Vercel Environment Variables</b> as <b>YOUTUBE_REFRESH_TOKEN</b>:</p>
+            <textarea style="width: 100%; height: 120px; padding: 12px; font-family: monospace; font-size: 12px; border: 1px solid ${NEUTRAL.slate300}; border-radius: 10px; background: ${NEUTRAL.slate100};" readonly>${tokens.refresh_token}</textarea>
           </div>
         </body>
       </html>

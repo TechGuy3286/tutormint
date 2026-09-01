@@ -180,10 +180,10 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-1">
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">
             {heading}
             {city ? ` in ${city}` : ''}
           </h1>
@@ -198,13 +198,13 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
         {jobs.length === 0 ? (
           <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-8 text-center">
-            <p className="text-sm font-black text-[#0F172A]">Nothing matches those filters</p>
+            <p className="text-sm font-black text-tm-navy">Nothing matches those filters</p>
             <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
               Try a wider budget or clear the subject filter. New tuitions are posted every day.
             </p>
             <Link
               href="/browse/tuitions"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
             >
               Show all tuitions
             </Link>
@@ -236,7 +236,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             {page > 1 ? (
               <Link
                 href={pageHref(page - 1)}
-                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#0F172A]"
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy"
               >
                 Previous
               </Link>
@@ -249,7 +249,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             {page < pages ? (
               <Link
                 href={pageHref(page + 1)}
-                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#0F172A]"
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy"
               >
                 Next
               </Link>

@@ -90,10 +90,10 @@ export default async function TutorDashboardPage() {
   const firstName = (session?.profile?.full_name ?? 'there').split(' ')[0]
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-3xl space-y-4">
         <header className="space-y-1">
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Welcome back, {firstName}</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Welcome back, {firstName}</h1>
           <p className="text-xs text-gray-500">
             {listed ? (
               <>
@@ -101,7 +101,7 @@ export default async function TutorDashboardPage() {
                 {tutorProfile?.slug && (
                   <>
                     {' · '}
-                    <Link href={`/tutor/${tutorProfile.slug}`} className="font-bold text-[#d60008] hover:underline">
+                    <Link href={`/tutor/${tutorProfile.slug}`} className="font-bold text-tm-red hover:underline">
                       view your public profile
                     </Link>
                   </>
@@ -115,7 +115,7 @@ export default async function TutorDashboardPage() {
 
         {/* ------------------------------------------------------ notices --- */}
         {tutorProfile?.verification_status === 'suspended' && (
-          <p className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold leading-relaxed text-[#991B1B]">
+          <p className="flex items-start gap-2 rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-semibold leading-relaxed text-tm-red-hover">
             <AlertTriangle size={16} className="mt-px shrink-0" />
             Your profile is suspended and is not shown to parents. Check your email for the reason,
             or contact support.
@@ -123,14 +123,14 @@ export default async function TutorDashboardPage() {
         )}
 
         {tutorProfile?.video_status === 'uploaded' && (
-          <p className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold leading-relaxed text-[#92400E]">
+          <p className="flex items-start gap-2 rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4 text-xs font-semibold leading-relaxed text-tm-gold-ink">
             <Info size={16} className="mt-px shrink-0" />
             Your video is with our team. It stays private on the channel until it is approved.
           </p>
         )}
 
         {tutorProfile?.video_status === 'rejected' && (
-          <p className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold leading-relaxed text-[#92400E]">
+          <p className="flex items-start gap-2 rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4 text-xs font-semibold leading-relaxed text-tm-gold-ink">
             <AlertTriangle size={16} className="mt-px shrink-0" />
             Your video was not accepted ({tutorProfile.video_attempts ?? 0} of 3 attempts used).
             {(tutorProfile.video_attempts ?? 0) >= 3
@@ -147,7 +147,7 @@ export default async function TutorDashboardPage() {
         {/* --------------------------------------------------------- plan --- */}
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-black text-[#0F172A]">
+            <h2 className="text-sm font-black text-tm-navy">
               {ent.planName ? `${ent.planName} plan` : 'No active plan'}
             </h2>
             {ent.expiresAt && (
@@ -165,7 +165,7 @@ export default async function TutorDashboardPage() {
           {ent.badges.length > 0 ? (
             <BadgeRow badges={ent.badges} size="md" showLabel />
           ) : ent.plan ? (
-            <p className="text-xs font-semibold text-amber-700">
+            <p className="text-xs font-semibold text-tm-gold-ink">
               Your badges appear once your profile reaches 100%.
             </p>
           ) : null}
@@ -175,7 +175,7 @@ export default async function TutorDashboardPage() {
               <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
                 Applications left
               </dt>
-              <dd className="text-lg font-black text-[#0F172A]">
+              <dd className="text-lg font-black text-tm-navy">
                 {ent.plan ? ent.quotaLeft : '—'}
                 {ent.plan && (
                   <span className="text-xs font-semibold text-gray-400">
@@ -189,7 +189,7 @@ export default async function TutorDashboardPage() {
               <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
                 Search position
               </dt>
-              <dd className="text-lg font-black text-[#0F172A]">
+              <dd className="text-lg font-black text-tm-navy">
                 {ent.plan === 'featured'
                   ? 'Top'
                   : ent.plan === 'premium'
@@ -203,7 +203,7 @@ export default async function TutorDashboardPage() {
 
           <Link
             href={upgradeHref('tutor', ent.plan)}
-            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white transition-colors hover:bg-[#1E293B] sm:w-auto"
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-tm-navy sm:w-auto"
           >
             {ent.plan ? 'Compare packages' : 'See packages'}
           </Link>
@@ -212,7 +212,7 @@ export default async function TutorDashboardPage() {
         {/* ------------------------------------------------ view teasers ---- */}
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 text-sm font-black text-[#0F172A]">
+            <h2 className="flex items-center gap-2 text-sm font-black text-tm-navy">
               <Eye size={16} className="text-gray-400" />
               Who looked at you
             </h2>
@@ -232,11 +232,11 @@ export default async function TutorDashboardPage() {
                   <li key={t.id} className="flex items-start justify-between gap-3">
                     <p className="text-xs leading-relaxed">
                       {t.identified ? (
-                        <span className="font-bold text-[#0F172A]">{t.text}</span>
+                        <span className="font-bold text-tm-navy">{t.text}</span>
                       ) : (
                         /* Blur, not omission: the tutor can see that a real
                            person looked, without being told who. */
-                        <span className="text-[#334155]">{t.text}</span>
+                        <span className="text-slate-700">{t.text}</span>
                       )}
                     </p>
                     <span className="shrink-0 text-[10px] text-gray-400">{t.when}</span>
@@ -247,7 +247,7 @@ export default async function TutorDashboardPage() {
               {!ent.canSeeViewerIdentity && (
                 <Link
                   href="/tutor/packages?plan=premium"
-                  className="flex items-center gap-2 rounded-xl bg-[#FFFBEB] p-3 text-xs font-bold text-[#92400E]"
+                  className="flex items-center gap-2 rounded-xl bg-tm-tint-gold p-3 text-xs font-bold text-tm-gold-ink"
                 >
                   <TrendingUp size={14} />
                   Upgrade to Premium to see who these parents are
@@ -260,13 +260,13 @@ export default async function TutorDashboardPage() {
         {/* ------------------------------------------------ matching jobs --- */}
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-black text-[#0F172A]">Tuitions that match you</h2>
-            <Link href="/tutor/dashboard/jobs" className="text-xs font-bold text-[#d60008] hover:underline">
+            <h2 className="text-sm font-black text-tm-navy">Tuitions that match you</h2>
+            <Link href="/tutor/dashboard/jobs" className="-mr-2 flex min-h-[44px] items-center px-2 text-xs font-bold text-tm-red hover:underline">
               See all
             </Link>
           </div>
 
-          <p className="flex items-start gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-[#334155]">
+          <p className="flex items-start gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-slate-700">
             <Info size={14} className="mt-px shrink-0 text-gray-400" />
             Only Featured parents can complete a hire. Every job card says which kind of parent
             posted it, so you know before you spend an application.

@@ -103,7 +103,7 @@ export default async function AdminMemberPage({
   const admin = createAdminClient()
   if (!admin) {
     return (
-      <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-[#d60008]">
+      <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
         SUPABASE_SERVICE_ROLE_KEY is not configured on the server.
       </p>
     )
@@ -216,12 +216,12 @@ export default async function AdminMemberPage({
   return (
     <div className="space-y-5">
       <header className="space-y-2">
-        <Link href="/admin/users" className="text-xs font-bold text-[#d60008] hover:underline">
+        <Link href="/admin/users" className="text-xs font-bold text-tm-red hover:underline">
           ← All members
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-black text-[#0F172A] sm:text-2xl">
+            <h1 className="truncate text-xl font-black text-tm-navy sm:text-2xl">
               {profile.full_name as string}
             </h1>
             <p className="truncate text-xs text-gray-500">
@@ -231,7 +231,7 @@ export default async function AdminMemberPage({
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             {profile.is_suspended && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase text-amber-700">
+              <span className="rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-black uppercase text-tm-gold-ink">
                 suspended
               </span>
             )}
@@ -243,7 +243,7 @@ export default async function AdminMemberPage({
       </header>
 
       {profile.is_suspended && profile.suspension_reason && (
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-[#92400E]">
+        <p className="rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-3 text-xs leading-relaxed text-tm-gold-ink">
           <strong>Suspended</strong>
           {profile.suspended_at
             ? ` on ${new Date(profile.suspended_at as string).toLocaleString('en-PK')}`
@@ -277,7 +277,7 @@ export default async function AdminMemberPage({
       {isTutor && tutor?.slug && (
         <Link
           href={`/tutor/${tutor.slug}`}
-          className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#334155]"
+          className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
         >
           Open public profile
         </Link>
@@ -385,7 +385,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="truncate text-sm font-black capitalize text-[#0F172A]">{value}</p>
+      <p className="truncate text-sm font-black capitalize text-tm-navy">{value}</p>
     </div>
   )
 }
@@ -408,7 +408,7 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function Row({ main, sub }: { main: string; sub: string }) {
   return (
     <li className="min-w-0">
-      <p className="truncate text-xs font-semibold text-[#0F172A]">{main}</p>
+      <p className="truncate text-xs font-semibold text-tm-navy">{main}</p>
       <p className="truncate text-[11px] text-gray-400">{sub}</p>
     </li>
   )

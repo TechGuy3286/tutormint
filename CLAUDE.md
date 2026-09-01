@@ -4,7 +4,7 @@
 
 TutorMint (tutormint.org) connects verified tutors with parents and school/academy owners in Pakistan.
 Stack: Next.js 16 App Router, TypeScript, Tailwind v4, **Supabase only** (Postgres + Auth + Storage). Vercel. YouTube Data API for tutor verification videos.
-Design tokens already in use: primary red `#d60008` (brand doc says `#B3191F` — use `#d60008`, it's what the 75 pages use), headings `#0F172A`, text `#334155`, success `#059669`, page bg `#F8FAFC`. Keep this system; don't restyle.
+Brand colours are defined once, in `app/globals.css`, and used only through Tailwind tokens — see "Brand colour system" below. The earlier ad-hoc values (`#d60008`, `#B3191F`, `#0F172A`, `#059669`) are retired and no longer appear anywhere in `app/` or `components/`.
 
 ## Product philosophy (drives every UX decision)
 
@@ -106,15 +106,50 @@ Delete: the whole Mongo layer, `/parent/browse`, `/parent/post-job`, `/parent/si
 
 Reference mockups live in `design/reference/` (tutor card + badge set). They are references, not assets — do not embed the JPEGs.
 
+### Brand colour system — the only permitted colours
+
+Defined in `app/globals.css` under `@theme`, so each one becomes a full Tailwind
+utility family (`bg-tm-red`, `text-tm-navy`, `border-tm-gold/30`, …).
+**Supersedes `#d60008` and `#059669` and every other raw value.**
+
+| Token | Hex | Use |
+|---|---|---|
+| `tm-red` / `tm-red-hover` | `#C20202` / `#A10202` | primary actions, links, prices, danger |
+| `tm-navy` / `tm-navy-hover` | `#151E6B` / `#0E1450` | headings, the Find Tuitions button, Premium badge |
+| `tm-green-deep` / `-hover` | `#2E7D4F` / `#24633F` | the Find Tutors button, success, Verified badge |
+| `tm-mint` | `#9AE899` | fill only, and the footer's headings on black |
+| `tm-black` | `#0A0A0A` | footer and dark surfaces |
+| `tm-gold` | `#F59E0B` | Featured badge and tag — **fill only** |
+| `tm-gold-ink` | `#92400E` | the readable member of the gold family, for gold text |
+| `tm-tint-red` / `-navy` / `-green` / `-gold` | `#FBEAEA` / `#E8EAF5` / `#EEFBEE` / `#FEF6E6` | alert, info, success and warning panels, each with dark text from its own family |
+| `tm-bg` | `#F8FAFC` | page ground |
+
+Rules:
+
+1. **No raw hex in `app/` or `components/`.** `app/globals.css` is the only file
+   that carries one. `npm run check:contrast` greps for the rest.
+2. Tailwind's default grays (`slate-*`, `gray-*`) stay, for borders and muted
+   text. They are not brand colours.
+3. `tm-gold` and `tm-mint` are fills. Gold is 2.05:1 on the page ground and mint
+   is lighter still — neither can be text. Gold text is `tm-gold-ink`; text on a
+   gold or mint fill is `tm-black` or `tm-navy`. Mint never carries text at all.
+4. `lib/brand.ts` mirrors the palette as JavaScript, for the four render targets
+   that cannot read a CSS custom property: badge SVG `fill` attributes,
+   `next/og` (satori), `app/global-error.tsx`, and the YouTube callback's HTML
+   string. `check:contrast` fails if it drifts from `globals.css`.
+5. **Every text-on-colour pair must clear WCAG AA** (4.5:1). The pairs are
+   listed in `scripts/contrast-check.ts`; add a row when a new combination
+   appears, and it is a CI gate, not a suggestion.
+
 ### Badges (`components/badges/`)
 Build as inline SVG React components, each accepting `size` (`'sm' | 'md'`) and `showLabel`. Circle background, white glyph, subtle diagonal shade like the reference.
 
 | Component | Colour | Glyph | Earned by |
 |---|---|---|---|
-| `VerifiedBadge` | `#059669` green | check mark | tutor: verification passed + 100% profile; parent: CNIC + address verified |
-| `PremiumBadge` | `#1E293B` navy | lightning bolt | tutor plan premium or featured |
-| `FeaturedBadge` | `#F59E0B` gold | crown | tutor plan featured / parent plan featured |
-| `FeaturedTag` | gold bg, dark text, `text-[10px]` pill | "Featured" | same as above — sits on the card corner |
+| `VerifiedBadge` | `tm-green-deep` | check mark | tutor: verification passed + 100% profile; parent: CNIC + address verified |
+| `PremiumBadge` | `tm-navy` | lightning bolt | tutor plan premium or featured |
+| `FeaturedBadge` | `tm-gold` disc, `tm-gold-ink` label | crown | tutor plan featured / parent plan featured |
+| `FeaturedTag` | `bg-tm-gold` + `text-tm-navy`, `text-[10px]` pill | "Featured" | same as above — sits on the card corner |
 
 Badges render in the order Verified → Premium → Featured. A tutor on `featured` shows all three. Never show a badge the entitlements layer hasn't granted.
 
@@ -474,8 +509,10 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 
 ## Homepage is LOCKED (partner-approved design)
 
-- Reference: design/reference/homepage.png. app/page.tsx must match it: logo header, pill "PAKISTAN'S LARGEST VERIFIED TUTORS & TEACHERS NETWORK", green "HIRE", headline "Trusted, Degree-Verified Tutors/Teachers FREE" (FREE in brand red), red italic subline, the two large buttons (green "Find Tutors / Teachers" → /browse/tutors, blue "Find Tuitions / Jobs" → /browse/tuitions), dark footer with the four link columns + social icons + WhatsApp bubble.
-- Permitted changes only: link targets, mobile responsiveness (stack the two buttons on <640px), generateMetadata/SEO, and accessibility fixes. NO new sections, no ads slot, no featured-tutor strip, no copy changes without an explicit owner instruction in the prompt.
+- Reference: design/reference/homepage.png. app/page.tsx must match it: logo header, pill "PAKISTAN'S LARGEST VERIFIED TUTORS & TEACHERS NETWORK", green "HIRE", headline "Trusted, Degree-Verified Tutors/Teachers FREE" (FREE in brand red), red italic subline, the two large buttons (`tm-green-deep` "Find Tutors / Teachers" → /browse/tutors, `tm-navy` "Find Tuitions / Jobs" → /browse/tuitions), dark footer with the four link columns + social icons + WhatsApp bubble.
+- Permitted changes only: link targets, mobile responsiveness (stack the two buttons on <640px), generateMetadata/SEO, and accessibility fixes.
+- The brand-colour migration (1 Sep 2026) was authorised by the owner explicitly for this page: the greens, the blue-to-navy change and the footer black come from the token table above. Layout and copy stay locked.
+- Built from design/reference/homepage.png, not recovered from git: the approved design was never committed to this repository and production has never served it. See the T-UI1 note below. NO new sections, no ads slot, no featured-tutor strip, no copy changes without an explicit owner instruction in the prompt.
 - The earlier "homepage featured strip" idea is dropped; featured prominence lives on /browse/tutors ranking only.
 
 ## Graceful handling of unknown input (T8 polish checklist)
@@ -492,3 +529,103 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 - Same minimal treatment for /login (email-or-mobile + password + forgot password + register link).
 - Implemented in T8a. /register now: two radio buttons (Tutor / Parent), full name, email, password, a one-line terms + photo-consent acceptance, and the sign-in link. City removed — it is collected in profile completion. /login gained /forgot-password, which reports the same thing whether or not the address has an account (a reset form that says "no such account" is a membership oracle). **Password-reset delivery needs SMTP on the Supabase project, which is not configured yet** — see PRODUCTION_CHECKLIST.md.
 - The one deviation from "nothing else": the terms acceptance stays. It is a checkbox, not a data field, and T8a scope item 6 requires the photo-use consent to be shown at tutor signup. Consent given by implication through a link nobody opens is not consent anybody would recognise having given.
+
+## Legal entity (owner, 1 Sep 2026)
+
+- Legal name: Tutor Mint (Private) Limited — short form "Tutor Mint (Pvt) Ltd". Brand/trading name everywhere users look: "TutorMint". Two-word legal form appears ONLY in legal contexts: footer copyright line, Terms, Privacy, receipts/invoices, payment merchant name, About/Contact.
+- Registered office: 4th Floor, 37-M, Civic Center, Model Town, Lahore, Punjab, Pakistan. Official email support@tutormint.org. Business WhatsApp +92 321 5872222 (from app_settings, never hardcoded). Financial year end 30 June. Regulator: SECP, Companies Act 2017.
+- Directors (public record): Mohson Raza (CEO & Director), Sabir Ali (Director). No other personal data from the incorporation form (CNICs, DOBs, home addresses, personal emails) may appear anywhere in the codebase, DB seeds, or UI.
+- Placeholders until supplied by owner: SECP registration number (CUIN) → `{{COMPANY_REG_NO}}` in Terms/footer; NTN → `{{COMPANY_NTN}}` on receipts. Read both from app_settings so no code change is needed later.
+- Footer line: "© 2026 Tutor Mint (Pvt) Ltd. All rights reserved." (no trademark claim unless the mark is registered).
+
+## Conversion rules — the 199 funnel (owner, 1 Sep 2026)
+
+- Business focus: the PKR 199 tutor Verified plan is the primary conversion. Every tutor-facing surface after signup should make the value of Verified visible.
+- HARD RULE: never signal "paid platform" to anyone who has not signed up or has not chosen to open a packages page. No prices, no "activate for 199", no paywall hints on public pages, on signup, or as welcome banners. Prices live only on /tutor/packages and /parent/packages, reached by the user's own click. The dropped idea: a Verified-activation banner at 100% completion — do NOT build it.
+- Build these attractions (all show the tutor something they want; the price only appears when they reach for it):
+  1. Profile-view teaser at the TOP of the free tutor dashboard (anonymised viewer + subject + area).
+  2. "Your position" widget: rank for their main subject/city with "Verified tutors appear above you".
+  3. "Jobs matching you this week" strip on the free dashboard: real matching jobs, Apply leads to /tutor/packages?plan=verified.
+  4. Matching-job notification: "New <subject> job in <area> — Verified tutors can apply."
+  5. Packages page: their own card rendered with vs without the Verified tick; live social proof "<n> tutors hired this month" from applications.status='hired'; framing lines "less than one hour of tuition", "one hire pays for a year"; no-refund line stays.
+  6. Checkout: two taps, no re-entry, JazzCash/Easypaisa first-class.
+  7. Expiry reminders worded as loss of visibility, not as invoices.
+
+## T9 — SEO & content system (post-launch, can run parallel to T8b)
+
+**No WordPress.** Everything below lives in Next.js + Supabase + the existing admin.
+
+### 9.1 Programmatic landing pages
+- Routes: /tutors/[city]/[subject] and /tuitions/[city]/[subject] (subject = taxonomy slug incl. level-type leaves). Generated only where listed tutors (or open jobs) ≥ 3; below threshold → 404 and excluded from sitemap.
+- Page content: data-built H1 ("O Level Physics tutors in Lahore"), intro paragraph from a template with REAL numbers (count, fee range, modes, areas), ranked TutorCards via rank_tutors, filters, Post-a-job CTA, neighbour links (other subjects same city, same subject other cities, parent category), ItemList schema, generateMetadata with the brand line.
+- Built once, ISR-revalidated every few hours; sitemap includes all live pages. Templates must produce differing content per page (numbers/lists), never copy-pasted paragraphs.
+
+### 9.2 Site-wide schema & snippet control (schema part can ship with T8b — no NTN dependency)
+- Organization (legal name, brand, logo, address, phone, email, sameAs social links, slogan "No fee, no commission, no middleman") + WebSite with SearchAction on the homepage.
+- Person/Service on tutor profiles, JobPosting on tuition jobs, FAQPage on /faq, Article on posts, ItemList on landing pages, BreadcrumbList site-wide.
+- Title template: "<page> — verified, no commission | TutorMint". Description template ends with "…on TutorMint, Pakistan's verified tutors network. No fee, no commission, no middleman."
+- Ops (T8b): Google Search Console + Bing Webmaster with sitemap submitted; Google Business Profile for the Model Town office; consistent NAP in footer.
+
+### 9.3 Blog CMS (/admin/blog)
+- Tables: posts (title, slug immutable after publish, cluster, audience 'parents'|'tutors'|'both', language 'en'|'ur', body rich text/markdown, cover_path, cover_alt required, seo_title ≤60, seo_description ≤155, related_landing_pages[], status draft|reviewed|scheduled|published|unpublished, publish_at, author_id, reviewed_by, views, cta_clicks), post_revisions.
+- Content map (fixed clusters): Cost & hiring; Boards & exams; Subject guides; City guides; Tutor career; Safety & trust; Urdu versions of the top 10. Target ~40 evergreen posts, then refresh cycle + monthly roundups.
+- Article generation: manager enters title + 3–5 fact notes → "Generate draft" calls Claude API (server-side, ANTHROPIC_API_KEY) with a fixed brief: brand voice (plain, warm, Pakistan-specific, no corporate filler), 900–1,400 words, answer-first, H2 sections, table where useful, FAQ block, audience CTA, links to relevant landing pages, NEVER invent statistics (use the notes or say "typically"). Publish button disabled until a human has saved an edit and ticked "reviewed".
+- Cover/banner: auto-rendered via next/og ImageResponse in 1200x630 (OG) + 1080x1080 (social) from title + cluster using brand colours; 3–4 templates rotate by cluster; manager may upload an image instead (auto-resized; alt text mandatory).
+- Metadata: seo_title/description generated with the draft and editable in a Google-preview box; alt text auto from title/cluster for generated covers; canonical; Article schema (author = Tutor Mint (Pvt) Ltd); OG/Twitter cards; unpublish returns 410 (never a blank page); sitemap + Search Console ping on publish.
+- Public: /blog index with cluster filters; /blog/[slug] server-rendered with reading time, TOC, related posts, audience CTA, share buttons, live tutor-card/job-card embed blocks; RSS; Urdu posts RTL with proper font.
+- Roles: owner/manager create-edit-publish; support draft only; audit-logged. Analytics: views + CTA clicks per post.
+- Roundups: a post type regenerated monthly from data ("New verified tutors in <city> — <month>", "Most-hired <subject> tutors this month"), still human-reviewed before publish.
+- NOT built: auto-generated blog post per tutor (scaled-content risk). Instead: at 100% completion the social generator auto-produces the tutor's banner + caption, queued for the manager AND shown to the tutor with WhatsApp/Facebook/Instagram share buttons.
+
+### 9.4 Content queue — the system suggests what to publish
+- Signals: (1) on-site search_performed events with low/zero results by subject×city; (2) Google Search Console API queries at positions 8–20; (3) built-in Pakistani academic calendar (board registration Dec–Jan, Matric/Inter exams Mar–May, O/A Level May–Jun & Oct–Nov, results Jul–Aug, admissions Aug–Sep, Ramadan) → suggest 6 weeks ahead and yearly refresh; (4) content-map coverage gaps vs landing pages with ≥10 tutors; (5) support/FAQ questions and report reasons.
+- Each suggestion: proposed title, cluster, audience, language, priority score (demand × rank proximity × seasonality × gap age), and visible evidence lines. Actions: Generate draft (pre-filled brief), Snooze, Dismiss with reason (re-suggested only if evidence changes materially).
+- Weekly Monday digest to managers: top 3 to publish + posts due for refresh. Nothing auto-publishes.
+- Same engine emits "recruitment gap" cards (high searches, few tutors) routed to the import/bulk-onboarding manager.
+
+## Instant search everywhere (owner, 1 Sep 2026)
+
+- No search button anywhere on the platform. Every search bar (homepage/browse tutors, browse tuitions, admin member/tutor/payment searches, taxonomy pickers, blog) is a typeahead: results update as the user types.
+- Behaviour: debounce ~250 ms, minimum 2 characters, cancel in-flight requests on new keystrokes, show a compact suggestion panel under the input with grouped results (Subjects / Levels, Cities & areas, Tutors, Tuition jobs — only groups with hits), keyboard navigation (↑ ↓ Enter Esc), "Show all results for '…'" as the last row, and the full results grid/list also refreshes live as the query changes.
+- Server-side: one /api/search/suggest route backed by a Postgres function using trigram (pg_trgm) + prefix matching over tutor names/taglines, taxonomy names (incl. Urdu/Roman-Urdu aliases where present), cities/areas, and job titles; respects listing rules (only listed tutors, open jobs) and never returns contact fields. Results limited per group; rate-limited; anon-safe.
+- Typo tolerance: trigram similarity threshold so "fizics" still finds Physics; common Roman-Urdu spellings mapped as aliases on taxonomy rows (alias table, admin-editable).
+- Mobile: full-width panel, 44 px rows, no layout shift; the on-screen keyboard's "search" key selects the highlighted suggestion.
+- Empty typed query shows recent searches (local, per device) and popular subjects for the user's city.
+- Logging: search_performed events keep firing (feeds the T9 content queue).
+
+## Register form — supersedes the earlier "Register / login form rules" label wording
+
+- Role radios at the top read exactly: **Tutor** and **Parent / Institution**. Helper text under the second: "Parents, schools and academies looking for tutors." Institutions are ordinary parent accounts with identical rights and plans — no separate entity, role, label, or flow anywhere else in the platform.
+- Everything else from the mobile-first signup section stands: full name, mobile number, password, optional email, consent checkbox; no city at signup.
+
+## T-UI1 — homepage restore + brand colour system (1 Sep 2026)
+
+**The approved homepage was never in this repository.** `app/page.tsx` was
+byte-identical on `origin/main` and `rebuild`, `git log --all -S"Middleman"` and
+`-S"Degree-Verified"` returned nothing on any ref, and a live fetch of both
+`tutormint.org` and `www.tutormint.org` returned the older "Find Verified &
+Trusted Tutors FOREVER FREE" page with the white footer. So there was no commit
+to bring across; `app/page.tsx` and `components/Footer.tsx` were rebuilt from
+`design/reference/homepage.png`, with the reference's own pixels sampled to
+confirm each element's intent before the brand tokens replaced them.
+
+`design/reference/TutorMint-Brand-Colours.pdf` is likewise not in the repo. The
+palette came from the owner's message; the two derived tokens (`tm-gold-ink`,
+`tm-tint-gold`) and the four hover shades were forced by the contrast gate and
+are documented where they are defined.
+
+**The footer is one component.** `/about`, `/blog` and `/faq` each carried their
+own stale copy, comment-labelled "Global Footer", predating
+`components/Footer.tsx`; every page was rendering two footers, and the stale
+ones still said "© 2026 TutorMint" rather than the legal entity. They are gone.
+
+**Social links are environment-configured** (`SOCIAL_FACEBOOK`, `_INSTAGRAM`,
+`_YOUTUBE`, `_X`, `_TIKTOK`). The icons exist in `public/`, but no real profile
+URL exists anywhere in the repo, and a guessed handle sends members to a
+stranger's account. An unset profile renders no icon.
+
+**The footer reads env, not the database.** `getSupportContact()` goes through
+the cookie-backed Supabase client, and a `cookies()` read in a component the
+root layout renders makes every route in the app dynamic — including the static
+legal pages. `supportContactFromEnv()` exists for that one reason; `/support`
+still uses the app_settings-backed version.

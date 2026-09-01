@@ -66,7 +66,7 @@ export default function ReportButton({
 
   if (done) {
     return (
-      <p className="text-[11px] font-bold text-[#059669]">
+      <p className="text-[11px] font-bold text-tm-green-deep">
         Thank you — a person will look at this.
       </p>
     )
@@ -79,7 +79,7 @@ export default function ReportButton({
         onClick={() => setOpen(true)}
         className={
           className ??
-          'inline-flex min-h-[44px] items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-[#d60008]'
+          'inline-flex min-h-[44px] items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-tm-red'
         }
       >
         <Flag size={14} />
@@ -90,7 +90,7 @@ export default function ReportButton({
 
   return (
     <div className="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
-      <p className="text-[11px] font-black text-[#0F172A]">What is wrong?</p>
+      <p className="text-[11px] font-black text-tm-navy">What is wrong?</p>
 
       <label className="block space-y-1">
         <span className="sr-only">Reason</span>
@@ -113,24 +113,24 @@ export default function ReportButton({
         rows={3}
         placeholder="Anything that would help us understand (optional)"
         aria-label="Details"
-        className="w-full rounded-xl border border-gray-200 p-3 text-xs outline-none focus:border-[#d60008]"
+        className="w-full rounded-xl border border-gray-200 p-3 text-xs outline-none focus:border-tm-red"
       />
 
-      {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
 
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
           onClick={submit}
           disabled={busy}
-          className="min-h-[44px] rounded-xl bg-[#d60008] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+          className="min-h-[44px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white disabled:bg-gray-300"
         >
           {busy ? 'Sending…' : 'Send report'}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+          className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
         >
           Cancel
         </button>

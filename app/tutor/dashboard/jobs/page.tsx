@@ -61,20 +61,20 @@ export default async function TutorJobsPage() {
   const firstName = (session?.profile?.full_name ?? 'there').split(' ')[0]
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-3xl space-y-5">
         <header className="space-y-1">
-          <Link href="/tutor/dashboard" className="text-xs font-bold text-[#d60008] hover:underline">
+          <Link href="/tutor/dashboard" className="text-xs font-bold text-tm-red hover:underline">
             ← Dashboard
           </Link>
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Open tuitions</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Open tuitions</h1>
           <p className="text-xs text-gray-500">
             {jobs.length === 0 ? `No open tuitions right now, ${firstName}.` : `${jobs.length} open`}
             {ent.plan ? ` · ${ent.quotaLeft} of ${ent.displayedQuota} applications left` : ''}
           </p>
         </header>
 
-        <p className="flex items-start gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-[#334155]">
+        <p className="flex items-start gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-slate-700">
           <Info size={14} className="mt-px shrink-0 text-gray-400" />
           Only Featured parents can complete a hire. Each card says which kind of parent posted it,
           so you know before you spend an application.
@@ -83,7 +83,7 @@ export default async function TutorJobsPage() {
         {applications.length > 0 && <MyApplications applications={applications} />}
 
         <section className="space-y-3">
-          <h2 className="text-sm font-black text-[#0F172A]">All open tuitions</h2>
+          <h2 className="text-sm font-black text-tm-navy">All open tuitions</h2>
           {jobs.length === 0 ? (
             <p className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-xs text-gray-400">
               Nothing posted yet. Keep your profile complete so parents find you in search.

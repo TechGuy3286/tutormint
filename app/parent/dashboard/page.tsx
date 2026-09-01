@@ -108,10 +108,10 @@ export default async function ParentDashboardPage() {
   }))
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-3xl space-y-4">
         <header className="space-y-1">
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Welcome back, {firstName}</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Welcome back, {firstName}</h1>
           <p className="text-xs text-gray-500">
             {verified ? 'Your account is verified' : 'Verification pending'}
             {ent.planName ? ` · ${ent.planName} plan` : ''}
@@ -120,8 +120,8 @@ export default async function ParentDashboardPage() {
 
         {/* ------------------------------------------------- verification --- */}
         {!verified && (
-          <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-[#92400E]">
+          <section className="space-y-3 rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4">
+            <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-tm-gold-ink">
               <AlertTriangle size={16} className="mt-px shrink-0" />
               {profile?.verification_state === 'submitted'
                 ? 'Your CNIC and address are with our team. You can post a job as soon as they are approved.'
@@ -131,7 +131,7 @@ export default async function ParentDashboardPage() {
             </p>
             <Link
               href="/parent/verify"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
             >
               {profile?.verification_state === 'submitted' ? 'Check status' : 'Verify now'}
             </Link>
@@ -145,7 +145,7 @@ export default async function ParentDashboardPage() {
         {/* --------------------------------------------------------- plan --- */}
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-black text-[#0F172A]">
+            <h2 className="text-sm font-black text-tm-navy">
               {ent.planName ? `${ent.planName} plan` : 'No plan yet'}
             </h2>
             {ent.badges.length > 0 && <BadgeRow badges={ent.badges} size="sm" showLabel />}
@@ -156,7 +156,7 @@ export default async function ParentDashboardPage() {
               <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
                 Job posts left
               </dt>
-              <dd className="text-lg font-black text-[#0F172A]">
+              <dd className="text-lg font-black text-tm-navy">
                 {ent.plan ? ent.quotaLeft : '—'}
                 {ent.plan && (
                   <span className="text-xs font-semibold text-gray-400"> of {ent.displayedQuota}</span>
@@ -165,14 +165,14 @@ export default async function ParentDashboardPage() {
             </div>
             <div>
               <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Hiring</dt>
-              <dd className="text-lg font-black text-[#0F172A]">
+              <dd className="text-lg font-black text-tm-navy">
                 {ent.canHire ? 'Enabled' : 'Featured only'}
               </dd>
             </div>
           </dl>
 
           {!ent.canHire && (
-            <p className="flex items-start gap-2 rounded-xl bg-[#FFFBEB] p-3 text-[11px] leading-relaxed text-[#92400E]">
+            <p className="flex items-start gap-2 rounded-xl bg-tm-tint-gold p-3 text-[11px] leading-relaxed text-tm-gold-ink">
               <Info size={14} className="mt-px shrink-0" />
               You can post jobs, message tutors and request demos. Completing a hire and seeing a
               tutor&apos;s phone number are Featured features.
@@ -181,7 +181,7 @@ export default async function ParentDashboardPage() {
 
           <Link
             href={ent.canHire ? '/parent/packages' : '/parent/packages?plan=parent_featured'}
-            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white sm:w-auto"
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white sm:w-auto"
           >
             {ent.canHire ? 'Compare packages' : 'See what Featured adds'}
           </Link>
@@ -192,13 +192,13 @@ export default async function ParentDashboardPage() {
         {/* --------------------------------------------------------- jobs --- */}
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-black text-[#0F172A]">
+            <h2 className="text-sm font-black text-tm-navy">
               My tuitions {jobs && jobs.length > 0 ? `(${openJobs.length} open)` : ''}
             </h2>
             {verified && (
               <Link
                 href="/parent/dashboard/post-job"
-                className="inline-flex min-h-[44px] items-center gap-1 text-xs font-bold text-[#d60008]"
+                className="inline-flex min-h-[44px] items-center gap-1 text-xs font-bold text-tm-red"
               >
                 <Plus size={14} />
                 Post a job
@@ -208,7 +208,7 @@ export default async function ParentDashboardPage() {
 
           {(jobs ?? []).length === 0 ? (
             <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-6 text-center">
-              <p className="text-xs font-bold text-[#0F172A]">You have not posted a tuition yet</p>
+              <p className="text-xs font-bold text-tm-navy">You have not posted a tuition yet</p>
               <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
                 {verified
                   ? 'Post what you need and tutors will apply. Or browse tutors and message one directly.'
@@ -218,14 +218,14 @@ export default async function ParentDashboardPage() {
                 {verified && (
                   <Link
                     href="/parent/dashboard/post-job"
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#d60008] px-5 text-xs font-bold text-white"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white"
                   >
                     Post a job
                   </Link>
                 )}
                 <Link
                   href="/browse/tutors"
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-[#334155]"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
                 >
                   Browse tutors
                 </Link>
@@ -240,7 +240,7 @@ export default async function ParentDashboardPage() {
                     className="relative flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md"
                   >
                     <span className="min-w-0 space-y-1">
-                      <span className="block truncate text-xs font-black text-[#0F172A]">
+                      <span className="block truncate text-xs font-black text-tm-navy">
                         {j.title as string}
                       </span>
                       <span className="block text-[11px] text-gray-500">
@@ -268,13 +268,13 @@ export default async function ParentDashboardPage() {
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
             href="/parent/dashboard/messages"
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-[#334155]"
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
           >
             Messages
           </Link>
           <Link
             href="/browse/tutors"
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-[#334155]"
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
           >
             Browse tutors
           </Link>

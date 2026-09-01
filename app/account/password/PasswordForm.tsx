@@ -35,14 +35,14 @@ export default function PasswordForm({ next }: { next: string | null }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <label className="block space-y-1">
-        <span className="text-xs font-bold text-[#0F172A]">New password</span>
+        <span className="text-xs font-bold text-tm-navy">New password</span>
         <input
           type="password"
           required
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-[#F8FAFC] p-3 text-sm outline-none focus:border-[#0F172A] focus:bg-white"
+          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-sm outline-none focus:border-tm-navy focus:bg-white"
         />
         <span className="block text-[11px] text-gray-400">
           At least 10 characters. A short phrase you will remember beats a short jumble you will
@@ -51,24 +51,24 @@ export default function PasswordForm({ next }: { next: string | null }) {
       </label>
 
       <label className="block space-y-1">
-        <span className="text-xs font-bold text-[#0F172A]">Type it again</span>
+        <span className="text-xs font-bold text-tm-navy">Type it again</span>
         <input
           type="password"
           required
           autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-[#F8FAFC] p-3 text-sm outline-none focus:border-[#0F172A] focus:bg-white"
+          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-sm outline-none focus:border-tm-navy focus:bg-white"
         />
       </label>
 
-      {mismatch && <p className="text-[11px] font-bold text-[#d60008]">Those do not match.</p>}
-      {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+      {mismatch && <p className="text-[11px] font-bold text-tm-red">Those do not match.</p>}
+      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
 
       <button
         type="submit"
         disabled={busy || password.length < 10 || mismatch}
-        className="min-h-[44px] w-full rounded-xl bg-[#d60008] py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:bg-red-700 disabled:bg-gray-300"
+        className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:bg-tm-red-hover disabled:bg-gray-300"
       >
         {busy ? 'Saving…' : 'Set my password'}
       </button>

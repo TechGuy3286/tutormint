@@ -39,11 +39,11 @@ export default async function SimulatorPage({ params }: { params: Promise<{ ref:
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-800">
       <div className="mx-auto max-w-md space-y-4">
-        <div className="rounded-lg border-2 border-dashed border-amber-500 bg-amber-50 p-3 text-center">
-          <p className="text-sm font-black uppercase tracking-wide text-amber-800">
+        <div className="rounded-lg border-2 border-dashed border-tm-gold bg-tm-tint-gold p-3 text-center">
+          <p className="text-sm font-black uppercase tracking-wide text-tm-gold-ink">
             Test gateway — no money moves
           </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
+          <p className="mt-1 text-[11px] leading-relaxed text-tm-gold-ink">
             This page stands in for AssanPay while the integration is being signed. It signs a
             callback and posts it to the same webhook the real gateway will use.
           </p>

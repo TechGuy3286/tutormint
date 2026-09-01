@@ -59,11 +59,11 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
   return (
     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-black text-[#0F172A]">My children</h2>
+        <h2 className="text-sm font-black text-tm-navy">My children</h2>
         <button
           type="button"
           onClick={() => setAdding((v) => !v)}
-          className="inline-flex min-h-[44px] items-center gap-1 text-xs font-bold text-[#d60008]"
+          className="inline-flex min-h-[44px] items-center gap-1 text-xs font-bold text-tm-red"
         >
           <Plus size={14} />
           Add
@@ -82,11 +82,11 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
           {children.map((c) => (
             <li
               key={c.id}
-              className="flex items-center justify-between gap-3 rounded-xl bg-[#F8FAFC] px-3 py-2"
+              className="flex items-center justify-between gap-3 rounded-xl bg-tm-bg px-3 py-2"
             >
               <span className="flex min-w-0 items-center gap-2">
                 <GraduationCap size={14} className="shrink-0 text-gray-400" />
-                <span className="truncate text-xs font-bold text-[#0F172A]">{c.name}</span>
+                <span className="truncate text-xs font-bold text-tm-navy">{c.name}</span>
                 {c.class_level && (
                   <span className="shrink-0 text-[11px] text-gray-500">{c.class_level}</span>
                 )}
@@ -96,7 +96,7 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
                 onClick={() => remove(c.id)}
                 disabled={busy}
                 aria-label={`Remove ${c.name}`}
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center text-gray-400 hover:text-[#d60008]"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center text-gray-400 hover:text-tm-red"
               >
                 <Trash2 size={14} />
               </button>
@@ -106,35 +106,35 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
       )}
 
       {adding && (
-        <div className="space-y-2 rounded-xl bg-[#F8FAFC] p-3">
+        <div className="space-y-2 rounded-xl bg-tm-bg p-3">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Child's name"
             aria-label="Child's name"
-            className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold outline-none focus:border-[#d60008]"
+            className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold outline-none focus:border-tm-red"
           />
           <input
             value={classLevel}
             onChange={(e) => setClassLevel(e.target.value)}
             placeholder="Class or level (optional)"
             aria-label="Class or level"
-            className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold outline-none focus:border-[#d60008]"
+            className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold outline-none focus:border-tm-red"
           />
-          {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+          {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
           <div className="flex gap-2">
             <button
               type="button"
               onClick={save}
               disabled={busy || name.trim().length < 2}
-              className="min-h-[44px] flex-1 rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+              className="min-h-[44px] flex-1 rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
             >
               {busy ? 'Saving…' : 'Save'}
             </button>
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+              className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
             >
               Cancel
             </button>

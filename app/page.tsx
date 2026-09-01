@@ -1,189 +1,122 @@
-"use client";
+// app/page.tsx — the partner-approved homepage.
+//
+// LOCKED. design/reference/homepage.png is the specification: the pill, "HIRE",
+// the two-line headline with FREE in brand red, the red italic subline, and the
+// two large buttons. CLAUDE.md permits changes only to link targets, mobile
+// responsiveness, metadata and accessibility. No new sections, no ad slot, no
+// featured-tutor strip, no copy edits without an explicit owner instruction.
+//
+// It is a server component with no client JavaScript at all. This is the page
+// every organic visitor lands on, and it renders as HTML on the first byte.
 
-import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { Search, ClipboardList } from 'lucide-react'
+import WhatsAppBubble from '@/components/WhatsAppBubble'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const title = "Hire Trusted, Degree-Verified Tutors & Teachers | TutorMint"
+  const description =
+    'Pakistan’s largest verified tutors and teachers network. No fee, no commission, no middleman — book a live demo and hire directly.'
+
+  return {
+    title,
+    description,
+    alternates: { canonical: '/' },
+    openGraph: {
+      title,
+      description,
+      url: '/',
+      siteName: 'TutorMint',
+      locale: 'en_PK',
+      type: 'website',
+    },
+    twitter: { card: 'summary_large_image', title, description },
+  }
+}
 
 export default function HomePage() {
-  const [chatOpen, setChatOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { sender: "bot", text: "Hi! Welcome to TutorMint 👋 How can I help you find a verified tutor today?" }
-  ]);
-  const [inputMessage, setInputMessage] = useState("");
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  return (
+    <div className="bg-tm-bg">
+      <section className="mx-auto flex max-w-5xl flex-col items-center px-4 pt-12 pb-16 text-center sm:px-6 sm:pt-16 sm:pb-24">
+        {/* Eyebrow pill */}
+        <p className="rounded-full border border-tm-green-deep/20 bg-tm-tint-green px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-green-deep sm:text-xs sm:tracking-[0.18em]">
+          Pakistan&rsquo;s Largest Verified Tutors &amp; Teachers Network
+        </p>
 
-  useEffect(() => {
-    if (chatOpen) {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, chatOpen]);
+        {/* HIRE */}
+        <p className="mt-8 text-4xl font-black tracking-[0.18em] text-tm-green-deep sm:mt-10 sm:text-6xl">
+          HIRE
+        </p>
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputMessage.trim()) return;
+        {/* Headline. One <h1> for the page, with the line break the design
+            uses on desktop and natural wrapping on a phone. */}
+        <h1 className="tm-headline mt-3 text-3xl font-black leading-[1.15] text-tm-black sm:mt-4 sm:text-5xl md:text-6xl">
+          Trusted, Degree-Verified{' '}
+          <span className="whitespace-nowrap">
+            Tutors/Teachers <span className="text-tm-red">FREE</span>
+          </span>
+        </h1>
 
-    const userText = inputMessage;
-    const newMessages = [...messages, { sender: "user", text: userText }];
-    setMessages(newMessages);
-    setInputMessage("");
+        <p className="mt-4 text-sm font-bold italic text-tm-red sm:mt-5 sm:text-base">
+          No Fee &bull; No Commission &bull; No Middleman &bull; Live Demo
+        </p>
 
-    setTimeout(() => {
-      let botReply = "Thank you for reaching out! Our team will connect with you via WhatsApp/Call within 10 minutes.";
-      const lower = userText.toLowerCase();
-      
-      if (lower.includes("how are you") || lower.includes("hello") || lower.includes("hi") || lower.includes("hey")) {
-        botReply = "Hello! I'm doing great, thank you for asking. How can I assist you with finding a verified tutor or navigating TutorMint today?";
-      } else if (lower.includes("video") || lower.includes("verification") || lower.includes("verify") || lower.includes("degree")) {
-        botReply = "Video verification means every tutor records a 60-second live video holding their actual physical degree. Our admins manually audit every file before approval.";
-      } else if (lower.includes("price") || lower.includes("fee") || lower.includes("cost") || lower.includes("rates")) {
-        botReply = "Tutor rates vary by grade level and subject (usually ranging from PKR 15,000 to 45,000/month for home tuition). You can browse tutors directly or post a job to receive custom quotes!";
-      } else if (lower.includes("lahore") || lower.includes("city") || lower.includes("karachi") || lower.includes("islamabad") || lower.includes("multan")) {
-        botReply = "We currently have verified tutors active in Lahore, Karachi, Islamabad, Multan, and surrounding areas.";
-      } else if (lower.includes("job") || lower.includes("post")) {
-        botReply = "You can click 'Find Tutor' or post a personalized job requirement on our dashboard so exact-match tutors can contact you!";
-      }
+        {/* The two calls to action. Stacked below 640px, side by side above --
+            the one responsive change the lock permits. */}
+        <div className="mt-10 grid w-full max-w-3xl grid-cols-1 gap-5 sm:mt-14 sm:grid-cols-2">
+          <HomeCta
+            href="/browse/tutors"
+            label="Find Tutors / Teachers"
+            tone="green"
+            icon={<Search aria-hidden className="h-6 w-6" />}
+          />
+          <HomeCta
+            href="/browse/tuitions"
+            label="Find Tuitions / Jobs"
+            tone="navy"
+            icon={<ClipboardList aria-hidden className="h-6 w-6" />}
+          />
+        </div>
+      </section>
 
-      setMessages((prev) => [...prev, { sender: "bot", text: botReply }]);
-    }, 600);
-  };
+      <WhatsAppBubble />
+    </div>
+  )
+}
+
+/**
+ * One of the two hero buttons.
+ *
+ * min-h is set well above the 44px tap-target floor because these are the
+ * primary actions on the site's most-visited page; the reference draws them as
+ * large panels rather than buttons.
+ */
+function HomeCta({
+  href,
+  label,
+  tone,
+  icon,
+}: {
+  href: string
+  label: string
+  tone: 'green' | 'navy'
+  icon: React.ReactNode
+}) {
+  const surface =
+    tone === 'green'
+      ? 'bg-tm-green-deep hover:bg-tm-green-deep-hover focus-visible:outline-tm-green-deep'
+      : 'bg-tm-navy hover:bg-tm-navy-hover focus-visible:outline-tm-navy'
 
   return (
-    <div className="space-y-12 py-12 sm:py-20 max-w-3xl mx-auto px-6 w-full flex-1 flex flex-col justify-between relative">
-      
-      {/* Main Content */}
-      <div className="space-y-12">
-        
-        {/* HERO HEADING & SUBTITLE */}
-        <div className="text-center space-y-4">
-          <span className="px-3 py-1 bg-emerald-50 text-[#059669] border border-emerald-200 text-[11px] font-bold uppercase tracking-widest rounded-full">
-            Pakistan's Largest Verified Tutors Network
-          </span>
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight text-[#0F172A]">
-            Find Verified & Trusted<br />
-            Tutors <span className="text-[#d60008]">FOREVER FREE</span>
-          </h1>
-          <p className="text-sm text-[#334155] max-w-lg mx-auto font-medium">
-            Connect directly with camera-verified home & online tutors. Zero commission, rigorous degree audits, and trusted local educators.
-          </p>
-        </div>
-
-        {/* SECTION: FOR PARENTS & STUDENTS */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-[#334155]">
-              For Parents & Students
-            </h3>
-            <span className="text-[10px] text-emerald-700 font-semibold uppercase bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Forever Free Postings</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            
-            {/* Square Button 1: Find Tutor */}
-            <Link 
-              href="/browse" 
-              className="p-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-600/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
-            >
-              <div className="text-2xl mb-2 p-3 bg-white/10 rounded-xl w-fit">🔍</div>
-              <div>
-                <h4 className="text-sm font-black text-white group-hover:text-blue-100 transition-colors">Find Tutor</h4>
-                <p className="text-xs text-blue-100 mt-1">Browse camera-verified educators instantly.</p>
-              </div>
-            </Link>
-
-            {/* Square Button 2: Post a Tuition/Job (Points directly to your rich filter & AI matching page) */}
-            <Link 
-              href="/parent/dashboard/post-job" 
-              className="p-6 bg-[#059669] hover:bg-emerald-700 text-white rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex flex-col items-center sm:items-start justify-between text-center sm:text-left group"
-            >
-              <div className="text-2xl mb-2 p-3 bg-white/10 rounded-xl w-fit">📋</div>
-              <div>
-                <h4 className="text-sm font-black text-white transition-colors">Post a Tuition / Job</h4>
-                <p className="text-xs text-emerald-100 mt-1">Receive custom quotes from qualified tutors.</p>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-        {/* SECTION: FOR EDUCATORS & TUTORS */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-[#334155]">
-              For Educators & Tutors
-            </h3>
-            <span className="text-[10px] text-[#059669] font-bold uppercase bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-              Forever Free Platform
-            </span>
-          </div>
-
-          {/* Big Horizontal Button */}
-          <Link 
-            href="/tutor/register" 
-            className="w-full p-6 bg-[#0F172A] hover:bg-black text-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-800 transition-all flex items-center justify-between group"
-          >
-            <div className="flex items-center gap-4">
-              <span className="text-2xl p-3 bg-white/10 rounded-xl">🎓</span>
-              <div className="text-left">
-                <h4 className="text-sm font-black uppercase tracking-wider text-white group-hover:text-red-400 transition-colors">Find Tuition & Register Profile</h4>
-                <p className="text-[11px] text-slate-300 font-medium mt-0.5">Upload video proof, get verified & connect with local parents</p>
-              </div>
-            </div>
-            <span className="text-xl font-bold pr-2 text-[#d60008] group-hover:translate-x-1.5 transition-transform">➔</span>
-          </Link>
-        </div>
-
-      </div>
-
-      {/* FLOATING CHATBOT WIDGET */}
-      <div className="fixed bottom-6 right-6 z-50">
-        {chatOpen ? (
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-80 sm:w-96 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div className="bg-[#0F172A] text-white p-4 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 bg-[#059669] rounded-full animate-pulse"></span>
-                <div>
-                  <h4 className="text-xs font-black">TutorMint Assistant</h4>
-                  <p className="text-[10px] text-slate-300">Ask anything about verified tutors</p>
-                </div>
-              </div>
-              <button onClick={() => setChatOpen(false)} className="text-slate-400 hover:text-white font-bold text-sm px-2">✕</button>
-            </div>
-
-            <div className="p-4 h-80 overflow-y-auto space-y-3 bg-[#F8FAFC] text-xs flex flex-col">
-              {messages.map((m, idx) => (
-                <div key={idx} className={`flex ${m.sender === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`p-3 rounded-2xl max-w-[80%] leading-relaxed ${m.sender === "user" ? "bg-[#d60008] text-white rounded-br-none" : "bg-white text-[#334155] border border-gray-200 rounded-bl-none shadow-2xs"}`}>
-                    {m.text}
-                  </div>
-                </div>
-              ))}
-              <div ref={chatEndRef} />
-            </div>
-
-            <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-gray-100 flex gap-2">
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Type your question here..."
-                className="flex-1 p-2.5 bg-[#F8FAFC] text-[#334155] rounded-xl text-xs border border-gray-200 focus:border-[#0F172A] focus:bg-white outline-none"
-              />
-              <button type="submit" className="px-4 py-2.5 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-colors">
-                Send ➔
-              </button>
-            </form>
-          </div>
-        ) : (
-          <button
-            onClick={() => setChatOpen(true)}
-            className="bg-[#d60008] hover:bg-red-700 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 font-extrabold text-xs transition-all hover:scale-105 group relative"
-          >
-            <span className="text-lg">💬</span>
-            <span className="hidden sm:inline pr-1">Need Help? Chat with Us</span>
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#059669] rounded-full animate-ping"></span>
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#059669] rounded-full"></span>
-          </button>
-        )}
-      </div>
-
-    </div>
-  );
+    <Link
+      href={href}
+      className={`group flex min-h-[132px] flex-col justify-between rounded-2xl p-6 text-left text-white shadow-lg transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 sm:min-h-[176px] sm:p-7 ${surface}`}
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-white">
+        {icon}
+      </span>
+      <span className="mt-6 text-lg font-bold sm:text-xl">{label}</span>
+    </Link>
+  )
 }

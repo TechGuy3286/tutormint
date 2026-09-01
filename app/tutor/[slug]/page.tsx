@@ -229,11 +229,11 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 pb-28 pt-6 text-[#334155] sm:px-6 sm:pb-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 pb-28 pt-6 text-slate-700 sm:px-6 sm:pb-8 lg:px-8">
       <div className="mx-auto max-w-3xl space-y-4">
         <Link
           href="/browse/tutors"
-          className="inline-flex min-h-[44px] items-center text-xs font-bold text-[#d60008] hover:underline"
+          className="inline-flex min-h-[44px] items-center text-xs font-bold text-tm-red hover:underline"
         >
           ← All tutors
         </Link>
@@ -255,7 +255,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
             ) : (
               <div
                 aria-hidden="true"
-                className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-2 border-gray-100 bg-[#F8FAFC] text-2xl font-black text-[#0F172A] sm:h-36 sm:w-36 sm:text-4xl"
+                className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-2 border-gray-100 bg-tm-bg text-2xl font-black text-tm-navy sm:h-36 sm:w-36 sm:text-4xl"
               >
                 {tutor.full_name
                   .split(' ')
@@ -268,15 +268,15 @@ export default async function TutorPublicProfile({ params }: { params: Params })
             )}
 
             <div className="min-w-0 flex-1 space-y-2">
-              <h1 className="text-xl font-black leading-tight text-[#0F172A] sm:text-2xl">
+              <h1 className="text-xl font-black leading-tight text-tm-navy sm:text-2xl">
                 {tutor.full_name}
               </h1>
               {tutor.headline && (
-                <p className="text-sm font-bold text-[#059669]">{tutor.headline}</p>
+                <p className="text-sm font-bold text-tm-green-deep">{tutor.headline}</p>
               )}
               {badges.length > 0 && <BadgeRow badges={badges} size="md" showLabel />}
 
-              <p className="text-xs font-bold text-[#334155]">
+              <p className="text-xs font-bold text-slate-700">
                 {reviews > 0 ? (
                   <>
                     ★ {rating.toFixed(1)}{' '}
@@ -304,7 +304,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                     : 'New to TutorMint'}
                 </p>
                 {tutor.hourly_rate_pkr ? (
-                  <p className="flex items-center gap-2 text-xs font-black text-[#0F172A]">
+                  <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
                     <Wallet size={14} className="text-gray-400" />
                     Rs. {tutor.hourly_rate_pkr.toLocaleString('en-PK')} / month
                   </p>
@@ -316,9 +316,9 @@ export default async function TutorPublicProfile({ params }: { params: Params })
 
         {/* ------------------------------------------------------ contact --- */}
         <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-          <h2 className="text-sm font-black text-[#0F172A]">Contact</h2>
+          <h2 className="text-sm font-black text-tm-navy">Contact</h2>
           {contactUnlocked && !hasContact ? (
-            <p className="mt-3 rounded-xl bg-[#F8FAFC] p-4 text-xs text-gray-500">
+            <p className="mt-3 rounded-xl bg-tm-bg p-4 text-xs text-gray-500">
               {isSelf
                 ? 'You have not verified a phone number yet. Add one from your dashboard so Featured parents can reach you.'
                 : 'This tutor has not added a phone number yet. Request a demo and they will reply here.'}
@@ -328,7 +328,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               {contact.phone && (
                 <a
                   href={`tel:${contact.phone}`}
-                  className="flex min-h-[44px] items-center gap-2 text-sm font-bold text-[#0F172A]"
+                  className="flex min-h-[44px] items-center gap-2 text-sm font-bold text-tm-navy"
                 >
                   <Phone size={16} className="text-gray-400" />
                   {contact.phone}
@@ -341,7 +341,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex min-h-[44px] items-center gap-2 text-sm font-bold text-[#059669]"
+                  className="flex min-h-[44px] items-center gap-2 text-sm font-bold text-tm-green-deep"
                 >
                   <MessageCircle size={16} />
                   WhatsApp {contact.whatsapp}
@@ -354,14 +354,14 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               )}
             </div>
           ) : (
-            <div className="mt-3 flex flex-col gap-3 rounded-xl bg-[#F8FAFC] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-3 flex flex-col gap-3 rounded-xl bg-tm-bg p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="flex items-center gap-2 text-xs font-semibold text-gray-500">
                 <Lock size={14} />
                 Phone and WhatsApp are hidden
               </p>
               <Link
                 href="/parent/packages?plan=parent_featured"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#F59E0B] px-4 text-xs font-black text-[#0F172A]"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-gold px-4 text-xs font-black text-tm-navy"
               >
                 Unlock with Featured
               </Link>
@@ -372,7 +372,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         {/* -------------------------------------------------------- video --- */}
         {tutor.video_youtube_id && (
           <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-            <h2 className="pb-3 text-sm font-black text-[#0F172A]">Video introduction</h2>
+            <h2 className="pb-3 text-sm font-black text-tm-navy">Video introduction</h2>
             <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
               <iframe
                 src={`https://www.youtube-nocookie.com/embed/${tutor.video_youtube_id}`}
@@ -388,14 +388,14 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         {/* ---------------------------------------------------------- bio --- */}
         {tutor.bio && (
           <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-            <h2 className="pb-2 text-sm font-black text-[#0F172A]">About</h2>
+            <h2 className="pb-2 text-sm font-black text-tm-navy">About</h2>
             <p className="whitespace-pre-line text-xs leading-relaxed">{tutor.bio}</p>
           </section>
         )}
 
         {/* ----------------------------------------------------- subjects --- */}
         <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-          <h2 className="pb-3 text-sm font-black text-[#0F172A]">Subjects and levels</h2>
+          <h2 className="pb-3 text-sm font-black text-tm-navy">Subjects and levels</h2>
           {byLevel.size === 0 ? (
             <p className="text-xs text-gray-400">Subjects are being added.</p>
           ) : (
@@ -407,14 +407,14 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {subjects.length === 0 ? (
-                      <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold ring-1 ring-gray-200">
+                      <span className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold ring-1 ring-gray-200">
                         {level.split(' — ')[1] ?? level}
                       </span>
                     ) : (
                       subjects.map((s) => (
                         <span
                           key={s}
-                          className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold ring-1 ring-gray-200"
+                          className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold ring-1 ring-gray-200"
                         >
                           {s}
                         </span>
@@ -430,10 +430,10 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         {/* ------------------------------------------------------ degrees --- */}
         {(tutor.degrees?.length ?? 0) > 0 || tutor.degree_documents.length > 0 ? (
           <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-            <h2 className="pb-3 text-sm font-black text-[#0F172A]">Qualifications</h2>
+            <h2 className="pb-3 text-sm font-black text-tm-navy">Qualifications</h2>
             <ul className="space-y-1.5">
               {(tutor.degrees ?? []).map((d) => (
-                <li key={d} className="text-xs font-semibold text-[#0F172A]">
+                <li key={d} className="text-xs font-semibold text-tm-navy">
                   {d}
                 </li>
               ))}
@@ -455,8 +455,8 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                     ))}
                   </div>
                 ) : (
-                  <p className="rounded-xl bg-[#F8FAFC] p-3 text-xs text-gray-500">
-                    <Link href="/login" className="font-bold text-[#d60008] hover:underline">
+                  <p className="rounded-xl bg-tm-bg p-3 text-xs text-gray-500">
+                    <Link href="/login" className="font-bold text-tm-red hover:underline">
                       Sign in
                     </Link>{' '}
                     to view {tutor.degree_documents.length} uploaded certificate
@@ -474,7 +474,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
 
         {/* ------------------------------------------------- availability --- */}
         <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-          <h2 className="pb-3 text-sm font-black text-[#0F172A]">Availability</h2>
+          <h2 className="pb-3 text-sm font-black text-tm-navy">Availability</h2>
           {tutor.slots.length === 0 ? (
             <p className="text-xs text-gray-400">
               No fixed slots published. Request a demo and agree a time directly.
@@ -487,7 +487,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${
                     s.booked
                       ? 'bg-gray-100 text-gray-400 ring-gray-200 line-through'
-                      : 'bg-[#F8FAFC] text-[#0F172A] ring-gray-200'
+                      : 'bg-tm-bg text-tm-navy ring-gray-200'
                   }`}
                 >
                   {s.text}
@@ -499,7 +499,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
 
         {/* ------------------------------------------------------ reviews --- */}
         <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-          <h2 className="pb-3 text-sm font-black text-[#0F172A]">
+          <h2 className="pb-3 text-sm font-black text-tm-navy">
             Reviews {reviews > 0 ? `(${reviews})` : ''}
           </h2>
           {tutor.reviews.length === 0 ? (
@@ -510,7 +510,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
             <ul className="space-y-4">
               {tutor.reviews.map((r) => (
                 <li key={r.id} className="space-y-1 border-b border-gray-100 pb-3 last:border-0">
-                  <p className="text-xs font-black text-[#0F172A]">
+                  <p className="text-xs font-black text-tm-navy">
                     ★ {Number(r.rating).toFixed(1)}{' '}
                     <span className="font-semibold text-gray-500">· {r.reviewer}</span>
                   </p>

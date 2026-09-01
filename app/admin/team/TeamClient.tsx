@@ -88,7 +88,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Team</h1>
+        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Team</h1>
         <p className="text-xs text-gray-500">
           There is exactly one owner and it cannot be changed here. Every other role can be granted,
           changed and revoked.
@@ -96,32 +96,32 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
       </header>
 
       {error && (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-[#d60008]">
+        <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
           {error}
         </p>
       )}
 
       {/* ------------------------------------------- one-time credentials --- */}
       {newAccount && (
-        <section className="space-y-2 rounded-2xl border-2 border-[#059669] bg-white p-4">
-          <p className="flex items-center gap-2 text-sm font-black text-[#059669]">
+        <section className="space-y-2 rounded-2xl border-2 border-tm-green-deep bg-white p-4">
+          <p className="flex items-center gap-2 text-sm font-black text-tm-green-deep">
             {newAccount.invited ? <Mail size={16} /> : <KeyRound size={16} />}
             {newAccount.invited ? 'Invite sent' : 'Account created'}
           </p>
           {newAccount.invited ? (
-            <p className="text-xs leading-relaxed text-[#334155]">
+            <p className="text-xs leading-relaxed text-slate-700">
               An invitation email is on its way to <strong>{newAccount.email}</strong>. They set
               their own password from the link.
             </p>
           ) : (
             <>
-              <p className="text-xs leading-relaxed text-[#334155]">
+              <p className="text-xs leading-relaxed text-slate-700">
                 No invitation email could be sent, so the account was created with a temporary
                 password. Pass it to <strong>{newAccount.email}</strong> yourself — it is shown
                 once, is not stored anywhere, and stops working after their first sign-in.
               </p>
-              <div className="flex items-center gap-2 rounded-xl bg-[#F8FAFC] p-3">
-                <code className="min-w-0 flex-1 break-all font-mono text-xs font-bold text-[#0F172A]">
+              <div className="flex items-center gap-2 rounded-xl bg-tm-bg p-3">
+                <code className="min-w-0 flex-1 break-all font-mono text-xs font-bold text-tm-navy">
                   {newAccount.temporaryPassword}
                 </code>
                 <button
@@ -140,7 +140,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
           <button
             type="button"
             onClick={() => setNewAccount(null)}
-            className="min-h-[44px] w-full rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+            className="min-h-[44px] w-full rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
           >
             Done
           </button>
@@ -150,7 +150,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
       {/* -------------------------------------------------- add a member --- */}
       {creating ? (
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-black text-[#0F172A]">Add a staff member</h2>
+          <h2 className="text-sm font-black text-tm-navy">Add a staff member</h2>
 
           <label className="block space-y-1">
             <span className="text-[11px] font-bold text-gray-500">Full name</span>
@@ -177,7 +177,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
               <label
                 key={r.code}
                 className={`flex min-h-[44px] cursor-pointer items-start gap-2 rounded-xl border p-3 ${
-                  form.adminRole === r.code ? 'border-[#0F172A] bg-[#F8FAFC]' : 'border-gray-200'
+                  form.adminRole === r.code ? 'border-tm-navy bg-tm-bg' : 'border-gray-200'
                 }`}
               >
                 <input
@@ -189,7 +189,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                   className="mt-0.5"
                 />
                 <span className="min-w-0">
-                  <span className="block text-xs font-black text-[#0F172A]">{r.label}</span>
+                  <span className="block text-xs font-black text-tm-navy">{r.label}</span>
                   <span className="block text-[11px] text-gray-500">{r.blurb}</span>
                 </span>
               </label>
@@ -201,14 +201,14 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
               type="button"
               onClick={create}
               disabled={busy === 'new' || form.email.trim().length < 5 || form.fullName.trim().length < 2}
-              className="min-h-[44px] rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+              className="min-h-[44px] rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
             >
               {busy === 'new' ? 'Creating…' : 'Create account'}
             </button>
             <button
               type="button"
               onClick={() => setCreating(false)}
-              className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+              className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
             >
               Cancel
             </button>
@@ -218,7 +218,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="min-h-[44px] w-full rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white sm:w-auto sm:px-6"
+          className="min-h-[44px] w-full rounded-xl bg-tm-black px-4 text-xs font-bold text-white sm:w-auto sm:px-6"
         >
           Add a staff member
         </button>
@@ -230,12 +230,12 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
           <li
             key={s.id}
             className={`space-y-3 rounded-2xl border bg-white p-4 ${
-              s.suspended ? 'border-amber-300' : 'border-gray-200'
+              s.suspended ? 'border-tm-gold/30' : 'border-gray-200'
             }`}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="truncate text-sm font-black text-[#0F172A]">
+                <p className="truncate text-sm font-black text-tm-navy">
                   {s.name}
                   {s.isMe && <span className="ml-2 text-[10px] font-bold text-gray-400">you</span>}
                 </p>
@@ -250,10 +250,10 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
                     s.suspended
-                      ? 'bg-amber-100 text-amber-700'
+                      ? 'bg-tm-tint-gold text-tm-gold-ink'
                       : s.adminRole === 'owner'
-                        ? 'bg-[#0F172A] text-white'
-                        : 'bg-emerald-100 text-emerald-700'
+                        ? 'bg-tm-black text-white'
+                        : 'bg-tm-tint-green text-tm-green-deep'
                   }`}
                 >
                   {s.suspended ? 'suspended' : s.adminRole}
@@ -262,13 +262,13 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
             </div>
 
             {s.suspended && s.suspensionReason && (
-              <p className="rounded-xl bg-[#FFFBEB] p-2 text-[11px] text-[#92400E]">
+              <p className="rounded-xl bg-tm-tint-gold p-2 text-[11px] text-tm-gold-ink">
                 {s.suspensionReason}
               </p>
             )}
 
             {s.adminRole === 'owner' ? (
-              <p className="flex items-start gap-2 rounded-xl bg-[#F8FAFC] p-3 text-[11px] leading-relaxed text-gray-500">
+              <p className="flex items-start gap-2 rounded-xl bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
                 <ShieldAlert size={14} className="mt-px shrink-0" />
                 The owner cannot be demoted or suspended, including by themselves. Transferring
                 ownership is a database operation, on purpose.
@@ -309,7 +309,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                           setSuspendingId(null)
                           setReason('')
                         }}
-                        className="min-h-[44px] rounded-xl bg-[#d60008] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+                        className="min-h-[44px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white disabled:bg-gray-300"
                       >
                         Suspend access
                       </button>
@@ -319,7 +319,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                           setSuspendingId(null)
                           setReason('')
                         }}
-                        className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+                        className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                       >
                         Cancel
                       </button>
@@ -330,7 +330,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                     type="button"
                     disabled={busy === s.id}
                     onClick={() => call({ action: 'reactivate', userId: s.id }, s.id)}
-                    className="min-h-[44px] w-full rounded-xl bg-[#059669] px-4 text-xs font-bold text-white"
+                    className="min-h-[44px] w-full rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white"
                   >
                     Reactivate
                   </button>
@@ -339,7 +339,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                     type="button"
                     disabled={s.isMe}
                     onClick={() => setSuspendingId(s.id)}
-                    className="min-h-[44px] w-full rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155] disabled:opacity-40"
+                    className="min-h-[44px] w-full rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700 disabled:opacity-40"
                   >
                     {s.isMe ? 'You cannot suspend yourself' : 'Suspend access'}
                   </button>

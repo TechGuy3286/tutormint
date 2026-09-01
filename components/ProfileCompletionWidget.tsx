@@ -27,13 +27,13 @@ export default function ProfileCompletionWidget({
 
   if (percent >= 100) {
     return (
-      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
+      <div className="bg-tm-tint-green border border-tm-green-deep/30 rounded-2xl p-4 flex items-center gap-3">
         <span className="text-lg" aria-hidden="true">
           ✓
         </span>
         <div>
-          <p className="text-xs font-black text-emerald-900">Your profile is 100% complete</p>
-          <p className="text-[11px] text-emerald-800">
+          <p className="text-xs font-black text-tm-green-deep">Your profile is 100% complete</p>
+          <p className="text-[11px] text-tm-green-deep">
             {role === 'tutor'
               ? 'You are listed in the tutor directory.'
               : 'Your details are with our team for verification.'}
@@ -46,8 +46,8 @@ export default function ProfileCompletionWidget({
   return (
     <section className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 space-y-3">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-bold text-[#0F172A]">Complete your profile</h2>
-        <span className="text-sm font-black text-[#0F172A]">{percent}%</span>
+        <h2 className="text-sm font-bold text-tm-navy">Complete your profile</h2>
+        <span className="text-sm font-black text-tm-navy">{percent}%</span>
       </div>
 
       <div
@@ -59,7 +59,7 @@ export default function ProfileCompletionWidget({
         aria-label="Profile completion"
       >
         <div
-          className="h-full bg-[#059669] rounded-full transition-all duration-300"
+          className="h-full bg-tm-green-deep rounded-full transition-all duration-300"
           style={{ width: `${Math.min(Math.max(percent, 0), 100)}%` }}
         />
       </div>
@@ -77,10 +77,10 @@ export default function ProfileCompletionWidget({
             <li key={item.key}>
               <Link
                 href={`${href}?step=${item.step}#${item.anchor}`}
-                className="flex items-center justify-between gap-3 min-h-[44px] px-3 py-2 rounded-xl bg-[#F8FAFC] hover:bg-gray-100 border border-gray-100 transition-colors"
+                className="flex items-center justify-between gap-3 min-h-[44px] px-3 py-2 rounded-xl bg-tm-bg hover:bg-gray-100 border border-gray-100 transition-colors"
               >
-                <span className="text-xs font-medium text-[#334155]">{item.label}</span>
-                <span className="text-[10px] font-bold text-[#d60008] uppercase tracking-wider shrink-0">
+                <span className="text-xs font-medium text-slate-700">{item.label}</span>
+                <span className="text-[10px] font-bold text-tm-red uppercase tracking-wider shrink-0">
                   Add
                 </span>
               </Link>
@@ -94,7 +94,7 @@ export default function ProfileCompletionWidget({
 
       <Link
         href={href}
-        className="flex items-center justify-center min-h-[44px] w-full py-3 bg-[#0F172A] hover:bg-[#059669] text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
+        className="flex items-center justify-center min-h-[44px] w-full py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
       >
         Continue
       </Link>

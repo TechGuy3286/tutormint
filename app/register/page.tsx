@@ -101,26 +101,26 @@ export default function RegisterPage() {
 
   if (sent) {
     return (
-      <main className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 sm:p-6 text-[#334155]">
+      <main className="min-h-screen bg-tm-bg flex items-center justify-center p-4 sm:p-6 text-slate-700">
         <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-gray-200 space-y-5 text-center">
-          <span className="text-3xl p-3 bg-emerald-50 rounded-2xl inline-block">📬</span>
-          <h1 className="text-xl font-black text-[#0F172A]">Check your inbox</h1>
+          <span className="text-3xl p-3 bg-tm-tint-green rounded-2xl inline-block">📬</span>
+          <h1 className="text-xl font-black text-tm-navy">Check your inbox</h1>
           <p className="text-xs text-gray-600 leading-relaxed">
-            We sent a confirmation link to <span className="font-bold text-[#0F172A]">{email}</span>.
+            We sent a confirmation link to <span className="font-bold text-tm-navy">{email}</span>.
             Click it to activate your account and finish signing up.
           </p>
           {resendMsg && (
-            <p className="text-xs font-bold text-[#059669] bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+            <p className="text-xs font-bold text-tm-green-deep bg-tm-tint-green border border-tm-green-deep/30 rounded-xl p-3">
               {resendMsg}
             </p>
           )}
           <button
             onClick={handleResend}
-            className="w-full min-h-[44px] py-3 bg-[#0F172A] hover:bg-[#059669] text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
+            className="w-full min-h-[44px] py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
           >
             Resend confirmation email
           </button>
-          <Link href="/login" className="block text-xs font-bold text-gray-500 hover:text-[#0F172A]">
+          <Link href="/login" className="block text-xs font-bold text-gray-500 hover:text-tm-navy">
             ← Back to sign in
           </Link>
         </div>
@@ -129,18 +129,18 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 sm:p-6 text-[#334155]">
+    <main className="min-h-screen bg-tm-bg flex items-center justify-center p-4 sm:p-6 text-slate-700">
       <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-gray-200 space-y-6">
         <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex min-h-[44px] items-center justify-center text-xl font-black text-[#0F172A]">
-            Tutor<span className="text-[#d60008]">Mint</span>
+          <Link href="/" className="inline-flex min-h-[44px] items-center justify-center text-xl font-black text-tm-navy">
+            Tutor<span className="text-tm-red">Mint</span>
           </Link>
-          <h1 className="text-xl font-black text-[#0F172A]">Create your account</h1>
+          <h1 className="text-xl font-black text-tm-navy">Create your account</h1>
           <p className="text-xs text-gray-500">Free to join. Browsing is always free.</p>
         </div>
 
         {errorMsg && (
-          <div className="p-3 bg-red-50 border border-red-200 text-[#d60008] text-xs font-bold rounded-xl text-center">
+          <div className="p-3 bg-tm-tint-red border border-tm-red/30 text-tm-red text-xs font-bold rounded-xl text-center">
             {errorMsg}
           </div>
         )}
@@ -153,15 +153,15 @@ export default function RegisterPage() {
             being simulated.
           */}
           <fieldset>
-            <legend className="mb-2 text-xs font-bold text-[#0F172A]">I am a…</legend>
+            <legend className="mb-2 text-xs font-bold text-tm-navy">I am a…</legend>
             <div className="grid grid-cols-2 gap-2">
               {ROLES.map((r) => (
                 <label
                   key={r.value}
                   className={`flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl border-2 p-3 transition-all ${
                     role === r.value
-                      ? 'border-[#d60008] bg-red-50'
-                      : 'border-gray-200 bg-[#F8FAFC] hover:border-gray-300'
+                      ? 'border-tm-red bg-tm-tint-red'
+                      : 'border-gray-200 bg-tm-bg hover:border-gray-300'
                   }`}
                 >
                   <input
@@ -170,16 +170,16 @@ export default function RegisterPage() {
                     value={r.value}
                     checked={role === r.value}
                     onChange={() => setRole(r.value)}
-                    className="h-4 w-4 shrink-0 accent-[#d60008]"
+                    className="h-4 w-4 shrink-0 accent-tm-red"
                   />
-                  <span className="text-xs font-black text-[#0F172A]">{r.label}</span>
+                  <span className="text-xs font-black text-tm-navy">{r.label}</span>
                 </label>
               ))}
             </div>
           </fieldset>
 
           <div className="space-y-1">
-            <label htmlFor="fullName" className="text-xs font-bold text-[#0F172A]">
+            <label htmlFor="fullName" className="text-xs font-bold text-tm-navy">
               Full Name
             </label>
             <input
@@ -188,12 +188,12 @@ export default function RegisterPage() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Your name"
-              className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A] focus:bg-white"
+              className="w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy focus:bg-white"
             />
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="email" className="text-xs font-bold text-[#0F172A]">
+            <label htmlFor="email" className="text-xs font-bold text-tm-navy">
               Email Address
             </label>
             <input
@@ -204,12 +204,12 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"
-              className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A] focus:bg-white"
+              className="w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy focus:bg-white"
             />
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="password" className="text-xs font-bold text-[#0F172A]">
+            <label htmlFor="password" className="text-xs font-bold text-tm-navy">
               Password
             </label>
             <input
@@ -221,7 +221,7 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="At least 8 characters"
-              className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A] focus:bg-white"
+              className="w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy focus:bg-white"
             />
           </div>
 
@@ -233,7 +233,7 @@ export default function RegisterPage() {
             covers both -- the clause IS in the terms -- but the sentence is on
             the screen where the decision is made.
           */}
-          <label className="flex min-h-[44px] cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-[#F8FAFC] p-3">
+          <label className="flex min-h-[44px] cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3">
             <input
               type="checkbox"
               required
@@ -241,13 +241,13 @@ export default function RegisterPage() {
               onChange={(e) => setAcceptedTerms(e.target.checked)}
               className="mt-0.5 h-5 w-5 shrink-0"
             />
-            <span className="text-[11px] leading-relaxed text-[#334155]">
+            <span className="text-[11px] leading-relaxed text-slate-700">
               I accept the{' '}
-              <Link href="/terms" className="font-bold text-[#d60008] underline">
+              <Link href="/terms" className="font-bold text-tm-red underline">
                 Terms of Service
               </Link>{' '}
               and{' '}
-              <Link href="/privacy" className="font-bold text-[#d60008] underline">
+              <Link href="/privacy" className="font-bold text-tm-red underline">
                 Privacy Policy
               </Link>
               {role === 'tutor' ? (
@@ -265,7 +265,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading || !acceptedTerms}
-            className="w-full min-h-[44px] py-3.5 bg-[#d60008] hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all disabled:opacity-50"
+            className="w-full min-h-[44px] py-3.5 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all disabled:opacity-50"
           >
             {loading ? 'Creating account…' : 'Create Account'}
           </button>
@@ -273,7 +273,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-xs text-gray-500">
           Already have an account?{' '}
-          <Link href="/login" className="text-[#d60008] font-bold hover:underline">
+          <Link href="/login" className="text-tm-red font-bold hover:underline">
             Sign in
           </Link>
         </p>

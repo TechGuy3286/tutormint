@@ -32,12 +32,12 @@ export default function SimulatorButtons({ reference }: { reference: string }) {
 
   return (
     <div className="space-y-2">
-      {error && <p className="text-xs font-bold text-red-600">{error}</p>}
+      {error && <p className="text-xs font-bold text-tm-red">{error}</p>}
       <button
         type="button"
         disabled={busy !== null}
         onClick={() => pay('success')}
-        className="min-h-[44px] w-full rounded bg-emerald-600 px-4 text-sm font-bold text-white disabled:opacity-60"
+        className="min-h-[44px] w-full rounded bg-tm-green-deep px-4 text-sm font-bold text-white disabled:opacity-60"
       >
         {busy === 'success' ? 'Processing…' : 'Pay success'}
       </button>

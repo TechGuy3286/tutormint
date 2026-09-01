@@ -105,14 +105,14 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
   const backHref = ent.audience === 'tutor' ? '/tutor/dashboard/messages' : '/parent/dashboard/messages'
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#F8FAFC] text-[#334155]">
+    <main className="flex min-h-screen flex-col bg-tm-bg text-slate-700">
       <header className="border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <div className="min-w-0">
-            <Link href={backHref} className="text-[11px] font-bold text-[#d60008] hover:underline">
+            <Link href={backHref} className="text-[11px] font-bold text-tm-red hover:underline">
               ← Messages
             </Link>
-            <h1 className="truncate text-sm font-black text-[#0F172A]">
+            <h1 className="truncate text-sm font-black text-tm-navy">
               {otherSlug ? (
                 <Link href={`/tutor/${otherSlug}`} className="hover:underline">
                   {otherName}

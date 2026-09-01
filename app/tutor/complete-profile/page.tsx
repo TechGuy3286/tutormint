@@ -249,15 +249,15 @@ function CompleteProfileInner() {
   const shown = percent || localCompletion.percent
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] pb-28 sm:pb-10 text-[#334155]">
+    <main className="min-h-screen bg-tm-bg pb-28 sm:pb-10 text-slate-700">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-5">
         <header className="space-y-3">
-          <h1 className="text-xl sm:text-2xl font-black text-[#0F172A]">Complete your profile</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-tm-navy">Complete your profile</h1>
           <div className="flex items-center gap-3">
             <div className="h-2 flex-1 bg-gray-100 rounded-full overflow-hidden" role="progressbar" aria-valuenow={shown} aria-valuemin={0} aria-valuemax={100}>
-              <div className="h-full bg-[#059669] rounded-full transition-all" style={{ width: `${shown}%` }} />
+              <div className="h-full bg-tm-green-deep rounded-full transition-all" style={{ width: `${shown}%` }} />
             </div>
-            <span className="text-sm font-black text-[#0F172A] shrink-0">{shown}%</span>
+            <span className="text-sm font-black text-tm-navy shrink-0">{shown}%</span>
           </div>
           <p className="text-[11px] text-gray-500">You need 100% to appear in the tutor directory.</p>
         </header>
@@ -270,7 +270,7 @@ function CompleteProfileInner() {
               onClick={() => setStep(i + 1)}
               aria-current={step === i + 1 ? 'step' : undefined}
               className={`min-h-[44px] whitespace-nowrap px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${
-                step === i + 1 ? 'bg-[#0F172A] text-white border-[#0F172A]' : 'bg-white text-[#334155] border-gray-200 hover:bg-gray-50'
+                step === i + 1 ? 'bg-tm-black text-white border-tm-navy' : 'bg-white text-slate-700 border-gray-200 hover:bg-gray-50'
               }`}
             >
               {i + 1}. {label}
@@ -278,15 +278,15 @@ function CompleteProfileInner() {
           ))}
         </nav>
 
-        {err && <div className="p-3 bg-red-50 border border-red-200 text-[#d60008] text-xs font-bold rounded-xl">{err}</div>}
-        {msg && !err && <div className="p-3 bg-emerald-50 border border-emerald-200 text-[#059669] text-xs font-bold rounded-xl">{msg}</div>}
+        {err && <div className="p-3 bg-tm-tint-red border border-tm-red/30 text-tm-red text-xs font-bold rounded-xl">{err}</div>}
+        {msg && !err && <div className="p-3 bg-tm-tint-green border border-tm-green-deep/30 text-tm-green-deep text-xs font-bold rounded-xl">{msg}</div>}
 
         <section className="bg-white border border-gray-200 rounded-3xl p-4 sm:p-6 space-y-4">
           {step === 1 && (
             <>
               <Field id="full_name" label="Full name" value={form.full_name} onChange={(v) => set('full_name', v)} />
               <div className="space-y-1" id="gender">
-                <label htmlFor="gender-select" className="text-xs font-bold text-[#0F172A]">Gender</label>
+                <label htmlFor="gender-select" className="text-xs font-bold text-tm-navy">Gender</label>
                 <select id="gender-select" value={form.gender} onChange={(e) => set('gender', e.target.value)} className={inputCls}>
                   <option value="">Select…</option>
                   <option value="male">Male</option>
@@ -302,7 +302,7 @@ function CompleteProfileInner() {
           {step === 2 && (
             <>
               <div className="space-y-2" id="avatar">
-                <label className="text-xs font-bold text-[#0F172A]">Profile photo</label>
+                <label className="text-xs font-bold text-tm-navy">Profile photo</label>
                 {form.avatar_url && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={form.avatar_url} alt="Your profile photo" className="h-20 w-20 rounded-full object-cover border border-gray-200" />
@@ -312,7 +312,7 @@ function CompleteProfileInner() {
               </div>
               <Field id="headline" label="Professional tagline" value={form.headline} onChange={(v) => set('headline', v)} placeholder="O/A Level Physics specialist" />
               <div className="space-y-1" id="bio">
-                <label htmlFor="bio-input" className="text-xs font-bold text-[#0F172A]">About you</label>
+                <label htmlFor="bio-input" className="text-xs font-bold text-tm-navy">About you</label>
                 <textarea id="bio-input" rows={4} value={form.bio} onChange={(e) => set('bio', e.target.value)} className={inputCls} />
               </div>
             </>
@@ -323,7 +323,7 @@ function CompleteProfileInner() {
               {savedSubjectLabels.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {savedSubjectLabels.map((s) => (
-                    <span key={s} className="px-2.5 py-1 bg-emerald-50 text-emerald-800 text-[11px] font-bold rounded-lg border border-emerald-200">{s}</span>
+                    <span key={s} className="px-2.5 py-1 bg-tm-tint-green text-tm-green-deep text-[11px] font-bold rounded-lg border border-tm-green-deep/30">{s}</span>
                   ))}
                 </div>
               )}
@@ -333,7 +333,7 @@ function CompleteProfileInner() {
                 selectedSubjects={subjects} setSelectedSubjects={setSubjects}
               />
               {levelLeaf && (
-                <p className="text-[11px] font-bold text-[#059669] bg-emerald-50 border border-emerald-200 rounded-xl p-2.5">
+                <p className="text-[11px] font-bold text-tm-green-deep bg-tm-tint-green border border-tm-green-deep/30 rounded-xl p-2.5">
                   “{level}” is selectable on its own — no subject needed. Press Save &amp; continue.
                 </p>
               )}
@@ -345,7 +345,7 @@ function CompleteProfileInner() {
               <Field id="experience_years" label="Years of experience" type="number" value={form.experience_years} onChange={(v) => set('experience_years', v)} />
               <Field id="hourly_rate_pkr" label="Expected monthly fee (PKR)" type="number" value={form.hourly_rate_pkr} onChange={(v) => set('hourly_rate_pkr', v)} />
               <div className="space-y-1" id="teaching_mode">
-                <label htmlFor="mode-select" className="text-xs font-bold text-[#0F172A]">Teaching mode</label>
+                <label htmlFor="mode-select" className="text-xs font-bold text-tm-navy">Teaching mode</label>
                 <select id="mode-select" value={form.teaching_mode} onChange={(e) => set('teaching_mode', e.target.value)} className={inputCls}>
                   <option value="">Select…</option>
                   <option value="Physical">In person</option>
@@ -359,16 +359,16 @@ function CompleteProfileInner() {
           {step === 5 && (
             <>
               <div className="space-y-1" id="degrees">
-                <label htmlFor="degrees-input" className="text-xs font-bold text-[#0F172A]">Your degrees (one per line)</label>
+                <label htmlFor="degrees-input" className="text-xs font-bold text-tm-navy">Your degrees (one per line)</label>
                 <textarea id="degrees-input" rows={3} value={form.degreesText} onChange={(e) => set('degreesText', e.target.value)} placeholder="BS Physics — Punjab University (2019)" className={inputCls} />
-                <label className="block text-xs font-bold text-[#0F172A] pt-2">Certificate image</label>
+                <label className="block text-xs font-bold text-tm-navy pt-2">Certificate image</label>
                 <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadDoc('degree', e.target.files[0], 'Degree certificate')} className="block w-full text-xs min-h-[44px]" />
                 <DocList docs={docs.filter((d) => d.kind === 'degree')} alt="Degree certificate preview" />
               </div>
               <hr className="border-gray-100" />
               <div className="space-y-1" id="cnic">
                 <Field id="cnic_number" label="CNIC number" value={form.cnic_number} onChange={(v) => set('cnic_number', v)} placeholder="35202-1234567-8" />
-                <label className="block text-xs font-bold text-[#0F172A] pt-2">CNIC image</label>
+                <label className="block text-xs font-bold text-tm-navy pt-2">CNIC image</label>
                 <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadDoc('cnic', e.target.files[0], 'CNIC')} className="block w-full text-xs min-h-[44px]" />
                 <DocList docs={docs.filter((d) => d.kind === 'cnic')} alt="CNIC preview" />
                 <p className="text-[11px] text-gray-500">Only you and our verification team can see this. Previews are watermarked and protected against casual copying.</p>
@@ -379,7 +379,7 @@ function CompleteProfileInner() {
           {step === 6 && (
             <div className="space-y-3" id="phone">
               {phoneVerified ? (
-                <p className="text-xs font-bold text-[#059669] bg-emerald-50 border border-emerald-200 rounded-xl p-3">✓ Mobile number verified</p>
+                <p className="text-xs font-bold text-tm-green-deep bg-tm-tint-green border border-tm-green-deep/30 rounded-xl p-3">✓ Mobile number verified</p>
               ) : (
                 <>
                   <Field id="phone_number" label="Mobile number" value={phone} onChange={setPhone} placeholder="03214567890" />
@@ -392,7 +392,7 @@ function CompleteProfileInner() {
                       <button onClick={verifyOtp} disabled={!otp} className={btnRed}>Verify</button>
                     </>
                   )}
-                  {otpMsg && <p className="text-[11px] font-bold text-[#059669]">{otpMsg}</p>}
+                  {otpMsg && <p className="text-[11px] font-bold text-tm-green-deep">{otpMsg}</p>}
                 </>
               )}
             </div>
@@ -405,18 +405,18 @@ function CompleteProfileInner() {
                 You have <strong>{Math.max(0, 3 - videoAttempts)}</strong> of 3 submissions left.
               </p>
               {videoStatus !== 'none' && (
-                <p className="text-xs font-bold text-[#059669] bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                <p className="text-xs font-bold text-tm-green-deep bg-tm-tint-green border border-tm-green-deep/30 rounded-xl p-3">
                   Video submitted — status: {videoStatus}
                 </p>
               )}
               {videoAttempts >= 3 ? (
-                <p className="text-xs font-bold text-[#d60008] bg-red-50 border border-red-200 rounded-xl p-3">
+                <p className="text-xs font-bold text-tm-red bg-tm-tint-red border border-tm-red/30 rounded-xl p-3">
                   You have used all 3 submissions. Please contact support@tutormint.org.
                 </p>
               ) : (
                 <input type="file" accept="video/*" onChange={(e) => e.target.files?.[0] && uploadVideo(e.target.files[0])} className="block w-full text-xs min-h-[44px]" />
               )}
-              {videoMsg && <p className="text-[11px] font-bold text-[#334155] bg-[#F8FAFC] border border-gray-200 rounded-xl p-3">{videoMsg}</p>}
+              {videoMsg && <p className="text-[11px] font-bold text-slate-700 bg-tm-bg border border-gray-200 rounded-xl p-3">{videoMsg}</p>}
               {shown >= 100 && (
                 <button onClick={() => router.push('/tutor/dashboard')} className={btnRed}>Done — go to dashboard</button>
               )}
@@ -426,13 +426,13 @@ function CompleteProfileInner() {
 
         {localCompletion.missing.length > 0 && (
           <details className="bg-white border border-gray-200 rounded-2xl p-4">
-            <summary className="text-xs font-bold text-[#0F172A] cursor-pointer min-h-[44px] flex items-center">
+            <summary className="text-xs font-bold text-tm-navy cursor-pointer min-h-[44px] flex items-center">
               Still missing ({localCompletion.missing.length})
             </summary>
             <ul className="pt-2 space-y-1">
               {localCompletion.missing.map((m) => (
                 <li key={m.key}>
-                  <button onClick={() => setStep(m.step)} className="text-xs text-[#334155] hover:text-[#d60008] text-left min-h-[36px]">• {m.label}</button>
+                  <button onClick={() => setStep(m.step)} className="text-xs text-slate-700 hover:text-tm-red text-left min-h-[36px]">• {m.label}</button>
                 </li>
               ))}
             </ul>
@@ -442,11 +442,11 @@ function CompleteProfileInner() {
 
       {/* Sticky action bar on mobile */}
       <div className="fixed sm:static bottom-0 left-0 right-0 bg-white sm:bg-transparent border-t sm:border-0 border-gray-200 p-3 sm:p-0 flex gap-2 max-w-2xl mx-auto sm:px-6 sm:pb-8">
-        <button onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1} className="flex-1 sm:flex-none min-h-[44px] px-5 py-3 bg-[#F8FAFC] border border-gray-200 text-[#334155] font-bold text-xs rounded-xl disabled:opacity-40">
+        <button onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1} className="flex-1 sm:flex-none min-h-[44px] px-5 py-3 bg-tm-bg border border-gray-200 text-slate-700 font-bold text-xs rounded-xl disabled:opacity-40">
           Back
         </button>
         {step < STEPS.length && (
-          <button onClick={next} disabled={saving} className="flex-[2] sm:flex-none min-h-[44px] px-6 py-3 bg-[#d60008] hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-50">
+          <button onClick={next} disabled={saving} className="flex-[2] sm:flex-none min-h-[44px] px-6 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-50">
             {saving ? 'Saving…' : 'Save & continue'}
           </button>
         )}
@@ -456,18 +456,18 @@ function CompleteProfileInner() {
 }
 
 const inputCls =
-  'w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A] focus:bg-white'
+  'w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy focus:bg-white'
 const btnDark =
-  'w-full min-h-[44px] py-3 bg-[#0F172A] hover:bg-[#059669] text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'w-full min-h-[44px] py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
 const btnRed =
-  'w-full min-h-[44px] py-3 bg-[#d60008] hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'w-full min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
 
 function Field({ id, label, value, onChange, type = 'text', placeholder }: {
   id: string; label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string
 }) {
   return (
     <div className="space-y-1" id={id}>
-      <label htmlFor={`${id}-input`} className="text-xs font-bold text-[#0F172A]">{label}</label>
+      <label htmlFor={`${id}-input`} className="text-xs font-bold text-tm-navy">{label}</label>
       <input id={`${id}-input`} type={type} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={inputCls} />
     </div>
   )

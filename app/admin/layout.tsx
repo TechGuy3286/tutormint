@@ -41,21 +41,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const visible = NAV.filter((n) => roleSatisfies(actor.adminRole, n.allowed))
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#334155]">
-      <header className="bg-[#0F172A] text-white">
+    <div className="min-h-screen bg-tm-bg text-slate-700">
+      <header className="bg-tm-black text-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
           <Link href="/admin" className="flex min-h-[44px] items-center font-black text-sm">
-            Tutor<span className="text-[#d60008]">Mint</span>
+            Tutor<span className="text-tm-red">Mint</span>
             <span className="ml-2 text-[10px] uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded">
               Admin
             </span>
           </Link>
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[10px] uppercase tracking-wider bg-[#059669] px-2 py-1 rounded font-bold shrink-0">
+            <span className="text-[10px] uppercase tracking-wider bg-tm-green-deep px-2 py-1 rounded font-bold shrink-0">
               {actor.adminRole}
             </span>
             <span className="text-[11px] text-gray-300 truncate hidden sm:block">{actor.email}</span>
-            <Link href="/" className="text-[11px] font-bold text-gray-300 hover:text-white shrink-0 min-h-[44px] flex items-center">
+            <Link href="/" className="text-[11px] font-bold text-gray-300 hover:text-white shrink-0 min-h-[44px] px-3 flex items-center">
               Exit
             </Link>
           </div>
@@ -69,7 +69,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <li key={n.href}>
                 <Link
                   href={n.href}
-                  className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-white border border-gray-200 hover:border-[#0F172A] text-xs font-bold transition-colors"
+                  className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-white border border-gray-200 hover:border-tm-navy text-xs font-bold transition-colors"
                 >
                   <span aria-hidden="true">{n.icon}</span>
                   {n.label}
@@ -92,7 +92,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link
               key={n.href}
               href={n.href}
-              className="flex-1 shrink-0 basis-[72px] min-h-[56px] flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-[#334155]"
+              className="flex-1 shrink-0 basis-[72px] min-h-[56px] flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-slate-700"
             >
               <span className="text-base" aria-hidden="true">
                 {n.icon}

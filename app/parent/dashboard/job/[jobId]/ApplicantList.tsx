@@ -103,7 +103,7 @@ export default function ApplicantList({
   return (
     <div className="space-y-3">
       {error && (
-        <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-[#d60008]">
+        <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
           {error}{' '}
           {upgrade && (
             <Link href={upgrade} className="underline">
@@ -117,11 +117,11 @@ export default function ApplicantList({
         <article
           key={a.id}
           className={`space-y-3 rounded-2xl border bg-white p-4 ${
-            a.status === 'hired' ? 'border-[#059669] ring-1 ring-[#059669]' : 'border-gray-200'
+            a.status === 'hired' ? 'border-tm-green-deep ring-1 ring-tm-green-deep' : 'border-gray-200'
           }`}
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-sm font-black text-[#0F172A]">
+            <h3 className="text-sm font-black text-tm-navy">
               {a.tutorSlug ? (
                 <Link href={`/tutor/${a.tutorSlug}`} className="hover:underline">
                   {a.tutorName}
@@ -144,7 +144,7 @@ export default function ApplicantList({
           </p>
 
           {a.message && (
-            <p className="rounded-xl bg-[#F8FAFC] p-3 text-xs leading-relaxed">{a.message}</p>
+            <p className="rounded-xl bg-tm-bg p-3 text-xs leading-relaxed">{a.message}</p>
           )}
 
           {jobStatus === 'open' && a.status !== 'hired' && (
@@ -162,7 +162,7 @@ export default function ApplicantList({
                     a.id,
                   )
                 }
-                className={`${BTN} border border-gray-200 text-[#334155]`}
+                className={`${BTN} border border-gray-200 text-slate-700`}
               >
                 {a.status === 'shortlisted' ? 'Un-shortlist' : 'Shortlist'}
               </button>
@@ -171,7 +171,7 @@ export default function ApplicantList({
                 type="button"
                 disabled={busy === a.tutorId}
                 onClick={() => message(a.tutorId)}
-                className={`${BTN} bg-[#059669] text-white`}
+                className={`${BTN} bg-tm-green-deep text-white`}
               >
                 Message
               </button>
@@ -182,7 +182,7 @@ export default function ApplicantList({
                 onClick={() =>
                   act('/api/applications/status', { applicationId: a.id, status: 'rejected' }, a.id)
                 }
-                className={`${BTN} border border-gray-200 text-[#334155]`}
+                className={`${BTN} border border-gray-200 text-slate-700`}
               >
                 Not suitable
               </button>
@@ -192,7 +192,7 @@ export default function ApplicantList({
                 disabled={busy === a.id}
                 onClick={() => act('/api/parent/hire', { applicationId: a.id }, a.id)}
                 className={`${BTN} ${
-                  canHire ? 'bg-[#d60008] text-white' : 'bg-[#F59E0B] text-[#0F172A]'
+                  canHire ? 'bg-tm-red text-white' : 'bg-tm-gold text-tm-navy'
                 }`}
               >
                 {canHire ? (
@@ -208,7 +208,7 @@ export default function ApplicantList({
           )}
 
           {a.status === 'hired' && (
-            <p className="rounded-xl bg-[#059669]/10 p-3 text-center text-[11px] font-black text-[#059669]">
+            <p className="rounded-xl bg-tm-green-deep/10 p-3 text-center text-[11px] font-black text-tm-green-deep">
               Hired for this tuition
             </p>
           )}

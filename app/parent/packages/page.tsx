@@ -38,10 +38,10 @@ export default async function ParentPackagesPage({
   const provider = getProvider()
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-4xl space-y-5">
         <header className="space-y-1">
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Parent packages</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Parent packages</h1>
           <p className="text-xs text-gray-500">
             Verified is free once your CNIC and address are approved. Featured adds tutor contact
             details and the ability to complete a hire.

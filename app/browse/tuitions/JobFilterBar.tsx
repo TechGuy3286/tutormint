@@ -26,7 +26,7 @@ export type JobFilterValues = {
 }
 
 const FIELD =
-  'w-full min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-[#0F172A] outline-none focus:border-[#d60008]'
+  'w-full min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-tm-navy outline-none focus:border-tm-red'
 
 export default function JobFilterBar({ values }: { values: JobFilterValues }) {
   const router = useRouter()
@@ -206,12 +206,12 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-[#0F172A] lg:hidden"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-tm-navy lg:hidden"
         >
           <SlidersHorizontal size={16} />
           Filters
           {activeCount > 0 && (
-            <span className="rounded-full bg-[#d60008] px-1.5 text-[10px] font-black text-white">
+            <span className="rounded-full bg-tm-red px-1.5 text-[10px] font-black text-white">
               {activeCount}
             </span>
           )}
@@ -229,7 +229,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
           <button
             type="button"
             onClick={() => router.push('/browse/tuitions')}
-            className="text-[11px] font-bold text-[#d60008] underline"
+            className="text-[11px] font-bold text-tm-red underline"
           >
             Clear all
           </button>
@@ -244,7 +244,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
 
 function Chip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[#0F172A] px-2.5 py-1 text-[11px] font-bold text-white">
+    <span className="inline-flex items-center gap-1 rounded-full bg-tm-black px-2.5 py-1 text-[11px] font-bold text-white">
       {label}
       <button type="button" onClick={onClear} aria-label={`Remove ${label} filter`} className="p-0.5">
         <X size={12} />

@@ -151,8 +151,8 @@ export default async function SupportPage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-black text-[#0F172A] sm:text-3xl">Help and support</h1>
-        <p className="text-sm leading-relaxed text-[#334155]">
+        <h1 className="text-2xl font-black text-tm-navy sm:text-3xl">Help and support</h1>
+        <p className="text-sm leading-relaxed text-slate-700">
           Most questions are answered below. If yours is not, message us — a person reads it.
         </p>
       </header>
@@ -164,7 +164,7 @@ export default async function SupportPage() {
               href={wa}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-[#059669] px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-emerald-700"
+              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-tm-green-deep px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-green-deep-hover"
             >
               <MessageCircle size={16} aria-hidden />
               Message us on WhatsApp
@@ -173,7 +173,7 @@ export default async function SupportPage() {
           {contact.email && (
             <a
               href={`mailto:${contact.email}`}
-              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-[#0F172A] transition-colors hover:border-[#0F172A]"
+              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-tm-navy transition-colors hover:border-tm-navy"
             >
               <Mail size={16} aria-hidden />
               Email us
@@ -185,7 +185,7 @@ export default async function SupportPage() {
       {contact.hours && <p className="text-xs text-gray-500">{contact.hours}</p>}
 
       {!wa && !contact.email && (
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-[#92400E]">
+        <p className="rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4 text-xs leading-relaxed text-tm-gold-ink">
           Our contact details are being updated. In the meantime, the answers below cover almost
           everything.
         </p>
@@ -196,11 +196,11 @@ export default async function SupportPage() {
       <footer className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
         <p className="text-xs leading-relaxed text-gray-500">
           The full rules are in our{' '}
-          <Link href="/terms" className="font-bold text-[#d60008] hover:underline">
+          <Link href="/terms" className="font-bold text-tm-red hover:underline">
             Terms of Service
           </Link>{' '}
           and{' '}
-          <Link href="/privacy" className="font-bold text-[#d60008] hover:underline">
+          <Link href="/privacy" className="font-bold text-tm-red hover:underline">
             Privacy Policy
           </Link>
           .

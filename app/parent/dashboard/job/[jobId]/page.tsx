@@ -111,9 +111,9 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
   const withdrawn = applicants.length - live
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-3xl space-y-4">
-        <Link href="/parent/dashboard" className="text-xs font-bold text-[#d60008] hover:underline">
+        <Link href="/parent/dashboard" className="text-xs font-bold text-tm-red hover:underline">
           ← Dashboard
         </Link>
 
@@ -121,7 +121,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
           {job.is_featured && <FeaturedTag className="absolute right-3 top-3 sm:right-4 sm:top-4" />}
 
           <div className="space-y-1 pr-16 sm:pr-20">
-            <h1 className="text-lg font-black leading-snug text-[#0F172A] sm:text-xl">
+            <h1 className="text-lg font-black leading-snug text-tm-navy sm:text-xl">
               {job.title as string}
             </h1>
             <p className="text-[11px] text-gray-500">
@@ -136,7 +136,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
               {(job.subjects as string[]).map((s) => (
                 <span
                   key={s}
-                  className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold ring-1 ring-gray-200"
+                  className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold ring-1 ring-gray-200"
                 >
                   {s}
                 </span>
@@ -162,7 +162,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
               </p>
             ) : null}
             {job.budget_pkr ? (
-              <p className="flex items-center gap-2 text-xs font-black text-[#0F172A]">
+              <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
                 <Wallet size={14} className="text-gray-400" />
                 Rs. {(job.budget_pkr as number).toLocaleString('en-PK')} / month
               </p>
@@ -181,7 +181,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-sm font-black text-[#0F172A]">
+          <h2 className="text-sm font-black text-tm-navy">
             Applicants ({live}
             {withdrawn > 0 ? `, ${withdrawn} withdrawn` : ''})
           </h2>

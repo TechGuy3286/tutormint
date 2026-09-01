@@ -34,8 +34,8 @@ export default function ChatRequestButton({ tutorId, parentId }: { tutorId: stri
       disabled={loading || requestSent}
       className={`px-5 py-3 text-xs font-extrabold rounded-xl transition-all shadow-sm ${
         requestSent 
-          ? 'bg-emerald-100 text-emerald-800 cursor-not-allowed' 
-          : 'bg-slate-900 hover:bg-emerald-600 text-white'
+          ? 'bg-tm-tint-green text-tm-green-deep cursor-not-allowed' 
+          : 'bg-slate-900 hover:bg-tm-green-deep text-white'
       }`}
     >
       {requestSent ? '✅ Request Pending Acceptance' : '💬 Send Direct Chat Request'}

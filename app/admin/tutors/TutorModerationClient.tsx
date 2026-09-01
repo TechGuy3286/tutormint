@@ -112,7 +112,7 @@ export default function TutorModerationClient({
   return (
     <div className="space-y-4">
       <header className="space-y-1">
-        <h1 className="text-xl sm:text-2xl font-black text-[#0F172A]">Tutor moderation</h1>
+        <h1 className="text-xl sm:text-2xl font-black text-tm-navy">Tutor moderation</h1>
         <p className="text-xs text-gray-500">
           Every decision needs a written reason and is recorded in the audit log.
         </p>
@@ -126,8 +126,8 @@ export default function TutorModerationClient({
             aria-current={filter === f.key ? 'page' : undefined}
             className={`min-h-[44px] whitespace-nowrap px-3.5 py-2 rounded-xl text-[11px] font-bold border flex items-center transition-colors ${
               filter === f.key
-                ? 'bg-[#0F172A] text-white border-[#0F172A]'
-                : 'bg-white text-[#334155] border-gray-200 hover:bg-gray-50'
+                ? 'bg-tm-black text-white border-tm-navy'
+                : 'bg-white text-slate-700 border-gray-200 hover:bg-gray-50'
             }`}
           >
             {f.label}
@@ -136,7 +136,7 @@ export default function TutorModerationClient({
       </nav>
 
       {msg && (
-        <p className="p-3 bg-emerald-50 border border-emerald-200 text-[#059669] text-xs font-bold rounded-xl">
+        <p className="p-3 bg-tm-tint-green border border-tm-green-deep/30 text-tm-green-deep text-xs font-bold rounded-xl">
           {msg}
         </p>
       )}
@@ -155,7 +155,7 @@ export default function TutorModerationClient({
                   setReason('')
                   setErr('')
                 }}
-                className="w-full text-left bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 hover:border-[#0F172A] transition-colors flex items-center gap-3 min-h-[44px]"
+                className="w-full text-left bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 hover:border-tm-navy transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -164,7 +164,7 @@ export default function TutorModerationClient({
                   className="h-11 w-11 rounded-full object-cover bg-gray-100 shrink-0"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black text-[#0F172A] truncate">{t.fullName}</p>
+                  <p className="text-xs font-black text-tm-navy truncate">{t.fullName}</p>
                   <p className="text-[11px] text-gray-500 truncate">
                     {t.city ?? '—'} · {t.completion}% complete · {t.videoAttempts}/{MAX_ATTEMPTS} video
                   </p>
@@ -191,7 +191,7 @@ export default function TutorModerationClient({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-base font-black text-[#0F172A] truncate">{open.fullName}</h2>
+                <h2 className="text-base font-black text-tm-navy truncate">{open.fullName}</h2>
                 <p className="text-[11px] text-gray-500 truncate">{open.email}</p>
               </div>
               <button onClick={() => setOpen(null)} className="text-gray-400 text-xl min-h-[44px] px-2" aria-label="Close">
@@ -208,11 +208,11 @@ export default function TutorModerationClient({
               <Info label="CNIC no." value={open.cnicNumber ?? '—'} />
             </dl>
 
-            {open.headline && <p className="text-xs text-[#334155]">{open.headline}</p>}
+            {open.headline && <p className="text-xs text-slate-700">{open.headline}</p>}
 
             {open.degrees.length > 0 && (
               <div className="space-y-1">
-                <p className="text-[11px] font-bold text-[#0F172A]">Degrees claimed</p>
+                <p className="text-[11px] font-bold text-tm-navy">Degrees claimed</p>
                 <ul className="text-[11px] text-gray-600 space-y-0.5">
                   {open.degrees.map((d) => (
                     <li key={d}>• {d}</li>
@@ -227,7 +227,7 @@ export default function TutorModerationClient({
                   href={`https://www.youtube.com/watch?v=${open.videoYoutubeId}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block text-center min-h-[44px] py-3 bg-[#0F172A] text-white text-xs font-bold rounded-xl"
+                  className="block text-center min-h-[44px] py-3 bg-tm-black text-white text-xs font-bold rounded-xl"
                 >
                   Open introduction video ({open.videoVisibility}) ↗
                 </a>
@@ -238,7 +238,7 @@ export default function TutorModerationClient({
                 {canSetVisibility && (
                   open.videoStatus === 'approved' ? (
                     <div className="space-y-1">
-                      <p className="text-[11px] font-bold text-[#0F172A]">Visibility on YouTube</p>
+                      <p className="text-[11px] font-bold text-tm-navy">Visibility on YouTube</p>
                       <div className="grid grid-cols-3 gap-2">
                         {(['private', 'unlisted', 'public'] as const).map((v) => (
                           <button
@@ -248,8 +248,8 @@ export default function TutorModerationClient({
                             onClick={() => setVisibility(v)}
                             className={`min-h-[44px] rounded-xl text-xs font-bold capitalize transition-colors ${
                               open.videoVisibility === v
-                                ? 'bg-[#059669] text-white'
-                                : 'border border-gray-200 text-[#334155]'
+                                ? 'bg-tm-green-deep text-white'
+                                : 'border border-gray-200 text-slate-700'
                             }`}
                           >
                             {v}
@@ -268,7 +268,7 @@ export default function TutorModerationClient({
 
             {open.documents.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[11px] font-bold text-[#0F172A]">
+                <p className="text-[11px] font-bold text-tm-navy">
                   Documents — watermarked previews, admin rights
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -283,7 +283,7 @@ export default function TutorModerationClient({
             )}
 
             <div className="space-y-1 pt-1">
-              <label htmlFor="reason" className="text-[11px] font-bold text-[#0F172A]">
+              <label htmlFor="reason" className="text-[11px] font-bold text-tm-navy">
                 Reason (required — recorded and shown to the tutor)
               </label>
               <textarea
@@ -291,31 +291,31 @@ export default function TutorModerationClient({
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A]"
+                className="w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy"
               />
             </div>
 
-            {err && <p className="text-[11px] font-bold text-[#d60008]">{err}</p>}
+            {err && <p className="text-[11px] font-bold text-tm-red">{err}</p>}
 
             {open.videoAttempts >= MAX_ATTEMPTS && (
-              <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+              <p className="text-[11px] font-bold text-tm-gold-ink bg-tm-tint-gold border border-tm-gold/30 rounded-xl p-2.5">
                 This tutor has used all {MAX_ATTEMPTS} video submissions — resubmission is locked.
               </p>
             )}
 
             <div className="grid grid-cols-3 gap-2">
-              <button onClick={() => act('approve')} disabled={busy} className="min-h-[44px] py-3 bg-[#059669] hover:bg-emerald-700 text-white text-xs font-bold rounded-xl disabled:opacity-50">
+              <button onClick={() => act('approve')} disabled={busy} className="min-h-[44px] py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
                 Approve
               </button>
-              <button onClick={() => act('hold')} disabled={busy} className="min-h-[44px] py-3 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl disabled:opacity-50">
+              <button onClick={() => act('hold')} disabled={busy} className="min-h-[44px] py-3 bg-tm-gold hover:bg-tm-gold-hover text-tm-black text-xs font-bold rounded-xl disabled:opacity-50">
                 Hold
               </button>
               {open.verificationStatus === 'suspended' ? (
-                <button onClick={() => act('unsuspend')} disabled={busy} className="min-h-[44px] py-3 bg-[#0F172A] text-white text-xs font-bold rounded-xl disabled:opacity-50">
+                <button onClick={() => act('unsuspend')} disabled={busy} className="min-h-[44px] py-3 bg-tm-black text-white text-xs font-bold rounded-xl disabled:opacity-50">
                   Unsuspend
                 </button>
               ) : (
-                <button onClick={() => act('suspend')} disabled={busy} className="min-h-[44px] py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl disabled:opacity-50">
+                <button onClick={() => act('suspend')} disabled={busy} className="min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
                   Suspend
                 </button>
               )}
@@ -329,9 +329,9 @@ export default function TutorModerationClient({
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-[#F8FAFC] border border-gray-100 rounded-xl p-2">
+    <div className="bg-tm-bg border border-gray-100 rounded-xl p-2">
       <dt className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">{label}</dt>
-      <dd className="text-[11px] font-bold text-[#0F172A] capitalize truncate">{value}</dd>
+      <dd className="text-[11px] font-bold text-tm-navy capitalize truncate">{value}</dd>
     </div>
   )
 }
@@ -339,11 +339,11 @@ function Info({ label, value }: { label: string; value: string }) {
 function StatusPill({ status, videoStatus }: { status: string; videoStatus: string }) {
   const cls =
     status === 'suspended'
-      ? 'bg-red-50 text-[#d60008] border-red-200'
+      ? 'bg-tm-tint-red text-tm-red border-tm-red/30'
       : status === 'verified'
-        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+        ? 'bg-tm-tint-green text-tm-green-deep border-tm-green-deep/30'
         : videoStatus === 'uploaded'
-          ? 'bg-amber-50 text-amber-800 border-amber-200'
+          ? 'bg-tm-tint-gold text-tm-gold-ink border-tm-gold/30'
           : 'bg-gray-50 text-gray-600 border-gray-200'
   return (
     <span className={`shrink-0 px-2 py-1 rounded-lg border text-[10px] font-bold capitalize ${cls}`}>

@@ -47,13 +47,13 @@ export default async function PostJobPage() {
   const outOfQuota = !ent.plan || ent.quotaLeft <= 0
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-2xl space-y-4">
         <header className="space-y-1">
-          <Link href="/parent/dashboard" className="text-xs font-bold text-[#d60008] hover:underline">
+          <Link href="/parent/dashboard" className="text-xs font-bold text-tm-red hover:underline">
             ← Dashboard
           </Link>
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Post a tuition</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Post a tuition</h1>
           <p className="text-xs text-gray-500">
             {ent.plan
               ? `${ent.quotaLeft} of ${ent.displayedQuota} posts left this month`
@@ -62,15 +62,15 @@ export default async function PostJobPage() {
         </header>
 
         {outOfQuota ? (
-          <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-[#92400E]">
+          <section className="space-y-3 rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4">
+            <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-tm-gold-ink">
               <AlertTriangle size={16} className="mt-px shrink-0" />
               You have used all {ent.quota} of this month&apos;s job posts. Your allowance resets at
               the start of next month, or Featured raises it.
             </p>
             <Link
               href="/parent/packages?plan=parent_featured"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
             >
               See packages
             </Link>

@@ -66,12 +66,12 @@ export default function Navbar() {
       <div>
         {user ? (
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-[#334155] hidden sm:inline">
+            <span className="text-xs font-bold text-slate-700 hidden sm:inline">
               Welcome, {displayName || user.email || 'User'}
             </span>
             <button
               onClick={handleLogout}
-              className="inline-flex min-h-[44px] items-center px-3.5 py-2 bg-red-50 hover:bg-red-100 text-[#d60008] text-xs font-bold rounded-xl transition-all shadow-2xs"
+              className="inline-flex min-h-[44px] items-center px-3.5 py-2 bg-tm-tint-red hover:bg-tm-red/15 text-tm-red text-xs font-bold rounded-xl transition-all shadow-2xs"
             >
               Logout
             </button>

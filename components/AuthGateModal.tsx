@@ -126,7 +126,7 @@ export default function AuthGateModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="space-y-1.5">
-          <h2 id="authgate-title" className="text-base font-black text-[#0F172A]">
+          <h2 id="authgate-title" className="text-base font-black text-tm-navy">
             {copy.title}
           </h2>
           <p className="text-xs text-gray-600 leading-relaxed">{copy.body}</p>
@@ -135,13 +135,13 @@ export default function AuthGateModal({
         <div className="space-y-2 pt-1">
           <button
             onClick={goToLogin}
-            className="w-full min-h-[44px] py-3 bg-[#d60008] hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
+            className="w-full min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
           >
             {copy.cta}
           </button>
           <button
             onClick={onClose}
-            className="w-full min-h-[44px] py-3 bg-[#F8FAFC] hover:bg-gray-100 text-[#334155] font-bold text-xs rounded-xl border border-gray-200 transition-colors"
+            className="w-full min-h-[44px] py-3 bg-tm-bg hover:bg-gray-100 text-slate-700 font-bold text-xs rounded-xl border border-gray-200 transition-colors"
           >
             Keep browsing
           </button>

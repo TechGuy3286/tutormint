@@ -32,7 +32,7 @@ export default function Error({
           <button
             type="button"
             onClick={reset}
-            className="min-h-[44px] w-full rounded-xl bg-[#0F172A] px-4 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#334155]"
+            className="min-h-[44px] w-full rounded-xl bg-tm-black px-4 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-slate-700"
           >
             Try again
           </button>

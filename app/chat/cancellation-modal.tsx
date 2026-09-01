@@ -35,7 +35,7 @@ export default function CancellationModal({ jobTxId, scheduledTime, onClose }: {
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white max-w-md w-full p-6 rounded-2xl shadow-xl space-y-4">
         <div className="space-y-1">
-          <span className="px-2.5 py-1 bg-red-50 text-red-700 text-[10px] font-bold uppercase rounded-full">
+          <span className="px-2.5 py-1 bg-tm-tint-red text-tm-red text-[10px] font-bold uppercase rounded-full">
             Demo Cancellation Policy
           </span>
           <h2 className="text-lg font-bold text-slate-900">Cancel Demo Class</h2>
@@ -53,7 +53,7 @@ export default function CancellationModal({ jobTxId, scheduledTime, onClose }: {
               placeholder="Briefly explain why you need to cancel..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-tm-green-deep"
             />
           </div>
 
@@ -68,7 +68,7 @@ export default function CancellationModal({ jobTxId, scheduledTime, onClose }: {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md disabled:opacity-50"
+              className="flex-1 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md disabled:opacity-50"
             >
               {loading ? 'Processing...' : 'Confirm Cancellation'}
             </button>

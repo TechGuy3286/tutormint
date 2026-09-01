@@ -71,7 +71,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
   if (demos.length === 0) {
     return (
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-        <h2 className="text-sm font-black text-[#0F172A]">Demo classes</h2>
+        <h2 className="text-sm font-black text-tm-navy">Demo classes</h2>
         <p className="text-xs text-gray-400">
           {role === 'parent'
             ? 'No demo requests yet. Request one free demo from any tutor you are considering.'
@@ -83,16 +83,16 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
 
   return (
     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-      <h2 className="text-sm font-black text-[#0F172A]">Demo classes</h2>
-      {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+      <h2 className="text-sm font-black text-tm-navy">Demo classes</h2>
+      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
 
       <ul className="space-y-3">
         {demos.map((d) => {
           const who = role === 'parent' ? d.tutorName : (d.parentName ?? 'A parent')
           return (
-            <li key={d.id} className="space-y-2 rounded-xl bg-[#F8FAFC] p-3">
+            <li key={d.id} className="space-y-2 rounded-xl bg-tm-bg p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-xs font-black text-[#0F172A]">
+                <p className="text-xs font-black text-tm-navy">
                   {role === 'parent' && d.tutorSlug ? (
                     <Link href={`/tutor/${d.tutorSlug}`} className="hover:underline">
                       {who}
@@ -108,7 +108,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
               </div>
 
               {d.proposedTime && (
-                <p className="text-[11px] font-semibold text-[#059669]">
+                <p className="text-[11px] font-semibold text-tm-green-deep">
                   Proposed: {new Date(d.proposedTime).toLocaleString('en-PK')}
                 </p>
               )}
@@ -138,7 +138,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                             proposedTime: new Date(time).toISOString(),
                           })
                         }
-                        className={`${BTN} w-full bg-[#059669] text-white`}
+                        className={`${BTN} w-full bg-tm-green-deep text-white`}
                       >
                         Confirm time
                       </button>
@@ -158,7 +158,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                         onClick={() =>
                           call('/api/demo/respond', { demoId: d.id, action: 'decline', reason })
                         }
-                        className={`${BTN} w-full bg-[#d60008] text-white`}
+                        className={`${BTN} w-full bg-tm-red text-white`}
                       >
                         Send decline
                       </button>
@@ -168,14 +168,14 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                       <button
                         type="button"
                         onClick={() => setOpenForm(`accept-${d.id}`)}
-                        className={`${BTN} bg-[#059669] text-white`}
+                        className={`${BTN} bg-tm-green-deep text-white`}
                       >
                         Accept
                       </button>
                       <button
                         type="button"
                         onClick={() => setOpenForm(`decline-${d.id}`)}
-                        className={`${BTN} border border-gray-200 text-[#334155]`}
+                        className={`${BTN} border border-gray-200 text-slate-700`}
                       >
                         Decline
                       </button>
@@ -191,7 +191,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                     type="button"
                     disabled={busy === d.id}
                     onClick={() => call('/api/demo/complete', { demoId: d.id })}
-                    className={`${BTN} bg-[#0F172A] text-white`}
+                    className={`${BTN} bg-tm-black text-white`}
                   >
                     Mark completed
                   </button>
@@ -199,7 +199,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                     type="button"
                     disabled={busy === d.id}
                     onClick={() => call('/api/demo/cancel', { demoId: d.id })}
-                    className={`${BTN} border border-gray-200 text-[#334155]`}
+                    className={`${BTN} border border-gray-200 text-slate-700`}
                   >
                     Cancel
                   </button>
@@ -211,7 +211,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                   type="button"
                   disabled={busy === d.id}
                   onClick={() => call('/api/demo/cancel', { demoId: d.id })}
-                  className={`${BTN} w-full border border-gray-200 text-[#334155]`}
+                  className={`${BTN} w-full border border-gray-200 text-slate-700`}
                 >
                   Cancel request
                 </button>
@@ -250,7 +250,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                         onClick={() =>
                           call('/api/demo/feedback', { demoId: d.id, rating, text: feedback })
                         }
-                        className={`${BTN} w-full bg-[#059669] text-white`}
+                        className={`${BTN} w-full bg-tm-green-deep text-white`}
                       >
                         Send feedback
                       </button>
@@ -259,7 +259,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                     <button
                       type="button"
                       onClick={() => setOpenForm(`fb-${d.id}`)}
-                      className={`${BTN} w-full bg-[#059669] text-white`}
+                      className={`${BTN} w-full bg-tm-green-deep text-white`}
                     >
                       Leave feedback
                     </button>
@@ -271,7 +271,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                   profile. Feedback above is private to the pair; this is not. */}
               {role === 'parent' && d.status === 'completed' && (
                 d.reviewed ? (
-                  <p className="text-[11px] font-bold text-[#059669]">You reviewed this tutor</p>
+                  <p className="text-[11px] font-bold text-tm-green-deep">You reviewed this tutor</p>
                 ) : (
                   <ReviewForm tutorId={d.tutorId} tutorName={d.tutorName} demoRequestId={d.id} />
                 )

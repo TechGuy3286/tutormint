@@ -99,8 +99,8 @@ export default function PaymentQueue({
             href={`/admin/payments?filter=${f.key}`}
             className={`inline-flex min-h-[44px] items-center rounded-xl px-4 text-xs font-bold ${
               filter === f.key
-                ? 'bg-[#0F172A] text-white'
-                : 'border border-gray-200 bg-white text-[#334155]'
+                ? 'bg-tm-black text-white'
+                : 'border border-gray-200 bg-white text-slate-700'
             }`}
           >
             {f.label}
@@ -109,14 +109,14 @@ export default function PaymentQueue({
       </nav>
 
       {error && (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-[#d60008]">
+        <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
           {error}
         </p>
       )}
 
       {/* ------------------------------------------------------- queue --- */}
       <section className="space-y-3">
-        <h2 className="text-sm font-black text-[#0F172A]">
+        <h2 className="text-sm font-black text-tm-navy">
           Payments {payments.length > 0 ? `(${payments.length})` : ''}
         </h2>
 
@@ -130,16 +130,16 @@ export default function PaymentQueue({
               <li key={p.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-[#0F172A]">{p.name}</p>
+                    <p className="truncate text-sm font-black text-tm-navy">{p.name}</p>
                     <p className="truncate text-[11px] text-gray-500">{p.email}</p>
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
                       p.status === 'approved'
-                        ? 'bg-emerald-100 text-emerald-700'
+                        ? 'bg-tm-tint-green text-tm-green-deep'
                         : p.status === 'rejected'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-amber-100 text-amber-700'
+                          ? 'bg-tm-tint-red text-tm-red'
+                          : 'bg-tm-tint-gold text-tm-gold-ink'
                     }`}
                   >
                     {p.status}
@@ -159,7 +159,7 @@ export default function PaymentQueue({
                 </dl>
 
                 {p.rejectionReason && (
-                  <p className="rounded-xl bg-red-50 p-2 text-[11px] text-red-700">
+                  <p className="rounded-xl bg-tm-tint-red p-2 text-[11px] text-tm-red">
                     Rejected: {p.rejectionReason}
                   </p>
                 )}
@@ -169,7 +169,7 @@ export default function PaymentQueue({
                     href={`/api/payments/proof/${p.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+                    className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                   >
                     Open receipt
                   </a>
@@ -190,7 +190,7 @@ export default function PaymentQueue({
                           type="button"
                           disabled={reason.trim().length < 5 || busy === p.id}
                           onClick={() => decide(p.id, 'reject')}
-                          className="min-h-[44px] rounded-xl bg-[#d60008] px-4 text-xs font-bold text-white disabled:bg-gray-300"
+                          className="min-h-[44px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white disabled:bg-gray-300"
                         >
                           Confirm reject
                         </button>
@@ -200,7 +200,7 @@ export default function PaymentQueue({
                             setRejecting(null)
                             setReason('')
                           }}
-                          className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+                          className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                         >
                           Cancel
                         </button>
@@ -212,14 +212,14 @@ export default function PaymentQueue({
                         type="button"
                         disabled={busy === p.id}
                         onClick={() => decide(p.id, 'approve')}
-                        className="min-h-[44px] rounded-xl bg-[#059669] px-4 text-xs font-bold text-white disabled:opacity-60"
+                        className="min-h-[44px] rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white disabled:opacity-60"
                       >
                         {busy === p.id ? 'Working…' : 'Approve & activate'}
                       </button>
                       <button
                         type="button"
                         onClick={() => setRejecting(p.id)}
-                        className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#334155]"
+                        className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                       >
                         Reject
                       </button>
@@ -233,7 +233,7 @@ export default function PaymentQueue({
 
       {/* ------------------------------------------------- subscriptions --- */}
       <section className="space-y-3">
-        <h2 className="text-sm font-black text-[#0F172A]">Subscriptions</h2>
+        <h2 className="text-sm font-black text-tm-navy">Subscriptions</h2>
 
         {subscriptions.length === 0 ? (
           <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
@@ -246,11 +246,11 @@ export default function PaymentQueue({
               {subscriptions.map((s) => (
                 <li key={s.id} className="space-y-1 rounded-2xl border border-gray-200 bg-white p-3">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-xs font-black text-[#0F172A]">{s.name}</p>
+                    <p className="truncate text-xs font-black text-tm-navy">{s.name}</p>
                     <StatusChip status={s.status} />
                   </div>
                   <p className="truncate text-[11px] text-gray-500">{s.email}</p>
-                  <p className="text-[11px] font-semibold text-[#0F172A]">
+                  <p className="text-[11px] font-semibold text-tm-navy">
                     {s.planName} · {s.source}
                   </p>
                   <p className="text-[11px] text-gray-500">{expiryWords(s)}</p>
@@ -273,7 +273,7 @@ export default function PaymentQueue({
                   {subscriptions.map((s) => (
                     <tr key={s.id} className="border-b border-gray-100 last:border-0">
                       <td className="p-3">
-                        <span className="block font-bold text-[#0F172A]">{s.name}</span>
+                        <span className="block font-bold text-tm-navy">{s.name}</span>
                         <span className="block text-[11px] text-gray-500">{s.email}</span>
                       </td>
                       <td className="p-3 font-semibold">{s.planName}</td>
@@ -306,10 +306,10 @@ function expiryWords(s: SubscriptionRow): string {
 function StatusChip({ status }: { status: string }) {
   const tone =
     status === 'active'
-      ? 'bg-emerald-100 text-emerald-700'
+      ? 'bg-tm-tint-green text-tm-green-deep'
       : status === 'expired'
         ? 'bg-gray-100 text-gray-500'
-        : 'bg-amber-100 text-amber-700'
+        : 'bg-tm-tint-gold text-tm-gold-ink'
   return (
     <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${tone}`}>
       {status}
@@ -321,7 +321,7 @@ function Cell({ label, value, mono }: { label: string; value: string; mono?: boo
   return (
     <div className="min-w-0">
       <dt className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</dt>
-      <dd className={`truncate font-semibold text-[#0F172A] ${mono ? 'font-mono text-[10px]' : ''}`}>
+      <dd className={`truncate font-semibold text-tm-navy ${mono ? 'font-mono text-[10px]' : ''}`}>
         {value}
       </dd>
     </div>

@@ -20,20 +20,20 @@ export default async function TutorMessagesPage() {
   const [threads, ent] = await Promise.all([listThreads(userId), getEntitlements(userId)])
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-2xl space-y-4">
         <header className="space-y-1">
-          <Link href="/tutor/dashboard" className="text-xs font-bold text-[#d60008] hover:underline">
+          <Link href="/tutor/dashboard" className="text-xs font-bold text-tm-red hover:underline">
             ← Dashboard
           </Link>
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Messages</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Messages</h1>
         </header>
 
         {!ent.canInitiateMessage && (
-          <p className="flex items-start gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-[#334155]">
+          <p className="flex items-start gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-slate-700">
             <Info size={14} className="mt-px shrink-0 text-gray-400" />
             Your plan lets you reply to any parent who writes to you, and apply for jobs.
-            <Link href="/tutor/packages?plan=premium" className="font-bold text-[#d60008] underline">
+            <Link href="/tutor/packages?plan=premium" className="font-bold text-tm-red underline">
               Premium
             </Link>{' '}
             lets you start a conversation yourself.

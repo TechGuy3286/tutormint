@@ -75,12 +75,12 @@ export default function BuyButton({
         onClick={start}
         disabled={busy}
         className={`min-h-[44px] w-full rounded-xl px-4 text-xs font-bold text-white transition-colors disabled:opacity-60 ${
-          emphasis ? 'bg-[#d60008] hover:bg-red-700' : 'bg-[#0F172A] hover:bg-slate-800'
+          emphasis ? 'bg-tm-red hover:bg-tm-red-hover' : 'bg-tm-black hover:bg-slate-800'
         }`}
       >
         {busy ? 'Starting…' : label}
       </button>
-      {error && <p className="text-[11px] font-bold text-[#d60008]">{error}</p>}
+      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
       <p className="text-center text-[10px] text-gray-400">
         Rs. {pricePkr.toLocaleString('en-PK')} for 30 days · no refunds
       </p>

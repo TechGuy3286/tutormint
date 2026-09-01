@@ -102,7 +102,7 @@ function Section({ title, note, children }: { title: string; note?: string; chil
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-sm font-black text-[#0F172A]">{title}</h2>
+        <h2 className="text-sm font-black text-tm-navy">{title}</h2>
         {note && <p className="text-[11px] text-gray-500">{note}</p>}
       </div>
       {children}
@@ -114,10 +114,10 @@ export default function DevComponentsPage() {
   if (isProduction()) notFound()
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-8">
         <header className="space-y-1">
-          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Component gallery</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Component gallery</h1>
           <p className="text-xs text-gray-500">
             Development only. Fixture data — none of these are real people. Check every card at 360,
             390, 768, 1024 and 1280.
