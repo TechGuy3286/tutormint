@@ -44,7 +44,7 @@ export default async function TutorDashboardPage() {
   const listed = percent >= 100 && tutorProfile?.verification_status !== 'suspended'
 
   const [{ teasers, total: viewTotal }, jobs] = await Promise.all([
-    viewTeasers(userId, ent.canViewContact),
+    viewTeasers(userId, ent.canSeeViewerIdentity),
     matchingJobsForTutor(userId, tutorProfile?.city ?? null),
   ])
 
@@ -205,13 +205,13 @@ export default async function TutorDashboardPage() {
                 ))}
               </ul>
 
-              {!ent.canViewContact && (
+              {!ent.canSeeViewerIdentity && (
                 <Link
                   href="/tutor/packages"
                   className="flex items-center gap-2 rounded-xl bg-[#FFFBEB] p-3 text-xs font-bold text-[#92400E]"
                 >
                   <TrendingUp size={14} />
-                  Upgrade to Featured to see who these parents are
+                  Upgrade to Premium to see who these parents are
                 </Link>
               )}
             </>

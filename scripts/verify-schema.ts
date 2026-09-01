@@ -81,22 +81,80 @@ function dbUrl(): string {
   return line.slice('SUPABASE_DB_URL='.length).trim().replace(/^["']|["']$/g, '')
 }
 
+/**
+ * Locate a psql binary, preferring a local install over the Docker fallback.
+ *
+ * The schema check should not stop working because Docker Desktop happens not
+ * to be running -- which is exactly what happened once the native client was
+ * installed and the daemon was later shut down.
+ */
+function localPsql(): string | null {
+  const candidates = [
+    process.env.PSQL_PATH,
+    'psql',
+    'C:/Program Files/PostgreSQL/17/bin/psql.exe',
+    'C:/Program Files/PostgreSQL/16/bin/psql.exe',
+    '/usr/bin/psql',
+    '/usr/local/bin/psql',
+  ].filter(Boolean) as string[]
+
+  for (const c of candidates) {
+    try {
+      execFileSync(c, ['--version'], { stdio: 'ignore' })
+      return c
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null
+}
+
+/**
+ * Field separator for psql -At output.
+ *
+ * An explicit, deliberately unprintable separator (ASCII unit separator)
+ * rather than the empty string the earlier version passed: with no separator
+ * the columns of a row are concatenated, and splitting the row back apart is
+ * guesswork. A unit separator cannot occur inside a table or column name, so
+ * the split is exact.
+ */
+const SEP = '\x1f'
+
+const PSQL = localPsql()
+
 /** Run one read-only SQL statement and return the raw rows. */
 function query(sql: string): string[][] {
-  const dir = mkdtempSync(join(tmpdir(), 'verify-'))
-  const envFile = join(dir, 'db.env')
-  const sqlFile = join(dir, 'q.sql')
-  writeFileSync(envFile, `SUPABASE_DB_URL=${dbUrl()}\n`)
-  writeFileSync(sqlFile, sql)
-  const out = execFileSync(
-    'docker',
-    [
-      'run', '--rm', '-i', '--env-file', envFile, 'postgres:17',
-      'sh', '-c', 'psql "$SUPABASE_DB_URL" -At -F "" -f -',
-    ],
-    { input: readFileSync(sqlFile), encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } },
-  )
-  return out.trim().split('\n').filter(Boolean).map((r) => r.split(''))
+  let out: string
+
+  if (PSQL) {
+    out = execFileSync(PSQL, [dbUrl(), '-At', '-F', SEP, '-f', '-'], {
+      input: sql,
+      encoding: 'utf8',
+    })
+  } else {
+    const dir = mkdtempSync(join(tmpdir(), 'verify-'))
+    const envFile = join(dir, 'db.env')
+    const sqlFile = join(dir, 'q.sql')
+    writeFileSync(envFile, `SUPABASE_DB_URL=${dbUrl()}\n`)
+    writeFileSync(sqlFile, sql)
+    out = execFileSync(
+      'docker',
+      [
+        'run', '--rm', '-i', '--env-file', envFile, 'postgres:17',
+        'sh', '-c', `psql "$SUPABASE_DB_URL" -At -F "${SEP}" -f -`,
+      ],
+      { input: readFileSync(sqlFile), encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' } },
+    )
+  }
+
+  // psql on Windows terminates rows with CRLF, which would otherwise leave a
+  // stray \r glued to every row's last field ("public=t\r" never equals "t").
+  return out
+    .replace(/\r/g, '')
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((r) => r.split(SEP))
 }
 
 function main() {

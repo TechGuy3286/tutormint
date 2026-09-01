@@ -33,7 +33,7 @@ function ago(iso: string): string {
 
 export async function viewTeasers(
   tutorId: string,
-  /** True only when the viewer's plan grants contact visibility. */
+  /** True when the tutor's plan grants viewer identity (premium and up). */
   revealIdentity: boolean,
   limit = 6,
 ): Promise<{ teasers: ViewTeaser[]; total: number }> {

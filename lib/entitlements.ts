@@ -58,6 +58,12 @@ export type Entitlements = {
   canWhatsapp: boolean
   canInitiateMessage: boolean
   canHire: boolean
+  /**
+   * Tutor-side: may see WHO viewed their profile, not just that someone did.
+   * Deliberately separate from canViewContact -- Premium reveals the viewer's
+   * name, Featured additionally reveals contact details.
+   */
+  canSeeViewerIdentity: boolean
   searchRank: number
   badges: BadgeName[]
   tagLabel: string | null
@@ -80,6 +86,7 @@ const NOTHING = (userId: string): Entitlements => ({
   canWhatsapp: false,
   canInitiateMessage: false,
   canHire: false,
+  canSeeViewerIdentity: false,
   searchRank: 0,
   badges: [],
   tagLabel: null,
@@ -101,6 +108,7 @@ type PlanRow = {
   can_whatsapp: boolean
   can_initiate_message: boolean
   can_hire: boolean
+  can_see_viewer_identity: boolean
   search_rank: number | null
   badges: string[] | null
   tag_label: string | null
@@ -147,7 +155,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
   const { data: planRows } = await db
     .from('plans')
     .select(
-      'code, audience, name, monthly_quota, displayed_quota, can_view_contact, can_whatsapp, can_initiate_message, can_hire, search_rank, badges, tag_label',
+      'code, audience, name, monthly_quota, displayed_quota, can_view_contact, can_whatsapp, can_initiate_message, can_hire, can_see_viewer_identity, search_rank, badges, tag_label',
     )
 
   const plans = new Map<string, PlanRow>()
@@ -201,6 +209,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     canWhatsapp: !!p.can_whatsapp,
     canInitiateMessage: !!p.can_initiate_message,
     canHire: !!p.can_hire,
+    canSeeViewerIdentity: !!p.can_see_viewer_identity,
     searchRank: p.search_rank ?? 0,
     badges: badgesForPlan(p.code, profileComplete),
     tagLabel: profileComplete ? p.tag_label : null,

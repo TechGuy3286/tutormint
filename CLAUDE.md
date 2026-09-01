@@ -195,7 +195,7 @@ Existing tables: academy_affiliations, advertisements, demo_feedback, job_messag
 - v2 (backlog, not now): tutor uploads recording of an online demo → YouTube (unlisted) → shown on profile after admin approval.
 
 **Growth mechanics**
-- Profile-view teaser: tutor dashboard shows anonymised viewer events from profile_views ("A parent searching O-Level Physics in <area> viewed your profile") with identity blurred; upgrading to premium/featured reveals viewer name/job link. This is the primary upsell surface.
+- Profile-view teaser: tutor dashboard shows anonymised viewer events from profile_views ("A parent searching O-Level Physics in <area> viewed your profile") with identity blurred. Identity is revealed to PREMIUM and FEATURED tutors; free and verified tutors see the anonymised teaser plus the upgrade prompt. This is the primary upsell surface, and it is a separate power from contact visibility (which stays featured-only) — `plans.can_see_viewer_identity` carries it.
 - advertisements table stays. Admin-managed rotating ad slots: default = TutorMint house ads; future = paid academy/school ads and "top rated tutor" promos shown to parents. Build the rotation widget + admin CRUD in T7.
 
 **Task reorder**
