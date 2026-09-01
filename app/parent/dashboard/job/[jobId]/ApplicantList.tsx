@@ -1,0 +1,219 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Lock } from 'lucide-react'
+import BadgeRow from '@/components/badges/BadgeRow'
+import type { BadgeName } from '@/lib/planBadges'
+
+// The applicants on one job, and what a parent can do with them.
+//
+// Hire is the line between the free and Featured tiers. A free parent sees the
+// button, presses it, and is told plainly what it costs and why -- rather than
+// a greyed-out control with no explanation, which teaches people nothing and
+// makes them think the site is broken. The route refuses independently, so the
+// button being present is not the same as the action being available.
+
+export type Applicant = {
+  id: string
+  tutorId: string
+  tutorName: string
+  tutorSlug: string | null
+  headline: string | null
+  city: string | null
+  ratingAvg: number
+  ratingCount: number
+  badges: BadgeName[]
+  message: string | null
+  status: 'applied' | 'shortlisted' | 'hired' | 'rejected'
+  withdrawn: boolean
+  createdAt: string
+}
+
+const BTN =
+  'inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl px-3 text-xs font-bold transition-colors disabled:opacity-60'
+
+export default function ApplicantList({
+  applicants,
+  canHire,
+  jobStatus,
+}: {
+  applicants: Applicant[]
+  canHire: boolean
+  jobStatus: string
+}) {
+  const router = useRouter()
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [upgrade, setUpgrade] = useState<string | null>(null)
+
+  const act = async (url: string, payload: Record<string, unknown>, id: string) => {
+    setBusy(id)
+    setError(null)
+    setUpgrade(null)
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setUpgrade(json.upgrade ?? null)
+        throw new Error(json.error ?? 'Something went wrong.')
+      }
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const message = async (tutorId: string) => {
+    setBusy(tutorId)
+    setError(null)
+    try {
+      const res = await fetch('/api/messages/thread', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otherId: tutorId }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Could not open the conversation.')
+      router.push(`/messages/${json.threadId}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not open the conversation.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const live = applicants.filter((a) => !a.withdrawn)
+
+  if (live.length === 0) {
+    return (
+      <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+        No applications yet. Tutors whose subjects match will see this job on their dashboard.
+      </p>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {error && (
+        <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-[#d60008]">
+          {error}{' '}
+          {upgrade && (
+            <Link href={upgrade} className="underline">
+              See Featured
+            </Link>
+          )}
+        </p>
+      )}
+
+      {live.map((a) => (
+        <article
+          key={a.id}
+          className={`space-y-3 rounded-2xl border bg-white p-4 ${
+            a.status === 'hired' ? 'border-[#059669] ring-1 ring-[#059669]' : 'border-gray-200'
+          }`}
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-sm font-black text-[#0F172A]">
+              {a.tutorSlug ? (
+                <Link href={`/tutor/${a.tutorSlug}`} className="hover:underline">
+                  {a.tutorName}
+                </Link>
+              ) : (
+                a.tutorName
+              )}
+            </h3>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
+              {a.status}
+            </span>
+          </div>
+
+          {a.badges.length > 0 && <BadgeRow badges={a.badges} size="sm" showLabel />}
+
+          <p className="text-[11px] text-gray-500">
+            {a.headline ?? 'Tutor'}
+            {a.city ? ` · ${a.city}` : ''}
+            {a.ratingCount > 0 ? ` · ★ ${a.ratingAvg.toFixed(1)} (${a.ratingCount})` : ''}
+          </p>
+
+          {a.message && (
+            <p className="rounded-xl bg-[#F8FAFC] p-3 text-xs leading-relaxed">{a.message}</p>
+          )}
+
+          {jobStatus === 'open' && a.status !== 'hired' && (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <button
+                type="button"
+                disabled={busy === a.id}
+                onClick={() =>
+                  act(
+                    '/api/applications/status',
+                    {
+                      applicationId: a.id,
+                      status: a.status === 'shortlisted' ? 'applied' : 'shortlisted',
+                    },
+                    a.id,
+                  )
+                }
+                className={`${BTN} border border-gray-200 text-[#334155]`}
+              >
+                {a.status === 'shortlisted' ? 'Un-shortlist' : 'Shortlist'}
+              </button>
+
+              <button
+                type="button"
+                disabled={busy === a.tutorId}
+                onClick={() => message(a.tutorId)}
+                className={`${BTN} bg-[#059669] text-white`}
+              >
+                Message
+              </button>
+
+              <button
+                type="button"
+                disabled={busy === a.id}
+                onClick={() =>
+                  act('/api/applications/status', { applicationId: a.id, status: 'rejected' }, a.id)
+                }
+                className={`${BTN} border border-gray-200 text-[#334155]`}
+              >
+                Not suitable
+              </button>
+
+              <button
+                type="button"
+                disabled={busy === a.id}
+                onClick={() => act('/api/parent/hire', { applicationId: a.id }, a.id)}
+                className={`${BTN} ${
+                  canHire ? 'bg-[#d60008] text-white' : 'bg-[#F59E0B] text-[#0F172A]'
+                }`}
+              >
+                {canHire ? (
+                  'Hire'
+                ) : (
+                  <>
+                    <Lock size={12} className="mr-1" />
+                    Upgrade to hire
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {a.status === 'hired' && (
+            <p className="rounded-xl bg-[#059669]/10 p-3 text-center text-[11px] font-black text-[#059669]">
+              Hired for this tuition
+            </p>
+          )}
+        </article>
+      ))}
+    </div>
+  )
+}

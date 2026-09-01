@@ -43,6 +43,14 @@ export type ActivityEvent =
   // many results came back -- never the free-text query.
   | 'profile_viewed'
   | 'search_performed'
+  // Block and report, given and received. CLAUDE.md's timeline spec asks
+  // for both sides: the admin timeline in T7 has to be able to explain why
+  // two members suddenly stopped being able to reach each other.
+  | 'blocked'
+  | 'blocked_by'
+  | 'unblocked'
+  | 'reported'
+  | 'reported_by'
   | 'plan_purchased'
   | 'plan_granted'
   | 'plan_revoked'

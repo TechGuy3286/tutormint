@@ -114,11 +114,7 @@ export default function TutorCard({
   tutor: TutorCardData
   viewer?: CardViewer
   initiallySaved?: boolean
-  /**
-   * Messaging threads land in T5. Until they do, browse hides the action
-   * rather than shipping a button that goes nowhere. The dev gallery renders
-   * it so the four-button design stays reviewable.
-   */
+  /** Shown to guests and to parents; a tutor browsing tutors cannot message them. */
   showMessage?: boolean
 }) {
   const [saved, setSaved] = useState(initiallySaved)
@@ -187,13 +183,25 @@ export default function TutorCard({
     }
   }
 
-  const onMessage = () => {
+  const onMessage = async () => {
     if (!viewer.signedIn) return gate('message')
-    if (!viewer.canInitiateMessage) {
-      setNotice('Verify your account to message tutors directly.')
-      return
+    setBusy(true)
+    setNotice(null)
+    try {
+      const res = await fetch('/api/messages/thread', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otherId: tutor.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Could not open the conversation.')
+      window.location.href = `/messages/${json.threadId}`
+    } catch (e) {
+      // The refusal text from the server is the useful part -- an unverified
+      // parent is told to verify, not just told no.
+      setNotice(e instanceof Error ? e.message : 'Could not open the conversation.')
+      setBusy(false)
     }
-    setNotice('Messaging opens from your dashboard.')
   }
 
   const btn =
@@ -321,6 +329,7 @@ export default function TutorCard({
                 <button
                   type="button"
                   onClick={onMessage}
+                  disabled={busy}
                   className={`${btn} bg-[#059669] text-white hover:bg-emerald-700`}
                 >
                   <Mail size={14} />

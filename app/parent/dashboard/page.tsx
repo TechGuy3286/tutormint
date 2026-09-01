@@ -1,197 +1,277 @@
-"use client";
+import Link from 'next/link'
+import { AlertTriangle, Info, Plus } from 'lucide-react'
+import { getSessionUser } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getEntitlements } from '@/lib/entitlements'
+import { computeCompletion } from '@/lib/completion'
+import BadgeRow from '@/components/badges/BadgeRow'
+import FeaturedTag from '@/components/badges/FeaturedTag'
+import ProfileCompletionWidget from '@/components/ProfileCompletionWidget'
+import ChildrenManager, { type Child } from './ChildrenManager'
+import DemoInbox, { type DemoRow } from './DemoInbox'
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+// The parent dashboard.
+//
+// Order of business: can I post yet, who are my children, what have I posted,
+// what is happening with my demos. Verification comes first because until CNIC
+// and address are approved a parent can do almost nothing -- and being told
+// that plainly, once, is better than discovering it at every locked button.
 
-export default function ParentDashboardPage() {
-  const [userEmail, setUserEmail] = useState("");
-  const [myJobs, setMyJobs] = useState<any[]>([]);
-  const [loadingJobs, setLoadingJobs] = useState(true);
-  const [loadingRole, setLoadingRole] = useState(true);
+export const dynamic = 'force-dynamic'
 
-  const router = useRouter();
-  const supabase = createClient();
+export default async function ParentDashboardPage() {
+  const session = await getSessionUser()
+  const userId = session!.user.id
+  const supabase = await createClient()
 
-  useEffect(() => {
-    verifyRoleAndFetchData();
-  }, [router]);
+  const [{ data: profile }, completion, ent] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('full_name, verification_state, cnic_verified_at, address_verified_at, verification_rejection_reason')
+      .eq('id', userId)
+      .maybeSingle(),
+    computeCompletion(userId),
+    getEntitlements(userId),
+  ])
 
-  const verifyRoleAndFetchData = async () => {
-    try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        router.replace('/parent/login');
-        return;
+  const verified = !!profile?.cnic_verified_at && !!profile?.address_verified_at
+
+  const [{ data: children }, { data: jobs }, { data: demos }] = await Promise.all([
+    supabase.from('children').select('id, name, class_level, notes').eq('parent_id', userId).order('created_at'),
+    supabase
+      .from('jobs')
+      .select('id, job_tx_id, title, city, status, is_featured, created_at, budget_pkr')
+      .eq('parent_id', userId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('demo_requests')
+      .select('id, tutor_id, status, mode, proposed_time, decline_reason, created_at')
+      .eq('parent_id', userId)
+      .order('created_at', { ascending: false }),
+  ])
+
+  // Applicant counts and tutor names both need the service-role client:
+  // applications are readable by the job's parent, but `profiles` is self-read
+  // only, so a parent cannot read a tutor's name with their own client.
+  const admin = createAdminClient()
+  const applicantCount = new Map<string, number>()
+  const tutorNames = new Map<string, { name: string; slug: string | null }>()
+
+  if (admin) {
+    const jobIds = (jobs ?? []).map((j) => j.id as string)
+    if (jobIds.length > 0) {
+      const { data: apps } = await admin
+        .from('applications')
+        .select('job_id')
+        .in('job_id', jobIds)
+        .is('withdrawn_at', null)
+      for (const a of apps ?? []) {
+        const k = a.job_id as string
+        applicantCount.set(k, (applicantCount.get(k) ?? 0) + 1)
       }
-      setUserEmail(user.email || "Test Parent");
-
-      const { data: jobsData, error: jobsError } = await supabase
-        .from('parent_jobs')
-        .select('*')
-        .eq('parent_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (jobsError) throw jobsError;
-      
-      // Merge with local storage hired status to ensure instant UI reflection
-      const enrichedJobs = (jobsData || []).map(job => {
-        const isLocallyClosed = localStorage.getItem(`hired_tutor_${job.job_tx_id}`) || localStorage.getItem(`hired_tutor_${job.id}`);
-        if (isLocallyClosed) {
-          return { ...job, status: 'Closed' };
-        }
-        return job;
-      });
-
-      setMyJobs(enrichedJobs);
-
-    } catch (err: any) {
-      console.error("Error fetching data:", err.message);
-    } finally {
-      setLoadingRole(false);
-      setLoadingJobs(false);
-    }
-  };
-
-  const handleProtectedAction = async (actionType: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push("/parent/login");
-      return;
     }
 
-    if (actionType === "post-job") {
-      router.push("/parent/dashboard/post-job");
+    const tutorIds = Array.from(new Set((demos ?? []).map((d) => d.tutor_id as string)))
+    if (tutorIds.length > 0) {
+      const { data: tutors } = await admin
+        .from('tutor_profiles')
+        .select('id, full_name, slug')
+        .in('id', tutorIds)
+      for (const t of tutors ?? []) {
+        tutorNames.set(t.id as string, {
+          name: (t.full_name as string) ?? 'Tutor',
+          slug: (t.slug as string) ?? null,
+        })
+      }
     }
-  };
-
-  if (loadingRole) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] space-y-4">
-        <div className="w-12 h-12 border-4 border-[#d60008] border-t-transparent rounded-full animate-spin shadow-md"></div>
-        <div className="text-xs font-black text-[#0F172A] uppercase tracking-widest animate-pulse">
-          Preparing your dashboard ✨
-        </div>
-      </div>
-    );
   }
 
-  const activeJobsCount = myJobs.filter(j => j.status?.toLowerCase() !== 'closed').length;
+  const firstName = (profile?.full_name ?? 'there').split(' ')[0]
+  const openJobs = (jobs ?? []).filter((j) => j.status === 'open')
+
+  const demoRows: DemoRow[] = (demos ?? []).map((d) => ({
+    id: d.id as string,
+    tutorId: d.tutor_id as string,
+    tutorName: tutorNames.get(d.tutor_id as string)?.name ?? 'Tutor',
+    tutorSlug: tutorNames.get(d.tutor_id as string)?.slug ?? null,
+    status: d.status as DemoRow['status'],
+    mode: (d.mode as string) ?? null,
+    proposedTime: (d.proposed_time as string) ?? null,
+    declineReason: (d.decline_reason as string) ?? null,
+    createdAt: d.created_at as string,
+  }))
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-[#334155]">
-      
-      {/* Top Bar: Breadcrumbs on Left, Account Settings on Top Right */}
-      <nav className="flex items-center justify-between bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
-        <div className="flex items-center space-x-2 text-xs font-bold text-gray-500">
-          <Link href="/" className="hover:text-[#0F172A] transition-colors">Home</Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-[#059669]">Parent Dashboard</span>
-        </div>
-        <Link 
-          href="/parent/dashboard/settings"
-          className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-[#0F172A] text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 border border-gray-200 shadow-2xs"
-        >
-          <span>⚙️ Account Settings</span>
-        </Link>
-      </nav>
-
-      {/* Dashboard Header Container with Exactly Two Buttons */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A]">
-            Parent Dashboard
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-600 font-medium">
-            Manage your posted requirements ({activeJobsCount} Active Jobs) or browse verified tutors directly.
+    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+      <div className="mx-auto max-w-3xl space-y-4">
+        <header className="space-y-1">
+          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Welcome back, {firstName}</h1>
+          <p className="text-xs text-gray-500">
+            {verified ? 'Your account is verified' : 'Verification pending'}
+            {ent.planName ? ` · ${ent.planName} plan` : ''}
           </p>
-        </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
-          <Link 
-            href="/parent/dashboard/hired-tutors"
-            className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
-          >
-            <span>🎓 My Hired Tutors</span>
-          </Link>
-          <button 
-            onClick={() => handleProtectedAction("post-job")}
-            className="px-5 py-3 bg-[#d60008] hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 whitespace-nowrap"
-          >
-            <span>📋 Post Job</span>
-          </button>
-        </div>
-      </div>
+        </header>
 
-      {/* MY POSTED JOBS */}
-      <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">
-            My Posted Jobs ({myJobs.length}) • Active: {activeJobsCount}
-          </h2>
-        </div>
-
-        {loadingJobs ? (
-          <div className="flex flex-col items-center justify-center py-8 space-y-3">
-            <div className="w-8 h-8 border-3 border-[#059669] border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-xs text-gray-500 font-bold">Loading your active postings...</p>
-          </div>
-        ) : myJobs.length === 0 ? (
-          <div className="text-center py-8 bg-[#F8FAFC] rounded-2xl border border-gray-100">
-            <p className="text-xs text-gray-500 font-medium">You haven't posted any jobs yet.</p>
-            <button 
-              onClick={() => router.push("/parent/dashboard/post-job")}
-              className="mt-3 px-4 py-2 bg-[#0F172A] text-white text-xs font-bold rounded-xl hover:bg-[#059669] transition-all"
+        {/* ------------------------------------------------- verification --- */}
+        {!verified && (
+          <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-[#92400E]">
+              <AlertTriangle size={16} className="mt-px shrink-0" />
+              {profile?.verification_state === 'submitted'
+                ? 'Your CNIC and address are with our team. You can post a job as soon as they are approved.'
+                : profile?.verification_state === 'rejected'
+                  ? `Your verification was not accepted: ${profile.verification_rejection_reason ?? 'please check your details'}`
+                  : 'Verify your CNIC and address to post jobs, message tutors and request demos.'}
+            </p>
+            <Link
+              href="/parent/verify"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white"
             >
-              Post Your First Job →
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {myJobs.map((job) => {
-              const isClosed = job.status?.toLowerCase() === 'closed';
-              return (
-                <div 
-                  key={job.job_tx_id || job.id} 
-                  onClick={() => router.push(`/parent/dashboard/job/${job.job_tx_id}`)}
-                  className="p-4 bg-[#F8FAFC] hover:bg-slate-100 border border-gray-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer transition-all group"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold rounded-full uppercase">
-                        {job.job_tx_id}
-                      </span>
-                      <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-md uppercase ${isClosed ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                        Status: {isClosed ? 'CLOSED' : (job.status || 'Active')}
-                      </span>
-                    </div>
-                    <h4 className="text-sm font-bold text-[#0F172A] group-hover:text-blue-600 transition-colors">{job.title}</h4>
-                    <p className="text-xs text-gray-600">{job.subject} • {job.grade} • Budget: {job.budget}</p>
-                  </div>
-
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                    {!isClosed && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/parent/dashboard/job/${job.job_tx_id}/edit`);
-                        }}
-                        className="px-3.5 py-2.5 bg-gray-200 hover:bg-gray-300 text-[#0F172A] text-xs font-bold rounded-xl transition-all whitespace-nowrap shadow-xs"
-                      >
-                        ✏️ Edit
-                      </button>
-                    )}
-                    <span className="px-4 py-2.5 bg-[#0F172A] group-hover:bg-[#059669] text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap shadow-xs">
-                      View Job & Tutors ➔
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+              {profile?.verification_state === 'submitted' ? 'Check status' : 'Verify now'}
+            </Link>
+          </section>
         )}
-      </div>
 
+        {completion && completion.percent < 100 && (
+          <ProfileCompletionWidget percent={completion.percent} items={completion.items} role="parent" />
+        )}
+
+        {/* --------------------------------------------------------- plan --- */}
+        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-black text-[#0F172A]">
+              {ent.planName ? `${ent.planName} plan` : 'No plan yet'}
+            </h2>
+            {ent.badges.length > 0 && <BadgeRow badges={ent.badges} size="sm" showLabel />}
+          </div>
+
+          <dl className="grid grid-cols-2 gap-3">
+            <div>
+              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                Job posts left
+              </dt>
+              <dd className="text-lg font-black text-[#0F172A]">
+                {ent.plan ? ent.quotaLeft : '—'}
+                {ent.plan && (
+                  <span className="text-xs font-semibold text-gray-400"> of {ent.displayedQuota}</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Hiring</dt>
+              <dd className="text-lg font-black text-[#0F172A]">
+                {ent.canHire ? 'Enabled' : 'Featured only'}
+              </dd>
+            </div>
+          </dl>
+
+          {!ent.canHire && (
+            <p className="flex items-start gap-2 rounded-xl bg-[#FFFBEB] p-3 text-[11px] leading-relaxed text-[#92400E]">
+              <Info size={14} className="mt-px shrink-0" />
+              You can post jobs, message tutors and request demos. Completing a hire and seeing a
+              tutor&apos;s phone number are Featured features.
+            </p>
+          )}
+
+          <Link
+            href="/parent/packages"
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white sm:w-auto"
+          >
+            {ent.canHire ? 'Compare packages' : 'See what Featured adds'}
+          </Link>
+        </section>
+
+        <ChildrenManager children={(children ?? []) as Child[]} />
+
+        {/* --------------------------------------------------------- jobs --- */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-black text-[#0F172A]">
+              My tuitions {jobs && jobs.length > 0 ? `(${openJobs.length} open)` : ''}
+            </h2>
+            {verified && (
+              <Link
+                href="/parent/dashboard/post-job"
+                className="inline-flex min-h-[44px] items-center gap-1 text-xs font-bold text-[#d60008]"
+              >
+                <Plus size={14} />
+                Post a job
+              </Link>
+            )}
+          </div>
+
+          {(jobs ?? []).length === 0 ? (
+            <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-6 text-center">
+              <p className="text-xs font-bold text-[#0F172A]">You have not posted a tuition yet</p>
+              <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
+                {verified
+                  ? 'Post what you need and tutors will apply. Or browse tutors and message one directly.'
+                  : 'Once your CNIC and address are approved you can post a job.'}
+              </p>
+              <div className="flex flex-col justify-center gap-2 sm:flex-row">
+                {verified && (
+                  <Link
+                    href="/parent/dashboard/post-job"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#d60008] px-5 text-xs font-bold text-white"
+                  >
+                    Post a job
+                  </Link>
+                )}
+                <Link
+                  href="/browse/tutors"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-[#334155]"
+                >
+                  Browse tutors
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {(jobs ?? []).map((j) => (
+                <li key={j.id as string}>
+                  <Link
+                    href={`/parent/dashboard/job/${j.job_tx_id ?? j.id}`}
+                    className="relative flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md"
+                  >
+                    <span className="min-w-0 space-y-1">
+                      <span className="block truncate text-xs font-black text-[#0F172A]">
+                        {j.title as string}
+                      </span>
+                      <span className="block text-[11px] text-gray-500">
+                        {(j.city as string) ?? '—'} ·{' '}
+                        {j.status === 'open'
+                          ? `${applicantCount.get(j.id as string) ?? 0} applicant${(applicantCount.get(j.id as string) ?? 0) === 1 ? '' : 's'}`
+                          : j.status === 'hired'
+                            ? 'Hired'
+                            : 'Closed'}
+                      </span>
+                    </span>
+                    {j.is_featured ? <FeaturedTag /> : null}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <DemoInbox role="parent" demos={demoRows} />
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link
+            href="/parent/dashboard/messages"
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-[#334155]"
+          >
+            Messages
+          </Link>
+          <Link
+            href="/browse/tutors"
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-[#334155]"
+          >
+            Browse tutors
+          </Link>
+        </div>
+      </div>
     </main>
-  );
+  )
 }

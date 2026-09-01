@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Heart, Play } from 'lucide-react'
+import { Heart, Play, Mail } from 'lucide-react'
 import AuthGateModal, { type AuthIntent } from '@/components/AuthGateModal'
 
 // The transactional actions on a public profile.
@@ -13,8 +13,9 @@ import AuthGateModal, { type AuthIntent } from '@/components/AuthGateModal'
 // modal opens at the moment they press, with the tutor kept as a draft so they
 // come back to the same place. Nobody is asked to register to read a profile.
 //
-// Messaging is not here yet. Threads land in T5, and a button that opens
-// nothing is worse than no button.
+// Messaging is live from T5. Who may OPEN a conversation is decided in
+// lib/messaging.ts, and the refusal text it returns is shown as-is: an
+// unverified parent is told to verify rather than just told no.
 
 export default function ProfileActions({
   tutorId,
@@ -22,12 +23,15 @@ export default function ProfileActions({
   signedIn,
   isSelf,
   initiallySaved,
+  canMessage,
 }: {
   tutorId: string
   tutorName: string
   signedIn: boolean
   isSelf: boolean
   initiallySaved: boolean
+  /** False for a tutor viewing another tutor: they have nothing to say here. */
+  canMessage: boolean
 }) {
   const [saved, setSaved] = useState(initiallySaved)
   const [busy, setBusy] = useState(false)
@@ -83,6 +87,25 @@ export default function ProfileActions({
     }
   }
 
+  const message = async () => {
+    if (!signedIn) return gate('message')
+    setBusy(true)
+    setNotice(null)
+    try {
+      const res = await fetch('/api/messages/thread', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otherId: tutorId }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Could not open the conversation.')
+      window.location.href = `/messages/${json.threadId}`
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Could not open the conversation.')
+      setBusy(false)
+    }
+  }
+
   const btn =
     'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold transition-colors disabled:opacity-60'
 
@@ -112,6 +135,17 @@ export default function ProfileActions({
             <Play size={14} className="fill-white" />
             Request demo
           </button>
+          {canMessage && (
+            <button
+              type="button"
+              onClick={message}
+              disabled={busy}
+              className={`${btn} bg-[#059669] text-white hover:bg-emerald-700`}
+            >
+              <Mail size={14} />
+              Message
+            </button>
+          )}
         </div>
       </div>
 

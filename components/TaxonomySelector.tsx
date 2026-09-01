@@ -146,7 +146,7 @@ export default function TaxonomySelector({
                   setSelectedSubjects([...availableSubjects]);
                 }
               }}
-              className="text-[11px] font-extrabold text-[#d60008] hover:underline whitespace-nowrap cursor-pointer"
+              className="inline-flex min-h-[44px] items-center text-[11px] font-extrabold text-[#d60008] hover:underline whitespace-nowrap cursor-pointer"
             >
               {selectedSubjects.length === availableSubjects.length ? "Deselect All" : "Select All"}
             </button>

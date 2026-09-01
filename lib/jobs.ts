@@ -1,0 +1,434 @@
+// lib/jobs.ts
+//
+// Posting, editing, closing and filling a tuition.
+//
+// The gates, all server-side:
+//
+//   * Only a VERIFIED parent (CNIC + address approved) may post. That is the
+//     owner's rule and it is checked here, not in the form.
+//   * Quota comes from the plan: 5/month free-verified, 100/month featured
+//     shown as "Unlimited". Spent only after the insert succeeds.
+//   * is_featured is stamped from the parent's plan AT POST TIME, so a job
+//     posted while Featured keeps its tag for its life and a job posted on the
+//     free tier does not gain one when the parent upgrades later.
+//   * HIRING is restricted to parent_featured. A free parent sees an upgrade
+//     path, never a disabled button -- and the route refuses regardless of
+//     what the page rendered.
+
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getEntitlements } from '@/lib/entitlements'
+import { checkQuota, spendQuota } from '@/lib/quota'
+import { logActivity } from '@/lib/activityLog'
+import { notify, notifyMany } from '@/lib/notifications'
+
+export type JobInput = {
+  title: string
+  masterIds: number[]
+  classLevel: string | null
+  city: string | null
+  area: string | null
+  teachingMode: string | null
+  budgetPkr: number | null
+  schedule: string | null
+  description: string | null
+  childId: string | null
+}
+
+type Fail = { ok: false; status: number; error: string; upgrade?: string }
+
+function newJobTxId(): string {
+  return `JOB-TX-${Math.random().toString(36).slice(2, 9).toUpperCase()}`
+}
+
+function validate(input: JobInput): string | null {
+  if (!input.title || input.title.trim().length < 6) {
+    return 'Give the job a title of at least 6 characters.'
+  }
+  if (input.masterIds.length === 0) {
+    return 'Choose at least one subject.'
+  }
+  if (!input.city) return 'Choose a city.'
+  if (input.budgetPkr !== null && (input.budgetPkr < 0 || input.budgetPkr > 10_000_000)) {
+    return 'Enter a realistic monthly budget.'
+  }
+  return null
+}
+
+export async function createJob(
+  parentId: string,
+  input: JobInput,
+): Promise<{ ok: true; id: string; jobTxId: string } | Fail> {
+  const problem = validate(input)
+  if (problem) return { ok: false, status: 400, error: problem }
+
+  const supabase = await createClient()
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('cnic_verified_at, address_verified_at, verification_state')
+    .eq('id', parentId)
+    .maybeSingle()
+
+  if (!profile?.cnic_verified_at || !profile?.address_verified_at) {
+    return {
+      ok: false,
+      status: 403,
+      error:
+        profile?.verification_state === 'submitted'
+          ? 'Your verification is still being reviewed. You can post once it is approved.'
+          : 'Verify your CNIC and address before posting a job.',
+      upgrade: '/parent/verify',
+    }
+  }
+
+  const ent = await getEntitlements(parentId)
+  const quota = checkQuota(ent, 'post a job', '/parent/packages')
+  if (!quota.ok) return quota
+
+  // A child must belong to the parent posting the job.
+  if (input.childId) {
+    const { data: child } = await supabase
+      .from('children')
+      .select('id')
+      .eq('id', input.childId)
+      .eq('parent_id', parentId)
+      .maybeSingle()
+    if (!child) return { ok: false, status: 400, error: 'That child is not on your account.' }
+  }
+
+  const labels = await subjectLabels(input.masterIds)
+  const jobTxId = newJobTxId()
+
+  const { data: job, error } = await supabase
+    .from('jobs')
+    .insert({
+      job_tx_id: jobTxId,
+      parent_id: parentId,
+      title: input.title.trim(),
+      class_level: input.classLevel,
+      city: input.city,
+      area: input.area ?? '',
+      teaching_mode: input.teachingMode,
+      budget_pkr: input.budgetPkr,
+      description: input.description,
+      child_id: input.childId,
+      status: 'open',
+      is_featured: !!ent.tagLabel,
+      // Denormalised copy for listings that have not moved to job_subjects.
+      subjects: labels,
+      // Legacy NOT NULL columns, mirrored until T8 removes them.
+      subject: labels.join(', ') || 'Tuition',
+      grade: input.classLevel ?? '',
+      budget: input.budgetPkr === null ? '' : String(input.budgetPkr),
+      timings: input.schedule ?? '',
+    })
+    .select('id, job_tx_id')
+    .single()
+
+  if (error) return { ok: false, status: 400, error: error.message }
+
+  const { error: linkError } = await supabase
+    .from('job_subjects')
+    .insert(input.masterIds.map((master_id) => ({ job_id: job.id, master_id })))
+
+  if (linkError) {
+    // Without its subjects a job cannot be matched to anyone, so it is worse
+    // than useless. Remove it rather than leave an unmatchable post behind.
+    await supabase.from('jobs').delete().eq('id', job.id)
+    return { ok: false, status: 400, error: linkError.message }
+  }
+
+  await spendQuota(parentId, 'jobs_posted')
+
+  await logActivity({
+    userId: parentId,
+    event: 'job_posted',
+    targetType: 'job',
+    targetId: job.id,
+    meta: { jobTxId, city: input.city, masterIds: input.masterIds, featured: !!ent.tagLabel },
+  })
+
+  return { ok: true, id: job.id as string, jobTxId: job.job_tx_id as string }
+}
+
+export async function updateJob(
+  parentId: string,
+  jobId: string,
+  input: JobInput,
+): Promise<{ ok: true } | Fail> {
+  const problem = validate(input)
+  if (problem) return { ok: false, status: 400, error: problem }
+
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from('jobs')
+    .select('id, parent_id, status')
+    .eq('id', jobId)
+    .maybeSingle()
+
+  if (!existing || existing.parent_id !== parentId) {
+    return { ok: false, status: 404, error: 'Job not found.' }
+  }
+  if (existing.status !== 'open') {
+    return { ok: false, status: 400, error: 'This job is closed and can no longer be edited.' }
+  }
+
+  const labels = await subjectLabels(input.masterIds)
+
+  const { error } = await supabase
+    .from('jobs')
+    .update({
+      title: input.title.trim(),
+      class_level: input.classLevel,
+      city: input.city,
+      area: input.area ?? '',
+      teaching_mode: input.teachingMode,
+      budget_pkr: input.budgetPkr,
+      description: input.description,
+      child_id: input.childId,
+      subjects: labels,
+      subject: labels.join(', ') || 'Tuition',
+      grade: input.classLevel ?? '',
+      budget: input.budgetPkr === null ? '' : String(input.budgetPkr),
+      timings: input.schedule ?? '',
+    })
+    .eq('id', jobId)
+
+  if (error) return { ok: false, status: 400, error: error.message }
+
+  // Editing does not re-check quota: the post was already paid for. Subjects
+  // are replaced wholesale so a removed subject really is removed.
+  await supabase.from('job_subjects').delete().eq('job_id', jobId)
+  await supabase
+    .from('job_subjects')
+    .insert(input.masterIds.map((master_id) => ({ job_id: jobId, master_id })))
+
+  await logActivity({
+    userId: parentId,
+    event: 'job_edited',
+    targetType: 'job',
+    targetId: jobId,
+    meta: { masterIds: input.masterIds },
+  })
+
+  return { ok: true }
+}
+
+export async function closeJob(parentId: string, jobId: string): Promise<{ ok: true } | Fail> {
+  const supabase = await createClient()
+
+  const { data: job } = await supabase
+    .from('jobs')
+    .select('id, parent_id, status, title')
+    .eq('id', jobId)
+    .maybeSingle()
+
+  if (!job || job.parent_id !== parentId) {
+    return { ok: false, status: 404, error: 'Job not found.' }
+  }
+  if (job.status !== 'open') return { ok: true }
+
+  const { error } = await supabase
+    .from('jobs')
+    .update({ status: 'closed', closed_at: new Date().toISOString() })
+    .eq('id', jobId)
+
+  if (error) return { ok: false, status: 400, error: error.message }
+
+  // Everyone who applied deserves to know the job is gone rather than being
+  // left waiting on a post that will never be answered.
+  const admin = createAdminClient()
+  if (admin) {
+    const { data: applicants } = await admin
+      .from('applications')
+      .select('tutor_id')
+      .eq('job_id', jobId)
+      .is('withdrawn_at', null)
+
+    await notifyMany(
+      (applicants ?? []).map((a) => a.tutor_id as string),
+      {
+        kind: 'job_closed',
+        title: 'A job you applied for was closed',
+        body: job.title as string,
+        href: '/tutor/dashboard/jobs',
+      },
+    )
+  }
+
+  await logActivity({ userId: parentId, event: 'job_closed', targetType: 'job', targetId: jobId })
+
+  return { ok: true }
+}
+
+/**
+ * Mark an applicant hired.
+ *
+ * parent_featured only. This is the single most valuable thing Featured buys,
+ * so the check is here, in the code path, and the UI merely reflects it.
+ */
+export async function hireApplicant(
+  parentId: string,
+  applicationId: string,
+): Promise<{ ok: true; tutorId: string } | Fail> {
+  const supabase = await createClient()
+
+  const { data: application } = await supabase
+    .from('applications')
+    .select('id, job_id, tutor_id, status, withdrawn_at')
+    .eq('id', applicationId)
+    .maybeSingle()
+
+  if (!application) return { ok: false, status: 404, error: 'Application not found.' }
+  if (application.withdrawn_at) {
+    return { ok: false, status: 400, error: 'That tutor has withdrawn their application.' }
+  }
+
+  const { data: job } = await supabase
+    .from('jobs')
+    .select('id, parent_id, status, title, job_tx_id')
+    .eq('id', application.job_id as string)
+    .maybeSingle()
+
+  if (!job || job.parent_id !== parentId) {
+    return { ok: false, status: 404, error: 'Job not found.' }
+  }
+  if (job.status === 'hired') {
+    return { ok: false, status: 400, error: 'This job already has a hired tutor.' }
+  }
+
+  const ent = await getEntitlements(parentId)
+  if (!ent.canHire) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Completing a hire is a Featured feature. Upgrade to hire this tutor.',
+      upgrade: '/parent/packages',
+    }
+  }
+
+  const now = new Date().toISOString()
+
+  const { error: appError } = await supabase
+    .from('applications')
+    .update({ status: 'hired' })
+    .eq('id', applicationId)
+  if (appError) return { ok: false, status: 400, error: appError.message }
+
+  const { error: jobError } = await supabase
+    .from('jobs')
+    .update({
+      status: 'hired',
+      hired_tutor_id: application.tutor_id,
+      hired_at: now,
+      closed_at: now,
+    })
+    .eq('id', job.id)
+  if (jobError) return { ok: false, status: 400, error: jobError.message }
+
+  const admin = createAdminClient()
+  if (admin) {
+    // Everyone else is rejected in one statement, and told. Leaving other
+    // applicants on "applied" forever is how a marketplace loses its tutors.
+    const { data: others } = await admin
+      .from('applications')
+      .select('id, tutor_id')
+      .eq('job_id', job.id)
+      .neq('id', applicationId)
+      .is('withdrawn_at', null)
+      .in('status', ['applied', 'shortlisted'])
+
+    if ((others ?? []).length > 0) {
+      await admin
+        .from('applications')
+        .update({ status: 'rejected' })
+        .in(
+          'id',
+          (others ?? []).map((o) => o.id as string),
+        )
+
+      await notifyMany(
+        (others ?? []).map((o) => o.tutor_id as string),
+        {
+          kind: 'job_filled',
+          title: 'A job you applied for has been filled',
+          body: job.title as string,
+          href: '/tutor/dashboard/jobs',
+        },
+      )
+
+      for (const o of others ?? []) {
+        await logActivity({
+          userId: o.tutor_id as string,
+          event: 'verification_decision_received',
+          targetType: 'application',
+          targetId: o.id as string,
+          meta: { outcome: 'job_filled', jobId: job.id },
+        })
+      }
+    }
+  }
+
+  await notify({
+    userId: application.tutor_id as string,
+    kind: 'hired',
+    title: 'You have been hired',
+    body: job.title as string,
+    href: '/tutor/dashboard/jobs',
+  })
+
+  await logActivity({
+    userId: parentId,
+    event: 'job_closed',
+    targetType: 'job',
+    targetId: job.id as string,
+    meta: { outcome: 'hired', tutorId: application.tutor_id },
+  })
+  await logActivity({
+    userId: application.tutor_id as string,
+    event: 'application_submitted',
+    targetType: 'application',
+    targetId: applicationId,
+    meta: { outcome: 'hired', jobId: job.id },
+  })
+
+  return { ok: true, tutorId: application.tutor_id as string }
+}
+
+/** Display labels for taxonomy_master ids, in taxonomy order. */
+export async function subjectLabels(masterIds: number[]): Promise<string[]> {
+  if (masterIds.length === 0) return []
+
+  const supabase = await createClient()
+  const { data: master } = await supabase
+    .from('taxonomy_master')
+    .select('id, level_slug, subject_slug')
+    .in('id', masterIds)
+
+  const levelSlugs = Array.from(new Set((master ?? []).map((m) => m.level_slug as string)))
+  const subjectSlugs = Array.from(
+    new Set((master ?? []).map((m) => m.subject_slug as string | null).filter(Boolean) as string[]),
+  )
+
+  const [{ data: levels }, { data: subjects }] = await Promise.all([
+    supabase.from('taxonomy_levels').select('slug, name').in('slug', levelSlugs),
+    subjectSlugs.length > 0
+      ? supabase.from('taxonomy_subjects').select('slug, name').in('slug', subjectSlugs)
+      : Promise.resolve({ data: [] as { slug: string; name: string }[] }),
+  ])
+
+  const levelName = new Map((levels ?? []).map((l) => [l.slug as string, l.name as string]))
+  const subjectName = new Map((subjects ?? []).map((s) => [s.slug as string, s.name as string]))
+
+  const out: string[] = []
+  for (const m of master ?? []) {
+    const subject = m.subject_slug ? subjectName.get(m.subject_slug as string) : null
+    // Level-leaves (Test Preparations, Sports & Games, Holy Quran) have no
+    // subject: the level itself is the item.
+    const label = subject ?? levelName.get(m.level_slug as string)
+    if (label && !out.includes(label)) out.push(label)
+  }
+  return out
+}

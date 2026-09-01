@@ -1,37 +1,34 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { closeJob } from '@/lib/jobs'
 
-export async function POST(req: Request) {
+// Close a job without hiring anyone.
+//
+// The version this replaced wrote `status: 'awarded'` into the legacy
+// parent_jobs table, took the tutor id straight from the request body, and
+// never checked that the caller owned the job -- so any signed-in user could
+// close anyone's job and name the winner. Ownership is now checked in
+// lib/jobs.ts, and awarding is a separate, Featured-only route.
+
+export async function POST(request: Request) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return NextResponse.json({ error: 'Sign in to close your job.' }, { status: 401 })
+
+  let body: { jobId?: string }
   try {
-    const { jobTxId, awardedTutorId } = await req.json()
-
-    if (!jobTxId || !awardedTutorId) {
-      return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 })
-    }
-
-    const supabase = await createClient()
-
-    // 1. Verify the user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // 2. Update the parent job status to 'closed' or 'awarded' and set the assigned tutor
-    const { error: updateError } = await supabase
-      .from('parent_jobs')
-      .update({
-        status: 'awarded',
-        awarded_tutor_id: awardedTutorId,
-        updated_at: new Date().toISOString()
-      })
-      .eq('job_tx_id', jobTxId)
-
-    if (updateError) throw updateError
-
-    return NextResponse.json({ success: true, message: 'Job successfully awarded and slot locked.' })
-  } catch (err: any) {
-    console.error('Error closing job:', err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
   }
+
+  if (!body.jobId) return NextResponse.json({ error: 'Missing job.' }, { status: 400 })
+
+  const result = await closeJob(user.id, body.jobId)
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+
+  return NextResponse.json({ success: true })
 }

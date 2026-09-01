@@ -1,267 +1,260 @@
-'use client'
-
-import { useState, useEffect, Suspense, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
+import { getEntitlements } from '@/lib/entitlements'
+import { logActivity } from '@/lib/activityLog'
+import { browseJobs, type JobFilters } from '@/lib/jobFeed'
+import JobCard from '@/components/JobCard'
+import AdSlot from '@/components/ads/AdSlot'
+import JobFilterBar, { type JobFilterValues } from './JobFilterBar'
 
-const CITIES = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Sialkot', 'Gujranwala']
+// /browse/tuitions -- the other half of the organic-search surface.
+//
+// Server component, results in the HTML, same SEO rule as /browse/tutors. The
+// ranking rule is the whole of the jobs spec: featured jobs first, then newest.
+//
+// Apply is shown to guests (who get the sign-in modal) and to tutors. It is
+// hidden from parents, who have no use for it, and every gate behind it is
+// re-checked in /api/applications regardless of what rendered here.
 
-function PublicBrowseTuitionsContent() {
-  const [tuitions, setTuitions] = useState<any[]>([])
-  const [filteredTuitions, setFilteredTuitions] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCity, setSelectedCity] = useState('')
-  const [selectedMode, setSelectedMode] = useState('')
+export const dynamic = 'force-dynamic'
 
-  const resultsRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
-  const searchParams = useSearchParams()
+const PAGE_SIZE = 12
+const AD_EVERY = 8
 
-  useEffect(() => {
-    const initialQuery = searchParams.get('subject') || ''
-    if (initialQuery) {
-      setSearchTerm(initialQuery)
+type SearchParams = Promise<Record<string, string | string[] | undefined>>
+
+function one(v: string | string[] | undefined): string {
+  return (Array.isArray(v) ? v[0] : v)?.trim() ?? ''
+}
+
+function intOrNull(v: string): number | null {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null
+}
+
+/** Display label for a taxonomy_master id. Uses the cacheable anon client. */
+async function subjectLabel(masterId: number | null): Promise<string | null> {
+  if (!masterId) return null
+  const supabase = createPublicClient()
+
+  const { data } = await supabase
+    .from('taxonomy_master')
+    .select('level_slug, subject_slug')
+    .eq('id', masterId)
+    .maybeSingle()
+  if (!data) return null
+
+  const [level, subject] = await Promise.all([
+    supabase.from('taxonomy_levels').select('name').eq('slug', data.level_slug).maybeSingle(),
+    data.subject_slug
+      ? supabase.from('taxonomy_subjects').select('name').eq('slug', data.subject_slug).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const levelName = level.data?.name ?? null
+  const subjectName = (subject.data as { name?: string } | null)?.name ?? null
+  if (subjectName && levelName) return `${levelName} ${subjectName}`
+  return subjectName ?? levelName
+}
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParams
+}): Promise<Metadata> {
+  const sp = await searchParams
+  const city = one(sp.city)
+  const label = await subjectLabel(intOrNull(one(sp.subject)))
+
+  const what = label ? `${label} tuition jobs` : 'Home tuition jobs'
+  const where = city ? ` in ${city}` : ' in Pakistan'
+  const title = `${what}${where} | TutorMint`
+  const description = label
+    ? `Open ${label} tuition jobs${where} posted by verified parents. Free to browse and apply on TutorMint.`
+    : `Open home and online tuition jobs${where} posted by verified parents. Free to browse and apply on TutorMint.`
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: city ? `/browse/tuitions?city=${encodeURIComponent(city)}` : '/browse/tuitions',
+    },
+    openGraph: { title, description, type: 'website' },
+  }
+}
+
+export default async function BrowseTuitionsPage({ searchParams }: { searchParams: SearchParams }) {
+  const sp = await searchParams
+
+  const subjectId = intOrNull(one(sp.subject))
+  const city = one(sp.city)
+  const mode = one(sp.mode)
+  const budgetMin = one(sp.budgetMin)
+  const budgetMax = one(sp.budgetMax)
+  const q = one(sp.q)
+  const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
+
+  const filters: JobFilters = {
+    masterId: subjectId,
+    city: city || null,
+    mode: mode || null,
+    budgetMin: intOrNull(budgetMin),
+    budgetMax: intOrNull(budgetMax),
+    q: q || null,
+  }
+
+  const { jobs, total } = await browseJobs(filters, PAGE_SIZE, (page - 1) * PAGE_SIZE)
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  let isTutor = false
+  let appliedIds = new Set<string>()
+
+  if (user) {
+    const ent = await getEntitlements(user.id)
+    isTutor = ent.audience === 'tutor'
+
+    if (isTutor && jobs.length > 0) {
+      const { data: mine } = await supabase
+        .from('applications')
+        .select('job_id')
+        .eq('tutor_id', user.id)
+        .in('job_id', jobs.map((j) => j.id))
+      appliedIds = new Set((mine ?? []).map((a) => a.job_id as string))
     }
-    fetchTuitions()
-  }, [])
 
-  const fetchTuitions = async () => {
-    setLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from('tuitions')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        // If table doesn't exist yet, provide sample live tuition jobs
-        setTuitions([
-          {
-            id: '1',
-            title: 'O-Level Mathematics & Physics Tutor Required',
-            city: 'Lahore',
-            area: 'DHA Phase 5',
-            mode: 'Physical',
-            budget: 'Rs. 35,000 / month',
-            description: 'Looking for an experienced female tutor for grade 9 O-Level student. 5 days a week.',
-            created_at: new Date().toISOString()
-          },
-          {
-            id: '2',
-            title: 'FSc Pre-Medical Chemistry Teacher',
-            city: 'Islamabad',
-            area: 'F-7',
-            mode: 'Online',
-            budget: 'Rs. 25,000 / month',
-            description: 'Need a qualified tutor for 1st year FSc chemistry preparation.',
-            created_at: new Date().toISOString()
-          },
-          {
-            id: '3',
-            title: 'Primary School Teacher for Class 4',
-            city: 'Karachi',
-            area: 'Clifton',
-            mode: 'School',
-            budget: 'Rs. 40,000 / month',
-            description: 'Reputed private school looking for a dedicated primary teacher.',
-            created_at: new Date().toISOString()
-          }
-        ])
-        setFilteredTuitions([
-          {
-            id: '1',
-            title: 'O-Level Mathematics & Physics Tutor Required',
-            city: 'Lahore',
-            area: 'DHA Phase 5',
-            mode: 'Physical',
-            budget: 'Rs. 35,000 / month',
-            description: 'Looking for an experienced female tutor for grade 9 O-Level student. 5 days a week.',
-            created_at: new Date().toISOString()
-          },
-          {
-            id: '2',
-            title: 'FSc Pre-Medical Chemistry Teacher',
-            city: 'Islamabad',
-            area: 'F-7',
-            mode: 'Online',
-            budget: 'Rs. 25,000 / month',
-            description: 'Need a qualified tutor for 1st year FSc chemistry preparation.',
-            created_at: new Date().toISOString()
-          },
-          {
-            id: '3',
-            title: 'Primary School Teacher for Class 4',
-            city: 'Karachi',
-            area: 'Clifton',
-            mode: 'School',
-            budget: 'Rs. 40,000 / month',
-            description: 'Reputed private school looking for a dedicated primary teacher.',
-            created_at: new Date().toISOString()
-          }
-        ])
-      } else if (data) {
-        setTuitions(data)
-        setFilteredTuitions(data)
-      }
-    } catch (err) {
-      console.error('Error fetching tuitions:', err)
-    } finally {
-      setLoading(false)
+    const filtered = !!(subjectId || city || mode || budgetMin || budgetMax || q)
+    if (filtered) {
+      await logActivity({
+        userId: user.id,
+        event: 'search_performed',
+        targetType: 'browse',
+        meta: {
+          surface: 'tuitions',
+          master_id: subjectId,
+          city: city || null,
+          mode: mode || null,
+          results: total,
+        },
+      })
     }
   }
 
-  const handleApplyFilters = () => {
-    let result = [...tuitions]
+  // Guests see Apply too -- pressing it is what opens the sign-in modal, which
+  // is the whole point of the "feels free" rule.
+  const showApply = !user || isTutor
 
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase()
-      result = result.filter(t => 
-        t.title?.toLowerCase().includes(q) ||
-        t.description?.toLowerCase().includes(q) ||
-        t.city?.toLowerCase().includes(q) ||
-        t.area?.toLowerCase().includes(q)
-      )
-    }
+  const label = await subjectLabel(subjectId)
+  const heading = label ? `${label} tuitions` : 'Open tuitions'
 
-    if (selectedCity) {
-      result = result.filter(t => t.city?.toLowerCase().includes(selectedCity.toLowerCase()))
-    }
-
-    if (selectedMode) {
-      result = result.filter(t => t.mode?.toLowerCase().includes(selectedMode.toLowerCase()))
-    }
-
-    setFilteredTuitions(result)
-    resultsRef.current?.scrollIntoView({ behavior: 'smooth' })
+  const filterValues: JobFilterValues = {
+    subject: subjectId ? String(subjectId) : '',
+    subjectLabel: label,
+    city,
+    mode,
+    budgetMin,
+    budgetMax,
+    q,
   }
 
-  const handleClearFilters = () => {
-    setSearchTerm('')
-    setSelectedCity('')
-    setSelectedMode('')
-    setFilteredTuitions(tuitions)
+  const pageHref = (n: number) => {
+    const params = new URLSearchParams()
+    for (const [k, v] of Object.entries({
+      subject: filterValues.subject,
+      city,
+      mode,
+      budgetMin,
+      budgetMax,
+      q,
+    })) {
+      if (v) params.set(k, v)
+    }
+    if (n > 1) params.set('page', String(n))
+    return params.toString() ? `/browse/tuitions?${params}` : '/browse/tuitions'
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] py-12 px-4 sm:px-12 text-[#1E293B] font-sans">
-      <div className="max-w-5xl mx-auto space-y-8">
-        
-        {/* Breadcrumb */}
-        <div className="text-xs font-bold text-gray-500 flex items-center gap-2 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs w-fit">
-          <Link href="/" className="hover:text-[#0F172A] transition-colors">Home</Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-blue-600">Find Tuitions / Jobs</span>
-        </div>
+    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <header className="space-y-1">
+          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">
+            {heading}
+            {city ? ` in ${city}` : ''}
+          </h1>
+          <p className="text-xs text-gray-500">
+            {total === 0
+              ? 'No open tuitions match these filters yet.'
+              : `${total} open tuition${total === 1 ? '' : 's'} · free to browse, no account needed`}
+          </p>
+        </header>
 
-        {/* Filter Box */}
-        <div className="bg-white p-6 sm:p-10 rounded-3xl shadow-sm border border-gray-200 space-y-6">
-          <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A]">Find Tuitions / Jobs</h1>
-            <p className="text-xs sm:text-sm text-gray-600 font-medium">Browse active tuition requirements posted by parents and school owners across Pakistan.</p>
-          </div>
+        <JobFilterBar values={filterValues} />
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <input 
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="🔍 Search title or keyword..."
-              className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl text-xs outline-none focus:border-[#0F172A] focus:bg-white text-[#1E293B] font-medium"
-            />
-            <select
-              value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
-              className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl text-xs outline-none font-semibold text-[#1E293B]"
+        {jobs.length === 0 ? (
+          <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-8 text-center">
+            <p className="text-sm font-black text-[#0F172A]">Nothing matches those filters</p>
+            <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
+              Try a wider budget or clear the subject filter. New tuitions are posted every day.
+            </p>
+            <Link
+              href="/browse/tuitions"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white"
             >
-              <option value="">All Cities</option>
-              {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <select
-              value={selectedMode}
-              onChange={(e) => setSelectedMode(e.target.value)}
-              className="p-4 bg-[#F8FAFC] border border-gray-200 rounded-2xl text-xs outline-none font-semibold text-[#1E293B]"
-            >
-              <option value="">All Modes</option>
-              <option value="Physical">Physical</option>
-              <option value="Online">Online</option>
-              <option value="School">School</option>
-            </select>
-          </div>
-
-          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-            <button onClick={handleClearFilters} className="text-xs font-bold text-gray-400 hover:text-[#d60008]">
-              Reset Filters
-            </button>
-            <button onClick={handleApplyFilters} className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md transition-all">
-              Search Jobs ➔
-            </button>
-          </div>
-        </div>
-
-        {/* Results Counter */}
-        <div ref={resultsRef} className="flex items-center justify-between px-2 pt-2">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-            Showing <span className="text-[#0F172A] font-black">{filteredTuitions.length}</span> active tuition jobs
-          </span>
-        </div>
-
-        {/* Tuitions List */}
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : filteredTuitions.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-3xl border border-gray-200 p-8 space-y-3 shadow-sm">
-            <h3 className="text-base font-black text-[#0F172A]">No Tuition Jobs Found</h3>
-            <p className="text-xs text-gray-500 font-medium">Check back soon for new parent requirements.</p>
+              Show all tuitions
+            </Link>
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredTuitions.map((job) => (
-              <div key={job.id} className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4 hover:border-blue-300 transition-all">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-[10px] font-extrabold rounded-md border border-blue-200 uppercase">
-                        {job.mode || 'Physical'}
-                      </span>
-                      <span className="text-xs text-gray-400 font-medium">📍 {job.area}, {job.city}</span>
-                    </div>
-                    <h3 className="text-lg font-black text-[#0F172A]">{job.title}</h3>
-                  </div>
-                  <span className="px-4 py-2 bg-emerald-50 text-emerald-800 text-xs font-black rounded-xl border border-emerald-200">
-                    {job.budget}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 font-medium leading-relaxed">{job.description}</p>
-                <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
-                  <span className="text-[11px] text-gray-400 font-mono">Posted recently</span>
-                  <a href="https://wa.me/923215872222" target="_blank" rel="noreferrer" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all">
-                    Apply for Job on WhatsApp ➔
-                  </a>
-                </div>
+            {jobs.map((job, i) => (
+              <div key={job.id} className="space-y-4">
+                <JobCard
+                  job={job}
+                  signedIn={!!user}
+                  showApply={showApply}
+                  applied={appliedIds.has(job.id)}
+                />
+                {(i + 1) % AD_EVERY === 0 && i + 1 < jobs.length && (
+                  <AdSlot audience="tutors" index={Math.floor(i / AD_EVERY)} />
+                )}
               </div>
             ))}
           </div>
         )}
 
+        {pages > 1 && (
+          <nav className="flex items-center justify-between gap-3 pt-2" aria-label="Pagination">
+            {page > 1 ? (
+              <Link
+                href={pageHref(page - 1)}
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#0F172A]"
+              >
+                Previous
+              </Link>
+            ) : (
+              <span />
+            )}
+            <span className="text-xs font-bold text-gray-500">
+              Page {page} of {pages}
+            </span>
+            {page < pages ? (
+              <Link
+                href={pageHref(page + 1)}
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-[#0F172A]"
+              >
+                Next
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        )}
       </div>
     </main>
-  )
-}
-
-export default function PublicBrowseTuitionsPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Loading jobs...
-        </div>
-      </div>
-    }>
-      <PublicBrowseTuitionsContent />
-    </Suspense>
   )
 }

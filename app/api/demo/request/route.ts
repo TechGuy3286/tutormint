@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { logActivity } from '@/lib/activityLog'
+import { notify } from '@/lib/notifications'
 
 // A parent asks a tutor for a free demo class.
 //
@@ -80,11 +81,25 @@ export async function POST(request: Request) {
 
   const { data: created, error } = await supabase
     .from('demo_requests')
-    .insert({ parent_id: user.id, tutor_id: tutorId, status: 'requested' })
+    .insert({
+      parent_id: user.id,
+      tutor_id: tutorId,
+      status: 'requested',
+      mode: body.mode === 'online' || body.mode === 'in_person' ? body.mode : null,
+      note: (body.note ?? '').trim() || null,
+    })
     .select('id')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  await notify({
+    userId: tutorId,
+    kind: 'demo_requested',
+    title: 'New demo request',
+    body: 'A parent has asked you for a free demo class.',
+    href: '/tutor/dashboard',
+  })
 
   await logActivity({
     userId: user.id,

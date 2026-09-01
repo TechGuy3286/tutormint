@@ -15,9 +15,11 @@ import type { BadgeName } from '@/lib/planBadges'
 // other end can actually hire. Only a Featured parent can complete a hire, so
 // `parentCanHire` is surfaced as plain words, not a colour.
 //
-// The Apply action belongs to T5 (quota checks, applications table), so
-// `onApply` is optional and browse leaves it off rather than rendering a
-// button that does nothing. Guests who do see it get the sign-in modal.
+// Applying happens here: guests get the sign-in modal with the job kept as a
+// draft, and a signed-in tutor's press goes straight to /api/applications,
+// which re-checks every gate (listed, not blocked, job open, not already
+// applied, quota). The button never decides anything -- it only reports what
+// the server said, including the upgrade path when the refusal is a quota one.
 
 export type JobCardData = {
   id: string
@@ -52,19 +54,47 @@ export default function JobCard({
   job,
   href,
   signedIn = false,
-  onApply,
+  showApply = false,
+  applied = false,
 }: {
   job: JobCardData
   href?: string
   signedIn?: boolean
-  onApply?: (jobId: string) => void
+  /** Rendered for tutors and guests; a parent browsing their own board has no use for it. */
+  showApply?: boolean
+  /** This tutor has already applied. */
+  applied?: boolean
 }) {
   const [gateOpen, setGateOpen] = useState(false)
-  const detailHref = href ?? `/browse/tuitions/${job.job_tx_id ?? job.id}`
+  const [state, setState] = useState<'idle' | 'sending' | 'done'>(applied ? 'done' : 'idle')
+  const [notice, setNotice] = useState<string | null>(null)
+  const [upgrade, setUpgrade] = useState<string | null>(null)
+  const detailHref = href ?? `/browse/tuitions?job=${job.job_tx_id ?? job.id}`
 
-  const apply = () => {
+  const apply = async () => {
     if (!signedIn) return setGateOpen(true)
-    onApply?.(job.id)
+    setState('sending')
+    setNotice(null)
+    setUpgrade(null)
+    try {
+      const res = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: job.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setNotice(json.error ?? 'Could not send your application.')
+        setUpgrade(json.upgrade ?? null)
+        setState('idle')
+        return
+      }
+      setState('done')
+      setNotice('Application sent.')
+    } catch {
+      setNotice('Could not send your application.')
+      setState('idle')
+    }
   }
 
   return (
@@ -148,16 +178,28 @@ export default function JobCard({
             >
               View details
             </Link>
-            {onApply && (
+            {showApply && (
               <button
                 type="button"
                 onClick={apply}
-                className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-[#d60008] px-4 text-xs font-bold text-white transition-colors hover:bg-red-700"
+                disabled={state !== 'idle'}
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-[#d60008] px-4 text-xs font-bold text-white transition-colors hover:bg-red-700 disabled:bg-gray-300"
               >
-                Apply
+                {state === 'done' ? 'Applied' : state === 'sending' ? 'Sending…' : 'Apply'}
               </button>
             )}
           </div>
+
+          {notice && (
+            <p className="text-[11px] font-semibold leading-snug text-[#334155]">
+              {notice}{' '}
+              {upgrade && (
+                <Link href={upgrade} className="font-bold text-[#d60008] underline">
+                  See options
+                </Link>
+              )}
+            </p>
+          )}
         </div>
       </article>
 

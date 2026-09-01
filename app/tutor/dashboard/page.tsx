@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Eye, TrendingUp, AlertTriangle, Info } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { computeCompletion } from '@/lib/completion'
 import { viewTeasers } from '@/lib/profileViews'
@@ -9,16 +10,15 @@ import { matchingJobsForTutor } from '@/lib/jobFeed'
 import ProfileCompletionWidget from '@/components/ProfileCompletionWidget'
 import BadgeRow from '@/components/badges/BadgeRow'
 import JobCard from '@/components/JobCard'
+import DemoInbox, { type DemoRow } from '@/app/parent/dashboard/DemoInbox'
 
 // The real tutor dashboard.
 //
 // What a tutor needs the moment they land: am I listed, what does my plan buy
 // me, is anyone looking at me, and is there work that matches. In that order.
 //
-// The Apply action is NOT here. Applications, quota spending and the
-// applications table are T5; a present-but-dead Apply button would be worse
-// than none, so matching jobs are shown as details-only until T5 wires the
-// real thing.
+// Applying is live from T5: the card posts to /api/applications, which
+// re-checks every gate. Demo requests from parents are answered here too.
 
 export const dynamic = 'force-dynamic'
 
@@ -43,10 +43,47 @@ export default async function TutorDashboardPage() {
   const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
   const listed = percent >= 100 && tutorProfile?.verification_status !== 'suspended'
 
-  const [{ teasers, total: viewTotal }, jobs] = await Promise.all([
-    viewTeasers(userId, ent.canSeeViewerIdentity),
-    matchingJobsForTutor(userId, tutorProfile?.city ?? null),
-  ])
+  const [{ teasers, total: viewTotal }, jobs, { data: myApps }, { data: demos }] =
+    await Promise.all([
+      viewTeasers(userId, ent.canSeeViewerIdentity),
+      matchingJobsForTutor(userId, tutorProfile?.city ?? null),
+      supabase.from('applications').select('job_id').eq('tutor_id', userId),
+      supabase
+        .from('demo_requests')
+        .select('id, parent_id, status, mode, proposed_time, decline_reason, created_at')
+        .eq('tutor_id', userId)
+        .order('created_at', { ascending: false }),
+    ])
+
+  const appliedIds = new Set((myApps ?? []).map((a) => a.job_id as string))
+
+  // Parent names come through the service-role client: `profiles` is self-read
+  // only, so a tutor cannot read the name of a parent who asked them for a
+  // demo with their own client. Only the first name crosses over.
+  const parentNames = new Map<string, string>()
+  const parentIds = Array.from(new Set((demos ?? []).map((d) => d.parent_id as string)))
+  if (parentIds.length > 0) {
+    const admin = createAdminClient()
+    if (admin) {
+      const { data: people } = await admin.from('profiles').select('id, full_name').in('id', parentIds)
+      for (const p of people ?? []) {
+        parentNames.set(p.id as string, ((p.full_name as string) ?? 'A parent').split(' ')[0])
+      }
+    }
+  }
+
+  const demoRows: DemoRow[] = (demos ?? []).map((d) => ({
+    id: d.id as string,
+    tutorId: userId,
+    tutorName: '',
+    tutorSlug: null,
+    parentName: parentNames.get(d.parent_id as string) ?? 'A parent',
+    status: d.status as DemoRow['status'],
+    mode: (d.mode as string) ?? null,
+    proposedTime: (d.proposed_time as string) ?? null,
+    declineReason: (d.decline_reason as string) ?? null,
+    createdAt: d.created_at as string,
+  }))
 
   const firstName = (session?.profile?.full_name ?? 'there').split(' ')[0]
 
@@ -240,11 +277,20 @@ export default async function TutorDashboardPage() {
           ) : (
             <div className="space-y-3">
               {jobs.map((job) => (
-                <JobCard key={job.id} job={job} href={`/tutor/dashboard/jobs#${job.id}`} />
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  href={`/browse/tuitions?job=${job.job_tx_id ?? job.id}`}
+                  signedIn
+                  showApply
+                  applied={appliedIds.has(job.id)}
+                />
               ))}
             </div>
           )}
         </section>
+
+        <DemoInbox role="tutor" demos={demoRows} />
       </div>
     </main>
   )

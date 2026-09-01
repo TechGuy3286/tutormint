@@ -215,3 +215,82 @@ export async function openJobs(limit = 50): Promise<JobCardData[]> {
 
   return decorate((data ?? []) as Record<string, unknown>[])
 }
+
+export type JobFilters = {
+  masterId: number | null
+  city: string | null
+  mode: string | null
+  budgetMin: number | null
+  budgetMax: number | null
+  q: string | null
+}
+
+/**
+ * The public tuition board.
+ *
+ * Ranking is the whole of the jobs rule from CLAUDE.md: featured jobs first,
+ * then newest. There is nothing to blend and nothing to tune -- a parent buys
+ * the top of this list, and a tutor should be able to predict what they are
+ * looking at.
+ *
+ * Filtering on subject compares taxonomy_master ids through job_subjects, so
+ * "O Levels Physics" matches only that, never "Physics" at Primary.
+ */
+export async function browseJobs(
+  filters: JobFilters,
+  limit = 12,
+  offset = 0,
+): Promise<{ jobs: JobCardData[]; total: number }> {
+  const supabase = await createClient()
+
+  let matchingIds: string[] | null = null
+  if (filters.masterId) {
+    const { data: links } = await supabase
+      .from('job_subjects')
+      .select('job_id')
+      .eq('master_id', filters.masterId)
+    matchingIds = Array.from(new Set((links ?? []).map((l) => l.job_id as string)))
+    if (matchingIds.length === 0) return { jobs: [], total: 0 }
+  }
+
+  const build = () => {
+    let q = supabase.from('jobs').select(JOB_COLUMNS, { count: 'exact' }).eq('status', 'open')
+    if (matchingIds) q = q.in('id', matchingIds)
+    if (filters.city) q = q.ilike('city', filters.city)
+    if (filters.mode) {
+      // "Both" satisfies a search for either mode, the same way it does for
+      // tutors -- a parent open to either should see both kinds of job.
+      q = q.or(`teaching_mode.ilike.${filters.mode},teaching_mode.ilike.Both`)
+    }
+    if (filters.budgetMin !== null) q = q.gte('budget_pkr', filters.budgetMin)
+    if (filters.budgetMax !== null) q = q.lte('budget_pkr', filters.budgetMax)
+    if (filters.q) q = q.ilike('title', `%${filters.q}%`)
+    return q
+  }
+
+  const { data, count } = await build()
+    .order('is_featured', { ascending: false })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  return {
+    jobs: await decorate((data ?? []) as Record<string, unknown>[]),
+    total: count ?? 0,
+  }
+}
+
+/** One job by its human id or uuid, for the detail view. */
+export async function jobByRef(ref: string): Promise<JobCardData | null> {
+  const supabase = await createClient()
+  const isUuid = /^[0-9a-f-]{36}$/i.test(ref)
+
+  const { data } = await supabase
+    .from('jobs')
+    .select(JOB_COLUMNS)
+    .eq(isUuid ? 'id' : 'job_tx_id', ref)
+    .maybeSingle()
+
+  if (!data) return null
+  const [job] = await decorate([data as Record<string, unknown>])
+  return job ?? null
+}

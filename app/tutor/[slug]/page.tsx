@@ -534,6 +534,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         signedIn={!!user}
         isSelf={isSelf}
         initiallySaved={saved}
+        canMessage={!ent || ent.audience !== 'tutor'}
       />
     </main>
   )

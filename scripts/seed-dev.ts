@@ -138,6 +138,8 @@ type ParentSpec = {
   plan: 'parent_featured' | null
   /** profiles.cnic_number is UNIQUE, so every verified parent needs its own. */
   cnic: string | null
+  /** Children, so a job can reference one and the dashboard has something to show. */
+  children?: { name: string; classLevel: string }[]
 }
 
 const TUTORS: TutorSpec[] = [
@@ -199,7 +201,16 @@ const TUTORS: TutorSpec[] = [
 
 const PARENTS: ParentSpec[] = [
   { name: 'unverified-zain', fullName: 'Zain Malik', city: 'Lahore', cnicVerified: false, addressVerified: false, plan: null, cnic: null },
-  { name: 'verified-fatima', fullName: 'Fatima Noor', city: 'Lahore', cnicVerified: true, addressVerified: true, plan: null, cnic: '35202-1000001-1' },
+  {
+    name: 'verified-fatima', fullName: 'Fatima Noor', city: 'Lahore',
+    cnicVerified: true, addressVerified: true, plan: null, cnic: '35202-1000001-1',
+    // Two children: enough to prove a job can be tied to one of several, and
+    // that the picker is not a single-child special case.
+    children: [
+      { name: 'Ayaan', classLevel: 'Grade 9 & 10 - Science' },
+      { name: 'Zoya', classLevel: 'Grade 1 to 5' },
+    ],
+  },
   { name: 'featured-ayesha', fullName: 'Ayesha Siddiqui', city: 'Karachi', cnicVerified: true, addressVerified: true, plan: 'parent_featured', cnic: '42101-1000002-2' },
   { name: 'verified-kamran', fullName: 'Kamran Butt', city: 'Islamabad', cnicVerified: true, addressVerified: true, plan: null, cnic: '61101-1000003-3' },
 ]
@@ -488,6 +499,16 @@ async function main() {
         .eq('id', id)
         .select('id'),
     )
+
+    for (const child of p.children ?? []) {
+      await must(
+        `child ${child.name} (${p.name})`,
+        db
+          .from('children')
+          .insert({ parent_id: id, name: child.name, class_level: child.classLevel })
+          .select('id'),
+      )
+    }
 
     if (p.plan) {
       await must(

@@ -1,121 +1,117 @@
-"use client";
+import Link from 'next/link'
+import { getSessionUser } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import BadgeRow from '@/components/badges/BadgeRow'
+import { badgesForPlan } from '@/lib/entitlements'
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+// Tutors this parent has actually hired.
+//
+// The version this replaced queried the legacy parent_jobs table and then read
+// the hired tutor's id and NAME out of localStorage keys (`hired_tutor_<id>`),
+// so the list existed only in the browser that made the hire and vanished when
+// site data was cleared. Hires are rows now: jobs.status='hired' with
+// jobs.hired_tutor_id.
 
-export default function HiredTutorsPage() {
-  const [hiredList, setHiredList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const supabase = createClient();
+export const dynamic = 'force-dynamic'
 
-  useEffect(() => {
-    fetchHiredTutors();
-  }, []);
+export default async function HiredTutorsPage() {
+  const session = await getSessionUser()
+  const userId = session!.user.id
+  const supabase = await createClient()
 
-  const fetchHiredTutors = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/parent/login');
-        return;
-      }
+  const { data: jobs } = await supabase
+    .from('jobs')
+    .select('id, job_tx_id, title, city, hired_tutor_id, hired_at')
+    .eq('parent_id', userId)
+    .eq('status', 'hired')
+    .order('hired_at', { ascending: false })
 
-      // Fetch closed/hired jobs for this parent
-      const { data: jobs, error } = await supabase
-        .from('parent_jobs')
-        .select('*')
-        .eq('parent_id', user.id);
+  // Tutor names come through the service-role client: tutor_profiles is
+  // owner-or-admin under RLS. Only public-profile fields cross over.
+  const admin = createAdminClient()
+  const tutors = new Map<string, { name: string; slug: string | null; plan: string | null; complete: boolean }>()
+  const tutorIds = Array.from(
+    new Set((jobs ?? []).map((j) => j.hired_tutor_id as string).filter(Boolean)),
+  )
 
-      if (error) throw error;
+  if (admin && tutorIds.length > 0) {
+    const [{ data: rows }, { data: subs }, { data: profiles }] = await Promise.all([
+      admin.from('tutor_profiles').select('id, full_name, slug').in('id', tutorIds),
+      admin
+        .from('subscriptions')
+        .select('user_id, plan_code')
+        .in('user_id', tutorIds)
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString()),
+      admin.from('profiles').select('id, profile_completion').in('id', tutorIds),
+    ])
 
-      // Extract hired tutors from local storage / job data mapping
-      const hiredTutorsData: any[] = [];
-      (jobs || []).forEach(job => {
-        const isClosed = job.status?.toLowerCase() === 'closed';
-        const hiredId = localStorage.getItem(`hired_tutor_${job.job_tx_id}`) || localStorage.getItem(`hired_tutor_${job.id}`);
-        const hiredName = localStorage.getItem(`hired_tutor_name_${job.job_tx_id}`) || localStorage.getItem(`hired_tutor_name_${job.id}`);
+    const planBy = new Map((subs ?? []).map((s) => [s.user_id as string, s.plan_code as string]))
+    const compBy = new Map(
+      (profiles ?? []).map((p) => [p.id as string, ((p.profile_completion as number) ?? 0) >= 100]),
+    )
 
-        if (isClosed || hiredId || hiredName) {
-          hiredTutorsData.push({
-            jobId: job.job_tx_id,
-            jobTitle: job.title,
-            subject: job.subject,
-            grade: job.grade,
-            budget: job.budget,
-            tutorName: hiredName || "Verified Hired Tutor",
-            tutorId: hiredId || "1",
-            dateClosed: job.updated_at || job.created_at
-          });
-        }
-      });
-
-      setHiredList(hiredTutorsData);
-    } catch (err) {
-      console.error("Error fetching hired tutors:", err);
-    } finally {
-      setLoading(false);
+    for (const t of rows ?? []) {
+      tutors.set(t.id as string, {
+        name: (t.full_name as string) ?? 'Tutor',
+        slug: (t.slug as string) ?? null,
+        plan: planBy.get(t.id as string) ?? null,
+        complete: compBy.get(t.id as string) ?? false,
+      })
     }
-  };
+  }
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-[#334155]">
-      <nav className="flex items-center space-x-2 text-xs font-bold text-gray-500 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
-        <Link href="/parent/dashboard" className="hover:text-[#0F172A] transition-colors">Parent Dashboard</Link>
-        <span className="text-gray-300">/</span>
-        <span className="text-[#059669]">Hired Tutors Directory</span>
-      </nav>
-
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A]">My Hired Tutors</h1>
-        <p className="text-xs sm:text-sm text-gray-600 font-medium">
-          Standalone directory of all tutors you have successfully hired across your closed job requirements.
-        </p>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-3 border-[#059669] border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      ) : hiredList.length === 0 ? (
-        <div className="bg-white p-12 rounded-3xl border border-gray-200 text-center space-y-3">
-          <p className="text-xs font-bold text-gray-500">You haven't hired any tutors yet.</p>
-          <Link href="/browse" className="inline-block px-5 py-2.5 bg-[#d60008] text-white text-xs font-bold rounded-xl shadow-md">
-            Browse & Hire Tutors ➔
+    <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
+      <div className="mx-auto max-w-2xl space-y-4">
+        <header className="space-y-1">
+          <Link href="/parent/dashboard" className="text-xs font-bold text-[#d60008] hover:underline">
+            ← Dashboard
           </Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {hiredList.map((item, idx) => (
-            <div key={idx} className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4 flex flex-col justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold rounded-full uppercase">
-                    {item.jobId}
-                  </span>
-                  <span className="px-2.5 py-0.5 bg-red-100 text-red-800 text-[10px] font-extrabold rounded-md uppercase">
-                    🎉 Hired
-                  </span>
-                </div>
-                <h3 className="text-base font-black text-[#0F172A]">{item.tutorName}</h3>
-                <p className="text-xs font-bold text-[#059669]">Job: {item.jobTitle}</p>
-                <p className="text-xs text-gray-600 font-medium">{item.subject} • {item.grade} • Budget: {item.budget}</p>
-              </div>
+          <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Hired tutors</h1>
+        </header>
 
-              <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                <button
-                  onClick={() => router.push(`/parent/dashboard/job/${item.jobId}`)}
-                  className="flex-1 px-4 py-2.5 bg-[#0F172A] hover:bg-black text-white text-xs font-bold rounded-xl transition-all text-center"
+        {(jobs ?? []).length === 0 ? (
+          <p className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-xs text-gray-400">
+            You have not hired anyone yet. Hire an applicant from one of your job posts.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {(jobs ?? []).map((j) => {
+              const t = tutors.get(j.hired_tutor_id as string)
+              return (
+                <li
+                  key={j.id as string}
+                  className="space-y-1 rounded-2xl border border-gray-200 bg-white p-4"
                 >
-                  💬 Open Chat & Details
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-xs font-black text-[#0F172A]">
+                      {t?.slug ? (
+                        <Link href={`/tutor/${t.slug}`} className="hover:underline">
+                          {t.name}
+                        </Link>
+                      ) : (
+                        (t?.name ?? 'Tutor')
+                      )}
+                    </span>
+                    {t && <BadgeRow badges={badgesForPlan(t.plan, t.complete)} size="sm" />}
+                  </div>
+                  <p className="text-[11px] text-gray-500">
+                    <Link href={`/parent/dashboard/job/${j.job_tx_id ?? j.id}`} className="hover:underline">
+                      {j.title as string}
+                    </Link>
+                    {j.city ? ` · ${j.city}` : ''}
+                    {j.hired_at
+                      ? ` · hired ${new Date(j.hired_at as string).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                      : ''}
+                  </p>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
     </main>
-  );
+  )
 }

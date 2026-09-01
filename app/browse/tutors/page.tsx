@@ -227,7 +227,12 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
           <div className="space-y-4">
             {tutors.map((t, i) => (
               <div key={t.id} className="space-y-4">
-                <TutorCard tutor={t} viewer={viewer} initiallySaved={saved.has(t.id)} />
+                <TutorCard
+                  tutor={t}
+                  viewer={viewer}
+                  initiallySaved={saved.has(t.id)}
+                  showMessage={!viewer.signedIn || viewer.role !== 'tutor'}
+                />
                 {/* One inline slot after every 8 results, never inside the
                     ranking itself. */}
                 {(i + 1) % AD_EVERY === 0 && i + 1 < tutors.length && (
