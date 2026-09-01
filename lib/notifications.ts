@@ -25,6 +25,12 @@ export type NotificationKind =
   | 'demo_declined'
   | 'demo_cancelled'
   | 'demo_feedback'
+  // T6 — money and plan lifecycle.
+  | 'plan_activated'
+  | 'plan_expiring'
+  | 'plan_expired'
+  | 'payment_submitted'
+  | 'payment_rejected'
 
 export async function notify(params: {
   userId: string

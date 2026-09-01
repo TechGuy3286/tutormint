@@ -215,6 +215,21 @@ const PARENTS: ParentSpec[] = [
   { name: 'verified-kamran', fullName: 'Kamran Butt', city: 'Islamabad', cnicVerified: true, addressVerified: true, plan: null, cnic: '61101-1000003-3' },
 ]
 
+// Staff accounts, one per admin_role below owner.
+//
+// The owner is a real person's account, set by SQL in 08_admin_bootstrap.sql
+// and never created here. These exist so the permission matrix can actually be
+// tested: "verifier is refused on /admin/payments" is only evidence if there is
+// a verifier to refuse. They carry no data of their own.
+type StaffSpec = { name: string; fullName: string; adminRole: 'manager' | 'verifier' | 'finance' | 'support' }
+
+const STAFF: StaffSpec[] = [
+  { name: 'manager', fullName: 'Manager Admin', adminRole: 'manager' },
+  { name: 'verifier', fullName: 'Verifier Admin', adminRole: 'verifier' },
+  { name: 'finance', fullName: 'Finance Admin', adminRole: 'finance' },
+  { name: 'support', fullName: 'Support Admin', adminRole: 'support' },
+]
+
 const emailFor = (name: string) => `${SEED_PREFIX}${name}${SEED_DOMAIN}`
 
 // ------------------------------------------------------------------ helpers
@@ -333,7 +348,28 @@ async function main() {
     if (error) die(`createUser ${p.name}: ${error.message}`)
     ids[p.name] = data.user.id
   }
-  console.log(`  created ${TUTORS.length} tutors + ${PARENTS.length} parents`)
+  for (const a of STAFF) {
+    const { data, error } = await db.auth.admin.createUser({
+      email: emailFor(a.name),
+      password: SEED_PASSWORD,
+      email_confirm: true,
+      user_metadata: { full_name: a.fullName },
+    })
+    if (error) die(`createUser ${a.name}: ${error.message}`)
+    ids[a.name] = data.user.id
+
+    // role and admin_role are deliberately NOT settable from signup metadata
+    // (14_handle_new_user.sql refuses), so they are written here with the
+    // service key -- the same way the owner's row is written by SQL.
+    await must(`staff profile (${a.name})`,
+      db.from('profiles').update({
+        role: 'admin',
+        admin_role: a.adminRole,
+        full_name: a.fullName,
+      }).eq('id', data.user.id))
+  }
+
+  console.log(`  created ${TUTORS.length} tutors + ${PARENTS.length} parents + ${STAFF.length} staff`)
 
   // ---- 3. flesh out tutor rows -------------------------------------------
   for (const t of TUTORS) {

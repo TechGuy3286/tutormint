@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { getViewerEntitlements } from '@/lib/entitlements'
+import { getProvider } from '@/lib/payments'
 import PackagesTable, { type PlanRow } from '@/components/PackagesTable'
 
-// Parent plan comparison. Same reasoning as the tutor page: the "Unlock with
-// Featured" row on a tutor profile has to land somewhere that tells the truth
-// about what Featured costs and what it does.
+// Parent plan comparison and checkout.
+//
+// Only one plan here is bought. Verified is free and earned by CNIC + address
+// approval, so its card links to verification rather than to a checkout --
+// selling something that is already free would be the worst kind of upsell.
 
 export const dynamic = 'force-dynamic'
 
@@ -15,15 +18,24 @@ export const metadata: Metadata = {
     'Verified and Featured plans for parents on TutorMint: job posting quotas, tutor contact access and hiring.',
 }
 
-export default async function ParentPackagesPage() {
+export default async function ParentPackagesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string }>
+}) {
+  const { plan: highlight } = await searchParams
+
   const supabase = await createClient()
   const { data } = await supabase
     .from('plans')
-    .select('code, name, price_pkr, displayed_quota, can_view_contact, can_whatsapp, can_initiate_message, can_hire, badges')
+    .select(
+      'code, name, price_pkr, monthly_quota, displayed_quota, can_view_contact, can_whatsapp, can_initiate_message, can_hire, can_see_viewer_identity, search_rank, badges, tag_label',
+    )
     .eq('audience', 'parent')
     .order('price_pkr')
 
   const ent = await getViewerEntitlements()
+  const provider = getProvider()
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
@@ -35,11 +47,16 @@ export default async function ParentPackagesPage() {
             details and the ability to complete a hire.
           </p>
         </header>
+
         <PackagesTable
           plans={(data ?? []) as PlanRow[]}
           audience="parent"
           currentPlan={ent?.plan ?? null}
+          expiresAt={ent?.expiresAt ?? null}
+          highlight={highlight ?? null}
           quotaNoun="job posts"
+          instantActivation={provider.id !== 'manual'}
+          signedIn={!!ent}
         />
       </div>
     </main>

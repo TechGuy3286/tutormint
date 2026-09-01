@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
+import { applyPlanFlags } from '@/lib/payments/activate'
 
 // Manual plan grant / revoke — the pre-launch testing tool.
 //
@@ -54,9 +55,13 @@ export async function POST(request: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-    // Featured tags follow the plan.
+    // Featured tags follow the plan. Nothing is deleted -- the tutor stays
+    // listed and the jobs stay open, they simply stop being promoted.
     if ((revoked ?? []).some((r) => r.plan_code === 'featured')) {
       await admin.from('tutor_profiles').update({ is_featured: false }).eq('id', userId)
+    }
+    if ((revoked ?? []).some((r) => r.plan_code === 'parent_featured')) {
+      await admin.from('jobs').update({ is_featured: false }).eq('parent_id', userId).eq('is_featured', true)
     }
 
     await logAdminAction({
@@ -122,9 +127,9 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  if (planCode === 'featured') {
-    await admin.from('tutor_profiles').update({ is_featured: true }).eq('id', userId)
-  }
+  // Same flag handling a purchase gets, so a granted plan and a bought plan
+  // leave the account in identical state.
+  await applyPlanFlags(userId, planCode)
 
   await logAdminAction({
     actorId: gate.actor.id, actorRole: gate.actor.adminRole,

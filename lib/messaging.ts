@@ -22,7 +22,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { renderMessageBody } from '@/lib/masking'
 import { logActivity } from '@/lib/activityLog'
-import { spendQuota } from '@/lib/quota'
+import { consumeQuota } from '@/lib/quota'
+import { upgradeHref } from '@/lib/upgradePath'
 import { notify } from '@/lib/notifications'
 
 export type ThreadSummary = {
@@ -93,7 +94,7 @@ export async function canStartThread(
         status: 403,
         error:
           'Your plan lets you reply to parents and apply for jobs. Upgrade to Premium to start a conversation.',
-        upgrade: '/tutor/packages',
+        upgrade: upgradeHref('tutor', ent.plan, 'premium'),
       }
     }
     return { ok: true }
@@ -161,7 +162,7 @@ export async function findOrCreateThread(params: {
     return { ok: false, status: 400, error: error.message }
   }
 
-  await spendQuota(actorId, 'messages_initiated')
+  await consumeQuota(actorId, 'message_initiation')
 
   return { ok: true, threadId: created.id as string, created: true }
 }

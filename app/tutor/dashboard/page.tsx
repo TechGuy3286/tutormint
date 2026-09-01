@@ -4,6 +4,7 @@ import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
+import { upgradeHref } from '@/lib/upgradePath'
 import { computeCompletion } from '@/lib/completion'
 import { viewTeasers } from '@/lib/profileViews'
 import { matchingJobsForTutor } from '@/lib/jobFeed'
@@ -200,7 +201,7 @@ export default async function TutorDashboardPage() {
           </dl>
 
           <Link
-            href="/tutor/packages"
+            href={upgradeHref('tutor', ent.plan)}
             className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white transition-colors hover:bg-[#1E293B] sm:w-auto"
           >
             {ent.plan ? 'Compare packages' : 'See packages'}
@@ -244,7 +245,7 @@ export default async function TutorDashboardPage() {
 
               {!ent.canSeeViewerIdentity && (
                 <Link
-                  href="/tutor/packages"
+                  href="/tutor/packages?plan=premium"
                   className="flex items-center gap-2 rounded-xl bg-[#FFFBEB] p-3 text-xs font-bold text-[#92400E]"
                 >
                   <TrendingUp size={14} />

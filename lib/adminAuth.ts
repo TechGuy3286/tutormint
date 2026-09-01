@@ -88,4 +88,10 @@ export const SCREEN_ACCESS = {
   // finance sees the plans screen read-only; only owner/manager may mutate.
   plans: ['manager', 'finance'] as AdminRole[],
   plansMutate: ['manager'] as AdminRole[],
+  // T6. Money is finance's job, so unlike the plans screen finance may both
+  // read and act here. verifier and support get neither -- a verifier who
+  // could approve a payment would be able to hand out plans, which is exactly
+  // the separation the roles exist to create.
+  payments: ['manager', 'finance'] as AdminRole[],
+  paymentsMutate: ['manager', 'finance'] as AdminRole[],
 }

@@ -69,7 +69,7 @@ export default async function PostJobPage() {
               the start of next month, or Featured raises it.
             </p>
             <Link
-              href="/parent/packages"
+              href="/parent/packages?plan=parent_featured"
               className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white"
             >
               See packages

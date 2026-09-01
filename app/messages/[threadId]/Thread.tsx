@@ -148,7 +148,7 @@ export default function Thread({
             <Lock size={14} className="mt-px shrink-0" />
             <span>
               Phone numbers are hidden in this conversation.{' '}
-              <Link href="/parent/packages" className="font-bold underline">
+              <Link href="/parent/packages?plan=parent_featured" className="font-bold underline">
                 Featured
               </Link>{' '}
               unlocks contact details once both sides can share them.

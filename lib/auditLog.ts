@@ -21,6 +21,9 @@ export type AuditAction =
   | 'parent.verify.reject'
   | 'plan.grant'
   | 'plan.revoke'
+  | 'payment.approve'
+  | 'payment.reject'
+  | 'settings.update'
 
 export async function logAdminAction(params: {
   actorId: string

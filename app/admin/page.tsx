@@ -27,6 +27,12 @@ export default async function AdminHome() {
       body: 'Grant or revoke a plan on any account. Pre-launch testing tool.',
       allowed: SCREEN_ACCESS.plans,
     },
+    {
+      href: '/admin/payments',
+      title: 'Payments',
+      body: 'Approve bank and wallet transfers, and see every subscription with its expiry and real quota usage.',
+      allowed: SCREEN_ACCESS.payments,
+    },
   ].filter((c) => roleSatisfies(actor.adminRole, c.allowed))
 
   return (

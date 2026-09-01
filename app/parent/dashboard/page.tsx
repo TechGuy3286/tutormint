@@ -179,7 +179,7 @@ export default async function ParentDashboardPage() {
           )}
 
           <Link
-            href="/parent/packages"
+            href={ent.canHire ? '/parent/packages' : '/parent/packages?plan=parent_featured'}
             className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white sm:w-auto"
           >
             {ent.canHire ? 'Compare packages' : 'See what Featured adds'}

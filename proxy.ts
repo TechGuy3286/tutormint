@@ -19,7 +19,10 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PROTECTED = ['/tutor/dashboard', '/parent/dashboard', '/admin']
+// /pay/* is the checkout journey (gateway hand-off, transfer instructions,
+// return screen). Every page under it reads the signed-in member's own
+// payment row, so an anonymous hit has nothing to show and belongs at /login.
+const PROTECTED = ['/tutor/dashboard', '/parent/dashboard', '/admin', '/pay']
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })

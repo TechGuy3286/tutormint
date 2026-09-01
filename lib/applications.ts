@@ -20,7 +20,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
-import { checkQuota, spendQuota } from '@/lib/quota'
+import { checkQuota, consumeQuota } from '@/lib/quota'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 
@@ -101,7 +101,7 @@ export async function applyToJob(params: {
   }
 
   // 5. Quota
-  const quota = checkQuota(ent, 'apply for jobs', '/tutor/packages')
+  const quota = checkQuota(ent, 'job_application')
   if (!quota.ok) return quota
 
   const { data: created, error } = await supabase
@@ -117,7 +117,7 @@ export async function applyToJob(params: {
 
   if (error) return { ok: false, status: 400, error: error.message }
 
-  await spendQuota(params.tutorId, 'jobs_applied')
+  await consumeQuota(params.tutorId, 'job_application')
 
   await notify({
     userId: job.parent_id as string,

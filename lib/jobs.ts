@@ -18,7 +18,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
-import { checkQuota, spendQuota } from '@/lib/quota'
+import { checkQuota, consumeQuota } from '@/lib/quota'
+import { upgradeHref } from '@/lib/upgradePath'
 import { logActivity } from '@/lib/activityLog'
 import { notify, notifyMany } from '@/lib/notifications'
 
@@ -83,7 +84,7 @@ export async function createJob(
   }
 
   const ent = await getEntitlements(parentId)
-  const quota = checkQuota(ent, 'post a job', '/parent/packages')
+  const quota = checkQuota(ent, 'job_post')
   if (!quota.ok) return quota
 
   // A child must belong to the parent posting the job.
@@ -139,7 +140,7 @@ export async function createJob(
     return { ok: false, status: 400, error: linkError.message }
   }
 
-  await spendQuota(parentId, 'jobs_posted')
+  await consumeQuota(parentId, 'job_post')
 
   await logActivity({
     userId: parentId,
@@ -305,7 +306,7 @@ export async function hireApplicant(
       ok: false,
       status: 403,
       error: 'Completing a hire is a Featured feature. Upgrade to hire this tutor.',
-      upgrade: '/parent/packages',
+      upgrade: upgradeHref('parent', ent.plan, 'parent_featured'),
     }
   }
 

@@ -20,6 +20,7 @@ const NAV: { href: string; label: string; icon: string; allowed: AdminRole[] }[]
   { href: '/admin/tutors', label: 'Tutors', icon: '🎓', allowed: SCREEN_ACCESS.tutors },
   { href: '/admin/parents', label: 'Parents', icon: '👪', allowed: SCREEN_ACCESS.parents },
   { href: '/admin/plans', label: 'Plans', icon: '💳', allowed: SCREEN_ACCESS.plans },
+  { href: '/admin/payments', label: 'Payments', icon: '💰', allowed: SCREEN_ACCESS.payments },
 ]
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -36,7 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="min-h-screen bg-[#F8FAFC] text-[#334155]">
       <header className="bg-[#0F172A] text-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <Link href="/admin" className="font-black text-sm">
+          <Link href="/admin" className="flex min-h-[44px] items-center font-black text-sm">
             Tutor<span className="text-[#d60008]">Mint</span>
             <span className="ml-2 text-[10px] uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded">
               Admin

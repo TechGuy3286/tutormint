@@ -359,7 +359,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                 Phone and WhatsApp are hidden
               </p>
               <Link
-                href="/parent/packages"
+                href="/parent/packages?plan=parent_featured"
                 className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#F59E0B] px-4 text-xs font-black text-[#0F172A]"
               >
                 Unlock with Featured

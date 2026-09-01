@@ -37,10 +37,16 @@ const EXPECTED_TABLES: Record<string, string[]> = {
     'displayed_quota', 'can_view_contact', 'can_whatsapp', 'can_initiate_message',
     'search_rank', 'badges', 'tag_label',
   ],
-  subscriptions: ['id', 'user_id', 'plan_code', 'starts_at', 'expires_at', 'status', 'payment_id'],
+  subscriptions: [
+    'id', 'user_id', 'plan_code', 'starts_at', 'expires_at', 'status', 'payment_id',
+    'source', 'granted_by', 'note',
+    'reminded_at', // T6 — makes the daily expiry cron idempotent
+  ],
   payments: [
     'id', 'user_id', 'plan_code', 'amount_pkr', 'method', 'reference',
     'screenshot_path', 'status', 'reviewed_by', 'reviewed_at', 'created_at',
+    // T6
+    'provider', 'provider_ref', 'rejection_reason', 'updated_at', 'raw',
   ],
   usage_counters: ['user_id', 'period', 'jobs_applied', 'jobs_posted', 'messages_initiated'],
   jobs: [
@@ -58,6 +64,8 @@ const EXPECTED_TABLES: Record<string, string[]> = {
   tutor_subjects: ['tutor_id', 'master_id'],
   job_subjects: ['job_id', 'master_id'],
   user_documents: ['id', 'user_id', 'kind', 'original_path', 'preview_path', 'created_at'],
+  // T6 — manual-transfer account details, admin-editable without a deploy.
+  app_settings: ['key', 'value', 'updated_at', 'updated_by'],
 }
 
 const EXPECTED_PLANS = ['verified', 'premium', 'featured', 'parent_verified', 'parent_featured']
@@ -72,6 +80,8 @@ const EXPECTED_TAXONOMY: Record<string, number> = {
 const EXPECTED_BUCKETS: Record<string, boolean> = {
   avatars: true,
   'identity-docs': false,
+  // T6 — a payment receipt shows an account number and usually a name.
+  'payment-proofs': false,
 }
 
 function dbUrl(): string {
