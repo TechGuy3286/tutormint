@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import BadgeRow from '@/components/badges/BadgeRow'
 import { badgesForPlan } from '@/lib/entitlements'
+import { reviewableEngagements } from '@/lib/reviews'
+import ReviewForm from '@/components/ReviewForm'
 
 // Tutors this parent has actually hired.
 //
@@ -19,6 +21,8 @@ export default async function HiredTutorsPage() {
   const session = await getSessionUser()
   const userId = session!.user.id
   const supabase = await createClient()
+
+  const reviewable = await reviewableEngagements(userId)
 
   const { data: jobs } = await supabase
     .from('jobs')
@@ -106,6 +110,19 @@ export default async function HiredTutorsPage() {
                       ? ` · hired ${new Date(j.hired_at as string).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}`
                       : ''}
                   </p>
+
+                  {/* Offered only where it has been earned and not yet used. */}
+                  {reviewable.reviewedJobIds.has(j.id as string) ? (
+                    <p className="text-[11px] font-bold text-[#059669]">You reviewed this tutor</p>
+                  ) : (
+                    <div className="pt-1">
+                      <ReviewForm
+                        tutorId={j.hired_tutor_id as string}
+                        tutorName={t?.name ?? 'this tutor'}
+                        jobId={j.id as string}
+                      />
+                    </div>
+                  )}
                 </li>
               )
             })}

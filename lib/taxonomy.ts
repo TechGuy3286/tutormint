@@ -182,3 +182,40 @@ export async function labelsForMasterIds(ids: number[]): Promise<string[]> {
   const set = new Set(ids)
   return rows.filter((r) => set.has(r.id)).map((r) => (r.subject ? `${r.level} — ${r.subject}` : r.level))
 }
+
+/**
+ * The reverse of resolveMasterIds: turn stored taxonomy_master ids back into
+ * the cascade selection that produced them.
+ *
+ * The job edit form needs this. Without it the subject step opened empty on
+ * every edit, so a parent changing only the budget had to re-pick their
+ * subjects from scratch -- and if they did not notice, the form submitted
+ * whatever was on screen.
+ *
+ * A job's subjects all come from one pass through the cascade, so they share a
+ * category and level; the first row decides those and the rest contribute
+ * subjects. Ids from more than one level (only reachable by editing the URL or
+ * by a future multi-level picker) collapse to the first level's, which is the
+ * honest thing to show for a single-cascade form.
+ */
+export async function selectionForMasterIds(
+  ids: number[],
+): Promise<{ category: string; level: string; subjects: string[]; isLevelLeaf: boolean }> {
+  const empty = { category: '', level: '', subjects: [], isLevelLeaf: false }
+  if (ids.length === 0) return empty
+
+  const { rows } = await load()
+  const set = new Set(ids)
+  const mine = rows.filter((r) => set.has(r.id))
+  if (mine.length === 0) return empty
+
+  const { category, level } = mine[0]
+  const inLevel = mine.filter((r) => r.category === category && r.level === level)
+
+  return {
+    category,
+    level,
+    subjects: inLevel.map((r) => r.subject).filter(Boolean) as string[],
+    isLevelLeaf: inLevel.some((r) => r.isLevelLeaf),
+  }
+}

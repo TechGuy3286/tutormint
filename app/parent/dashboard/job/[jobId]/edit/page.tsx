@@ -10,10 +10,11 @@ import JobForm from '../../../post-job/JobForm'
 // post was already paid for -- and a closed or filled job cannot be edited at
 // all, which is checked here and again in lib/jobs.ts.
 //
-// The subject cascade cannot be pre-selected from stored master ids without a
-// reverse lookup through the taxonomy, so the category/level/subject step
-// starts empty and must be re-chosen. That is deliberate for now rather than
-// silently keeping stale subjects: the form always submits what is on screen.
+// The subject cascade opens on the job's current subjects: the stored
+// taxonomy_master ids are resolved back into category / level / subject by
+// selectionForMasterIds(). Before that, the step opened empty, so a parent
+// editing only the budget had to re-pick their subjects -- and if they did not
+// notice, the form submitted whatever was on screen.
 
 export const dynamic = 'force-dynamic'
 
@@ -35,11 +36,14 @@ export default async function EditJobPage({ params }: { params: Promise<{ jobId:
   if (!job || job.parent_id !== userId) notFound()
   if (job.status !== 'open') redirect(`/parent/dashboard/job/${job.job_tx_id ?? job.id}`)
 
-  const { data: children } = await supabase
-    .from('children')
-    .select('id, name, class_level')
-    .eq('parent_id', userId)
-    .order('created_at')
+  const [{ data: children }, { data: subjectLinks }] = await Promise.all([
+    supabase
+      .from('children')
+      .select('id, name, class_level')
+      .eq('parent_id', userId)
+      .order('created_at'),
+    supabase.from('job_subjects').select('master_id').eq('job_id', job.id),
+  ])
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 sm:py-8 lg:px-8">
@@ -62,6 +66,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ jobId:
           children={children ?? []}
           initial={{
             jobId: job.id as string,
+            masterIds: (subjectLinks ?? []).map((l) => l.master_id as number),
             title: (job.title as string) ?? '',
             classLevel: (job.class_level as string) ?? '',
             city: (job.city as string) ?? '',

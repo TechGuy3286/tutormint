@@ -96,7 +96,7 @@ Delete: the whole Mongo layer, `/parent/browse`, `/parent/post-job`, `/parent/si
 - [ ] **T5 Parent side** — post job (quota-checked), job detail + applicants, hire flow writes `jobs.status`, `/browse/tuitions`, chat on `threads/messages`.
 - [ ] **T6 Packages** — `/tutor/packages`, `/parent/packages`, payment submission, `lib/entitlements.ts`, badges + Featured tag on `TutorCard` and job cards, contact-field filtering, `usage_counters`, expiry downgrade function (pg_cron or Vercel cron).
 - [ ] **T7 Admin** — layout gate, tutor verification queue (video / CNIC / degrees), parent verification queue, payments approval, quota usage view, YouTube visibility toggle.
-- [ ] **T8 Hardening** — RLS audit, `.env` on Vercel, remove every `techguy3286@gmail.com` / test phone fallback, `npm run build` clean. **SMS/WhatsApp provider for phone OTP** — `lib/sms.ts` is a provider interface with a dev-console implementation only; production returns a failure rather than pretending a code was sent, so phone verification does not work in production until a real provider is wired in. **`SUPABASE_SERVICE_ROLE_KEY` must be added to the Vercel environment** — the OTP route and document previews need it server-side.
+- [ ] **T8 Hardening** — RLS audit, `.env` on Vercel, remove every `techguy3286@gmail.com` / test phone fallback, `npm run build` clean.
 
 ## Design system & responsiveness (applies to every task)
 
@@ -195,7 +195,7 @@ Existing tables: academy_affiliations, advertisements, demo_feedback, job_messag
 - v2 (backlog, not now): tutor uploads recording of an online demo → YouTube (unlisted) → shown on profile after admin approval.
 
 **Growth mechanics**
-- Profile-view teaser: tutor dashboard shows anonymised viewer events from profile_views ("A parent searching O-Level Physics in <area> viewed your profile") with identity blurred. Identity is revealed to PREMIUM and FEATURED tutors; free and verified tutors see the anonymised teaser plus the upgrade prompt. This is the primary upsell surface, and it is a separate power from contact visibility (which stays featured-only) — `plans.can_see_viewer_identity` carries it.
+- Profile-view teaser: tutor dashboard shows anonymised viewer events from profile_views ("A parent searching O-Level Physics in <area> viewed your profile") with identity blurred; upgrading to premium/featured reveals viewer name/job link. This is the primary upsell surface.
 - advertisements table stays. Admin-managed rotating ad slots: default = TutorMint house ads; future = paid academy/school ads and "top rated tutor" promos shown to parents. Build the rotation widget + admin CRUD in T7.
 
 **Task reorder**
@@ -274,9 +274,23 @@ Implement as a SQL view or function (rank inputs computable in one query); the b
 
 ## Member activity timeline (spec now; events logged from T3 onward; admin UI in T7)
 
-- user_activity_log (id, user_id, event text, target_type, target_id, meta jsonb, created_at). Written via lib/activityLog.ts logActivity() from server code paths only. RLS: user reads own; admins (owner/manager/support) read all; no updates/deletes.
+- user_activity_log (id, user_id, event text, target_type, target_id, meta jsonb, created_at). Written via lib/activity.ts logActivity() from server code paths only. RLS: user reads own; admins (owner/manager/support) read all; no updates/deletes.
 - Events: registered, login, otp_verified, profile_updated, completion_changed, subjects_changed, document_uploaded, video_submitted, job_posted/edited/closed, application_submitted/withdrawn, demo_requested/accepted/declined/completed, message_sent (thread id only — never message content), shortlist_added/removed, plan_purchased/expired, block/report given and received, verification decisions received.
 - Every task from T3 onward MUST log its events through this helper as the feature is built (add to each task's checklist).
 - Admin UI (T7): members list → member detail page = profile summary + verification state + plan/subscription history + filterable event timeline (newest first), alongside admin_audit_log entries targeting that member.
 - Privacy line: message CONTENT is admin-readable only through the reports queue when a participant reports the thread; there is no general chat-browsing screen. Timeline shows message events, never bodies.
 - Legacy tutor_activities is superseded; migrate/rename in T8.
+
+## Member activity timeline (logging from T3.5; screen in T7)
+
+- activity_log (id, user_id, event_type, target_type, target_id, metadata jsonb, created_at). lib/activityLog.ts logActivity() called from server code on: register, login, profile update, otp_verified, doc_uploaded, video_submitted (attempt #), subjects_changed, job posted/edited/closed, applied, application_withdrawn, hired/was_hired, message_sent (thread ref only — never message text in metadata), demo requested/accepted/completed, plan purchased/expired, payment submitted, report filed/received, block created/received, suspended/unsuspended. Every feature built after T3.5 MUST instrument its mutations.
+- /admin/users/[id] (T7): profile summary + filterable event timeline + linked objects (their jobs, applications, payments, subscriptions, reports, admin_audit_log entries about them). Clicking a member anywhere in admin routes here.
+- Message content never renders in the timeline; thread links only (thread content access stays governed by the reports/admin policy).
+- Visibility: owner/manager/support full timelines; verifier and finance only via their queue contexts. RLS: inserts via server path; admins read; no update/delete.
+- Legacy tutor_activities table: migrate any useful rows into activity_log in T7, then legacy_* rename in T8.
+
+## Homepage is LOCKED (partner-approved design)
+
+- Reference: design/reference/homepage.png. app/page.tsx must match it: logo header, pill "PAKISTAN'S LARGEST VERIFIED TUTORS & TEACHERS NETWORK", green "HIRE", headline "Trusted, Degree-Verified Tutors/Teachers FREE" (FREE in brand red), red italic subline, the two large buttons (green "Find Tutors / Teachers" → /browse/tutors, blue "Find Tuitions / Jobs" → /browse/tuitions), dark footer with the four link columns + social icons + WhatsApp bubble.
+- Permitted changes only: link targets, mobile responsiveness (stack the two buttons on <640px), generateMetadata/SEO, and accessibility fixes. NO new sections, no ads slot, no featured-tutor strip, no copy changes without an explicit owner instruction in the prompt.
+- The earlier "homepage featured strip" idea is dropped; featured prominence lives on /browse/tutors ranking only.

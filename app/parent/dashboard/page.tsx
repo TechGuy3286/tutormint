@@ -8,6 +8,7 @@ import { computeCompletion } from '@/lib/completion'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import ProfileCompletionWidget from '@/components/ProfileCompletionWidget'
+import { reviewableEngagements } from '@/lib/reviews'
 import ChildrenManager, { type Child } from './ChildrenManager'
 import DemoInbox, { type DemoRow } from './DemoInbox'
 
@@ -90,6 +91,8 @@ export default async function ParentDashboardPage() {
   const firstName = (profile?.full_name ?? 'there').split(' ')[0]
   const openJobs = (jobs ?? []).filter((j) => j.status === 'open')
 
+  const reviewable = await reviewableEngagements(userId)
+
   const demoRows: DemoRow[] = (demos ?? []).map((d) => ({
     id: d.id as string,
     tutorId: d.tutor_id as string,
@@ -100,6 +103,7 @@ export default async function ParentDashboardPage() {
     proposedTime: (d.proposed_time as string) ?? null,
     declineReason: (d.decline_reason as string) ?? null,
     createdAt: d.created_at as string,
+    reviewed: reviewable.reviewedDemoIds.has(d.id as string),
   }))
 
   return (

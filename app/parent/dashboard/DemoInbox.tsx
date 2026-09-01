@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import ReviewForm from '@/components/ReviewForm'
 
 // Demo requests, from either side.
 //
@@ -27,6 +28,8 @@ export type DemoRow = {
   declineReason: string | null
   createdAt: string
   feedbackLeft?: boolean
+  /** True once this demo has been turned into a public review. */
+  reviewed?: boolean
 }
 
 const BTN =
@@ -262,6 +265,16 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                     </button>
                   )}
                 </div>
+              )}
+
+              {/* A completed demo also earns a public review on the tutor's
+                  profile. Feedback above is private to the pair; this is not. */}
+              {role === 'parent' && d.status === 'completed' && (
+                d.reviewed ? (
+                  <p className="text-[11px] font-bold text-[#059669]">You reviewed this tutor</p>
+                ) : (
+                  <ReviewForm tutorId={d.tutorId} tutorName={d.tutorName} demoRequestId={d.id} />
+                )
               )}
             </li>
           )

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TaxonomySelector from '@/components/TaxonomySelector'
-import { isLevelLeaf, resolveMasterIds } from '@/lib/taxonomy'
+import { isLevelLeaf, resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
 import { CITIES, CITY_AREAS, TEACHING_MODES } from '@/lib/locations'
 import { takeDraft, saveDraft } from '@/components/AuthGateModal'
 
@@ -21,6 +21,8 @@ import { takeDraft, saveDraft } from '@/components/AuthGateModal'
 
 export type JobFormValues = {
   jobId?: string
+  /** Stored taxonomy_master ids, resolved back into the cascade on mount. */
+  masterIds?: number[]
   title: string
   category: string
   level: string
@@ -68,12 +70,39 @@ export default function JobForm({
   const [error, setError] = useState<string | null>(null)
   const [upgrade, setUpgrade] = useState<string | null>(null)
   const [levelLeaf, setLevelLeaf] = useState(false)
+  // Editing has to wait for the reverse lookup before the cascade renders,
+  // otherwise TaxonomySelector mounts empty and helpfully selects the first
+  // category for us -- overwriting the job's real subjects.
+  const [ready, setReady] = useState(mode !== 'edit' || !initial?.masterIds?.length)
 
   // A draft saved before sign-in comes back here.
   useEffect(() => {
     if (mode !== 'create') return
     const draft = takeDraft<JobFormValues>('post')
     if (draft) setV({ ...EMPTY, ...draft })
+  }, [mode])
+
+  // Pre-select what the job already teaches.
+  useEffect(() => {
+    const ids = initial?.masterIds
+    if (mode !== 'edit' || !ids || ids.length === 0) return
+    let cancelled = false
+    selectionForMasterIds(ids)
+      .then((sel) => {
+        if (cancelled) return
+        setV((prev) => ({
+          ...prev,
+          category: sel.category,
+          level: sel.level,
+          subjects: sel.subjects,
+        }))
+        setReady(true)
+      })
+      .catch(() => !cancelled && setReady(true))
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 
   useEffect(() => {
@@ -173,6 +202,11 @@ export default function JobForm({
 
       <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
         <h2 className="text-sm font-black text-[#0F172A]">Subject</h2>
+        {!ready ? (
+          <p className="rounded-xl bg-[#F8FAFC] p-3 text-[11px] text-gray-500">
+            Loading the subjects on this job…
+          </p>
+        ) : (
         <TaxonomySelector
           selectedLevel={v.category}
           setSelectedLevel={(x) => setV((p) => ({ ...p, category: x, level: '', subjects: [] }))}
@@ -181,6 +215,7 @@ export default function JobForm({
           selectedSubjects={v.subjects}
           setSelectedSubjects={(x) => set('subjects', x)}
         />
+        )}
         {levelLeaf && (
           <p className="rounded-xl bg-[#F8FAFC] p-3 text-[11px] text-gray-500">
             {v.level} is chosen on its own — there is no subject list beneath it.
