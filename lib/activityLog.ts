@@ -60,6 +60,14 @@ export type ActivityEvent =
   | 'plan_expired'
   | 'suspended'
   | 'unsuspended'
+  // T7a — moderation outcomes and staff lifecycle.
+  | 'warned'
+  | 'report_resolved'
+  | 'staff_created'
+  | 'staff_role_changed'
+  | 'staff_suspended'
+  | 'staff_reactivated'
+  | 'video_visibility_changed'
 
 export async function logActivity(params: {
   userId: string

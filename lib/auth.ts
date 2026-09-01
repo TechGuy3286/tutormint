@@ -19,6 +19,10 @@ export type SessionProfile = {
   profile_completion: number | null
   cnic_verified_at: string | null
   address_verified_at: string | null
+  /** Set by the reports queue or the member page. Gates the dashboards. */
+  is_suspended: boolean | null
+  suspension_reason: string | null
+  admin_role: string | null
 }
 
 export type SessionUser = {
@@ -48,7 +52,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const { data: profile } = await supabase
     .from('profiles')
     .select(
-      'id, role, account_type, full_name, email, city, avatar_url, profile_completion, cnic_verified_at, address_verified_at',
+      'id, role, account_type, full_name, email, city, avatar_url, profile_completion, cnic_verified_at, address_verified_at, is_suspended, suspension_reason, admin_role',
     )
     .eq('id', user.id)
     .maybeSingle()
@@ -63,7 +67,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 export function homeForRole(role: Role | null | undefined): string {
   switch (role) {
     case 'admin':
-      return '/admin/dashboard'
+      // /admin is the dashboard. The old '/admin/dashboard' was a 404: no such
+      // route has ever existed, so every admin sign-in landed on a broken page.
+      return '/admin'
     case 'tutor':
       return '/tutor/dashboard'
     default:

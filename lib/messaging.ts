@@ -75,6 +75,17 @@ export async function canStartThread(
 
   const ent = await getEntitlements(actorId)
 
+  // Same reasoning as job posting: suspension is not a plan problem, and the
+  // upgrade CTA the tier checks below would produce is the wrong answer.
+  if (ent.suspended) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Your account is suspended, so you cannot start conversations. Contact support.',
+      upgrade: '/support',
+    }
+  }
+
   if (ent.audience === 'parent') {
     if (!ent.plan) {
       return {
@@ -204,8 +215,23 @@ export async function sendMessage(params: {
     }
   }
 
-  // Replying is always allowed. Only OPENING a thread is plan-gated, and that
-  // already happened in findOrCreateThread.
+  // Replying is always allowed on every plan, including none: only OPENING a
+  // thread is plan-gated, and that already happened in findOrCreateThread.
+  //
+  // Suspension is the one exception, and it is checked here rather than through
+  // getEntitlements: a member with no plan may still reply, so "no powers" and
+  // "suspended" are genuinely different states at this line.
+  if (admin) {
+    const { data: sender } = await admin
+      .from('profiles')
+      .select('is_suspended')
+      .eq('id', me)
+      .maybeSingle()
+    if (sender?.is_suspended) {
+      return { ok: false, status: 403, error: 'Your account is suspended. Contact support.' }
+    }
+  }
+
   const { data: created, error } = await supabase
     .from('messages')
     .insert({

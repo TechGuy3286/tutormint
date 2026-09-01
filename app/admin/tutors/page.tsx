@@ -1,4 +1,4 @@
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import TutorModerationClient, { type QueueTutor } from './TutorModerationClient'
 
@@ -13,7 +13,7 @@ export default async function AdminTutorsPage({
 }: {
   searchParams: Promise<{ filter?: string }>
 }) {
-  await requireAdminRole(...SCREEN_ACCESS.tutors)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.tutors)
   const { filter = 'pending' } = await searchParams
 
   const admin = createAdminClient()
@@ -28,7 +28,7 @@ export default async function AdminTutorsPage({
   let query = admin
     .from('tutor_profiles')
     .select(
-      'id, full_name, email, headline, city, area, avatar_url, video_youtube_id, video_status, video_attempts, verification_status, rating_avg, rating_count, degrees, created_at',
+      'id, full_name, email, headline, city, area, avatar_url, video_youtube_id, video_status, video_visibility, video_attempts, verification_status, rating_avg, rating_count, degrees, created_at',
     )
     .order('created_at', { ascending: false })
     .limit(100)
@@ -57,6 +57,7 @@ export default async function AdminTutorsPage({
       avatarUrl: t.avatar_url,
       videoYoutubeId: t.video_youtube_id,
       videoStatus: t.video_status ?? 'none',
+      videoVisibility: t.video_visibility ?? 'private',
       videoAttempts: t.video_attempts ?? 0,
       verificationStatus: t.verification_status ?? 'pending',
       ratingAvg: Number(t.rating_avg ?? 0),
@@ -71,5 +72,11 @@ export default async function AdminTutorsPage({
     }
   })
 
-  return <TutorModerationClient tutors={rows} filter={filter} />
+  return (
+    <TutorModerationClient
+      tutors={rows}
+      filter={filter}
+      canSetVisibility={roleSatisfies(actor.adminRole, SCREEN_ACCESS.videoVisibility)}
+    />
+  )
 }

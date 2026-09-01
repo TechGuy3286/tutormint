@@ -51,6 +51,18 @@ export async function applyToJob(params: {
     return { ok: false, status: 403, error: 'Only tutor accounts can apply for tuitions.' }
   }
 
+  // 0b. Suspension is checked BEFORE the listing check, because a suspended
+  //     tutor is also unlisted -- and being told to "complete your profile" when
+  //     it is already at 100% sends someone to fix a thing that is not broken.
+  if (ent.suspended) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Your account is suspended, so you cannot apply for jobs. Contact support.',
+      upgrade: '/support',
+    }
+  }
+
   const admin = createAdminClient()
 
   // 1. Listed?

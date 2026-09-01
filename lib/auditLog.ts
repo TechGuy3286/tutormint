@@ -24,6 +24,16 @@ export type AuditAction =
   | 'payment.approve'
   | 'payment.reject'
   | 'settings.update'
+  | 'staff.create'
+  | 'staff.role_change'
+  | 'staff.suspend'
+  | 'staff.reactivate'
+  | 'member.warn'
+  | 'member.suspend'
+  | 'member.unsuspend'
+  | 'report.dismiss'
+  | 'report.action'
+  | 'video.visibility'
 
 export async function logAdminAction(params: {
   actorId: string

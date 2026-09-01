@@ -31,6 +31,10 @@ export type NotificationKind =
   | 'plan_expired'
   | 'payment_submitted'
   | 'payment_rejected'
+  // T7a — moderation outcomes.
+  | 'warning_issued'
+  | 'account_suspended'
+  | 'account_reinstated'
 
 export async function notify(params: {
   userId: string

@@ -69,6 +69,12 @@ export type Entitlements = {
   tagLabel: string | null
   /** Badges are withheld below 100% however much was paid. */
   profileComplete: boolean
+  /**
+   * Suspended by a moderator. Every power is off regardless of what was paid,
+   * and no subscription is cancelled -- the plan keeps running, so reinstating
+   * restores exactly what they had.
+   */
+  suspended: boolean
 }
 
 const NOTHING = (userId: string): Entitlements => ({
@@ -91,6 +97,7 @@ const NOTHING = (userId: string): Entitlements => ({
   badges: [],
   tagLabel: null,
   profileComplete: false,
+  suspended: false,
 })
 
 /** YYYY-MM — the period usage_counters is keyed by. */
@@ -131,7 +138,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
 
   const { data: profile } = await db
     .from('profiles')
-    .select('id, role, profile_completion, cnic_verified_at, address_verified_at')
+    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended')
     .eq('id', userId)
     .maybeSingle()
 
@@ -142,6 +149,17 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     role === 'tutor' ? 'tutor' : role === 'parent' || role === 'academy' ? 'parent' : null
 
   const profileComplete = (profile.profile_completion ?? 0) >= 100
+
+  // Suspension short-circuits everything below.
+  //
+  // Doing it here rather than in each gated route means one decision closes
+  // posting, applying, hiring, messaging, contact reveal and badges at once --
+  // and a route added next year is covered without anyone remembering to.
+  // The subscription row is untouched, so reinstatement needs no refund and no
+  // re-purchase.
+  if (profile.is_suspended) {
+    return { ...NOTHING(userId), role, audience, profileComplete, suspended: true }
+  }
 
   // Highest-ranked unexpired subscription wins, so an admin grant layered over
   // an older plan does not downgrade anyone.
@@ -214,6 +232,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     badges: badgesForPlan(p.code, profileComplete),
     tagLabel: profileComplete ? p.tag_label : null,
     profileComplete,
+    suspended: false,
   }
 }
 

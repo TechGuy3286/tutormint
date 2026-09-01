@@ -1,66 +1,235 @@
 import Link from 'next/link'
-import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { getAdminActor, roleSatisfies, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { currentPeriod } from '@/lib/entitlements'
 
-// Admin landing. Shows only what this role may open, so a verifier or finance
-// admin is never sent to a screen that will bounce them.
+// The admin landing, as a dashboard rather than a menu.
+//
+// Every tile is a number that means "there is work here", and every tile links
+// to the queue that clears it. A role only sees the tiles for screens it may
+// open, so a verifier is never shown a payments backlog they cannot touch --
+// and never sent to a screen that would bounce them.
+//
+// Counts are read with the service-role client and use head:true counts rather
+// than pulling rows: this page must stay cheap enough to be the default
+// landing for every admin, every session.
+
+export const dynamic = 'force-dynamic'
+
+type Tile = {
+  label: string
+  value: string
+  hint: string
+  href: string
+  allowed: AdminRole[]
+  urgent?: boolean
+}
 
 export default async function AdminHome() {
   const actor = await getAdminActor()
   if (!actor) return null // the layout has already redirected
 
-  const cards = [
+  const admin = createAdminClient()
+  if (!admin) {
+    return (
+      <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-[#d60008]">
+        SUPABASE_SERVICE_ROLE_KEY is not configured on the server, so the dashboard cannot be
+        loaded.
+      </p>
+    )
+  }
+
+  const now = new Date()
+  const weekAhead = new Date(now.getTime() + 7 * 86_400_000).toISOString()
+  const monthStart = `${currentPeriod(now)}-01T00:00:00.000Z`
+
+  const count = (q: PromiseLike<{ count: number | null }>) => q
+
+  const [
+    tutors,
+    parents,
+    suspended,
+    pendingTutors,
+    pendingParents,
+    pendingPayments,
+    openReports,
+    expiringSoon,
+    activeSubs,
+    revenueRows,
+    staff,
+  ] = await Promise.all([
+    count(admin.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'tutor')),
+    count(
+      admin
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .in('role', ['parent', 'academy']),
+    ),
+    count(
+      admin.from('profiles').select('id', { count: 'exact', head: true }).eq('is_suspended', true),
+    ),
+    count(
+      admin
+        .from('tutor_profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('video_status', 'uploaded'),
+    ),
+    count(
+      admin
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('verification_state', 'submitted'),
+    ),
+    count(
+      admin.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    ),
+    count(admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open')),
+    count(
+      admin
+        .from('subscriptions')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active')
+        .gt('expires_at', now.toISOString())
+        .lte('expires_at', weekAhead),
+    ),
+    count(
+      admin
+        .from('subscriptions')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active')
+        .gt('expires_at', now.toISOString()),
+    ),
+    admin
+      .from('payments')
+      .select('amount_pkr')
+      .eq('status', 'approved')
+      .gte('created_at', monthStart),
+    count(
+      admin
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', 'admin')
+        .not('admin_role', 'is', null),
+    ),
+  ])
+
+  const revenue = (revenueRows.data ?? []).reduce(
+    (sum, r) => sum + ((r.amount_pkr as number) ?? 0),
+    0,
+  )
+
+  const tiles: Tile[] = [
     {
+      label: 'Videos to review',
+      value: String(pendingTutors.count ?? 0),
+      hint: 'Tutors waiting on a decision',
       href: '/admin/tutors',
-      title: 'Tutor moderation',
-      body: 'Review introduction videos, degrees and CNICs. Approve, hold or suspend.',
       allowed: SCREEN_ACCESS.tutors,
+      urgent: (pendingTutors.count ?? 0) > 0,
     },
     {
+      label: 'CNICs to verify',
+      value: String(pendingParents.count ?? 0),
+      hint: 'Parents who cannot post until approved',
       href: '/admin/parents',
-      title: 'Parent verification',
-      body: 'Approve CNIC and address so a parent can post jobs.',
       allowed: SCREEN_ACCESS.parents,
+      urgent: (pendingParents.count ?? 0) > 0,
     },
     {
-      href: '/admin/plans',
-      title: 'Plans',
-      body: 'Grant or revoke a plan on any account. Pre-launch testing tool.',
-      allowed: SCREEN_ACCESS.plans,
+      label: 'Open reports',
+      value: String(openReports.count ?? 0),
+      hint: 'Waiting on a moderator',
+      href: '/admin/reports',
+      allowed: SCREEN_ACCESS.reports,
+      urgent: (openReports.count ?? 0) > 0,
     },
     {
+      label: 'Payments to confirm',
+      value: String(pendingPayments.count ?? 0),
+      hint: 'Transfers a member has already sent',
       href: '/admin/payments',
-      title: 'Payments',
-      body: 'Approve bank and wallet transfers, and see every subscription with its expiry and real quota usage.',
+      allowed: SCREEN_ACCESS.payments,
+      urgent: (pendingPayments.count ?? 0) > 0,
+    },
+    {
+      label: 'Expiring this week',
+      value: String(expiringSoon.count ?? 0),
+      hint: `of ${activeSubs.count ?? 0} active plans`,
+      href: '/admin/payments',
       allowed: SCREEN_ACCESS.payments,
     },
-  ].filter((c) => roleSatisfies(actor.adminRole, c.allowed))
+    {
+      label: 'Revenue this month',
+      value: `Rs. ${revenue.toLocaleString('en-PK')}`,
+      hint: `Approved payments since ${currentPeriod(now)}-01`,
+      href: '/admin/payments?filter=approved',
+      allowed: SCREEN_ACCESS.payments,
+    },
+    {
+      label: 'Tutors',
+      value: String(tutors.count ?? 0),
+      hint: 'Registered accounts',
+      href: '/admin/users?role=tutor',
+      allowed: SCREEN_ACCESS.users,
+    },
+    {
+      label: 'Parents',
+      value: String(parents.count ?? 0),
+      hint: 'Registered accounts',
+      href: '/admin/users?role=parent',
+      allowed: SCREEN_ACCESS.users,
+    },
+    {
+      label: 'Suspended',
+      value: String(suspended.count ?? 0),
+      hint: 'Members currently locked out',
+      href: '/admin/users?status=suspended',
+      allowed: SCREEN_ACCESS.users,
+    },
+    {
+      label: 'Staff',
+      value: String(staff.count ?? 0),
+      hint: 'Accounts with an admin role',
+      href: '/admin/team',
+      allowed: SCREEN_ACCESS.team,
+    },
+  ].filter((t) => roleSatisfies(actor.adminRole, t.allowed))
 
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl sm:text-2xl font-black text-[#0F172A]">Admin</h1>
+        <h1 className="text-xl font-black text-[#0F172A] sm:text-2xl">Admin</h1>
         <p className="text-xs text-gray-500">
           Signed in as {actor.email} · role <strong>{actor.adminRole}</strong>
         </p>
       </header>
 
-      {cards.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 text-center space-y-1">
+      {tiles.length === 0 ? (
+        <div className="space-y-1 rounded-2xl border border-gray-200 bg-white p-6 text-center">
           <p className="text-sm font-bold text-[#0F172A]">Nothing here yet for your role</p>
           <p className="text-xs text-gray-500">
-            The reports, blocks and penalties screens land in T7.
+            Ask the owner if you should have access to a queue you cannot see.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {cards.map((c) => (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          {tiles.map((t) => (
             <Link
-              key={c.href}
-              href={c.href}
-              className="block bg-white border border-gray-200 rounded-2xl p-4 hover:border-[#0F172A] transition-colors space-y-1"
+              key={t.label}
+              href={t.href}
+              className={`flex min-h-[96px] flex-col justify-between rounded-2xl border bg-white p-4 transition-colors hover:border-[#0F172A] ${
+                t.urgent ? 'border-[#F59E0B]' : 'border-gray-200'
+              }`}
             >
-              <p className="text-sm font-black text-[#0F172A]">{c.title}</p>
-              <p className="text-xs text-gray-500 leading-relaxed">{c.body}</p>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                {t.label}
+              </p>
+              <p
+                className={`text-2xl font-black ${t.urgent ? 'text-[#d60008]' : 'text-[#0F172A]'}`}
+              >
+                {t.value}
+              </p>
+              <p className="text-[10px] leading-snug text-gray-400">{t.hint}</p>
             </Link>
           ))}
         </div>

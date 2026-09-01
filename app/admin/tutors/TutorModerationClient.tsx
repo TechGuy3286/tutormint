@@ -15,6 +15,7 @@ export type QueueTutor = {
   avatarUrl: string | null
   videoYoutubeId: string | null
   videoStatus: string
+  videoVisibility: string
   videoAttempts: number
   verificationStatus: string
   ratingAvg: number
@@ -37,9 +38,12 @@ const MAX_ATTEMPTS = 3
 export default function TutorModerationClient({
   tutors,
   filter,
+  canSetVisibility,
 }: {
   tutors: QueueTutor[]
   filter: string
+  /** Only owner/manager may publish a video; a verifier sees the state, not the control. */
+  canSetVisibility: boolean
 }) {
   const router = useRouter()
   const [open, setOpen] = useState<QueueTutor | null>(null)
@@ -47,6 +51,31 @@ export default function TutorModerationClient({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
+
+  async function setVisibility(visibility: 'private' | 'unlisted' | 'public') {
+    if (!open) return
+    setBusy(true)
+    setErr('')
+    setMsg('')
+    try {
+      const res = await fetch('/api/admin/tutors/video-visibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tutorId: open.id, visibility }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'That did not work.')
+      // Say what actually happened. Without YOUTUBE_* credentials the choice is
+      // recorded here and NOT applied on YouTube, and a green tick would be a lie.
+      setMsg(json.note ?? `Video is now ${visibility} on YouTube.`)
+      setOpen({ ...open, videoVisibility: visibility })
+      router.refresh()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'That did not work.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function act(action: 'approve' | 'hold' | 'suspend' | 'unsuspend') {
     if (!open) return
@@ -193,14 +222,48 @@ export default function TutorModerationClient({
             )}
 
             {open.videoYoutubeId && (
-              <a
-                href={`https://www.youtube.com/watch?v=${open.videoYoutubeId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-center min-h-[44px] py-3 bg-[#0F172A] text-white text-xs font-bold rounded-xl"
-              >
-                Open introduction video (private) ↗
-              </a>
+              <div className="space-y-2">
+                <a
+                  href={`https://www.youtube.com/watch?v=${open.videoYoutubeId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-center min-h-[44px] py-3 bg-[#0F172A] text-white text-xs font-bold rounded-xl"
+                >
+                  Open introduction video ({open.videoVisibility}) ↗
+                </a>
+
+                {/* Publishing is a separate decision from approving, and a
+                    separate permission. A verifier who may approve a video
+                    still cannot put it in front of the public. */}
+                {canSetVisibility && (
+                  open.videoStatus === 'approved' ? (
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-bold text-[#0F172A]">Visibility on YouTube</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['private', 'unlisted', 'public'] as const).map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            disabled={busy || open.videoVisibility === v}
+                            onClick={() => setVisibility(v)}
+                            className={`min-h-[44px] rounded-xl text-xs font-bold capitalize transition-colors ${
+                              open.videoVisibility === v
+                                ? 'bg-[#059669] text-white'
+                                : 'border border-gray-200 text-[#334155]'
+                            }`}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-gray-400">
+                      Approve the video before it can be published.
+                    </p>
+                  )
+                )}
+              </div>
             )}
 
             {open.documents.length > 0 && (

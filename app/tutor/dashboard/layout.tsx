@@ -14,6 +14,13 @@ export default async function TutorDashboardLayout({ children }: { children: Rea
     redirect(`/login?next=${encodeURIComponent('/tutor/dashboard')}`)
   }
 
+  // A suspended member keeps their account and their data -- nothing is
+  // deleted -- but the transactional surface is closed to them. Sending them
+  // to one page that says so beats a dashboard of buttons that all fail.
+  if (session.profile?.is_suspended) {
+    redirect('/suspended')
+  }
+
   const role = session.profile?.role
 
   // A signed-in user whose role is not tutor goes to their own dashboard.

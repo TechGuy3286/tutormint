@@ -76,6 +76,21 @@ export async function POST(request: Request) {
     meta: { reason, targetType },
   })
 
+  // Both sides, per the timeline spec: the admin member page has to be able to
+  // show that somebody has been reported, not only that they reported others.
+  // The reporter is NOT named in the reported member's meta -- their timeline
+  // is visible to admins, and identifying the reporter there would make the
+  // report screen a way to find out who complained about you.
+  if (body.reportedId && body.reportedId !== user.id) {
+    await logActivity({
+      userId: body.reportedId,
+      event: 'reported_by',
+      targetType: 'report',
+      targetId: data.id as string,
+      meta: { reason, targetType },
+    })
+  }
+
   return NextResponse.json({
     success: true,
     id: data.id,

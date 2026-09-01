@@ -10,6 +10,7 @@ import { logActivity } from '@/lib/activityLog'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
+import ReportButton from '@/components/ReportButton'
 import ProfileActions from './ProfileActions'
 
 // The public tutor profile. Server component, results in the HTML.
@@ -525,6 +526,15 @@ export default async function TutorPublicProfile({ params }: { params: Params })
             </ul>
           )}
         </section>
+
+        {/* Reporting a profile. Signed-in only: an anonymous report has nobody
+            to ask about it, and a moderator needs to be able to see who filed
+            it when the same profile is reported five times in an hour. */}
+        {user && !isSelf && (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+            <ReportButton reportedId={tutor.id} targetType="profile" label="Report this profile" />
+          </section>
+        )}
       </div>
 
       {/* Sticky primary actions on mobile, inline from sm. */}

@@ -24,6 +24,9 @@ const EXPECTED_TABLES: Record<string, string[]> = {
     'phone_verified_at', 'city', 'province', 'address', 'cnic_number',
     'cnic_image_path', 'cnic_verified_at', 'address_verified_at', 'avatar_url',
     'profile_completion', 'created_at',
+    // T7a — moderation state and the staff invite flag.
+    'is_suspended', 'suspension_reason', 'suspended_at', 'suspended_by',
+    'must_change_password', 'admin_role',
   ],
   tutor_profiles: [
     'gender', 'video_attempts',
@@ -31,6 +34,8 @@ const EXPECTED_TABLES: Record<string, string[]> = {
     'teaching_mode', 'online_platforms', 'area', 'hourly_rate_pkr',
     'experience_years', 'video_youtube_id', 'video_status', 'verification_status',
     'rating_avg', 'rating_count',
+    // T7a
+    'video_visibility', 'video_visibility_set_at', 'video_visibility_set_by',
   ],
   plans: [
     'code', 'audience', 'name', 'price_pkr', 'duration_days', 'monthly_quota',
@@ -66,6 +71,15 @@ const EXPECTED_TABLES: Record<string, string[]> = {
   user_documents: ['id', 'user_id', 'kind', 'original_path', 'preview_path', 'created_at'],
   // T6 — manual-transfer account details, admin-editable without a deploy.
   app_settings: ['key', 'value', 'updated_at', 'updated_by'],
+  // T7a — moderation record and the report queue's outcome fields.
+  reports: [
+    'id', 'reporter_id', 'reported_id', 'target_type', 'target_id', 'reason',
+    'detail', 'status', 'reviewed_by', 'reviewed_at', 'created_at',
+    'action_taken', 'resolution_note',
+  ],
+  penalties_log: ['id', 'user_id', 'reason', 'created_at', 'kind', 'issued_by', 'report_id', 'detail'],
+  admin_audit_log: ['id', 'actor_id', 'actor_role', 'actor_email', 'action', 'target_type', 'target_id', 'detail', 'created_at'],
+  user_activity_log: ['id', 'user_id', 'event', 'target_type', 'target_id', 'meta', 'created_at'],
 }
 
 const EXPECTED_PLANS = ['verified', 'premium', 'featured', 'parent_verified', 'parent_featured']

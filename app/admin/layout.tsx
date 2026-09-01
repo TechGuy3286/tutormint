@@ -21,6 +21,10 @@ const NAV: { href: string; label: string; icon: string; allowed: AdminRole[] }[]
   { href: '/admin/parents', label: 'Parents', icon: '👪', allowed: SCREEN_ACCESS.parents },
   { href: '/admin/plans', label: 'Plans', icon: '💳', allowed: SCREEN_ACCESS.plans },
   { href: '/admin/payments', label: 'Payments', icon: '💰', allowed: SCREEN_ACCESS.payments },
+  { href: '/admin/reports', label: 'Reports', icon: '🚩', allowed: SCREEN_ACCESS.reports },
+  { href: '/admin/users', label: 'Members', icon: '🧑', allowed: SCREEN_ACCESS.users },
+  { href: '/admin/audit', label: 'Audit', icon: '📜', allowed: SCREEN_ACCESS.audit },
+  { href: '/admin/team', label: 'Team', icon: '🔑', allowed: SCREEN_ACCESS.team },
 ]
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -78,14 +82,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {/* Bottom nav on mobile */}
       {visible.length > 0 && (
         <nav
-          className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex"
+          className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex overflow-x-auto"
           aria-label="Admin sections"
         >
           {visible.map((n) => (
             <Link
               key={n.href}
               href={n.href}
-              className="flex-1 min-h-[56px] flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-[#334155]"
+              className="flex-1 shrink-0 basis-[72px] min-h-[56px] flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-[#334155]"
             >
               <span className="text-base" aria-hidden="true">
                 {n.icon}

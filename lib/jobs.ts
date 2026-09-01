@@ -84,6 +84,19 @@ export async function createJob(
   }
 
   const ent = await getEntitlements(parentId)
+
+  // A suspended parent has no entitlements at all, so checkQuota would tell
+  // them to buy a plan. They do not need a plan; they need the suspension
+  // lifted, and an upsell here would be both useless and insulting.
+  if (ent.suspended) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Your account is suspended, so you cannot post jobs. Contact support.',
+      upgrade: '/support',
+    }
+  }
+
   const quota = checkQuota(ent, 'job_post')
   if (!quota.ok) return quota
 

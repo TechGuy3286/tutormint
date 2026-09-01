@@ -34,11 +34,16 @@ export async function getAdminActor(): Promise<AdminActor | null> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, admin_role, email')
+    .select('role, admin_role, email, is_suspended')
     .eq('id', user.id)
     .maybeSingle()
 
   if (profile?.role !== 'admin' || !profile.admin_role) return null
+
+  // A suspended staff account keeps its admin_role -- reactivating should not
+  // mean re-deciding what they were -- but stops being an admin actor here, so
+  // the same check covers every screen and every mutation route at once.
+  if (profile.is_suspended) return null
 
   return {
     id: user.id,
@@ -94,4 +99,16 @@ export const SCREEN_ACCESS = {
   // the separation the roles exist to create.
   payments: ['manager', 'finance'] as AdminRole[],
   paymentsMutate: ['manager', 'finance'] as AdminRole[],
+  // T7a.
+  //
+  // `team` is an empty list on purpose, not an oversight: roleSatisfies()
+  // always admits the owner, so [] reads as "owner only" without a magic
+  // string. Staff management is the one thing a manager does not get.
+  team: [] as AdminRole[],
+  reports: ['manager', 'support'] as AdminRole[],
+  users: ['manager', 'support'] as AdminRole[],
+  audit: ['manager'] as AdminRole[],
+  // Publishing a tutor's video to the world is a bigger decision than
+  // approving it for review, so it stops at manager rather than verifier.
+  videoVisibility: ['manager'] as AdminRole[],
 }

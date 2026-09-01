@@ -146,6 +146,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       description: (j.description as string) ?? null,
       created_at: (j.created_at as string) ?? new Date().toISOString(),
       is_featured: (j.is_featured as boolean) ?? false,
+      parent_id: (j.parent_id as string) ?? null,
       parent_name: f?.name ?? null,
       parent_badges: f?.badges ?? [],
       parent_can_hire: f?.canHire ?? false,

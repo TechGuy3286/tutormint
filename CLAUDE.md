@@ -95,7 +95,8 @@ Delete: the whole Mongo layer, `/parent/browse`, `/parent/post-job`, `/parent/si
 - [ ] **T4 Tutor side** — real `/tutor/dashboard` (completion, plan, quota left, matching open jobs), `/tutor/[slug]`, `/browse/tutors` listing only verified, ranked by plan.
 - [ ] **T5 Parent side** — post job (quota-checked), job detail + applicants, hire flow writes `jobs.status`, `/browse/tuitions`, chat on `threads/messages`.
 - [x] **T6 Packages** — `/tutor/packages`, `/parent/packages`, payment submission, `lib/entitlements.ts`, badges + Featured tag on `TutorCard` and job cards, contact-field filtering, `usage_counters`, expiry downgrade function (pg_cron or Vercel cron).
-- [ ] **T7 Admin** — layout gate, tutor verification queue (video / CNIC / degrees), parent verification queue, payments approval, quota usage view, YouTube visibility toggle.
+- [x] **T7a Admin, part 1** — /admin/team (owner only), reports & penalties queue, member directory + timeline, audit view, dashboard by role, video visibility toggle.
+- [ ] **T7b Admin, part 2** — bulk tutor import, /admin/social, advertisements CRUD, junk-user cleanup.
 - [ ] **T8 Hardening** — RLS audit, `.env` on Vercel, remove every `techguy3286@gmail.com` / test phone fallback, `npm run build` clean.
 
 ## Design system & responsiveness (applies to every task)
@@ -288,6 +289,26 @@ Implement as a SQL view or function (rank inputs computable in one query); the b
 - Message content never renders in the timeline; thread links only (thread content access stays governed by the reports/admin policy).
 - Visibility: owner/manager/support full timelines; verifier and finance only via their queue contexts. RLS: inserts via server path; admins read; no update/delete.
 - Legacy tutor_activities table: migrate any useful rows into activity_log in T7, then legacy_* rename in T8.
+
+## Admin, part 1 (T7a) — what is enforced where
+
+**Permission matrix, in code.** `SCREEN_ACCESS` in `lib/adminAuth.ts` is the single list; the nav, every screen (`requireAdminRole`) and every mutation route (`checkAdminRole`) read the same entry. `team: []` means owner only — `roleSatisfies()` always admits the owner, so an empty list needs no special case. Added in T7a: `reports` and `users` (manager/support), `audit` (manager), `videoVisibility` (manager). Hiding a nav link is presentation; the screen and the route each re-check.
+
+**Suspension is one fact with one enforcement point.** `profiles.is_suspended` is set by `lib/moderation.ts`, which is the only implementation — the reports queue and the member page both call it, so the same decision cannot produce two different states. It bites in four places: `getEntitlements()` returns nothing (closing posting, applying, hiring, contact and badges at once, including routes written later), the dashboard layouts redirect to `/suspended`, `sendMessage()` refuses, and `tutor_directory` excludes them. A suspended staff account also stops being an admin actor — `getAdminActor()` returns null — without losing its `admin_role`, so reactivating does not mean re-deciding what they were.
+
+Nothing is deleted, ever. Jobs, applications, threads, reviews and subscriptions survive; reinstatement restores `verification_status` to `verified` and re-applies the plan's Featured flags via `applyPlanFlags()`, because suspension clears them and a tutor who is still paying must not silently lose what they bought.
+
+**Suspension is never reported as a plan problem.** `createJob`, `applyToJob` and `canStartThread` check `ent.suspended` *before* their tier and listing checks. Otherwise a suspended tutor at 100% completion is told to "complete your profile", and a suspended parent is offered an upgrade — both send someone to fix a thing that is not broken.
+
+**The privacy line on message content.** There is no chat-browsing screen. Bodies are loaded on `/admin/reports`, only for reports whose `target_type='thread'` with a `target_id`, and there is no input on that page that could request any other thread. A report about a profile or a job renders no messages at all. The member timeline shows `message_sent` with a thread reference and never a body — `lib/activityLog.ts` never puts one in `meta`.
+
+**Report both sides.** `POST /api/reports` writes `reported` on the reporter's timeline and `reported_by` on the reported member's, because the admin member page has to show that someone has been reported, not only that they report others. The reporter is not named in the reported member's meta: their timeline is admin-visible, and naming them would turn the screen into a way to find out who complained.
+
+**Staff invites.** `inviteUserByEmail()` is tried first and depends on the project having SMTP. When it fails, the account is created directly and a one-time temporary password is returned to the owner, shown once, never stored and never written to the audit log. Either way `must_change_password` is set. Claiming an email went out when the project has no SMTP leaves a colleague waiting for a message that will never arrive.
+
+**Video visibility.** Approving a video and publishing it are different decisions with different permissions (verifier vs manager). Only an `approved` video can be made unlisted or public; going back to `private` is always allowed. Without `YOUTUBE_*` credentials the choice is recorded on `tutor_profiles` and the response says so in words — the audit entry carries `appliedOnYouTube: false`, so nobody later reads a row and assumes YouTube agreed. A genuine API failure is reported and nothing is written.
+
+**Audit is append-only by construction.** `admin_audit_log` has a SELECT policy and no others, so there is no UPDATE or DELETE path even with the anon key. `actor_email` is stored on the row rather than joined, so an entry still says who acted after that staff account is deleted.
 
 ## Payments — the adapter contract (T6)
 

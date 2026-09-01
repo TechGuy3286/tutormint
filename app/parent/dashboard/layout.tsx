@@ -12,6 +12,13 @@ export default async function ParentDashboardLayout({ children }: { children: Re
     redirect(`/login?next=${encodeURIComponent('/parent/dashboard')}`)
   }
 
+  // A suspended member keeps their account and their data -- nothing is
+  // deleted -- but the transactional surface is closed to them. Sending them
+  // to one page that says so beats a dashboard of buttons that all fail.
+  if (session.profile?.is_suspended) {
+    redirect('/suspended')
+  }
+
   const role = session.profile?.role
 
   if (role !== 'parent' && role !== 'academy') {

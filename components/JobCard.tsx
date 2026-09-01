@@ -6,6 +6,7 @@ import { GraduationCap, MapPin, Wallet, Clock, Building2 } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import AuthGateModal from '@/components/AuthGateModal'
+import ReportButton from '@/components/ReportButton'
 import type { BadgeName } from '@/lib/planBadges'
 
 // A posted tuition, in the same card language as TutorCard.
@@ -34,6 +35,7 @@ export type JobCardData = {
   description: string | null
   created_at: string
   is_featured: boolean | null
+  parent_id: string | null
   parent_name: string | null
   parent_badges: BadgeName[]
   parent_can_hire: boolean
@@ -189,6 +191,17 @@ export default function JobCard({
               </button>
             )}
           </div>
+
+          {/* Reporting a post is only meaningful once signed in -- an
+              anonymous report has nobody to answer questions about it. */}
+          {signedIn && job.parent_id && (
+            <ReportButton
+              reportedId={job.parent_id}
+              targetType="job"
+              targetId={job.id}
+              label="Report this post"
+            />
+          )}
 
           {notice && (
             <p className="text-[11px] font-semibold leading-snug text-[#334155]">
