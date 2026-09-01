@@ -16,10 +16,16 @@ export default function Footer() {
         {/* Col 2: Quick Links */}
         <div className="space-y-2">
           <h4 className="text-xs font-black uppercase tracking-wider text-[#0F172A]">Quick Links</h4>
-          <ul className="space-y-1.5 text-xs">
-            <li><Link href="/browse" className="text-gray-500 hover:text-[#d60008]">Find Tutors</Link></li>
-            <li><Link href="/parent/dashboard/post-job" className="text-gray-500 hover:text-[#d60008]">Post a Tuition Job</Link></li>
-            <li><Link href="/" className="text-gray-500 hover:text-[#d60008]">Home</Link></li>
+          {/*
+            These are navigation targets, not links inside a sentence, so they
+            carry a 44px tap height. `flex items-center` rather than padding
+            keeps the visible text where it was — the target grows, the layout
+            does not move.
+          */}
+          <ul className="text-xs">
+            <li><Link href="/browse" className="flex min-h-[44px] items-center text-gray-500 hover:text-[#d60008]">Find Tutors</Link></li>
+            <li><Link href="/parent/dashboard/post-job" className="flex min-h-[44px] items-center text-gray-500 hover:text-[#d60008]">Post a Tuition Job</Link></li>
+            <li><Link href="/" className="flex min-h-[44px] items-center text-gray-500 hover:text-[#d60008]">Home</Link></li>
           </ul>
         </div>
 

@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile, syntheticEmail, looksLikeEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z } from '@/lib/validate'
+import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 
 // Sign in with an email address OR a Pakistani mobile number.
 //
@@ -30,20 +32,28 @@ import { logActivity } from '@/lib/activityLog'
 
 const GENERIC = 'Those sign-in details are not right. Please check and try again.'
 
+const LoginBody = z.object({
+  identifier: z.string().min(1).max(320),
+  password: z.string().min(1).max(200),
+})
+
 export async function POST(request: Request) {
-  let body: { identifier?: string; password?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: GENERIC }, { status: 400 })
-  }
+  // Rate limited by IP before anything else, including before the body is
+  // read. This is the credential-guessing surface, and the cheapest place to
+  // stop a script is before it costs a database round trip.
+  const limit = await rateLimit('login', callerIp(request))
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'sign-in attempts')
 
-  const identifier = (body.identifier ?? '').trim()
-  const password = body.password ?? ''
+  // Validated with the SAME generic message as a wrong password, not with the
+  // helpful per-field errors used everywhere else. Every other form on the site
+  // should say what is wrong with what you typed; this one must not, because
+  // "that is not a valid mobile number" and "no account with that number" are
+  // two different answers and the difference is the oracle.
+  const parsed = await parseBody(request, LoginBody)
+  if (!parsed.ok) return NextResponse.json({ error: GENERIC }, { status: 400 })
 
-  if (!identifier || !password) {
-    return NextResponse.json({ error: GENERIC }, { status: 400 })
-  }
+  const identifier = parsed.data.identifier.trim()
+  const password = parsed.data.password
 
   const email = await resolveEmail(identifier)
   if (!email) return NextResponse.json({ error: GENERIC }, { status: 400 })

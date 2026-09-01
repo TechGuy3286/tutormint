@@ -25,6 +25,7 @@ import { logActivity } from '@/lib/activityLog'
 import { consumeQuota } from '@/lib/quota'
 import { upgradeHref } from '@/lib/upgradePath'
 import { notify } from '@/lib/notifications'
+import { deliverMessageDigest } from '@/lib/notify'
 
 export type ThreadSummary = {
   id: string
@@ -206,6 +207,7 @@ export async function sendMessage(params: {
   }
 
   const other = thread.participant_a === me ? thread.participant_b : thread.participant_a
+  let senderName = 'a TutorMint member'
 
   const admin = createAdminClient()
   if (admin) {
@@ -224,9 +226,10 @@ export async function sendMessage(params: {
   if (admin) {
     const { data: sender } = await admin
       .from('profiles')
-      .select('is_suspended')
+      .select('is_suspended, full_name')
       .eq('id', me)
       .maybeSingle()
+    senderName = (sender?.full_name as string) ?? 'a TutorMint member'
     if (sender?.is_suspended) {
       return { ok: false, status: 403, error: 'Your account is suspended. Contact support.' }
     }
@@ -272,6 +275,16 @@ export async function sendMessage(params: {
     body: 'You have a new message on TutorMint.',
     href: `/messages/${thread.id}`,
   })
+
+  // The email digest, at most one an hour per person and never containing the
+  // message itself. Two reasons for that: an inbox is not a place we control,
+  // and a parent forwarding a "here is what the tutor said" email is a leak we
+  // built number-masking to prevent. The email says there is a message; reading
+  // it happens on the site.
+  //
+  // Deliberately not awaited into the caller's failure path -- a sent message
+  // must not be reported as failed because an email did not go out.
+  void deliverMessageDigest({ userId: other, count: 1, from: [senderName] }).catch(() => {})
 
   return { ok: true, messageId: created.id as string }
 }

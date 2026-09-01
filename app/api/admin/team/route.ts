@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createStaff, changeStaffRole } from '@/lib/staff'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z, uuid } from '@/lib/validate'
+import { requireFreshAuth } from '@/lib/reauth'
 
 // Staff management. Owner only.
 //
@@ -19,25 +21,32 @@ import { logActivity } from '@/lib/activityLog'
 // Without them an owner is one mis-click from an installation with no owner,
 // recoverable only with a SQL session.
 
+const TeamBody = z.object({
+  action: z.enum(['create', 'role', 'suspend', 'reactivate'], { message: 'Unknown action.' }),
+  userId: uuid.optional(),
+  email: z.string().email('Enter a valid email address.').max(320).optional(),
+  fullName: z.string().max(200).optional(),
+  adminRole: z.enum(['owner', 'manager', 'verifier', 'finance', 'support']).optional(),
+  reason: z.string().max(1000).optional(),
+})
+
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.team)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const actor = { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email }
 
-  let body: {
-    action?: string
-    userId?: string
-    email?: string
-    fullName?: string
-    adminRole?: string
-    reason?: string
-  }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  // Re-authentication first. Creating staff, changing an admin role and
+  // suspending a colleague are all irreversible in the sense that matters:
+  // whoever holds this session can hand somebody else the keys. A password
+  // confirmation within the last 12 hours is what stands between an unattended
+  // browser and a new owner-level account.
+  const fresh = await requireFreshAuth(gate.actor.id)
+  if (!fresh.ok) return fresh.response
+
+  const parsed = await parseBody(request, TeamBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   // ------------------------------------------------------------- create ---
   if (body.action === 'create') {

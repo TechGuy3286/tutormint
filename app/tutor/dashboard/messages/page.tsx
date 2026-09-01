@@ -47,6 +47,10 @@ export default async function TutorMessagesPage() {
               ? 'Message a parent from one of their job posts, or wait for one to write to you.'
               : 'Parents who are interested will write to you here. Keep applying for jobs that match.'
           }
+          emptyActions={[
+            { label: 'Find tuitions to apply for', href: '/browse/tuitions' },
+            { label: 'Check your profile is complete', href: '/tutor/complete-profile' },
+          ]}
         />
       </div>
     </main>

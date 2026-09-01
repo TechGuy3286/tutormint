@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { setVideoVisibility, youtubeConfigured } from '@/lib/youtube'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z, uuid } from '@/lib/validate'
 
 // Publish an approved introduction video to unlisted or public.
 //
@@ -22,6 +23,13 @@ export const runtime = 'nodejs'
 
 const ALLOWED = new Set(['private', 'unlisted', 'public'])
 
+const VisibilityBody = z.object({
+  tutorId: uuid,
+  visibility: z.enum(['private', 'unlisted', 'public'], {
+    message: 'Choose private, unlisted or public.',
+  }),
+})
+
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.videoVisibility)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
@@ -29,12 +37,9 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
 
-  let body: { tutorId?: string; visibility?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, VisibilityBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const tutorId = body.tutorId ?? ''
   const visibility = body.visibility ?? ''

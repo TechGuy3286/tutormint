@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { simulatorEnabled } from '@/lib/payments'
 import { signSimulatorPayload, SIMULATOR_SIGNATURE_HEADER } from '@/lib/payments/simulator'
+import { parseBody, z } from '@/lib/validate'
 
 // The fake gateway's "Pay success" / "Pay fail" buttons.
 //
@@ -17,6 +18,11 @@ import { signSimulatorPayload, SIMULATOR_SIGNATURE_HEADER } from '@/lib/payments
 
 export const runtime = 'nodejs'
 
+const SimulateBody = z.object({
+  reference: z.string().min(1, 'Missing reference.').max(200),
+  outcome: z.enum(['success', 'failed']).default('failed'),
+})
+
 export async function POST(request: Request) {
   if (!simulatorEnabled()) {
     return NextResponse.json({ error: 'Not available.' }, { status: 404 })
@@ -28,12 +34,9 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
 
-  let body: { reference?: string; outcome?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, SimulateBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const reference = String(body.reference ?? '')
   const outcome = body.outcome === 'success' ? 'success' : 'failed'

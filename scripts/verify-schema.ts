@@ -18,6 +18,9 @@ import { join } from 'node:path'
 type Check = { group: string; name: string; pass: boolean; detail: string }
 
 const EXPECTED_TABLES: Record<string, string[]> = {
+  // T8a — fixed-window request counters, written only by the server through
+  // consume_rate_limit().
+  rate_limits: ['bucket', 'identifier', 'window_start', 'count'],
   profiles: [
     'verification_state', 'verification_submitted_at',
     'id', 'role', 'account_type', 'full_name', 'email', 'phone_number', 'whatsapp',
@@ -27,6 +30,8 @@ const EXPECTED_TABLES: Record<string, string[]> = {
     // T7a — moderation state and the staff invite flag.
     'is_suspended', 'suspension_reason', 'suspended_at', 'suspended_by',
     'must_change_password', 'admin_role',
+    // T8a — email preferences, the digest throttle and the admin re-auth clock.
+    'email_opt_out', 'welcomed_at', 'last_message_digest_at', 'last_reauth_at',
   ],
   tutor_profiles: [
     'gender', 'video_attempts',
@@ -204,6 +209,50 @@ function main() {
   for (const [t, c] of colRows) {
     if (!actual.has(t)) actual.set(t, new Set())
     actual.get(t)!.add(c)
+  }
+
+  // T8a retirements. These are asserted as ABSENCES: an expectation list can
+  // only say "this column should exist", and the whole point of a drop is that
+  // a column no longer does. Without this, re-adding area_name by accident
+  // would pass every check in the file.
+  const RETIRED: [string, string][] = [
+    ['tutor_profiles', 'area_name'],
+    ['profiles', 'cnic_image_url'],
+    ['penalties_log', 'job_tx_id'],
+  ]
+  for (const [table, col] of RETIRED) {
+    const rows = query(
+      `select 1 from information_schema.columns
+        where table_schema='public' and table_name='${table}' and column_name='${col}'`,
+    )
+    checks.push({
+      group: 'retired',
+      name: `${table}.${col}`,
+      pass: rows.length === 0,
+      detail: rows.length === 0 ? 'dropped, as expected' : 'STILL PRESENT — migration 27 not applied?',
+    })
+  }
+
+  // The ten pre-rebuild tables are renamed, not dropped: the old name must be
+  // gone and the legacy_ name must exist, because "both absent" would mean
+  // somebody dropped the data rather than retiring it.
+  const RETIRED_TABLES = [
+    'parent_jobs', 'tuitions', 'tutor_applications', 'tuition_applications',
+    'job_messages', 'tutors', 'parents', 'parent_profiles',
+    'tutor_activities', 'tutor_trust_fees',
+  ]
+  for (const t of RETIRED_TABLES) {
+    const rows = query(
+      `select table_name from information_schema.tables
+        where table_schema='public' and table_name in ('${t}', 'legacy_${t}')`,
+    ).map((r) => r[0])
+    const ok = !rows.includes(t) && rows.includes(`legacy_${t}`)
+    checks.push({
+      group: 'retired',
+      name: `${t} -> legacy_`,
+      pass: ok,
+      detail: ok ? 'renamed, rows preserved' : `found: ${rows.join(', ') || '(neither)'}`,
+    })
   }
 
   for (const [table, cols] of Object.entries(EXPECTED_TABLES)) {

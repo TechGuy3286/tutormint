@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import OfflineNotice from "@/components/OfflineNotice";
 
 export const metadata: Metadata = {
   title: "TutorMint - Pakistan's Largest Verified Tutors Network",
@@ -42,6 +43,7 @@ export default function RootLayout({
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />
+        <OfflineNotice />
       </body>
     </html>
   );

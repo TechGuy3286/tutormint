@@ -1,4 +1,11 @@
+import type { Metadata } from 'next'
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: 'Frequently asked questions | TutorMint',
+  description:
+    'How TutorMint verifies tutors, what memberships cost, why browsing is free, and how hiring works.',
+}
 
 export default function FAQPage() {
   const faqs = [

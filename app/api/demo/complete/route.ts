@@ -2,12 +2,17 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
+import { parseBody, z, uuid } from '@/lib/validate'
 
 // Either participant marks an accepted demo as having happened.
 //
 // Either side, because a demo is held off-platform and whoever remembers first
 // should be able to close it out. Marking it complete is what unlocks the
 // parent's feedback form.
+
+const CompleteBody = z.object({
+  demoId: uuid,
+})
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -17,12 +22,9 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 })
 
-  let body: { demoId?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, CompleteBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   if (!body.demoId) return NextResponse.json({ error: 'Missing demo.' }, { status: 400 })
 

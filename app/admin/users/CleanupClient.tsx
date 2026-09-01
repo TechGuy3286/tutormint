@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
+import { adminFetch } from '@/components/admin/adminFetch'
 
 export type Candidate = {
   id: string
@@ -48,13 +49,15 @@ export default function CleanupClient({
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/admin/cleanup', {
+      const { ok, data: json } = await adminFetch<{ [k: string]: unknown; error?: string }>(
+        '/api/admin/cleanup',
+        {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: Array.from(selected), confirm }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'That did not work.')
+        },
+      )
+      if (!ok) throw new Error(json.error ?? 'That did not work.')
       setDone(
         `Deleted ${json.deleted} account${json.deleted === 1 ? '' : 's'}` +
           (json.refused ? ` · ${json.refused} refused (they have activity now)` : ''),

@@ -22,6 +22,7 @@ import { checkQuota, consumeQuota } from '@/lib/quota'
 import { upgradeHref } from '@/lib/upgradePath'
 import { logActivity } from '@/lib/activityLog'
 import { notify, notifyMany } from '@/lib/notifications'
+import { deliverEmail } from '@/lib/notify'
 
 export type JobInput = {
   title: string
@@ -392,6 +393,27 @@ export async function hireApplicant(
     body: job.title as string,
     href: '/tutor/dashboard/jobs',
   })
+
+  // Being hired is the whole point of the platform for a tutor, and it can
+  // happen while they are nowhere near the site. Essential mail.
+  {
+    const { data: tutor } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', application.tutor_id as string)
+      .maybeSingle()
+
+    await deliverEmail(
+      { userId: application.tutor_id as string },
+      {
+        id: 'application_progress',
+        name: (tutor?.full_name as string) ?? 'there',
+        outcome: 'hired',
+        jobTitle: job.title as string,
+        href: '/tutor/dashboard/jobs',
+      },
+    )
+  }
 
   await logActivity({
     userId: parentId,

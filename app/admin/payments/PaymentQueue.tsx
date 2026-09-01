@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { adminFetch } from '@/components/admin/adminFetch'
 
 // The payments screen: a queue of transfers to decide on, and the ledger of
 // what is currently active.
@@ -70,13 +71,15 @@ export default function PaymentQueue({
     setBusy(paymentId)
     setError(null)
     try {
-      const res = await fetch('/api/admin/payments/decide', {
+      const { ok, data: json } = await adminFetch<{ [k: string]: unknown; error?: string }>(
+        '/api/admin/payments/decide',
+        {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentId, action, reason }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'That did not work.')
+        },
+      )
+      if (!ok) throw new Error(json.error ?? 'That did not work.')
       setRejecting(null)
       setReason('')
       router.refresh()

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z } from '@/lib/validate'
 
 // Claim an imported profile.
 //
@@ -24,6 +25,11 @@ import { logActivity } from '@/lib/activityLog'
 // reach 100% and the ordinary verification rules still apply; import never
 // buys a shortcut past them.
 
+const ClaimBody = z.object({
+  action: z.enum(['accept-terms', 'finish'], { message: 'Unknown step.' }),
+  acceptTerms: z.boolean().optional(),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -34,12 +40,9 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
 
-  let body: { action?: string; acceptTerms?: boolean }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, ClaimBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const { data: tutor } = await admin
     .from('tutor_profiles')

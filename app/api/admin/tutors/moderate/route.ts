@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
+import { deliverEmail } from '@/lib/notify'
+import { parseBody, z, text, uuid } from '@/lib/validate'
 
 // Tutor moderation: Approve | Hold | Suspend | Unsuspend.
 //
@@ -21,6 +23,14 @@ import { logActivity } from '@/lib/activityLog'
 
 const MAX_ATTEMPTS = 3
 
+const ModerateBody = z.object({
+  tutorId: uuid,
+  action: z.enum(['approve', 'hold', 'suspend', 'unsuspend'], {
+    message: 'Choose approve, hold, suspend or unsuspend.',
+  }),
+  reason: text({ min: 3, max: 1000, label: 'Reason' }),
+})
+
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.tutors)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
@@ -30,12 +40,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Server is not configured for admin actions.' }, { status: 503 })
   }
 
-  let body: { tutorId?: string; action?: string; reason?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, ModerateBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const { tutorId, action } = body
   const reason = (body.reason ?? '').trim()
@@ -109,6 +116,21 @@ export async function POST(request: Request) {
     // The reason is shown to the tutor, so it is recorded on their timeline.
     meta: { decision: action, reason, attempts: attemptsAfter, resubmissionLocked },
   })
+
+  // Tell the tutor by email as well as in-app. A verification decision is
+  // something they are actively waiting on, and the written reason is the only
+  // way a "hold" leads to a fix rather than a support ticket -- so the reason
+  // travels in the email, not just a "check the site" nudge.
+  await deliverEmail(
+    { userId: tutorId },
+    {
+      id: 'verification_decision',
+      name: (tutor.full_name as string) ?? 'there',
+      decision: action === 'approve' ? 'approved' : action === 'hold' ? 'hold' : 'rejected',
+      subjectOfDecision: 'video',
+      reason,
+    },
+  )
 
   return NextResponse.json({
     success: true,

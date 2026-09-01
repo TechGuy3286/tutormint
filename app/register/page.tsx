@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 //
 // The profiles row (and tutor_profiles row for tutors) is NOT written here.
 // With "Confirm email" ON, signUp returns no session and a client-side insert
-// would be refused by RLS. role/full_name/city travel in the signUp metadata
+// would be refused by RLS. role and full_name travel in the signUp metadata
 // and the on_auth_user_created trigger creates the rows. See
 // supabase/migrations/14_handle_new_user.sql.
 //
@@ -23,17 +23,21 @@ import { createClient } from '@/lib/supabase/client'
 
 type Role = 'tutor' | 'parent'
 
-const ROLES: { value: Role; label: string; blurb: string }[] = [
-  { value: 'tutor', label: 'Tutor', blurb: 'Teach students and apply to tuition jobs' },
-  { value: 'parent', label: 'Parent, School or Academy', blurb: 'Find and hire verified tutors' },
+// Two choices, and the word "school" appears on neither. Schools and academies
+// register as parents -- the account is identical -- and saying so on the signup
+// form makes somebody stop and wonder which one they are. The FAQ is where that
+// question gets answered, not a form somebody is trying to finish.
+const ROLES: { value: Role; label: string }[] = [
+  { value: 'tutor', label: 'Tutor' },
+  { value: 'parent', label: 'Parent' },
 ]
 
 export default function RegisterPage() {
   const [role, setRole] = useState<Role>('parent')
   const [fullName, setFullName] = useState('')
-  const [city, setCity] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [sent, setSent] = useState(false)
@@ -54,7 +58,11 @@ export default function RegisterPage() {
       password,
       options: {
         // Read by the on_auth_user_created trigger. 'admin' is rejected there.
-        data: { role, full_name: fullName, city },
+        // City -- and every other detail -- is collected during profile
+        // completion. Asking here lengthens the one form standing between
+        // somebody and an account, to fill a column the completion flow asks
+        // for again anyway.
+        data: { role, full_name: fullName },
         emailRedirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(
           destination,
         )}`,
@@ -124,7 +132,7 @@ export default function RegisterPage() {
     <main className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 sm:p-6 text-[#334155]">
       <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-gray-200 space-y-6">
         <div className="text-center space-y-2">
-          <Link href="/" className="text-xl font-black text-[#0F172A] inline-block">
+          <Link href="/" className="inline-flex min-h-[44px] items-center justify-center text-xl font-black text-[#0F172A]">
             Tutor<span className="text-[#d60008]">Mint</span>
           </Link>
           <h1 className="text-xl font-black text-[#0F172A]">Create your account</h1>
@@ -138,24 +146,34 @@ export default function RegisterPage() {
         )}
 
         <form onSubmit={handleRegister} className="space-y-4">
-          <fieldset className="space-y-2">
-            <legend className="text-xs font-bold text-[#0F172A] mb-2">I am a…</legend>
-            <div className="grid grid-cols-1 gap-2">
+          {/*
+            Radio inputs rather than buttons carrying aria-pressed. A radio
+            group is exactly what this is, so arrow keys move between the two
+            options and a screen reader announces "1 of 2" without any of it
+            being simulated.
+          */}
+          <fieldset>
+            <legend className="mb-2 text-xs font-bold text-[#0F172A]">I am a…</legend>
+            <div className="grid grid-cols-2 gap-2">
               {ROLES.map((r) => (
-                <button
+                <label
                   key={r.value}
-                  type="button"
-                  onClick={() => setRole(r.value)}
-                  aria-pressed={role === r.value}
-                  className={`min-h-[44px] text-left p-3 rounded-xl border-2 transition-all ${
+                  className={`flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl border-2 p-3 transition-all ${
                     role === r.value
                       ? 'border-[#d60008] bg-red-50'
                       : 'border-gray-200 bg-[#F8FAFC] hover:border-gray-300'
                   }`}
                 >
-                  <span className="block text-xs font-black text-[#0F172A]">{r.label}</span>
-                  <span className="block text-[11px] text-gray-500">{r.blurb}</span>
-                </button>
+                  <input
+                    type="radio"
+                    name="role"
+                    value={r.value}
+                    checked={role === r.value}
+                    onChange={() => setRole(r.value)}
+                    className="h-4 w-4 shrink-0 accent-[#d60008]"
+                  />
+                  <span className="text-xs font-black text-[#0F172A]">{r.label}</span>
+                </label>
               ))}
             </div>
           </fieldset>
@@ -170,19 +188,6 @@ export default function RegisterPage() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Your name"
-              className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A] focus:bg-white"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label htmlFor="city" className="text-xs font-bold text-[#0F172A]">
-              City
-            </label>
-            <input
-              id="city"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="Lahore"
               className="w-full min-h-[44px] p-3 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm outline-none focus:border-[#0F172A] focus:bg-white"
             />
           </div>
@@ -220,9 +225,46 @@ export default function RegisterPage() {
             />
           </div>
 
+          {/*
+            Terms, with the photo-use consent spelled out rather than left to a
+            link nobody opens. TutorMint puts tutor photographs in promotional
+            posts; consenting to that by implication, through a "terms" link, is
+            not consent anybody would recognise as having given. One tick still
+            covers both -- the clause IS in the terms -- but the sentence is on
+            the screen where the decision is made.
+          */}
+          <label className="flex min-h-[44px] cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-[#F8FAFC] p-3">
+            <input
+              type="checkbox"
+              required
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0"
+            />
+            <span className="text-[11px] leading-relaxed text-[#334155]">
+              I accept the{' '}
+              <Link href="/terms" className="font-bold text-[#d60008] underline">
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="font-bold text-[#d60008] underline">
+                Privacy Policy
+              </Link>
+              {role === 'tutor' ? (
+                <>
+                  , and I agree that TutorMint may use my profile photo and public profile details
+                  to promote the platform. This never includes my phone number, CNIC or address, and
+                  I can withdraw it at any time.
+                </>
+              ) : (
+                '.'
+              )}
+            </span>
+          </label>
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !acceptedTerms}
             className="w-full min-h-[44px] py-3.5 bg-[#d60008] hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all disabled:opacity-50"
           >
             {loading ? 'Creating account…' : 'Create Account'}

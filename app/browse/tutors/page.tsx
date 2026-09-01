@@ -96,6 +96,25 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   const q = one(sp.q)
   const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
 
+  /**
+   * The current search with some filters dropped.
+   *
+   * Built from the live searchParams rather than assembled from the parsed
+   * values, so a filter added later is carried across without anybody having
+   * to remember to add it here — the failure mode being a "search the whole
+   * city" link that silently discards the subject the parent came for.
+   */
+  const widen = (drop: Record<string, undefined>) => {
+    const next = new URLSearchParams()
+    for (const [k, v] of Object.entries(sp)) {
+      if (k in drop || k === 'page') continue
+      const one = Array.isArray(v) ? v[0] : v
+      if (one) next.set(k, one)
+    }
+    const qs = next.toString()
+    return qs ? `/browse/tutors?${qs}` : '/browse/tutors'
+  }
+
   const supabase = await createClient()
 
   const { data: rows, error } = await supabase.rpc('rank_tutors', {
@@ -210,18 +229,56 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
         )}
 
         {tutors.length === 0 && !error ? (
-          <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-8 text-center">
-            <p className="text-sm font-black text-[#0F172A]">Nothing matches those filters</p>
-            <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
-              Try a wider area, or clear the subject filter. Tutors appear here once their profile
-              is complete.
-            </p>
-            <Link
-              href="/browse/tutors"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#0F172A] px-5 text-xs font-bold text-white"
-            >
-              Show all tutors
-            </Link>
+          /*
+            A no-results screen with three specific ways forward rather than
+            one "clear filters" button. The filters that most often produce an
+            empty page are area and teaching mode, so those get their own
+            escape hatch: widening to the whole city, and including tutors who
+            teach online, are usually the two changes that would have found
+            somebody. The third is the honest one -- there may genuinely be
+            nobody, and in that case posting the tuition makes tutors come to
+            them instead.
+          */
+          <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 text-center sm:p-8">
+            <div className="space-y-1.5">
+              <p className="text-sm font-black text-[#0F172A]">No tutors match that yet</p>
+              <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
+                {area && city
+                  ? `Nobody in ${area} matches. There may well be someone nearby.`
+                  : 'Try one of these — the last one works even when nobody is listed yet.'}
+              </p>
+            </div>
+
+            <div className="mx-auto flex max-w-sm flex-col gap-2">
+              {area && (
+                <Link
+                  href={widen({ area: undefined })}
+                  className="flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#0F172A] transition-colors hover:border-[#0F172A]"
+                >
+                  Search all of {city || 'the city'}
+                </Link>
+              )}
+              {mode !== 'Online' && (
+                <Link
+                  href={widen({ mode: undefined, area: undefined })}
+                  className="flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#0F172A] transition-colors hover:border-[#0F172A]"
+                >
+                  Include tutors who teach online
+                </Link>
+              )}
+              <Link
+                href="/parent/dashboard/post-job"
+                className="flex min-h-[44px] items-center justify-center rounded-xl bg-[#d60008] px-4 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-red-700"
+              >
+                Post your tuition instead
+              </Link>
+              <Link
+                href="/browse/tutors"
+                className="flex min-h-[44px] items-center justify-center text-xs font-bold text-gray-500 hover:text-[#0F172A]"
+              >
+                Clear every filter
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">

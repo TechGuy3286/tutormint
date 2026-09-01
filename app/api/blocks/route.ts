@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z, uuid } from '@/lib/validate'
 
 // Block or unblock another member.
 //
@@ -14,6 +15,11 @@ import { logActivity } from '@/lib/activityLog'
 // admin timeline in T7 needs to be able to explain why two people suddenly
 // stopped being able to reach each other.
 
+const BlockBody = z.object({
+  userId: uuid,
+  action: z.enum(['block', 'unblock']).default('block'),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -22,12 +28,9 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 })
 
-  let body: { userId?: string; action?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, BlockBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const target = body.userId
   if (!target || !/^[0-9a-f-]{36}$/i.test(target)) {

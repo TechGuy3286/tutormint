@@ -3,6 +3,8 @@ import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { findJunkAccounts } from '@/lib/cleanup'
+import { parseBody, z, uuid } from '@/lib/validate'
+import { requireFreshAuth } from '@/lib/reauth'
 
 // Delete junk accounts. Owner only.
 //
@@ -15,6 +17,13 @@ import { findJunkAccounts } from '@/lib/cleanup'
 // re-running the scan means only accounts that genuinely pass the guards can
 // be removed, whatever was submitted.
 
+const CleanupBody = z.object({
+  ids: z.array(uuid).max(500, 'Too many accounts selected at once.').default([]),
+  // The typed confirmation. Checked here as well as in the UI: this is the one
+  // admin action with no undo, and a button is not a control.
+  confirm: z.string().default(''),
+})
+
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.cleanup)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
@@ -22,12 +31,13 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
 
-  let body: { ids?: string[]; confirm?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  // The one admin action on the platform with no undo at all.
+  const fresh = await requireFreshAuth(gate.actor.id)
+  if (!fresh.ok) return fresh.response
+
+  const parsed = await parseBody(request, CleanupBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const ids = Array.isArray(body.ids) ? body.ids.filter((i) => typeof i === 'string') : []
   if (ids.length === 0) return NextResponse.json({ error: 'Nothing selected.' }, { status: 400 })

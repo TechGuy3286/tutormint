@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createJob, updateJob, type JobInput } from '@/lib/jobs'
+import { parseBody, z, uuid, text, rupees } from '@/lib/validate'
 
 // Post and edit a tuition.
 //
@@ -10,28 +11,40 @@ import { createJob, updateJob, type JobInput } from '@/lib/jobs'
 // result. It never decides anything itself, so the same rules apply whatever
 // calls them.
 
-function parseInput(body: Record<string, unknown>): JobInput {
-  const masterIds = Array.isArray(body.masterIds)
-    ? (body.masterIds as unknown[])
-        .map((v) => Number(v))
-        .filter((n) => Number.isInteger(n) && n > 0)
-    : []
+// The job form. Fields are bounded here rather than trusted from the browser:
+// a title of ten thousand characters is not a mistake anyone makes by hand.
+//
+// budgetPkr accepts what people type -- "8000", "8,000", "8k", "Rs 8000" --
+// because a parent who writes "8k" in a box labelled Budget has not made an
+// error, and rejecting it teaches them nothing.
+const JobBody = z.object({
+  title: text({ min: 1, max: 200, label: 'Title' }),
+  masterIds: z.array(z.coerce.number().int().positive()).max(30).default([]),
+  classLevel: z.string().max(120).nullish(),
+  city: z.string().max(120).nullish(),
+  area: z.string().max(120).nullish(),
+  teachingMode: z.string().max(60).nullish(),
+  budgetPkr: rupees.nullish(),
+  schedule: z.string().max(500).nullish(),
+  description: z.string().max(5000, 'Keep the description under 5000 characters.').nullish(),
+  childId: uuid.nullish(),
+  jobId: z.string().max(64).nullish(),
+})
 
-  const budgetRaw = String(body.budgetPkr ?? '').replace(/[^0-9]/g, '')
-
-  const str = (v: unknown) => {
-    const s = typeof v === 'string' ? v.trim() : ''
+function parseInput(body: z.infer<typeof JobBody>): JobInput {
+  const str = (v: string | null | undefined) => {
+    const s = (v ?? '').trim()
     return s.length > 0 ? s : null
   }
 
   return {
-    title: typeof body.title === 'string' ? body.title : '',
-    masterIds: Array.from(new Set(masterIds)),
+    title: body.title,
+    masterIds: Array.from(new Set(body.masterIds)),
     classLevel: str(body.classLevel),
     city: str(body.city),
     area: str(body.area),
     teachingMode: str(body.teachingMode),
-    budgetPkr: budgetRaw ? Number(budgetRaw) : null,
+    budgetPkr: body.budgetPkr ?? null,
     schedule: str(body.schedule),
     description: str(body.description),
     childId: str(body.childId),
@@ -46,12 +59,9 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: 'Sign in to post a job.' }, { status: 401 })
 
-  let body: Record<string, unknown>
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, JobBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const result = await createJob(user.id, parseInput(body))
 
@@ -70,12 +80,9 @@ export async function PATCH(request: Request) {
 
   if (!user) return NextResponse.json({ error: 'Sign in to edit your job.' }, { status: 401 })
 
-  let body: Record<string, unknown>
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, JobBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const jobId = typeof body.jobId === 'string' ? body.jobId : ''
   if (!jobId) return NextResponse.json({ error: 'Missing job.' }, { status: 400 })

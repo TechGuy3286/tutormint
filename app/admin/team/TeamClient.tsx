@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Copy, KeyRound, Mail, ShieldAlert } from 'lucide-react'
+import { adminFetch } from '@/components/admin/adminFetch'
 
 // The Team screen.
 //
@@ -53,13 +54,15 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
     setBusy(id)
     setError(null)
     try {
-      const res = await fetch('/api/admin/team', {
+      const { ok, data: json } = await adminFetch<{ error?: string; invited?: boolean; temporaryPassword?: string | null }>(
+        '/api/admin/team',
+        {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'That did not work.')
+        },
+      )
+      if (!ok) throw new Error(json.error ?? 'That did not work.')
       router.refresh()
       return json
     } catch (e) {
@@ -75,7 +78,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
     if (!json) return
     setNewAccount({
       email: form.email,
-      invited: json.invited,
+      invited: !!json.invited,
       temporaryPassword: json.temporaryPassword ?? null,
     })
     setCreating(false)

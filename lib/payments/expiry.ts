@@ -21,6 +21,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
+import { deliverEmail } from '@/lib/notify'
 
 export type SweepResult = {
   remindersSent: number
@@ -33,27 +34,35 @@ export type SweepResult = {
 const REMINDER_DAYS = 3
 
 /**
- * Delivery hook for the T-3 reminder.
+ * Delivery for the T-3 reminder.
  *
- * The in-app notification is written by the caller and is real today. Email
- * and WhatsApp delivery land in T8 alongside the SMS provider decision; this
- * is where they attach. It logs rather than pretends, so nobody reads the
- * cron output and concludes a message went out that did not.
+ * Email is live as of T8a. WhatsApp goes through the same interface and
+ * currently reports itself unconfigured (lib/notify/whatsapp.ts) -- it needs a
+ * Meta business account, not code. A failure here is logged and swallowed: the
+ * in-app notification and the expiry itself must not depend on an email
+ * provider being up.
  */
 async function deliverExpiryReminder(params: {
   userId: string
+  name: string | null
   email: string | null
   phone: string | null
   planName: string
   expiresAt: string
 }): Promise<void> {
-  // TODO(T8): send the email and the WhatsApp message here.
-  console.info(
-    '[expiry] reminder queued (in-app only until T8 wires delivery)',
-    params.userId,
-    params.planName,
-    params.expiresAt,
+  const result = await deliverEmail(
+    { userId: params.userId },
+    {
+      id: 'plan_expiring',
+      name: params.name ?? 'there',
+      planName: params.planName,
+      daysLeft: REMINDER_DAYS,
+    },
   )
+
+  if (!result.ok) {
+    console.info('[expiry] reminder email not sent:', result.reason, params.userId)
+  }
 }
 
 export async function runSubscriptionSweep(now = new Date()): Promise<SweepResult> {
@@ -98,7 +107,7 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
 
     const { data: profile } = await admin
       .from('profiles')
-      .select('email, phone_number, role')
+      .select('email, phone_number, role, full_name')
       .eq('id', userId)
       .maybeSingle()
 
@@ -112,6 +121,7 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
 
     await deliverExpiryReminder({
       userId,
+      name: (profile?.full_name as string) ?? null,
       email: (profile?.email as string) ?? null,
       phone: (profile?.phone_number as string) ?? null,
       planName,
@@ -188,7 +198,7 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
 
     const { data: profile } = await admin
       .from('profiles')
-      .select('role')
+      .select('role, full_name')
       .eq('id', userId)
       .maybeSingle()
 
@@ -199,6 +209,12 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
       body: 'Everything is still in your dashboard — your chats, applications and posts are untouched. Renew whenever you are ready.',
       href: profile?.role === 'tutor' ? '/tutor/packages' : '/parent/packages',
     })
+
+    const mailed = await deliverEmail(
+      { userId },
+      { id: 'plan_expired', name: (profile?.full_name as string) ?? 'there', planName },
+    )
+    if (!mailed.ok) console.info('[expiry] expired email not sent:', mailed.reason, userId)
 
     await logActivity({
       userId,

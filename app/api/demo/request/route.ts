@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
+import { parseBody, z, uuid } from '@/lib/validate'
 
 // A parent asks a tutor for a free demo class.
 //
@@ -24,6 +25,12 @@ import { notify } from '@/lib/notifications'
 // "already requested" into "request again". The write itself stays on the
 // caller's client so RLS still scopes it.
 
+const DemoRequestBody = z.object({
+  tutorId: uuid,
+  mode: z.enum(['online', 'in_person']).optional(),
+  note: z.string().max(1000, 'Keep your note under 1000 characters.').optional(),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -34,12 +41,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Sign in to request a demo.' }, { status: 401 })
   }
 
-  let body: { tutorId?: string; mode?: string; note?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, DemoRequestBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const tutorId = body.tutorId
   if (!tutorId || !/^[0-9a-f-]{36}$/i.test(tutorId)) {

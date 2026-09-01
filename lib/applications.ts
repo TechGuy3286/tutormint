@@ -23,6 +23,7 @@ import { getEntitlements } from '@/lib/entitlements'
 import { checkQuota, consumeQuota } from '@/lib/quota'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
+import { deliverEmail } from '@/lib/notify'
 
 type Fail = { ok: false; status: number; error: string; upgrade?: string }
 
@@ -247,6 +248,29 @@ export async function setApplicationStatus(params: {
     .eq('id', params.applicationId)
 
   if (error) return { ok: false, status: 400, error: error.message }
+
+  if (params.status === 'shortlisted') {
+    // Email only for the good news. A rejection email is a notification
+    // somebody did not ask for about a thing that did not happen; the in-app
+    // one below is enough, and adding an inbox item for every "no" is how a
+    // platform trains people to ignore its email.
+    const { data: tutor } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', application.tutor_id as string)
+      .maybeSingle()
+
+    await deliverEmail(
+      { userId: application.tutor_id as string },
+      {
+        id: 'application_progress',
+        name: (tutor?.full_name as string) ?? 'there',
+        outcome: 'shortlisted',
+        jobTitle: job.title as string,
+        href: '/tutor/dashboard/jobs',
+      },
+    )
+  }
 
   if (params.status === 'shortlisted' || params.status === 'rejected') {
     await notify({

@@ -60,3 +60,57 @@ with "Error sending confirmation email"; the seed instead uses
 `auth.admin.createUser({ email_confirm: true })`, which creates confirmed
 users without sending mail. The key is **server-only** — never give it a
 `NEXT_PUBLIC_` prefix and never import it into client code.
+
+## Checks
+
+```bash
+npm run verify:schema   # the T1–T7 schema is intact (34 checks)
+npm run rls:audit       # nothing outside the allowlist is anonymously readable or writable
+npm run check           # tsc --noEmit && next build
+```
+
+`rls:audit` is the one to run after any migration. It probes reads live with the
+publishable key — the same key that is in every browser bundle — and checks
+write policies structurally against `pg_policies`. Writes are deliberately not
+probed: a live write probe works fine until the day the audit has something to
+catch, and that is the day you least want the test suite inserting rows.
+
+## Backups
+
+```bash
+./scripts/backup.sh            # public schema + data
+./scripts/backup.sh --schema   # schema only
+./scripts/backup.sh --full     # every schema, including auth.users
+```
+
+Output lands in `supabase/backups/`, date-stamped, keeping the eight most recent
+of each kind. **That directory is in `.gitignore` and must stay there: a dump
+contains CNIC numbers, phone numbers and home addresses.** Do not email one, do
+not put one in shared cloud storage unencrypted.
+
+Run `--full` weekly. That is the copy that survives losing access to the
+Supabase account itself, which is the one failure Supabase's own automated
+backups cannot cover.
+
+To schedule it on Windows, in an elevated PowerShell:
+
+```powershell
+$action  = New-ScheduledTaskAction -Execute "C:\Program Files\Git\bin\bash.exe" `
+             -Argument "-lc './scripts/backup.sh --full'" `
+             -WorkingDirectory "C:\AI\TutorMint\tutormint"
+$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 2am
+Register-ScheduledTask -TaskName "TutorMint weekly backup" -Action $action -Trigger $trigger
+```
+
+On macOS or Linux, `crontab -e`:
+
+```
+0 2 * * 0 cd /path/to/tutormint && ./scripts/backup.sh --full >> /tmp/tutormint-backup.log 2>&1
+```
+
+## Before deploying
+
+See [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) — every environment
+variable Vercel needs, which are required and which merely degrade a feature,
+the Supabase dashboard settings that cannot be set from this repo, and what is
+still open.

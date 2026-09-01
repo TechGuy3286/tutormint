@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getProvider, newPaymentReference } from '@/lib/payments'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z, text } from '@/lib/validate'
 
 // Start a purchase.
 //
@@ -19,6 +20,10 @@ import { logActivity } from '@/lib/activityLog'
 // member who pays and then closes the tab has a record we can reconcile
 // against, rather than money with nothing to attach it to.
 
+const CheckoutBody = z.object({
+  planCode: text({ min: 1, max: 64, label: 'Plan' }),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
 
@@ -27,12 +32,9 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
 
-  let body: { planCode?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, CheckoutBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const planCode = typeof body.planCode === 'string' ? body.planCode.trim() : ''
   if (!planCode) return NextResponse.json({ error: 'Choose a plan.' }, { status: 400 })

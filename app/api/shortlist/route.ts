@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z, uuid } from '@/lib/validate'
 
 // Shortlist a tutor, or remove one.
 //
@@ -14,6 +15,11 @@ import { logActivity } from '@/lib/activityLog'
 // write into somebody else's shortlist. RLS on the table (user_id = auth.uid())
 // says the same thing again underneath.
 
+const ShortlistBody = z.object({
+  tutorId: uuid,
+  action: z.enum(['add', 'remove']).default('add'),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -24,12 +30,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Sign in to shortlist tutors.' }, { status: 401 })
   }
 
-  let body: { tutorId?: string; action?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, ShortlistBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const tutorId = body.tutorId
   const action = body.action === 'remove' ? 'remove' : 'add'

@@ -160,12 +160,20 @@ function LoginForm() {
           </button>
         </form>
 
-        <p className="text-center text-xs text-gray-500">
-          New to TutorMint?{' '}
-          <Link href="/register" className="font-bold text-[#d60008] hover:underline">
-            Create an account
+        <div className="space-y-2 text-center">
+          <Link
+            href="/forgot-password"
+            className="flex min-h-[44px] items-center justify-center text-xs font-bold text-[#0F172A] hover:underline"
+          >
+            Forgot your password?
           </Link>
-        </p>
+          <p className="text-xs text-gray-500">
+            New to TutorMint?{' '}
+            <Link href="/register" className="font-bold text-[#d60008] hover:underline">
+              Create an account
+            </Link>
+          </p>
+        </div>
       </div>
     </main>
   )

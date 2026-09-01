@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z } from '@/lib/validate'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
 // then recomputes profiles.profile_completion so the stored percentage can
@@ -21,7 +22,7 @@ type Body = {
 // Only these columns may be written from the client, per table.
 const PROFILE_FIELDS = new Set(['full_name', 'city', 'province', 'address', 'cnic_number', 'whatsapp'])
 const TUTOR_FIELDS = new Set([
-  'gender', 'area', 'area_name', 'avatar_url', 'headline', 'bio',
+  'gender', 'area', 'avatar_url', 'headline', 'bio',
   'experience_years', 'hourly_rate_pkr', 'teaching_mode', 'online_platforms', 'degrees',
 ])
 
@@ -31,6 +32,13 @@ function pick(src: Record<string, unknown> | undefined, allowed: Set<string>) {
   return out
 }
 
+const ProfileBody = z.object({
+  profile: z.record(z.string(), z.unknown()).optional(),
+  tutorProfile: z.record(z.string(), z.unknown()).optional(),
+  subjectMasterIds: z.array(z.number().int().positive()).max(60).optional(),
+  step: z.string().max(64).optional(),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
 
@@ -39,12 +47,12 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
 
-  let body: Body
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  // The allowlists below decide which COLUMNS may be written; this decides the
+  // shape. Both are needed: a schema alone would let a renamed field through,
+  // and an allowlist alone would let `city` arrive as an object.
+  const parsed = await parseBody(request, ProfileBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data as Body
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
   const role = me?.role
@@ -57,8 +65,6 @@ export async function POST(request: Request) {
 
   if (role === 'tutor') {
     const tutorPatch = pick(body.tutorProfile, TUTOR_FIELDS)
-    // Keep the legacy duplicate in step until it is dropped in T8.
-    if (typeof tutorPatch.area === 'string') tutorPatch.area_name = tutorPatch.area
 
     if (Object.keys(tutorPatch).length > 0) {
       const { error } = await supabase.from('tutor_profiles').update(tutorPatch).eq('id', user.id)

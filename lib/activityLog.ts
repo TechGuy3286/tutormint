@@ -73,6 +73,9 @@ export type ActivityEvent =
   | 'password_changed'
   | 'terms_accepted'
   | 'profile_claimed'
+  // T8a — email confirmation and notification preferences.
+  | 'email_confirmed'
+  | 'email_preferences_changed'
 
 export async function logActivity(params: {
   userId: string

@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
+import { deliverEmail } from '@/lib/notify'
+import { parseBody, z, text, uuid } from '@/lib/validate'
 
 // Parent verification decisions.
 //
@@ -11,6 +13,12 @@ import { logActivity } from '@/lib/activityLog'
 //              columns, so approval here and the posting gate cannot drift.
 //   reject  -> verification_state='rejected' with the reason shown back to the
 //              parent on /parent/verify so they know what to fix.
+
+const VerifyBody = z.object({
+  parentId: uuid,
+  action: z.enum(['approve', 'reject'], { message: 'Choose approve or reject.' }),
+  reason: text({ min: 3, max: 1000, label: 'Reason' }),
+})
 
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.parents)
@@ -21,12 +29,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Server is not configured for admin actions.' }, { status: 503 })
   }
 
-  let body: { parentId?: string; action?: string; reason?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, VerifyBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const { parentId, action } = body
   const reason = (body.reason ?? '').trim()
@@ -85,6 +90,19 @@ export async function POST(request: Request) {
     targetId: parentId,
     meta: { decision: action, reason },
   })
+
+  // Approval is what unlocks posting a job, and rejection is useless without
+  // the reason. Both go by email.
+  await deliverEmail(
+    { userId: parentId },
+    {
+      id: 'verification_decision',
+      name: (parent.full_name as string) ?? 'there',
+      decision: action === 'approve' ? 'approved' : 'rejected',
+      subjectOfDecision: 'cnic',
+      reason,
+    },
+  )
 
   return NextResponse.json({ success: true, action, state: patch.verification_state })
 }

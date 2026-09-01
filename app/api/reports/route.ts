@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z, text, uuid } from '@/lib/validate'
+import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 
 // Report a member, a message thread or a job.
 //
@@ -22,6 +24,14 @@ const REASONS = new Set([
   'other',
 ])
 
+const ReportBody = z.object({
+  reason: text({ min: 1, max: 200, label: 'Reason' }),
+  targetType: z.enum(['profile', 'job', 'thread']).default('profile'),
+  reportedId: uuid.nullish(),
+  targetId: z.string().max(64).nullish(),
+  detail: z.string().max(2000, 'Keep the detail under 2000 characters.').optional(),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -30,18 +40,12 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: 'Sign in to report.' }, { status: 401 })
 
-  let body: {
-    reportedId?: string
-    targetType?: string
-    targetId?: string
-    reason?: string
-    detail?: string
-  }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const limit = await rateLimit('report', user.id)
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'reports')
+
+  const parsed = await parseBody(request, ReportBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const reason = body.reason ?? ''
   if (!REASONS.has(reason)) {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
+import { parseBody, z, text } from '@/lib/validate'
 
 // Record that a promotional post was generated for a tutor.
 //
@@ -9,16 +10,20 @@ import { logAdminAction } from '@/lib/auditLog'
 // make a GET a writing request. This is called once, when an admin actually
 // downloads a post to publish — which is the moment worth a record.
 
+const SocialBody = z.object({
+  slug: text({ min: 1, max: 200, label: 'Tutor' }),
+  template: z.string().max(64).optional(),
+  format: z.string().max(64).optional(),
+  edited: z.boolean().optional(),
+})
+
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.social)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
-  let body: { slug?: string; template?: string; format?: string; edited?: boolean }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, SocialBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const slug = (body.slug ?? '').trim()
   if (!slug) return NextResponse.json({ error: 'Missing tutor.' }, { status: 400 })

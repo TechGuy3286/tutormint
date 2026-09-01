@@ -11,16 +11,38 @@ import type { ThreadSummary } from '@/lib/messaging'
 export default function ThreadList({
   threads,
   emptyHint,
+  emptyActions = [],
 }: {
   threads: ThreadSummary[]
   emptyHint: string
+  /** Somewhere to go. An empty state that only explains is a dead end. */
+  emptyActions?: { label: string; href: string }[]
 }) {
   if (threads.length === 0) {
     return (
-      <div className="space-y-2 rounded-2xl border border-gray-200 bg-white p-8 text-center">
+      <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-8 text-center">
         <MessageSquare size={20} className="mx-auto text-gray-300" />
-        <p className="text-xs font-bold text-[#0F172A]">No conversations yet</p>
-        <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">{emptyHint}</p>
+        <div className="space-y-1.5">
+          <p className="text-xs font-bold text-[#0F172A]">No conversations yet</p>
+          <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">{emptyHint}</p>
+        </div>
+        {emptyActions.length > 0 && (
+          <div className="mx-auto flex max-w-xs flex-col gap-2">
+            {emptyActions.map((a, i) => (
+              <Link
+                key={a.href}
+                href={a.href}
+                className={
+                  i === 0
+                    ? 'flex min-h-[44px] items-center justify-center rounded-xl bg-[#0F172A] px-4 text-xs font-bold text-white transition-colors hover:bg-[#334155]'
+                    : 'flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-[#0F172A] transition-colors hover:border-[#0F172A]'
+                }
+              >
+                {a.label}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     )
   }

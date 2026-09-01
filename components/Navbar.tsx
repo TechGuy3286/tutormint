@@ -17,20 +17,14 @@ export default function Navbar() {
       setUser(user);
 
       if (user) {
-        let { data: profile } = await supabase
-          .from('parent_profiles')
+        // One table, one question. This used to probe parent_profiles and then
+        // fall back to tutors -- two retired tables, and guessing a role by
+        // trying tables in order is exactly what CLAUDE.md rule 3 rules out.
+        const { data: profile } = await supabase
+          .from('profiles')
           .select('full_name')
           .eq('id', user.id)
-          .single();
-
-        if (!profile?.full_name) {
-          const { data: tutor } = await supabase
-            .from('tutors')
-            .select('full_name')
-            .eq('id', user.id)
-            .single();
-          profile = tutor;
-        }
+          .maybeSingle();
 
         if (profile?.full_name) {
           setDisplayName(profile.full_name);

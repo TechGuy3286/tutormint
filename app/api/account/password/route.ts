@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z } from '@/lib/validate'
+import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 
 // Replace a temporary password.
 //
@@ -14,6 +16,13 @@ import { logActivity } from '@/lib/activityLog'
 // clear it themselves the flag would be advisory, and the whole point is that
 // the shared credential stops working after one use.
 
+const PasswordBody = z.object({
+  password: z
+    .string()
+    .min(8, 'Choose a password of at least 8 characters.')
+    .max(200, 'That password is too long.'),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -21,12 +30,12 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
 
-  let body: { password?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const limit = await rateLimit('password_change', user.id)
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'attempts')
+
+  const parsed = await parseBody(request, PasswordBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const password = body.password ?? ''
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
+import { parseBody, z, uuid } from '@/lib/validate'
 
 // Cancel a demo. Either participant, while it is still requested or accepted.
 //
@@ -18,6 +19,11 @@ import { notify } from '@/lib/notifications'
 // business spec for demos -- penalties_log exists and is an admin tool in T7 --
 // and inventing a charge in a route is not something to do quietly.
 
+const CancelBody = z.object({
+  demoId: uuid,
+  reason: z.string().max(1000, 'That reason is too long.').optional(),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -26,12 +32,9 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 })
 
-  let body: { demoId?: string; reason?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, CancelBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   if (!body.demoId) return NextResponse.json({ error: 'Missing demo.' }, { status: 400 })
 

@@ -2,12 +2,25 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
+import { parseBody, z, text, uuid } from '@/lib/validate'
 
 // Feedback after a demo: the parent writes it, the tutor may reply once.
 //
 // Feedback is tied to a completed demo between exactly those two people, so it
 // cannot be left by somebody who never met the tutor. It is public on the
 // tutor's profile, which is why the tutor gets a right of reply.
+
+const FeedbackBody = z.object({
+  demoId: uuid,
+  rating: z.coerce
+    .number()
+    .int('Give a whole number of stars.')
+    .min(1, 'Give a rating from 1 to 5.')
+    .max(5, 'Give a rating from 1 to 5.')
+    .optional(),
+  text: z.string().max(2000, 'Keep your feedback under 2000 characters.').optional(),
+  reply: z.string().max(2000, 'Keep your reply under 2000 characters.').optional(),
+})
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -17,12 +30,9 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 })
 
-  let body: { demoId?: string; rating?: number; text?: string; reply?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, FeedbackBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   if (!body.demoId) return NextResponse.json({ error: 'Missing demo.' }, { status: 400 })
 

@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getSmsProvider } from '@/lib/sms'
+import { getSmsProvider, devOtpCode } from '@/lib/sms'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z, pkMobile } from '@/lib/validate'
+import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 
 // Phone / WhatsApp OTP.
 //
@@ -28,12 +30,11 @@ const MAX_ATTEMPTS = 5
 const RESEND_COOLDOWN_MS = 60 * 1000
 const MAX_SENDS_PER_HOUR = 5
 
-/** The dev bypass code, or null in production / when unset. */
-function devOtp(): string | null {
-  if (process.env.NODE_ENV === 'production') return null
-  const v = process.env.DEV_DEFAULT_OTP
-  return v && v.trim() ? v.trim() : null
-}
+// The bypass code now lives in lib/sms, which is the only module that reads
+// DEV_DEFAULT_OTP -- one place to audit, and it is null in production whatever
+// the environment says. instrumentation.ts refuses to boot a production server
+// that has the variable set at all.
+const devOtp = devOtpCode
 
 /** Normalise to digits so 0321-4567890 and 03214567890 are the same phone. */
 function normalisePhone(raw: unknown): string | null {
@@ -41,6 +42,14 @@ function normalisePhone(raw: unknown): string | null {
   const digits = raw.replace(/[^\d+]/g, '')
   return digits.length >= 10 ? digits : null
 }
+
+const OtpBody = z.object({
+  action: z.enum(['send', 'verify'], { message: 'Unknown action.' }),
+  phone: pkMobile,
+  // Kept loose on purpose: a wrong-length code is a wrong code, and telling
+  // somebody their guess was the wrong SHAPE is a hint they did not need.
+  code: z.string().max(32).optional(),
+})
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -64,11 +73,24 @@ export async function POST(request: Request) {
     )
   }
 
-  let body: { action?: string; phone?: string; code?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
+  const parsed = await parseBody(request, OtpBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
+
+  // Two limits, on purpose. Further down, the route caps sends per PHONE per
+  // hour, which stops one number being spammed. This caps per IP, which stops
+  // one script walking a list of numbers -- a different attack, and the one
+  // that costs real money, a message at a time.
+  //
+  // Sends and verifies get separate budgets because they are separate threats:
+  // a send costs us money, a verify is a guess at a code.
+  const bucket = body.action === 'verify' ? 'otp_verify' : 'otp_send'
+  const limit = await rateLimit(bucket, callerIp(request))
+  if (!limit.allowed) {
+    return tooManyRequests(
+      limit.retryAfterSeconds,
+      bucket === 'otp_send' ? 'code requests' : 'attempts',
+    )
   }
 
   const phone = normalisePhone(body.phone)

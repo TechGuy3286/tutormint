@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { adminFetch } from '@/components/admin/adminFetch'
 
 // Quick actions on a member page.
 //
@@ -42,13 +43,15 @@ export default function MemberActions({
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/admin/members', {
+      const { ok, data: json } = await adminFetch<{ [k: string]: unknown; error?: string }>(
+        '/api/admin/members',
+        {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, action, reason }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'That did not work.')
+        },
+      )
+      if (!ok) throw new Error(json.error ?? 'That did not work.')
       setOpen(null)
       setReason('')
       router.refresh()

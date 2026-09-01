@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { adminFetch } from '@/components/admin/adminFetch'
 
 export type PlanRow = {
   code: string
@@ -63,7 +64,9 @@ export default function PlanGrantClient({
     setErr('')
     setMsg('')
 
-    const res = await fetch('/api/admin/plans', {
+    const { ok, data: json } = await adminFetch<{ error?: string; expiresAt?: string; revoked?: number }>(
+      '/api/admin/plans',
+      {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -73,18 +76,18 @@ export default function PlanGrantClient({
         days: action === 'grant' ? Number(days) : undefined,
         note,
       }),
-    })
-    const json = await res.json()
+      },
+    )
     setBusy(false)
 
-    if (!res.ok) {
+    if (!ok) {
       setErr(json.error ?? 'Action failed.')
       return
     }
 
     setMsg(
       action === 'grant'
-        ? `${planCode} granted to ${open.fullName} until ${new Date(json.expiresAt).toLocaleDateString()}.`
+        ? `${planCode} granted to ${open.fullName} until ${new Date(json.expiresAt ?? Date.now()).toLocaleDateString()}.`
         : `Revoked ${json.revoked} active subscription(s) for ${open.fullName}.`,
     )
     setOpen(null)

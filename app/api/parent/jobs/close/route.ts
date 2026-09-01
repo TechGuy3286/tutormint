@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { closeJob } from '@/lib/jobs'
+import { parseBody, z } from '@/lib/validate'
 
 // Close a job without hiring anyone.
 //
@@ -10,6 +11,10 @@ import { closeJob } from '@/lib/jobs'
 // close anyone's job and name the winner. Ownership is now checked in
 // lib/jobs.ts, and awarding is a separate, Featured-only route.
 
+const CloseBody = z.object({
+  jobId: z.string().min(1, 'Missing job.').max(64),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -18,12 +23,9 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: 'Sign in to close your job.' }, { status: 401 })
 
-  let body: { jobId?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, CloseBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   if (!body.jobId) return NextResponse.json({ error: 'Missing job.' }, { status: 400 })
 

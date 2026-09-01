@@ -400,7 +400,6 @@ async function main() {
         bio: t.headline ? `${t.fullName} — ${t.headline}.` : null,
         city: t.city,
         area: t.area,
-        area_name: t.area,
         verification_status: t.verification,
         video_status: t.videoStatus,
         video_youtube_id: t.videoStatus === 'approved' ? `seedvid_${t.name}` : null,

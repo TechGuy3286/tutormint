@@ -4,6 +4,8 @@ import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { applyPlanFlags } from '@/lib/payments/activate'
+import { parseBody, z, uuid } from '@/lib/validate'
+import { requireFreshAuth } from '@/lib/reauth'
 
 // Manual plan grant / revoke — the pre-launch testing tool.
 //
@@ -14,6 +16,14 @@ import { applyPlanFlags } from '@/lib/payments/activate'
 // Grants are written with source='admin_grant' so pre-launch test
 // subscriptions can be told apart from real revenue later.
 
+const PlanGrantBody = z.object({
+  userId: uuid,
+  action: z.enum(['grant', 'revoke'], { message: 'Choose grant or revoke.' }),
+  planCode: z.string().max(64).optional(),
+  days: z.coerce.number().int().min(1).max(3650).optional(),
+  note: z.string().max(1000, 'That note is too long.').optional(),
+})
+
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.plansMutate)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
@@ -23,12 +33,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Server is not configured for admin actions.' }, { status: 503 })
   }
 
-  let body: { userId?: string; action?: string; planCode?: string; days?: number; note?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  // Granting a plan by hand is money the platform did not receive.
+  const fresh = await requireFreshAuth(gate.actor.id)
+  if (!fresh.ok) return fresh.response
+
+  const parsed = await parseBody(request, PlanGrantBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const { userId, action } = body
   const note = (body.note ?? '').trim()

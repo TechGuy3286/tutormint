@@ -29,7 +29,7 @@ export default function TutorSettingsPage() {
     city: "Lahore",
     areaName: "DHA Phase 5",
     teachingModes: ["Physical"] as string[],
-    profileImage: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+    profileImage: "",
     coverImageUrl: "",
     selfieUrl: "",
     cnicFrontUrl: "",
@@ -94,11 +94,11 @@ export default function TutorSettingsPage() {
         }
 
         setFormData({
-          fullName: data.full_name || "Alishba Mam Tutor",
+          fullName: data.full_name || "",
           phone_number: data.phone_number || "",
           whatsapp_number: data.whatsapp_number || "",
-          city: data.city || "Lahore",
-          areaName: data.area_name || "DHA Phase 5",
+          city: data.city || "",
+          areaName: data.area || "",
           teachingModes: parsedModes,
           profileImage: data.avatar_url || formData.profileImage,
           coverImageUrl: data.cover_image_url || "",
@@ -331,7 +331,7 @@ export default function TutorSettingsPage() {
         phone_number: formData.phone_number,
         whatsapp_number: formData.whatsapp_number,
         city: formData.city,
-        area_name: formData.areaName,
+        area: formData.areaName,
         teaching_mode: formData.teachingModes.join(", "),
         specialty_subjects: combinedSubjectsString,
         specialty_list: specialtyList,
@@ -516,7 +516,7 @@ export default function TutorSettingsPage() {
                 <label className="block text-xs font-bold text-[#0F172A]">Selfie</label>
                 <div className="flex items-center gap-4">
                   <img 
-                    src={formData.selfieUrl || "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=150"} 
+                    src={formData.selfieUrl || "/logo.png"} 
                     alt="Selfie" 
                     className="w-28 h-28 rounded-2xl object-cover border-2 border-blue-500 shadow-md shrink-0" 
                   />

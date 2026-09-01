@@ -20,6 +20,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
 import { logAdminAction } from '@/lib/auditLog'
 import { notify } from '@/lib/notifications'
+import { deliverEmail } from '@/lib/notify'
 import type { AdminRole } from '@/lib/adminAuth'
 
 export type ActivationResult =
@@ -187,6 +188,27 @@ export async function activatePayment(params: {
     body: `Your ${plan.name} plan runs until ${expiresAt.toLocaleDateString('en-PK')}. There are no refunds.`,
     href: audience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard',
   })
+
+  // The receipt. Essential mail: it is the only record a member has of what
+  // they paid and when the plan runs out, and it states the no-refund rule
+  // where they will actually read it.
+  const { data: buyer } = await admin
+    .from('profiles')
+    .select('full_name')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const mailed = await deliverEmail(
+    { userId },
+    {
+      id: 'plan_activated',
+      name: (buyer?.full_name as string) ?? 'there',
+      planName: plan.name as string,
+      expiresAt: expiresAt.toLocaleDateString('en-PK'),
+      amountPkr: (payment.amount_pkr as number) ?? 0,
+    },
+  )
+  if (!mailed.ok) console.info('[activate] receipt email not sent:', mailed.reason, userId)
 
   await logActivity({
     userId,

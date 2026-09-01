@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
+import { parseBody, z, uuid } from '@/lib/validate'
 
 // A parent's children.
 //
@@ -10,6 +11,14 @@ import { logActivity } from '@/lib/activityLog'
 // every row to parent_id = auth.uid(); this route scopes the write the same
 // way rather than trusting a parent_id from the body.
 
+const ChildBody = z.object({
+  action: z.enum(['save', 'remove']).default('save'),
+  id: uuid.optional(),
+  name: z.string().max(120, 'That name is too long.').optional(),
+  classLevel: z.string().max(120).optional(),
+  notes: z.string().max(1000).optional(),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -18,12 +27,9 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 })
 
-  let body: { id?: string; name?: string; classLevel?: string; notes?: string; action?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, ChildBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   if (body.action === 'remove') {
     if (!body.id) return NextResponse.json({ error: 'Missing child.' }, { status: 400 })

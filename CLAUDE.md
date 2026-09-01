@@ -97,7 +97,8 @@ Delete: the whole Mongo layer, `/parent/browse`, `/parent/post-job`, `/parent/si
 - [x] **T6 Packages** — `/tutor/packages`, `/parent/packages`, payment submission, `lib/entitlements.ts`, badges + Featured tag on `TutorCard` and job cards, contact-field filtering, `usage_counters`, expiry downgrade function (pg_cron or Vercel cron).
 - [x] **T7a Admin, part 1** — /admin/team (owner only), reports & penalties queue, member directory + timeline, audit view, dashboard by role, video visibility toggle.
 - [x] **T7b Admin, part 2** — advertisements with weighted rotation, social post generator, bulk tutor import with mobile login and claim flow, junk-user cleanup.
-- [ ] **T8 Hardening** — RLS audit, `.env` on Vercel, remove every `techguy3286@gmail.com` / test phone fallback, `npm run build` clean.
+- [x] **T8a Launch hardening** — legacy retirement, RLS audit + CI gate, email/SMS delivery, unknown-input polish, Terms & Privacy, security headers, production readiness, backups.
+- [ ] **T8b** — region migration to Mumbai `ap-south-1`, Turnstile, nonce-based CSP, WhatsApp delivery, legacy NOT NULL columns on `jobs`/`messages`.
 
 ## Design system & responsiveness (applies to every task)
 
@@ -163,7 +164,8 @@ Existing tables: academy_affiliations, advertisements, demo_feedback, job_messag
 - **RLS is OFF ("Unrestricted") on `parents`, `phone_otps`, `profiles`.** Enabling RLS on every table is the first statement of the T1 migration, before anything else.
 - Three job tables exist (`jobs`, `parent_jobs`, `tuitions`) and two application tables (`tutor_applications`, `tuition_applications`). Canonical: `jobs` and `applications`. Migrate rows from the others, then drop.
 - Two message tables (`messages`, `job_messages`). Canonical: `threads` + `messages`.
-- Keep and wire later: `demo_feedback` → rename `demo_requests`; `tutor_slots` (availability — T4); `user_blocks` (T5 chat); `academy_affiliations` (school/academy accounts); `profile_views` (tutor dashboard stat); `penalties_log` (admin).
+- Keep and wire later: ~~`demo_feedback` → rename `demo_requests`~~ **superseded in T5**: `demo_requests` is the request and `demo_feedback` is the rating that follows one, joined by `demo_feedback.demo_request_id`. Both are canonical; neither was retired in T8a.
+- Also keep and wire later: `tutor_slots` (availability — T4); `user_blocks` (T5 chat); `academy_affiliations` (school/academy accounts); `profile_views` (tutor dashboard stat); `penalties_log` (admin).
 - `advertisements` — ask the owner what this was for before touching it.
 - In T1, dump `information_schema.columns` for every table above into `supabase/schema-before.md` so the migration is written against real column names, not guesses.
 
@@ -332,6 +334,115 @@ Nothing is deleted, ever. Jobs, applications, threads, reviews and subscriptions
 
 **Audit is append-only by construction.** `admin_audit_log` has a SELECT policy and no others, so there is no UPDATE or DELETE path even with the anon key. `actor_email` is stored on the row rather than joined, so an entry still says who acted after that staff account is deleted.
 
+## Launch hardening (T8a) — what is enforced where
+
+**The ten pre-rebuild tables are renamed, not dropped.** A dropped table takes
+its rows with it and leaves no way to find out afterwards whether something was
+still reading it. `legacy_*` answers both questions at once: a forgotten caller
+breaks immediately and visibly, and the 47 `parent_jobs` rows are still there.
+Two of them — `parents` and `parent_jobs` — carried a policy called "Enable
+insert for authenticated users" with no `TO` clause and `with check (true)`,
+which meant the anon key could insert. That was proven at the SQL layer before
+it was fixed, because the same insert through PostgREST returns 42501 and looks
+refused: `return=representation` needs a SELECT policy to echo the row back, and
+the write itself was permitted. **When the question is whether RLS allows
+something, probe it in psql, not over the REST API.**
+
+**`scripts/rls-audit.ts` is the CI gate**, and it is deliberately two halves.
+Reads are probed live with the publishable key, because that key is in every
+browser bundle and "what does it see" has a real answer. Writes are checked
+structurally against `pg_policies` and NOT probed: a live write probe passes
+happily until the day the audit finally has something to catch, and that is the
+day you least want a test suite inserting rows. The rule applied to policy text
+is that a permissive write policy must name `auth.uid()` or an `is_admin`
+helper — an expression that never looks at the caller cannot tell anon from
+anybody. Everything public is on a hand-written allowlist with a reason
+attached, so widening access is a diff a reviewer notices.
+
+**One opt-out flag, not a matrix.** The matrix is the version where somebody
+unticks the box that would have told them their plan expired. Each template in
+`lib/notify/templates.ts` declares itself essential or not, and the essential
+ones ignore `profiles.email_opt_out` — verification decisions, payment receipts,
+plan expiry, being hired. `/account/notifications` says which those are rather
+than showing a tick box that quietly does nothing.
+
+**The message digest never contains the message.** An inbox is not somewhere we
+control, and a forwarded "here is what the tutor said" email is exactly the leak
+number-masking exists to prevent. Throttled to one an hour per person by
+`profiles.last_message_digest_at` — a durable timestamp, because an in-process
+timer on Vercel means one email per hour *per lambda*, which is not the promise.
+
+**The welcome email is sent at email confirmation, not at sign-up.** At sign-up
+the address is unproven, and mailing unconfirmed addresses is how a sending
+domain's reputation is spent. `profiles.welcomed_at` is stamped *before* the
+send, so a retry storm cannot mail somebody ten times; one lost welcome is a far
+smaller problem than ten delivered ones.
+
+**`DEV_DEFAULT_OTP` is guarded three times**, on the principle that the check
+which matters is the one that survives a refactor of the other two.
+`devOtpCode()` in `lib/sms/index.ts` is the only place in the codebase that
+reads it and returns null in production; `assertOtpSafety()` **throws at server
+startup** if the variable is present in a production build at all; and the OTP
+route calls the helper rather than `process.env`. The throw is the point — a
+variable set in production means somebody believes it works, and a warning in a
+log is read after the incident it would have prevented.
+
+**Nothing pretends to have sent.** Every adapter — Resend, Twilio, WhatsApp —
+answers `isConfigured()` first and returns a stated failure rather than a
+cheerful `ok:true`. In development a console adapter prints the message, and the
+log line says CONSOLE. In production a missing key is never silently swapped for
+the console: a deployment that thinks it is sending mail and is not is worse than
+one that says it cannot.
+
+**Validation speaks to the person.** `lib/validate.ts` is one `parseBody()` and
+one 400 shape (`{ error, fields }`) across every route, so a form can render
+both without knowing what it called. Zod's own text never reaches a member —
+`isZodDefault()` recognises it and `humanise()` replaces it, because
+`issue.message || humanise(issue)` never falls through: Zod always populates
+`message`. Ids use `z.guid()`, **not** `z.uuid()`: Zod 4 enforces the RFC
+variant bits and the seed cast's ids (`11111111-…`) do not carry them, so
+`uuid()` would reject rows the database itself issued. Fees accept "8000",
+"8,000", "8k" and "Rs 8000" — a parent who writes "8k" has not made a mistake.
+
+**Rate limits live in the database.** On Vercel an in-memory counter limits each
+lambda separately, which is not a limit. `consume_rate_limit()` does the
+increment and the test in one statement, because read-then-write lets two
+concurrent requests both see "one left". It **fails open**: a database wobble
+must not lock everybody out of a platform whose password check is still the
+actual control.
+
+**Admin re-authentication instead of a short admin session.** A short session
+logs a moderator out mid-queue, and the predictable result is that the queue
+stops being worked — it punishes the diligent admin and inconveniences an
+attacker for twenty minutes. So the session stays and the four actions that
+cannot be undone (suspend/reinstate, staff changes, junk deletion, payment
+approval) ask for the password again if the last confirmation is over 12 hours
+old. `adminFetch()` handles the `{ reauth: true }` 401 in one place so a screen
+written later cannot forget to. Reversible actions are not gated: a prompt on
+every action is a prompt people learn to type through.
+
+**The CSP has a known gap, written down.** `script-src` carries
+`'unsafe-inline'` because Next's App Router emits inline bootstrap scripts, and
+closing it properly needs a per-request nonce threaded through `proxy.ts` —
+its own change, with its own testing, not something to bundle into a pass that
+touches eleven other things. What it already stops is the step that turns an XSS
+into exfiltration: no script from an unnamed origin, no connection to an unnamed
+origin, no framing. The reasoning is in `next.config.ts` so nobody later reads
+`'unsafe-inline'` and assumes it was an oversight.
+
+**`/support` lost its contact form.** It set a state variable and told the
+member "Your support ticket has been received" — nothing was sent, no ticket
+existed, nobody was going to reply. It is now FAQ-first with a real WhatsApp
+link and a real email address, both read from `app_settings` with env fallbacks
+so rule 7 holds, and a channel with nothing configured is not shown at all.
+
+**Terms and Privacy cite no statute.** Pakistan's data-protection legislation has
+been in draft for years; naming an act that may not be in force, or
+misdescribing one that is, would be worse than describing our actual practice
+plainly. Both files carry a DRAFT FOR OWNER REVIEW header naming the sections a
+lawyer should read first. Every commitment in them matches something the code
+enforces — where the two disagree, the code is the bug.
+
 ## Payments — the adapter contract (T6)
 
 Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything that depends on their documentation is marked `TODO(assanpay)` in `lib/payments/assanpay.ts`; the shape around it is settled and shared with the other providers.
@@ -374,3 +485,10 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 - Form validation: friendly inline messages stating the expected format (mobile 03xx-xxxxxxx, CNIC 5-7-1 digits, fee as number), input normalisation (strip spaces/dashes, "5k" → 5000 with confirmation), never lose typed content on error, Urdu text accepted in free-text fields.
 - Help: /support rebuilt as FAQ-first (questions grouped for tutors/parents incl. "refunds" → no-refund policy + terms link, "how verification works", "why can't I hire") with a one-tap WhatsApp + email fallback. AI help bot is post-launch backlog, not built now.
 - Unknown API input: every route validates with zod (or equivalent) and returns structured 400s with a human message; the UI renders that message.
+
+## Register / login form rules (owner, 1 Sep)
+
+- /register is minimal: role as two plain radio buttons "Tutor" / "Parent" at the top — NO mention of school or academy anywhere on auth forms (schools register as parents; only the FAQ explains this). Fields: full name, email, password, create button, "already have an account" link — nothing else. City (and every other detail) is collected in profile completion, never at signup. Card centred at all widths.
+- Same minimal treatment for /login (email-or-mobile + password + forgot password + register link).
+- Implemented in T8a. /register now: two radio buttons (Tutor / Parent), full name, email, password, a one-line terms + photo-consent acceptance, and the sign-in link. City removed — it is collected in profile completion. /login gained /forgot-password, which reports the same thing whether or not the address has an account (a reset form that says "no such account" is a membership oracle). **Password-reset delivery needs SMTP on the Supabase project, which is not configured yet** — see PRODUCTION_CHECKLIST.md.
+- The one deviation from "nothing else": the terms acceptance stays. It is a checkbox, not a data field, and T8a scope item 6 requires the photo-use consent to be shown at tutor signup. Consent given by implication through a link nobody opens is not consent anybody would recognise having given.

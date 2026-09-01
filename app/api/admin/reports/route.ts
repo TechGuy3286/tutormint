@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { warnMember, suspendMember, unsuspendMember } from '@/lib/moderation'
+import { parseBody, z, uuid } from '@/lib/validate'
 
 // Working a report: dismiss, warn, suspend, unsuspend.
 //
@@ -16,6 +17,12 @@ import { warnMember, suspendMember, unsuspendMember } from '@/lib/moderation'
 // Every path needs a written reason. A queue whose outcomes are unexplained is
 // a queue nobody can review later, and the member is told the reason verbatim.
 
+const ReportActionBody = z.object({
+  reportId: uuid,
+  action: z.string().min(1, 'Choose what to do with this report.').max(64),
+  reason: z.string().max(1000, 'That note is too long.').optional(),
+})
+
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.reports)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
@@ -25,12 +32,9 @@ export async function POST(request: Request) {
 
   const actor = { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email }
 
-  let body: { reportId?: string; action?: string; reason?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, ReportActionBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const reportId = body.reportId ?? ''
   const action = body.action ?? ''

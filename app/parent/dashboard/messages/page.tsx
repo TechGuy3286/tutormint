@@ -27,6 +27,10 @@ export default async function ParentMessagesPage() {
         <ThreadList
           threads={threads}
           emptyHint="Message any tutor from their profile, or from the applicants on one of your jobs."
+          emptyActions={[
+            { label: 'Find a tutor', href: '/browse/tutors' },
+            { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
+          ]}
         />
       </div>
     </main>

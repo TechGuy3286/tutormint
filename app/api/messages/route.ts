@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendMessage } from '@/lib/messaging'
+import { parseBody, z, text, uuid } from '@/lib/validate'
+import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 
 // Post a message into an existing thread.
 //
@@ -8,6 +10,11 @@ import { sendMessage } from '@/lib/messaging'
 // OPENING a thread is plan-gated. The body is stored verbatim; masking happens
 // when it is read, so the same message unmasks by itself if the reader's plan
 // later grants contact rights.
+
+const MessageBody = z.object({
+  threadId: uuid,
+  body: text({ min: 1, max: 4000, label: 'Message' }),
+})
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -17,12 +24,12 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: 'Sign in to send a message.' }, { status: 401 })
 
-  let body: { threadId?: string; body?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const limit = await rateLimit('message', user.id)
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'messages')
+
+  const parsed = await parseBody(request, MessageBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   if (!body.threadId) return NextResponse.json({ error: 'Missing conversation.' }, { status: 400 })
 

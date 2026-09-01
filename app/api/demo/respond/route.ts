@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
+import { parseBody, z, uuid } from '@/lib/validate'
 
 // The tutor answers a demo request: accept with a proposed time, or decline
 // with a reason.
@@ -11,6 +12,13 @@ import { notify } from '@/lib/notifications'
 // it: a demo is how a tutor with no reviews gets their first booking, and
 // putting it behind a plan would close that door.
 
+const RespondBody = z.object({
+  demoId: uuid,
+  action: z.enum(['accept', 'decline'], { message: 'Choose accept or decline.' }),
+  proposedTime: z.string().max(64).optional(),
+  reason: z.string().max(1000, 'That reason is too long.').optional(),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const {
@@ -19,12 +27,9 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 })
 
-  let body: { demoId?: string; action?: string; proposedTime?: string; reason?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  const parsed = await parseBody(request, RespondBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const { demoId, action } = body
   if (!demoId || (action !== 'accept' && action !== 'decline')) {

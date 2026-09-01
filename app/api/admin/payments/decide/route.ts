@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { activatePayment, rejectPayment } from '@/lib/payments/activate'
+import { parseBody, z, uuid } from '@/lib/validate'
+import { requireFreshAuth } from '@/lib/reauth'
 
 // Approve or reject a manual transfer.
 //
@@ -12,16 +14,24 @@ import { activatePayment, rejectPayment } from '@/lib/payments/activate'
 // owner / manager / finance only, checked here and not merely in the UI: a
 // verifier who could POST this would be able to hand out plans.
 
+const DecideBody = z.object({
+  paymentId: uuid,
+  action: z.enum(['approve', 'reject'], { message: 'Choose approve or reject.' }),
+  reason: z.string().max(1000, 'That reason is too long.').optional(),
+})
+
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.paymentsMutate)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
-  let body: { paymentId?: string; action?: string; reason?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
-  }
+  // Approving a payment grants a month of a paid plan for nothing. Cheaper to
+  // ask for a password than to reconcile a fraudulent activation later.
+  const fresh = await requireFreshAuth(gate.actor.id)
+  if (!fresh.ok) return fresh.response
+
+  const parsed = await parseBody(request, DecideBody)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const paymentId = typeof body.paymentId === 'string' ? body.paymentId : ''
   if (!paymentId) return NextResponse.json({ error: 'Missing payment.' }, { status: 400 })
