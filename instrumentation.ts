@@ -16,11 +16,19 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
 
   const { assertOtpSafety } = await import('@/lib/sms')
+  const { isDeployed, describeEnv } = await import('@/lib/env')
 
-  // Throws if DEV_DEFAULT_OTP is set in a production build. See lib/sms/index.ts.
+  // Throws if DEV_DEFAULT_OTP is set on the LIVE SITE. A preview deployment is
+  // allowed to carry it -- see lib/env.ts for why NODE_ENV is the wrong
+  // question on Vercel.
   assertOtpSafety()
 
-  if (process.env.NODE_ENV !== 'production') return
+  // Warnings fire on ANY deployment, preview included: a preview with no Resend
+  // key should say so rather than leave a tester wondering where the email
+  // went. isProduction() would stay quiet there.
+  if (!isDeployed()) return
+
+  console.info(`[startup] ${describeEnv()}`)
 
   // Everything below is a warning, not a refusal: each one degrades a feature
   // rather than opening a hole, and refusing to boot the whole site because

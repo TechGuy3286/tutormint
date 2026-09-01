@@ -6,7 +6,8 @@
  * T3–T6 by hand.
  *
  * SAFETY
- *   1. Refuses to run when NODE_ENV === 'production'.
+ *   1. Refuses to run against the live site (VERCEL_ENV when set, NODE_ENV
+ *      otherwise -- the same rule as lib/env.ts and seed-cleanup.ts).
  *   2. Refuses to run unless BOTH SUPABASE_DB_URL and NEXT_PUBLIC_SUPABASE_URL
  *      point at the known dev project ref (see DEV_PROJECT_REF). This is what
  *      stops the script ever touching another project's data.
@@ -274,8 +275,14 @@ const daysFromNow = (n: number) => new Date(Date.now() + n * 86_400_000).toISOSt
 async function main() {
   const env = loadEnv()
 
-  if (process.env.NODE_ENV === 'production') {
-    die('NODE_ENV is "production". This script only runs against a dev project.')
+  const vercelEnv = process.env.VERCEL_ENV
+  const live = vercelEnv ? vercelEnv === 'production' : process.env.NODE_ENV === 'production'
+  if (live) {
+    die(
+      vercelEnv
+        ? `VERCEL_ENV is "${vercelEnv}". This script only runs against a dev project.`
+        : 'NODE_ENV is "production". This script only runs against a dev project.',
+    )
   }
 
   const dbRef = refOf(env.SUPABASE_DB_URL, 'db')

@@ -54,12 +54,64 @@ says so.
 | `SUPPORT_WHATSAPP` / `SUPPORT_EMAIL` / `SUPPORT_HOURS` | `/support` shows the FAQ with no contact buttons. Can be set as `app_settings` rows (`support.*`) instead. |
 | `SUPABASE_DB_URL` | Scripts only (`seed:dev`, `verify:schema`, `rls:audit`, `backup.sh`). The app never uses it. |
 
-### MUST NOT be set in production
+---
 
-| Variable | Why |
+## 1b. Preview environment
+
+Vercel builds a preview deployment with `next build`, so **`NODE_ENV` is
+`production` there** — identically to the live site. Anything gated on
+`NODE_ENV` therefore switches off on preview, which would hand a tester a real
+card gateway and a real SMS bill.
+
+`lib/env.ts` asks `VERCEL_ENV` instead, falling back to `NODE_ENV` only for
+local builds. Set variables **per environment** in Vercel — Project → Settings →
+Environment Variables has a Production / Preview / Development checkbox on every
+one.
+
+### What preview relaxes, and what it does not
+
+| Relaxed on Preview | Never relaxed, anywhere |
 |---|---|
-| `DEV_DEFAULT_OTP` | A fixed code that verifies any phone number — in production, a master key to every account. **`instrumentation.ts` throws and the server refuses to start** if it is present. The code path is separately unreachable (`devOtpCode()` returns null in production), so this is a refusal to boot a deployment somebody has misconfigured, not a patch over a hole. |
-| `PAYMENTS_SIMULATOR` / `PAYMENTS_SIMULATOR_SECRET` | The simulator requires `NODE_ENV !== production` as well, so it cannot activate — but leaving them set implies somebody expects it to. |
+| `DEV_DEFAULT_OTP` bypass and its startup assertion | Row-level security |
+| Payment simulator (`/pay/simulator/[ref]`) | Authentication and role gating |
+| `/dev/*` routes | Entitlements and quotas |
+| Console SMS and email adapters | Rate limits |
+| `seed:dev` / `seed:cleanup` guards | Security headers and the CSP |
+| | Admin permissions and re-authentication |
+
+A preview points at the **same Supabase project with the same policies**.
+Nothing in `lib/env.ts` can loosen a database rule, because no database rule
+consults it.
+
+### Preview: set these
+
+| Variable | Value | Why |
+|---|---|---|
+| `DEV_DEFAULT_OTP` | e.g. `000000` | Verify a phone with no SMS provider attached. **Preview only.** |
+| `PAYMENTS_SIMULATOR` | `true` | The fake gateway. **Preview only.** |
+| `PAYMENTS_SIMULATOR_SECRET` | any long random string | No default exists anywhere; without it the simulator stays off, because a signature check that passes with no secret is not a check. |
+| `NEXT_PUBLIC_SITE_URL` | the preview URL | Otherwise email links point at tutormint.org and a tester ends up on the live site. |
+| `CRON_SECRET` | a **different** value from Production | So a leaked preview secret cannot drive the live sweep. |
+
+Copy across from Production: `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, the
+`MANUAL_PAY_*` values, and `SUPPORT_*`.
+
+Leave **unset** on Preview: `RESEND_API_KEY` and the `TWILIO_*` values, unless
+you specifically want a preview sending real email and real SMS. Without them
+the console adapters print to the Vercel function log, which is where a tester
+should be reading the OTP from anyway.
+
+### Production: these must NOT exist
+
+| Variable | What happens if it does |
+|---|---|
+| **`DEV_DEFAULT_OTP`** | **The server refuses to start.** `assertOtpSafety()` throws in `instrumentation.ts` and the deployment fails its health check. This is deliberate: a fixed code that verifies any number is, in production, a master key to every account, and its presence means somebody expects it to work. |
+| **`PAYMENTS_SIMULATOR`** / `PAYMENTS_SIMULATOR_SECRET` | The simulator stays off regardless (`isProduction()` is checked first), but leaving them set implies otherwise. Remove them. |
+
+After deploying a preview, the function log should read
+`[startup] VERCEL_ENV=preview`. If it says `VERCEL_ENV=production` on a branch
+deployment, the variables are on the wrong environment.
 
 ---
 
@@ -89,11 +141,22 @@ These are dashboard settings, not code. None of them can be set from this repo.
 
 ## 4. Verify in the production build
 
-Run `npm run build && npm start` locally with `NODE_ENV=production` and check:
+Run `npm run build && npm start` locally and check both environments. Setting
+`VERCEL_ENV` on the command line is what makes this testable without deploying.
+
+**As Production** (`VERCEL_ENV=production`, or no `VERCEL_ENV` with
+`NODE_ENV=production`):
 
 - [ ] `/dev/components` → **404**
 - [ ] `/pay/simulator/anything` → **404**
-- [ ] Setting `DEV_DEFAULT_OTP` → **the server refuses to start**, with the reason
+- [ ] `DEV_DEFAULT_OTP` set → **the server refuses to start**, with the reason
+
+**As Preview** (`VERCEL_ENV=preview`, `NODE_ENV=production`):
+
+- [ ] the server **starts** with `DEV_DEFAULT_OTP` set, logging `[startup] VERCEL_ENV=preview`
+- [ ] `/dev/components` → **200**
+- [ ] `/pay/simulator/…` → reachable
+- [ ] the security headers below are **identical** to Production
 - [ ] Response headers carry `Content-Security-Policy`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Strict-Transport-Security`
 - [ ] `/robots.txt` and `/sitemap.xml` both render, and the sitemap contains tutor slugs
 

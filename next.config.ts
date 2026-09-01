@@ -49,7 +49,14 @@ function contentSecurityPolicy(): string {
     'default-src': ["'self'"],
 
     // See the note above. 'unsafe-eval' is development only -- React Refresh
-    // needs it, and it must never reach production.
+    // needs it, and it must never reach a built deployment.
+    //
+    // This one stays on NODE_ENV rather than lib/env.ts's isProduction(), and
+    // deliberately: the question here is "was this compiled by `next build`",
+    // not "is this the live site". A Vercel preview is a real build with no
+    // React Refresh, so it neither needs 'unsafe-eval' nor should have it. The
+    // security headers stay production-grade on preview -- only the test
+    // conveniences relax.
     'script-src': [
       "'self'",
       "'unsafe-inline'",

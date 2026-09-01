@@ -19,9 +19,10 @@ import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 //   * 60s resend cooldown
 //   * max 5 sends per phone per hour
 //
-// DEV_DEFAULT_OTP: when set AND NODE_ENV is not production, that code always
-// verifies, so several test users can verify without a live SMS provider. It is
-// never read in production -- see devOtp() below.
+// DEV_DEFAULT_OTP: when set AND this is not the live site, that code always
+// verifies, so several test users can verify without a live SMS provider -- and
+// so a Vercel preview is testable end to end. It is never read on
+// tutormint.org; see devOtpCode() in lib/sms, the one place that reads it.
 //
 // Requires a signed-in user: this verifies the phone of the current account.
 

@@ -10,7 +10,8 @@
 // code that will run in production.
 //
 // THREE locks, all of which must be open:
-//   NODE_ENV !== 'production'
+//   not the live site (VERCEL_ENV, falling back to NODE_ENV -- see lib/env.ts,
+//   which is what makes the simulator usable on a Vercel preview)
 //   PAYMENTS_SIMULATOR === 'true'
 //   PAYMENTS_SIMULATOR_SECRET is set
 // The last one matters: without a secret the webhook could not be signed, and

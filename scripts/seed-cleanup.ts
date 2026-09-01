@@ -9,8 +9,14 @@
  *
  * GUARDED EXACTLY LIKE seed-dev.ts, and for the same reason: a script that can
  * delete accounts must not be able to point at the wrong database. It refuses
- * to run unless NODE_ENV is not 'production' AND both SUPABASE_DB_URL and
- * NEXT_PUBLIC_SUPABASE_URL resolve to the known dev project ref.
+ * to run unless the environment is not the live site AND both SUPABASE_DB_URL
+ * and NEXT_PUBLIC_SUPABASE_URL resolve to the known dev project ref.
+ *
+ * "Not the live site" is VERCEL_ENV when it exists, NODE_ENV otherwise --
+ * mirroring lib/env.ts, which this file deliberately does not import: a script
+ * that deletes accounts should not depend on a module resolving through a
+ * bundler alias. The rule is short enough to state twice, and the project-ref
+ * check is the guard that actually matters here.
  *
  * WHAT IT WILL DELETE
  *   * auth users whose email starts with `seed+` and ends `@tutormint.dev`
@@ -77,8 +83,14 @@ async function main() {
   const apply = process.argv.includes('--apply')
 
   // ---- the guards, before anything is read or written --------------------
-  if (process.env.NODE_ENV === 'production') {
-    die('NODE_ENV is production. This script never runs there.')
+  const vercelEnv = process.env.VERCEL_ENV
+  const live = vercelEnv ? vercelEnv === 'production' : process.env.NODE_ENV === 'production'
+  if (live) {
+    die(
+      vercelEnv
+        ? `VERCEL_ENV is "${vercelEnv}". This script never runs against the live site.`
+        : 'NODE_ENV is production. This script never runs there.',
+    )
   }
 
   const apiRef = refOf(env.NEXT_PUBLIC_SUPABASE_URL, 'api')

@@ -143,11 +143,10 @@ test('twilio: reports itself unconfigured when credentials are missing', async (
 
 // ----------------------------------------------------------- otp safety ---
 
-test('devOtpCode is null in production even when the variable is set', async () => {
-  // NODE_ENV is a getter on process.env under Node's test runner and cannot be
-  // redefined, so this is asserted in a child process where it can simply be
-  // set in the environment -- which is also closer to the real thing being
-  // tested: a deployment with the variable present.
+test('the OTP bypass follows VERCEL_ENV, not NODE_ENV', async () => {
+  // Asserted in a child process: NODE_ENV is a getter on process.env under
+  // Node's test runner and cannot be redefined. That is also closer to the
+  // thing being tested -- a deployment whose environment carries the variable.
   const { execFileSync } = await import('node:child_process')
 
   const script = `
@@ -161,21 +160,72 @@ test('devOtpCode is null in production even when the variable is set', async () 
     JSON.parse(
       execFileSync(process.execPath, ['--import', 'tsx', '-e', script], {
         encoding: 'utf8',
-        env: { ...process.env, ...env },
+        // VERCEL_ENV is cleared unless the case sets it, so a machine that
+        // happens to have one exported cannot change what these assert.
+        env: { ...process.env, VERCEL_ENV: '', DEV_DEFAULT_OTP: '000000', ...env },
       }).trim(),
     ) as { code: string | null; threw: boolean; message: string }
 
-  const dev = run({ NODE_ENV: 'development', DEV_DEFAULT_OTP: '000000' })
-  assert.equal(dev.code, '000000', 'the bypass works in development')
-  assert.equal(dev.threw, false)
+  // --- local, no VERCEL_ENV: NODE_ENV decides -----------------------------
+  const localDev = run({ NODE_ENV: 'development' })
+  assert.equal(localDev.code, '000000', 'the bypass works in local development')
+  assert.equal(localDev.threw, false)
 
-  const prod = run({ NODE_ENV: 'production', DEV_DEFAULT_OTP: '000000' })
-  assert.equal(prod.code, null, 'the bypass must be unreachable in production')
-  assert.equal(prod.threw, true, 'and the server must refuse to start')
-  assert.match(prod.message, /DEV_DEFAULT_OTP is set in a production build/)
+  const localProd = run({ NODE_ENV: 'production' })
+  assert.equal(localProd.code, null, 'a local production build has no bypass')
+  assert.equal(localProd.threw, true)
 
-  const clean = run({ NODE_ENV: 'production', DEV_DEFAULT_OTP: '' })
-  assert.equal(clean.threw, false, 'unset in production is fine')
+  // --- deployed: VERCEL_ENV decides, and NODE_ENV is production either way --
+  //
+  // This is the case that matters. Both of these are built with `next build`,
+  // so NODE_ENV is 'production' for both; only VERCEL_ENV tells them apart.
+  const preview = run({ NODE_ENV: 'production', VERCEL_ENV: 'preview' })
+  assert.equal(preview.code, '000000', 'a preview deployment keeps the bypass')
+  assert.equal(preview.threw, false, 'and must not refuse to boot')
+
+  const production = run({ NODE_ENV: 'production', VERCEL_ENV: 'production' })
+  assert.equal(production.code, null, 'the live site never has the bypass')
+  assert.equal(production.threw, true, 'and refuses to boot while the variable is set')
+  assert.match(production.message, /DEV_DEFAULT_OTP is set on the live site/)
+
+  // Removing it from Production is what the error asks for, so that must work.
+  const clean = run({ NODE_ENV: 'production', VERCEL_ENV: 'production', DEV_DEFAULT_OTP: '' })
+  assert.equal(clean.threw, false, 'unset on the live site is fine')
+})
+
+test('the payment simulator follows VERCEL_ENV too', async () => {
+  const { execFileSync } = await import('node:child_process')
+
+  const script = `
+    const { simulatorEnabled } = require('./lib/payments/provider.ts')
+    console.log(JSON.stringify({ enabled: simulatorEnabled() }))
+  `
+  const run = (env: Record<string, string>) =>
+    JSON.parse(
+      execFileSync(process.execPath, ['--import', 'tsx', '-e', script], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          VERCEL_ENV: '',
+          PAYMENTS_SIMULATOR: 'true',
+          PAYMENTS_SIMULATOR_SECRET: 'test-secret',
+          ...env,
+        },
+      }).trim(),
+    ) as { enabled: boolean }
+
+  assert.equal(run({ NODE_ENV: 'production', VERCEL_ENV: 'preview' }).enabled, true)
+  assert.equal(run({ NODE_ENV: 'production', VERCEL_ENV: 'production' }).enabled, false)
+  assert.equal(run({ NODE_ENV: 'production' }).enabled, false, 'local production build')
+
+  // Still requires its own two variables, whatever the environment.
+  const noSecret = JSON.parse(
+    execFileSync(process.execPath, ['--import', 'tsx', '-e', script], {
+      encoding: 'utf8',
+      env: { ...process.env, VERCEL_ENV: 'preview', PAYMENTS_SIMULATOR: 'true', PAYMENTS_SIMULATOR_SECRET: '' },
+    }).trim(),
+  ) as { enabled: boolean }
+  assert.equal(noSecret.enabled, false, 'no secret, no simulator — even on preview')
 })
 
 // ----------------------------------------------------------------- email ---

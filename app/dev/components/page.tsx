@@ -8,6 +8,7 @@ import VerifiedBadge from '@/components/badges/VerifiedBadge'
 import PremiumBadge from '@/components/badges/PremiumBadge'
 import FeaturedBadge from '@/components/badges/FeaturedBadge'
 import FeaturedTag from '@/components/badges/FeaturedTag'
+import { isProduction } from '@/lib/env'
 
 // A gallery of every card and badge in every plan state.
 //
@@ -16,8 +17,10 @@ import FeaturedTag from '@/components/badges/FeaturedTag'
 // nothing here reads from Supabase, and nothing here can be mistaken for a
 // real person: the names are labels for the state they demonstrate.
 //
-// 404 outside development. The check is on NODE_ENV rather than on a flag,
-// so it cannot be switched on in production by configuration mistake.
+// 404 on the live site. The check is on the ENVIRONMENT rather than on a flag,
+// so it cannot be switched on in production by a configuration mistake -- there
+// is no variable to set. A Vercel preview is not the live site, and a gallery
+// of every card in every plan state is exactly what a preview is for.
 
 export const dynamic = 'force-dynamic'
 
@@ -108,7 +111,7 @@ function Section({ title, note, children }: { title: string; note?: string; chil
 }
 
 export default function DevComponentsPage() {
-  if (process.env.NODE_ENV === 'production') notFound()
+  if (isProduction()) notFound()
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] px-4 py-6 text-[#334155] sm:px-6 lg:px-8">

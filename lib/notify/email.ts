@@ -14,12 +14,17 @@
 //                    this environment can do; the log line says CONSOLE so the
 //                    difference is never invisible.
 //
-// In production a missing key is NOT quietly swapped for the console: it
+// On the LIVE SITE a missing key is NOT quietly swapped for the console: it
 // returns ok:false with a reason, and getEmailChannel() logs it once. A
-// production deploy that thinks it is sending mail and is not is worse than
-// one that says it cannot.
+// production deploy that thinks it is sending mail and is not is worse than one
+// that says it cannot.
+//
+// A Vercel preview does get the console adapter. The alternatives are a tester
+// silently receiving nothing, or real mail going to real addresses from a
+// branch -- both worse than a log line somebody can read.
 
 import type { DeliveryChannel, DeliveryResult, OutboundMessage } from './channel'
+import { isProduction } from '@/lib/env'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -103,7 +108,7 @@ let warned = false
 export function getEmailChannel(): DeliveryChannel {
   if (resendChannel.isConfigured()) return resendChannel
 
-  if (process.env.NODE_ENV === 'production') {
+  if (isProduction()) {
     if (!warned) {
       console.error('[notify] RESEND_API_KEY is not set in production — no email will be sent')
       warned = true

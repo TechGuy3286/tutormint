@@ -20,6 +20,8 @@
 // lives in lib/payments/activate.ts and is reached from exactly two places --
 // a verified webhook, and an audited admin approval.
 
+import { isProduction } from '@/lib/env'
+
 export type ProviderId = 'assanpay' | 'manual' | 'simulator'
 
 /** What we are asking the provider to collect. */
@@ -79,9 +81,21 @@ export function newPaymentReference(): string {
   return `TM-${Date.now().toString(36).toUpperCase()}-${rand.toUpperCase()}`
 }
 
+/**
+ * Is the fake gateway available?
+ *
+ * Three conditions, all required. The environment check is isProduction() from
+ * lib/env.ts rather than NODE_ENV: a Vercel preview is a `next build`, so
+ * NODE_ENV reads 'production' there and the simulator would refuse on the one
+ * deployment somebody actually wants to test a purchase on — with a live card
+ * gateway as the only alternative.
+ *
+ * On tutormint.org VERCEL_ENV is 'production' and this returns false, whatever
+ * PAYMENTS_SIMULATOR says.
+ */
 export function simulatorEnabled(): boolean {
   return (
-    process.env.NODE_ENV !== 'production' &&
+    !isProduction() &&
     process.env.PAYMENTS_SIMULATOR === 'true' &&
     !!process.env.PAYMENTS_SIMULATOR_SECRET
   )

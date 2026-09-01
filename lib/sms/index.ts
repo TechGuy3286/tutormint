@@ -16,18 +16,26 @@
 // So it is guarded three times over, on the principle that the check which
 // matters is the one that survives someone refactoring the other two:
 //
-//   1. devOtpCode() returns null when NODE_ENV === 'production', whatever the
-//      variable says. This is the check that actually protects the flow.
+//   1. devOtpCode() returns null on the live site, whatever the variable says.
+//      This is the check that actually protects the flow.
 //   2. assertOtpSafety() throws at server startup (instrumentation.ts) if the
-//      variable is set in a production build at all — a loud crash on deploy,
-//      not a silent one-line log nobody reads, because a variable set in
-//      production means someone believed it would work.
+//      variable is set on the live site at all — a loud crash on deploy, not a
+//      silent one-line log nobody reads, because a variable set in production
+//      means someone believed it would work.
 //   3. The OTP route calls devOtpCode() rather than reading process.env, so
 //      there is exactly one place in the codebase that touches the variable.
+//
+// "The live site" is isProduction() from lib/env.ts, NOT NODE_ENV. A Vercel
+// preview is built with `next build`, so NODE_ENV is 'production' there too,
+// and gating on it would take the bypass away from the one environment that
+// most needs it: a branch somebody is testing, with no SMS provider attached
+// and no wish to be billed per code. VERCEL_ENV distinguishes them; on
+// tutormint.org it reads 'production' and nothing below changes.
 
 import type { SmsProvider, SmsResult } from './provider'
 import { twilioProvider } from './twilio'
 import { consoleProvider } from './console'
+import { isProduction, describeEnv } from '@/lib/env'
 
 export type { SmsProvider, SmsResult } from './provider'
 
@@ -45,7 +53,7 @@ const unconfigured: SmsProvider = {
 
 export function getSmsProvider(): SmsProvider {
   if (twilioProvider.isConfigured()) return twilioProvider
-  if (process.env.NODE_ENV !== 'production') return consoleProvider
+  if (!isProduction()) return consoleProvider
   return unconfigured
 }
 
@@ -57,7 +65,7 @@ export function getSmsProvider(): SmsProvider {
  * route is unreachable there even if the variable is set on the deployment.
  */
 export function devOtpCode(): string | null {
-  if (process.env.NODE_ENV === 'production') return null
+  if (isProduction()) return null
   const v = process.env.DEV_DEFAULT_OTP
   return v && v.trim() ? v.trim() : null
 }
@@ -73,14 +81,15 @@ export function devOtpCode(): string | null {
  * Better to fail the boot and have somebody remove it.
  */
 export function assertOtpSafety(): void {
-  if (process.env.NODE_ENV !== 'production') return
+  if (!isProduction()) return
 
   if (process.env.DEV_DEFAULT_OTP && process.env.DEV_DEFAULT_OTP.trim()) {
     throw new Error(
-      'DEV_DEFAULT_OTP is set in a production build. That variable makes a fixed ' +
-        'code verify any phone number, which in production is a master key to every ' +
-        'account. It is ignored by the code, but its presence means someone expects ' +
-        'it to work. Remove it from the deployment environment and redeploy.',
+      `DEV_DEFAULT_OTP is set on the live site (${describeEnv()}). That variable makes ` +
+        'a fixed code verify any phone number, which in production is a master key to ' +
+        'every account. It is ignored by the code, but its presence means someone ' +
+        'expects it to work. Remove it from the Production environment and redeploy. ' +
+        'It is fine, and expected, on a Preview deployment.',
     )
   }
 }
