@@ -24,6 +24,30 @@ import type { NextRequest } from 'next/server'
 // payment row, so an anonymous hit has nothing to show and belongs at /login.
 const PROTECTED = ['/tutor/dashboard', '/parent/dashboard', '/admin', '/pay']
 
+// The areas the phone gate covers: everything a signed-in member does with the
+// product. Listed one path at a time rather than as '/tutor' and '/parent'
+// prefixes, because /tutor/[slug] is a PUBLIC tutor profile and the platform's
+// organic-search surface — gating it would put the marketing pages behind a
+// login. /tutor/claim is also absent: an imported tutor's gate is the claim
+// flow, and they must be able to reach it.
+const PHONE_GATED = [
+  '/tutor/dashboard',
+  '/tutor/complete-profile',
+  '/tutor/upload-youtube',
+  '/tutor/packages',
+  '/parent/dashboard',
+  '/parent/packages',
+  '/parent/verify',
+  '/admin',
+  '/pay',
+  '/account',
+  '/messages',
+]
+
+function matches(pathname: string, list: string[]): boolean {
+  return list.some((p) => pathname === p || pathname.startsWith(p + '/'))
+}
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
@@ -58,12 +82,46 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  if (!user && PROTECTED.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+  if (!user && matches(pathname, PROTECTED)) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.search = ''
     url.searchParams.set('next', pathname)
     return NextResponse.redirect(url)
+  }
+
+  // The phone gate.
+  //
+  // An account created through mobile-first signup cannot use the product
+  // until the number it gave has been proved. While that is outstanding,
+  // /verify-phone is the only authenticated page it can reach.
+  //
+  // This costs one profiles read, and it is taken ONLY on the gated paths --
+  // never on a public page, which is the great majority of requests. The read
+  // goes through the member's own session, so RLS applies and no service key
+  // is involved.
+  //
+  // The condition is deliberately `phone_gate_required AND no verified_at`,
+  // not `no verified_at` alone: 21 of the 28 accounts that existed when this
+  // shipped had never been asked for a number, and the looser test would have
+  // locked every one of them out of their own dashboard. See
+  // supabase/migrations/29 for the full reasoning.
+  if (user && matches(pathname, PHONE_GATED)) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('phone_gate_required, phone_verified_at')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profile?.phone_gate_required && !profile.phone_verified_at) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/verify-phone'
+      url.search = ''
+      // Preserved so a guest who was mid-action -- the AuthGateModal journey --
+      // is returned to what they were doing, not dropped on a dashboard.
+      url.searchParams.set('next', pathname)
+      return NextResponse.redirect(url)
+    }
   }
 
   return response

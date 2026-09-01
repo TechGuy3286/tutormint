@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 
-// Metadata for a client-component page.
+// Metadata for /register.
 //
-// A page marked 'use client' cannot export `metadata` — Next reads it during
-// the server render and the export does not exist there. A layout wrapping the
-// single route can, which is why this file is one line of JSX and a title.
+// The page itself is now a server component (it reads `next` from
+// searchParams), so it could carry this export. It stays here because the
+// route's metadata has not changed and moving it would be churn — and because
+// RegisterForm.tsx, which does the work, is still 'use client' and could never
+// hold it.
 //
 
 export const metadata: Metadata = {

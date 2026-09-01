@@ -31,6 +31,7 @@ function LoginForm() {
 
   const router = useRouter()
   const searchParams = useSearchParams()
+  const next = searchParams.get('next')
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -169,7 +170,14 @@ function LoginForm() {
           </Link>
           <p className="text-xs text-gray-500">
             New to TutorMint?{' '}
-            <Link href="/register" className="font-bold text-tm-red hover:underline">
+            {/* `next` travels on, so a guest who was interrupted mid-action and
+                chose to create an account instead of signing in still lands
+                back on what they were doing -- through signup AND through the
+                phone gate. */}
+            <Link
+              href={next ? `/register?next=${encodeURIComponent(next)}` : '/register'}
+              className="font-bold text-tm-red hover:underline"
+            >
               Create an account
             </Link>
           </p>

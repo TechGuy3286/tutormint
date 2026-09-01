@@ -598,6 +598,59 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 - Role radios at the top read exactly: **Tutor** and **Parent / Institution**. Helper text under the second: "Parents, schools and academies looking for tutors." Institutions are ordinary parent accounts with identical rights and plans — no separate entity, role, label, or flow anywhere else in the platform.
 - Everything else from the mobile-first signup section stands: full name, mobile number, password, optional email, consent checkbox; no city at signup.
 
+
+## Mobile-first signup (owner, 1 Sep)
+
+- /register: role radios "Tutor" and "Parent / Institution" (helper: "Parents, schools and academies looking for tutors"), full name, mobile number (Pakistani format, normalised to E.164), password, terms/consent checkbox. Email optional ("for receipts and reminders"). No city.
+- Signup creates the auth user (synthetic internal email <msisdn>@users.tutormint.org when no email is given; the real email otherwise), profiles row, tutor_profiles for tutors, signs the user in immediately, and sends an OTP to the mobile.
+- Gate: while profiles.phone_verified_at is NULL, proxy.ts redirects every /tutor/*, /parent/* and /admin/* request to /verify-phone (the only reachable authenticated page besides logout). Public pages stay public.
+- /verify-phone: 6-digit input, resend with 60s cooldown, 5 attempts, change-number link. On success set phone_verified_at, log otp_verified, redirect straight to the role dashboard — never to /login.
+- /login unchanged (mobile or email + password). /forgot-password: mobile → OTP → new password (email path stays for email-only accounts).
+- Email confirmation applies only to accounts registered with an email and no mobile; mobile-verified accounts never see it.
+- A real SMS provider is a hard go-live prerequisite; DEV_DEFAULT_OTP serves preview/dev only.
+
+### As built (T-UI2) — the three places the spec had to be made precise
+
+**The gate needs its own flag.** Written as `phone_verified_at is null` alone,
+it would also catch every account that predates it: 21 of the 28 profiles that
+existed had no verified number, including all nine parents and all five admin
+accounts. `profiles.phone_gate_required` (migration 29, default false) records
+what is actually true — this account was created under mobile-first signup —
+so existing members, bulk-imported tutors (whose gate is the claim flow) and
+email-invited staff are untouched. Backfilling `phone_verified_at = now()` was
+rejected: that column feeds profile completion and the Verified badge, so it
+would hand out verification nobody earned in order to route around a redirect.
+
+**The gated list is enumerated, not prefixed.** `/tutor/*` cannot be gated as a
+prefix because `/tutor/[slug]` is the public tutor profile and the platform's
+main organic-search surface; gating it would put the marketing pages behind a
+login. `/tutor/claim` is excluded for the same class of reason — an imported
+tutor has to be able to reach it. The gate reads the profile only on those
+paths, so public pages cost no extra query.
+
+**OTP codes carry a purpose.** One table now serves "prove this number is
+yours" and "reset a forgotten password while signed out", and both consume the
+newest unconsumed code for a number. Without `phone_otps.purpose` a reset would
+silently eat a pending verification code, and a code minted for one flow would
+be spendable in the other. The dev bypass also now requires that a code was
+actually requested — accepting it against an empty table was harmless when
+every flow already needed a session, but for a signed-out reset it would have
+meant anyone could reset any account on a preview deployment.
+
+**Changing the number changes the login identifier.** An account registered
+with no email signs in at `<msisdn>@users.tutormint.org`. The "wrong number?"
+link on /verify-phone therefore moves the auth email with the number — and only
+for synthetic addresses; a real one the member chose is never touched.
+Otherwise a mistyped digit at signup is unrecoverable: the code goes to a
+stranger's handset and the member is held on a page they can never pass.
+
+**E.164, minus the plus.** `lib/phone.ts` has one canonical form,
+`923001234567`, and the bulk import, /api/auth/login and now signup all derive
+the synthetic email from that same function. Storing `+92...` instead would be
+a second convention for one fact, which is exactly the drift lib/phone.ts was
+written to prevent. `/api/auth/login` still resolves all three shapes a human
+might type, and `formatPkMobile()` renders `0300 1234567` for display.
+
 ## T-UI1 — homepage restore + brand colour system (1 Sep 2026)
 
 **The approved homepage was never in this repository.** `app/page.tsx` was
