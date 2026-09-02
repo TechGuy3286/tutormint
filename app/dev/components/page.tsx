@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { notFound } from 'next/navigation'
 import TutorCard, { type TutorCardData } from '@/components/TutorCard'
 import JobCard, { type JobCardData } from '@/components/JobCard'
@@ -75,6 +76,7 @@ const JOBS: JobCardData[] = [
     is_featured: true,
     parent_id: null,
     parent_name: 'Ayesha',
+    parent_avatar_url: null,
     parent_badges: ['Verified', 'Featured'],
     parent_can_hire: true,
   },
@@ -93,6 +95,7 @@ const JOBS: JobCardData[] = [
     is_featured: false,
     parent_id: null,
     parent_name: 'Zain',
+    parent_avatar_url: null,
     parent_badges: ['Verified'],
     parent_can_hire: false,
   },
@@ -116,6 +119,7 @@ export default function DevComponentsPage() {
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-8">
+        <Breadcrumbs items={[{ label: 'Component gallery' }]} />
         <header className="space-y-1">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Component gallery</h1>
           <p className="text-xs text-gray-500">
@@ -186,6 +190,21 @@ export default function DevComponentsPage() {
               <JobCard key={j.id} job={j} href="#" />
             ))}
             <ApplyDemo job={JOBS[0]} />
+          </div>
+        </Section>
+
+        <Section
+          title="Breadcrumbs"
+          note="Four levels, which is the deepest trail on the site (/parent/dashboard/job/[id]/edit). Below 640px the middle collapses to an ellipsis so the trail never wraps; the full trail returns at sm. Narrow the window to see it."
+        >
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <Breadcrumbs
+              items={[
+                { label: 'Parent dashboard', href: '/parent/dashboard' },
+                { label: 'O Level Physics tutor needed, DHA Phase 5', href: '/parent/dashboard' },
+                { label: 'Edit' },
+              ]}
+            />
           </div>
         </Section>
 

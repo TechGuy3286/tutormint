@@ -1,22 +1,13 @@
 "use client";
-import Link from "next/link";
+import Breadcrumbs from '@/components/Breadcrumbs'
 
 export default function BlogPage() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-tm-black flex flex-col justify-between">
-      {/* Global Header */}
-      <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center sticky top-0 z-40 shadow-xs">
-        <Link href="/" className="text-2xl font-black tracking-tight flex items-center gap-2">
-          <span>Tutor<span className="text-tm-red-hover">Mint</span></span>
-          <span className="text-[10px] bg-gray-900 text-white px-2 py-0.5 rounded uppercase font-bold">Platform Blog</span>
-        </Link>
-        <Link href="/" className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors">
-          🏠 Home
-        </Link>
-      </header>
-
-      {/* Main Content */}
+      {/* Duplicate sticky site header removed -- see the note in
+          app/about/page.tsx. */}
       <main className="max-w-4xl mx-auto px-6 py-12 flex-1 w-full space-y-6">
+        <Breadcrumbs items={[{ label: 'Blog' }]} />
         <div className="space-y-2">
           <h1 className="text-3xl font-black tracking-tight text-gray-900">TutorMint Blog & Insights</h1>
           <p className="text-xs text-gray-500 font-medium">Read articles on home tutoring best practices, exam preparation tips, and verified educator spotlights.</p>

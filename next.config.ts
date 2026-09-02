@@ -71,7 +71,6 @@ function contentSecurityPolicy(): string {
       'data:',
       'blob:',
       supabase, // avatars, ad creatives and document previews
-      'https://api.dicebear.com', // generated initials for members with no photo
       'https://i.ytimg.com', // YouTube thumbnails
     ],
 

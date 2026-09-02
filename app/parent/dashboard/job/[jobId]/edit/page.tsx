@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { getSessionUser } from '@/lib/auth'
@@ -48,13 +49,14 @@ export default async function EditJobPage({ params }: { params: Promise<{ jobId:
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-2xl space-y-4">
+        <Breadcrumbs
+          items={[
+            { label: 'Parent dashboard', href: '/parent/dashboard' },
+            { label: job.title, href: `/parent/dashboard/job/${job.job_tx_id ?? job.id}` },
+            { label: 'Edit' },
+          ]}
+        />
         <header className="space-y-1">
-          <Link
-            href={`/parent/dashboard/job/${job.job_tx_id ?? job.id}`}
-            className="text-xs font-bold text-tm-red hover:underline"
-          >
-            ← Back to the job
-          </Link>
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Edit tuition</h1>
           <p className="text-xs text-gray-500">
             Editing does not use another job post from your monthly allowance.

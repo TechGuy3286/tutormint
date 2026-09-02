@@ -1,5 +1,7 @@
 'use client'
 
+import Breadcrumbs from '@/components/Breadcrumbs'
+import Avatar from '@/components/Avatar'
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -250,6 +252,9 @@ function CompleteProfileInner() {
 
   return (
     <main className="min-h-screen bg-tm-bg pb-28 sm:pb-10 text-slate-700">
+      <div className="mx-auto max-w-2xl px-4 pt-4 sm:px-6">
+        <Breadcrumbs items={[{ label: 'Tutor dashboard', href: '/tutor/dashboard' }, { label: 'Complete your profile' }]} />
+      </div>
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-5">
         <header className="space-y-3">
           <h1 className="text-xl sm:text-2xl font-black text-tm-navy">Complete your profile</h1>
@@ -303,10 +308,13 @@ function CompleteProfileInner() {
             <>
               <div className="space-y-2" id="avatar">
                 <label className="text-xs font-bold text-tm-navy">Profile photo</label>
-                {form.avatar_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={form.avatar_url} alt="Your profile photo" className="h-20 w-20 rounded-full object-cover border border-gray-200" />
-                )}
+                <Avatar
+                  name={form.full_name}
+                  src={form.avatar_url || null}
+                  decorative
+                  ring="border border-gray-200"
+                  className="h-20 w-20 text-lg"
+                />
                 <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadAvatar(e.target.files[0])} className="block w-full text-xs min-h-[44px]" />
                 <p className="text-[11px] text-gray-500">By uploading you agree TutorMint may use this photo in promotional material.</p>
               </div>

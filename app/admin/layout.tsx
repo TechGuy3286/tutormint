@@ -1,3 +1,4 @@
+import AdminBreadcrumbs from '@/components/admin/AdminBreadcrumbs'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
@@ -79,7 +80,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </ul>
         </nav>
 
-        <main className="flex-1 min-w-0 px-4 py-5 sm:p-0 pb-24 sm:pb-0">{children}</main>
+        <main className="flex-1 min-w-0 px-4 py-5 sm:p-0 pb-24 sm:pb-0">
+          <AdminBreadcrumbs />
+          {children}
+        </main>
       </div>
 
       {/* Bottom nav on mobile */}

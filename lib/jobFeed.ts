@@ -11,16 +11,27 @@
 // 2. The parent's badges and hire rights come from their plan, and a tutor
 //    cannot read `profiles` rows other than their own under RLS. That lookup
 //    therefore goes through the service-role client, and returns first name,
-//    badges and can_hire only. Nothing else about the parent crosses over.
-//    Tutors have asked for exactly one thing before spending an application:
-//    whether the person on the other end can actually complete a hire.
+//    badges, avatar and can_hire only. Nothing else about the parent crosses
+//    over. Tutors have asked for exactly one thing before spending an
+//    application: whether the person on the other end can actually complete a
+//    hire.
+//
+//    The avatar is part of that set on purpose. A photo is not contact
+//    information -- it cannot be dialled, messaged or looked up -- and the
+//    profile it comes from is one a tutor may already open from an applicant
+//    thread. Phone, WhatsApp and email stay behind canViewContact as before.
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
 import type { JobCardData } from '@/components/JobCard'
 
-type ParentFacts = { name: string | null; badges: BadgeName[]; canHire: boolean }
+type ParentFacts = {
+  name: string | null
+  avatarUrl: string | null
+  badges: BadgeName[]
+  canHire: boolean
+}
 
 async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
   const out = new Map<string, ParentFacts>()
@@ -32,7 +43,7 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
   const [{ data: profiles }, { data: subs }, { data: plans }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, full_name, profile_completion, cnic_verified_at, address_verified_at')
+      .select('id, full_name, avatar_url, profile_completion, cnic_verified_at, address_verified_at')
       .in('id', ids),
     admin
       .from('subscriptions')
@@ -66,6 +77,7 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
 
     out.set(id, {
       name: (p.full_name as string | null)?.split(' ')[0] ?? null,
+      avatarUrl: (p.avatar_url as string | null) ?? null,
       badges: badgesForPlan(code, (p.profile_completion ?? 0) >= 100),
       canHire: !!(code && planByCode.get(code)?.can_hire),
     })
@@ -148,6 +160,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       is_featured: (j.is_featured as boolean) ?? false,
       parent_id: (j.parent_id as string) ?? null,
       parent_name: f?.name ?? null,
+      parent_avatar_url: f?.avatarUrl ?? null,
       parent_badges: f?.badges ?? [],
       parent_can_hire: f?.canHire ?? false,
     }

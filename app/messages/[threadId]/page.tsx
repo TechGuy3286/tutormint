@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
@@ -109,9 +110,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
       <header className="border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <div className="min-w-0">
-            <Link href={backHref} className="text-[11px] font-bold text-tm-red hover:underline">
-              ← Messages
-            </Link>
+            <Breadcrumbs items={[{ label: 'Messages', href: backHref }, { label: otherName }]} />
             <h1 className="truncate text-sm font-black text-tm-navy">
               {otherSlug ? (
                 <Link href={`/tutor/${otherSlug}`} className="hover:underline">

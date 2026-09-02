@@ -1,3 +1,5 @@
+import Avatar from '@/components/Avatar'
+import Breadcrumbs from '@/components/Breadcrumbs'
 import UpgradeTrigger from '@/components/upgrade/UpgradeTrigger'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -232,12 +234,12 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   return (
     <main className="min-h-screen bg-tm-bg px-4 pb-28 pt-6 text-slate-700 sm:px-6 sm:pb-8 lg:px-8">
       <div className="mx-auto max-w-3xl space-y-4">
-        <Link
-          href="/browse/tutors"
-          className="inline-flex min-h-[44px] items-center text-xs font-bold text-tm-red hover:underline"
-        >
-          ← All tutors
-        </Link>
+        {/* The breadcrumb replaces the bespoke "← All tutors" link: two ways
+            back to the same page is one more than anyone needs, and only one
+            of them was in the BreadcrumbList. */}
+        <Breadcrumbs
+          items={[{ label: 'Find tutors', href: '/browse/tutors' }, { label: tutor.full_name }]}
+        />
 
         {/* ------------------------------------------------------- header --- */}
         <section className="relative rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
@@ -246,27 +248,13 @@ export default async function TutorPublicProfile({ params }: { params: Params })
           )}
 
           <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-            {tutor.avatar_url ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={tutor.avatar_url}
-                alt={tutor.full_name}
-                className="h-24 w-24 shrink-0 rounded-full border-2 border-gray-100 object-cover sm:h-36 sm:w-36"
-              />
-            ) : (
-              <div
-                aria-hidden="true"
-                className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-2 border-gray-100 bg-tm-bg text-2xl font-black text-tm-navy sm:h-36 sm:w-36 sm:text-4xl"
-              >
-                {tutor.full_name
-                  .split(' ')
-                  .filter(Boolean)
-                  .slice(0, 2)
-                  .map((w) => w[0])
-                  .join('')
-                  .toUpperCase()}
-              </div>
-            )}
+            <Avatar
+              name={tutor.full_name}
+              src={tutor.avatar_url}
+              seed={tutor.id}
+              decorative
+              className="h-24 w-24 text-2xl sm:h-36 sm:w-36 sm:text-4xl"
+            />
 
             <div className="min-w-0 flex-1 space-y-2">
               <h1 className="text-xl font-black leading-tight text-tm-navy sm:text-2xl">

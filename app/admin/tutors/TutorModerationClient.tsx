@@ -1,5 +1,6 @@
 'use client'
 
+import Avatar from '@/components/Avatar'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -157,11 +158,17 @@ export default function TutorModerationClient({
                 }}
                 className="w-full text-left bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 hover:border-tm-navy transition-colors flex items-center gap-3 min-h-[44px]"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={t.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(t.fullName)}`}
-                  alt=""
-                  className="h-11 w-11 rounded-full object-cover bg-gray-100 shrink-0"
+                {/* Was an api.dicebear.com URL: it sent every tutor's real
+                    name to a third party as a query string, and img-src in the
+                    CSP does not name that host, so it rendered nothing at all
+                    in production. */}
+                <Avatar
+                  name={t.fullName}
+                  src={t.avatarUrl}
+                  seed={t.id}
+                  decorative
+                  ring="border border-gray-200"
+                  className="h-11 w-11 text-xs"
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-black text-tm-navy truncate">{t.fullName}</p>

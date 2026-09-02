@@ -1,9 +1,10 @@
 "use client";
 
+import Breadcrumbs from '@/components/Breadcrumbs'
+import Avatar from '@/components/Avatar'
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 export default function TutorSettingsPage() {
   const supabase = createClient();
@@ -367,20 +368,8 @@ export default function TutorSettingsPage() {
   return (
     <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-slate-700 font-sans">
       
-      {/* BREADCRUMBS */}
-      <nav className="flex items-center justify-between bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-2xs">
-        <div className="flex items-center space-x-2 text-xs font-bold text-gray-500">
-          <Link href="/tutor/dashboard" className="hover:text-tm-navy transition-colors">Tutor Dashboard</Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-tm-green-deep">Settings</span>
-        </div>
-        <Link 
-          href="/tutor/dashboard" 
-          className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-tm-navy text-xs font-bold rounded-xl transition-all"
-        >
-          ← Back to Dashboard
-        </Link>
-      </nav>
+      {/* Was a hand-rolled trail with no Home entry and no BreadcrumbList. */}
+      <Breadcrumbs items={[{ label: 'Tutor dashboard', href: '/tutor/dashboard' }, { label: 'Settings' }]} />
 
       {/* HEADER CARD */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -470,7 +459,7 @@ export default function TutorSettingsPage() {
                     No Cover Image
                   </div>
                 )}
-                <label className="px-4 py-2.5 bg-tm-black hover:bg-black text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
+                <label className="px-4 py-2.5 bg-tm-black hover:bg-tm-black/90 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
                   Browse Cover
                   <input 
                     type="file" 
@@ -494,12 +483,17 @@ export default function TutorSettingsPage() {
               <div className="space-y-2 p-4 bg-tm-bg border border-gray-200 rounded-2xl">
                 <label className="block text-xs font-bold text-tm-navy">Profile Picture</label>
                 <div className="flex items-center gap-4">
-                  <img 
-                    src={formData.profileImage} 
-                    alt="Profile" 
-                    className="w-28 h-28 rounded-2xl object-cover border-2 border-tm-green-deep shadow-md shrink-0" 
+                  {/* profileImage starts as '' -- this was <img src="">,
+                      which every browser draws as a broken-image icon on the
+                      screen where a tutor goes to add their photo. */}
+                  <Avatar
+                    name={formData.fullName}
+                    src={formData.profileImage || null}
+                    decorative
+                    ring="border-2 border-tm-green-deep shadow-md"
+                    className="h-28 w-28 text-2xl"
                   />
-                  <label className="px-4 py-2.5 bg-tm-black hover:bg-black text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
+                  <label className="px-4 py-2.5 bg-tm-black hover:bg-tm-black/90 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
                     Browse
                     <input 
                       type="file" 
@@ -925,7 +919,7 @@ export default function TutorSettingsPage() {
           <button 
             type="submit" 
             disabled={passwordLoading} 
-            className="px-6 py-3.5 bg-tm-black hover:bg-black text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer"
+            className="px-6 py-3.5 bg-tm-black hover:bg-tm-black/90 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer"
           >
             {passwordLoading ? "Updating Password..." : "Update Password ➔"}
           </button>

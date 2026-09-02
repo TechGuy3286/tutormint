@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getSessionUser } from '@/lib/auth'
@@ -34,6 +35,7 @@ export default async function NotificationSettingsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl space-y-6 p-4 sm:p-6">
+      <Breadcrumbs items={[{ label: 'Notification settings' }]} />
       <header className="space-y-1">
         <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Notification settings</h1>
         <p className="text-xs text-gray-500">

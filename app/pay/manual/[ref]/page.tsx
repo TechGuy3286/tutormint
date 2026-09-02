@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
@@ -47,6 +48,7 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8">
       <div className="mx-auto max-w-lg space-y-4">
+        <Breadcrumbs items={[{ label: 'Packages', href: packagesHref }, { label: 'Bank or wallet transfer' }]} />
         <header className="space-y-1">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Complete your transfer</h1>
           <p className="text-xs text-gray-500">

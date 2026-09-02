@@ -18,7 +18,8 @@
 //
 // No image is embedded and no tracking pixel is used.
 
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tutormint.org'
+export { SITE_URL } from '@/lib/siteUrl'
+import { SITE_URL } from '@/lib/siteUrl'
 
 export type TemplateId =
   | 'welcome'

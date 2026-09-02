@@ -216,9 +216,6 @@ export default async function AdminMemberPage({
   return (
     <div className="space-y-5">
       <header className="space-y-2">
-        <Link href="/admin/users" className="text-xs font-bold text-tm-red hover:underline">
-          ← All members
-        </Link>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <h1 className="truncate text-xl font-black text-tm-navy sm:text-2xl">

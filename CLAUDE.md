@@ -820,3 +820,157 @@ The admin panel was already almost entirely on tokens: Suspend was `tm-red`, War
 - Modal scrims used `bg-black/50` rather than `bg-tm-black/50`. Cosmetically identical, but "no non-token colours anywhere" is easier to enforce than to argue about.
 
 `npm run check:contrast` now covers the admin pairs explicitly and greps for the forbidden grey. Admin screens were audited at 360 and 1280: no horizontal scroll on any of them.
+
+## Homepage — second owner authorisation (2 Sep 2026)
+
+- A Login button in the top-right of the header is authorised. When signed in it becomes a Dashboard button routing by role (tutor / parent / admin). This and the hero-pill navy are the only permitted changes to the locked homepage; layout, copy and the two large buttons stay as approved.
+
+## Global UI rules (owner, 2 Sep 2026)
+
+- Breadcrumbs on every page except the homepage, using BreadcrumbList schema, so a member can always get back one level or to the homepage.
+- Job cards show the posting parent's avatar. Avatars everywhere fall back to an initials disc in brand colours — never a solid placeholder circle. Parent contact details remain hidden; the picture is not contact information.
+
+### As built (header, breadcrumbs, avatars, banners) — 3 Sep 2026
+
+**The header now costs every page its static prerendering, and that is the
+trade the "no flicker" requirement buys.** `components/Navbar.tsx` was a client
+component that fetched the user in `useEffect`, so every page painted "signed
+out" and corrected itself a beat later — on a header whose whole job is to say
+Login or Dashboard, that flash tells a signed-in member they are signed out. It
+is a server component now, and a `cookies()` read in something the root layout
+renders opts the whole application out of static generation: 17 routes were
+`○ Static` before this change and 2 are now (`robots.txt` and `sitemap.xml`).
+
+Two things make that acceptable rather than a regression, and both are worth
+knowing before anyone "fixes" it:
+
+- `proxy.ts` already calls `supabase.auth.getUser()` on every non-asset
+  request, homepage included. The auth round trip was being paid on each of
+  those hits already; what is new is an RSC render of pages that are small.
+- `getSessionUser()` is wrapped in React's `cache()`, so the header, the area
+  layout and the page share **one** auth call and one `profiles` read per
+  request — a dashboard page used to make that call twice on its own. An
+  anonymous visitor stops at `getUser()` returning null and never reads
+  `profiles` at all.
+
+The way to have both is `cacheComponents` (Next 16's PPR) with the header in a
+Suspense boundary: a static shell with a dynamic hole. That flag changes caching
+semantics for the entire application and belongs in its own change, on the T8b
+list — not bundled into a header button.
+
+**The homepage logo is no longer centred on mobile.** It was `mx-auto sm:mx-0`,
+which only works when nothing sits to its right. A top-right button and a
+centred logo cannot both be true; the button is the authorised change, so the
+logo is left-aligned at every width. Layout, copy and the two large buttons are
+untouched.
+
+**Breadcrumbs come from three places, not forty-five.** Most pages pass their
+own trail, because the last crumb is usually a real thing with a name — a
+tutor, a job, a conversation. `/terms` and `/privacy` get theirs from
+`components/LegalDoc.tsx`, and **all of admin from `app/admin/layout.tsx`** via
+`components/admin/AdminBreadcrumbs.tsx`, which derives the trail from the path.
+Admin earns the exception: its sections are a fixed list with fixed labels,
+seven of its screens are one-line delegations to a client component with no
+markup of their own, and a screen added next month would otherwise ship without
+one.
+
+Home is prepended by the component, never passed in, so no caller can ship a
+trail with no way back to the start. Below 640px the middle of the trail
+collapses to an ellipsis, leaving Home, the immediate parent and the current
+page — the two destinations the rule asks for — and the current label truncates
+rather than wrapping. The JSON-LD always carries every level regardless of what
+is displayed.
+
+**Nineteen bespoke back links were replaced, not supplemented.** Two ways back
+to the same page is one more than anyone needs, and only one of them was in the
+`BreadcrumbList`. `/tutor/dashboard/settings` had a hand-rolled trail with no
+Home entry and no structured data.
+
+**Three pages were rendering two sticky headers.** `/about`, `/blog` and `/faq`
+each carried their own wordmark bar at `top-0`, the same duplication T-UI1 found
+and removed for the footer; with a real header above them they stacked. The
+FAQ's two calls to action were kept and moved into the page — `/tutor/register`
+is only still routed at all on the grounds that this page links to it — and its
+"Browse Tutors" button, which pointed at `/parent/dashboard`, now points at
+`/browse/tutors`.
+
+**`lib/siteUrl.ts` exists because three things have to agree**: `metadataBase`,
+the absolute URLs in `BreadcrumbList`, and the links in outgoing email. A
+BreadcrumbList whose items sit on a different host from the page's own canonical
+is not read as that page's trail. It resolves to **www**, which corrected
+`lib/notify/templates.ts`: it defaulted to the apex, and `next.config.ts`
+permanently redirects the apex to www, so every link in every email was going
+through a redirect hop.
+
+**`components/Avatar.tsx` is the only avatar.** The fallback is initials on a
+brand tint, picked deterministically from the seed so the same person keeps the
+same colour on every screen. The colour carries no meaning — not a role, not a
+plan, not a status; it exists so a list of avatars is scannable. Three real
+defects came out of consolidating rather than assuming:
+
+- The admin tutor queue's fallback was an `api.dicebear.com` URL. It sent every
+  tutor's real name to a third party as a query string, and `img-src` in our own
+  CSP does not name that host — so in production it rendered nothing at all.
+- `/tutor/dashboard/settings` rendered `<img src="">` when a tutor had no photo,
+  because `profileImage` starts as `''`. Every browser draws that as a broken
+  image, on the screen a tutor opens to add their photo.
+- The packages preview used a solid navy disc with a single white letter, which
+  matched no other avatar on the site.
+
+The four tint/ink pairs live in `lib/brand.ts` as `AVATAR_TINTS`, not in the
+component, because `next/og` needs them as literal hex while React needs
+Tailwind class names. Splitting them would mean a tutor whose avatar is green on
+the site and navy on the social post we publish about them.
+
+**Job cards show the parent's avatar**, and `lib/jobFeed.ts`'s service-role
+lookup now returns it alongside first name, badges and can-hire. A photo is not
+contact information — it cannot be dialled, messaged or looked up — and phone,
+WhatsApp and email stay behind `canViewContact` exactly as before.
+
+**The social banner was publishing the legal name.** "Tutor" and "Mint" were
+siblings of a flex row with `gap: 12`, which put a 12px space between them: every
+post we generated read **"Tutor Mint"**, the two-word form reserved for
+`Tutor Mint (Pvt) Ltd` in legal contexts. Also fixed there: the rating used the
+`★` glyph, which satori renders with the fonts it is given and which is not in a
+plain sans-serif face — it came out as a blank box or vanished depending on the
+host, so it is an inline SVG path now; and the avatar fallback was a grey disc
+with one red letter, now the shared initials disc.
+
+**Making satori render one word took more than deleting a gap.** Satori
+inserts a word-space between adjacent text runs — measured at 12px for the 44px
+face, about 0.27em. Removing the row's `gap: 12` changed the output by zero
+bytes; so did nesting the two halves in their own row, `display: flex` on each,
+and `<span>`. A single text node renders correctly but cannot carry two
+colours, so the join is a negative margin of one space, scaled with the type and
+verified against a single-run control at all three formats. **If the font ever
+changes, re-measure** — the constant is that font's space advance, not a magic
+number. The measurement is `scratchpad/inkgap.py`'s method: decode the PNG and
+find the last dark column and the first red one.
+
+**The banner render is now its own file** (`app/api/admin/social/image/render.tsx`).
+The route decides who may generate a post and looks the tutor up; the render
+decides what the picture looks like. They were one function, which meant the only
+way to see a layout change was to sign in as an admin with a live listed tutor to
+point at — so in practice nobody looked at the three formats side by side, and
+that is how a 12px gap sat in the wordmark publishing the legal name on every
+post.
+
+**The dark template had never been looked at.** Rendering it revealed the
+Premium badge drawn as `tm-navy` on the `tm-navy` ground: no pill, just floating
+white text, which reads as a missing badge rather than a styled one. On a navy
+ground it now inverts to navy ink on white, keeping navy as the colour that
+identifies Premium either way.
+
+**`api.dicebear.com` is out of the CSP** now that nothing requests it.
+
+**One deviation from the instruction, deliberately.** The wordmark rule given
+was "Tutor in tm-black, Mint in tm-red", and that is exactly what the light
+template does. On the dark `bold` template it cannot: `tm-black` is invisible on
+`tm-navy` and `tm-red` is 2.2:1 against it. That template uses the pairing the
+footer and the admin header already use on dark surfaces — white with `tm-mint`
+— which is the same rule the 2 Sep brand pass applied when it found
+`text-tm-red` on `bg-tm-black` failing AA. For the same reason the rating text
+is `tm-gold-ink` on light and plain `tm-gold` on navy; the star itself is filled
+gold on both. The site's own auth-card wordmarks were left on `tm-navy` rather
+than retrofitted to `tm-black`: both clear AA, and changing eight files on an
+inference is not what was asked.

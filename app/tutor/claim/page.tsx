@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { redirect } from 'next/navigation'
 import { getSessionUser } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -51,6 +52,7 @@ export default async function ClaimPage() {
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-lg space-y-4">
+        <Breadcrumbs items={[{ label: 'Claim your profile' }]} />
         <header className="space-y-1 text-center">
           <p className="text-xl font-black text-tm-navy">
             Tutor<span className="text-tm-red">Mint</span>

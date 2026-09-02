@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 
 // Shared chrome for /terms and /privacy.
@@ -27,6 +28,7 @@ export default function LegalDoc({
 }) {
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
+      <Breadcrumbs items={[{ label: title }]} />
       <header className="space-y-2">
         <h1 className="text-2xl font-black text-tm-navy sm:text-3xl">{title}</h1>
         <p className="text-xs font-bold uppercase tracking-wide text-gray-500">

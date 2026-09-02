@@ -1,5 +1,6 @@
 'use client'
 
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -92,7 +93,9 @@ export default function RegisterForm({ next }: { next?: string }) {
     }`
 
   return (
-    <main className="min-h-screen bg-tm-bg flex items-center justify-center p-4 sm:p-6 text-slate-700">
+    <main className="flex min-h-screen flex-col bg-tm-bg p-4 text-slate-700 sm:p-6">
+      <Breadcrumbs items={[{ label: 'Create an account' }]} />
+      <div className="flex flex-1 items-center justify-center">
       <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-gray-200 space-y-6">
         <div className="text-center space-y-2">
           <Link
@@ -282,6 +285,7 @@ export default function RegisterForm({ next }: { next?: string }) {
             Sign in
           </Link>
         </p>
+      </div>
       </div>
     </main>
   )

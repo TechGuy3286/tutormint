@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { notFound } from 'next/navigation'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
@@ -39,6 +40,7 @@ export default async function SimulatorPage({ params }: { params: Promise<{ ref:
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-800">
       <div className="mx-auto max-w-md space-y-4">
+        <Breadcrumbs items={[{ label: 'Test gateway' }]} />
         <div className="rounded-lg border-2 border-dashed border-tm-gold bg-tm-tint-gold p-3 text-center">
           <p className="text-sm font-black uppercase tracking-wide text-tm-gold-ink">
             Test gateway — no money moves

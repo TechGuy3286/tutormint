@@ -1,5 +1,6 @@
 'use client'
 
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -112,7 +113,9 @@ export default function ForgotPasswordPage() {
     'min-h-[44px] w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-sm outline-none focus:border-tm-navy focus:bg-white'
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-tm-bg p-4 text-slate-700 sm:p-6">
+    <main className="flex min-h-screen flex-col bg-tm-bg p-4 text-slate-700 sm:p-6">
+      <Breadcrumbs items={[{ label: 'Sign in', href: '/login' }, { label: 'Reset your password' }]} />
+      <div className="flex flex-1 items-center justify-center">
       <div className="w-full max-w-md space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl sm:p-8">
         <div className="space-y-2 text-center">
           <Link
@@ -317,6 +320,7 @@ export default function ForgotPasswordPage() {
             </Link>
           </>
         )}
+      </div>
       </div>
     </main>
   )

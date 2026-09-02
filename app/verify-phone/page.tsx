@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
@@ -58,7 +59,9 @@ export default async function VerifyPhonePage({
   const mobile = (profile.phone_number as string) || ''
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-tm-bg p-4 text-slate-700 sm:p-6">
+    <main className="flex min-h-screen flex-col bg-tm-bg p-4 text-slate-700 sm:p-6">
+      <Breadcrumbs items={[{ label: 'Verify your number' }]} />
+      <div className="flex flex-1 items-center justify-center">
       <div className="w-full max-w-md space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl sm:p-8">
         <div className="space-y-2 text-center">
           <span className="inline-block rounded-2xl bg-tm-tint-green p-3 text-3xl">📱</span>
@@ -74,6 +77,7 @@ export default async function VerifyPhonePage({
           mobile={mobile}
           home={nextForRole(next, role) ?? home}
         />
+      </div>
       </div>
     </main>
   )

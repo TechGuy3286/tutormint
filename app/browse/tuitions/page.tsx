@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
@@ -181,6 +182,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-6">
+        <Breadcrumbs items={[{ label: 'Find tuitions' }]} />
         <header className="space-y-1">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">
             {heading}

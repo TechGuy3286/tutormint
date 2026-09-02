@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { currentPeriod } from '@/lib/entitlements'
@@ -122,12 +121,6 @@ export default async function AdminUsagePage({
             says &ldquo;Unlimited&rdquo;.
           </p>
         </div>
-        <Link
-          href="/admin/payments"
-          className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
-        >
-          Back to payments
-        </Link>
       </header>
 
       {rows.length === 0 ? (

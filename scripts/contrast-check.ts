@@ -168,6 +168,25 @@ const PAIRS: Pair[] = [
 
   // The homepage hero pill, authorised 2 Sep 2026.
   { fg: 'navy', bg: 'tintGreen', where: 'homepage hero pill' },
+
+  // The four initials-avatar pairs (lib/brand.ts AVATAR_TINTS). Named here
+  // rather than left to the identical pairs above, because the avatar is the
+  // one place a tint carries text at a small size on every list on the site,
+  // and dropping one of those public uses must not silently drop its check.
+  { fg: 'navy', bg: 'tintNavy', where: 'initials avatar, navy' },
+  { fg: 'greenDeep', bg: 'tintGreen', where: 'initials avatar, green' },
+  { fg: 'red', bg: 'tintRed', where: 'initials avatar, red' },
+  { fg: 'goldInk', bg: 'tintGold', where: 'initials avatar, gold' },
+
+  // The social banner (next/og). Its colours are literals from lib/brand.ts,
+  // so they are invisible to a className grep and have to be listed by hand.
+  { fg: 'black', bg: 'white', where: 'social banner wordmark, light template' },
+  { fg: 'red', bg: 'white', where: 'social banner "Mint", light template' },
+  { fg: 'white', bg: 'navy', where: 'social banner wordmark, bold template' },
+  { fg: 'mint', bg: 'navy', where: 'social banner "Mint", bold template' },
+  { fg: 'goldInk', bg: 'white', where: 'social banner rating, light template' },
+  { fg: 'gold', bg: 'navy', where: 'social banner rating, bold template' },
+  { fg: 'slate300', bg: 'navy', where: 'social banner muted copy, bold template' },
 ]
 
 // ----------------------------------------------------------------- run ------

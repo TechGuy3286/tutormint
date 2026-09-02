@@ -1,7 +1,7 @@
 'use client'
 
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
@@ -134,6 +134,7 @@ export default function ParentVerifyPage() {
   return (
     <main className="min-h-screen bg-tm-bg py-6 px-4 sm:px-6 text-slate-700">
       <div className="max-w-2xl mx-auto space-y-5">
+        <Breadcrumbs items={[{ label: 'Parent dashboard', href: '/parent/dashboard' }, { label: 'Verify your account' }]} />
         <header className="space-y-1">
           <h1 className="text-xl sm:text-2xl font-black text-tm-navy">Verify your account</h1>
           <p className="text-xs text-gray-500">
@@ -239,9 +240,7 @@ export default function ParentVerifyPage() {
           </button>
         </div>
 
-        <Link href="/parent/dashboard" className="block text-center text-xs font-bold text-gray-500 hover:text-tm-navy min-h-[44px] flex items-center justify-center">
-          ← Back to dashboard
-        </Link>
+
       </div>
     </main>
   )

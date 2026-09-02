@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ShieldAlert } from 'lucide-react'
@@ -26,6 +27,7 @@ export default async function SuspendedPage() {
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-10 text-slate-700 sm:px-6">
       <div className="mx-auto max-w-md space-y-4">
+        <Breadcrumbs items={[{ label: 'Account suspended' }]} />
         <section className="space-y-3 rounded-2xl border border-tm-gold/30 bg-white p-5 text-center">
           <ShieldAlert size={40} className="mx-auto text-tm-gold-ink" />
           <h1 className="text-lg font-black text-tm-navy">Your account is suspended</h1>

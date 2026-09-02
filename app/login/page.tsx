@@ -1,5 +1,6 @@
 'use client'
 
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -85,7 +86,9 @@ function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-tm-bg p-4 text-slate-700 sm:p-6">
+    <main className="flex min-h-screen flex-col bg-tm-bg p-4 text-slate-700 sm:p-6">
+      <Breadcrumbs items={[{ label: 'Sign in' }]} />
+      <div className="flex flex-1 items-center justify-center">
       <div className="w-full max-w-md space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl sm:p-8">
         <div className="space-y-2 text-center">
           <Link
@@ -182,6 +185,7 @@ function LoginForm() {
             </Link>
           </p>
         </div>
+      </div>
       </div>
     </main>
   )

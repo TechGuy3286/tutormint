@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { AlertTriangle, Info, Plus } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
@@ -110,6 +111,7 @@ export default async function ParentDashboardPage() {
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-3xl space-y-4">
+        <Breadcrumbs items={[{ label: 'Parent dashboard' }]} />
         <header className="space-y-1">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Welcome back, {firstName}</h1>
           <p className="text-xs text-gray-500">

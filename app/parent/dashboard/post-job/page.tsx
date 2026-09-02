@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
@@ -49,10 +50,8 @@ export default async function PostJobPage() {
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-2xl space-y-4">
+        <Breadcrumbs items={[{ label: 'Parent dashboard', href: '/parent/dashboard' }, { label: 'Post a tuition' }]} />
         <header className="space-y-1">
-          <Link href="/parent/dashboard" className="text-xs font-bold text-tm-red hover:underline">
-            ← Dashboard
-          </Link>
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Post a tuition</h1>
           <p className="text-xs text-gray-500">
             {ent.plan

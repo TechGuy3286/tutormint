@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import type { Metadata } from 'next'
 import Link from "next/link";
 
@@ -33,23 +34,24 @@ export default function FAQPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-tm-black flex flex-col justify-between">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 sm:px-12 py-3 flex justify-between items-center sticky top-0 z-40 shadow-xs">
-        <Link href="/" className="flex items-center">
-          <img src="/logo.jpeg" alt="TutorMint Logo" className="h-10 sm:h-12 w-auto object-contain" />
-        </Link>
-        <div className="flex items-center space-x-3">
-          <Link href="/parent/dashboard" className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-bold rounded-xl transition-colors">
-            Browse Tutors 🔍
+      {/* The duplicate sticky wordmark bar is gone -- components/Navbar.tsx is
+          the site header. Its two calls to action are kept, moved into the
+          page, because /tutor/register is only still routed at all on the
+          grounds that this page links to it. Browse Tutors pointed at
+          /parent/dashboard, which is behind a login and is not where tutors
+          are browsed. */}
+      <main className="max-w-4xl mx-auto px-6 py-12 sm:py-16 space-y-8 flex-1 w-full">
+        <Breadcrumbs items={[{ label: 'Help & FAQ' }]} />
+
+        <div className="flex flex-wrap justify-center gap-3">
+          <Link href="/browse/tutors" className="inline-flex min-h-[44px] items-center rounded-xl bg-gray-100 px-4 text-xs font-bold text-gray-900 transition-colors hover:bg-gray-200">
+            Browse tutors
           </Link>
-          <Link href="/tutor/register" className="px-4 py-2 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl shadow-sm transition-colors">
-            Tutor Sign Up 🚀
+          <Link href="/tutor/register" className="inline-flex min-h-[44px] items-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-tm-red-hover">
+            Tutor sign up
           </Link>
         </div>
-      </header>
 
-      {/* Content */}
-      <main className="max-w-4xl mx-auto px-6 py-12 sm:py-16 space-y-8 flex-1 w-full">
         <div className="text-center space-y-3">
           <span className="bg-tm-tint-red text-tm-red-hover px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider">Help Center</span>
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Frequently Asked Questions</h1>

@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { redirect } from 'next/navigation'
 import { getSessionUser, homeForRole } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -50,7 +51,9 @@ export default async function PasswordPage({
     : false
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-tm-bg p-4 text-slate-700 sm:p-6">
+    <main className="flex min-h-screen flex-col bg-tm-bg p-4 text-slate-700 sm:p-6">
+      <Breadcrumbs items={[{ label: 'Change your password' }]} />
+      <div className="flex flex-1 items-center justify-center">
       <div className="w-full max-w-md space-y-5 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl sm:p-8">
         <div className="space-y-2 text-center">
           <p className="text-xl font-black text-tm-navy">
@@ -64,6 +67,7 @@ export default async function PasswordPage({
         </div>
 
         <PasswordForm next={isImportedTutor ? '/tutor/claim' : (next ?? null)} />
+      </div>
       </div>
     </main>
   )

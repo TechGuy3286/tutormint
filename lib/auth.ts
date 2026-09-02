@@ -4,6 +4,8 @@
 // Auth truth is the Supabase cookie session -- never localStorage or
 // sessionStorage.
 
+import { cache } from 'react'
+
 import { createClient } from '@/lib/supabase/server'
 
 export type { Role } from '@/lib/authRoutes'
@@ -39,8 +41,16 @@ export type SessionUser = {
  *
  * One round trip beyond the auth check: getUser() validates the JWT with the
  * auth server, then a single select on profiles.
+ *
+ * Wrapped in React's cache(), which dedupes it for the lifetime of ONE render.
+ * A dashboard page already called this twice -- once in the layout to gate the
+ * area, once in the page to draw it -- and the header now asks a third time on
+ * every route in the app. cache() collapses those into a single auth round trip
+ * and a single profiles read per request. It is per-request memoisation, not a
+ * cross-request cache: two visitors never share an answer, which for a function
+ * that returns "who is signed in" is the only acceptable behaviour.
  */
-export async function getSessionUser(): Promise<SessionUser | null> {
+export const getSessionUser = cache(async function getSessionUser(): Promise<SessionUser | null> {
   const supabase = await createClient()
 
   const {
@@ -62,7 +72,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     user: { id: user.id, email: user.email ?? null },
     profile: (profile as SessionProfile | null) ?? null,
   }
-}
+})
 
 // The pure routing helpers live in lib/authRoutes.ts so the login page can
 // import them without pulling next/headers into the browser bundle. Re-exported

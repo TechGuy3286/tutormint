@@ -1,5 +1,6 @@
 'use client'
 
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { useState } from 'react'
 
 export default function ReviewPage() {
@@ -24,6 +25,7 @@ export default function ReviewPage() {
   return (
     <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto space-y-8">
+        <Breadcrumbs items={[{ label: 'Leave a review' }]} />
         
         {/* Header */}
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 text-center space-y-3">

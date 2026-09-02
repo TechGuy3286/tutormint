@@ -1,3 +1,4 @@
+import Avatar from '@/components/Avatar'
 import VerifiedBadge from '@/components/badges/VerifiedBadge'
 
 // The tutor's own card, side by side: as it appears now, and as it would
@@ -45,9 +46,7 @@ function Card({ name, city, verified }: { name: string; city: string | null; ver
         {verified ? 'With Verified' : 'Your card today'}
       </p>
       <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tm-navy text-xs font-black text-white">
-          {name.slice(0, 1).toUpperCase()}
-        </span>
+        <Avatar name={name} decorative ring="border border-gray-200" className="h-10 w-10 text-xs" />
         <span className="min-w-0">
           <span className="flex items-center gap-1.5">
             <span className="truncate text-xs font-black text-tm-navy">{name}</span>

@@ -85,3 +85,41 @@ export const NEUTRAL = {
   slate800: '#1E293B',
   gray200: '#E5E7EB',
 } as const
+
+/**
+ * The four tint/ink pairs an initials avatar can take.
+ *
+ * Here rather than in components/Avatar.tsx because two render targets need
+ * the same answer in two different forms: the React component needs Tailwind
+ * class names, and next/og needs literal hex, since satori resolves neither
+ * classes nor var(). Splitting them would mean a tutor whose avatar is green
+ * on the site and navy on the social post we publish about them.
+ *
+ * The colour carries no meaning -- not a role, not a plan, not a status. It
+ * exists so a list of avatars is scannable. All four pairs are AA-checked in
+ * scripts/contrast-check.ts.
+ */
+export const AVATAR_TINTS = [
+  { bg: BRAND.tintNavy, fg: BRAND.navy, className: 'bg-tm-tint-navy text-tm-navy' },
+  { bg: BRAND.tintGreen, fg: BRAND.greenDeep, className: 'bg-tm-tint-green text-tm-green-deep' },
+  { bg: BRAND.tintRed, fg: BRAND.red, className: 'bg-tm-tint-red text-tm-red' },
+  { bg: BRAND.tintGold, fg: BRAND.goldInk, className: 'bg-tm-tint-gold text-tm-gold-ink' },
+] as const
+
+/** Stable across server, client and satori: a pure function of the seed string. */
+export function avatarTint(seed: string): (typeof AVATAR_TINTS)[number] {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
+  return AVATAR_TINTS[h % AVATAR_TINTS.length]
+}
+
+/** First letters of up to two words. '?' when there is no name at all. */
+export function initialsOf(name: string | null | undefined): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  return parts
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+}

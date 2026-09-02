@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { notFound } from 'next/navigation'
 import { MapPin, Wallet, Clock, GraduationCap } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
@@ -113,9 +113,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-3xl space-y-4">
-        <Link href="/parent/dashboard" className="text-xs font-bold text-tm-red hover:underline">
-          ← Dashboard
-        </Link>
+        <Breadcrumbs items={[{ label: 'Parent dashboard', href: '/parent/dashboard' }, { label: job.title }]} />
 
         <section className="relative space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
           {job.is_featured && <FeaturedTag className="absolute right-3 top-3 sm:right-4 sm:top-4" />}

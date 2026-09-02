@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { GraduationCap, MapPin, Wallet, Clock, Building2 } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
+import Avatar from '@/components/Avatar'
 import AuthGateModal from '@/components/AuthGateModal'
 import ReportButton from '@/components/ReportButton'
 import type { BadgeName } from '@/lib/planBadges'
@@ -39,6 +40,7 @@ export type JobCardData = {
   is_featured: boolean | null
   parent_id: string | null
   parent_name: string | null
+  parent_avatar_url: string | null
   parent_badges: BadgeName[]
   parent_can_hire: boolean
 }
@@ -109,7 +111,22 @@ export default function JobCard({
                 {job.title}
               </Link>
             </h3>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
+            {/* Who posted it. The avatar is here because a job board of
+                identical cards gives a tutor nothing to recognise between
+                visits, and a face is what people actually remember. It is a
+                picture, not contact information -- the number, WhatsApp and
+                email stay behind canViewContact. */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
+              {job.parent_name && (
+                <Avatar
+                  name={job.parent_name}
+                  src={job.parent_avatar_url}
+                  seed={job.parent_id}
+                  decorative
+                  ring="border border-gray-200"
+                  className="h-7 w-7 text-[10px]"
+                />
+              )}
               <Clock size={12} className="shrink-0" />
               <span>{postedAgo(job.created_at)}</span>
               {job.parent_name && (
@@ -119,7 +136,7 @@ export default function JobCard({
                 </>
               )}
               {job.parent_badges.length > 0 && <BadgeRow badges={job.parent_badges} size="sm" />}
-            </p>
+            </div>
           </div>
 
           {job.subjects && job.subjects.length > 0 && (

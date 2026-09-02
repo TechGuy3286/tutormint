@@ -1,3 +1,4 @@
+import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { CheckCircle2, Clock, XCircle } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
@@ -43,6 +44,7 @@ export default async function PayReturnPage({
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-10 text-slate-700 sm:px-6">
       <div className="mx-auto max-w-md space-y-4">
+        <Breadcrumbs items={[{ label: 'Payment' }]} />
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-5 text-center">
           {status === 'approved' ? (
             <>
