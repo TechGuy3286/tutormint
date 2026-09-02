@@ -113,7 +113,7 @@ export default function ReportQueue({
       )}
 
       {reports.length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           Nothing here.
         </p>
       ) : (
@@ -124,7 +124,7 @@ export default function ReportQueue({
                 <div className="min-w-0 space-y-0.5">
                   <p className="text-sm font-black text-tm-navy">
                     {REASON_LABEL[r.reason] ?? r.reason}
-                    <span className="ml-2 text-[11px] font-semibold text-gray-400">
+                    <span className="ml-2 text-[11px] font-semibold text-gray-500">
                       on a {r.targetType}
                     </span>
                   </p>
@@ -150,7 +150,7 @@ export default function ReportQueue({
                       ? 'bg-tm-tint-gold text-tm-gold-ink'
                       : r.status === 'actioned'
                         ? 'bg-tm-tint-red text-tm-red'
-                        : 'bg-gray-100 text-gray-500'
+                        : 'bg-gray-100 text-gray-700'
                   }`}
                 >
                   {r.status}
@@ -180,7 +180,7 @@ export default function ReportQueue({
                       <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border border-gray-200 bg-tm-bg p-3">
                         {r.messages.map((m, i) => (
                           <div key={i} className="space-y-0.5">
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
                               {m.who} · {new Date(m.at).toLocaleString('en-PK')}
                             </p>
                             <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">
@@ -192,12 +192,12 @@ export default function ReportQueue({
                     )}
                   </div>
                 ) : (
-                  <p className="text-[11px] text-gray-400">
+                  <p className="text-[11px] text-gray-500">
                     That conversation has no messages in it.
                   </p>
                 )
               ) : (
-                <p className="flex items-center gap-2 text-[11px] text-gray-400">
+                <p className="flex items-center gap-2 text-[11px] text-gray-500">
                   <Lock size={12} />
                   This report is about a {r.targetType}, so no messages are readable from it.
                 </p>
@@ -292,7 +292,7 @@ export default function ReportQueue({
           exists so a report can be read in context when two people have already stopped talking.
         </p>
         {blocks.length === 0 ? (
-          <p className="rounded-2xl border border-gray-200 bg-white p-4 text-center text-xs text-gray-400">
+          <p className="rounded-2xl border border-gray-200 bg-white p-4 text-center text-xs text-gray-500">
             Nobody has blocked anybody.
           </p>
         ) : (
@@ -306,12 +306,12 @@ export default function ReportQueue({
                   <Link href={`/admin/users/${b.blockerId}`} className="font-bold hover:underline">
                     {b.blockerName}
                   </Link>{' '}
-                  <span className="text-gray-400">blocked</span>{' '}
+                  <span className="text-gray-500">blocked</span>{' '}
                   <Link href={`/admin/users/${b.blockedId}`} className="font-bold hover:underline">
                     {b.blockedName}
                   </Link>
                 </span>
-                <span className="text-[11px] text-gray-400">
+                <span className="text-[11px] text-gray-500">
                   {new Date(b.createdAt).toLocaleDateString('en-PK')}
                 </span>
               </li>

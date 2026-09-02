@@ -172,13 +172,13 @@ export default async function TutorDashboardPage() {
 
           <dl className="grid grid-cols-2 gap-3 pt-1">
             <div>
-              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
                 Applications left
               </dt>
               <dd className="text-lg font-black text-tm-navy">
                 {ent.plan ? ent.quotaLeft : '—'}
                 {ent.plan && (
-                  <span className="text-xs font-semibold text-gray-400">
+                  <span className="text-xs font-semibold text-gray-500">
                     {' '}
                     of {ent.displayedQuota}
                   </span>
@@ -186,7 +186,7 @@ export default async function TutorDashboardPage() {
               </dd>
             </div>
             <div>
-              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
                 Search position
               </dt>
               <dd className="text-lg font-black text-tm-navy">
@@ -213,7 +213,7 @@ export default async function TutorDashboardPage() {
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <div className="flex items-center justify-between gap-2">
             <h2 className="flex items-center gap-2 text-sm font-black text-tm-navy">
-              <Eye size={16} className="text-gray-400" />
+              <Eye size={16} className="text-gray-500" />
               Who looked at you
             </h2>
             {viewTotal > 0 && (
@@ -222,7 +222,7 @@ export default async function TutorDashboardPage() {
           </div>
 
           {teasers.length === 0 ? (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-500">
               No profile views yet. Views appear here as parents find you in search.
             </p>
           ) : (
@@ -239,7 +239,7 @@ export default async function TutorDashboardPage() {
                         <span className="text-slate-700">{t.text}</span>
                       )}
                     </p>
-                    <span className="shrink-0 text-[10px] text-gray-400">{t.when}</span>
+                    <span className="shrink-0 text-[10px] text-gray-500">{t.when}</span>
                   </li>
                 ))}
               </ul>
@@ -267,13 +267,13 @@ export default async function TutorDashboardPage() {
           </div>
 
           <p className="flex items-start gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-slate-700">
-            <Info size={14} className="mt-px shrink-0 text-gray-400" />
+            <Info size={14} className="mt-px shrink-0 text-gray-500" />
             Only Featured parents can complete a hire. Every job card says which kind of parent
             posted it, so you know before you spend an application.
           </p>
 
           {jobs.length === 0 ? (
-            <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+            <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
               No open tuitions match your subjects right now.
             </p>
           ) : (

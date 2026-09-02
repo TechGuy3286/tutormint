@@ -132,7 +132,7 @@ export default function ReviewForm({
         </button>
       </div>
 
-      <p className="text-[10px] leading-relaxed text-gray-400">
+      <p className="text-[10px] leading-relaxed text-gray-500">
         Reviews are public on the tutor&apos;s profile and cannot be edited once published.
       </p>
     </div>

@@ -252,7 +252,7 @@ export default async function AdminHome() {
                 t.urgent ? 'border-tm-gold' : 'border-gray-200'
               }`}
             >
-              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
                 {t.label}
               </p>
               <p
@@ -260,7 +260,7 @@ export default async function AdminHome() {
               >
                 {t.value}
               </p>
-              <p className="text-[10px] leading-snug text-gray-400">{t.hint}</p>
+              <p className="text-[10px] leading-snug text-gray-500">{t.hint}</p>
             </Link>
           ))}
         </div>

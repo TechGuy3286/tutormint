@@ -75,7 +75,7 @@ export default async function TutorJobsPage() {
         </header>
 
         <p className="flex items-start gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-slate-700">
-          <Info size={14} className="mt-px shrink-0 text-gray-400" />
+          <Info size={14} className="mt-px shrink-0 text-gray-500" />
           Only Featured parents can complete a hire. Each card says which kind of parent posted it,
           so you know before you spend an application.
         </p>
@@ -85,7 +85,7 @@ export default async function TutorJobsPage() {
         <section className="space-y-3">
           <h2 className="text-sm font-black text-tm-navy">All open tuitions</h2>
           {jobs.length === 0 ? (
-            <p className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-xs text-gray-400">
+            <p className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-xs text-gray-500">
               Nothing posted yet. Keep your profile complete so parents find you in search.
             </p>
           ) : (

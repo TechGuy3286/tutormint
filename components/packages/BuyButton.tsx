@@ -81,7 +81,7 @@ export default function BuyButton({
         {busy ? 'Starting…' : label}
       </button>
       {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
-      <p className="text-center text-[10px] text-gray-400">
+      <p className="text-center text-[10px] text-gray-500">
         Rs. {pricePkr.toLocaleString('en-PK')} for 30 days · no refunds
       </p>
     </div>

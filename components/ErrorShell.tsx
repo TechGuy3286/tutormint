@@ -37,7 +37,7 @@ export default function ErrorShell({
         </Link>
 
         {code && (
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">{code}</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">{code}</p>
         )}
 
         <div className="space-y-2">

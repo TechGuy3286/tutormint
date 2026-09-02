@@ -78,7 +78,7 @@ export default async function ClaimPage() {
           rawPhone={(profile?.phone_number as string) ?? ''}
         />
 
-        <p className="text-center text-[11px] leading-relaxed text-gray-400">
+        <p className="text-center text-[11px] leading-relaxed text-gray-500">
           Something wrong above? Claim the profile first, then correct anything you like from your
           dashboard. If this is not you at all, contact support and we will remove it.
         </p>
@@ -90,7 +90,7 @@ export default async function ClaimPage() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-100 pb-2 last:border-0">
-      <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{label}</dt>
+      <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</dt>
       <dd className="text-right text-xs font-semibold text-tm-navy">{value}</dd>
     </div>
   )

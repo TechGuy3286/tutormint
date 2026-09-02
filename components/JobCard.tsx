@@ -111,7 +111,7 @@ export default function JobCard({
                 {job.title}
               </Link>
             </h3>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-400">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
               <Clock size={12} className="shrink-0" />
               <span>{postedAgo(job.created_at)}</span>
               {job.parent_name && (
@@ -140,23 +140,23 @@ export default function JobCard({
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {job.class_level && (
               <p className="flex items-center gap-2 text-xs text-slate-700">
-                <GraduationCap size={14} className="shrink-0 text-gray-400" />
+                <GraduationCap size={14} className="shrink-0 text-gray-500" />
                 {job.class_level}
               </p>
             )}
             <p className="flex items-center gap-2 text-xs text-slate-700">
-              <MapPin size={14} className="shrink-0 text-gray-400" />
+              <MapPin size={14} className="shrink-0 text-gray-500" />
               {[job.area, job.city].filter(Boolean).join(', ') || job.teaching_mode || 'Flexible'}
             </p>
             {job.teaching_mode && (
               <p className="flex items-center gap-2 text-xs text-slate-700">
-                <Building2 size={14} className="shrink-0 text-gray-400" />
+                <Building2 size={14} className="shrink-0 text-gray-500" />
                 {job.teaching_mode}
               </p>
             )}
             {job.budget_pkr ? (
               <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
-                <Wallet size={14} className="shrink-0 text-gray-400" />
+                <Wallet size={14} className="shrink-0 text-gray-500" />
                 Rs. {job.budget_pkr.toLocaleString('en-PK')} / month
               </p>
             ) : null}

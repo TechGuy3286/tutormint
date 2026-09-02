@@ -280,32 +280,32 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                 {reviews > 0 ? (
                   <>
                     ★ {rating.toFixed(1)}{' '}
-                    <span className="font-normal text-gray-400">({reviews} reviews)</span>
+                    <span className="font-normal text-gray-500">({reviews} reviews)</span>
                   </>
                 ) : (
-                  <span className="font-normal text-gray-400">No reviews yet</span>
+                  <span className="font-normal text-gray-500">No reviews yet</span>
                 )}
               </p>
 
               <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-2">
                 <p className="flex items-center gap-2 text-xs">
-                  <MapPin size={14} className="text-gray-400" />
+                  <MapPin size={14} className="text-gray-500" />
                   {tutor.area ?? 'Area not set'}
                 </p>
                 <p className="flex items-center gap-2 text-xs">
-                  <Building2 size={14} className="text-gray-400" />
+                  <Building2 size={14} className="text-gray-500" />
                   {tutor.city ?? 'Online'}
                   {tutor.teaching_mode ? ` · ${tutor.teaching_mode}` : ''}
                 </p>
                 <p className="flex items-center gap-2 text-xs">
-                  <Briefcase size={14} className="text-gray-400" />
+                  <Briefcase size={14} className="text-gray-500" />
                   {tutor.experience_years
                     ? `${tutor.experience_years} years experience`
                     : 'New to TutorMint'}
                 </p>
                 {tutor.hourly_rate_pkr ? (
                   <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
-                    <Wallet size={14} className="text-gray-400" />
+                    <Wallet size={14} className="text-gray-500" />
                     Rs. {tutor.hourly_rate_pkr.toLocaleString('en-PK')} / month
                   </p>
                 ) : null}
@@ -330,7 +330,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   href={`tel:${contact.phone}`}
                   className="flex min-h-[44px] items-center gap-2 text-sm font-bold text-tm-navy"
                 >
-                  <Phone size={16} className="text-gray-400" />
+                  <Phone size={16} className="text-gray-500" />
                   {contact.phone}
                 </a>
               )}
@@ -348,7 +348,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                 </a>
               )}
               {isSelf && (
-                <p className="text-[11px] text-gray-400">
+                <p className="text-[11px] text-gray-500">
                   This is your own profile. Featured parents see these details.
                 </p>
               )}
@@ -397,7 +397,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
           <h2 className="pb-3 text-sm font-black text-tm-navy">Subjects and levels</h2>
           {byLevel.size === 0 ? (
-            <p className="text-xs text-gray-400">Subjects are being added.</p>
+            <p className="text-xs text-gray-500">Subjects are being added.</p>
           ) : (
             <div className="space-y-3">
               {[...byLevel.entries()].map(([level, subjects]) => (
@@ -463,7 +463,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                     {tutor.degree_documents.length === 1 ? '' : 's'}.
                   </p>
                 )}
-                <p className="pt-2 text-[10px] leading-relaxed text-gray-400">
+                <p className="pt-2 text-[10px] leading-relaxed text-gray-500">
                   Certificates are shown as watermarked previews and are protected against casual
                   copying. Originals are never published.
                 </p>
@@ -476,7 +476,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
           <h2 className="pb-3 text-sm font-black text-tm-navy">Availability</h2>
           {tutor.slots.length === 0 ? (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-500">
               No fixed slots published. Request a demo and agree a time directly.
             </p>
           ) : (
@@ -486,7 +486,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   key={s.id}
                   className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${
                     s.booked
-                      ? 'bg-gray-100 text-gray-400 ring-gray-200 line-through'
+                      ? 'bg-gray-100 text-gray-700 ring-gray-200 line-through'
                       : 'bg-tm-bg text-tm-navy ring-gray-200'
                   }`}
                 >
@@ -503,7 +503,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
             Reviews {reviews > 0 ? `(${reviews})` : ''}
           </h2>
           {tutor.reviews.length === 0 ? (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-500">
               No written reviews yet. Reviews are left by parents after a tuition.
             </p>
           ) : (
@@ -515,7 +515,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                     <span className="font-semibold text-gray-500">· {r.reviewer}</span>
                   </p>
                   {r.comment && <p className="text-xs leading-relaxed">{r.comment}</p>}
-                  <p className="text-[10px] text-gray-400">
+                  <p className="text-[10px] text-gray-500">
                     {new Date(r.created_at).toLocaleDateString('en-PK', {
                       month: 'short',
                       year: 'numeric',

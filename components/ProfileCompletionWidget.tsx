@@ -87,7 +87,7 @@ export default function ProfileCompletionWidget({
             </li>
           ))}
           {missing.length > 6 && (
-            <li className="text-[11px] text-gray-400 px-3">+{missing.length - 6} more</li>
+            <li className="text-[11px] text-gray-500 px-3">+{missing.length - 6} more</li>
           )}
         </ul>
       )}

@@ -71,7 +71,7 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
       </div>
 
       {children.length === 0 && !adding && (
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-500">
           Add a child so your job posts say who the tuition is for. Their name is never shown
           publicly.
         </p>
@@ -85,7 +85,7 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
               className="flex items-center justify-between gap-3 rounded-xl bg-tm-bg px-3 py-2"
             >
               <span className="flex min-w-0 items-center gap-2">
-                <GraduationCap size={14} className="shrink-0 text-gray-400" />
+                <GraduationCap size={14} className="shrink-0 text-gray-500" />
                 <span className="truncate text-xs font-bold text-tm-navy">{c.name}</span>
                 {c.class_level && (
                   <span className="shrink-0 text-[11px] text-gray-500">{c.class_level}</span>
@@ -96,7 +96,7 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
                 onClick={() => remove(c.id)}
                 disabled={busy}
                 aria-label={`Remove ${c.name}`}
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center text-gray-400 hover:text-tm-red"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center text-gray-500 hover:text-tm-red"
               >
                 <Trash2 size={14} />
               </button>

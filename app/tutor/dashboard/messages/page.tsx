@@ -31,7 +31,7 @@ export default async function TutorMessagesPage() {
 
         {!ent.canInitiateMessage && (
           <p className="flex items-start gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-slate-700">
-            <Info size={14} className="mt-px shrink-0 text-gray-400" />
+            <Info size={14} className="mt-px shrink-0 text-gray-500" />
             Your plan lets you reply to any parent who writes to you, and apply for jobs.
             <Link href="/tutor/packages?plan=premium" className="font-bold text-tm-red underline">
               Premium

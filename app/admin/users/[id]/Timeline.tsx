@@ -34,7 +34,7 @@ const TONE: Record<string, string> = {
   warned: 'bg-tm-tint-gold text-tm-gold-ink',
   unsuspended: 'bg-tm-tint-green text-tm-green-deep',
   plan_purchased: 'bg-tm-tint-green text-tm-green-deep',
-  plan_expired: 'bg-gray-100 text-gray-500',
+  plan_expired: 'bg-gray-100 text-gray-700',
   reported_by: 'bg-tm-tint-gold text-tm-gold-ink',
 }
 
@@ -51,7 +51,7 @@ export default function Timeline({
     <section className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-black text-tm-navy">Timeline</h2>
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-gray-500">
           {events.length} event{events.length === 1 ? '' : 's'}, newest first
         </p>
       </div>
@@ -73,7 +73,7 @@ export default function Timeline({
       </nav>
 
       {events.length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           Nothing recorded in this group.
         </p>
       ) : (
@@ -85,13 +85,13 @@ export default function Timeline({
             >
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-                  TONE[e.event] ?? 'bg-slate-100 text-slate-500'
+                  TONE[e.event] ?? 'bg-slate-100 text-slate-700'
                 }`}
               >
                 {e.event.replace(/_/g, ' ')}
               </span>
               <span className="min-w-0 flex-1 text-xs font-semibold text-tm-navy">{e.label}</span>
-              <span className="shrink-0 text-[11px] text-gray-400">
+              <span className="shrink-0 text-[11px] text-gray-500">
                 {new Date(e.at).toLocaleString('en-PK')}
               </span>
               {Object.keys(e.meta).length > 0 && (

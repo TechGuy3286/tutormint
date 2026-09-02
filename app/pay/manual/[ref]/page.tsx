@@ -97,7 +97,7 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
               This payment has already been {payment.status as string}.
             </p>
           ) : methods.length === 0 ? (
-            <p className="text-xs text-gray-400">Nothing to submit yet.</p>
+            <p className="text-xs text-gray-500">Nothing to submit yet.</p>
           ) : payment.reference ? (
             <div className="space-y-2">
               <p className="text-xs font-bold text-tm-navy">
@@ -140,7 +140,7 @@ function Detail({ label, value, mono }: { label: string; value: string | null; m
   if (!value) return null
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-100 pb-2">
-      <dt className="font-bold uppercase tracking-wide text-gray-400">{label}</dt>
+      <dt className="font-bold uppercase tracking-wide text-gray-500">{label}</dt>
       <dd className={`text-right font-semibold text-tm-navy ${mono ? 'font-mono' : ''}`}>
         {value}
       </dd>

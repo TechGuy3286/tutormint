@@ -103,7 +103,7 @@ export default function CleanupClient({
       )}
 
       {candidates.length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           Nothing to clean up.
         </p>
       ) : (
@@ -127,7 +127,7 @@ export default function CleanupClient({
                       {c.email ?? '(no email)'}
                     </span>
                     <span className="block text-[11px] text-gray-500">{c.reason}</span>
-                    <span className="block text-[11px] text-gray-400">
+                    <span className="block text-[11px] text-gray-500">
                       Created {new Date(c.createdAt).toLocaleDateString('en-PK')} ·{' '}
                       {c.confirmed ? 'confirmed' : 'never confirmed'} ·{' '}
                       {c.hasProfile ? `profile (${c.role})` : 'no profile row'}

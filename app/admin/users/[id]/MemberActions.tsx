@@ -66,7 +66,7 @@ export default function MemberActions({
 
   return (
     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-      <h2 className="text-xs font-black uppercase tracking-wide text-gray-400">Actions</h2>
+      <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">Actions</h2>
 
       {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
 

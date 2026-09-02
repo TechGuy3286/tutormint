@@ -89,7 +89,7 @@ export default async function PayReturnPage({
           )}
 
           {payment && (
-            <p className="font-mono text-[10px] text-gray-400">{payment.provider_ref as string}</p>
+            <p className="font-mono text-[10px] text-gray-500">{payment.provider_ref as string}</p>
           )}
         </section>
 

@@ -86,6 +86,12 @@ const C = {
   ...Object.fromEntries(Object.entries(BRAND)),
   ...Object.fromEntries(Object.entries(NEUTRAL)),
   slate500: '#64748B',
+  slate100: '#F1F5F9',
+  // Tailwind's own greys, needed because admin leans on them for muted text.
+  gray400: '#9CA3AF',
+  gray500: '#6B7280',
+  gray100: '#F3F4F6',
+  gray700: '#374151',
 } as Record<string, string>
 
 type Pair = { fg: string; bg: string; where: string; large?: boolean }
@@ -133,6 +139,35 @@ const PAIRS: Pair[] = [
   // Body copy.
   { fg: 'slate700', bg: 'white', where: 'body text on cards' },
   { fg: 'slate700', bg: 'bg', where: 'body text on the page ground' },
+
+  // Muted copy. gray-400 is 2.54:1 on white and cannot be text at any size --
+  // section 3 greps for it. gray-500 is the lightest grey that clears AA, and
+  // is what the admin panel's labels, timestamps and empty states use.
+  { fg: 'gray500', bg: 'white', where: 'admin labels, table headers, empty states' },
+  { fg: 'gray500', bg: 'bg', where: 'admin muted copy on the page ground' },
+  // slate-500 on slate-100 is 4.34:1 -- under AA, and invisible to a palette
+  // check because both are Tailwind neutrals rather than brand tokens. It was
+  // carrying the role and status chips on /admin/users, /admin/team and the
+  // member timeline until a rendered audit measured it.
+  { fg: 'slate700', bg: 'slate100', where: 'admin role and status chips' },
+  // gray-500 on gray-100 is 4.39:1 -- the same near-miss as the slate pair, in
+  // the 'expired' and 'inactive' chips. Both neutrals, so again invisible to a
+  // brand-token check.
+  { fg: 'gray700', bg: 'gray100', where: 'expired and inactive chips' },
+
+  // Admin, explicitly. These combinations are already checked above through
+  // the public surfaces that share them; they are named again so the gate
+  // states in words that the admin panel is covered, and so removing a public
+  // use does not silently drop admin's only guarantee.
+  { fg: 'white', bg: 'red', where: 'admin Suspend and destructive buttons' },
+  { fg: 'goldInk', bg: 'tintGold', where: 'admin Warn chips and hold notices' },
+  { fg: 'red', bg: 'tintRed', where: 'admin suspended badges, rejection panels' },
+  { fg: 'greenDeep', bg: 'tintGreen', where: 'admin approved and reinstated badges' },
+  { fg: 'navy', bg: 'white', where: 'admin headings and table text' },
+  { fg: 'mint', bg: 'black', where: 'admin header wordmark on the black bar' },
+
+  // The homepage hero pill, authorised 2 Sep 2026.
+  { fg: 'navy', bg: 'tintGreen', where: 'homepage hero pill' },
 ]
 
 // ----------------------------------------------------------------- run ------
@@ -194,6 +229,29 @@ const MINT_BG_WITH_TEXT = /className=(?:"|'|\{`)([^"'`]*\bbg-tm-mint\b[^"'`]*)(?
 const GOLD_BG_WITH_LIGHT_TEXT =
   /\bbg-tm-gold\b(?!-)((?:(?!["'`]).)*?)\b(text-white|text-tm-bg)\b|\b(text-white|text-tm-bg)\b((?:(?!["'`]).)*?)\bbg-tm-gold\b(?!-)/g
 
+// gray-400 is 2.54:1 on white and 2.43:1 on the page ground. It carried empty
+// states, table headers, timestamps and field labels in 140 places -- all of
+// them small text, so the large-text allowance never applied either. The pair
+// list cannot catch this on its own: it checks the palette, and the palette
+// never declared gray-400. Only a source scan does, and without one the next
+// person who wants a lighter grey reaches for it again.
+const FORBIDDEN_GREY = /\b(?:[a-z-]+:)*text-gray-400\b/
+
+// tm-red on tm-black is 3.11:1. Red is a light-surface colour; the brand's
+// readable member on a dark surface is tm-mint.
+//
+// LIMIT, stated because it matters: this is a per-line scan, so it catches the
+// two classes on ONE element and nothing else. The case that actually shipped
+// -- the admin header, where bg-tm-black is on the <header> and text-tm-red
+// four lines below on a child -- is invisible to it, and was found by
+// rendering the page and measuring, not by this check. Catching inherited
+// backgrounds properly means resolving the JSX tree; until something does
+// that, a rendered audit is the only reliable check for text on a dark
+// surface. Treat a pass here as 'no obvious same-element mistake', not as
+// proof.
+const RED_ON_BLACK =
+  /\bbg-tm-black\b(?:(?!["'`]).)*?\btext-tm-red\b|\btext-tm-red\b(?:(?!["'`]).)*?\bbg-tm-black\b/
+
 let misuse = 0
 for (const file of sourceFiles()) {
   const src = readFileSync(file, 'utf8')
@@ -201,6 +259,14 @@ for (const file of sourceFiles()) {
   src.split('\n').forEach((line, i) => {
     if (GOLD_FG.test(line)) {
       fail(`${file}:${i + 1} uses tm-gold as a foreground (2.05:1) — use tm-gold-ink`)
+      misuse++
+    }
+    if (FORBIDDEN_GREY.test(line)) {
+      fail(`${file}:${i + 1} uses text-gray-400 (2.54:1 on white) - use text-gray-500`)
+      misuse++
+    }
+    if (RED_ON_BLACK.test(line)) {
+      fail(`${file}:${i + 1} puts text-tm-red on bg-tm-black (3.11:1) - use text-tm-mint`)
       misuse++
     }
   })
@@ -222,7 +288,10 @@ for (const file of sourceFiles()) {
     }
   }
 }
-if (misuse === 0) console.log('  ✓ tm-gold is never text; tm-mint never carries text')
+if (misuse === 0)
+  console.log(
+    '  OK  tm-gold is never text; tm-mint never carries text; no gray-400; no red on black',
+  )
 
 // ---------------------------------------------------------------------------
 console.log('\n' + '='.repeat(64))

@@ -238,7 +238,7 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
       )}
 
       {ads.length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           No advertisements yet. Empty slots show a TutorMint house creative.
         </p>
       ) : (
@@ -259,7 +259,7 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
                       a.live
                         ? 'bg-tm-tint-green text-tm-green-deep'
                         : a.expired
-                          ? 'bg-gray-100 text-gray-500'
+                          ? 'bg-gray-100 text-gray-700'
                           : 'bg-tm-tint-gold text-tm-gold-ink'
                     }`}
                   >
@@ -284,7 +284,7 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
                   <Stat label="CTR" value={ctr === '—' ? '—' : `${ctr}%`} />
                 </dl>
 
-                <p className="text-[11px] text-gray-400">
+                <p className="text-[11px] text-gray-500">
                   {new Date(a.startsAt).toLocaleDateString('en-PK')} →{' '}
                   {a.endsAt ? new Date(a.endsAt).toLocaleDateString('en-PK') : 'no end date'}
                   {a.targetUrl ? ` · ${a.targetUrl}` : ''}
@@ -340,7 +340,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</dt>
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</dt>
       <dd className="text-sm font-black text-tm-navy">{value}</dd>
     </div>
   )

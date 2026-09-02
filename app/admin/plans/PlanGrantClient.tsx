@@ -164,7 +164,7 @@ export default function PlanGrantClient({
 
       {open && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center sm:justify-center"
+          className="fixed inset-0 z-50 bg-tm-black/50 flex items-end sm:items-center sm:justify-center"
           role="dialog"
           aria-modal="true"
           aria-label={`Plan for ${open.fullName}`}
@@ -182,7 +182,7 @@ export default function PlanGrantClient({
                   {open.expiresAt ? ` (until ${new Date(open.expiresAt).toLocaleDateString()})` : ''}
                 </p>
               </div>
-              <button onClick={() => setOpen(null)} className="text-gray-400 text-xl min-h-[44px] px-2" aria-label="Close">
+              <button onClick={() => setOpen(null)} className="text-gray-500 text-xl min-h-[44px] px-2" aria-label="Close">
                 ×
               </button>
             </div>

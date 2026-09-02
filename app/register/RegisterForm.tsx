@@ -193,7 +193,7 @@ export default function RegisterForm({ next }: { next?: string }) {
 
           <div className="space-y-1">
             <label htmlFor="email" className="text-xs font-bold text-tm-navy">
-              Email address <span className="font-normal text-gray-400">(optional)</span>
+              Email address <span className="font-normal text-gray-500">(optional)</span>
             </label>
             <input
               id="email"

@@ -58,7 +58,7 @@ export default function ThreadList({
             <div className="flex items-baseline justify-between gap-3">
               <span className="truncate text-xs font-black text-tm-navy">{t.otherName}</span>
               {t.lastMessageAt && (
-                <span className="shrink-0 text-[10px] text-gray-400">
+                <span className="shrink-0 text-[10px] text-gray-500">
                   {new Date(t.lastMessageAt).toLocaleDateString('en-PK', {
                     day: 'numeric',
                     month: 'short',

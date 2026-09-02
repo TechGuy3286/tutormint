@@ -44,7 +44,7 @@ export default async function NotificationSettingsPage() {
       <NotificationForm optedOut={Boolean(profile?.email_opt_out)} />
 
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
-        <h2 className="text-xs font-black uppercase tracking-wide text-gray-400">
+        <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
           Always sent, whatever you choose
         </h2>
         <ul className="space-y-1.5 text-xs leading-relaxed text-gray-500">
@@ -54,7 +54,7 @@ export default async function NotificationSettingsPage() {
           <li>· Being shortlisted or hired for a tuition you applied to</li>
           <li>· Warnings, suspensions and reinstatements</li>
         </ul>
-        <p className="pt-1 text-[11px] leading-relaxed text-gray-400">
+        <p className="pt-1 text-[11px] leading-relaxed text-gray-500">
           These are the emails you would be worse off missing, so they are not optional. In-app
           notifications are always shown regardless of this setting.
         </p>

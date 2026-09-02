@@ -122,7 +122,7 @@ export default async function AdminAuditPage({
       </nav>
 
       {(entries ?? []).length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           Nothing matches that.
         </p>
       ) : (
@@ -141,11 +141,11 @@ export default async function AdminAuditPage({
                   <span className="min-w-0 truncate text-xs font-semibold text-tm-navy">
                     {(e.actor_email as string) ?? 'system'}
                   </span>
-                  <span className="shrink-0 text-xs font-normal text-gray-400">
+                  <span className="shrink-0 text-xs font-normal text-gray-500">
                     ({(e.actor_role as string) ?? '—'})
                   </span>
                 </span>
-                <span className="shrink-0 text-[11px] text-gray-400">
+                <span className="shrink-0 text-[11px] text-gray-500">
                   {new Date(e.created_at as string).toLocaleString('en-PK')}
                 </span>
               </div>

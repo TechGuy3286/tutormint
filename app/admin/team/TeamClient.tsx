@@ -237,13 +237,13 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
               <div className="min-w-0">
                 <p className="truncate text-sm font-black text-tm-navy">
                   {s.name}
-                  {s.isMe && <span className="ml-2 text-[10px] font-bold text-gray-400">you</span>}
+                  {s.isMe && <span className="ml-2 text-[10px] font-bold text-gray-500">you</span>}
                 </p>
                 <p className="truncate text-[11px] text-gray-500">{s.email}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {s.mustChangePassword && (
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
                     not signed in yet
                   </span>
                 )}

@@ -79,7 +79,7 @@ export default function ReportButton({
         onClick={() => setOpen(true)}
         className={
           className ??
-          'inline-flex min-h-[44px] items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-tm-red'
+          'inline-flex min-h-[44px] items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-tm-red'
         }
       >
         <Flag size={14} />

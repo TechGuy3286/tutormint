@@ -131,7 +131,7 @@ export default async function AdminUsagePage({
       </header>
 
       {rows.length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           Nobody has used anything in {period}.
         </p>
       ) : (
@@ -151,7 +151,7 @@ export default async function AdminUsagePage({
 
           <div className="hidden overflow-x-auto rounded-2xl border border-gray-200 bg-white sm:block">
             <table className="w-full min-w-[680px] text-left text-xs">
-              <thead className="border-b border-gray-200 text-[10px] uppercase tracking-wide text-gray-400">
+              <thead className="border-b border-gray-200 text-[10px] uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="p-3 font-bold">Member</th>
                   <th className="p-3 font-bold">Role</th>
@@ -202,7 +202,7 @@ function UsageBar({
       <p className="text-[11px] font-bold text-tm-navy">
         {used} / {cap || '—'}
         {marketingDiffers && (
-          <span className="font-semibold text-gray-400"> (shown as &ldquo;{displayed}&rdquo;)</span>
+          <span className="font-semibold text-gray-500"> (shown as &ldquo;{displayed}&rdquo;)</span>
         )}
       </p>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">

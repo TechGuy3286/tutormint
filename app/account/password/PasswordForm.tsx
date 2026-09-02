@@ -44,7 +44,7 @@ export default function PasswordForm({ next }: { next: string | null }) {
           onChange={(e) => setPassword(e.target.value)}
           className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-sm outline-none focus:border-tm-navy focus:bg-white"
         />
-        <span className="block text-[11px] text-gray-400">
+        <span className="block text-[11px] text-gray-500">
           At least 10 characters. A short phrase you will remember beats a short jumble you will
           not.
         </span>

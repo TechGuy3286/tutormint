@@ -118,7 +118,7 @@ export default function Thread({
         )}
 
         {messages.length === 0 ? (
-          <p className="py-10 text-center text-xs text-gray-400">
+          <p className="py-10 text-center text-xs text-gray-500">
             No messages yet. Say hello — messages stay inside TutorMint so both sides are protected.
           </p>
         ) : (
@@ -130,7 +130,7 @@ export default function Thread({
                 }`}
               >
                 <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">{m.body}</p>
-                <p className={`text-[10px] ${m.mine ? 'text-white/60' : 'text-gray-400'}`}>
+                <p className={`text-[10px] ${m.mine ? 'text-white/60' : 'text-gray-500'}`}>
                   {new Date(m.createdAt).toLocaleString('en-PK', {
                     day: 'numeric',
                     month: 'short',
@@ -185,7 +185,7 @@ export default function Thread({
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="inline-flex min-h-[44px] items-center gap-1 text-[11px] font-bold text-gray-400"
+              className="inline-flex min-h-[44px] items-center gap-1 text-[11px] font-bold text-gray-500"
             >
               <ShieldAlert size={12} />
               Safety

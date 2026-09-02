@@ -422,7 +422,7 @@ export default function TutorSettingsPage() {
                   type="email" 
                   value={tutorEmail} 
                   disabled 
-                  className="w-full p-3 bg-gray-100 border border-gray-200 rounded-xl text-xs text-gray-400 cursor-not-allowed font-medium" 
+                  className="w-full p-3 bg-gray-100 border border-gray-200 rounded-xl text-xs text-gray-700 cursor-not-allowed font-medium" 
                 />
               </div>
             </div>
@@ -455,7 +455,7 @@ export default function TutorSettingsPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Cover Image</h3>
-              <span className="text-[11px] text-gray-400 font-medium">Recommended size: 1200 × 400 px</span>
+              <span className="text-[11px] text-gray-500 font-medium">Recommended size: 1200 × 400 px</span>
             </div>
             <div className="space-y-2 p-4 bg-tm-bg border border-gray-200 rounded-2xl">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -466,7 +466,7 @@ export default function TutorSettingsPage() {
                     className="w-full sm:w-48 h-24 rounded-xl object-cover border border-gray-300 shadow-xs" 
                   />
                 ) : (
-                  <div className="w-full sm:w-48 h-24 rounded-xl bg-gray-200 flex items-center justify-center text-[11px] text-gray-400 font-medium border border-dashed border-gray-300">
+                  <div className="w-full sm:w-48 h-24 rounded-xl bg-gray-200 flex items-center justify-center text-[11px] text-gray-500 font-medium border border-dashed border-gray-300">
                     No Cover Image
                   </div>
                 )}
@@ -754,7 +754,7 @@ export default function TutorSettingsPage() {
               <div className="p-4 bg-tm-bg border border-gray-200 rounded-2xl space-y-2">
                 <div className="flex justify-between items-center text-xs font-bold">
                   <span>🆔 CNIC Front Verification</span>
-                  <span className={formData.cnicFrontUrl ? "text-tm-green-deep font-bold" : "text-gray-400"}>
+                  <span className={formData.cnicFrontUrl ? "text-tm-green-deep font-bold" : "text-gray-500"}>
                     {formData.cnicFrontUrl ? "Uploaded ✓" : "Not Uploaded"}
                   </span>
                 </div>
@@ -781,7 +781,7 @@ export default function TutorSettingsPage() {
               <div className="p-4 bg-tm-bg border border-gray-200 rounded-2xl space-y-2">
                 <div className="flex justify-between items-center text-xs font-bold">
                   <span>🆔 CNIC Back Verification</span>
-                  <span className={formData.cnicBackUrl ? "text-tm-green-deep font-bold" : "text-gray-400"}>
+                  <span className={formData.cnicBackUrl ? "text-tm-green-deep font-bold" : "text-gray-500"}>
                     {formData.cnicBackUrl ? "Uploaded ✓" : "Not Uploaded"}
                   </span>
                 </div>

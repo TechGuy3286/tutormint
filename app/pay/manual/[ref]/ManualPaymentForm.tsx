@@ -76,7 +76,7 @@ export default function ManualPaymentForm({
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white p-2 text-xs"
         />
-        <span className="block text-[10px] leading-relaxed text-gray-400">
+        <span className="block text-[10px] leading-relaxed text-gray-500">
           Only our finance team can open it. It is stored privately and never shown on your profile.
         </span>
       </label>

@@ -72,7 +72,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
     return (
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
         <h2 className="text-sm font-black text-tm-navy">Demo classes</h2>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-500">
           {role === 'parent'
             ? 'No demo requests yet. Request one free demo from any tutor you are considering.'
             : 'No demo requests yet. Parents can ask you for one free demo each.'}

@@ -92,7 +92,7 @@ export default function PackagesTable({
                   ) : (
                     <>
                       Rs. {p.price_pkr.toLocaleString('en-PK')}
-                      <span className="text-xs font-semibold text-gray-400"> / month</span>
+                      <span className="text-xs font-semibold text-gray-500"> / month</span>
                     </>
                   )}
                 </p>

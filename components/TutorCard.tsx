@@ -76,10 +76,10 @@ function Stars({ rating, count }: { rating: number; count: number }) {
         {count > 0 ? (
           <>
             {rating.toFixed(1)}
-            <span className="font-normal text-gray-400"> ({count})</span>
+            <span className="font-normal text-gray-500"> ({count})</span>
           </>
         ) : (
-          <span className="font-normal text-gray-400">New tutor</span>
+          <span className="font-normal text-gray-500">New tutor</span>
         )}
       </span>
     </span>
@@ -97,7 +97,7 @@ function DetailLine({
 }) {
   return (
     <p className="flex items-start gap-2 text-xs leading-snug text-slate-700">
-      <span className="mt-px shrink-0 text-gray-400">{icon}</span>
+      <span className="mt-px shrink-0 text-gray-500">{icon}</span>
       <span className="min-w-0">
         <span className="font-bold text-tm-navy">{label}:</span> <span>{value}</span>
       </span>
@@ -290,7 +290,7 @@ export default function TutorCard({
             {tutor.hourly_rate_pkr ? (
               <p className="pt-0.5 text-xs font-black text-tm-navy">
                 Rs. {tutor.hourly_rate_pkr.toLocaleString('en-PK')}
-                <span className="font-semibold text-gray-400"> / month</span>
+                <span className="font-semibold text-gray-500"> / month</span>
               </p>
             ) : null}
           </div>

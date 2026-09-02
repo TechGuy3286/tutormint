@@ -77,7 +77,7 @@ export default async function HiredTutorsPage() {
         </header>
 
         {(jobs ?? []).length === 0 ? (
-          <p className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-xs text-gray-400">
+          <p className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-xs text-gray-500">
             You have not hired anyone yet. Hire an applicant from one of your job posts.
           </p>
         ) : (

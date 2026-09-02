@@ -178,7 +178,7 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
           type="button"
           onClick={resend}
           disabled={busy || cooldown > 0}
-          className="flex min-h-[44px] items-center justify-center rounded-xl px-3 text-xs font-bold text-tm-navy hover:underline disabled:text-gray-400 disabled:no-underline"
+          className="flex min-h-[44px] items-center justify-center rounded-xl px-3 text-xs font-bold text-tm-navy hover:underline disabled:text-gray-500 disabled:no-underline"
         >
           {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
         </button>

@@ -66,7 +66,7 @@ export default function MyApplications({ applications }: { applications: MyAppli
               <span
                 className={`shrink-0 text-[10px] font-bold uppercase tracking-wide ${
                   a.withdrawn
-                    ? 'text-gray-400'
+                    ? 'text-gray-500'
                     : a.status === 'hired'
                       ? 'text-tm-green-deep'
                       : a.status === 'rejected'

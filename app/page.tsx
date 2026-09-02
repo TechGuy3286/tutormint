@@ -40,7 +40,7 @@ export default function HomePage() {
     <div className="bg-tm-bg">
       <section className="mx-auto flex max-w-5xl flex-col items-center px-4 pt-12 pb-16 text-center sm:px-6 sm:pt-16 sm:pb-24">
         {/* Eyebrow pill */}
-        <p className="rounded-full border border-tm-green-deep/20 bg-tm-tint-green px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-green-deep sm:text-xs sm:tracking-[0.18em]">
+        <p className="rounded-full border border-tm-green-deep/20 bg-tm-tint-green px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-navy sm:text-xs sm:tracking-[0.18em]">
           Pakistan&rsquo;s Largest Verified Tutors &amp; Teachers Network
         </p>
 

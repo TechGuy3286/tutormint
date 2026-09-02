@@ -45,7 +45,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="bg-tm-black text-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
           <Link href="/admin" className="flex min-h-[44px] items-center font-black text-sm">
-            Tutor<span className="text-tm-red">Mint</span>
+            Tutor<span className="text-tm-mint">Mint</span>
             <span className="ml-2 text-[10px] uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded">
               Admin
             </span>

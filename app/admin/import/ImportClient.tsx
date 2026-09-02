@@ -215,7 +215,7 @@ export default function ImportClient() {
 
           <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
             <table className="w-full min-w-[720px] text-left text-xs">
-              <thead className="border-b border-gray-200 text-[10px] uppercase tracking-wide text-gray-400">
+              <thead className="border-b border-gray-200 text-[10px] uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="p-3 font-bold">Row</th>
                   <th className="p-3 font-bold">Name</th>
@@ -227,7 +227,7 @@ export default function ImportClient() {
               <tbody>
                 {results.map((r) => (
                   <tr key={r.line} className="border-b border-gray-100 last:border-0">
-                    <td className="p-3 text-gray-400">{r.line}</td>
+                    <td className="p-3 text-gray-500">{r.line}</td>
                     <td className="p-3 font-bold text-tm-navy">
                       {r.name}
                       {r.profileUrl && (

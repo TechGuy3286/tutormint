@@ -65,7 +65,7 @@ export default function TaxonomySelector({
   }, [availableSubjects, subjectSearch]);
 
   if (loading) {
-    return <div className="text-xs text-gray-400 py-4">Loading taxonomy structure...</div>;
+    return <div className="text-xs text-gray-500 py-4">Loading taxonomy structure...</div>;
   }
 
   return (

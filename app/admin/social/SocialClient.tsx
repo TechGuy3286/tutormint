@@ -106,7 +106,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
     return (
       <div className="space-y-3">
         <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Social posts</h1>
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           No listed tutors to post about yet.
         </p>
       </div>
@@ -154,7 +154,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
                     }`}
                   >
                     {t.label}
-                    <span className="block text-[10px] font-normal text-gray-400">{t.blurb}</span>
+                    <span className="block text-[10px] font-normal text-gray-500">{t.blurb}</span>
                   </button>
                 ))}
               </div>
@@ -173,8 +173,8 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
                     }`}
                   >
                     {f.label}
-                    <span className="block text-[10px] font-normal text-gray-400">{f.size}</span>
-                    <span className="block text-[10px] font-normal text-gray-400">{f.hint}</span>
+                    <span className="block text-[10px] font-normal text-gray-500">{f.size}</span>
+                    <span className="block text-[10px] font-normal text-gray-500">{f.hint}</span>
                   </button>
                 ))}
               </div>
@@ -191,7 +191,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
                 placeholder={tutor?.headline ?? 'Verified tutor on TutorMint'}
                 className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs font-semibold"
               />
-              <span className="block text-[10px] text-gray-400">
+              <span className="block text-[10px] text-gray-500">
                 {headline.length}/90 · the only line you can change
               </span>
             </label>
@@ -242,7 +242,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
             alt={`Preview for ${tutor?.name}`}
             className="w-full rounded-xl border border-gray-200"
           />
-          <p className="text-[10px] leading-relaxed text-gray-400">
+          <p className="text-[10px] leading-relaxed text-gray-500">
             Posting is manual: download the image, copy the caption, publish from the TutorMint
             account.
           </p>

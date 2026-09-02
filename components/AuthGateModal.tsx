@@ -115,7 +115,7 @@ export default function AuthGateModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-tm-black/50 p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="authgate-title"
@@ -147,7 +147,7 @@ export default function AuthGateModal({
           </button>
         </div>
 
-        <p className="text-center text-[11px] text-gray-400">
+        <p className="text-center text-[11px] text-gray-500">
           Browsing tutors and tuitions is always free.
         </p>
       </div>

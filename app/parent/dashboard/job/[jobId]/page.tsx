@@ -147,23 +147,23 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {job.class_level && (
               <p className="flex items-center gap-2 text-xs">
-                <GraduationCap size={14} className="text-gray-400" />
+                <GraduationCap size={14} className="text-gray-500" />
                 {job.class_level as string}
               </p>
             )}
             <p className="flex items-center gap-2 text-xs">
-              <MapPin size={14} className="text-gray-400" />
+              <MapPin size={14} className="text-gray-500" />
               {[job.area, job.city].filter(Boolean).join(', ') || 'Flexible'}
             </p>
             {job.timings ? (
               <p className="flex items-center gap-2 text-xs">
-                <Clock size={14} className="text-gray-400" />
+                <Clock size={14} className="text-gray-500" />
                 {job.timings as string}
               </p>
             ) : null}
             {job.budget_pkr ? (
               <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
-                <Wallet size={14} className="text-gray-400" />
+                <Wallet size={14} className="text-gray-500" />
                 Rs. {(job.budget_pkr as number).toLocaleString('en-PK')} / month
               </p>
             ) : null}

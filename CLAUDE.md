@@ -587,6 +587,7 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 - The brand-colour migration (1 Sep 2026) was authorised by the owner explicitly for this page: the greens, the blue-to-navy change and the footer black come from the token table above. Layout and copy stay locked.
 - Built from design/reference/homepage.png, not recovered from git: the approved design was never committed to this repository and production has never served it. See the T-UI1 note below. NO new sections, no ads slot, no featured-tutor strip, no copy changes without an explicit owner instruction in the prompt.
 - The earlier "homepage featured strip" idea is dropped; featured prominence lives on /browse/tutors ranking only.
+- **Hero pill text colour is `tm-navy` (#151E6B).** Explicit owner authorisation dated 2 Sep 2026, and the only permitted change to this page in that pass. The pill's background (`tm-tint-green`) and border (`tm-green-deep/20`) are unchanged. Recorded here so it is not reverted as a stray edit to a locked file.
 
 ## Graceful handling of unknown input (T8 polish checklist)
 
@@ -803,3 +804,19 @@ One Supabase project serves both preview and production. There is no separate de
 The mechanism is `scripts/target.ts`: `guardWrites()` announces the target, refuses production unless `ALLOW_SEED_ON_PRODUCTION=1` is set for that one invocation and the operator types the project ref, and refuses the override outright in a non-interactive shell. A dry run that writes nothing is allowed through — a guard that makes the safe path harder than the dangerous one gets worked around.
 
 This replaces an inverted guard. `seed-dev.ts` and `seed-cleanup.ts` each hardcoded the live project's ref as `DEV_PROJECT_REF` and refused to run *unless the target matched it*, so `npm run seed:dev` was armed against production while reading as though it protected against exactly that. The full audit of every script under `scripts/`, and the backup taken on 2 Sep, are in `docs/STATE.md`.
+
+## Brand rendering rules (owner, 2 Sep 2026)
+
+- The brand is written "TutorMint" — one word, no space — in every surface: UI, wordmarks, social banners, emails, captions, receipts, schema. "Tutor Mint" (two words) appears ONLY inside the legal name "Tutor Mint (Pvt) Ltd" in legal contexts (footer copyright, Terms, Privacy, receipts, merchant name).
+- The admin panel follows the same brand-token-only colour rule as the public site. No non-token colours anywhere, including admin.
+- Homepage hero pill text colour: tm-navy (#151E6B). This is an explicit owner authorisation dated 2 Sep 2026 and is the only permitted change to the locked homepage in this pass — recorded in the "Homepage is LOCKED" section above so it is not reverted later.
+
+### As built (2 Sep 2026) — what the admin brand pass actually found
+
+The admin panel was already almost entirely on tokens: Suspend was `tm-red`, Warn was `tm-gold-ink` on `tm-tint-gold`, headings were `tm-navy`, and there was no raw hex anywhere in `app/` or `components/`. Three real defects came out of auditing it rather than assuming:
+
+- **`text-tm-red` on `bg-tm-black` is 3.11:1 and fails AA.** The admin header wordmark rendered "Mint" in brand red on the black bar. On a dark surface the brand's readable member is `tm-mint` (13.55:1), which is what the footer already does. Red is a light-surface colour.
+- **`text-gray-400` is 2.54:1 on white and 2.43:1 on the page ground — it can never be text.** It was carrying empty-state copy, table headers, timestamps and field labels in 140 places, all of them small text, so the large-text allowance did not apply either. Replaced with `text-gray-500` (4.83:1 / 4.62:1). The contrast script now fails the build if `text-gray-400` reappears, because a rule that is only in prose gets re-introduced by the next person who wants a lighter grey.
+- Modal scrims used `bg-black/50` rather than `bg-tm-black/50`. Cosmetically identical, but "no non-token colours anywhere" is easier to enforce than to argue about.
+
+`npm run check:contrast` now covers the admin pairs explicitly and greps for the forbidden grey. Admin screens were audited at 360 and 1280: no horizontal scroll on any of them.

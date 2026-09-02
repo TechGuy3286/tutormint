@@ -94,7 +94,7 @@ export default function ApplicantList({
 
   if (live.length === 0) {
     return (
-      <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+      <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
         No applications yet. Tutors whose subjects match will see this job on their dashboard.
       </p>
     )

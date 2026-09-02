@@ -71,7 +71,7 @@ export default function FAQPage() {
 
         <div className="bg-gray-900 text-white p-8 rounded-3xl text-center space-y-4 mt-8">
           <h3 className="text-base font-black">Still have questions?</h3>
-          <p className="text-xs text-gray-400 max-w-md mx-auto">Our support team is always ready to assist you via WhatsApp or our support portal.</p>
+          <p className="text-xs text-gray-500 max-w-md mx-auto">Our support team is always ready to assist you via WhatsApp or our support portal.</p>
           <div className="flex justify-center gap-3">
             <Link href="/support" className="px-5 py-2.5 bg-tm-red text-white text-xs font-bold rounded-xl hover:bg-tm-red-hover transition-colors">Visit Support Center</Link>
           </div>

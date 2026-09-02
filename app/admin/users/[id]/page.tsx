@@ -235,7 +235,7 @@ export default async function AdminMemberPage({
                 suspended
               </span>
             )}
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700">
               {profile.admin_role ?? (profile.role as string)}
             </span>
           </div>
@@ -384,7 +384,7 @@ export default async function AdminMemberPage({
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
       <p className="truncate text-sm font-black capitalize text-tm-navy">{value}</p>
     </div>
   )
@@ -395,7 +395,7 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   const empty = Array.isArray(items) ? items.length === 0 : !items
   return (
     <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
-      <h2 className="text-xs font-black uppercase tracking-wide text-gray-400">{title}</h2>
+      <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">{title}</h2>
       {empty ? (
         <p className="text-xs text-gray-300">Nothing yet.</p>
       ) : (
@@ -409,7 +409,7 @@ function Row({ main, sub }: { main: string; sub: string }) {
   return (
     <li className="min-w-0">
       <p className="truncate text-xs font-semibold text-tm-navy">{main}</p>
-      <p className="truncate text-[11px] text-gray-400">{sub}</p>
+      <p className="truncate text-[11px] text-gray-500">{sub}</p>
     </li>
   )
 }

@@ -121,7 +121,7 @@ export default function ClaimFlow({
         {verified ? (
           <p className="text-xs font-bold text-tm-green-deep">Verified.</p>
         ) : !accepted ? (
-          <p className="text-xs text-gray-400">Accept the terms first.</p>
+          <p className="text-xs text-gray-500">Accept the terms first.</p>
         ) : (
           <>
             <p className="text-[11px] leading-relaxed text-gray-500">
@@ -194,7 +194,7 @@ export default function ClaimFlow({
         Claim my profile
       </button>
 
-      <p className="text-center text-[11px] leading-relaxed text-gray-400">
+      <p className="text-center text-[11px] leading-relaxed text-gray-500">
         Claiming does not put you in search yet — you will still need a complete profile, like every
         other tutor.
       </p>

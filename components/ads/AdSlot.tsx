@@ -57,7 +57,7 @@ export default async function AdSlot({
             />
           )}
           <div className="space-y-1 p-4">
-            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+            <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">
               Sponsored{paid.clientName ? ` · ${paid.clientName}` : ''}
             </p>
             <h3 className="text-sm font-black text-tm-navy">{paid.title}</h3>

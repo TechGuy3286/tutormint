@@ -148,7 +148,7 @@ export default function ParentVerificationClient({
 
       {open && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center sm:justify-center"
+          className="fixed inset-0 z-50 bg-tm-black/50 flex items-end sm:items-center sm:justify-center"
           role="dialog"
           aria-modal="true"
           aria-label={`Review ${open.fullName}`}
@@ -163,7 +163,7 @@ export default function ParentVerificationClient({
                 <h2 className="text-base font-black text-tm-navy truncate">{open.fullName}</h2>
                 <p className="text-[11px] text-gray-500 truncate">{open.email}</p>
               </div>
-              <button onClick={() => setOpen(null)} className="text-gray-400 text-xl min-h-[44px] px-2" aria-label="Close">
+              <button onClick={() => setOpen(null)} className="text-gray-500 text-xl min-h-[44px] px-2" aria-label="Close">
                 ×
               </button>
             </div>
@@ -226,7 +226,7 @@ export default function ParentVerificationClient({
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-tm-bg border border-gray-100 rounded-xl p-2">
-      <dt className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">{label}</dt>
+      <dt className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">{label}</dt>
       <dd className="text-[11px] font-bold text-tm-navy capitalize truncate">{value}</dd>
     </div>
   )

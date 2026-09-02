@@ -153,18 +153,18 @@ export default async function ParentDashboardPage() {
 
           <dl className="grid grid-cols-2 gap-3">
             <div>
-              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
                 Job posts left
               </dt>
               <dd className="text-lg font-black text-tm-navy">
                 {ent.plan ? ent.quotaLeft : '—'}
                 {ent.plan && (
-                  <span className="text-xs font-semibold text-gray-400"> of {ent.displayedQuota}</span>
+                  <span className="text-xs font-semibold text-gray-500"> of {ent.displayedQuota}</span>
                 )}
               </dd>
             </div>
             <div>
-              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Hiring</dt>
+              <dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Hiring</dt>
               <dd className="text-lg font-black text-tm-navy">
                 {ent.canHire ? 'Enabled' : 'Featured only'}
               </dd>

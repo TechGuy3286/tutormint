@@ -190,7 +190,7 @@ export default async function AdminUsersPage({
       </div>
 
       {rows.length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           Nobody matches that.
         </p>
       ) : (
@@ -211,7 +211,7 @@ export default async function AdminUsersPage({
                         suspended
                       </span>
                     )}
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700">
                       {r.role}
                     </span>
                   </span>
@@ -221,7 +221,7 @@ export default async function AdminUsersPage({
                   {r.phone ? ` · ${r.phone}` : ''}
                   {r.slug ? ` · /tutor/${r.slug}` : ''}
                 </p>
-                <p className="text-[11px] text-gray-400">
+                <p className="text-[11px] text-gray-500">
                   {r.plan ?? 'No plan'} · {r.completion}% complete ·{' '}
                   {r.verified ? 'verified' : 'not verified'} · joined{' '}
                   {new Date(r.createdAt).toLocaleDateString('en-PK')}

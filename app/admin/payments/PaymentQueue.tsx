@@ -121,7 +121,7 @@ export default function PaymentQueue({
         </h2>
 
         {payments.length === 0 ? (
-          <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+          <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
             Nothing here.
           </p>
         ) : (
@@ -236,7 +236,7 @@ export default function PaymentQueue({
         <h2 className="text-sm font-black text-tm-navy">Subscriptions</h2>
 
         {subscriptions.length === 0 ? (
-          <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">
+          <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
             No subscriptions yet.
           </p>
         ) : (
@@ -260,7 +260,7 @@ export default function PaymentQueue({
 
             <div className="hidden overflow-x-auto rounded-2xl border border-gray-200 bg-white sm:block">
               <table className="w-full min-w-[640px] text-left text-xs">
-                <thead className="border-b border-gray-200 text-[10px] uppercase tracking-wide text-gray-400">
+                <thead className="border-b border-gray-200 text-[10px] uppercase tracking-wide text-gray-500">
                   <tr>
                     <th className="p-3 font-bold">Member</th>
                     <th className="p-3 font-bold">Plan</th>
@@ -308,7 +308,7 @@ function StatusChip({ status }: { status: string }) {
     status === 'active'
       ? 'bg-tm-tint-green text-tm-green-deep'
       : status === 'expired'
-        ? 'bg-gray-100 text-gray-500'
+        ? 'bg-gray-100 text-gray-700'
         : 'bg-tm-tint-gold text-tm-gold-ink'
   return (
     <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${tone}`}>
@@ -320,7 +320,7 @@ function StatusChip({ status }: { status: string }) {
 function Cell({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</dt>
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</dt>
       <dd className={`truncate font-semibold text-tm-navy ${mono ? 'font-mono text-[10px]' : ''}`}>
         {value}
       </dd>

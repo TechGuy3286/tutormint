@@ -60,7 +60,7 @@ export default function FaqList({ groups }: { groups: FaqGroup[] }) {
 
       {filtered.map((group) => (
         <section key={group.id} className="space-y-2">
-          <h2 className="text-xs font-black uppercase tracking-wide text-gray-400">
+          <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
             {group.title}
           </h2>
           <ul className="space-y-2">
@@ -71,7 +71,7 @@ export default function FaqList({ groups }: { groups: FaqGroup[] }) {
                     <span className="min-w-0 flex-1">{item.q}</span>
                     <ChevronDown
                       size={18}
-                      className="shrink-0 text-gray-400 transition-transform group-open:rotate-180"
+                      className="shrink-0 text-gray-500 transition-transform group-open:rotate-180"
                       aria-hidden
                     />
                   </summary>
