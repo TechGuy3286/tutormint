@@ -761,3 +761,37 @@ the cookie-backed Supabase client, and a `cookies()` read in a component the
 root layout renders makes every route in the app dynamic — including the static
 legal pages. `supportContactFromEnv()` exists for that one reason; `/support`
 still uses the app_settings-backed version.
+
+## Deployment reality (owner, 1–2 Sep 2026)
+
+- **Production serves the `rebuild` branch.** tutormint.org shows what is on `rebuild`, not `main`. A push to `rebuild` is a release to real visitors — there is no staging buffer. Treat every PR on this branch as production, and never run a data migration on it without a backup taken first.
+- The mobile-first register form and OTP gate are already live to real visitors.
+- Resolved and correct as built: the "Institution" mention lives in the FAQ only, and `no-store` on the phone-gate check is the intended trade.
+
+This supersedes the observation in "T-UI1" below that a live fetch of tutormint.org returned the older homepage. That was true on 1 Sep, before `rebuild` began being served; the rest of the T-UI1 finding — that the approved design was never committed to this repository — still stands.
+
+## Sequence to launch (owner, 2 Sep 2026)
+
+1. Part 3 UI work — admin on brand, hero pill, conversion pass, upgrade sheet, legal identity + schema, banner and avatar fixes. (Instant search shipped in 4ccb1f1.)
+2. Preview URL + `NEXT_PUBLIC_SITE_URL` set → partner testing.
+3. T8b: SMS provider, seed-data cleanup, merge `rebuild` → `main`, Mumbai `ap-south-1` migration, CUIN and NTN filled into app_settings.
+
+## Instant search — deliberate limits (T-Search, 4ccb1f1)
+
+**As built. Under precedence rule 10 this beats the "Instant search everywhere" spec section above wherever the two differ.**
+
+- `/admin/users` uses the typeahead with `suggest={false}`. The public index contains only listed tutors and open jobs, so it is blind to parents, staff, suspended accounts and unclaimed imports — the exact rows an admin opens that screen to find. A panel there would answer a different question from the one being asked. Admin tutor and payment searches follow the same rule.
+- The blog index is not wired. There is no blog until T9; wire it when 9.3 ships.
+- Aliases attach to a taxonomy slug, not a `taxonomy_master` id, so one alias row makes a subject findable at every level it exists at.
+- `search_performed` is collapsed to one row per identical filter set per 60s, not one per keystroke. This is safe only because the free-text query is never in the payload.
+- `lib/locations.ts` still drives the filter dropdowns while search derives places from live data. Two place lists exist on purpose — search must not suggest an empty city.
+- **The homepage has no search bar and did not get one.** The spec section above lists "homepage/browse tutors" among the search surfaces, but the homepage is LOCKED and a new input is not among the permitted changes. Adding one needs an explicit owner instruction, not this rule.
+
+## Open owner decisions (blocking launch)
+
+- **SMS provider — undecided.** Twilio (card required, fast to set up) vs a Pakistani gateway (cheaper per message, slower to set up). Mobile signup on the live site cannot deliver codes until one exists. This is the hardest blocker.
+- SMTP on the Supabase project — not configured; password-reset email cannot send.
+- AssanPay — in negotiation.
+- CUIN and NTN — placeholders in Terms and receipts awaiting real numbers.
+
+All four are already described where they bite, and this list is the index rather than a fifth copy: the SMS prerequisite in "Auth & verification flows" and "Mobile-first signup", SMTP in "Auth & verification flows", "Admin, part 1 (T7a)" (staff invites) and the register/login form rules, AssanPay in the owner Q&A and "Payments — the adapter contract", and the two company numbers in "Legal entity". Fix one, check the others.
