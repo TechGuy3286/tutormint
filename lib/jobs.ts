@@ -168,6 +168,16 @@ export async function createJob(
     meta: { jobTxId, city: input.city, masterIds: input.masterIds, featured: !!ent.tagLabel },
   })
 
+  // Tell the tutors this job actually matches.
+  //
+  // Deliberately sent to tutors who CANNOT apply as well as those who can. The
+  // point of the funnel is that a tutor sees the work they are missing; hiding
+  // it from them until they pay would be selling something they have no reason
+  // to want. The wording says plainly who can act on it, so it informs rather
+  // than teases, and it carries no price -- that arrives only if they press
+  // Apply.
+  await notifyMatchingTutors(job.id as string, jobTxId, input)
+
   return { ok: true, id: job.id as string, jobTxId: job.job_tx_id as string }
 }
 
@@ -489,4 +499,88 @@ export async function subjectLabels(masterIds: number[]): Promise<string[]> {
     if (label && !out.includes(label)) out.push(label)
   }
   return out
+}
+
+/**
+ * Notify every listed tutor whose subjects match a newly posted job.
+ *
+ * Best-effort and non-blocking in spirit: a failure here must never fail the
+ * job post. The parent did their part, and losing a job because a notification
+ * fan-out errored would be the worst possible trade.
+ *
+ * Capped at 50 recipients. A job matching more tutors than that is a taxonomy
+ * problem, not a mailing list, and an uncapped fan-out on a popular subject is
+ * how one job post becomes a thousand writes.
+ */
+async function notifyMatchingTutors(
+  jobId: string,
+  jobTxId: string,
+  input: { masterIds: number[]; city: string | null; area?: string | null },
+): Promise<void> {
+  try {
+    const admin = createAdminClient()
+    // A job with no city cannot be matched to tutors by location, and a
+    // nationwide fan-out is not what this is for.
+    if (!admin || input.masterIds.length === 0 || !input.city) return
+
+    const { data: matches } = await admin
+      .from('tutor_subjects')
+      .select('tutor_id')
+      .in('master_id', input.masterIds)
+
+    const tutorIds = [...new Set((matches ?? []).map((m) => m.tutor_id as string))]
+    if (tutorIds.length === 0) return
+
+    // tutor_directory, not tutor_profiles: only tutors the platform is actually
+    // showing to parents. Telling a suspended or unlisted tutor about work they
+    // cannot be found for is noise.
+    const { data: listed } = await admin
+      .from('tutor_directory')
+      .select('id')
+      .in('id', tutorIds)
+      .eq('city', input.city)
+      .limit(50)
+
+    const subjectName = await subjectLabelFor(admin, input.masterIds[0])
+    const where = input.area ? `${input.area}, ${input.city}` : input.city
+
+    for (const row of listed ?? []) {
+      await notify({
+        userId: row.id as string,
+        kind: 'job_matched',
+        title: `New ${subjectName} job in ${where}`,
+        body: `New ${subjectName} job in ${where} — Verified tutors can apply.`,
+        href: `/browse/tuitions?job=${jobTxId}`,
+      })
+    }
+  } catch {
+    // See above: never fail a job post over a notification.
+  }
+}
+
+/** Human name for a taxonomy_master row, for notification copy. */
+async function subjectLabelFor(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  masterId: number,
+): Promise<string> {
+  const { data: m } = await admin
+    .from('taxonomy_master')
+    .select('subject_slug, level_slug')
+    .eq('id', masterId)
+    .maybeSingle()
+  if (!m) return 'tuition'
+  if (m.subject_slug) {
+    const { data: s } = await admin
+      .from('taxonomy_subjects')
+      .select('name')
+      .eq('slug', m.subject_slug)
+      .maybeSingle()
+    if (s?.name) return s.name as string
+  }
+  const { data: l } = await admin
+    .from('taxonomy_levels')
+    .select('name')
+    .eq('slug', m.level_slug)
+    .maybeSingle()
+  return (l?.name as string) ?? 'tuition'
 }

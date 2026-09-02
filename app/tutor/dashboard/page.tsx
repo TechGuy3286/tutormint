@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Eye, TrendingUp, AlertTriangle, Info } from 'lucide-react'
+import { Eye, TrendingUp, AlertTriangle, Info, Briefcase } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -9,6 +9,8 @@ import AdSlot from '@/components/ads/AdSlot'
 import { computeCompletion } from '@/lib/completion'
 import { viewTeasers } from '@/lib/profileViews'
 import { matchingJobsForTutor } from '@/lib/jobFeed'
+import { tutorPosition, jobsThisWeek } from '@/lib/funnel'
+import ApplyFromStrip from './ApplyFromStrip'
 import ProfileCompletionWidget from '@/components/ProfileCompletionWidget'
 import BadgeRow from '@/components/badges/BadgeRow'
 import JobCard from '@/components/JobCard'
@@ -56,6 +58,14 @@ export default async function TutorDashboardPage() {
         .eq('tutor_id', userId)
         .order('created_at', { ascending: false }),
     ])
+
+  // The 199 funnel's data. Loaded only for a tutor without a plan: a paying
+  // tutor already has what these surfaces are arguing for, and showing them a
+  // pitch they have bought is noise.
+  const free = !ent.plan
+  const [position, weekJobs] = free
+    ? await Promise.all([tutorPosition(userId), jobsThisWeek(userId, tutorProfile?.city ?? null)])
+    : [null, []]
 
   const appliedIds = new Set((myApps ?? []).map((a) => a.job_id as string))
 
@@ -112,6 +122,113 @@ export default async function TutorDashboardPage() {
             )}
           </p>
         </header>
+
+        {/* ---------------------------------------------- the 199 funnel --- */}
+        {/* For a tutor with no plan these come FIRST, above notices and the
+            plan card. They are the reason to care about everything below, and
+            burying the one thing a tutor genuinely wants to know -- is anyone
+            looking at me -- under a completion meter is how a dashboard gets
+            closed. None of them names a price: that arrives only through the
+            upgrade sheet or a packages page the tutor chose to open. */}
+        {free && (
+          <>
+            {/* ------------------------------------------------ view teasers ---- */}
+            <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-sm font-black text-tm-navy">
+                  <Eye size={16} className="text-gray-500" />
+                  Who looked at you
+                </h2>
+                {viewTotal > 0 && (
+                  <span className="text-[11px] font-bold text-gray-500">{viewTotal} total</span>
+                )}
+              </div>
+    
+              {teasers.length === 0 ? (
+                <p className="text-xs text-gray-500">
+                  No profile views yet. Views appear here as parents find you in search.
+                </p>
+              ) : (
+                <>
+                  <ul className="space-y-2">
+                    {teasers.map((t) => (
+                      <li key={t.id} className="flex items-start justify-between gap-3">
+                        <p className="text-xs leading-relaxed">
+                          {t.identified ? (
+                            <span className="font-bold text-tm-navy">{t.text}</span>
+                          ) : (
+                            /* Blur, not omission: the tutor can see that a real
+                               person looked, without being told who. */
+                            <span className="text-slate-700">{t.text}</span>
+                          )}
+                        </p>
+                        <span className="shrink-0 text-[10px] text-gray-500">{t.when}</span>
+                      </li>
+                    ))}
+                  </ul>
+    
+                  {!ent.canSeeViewerIdentity && (
+                    <Link
+                      href="/tutor/packages?plan=premium"
+                      className="flex items-center gap-2 rounded-xl bg-tm-tint-gold p-3 text-xs font-bold text-tm-gold-ink"
+                    >
+                      <TrendingUp size={14} />
+                      Upgrade to Premium to see who these parents are
+                    </Link>
+                  )}
+                </>
+              )}
+            </section>
+    
+
+            {position && (
+              <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                <h2 className="flex items-center gap-2 text-sm font-black text-tm-navy">
+                  <TrendingUp size={16} className="text-gray-500" />
+                  Your position
+                </h2>
+                <p className="text-xs leading-relaxed text-slate-700">
+                  You are <span className="font-black text-tm-navy">#{position.rank}</span> of{' '}
+                  {position.total} for {position.subjectLabel}
+                  {position.city ? ` in ${position.city}` : ''}.
+                </p>
+                {position.paidAbove > 0 && (
+                  <p className="rounded-xl bg-tm-tint-gold p-3 text-[11px] font-bold leading-relaxed text-tm-gold-ink">
+                    {position.paidAbove === 1
+                      ? 'One tutor above you is there because they are Verified.'
+                      : `${position.paidAbove} of the tutors above you are there because they are Verified.`}{' '}
+                    Verified tutors appear above you.
+                  </p>
+                )}
+              </section>
+            )}
+
+            {weekJobs.length > 0 && (
+              <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                <h2 className="flex items-center gap-2 text-sm font-black text-tm-navy">
+                  <Briefcase size={16} className="text-gray-500" />
+                  Jobs matching you this week
+                </h2>
+                <ul className="divide-y divide-gray-100">
+                  {weekJobs.map((j) => (
+                    <li key={j.id} className="flex items-center justify-between gap-3 py-2">
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-bold text-tm-navy">{j.title}</span>
+                        <span className="block truncate text-[11px] text-gray-500">
+                          {[j.area, j.city].filter(Boolean).join(', ') || 'Pakistan'}
+                        </span>
+                      </span>
+                      {/* Apply routes through the upgrade sheet: the button is
+                          real, the refusal explains itself, and nothing here
+                          shows a price until it is pressed. */}
+                      <ApplyFromStrip jobId={j.id} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        )}
 
         {/* ------------------------------------------------------ notices --- */}
         {tutorProfile?.verification_status === 'suspended' && (
@@ -209,53 +326,58 @@ export default async function TutorDashboardPage() {
           </Link>
         </section>
 
-        {/* ------------------------------------------------ view teasers ---- */}
-        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 text-sm font-black text-tm-navy">
-              <Eye size={16} className="text-gray-500" />
-              Who looked at you
-            </h2>
-            {viewTotal > 0 && (
-              <span className="text-[11px] font-bold text-gray-500">{viewTotal} total</span>
-            )}
-          </div>
-
-          {teasers.length === 0 ? (
-            <p className="text-xs text-gray-500">
-              No profile views yet. Views appear here as parents find you in search.
-            </p>
-          ) : (
-            <>
-              <ul className="space-y-2">
-                {teasers.map((t) => (
-                  <li key={t.id} className="flex items-start justify-between gap-3">
-                    <p className="text-xs leading-relaxed">
-                      {t.identified ? (
-                        <span className="font-bold text-tm-navy">{t.text}</span>
-                      ) : (
-                        /* Blur, not omission: the tutor can see that a real
-                           person looked, without being told who. */
-                        <span className="text-slate-700">{t.text}</span>
-                      )}
-                    </p>
-                    <span className="shrink-0 text-[10px] text-gray-500">{t.when}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {!ent.canSeeViewerIdentity && (
-                <Link
-                  href="/tutor/packages?plan=premium"
-                  className="flex items-center gap-2 rounded-xl bg-tm-tint-gold p-3 text-xs font-bold text-tm-gold-ink"
-                >
-                  <TrendingUp size={14} />
-                  Upgrade to Premium to see who these parents are
-                </Link>
+        {!free && (
+          <>
+            {/* ------------------------------------------------ view teasers ---- */}
+            <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-sm font-black text-tm-navy">
+                  <Eye size={16} className="text-gray-500" />
+                  Who looked at you
+                </h2>
+                {viewTotal > 0 && (
+                  <span className="text-[11px] font-bold text-gray-500">{viewTotal} total</span>
+                )}
+              </div>
+    
+              {teasers.length === 0 ? (
+                <p className="text-xs text-gray-500">
+                  No profile views yet. Views appear here as parents find you in search.
+                </p>
+              ) : (
+                <>
+                  <ul className="space-y-2">
+                    {teasers.map((t) => (
+                      <li key={t.id} className="flex items-start justify-between gap-3">
+                        <p className="text-xs leading-relaxed">
+                          {t.identified ? (
+                            <span className="font-bold text-tm-navy">{t.text}</span>
+                          ) : (
+                            /* Blur, not omission: the tutor can see that a real
+                               person looked, without being told who. */
+                            <span className="text-slate-700">{t.text}</span>
+                          )}
+                        </p>
+                        <span className="shrink-0 text-[10px] text-gray-500">{t.when}</span>
+                      </li>
+                    ))}
+                  </ul>
+    
+                  {!ent.canSeeViewerIdentity && (
+                    <Link
+                      href="/tutor/packages?plan=premium"
+                      className="flex items-center gap-2 rounded-xl bg-tm-tint-gold p-3 text-xs font-bold text-tm-gold-ink"
+                    >
+                      <TrendingUp size={14} />
+                      Upgrade to Premium to see who these parents are
+                    </Link>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </section>
+            </section>
+    
+          </>
+        )}
 
         {/* ------------------------------------------------ matching jobs --- */}
         <section className="space-y-3">

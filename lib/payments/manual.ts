@@ -58,9 +58,13 @@ export function availableMethods(
   i: ManualInstructions,
 ): { code: 'bank' | 'jazzcash' | 'easypaisa'; label: string }[] {
   const out: { code: 'bank' | 'jazzcash' | 'easypaisa'; label: string }[] = []
-  if (i.iban) out.push({ code: 'bank', label: 'Bank transfer' })
+  // Wallets first, deliberately. JazzCash and Easypaisa are how most people in
+  // Pakistan actually send money; a bank transfer asks for an IBAN and a
+  // banking app. Listing bank first made the least-used option the default
+  // choice on a two-tap checkout.
   if (i.jazzcash) out.push({ code: 'jazzcash', label: 'JazzCash' })
   if (i.easypaisa) out.push({ code: 'easypaisa', label: 'Easypaisa' })
+  if (i.iban) out.push({ code: 'bank', label: 'Bank transfer' })
   return out
 }
 

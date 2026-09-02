@@ -231,3 +231,85 @@ without one. That migration was additive — `create extension`, `create table`,
 `create index`, `create function`, plus grants; its only `drop` is `drop policy
 if exists` on the table it creates three lines earlier — so nothing was at
 risk, but the rule now written into CLAUDE.md was not yet in force when it ran.
+
+## Suspension is one fact again (2 Sep 2026)
+
+Two columns could express suspension and only one had a single writer:
+`profiles.is_suspended` (written by `lib/moderation.ts`) and
+`tutor_profiles.verification_status` (**also** written directly by the tutor
+video queue). A tutor suspended through that queue was delisted but not
+suspended, so `getEntitlements()` saw a normal member and the listing check
+told them to "complete your profile" — at 100% completion. Exactly the failure
+the check-ordering rule exists to prevent, arriving through the data instead of
+through the code.
+
+Fixed in three places, because any one alone would have left a hole:
+
+- `/api/admin/tutors/moderate` now delegates suspend and unsuspend to
+  `suspendMember()` / `unsuspendMember()`. `lib/moderation.ts` is the only
+  writer of either column; the route still owns the video strike, which is its
+  own business.
+- `getEntitlements()` treats **either** column as suspended, so a row written
+  before this cannot slip through a path that reads only one of them.
+- Migration 31 reconciles rows already out of step. **One row was fixed**
+  (`seed+suspended-omar@tutormint.dev`, delisted but not suspended). Where the
+  two disagree the listing column wins and the profile flag is raised, because
+  `verification_status='suspended'` is only ever set by a moderator making that
+  decision — reinstating someone a moderator stopped, as a side effect of a
+  migration, is the more expensive mistake. The migration asserts consistency
+  at the end and fails rather than leaving a silent mismatch.
+
+## The 199 funnel surfaces (2 Sep 2026)
+
+All seven built. `lib/funnel.ts` holds the data and returns **no prices** —
+that separation is the rule, not a coincidence.
+
+**The teaser leads for a tutor with no plan.** "Who looked at you" now renders
+above the notices and the plan card. It is the one thing a tutor actually wants
+from a dashboard, and burying it under a completion meter is how a dashboard
+gets closed. A paying tutor sees it in its original position; the funnel block
+is not rendered for them at all, because showing somebody a pitch for what they
+have already bought is noise.
+
+**"Your position" reports the tutor's most competitive subject, not their
+first.** The first taxonomy row is an arbitrary choice the database made, and it
+is often something niche they are the only person teaching — which produces
+"#1 of 1", a number that tells them nothing and reads as mockery. The widget
+ranks each of their subjects (city first, then nationwide) and reports the one
+with the largest real pool. It uses `rank_tutors()`, the same ranking the browse
+page uses, so the number is the position a parent would actually see.
+
+**Apply from the week strip routes through the upgrade sheet.** A disabled
+button reading "Verified only" would say the same thing while giving the tutor
+nothing to press, and a price printed on the dashboard would break the rule.
+Pressing Apply *is* reaching for it.
+
+**Hires are counted from `jobs.hired_at`, not from applications.**
+`applications` has no `updated_at`, so the moment of hire is only recorded on
+the job; counting application rows would have meant counting every hire ever
+made and calling it this month's. A zero is hidden rather than dressed up.
+
+**Expiry reminders are losses of visibility, not invoices.** "Your subscription
+is due" is a billing email and reads as one. The facts are unchanged; the
+subject line is now "You drop down the search results in N days".
+
+**Checkout puts JazzCash and Easypaisa first.** Bank transfer was listed first
+and needs an IBAN and a banking app — the least-used option was the default on
+a two-tap checkout.
+
+### Evidence, and the two data limits behind it
+
+No price string renders on `/`, `/browse/tutors`, `/browse/tuitions`,
+`/register`, `/login`, `/faq`, or the free tutor dashboard at any of 360 / 390 /
+768 / 1024 / 1280. The check counts **plan** prices only: a tutor's hourly fee
+and a parent's budget are rupee amounts too, and they are the marketplace
+working rather than a paywall hint. The first version of that check flagged
+"Rs. 12,000 / month" on a job card and had to be narrowed.
+
+No single seed tutor could exercise every surface, and the reason is worth
+knowing: `seed+free-nadia` has a ranking pool of 3 but **zero** matching open
+jobs of any age, and `seed+free-hina` has 5 matching jobs but is the only listed
+tutor for both her subjects, so her position widget correctly hides. Each
+surface was therefore captured on the account that can show it. Both tutors were
+temporarily moved to `status='expired'` to make them free, and both were
+restored to `premium active` afterwards.

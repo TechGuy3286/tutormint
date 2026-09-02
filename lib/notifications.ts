@@ -35,6 +35,8 @@ export type NotificationKind =
   | 'warning_issued'
   | 'account_suspended'
   | 'account_reinstated'
+  // T-Funnel -- a matching job, told to tutors who cannot yet apply for it.
+  | 'job_matched'
 
 export async function notify(params: {
   userId: string

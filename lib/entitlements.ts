@@ -151,13 +151,34 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
   const profileComplete = (profile.profile_completion ?? 0) >= 100
 
   // Suspension short-circuits everything below.
+  // Suspension short-circuits everything below.
   //
   // Doing it here rather than in each gated route means one decision closes
   // posting, applying, hiring, messaging, contact reveal and badges at once --
   // and a route added next year is covered without anyone remembering to.
   // The subscription row is untouched, so reinstatement needs no refund and no
   // re-purchase.
-  if (profile.is_suspended) {
+  //
+  // EITHER FLAG COUNTS. profiles.is_suspended is the fact and lib/moderation.ts
+  // is its only writer, but tutor_profiles.verification_status='suspended' was
+  // reachable on its own through the video queue, and rows written before that
+  // was fixed still exist. Reading only the profile flag left such a tutor
+  // un-suspended everywhere that matters -- entitlements, the dashboards, the
+  // upgrade sheet -- while being invisible in the directory, so they were told
+  // to 'complete your profile' at 100% completion. Treating either as
+  // suspended means no path can miss one, whichever flag a row carries.
+  const suspendedByProfile = !!profile.is_suspended
+  let suspendedByListing = false
+  if (!suspendedByProfile && role === 'tutor') {
+    const { data: tp } = await db
+      .from('tutor_profiles')
+      .select('verification_status')
+      .eq('id', userId)
+      .maybeSingle()
+    suspendedByListing = tp?.verification_status === 'suspended'
+  }
+
+  if (suspendedByProfile || suspendedByListing) {
     return { ...NOTHING(userId), role, audience, profileComplete, suspended: true }
   }
 

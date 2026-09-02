@@ -247,31 +247,36 @@ export function render(input: TemplateInput): RenderedEmail {
       )
 
     // ---------------------------------------------------------------------
+    // Worded as loss of VISIBILITY, not as an invoice (CLAUDE.md, conversion
+    // rules item 7). "Your subscription is due" is a billing email and reads
+    // as one; what actually matters to a tutor is that parents stop seeing
+    // them above everyone else. The facts are identical -- the framing is the
+    // part that decides whether it gets opened.
     case 'plan_expiring':
       return build(
-        `Your ${input.planName} plan expires in ${input.daysLeft} days`,
-        `Your plan expires in ${input.daysLeft} days`,
+        `You drop down the search results in ${input.daysLeft} days`,
+        `Your visibility ends in ${input.daysLeft} days`,
         [
-          `Your ${input.planName} plan ends in ${input.daysLeft} days.`,
-          'When it ends, your plan features switch off immediately — there is no grace period. Nothing is deleted: your conversations, applications, shortlists and posts all stay exactly where they are.',
-          'Renewing before it lapses means you never lose your ranking or your badge.',
+          `In ${input.daysLeft} days your ${input.planName} plan ends, and parents searching your subject in your city will start seeing other tutors above you.`,
+          'Your badge comes off the same day. There is no grace period, and nothing is deleted: your conversations, applications and shortlists all stay exactly where they are.',
+          'Renewing before then means your position never moves.',
         ],
         true, // billing
-        { label: 'Renew now', href: '/tutor/packages' },
+        { label: 'Keep my position', href: '/tutor/packages' },
       )
 
     // ---------------------------------------------------------------------
     case 'plan_expired':
       return build(
-        `Your ${input.planName} plan has ended`,
-        'Your plan has ended',
+        'You have dropped below the tutors who are still Verified',
+        'Your visibility has ended',
         [
-          `Your ${input.planName} plan has expired and its features are now switched off.`,
-          'Nothing has been deleted. Your conversations, applications, shortlists and posted jobs are all still in your dashboard, and a featured job stays open — it just no longer carries the tag.',
-          'You can start a new plan at any time.',
+          `Your ${input.planName} plan has ended, so parents searching your subject now see Verified tutors above you, and your badge is no longer shown.`,
+          'Nothing has been deleted. Your conversations, applications, shortlists and posted jobs are all still in your dashboard.',
+          'Starting a plan again puts you back where you were.',
         ],
         true, // billing
-        { label: 'See packages', href: '/tutor/packages' },
+        { label: 'Get my position back', href: '/tutor/packages' },
       )
   }
 }

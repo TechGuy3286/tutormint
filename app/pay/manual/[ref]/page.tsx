@@ -65,18 +65,18 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
             </p>
           ) : (
             <dl className="space-y-2 text-xs">
+              {instructions.jazzcash && (
+                <Detail label="JazzCash" value={instructions.jazzcash} mono />
+              )}
+              {instructions.easypaisa && (
+                <Detail label="Easypaisa" value={instructions.easypaisa} mono />
+              )}
               {instructions.iban && (
                 <>
                   <Detail label="Bank" value={instructions.bankName} />
                   <Detail label="Account title" value={instructions.accountTitle} />
                   <Detail label="IBAN" value={instructions.iban} mono />
                 </>
-              )}
-              {instructions.jazzcash && (
-                <Detail label="JazzCash" value={instructions.jazzcash} mono />
-              )}
-              {instructions.easypaisa && (
-                <Detail label="Easypaisa" value={instructions.easypaisa} mono />
               )}
             </dl>
           )}

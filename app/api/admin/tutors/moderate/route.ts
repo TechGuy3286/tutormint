@@ -5,6 +5,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { deliverEmail } from '@/lib/notify'
 import { parseBody, z, text, uuid } from '@/lib/validate'
+import { suspendMember, unsuspendMember } from '@/lib/moderation'
 
 // Tutor moderation: Approve | Hold | Suspend | Unsuspend.
 //
@@ -15,8 +16,15 @@ import { parseBody, z, text, uuid } from '@/lib/validate'
 //   approve   -> video_status='approved', verification_status='verified'
 //   hold      -> video_status='rejected', verification_status stays; the tutor
 //                remains listed but is flagged, and the strike is counted
-//   suspend   -> verification_status='suspended'; drops out of tutor_directory
-//   unsuspend -> back to 'verified'
+//   suspend   -> delegates to lib/moderation.ts suspendMember(), which is the
+//                ONLY writer of suspension state
+//   unsuspend -> delegates to unsuspendMember()
+//
+// SUSPENSION IS NOT PATCHED HERE. This route used to set
+// verification_status='suspended' directly and leave profiles.is_suspended
+// alone, which produced a member who was delisted but not suspended:
+// getEntitlements saw nothing wrong, so a tutor at 100% completion pressing
+// Apply was told to 'complete your profile'. One fact, one writer.
 //
 // Three rejections (hold/suspend decisions on a video) lock resubmission: the
 // tutor's video_attempts is pushed to the cap so the upload route refuses.
@@ -66,6 +74,7 @@ export async function POST(request: Request) {
   if (!tutor) return NextResponse.json({ error: 'Tutor not found.' }, { status: 404 })
 
   const patch: Record<string, unknown> = {}
+  let delegate: 'suspend' | 'unsuspend' | null = null
   let activityEvent: 'verification_decision_received' | 'suspended' | 'unsuspended' =
     'verification_decision_received'
 
@@ -77,13 +86,22 @@ export async function POST(request: Request) {
     patch.video_status = 'rejected'
     patch.video_attempts = Math.min(MAX_ATTEMPTS, (tutor.video_attempts ?? 0) + 1)
   } else if (action === 'suspend') {
-    patch.verification_status = 'suspended'
+    // The video strike is this route's business; the suspension is not.
     patch.video_status = 'rejected'
     patch.video_attempts = Math.min(MAX_ATTEMPTS, (tutor.video_attempts ?? 0) + 1)
     activityEvent = 'suspended'
+    delegate = 'suspend'
   } else {
-    patch.verification_status = 'verified'
     activityEvent = 'unsuspended'
+    delegate = 'unsuspend'
+  }
+
+  if (delegate) {
+    const result =
+      delegate === 'suspend'
+        ? await suspendMember({ userId: tutorId, reason, actor: gate.actor })
+        : await unsuspendMember({ userId: tutorId, reason, actor: gate.actor })
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
   }
 
   const { error } = await admin.from('tutor_profiles').update(patch).eq('id', tutorId)
