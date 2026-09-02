@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { SlidersHorizontal, Search, X } from 'lucide-react'
+import { SlidersHorizontal, X } from 'lucide-react'
 import { CITIES, CITY_AREAS, TEACHING_MODES, GENDERS } from '@/lib/locations'
+import Typeahead from '@/components/search/Typeahead'
 import {
   fetchLevels,
   fetchGradesForLevel,
@@ -41,7 +42,6 @@ const FIELD =
 export default function TutorFilterBar({ values }: { values: FilterValues }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [q, setQ] = useState(values.q)
 
   // Taxonomy cascade
   const [categories, setCategories] = useState<string[]>([])
@@ -86,7 +86,7 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
 
   /** Rewrites the query string; page always resets so filters cannot strand
       the reader on an empty page 4. */
-  const apply = (patch: Record<string, string | null>) => {
+  const apply = (patch: Record<string, string | null>, opts?: { replace?: boolean }) => {
     const params = new URLSearchParams()
     const merged: Record<string, string> = {
       subject: values.subject,
@@ -100,7 +100,9 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
     }
     for (const [k, v] of Object.entries(patch)) merged[k] = v ?? ''
     for (const [k, v] of Object.entries(merged)) if (v) params.set(k, v)
-    router.push(params.toString() ? `/browse/tutors?${params}` : '/browse/tutors')
+    const href = params.toString() ? `/browse/tutors?${params}` : '/browse/tutors'
+    if (opts?.replace) router.replace(href, { scroll: false })
+    else router.push(href)
   }
 
   const applySubject = async (subjectName: string) => {
@@ -274,23 +276,18 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
 
   return (
     <div className="space-y-3">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          apply({ q })
-        }}
-        className="flex gap-2"
-      >
-        <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name or headline"
-            aria-label="Search tutors"
-            className={`${FIELD} pl-9`}
-          />
-        </div>
+      <div className="flex gap-2">
+        <Typeahead
+          initialQuery={values.q}
+          placeholder="Search subjects, cities or tutors"
+          ariaLabel="Search tutors"
+          city={values.city || undefined}
+          // Live: every debounced change rewrites the URL and the server
+          // re-renders the ranked grid underneath. replace(), not push(), so
+          // refining a search does not fill the back button with keystrokes.
+          onQueryChange={(next) => apply({ q: next }, { replace: true })}
+          onCommit={(next) => apply({ q: next })}
+        />
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -305,7 +302,7 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
             </span>
           )}
         </button>
-      </form>
+      </div>
 
       {/* Active filters, always visible so nobody wonders why results are thin. */}
       {activeCount > 0 && (
@@ -319,7 +316,7 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           {values.gender && <Chip label={values.gender} onClear={() => apply({ gender: null })} />}
           {values.feeMin && <Chip label={`from Rs.${values.feeMin}`} onClear={() => apply({ feeMin: null })} />}
           {values.feeMax && <Chip label={`to Rs.${values.feeMax}`} onClear={() => apply({ feeMax: null })} />}
-          {values.q && <Chip label={`"${values.q}"`} onClear={() => { setQ(''); apply({ q: null }) }} />}
+          {values.q && <Chip label={`"${values.q}"`} onClear={() => apply({ q: null })} />}
           <button
             type="button"
             onClick={() => router.push('/browse/tutors')}

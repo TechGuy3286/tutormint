@@ -3,6 +3,7 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { findJunkAccounts } from '@/lib/cleanup'
 import CleanupClient from './CleanupClient'
+import MemberSearch from './MemberSearch'
 
 // The member directory. owner / manager / support.
 //
@@ -10,7 +11,7 @@ import CleanupClient from './CleanupClient'
 // own queues, never through a browsable list of everyone — requireAdminRole
 // redirects them to /admin, and the member page repeats the check.
 //
-// Search runs on the server against name, email, phone and slug. The form is a
+// Search runs on the server against name, email, phone and slug. The input is a
 // plain GET, so a search is a URL: an admin can send a colleague a link to the
 // exact list they were looking at, and the back button behaves.
 
@@ -170,23 +171,7 @@ export default async function AdminUsersPage({
         </p>
       </header>
 
-      <form method="GET" action="/admin/users" className="flex flex-col gap-2 sm:flex-row">
-        <input
-          name="q"
-          defaultValue={term}
-          placeholder="Name, email, mobile or profile slug"
-          aria-label="Search members"
-          className="min-h-[44px] flex-1 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold"
-        />
-        {role !== 'all' && <input type="hidden" name="role" value={role} />}
-        {status !== 'all' && <input type="hidden" name="status" value={status} />}
-        <button
-          type="submit"
-          className="min-h-[44px] rounded-xl bg-tm-black px-6 text-xs font-bold text-white"
-        >
-          Search
-        </button>
-      </form>
+      <MemberSearch initialQuery={term} role={role} status={status} />
 
       <div className="flex flex-wrap gap-2">
         {chip('role', 'all', 'Everyone', role)}

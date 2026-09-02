@@ -143,10 +143,10 @@ Shipped:
 - [x] **T8a Launch hardening** — migrations 27-28. Legacy `legacy_*` renames, RLS audit CI gate, email/SMS delivery, unknown-input polish, Terms & Privacy drafts, security headers, backups.
 - [x] **T-UI1** — homepage restore from `design/reference/homepage.png` + brand colour system + single `Footer`.
 - [x] **T-UI2** — migration 29. Mobile-first signup, `/verify-phone`, the `phone_gate_required` flag, OTP purposes, number-change moves the synthetic auth email.
+- [x] **T-Search Instant search everywhere** — migration 30. `pg_trgm`, `taxonomy_aliases` (Roman-Urdu spellings, admin-editable), `search_suggest()` and `popular_subjects()`, `/api/search/suggest`, and `components/search/Typeahead.tsx` on both browse pages and the admin member directory. No search button remains anywhere on the platform.
 
 Outstanding — the only work left, build in this order:
 
-- [ ] **T-Search Instant search everywhere** — the typeahead spec; `/api/search/suggest` + the trigram Postgres function; replaces every search button on the platform.
 - [ ] **T8b Launch remainder** — region migration to Mumbai `ap-south-1`, Cloudflare Turnstile, nonce-based CSP through `proxy.ts`, WhatsApp delivery, legacy NOT NULL columns on `jobs`/`messages`, Search Console + Bing + Google Business Profile, site-wide schema (9.2).
 - [ ] **T9 SEO & content system** — programmatic landing pages (9.1), blog CMS (9.3), content queue (9.4). May run parallel to T8b.
 

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { SlidersHorizontal, Search, X } from 'lucide-react'
+import { SlidersHorizontal, X } from 'lucide-react'
 import { CITIES, TEACHING_MODES } from '@/lib/locations'
+import Typeahead from '@/components/search/Typeahead'
 import {
   fetchLevels,
   fetchGradesForLevel,
@@ -31,7 +32,6 @@ const FIELD =
 export default function JobFilterBar({ values }: { values: JobFilterValues }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [q, setQ] = useState(values.q)
 
   const [categories, setCategories] = useState<string[]>([])
   const [levels, setLevels] = useState<string[]>([])
@@ -63,7 +63,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
   const activeCount = [values.subject, values.city, values.mode, values.budgetMin, values.budgetMax, values.q]
     .filter(Boolean).length
 
-  const apply = (patch: Record<string, string | null>) => {
+  const apply = (patch: Record<string, string | null>, opts?: { replace?: boolean }) => {
     const merged: Record<string, string> = {
       subject: values.subject,
       city: values.city,
@@ -75,7 +75,9 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
     for (const [k, v] of Object.entries(patch)) merged[k] = v ?? ''
     const params = new URLSearchParams()
     for (const [k, v] of Object.entries(merged)) if (v) params.set(k, v)
-    router.push(params.toString() ? `/browse/tuitions?${params}` : '/browse/tuitions')
+    const href = params.toString() ? `/browse/tuitions?${params}` : '/browse/tuitions'
+    if (opts?.replace) router.replace(href, { scroll: false })
+    else router.push(href)
   }
 
   const applySubject = async (subjectName: string) => {
@@ -185,23 +187,16 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
 
   return (
     <div className="space-y-3">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          apply({ q })
-        }}
-        className="flex gap-2"
-      >
-        <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search tuitions"
-            aria-label="Search tuitions"
-            className={`${FIELD} pl-9`}
-          />
-        </div>
+      <div className="flex gap-2">
+        <Typeahead
+          initialQuery={values.q}
+          placeholder="Search subjects, cities or jobs"
+          ariaLabel="Search tuitions"
+          city={values.city || undefined}
+          groups={['subject', 'location', 'job']}
+          onQueryChange={(next) => apply({ q: next }, { replace: true })}
+          onCommit={(next) => apply({ q: next })}
+        />
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -216,7 +211,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             </span>
           )}
         </button>
-      </form>
+      </div>
 
       {activeCount > 0 && (
         <div className="flex flex-wrap items-center gap-2">
@@ -225,7 +220,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
           {values.mode && <Chip label={values.mode} onClear={() => apply({ mode: null })} />}
           {values.budgetMin && <Chip label={`from Rs.${values.budgetMin}`} onClear={() => apply({ budgetMin: null })} />}
           {values.budgetMax && <Chip label={`to Rs.${values.budgetMax}`} onClear={() => apply({ budgetMax: null })} />}
-          {values.q && <Chip label={`"${values.q}"`} onClear={() => { setQ(''); apply({ q: null }) }} />}
+          {values.q && <Chip label={`"${values.q}"`} onClear={() => apply({ q: null })} />}
           <button
             type="button"
             onClick={() => router.push('/browse/tuitions')}

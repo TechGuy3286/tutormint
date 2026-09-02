@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createPublicClient } from '@/lib/supabase/public'
 import { getEntitlements } from '@/lib/entitlements'
-import { logActivity } from '@/lib/activityLog'
+import { logSearchPerformed } from '@/lib/activityLog'
 import { browseJobs, type JobFilters } from '@/lib/jobFeed'
 import JobCard from '@/components/JobCard'
 import AdSlot from '@/components/ads/AdSlot'
@@ -131,17 +131,16 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
     const filtered = !!(subjectId || city || mode || budgetMin || budgetMax || q)
     if (filtered) {
-      await logActivity({
+      // Collapsed for the typeahead -- see logSearchPerformed().
+      await logSearchPerformed({
         userId: user.id,
-        event: 'search_performed',
-        targetType: 'browse',
-        meta: {
-          surface: 'tuitions',
+        surface: 'tuitions',
+        filters: {
           master_id: subjectId,
           city: city || null,
           mode: mode || null,
-          results: total,
         },
+        results: total,
       })
     }
   }

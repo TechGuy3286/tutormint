@@ -100,3 +100,64 @@ export async function logActivity(params: {
 
   if (error) console.error('[activity] failed to record', params.event, error.message)
 }
+
+/**
+ * search_performed, collapsed.
+ *
+ * A typeahead re-renders the results page on every debounced keystroke, so the
+ * naive call site writes one timeline row per pause -- seven rows for somebody
+ * typing "physics". That is noise in the member's own timeline and, worse, it
+ * would inflate the demand signal the T9 content queue reads.
+ *
+ * The free-text query is deliberately NOT part of the recorded meta (it never
+ * has been), which makes the collapse simple and exact: refining the text
+ * changes nothing in the payload, so consecutive renders produce an identical
+ * filter set and only the first is kept. Changing an actual filter -- a
+ * subject, a city -- changes the payload and is recorded as the separate
+ * search it is.
+ *
+ * `results` is compared loosely: it moves as the text narrows, and treating a
+ * count change as a new search would defeat the whole thing.
+ */
+export async function logSearchPerformed(params: {
+  userId: string
+  surface: string
+  filters: Record<string, unknown>
+  results: number
+  withinSeconds?: number
+}): Promise<void> {
+  const admin = createAdminClient()
+  if (!admin) return
+
+  const since = new Date(Date.now() - (params.withinSeconds ?? 60) * 1000).toISOString()
+
+  try {
+    const { data } = await admin
+      .from('user_activity_log')
+      .select('meta')
+      .eq('user_id', params.userId)
+      .eq('event', 'search_performed')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    const previous = data?.[0]?.meta as Record<string, unknown> | undefined
+    if (previous) {
+      const sameSurface = previous.surface === params.surface
+      const sameFilters = Object.entries(params.filters).every(
+        ([k, v]) => (previous[k] ?? null) === (v ?? null),
+      )
+      if (sameSurface && sameFilters) return
+    }
+  } catch {
+    // A failed lookup must not cost the event. Logging twice is better than
+    // not logging.
+  }
+
+  await logActivity({
+    userId: params.userId,
+    event: 'search_performed',
+    targetType: 'browse',
+    meta: { surface: params.surface, ...params.filters, results: params.results },
+  })
+}

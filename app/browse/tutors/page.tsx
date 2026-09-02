@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
-import { logActivity } from '@/lib/activityLog'
+import { logSearchPerformed } from '@/lib/activityLog'
 import TutorCard, { type TutorCardData, type CardViewer } from '@/components/TutorCard'
 import AdSlot from '@/components/ads/AdSlot'
 import TutorFilterBar, { type FilterValues } from './TutorFilterBar'
@@ -164,19 +164,20 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
     // member's own timeline. No free-text query is stored.
     const filtered = !!(subjectId || city || area || mode || gender || feeMin || feeMax || q)
     if (filtered) {
-      await logActivity({
+      // Collapsed: the typeahead re-renders this page on every debounced
+      // keystroke, and the query text is not part of the payload, so a burst
+      // of refinements is one search rather than seven.
+      await logSearchPerformed({
         userId: user.id,
-        event: 'search_performed',
-        targetType: 'browse',
-        meta: {
-          surface: 'tutors',
+        surface: 'tutors',
+        filters: {
           master_id: subjectId,
           city: city || null,
           area: area || null,
           mode: mode || null,
           gender: gender || null,
-          results: total,
         },
+        results: total,
       })
     }
   }

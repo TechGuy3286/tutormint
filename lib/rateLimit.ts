@@ -28,6 +28,7 @@ export type BucketName =
   | 'message'
   | 'report'
   | 'password_change'
+  | 'search'
 
 /**
  * The budgets.
@@ -53,6 +54,11 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   message: { windowSeconds: 3600, max: 120 },
   report: { windowSeconds: 3600, max: 20 },
   password_change: { windowSeconds: 3600, max: 10 },
+  // A typeahead is chatty by design: one request per 250ms pause, and an
+  // honest visitor refining a search genuinely produces dozens a minute. This
+  // is sized to stop a scraper walking the directory through the suggest
+  // endpoint, not to ration typing. Anyone who meets it is not searching.
+  search: { windowSeconds: 60, max: 90 },
 }
 
 export type RateLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number }
