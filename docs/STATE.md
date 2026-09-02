@@ -72,9 +72,11 @@ has `user_activity_log` (130 rows) and has no `activity_log` at all, and
 `lib/activityLog.ts:93` inserts into `user_activity_log`. The helper filename
 (`lib/activityLog.ts`) matches the doc; the table name does not.
 
-Under precedence rule 10 the built system wins, but the doc reads as settled
-fact and will mislead. It needs a one-line correction — that is an owner
-decision, so T0 did not make it.
+Under precedence rule 10 the built system wins. **Corrected in CLAUDE.md on
+2 Sep 2026**: `user_activity_log` is named as canonical in both timeline
+sections, `activity_log` is recorded as a name that never existed, and
+`lib/activityLog.ts` keeps its filename — the helper and the table do not match,
+and that is deliberate rather than a mistake to be tidied later.
 
 ## The referral links credit nobody
 
@@ -92,8 +94,14 @@ form `/tutor/register?ref=<tutorUniqueId>`. The whole mechanism is inert:
 
 So no referral link has ever been produced by the running application. This
 corrects an earlier note in this task that described such links as already
-circulating; the component that would mint them is not mounted. The decision to
-wire it through or retire it is open and left to the owner.
+circulating; the component that would mint them is not mounted.
+
+**Retired on 2 Sep 2026** by owner decision. `components/TutorReferralBox.tsx`
+and `generateReferralLink()` are deleted, and a referral programme is recorded
+as v2 backlog in CLAUDE.md. `/tutor/register` stays as a redirect because
+`/faq` links to it. `generateWhatsAppShareLink()` in `lib/tutorSharing.ts` was
+left in place: it is also uncalled, but it is a share link rather than referral
+machinery and was not part of the decision.
 
 ## Environment variables
 

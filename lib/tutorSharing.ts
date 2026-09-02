@@ -15,8 +15,3 @@ export function generateWhatsAppShareLink(tutor: {
 
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
-
-export function generateReferralLink(tutorUniqueId: string) {
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://www.tutormint.org';
-  return `${baseUrl}/tutor/register?ref=${tutorUniqueId}`;
-}
