@@ -35,6 +35,17 @@ if [ -z "${SUPABASE_DB_URL:-}" ]; then
   exit 1
 fi
 
+# ---- which database ---------------------------------------------------------
+# READ-ONLY (pg_dump), but named anyway: there is one Supabase project and it
+# serves tutormint.org, so a backup file should never be ambiguous about what
+# it is a backup OF.
+BACKUP_REF="$(printf '%s' "$SUPABASE_DB_URL" | sed -n 's#.*://postgres\.\([a-z0-9]*\).*#\1#p')"
+if [ "$BACKUP_REF" = "flhiraqouizzwnasuraj" ]; then
+  echo "project $BACKUP_REF (PRODUCTION) - read-only dump"
+else
+  echo "project ${BACKUP_REF:-unknown} - read-only dump"
+fi
+
 # ---- pg_dump ----------------------------------------------------------------
 # The server is PostgreSQL 17. A pg_dump older than the server refuses to run,
 # which is a good refusal — an older dump format can silently omit newer object

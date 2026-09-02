@@ -34,6 +34,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdtempSync, existsSync } from 'node:fs'
+import { resolveTarget, PRODUCTION_PROJECT_REF } from './target'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -329,6 +330,15 @@ function checkAllowlistIsCurrent(names: string[]) {
 // ---------------------------------------------------------------------------
 
 async function main() {
+  // READ-ONLY. Named here anyway: there is one Supabase project and it serves
+  // the live site, so knowing which database an audit result describes is not
+  // optional information.
+  const target = resolveTarget(env)
+  console.log(
+    `project ${target.apiRef ?? '(unknown)'}${target.apiRef === PRODUCTION_PROJECT_REF ? ' (PRODUCTION)' : ''} - read-only audit
+`,
+  )
+
   const httpOnly = process.argv.includes('--http-only')
 
   let names: string[]

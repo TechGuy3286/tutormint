@@ -168,3 +168,66 @@ Tested at 360 / 390 / 768 / 1024 / 1280: 40 checks covering no horizontal
 scroll, 44px targets, no Search button, panel grouping, typo tolerance
 ("fizics" → Physics), keyboard navigation, Escape, overlay without layout
 shift, and the URL updating with no Enter pressed.
+
+## One Supabase project, and the guard that pointed the wrong way (2 Sep 2026)
+
+**There is one Supabase project — `flhiraqouizzwnasuraj` — and it serves both
+preview and production.** `PRODUCTION_CHECKLIST.md` says as much ("a preview
+points at the same Supabase project"), and T8b's "seed-data cleanup" task is
+the other half of the evidence: a dry run of `seed:cleanup` lists **15 live
+`seed+*@tutormint.dev` accounts** sitting on the database tutormint.org reads
+from.
+
+**The guard on the two write scripts was inverted.** `seed-dev.ts` and
+`seed-cleanup.ts` each hardcoded that ref as `DEV_PROJECT_REF` and refused to
+run *unless the target matched it*. So the check that reads like a safety rail
+was in fact a requirement to point at production, and `npm run seed:dev` — a
+script whose first act is to delete accounts — was armed against live data
+while appearing to protect against exactly that. The name was the whole bug:
+nobody reading `if (ref !== DEV_PROJECT_REF) die()` stops to check which
+project the constant holds.
+
+Fixed in `scripts/target.ts`, which both scripts now share:
+
+- `PRODUCTION_PROJECT_REF` is named for what it is.
+- Every write script announces its target before acting — the API ref, the DB
+  ref, and whether that is production in words.
+- Production is refused outright unless `ALLOW_SEED_ON_PRODUCTION=1` is set for
+  that one invocation **and** the operator types the project ref. Two steps
+  because the env var is the decision and the typed ref is the proof somebody
+  is still reading; either alone is muscle memory.
+- The override in a non-interactive shell is refused rather than prompted. A
+  prompt that cannot be answered either hangs a CI job or gets satisfied by
+  whatever is on stdin.
+- **Dry runs are allowed through.** `seed:cleanup` without `--apply` writes
+  nothing, and refusing it would remove the one way of checking what the real
+  run would do. A guard that makes the safe path harder than the dangerous one
+  gets worked around.
+
+**Audit of everything under `scripts/`:**
+
+| Script | Touches the database | Target named |
+|---|---|---|
+| `seed-dev.ts` | **writes** — creates and deletes the seed cast | yes, and gated |
+| `seed-cleanup.ts` | **writes** with `--apply`; dry run otherwise | yes, and gated |
+| `rls-audit.ts` | read-only (writes are checked structurally against `pg_policies`, never probed) | yes |
+| `verify-schema.ts` | read-only | yes |
+| `backup.sh` | read-only (`pg_dump`) | yes |
+| `contrast-check.ts` | no database access | n/a |
+| `test-delivery.ts` | no database access | n/a |
+
+## Backup taken 2 Sep 2026
+
+`supabase/backups/full-20260902-114216.sql` — 13 MB, `--full` (every schema
+including `auth.users`), 49 auth users, 186 `CREATE TABLE`/`COPY` statements.
+
+That directory is gitignored and must stay so: a full dump carries CNIC
+numbers, phone numbers and home addresses. It is on this machine only, so it
+survives a bad migration and does **not** survive losing this machine — the
+weekly `--full` job in `README.md` is what covers that.
+
+Taken because migration 30 (T-Search) had already been applied to this project
+without one. That migration was additive — `create extension`, `create table`,
+`create index`, `create function`, plus grants; its only `drop` is `drop policy
+if exists` on the table it creates three lines earlier — so nothing was at
+risk, but the rule now written into CLAUDE.md was not yet in force when it ran.

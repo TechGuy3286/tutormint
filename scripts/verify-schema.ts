@@ -14,6 +14,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { resolveTarget, PRODUCTION_PROJECT_REF } from './target'
 
 type Check = { group: string; name: string; pass: boolean; detail: string }
 
@@ -198,6 +199,15 @@ function query(sql: string): string[][] {
 }
 
 function main() {
+  // READ-ONLY. Named anyway -- one Supabase project serves the live site, so a
+  // schema report should say which database it describes.
+  const t = resolveTarget(process.env as Record<string, string>)
+  const ref = t.dbRef ?? t.apiRef ?? dbRefFromEnvFile()
+  console.log(
+    `project ${ref ?? '(unknown)'}${ref === PRODUCTION_PROJECT_REF ? ' (PRODUCTION)' : ''} - read-only schema check
+`,
+  )
+
   const checks: Check[] = []
 
   // --- tables and columns ---------------------------------------------------
@@ -339,3 +349,17 @@ function main() {
 }
 
 main()
+
+
+/**
+ * verify-schema reads .env.local directly rather than process.env, so the ref
+ * comes from the same dbUrl() the psql call uses. Parsing it a second time here
+ * would be a second place for the two to disagree.
+ */
+function dbRefFromEnvFile(): string | null {
+  try {
+    return new URL(dbUrl()).username.split('.')[1] ?? null
+  } catch {
+    return null
+  }
+}

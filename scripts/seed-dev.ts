@@ -8,11 +8,17 @@
  * SAFETY
  *   1. Refuses to run against the live site (VERCEL_ENV when set, NODE_ENV
  *      otherwise -- the same rule as lib/env.ts and seed-cleanup.ts).
- *   2. Refuses to run unless BOTH SUPABASE_DB_URL and NEXT_PUBLIC_SUPABASE_URL
- *      point at the known dev project ref (see DEV_PROJECT_REF). This is what
- *      stops the script ever touching another project's data.
+ *   2. Refuses to run when the target is the PRODUCTION project, unless
+ *      ALLOW_SEED_ON_PRODUCTION=1 is set for that one invocation AND the
+ *      operator types the project ref. See scripts/target.ts.
  *   3. Only ever deletes users whose email matches seed+*@tutormint.dev.
  *      Everything else in the database is left alone.
+ *
+ * THE GUARD USED TO BE INVERTED. It hardcoded the live project's ref as
+ * `DEV_PROJECT_REF` and refused to run unless the target MATCHED it, so what
+ * read as a safety rail was in fact a requirement to point at production.
+ * There is one Supabase project and it serves tutormint.org; this script
+ * writes to it, and now says so before it does.
  *
  * IDEMPOTENT: each run first deletes exactly the seed users; FK cascades from
  * auth.users remove their profiles, jobs, applications, threads, messages,
@@ -32,6 +38,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { readFileSync } from 'node:fs'
 import sharp from 'sharp'
+import { guardWrites, die, PRODUCTION_PROJECT_REF } from './target'
 import { storeDocument } from '../lib/documents'
 import { calculateTutorCompletion } from '../lib/profileChecklist'
 
@@ -56,7 +63,6 @@ async function solidPng(colour: string): Promise<Uint8Array<ArrayBuffer>> {
   return out
 }
 
-const DEV_PROJECT_REF = 'flhiraqouizzwnasuraj'
 const SEED_PREFIX = 'seed+'
 const SEED_DOMAIN = '@tutormint.dev'
 const SEED_PASSWORD = 'Test1234!'
@@ -78,11 +84,6 @@ function loadEnv(): Record<string, string> {
   return env
 }
 
-function die(msg: string): never {
-  console.error(`\n✗ ${msg}\n`)
-  process.exit(1)
-}
-
 /**
  * Every write goes through here. An earlier version ignored the error field,
  * so two silent failures (a UNIQUE violation on profiles.cnic_number and a
@@ -93,17 +94,6 @@ async function must<T>(what: string, p: PromiseLike<{ data: T; error: { message:
   const { data, error } = await p
   if (error) die(`${what}: ${error.message}`)
   return data
-}
-
-function refOf(url: string | undefined, kind: 'db' | 'api'): string | null {
-  if (!url) return null
-  try {
-    const u = new URL(url)
-    // API: https://<ref>.supabase.co   DB: postgres.<ref>@...pooler.supabase.com
-    return kind === 'api' ? u.hostname.split('.')[0] : (u.username.split('.')[1] ?? null)
-  } catch {
-    return null
-  }
 }
 
 // ------------------------------------------------------------------ the cast
@@ -285,17 +275,13 @@ async function main() {
     )
   }
 
-  const dbRef = refOf(env.SUPABASE_DB_URL, 'db')
-  const apiRef = refOf(env.NEXT_PUBLIC_SUPABASE_URL, 'api')
-
-  if (dbRef !== DEV_PROJECT_REF || apiRef !== DEV_PROJECT_REF) {
-    die(
-      `Refusing to run against an unknown Supabase project.\n` +
-        `  expected ref : ${DEV_PROJECT_REF}\n` +
-        `  SUPABASE_DB_URL ref          : ${dbRef ?? '(unset/unparseable)'}\n` +
-        `  NEXT_PUBLIC_SUPABASE_URL ref : ${apiRef ?? '(unset/unparseable)'}`,
-    )
-  }
+  const target = await guardWrites({
+    scriptName: 'seed:dev -- development seed cast',
+    env,
+    action:
+      'Creates the seed+*@tutormint.dev cast, and first DELETES any that already ' +
+      'exist, along with their jobs, applications, threads and messages.',
+  })
 
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceKey) {
@@ -315,7 +301,9 @@ async function main() {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  console.log(`\nSeeding dev project ${DEV_PROJECT_REF}\n`)
+  console.log(
+    `Seeding ${target.isProduction ? `PRODUCTION (${PRODUCTION_PROJECT_REF})` : `project ${target.apiRef}`}`,
+  )
 
   // ---- 1. wipe exactly the seed users ------------------------------------
   const { data: list, error: listErr } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 })

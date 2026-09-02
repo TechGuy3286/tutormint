@@ -795,3 +795,11 @@ This supersedes the observation in "T-UI1" below that a live fetch of tutormint.
 - CUIN and NTN — placeholders in Terms and receipts awaiting real numbers.
 
 All four are already described where they bite, and this list is the index rather than a fifth copy: the SMS prerequisite in "Auth & verification flows" and "Mobile-first signup", SMTP in "Auth & verification flows", "Admin, part 1 (T7a)" (staff invites) and the register/login form rules, AssanPay in the owner Q&A and "Payments — the adapter contract", and the two company numbers in "Legal entity". Fix one, check the others.
+
+## One database (2 Sep 2026)
+
+One Supabase project serves both preview and production. There is no separate dev database. Any script that writes must name its target and refuse production unless explicitly overridden. Migration 30 was applied to it during T-Search before this rule existed — additive only, no backup taken.
+
+The mechanism is `scripts/target.ts`: `guardWrites()` announces the target, refuses production unless `ALLOW_SEED_ON_PRODUCTION=1` is set for that one invocation and the operator types the project ref, and refuses the override outright in a non-interactive shell. A dry run that writes nothing is allowed through — a guard that makes the safe path harder than the dangerous one gets worked around.
+
+This replaces an inverted guard. `seed-dev.ts` and `seed-cleanup.ts` each hardcoded the live project's ref as `DEV_PROJECT_REF` and refused to run *unless the target matched it*, so `npm run seed:dev` was armed against production while reading as though it protected against exactly that. The full audit of every script under `scripts/`, and the backup taken on 2 Sep, are in `docs/STATE.md`.

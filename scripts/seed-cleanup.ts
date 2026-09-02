@@ -9,14 +9,18 @@
  *
  * GUARDED EXACTLY LIKE seed-dev.ts, and for the same reason: a script that can
  * delete accounts must not be able to point at the wrong database. It refuses
- * to run unless the environment is not the live site AND both SUPABASE_DB_URL
- * and NEXT_PUBLIC_SUPABASE_URL resolve to the known dev project ref.
+ * to run when the target is the PRODUCTION project unless
+ * ALLOW_SEED_ON_PRODUCTION=1 is set for that one invocation and the operator
+ * types the project ref. See scripts/target.ts.
+ *
+ * THE GUARD USED TO BE INVERTED here too: it required the target to MATCH the
+ * live project's ref, which was named DEV_PROJECT_REF. There is one Supabase
+ * project and it serves tutormint.org.
  *
  * "Not the live site" is VERCEL_ENV when it exists, NODE_ENV otherwise --
  * mirroring lib/env.ts, which this file deliberately does not import: a script
  * that deletes accounts should not depend on a module resolving through a
- * bundler alias. The rule is short enough to state twice, and the project-ref
- * check is the guard that actually matters here.
+ * bundler alias.
  *
  * WHAT IT WILL DELETE
  *   * auth users whose email starts with `seed+` and ends `@tutormint.dev`
@@ -39,8 +43,8 @@
 
 import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
+import { guardWrites, die, PRODUCTION_PROJECT_REF } from './target'
 
-const DEV_PROJECT_REF = 'flhiraqouizzwnasuraj'
 const SEED_PREFIX = 'seed+'
 const SEED_DOMAIN = '@tutormint.dev'
 
@@ -63,21 +67,6 @@ function loadEnv(): Record<string, string> {
   return env
 }
 
-function die(msg: string): never {
-  console.error(`\n✗ ${msg}\n`)
-  process.exit(1)
-}
-
-function refOf(url: string | undefined, kind: 'db' | 'api'): string | null {
-  if (!url) return null
-  try {
-    const u = new URL(url)
-    return kind === 'api' ? u.hostname.split('.')[0] : (u.username.split('.')[1] ?? null)
-  } catch {
-    return null
-  }
-}
-
 async function main() {
   const env = loadEnv()
   const apply = process.argv.includes('--apply')
@@ -93,21 +82,14 @@ async function main() {
     )
   }
 
-  const apiRef = refOf(env.NEXT_PUBLIC_SUPABASE_URL, 'api')
-  const dbRef = refOf(env.SUPABASE_DB_URL, 'db')
-
-  if (apiRef !== DEV_PROJECT_REF) {
-    die(
-      `NEXT_PUBLIC_SUPABASE_URL points at project "${apiRef ?? '(unset)'}", not the dev project ` +
-        `"${DEV_PROJECT_REF}". Refusing to run.`,
-    )
-  }
-  if (dbRef && dbRef !== DEV_PROJECT_REF) {
-    die(
-      `SUPABASE_DB_URL points at project "${dbRef}", not the dev project ` +
-        `"${DEV_PROJECT_REF}". Refusing to run.`,
-    )
-  }
+  const target = await guardWrites({
+    scriptName: 'seed:cleanup -- remove the development seed cast',
+    env,
+    action: apply
+      ? 'DELETES seed+*@tutormint.dev accounts and the rows that cascade from them.'
+      : 'Dry run only: lists what --apply would delete, and writes nothing.',
+    dryRun: !apply,
+  })
 
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceKey) die('SUPABASE_SERVICE_ROLE_KEY is not set.')
@@ -116,7 +98,9 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
-  console.log(`project ${DEV_PROJECT_REF} · ${apply ? 'APPLYING' : 'dry run (pass --apply to delete)'}\n`)
+  console.log(
+    `project ${target.apiRef} - ${apply ? 'APPLYING' : 'dry run (pass --apply to delete)'}`,
+  )
 
   // ---- the seed cast ------------------------------------------------------
   const seedUsers: { id: string; email: string }[] = []
