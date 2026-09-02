@@ -4,8 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-// The single registration page. /tutor/register and /parent/signup are server
-// redirects here.
+// The single registration page. /tutor/register is a server redirect here,
+// kept because tutor referral links (?ref=) carry that path.
 //
 // MOBILE-FIRST. The mobile number is the required identifier and email is
 // optional, because in Pakistan a great many members have a number they use

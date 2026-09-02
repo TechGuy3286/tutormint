@@ -1,7 +1,7 @@
 import RegisterForm from './RegisterForm'
 
-// The single registration page. /tutor/register and /parent/signup are server
-// redirects here.
+// The single registration page. /tutor/register is a server redirect here,
+// kept because tutor referral links (?ref=) carry that path.
 //
 // A SERVER COMPONENT that reads `next` and hands it to the client form. The
 // obvious alternative — useSearchParams() inside the form — forces a Suspense

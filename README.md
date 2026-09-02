@@ -1,39 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TutorMint
+
+TutorMint (tutormint.org) connects verified tutors with parents and with school
+and academy owners in Pakistan: verified home tutoring and online teaching,
+nationwide. Revenue is memberships only — no commissions, no per-lead fees, no
+middleman.
+
+Next.js 16 (App Router) · TypeScript · Tailwind v4 · Supabase (Postgres, Auth,
+Storage) · Vercel · YouTube Data API for tutor verification videos.
+
+`CLAUDE.md` is the specification and the working rules; `docs/STATE.md` records
+what is actually built as against what that document claims.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Requires a `.env.local` — copy `.env.example`, which lists every variable the
+code reads and what breaks without each one.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## History
 
-## Learn More
+This repository was rebuilt onto Supabase. An earlier version of the platform
+ran on MongoDB with Mongoose, a multi-step wizard at `/tutor/register` posting
+to an `/api/tutor/register` route, and a brand red of `#B3191F`. **None of that
+is current**, and rule 1 of `CLAUDE.md` is that Supabase is the only backend and
+Mongo is never re-added. The brand palette is now defined once in
+`app/globals.css` and enforced by `npm run check:contrast`.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+That history was described in a file called `Dev Manual tutormint.md`, which
+presented the Mongo architecture as the current state and so had become
+actively misleading. It was removed in T0 and remains in git history if the
+narrative is ever wanted.
 
 ## Dev seed
 
