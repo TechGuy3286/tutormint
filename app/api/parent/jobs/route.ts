@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   const result = await createJob(user.id, parseInput(body))
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error, upgrade: result.upgrade }, { status: result.status })
+    return NextResponse.json({ error: result.error, upgrade: result.upgrade, gate: result.gate }, { status: result.status })
   }
 
   return NextResponse.json({ success: true, id: result.id, jobTxId: result.jobTxId })
@@ -90,7 +90,7 @@ export async function PATCH(request: Request) {
   const result = await updateJob(user.id, jobId, parseInput(body))
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error, upgrade: result.upgrade }, { status: result.status })
+    return NextResponse.json({ error: result.error, upgrade: result.upgrade, gate: result.gate }, { status: result.status })
   }
 
   return NextResponse.json({ success: true })

@@ -1,5 +1,7 @@
 'use client'
 
+import { postGated } from '@/lib/gatedFetch'
+import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -44,50 +46,33 @@ export default function ApplicantList({
   jobStatus: string
 }) {
   const router = useRouter()
+  const upgradeSheet = useUpgradeSheet()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [upgrade, setUpgrade] = useState<string | null>(null)
 
   const act = async (url: string, payload: Record<string, unknown>, id: string) => {
     setBusy(id)
     setError(null)
-    setUpgrade(null)
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const json = await res.json()
-      if (!res.ok) {
-        setUpgrade(json.upgrade ?? null)
-        throw new Error(json.error ?? 'Something went wrong.')
-      }
-      router.refresh()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.')
-    } finally {
-      setBusy(null)
-    }
+    const r = await postGated(url, payload, upgradeSheet?.showGate)
+    // A gate is not an error: the sheet has said what is needed and offers the
+    // one tap that fixes it. Echoing the sentence here as well would read as a
+    // separate failure.
+    if (r.ok) router.refresh()
+    else if (!r.gated) setError(r.error)
+    setBusy(null)
   }
 
   const message = async (tutorId: string) => {
     setBusy(tutorId)
     setError(null)
-    try {
-      const res = await fetch('/api/messages/thread', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otherId: tutorId }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not open the conversation.')
-      router.push(`/messages/${json.threadId}`)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not open the conversation.')
-    } finally {
-      setBusy(null)
-    }
+    const r = await postGated<{ threadId: string }>(
+      '/api/messages/thread',
+      { otherId: tutorId },
+      upgradeSheet?.showGate,
+    )
+    if (r.ok) router.push(`/messages/${r.data.threadId}`)
+    else if (!r.gated) setError(r.error)
+    setBusy(null)
   }
 
   const live = applicants.filter((a) => !a.withdrawn)
@@ -102,14 +87,11 @@ export default function ApplicantList({
 
   return (
     <div className="space-y-3">
+      {/* Real failures only. A plan or suspension refusal is the upgrade
+          sheet's, so no 'See Featured' link competes with its CTA. */}
       {error && (
         <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
-          {error}{' '}
-          {upgrade && (
-            <Link href={upgrade} className="underline">
-              See Featured
-            </Link>
-          )}
+          {error}
         </p>
       )}
 

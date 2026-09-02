@@ -22,10 +22,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { checkQuota, consumeQuota } from '@/lib/quota'
 import { logActivity } from '@/lib/activityLog'
+import { buildGate, type Gate } from '@/lib/gate'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 
-type Fail = { ok: false; status: number; error: string; upgrade?: string }
+type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate }
 
 export async function applyToJob(params: {
   tutorId: string
@@ -61,6 +62,7 @@ export async function applyToJob(params: {
       status: 403,
       error: 'Your account is suspended, so you cannot apply for jobs. Contact support.',
       upgrade: '/support',
+      gate: await buildGate('suspended', ent),
     }
   }
 
@@ -81,6 +83,7 @@ export async function applyToJob(params: {
         error:
           'Complete your profile to 100% before applying — parents only see tutors who are listed.',
         upgrade: '/tutor/complete-profile',
+        gate: await buildGate('tutor_complete_profile', ent),
       }
     }
 
@@ -90,7 +93,12 @@ export async function applyToJob(params: {
       b: job.parent_id as string,
     })
     if (blocked) {
-      return { ok: false, status: 403, error: 'You cannot apply to this job.' }
+      return {
+        ok: false,
+        status: 403,
+        error: 'You cannot apply to this job.',
+        gate: await buildGate('blocked', ent),
+      }
     }
   }
 
@@ -115,7 +123,15 @@ export async function applyToJob(params: {
 
   // 5. Quota
   const quota = checkQuota(ent, 'job_application')
-  if (!quota.ok) return quota
+  if (!quota.ok) {
+    return {
+      ...quota,
+      gate: await buildGate(
+        quota.reason === 'no_plan' ? 'tutor_apply_no_plan' : 'tutor_apply_quota',
+        ent,
+      ),
+    }
+  }
 
   const { data: created, error } = await supabase
     .from('applications')

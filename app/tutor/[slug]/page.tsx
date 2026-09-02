@@ -1,3 +1,4 @@
+import UpgradeTrigger from '@/components/upgrade/UpgradeTrigger'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -359,12 +360,16 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                 <Lock size={14} />
                 Phone and WhatsApp are hidden
               </p>
-              <Link
-                href="/parent/packages?plan=parent_featured"
+              {/* Opens the upgrade sheet rather than linking straight to a
+                  priced page: the sheet is where a price is allowed to appear,
+                  and it fetches one only once this is pressed. */}
+              <UpgradeTrigger
+                reason="parent_contact"
+                intent="message"
                 className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-gold px-4 text-xs font-black text-tm-navy"
               >
                 Unlock with Featured
-              </Link>
+              </UpgradeTrigger>
             </div>
           )}
         </section>

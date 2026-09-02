@@ -39,6 +39,6 @@ export async function POST(request: Request) {
     body: body.body ?? '',
   })
 
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+  if (!result.ok) return NextResponse.json({ error: result.error, gate: result.gate }, { status: result.status })
   return NextResponse.json({ success: true, messageId: result.messageId })
 }

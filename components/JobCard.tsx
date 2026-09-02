@@ -1,5 +1,7 @@
 'use client'
 
+import { postGated } from '@/lib/gatedFetch'
+import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import Link from 'next/link'
 import { useState } from 'react'
 import { GraduationCap, MapPin, Wallet, Clock, Building2 } from 'lucide-react'
@@ -67,32 +69,28 @@ export default function JobCard({
   /** This tutor has already applied. */
   applied?: boolean
 }) {
+  const upgradeSheet = useUpgradeSheet()
   const [gateOpen, setGateOpen] = useState(false)
   const [state, setState] = useState<'idle' | 'sending' | 'done'>(applied ? 'done' : 'idle')
   const [notice, setNotice] = useState<string | null>(null)
-  const [upgrade, setUpgrade] = useState<string | null>(null)
   const detailHref = href ?? `/browse/tuitions?job=${job.job_tx_id ?? job.id}`
 
   const apply = async () => {
     if (!signedIn) return setGateOpen(true)
     setState('sending')
     setNotice(null)
-    setUpgrade(null)
     try {
-      const res = await fetch('/api/applications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: job.id }),
-      })
-      const json = await res.json()
-      if (!res.ok) {
-        setNotice(json.error ?? 'Could not send your application.')
-        setUpgrade(json.upgrade ?? null)
+      const r = await postGated('/api/applications', { jobId: job.id }, upgradeSheet?.showGate)
+      if (r.ok) {
+        setState('done')
+        setNotice('Application sent.')
+      } else {
+        // A gate has already been explained by the sheet. Repeating it as a
+        // red line under the button says the same thing twice and reads as a
+        // second, different problem.
+        setNotice(r.gated ? null : r.error)
         setState('idle')
-        return
       }
-      setState('done')
-      setNotice('Application sent.')
     } catch {
       setNotice('Could not send your application.')
       setState('idle')
@@ -203,15 +201,11 @@ export default function JobCard({
             />
           )}
 
+          {/* Plain outcomes only. Anything a plan or a suspension caused is
+              now the upgrade sheet's job, so there is no second 'See options'
+              link competing with it. */}
           {notice && (
-            <p className="text-[11px] font-semibold leading-snug text-slate-700">
-              {notice}{' '}
-              {upgrade && (
-                <Link href={upgrade} className="font-bold text-tm-red underline">
-                  See options
-                </Link>
-              )}
-            </p>
+            <p className="text-[11px] font-semibold leading-snug text-slate-700">{notice}</p>
           )}
         </div>
       </article>

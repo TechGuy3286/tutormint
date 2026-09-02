@@ -24,6 +24,7 @@ import { renderMessageBody } from '@/lib/masking'
 import { logActivity } from '@/lib/activityLog'
 import { consumeQuota } from '@/lib/quota'
 import { upgradeHref } from '@/lib/upgradePath'
+import { buildGate, type Gate } from '@/lib/gate'
 import { notify } from '@/lib/notifications'
 import { deliverMessageDigest } from '@/lib/notify'
 
@@ -48,7 +49,7 @@ export type ThreadMessage = {
   createdAt: string
 }
 
-type Fail = { ok: false; status: number; error: string; upgrade?: string }
+type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate }
 
 /**
  * May `actorId` open a NEW conversation with `otherId`?
@@ -84,6 +85,7 @@ export async function canStartThread(
       status: 403,
       error: 'Your account is suspended, so you cannot start conversations. Contact support.',
       upgrade: '/support',
+      gate: await buildGate('suspended', ent),
     }
   }
 
@@ -94,6 +96,7 @@ export async function canStartThread(
         status: 403,
         error: 'Verify your CNIC and address before messaging tutors.',
         upgrade: '/parent/verify',
+        gate: await buildGate('parent_verify', ent),
       }
     }
     return { ok: true }
@@ -107,6 +110,7 @@ export async function canStartThread(
         error:
           'Your plan lets you reply to parents and apply for jobs. Upgrade to Premium to start a conversation.',
         upgrade: upgradeHref('tutor', ent.plan, 'premium'),
+        gate: await buildGate('tutor_message', ent),
       }
     }
     return { ok: true }

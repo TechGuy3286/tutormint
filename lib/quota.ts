@@ -48,7 +48,11 @@ const KINDS: Record<QuotaKind, { field: QuotaField; noun: string; audience: 'tut
 
 export type QuotaCheck =
   | { ok: true }
-  | { ok: false; status: number; error: string; upgrade?: string }
+  // `reason` distinguishes 'no plan at all' from 'plan exhausted'. They read
+  // the same to a caller checking `ok`, but they are different sentences and
+  // different plan cards in the upgrade sheet: one sells the entry plan, the
+  // other sells the tier above whatever they already bought.
+  | { ok: false; status: number; error: string; upgrade?: string; reason: 'no_plan' | 'exhausted' }
 
 /**
  * Is there room to do this thing? Reads the entitlements that were already
@@ -65,6 +69,7 @@ export function checkQuota(ent: Entitlements, kind: QuotaKind): QuotaCheck {
       status: 403,
       error: `You need an active plan to ${spec.noun}.`,
       upgrade: href,
+      reason: 'no_plan',
     }
   }
   if (ent.quotaLeft <= 0) {
@@ -75,6 +80,7 @@ export function checkQuota(ent: Entitlements, kind: QuotaKind): QuotaCheck {
       // word: someone who has hit the cap needs to know they have hit it.
       error: `You have used all ${ent.quota} of this month's allowance.`,
       upgrade: href,
+      reason: 'exhausted',
     }
   }
   return { ok: true }

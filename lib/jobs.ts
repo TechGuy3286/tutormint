@@ -20,6 +20,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { checkQuota, consumeQuota } from '@/lib/quota'
 import { upgradeHref } from '@/lib/upgradePath'
+import { buildGate, type Gate } from '@/lib/gate'
 import { logActivity } from '@/lib/activityLog'
 import { notify, notifyMany } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
@@ -37,7 +38,7 @@ export type JobInput = {
   childId: string | null
 }
 
-type Fail = { ok: false; status: number; error: string; upgrade?: string }
+type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate }
 
 function newJobTxId(): string {
   return `JOB-TX-${Math.random().toString(36).slice(2, 9).toUpperCase()}`
@@ -95,11 +96,14 @@ export async function createJob(
       status: 403,
       error: 'Your account is suspended, so you cannot post jobs. Contact support.',
       upgrade: '/support',
+      gate: await buildGate('suspended', ent),
     }
   }
 
   const quota = checkQuota(ent, 'job_post')
-  if (!quota.ok) return quota
+  if (!quota.ok) {
+    return { ...quota, gate: await buildGate('parent_post_quota', ent) }
+  }
 
   // A child must belong to the parent posting the job.
   if (input.childId) {
@@ -315,12 +319,30 @@ export async function hireApplicant(
   }
 
   const ent = await getEntitlements(parentId)
+
+  // Suspension first, and separately from canHire.
+  //
+  // getEntitlements() turns every power off for a suspended member, canHire
+  // included, so without this the branch below tells them to buy Featured --
+  // selling a plan to somebody a moderator has stopped, for a problem no plan
+  // fixes. createJob, applyToJob and canStartThread were already ordered this
+  // way; hire was the one that was not.
+  if (ent.suspended) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Your account is suspended, so you cannot hire. Contact support.',
+      upgrade: '/support',
+      gate: await buildGate('suspended', ent),
+    }
+  }
   if (!ent.canHire) {
     return {
       ok: false,
       status: 403,
       error: 'Completing a hire is a Featured feature. Upgrade to hire this tutor.',
       upgrade: upgradeHref('parent', ent.plan, 'parent_featured'),
+      gate: await buildGate('parent_hire', ent),
     }
   }
 

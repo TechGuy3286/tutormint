@@ -1,5 +1,7 @@
 'use client'
 
+import { postGated } from '@/lib/gatedFetch'
+import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -36,6 +38,7 @@ export default function Thread({
   canShareContact: boolean
 }) {
   const router = useRouter()
+  const upgradeSheet = useUpgradeSheet()
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,21 +50,17 @@ export default function Thread({
     if (!body) return
     setBusy(true)
     setError(null)
-    try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ threadId, body }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not send.')
+    const r = await postGated('/api/messages', { threadId, body }, upgradeSheet?.showGate)
+    if (r.ok) {
       setDraft('')
       router.refresh()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not send.')
-    } finally {
-      setBusy(false)
+    } else if (!r.gated) {
+      // A gated send keeps the draft: the member has not made a mistake, they
+      // have hit a limit, and retyping the message after upgrading would be a
+      // second punishment.
+      setError(r.error)
     }
+    setBusy(false)
   }
 
   const block = async () => {

@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   })
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error, upgrade: result.upgrade }, { status: result.status })
+    return NextResponse.json({ error: result.error, upgrade: result.upgrade, gate: result.gate }, { status: result.status })
   }
 
   return NextResponse.json({ success: true, threadId: result.threadId, created: result.created })

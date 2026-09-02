@@ -1,5 +1,7 @@
 'use client'
 
+import { postGated } from '@/lib/gatedFetch'
+import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useState } from 'react'
 import { Heart, Play, Mail } from 'lucide-react'
 import AuthGateModal, { type AuthIntent } from '@/components/AuthGateModal'
@@ -33,6 +35,7 @@ export default function ProfileActions({
   /** False for a tutor viewing another tutor: they have nothing to say here. */
   canMessage: boolean
 }) {
+  const upgradeSheet = useUpgradeSheet()
   const [saved, setSaved] = useState(initiallySaved)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
@@ -91,19 +94,17 @@ export default function ProfileActions({
     if (!signedIn) return gate('message')
     setBusy(true)
     setNotice(null)
-    try {
-      const res = await fetch('/api/messages/thread', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otherId: tutorId }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not open the conversation.')
-      window.location.href = `/messages/${json.threadId}`
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : 'Could not open the conversation.')
-      setBusy(false)
+    const r = await postGated<{ threadId: string }>(
+      '/api/messages/thread',
+      { otherId: tutorId },
+      upgradeSheet?.showGate,
+    )
+    if (r.ok) {
+      window.location.href = `/messages/${r.data.threadId}`
+      return
     }
+    if (!r.gated) setNotice(r.error)
+    setBusy(false)
   }
 
   const btn =

@@ -1,5 +1,7 @@
 'use client'
 
+import { postGated } from '@/lib/gatedFetch'
+import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useState } from 'react'
 import Link from 'next/link'
 import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, Mail, Star } from 'lucide-react'
@@ -122,6 +124,7 @@ export default function TutorCard({
   const [notice, setNotice] = useState<string | null>(null)
   const [gateOpen, setGateOpen] = useState(false)
   const [gateIntent, setGateIntent] = useState<AuthIntent>('shortlist')
+  const upgradeSheet = useUpgradeSheet()
 
   const profileHref = tutor.slug ? `/tutor/${tutor.slug}` : '#'
   const badges = badgesForPlan(tutor.plan_code, true)
@@ -187,21 +190,19 @@ export default function TutorCard({
     if (!viewer.signedIn) return gate('message')
     setBusy(true)
     setNotice(null)
-    try {
-      const res = await fetch('/api/messages/thread', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otherId: tutor.id }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not open the conversation.')
-      window.location.href = `/messages/${json.threadId}`
-    } catch (e) {
-      // The refusal text from the server is the useful part -- an unverified
-      // parent is told to verify, not just told no.
-      setNotice(e instanceof Error ? e.message : 'Could not open the conversation.')
-      setBusy(false)
+    const r = await postGated<{ threadId: string }>(
+      '/api/messages/thread',
+      { otherId: tutor.id },
+      upgradeSheet?.showGate,
+    )
+    if (r.ok) {
+      window.location.href = `/messages/${r.data.threadId}`
+      return
     }
+    // A plan or verification refusal is the sheet's to explain, with the tap
+    // that resolves it. Only genuine failures land in the notice line.
+    if (!r.gated) setNotice(r.error)
+    setBusy(false)
   }
 
   const btn =

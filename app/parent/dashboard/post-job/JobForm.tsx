@@ -1,5 +1,7 @@
 'use client'
 
+import { postGated } from '@/lib/gatedFetch'
+import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -68,7 +70,7 @@ export default function JobForm({
   const [v, setV] = useState<JobFormValues>({ ...EMPTY, ...initial })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [upgrade, setUpgrade] = useState<string | null>(null)
+  const upgradeSheet = useUpgradeSheet()
   const [levelLeaf, setLevelLeaf] = useState(false)
   // Editing has to wait for the reverse lookup before the cascade renders,
   // otherwise TaxonomySelector mounts empty and helpfully selects the first
@@ -121,7 +123,6 @@ export default function JobForm({
   const submit = async () => {
     setBusy(true)
     setError(null)
-    setUpgrade(null)
     try {
       const masterIds = await resolveMasterIds(v.category, v.level, levelLeaf ? [] : v.subjects)
       if (masterIds.length === 0) {
@@ -142,22 +143,24 @@ export default function JobForm({
         childId: v.childId || null,
       }
 
-      const res = await fetch('/api/parent/jobs', {
-        method: mode === 'edit' ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const json = await res.json()
+      const r = await postGated<{ jobTxId: string }>(
+        '/api/parent/jobs',
+        payload,
+        upgradeSheet?.showGate,
+        mode === 'edit' ? 'PATCH' : 'POST',
+      )
 
-      if (!res.ok) {
-        // The draft is kept so nothing typed is lost to a refusal.
+      if (!r.ok) {
+        // The draft is kept whatever the refusal was, so nothing typed is lost
+        // -- including when the member goes off to upgrade and comes back.
         saveDraft('post', v)
-        setUpgrade(json.upgrade ?? null)
-        throw new Error(json.error ?? 'Could not post the job.')
+        if (!r.gated) setError(r.error)
+        setBusy(false)
+        return
       }
 
       router.push(
-        mode === 'edit' ? `/parent/dashboard/job/${v.jobId}` : `/parent/dashboard/job/${json.jobTxId}`,
+        mode === 'edit' ? `/parent/dashboard/job/${v.jobId}` : `/parent/dashboard/job/${r.data.jobTxId}`,
       )
       router.refresh()
     } catch (e) {
@@ -312,11 +315,6 @@ export default function JobForm({
       {error && (
         <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
           {error}{' '}
-          {upgrade && (
-            <Link href={upgrade} className="underline">
-              See options
-            </Link>
-          )}
         </p>
       )}
 

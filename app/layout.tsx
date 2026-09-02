@@ -3,6 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import OfflineNotice from "@/components/OfflineNotice";
+import { UpgradeProvider } from '@/components/upgrade/UpgradeProvider'
 
 export const metadata: Metadata = {
   title: "TutorMint - Pakistan's Largest Verified Tutors Network",
@@ -40,10 +41,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-tm-bg antialiased flex flex-col min-h-screen">
-        <Navbar />
-        <main className="flex-1">{children}</main>
-        <Footer />
-        <OfflineNotice />
+        <UpgradeProvider>
+          <Navbar />
+          <main className="flex-1">{children}</main>
+          <Footer />
+          <OfflineNotice />
+        </UpgradeProvider>
       </body>
     </html>
   );
