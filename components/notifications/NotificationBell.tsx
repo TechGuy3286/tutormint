@@ -1,6 +1,7 @@
 'use client'
 
 import { Bell, Loader2 } from 'lucide-react'
+import TimeAgo from '@/components/TimeAgo'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
@@ -23,15 +24,6 @@ import type { NotificationRow } from '@/lib/notificationFeed'
 // numbers have to be the same one: the route returns 20, and marking all 20
 // while rendering 8 would clear a dozen notifications the reader never saw.
 const PANEL_LIMIT = 8
-
-const RELATIVE = (iso: string): string => {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
 
 export default function NotificationBell({
   initialUnread,
@@ -222,7 +214,7 @@ function NotificationLine({ row, onNavigate }: { row: NotificationRow; onNavigat
         </span>
       </span>
       {row.body && <span className="block pt-0.5 text-[11px] leading-relaxed text-gray-500">{row.body}</span>}
-      <span className="block pt-0.5 text-[10px] text-gray-500">{RELATIVE(row.created_at)}</span>
+      <span className="block pt-0.5 text-[10px] text-gray-500"><TimeAgo iso={row.created_at} /></span>
     </>
   )
 

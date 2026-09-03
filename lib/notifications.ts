@@ -44,6 +44,13 @@ export type NotificationKind =
   // site. Added when the bell shipped, because that is when it became visible.
   | 'verification_approved'
   | 'verification_rejected'
+  // T-AdminJobs. An admin closing, un-featuring or removing somebody's tuition
+  // is a consequential change to a thing they made; finding out by noticing it
+  // gone is the worst way to learn it. No migration needed --
+  // notifications.kind is text with no CHECK constraint.
+  | 'job_closed_by_admin'
+  | 'job_unfeatured_by_admin'
+  | 'job_removed_by_admin'
 
 export async function notify(params: {
   userId: string

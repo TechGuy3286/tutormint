@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { describeUtm } from '@/lib/utm'
-import { jobStatus } from '@/lib/display'
+import { applicationStatus, jobStatus } from '@/lib/display'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MemberActions from './MemberActions'
 import Timeline, { type TimelineEvent } from './Timeline'
@@ -199,6 +199,19 @@ export default async function AdminMemberPage({
     admin.from('plans').select('code, name'),
   ])
 
+  // Titles for the tuitions this member applied to, so the applications panel
+  // names the job rather than repeating its own status. One query for the
+  // whole panel, and it is what makes each row linkable.
+  const appliedJobIds = Array.from(
+    new Set((applications ?? []).map((a) => a.job_id as string).filter(Boolean)),
+  )
+  const { data: appliedJobs } = appliedJobIds.length
+    ? await admin.from('jobs').select('id, title').in('id', appliedJobIds)
+    : { data: [] as Record<string, unknown>[] }
+  const appliedJobTitle = new Map(
+    (appliedJobs ?? []).map((j) => [j.id as string, j.title as string]),
+  )
+
   const planName = new Map((plans ?? []).map((p) => [p.code as string, p.name as string]))
 
   const allowed = group === 'all' ? null : new Set(GROUPS[group] ?? [])
@@ -308,8 +321,9 @@ export default async function AdminMemberPage({
           {(jobs ?? []).map((j) => (
             <Row
               key={j.id as string}
+              href={`/admin/jobs/${j.id as string}`}
               main={j.title as string}
-              sub={`${jobStatus(j.status as string)}${j.is_featured ? ' · featured' : ''} · ${formatDate(j.created_at as string)}`}
+              sub={`${(j.job_tx_id as string) ?? ''} · ${jobStatus(j.status as string)}${j.is_featured ? ' · featured' : ''} · ${formatDate(j.created_at as string)}`}
             />
           ))}
         </Panel>
@@ -318,8 +332,9 @@ export default async function AdminMemberPage({
           {(applications ?? []).map((a) => (
             <Row
               key={a.id as string}
-              main={a.withdrawn_at ? 'Withdrawn' : (a.status as string)}
-              sub={formatDate(a.created_at as string)}
+              href={a.job_id ? `/admin/jobs/${a.job_id as string}` : undefined}
+              main={appliedJobTitle.get(a.job_id as string) ?? 'A tuition'}
+              sub={`${a.withdrawn_at ? 'Withdrawn' : applicationStatus(a.status as string)} · ${formatDate(a.created_at as string)}`}
             />
           ))}
         </Panel>
@@ -432,10 +447,22 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
-function Row({ main, sub }: { main: string; sub: string }) {
+function Row({ main, sub, href }: { main: string; sub: string; href?: string }) {
   return (
     <li className="min-w-0">
-      <p className="truncate text-xs font-semibold text-tm-navy">{main}</p>
+      {/* Every job reference in admin links to its detail page, and shows the
+          job_tx_id beside the title -- that reference is what a parent quotes
+          in a support message. */}
+      {href ? (
+        <Link
+          href={href}
+          className="block truncate text-xs font-semibold text-tm-navy hover:text-tm-red hover:underline"
+        >
+          {main}
+        </Link>
+      ) : (
+        <p className="truncate text-xs font-semibold text-tm-navy">{main}</p>
+      )}
       <p className="truncate text-[11px] text-gray-500">{sub}</p>
     </li>
   )

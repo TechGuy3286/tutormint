@@ -79,6 +79,18 @@ const FIELD =
 const LABEL = 'text-[11px] font-bold uppercase tracking-wide text-gray-500'
 
 /**
+ * For controls whose first option already says what they are.
+ *
+ * "CITY" above a select reading "Choose a city" is the same word twice, and
+ * six of them stacked is most of the visual weight of step 2. The label stays
+ * in the accessibility tree -- a screen reader still hears it, and it is what
+ * a form control needs to be announced at all -- it just stops being drawn.
+ * Title and Description keep their visible labels: an empty text box with a
+ * placeholder is not self-describing once somebody has typed in it.
+ */
+const SR_ONLY = 'sr-only'
+
+/**
  * Days and times, as choices rather than a text box.
  *
  * The old field was free text with a placeholder ("Mon/Wed/Fri, evenings"),
@@ -317,7 +329,7 @@ export default function JobForm({
         <Step n={2} title="Where, how and when">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className="space-y-1">
-              <span className={LABEL}>City</span>
+              <span className={SR_ONLY}>City</span>
               <select
                 value={v.city}
                 onChange={(e) => setV((p) => ({ ...p, city: e.target.value, area: '' }))}
@@ -330,7 +342,7 @@ export default function JobForm({
               </select>
             </label>
             <label className="space-y-1">
-              <span className={LABEL}>Area</span>
+              <span className={SR_ONLY}>Area</span>
               <select
                 value={v.area}
                 onChange={(e) => set('area', e.target.value)}
@@ -344,7 +356,7 @@ export default function JobForm({
               </select>
             </label>
             <label className="space-y-1">
-              <span className={LABEL}>Mode</span>
+              <span className={SR_ONLY}>Mode</span>
               <select
                 value={v.teachingMode}
                 onChange={(e) => set('teachingMode', e.target.value)}
@@ -362,7 +374,7 @@ export default function JobForm({
             <label className="space-y-1">
               {/* The same five bands as /browse/tuitions, so what a parent
                   picks here is exactly what a tutor filters by there. */}
-              <span className={LABEL}>Monthly budget</span>
+              <span className={SR_ONLY}>Monthly budget</span>
               <select
                 value={band}
                 onChange={(e) => {
@@ -377,7 +389,7 @@ export default function JobForm({
               </select>
             </label>
             <label className="space-y-1">
-              <span className={LABEL}>Days</span>
+              <span className={SR_ONLY}>Days</span>
               <select value={days} onChange={(e) => setDays(e.target.value)} className={FIELD}>
                 <option value="">Any days</option>
                 {DAY_OPTIONS.map((d) => (
@@ -386,7 +398,7 @@ export default function JobForm({
               </select>
             </label>
             <label className="space-y-1">
-              <span className={LABEL}>Times</span>
+              <span className={SR_ONLY}>Times</span>
               <select value={times} onChange={(e) => setTimes(e.target.value)} className={FIELD}>
                 <option value="">Any time</option>
                 {TIME_OPTIONS.map((t) => (

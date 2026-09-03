@@ -1278,6 +1278,119 @@ stays populated until the owner says otherwise.
   them as base64 `data:` URIs, so a rule written about the image file would have
   caught the wrong rows.
 
+## The subject picker showed a grade it had not chosen (3 Sep 2026)
+
+**The posting blocker, diagnosed.** Subject search on `/parent/dashboard/post-job`
+returned nothing: Level "Middle / Lower Secondary", Grade "Grade 6 to 8", type
+"math", empty box. It was **none of the three obvious causes** — the taxonomy
+has 54 subject rows at that grade including Mathematics (`master_id 108`), all
+896 `taxonomy_master` rows reach the browser uncapped, and the filter was
+already case-insensitive substring matching.
+
+**It was a DOM/React divergence in a listbox.** `<select size={4}>` is a
+listbox, and a listbox whose React `value` is `''` matches no `<option>` — so
+the browser selects and *renders* the first one anyway. Choosing a level called
+`setSelectedGrade('')`, which left every parent looking at a screen showing a
+level AND a grade selected while the component believed no grade was chosen at
+all. `availableSubjects` was therefore `[]`, and typing filtered an empty array
+and stayed empty. It happened on a plain page load too: the mount effect picks
+the first level and nothing picked a grade.
+
+No `change` event fires when the browser does this — nothing user-initiated
+happened — so React never finds out on its own. The sync has to be explicit,
+and it selects the first grade rather than clearing the display: the component
+already auto-picks the first LEVEL, so a parent has every reason to read the
+grade beside it as chosen too.
+
+**The subject box is never silently empty now.** A blank bordered box is
+indistinguishable from a broken one, which is exactly what this was. Each empty
+case names itself: no grade yet, a level-leaf with no subject list, or
+`No subjects match "math" at Grade 6 to 8 — try another spelling or grade.`
+
+**The quota line leaked the real cap.** "98 of Unlimited posts left this month"
+counted down against the 100 that CLAUDE.md sells as Unlimited. A plan whose
+displayed quota IS a number counts down honestly; one advertising Unlimited
+says Unlimited and nothing else. The out-of-quota panel had the same leak
+(`ent.quota`, the true figure) and now shows `displayedQuota`. The cap is still
+enforced, and admin still sees the real numbers on `/admin/payments/usage`.
+
+## Relative times go through `<TimeAgo>` (3 Sep 2026)
+
+The intermittent React #418 on `/browse/tuitions` was `postedAgo()` reading
+`Date.now()` at both server render and hydration. Whenever the gap crosses a
+boundary — 59m to 1h, 23h to 1d — the two strings differ. Intermittent by
+construction, which is why it appeared once and not in the two sweeps after.
+
+`components/TimeAgo.tsx` renders the **absolute date** on the server and in the
+browser's first render — deterministic, because `formatDate` pins the timezone
+— and swaps to the relative form in an effect, when there is no server output
+left to disagree with. It also re-ticks every minute, so a list left open stops
+saying "2m ago" for an hour.
+
+**Four client components had the same bug**, three of them with their own
+private copy of the arithmetic: `JobCard`, `NotificationBell`,
+`ConversationList`, `ActivityCard`. All four go through the one component now.
+Any new relative timestamp must too — `Date.now()` in a client component's
+render is the bug, not the formatting.
+
+## Every member name is a link (3 Sep 2026)
+
+Tutor names go to `/tutor/[slug]`. Parent names go to `/parent/[id]`, a new
+minimal public page: name, avatar, badges, member since, open tuitions. It is
+what a tutor sees before spending one of ten monthly applications.
+
+**What is deliberately not on it**: phone, WhatsApp, email, address, CNIC — and
+the children. The first group is what a Featured plan buys, and putting it on a
+public URL would give away what the platform sells. The children are excluded
+on a stronger principle: they are minors who signed up for nothing, and a page
+naming a child and their grade is a page about a child.
+
+`lib/publicParent.ts` selects a **named allowlist of columns**, never the row.
+`profiles` carries all of the above on the same row, and the safe way to keep
+them off a public page is to not fetch them — a column added next year is
+excluded by default rather than included by accident.
+
+**It is `noindex`.** A tutor profile is a marketing surface a tutor chose to
+publish; this is a reference card a tutor lands on from a job. Reachable by
+link, not put in a search index without asking every parent first.
+
+**In admin a name goes to the admin member page**, with "View public profile"
+as a separate explicit link — so nobody clicks a name expecting moderation
+tools and lands on a marketing page, or the reverse.
+
+## Admin can see the tuitions (3 Sep 2026)
+
+`/admin/jobs` and `/admin/jobs/[id]`. There was no jobs screen at all: admin
+could see tutors, parents, payments, reports and members, and had no way to
+look at a job — the object every one of those screens is ultimately about.
+"Why has nobody applied to my tuition" could not be answered without a database
+client.
+
+Unlike `/browse/tuitions` this shows **closed and hired jobs, and jobs from
+suspended parents** — the ones somebody opens the screen to find. It reads
+through the service role for that reason; permission is enforced once at the
+route, and again at the load-more API, which re-checks rather than trusting the
+screen.
+
+**`SCREEN_ACCESS.jobs` is manager + support; `jobsMutate` is manager only.**
+Support has to be able to answer "why can nobody see my job", which needs
+reading it. Closing or removing one takes its applications out of the parent's
+reach, which is not a first-line action. Verified: support gets 200 on the list
+and 403 on the action.
+
+**Every action does three things** — changes the row, writes
+`admin_audit_log`, notifies the parent — and the route does all three, so a
+screen added later cannot do two of them. A reason is required to remove:
+"removed" with no stated cause is the version a parent cannot argue with and
+support cannot explain.
+
+**Nothing is deleted.** Remove closes the tuition and drops the Featured tag;
+the row, its applications and its threads stay. A mistaken removal has to be
+recoverable, and an application a tutor spent quota on is theirs.
+
+Job references elsewhere in admin link here, with the `job_tx_id` beside the
+title — that reference is the string a parent quotes in a support message.
+
 ## Tutor signup was broken by migration 35 — the lesson (3 Sep 2026)
 
 **A CHECK constraint validates existing ROWS and says nothing about the

@@ -12,7 +12,8 @@ import { useState } from 'react'
 
 import { FAMILY_STYLE, familyFor, groupedLabel } from '@/lib/activityFamily'
 import type { FeedGroup } from '@/lib/feedGrouping'
-import { formatDateTime, relativeTime } from '@/lib/datetime'
+import { formatDateTime } from '@/lib/datetime'
+import TimeAgo from '@/components/TimeAgo'
 
 // One card in the ACTIVITY grid.
 //
@@ -68,7 +69,7 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
           </span>
         </span>
         <span className="block text-[11px] text-gray-500" title={formatDateTime(group.head.at)}>
-          {relativeTime(group.head.at)}
+          <TimeAgo iso={group.head.at} />
         </span>
       </span>
     </span>
@@ -102,7 +103,7 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
                       {item.text}
                     </span>
                     <span className="shrink-0 text-[10px] text-gray-500">
-                      {relativeTime(item.at)}
+                      <TimeAgo iso={item.at} />
                     </span>
                   </span>
                 )

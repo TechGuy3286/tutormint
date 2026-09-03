@@ -106,6 +106,12 @@ export const SCREEN_ACCESS = {
   // string. Staff management is the one thing a manager does not get.
   team: [] as AdminRole[],
   reports: ['manager', 'support'] as AdminRole[],
+  // The tuition board, as staff. READ is manager + support: support answers
+  // "why can nobody see my job", which cannot be done without looking at the
+  // job. MUTATE stops at manager -- closing or removing somebody's tuition
+  // destroys the applications attached to it and is not a first-line action.
+  jobs: ['manager', 'support'] as AdminRole[],
+  jobsMutate: ['manager'] as AdminRole[],
   users: ['manager', 'support'] as AdminRole[],
   audit: ['manager'] as AdminRole[],
   // Publishing a tutor's video to the world is a bigger decision than

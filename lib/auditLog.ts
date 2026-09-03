@@ -41,6 +41,11 @@ export type AuditAction =
   | 'social.generate'
   | 'tutor.import'
   | 'user.delete'
+  // T-AdminJobs. Each of these destroys or demotes something a parent posted,
+  // so each is audited and each notifies them.
+  | 'job.close'
+  | 'job.unfeature'
+  | 'job.remove'
 
 export async function logAdminAction(params: {
   actorId: string

@@ -21,6 +21,7 @@ const LABELS: Record<string, string> = {
   ads: 'Advertisements',
   audit: 'Audit',
   import: 'Bulk import',
+  jobs: 'Tuitions',
   parents: 'Parent verification',
   payments: 'Payments',
   plans: 'Plans',

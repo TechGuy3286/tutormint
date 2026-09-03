@@ -53,10 +53,19 @@ export default async function PostJobPage() {
         <Breadcrumbs items={[{ label: 'Parent dashboard', href: '/parent/dashboard' }, { label: 'Post a tuition' }]} />
         <header className="space-y-1">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Post a tuition</h1>
+          {/* "98 of Unlimited posts left this month" was both contradictory
+              and a leak: CLAUDE.md sells a 100-cap as "Unlimited", and
+              counting down against it tells the member the real number. A
+              plan whose displayed quota IS a number counts down honestly;
+              one that advertises Unlimited says Unlimited and nothing else.
+              The real cap still exists and is still enforced -- admin sees it
+              on /admin/payments/usage, which is where it belongs. */}
           <p className="text-xs text-gray-500">
-            {ent.plan
-              ? `${ent.quotaLeft} of ${ent.displayedQuota} posts left this month`
-              : 'No active plan'}
+            {!ent.plan
+              ? 'No active plan'
+              : /^\d+$/.test(ent.displayedQuota ?? '')
+                ? `${ent.quotaLeft} of ${ent.displayedQuota} posts left this month`
+                : `${ent.displayedQuota ?? 'Unlimited'} posts this month`}
           </p>
         </header>
 
@@ -64,7 +73,7 @@ export default async function PostJobPage() {
           <section className="space-y-3 rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4">
             <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-tm-gold-ink">
               <AlertTriangle size={16} className="mt-px shrink-0" />
-              You have used all {ent.quota} of this month&apos;s job posts. Your allowance resets at
+              You have used all {ent.displayedQuota ?? ent.quota} of this month&apos;s job posts. Your allowance resets at
               the start of next month, or Featured raises it.
             </p>
             <Link

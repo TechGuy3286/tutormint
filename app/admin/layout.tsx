@@ -25,6 +25,7 @@ const NAV: { href: string; label: string; icon: string; allowed: AdminRole[] }[]
   { href: '/admin/parents', label: 'Parents', icon: '👪', allowed: SCREEN_ACCESS.parents },
   { href: '/admin/plans', label: 'Plans', icon: '💳', allowed: SCREEN_ACCESS.plans },
   { href: '/admin/payments', label: 'Payments', icon: '💰', allowed: SCREEN_ACCESS.payments },
+  { href: '/admin/jobs', label: 'Tuitions', icon: '📋', allowed: SCREEN_ACCESS.jobs },
   { href: '/admin/reports', label: 'Reports', icon: '🚩', allowed: SCREEN_ACCESS.reports },
   { href: '/admin/users', label: 'Members', icon: '🧑', allowed: SCREEN_ACCESS.users },
   { href: '/admin/audit', label: 'Audit', icon: '📜', allowed: SCREEN_ACCESS.audit },

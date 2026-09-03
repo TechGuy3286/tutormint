@@ -1,13 +1,13 @@
 'use client'
 
 import { postGated } from '@/lib/gatedFetch'
+import TimeAgo from '@/components/TimeAgo'
 import { budgetLabel } from '@/lib/feeBands'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import Link from 'next/link'
 import { useState } from 'react'
 import { GraduationCap, MapPin, Wallet, Clock, Building2 } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
-import { formatMonthYear } from '@/lib/datetime'
 import { teachingMode } from '@/lib/display'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import Avatar from '@/components/Avatar'
@@ -48,17 +48,6 @@ export type JobCardData = {
   parent_avatar_url: string | null
   parent_badges: BadgeName[]
   parent_can_hire: boolean
-}
-
-function postedAgo(iso: string): string {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return formatMonthYear(iso)
 }
 
 export default function JobCard({
@@ -140,11 +129,23 @@ export default function JobCard({
                 />
               )}
               <Clock size={12} className="shrink-0" />
-              <span>{postedAgo(job.created_at)}</span>
+              <TimeAgo iso={job.created_at} />
               {job.parent_name && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span className="font-semibold text-slate-700">{job.parent_name}</span>
+                  {/* Every member name is a link. relative z-10 so the card's
+                      own stretched link does not swallow it -- same reason the
+                      four buttons on a TutorCard carry it. */}
+                  {job.parent_id ? (
+                    <Link
+                      href={`/parent/${job.parent_id}`}
+                      className="relative z-10 inline-flex min-h-[24px] items-center font-semibold text-slate-700 hover:text-tm-red hover:underline"
+                    >
+                      {job.parent_name}
+                    </Link>
+                  ) : (
+                    <span className="font-semibold text-slate-700">{job.parent_name}</span>
+                  )}
                 </>
               )}
               {job.parent_badges.length > 0 && <BadgeRow badges={job.parent_badges} size="sm" />}
