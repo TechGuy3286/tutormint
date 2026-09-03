@@ -1,7 +1,10 @@
 import AdminBreadcrumbs from '@/components/admin/AdminBreadcrumbs'
+import AdminSignOut from '@/components/admin/AdminSignOut'
+import NotificationBell from '@/components/notifications/NotificationBell'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
+import { unreadCount } from '@/lib/notificationFeed'
 
 // Server gate for the whole /admin subtree, plus the shell.
 //
@@ -40,23 +43,45 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   const visible = NAV.filter((n) => roleSatisfies(actor.adminRole, n.allowed))
+  const unread = await unreadCount()
 
   return (
     <div className="min-h-screen bg-tm-bg text-slate-700">
+      {/* THE ONLY HEADER ON /admin.
+          The site header used to stack directly above this one — the same
+          wordmark, the same notifications, the same sign-out, ~148px of chrome
+          before any content. components/Navbar.tsx now returns null under
+          /admin, and the two functions it carried that this bar lacked, the
+          bell and sign-out, are folded in below. The role chip is why this is
+          the bar that survived: it is the one piece of admin chrome that says
+          what the session may actually do. */}
       <header className="bg-tm-black text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <Link href="/admin" className="flex min-h-[44px] items-center font-black text-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-3">
+          <Link href="/admin" className="flex min-h-[44px] shrink-0 items-center font-black text-sm">
             Tutor<span className="text-tm-mint">Mint</span>
-            <span className="ml-2 text-[10px] uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded">
+            {/* Below sm this pill is the first thing to go: the black bar and
+                the role chip beside it already say where you are, and keeping
+                it pushed Exit off the right edge of a 390px screen. */}
+            <span className="ml-2 hidden text-[10px] uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded sm:inline">
               Admin
             </span>
           </Link>
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 sm:gap-2">
             <span className="text-[10px] uppercase tracking-wider bg-tm-green-deep px-2 py-1 rounded font-bold shrink-0">
               {actor.adminRole}
             </span>
-            <span className="text-[11px] text-gray-300 truncate hidden sm:block">{actor.email}</span>
-            <Link href="/" className="text-[11px] font-bold text-gray-300 hover:text-white shrink-0 min-h-[44px] px-3 flex items-center">
+            <span className="text-[11px] text-gray-300 truncate hidden md:block">{actor.email}</span>
+            <NotificationBell
+              initialUnread={unread}
+              tone="dark"
+              emptyHint="Your account has nothing waiting. Member reports and queues are in the sections on the left."
+              emptyAction={{ label: 'Open reports', href: '/admin/reports' }}
+            />
+            <AdminSignOut />
+            <Link
+              href="/"
+              className="text-[11px] font-bold text-gray-300 hover:text-white shrink-0 min-h-[44px] px-2 sm:px-3 flex items-center"
+            >
               Exit
             </Link>
           </div>

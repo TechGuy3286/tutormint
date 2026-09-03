@@ -68,7 +68,12 @@ export default function ProfileCompletionWidget({
         {done} of {items.length} done.{' '}
         {role === 'tutor'
           ? 'You need 100% to appear in the tutor directory.'
-          : 'You need 100% before you can post a job.'}
+          : /* NOT "you need 100% to post a job", which is what this said and
+               is not true: createJob() gates on cnic_verified_at and
+               address_verified_at alone. A parent at 66% with nine posted
+               tuitions disproved it. The real gate is stated in the Needs you
+               band, where it can be acted on. */
+            'A fuller profile helps tutors trust your posts.'}
       </p>
 
       {!compact && (

@@ -48,8 +48,25 @@ function matches(pathname: string, list: string[]): boolean {
   return list.some((p) => pathname === p || pathname.startsWith(p + '/'))
 }
 
+/**
+ * The current path, forwarded to server components.
+ *
+ * Next gives a layout no way to ask which URL is rendering, and the root
+ * layout has to know one thing: whether this request is inside /admin, which
+ * renders its own header and must not also get the site one. Route groups
+ * cannot answer it either — there is a single root layout and /admin nests
+ * inside it. So the path is put on the request here and read with headers().
+ */
+const PATH_HEADER = 'x-tm-pathname'
+
+function withPath(request: NextRequest): Headers {
+  const headers = new Headers(request.headers)
+  headers.set(PATH_HEADER, request.nextUrl.pathname)
+  return headers
+}
+
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request })
+  let response = NextResponse.next({ request: { headers: withPath(request) } })
 
   const supabaseKey =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
@@ -68,7 +85,9 @@ export async function proxy(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        response = NextResponse.next({ request })
+        // Rebuilt with the same forwarded path — dropping it here would make
+        // the header present only on requests that did not refresh a token.
+        response = NextResponse.next({ request: { headers: withPath(request) } })
         cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
       },
     },

@@ -37,11 +37,20 @@ export default function NotificationBell({
   initialUnread,
   emptyHint,
   emptyAction,
+  tone = 'light',
 }: {
   initialUnread: number
   /** What to say when there is nothing — never a blank panel. */
   emptyHint: string
   emptyAction: { label: string; href: string }
+  /**
+   * 'dark' is the admin bar, which is tm-black. The default trigger is navy on
+   * white and would be invisible there; on a dark surface the brand's readable
+   * member is tm-mint, which is what the footer and the admin wordmark already
+   * use. Only the TRIGGER changes — the panel stays a white card in both, so
+   * there is one set of contrast pairs to keep passing rather than two.
+   */
+  tone?: 'light' | 'dark'
 }) {
   const [open, setOpen] = useState(false)
   const [unread, setUnread] = useState(initialUnread)
@@ -119,7 +128,11 @@ export default function NotificationBell({
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
-        className="relative inline-flex h-11 min-h-[44px] w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-tm-navy transition-colors hover:border-tm-navy"
+        className={`relative inline-flex h-11 min-h-[44px] w-11 items-center justify-center rounded-xl border transition-colors ${
+          tone === 'dark'
+            ? 'border-white/20 bg-white/10 text-tm-mint hover:border-tm-mint'
+            : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+        }`}
       >
         <Bell aria-hidden size={17} />
         {unread > 0 && (

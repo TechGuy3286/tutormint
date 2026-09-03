@@ -1,3 +1,4 @@
+import { headers } from 'next/headers'
 import Link from 'next/link'
 
 import NotificationBell from '@/components/notifications/NotificationBell'
@@ -57,6 +58,14 @@ async function adminScreensFor(): Promise<AdminEntry[]> {
 }
 
 export default async function Navbar() {
+  // /admin renders its own bar — wordmark, role chip, notifications, exit and
+  // sign out — so the site header would be the SAME FUNCTIONS TWICE, stacked,
+  // costing ~148px before any content. One header, and admin keeps the one
+  // that carries the role chip, because that is the piece admin work needs.
+  // The path arrives from proxy.ts; a layout has no other way to know it.
+  const path = (await headers()).get('x-tm-pathname') ?? ''
+  if (path === '/admin' || path.startsWith('/admin/')) return null
+
   const session = await getSessionUser()
 
   if (!session) {

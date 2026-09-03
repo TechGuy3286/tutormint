@@ -9,11 +9,13 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  Search,
   Send,
   Settings,
   Shield,
   UserRound,
   Users,
+  Video,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -49,6 +51,8 @@ const ICONS: Record<MenuIcon, typeof Bell> = {
   post: FilePlus2,
   jobs: Send,
   hired: Users,
+  demos: Video,
+  browse: Search,
   shield: Shield,
 }
 

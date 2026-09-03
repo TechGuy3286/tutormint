@@ -30,6 +30,8 @@ export type MenuIcon =
   | 'post'
   | 'jobs'
   | 'hired'
+  | 'demos'
+  | 'browse'
   | 'shield'
 
 export type MenuItem = {
@@ -43,22 +45,41 @@ export type MenuItem = {
 /** An admin screen the actor may actually open, resolved by the caller. */
 export type AdminEntry = { label: string; href: string }
 
+// Navigation lives HERE, and only here.
+//
+// Both dashboards used to end in full-width outlined buttons — "Messages",
+// "Browse tutors" — styled exactly like a form's Save and Cancel. They went
+// somewhere rather than doing something, so they belong in this list; the
+// dashboards keep only the buttons that act (Post a job, Apply, Verify now).
+// Every destination removed from a dashboard in that pass is reachable from
+// one of these two arrays.
 const TUTOR: MenuItem[] = [
   { label: 'Dashboard', href: '/tutor/dashboard', icon: 'dashboard' },
-  { label: 'My Applications', href: '/tutor/dashboard/jobs', icon: 'applications' },
+  // Was labelled "My Applications" and pointed at /tutor/dashboard/jobs, which
+  // is the OPEN TUITIONS board — not this tutor's applications, which had no
+  // screen at all until now. Two entries, each going where it says.
+  { label: 'My applications', href: '/tutor/dashboard/applications', icon: 'applications' },
+  { label: 'Open tuitions', href: '/tutor/dashboard/jobs', icon: 'jobs' },
   { label: 'Messages', href: '/tutor/dashboard/messages', icon: 'messages' },
+  { label: 'Demo requests', href: '/tutor/dashboard/demos', icon: 'demos' },
   { label: 'Notifications', href: '/account/notifications', icon: 'bell' },
+  { label: 'Browse tuitions', href: '/browse/tuitions', icon: 'browse' },
   { label: 'Packages', href: '/tutor/packages', icon: 'package' },
   { label: 'Settings', href: '/tutor/dashboard/settings', icon: 'settings', separated: true },
 ]
 
 const PARENT: MenuItem[] = [
   { label: 'Dashboard', href: '/parent/dashboard', icon: 'dashboard' },
-  { label: 'Post a Job', href: '/parent/dashboard/post-job', icon: 'post' },
-  { label: 'My Jobs', href: '/parent/dashboard', icon: 'jobs' },
+  { label: 'Post a job', href: '/parent/dashboard/post-job', icon: 'post' },
+  // Was "My Jobs" pointing back at /parent/dashboard, because the list was
+  // rendered inline there. It has its own page now.
+  { label: 'My tuitions', href: '/parent/dashboard/jobs', icon: 'jobs' },
   { label: 'Messages', href: '/parent/dashboard/messages', icon: 'messages' },
+  { label: 'Demo classes', href: '/parent/dashboard/demos', icon: 'demos' },
+  { label: 'Hired tutors', href: '/parent/dashboard/hired-tutors', icon: 'hired' },
+  { label: 'My children', href: '/parent/dashboard/children', icon: 'profile' },
   { label: 'Notifications', href: '/account/notifications', icon: 'bell' },
-  { label: 'Hired Tutors', href: '/parent/dashboard/hired-tutors', icon: 'hired' },
+  { label: 'Browse tutors', href: '/browse/tutors', icon: 'browse' },
   { label: 'Packages', href: '/parent/packages', icon: 'package' },
   { label: 'Settings', href: '/parent/verify', icon: 'settings', separated: true },
 ]
