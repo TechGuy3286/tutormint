@@ -5,6 +5,7 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useState } from 'react'
 import Link from 'next/link'
 import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, Mail, Star } from 'lucide-react'
+import { teachingMode } from '@/lib/display'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
@@ -232,7 +233,19 @@ export default function TutorCard({
 
           <div className="col-start-2 row-start-1 min-w-0 space-y-1.5 pr-16 sm:pr-20">
             <h3 className="truncate text-base font-black text-tm-navy sm:text-lg">
-              <Link href={profileHref} className="inline-block py-0.5 hover:underline">
+              {/* THE WHOLE CARD IS THIS LINK.
+                  `after:absolute after:inset-0` stretches an invisible overlay
+                  from the name across the entire (relative) article, so a tap
+                  anywhere that is not a control opens the profile. It is done
+                  from the name rather than by wrapping the card in an <a>
+                  because a link may not contain buttons — nesting them is
+                  invalid HTML and browsers recover from it unpredictably.
+                  It is also ONE tab stop: the card announces itself as the
+                  tutor's name and the four controls follow it in order. */}
+              <Link
+                href={profileHref}
+                className="inline-flex min-h-[44px] items-center py-0.5 after:absolute after:inset-0 after:rounded-2xl after:content-[''] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-navy"
+              >
                 {tutor.full_name}
               </Link>
             </h3>
@@ -266,7 +279,7 @@ export default function TutorCard({
               <DetailLine
                 icon={<MapPin size={14} />}
                 label="Area"
-                value={tutor.area || tutor.teaching_mode || 'Flexible'}
+                value={tutor.area || teachingMode(tutor.teaching_mode) || 'Flexible'}
               />
               <DetailLine
                 icon={<Building2 size={14} />}
@@ -284,7 +297,11 @@ export default function TutorCard({
           </div>
 
           <div className="col-span-2 sm:col-span-1 sm:col-start-2 sm:row-start-3">
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            {/* relative + z-10 lifts every control ABOVE the stretched overlay.
+                Without it the overlay swallows Shortlist, Demo and Send
+                Message, and all four buttons would silently become "open the
+                profile" — the exact failure this pattern is known for. */}
+            <div className="relative z-10 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <Link
                 href={profileHref}
                 className={`${btn} bg-tm-black text-white hover:bg-tm-navy`}
@@ -327,7 +344,9 @@ export default function TutorCard({
             </div>
 
             {notice && (
-              <p className="pt-2 text-[11px] font-semibold leading-snug text-slate-700">{notice}</p>
+              <p className="relative z-10 pt-2 text-[11px] font-semibold leading-snug text-slate-700">
+                {notice}
+              </p>
             )}
           </div>
         </div>

@@ -147,7 +147,7 @@ Shipped:
 
 Outstanding — the only work left, build in this order:
 
-- [ ] **T8b Launch remainder** — region migration to Mumbai `ap-south-1`, Cloudflare Turnstile, nonce-based CSP through `proxy.ts`, WhatsApp delivery, legacy NOT NULL columns on `jobs`/`messages`, Search Console + Bing + Google Business Profile, site-wide schema (9.2).
+- [ ] **T8b Launch remainder** — region migration to Mumbai `ap-south-1`, Cloudflare Turnstile, nonce-based CSP through `proxy.ts`, WhatsApp delivery, legacy NOT NULL columns on `jobs`/`messages`, Search Console + Bing + Google Business Profile, site-wide schema (9.2), **and turning preview mode off — see "Preview mode" below; it is a gate, not a tidy-up.**
 - [ ] **T9 SEO & content system** — programmatic landing pages (9.1), blog CMS (9.3), content queue (9.4). May run parallel to T8b.
 
 Backlog, not built:
@@ -1219,3 +1219,78 @@ as the two allow.
 Neither rule was edited to fit. If the owner would rather have the teaser
 literally first, that is a one-line move in that file — but it needs to be an
 instruction, because it silently costs the blocking item its position.
+
+## Preview mode — comes OFF before launch (3 Sep 2026)
+
+The whole site is `noindex` and `robots.txt` disallows every crawler, and a
+quiet strip under the header tells visitors the platform is in preview while
+tutors are being onboarded.
+
+**Why.** The public directory is currently almost entirely seed accounts with
+invented ratings, invented fees and tutors who will never reply. Letting Google
+index those now makes them the pages that rank later, and the first real tutor
+to finish a profile would compete with a fixture for their own name. Ranking is
+slow to earn and slow to correct; not being indexed for a few weeks costs
+nothing that cannot be recovered.
+
+**One flag.** `NEXT_PUBLIC_PREVIEW_MODE`, read only through `lib/preview.ts`,
+and only in three places: the `robots` metadata in `app/layout.tsx`,
+`app/robots.ts`, and `components/PreviewBanner.tsx`. Turning it off is setting
+the variable to `false` in Vercel and redeploying. Nothing else changes and
+nothing has to be found first — that is the whole reason the condition is not
+scattered.
+
+**It defaults ON.** An unset variable means preview. Forgetting to turn it off
+costs some indexing time; forgetting to turn it *on* means Google indexes the
+fixtures, which is the expensive direction. It has to be switched off
+deliberately, by somebody who has looked at the directory.
+
+**`robots.ts` also withholds the sitemap while preview is on.** Offering a map
+of pages we have just asked nobody to crawl is a mixed signal, and some
+crawlers weight the sitemap more heavily than the disallow.
+
+**T8b GATE.** Preview mode comes off only when real, verified tutors are listed
+— not when the code is ready, and not as part of a deploy that happens to be
+going out. It belongs with Search Console and the Business Profile in T8b,
+because submitting a sitemap and being `noindex` at the same time is the
+contradiction that wastes the launch.
+
+## Seed data reaching real visitors (3 Sep 2026)
+
+Three defects on the public board, repaired in migration 34 — a data repair, in
+the ledger so it is reviewable, idempotent, and scoped so it cannot touch a real
+member's row. **No seed account was deleted or deactivated**: the directory
+stays populated until the owner says otherwise.
+
+- Four open tuitions ended their description "Seeded row for development.", and
+  four more had a description of the single character `x`.
+- **The Finance chip on an O Level Physics post was one bad row, not a broken
+  join.** `decorate()` reads `job_subjects` and resolves through
+  `taxonomy_master` correctly; the row pointed at `master_id 504`
+  (`bs-4-years-semester-1-8` / `finance`) while both its siblings pointed at
+  `249` (`igcse-o-levels` / `physics`) and always rendered right. Worth
+  recording because "every card is wrong" and "one row is wrong" are very
+  different bugs and the symptom looks identical.
+- Six seed tutors had a 600×400 PNG of one flat colour — `#0F172A` and
+  `#D60008`, both retired in the brand pass — which read as broken images on
+  `/browse/tutors`. Cleared, so `components/Avatar` falls back to initials.
+  Scoped by `email like 'seed+%'`: the three real members with pictures store
+  them as base64 `data:` URIs, so a rule written about the image file would have
+  caught the wrong rows.
+
+## Enum values never render raw (3 Sep 2026)
+
+`in_person` reached a live job card. `jobs.teaching_mode` holds `'Physical'`
+(6 rows), `'in_person'` (1) and NULL (51); `tutor_profiles.teaching_mode` holds
+`'Physical' | 'Online' | 'Both'`; `demo_requests.mode` holds `'online'`. A
+column with two spellings will always leak whichever one nobody thought about.
+
+`lib/display.ts` is now the only thing that turns a stored value into words —
+`teachingMode`, `demoMode`, `applicationStatus`, `jobStatus`, `demoStatus`,
+`verificationStatus`. The helpers are **total**: an unrecognised value is
+title-cased rather than dropped, so a status added by a future migration reads
+as "Under review" instead of disappearing from the card.
+
+Normalising the columns themselves is still worth doing and is not done — it
+needs a decision about which spelling wins. Until then the display layer accepts
+every spelling, so the fix holds whichever way that decision goes.

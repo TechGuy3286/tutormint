@@ -143,6 +143,87 @@ function hrefFor(
 }
 
 /**
+ * The SAME happening, named differently by each source.
+ *
+ * Reinstating an account writes `unsuspended` to user_activity_log and
+ * `account_reinstated` to notifications, about a second apart. Both are real
+ * rows, so neither can simply be dropped from its table — but showing a member
+ * "Your account was reinstated" directly above "Your account has been
+ * reinstated" makes the band look broken, and same-type grouping never catches
+ * it because the types differ.
+ *
+ * Anything that maps to the same string here is one happening. Events NOT in
+ * this table are never merged, which matters more than it looks:
+ * `application_submitted` (a tutor applying) and `application_received` (the
+ * parent being told) describe one event from two sides, but they land on two
+ * DIFFERENT people's feeds and must both survive.
+ */
+const CANONICAL: Record<string, string> = {
+  unsuspended: 'reinstated',
+  account_reinstated: 'reinstated',
+  suspended: 'suspended',
+  account_suspended: 'suspended',
+  warned: 'warned',
+  warning_issued: 'warned',
+  plan_purchased: 'plan_started',
+  plan_granted: 'plan_started',
+  plan_activated: 'plan_started',
+  plan_expired: 'plan_ended',
+  payment_submitted: 'payment_started',
+  payment_rejected: 'payment_rejected',
+  verification_decision_received: 'verification_decision',
+  verification_approved: 'verification_decision',
+  verification_rejected: 'verification_decision',
+}
+
+/** How close two rows must be to be the same happening. */
+const DEDUPE_WINDOW_MS = 5 * 60 * 1000
+
+/**
+ * Collapse one happening reported by both sources into a single row.
+ *
+ * THE NOTIFICATION WINS. It carries an href written at the moment of the
+ * event, which the activity row usually cannot reconstruct, and it is phrased
+ * for the member rather than derived from an event name. The activity row is
+ * kept only when no notification accompanies it.
+ *
+ * Notifications carry no target_type/target_id, so the pairing key is the
+ * canonical event plus the time window rather than the target. Within five
+ * minutes, on one member's own feed, two rows naming the same happening are
+ * the same happening — and the alternative, showing both, is the bug.
+ */
+function dedupeAcrossSources(items: FeedItem[]): FeedItem[] {
+  const kept: FeedItem[] = []
+
+  for (const item of items) {
+    const key = CANONICAL[item.type]
+    if (!key) {
+      kept.push(item)
+      continue
+    }
+
+    const twinIndex = kept.findIndex(
+      (k) =>
+        CANONICAL[k.type] === key &&
+        Math.abs(new Date(k.at).getTime() - new Date(item.at).getTime()) <= DEDUPE_WINDOW_MS,
+    )
+
+    if (twinIndex === -1) {
+      kept.push(item)
+      continue
+    }
+
+    // A notification replaces an activity row in place, so the merged row keeps
+    // its position in the timeline and gains the link.
+    if (item.source === 'notification' && kept[twinIndex].source === 'activity') {
+      kept[twinIndex] = item
+    }
+  }
+
+  return kept
+}
+
+/**
  * The merged feed for one member, newest first.
  *
  * Each source is read at `limit` and the merge is truncated back to `limit`,
@@ -166,14 +247,16 @@ export async function recentActivity({
       .select('id, kind, title, href, read_at, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(limit),
+      // Over-fetch: de-duplication removes rows, and a window that ends up
+      // short would silently show fewer than asked for.
+      .limit(limit * 2),
     supabase
       .from('user_activity_log')
       .select('id, event, target_type, target_id, created_at')
       .eq('user_id', userId)
       .in('event', Object.keys(LABEL))
       .order('created_at', { ascending: false })
-      .limit(limit),
+      .limit(limit * 2),
   ])
 
   const items: FeedItem[] = [
@@ -203,6 +286,6 @@ export async function recentActivity({
   ]
 
   items.sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime())
-  return items.slice(0, limit)
+  return dedupeAcrossSources(items).slice(0, limit)
 }
 

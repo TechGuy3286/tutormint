@@ -1,5 +1,7 @@
 'use client'
 
+import { applicationStatus } from '@/lib/display'
+
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useState } from 'react'
@@ -113,7 +115,7 @@ export default function ApplicantList({
               )}
             </h3>
             <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
-              {a.status}
+              {applicationStatus(a.status)}
             </span>
           </div>
 

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import ReviewForm from '@/components/ReviewForm'
 import { formatDateTime } from '@/lib/datetime'
+import { demoMode, demoStatus } from '@/lib/display'
 
 // Demo requests, from either side.
 //
@@ -109,8 +110,8 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                   )}
                 </p>
                 <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
-                  {d.status}
-                  {d.mode ? ` · ${d.mode === 'online' ? 'Online' : 'In person'}` : ''}
+                  {demoStatus(d.status)}
+                  {demoMode(d.mode) ? ` · ${demoMode(d.mode)}` : ''}
                 </span>
               </div>
 

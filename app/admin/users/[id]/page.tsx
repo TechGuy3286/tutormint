@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { formatDate, formatDateTime } from '@/lib/datetime'
+import { jobStatus } from '@/lib/display'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MemberActions from './MemberActions'
 import Timeline, { type TimelineEvent } from './Timeline'
@@ -298,7 +299,7 @@ export default async function AdminMemberPage({
             <Row
               key={j.id as string}
               main={j.title as string}
-              sub={`${j.status}${j.is_featured ? ' · featured' : ''} · ${formatDate(j.created_at as string)}`}
+              sub={`${jobStatus(j.status as string)}${j.is_featured ? ' · featured' : ''} · ${formatDate(j.created_at as string)}`}
             />
           ))}
         </Panel>

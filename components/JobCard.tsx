@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { GraduationCap, MapPin, Wallet, Clock, Building2 } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
 import { formatMonthYear } from '@/lib/datetime'
+import { teachingMode } from '@/lib/display'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import Avatar from '@/components/Avatar'
 import AuthGateModal from '@/components/AuthGateModal'
@@ -169,12 +170,14 @@ export default function JobCard({
             )}
             <p className="flex items-center gap-2 text-xs text-slate-700">
               <MapPin size={14} className="shrink-0 text-gray-500" />
-              {[job.area, job.city].filter(Boolean).join(', ') || job.teaching_mode || 'Flexible'}
+              {[job.area, job.city].filter(Boolean).join(', ') ||
+                teachingMode(job.teaching_mode) ||
+                'Flexible'}
             </p>
-            {job.teaching_mode && (
+            {teachingMode(job.teaching_mode) && (
               <p className="flex items-center gap-2 text-xs text-slate-700">
                 <Building2 size={14} className="shrink-0 text-gray-500" />
-                {job.teaching_mode}
+                {teachingMode(job.teaching_mode)}
               </p>
             )}
             {job.budget_pkr ? (

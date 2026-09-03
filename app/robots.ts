@@ -1,5 +1,7 @@
 import type { MetadataRoute } from 'next'
 
+import { PREVIEW_MODE } from '@/lib/preview'
+
 // robots.txt.
 //
 // Everything public is crawlable — the browse pages and tutor profiles are the
@@ -23,6 +25,19 @@ import type { MetadataRoute } from 'next'
 const BASE = 'https://tutormint.org'
 
 export default function robots(): MetadataRoute.Robots {
+  // PREVIEW. While the directory is mostly seed accounts, nothing should be
+  // indexed at all: those pages would become the ones that rank, and a real
+  // tutor would later compete with a fixture for their own name. The sitemap
+  // is withheld too — offering a map of pages we have just asked not to be
+  // crawled is a mixed signal, and some crawlers take the sitemap as the
+  // stronger one. Flip NEXT_PUBLIC_PREVIEW_MODE=false to restore all of it.
+  if (PREVIEW_MODE) {
+    return {
+      rules: [{ userAgent: '*', disallow: '/' }],
+      host: BASE,
+    }
+  }
+
   return {
     rules: [
       {

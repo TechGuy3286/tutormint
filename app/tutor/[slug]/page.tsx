@@ -16,6 +16,7 @@ import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import ReportButton from '@/components/ReportButton'
 import ProfileActions from './ProfileActions'
 import { formatDate } from '@/lib/datetime'
+import { teachingMode } from '@/lib/display'
 
 // The public tutor profile. Server component, results in the HTML.
 //
@@ -285,7 +286,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                 <p className="flex items-center gap-2 text-xs">
                   <Building2 size={14} className="text-gray-500" />
                   {tutor.city ?? 'Online'}
-                  {tutor.teaching_mode ? ` · ${tutor.teaching_mode}` : ''}
+                  {teachingMode(tutor.teaching_mode) ? ` · ${teachingMode(tutor.teaching_mode)}` : ''}
                 </p>
                 <p className="flex items-center gap-2 text-xs">
                   <Briefcase size={14} className="text-gray-500" />
