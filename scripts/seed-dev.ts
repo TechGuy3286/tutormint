@@ -477,12 +477,7 @@ async function main() {
     // fixture that cannot catch a slug bug. set_tutor_slug retires the
     // provisional address into slug_history, so re-seeding leaves a working
     // redirect rather than a dead link.
-    {
-      const { data: canonical } = await db.rpc('tutor_canonical_slug', { p_tutor: id })
-      if (typeof canonical === 'string' && canonical) {
-        await db.rpc('set_tutor_slug', { p_tutor: id, p_slug: canonical })
-      }
-    }
+    await db.rpc('refresh_tutor_slug', { p_tutor: id })
 
     // Now that every item exists, let the shipping checklist decide the number.
     const { data: freshProfile } = await db

@@ -77,6 +77,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: applied.error }, { status: 409 })
   }
 
+  // An admin decision freezes the address: the automatic refresh must not
+  // quietly overwrite it the next time the tutor edits their city. Set here
+  // rather than inside set_tutor_slug(), because the automatic path uses that
+  // same function and a refresh is not a decision.
+  await admin.from('tutor_profiles').update({ slug_locked: true }).eq('id', tutorId)
+
   await logAdminAction({
     actorId: gate.actor.id,
     actorRole: gate.actor.adminRole,

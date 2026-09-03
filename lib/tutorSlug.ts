@@ -3,23 +3,25 @@
 // A tutor's public address: who assigns it, when it is allowed to change, and
 // how an old one still works.
 //
-// THE RULE. A slug is assigned once and then frozen. It is *allowed* to move
-// while the tutor is not yet listed — nobody has linked to a profile that
-// search, browse and the sitemap all exclude, so improving the address as the
-// profile fills in costs nothing. The moment the tutor becomes listed the
-// address stops following the data: a tutor who moves city keeps their slug,
-// because the page updates from the row and the URL is a name, not a fact.
+// THE RULE LIVES IN THE DATABASE, in refresh_tutor_slug() (migration 41), and
+// this file is a thin set of callers. That is not indirection for its own sake:
+// /api/profile/save is not the only writer of a tutor's profile —
+// /tutor/dashboard/settings upserts `tutor_profiles` straight from the client
+// — so a rule expressed as a call in one route would have missed the writer
+// that actually sets `city`. A trigger catches every writer; the rule is one
+// function; this file calls it.
 //
-// After that, only an admin changes it, and only through set_tutor_slug(),
-// which writes the retired address to slug_history in the same statement.
-// There is no code path — and no checkbox anywhere in the UI — that can move
-// an address without leaving a redirect behind.
+// What the rule says: an address may improve while the tutor is NOT LISTED,
+// because search, browse, the sitemap and every social post read
+// tutor_directory, so nobody can be holding a link to a profile that is not in
+// it. Being listed freezes it, and so does an admin setting one by hand
+// (`slug_locked`) — after that a tutor who moves city keeps their URL, because
+// the page updates from the row and an address is a name, not a fact.
 //
-// EVERY CALL GOES THROUGH THE DATABASE FUNCTIONS. tutor_canonical_slug() and
-// set_tutor_slug() hold the collision rules and the history write; doing any
-// of it in TypeScript would mean two implementations of "is this address
-// free", and the one that is wrong is the one that hands two tutors the same
-// URL.
+// Every move, automatic or deliberate, goes through set_tutor_slug(), which
+// writes the retired address to slug_history in the same statement. There is
+// no code path — and no checkbox anywhere in the UI — that can move an address
+// without leaving a redirect behind.
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -67,43 +69,26 @@ export async function applySlug(
 }
 
 /**
- * Give a tutor an address, or improve the one they have — but only while they
- * are not yet listed.
+ * Give a tutor an address, or improve the one they have.
  *
- * Called after every profile save. Seven of the seventeen tutors that existed
- * before migration 40 had NO slug at all: handle_new_user() creates the
- * tutor_profiles row and never sets one, so anybody who registered normally
- * had a public profile with no address. This is what stops that recurring for
- * the next tutor who signs up.
+ * THE RULE ITSELF IS IN THE DATABASE — refresh_tutor_slug(), migration 41 —
+ * and this is one of its two callers. That is deliberate: /api/profile/save is
+ * NOT the only writer of a tutor's profile. /tutor/dashboard/settings upserts
+ * `tutor_profiles` straight from the client, and that is where `city` is
+ * actually set, so a rule written here as TypeScript would have missed the one
+ * case the feature exists for. A trigger on `tutor_profiles` catches every
+ * writer that touches the row.
+ *
+ * What the trigger CANNOT see is a subjects-only change: `tutor_subjects` is a
+ * different table, and the main subject is half of the canonical address. That
+ * is what this call is for.
  *
  * Silent on failure. A profile save must not fail because an address could not
- * be improved — the save is the thing the tutor asked for, and an admin can
- * fix an address with one click.
+ * be improved — the save is what the tutor asked for, and an admin can fix an
+ * address with one click.
  */
 export async function ensureTutorSlug(tutorId: string): Promise<void> {
   const admin = createAdminClient()
   if (!admin) return
-
-  const { data: current } = await admin
-    .from('tutor_profiles')
-    .select('slug')
-    .eq('id', tutorId)
-    .maybeSingle()
-
-  // Listed means somebody may already have the link: browse, search, the
-  // sitemap and every social post read tutor_directory, and this is exactly
-  // the set they contain.
-  if (current?.slug) {
-    const { data: listed } = await admin
-      .from('tutor_directory')
-      .select('id')
-      .eq('id', tutorId)
-      .maybeSingle()
-    if (listed) return
-  }
-
-  const canonical = await suggestSlug(tutorId)
-  if (!canonical || canonical === current?.slug) return
-
-  await applySlug(tutorId, canonical)
+  await admin.rpc('refresh_tutor_slug', { p_tutor: tutorId })
 }

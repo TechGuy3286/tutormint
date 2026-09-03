@@ -433,14 +433,8 @@ export async function createImportedTutor(params: {
   // for the same tutor, and through set_tutor_slug so the provisional address
   // is retired into slug_history rather than vanishing.
   let slug = provisionalSlug
-  const { data: canonical } = await admin.rpc('tutor_canonical_slug', { p_tutor: userId })
-  if (typeof canonical === 'string' && canonical && canonical !== provisionalSlug) {
-    const { data: applied } = await admin.rpc('set_tutor_slug', {
-      p_tutor: userId,
-      p_slug: canonical,
-    })
-    if (typeof applied === 'string' && applied) slug = applied
-  }
+  const { data: refreshed } = await admin.rpc('refresh_tutor_slug', { p_tutor: userId })
+  if (typeof refreshed === 'string' && refreshed) slug = refreshed
 
   // Logged here rather than by the caller: this is the only place that knows
   // the new user's id, and an activity row keyed by anything else would be
