@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
+import { pageTitle } from '@/lib/seo'
 
 export const metadata: Metadata = {
-  title: 'Reset your password | TutorMint',
+  title: pageTitle('Reset your password'),
   robots: { index: false, follow: true },
 }
 

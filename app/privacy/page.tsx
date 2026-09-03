@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
+import { pageTitle } from '@/lib/seo'
+import { getCompany } from '@/lib/company'
 import Link from 'next/link'
-import LegalDoc, { type LegalSection } from '@/components/LegalDoc'
+import LegalDoc, { entitySection, type LegalSection } from '@/components/LegalDoc'
 
 // Privacy Policy.
 //
@@ -14,7 +16,7 @@ import LegalDoc, { type LegalSection } from '@/components/LegalDoc'
 // section 6 are the ones we can actually honour today.
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | TutorMint',
+  title: pageTitle('Privacy Policy'),
   description:
     'What TutorMint collects, who can see it, how CNICs and certificates are stored, how long we keep things, and how to get your data or have it deleted.',
 }
@@ -384,13 +386,23 @@ const SECTIONS: LegalSection[] = [
   },
 ]
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const company = await getCompany()
+
+  // Inserted just before Contact rather than appended: a reader who scrolls to
+  // the end for an address finds it next to the way to use it.
+  const contactAt = SECTIONS.findIndex((s) => s.id === 'contact')
+  const sections =
+    contactAt === -1
+      ? [...SECTIONS, entitySection(company)]
+      : [...SECTIONS.slice(0, contactAt), entitySection(company), ...SECTIONS.slice(contactAt)]
+
   return (
     <LegalDoc
       title="Privacy Policy"
       updated={UPDATED}
       intro="What we collect, who can see it, and what you can do about it. Written to be read — the first section is the whole thing in five lines."
-      sections={SECTIONS}
+      sections={sections}
     />
   )
 }

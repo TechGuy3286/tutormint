@@ -151,11 +151,14 @@ export default async function InboxShell({
                   <ArrowLeft size={18} aria-hidden />
                 </Link>
 
+                {/* Larger than the ones beside the bubbles: this is the
+                    header's subject, and it is what a reader glances at to
+                    confirm whose conversation is open. */}
                 <Avatar
                   name={header.otherName}
                   src={header.otherAvatar}
                   seed={header.otherId}
-                  className="h-10 w-10 shrink-0 text-xs"
+                  className="h-12 w-12 shrink-0 text-sm"
                   decorative
                 />
 
@@ -202,6 +205,7 @@ export default async function InboxShell({
                 threadId={header.id}
                 otherId={header.otherId}
                 otherName={header.otherName}
+                otherAvatar={header.otherAvatar}
                 initial={history.items}
                 initialCursor={history.cursor}
                 canShareContact={header.canShareContact}

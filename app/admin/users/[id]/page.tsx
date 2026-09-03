@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { formatDate, formatDateTime } from '@/lib/datetime'
+import { describeUtm } from '@/lib/utm'
 import { jobStatus } from '@/lib/display'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MemberActions from './MemberActions'
@@ -114,7 +115,7 @@ export default async function AdminMemberPage({
   const { data: profile } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, created_at',
+      'id, full_name, email, phone_number, whatsapp, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, created_at, utm_source, utm_medium, utm_campaign, utm_content',
     )
     .eq('id', id)
     .maybeSingle()
@@ -260,6 +261,15 @@ export default async function AdminMemberPage({
           label="Joined"
           value={formatDate(profile.created_at as string)}
         />
+        {/* First touch. Shown as one line rather than four facts because the
+            question an admin has is "which ad brought them", and source ·
+            medium · campaign answers it at a glance. A member who arrived
+            without a campaign shows the honest dash. */}
+        <Fact
+          label="Came from"
+          value={describeUtm(profile as Parameters<typeof describeUtm>[0]) ?? 'Direct'}
+          verbatim
+        />
         {isTutor && tutor && (
           <>
             <Fact label="Listing" value={(tutor.verification_status as string) ?? '—'} />
@@ -380,11 +390,29 @@ export default async function AdminMemberPage({
   )
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({
+  label,
+  value,
+  verbatim = false,
+}: {
+  label: string
+  value: string
+  /**
+   * Render the value exactly as stored.
+   *
+   * `capitalize` is right for a status word and wrong for an identifier. A UTM
+   * campaign has to match what is in Ads Manager character for character --
+   * "Meta · Cpc · Tutors-Lahore-Sep" is not a campaign anybody can search for,
+   * and an admin comparing this screen to a spend report would find nothing.
+   */
+  verbatim?: boolean
+}) {
   return (
     <div className="min-w-0">
       <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="truncate text-sm font-black capitalize text-tm-navy">{value}</p>
+      <p className={`truncate text-sm font-black text-tm-navy ${verbatim ? '' : 'capitalize'}`}>
+        {value}
+      </p>
     </div>
   )
 }

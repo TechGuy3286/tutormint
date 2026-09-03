@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Send, Lock, ShieldAlert, ChevronUp, Loader2 } from 'lucide-react'
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
+import Avatar from '@/components/Avatar'
 import { formatDate, formatDateTime, pkDayKey } from '@/lib/datetime'
 import type { ThreadMessage } from '@/lib/messaging'
 
@@ -26,6 +27,7 @@ export default function Conversation({
   threadId,
   otherId,
   otherName,
+  otherAvatar,
   initial,
   initialCursor,
   canShareContact,
@@ -35,6 +37,7 @@ export default function Conversation({
   threadId: string
   otherId: string
   otherName: string
+  otherAvatar: string | null
   /** Oldest-first, the newest window of the conversation. */
   initial: ThreadMessage[]
   initialCursor: string | null
@@ -203,29 +206,61 @@ export default function Conversation({
             No messages yet. Say hello — messages stay inside TutorMint so both sides are protected.
           </p>
         ) : (
-          <ol className="space-y-2">
+          <ol className="space-y-1">
             {messages.map((m, i) => {
+              const prev = i > 0 ? messages[i - 1] : null
               // A separator whenever the calendar day changes, in Pakistan
               // time. pkDayKey is what decides it, so the line and the
               // timestamps under the bubbles cannot disagree about the date.
-              const showDay = i === 0 || pkDayKey(m.createdAt) !== pkDayKey(messages[i - 1].createdAt)
+              const showDay = !prev || pkDayKey(m.createdAt) !== pkDayKey(prev.createdAt)
+              // The avatar marks the START of a run, not every line. Six
+              // messages in a row from one person is one conversational turn,
+              // and repeating the face beside each of them turns a thread into
+              // a column of the same photo. A day break starts a new run: after
+              // a gap of hours, who is speaking is worth restating.
+              const startsRun = !prev || prev.mine !== m.mine || showDay
               return (
-                <li key={m.id} className="space-y-2">
+                <li key={m.id} className="space-y-1">
                   {showDay && (
-                    <p className="py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                    <p className="py-3 text-center text-[10px] font-bold uppercase tracking-wide text-gray-500">
                       {formatDate(m.createdAt)}
                     </p>
                   )}
-                  <div className={`flex ${m.mine ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex items-end gap-2 ${m.mine ? 'justify-end' : 'justify-start'}`}>
+                    {/* No avatar on own messages: the reader knows who they
+                        are, and a face on both sides is two columns of noise
+                        for one bit of information. The spacer keeps the runs
+                        aligned when the avatar is not drawn. */}
+                    {!m.mine &&
+                      (startsRun ? (
+                        <Avatar
+                          name={otherName}
+                          src={otherAvatar}
+                          seed={otherId}
+                          className="h-7 w-7 shrink-0 text-[10px]"
+                          ring=""
+                          decorative
+                        />
+                      ) : (
+                        <span aria-hidden className="h-7 w-7 shrink-0" />
+                      ))}
                     <div
-                      className={`max-w-[85%] space-y-1 rounded-2xl px-3 py-2 sm:max-w-[70%] ${
-                        m.mine ? 'bg-tm-black text-white' : 'border border-gray-200 bg-white'
+                      className={`max-w-[80%] space-y-1 rounded-2xl px-3 py-2 sm:max-w-[68%] ${
+                        m.mine
+                          ? // Own messages: right, on the brand's own tint, with
+                            // a squared corner on the side they came from. The
+                            // shape is the second signal -- a reader scanning
+                            // quickly reads the edge before the colour, and it
+                            // still works for anyone who cannot separate the
+                            // two colours at all.
+                            'rounded-br-md bg-tm-tint-navy text-tm-navy'
+                          : 'rounded-bl-md border border-gray-200 bg-white text-slate-700'
                       }`}
                     >
                       <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">
                         {m.body}
                       </p>
-                      <p className={`text-[10px] ${m.mine ? 'text-white/60' : 'text-gray-500'}`}>
+                      <p className={`text-[10px] ${m.mine ? 'text-tm-navy/70' : 'text-gray-500'}`}>
                         {formatDateTime(m.createdAt)}
                       </p>
                     </div>

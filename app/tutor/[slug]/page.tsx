@@ -17,6 +17,7 @@ import ReportButton from '@/components/ReportButton'
 import ProfileActions from './ProfileActions'
 import { formatDate } from '@/lib/datetime'
 import { teachingMode } from '@/lib/display'
+import { jsonLdScript, pageDescription, pageTitle, tutorJsonLd } from '@/lib/seo'
 
 // The public tutor profile. Server component, results in the HTML.
 //
@@ -71,7 +72,7 @@ async function loadTutor(slug: string): Promise<PublicTutor | null> {
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params
   const tutor = await loadTutor(slug)
-  if (!tutor) return { title: 'Tutor not found | TutorMint' }
+  if (!tutor) return { title: pageTitle('Tutor not found') }
 
   const subjects = Array.from(
     new Set(tutor.subjects.map((s) => s.subject ?? s.level).filter(Boolean)),
@@ -79,10 +80,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
   const subjectText = subjects.length > 0 ? subjects.join(', ') : 'Verified'
   const city = tutor.city ?? 'Pakistan'
-  const title = `${tutor.full_name} — ${subjectText} tutor in ${city} | TutorMint`
-  const description =
-    tutor.headline ??
-    `${tutor.full_name} teaches ${subjectText} in ${city}. Verified profile on TutorMint.`
+  // The page name is the tutor and what they teach; the template adds the
+  // promise and the brand. A long name plus three subjects will be truncated
+  // by the search engine, which is preferable to dropping the brand.
+  const title = pageTitle(`${tutor.full_name} — ${subjectText} tutor in ${city}`)
+  const description = pageDescription(
+    tutor.headline
+      ? `${tutor.headline} — ${subjectText} in ${city}`
+      : `${tutor.full_name} teaches ${subjectText} in ${city}`,
+  )
 
   return {
     title,
@@ -233,8 +239,29 @@ export default async function TutorPublicProfile({ params }: { params: Params })
     if (s.subject) byLevel.get(key)!.push(s.subject)
   }
 
+  // Person + Service, linked to each other and to the Organization on the
+  // homepage. Nothing is asserted that the profile does not hold -- no rating
+  // without real reviews, no price without a rate, no area without one chosen.
+  // An aggregateRating with a zero count is both a rich-result violation and a
+  // claim about a tutor nobody has reviewed.
+  const profileSchema = tutorJsonLd({
+    slug: tutor.slug,
+    name: tutor.full_name,
+    headline: tutor.headline,
+    avatarUrl: tutor.avatar_url,
+    city: tutor.city,
+    area: tutor.area,
+    subjects: Array.from(
+      new Set(tutor.subjects.map((x) => x.subject ?? x.level).filter(Boolean) as string[]),
+    ),
+    hourlyRatePkr: tutor.hourly_rate_pkr,
+    ratingAvg: tutor.rating_avg === null ? null : Number(tutor.rating_avg),
+    ratingCount: tutor.rating_count,
+  })
+
   return (
     <main className="min-h-screen bg-tm-bg px-4 pb-28 pt-6 text-slate-700 sm:px-6 sm:pb-8 lg:px-8">
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(profileSchema)} />
       <div className="mx-auto max-w-3xl space-y-4">
         {/* The breadcrumb replaces the bespoke "← All tutors" link: two ways
             back to the same page is one more than anyone needs, and only one

@@ -1,4 +1,5 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
+import { pageTitle } from '@/lib/seo'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Mail, MessageCircle } from 'lucide-react'
@@ -23,7 +24,7 @@ import FaqList, { type FaqGroup } from './FaqList'
 // only the accordion behaviour is client-side.
 
 export const metadata: Metadata = {
-  title: 'Help and support | TutorMint',
+  title: pageTitle('Help and support'),
   description:
     'Answers for tutors and parents on verification, packages, refunds, messaging and hiring — plus how to reach the TutorMint team on WhatsApp or email.',
 }

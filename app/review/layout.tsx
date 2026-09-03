@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { pageTitle } from '@/lib/seo'
 
 // Metadata for a client-component page.
 //
@@ -10,7 +11,7 @@ import type { Metadata } from 'next'
 // after a specific tuition, and an empty review form is not a search result
 // anybody wants.
 export const metadata: Metadata = {
-  title: 'Leave a review | TutorMint',
+  title: pageTitle('Leave a review'),
   robots: { index: false, follow: true },
 }
 

@@ -131,6 +131,31 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
           </div>
         )}
 
+        {/* The comparison, once, keyed on audience rather than pasted into ten
+            gate bodies -- ten copies is ten places for the number to drift.
+            Shown only when something is actually being sold: a suspension
+            notice or a "verify your CNIC" prompt has no price to compare, and
+            putting an academy's cut on one would read as a sales pitch aimed
+            at somebody who has just been told their account is closed.
+
+            WORDING RULE: visibility, never "we will get you tuitions". */}
+        {gate.plan && (gate.kind === 'upgrade' || gate.kind === 'quota') && (
+          <p className="mt-3 text-[11px] leading-relaxed text-gray-500">
+            {gate.audience === 'parent' ? (
+              <>
+                An academy takes half your first month&apos;s fee — on a Rs 20,000 tuition that is
+                Rs 10,000. TutorMint takes nothing from the fee. Memberships are not refundable.
+              </>
+            ) : (
+              <>
+                A boosted post in one city costs more in a week than this does in a month, and an
+                academy keeps half your first month. This puts you in front of parents already
+                searching for your subject in your area. Memberships are not refundable.
+              </>
+            )}
+          </p>
+        )}
+
         <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
           {gate.actionable && (
             <Link

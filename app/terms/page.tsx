@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
+import { pageTitle } from '@/lib/seo'
+import { getCompany } from '@/lib/company'
 import Link from 'next/link'
-import LegalDoc, { type LegalSection } from '@/components/LegalDoc'
+import LegalDoc, { entitySection, type LegalSection } from '@/components/LegalDoc'
 
 // Terms of Service.
 //
@@ -15,7 +17,7 @@ import LegalDoc, { type LegalSection } from '@/components/LegalDoc'
 // the two ever disagree, the code is the bug.
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | TutorMint',
+  title: pageTitle('Terms of Service'),
   description:
     'The rules for using TutorMint: memberships and prices, the no-refund policy, quotas, verification, conduct, and how accounts are suspended.',
 }
@@ -419,13 +421,23 @@ const SECTIONS: LegalSection[] = [
   },
 ]
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const company = await getCompany()
+
+  // Inserted just before Contact rather than appended: a reader who scrolls to
+  // the end for an address finds it next to the way to use it.
+  const contactAt = SECTIONS.findIndex((s) => s.id === 'contact')
+  const sections =
+    contactAt === -1
+      ? [...SECTIONS, entitySection(company)]
+      : [...SECTIONS.slice(0, contactAt), entitySection(company), ...SECTIONS.slice(contactAt)]
+
   return (
     <LegalDoc
       title="Terms of Service"
       updated={UPDATED}
       intro="These are the rules for using TutorMint. We have tried to write them in plain language rather than in the usual wall of capital letters, because terms nobody reads protect nobody."
-      sections={SECTIONS}
+      sections={sections}
     />
   )
 }

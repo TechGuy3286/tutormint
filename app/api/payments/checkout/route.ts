@@ -75,6 +75,17 @@ export async function POST(request: Request) {
 
   // Written with the member's own client, so RLS proves user_id = auth.uid()
   // and status = 'pending' rather than this route promising it.
+  // The attribution carried on the ACCOUNT at the moment money moved, read
+  // from the profile rather than from the cookie. The cookie expires after
+  // thirty days and a tutor may upgrade months after signing up; the profile
+  // holds the first touch permanently, which is the figure that answers "which
+  // ad produced a paying member".
+  const { data: acquisition } = await supabase
+    .from('profiles')
+    .select('utm_source, utm_medium, utm_campaign, utm_content')
+    .eq('id', user.id)
+    .maybeSingle()
+
   const { data: payment, error } = await supabase
     .from('payments')
     .insert({
@@ -84,6 +95,10 @@ export async function POST(request: Request) {
       status: 'pending',
       provider: provider.id,
       provider_ref: reference,
+      utm_source: acquisition?.utm_source ?? null,
+      utm_medium: acquisition?.utm_medium ?? null,
+      utm_campaign: acquisition?.utm_campaign ?? null,
+      utm_content: acquisition?.utm_content ?? null,
       // `method` is the money instrument. A simulated purchase is pretending
       // to be the gateway, so it records the gateway.
       method: provider.id === 'manual' ? null : 'assanpay',

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { pageTitle } from '@/lib/seo'
 
 // Metadata for a client-component page.
 //
@@ -9,7 +10,7 @@ import type { Metadata } from 'next'
 // Not indexed. A sign-in page ranking for a brand name pushes the pages
 // that actually answer a search further down.
 export const metadata: Metadata = {
-  title: 'Sign in | TutorMint',
+  title: pageTitle('Sign in'),
   description: 'Sign in to TutorMint with your email address or mobile number.',
   robots: { index: false, follow: true },
 }

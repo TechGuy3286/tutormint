@@ -1,86 +1,122 @@
-import Breadcrumbs from '@/components/Breadcrumbs'
+import Link from 'next/link'
 import type { Metadata } from 'next'
-import Link from "next/link";
+import Breadcrumbs from '@/components/Breadcrumbs'
+import { FAQ_GROUPS, FAQ_ITEMS } from '@/lib/faqContent'
+import { faqJsonLd, jsonLdScript, pageDescription, pageTitle } from '@/lib/seo'
+
+// The help page, rebuilt around the questions people actually ask.
+//
+// What it replaced answered five questions, three of which described a product
+// we do not have: a "live 60-second video introduction" (the video is uploaded
+// and reviewed, not live), a "matching and support team" that connects parents
+// to tutors (nobody does that — parents choose and message directly), and
+// "starting bonus application credits" (there are none). A help page that
+// describes the wrong product is worse than no help page: it is where somebody
+// goes when they are already confused.
+//
+// The answers live in lib/faqContent.ts so that the FAQPage JSON-LD and the
+// visible page are literally the same strings. Structured data that says
+// something the page does not is a manual-action risk, and it is how a promise
+// nobody made ends up in a search result.
 
 export const metadata: Metadata = {
-  title: 'Frequently asked questions | TutorMint',
-  description:
-    'How TutorMint verifies tutors, what memberships cost, why browsing is free, and how hiring works.',
+  title: pageTitle('Questions and answers'),
+  description: pageDescription(
+    'How tutors are verified, what a membership costs, why hiring is the paid step, and what we take from your fee',
+  ),
+  alternates: { canonical: '/faq' },
 }
 
 export default function FAQPage() {
-  const faqs = [
-    {
-      q: "How does TutorMint verify tutors?",
-      a: "Every educator on TutorMint records a live 60-second video introduction holding their actual physical degree on camera. Our administrative team manually audits every single profile before approval to eliminate fake credentials."
-    },
-    {
-      q: "How can parents/clients hire a tutor?",
-      a: "Parents can browse verified tutors by city, view their ratings and credentials, and click 'Hire / Contact' to connect instantly via our matching and support team."
-    },
-    {
-      q: "Is TutorMint free for parents to browse?",
-      a: "Yes! Parents and clients can freely browse verified tutor profiles and compare ratings without any upfront login wall."
-    },
-    {
-      q: "How can I register as a tutor?",
-      a: "Tutors can click 'Tutor Sign Up' on the homepage, fill out their academic details, upload their verification proof, and get listed after admin review."
-    },
-    {
-      q: "Which cities are covered by TutorMint?",
-      a: "We currently operate actively in Lahore, Karachi, Islamabad, Multan, and surrounding regions across Pakistan."
-    }
-  ];
-
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-tm-black flex flex-col justify-between">
-      {/* The duplicate sticky wordmark bar is gone -- components/Navbar.tsx is
-          the site header. Its two calls to action are kept, moved into the
-          page, because /tutor/register is only still routed at all on the
-          grounds that this page links to it. Browse Tutors pointed at
-          /parent/dashboard, which is behind a login and is not where tutors
-          are browsed. */}
-      <main className="max-w-4xl mx-auto px-6 py-12 sm:py-16 space-y-8 flex-1 w-full">
-        <Breadcrumbs items={[{ label: 'Help & FAQ' }]} />
+    <main className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(faqJsonLd(FAQ_ITEMS))} />
 
-        <div className="flex flex-wrap justify-center gap-3">
-          <Link href="/browse/tutors" className="inline-flex min-h-[44px] items-center rounded-xl bg-gray-100 px-4 text-xs font-bold text-gray-900 transition-colors hover:bg-gray-200">
+      <Breadcrumbs items={[{ label: 'Questions and answers' }]} />
+
+      <header className="space-y-2">
+        <h1 className="text-2xl font-black text-tm-navy sm:text-3xl">Questions and answers</h1>
+        <p className="text-sm leading-relaxed text-slate-700">
+          What we take from your fee (nothing), how tutors are checked, and what a membership
+          actually buys. If something here is not clear, say so on{' '}
+          <Link href="/support" className="font-bold text-tm-red hover:underline">
+            our support page
+          </Link>
+          .
+        </p>
+      </header>
+
+      <nav className="rounded-2xl border border-gray-200 bg-white p-4">
+        <h2 className="pb-2 text-xs font-black uppercase tracking-wide text-gray-500">Jump to</h2>
+        <ul className="grid gap-1 sm:grid-cols-2">
+          {FAQ_GROUPS.map((g) => (
+            <li key={g.id}>
+              <a
+                href={`#${g.id}`}
+                className="flex min-h-[44px] items-center text-sm font-bold leading-relaxed text-tm-navy hover:text-tm-red"
+              >
+                {g.heading}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      {FAQ_GROUPS.map((group) => (
+        <section key={group.id} id={group.id} className="scroll-mt-6 space-y-3">
+          <div className="space-y-0.5">
+            <h2 className="text-base font-black text-tm-navy">{group.heading}</h2>
+            <p className="text-xs text-gray-500">{group.blurb}</p>
+          </div>
+
+          <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            {group.items.map((item) => (
+              <article key={item.q} className="space-y-1.5 p-4 sm:p-5">
+                <h3 className="text-sm font-black text-tm-navy">{item.q}</h3>
+                <p className="text-sm leading-relaxed text-slate-700">{item.a}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+        <h2 className="text-base font-black text-tm-navy">Still stuck?</h2>
+        <p className="text-sm leading-relaxed text-slate-700">
+          Support answers on WhatsApp and by email. The{' '}
+          <Link href="/terms" className="font-bold text-tm-red hover:underline">
+            Terms
+          </Link>{' '}
+          and{' '}
+          <Link href="/privacy" className="font-bold text-tm-red hover:underline">
+            Privacy Policy
+          </Link>{' '}
+          say the same things in more detail, including the no-refund policy.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link
+            href="/support"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-slate-700"
+          >
+            Contact support
+          </Link>
+          <Link
+            href="/browse/tutors"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+          >
             Browse tutors
           </Link>
-          <Link href="/tutor/register" className="inline-flex min-h-[44px] items-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-tm-red-hover">
-            Tutor sign up
+          {/* /tutor/register is a redirect stub to /register, kept alive
+              because referral links already circulating on WhatsApp point at
+              it. This page is the reason it is still routed at all. */}
+          <Link
+            href="/tutor/register"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+          >
+            Sign up as a tutor
           </Link>
         </div>
-
-        <div className="text-center space-y-3">
-          <span className="bg-tm-tint-red text-tm-red-hover px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider">Help Center</span>
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Frequently Asked Questions</h1>
-          <p className="text-xs sm:text-sm text-gray-500 max-w-lg mx-auto">Got questions about how TutorMint verifies educators and connects families? Find your answers below.</p>
-        </div>
-
-        <div className="space-y-4 pt-4">
-          {faqs.map((faq, idx) => (
-            <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-2">
-              <h3 className="text-sm font-black text-gray-900 flex items-center gap-2">
-                <span className="text-tm-red-hover">Q:</span> {faq.q}
-              </h3>
-              <p className="text-xs text-gray-600 leading-relaxed pl-5">
-                {faq.a}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-gray-900 text-white p-8 rounded-3xl text-center space-y-4 mt-8">
-          <h3 className="text-base font-black">Still have questions?</h3>
-          <p className="text-xs text-gray-500 max-w-md mx-auto">Our support team is always ready to assist you via WhatsApp or our support portal.</p>
-          <div className="flex justify-center gap-3">
-            <Link href="/support" className="px-5 py-2.5 bg-tm-red text-white text-xs font-bold rounded-xl hover:bg-tm-red-hover transition-colors">Visit Support Center</Link>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer */}
-    </div>
-  );
+      </section>
+    </main>
+  )
 }

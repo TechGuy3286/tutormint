@@ -50,6 +50,22 @@ export default async function ParentPackagesPage({
           </p>
         </header>
 
+        {/* What a parent is actually comparing this against. An academy's cut
+            is the real alternative in Lahore and Karachi, and it is a number
+            they can check against their own last hire. */}
+        <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed sm:p-5">
+          <p className="text-slate-700">
+            <strong className="text-tm-navy">An academy takes half your first month&apos;s fee.</strong>{' '}
+            On a Rs 20,000 tuition that is Rs 10,000 gone before the first class, and many keep a
+            share every month after. Featured is Rs 999 a month and you keep every rupee of what
+            you pay the tutor — we never touch the fee and never take a commission.
+          </p>
+          <p className="text-gray-500">
+            Browsing, messaging tutors, demo requests and five job posts a month stay free once
+            your CNIC and address are approved. Memberships are not refundable.
+          </p>
+        </section>
+
         <PackagesTable
           plans={(data ?? []) as PlanRow[]}
           audience="parent"

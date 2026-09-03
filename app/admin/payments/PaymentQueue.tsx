@@ -26,6 +26,8 @@ export type QueuePayment = {
   method: string | null
   ourReference: string | null
   payerReference: string | null
+  /** The campaign this member arrived on, source · medium · campaign. */
+  cameFrom: string | null
   hasScreenshot: boolean
   status: 'pending' | 'approved' | 'rejected'
   rejectionReason: string | null
@@ -157,6 +159,10 @@ export default function PaymentQueue({
                   <Cell label="Submitted" value={formatDateTime(p.createdAt)} />
                   <Cell label="Our reference" value={p.ourReference ?? '—'} mono />
                   <Cell label="Their transaction" value={p.payerReference ?? '—'} mono />
+                  {/* Which ad produced a payment. This is the whole reason
+                      UTM is captured -- clicks are cheap to count and tell you
+                      nothing about which campaign is worth its budget. */}
+                  <Cell label="Came from" value={p.cameFrom ?? 'Direct'} />
                 </dl>
 
                 {p.rejectionReason && (

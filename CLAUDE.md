@@ -1278,6 +1278,137 @@ stays populated until the owner says otherwise.
   them as base64 `data:` URIs, so a rule written about the image file would have
   caught the wrong rows.
 
+## Tutor signup was broken by migration 35 — the lesson (3 Sep 2026)
+
+**A CHECK constraint validates existing ROWS and says nothing about the
+column's DEFAULT.** Migration 35 normalised `tutor_profiles.teaching_mode` and
+added `CHECK (teaching_mode is null or in ('in_person','online','both'))`. It
+converted all 17 rows correctly and `ALTER TABLE ... ADD CONSTRAINT` reported
+nothing wrong, because at that instant every row satisfied it. The column
+default was still `'Physical'::text`.
+
+`handle_new_user()` inserts a `tutor_profiles` row for every tutor who signs
+up, without naming `teaching_mode`. The default applied, the CHECK rejected it,
+the trigger raised, and the member saw:
+
+```
+Database error creating new user
+```
+
+**Every tutor registration failed** from the moment migration 35 was applied
+until migration 39 dropped the default. Parent registration was unaffected —
+the trigger only writes `tutor_profiles` for tutors — which is exactly why the
+smoke test missed it: every check signed in as an existing seed account and not
+one of them created a new tutor. Zero accounts were lost, and that is luck
+rather than mitigation.
+
+Two rules come out of it, both cheap:
+
+- After adding a constraint, check the column's **DEFAULT**, its triggers, and
+  any function that writes it. The rows are the easy half.
+- A smoke test that only signs in as existing fixtures cannot see a broken
+  signup. **Creating an account is part of smoke-testing a deploy**, for both
+  roles, because the two roles run different code in the same trigger.
+
+Migration 39 drops the default rather than replacing it: migration 35's own
+reasoning says the column stays nullable because teaching mode is a
+profile-completion item, so "not answered yet" is a state a new tutor is
+entitled to. Defaulting them would invent an answer and tick a checklist item
+nobody completed.
+
+## SEO foundations, part 1 (3 Sep 2026)
+
+**Legal identity.** `lib/company.ts` reads the entity from `app_settings`
+(migration 38) with the placeholders as fallbacks. `/terms`, `/privacy` and
+`/about` all render the same block from one definition — `entitySection()` in
+`components/LegalDoc.tsx` — because two copies is how a Terms page and a
+Privacy page end up naming different registered offices. The SECP number and
+NTN render as `{{COMPANY_REG_NO}}` and `{{COMPANY_NTN}}` until an admin fills
+the row in, with no deploy. Neither document cites a statute; both describe
+actual practice.
+
+The **cost** of that: the three pages read `app_settings` through the
+cookie-backed client, so they are dynamic rather than static now. With the
+Navbar already having made 71 of 73 routes dynamic, this changes nothing
+material — but it is why they are not prerendered.
+
+**Schema.** `lib/seo.ts` is the one place: `pageTitle()`, `pageDescription()`,
+and the Organization / WebSite / Person+Service / FAQPage builders.
+
+- `name: "TutorMint"` and `legalName: "Tutor Mint (Private) Limited"` are
+  deliberately different — that is the brand rule, expressed in the vocabulary
+  a search engine already has for it.
+- **`identifier` is emitted only once the CUIN is real.** A placeholder is
+  honest on a page a person reads and dishonest in a machine-readable claim.
+- **`sameAs` carries only the profiles that exist.** X and TikTok emit nothing.
+  A `sameAs` pointing at a guessed handle is an identity claim about a
+  stranger's account.
+- Person + Service assert nothing the profile does not hold: no
+  `aggregateRating` without real reviews, no `offers` without a rate.
+- The FAQ's questions and answers come from `lib/faqContent.ts` so the JSON-LD
+  and the visible page are **literally the same strings**. Structured data that
+  says what the page does not is a manual-action risk, and it is how a promise
+  nobody made reaches a search result.
+
+**The title carries the promise**, not the description: a title is shown almost
+always and a description is frequently rewritten. Applied to the public
+surfaces only — dashboard titles are tab labels for members who have already
+converted, and "verified, no commission" on "My applications" is an
+advertisement aimed at the wrong person.
+
+**THE WORDING RULE, for the FAQ, both packages pages and the upgrade sheet:**
+
+> We put tutors in front of parents searching for their subject in their area.
+> We never say "we will get you tuitions".
+
+With no refunds, "we will get you tuitions" is a promise we cannot keep for
+every tutor who pays — and the ones it fails are exactly the ones who will ask
+for their money back and be told no. Visibility is what is sold, so visibility
+is what is described.
+
+The comparisons are stated in rupees because "great value" persuades nobody
+doing arithmetic: an academy keeping half of a Rs 20,000 first month is
+Rs 10,000, against Rs 999; a boosted post in one city costs more in a week than
+Rs 199 does in a month. The upgrade sheet carries it **once, keyed on
+audience**, rather than pasted into ten gate bodies — and only when a plan is
+actually being offered, because an academy's cut on a suspension notice reads
+as a sales pitch aimed at somebody who has just been told their account is
+closed.
+
+**/about and /faq were describing a product we do not have.** A "live 60-second
+video introduction" (it is uploaded and reviewed, not live), a "matching and
+support team" that connects parents to tutors (nobody does that), and "starting
+bonus application credits" (there are none). Rule 7 forbids mock data in
+shipped pages; an invented product claim is the same defect wearing a suit, and
+a help page that describes the wrong product is worse than none.
+
+### UTM, first-touch (migration 38)
+
+Captured in `proxy.ts` on the first request, **only when the cookie is absent**.
+Last-touch would credit the brand search somebody makes after an ad has already
+done its work, which is how brand search comes to look like the best channel.
+30 days, httpOnly, first-party; no third-party pixel.
+
+Written to `profiles` **once at signup and never updated**, and copied onto
+`payments` at checkout — read from the profile, not the cookie, because the
+cookie expires in 30 days and a tutor may upgrade months later. Two columns
+answer two questions: where did this person come from, and what was the
+attribution on the money we banked.
+
+`/admin/payments` and `/admin/users/[id]` both show it. **Verbatim**, not
+title-cased: `Meta · Cpc · Tutors-Lahore-Sep` is not a campaign anybody can
+search for, and an admin comparing the screen to a spend report would find
+nothing. That is why `Fact` grew a `verbatim` prop.
+
+### The masking finding — not a failure
+
+`+92 300 1234567` rendered unmasked in the Ali ↔ Ayesha thread, and **that is
+correct**. Ayesha Siddiqui sent it; she is on `parent_featured` and Ali Raza is
+on tutor `featured`, so both rows have `can_view_contact = true` on active
+subscriptions. `pairMayShareContact()` therefore returns true. The rule is
+about the PAIR, not the reader, and this pair has bought exactly this. Masking
+was left alone.
+
 ## AI-assisted job posting (3 Sep 2026)
 
 `/parent/dashboard/post-job` is one card with three numbered steps, not four

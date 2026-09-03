@@ -206,6 +206,11 @@ const PAIRS: Pair[] = [
   { fg: 'red', bg: 'tintRed', where: 'inbox suspended composer notice' },
   { fg: 'goldInk', bg: 'tintGold', where: 'inbox masked-number notice' },
 
+  // Own message bubbles in the conversation. Sender is told apart by
+  // alignment, colour AND a squared corner -- three signals, because two of
+  // them are colour-dependent and the third is not.
+  { fg: 'navy', bg: 'tintNavy', where: 'inbox own message bubble' },
+
   // The social banner (next/og). Its colours are literals from lib/brand.ts,
   // so they are invisible to a className grep and have to be listed by hand.
   { fg: 'black', bg: 'white', where: 'social banner wordmark, light template' },

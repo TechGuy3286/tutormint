@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { UTM_COOKIE, decodeUtm, hasUtm } from '@/lib/utm'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile, syntheticEmail, looksLikeEmail } from '@/lib/phone'
@@ -157,12 +159,18 @@ export async function POST(request: Request) {
   // The trigger writes phone_number as '' because until now the number was
   // collected later, during profile completion. Set the real one, in the
   // canonical form lib/phone defines, and raise the gate.
+  // First-touch attribution, written once, here, and never updated. The
+  // cookie was set by proxy.ts on the visit that brought them; by the time
+  // they reach this route it may be days old, which is the whole point.
+  const utm = decodeUtm((await cookies()).get(UTM_COOKIE)?.value ?? null)
+
   const { error: profileError } = await admin
     .from('profiles')
     .update({
       phone_number: msisdn,
       email: authEmail,
       phone_gate_required: true,
+      ...(hasUtm(utm) ? utm : {}),
     })
     .eq('id', userId)
 

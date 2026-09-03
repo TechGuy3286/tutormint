@@ -88,11 +88,29 @@ export default async function TutorPackagesPage({
               month.
             </p>
           )}
+          {/* The comparison a tutor is actually weighing, in rupees. "Great
+              value" persuades nobody doing arithmetic, and the two real
+              alternatives are running your own ads and giving an academy a cut.
+
+              WORDING RULE: we sell VISIBILITY, never tuitions. "We will get
+              you tuitions" is a promise we cannot keep for every tutor who
+              pays — and with no refunds, the ones it fails are the ones who
+              will ask for their money back and be told no. */}
           <p className="text-slate-700">
-            Verified costs less than one hour of tuition. One hire pays for a year.
+            <strong className="text-tm-navy">You are already paying to be found.</strong> A boosted
+            post in one city costs more in a week than Rs 199 does in a month, and it stops the day
+            you stop paying. Rs 199 puts you in front of parents who are already searching for your
+            subject in your area — no website, no ad account, no daily budget.
+          </p>
+          <p className="text-slate-700">
+            <strong className="text-tm-navy">An academy keeps half your first month.</strong> On a
+            Rs 20,000 tuition that is Rs 10,000 out of your first month, every time, and many keep
+            a share of every month after. TutorMint takes 0% of what you earn, forever — the
+            membership is the whole price.
           </p>
           <p className="text-gray-500">
-            No commission on anything you earn — what a parent pays you is yours.
+            Being listed is what a membership buys. Whether a parent picks you depends on your
+            profile, your reply and your experience. Memberships are not refundable.
           </p>
         </section>
 

@@ -18,6 +18,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { UTM_COOKIE, UTM_MAX_AGE_SECONDS, encodeUtm, readUtmFromUrl } from '@/lib/utm'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
 // return screen). Every page under it reads the signed-in member's own
@@ -65,8 +66,36 @@ function withPath(request: NextRequest): Headers {
   return headers
 }
 
+/**
+ * First-touch acquisition capture.
+ *
+ * Set only when the cookie is ABSENT. A member who arrives from an ad, leaves,
+ * and returns a week later through a brand search is still credited to the ad
+ * — last-touch would credit the search, which is how brand search reliably
+ * comes to look like the best-performing channel when it is really where
+ * people go once an ad has already done its work.
+ *
+ * Done here rather than in a client component because it must work on the very
+ * first byte of the very first page, before any JavaScript has run and
+ * whichever page the ad pointed at. httpOnly: nothing in the browser needs to
+ * read it, and the value is attacker-supplied.
+ */
+function captureUtm(request: NextRequest, response: NextResponse): void {
+  if (request.cookies.has(UTM_COOKIE)) return
+  const utm = readUtmFromUrl(request.nextUrl)
+  if (!utm) return
+  response.cookies.set(UTM_COOKIE, encodeUtm(utm), {
+    maxAge: UTM_MAX_AGE_SECONDS,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  })
+}
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: withPath(request) } })
+  captureUtm(request, response)
 
   const supabaseKey =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
@@ -88,6 +117,11 @@ export async function proxy(request: NextRequest) {
         // Rebuilt with the same forwarded path — dropping it here would make
         // the header present only on requests that did not refresh a token.
         response = NextResponse.next({ request: { headers: withPath(request) } })
+        // Re-applied for the same reason the path header is: this rebuilds the
+        // response, and anything set on the old one is gone. Dropping it here
+        // would lose attribution on exactly the requests that refreshed a
+        // token, which is a subset nobody would think to test.
+        captureUtm(request, response)
         cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
       },
     },

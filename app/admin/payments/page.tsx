@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { describeUtm } from '@/lib/utm'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import PaymentQueue, { type QueuePayment, type SubscriptionRow } from './PaymentQueue'
@@ -36,7 +37,7 @@ export default async function AdminPaymentsPage({
   let paymentQuery = admin
     .from('payments')
     .select(
-      'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at',
+      'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign',
     )
     .order('created_at', { ascending: false })
     .limit(100)
@@ -102,6 +103,7 @@ export default async function AdminPaymentsPage({
     method: (p.method as string) ?? null,
     ourReference: (p.provider_ref as string) ?? null,
     payerReference: (p.reference as string) ?? null,
+    cameFrom: describeUtm(p as Parameters<typeof describeUtm>[0]),
     hasScreenshot: !!p.screenshot_path,
     status: p.status as QueuePayment['status'],
     rejectionReason: (p.rejection_reason as string) ?? null,

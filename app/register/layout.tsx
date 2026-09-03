@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { pageTitle } from '@/lib/seo'
 
 // Metadata for /register.
 //
@@ -10,7 +11,7 @@ import type { Metadata } from 'next'
 //
 
 export const metadata: Metadata = {
-  title: 'Create your account | TutorMint',
+  title: pageTitle('Create your account'),
   description:
     'Join TutorMint as a tutor, a parent, or a school or academy. Browsing is free — an account is only needed to apply, post or message.',
   robots: { index: false, follow: true },

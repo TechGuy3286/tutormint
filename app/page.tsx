@@ -21,6 +21,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Search, ClipboardList } from 'lucide-react'
 import WhatsAppBubble from '@/components/WhatsAppBubble'
+import { getCompany } from '@/lib/company'
+import { getSupportContact } from '@/lib/support'
+import { jsonLdScript, organizationJsonLd, webSiteJsonLd } from '@/lib/seo'
 
 export async function generateMetadata(): Promise<Metadata> {
   const title = "Hire Trusted, Degree-Verified Tutors & Teachers | TutorMint"
@@ -43,9 +46,27 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Organization + WebSite, on the page that is the site's identity. Metadata
+  // is one of the changes CLAUDE.md permits on this locked page: JSON-LD is
+  // invisible, adds no element to the layout and shifts nothing. Not a single
+  // rendered pixel below is touched.
+  //
+  // The company facts and the support number both come from app_settings so
+  // they can be corrected without a deploy, with the env vars as the fallback
+  // a fresh checkout needs. A phone number hardcoded in page source is exactly
+  // what rule 7 exists to stop, and a `telephone` in structured data is a
+  // claim search engines will surface — so an unconfigured number emits
+  // nothing rather than something approximate.
+  const [company, support] = await Promise.all([getCompany(), getSupportContact()])
+
   return (
     <div className="bg-tm-bg">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={jsonLdScript(organizationJsonLd(company, support.whatsapp))}
+      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(webSiteJsonLd())} />
       <section className="mx-auto flex max-w-5xl flex-col items-center px-4 pt-5 pb-8 text-center sm:px-6 sm:pt-6 sm:pb-4">
         {/* Eyebrow pill */}
         <p className="rounded-full border border-tm-green-deep/20 bg-tm-tint-green px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-navy sm:text-xs sm:tracking-[0.18em]">
