@@ -107,7 +107,14 @@ export default function JobCard({
         <div className="space-y-3">
           <div className="space-y-1 pr-16 sm:pr-20">
             <h3 className="text-base font-black leading-snug text-tm-navy sm:text-lg">
-              <Link href={detailHref} className="inline-block py-0.5 hover:underline">
+              {/* min-h-[44px], not py-0.5: the title is the thing people tap on
+                  a card, and at a 22px line box it was half the minimum target.
+                  inline-flex rather than block so a two-line title still wraps
+                  and the box grows with it. */}
+              <Link
+                href={detailHref}
+                className="inline-flex min-h-[44px] items-center py-1 hover:underline"
+              >
                 {job.title}
               </Link>
             </h3>

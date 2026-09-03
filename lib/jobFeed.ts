@@ -217,19 +217,11 @@ export async function matchingJobsForTutor(
   return decorate((data ?? []) as Record<string, unknown>[])
 }
 
-/** Every open job, featured first. Used by /tutor/dashboard/jobs. */
-export async function openJobs(limit = 50): Promise<JobCardData[]> {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('jobs')
-    .select(JOB_COLUMNS)
-    .eq('status', 'open')
-    .order('is_featured', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(limit)
-
-  return decorate((data ?? []) as Record<string, unknown>[])
-}
+// openJobs() lived here: one un-paged query capped at 50 rows, feeding
+// /tutor/dashboard/jobs. It made that page 18,672px tall on production, and
+// the cap meant the 51st open tuition was simply invisible with nothing saying
+// so. It is gone -- the board is browseJobs with no filters set, which already
+// has the keyset cursor, the id tiebreaker and the exact count.
 
 export type JobFilters = {
   masterId: number | null
@@ -238,6 +230,22 @@ export type JobFilters = {
   budgetMin: number | null
   budgetMax: number | null
   q: string | null
+}
+
+/**
+ * No filters at all — the whole open board.
+ *
+ * Named rather than written out at each call site so that adding a field to
+ * JobFilters is a type error in one place instead of a filter silently
+ * defaulting to undefined in three.
+ */
+export const NO_JOB_FILTERS: JobFilters = {
+  masterId: null,
+  city: null,
+  mode: null,
+  budgetMin: null,
+  budgetMax: null,
+  q: null,
 }
 
 /**

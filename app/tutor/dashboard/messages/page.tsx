@@ -28,15 +28,24 @@ export default async function TutorMessagesPage() {
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Messages</h1>
         </header>
 
+        {/* The upsell was an inline "Premium" link inside this sentence: a
+            22px tap target, and one that cannot simply be padded to 44px
+            without breaking the line box it sits in. It is a control of its
+            own now — the sentence reads the same and the target is real. */}
         {!ent.canInitiateMessage && (
-          <p className="flex items-start gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-slate-700">
-            <Info size={14} className="mt-px shrink-0 text-gray-500" />
-            Your plan lets you reply to any parent who writes to you, and apply for jobs.
-            <Link href="/tutor/packages?plan=premium" className="font-bold text-tm-red underline">
-              Premium
-            </Link>{' '}
-            lets you start a conversation yourself.
-          </p>
+          <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="flex items-start gap-2 text-[11px] leading-relaxed text-slate-700">
+              <Info aria-hidden size={14} className="mt-px shrink-0 text-gray-500" />
+              Your plan lets you reply to any parent who writes to you, and apply for jobs.
+              Premium lets you start a conversation yourself.
+            </p>
+            <Link
+              href="/tutor/packages?plan=premium"
+              className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+            >
+              See Premium
+            </Link>
+          </div>
         )}
 
         <ThreadList

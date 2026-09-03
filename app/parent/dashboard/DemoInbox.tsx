@@ -91,10 +91,16 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
           const who = role === 'parent' ? d.tutorName : (d.parentName ?? 'A parent')
           return (
             <li key={d.id} className="space-y-2 rounded-xl bg-tm-bg p-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
+              {/* items-center, not items-baseline: the name is now a 44px
+                  target and a baseline would leave the status floating at the
+                  top of it. */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-black text-tm-navy">
                   {role === 'parent' && d.tutorSlug ? (
-                    <Link href={`/tutor/${d.tutorSlug}`} className="hover:underline">
+                    <Link
+                      href={`/tutor/${d.tutorSlug}`}
+                      className="inline-flex min-h-[44px] items-center hover:underline"
+                    >
                       {who}
                     </Link>
                   ) : (

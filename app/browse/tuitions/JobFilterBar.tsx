@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { CITIES, TEACHING_MODES } from '@/lib/locations'
 import Typeahead from '@/components/search/Typeahead'
+import { BUDGET_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
 import {
   fetchLevels,
   fetchGradesForLevel,
@@ -110,8 +111,8 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
   const panel = (
     <div className="space-y-2 lg:grid lg:grid-cols-5 lg:gap-2 lg:space-y-0">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:contents">
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Category</span>
+        <label className="block">
+          <span className="sr-only">Category</span>
           <select
             className={FIELD}
             value={category}
@@ -126,8 +127,8 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             ))}
           </select>
         </label>
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Level</span>
+        <label className="block">
+          <span className="sr-only">Level</span>
           <select className={FIELD} value={level} disabled={!category} onChange={(e) => chooseLevel(e.target.value)}>
             <option value="">Any level</option>
             {levels.map((l) => (
@@ -135,8 +136,8 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             ))}
           </select>
         </label>
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Subject</span>
+        <label className="block">
+          <span className="sr-only">Subject</span>
           <select
             className={FIELD}
             defaultValue=""
@@ -151,9 +152,9 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:contents">
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">City</span>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:contents">
+        <label className="block">
+          <span className="sr-only">City</span>
           <select className={FIELD} value={values.city} onChange={(e) => apply({ city: e.target.value })}>
             <option value="">Any city</option>
             {CITIES.map((c) => (
@@ -161,8 +162,8 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             ))}
           </select>
         </label>
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Mode</span>
+        <label className="block">
+          <span className="sr-only">Mode</span>
           <select className={FIELD} value={values.mode} onChange={(e) => apply({ mode: e.target.value })}>
             <option value="">Any mode</option>
             {TEACHING_MODES.map((m) => (
@@ -170,25 +171,24 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             ))}
           </select>
         </label>
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Budget from</span>
-          <input
-            type="number"
-            inputMode="numeric"
+        {/* One band rather than two number inputs — same reasoning as the
+            tutor bar. budgetMin and budgetMax still travel in the URL. */}
+        <label className="block">
+          <span className="sr-only">Monthly budget</span>
+          <select
             className={FIELD}
-            defaultValue={values.budgetMin}
-            onBlur={(e) => e.target.value !== values.budgetMin && apply({ budgetMin: e.target.value })}
-          />
-        </label>
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Budget up to</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            className={FIELD}
-            defaultValue={values.budgetMax}
-            onBlur={(e) => e.target.value !== values.budgetMax && apply({ budgetMax: e.target.value })}
-          />
+            value={bandFor(values.budgetMin, values.budgetMax)}
+            onChange={(e) => {
+              const { min, max } = bandRange(e.target.value)
+              apply({ budgetMin: min || null, budgetMax: max || null })
+            }}
+          >
+            {BUDGET_BANDS.map((b) => (
+              <option key={b.value} value={b.value}>
+                {b.label}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
     </div>
@@ -227,8 +227,12 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
           {values.subjectLabel && <Chip label={values.subjectLabel} onClear={() => apply({ subject: null })} />}
           {values.city && <Chip label={values.city} onClear={() => apply({ city: null })} />}
           {values.mode && <Chip label={values.mode} onClear={() => apply({ mode: null })} />}
-          {values.budgetMin && <Chip label={`from Rs.${values.budgetMin}`} onClear={() => apply({ budgetMin: null })} />}
-          {values.budgetMax && <Chip label={`to Rs.${values.budgetMax}`} onClear={() => apply({ budgetMax: null })} />}
+          {(values.budgetMin || values.budgetMax) && (
+            <Chip
+              label={feeChipLabel(values.budgetMin, values.budgetMax)}
+              onClear={() => apply({ budgetMin: null, budgetMax: null })}
+            />
+          )}
           {values.q && <Chip label={`"${values.q}"`} onClear={() => apply({ q: null })} />}
           <button
             type="button"

@@ -113,7 +113,9 @@ export default function Footer() {
             heading="Trust & Legal"
             links={[
               { label: 'About Us', href: '/about' },
-              { label: 'Blog & Guides', href: '/blog' },
+              // 'Blog & Guides' pointed at /blog, which rendered two invented
+              // articles with invented dates. The route is gone until the CMS
+              // in T9 (9.3) gives it real posts — see CLAUDE.md.
               { label: 'FAQs', href: '/faq' },
               { label: 'Privacy Policy', href: '/privacy' },
               { label: 'Terms of Service', href: '/terms' },

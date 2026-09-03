@@ -110,7 +110,7 @@ Hired/closed status lives in `jobs.status` + `jobs.hired_tutor_id` — never loc
 
 ## Pages to keep (canonical) and delete
 
-Keep: `/`, `/browse/tutors` (+`/browse/tutors/[id]`), `/browse/tuitions`, `/tutor/[slug]` public profile, `/login`, `/register`, `/forgot-password`, `/verify-phone`, `/tutor/claim`, `/suspended`, `/account/notifications`, `/tutor/dashboard/*` (`settings`, `jobs`, `messages`, `notifications`), `/parent/dashboard/*`, `/chat/[jobId]`, `/tutor/packages`, `/parent/packages`, `/pay/simulator/[ref]` (non-production), `/admin/*`, `/about`, `/faq`, `/privacy`, `/terms`, `/support`, `/blog`, `/review`. T9 adds `/tutors/[city]/[subject]` and `/tuitions/[city]/[subject]`.
+Keep: `/`, `/browse/tutors` (+`/browse/tutors/[id]`), `/browse/tuitions`, `/tutor/[slug]` public profile, `/login`, `/register`, `/forgot-password`, `/verify-phone`, `/tutor/claim`, `/suspended`, `/account/notifications`, `/tutor/dashboard/*` (`settings`, `jobs`, `messages`, `notifications`), `/parent/dashboard/*`, `/chat/[jobId]`, `/tutor/packages`, `/parent/packages`, `/pay/simulator/[ref]` (non-production), `/admin/*`, `/about`, `/faq`, `/privacy`, `/terms`, `/support`, `/review`. T9 adds `/tutors/[city]/[subject]` and `/tuitions/[city]/[subject]`.
 
 `/browse` → redirect to `/browse/tutors`. Homepage keeps the two buttons: **Find Tutors / Teachers** → `/browse/tutors`, **Find Tuitions / Jobs** → `/browse/tuitions`.
 
@@ -1170,3 +1170,52 @@ this work and 1040px after the first pass. At 390x844 the document is 1272px
 fold; the remaining scroll is footer, which cannot compress further without
 dropping below 44px touch targets on thirteen links. No copy changed and no type
 size was reduced — every change is a padding, a margin or a flex direction.
+
+## `/blog` is withdrawn until 9.3 (3 Sep 2026)
+
+`app/blog/` rendered two hardcoded articles — "Why Camera Verification Matters
+for Home Tutors" and "Top 5 Tips for Preparing Your Child for O/A-Level Exams",
+both with invented August 2026 dates and neither corresponding to anything
+anybody wrote. That is mock data on a live public page, which rule 7 forbids,
+and it was worse than a placeholder: it made a factual claim about how the
+platform verifies tutors ("live video verification") on a page a parent could
+reach from the footer of every screen.
+
+The route is deleted, so `/blog` now 404s through the branded not-found page.
+Its footer link and its `sitemap.ts` entry are gone with it, so nothing on the
+site points at it and nothing invites a crawler to.
+
+**It returns when 9.3 ships**, not before. The blog CMS in that task brings
+`posts`, `post_revisions`, `/admin/blog`, and a `/blog` index reading real rows;
+at that point restore the footer link and the sitemap entry in the same change
+that makes the route real. Until then a 404 is the honest answer — an empty
+"coming soon" page is another thing to keep true, and a redirect would send
+somebody looking for articles to a page that has none.
+
+This is deliberately NOT covered by the "redirect stubs that must survive" rule
+above. That rule protects `/tutor/register` and the two login stubs because live
+WhatsApp referral links point at them; no such link points at `/blog`.
+
+## Tutor dashboard band order — resolved, do not re-litigate (3 Sep 2026)
+
+Two rules in this document met head-on and both are still true as written:
+
+* the conversion rules say the profile-view teaser sits at the **top** of a free
+  tutor's dashboard, because it is the primary upsell surface;
+* the dashboard restructure says **NEEDS YOU** is the first band and always
+  renders, even when it is empty.
+
+The resolved order is **NEEDS YOU first, the profile-view teaser immediately
+below it**, and it is what `app/tutor/dashboard/page.tsx` does.
+
+The reasoning, so it is not reopened: NEEDS YOU is short — one line per item —
+and for a free tutor the item it almost always holds is "your profile is N%
+complete, parents cannot find you". That is the *same argument* the teaser
+makes, except actionable, and it is the thing that has to be fixed before the
+teaser's promise can pay off at all. The teaser keeps the highest position any
+band can have below it, which is as close to the letter of the conversion rule
+as the two allow.
+
+Neither rule was edited to fit. If the owner would rather have the teaser
+literally first, that is a one-line move in that file — but it needs to be an
+instruction, because it silently costs the blocking item its position.

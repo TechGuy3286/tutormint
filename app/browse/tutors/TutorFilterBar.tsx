@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { CITIES, CITY_AREAS, TEACHING_MODES, GENDERS } from '@/lib/locations'
 import Typeahead from '@/components/search/Typeahead'
+import { FEE_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
 import {
   fetchLevels,
   fetchGradesForLevel,
@@ -137,8 +138,8 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
   const panel = (
     <div className="space-y-2 lg:grid lg:grid-cols-5 lg:gap-2 lg:space-y-0">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:contents">
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Category</span>
+        <label className="block">
+          <span className="sr-only">Category</span>
           <select
             className={FIELD}
             value={category}
@@ -156,8 +157,8 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           </select>
         </label>
 
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Level</span>
+        <label className="block">
+          <span className="sr-only">Level</span>
           <select
             className={FIELD}
             value={level}
@@ -173,8 +174,8 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           </select>
         </label>
 
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Subject</span>
+        <label className="block">
+          <span className="sr-only">Subject</span>
           <select
             className={FIELD}
             defaultValue=""
@@ -192,8 +193,8 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:contents">
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">City</span>
+        <label className="block">
+          <span className="sr-only">City</span>
           <select
             className={FIELD}
             value={values.city}
@@ -208,8 +209,8 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           </select>
         </label>
 
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Area</span>
+        <label className="block">
+          <span className="sr-only">Area</span>
           <select
             className={FIELD}
             value={values.area}
@@ -225,8 +226,8 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           </select>
         </label>
 
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Mode</span>
+        <label className="block">
+          <span className="sr-only">Mode</span>
           <select className={FIELD} value={values.mode} onChange={(e) => apply({ mode: e.target.value })}>
             <option value="">Any mode</option>
             {TEACHING_MODES.map((m) => (
@@ -237,14 +238,14 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           </select>
         </label>
 
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Gender</span>
+        <label className="block">
+          <span className="sr-only">Gender</span>
           <select
             className={FIELD}
             value={values.gender}
             onChange={(e) => apply({ gender: e.target.value })}
           >
-            <option value="">Any</option>
+            <option value="">Any gender</option>
             {GENDERS.map((g) => (
               <option key={g.value} value={g.value}>
                 {g.label}
@@ -254,30 +255,27 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 lg:contents">
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
-            Fee from (PKR)
-          </span>
-          <input
-            type="number"
-            inputMode="numeric"
+      <div className="lg:contents">
+        {/* One band, not two number inputs. The pair of inputs asked a reader
+            to know the going rate before they had seen a single tutor, and
+            cost two taps, a numeric keyboard and a blur to express one idea.
+            feeMin and feeMax are still what travels in the URL. */}
+        <label className="block">
+          <span className="sr-only">Monthly fee</span>
+          <select
             className={FIELD}
-            defaultValue={values.feeMin}
-            onBlur={(e) => e.target.value !== values.feeMin && apply({ feeMin: e.target.value })}
-          />
-        </label>
-        <label className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
-            Fee up to (PKR)
-          </span>
-          <input
-            type="number"
-            inputMode="numeric"
-            className={FIELD}
-            defaultValue={values.feeMax}
-            onBlur={(e) => e.target.value !== values.feeMax && apply({ feeMax: e.target.value })}
-          />
+            value={bandFor(values.feeMin, values.feeMax)}
+            onChange={(e) => {
+              const { min, max } = bandRange(e.target.value)
+              apply({ feeMin: min || null, feeMax: max || null })
+            }}
+          >
+            {FEE_BANDS.map((b) => (
+              <option key={b.value} value={b.value}>
+                {b.label}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
     </div>
@@ -323,8 +321,12 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           {values.area && <Chip label={values.area} onClear={() => apply({ area: null })} />}
           {values.mode && <Chip label={values.mode} onClear={() => apply({ mode: null })} />}
           {values.gender && <Chip label={values.gender} onClear={() => apply({ gender: null })} />}
-          {values.feeMin && <Chip label={`from Rs.${values.feeMin}`} onClear={() => apply({ feeMin: null })} />}
-          {values.feeMax && <Chip label={`to Rs.${values.feeMax}`} onClear={() => apply({ feeMax: null })} />}
+          {(values.feeMin || values.feeMax) && (
+            <Chip
+              label={feeChipLabel(values.feeMin, values.feeMax)}
+              onClear={() => apply({ feeMin: null, feeMax: null })}
+            />
+          )}
           {values.q && <Chip label={`"${values.q}"`} onClear={() => apply({ q: null })} />}
           <button
             type="button"

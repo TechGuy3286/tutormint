@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  let applied: string[] = []
+  let applied = new Set<string>()
   if (user && jobs.length > 0) {
     const ent = await getEntitlements(user.id)
     if (ent.audience === 'tutor') {
@@ -56,9 +56,16 @@ export async function GET(request: Request) {
           'job_id',
           jobs.map((j) => j.id),
         )
-      applied = (data ?? []).map((a) => a.job_id as string)
+      applied = new Set((data ?? []).map((a) => a.job_id as string))
     }
   }
 
-  return NextResponse.json({ items: jobs, cursor: nextCursor, applied })
+  // Merged ONTO each item, not returned beside them. useInfinite appends
+  // page.items and reads nothing else off the response, so the sibling
+  // `applied` array this used to send was dropped on the floor -- every card
+  // after the first window offered Apply to a tutor who had already applied.
+  return NextResponse.json({
+    items: jobs.map((j) => ({ ...j, applied: applied.has(j.id) })),
+    cursor: nextCursor,
+  })
 }

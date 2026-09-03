@@ -4,8 +4,9 @@ import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
-import { openJobs } from '@/lib/jobFeed'
+import { browseJobs, NO_JOB_FILTERS } from '@/lib/jobFeed'
 import JobCard from '@/components/JobCard'
+import MoreOpenJobs from './MoreOpenJobs'
 import MyApplications, { type MyApplication } from './MyApplications'
 
 // Every open tuition, featured first, plus the tutor's own applications.
@@ -17,12 +18,21 @@ import MyApplications, { type MyApplication } from './MyApplications'
 
 export const dynamic = 'force-dynamic'
 
+const PAGE_SIZE = 12
+
 export default async function TutorJobsPage() {
   const session = await getSessionUser()
   const userId = session!.user.id
   const supabase = await createClient()
 
-  const [jobs, ent] = await Promise.all([openJobs(), getEntitlements(userId)])
+  // The first window only. This page used to render every open tuition up to
+  // a 50-row cap in one go -- 18,672px on production, and silently nothing at
+  // all beyond the 51st. The rest arrives through /api/tutor/jobs on the same
+  // keyset cursor the browse pages use.
+  const [{ jobs, total, nextCursor }, ent] = await Promise.all([
+    browseJobs(NO_JOB_FILTERS, PAGE_SIZE, 0, null),
+    getEntitlements(userId),
+  ])
 
   const { data: mine } = await supabase
     .from('applications')
@@ -67,7 +77,7 @@ export default async function TutorJobsPage() {
         <header className="space-y-1">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Open tuitions</h1>
           <p className="text-xs text-gray-500">
-            {jobs.length === 0 ? `No open tuitions right now, ${firstName}.` : `${jobs.length} open`}
+            {total === 0 ? `No open tuitions right now, ${firstName}.` : `${total} open`}
             {ent.plan ? ` · ${ent.quotaLeft} of ${ent.displayedQuota} applications left` : ''}
           </p>
         </header>
@@ -87,19 +97,26 @@ export default async function TutorJobsPage() {
               Nothing posted yet. Keep your profile complete so parents find you in search.
             </p>
           ) : (
-            <div className="space-y-3">
-              {jobs.map((job) => (
-                <div key={job.id} id={job.id} className="scroll-mt-20">
-                  <JobCard
-                    job={job}
-                    href={`/browse/tuitions?job=${job.job_tx_id ?? job.id}`}
-                    signedIn
-                    showApply
-                    applied={appliedIds.has(job.id)}
-                  />
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="space-y-3">
+                {jobs.map((job) => (
+                  <div key={job.id} id={job.id} className="scroll-mt-20">
+                    <JobCard
+                      job={job}
+                      href={`/browse/tuitions?job=${job.job_tx_id ?? job.id}`}
+                      signedIn
+                      showApply
+                      applied={appliedIds.has(job.id)}
+                    />
+                  </div>
+                ))}
+              </div>
+              <MoreOpenJobs
+                initialCursor={nextCursor}
+                total={total}
+                serverCount={jobs.length}
+              />
+            </>
           )}
         </section>
       </div>
