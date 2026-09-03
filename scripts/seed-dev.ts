@@ -108,7 +108,7 @@ type TutorSpec = {
   /** Synthetic CNIC. Unique -- profiles.cnic_number carries a UNIQUE index. */
   cnic: string
   /** Spread across the three values so the browse mode filter is testable. */
-  teachingMode: 'Physical' | 'Online' | 'Both'
+  teachingMode: 'in_person' | 'online' | 'both'
   headline: string
   completion: number
   verification: 'pending' | 'verified' | 'rejected' | 'suspended'
@@ -135,28 +135,28 @@ type ParentSpec = {
 
 const TUTORS: TutorSpec[] = [
   {
-    name: 'featured-ali', teachingMode: 'Physical', gender: 'male', cnic: '35201-2000001-1', phone: '03000000001', fullName: 'Ali Raza', city: 'Lahore', area: 'DHA Phase 5',
+    name: 'featured-ali', teachingMode: 'in_person', gender: 'male', cnic: '35201-2000001-1', phone: '03000000001', fullName: 'Ali Raza', city: 'Lahore', area: 'DHA Phase 5',
     headline: 'O/A Level Physics & Mathematics specialist',
     completion: 100, verification: 'verified', videoStatus: 'approved',
     plan: 'featured', rating: 4.9, ratingCount: 27,
     subjects: [['IGCSE', 'O Levels', 'Physics'], ['IGCSE', 'O Levels', 'Mathematics'], ['IGCSE', 'AS & A Levels', 'Physics']],
   },
   {
-    name: 'premium-sara', teachingMode: 'Both', gender: 'female', cnic: '42101-2000002-2', phone: '03000000002', fullName: 'Sara Khan', city: 'Karachi', area: 'Clifton',
+    name: 'premium-sara', teachingMode: 'both', gender: 'female', cnic: '42101-2000002-2', phone: '03000000002', fullName: 'Sara Khan', city: 'Karachi', area: 'Clifton',
     headline: 'A Level Chemistry and Mathematics tutor',
     completion: 100, verification: 'verified', videoStatus: 'approved',
     plan: 'premium', rating: 4.7, ratingCount: 14,
     subjects: [['IGCSE', 'AS & A Levels', 'Chemistry'], ['IGCSE', 'AS & A Levels', 'Mathematics']],
   },
   {
-    name: 'verified-usman', teachingMode: 'Online', gender: 'male', cnic: '61101-2000003-3', phone: '03000000003', fullName: 'Usman Tariq', city: 'Islamabad', area: 'F-8',
+    name: 'verified-usman', teachingMode: 'online', gender: 'male', cnic: '61101-2000003-3', phone: '03000000003', fullName: 'Usman Tariq', city: 'Islamabad', area: 'F-8',
     headline: 'Matric Science tutor, 6 years experience',
     completion: 100, verification: 'verified', videoStatus: 'approved',
     plan: 'verified', rating: 4.5, ratingCount: 9,
     subjects: [['Matriculation', 'Grade 9 & 10 - Science', 'Physics'], ['Matriculation', 'Grade 9 & 10 - Science', 'Mathematics']],
   },
   {
-    name: 'free-hina', teachingMode: 'Both', gender: 'female', cnic: '35202-2000004-4', phone: '03000000004', fullName: 'Hina Aslam', city: 'Lahore', area: 'Gulberg',
+    name: 'free-hina', teachingMode: 'both', gender: 'female', cnic: '35202-2000004-4', phone: '03000000004', fullName: 'Hina Aslam', city: 'Lahore', area: 'Gulberg',
     headline: 'Primary years English and Maths',
     completion: 100, verification: 'verified', videoStatus: 'approved',
     plan: null, rating: 4.6, ratingCount: 11,
@@ -167,7 +167,7 @@ const TUTORS: TutorSpec[] = [
     // fixture for tier 0, and "featured > premium > verified > free" cannot be
     // demonstrated end to end. free-hina used to serve this purpose until T3.5
     // granted her Premium for testing.
-    name: 'free-nadia', teachingMode: 'Both', gender: 'female', cnic: '35201-2000007-7', phone: '03000000007', fullName: 'Nadia Iqbal', city: 'Lahore', area: 'Johar Town',
+    name: 'free-nadia', teachingMode: 'both', gender: 'female', cnic: '35201-2000007-7', phone: '03000000007', fullName: 'Nadia Iqbal', city: 'Lahore', area: 'Johar Town',
     headline: 'Matric and O Level Mathematics',
     completion: 100, verification: 'verified', videoStatus: 'approved',
     plan: null, rating: 4.3, ratingCount: 6,
@@ -176,13 +176,13 @@ const TUTORS: TutorSpec[] = [
   {
     // Deliberately incomplete: proves that a tutor below 100% is not listed,
     // however good their intentions. Do not "fix" this fixture.
-    name: 'incomplete-bilal', teachingMode: 'Both', gender: 'male', cnic: '37405-2000005-5', phone: '03000000005', fullName: 'Bilal Ahmed', city: 'Rawalpindi', area: 'Satellite Town',
+    name: 'incomplete-bilal', teachingMode: 'both', gender: 'male', cnic: '37405-2000005-5', phone: '03000000005', fullName: 'Bilal Ahmed', city: 'Rawalpindi', area: 'Satellite Town',
     headline: '', completion: 40, verification: 'pending', videoStatus: 'none',
     plan: null, rating: 0, ratingCount: 0,
     subjects: [['Matriculation', 'Grade 9 & 10 - Arts', 'Mathematics']],
   },
   {
-    name: 'suspended-omar', teachingMode: 'Physical', gender: 'male', cnic: '36302-2000006-6', phone: '03000000006', fullName: 'Omar Sheikh', city: 'Multan', area: 'Bosan Road',
+    name: 'suspended-omar', teachingMode: 'in_person', gender: 'male', cnic: '36302-2000006-6', phone: '03000000006', fullName: 'Omar Sheikh', city: 'Multan', area: 'Bosan Road',
     headline: 'Mathematics tutor',
     completion: 100, verification: 'suspended', videoStatus: 'rejected',
     plan: null, rating: 3.2, ratingCount: 4,

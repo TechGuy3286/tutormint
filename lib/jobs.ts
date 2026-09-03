@@ -31,6 +31,13 @@ export type JobInput = {
   classLevel: string | null
   city: string | null
   area: string | null
+  /**
+   * '' or null means the parent left the Mode select on "Any", which is
+   * 'both' -- coerced at both write sites rather than stored as NULL. NULL is
+   * exactly what made fifty-one jobs invisible to the mode filter before
+   * migration 35, and the column is NOT NULL now, so an explicit null would
+   * fail the insert rather than quietly reproduce the bug.
+   */
   teachingMode: string | null
   budgetPkr: number | null
   schedule: string | null
@@ -128,7 +135,7 @@ export async function createJob(
       class_level: input.classLevel,
       city: input.city,
       area: input.area ?? '',
-      teaching_mode: input.teachingMode,
+      teaching_mode: input.teachingMode || 'both',
       budget_pkr: input.budgetPkr,
       description: input.description,
       child_id: input.childId,
@@ -213,7 +220,7 @@ export async function updateJob(
       class_level: input.classLevel,
       city: input.city,
       area: input.area ?? '',
-      teaching_mode: input.teachingMode,
+      teaching_mode: input.teachingMode || 'both',
       budget_pkr: input.budgetPkr,
       description: input.description,
       child_id: input.childId,

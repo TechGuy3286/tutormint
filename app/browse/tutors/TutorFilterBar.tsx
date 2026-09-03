@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { CITIES, CITY_AREAS, TEACHING_MODES, GENDERS } from '@/lib/locations'
+import { teachingMode } from '@/lib/display'
 import Typeahead from '@/components/search/Typeahead'
 import { FEE_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
 import {
@@ -232,7 +233,7 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
             <option value="">Any mode</option>
             {TEACHING_MODES.map((m) => (
               <option key={m} value={m}>
-                {m}
+                {teachingMode(m)}
               </option>
             ))}
           </select>
@@ -319,7 +320,7 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           )}
           {values.city && <Chip label={values.city} onClear={() => apply({ city: null, area: null })} />}
           {values.area && <Chip label={values.area} onClear={() => apply({ area: null })} />}
-          {values.mode && <Chip label={values.mode} onClear={() => apply({ mode: null })} />}
+          {values.mode && <Chip label={teachingMode(values.mode) ?? values.mode} onClear={() => apply({ mode: null })} />}
           {values.gender && <Chip label={values.gender} onClear={() => apply({ gender: null })} />}
           {(values.feeMin || values.feeMax) && (
             <Chip

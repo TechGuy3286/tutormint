@@ -11,6 +11,8 @@ import TaxonomySelector from '@/components/TaxonomySelector'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import { resolveMasterIds, isLevelLeaf, labelsForMasterIds } from '@/lib/taxonomy'
 import { calculateTutorCompletion } from '@/lib/profileChecklist'
+import { TEACHING_MODES } from '@/lib/locations'
+import { teachingMode } from '@/lib/display'
 
 // Mobile-first, resumable, saves per step. Every step writes through
 // /api/profile/save (or a dedicated upload route), which recomputes
@@ -358,9 +360,11 @@ function CompleteProfileInner() {
                 <label htmlFor="mode-select" className="text-xs font-bold text-tm-navy">Teaching mode</label>
                 <select id="mode-select" value={form.teaching_mode} onChange={(e) => set('teaching_mode', e.target.value)} className={inputCls}>
                   <option value="">Select…</option>
-                  <option value="Physical">In person</option>
-                  <option value="Online">Online</option>
-                  <option value="Both">Both</option>
+                  {/* Canonical values, labelled through lib/display so the
+                      words here cannot drift from the words on a card. */}
+                  {TEACHING_MODES.map((m) => (
+                    <option key={m} value={m}>{teachingMode(m)}</option>
+                  ))}
                 </select>
               </div>
             </>

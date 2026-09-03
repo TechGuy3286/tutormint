@@ -188,6 +188,24 @@ const PAIRS: Pair[] = [
   { fg: 'greenDeep', bg: 'tintGreen', where: 'activity card disc, verification and hires' },
   { fg: 'red', bg: 'tintRed', where: 'activity card disc, moderation' },
 
+  // The inbox (components/messages/*). The selected conversation row sits on
+  // tm-tint-navy and carries three different weights of text over it -- the
+  // name, the preview and the timestamp -- so all three are listed rather than
+  // only the one that looked most at risk. The unread count is white on
+  // tm-red, and the suspended composer notice is tm-red on tm-tint-red.
+  // The selected row is tm-bg with a navy left bar rather than a tint fill.
+  // These four pairs were first written against tm-tint-navy and this gate
+  // rejected two of them -- gray-500 at 4.03:1 and tm-green-deep at 4.21:1 --
+  // which is what moved the selection to the page ground, where all four
+  // already clear AA through the rows above.
+  { fg: 'navy', bg: 'bg', where: 'inbox selected conversation, name' },
+  { fg: 'slate700', bg: 'bg', where: 'inbox selected conversation, preview' },
+  { fg: 'gray500', bg: 'bg', where: 'inbox selected conversation, timestamp' },
+  { fg: 'greenDeep', bg: 'bg', where: 'inbox selected conversation, job title' },
+  { fg: 'white', bg: 'red', where: 'inbox unread count' },
+  { fg: 'red', bg: 'tintRed', where: 'inbox suspended composer notice' },
+  { fg: 'goldInk', bg: 'tintGold', where: 'inbox masked-number notice' },
+
   // The social banner (next/og). Its colours are literals from lib/brand.ts,
   // so they are invisible to a className grep and have to be listed by hand.
   { fg: 'black', bg: 'white', where: 'social banner wordmark, light template' },

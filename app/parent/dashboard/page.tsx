@@ -10,7 +10,7 @@ import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
 import { getSessionUser } from '@/lib/auth'
 import { recentActivity } from '@/lib/dashboardFeed'
 import { getEntitlements } from '@/lib/entitlements'
-import { listThreads } from '@/lib/messaging'
+import { unreadMessageCount } from '@/lib/messaging'
 import { parentNeeds } from '@/lib/needsYou'
 import { createClient } from '@/lib/supabase/server'
 
@@ -50,7 +50,7 @@ export default async function ParentDashboardPage() {
 
   const verified = !!profile?.cnic_verified_at && !!profile?.address_verified_at
 
-  const [needs, activity, { data: jobs }, threads, { data: demos }, { data: children }] =
+  const [needs, activity, { data: jobs }, unreadMessages, { data: demos }, { data: children }] =
     await Promise.all([
       parentNeeds({
         userId,
@@ -61,7 +61,7 @@ export default async function ParentDashboardPage() {
       }),
       recentActivity({ userId, role: 'parent', limit: 8 }),
       supabase.from('jobs').select('id, status, hired_tutor_id').eq('parent_id', userId),
-      listThreads(userId),
+      unreadMessageCount(userId),
       supabase.from('demo_requests').select('id, status').eq('parent_id', userId),
       supabase.from('children').select('id').eq('parent_id', userId),
     ])
@@ -87,7 +87,8 @@ export default async function ParentDashboardPage() {
     applicants = count ?? 0
   }
 
-  const unread = threads.filter((t) => t.unread).length
+  // Real rows, not a hard-coded false. See unreadMessageCount().
+  const unread = unreadMessages
   const liveDemos = (demos ?? []).filter((d) =>
     ['requested', 'accepted'].includes(d.status as string),
   ).length

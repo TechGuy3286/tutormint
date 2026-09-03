@@ -1,25 +1,30 @@
-import Breadcrumbs from '@/components/Breadcrumbs'
-import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { getEntitlements, badgesForPlan } from '@/lib/entitlements'
-import { pairMayShareContact } from '@/lib/messaging'
-import { renderMessageBody } from '@/lib/masking'
-import BadgeRow from '@/components/badges/BadgeRow'
-import Thread from './Thread'
 
-// One conversation.
+// /messages/[threadId] is the role-neutral conversation URL, and it stays.
 //
-// Masking is decided here, on the server, and the masked string is what
-// reaches the browser: an unentitled reader is never sent the digits at all.
-// Both participants must have contact rights before a number renders -- the
-// rule is about the pair, not the reader -- so a Featured parent still sees a
-// mask when the tutor on the other side is on the Verified plan.
+// It is what `notify()` writes into every message notification's href, and
+// what `markThreadRead` matches on, so it is the id of a conversation as far
+// as the notifications table is concerned -- 49 rows already carry it. It is
+// also the right shape for that job: at the moment a message is sent, the
+// notification is being written for the OTHER person, and their role is not
+// something the sender's code path should have to look up.
+//
+// The inbox itself is role-scoped, because the two panes belong inside the
+// member's own dashboard. So this resolves the role once and forwards.
+//
+// The conversation view that used to live here (its own page, with its own
+// copy of the masking and the composer) is gone: it was reachable only from a
+// list that no longer exists, and two implementations of message rendering is
+// two places for the masking rule to drift.
 
 export const dynamic = 'force-dynamic'
 
-export default async function ThreadPage({ params }: { params: Promise<{ threadId: string }> }) {
+export default async function ThreadRedirect({
+  params,
+}: {
+  params: Promise<{ threadId: string }>
+}) {
   const { threadId } = await params
 
   const supabase = await createClient()
@@ -29,121 +34,15 @@ export default async function ThreadPage({ params }: { params: Promise<{ threadI
 
   if (!user) redirect(`/login?next=${encodeURIComponent(`/messages/${threadId}`)}`)
 
-  const { data: thread } = await supabase
-    .from('threads')
-    .select('id, job_id, participant_a, participant_b, created_at')
-    .eq('id', threadId)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
     .maybeSingle()
 
-  // RLS already limits this to the participants; a non-participant gets null
-  // and therefore a 404, which is also what a made-up id gets. Nobody learns
-  // whether a conversation they are not in exists.
-  if (!thread) notFound()
-
-  const otherId =
-    thread.participant_a === user.id ? (thread.participant_b as string) : (thread.participant_a as string)
-
-  const admin = createAdminClient()
-
-  const [{ data: rows }, mayShare, ent] = await Promise.all([
-    supabase
-      .from('messages')
-      .select('id, sender_id, body, created_at')
-      .eq('thread_id', thread.id)
-      .order('created_at'),
-    pairMayShareContact(user.id, otherId),
-    getEntitlements(user.id),
-  ])
-
-  let otherName = 'TutorMint member'
-  let otherSlug: string | null = null
-  let otherBadges: ReturnType<typeof badgesForPlan> = []
-
-  if (admin) {
-    const [{ data: profile }, { data: tutor }, { data: subs }] = await Promise.all([
-      admin.from('profiles').select('full_name, role, profile_completion').eq('id', otherId).maybeSingle(),
-      admin.from('tutor_profiles').select('slug').eq('id', otherId).maybeSingle(),
-      admin
-        .from('subscriptions')
-        .select('plan_code')
-        .eq('user_id', otherId)
-        .eq('status', 'active')
-        .gt('expires_at', new Date().toISOString()),
-    ])
-
-    otherName = (profile?.full_name as string) ?? otherName
-    otherSlug = (tutor?.slug as string) ?? null
-    otherBadges = badgesForPlan(
-      (subs ?? [])[0]?.plan_code as string | undefined,
-      ((profile?.profile_completion as number) ?? 0) >= 100,
-    )
-  }
-
-  let jobTitle: string | null = null
-  let jobRef: string | null = null
-  if (thread.job_id) {
-    const { data: job } = await supabase
-      .from('jobs')
-      .select('title, job_tx_id')
-      .eq('id', thread.job_id)
-      .maybeSingle()
-    jobTitle = (job?.title as string) ?? null
-    jobRef = (job?.job_tx_id as string) ?? null
-  }
-
-  const messages = (rows ?? []).map((m) => {
-    const rendered = renderMessageBody((m.body as string) ?? '', mayShare)
-    return {
-      id: m.id as string,
-      senderId: m.sender_id as string,
-      mine: m.sender_id === user.id,
-      body: rendered.text,
-      masked: rendered.masked,
-      createdAt: m.created_at as string,
-    }
-  })
-
-  const backHref = ent.audience === 'tutor' ? '/tutor/dashboard/messages' : '/parent/dashboard/messages'
-
-  return (
-    <main className="flex min-h-screen flex-col bg-tm-bg text-slate-700">
-      <header className="border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-          <div className="min-w-0">
-            <Breadcrumbs items={[{ label: 'Messages', href: backHref }, { label: otherName }]} />
-            <h1 className="truncate text-sm font-black text-tm-navy">
-              {otherSlug ? (
-                <Link href={`/tutor/${otherSlug}`} className="hover:underline">
-                  {otherName}
-                </Link>
-              ) : (
-                otherName
-              )}
-            </h1>
-            {jobTitle && (
-              <p className="truncate text-[11px] text-gray-500">
-                About:{' '}
-                {jobRef ? (
-                  <Link href={`/parent/dashboard/job/${jobRef}`} className="hover:underline">
-                    {jobTitle}
-                  </Link>
-                ) : (
-                  jobTitle
-                )}
-              </p>
-            )}
-          </div>
-          {otherBadges.length > 0 && <BadgeRow badges={otherBadges} size="sm" />}
-        </div>
-      </header>
-
-      <Thread
-        threadId={thread.id as string}
-        otherId={otherId}
-        otherName={otherName}
-        messages={messages}
-        canShareContact={mayShare}
-      />
-    </main>
+  redirect(
+    profile?.role === 'tutor'
+      ? `/tutor/dashboard/messages/${threadId}`
+      : `/parent/dashboard/messages/${threadId}`,
   )
 }

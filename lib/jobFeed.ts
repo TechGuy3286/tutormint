@@ -294,9 +294,15 @@ export async function browseJobs(
     if (matchingIds) q = q.in('id', matchingIds)
     if (filters.city) q = q.ilike('city', filters.city)
     if (filters.mode) {
-      // "Both" satisfies a search for either mode, the same way it does for
+      // 'both' satisfies a search for either mode, the same way it does for
       // tutors -- a parent open to either should see both kinds of job.
-      q = q.or(`teaching_mode.ilike.${filters.mode},teaching_mode.ilike.Both`)
+      //
+      // Equality, not ilike: migration 35 made this column one spelling with a
+      // CHECK constraint behind it, so there is no longer a case difference to
+      // paper over. The `ilike` was hiding the real defect -- fifty-one rows
+      // held NULL and matched neither branch, so narrowing to a mode dropped
+      // seven eighths of the board with nothing saying so.
+      q = q.or(`teaching_mode.eq.${filters.mode},teaching_mode.eq.both`)
     }
     if (filters.budgetMin !== null) q = q.gte('budget_pkr', filters.budgetMin)
     if (filters.budgetMax !== null) q = q.lte('budget_pkr', filters.budgetMax)

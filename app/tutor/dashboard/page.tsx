@@ -14,7 +14,7 @@ import { recentActivity } from '@/lib/dashboardFeed'
 import { getEntitlements } from '@/lib/entitlements'
 import { jobsThisWeek, tutorPosition } from '@/lib/funnel'
 import { matchingJobsForTutor } from '@/lib/jobFeed'
-import { listThreads } from '@/lib/messaging'
+import { unreadMessageCount } from '@/lib/messaging'
 import { tutorNeeds } from '@/lib/needsYou'
 import { viewTeasers } from '@/lib/profileViews'
 import { createClient } from '@/lib/supabase/server'
@@ -65,7 +65,7 @@ export default async function TutorDashboardPage() {
   const listed = percent >= 100 && tutorProfile?.verification_status !== 'suspended'
   const free = !ent.plan
 
-  const [needs, activity, { teasers, total: viewTotal }, matching, threads, { data: apps }, { data: demos }] =
+  const [needs, activity, { teasers, total: viewTotal }, matching, unreadMessages, { data: apps }, { data: demos }] =
     await Promise.all([
       tutorNeeds({
         userId,
@@ -78,7 +78,7 @@ export default async function TutorDashboardPage() {
       recentActivity({ userId, role: 'tutor', limit: 8 }),
       viewTeasers(userId, ent.canSeeViewerIdentity, 3),
       matchingJobsForTutor(userId, tutorProfile?.city ?? null),
-      listThreads(userId),
+      unreadMessageCount(userId),
       supabase.from('applications').select('id, status, withdrawn_at').eq('tutor_id', userId),
       supabase.from('demo_requests').select('id, status').eq('tutor_id', userId),
     ])
@@ -91,7 +91,8 @@ export default async function TutorDashboardPage() {
     : [null, []]
 
   const liveApps = (apps ?? []).filter((a) => !a.withdrawn_at)
-  const unread = threads.filter((t) => t.unread).length
+  // Real rows, not a hard-coded false. See unreadMessageCount().
+  const unread = unreadMessages
   const liveDemos = (demos ?? []).filter((d) =>
     ['requested', 'accepted'].includes(d.status as string),
   ).length

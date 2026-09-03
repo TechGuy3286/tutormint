@@ -1,4 +1,5 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
+import { parseMode } from '@/lib/locations'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
@@ -138,7 +139,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   const subjectId = intOrNull(one(sp.subject))
   const city = one(sp.city)
   const area = one(sp.area)
-  const mode = one(sp.mode)
+  const mode = parseMode(one(sp.mode)) ?? ''
   const gender = one(sp.gender)
   const feeMin = one(sp.feeMin)
   const feeMax = one(sp.feeMax)
@@ -308,7 +309,11 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
                   Search all of {city || 'the city'}
                 </Link>
               )}
-              {mode !== 'Online' && (
+              {/* Canonical spelling. This read 'Online' until migration 35 renamed
+                  the values, at which point the condition was always true and
+                  the chip offered to include online tutors to somebody who had
+                  already filtered to exactly that. */}
+              {mode !== 'online' && (
                 <Link
                   href={widen({ mode: undefined, area: undefined })}
                   className="flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"

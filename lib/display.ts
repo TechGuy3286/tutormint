@@ -10,13 +10,14 @@
 // guess, so a new status added by a migration reads as "Under review" instead
 // of vanishing from the card or crashing it.
 //
-// THE DATA IS ALSO INCONSISTENT and that is worth stating rather than hiding:
-// `jobs.teaching_mode` holds 'Physical' (6 rows), 'in_person' (1) and NULL
-// (51); `tutor_profiles.teaching_mode` holds 'Physical', 'Online' and 'Both';
-// `demo_requests.mode` holds 'online'. Normalising the column is a migration
-// and a decision about which spelling wins. Until that happens the display
-// layer accepts every spelling, which means the fix holds whichever way the
-// data goes.
+// THE DATA WAS ALSO INCONSISTENT, and migration 35 fixed that: all three
+// columns now hold lowercase snake ('in_person', 'online', 'both') behind a
+// CHECK constraint. `teachingMode()` still accepts the retired spellings on
+// purpose. Three reasons, none of them nostalgia: a browser tab open across
+// the deploy still holds the old value in its form state; the helper is the
+// only translation for values arriving from anywhere at all, including a CSV
+// import written later; and a total function that title-cases the unexpected
+// cannot be the thing that empties a card.
 
 function titleCase(raw: string): string {
   return raw

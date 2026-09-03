@@ -1278,6 +1278,125 @@ stays populated until the owner says otherwise.
   them as base64 `data:` URIs, so a rule written about the image file would have
   caught the wrong rows.
 
+## Messaging is a two-pane inbox (3 Sep 2026)
+
+`/parent/dashboard/messages` and `/tutor/dashboard/messages` are one inbox with
+two panes — conversations on the left, the selected conversation on the right —
+plus deep links at `/{role}/dashboard/messages/[threadId]`. One implementation,
+`components/messages/InboxShell.tsx`, serves both roles: they differ in the
+breadcrumb, the empty state's suggestions, the upgrade link and the reply-only
+tutor notice, and in nothing else. Two copies would be two places for the
+masking rule to drift apart.
+
+### As built — the five things that needed deciding
+
+**Unread comes from `notifications`, not a read marker on `threads`.** The rows
+already existed and are already what the header bell counts, so the dot in the
+list and the number on the bell cannot disagree — they are the same rows. It
+also means "opening a thread marks its notifications read" is the write the
+bell already performs rather than a second bookkeeping system to keep in step.
+Mark-read is a POST from the browser on mount, **not** a write during the
+page's render: Next prefetches links, and clearing the dot for a conversation
+somebody merely hovered over is worse than clearing it a beat late. It is
+deliberately not in `logActivity` — same read-receipt reasoning, and the same
+flagged departure from rule 11, as the bell's own mark-read.
+
+**`/messages/[threadId]` stays, as a redirect.** It is what `notify()` writes
+into every message notification's href and what `markThreadRead` matches on, so
+it is the id of a conversation as far as `notifications` is concerned — 49 rows
+already carry it. It is also the right shape for that job: at the moment a
+message is sent the notification is being written for the *other* person, and
+their role is not something the sender's code path should have to look up. So
+the href is role-neutral and the route resolves the role once and forwards. The
+conversation view that used to live there is deleted rather than kept.
+
+**The dashboards' "N unread" tile was always zero.** It computed from
+`ThreadSummary.unread`, which `listThreads` hard-coded to `false` — so a member
+with two dozen unread messages was told "0 unread", on every dashboard, always.
+`unreadMessageCount()` counts the real rows. `listThreads` is gone.
+
+**`useInfinite` gained an optional `scrollRoot`.** The conversation list is a
+pane with its own `overflow-y`, and a sentinel at the bottom of a clipped pane
+never intersects the *viewport* — the observer would simply never fire and the
+list would end at page one with nothing saying so. Passing the pane makes it
+the observer root and the thing whose offset is remembered. The Load-more
+button remains the accessible path, as everywhere else.
+
+**Searching the inbox is a different list, not a filtered one.** `useInfinite`
+only ever appends — deliberately, because it exists to serve server-rendered
+first pages — so the searched list remounts under a new key rather than
+teaching the hook to throw rows away. `suggest={false}`, the same call
+`/admin/users` makes: the public suggestion index holds listed tutors and open
+jobs and knows nothing about who this member has talked to. Search matches the
+other person's name (through the service role — `profiles` is self-read only)
+and the job a conversation is about.
+
+**The selected row is the page ground with a navy bar, not a tint fill.**
+`tm-tint-navy` darkens the row enough that the timestamp (gray-500, 4.03:1) and
+the job title (tm-green-deep, 4.21:1) both fall under AA on it.
+`check:contrast` rejected both, which is what moved the selection to `tm-bg`.
+
+**The suspended composer is unreachable today, and stays anyway.** Both
+dashboard layouts redirect a suspended member to `/suspended` before the inbox
+renders, and `POST /api/messages` answers 403 regardless — both verified. The
+composer's suspended branch is therefore not live UI. It stays because a
+suspended member's threads are already readable, so read-only access is the
+natural next step for that state, and this is the difference between a composer
+that explains itself and one that silently refuses. Flagged in the file so it
+is not deleted as dead code.
+
+## teaching_mode is one spelling (3 Sep 2026)
+
+Canonical everywhere: **`'in_person' | 'online' | 'both'`**, lowercase snake,
+with a CHECK constraint on all three columns that hold one (migration 35).
+`lib/display.ts` stays the only thing that turns one into words, and
+`TEACHING_MODES` in `lib/locations.ts` carries values only — every dropdown
+labels them through `teachingMode()`, so a filter, a job card and a tutor
+profile cannot drift into calling the same value three different things.
+
+**The visible cost was fifty-one invisible jobs.** `jobs.teaching_mode` held
+`'Physical'` (6), `'in_person'` (1) and NULL (51), and the filter compares one
+spelling — so a parent narrowing to "In person" saw seven jobs out of
+fifty-eight, with nothing saying the other fifty-one existed.
+
+**How the NULLs were decided, since it is the part that cannot be guessed.**
+Nothing in the table argued for `'online'`: across all 58 jobs, title,
+description and timings contain zero occurrences of online, zoom, remote or
+virtual. The 51 fell into exactly two groups:
+
+- **46** (`JOB-TRK-%`, the pre-rebuild import) each have a description reading
+  "Looking for an experienced and camera-verified **home tutor** in `<area>`,
+  `<city>`." The row states in-person in its own words → `'in_person'`.
+- **5** (`SEED-JOB-%`) say nothing about mode anywhere. Rather than invent one,
+  they take the meaning the posting form already gives an unset mode — its
+  select offers "Any" as the empty option, and "Any" is `'both'`. That asserts
+  only what is true of a row with no value, and it is the permissive choice, so
+  they appear under every filter instead of none.
+
+`jobs.teaching_mode` is now NOT NULL with `default 'both'`, and `lib/jobs.ts`
+coerces an unset mode at both write sites — an explicit NULL in an INSERT skips
+a column default, so without that the bug could walk straight back in.
+`tutor_profiles.teaching_mode` stays nullable: mode is on the completion
+checklist, so "not answered yet" is a state a half-finished profile is entitled
+to. `demo_requests.mode` stays nullable and permits only `'online'` and
+`'in_person'` — a demo happens once, in one place, so "either" is not an answer
+to that question, and the single NULL row is an unmade choice rather than a
+missing value.
+
+**Two writers had to be fixed, or the constraint would have broken them.**
+`app/tutor/dashboard/settings` wrote `teachingModes.join(', ')`, so a tutor
+ticking two boxes stored the string `'Physical, Online'` — a spelling no filter
+matched and no display helper understood, and one the new CHECK would turn into
+a 500 on a routine save. It now derives one value through `canonicalMode()`.
+And `parseMode()` translates the retired spellings arriving in a URL, because
+`?mode=Physical` links are already out in the world and an exact-match filter
+on that spelling returns nothing at all.
+
+**One condition was left behind by the rename and is fixed:**
+`/browse/tutors`' no-results state tested `mode !== 'Online'`, which after the
+rename was always true — so it offered to include online tutors to somebody who
+had already filtered to exactly that.
+
 ## Enum values never render raw (3 Sep 2026)
 
 `in_person` reached a live job card. `jobs.teaching_mode` holds `'Physical'`

@@ -1,6 +1,8 @@
 "use client";
 
 import FileUpload from '@/components/FileUpload';
+import { TEACHING_MODES, canonicalMode } from '@/lib/locations'
+import { teachingMode } from '@/lib/display'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
@@ -31,7 +33,7 @@ export default function TutorSettingsPage() {
     whatsapp_number: "923005671234",
     city: "Lahore",
     areaName: "DHA Phase 5",
-    teachingModes: ["Physical"] as string[],
+    teachingModes: ['in_person'] as string[],
     profileImage: "",
     coverImageUrl: "",
     selfieUrl: "",
@@ -87,14 +89,18 @@ export default function TutorSettingsPage() {
         .maybeSingle();
 
       if (data) {
-        let parsedModes = ["Physical"];
-        if (data.teaching_mode) {
-          if (Array.isArray(data.teaching_mode)) {
-            parsedModes = data.teaching_mode;
-          } else if (typeof data.teaching_mode === 'string') {
-            parsedModes = data.teaching_mode.split(',').map((s: string) => s.trim()).filter(Boolean);
-          }
-        }
+        // One stored value, expanded back into the two checkboxes it came
+        // from. 'both' ticks both; anything else ticks the one it names.
+        // Older rows held a comma-joined string ('Physical, Online') and the
+        // legacy spellings, so those are still read -- migration 35 converted
+        // them, but a browser tab open across the deploy has not reloaded.
+        const stored = typeof data.teaching_mode === 'string' ? data.teaching_mode.toLowerCase() : '';
+        const parsedModes: string[] =
+          stored.includes(',') || stored.includes('both')
+            ? ['in_person', 'online']
+            : stored.includes('online') || stored.includes('remote')
+              ? ['online']
+              : ['in_person'];
 
         setFormData({
           fullName: data.full_name || "",
@@ -323,7 +329,12 @@ export default function TutorSettingsPage() {
         whatsapp_number: formData.whatsapp_number,
         city: formData.city,
         area: formData.areaName,
-        teaching_mode: formData.teachingModes.join(", "),
+        // ONE canonical value, never a joined list. This line used to be
+        // `teachingModes.join(", ")`, which stored 'Physical, Online' -- a
+        // spelling no filter matched and no display helper understood. It is
+        // also what migration 35's CHECK constraint would now reject, turning
+        // a routine save into a 500.
+        teaching_mode: canonicalMode(formData.teachingModes),
         specialty_subjects: combinedSubjectsString,
         specialty_list: specialtyList,
         availability_list: availabilityList,
@@ -529,7 +540,7 @@ export default function TutorSettingsPage() {
             <div className="space-y-2 pt-2">
               <label className="block text-xs font-bold text-tm-navy">Teaching Modes (Select all that you are comfortable with)</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {["Physical", "Online", "School"].map((mode) => {
+                {TEACHING_MODES.filter((m) => m !== 'both').map((mode) => {
                   const isChecked = formData.teachingModes.includes(mode);
                   return (
                     <label 
@@ -549,7 +560,7 @@ export default function TutorSettingsPage() {
                         }}
                         className="w-4 h-4 rounded border-gray-300 text-tm-green-deep focus:ring-tm-green-deep" 
                       />
-                      <span>{mode} Tutoring</span>
+                      <span>{teachingMode(mode)}</span>
                     </label>
                   );
                 })}

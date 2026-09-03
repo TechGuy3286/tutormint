@@ -8,6 +8,7 @@ import Link from 'next/link'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import { isLevelLeaf, resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
 import { CITIES, CITY_AREAS, TEACHING_MODES } from '@/lib/locations'
+import { teachingMode } from '@/lib/display'
 import { takeDraft, saveDraft } from '@/components/AuthGateModal'
 
 // Post or edit a tuition.
@@ -265,7 +266,7 @@ export default function JobForm({
             >
               <option value="">Any</option>
               {TEACHING_MODES.map((m) => (
-                <option key={m} value={m}>{m}</option>
+                <option key={m} value={m}>{teachingMode(m)}</option>
               ))}
             </select>
           </label>

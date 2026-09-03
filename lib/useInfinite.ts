@@ -34,6 +34,7 @@ export function useInfinite<T>({
   params,
   initialCursor,
   storageKey,
+  scrollRoot,
 }: {
   /** An API route that takes the params below plus `cursor` and returns Page<T>. */
   endpoint: string
@@ -46,6 +47,16 @@ export function useInfinite<T>({
    * back to a DIFFERENT search must not restore the previous one's rows.
    */
   storageKey: string
+  /**
+   * The element that actually scrolls, when it is not the window.
+   *
+   * The inbox's conversation list is a pane with its own `overflow-y`, and a
+   * sentinel at the bottom of a clipped pane never intersects the VIEWPORT --
+   * so the default observer would simply never fire there and the list would
+   * end at page one with no visible reason. Passing the pane makes it the
+   * observer root and the thing whose scroll offset is remembered.
+   */
+  scrollRoot?: React.RefObject<HTMLElement | null>
 }) {
   const [items, setItems] = useState<T[]>([])
   const [cursor, setCursor] = useState<string | null>(initialCursor)
@@ -72,19 +83,24 @@ export function useInfinite<T>({
       setItems(s.items)
       setCursor(s.cursor)
       // The rows have to be in the DOM before the offset means anything.
-      requestAnimationFrame(() => window.scrollTo(0, s.scrollY))
+      requestAnimationFrame(() => {
+        const root = scrollRoot?.current
+        if (root) root.scrollTop = s.scrollY
+        else window.scrollTo(0, s.scrollY)
+      })
     } catch {
       // A quota error, private mode, or a stored shape from an older build.
       // None of them are worth breaking the list over.
     }
-  }, [storageKey])
+  }, [storageKey, scrollRoot])
 
   // ------------------------------------------------------------ persist ----
   useEffect(() => {
     if (items.length === 0) return
     const save = () => {
       try {
-        const payload = JSON.stringify({ items, cursor, scrollY: window.scrollY })
+        const offset = scrollRoot?.current ? scrollRoot.current.scrollTop : window.scrollY
+        const payload = JSON.stringify({ items, cursor, scrollY: offset })
         // Rather than fill the quota and start throwing on every list in the
         // tab, a very long scroll simply is not remembered.
         if (payload.length > MAX_STORED_BYTES) return
@@ -102,7 +118,7 @@ export function useInfinite<T>({
       clearTimeout(t)
       save()
     }
-  }, [items, cursor, storageKey])
+  }, [items, cursor, storageKey, scrollRoot])
 
   // --------------------------------------------------------------- load ----
   const loadMore = useCallback(async () => {
@@ -144,11 +160,11 @@ export function useInfinite<T>({
       },
       // Start fetching before the reader reaches the bottom, so the next rows
       // are usually already there.
-      { rootMargin: '600px 0px' },
+      { root: scrollRoot?.current ?? null, rootMargin: '600px 0px' },
     )
     io.observe(el)
     return () => io.disconnect()
-  }, [loadMore, done, state])
+  }, [loadMore, done, state, scrollRoot])
 
   return { items, state, done, loadMore, sentinel }
 }

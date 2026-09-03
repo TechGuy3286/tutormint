@@ -47,8 +47,64 @@ export const CITY_AREAS: Record<string, string[]> = {
   Gujranwala: ['Model Town', 'Peoples Colony', 'Satellite Town', 'Civil Lines'],
 }
 
-/** Matches tutor_profiles.teaching_mode, which stores capitalised values. */
-export const TEACHING_MODES = ['Physical', 'Online', 'Both'] as const
+/**
+ * The canonical teaching-mode values, and the only ones the database accepts
+ * (migration 35 puts a CHECK constraint on all three columns that hold one).
+ *
+ * VALUES ONLY. The words a person reads come from `teachingMode()` in
+ * lib/display.ts, which is the single place a stored value becomes English —
+ * so a dropdown, a job card and a tutor profile cannot drift into calling the
+ * same value three different things.
+ */
+export const TEACHING_MODES = ['in_person', 'online', 'both'] as const
+
+export type TeachingMode = (typeof TEACHING_MODES)[number]
+
+/**
+ * A set of ticked modes, reduced to the one value the column may hold.
+ *
+ * Ticking both boxes is 'both'; ticking neither is 'both' as well, because a
+ * tutor who has told us nothing should not be excluded from every mode filter
+ * -- which is the exact failure migration 35 was written to repair on the jobs
+ * side.
+ */
+/**
+ * A mode from a URL, reduced to the canonical value or null.
+ *
+ * Links with `?mode=Physical` are already out in the world -- shared, pasted
+ * into WhatsApp, sitting in someone's history -- and after migration 35 an
+ * exact-match filter on that spelling returns nothing at all. A search that
+ * silently finds zero results is worse than one that ignores the filter, so
+ * the retired spellings are translated here rather than dropped.
+ */
+export function parseMode(raw: string | null | undefined): TeachingMode | null {
+  switch ((raw ?? '').trim().toLowerCase()) {
+    case 'in_person':
+    case 'in-person':
+    case 'physical':
+    case 'school':
+    case 'onsite':
+    case 'on_site':
+      return 'in_person'
+    case 'online':
+    case 'remote':
+      return 'online'
+    case 'both':
+    case 'either':
+    case 'any':
+      return 'both'
+    default:
+      return null
+  }
+}
+
+export function canonicalMode(selected: readonly string[]): TeachingMode {
+  const has = (m: TeachingMode) => selected.includes(m)
+  if (has('in_person') && has('online')) return 'both'
+  if (has('online')) return 'online'
+  if (has('in_person')) return 'in_person'
+  return 'both'
+}
 
 export const GENDERS = [
   { value: 'female', label: 'Female' },

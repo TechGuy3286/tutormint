@@ -1,4 +1,5 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
+import { parseMode } from '@/lib/locations'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
@@ -122,7 +123,7 @@ export async function generateMetadata({
     {
       masterId: intOrNull(one(sp.subject)),
       city: one(sp.city) || null,
-      mode: one(sp.mode) || null,
+      mode: parseMode(one(sp.mode)),
       budgetMin: intOrNull(one(sp.budgetMin)),
       budgetMax: intOrNull(one(sp.budgetMax)),
       q: one(sp.q) || null,
@@ -146,7 +147,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
   const subjectId = intOrNull(one(sp.subject))
   const city = one(sp.city)
-  const mode = one(sp.mode)
+  const mode = parseMode(one(sp.mode)) ?? ''
   const budgetMin = one(sp.budgetMin)
   const budgetMax = one(sp.budgetMax)
   const q = one(sp.q)
