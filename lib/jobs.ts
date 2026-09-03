@@ -23,6 +23,7 @@ import { upgradeHref } from '@/lib/upgradePath'
 import { buildGate, type Gate } from '@/lib/gate'
 import { logActivity } from '@/lib/activityLog'
 import { notify, notifyMany } from '@/lib/notifications'
+import { tuitionPath } from '@/lib/slugs'
 import { deliverEmail } from '@/lib/notify'
 
 export type JobInput = {
@@ -177,7 +178,7 @@ export async function createJob(
       budget: bandFigure(input) === null ? '' : String(bandFigure(input)),
       timings: input.schedule ?? '',
     })
-    .select('id, job_tx_id')
+    .select('id, job_tx_id, public_slug')
     .single()
 
   if (error) return { ok: false, status: 400, error: error.message }
@@ -211,7 +212,11 @@ export async function createJob(
   // to want. The wording says plainly who can act on it, so it informs rather
   // than teases, and it carries no price -- that arrives only if they press
   // Apply.
-  await notifyMatchingTutors(job.id as string, jobTxId, input)
+  await notifyMatchingTutors(
+    job.id as string,
+    (job.public_slug as string) ?? null,
+    input,
+  )
 
   return { ok: true, id: job.id as string, jobTxId: job.job_tx_id as string }
 }
@@ -319,7 +324,9 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
         kind: 'job_closed',
         title: 'A job you applied for was closed',
         body: job.title as string,
-        href: '/tutor/dashboard/jobs',
+        // Not the tuition's own page: a closed tuition answers 410. The
+        // tutor's applications list is where this application still exists.
+        href: '/tutor/dashboard/applications',
       },
     )
   }
@@ -439,7 +446,7 @@ export async function hireApplicant(
           kind: 'job_filled',
           title: 'A job you applied for has been filled',
           body: job.title as string,
-          href: '/tutor/dashboard/jobs',
+          href: '/tutor/dashboard/applications',
         },
       )
 
@@ -460,7 +467,7 @@ export async function hireApplicant(
     kind: 'hired',
     title: 'You have been hired',
     body: job.title as string,
-    href: '/tutor/dashboard/jobs',
+    href: '/tutor/dashboard/applications',
   })
 
   // Being hired is the whole point of the platform for a tutor, and it can
@@ -479,7 +486,7 @@ export async function hireApplicant(
         name: (tutor?.full_name as string) ?? 'there',
         outcome: 'hired',
         jobTitle: job.title as string,
-        href: '/tutor/dashboard/jobs',
+        href: '/tutor/dashboard/applications',
       },
     )
   }
@@ -566,7 +573,7 @@ export async function subjectLabels(masterIds: number[]): Promise<string[]> {
  */
 async function notifyMatchingTutors(
   jobId: string,
-  jobTxId: string,
+  publicSlug: string | null,
   input: { masterIds: number[]; city: string | null; area?: string | null },
 ): Promise<void> {
   try {
@@ -602,7 +609,11 @@ async function notifyMatchingTutors(
         kind: 'job_matched',
         title: `New ${subjectName} job in ${where}`,
         body: `New ${subjectName} job in ${where} — Verified tutors can apply.`,
-        href: `/browse/tuitions?job=${jobTxId}`,
+        // The tuition's own page. This used to be `/browse/tuitions?job=<id>`
+        // -- a query parameter nothing on that page reads, so the tutor landed
+        // on the unfiltered board and had to find the job the notification was
+        // about.
+        href: tuitionPath({ public_slug: publicSlug, city: input.city, id: jobId }),
       })
     }
   } catch {

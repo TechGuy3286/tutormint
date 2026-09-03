@@ -44,7 +44,6 @@ export default function MoreOpenJobs({
             <div key={j.id} id={j.id} className="scroll-mt-20">
               <JobCard
                 job={j}
-                href={`/browse/tuitions?job=${j.job_tx_id ?? j.id}`}
                 signedIn
                 showApply
                 applied={!!j.applied}

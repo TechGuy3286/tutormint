@@ -102,7 +102,7 @@ export async function POST(request: Request) {
     kind: 'demo_requested',
     title: 'New demo request',
     body: 'A parent has asked you for a free demo class.',
-    href: '/tutor/dashboard',
+    href: '/tutor/dashboard/demos',
   })
 
   await logActivity({

@@ -143,7 +143,11 @@ export async function POST(request: Request) {
           : resubmissionLocked
             ? `${reason} You have used all ${MAX_ATTEMPTS} attempts — contact support to continue.`
             : `${reason} You can record another video.`,
-      href: action === 'approve' ? '/tutor/dashboard' : '/tutor/upload-youtube',
+      // NOT /tutor/upload-youtube: that is a POST route handler, and a GET
+      // to it answers 405. A tutor told their video was rejected was being
+      // sent to a method-not-allowed page. The recorder lives on step 7 of
+      // profile completion.
+      href: action === 'approve' ? '/tutor/dashboard' : '/tutor/complete-profile?step=7',
     })
   }
 

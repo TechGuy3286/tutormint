@@ -39,9 +39,17 @@ export default async function AboutPage() {
 
       <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 text-sm leading-relaxed text-slate-700 sm:p-5">
         <p>
-          TutorMint connects parents, schools and academies in Pakistan with tutors who have been
-          checked before they are listed. We are not an agency and we do not place anyone: parents
-          search, read profiles and choose for themselves, and they talk to the tutor directly.
+          TutorMint connects parents, schools and academies in Pakistan with{' '}
+          <Link href="/browse/tutors" className="font-bold text-tm-red hover:underline">
+            tutors who have been checked before they are listed
+          </Link>
+          . We are not an agency and we do not place anyone: parents search, read profiles and
+          choose for themselves, and they talk to the tutor directly. Tutors find work the same
+          way, on the{' '}
+          <Link href="/browse/tuitions" className="font-bold text-tm-red hover:underline">
+            open tuitions board
+          </Link>
+          .
         </p>
 
         <div className="space-y-2">
@@ -50,8 +58,19 @@ export default async function AboutPage() {
             A home-tuition academy typically keeps half of the first month and often a share of
             every month after it. On a Rs 20,000 tuition that is Rs 10,000 gone before the first
             class. TutorMint takes 0% — the fee a parent agrees with a tutor goes to the tutor, and
-            we never handle it. Our only income is a monthly membership, bought by people who
-            choose to buy one.
+            we never handle it. Our only income is a monthly membership —{' '}
+            <Link href="/tutor/packages" className="font-bold text-tm-red hover:underline">
+              for tutors
+            </Link>{' '}
+            and{' '}
+            <Link href="/parent/packages" className="font-bold text-tm-red hover:underline">
+              for parents
+            </Link>{' '}
+            — bought by people who choose to buy one. It is not refundable, which the{' '}
+            <Link href="/terms" className="font-bold text-tm-red hover:underline">
+              Terms
+            </Link>{' '}
+            say before anybody pays.
           </p>
         </div>
 
@@ -60,9 +79,12 @@ export default async function AboutPage() {
           <p>
             Every tutor uploads an introduction video and their degree certificates. The video goes
             to our own channel as a private video and an administrator reviews it, along with the
-            documents, before the tutor is listed. Parents verify their CNIC and a home address
-            before they can post a job, because a tutor is being asked to travel to a stranger&apos;s
-            house.
+            documents, before the tutor is listed.{' '}
+            <Link href="/parent/verify" className="font-bold text-tm-red hover:underline">
+              Parents verify their CNIC and a home address
+            </Link>{' '}
+            before they can post a job, because a tutor is being asked to travel to a
+            stranger&apos;s house.
           </p>
           <p>
             We are careful about what that proves. It means the person in the profile is the person

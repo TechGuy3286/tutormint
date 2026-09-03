@@ -118,7 +118,7 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     p_after_hash: after?.h ?? null,
   })
 
-  const tutors = (data ?? []) as RankedTutor[]
+  const tutors = await withSubjectLinks(supabase, (data ?? []) as RankedTutor[])
   const total = tutors[0]?.total_count ?? 0
   const seen = (after ? 0 : offset) + tutors.length
 
@@ -133,6 +133,71 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     error: !!error,
   }
 })
+
+/**
+ * Attach the taxonomy id behind each subject label.
+ *
+ * rank_tutors() returns `subject_labels text[]` -- words, with no way to get
+ * from one back to the thing it names. Every mention of a subject on a card is
+ * supposed to link to the tutors who teach that exact level-and-subject, and
+ * matching everywhere on this platform is on master_id, so a link built from
+ * the label alone would be a text search dressed up as a filter.
+ *
+ * One extra query per window, on a table that is public-read. Silent on
+ * failure: an unlinked chip is a worse card, a broken directory is a worse
+ * site.
+ */
+async function withSubjectLinks(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tutors: RankedTutor[],
+): Promise<RankedTutor[]> {
+  if (tutors.length === 0) return tutors
+
+  const { data: links } = await supabase
+    .from('tutor_subjects')
+    .select('tutor_id, master_id')
+    .in('tutor_id', tutors.map((t) => t.id))
+
+  const masterIds = Array.from(new Set((links ?? []).map((l) => l.master_id as number)))
+  if (masterIds.length === 0) return tutors
+
+  const { data: master } = await supabase
+    .from('taxonomy_master')
+    .select('id, level_slug, subject_slug')
+    .in('id', masterIds)
+
+  const levelSlugs = Array.from(new Set((master ?? []).map((m) => m.level_slug as string)))
+  const subjectSlugs = Array.from(
+    new Set((master ?? []).map((m) => m.subject_slug as string | null).filter(Boolean) as string[]),
+  )
+
+  const [{ data: levels }, { data: subjects }] = await Promise.all([
+    supabase.from('taxonomy_levels').select('slug, name').in('slug', levelSlugs),
+    subjectSlugs.length > 0
+      ? supabase.from('taxonomy_subjects').select('slug, name').in('slug', subjectSlugs)
+      : Promise.resolve({ data: [] as { slug: string; name: string }[] }),
+  ])
+
+  const levelName = new Map((levels ?? []).map((l) => [l.slug as string, l.name as string]))
+  const subjectName = new Map((subjects ?? []).map((x) => [x.slug as string, x.name as string]))
+
+  const labelByMaster = new Map<number, string>()
+  for (const m of master ?? []) {
+    const subject = m.subject_slug ? subjectName.get(m.subject_slug as string) : null
+    labelByMaster.set(m.id as number, subject ?? levelName.get(m.level_slug as string) ?? '')
+  }
+
+  const byTutor = new Map<string, { label: string; masterId: number }[]>()
+  for (const l of links ?? []) {
+    const label = labelByMaster.get(l.master_id as number)
+    if (!label) continue
+    const list = byTutor.get(l.tutor_id as string) ?? []
+    if (!list.some((x) => x.label === label)) list.push({ label, masterId: l.master_id as number })
+    byTutor.set(l.tutor_id as string, list)
+  }
+
+  return tutors.map((t) => ({ ...t, subject_links: byTutor.get(t.id) ?? [] }))
+}
 
 export function cursorFor(row: RankedTutor): string {
   // round(score, 2) is what the ORDER BY compares, and it is what the function

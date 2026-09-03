@@ -175,14 +175,17 @@ export default async function InboxShell({
                   {header.jobTitle && (
                     <p className="flex items-center gap-1 truncate text-[11px] text-gray-500">
                       <Briefcase size={11} className="shrink-0" aria-hidden />
-                      {header.jobRef ? (
+                      {(role === 'tutor' ? header.jobHref : header.jobRef) ? (
                         <Link
                           href={
                             // A tutor does not own the job, so their link is
-                            // the public board's detail view; the parent's is
-                            // their own management page for it.
+                            // the tuition's own public page; the parent's is
+                            // their management page for it. A tutor gets no
+                            // link once the tuition closes -- that URL answers
+                            // 410, and a conversation about a filled tuition
+                            // is exactly where somebody would click it.
                             role === 'tutor'
-                              ? `/browse/tuitions?job=${header.jobRef}`
+                              ? (header.jobHref as string)
                               : `/parent/dashboard/job/${header.jobRef}`
                           }
                           className="truncate hover:underline"

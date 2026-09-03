@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { tuitionPath } from '@/lib/slugs'
 import { notFound } from 'next/navigation'
 import { ExternalLink, Flag, MapPin, Wallet, Clock, GraduationCap } from 'lucide-react'
 import Avatar from '@/components/Avatar'
@@ -46,7 +47,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
   const { data: job } = await admin
     .from('jobs')
     .select(
-      'id, job_tx_id, parent_id, title, description, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, status, is_featured, hired_tutor_id, created_at, closed_at',
+      'id, job_tx_id, public_slug, parent_id, title, description, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, status, is_featured, hired_tutor_id, created_at, closed_at',
     )
     .eq(isUuid ? 'id' : 'job_tx_id', id)
     .maybeSingle()
@@ -121,6 +122,22 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
           </span>
         </div>
         <p className="font-mono text-[11px] text-gray-500">{(job.job_tx_id as string) ?? job.id}</p>
+        {/* The public address, so "why can nobody see my job" can be answered
+            by looking at the page itself. Shown for a closed tuition too --
+            that URL answers 410, and seeing that IS the answer to the
+            question. */}
+        {job.public_slug ? (
+          <Link
+            href={tuitionPath({
+              public_slug: job.public_slug as string,
+              city: job.city as string | null,
+            })}
+            className="inline-flex min-h-[32px] items-center gap-1 text-[11px] font-bold text-tm-red hover:underline"
+          >
+            Open the public page
+            <ExternalLink size={11} aria-hidden />
+          </Link>
+        ) : null}
       </header>
 
       {/* ------------------------------------------------ the ad as posted */}

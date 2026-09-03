@@ -267,15 +267,27 @@ export default function AdminShell({
               <Menu aria-hidden size={20} />
             </button>
 
-            <div className="min-w-0 flex-1">{pageHead}</div>
+            {/* Two-to-one, not an even split. The title and the trail share
+                this row with the search box, and an even split left a
+                four-level admin trail (Home > Admin > Tutors > <member>) with
+                ~270px -- enough for the first and last crumbs, so the two in
+                the middle truncated to zero and rendered as bare chevrons. The
+                search has a fixed useful width; the trail's is whatever the
+                page needs. */}
+            <div className="min-w-0 flex-[2]">{pageHead}</div>
 
-            <div className="hidden min-w-0 max-w-xs flex-1 lg:block">{search}</div>
+            <div className="hidden w-64 min-w-0 shrink-0 lg:block">{search}</div>
 
             <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
               <span className="hidden rounded-full bg-tm-tint-green px-2 py-1 text-[10px] font-black uppercase tracking-wider text-tm-green-deep sm:inline">
                 {roleLabel}
               </span>
-              <span className="hidden max-w-[180px] truncate text-[11px] text-gray-500 xl:block">
+              {/* 2xl, not xl. At exactly 1280 this took ~190px out of the row
+                  and the breadcrumb trail paid for it: the middle crumbs
+                  truncated to bare chevrons. Which admin is signed in is also
+                  already on the account menu; the trail is the only thing on
+                  this row that says where you are. */}
+              <span className="hidden max-w-[180px] truncate text-[11px] text-gray-500 2xl:block">
                 {email}
               </span>
               {bell}

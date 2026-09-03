@@ -3,7 +3,7 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import UpgradeTrigger from '@/components/upgrade/UpgradeTrigger'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { MapPin, Building2, Briefcase, Wallet, Lock, Phone, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
@@ -18,6 +18,7 @@ import ProfileActions from './ProfileActions'
 import { formatDate } from '@/lib/datetime'
 import { teachingMode } from '@/lib/display'
 import { jsonLdScript, pageDescription, pageTitle, tutorJsonLd } from '@/lib/seo'
+import { currentSlugForRetired } from '@/lib/tutorSlug'
 
 // The public tutor profile. Server component, results in the HTML.
 //
@@ -165,7 +166,18 @@ async function recordView(tutorId: string, viewerId: string | null, viewerRole: 
 export default async function TutorPublicProfile({ params }: { params: Params }) {
   const { slug } = await params
   const tutor = await loadTutor(slug)
-  if (!tutor) notFound()
+  // An address that used to work still does. 301 rather than 308: this is a
+  // GET-only page and 301 is the code every crawler and every link-checker
+  // already understands as "the page moved, update your record".
+  //
+  // Straight to the CURRENT slug, never to another retired one — the lookup
+  // reads the tutor's live address rather than walking history forward, so a
+  // profile whose URL has changed three times still resolves in one hop.
+  if (!tutor) {
+    const moved = await currentSlugForRetired(slug)
+    if (moved && moved !== slug) permanentRedirect(`/tutor/${moved}`)
+    notFound()
+  }
 
   const supabase = await createClient()
   const {
@@ -232,12 +244,23 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   const reviews = tutor.rating_count ?? 0
 
   // Subjects grouped by the level they are taught at.
-  const byLevel = new Map<string, string[]>()
+  //
+  // The master_id travels with the label so each chip can link to the tutors
+  // who teach that exact level-and-subject. Matching everywhere on this
+  // platform is on master_id, so a link built from the label alone would be a
+  // text search wearing a filter's clothes.
+  const byLevel = new Map<string, { label: string; masterId: number }[]>()
+  const levelMaster = new Map<string, number>()
   for (const s of tutor.subjects) {
     const key = `${s.category} — ${s.level}`
     if (!byLevel.has(key)) byLevel.set(key, [])
-    if (s.subject) byLevel.get(key)!.push(s.subject)
+    if (!levelMaster.has(key)) levelMaster.set(key, s.master_id)
+    if (s.subject) byLevel.get(key)!.push({ label: s.subject, masterId: s.master_id })
   }
+
+  /** /browse/tutors, filtered to one taxonomy id, in this tutor's city. */
+  const subjectHref = (masterId: number) =>
+    `/browse/tutors?subject=${masterId}${tutor.city ? `&city=${encodeURIComponent(tutor.city)}` : ''}`
 
   // Person + Service, linked to each other and to the Organization on the
   // homepage. Nothing is asserted that the profile does not hold -- no rating
@@ -292,7 +315,14 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               {tutor.headline && (
                 <p className="text-sm font-bold text-tm-green-deep">{tutor.headline}</p>
               )}
-              {badges.length > 0 && <BadgeRow badges={badges} size="md" showLabel />}
+              {/* A badge links to the FAQ entry that says what it means.
+                  "Verified" on a stranger's profile is a claim, and a claim a
+                  parent cannot check is worth very little. */}
+              {badges.length > 0 && (
+                <Link href="/faq#parents" className="inline-flex" aria-label="What the badges mean">
+                  <BadgeRow badges={badges} size="md" showLabel />
+                </Link>
+              )}
 
               <p className="text-xs font-bold text-slate-700">
                 {reviews > 0 ? (
@@ -308,11 +338,29 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-2">
                 <p className="flex items-center gap-2 text-xs">
                   <MapPin size={14} className="text-gray-500" />
-                  {tutor.area ?? 'Area not set'}
+                  {tutor.area && tutor.city ? (
+                    <Link
+                      href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}&area=${encodeURIComponent(tutor.area)}`}
+                      className="font-semibold hover:text-tm-red hover:underline"
+                    >
+                      {tutor.area}
+                    </Link>
+                  ) : (
+                    (tutor.area ?? 'Area not set')
+                  )}
                 </p>
                 <p className="flex items-center gap-2 text-xs">
                   <Building2 size={14} className="text-gray-500" />
-                  {tutor.city ?? 'Online'}
+                  {tutor.city ? (
+                    <Link
+                      href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}`}
+                      className="font-semibold hover:text-tm-red hover:underline"
+                    >
+                      {tutor.city}
+                    </Link>
+                  ) : (
+                    'Online'
+                  )}
                   {teachingMode(tutor.teaching_mode) ? ` · ${teachingMode(tutor.teaching_mode)}` : ''}
                 </p>
                 <p className="flex items-center gap-2 text-xs">
@@ -427,19 +475,27 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
                     {level}
                   </p>
+                  {/* Every mention of a thing links to the thing. A
+                      level-leaf (Test Preparation, Sports, Holy Quran) has no
+                      subject list, so the level itself is the selectable item
+                      and the chip is the link. */}
                   <div className="flex flex-wrap gap-1.5">
                     {subjects.length === 0 ? (
-                      <span className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold ring-1 ring-gray-200">
+                      <Link
+                        href={subjectHref(levelMaster.get(level) ?? 0)}
+                        className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-gray-200 hover:ring-tm-navy"
+                      >
                         {level.split(' — ')[1] ?? level}
-                      </span>
+                      </Link>
                     ) : (
                       subjects.map((s) => (
-                        <span
-                          key={s}
-                          className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold ring-1 ring-gray-200"
+                        <Link
+                          key={s.masterId}
+                          href={subjectHref(s.masterId)}
+                          className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-gray-200 hover:ring-tm-navy"
                         >
-                          {s}
-                        </span>
+                          {s.label}
+                        </Link>
                       ))
                     )}
                   </div>

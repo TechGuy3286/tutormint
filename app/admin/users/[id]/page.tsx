@@ -211,13 +211,23 @@ export default async function AdminMemberPage({
         )}
       </section>
 
-      {isTutor && tutor?.slug && (
-        <Link
-          href={`/tutor/${tutor.slug}`}
-          className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
-        >
-          Open public profile
-        </Link>
+      {isTutor && (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link
+            href={`/admin/tutors/${id}`}
+            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
+          >
+            Tutor record &amp; profile address
+          </Link>
+          {tutor?.slug && (
+            <Link
+              href={`/tutor/${tutor.slug}`}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
+            >
+              Open public profile
+            </Link>
+          )}
+        </div>
       )}
 
       <MemberActions

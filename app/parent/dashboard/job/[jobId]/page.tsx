@@ -1,5 +1,7 @@
+import Link from 'next/link'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { budgetLabel } from '@/lib/feeBands'
+import { tuitionPath } from '@/lib/slugs'
 import { notFound } from 'next/navigation'
 import { MapPin, Wallet, Clock, GraduationCap } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
@@ -30,7 +32,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
   const { data: job } = await supabase
     .from('jobs')
     .select(
-      'id, job_tx_id, parent_id, title, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, description, status, is_featured, child_id, created_at, hired_tutor_id',
+      'id, job_tx_id, public_slug, parent_id, title, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, description, status, is_featured, child_id, created_at, hired_tutor_id',
     )
     .eq(isUuid ? 'id' : 'job_tx_id', jobId)
     .maybeSingle()
@@ -134,6 +136,21 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
               {job.status === 'open' ? 'Open' : job.status === 'hired' ? 'Hired' : 'Closed'}
               {child ? ` · for ${(child as { name: string }).name}` : ''}
             </p>
+            {/* The tuition's own public page -- what a tutor sees, and the
+                link to share. Only while it is open: a closed one answers 410,
+                and sending a parent to a Gone page from their own dashboard
+                would read as a bug. */}
+            {job.status === 'open' && job.public_slug ? (
+              <Link
+                href={tuitionPath({
+                  public_slug: job.public_slug as string,
+                  city: job.city as string | null,
+                })}
+                className="inline-flex min-h-[32px] items-center text-[11px] font-bold text-tm-red hover:underline"
+              >
+                View the public page tutors see &rarr;
+              </Link>
+            ) : null}
           </div>
 
           {Array.isArray(job.subjects) && job.subjects.length > 0 && (

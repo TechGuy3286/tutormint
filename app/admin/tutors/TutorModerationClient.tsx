@@ -209,7 +209,15 @@ export default function TutorModerationClient({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-base font-black text-tm-navy truncate">{open.fullName}</h2>
+                {/* Every member name is a link. In admin it goes to the admin
+                    record, not the marketing page -- nobody clicking a name in
+                    a moderation queue is asking for a public profile. */}
+                <Link
+                  href={`/admin/tutors/${open.id}`}
+                  className="block truncate text-base font-black text-tm-navy hover:text-tm-red hover:underline"
+                >
+                  {open.fullName}
+                </Link>
                 <p className="text-[11px] text-gray-500 truncate">{open.email}</p>
               </div>
               <button onClick={() => setOpen(null)} className="text-gray-500 text-xl min-h-[44px] px-2" aria-label="Close">

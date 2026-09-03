@@ -302,17 +302,32 @@ export function temporaryPassword(): string {
   return `Tm-${globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`
 }
 
-export function slugify(name: string, msisdn: string): string {
+/**
+ * A provisional address for an imported tutor.
+ *
+ * NO PHONE DIGITS. This used to append the last four digits of the mobile to
+ * keep two tutors of the same name apart. Four digits is not a secret on its
+ * own, but it is personal data in a string the import then sends to the tutor
+ * over WhatsApp and prints in a results file, and it tells a parent nothing.
+ * Collisions break on a hash of the row's own uuid instead, which carries no
+ * information about the person.
+ *
+ * It is provisional because at this moment the row has no subjects yet -- they
+ * are inserted a few statements later -- so the canonical form cannot be
+ * computed. createImportedTutor() re-derives it through
+ * public.tutor_canonical_slug() once the subjects exist, and the profile URL
+ * handed to the admin is the final one.
+ */
+export function slugify(name: string, userId: string): string {
   const base = name
     .toLowerCase()
     .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-')
     .slice(0, 40)
-  // The last four digits keep two tutors of the same name apart without
-  // exposing the whole number in a URL.
-  return `${base || 'tutor'}-${msisdn.slice(-4)}`
+  return `${base || 'tutor'}-tutor-${userId.replace(/-/g, '').slice(0, 4)}`
 }
 
 export type ImportOutcome = {
@@ -340,7 +355,6 @@ export async function createImportedTutor(params: {
   const msisdn = verdict.msisdn!
   const email = syntheticEmail(msisdn)
   const password = temporaryPassword()
-  const slug = slugify(row.name, msisdn)
 
   const fail = (status: string): ImportOutcome => ({
     line: row.line,
@@ -363,6 +377,7 @@ export async function createImportedTutor(params: {
   if (error || !created?.user) return fail(error?.message ?? 'Could not create the account')
 
   const userId = created.user.id
+  const provisionalSlug = slugify(row.name, userId)
 
   const { error: profileError } = await admin
     .from('profiles')
@@ -385,7 +400,7 @@ export async function createImportedTutor(params: {
 
   const { error: tutorError } = await admin.from('tutor_profiles').upsert({
     id: userId,
-    slug,
+    slug: provisionalSlug,
     full_name: row.name,
     email,
     phone_number: msisdn,
@@ -410,6 +425,21 @@ export async function createImportedTutor(params: {
     await admin
       .from('tutor_subjects')
       .insert(verdict.masterIds!.map((master_id) => ({ tutor_id: userId, master_id })))
+  }
+
+  // Now that the subjects exist, the canonical address can be computed --
+  // name, main subject, "tutor", city. Done through the database function so
+  // the import and the admin Suggest button cannot propose different things
+  // for the same tutor, and through set_tutor_slug so the provisional address
+  // is retired into slug_history rather than vanishing.
+  let slug = provisionalSlug
+  const { data: canonical } = await admin.rpc('tutor_canonical_slug', { p_tutor: userId })
+  if (typeof canonical === 'string' && canonical && canonical !== provisionalSlug) {
+    const { data: applied } = await admin.rpc('set_tutor_slug', {
+      p_tutor: userId,
+      p_slug: canonical,
+    })
+    if (typeof applied === 'string' && applied) slug = applied
   }
 
   // Logged here rather than by the caller: this is the only place that knows

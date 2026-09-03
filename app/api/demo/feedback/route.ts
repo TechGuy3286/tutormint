@@ -123,7 +123,7 @@ export async function POST(request: Request) {
     kind: 'demo_feedback',
     title: 'You received demo feedback',
     body: `${rating} out of 5`,
-    href: '/tutor/dashboard',
+    href: '/tutor/dashboard/demos',
   })
 
   await logActivity({

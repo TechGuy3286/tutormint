@@ -103,7 +103,6 @@ export default async function TutorJobsPage() {
                   <div key={job.id} id={job.id} className="scroll-mt-20">
                     <JobCard
                       job={job}
-                      href={`/browse/tuitions?job=${job.job_tx_id ?? job.id}`}
                       signedIn
                       showApply
                       applied={appliedIds.has(job.id)}

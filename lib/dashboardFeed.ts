@@ -121,7 +121,9 @@ function hrefFor(
     case 'verification_decision_received':
       return isTutor ? '/tutor/dashboard/settings' : '/parent/verify'
     case 'video_submitted':
-      return '/tutor/upload-youtube'
+      // A POST route handler, not a page: a GET answers 405. The video
+      // recorder is step 7 of profile completion.
+      return '/tutor/complete-profile?step=7'
     case 'payment_submitted':
     case 'payment_rejected':
     case 'plan_purchased':

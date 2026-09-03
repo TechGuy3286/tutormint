@@ -26,12 +26,13 @@ export const dynamic = 'force-dynamic'
 const LABEL_SCREEN = {
   jobs: SCREEN_ACCESS.jobs,
   users: SCREEN_ACCESS.users,
+  tutors: SCREEN_ACCESS.tutors,
 } as const
 
 async function dynamicLabel(slug: string[]): Promise<string | null> {
   const [section, id] = slug
   if (!id || slug.length !== 2) return null
-  if (section !== 'jobs' && section !== 'users') return null
+  if (section !== 'jobs' && section !== 'users' && section !== 'tutors') return null
 
   // A finance admin who types a job URL is bounced by the page's own guard;
   // the trail must not leak the title on the way past.

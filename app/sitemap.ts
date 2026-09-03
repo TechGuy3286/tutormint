@@ -1,7 +1,10 @@
 import type { MetadataRoute } from 'next'
 import { createPublicClient } from '@/lib/supabase/public'
+import { citySegment } from '@/lib/slugs'
+import { PREVIEW_MODE } from '@/lib/preview'
+import { SITE_URL } from '@/lib/siteUrl'
 
-// The sitemap must list every listed tutor slug and every open job.
+// The sitemap: every listed tutor and every open tuition.
 //
 // The version this replaced listed five URLs, three of which were login pages
 // -- pages we do not want indexed at all -- and no tutor or job. Those are the
@@ -11,12 +14,20 @@ import { createPublicClient } from '@/lib/supabase/public'
 // tutor_profiles is owner-or-admin under RLS, so a plain select here would
 // return nothing and the sitemap would silently ship empty.
 //
-// Job URLs are included for jobs that are open; the job detail page lands in
-// T5, so entries point at the browse surface that renders them today.
+// TUITIONS NOW HAVE THEIR OWN PAGES. Until migration 40 this file pointed
+// every job at `/browse/tuitions?job=<id>` -- a query parameter that page does
+// not read, so a crawler following it landed on the unfiltered board and found
+// the same list at fifty different URLs. Every open tuition has a real address
+// now, and jobs without one (none, after the backfill) are simply omitted
+// rather than pointed at a URL that resolves to something else.
+//
+// THE HOST MUST MATCH THE CANONICAL. lib/siteUrl.ts resolves to www, and
+// next.config.ts permanently redirects the apex to it -- a sitemap listing
+// apex URLs would hand a crawler a list of redirects.
 
 export const revalidate = 3600
 
-const BASE = 'https://tutormint.org'
+const BASE = SITE_URL
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
@@ -35,12 +46,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
   ]
 
+  // While the site is noindex, listing individual tutors and tuitions would be
+  // a mixed signal -- robots.txt already withholds the sitemap for the same
+  // reason. The static pages stay so the file is valid rather than empty.
+  if (PREVIEW_MODE) return staticPages
+
   try {
     const supabase = createPublicClient()
 
     const [{ data: tutors }, { data: jobs }] = await Promise.all([
       supabase.rpc('listed_tutor_slugs'),
-      supabase.from('jobs').select('job_tx_id, id, created_at').eq('status', 'open'),
+      supabase
+        .from('jobs')
+        .select('public_slug, city, created_at')
+        .eq('status', 'open')
+        .not('public_slug', 'is', null),
     ])
 
     const tutorPages: MetadataRoute.Sitemap = (
@@ -53,9 +73,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
 
     const jobPages: MetadataRoute.Sitemap = (
-      (jobs ?? []) as { job_tx_id: string | null; id: string; created_at: string }[]
+      (jobs ?? []) as { public_slug: string; city: string | null; created_at: string }[]
     ).map((j) => ({
-      url: `${BASE}/browse/tuitions?job=${j.job_tx_id ?? j.id}`,
+      url: `${BASE}/tuitions/${citySegment(j.city)}/${j.public_slug}`,
       lastModified: j.created_at ? new Date(j.created_at) : now,
       changeFrequency: 'daily' as const,
       priority: 0.6,

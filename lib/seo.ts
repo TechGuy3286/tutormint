@@ -218,6 +218,100 @@ export function tutorJsonLd(t: {
   return { '@context': 'https://schema.org', '@graph': [person, service] }
 }
 
+/**
+ * A posted tuition, as a JobPosting.
+ *
+ * Emitted only for OPEN tuitions. Google's own guidance is that a JobPosting
+ * must be removed when the job closes, and a closed one on this site answers
+ * 410 rather than rendering at all — so the structured data and the HTTP status
+ * cannot disagree about whether the position exists.
+ *
+ * `validThrough` is a real date, not an invented one: it is the point past
+ * which a search engine should stop showing the posting on its own. Thirty
+ * days from posting is what the platform can actually stand behind — nothing
+ * expires a tuition automatically, so a longer window would be a claim we do
+ * not enforce, and omitting it entirely leaves the posting eligible forever.
+ *
+ * `baseSalary` is the BAND the parent chose, in PKR per month. A single figure
+ * would understate a band-posted job by up to ten thousand rupees, which is the
+ * same reason the card renders a range.
+ *
+ * `hiringOrganization` is the platform, not the parent. A parent is a private
+ * household; naming them as an employer would publish an individual as a
+ * business, and their name is already on the page as a member, linked to their
+ * own profile. `employmentType: CONTRACTOR` is what a private tuition
+ * arrangement actually is — the tutor is not our employee and not the
+ * parent's.
+ */
+export function jobPostingJsonLd(job: {
+  url: string
+  title: string
+  description: string
+  datePosted: string
+  city: string | null
+  area: string | null
+  subjects: string[]
+  budgetMin: number | null
+  budgetMax: number | null
+}) {
+  const validThrough = new Date(
+    new Date(job.datePosted).getTime() + 30 * 24 * 3600_000,
+  ).toISOString()
+
+  const salary =
+    job.budgetMin || job.budgetMax
+      ? {
+          baseSalary: {
+            '@type': 'MonetaryAmount',
+            currency: 'PKR',
+            value: {
+              '@type': 'QuantitativeValue',
+              ...(job.budgetMin ? { minValue: job.budgetMin } : {}),
+              ...(job.budgetMax ? { maxValue: job.budgetMax } : {}),
+              unitText: 'MONTH',
+            },
+          },
+        }
+      : {}
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'JobPosting',
+    '@id': `${job.url}#jobposting`,
+    title: job.title,
+    description: job.description,
+    datePosted: job.datePosted,
+    validThrough,
+    employmentType: 'CONTRACTOR',
+    url: job.url,
+    ...(job.subjects.length > 0 ? { skills: job.subjects.join(', ') } : {}),
+    industry: 'Education',
+    // Named inline rather than referenced by @id. The Organization node is
+    // emitted on the homepage, and a JobPosting is read on its own — Google
+    // requires hiringOrganization to carry a name, and a bare @id pointing at
+    // a node that is not in this document does not.
+    hiringOrganization: {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: BRAND,
+      sameAs: SITE_URL,
+      logo: absoluteUrl('/tutormint-logo1200x630.png'),
+    },
+    // Applications are made on this page, not on somebody else's site.
+    directApply: true,
+    jobLocation: {
+      '@type': 'Place',
+      address: {
+        '@type': 'PostalAddress',
+        ...(job.area ? { streetAddress: job.area } : {}),
+        addressLocality: job.city ?? 'Pakistan',
+        addressCountry: 'PK',
+      },
+    },
+    ...salary,
+  }
+}
+
 /** FAQPage, from the same array the page renders. */
 export function faqJsonLd(items: { q: string; a: string }[]) {
   return {

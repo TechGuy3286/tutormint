@@ -3,6 +3,7 @@
 import { postGated } from '@/lib/gatedFetch'
 import TimeAgo from '@/components/TimeAgo'
 import { budgetLabel } from '@/lib/feeBands'
+import { tuitionPath } from '@/lib/slugs'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -31,8 +32,17 @@ import type { BadgeName } from '@/lib/planBadges'
 export type JobCardData = {
   id: string
   job_tx_id: string | null
+  /** The public tuition page's address. Set once at posting, never changes. */
+  public_slug: string | null
+  status: string
   title: string
   subjects: string[] | null
+  /**
+   * The same subjects with their taxonomy_master ids, so each chip links to
+   * the tutors who teach that exact level-and-subject. Empty for a job posted
+   * before the join table existed, whose subjects survive only as text.
+   */
+  subject_links?: { label: string; masterId: number }[]
   class_level: string | null
   city: string | null
   area: string | null
@@ -69,7 +79,10 @@ export default function JobCard({
   const [gateOpen, setGateOpen] = useState(false)
   const [state, setState] = useState<'idle' | 'sending' | 'done'>(applied ? 'done' : 'idle')
   const [notice, setNotice] = useState<string | null>(null)
-  const detailHref = href ?? `/browse/tuitions?job=${job.job_tx_id ?? job.id}`
+  // The tuition's own page. Until migration 40 there was none, and every
+  // "View details" on the platform went to the unfiltered browse list --
+  // which is to say, back to the page the reader was already on.
+  const detailHref = href ?? tuitionPath(job)
 
   const apply = async () => {
     if (!signedIn) return setGateOpen(true)
@@ -154,14 +167,27 @@ export default function JobCard({
 
           {job.subjects && job.subjects.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {job.subjects.map((s) => (
-                <span
-                  key={s}
-                  className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-gray-200"
-                >
-                  {s}
-                </span>
-              ))}
+              {job.subjects.map((s) => {
+                const link = job.subject_links?.find((l) => l.label === s)
+                const cls =
+                  'rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-gray-200'
+                // Every mention of a thing links to the thing. relative z-10 for
+                // the same reason the parent's name carries it -- the card's own
+                // links must not swallow it.
+                return link ? (
+                  <Link
+                    key={s}
+                    href={`/browse/tutors?subject=${link.masterId}${job.city ? `&city=${encodeURIComponent(job.city)}` : ''}`}
+                    className={`${cls} relative z-10 hover:ring-tm-navy`}
+                  >
+                    {s}
+                  </Link>
+                ) : (
+                  <span key={s} className={cls}>
+                    {s}
+                  </span>
+                )
+              })}
             </div>
           )}
 

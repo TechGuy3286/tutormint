@@ -390,6 +390,11 @@ async function main() {
     await must(`tutor_profiles update (${t.name})`, db
       .from('tutor_profiles')
       .update({
+        // A provisional address. The canonical one -- name, main subject,
+        // "tutor", city -- needs the subjects, which are inserted further
+        // down, so it is re-derived there through tutor_canonical_slug().
+        // Left as the fixture key here so a partially-seeded row is still
+        // identifiable by eye in the table editor.
         slug: t.name,
         headline: t.headline,
         bio: t.headline ? `${t.fullName} — ${t.headline}.` : null,
@@ -464,6 +469,19 @@ async function main() {
     for (const master_id of masterIds) {
       await must(`tutor_subjects (${t.name})`,
         db.from('tutor_subjects').insert({ tutor_id: id, master_id }).select('master_id'))
+    }
+
+    // The real public address, now that the subjects exist. Through the
+    // database functions so a seeded tutor's URL is built by exactly the same
+    // rule as a registered one's -- a fixture with a hand-written slug is a
+    // fixture that cannot catch a slug bug. set_tutor_slug retires the
+    // provisional address into slug_history, so re-seeding leaves a working
+    // redirect rather than a dead link.
+    {
+      const { data: canonical } = await db.rpc('tutor_canonical_slug', { p_tutor: id })
+      if (typeof canonical === 'string' && canonical) {
+        await db.rpc('set_tutor_slug', { p_tutor: id, p_slug: canonical })
+      }
     }
 
     // Now that every item exists, let the shipping checklist decide the number.

@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       kind: 'demo_declined',
       title: 'A demo request was declined',
       body: reason,
-      href: '/parent/dashboard',
+      href: '/parent/dashboard/demos',
     })
     await logActivity({
       userId: user.id,
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
     kind: 'demo_accepted',
     title: 'Your demo was accepted',
     body: `Proposed time: ${formatDateTime(proposed)}`,
-    href: '/parent/dashboard',
+    href: '/parent/dashboard/demos',
   })
   await logActivity({
     userId: user.id,

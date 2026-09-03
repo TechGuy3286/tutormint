@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z } from '@/lib/validate'
+import { ensureTutorSlug } from '@/lib/tutorSlug'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
 // then recomputes profiles.profile_completion so the stored percentage can
@@ -85,6 +86,15 @@ export async function POST(request: Request) {
       }
     }
   }
+
+  // A tutor's public address, assigned or improved here.
+  //
+  // handle_new_user() creates the tutor_profiles row and never sets a slug, so
+  // before this every tutor who registered normally had a public profile with
+  // no URL at all -- seven of the seventeen that existed. ensureTutorSlug is a
+  // no-op once the tutor is listed: at that point somebody may hold the link,
+  // and an address stops following the data.
+  if (role === 'tutor') await ensureTutorSlug(user.id)
 
   const completion = await recomputeCompletion(user.id)
 

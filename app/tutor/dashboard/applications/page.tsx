@@ -1,5 +1,6 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
+import { tuitionPath } from '@/lib/slugs'
 
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
@@ -38,20 +39,25 @@ export default async function TutorApplicationsPage() {
 
   // Job titles through the service-role client: these are reads by id, outside
   // the browse view that makes open jobs public.
-  const jobs = new Map<string, { title: string; city: string | null; ref: string }>()
+  const jobs = new Map<
+    string,
+    { title: string; city: string | null; ref: string; slug: string | null; status: string }
+  >()
   const ids = Array.from(new Set((apps ?? []).map((a) => a.job_id as string)))
   if (ids.length > 0) {
     const admin = createAdminClient()
     if (admin) {
       const { data: rows } = await admin
         .from('jobs')
-        .select('id, job_tx_id, title, city')
+        .select('id, job_tx_id, public_slug, title, city, status')
         .in('id', ids)
       for (const j of rows ?? []) {
         jobs.set(j.id as string, {
           title: (j.title as string) ?? 'Tuition',
           city: (j.city as string) ?? null,
           ref: ((j.job_tx_id as string) ?? (j.id as string)) as string,
+          slug: (j.public_slug as string | null) ?? null,
+          status: (j.status as string) ?? 'open',
         })
       }
     }
@@ -102,7 +108,15 @@ export default async function TutorApplicationsPage() {
               return (
                 <li key={a.id as string}>
                   <Link
-                    href={job ? `/browse/tuitions?job=${job.ref}` : '/browse/tuitions'}
+                    // The tuition's own page while it is open. A closed or
+                    // filled one answers 410, so those rows point at the board
+                    // instead -- the application still shows its own status
+                    // here, which is what the tutor came for.
+                    href={
+                      job && job.status === 'open' && job.slug
+                        ? tuitionPath({ public_slug: job.slug, city: job.city })
+                        : '/browse/tuitions'
+                    }
                     className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md"
                   >
                     <span className="min-w-0 space-y-1">

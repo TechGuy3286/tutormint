@@ -104,6 +104,12 @@ export default async function Footer() {
           <FooterColumn
             heading="For Tutors"
             links={[
+              // The two browse pages are the platform's organic-search
+              // surface and were linked from no footer column at all, which
+              // meant the two most important pages on the site had no
+              // site-wide internal link. Added under the internal-linking pass
+              // (T-SEO2), which names the footer explicitly.
+              { label: 'Find Tuitions', href: '/browse/tuitions' },
               { label: 'Sign Up', href: '/register' },
               { label: 'Login', href: '/login' },
               { label: 'Dashboard', href: '/tutor/dashboard' },
@@ -114,6 +120,7 @@ export default async function Footer() {
           <FooterColumn
             heading="For Parents"
             links={[
+              { label: 'Find Tutors', href: '/browse/tutors' },
               { label: 'Sign Up', href: '/register' },
               { label: 'Login', href: '/login' },
               { label: 'Dashboard', href: '/parent/dashboard' },

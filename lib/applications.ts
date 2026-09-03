@@ -283,7 +283,7 @@ export async function setApplicationStatus(params: {
         name: (tutor?.full_name as string) ?? 'there',
         outcome: 'shortlisted',
         jobTitle: job.title as string,
-        href: '/tutor/dashboard/jobs',
+        href: '/tutor/dashboard/applications',
       },
     )
   }
@@ -297,7 +297,12 @@ export async function setApplicationStatus(params: {
           ? 'You have been shortlisted'
           : 'An application was not taken forward',
       body: job.title as string,
-      href: '/tutor/dashboard/jobs',
+      // The tutor's own applications, not the open board. This card used to
+      // land on /tutor/dashboard/jobs -- a list of every open tuition, which
+      // says nothing about the one they were just shortlisted for and does not
+      // even contain it once it closes. The decision lives on their
+      // applications list, and so does the next thing they can do about it.
+      href: '/tutor/dashboard/applications',
     })
   }
 

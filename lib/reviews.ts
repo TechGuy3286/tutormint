@@ -113,7 +113,7 @@ export async function createReview(
     kind: 'demo_feedback',
     title: 'You received a review',
     body: `${rating} out of 5`,
-    href: '/tutor/dashboard',
+    href: '/tutor/dashboard/demos',
   })
 
   await logActivity({

@@ -22,7 +22,7 @@ import { faqJsonLd, jsonLdScript, pageDescription, pageTitle } from '@/lib/seo'
 export const metadata: Metadata = {
   title: pageTitle('Questions and answers'),
   description: pageDescription(
-    'How tutors are verified, what a membership costs, why hiring is the paid step, and what we take from your fee',
+    'What a home tutor costs, how tutors are verified, online versus in person, and what we take from your fee (nothing)',
   ),
   alternates: { canonical: '/faq' },
 }
@@ -71,9 +71,31 @@ export default function FAQPage() {
 
           <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white">
             {group.items.map((item) => (
-              <article key={item.q} className="space-y-1.5 p-4 sm:p-5">
+              <article
+                key={item.q}
+                className="space-y-1.5 p-4 sm:p-5"
+                // Roman Urdu is Urdu written in Latin script, so it stays
+                // left-to-right and takes ur-Latn rather than ur -- tagging it
+                // `ur` would tell a screen reader and a translation tool to
+                // treat it as RTL Arabic script, which it is not.
+                lang={item.lang === 'ur' ? 'ur-Latn' : undefined}
+              >
                 <h3 className="text-sm font-black text-tm-navy">{item.q}</h3>
                 <p className="text-sm leading-relaxed text-slate-700">{item.a}</p>
+                {item.links && item.links.length > 0 && (
+                  <ul className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">
+                    {item.links.map((l) => (
+                      <li key={l.href + l.label}>
+                        <Link
+                          href={l.href}
+                          className="inline-flex min-h-[32px] items-center text-xs font-bold text-tm-red hover:underline"
+                        >
+                          {l.label} &rarr;
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </article>
             ))}
           </div>

@@ -44,6 +44,13 @@ export type TutorCardData = {
   rating_avg: number | string | null
   rating_count: number | null
   subject_labels: string[] | null
+  /**
+   * The same subjects with their taxonomy_master ids, so each one links to the
+   * tutors who teach that exact level-and-subject. Matching everywhere on this
+   * platform is on master_id, so a link built from the label alone would be a
+   * text search dressed up as a filter.
+   */
+  subject_links?: { label: string; masterId: number }[]
   plan_code: string | null
 }
 
@@ -95,18 +102,39 @@ function DetailLine({
   icon,
   label,
   value,
+  children,
 }: {
   icon: React.ReactNode
   label: string
-  value: string
+  value?: string
+  /** Linked content, when the value names something with a page of its own. */
+  children?: React.ReactNode
 }) {
   return (
     <p className="flex items-start gap-2 text-xs leading-snug text-slate-700">
       <span className="mt-px shrink-0 text-gray-500">{icon}</span>
       <span className="min-w-0">
-        <span className="font-bold text-tm-navy">{label}:</span> <span>{value}</span>
+        <span className="font-bold text-tm-navy">{label}:</span>{' '}
+        <span>{children ?? value}</span>
       </span>
     </p>
+  )
+}
+
+/**
+ * A link that must survive the card's own stretched link.
+ *
+ * relative z-10 for the same reason the four action buttons carry it: the card
+ * is clickable as a whole, and without it every inner link is swallowed.
+ */
+function InlineLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="relative z-10 font-semibold text-slate-700 underline decoration-gray-200 underline-offset-2 hover:text-tm-red hover:decoration-tm-red"
+    >
+      {children}
+    </Link>
   )
 }
 
@@ -134,6 +162,7 @@ export default function TutorCard({
   const rating = Number(tutor.rating_avg ?? 0)
   const reviews = tutor.rating_count ?? 0
 
+  const links = tutor.subject_links ?? []
   const subjects =
     tutor.subject_labels && tutor.subject_labels.length > 0
       ? tutor.subject_labels.join(', ')
@@ -284,18 +313,56 @@ export default function TutorCard({
             )}
 
             <div className="space-y-1.5 pt-0.5">
-              <DetailLine icon={<BookOpen size={14} />} label="Subjects" value={subjects} />
+              {/* Every mention of a thing links to the thing: each subject to
+                  the tutors who teach it, the area and the city to that slice
+                  of the directory. Falls back to plain text when there is no
+                  id to link with -- a profile whose subjects predate the join
+                  table, or a tutor teaching online with no city. */}
+              <DetailLine icon={<BookOpen size={14} />} label="Subjects" value={subjects}>
+                {links.length > 0
+                  ? links.map((l, i) => (
+                      <span key={l.masterId}>
+                        {i > 0 && ', '}
+                        <InlineLink
+                          href={`/browse/tutors?subject=${l.masterId}${
+                            tutor.city ? `&city=${encodeURIComponent(tutor.city)}` : ''
+                          }`}
+                        >
+                          {l.label}
+                        </InlineLink>
+                      </span>
+                    ))
+                  : subjects}
+              </DetailLine>
               <DetailLine icon={<Briefcase size={14} />} label="Experience" value={experience} />
               <DetailLine
                 icon={<MapPin size={14} />}
                 label="Area"
                 value={tutor.area || teachingMode(tutor.teaching_mode) || 'Flexible'}
-              />
+              >
+                {tutor.area && tutor.city ? (
+                  <InlineLink
+                    href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}&area=${encodeURIComponent(tutor.area)}`}
+                  >
+                    {tutor.area}
+                  </InlineLink>
+                ) : (
+                  (tutor.area || teachingMode(tutor.teaching_mode) || 'Flexible')
+                )}
+              </DetailLine>
               <DetailLine
                 icon={<Building2 size={14} />}
                 label="City"
                 value={tutor.city || 'Online'}
-              />
+              >
+                {tutor.city ? (
+                  <InlineLink href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}`}>
+                    {tutor.city}
+                  </InlineLink>
+                ) : (
+                  'Online'
+                )}
+              </DetailLine>
             </div>
 
             {tutor.hourly_rate_pkr ? (

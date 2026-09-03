@@ -51,6 +51,11 @@ export type NotificationKind =
   | 'job_closed_by_admin'
   | 'job_unfeatured_by_admin'
   | 'job_removed_by_admin'
+  // T-SEO2. An admin moving a tutor's public URL. The old address 301s, so
+  // nothing breaks -- but a tutor finding out by noticing the link they pasted
+  // into WhatsApp now redirects is the version of this that becomes a support
+  // ticket. No migration: notifications.kind is text with no CHECK constraint.
+  | 'profile_address_changed'
 
 export async function notify(params: {
   userId: string

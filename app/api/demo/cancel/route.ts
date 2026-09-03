@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     kind: 'demo_cancelled',
     title: 'A demo was cancelled',
     body: reason,
-    href: demo.parent_id === user.id ? '/tutor/dashboard' : '/parent/dashboard',
+    href: demo.parent_id === user.id ? '/tutor/dashboard/demos' : '/parent/dashboard/demos',
   })
 
   await logActivity({

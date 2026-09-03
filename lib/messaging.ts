@@ -18,6 +18,7 @@
 // Bodies are stored verbatim and masked on the way out -- see lib/masking.ts.
 
 import { createClient } from '@/lib/supabase/server'
+import { tuitionPath } from '@/lib/slugs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements, badgesForPlan } from '@/lib/entitlements'
 import { renderMessageBody } from '@/lib/masking'
@@ -344,6 +345,8 @@ export type ThreadHeader = {
   jobId: string | null
   jobTitle: string | null
   jobRef: string | null
+  /** The tuition's public page, when it is still open. Null once it closes. */
+  jobHref: string | null
   /** Both sides may exchange numbers, so nothing is masked in this thread. */
   canShareContact: boolean
 }
@@ -704,14 +707,23 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
 
   let jobTitle: string | null = null
   let jobRef: string | null = null
+  let jobHref: string | null = null
   if (thread.job_id) {
     const { data: job } = await supabase
       .from('jobs')
-      .select('title, job_tx_id')
+      .select('title, job_tx_id, public_slug, city, status')
       .eq('id', thread.job_id)
       .maybeSingle()
     jobTitle = (job?.title as string) ?? null
     jobRef = (job?.job_tx_id as string) ?? null
+    // The tuition's own public page, for the side of the conversation that
+    // does not own the job. Only while it is open -- a closed one answers 410,
+    // and the conversation about a filled tuition is exactly where somebody
+    // would click it.
+    jobHref =
+      job && job.status === 'open' && job.public_slug
+        ? tuitionPath({ public_slug: job.public_slug as string, city: job.city as string | null })
+        : null
   }
 
   return {
@@ -725,6 +737,7 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
     jobId: (thread.job_id as string) ?? null,
     jobTitle,
     jobRef,
+    jobHref,
     canShareContact: await pairMayShareContact(userId, otherId),
   }
 }

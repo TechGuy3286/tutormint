@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
@@ -76,6 +77,24 @@ export default async function ParentPackagesPage({
           instantActivation={provider.id !== 'manual'}
           signedIn={!!ent}
         />
+
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed text-gray-500 sm:p-5">
+          <Link href="/faq#parents" className="font-bold text-tm-red hover:underline">
+            What the badges mean
+          </Link>
+          {' · '}
+          <Link href="/parent/verify" className="font-bold text-tm-red hover:underline">
+            Verify your CNIC and address (free)
+          </Link>
+          {' · '}
+          <Link href="/browse/tutors" className="font-bold text-tm-red hover:underline">
+            Browse tutors
+          </Link>
+          {' · '}
+          <Link href="/terms" className="font-bold text-tm-red hover:underline">
+            Terms, including no refunds
+          </Link>
+        </section>
       </div>
     </main>
   )

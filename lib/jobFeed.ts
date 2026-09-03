@@ -130,12 +130,23 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
   }
 
   const subjectsByJob = new Map<string, string[]>()
+  // The same labels with their taxonomy ids attached, so a subject chip can be
+  // a link to the tutors who teach that exact thing rather than a dead pill.
+  // Matching is on master_id everywhere, so the link lands on the same set the
+  // job itself would match against.
+  const linksByJob = new Map<string, { label: string; masterId: number }[]>()
   for (const l of links ?? []) {
     const label = labelByMaster.get(l.master_id as number)
     if (!label) continue
     const list = subjectsByJob.get(l.job_id as string) ?? []
     if (!list.includes(label)) list.push(label)
     subjectsByJob.set(l.job_id as string, list)
+
+    const linked = linksByJob.get(l.job_id as string) ?? []
+    if (!linked.some((x) => x.label === label)) {
+      linked.push({ label, masterId: l.master_id as number })
+    }
+    linksByJob.set(l.job_id as string, linked)
   }
 
   const facts = await parentFacts(
@@ -147,10 +158,13 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
     return {
       id: j.id as string,
       job_tx_id: (j.job_tx_id as string) ?? null,
+      public_slug: (j.public_slug as string) ?? null,
+      status: (j.status as string) ?? 'open',
       title: (j.title as string) ?? 'Tuition required',
       // Fall back to the legacy text column for jobs posted before the join
       // table existed, so old posts still show what they are for.
       subjects: subjectsByJob.get(j.id as string) ?? (j.subjects as string[] | null) ?? null,
+      subject_links: linksByJob.get(j.id as string) ?? [],
       class_level: (j.class_level as string) ?? null,
       city: (j.city as string) ?? null,
       area: (j.area as string) ?? null,
@@ -171,7 +185,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
 }
 
 const JOB_COLUMNS =
-  'id, job_tx_id, title, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, parent_id, status'
+  'id, job_tx_id, public_slug, title, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, parent_id, status'
 
 /**
  * Open jobs that match a tutor's subjects, their city first.
@@ -358,6 +372,43 @@ export async function browseJobs(
             i: String(last.id),
           } satisfies JobCursor),
   }
+}
+
+/**
+ * One tuition by its public address.
+ *
+ * Anon may read open jobs only (jobs_public_read_open), so a closed one comes
+ * back null here -- which is correct: the public page has nothing to show for
+ * it beyond "this is gone", and that answer comes from job_page_status()
+ * instead, which returns two facts and no content.
+ */
+export async function jobByPublicSlug(slug: string): Promise<JobCardData | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('jobs')
+    .select(JOB_COLUMNS)
+    .eq('public_slug', slug)
+    .maybeSingle()
+  if (!data) return null
+  const [job] = await decorate([data as Record<string, unknown>])
+  return job ?? null
+}
+
+/**
+ * Did this address ever exist, and what state is it in?
+ *
+ * The 410 answer. SECURITY DEFINER in the database because anon cannot see a
+ * closed job at all; it returns the status and the city and nothing else --
+ * enough to say "filled" and offer the right browse link, and not enough to be
+ * a way of reading closed tuitions.
+ */
+export async function jobPageStatus(
+  slug: string,
+): Promise<{ status: string; city: string | null } | null> {
+  const supabase = await createClient()
+  const { data } = await supabase.rpc('job_page_status', { p_slug: slug })
+  const row = (data as { status: string; city: string | null }[] | null)?.[0]
+  return row ?? null
 }
 
 /** One job by its human id or uuid, for the detail view. */

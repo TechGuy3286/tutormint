@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
@@ -124,6 +125,28 @@ export default async function TutorPackagesPage({
           instantActivation={provider.id !== 'manual'}
           signedIn={!!ent}
         />
+
+        {/* Where to read more, and what the words mean. A packages page that
+            links nowhere asks somebody to decide on the strength of one
+            screen; the FAQ says what a badge actually proves, and the Terms
+            carry the no-refund line in full. */}
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed text-gray-500 sm:p-5">
+          <Link href="/faq#tutors" className="font-bold text-tm-red hover:underline">
+            What the Verified badge proves
+          </Link>
+          {' · '}
+          <Link href="/browse/tuitions" className="font-bold text-tm-red hover:underline">
+            The tuitions you could apply to
+          </Link>
+          {' · '}
+          <Link href="/tutor/complete-profile" className="font-bold text-tm-red hover:underline">
+            Finish your profile first
+          </Link>
+          {' · '}
+          <Link href="/terms" className="font-bold text-tm-red hover:underline">
+            Terms, including no refunds
+          </Link>
+        </section>
       </div>
     </main>
   )

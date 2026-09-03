@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     kind: 'demo_feedback',
     title: 'A demo was marked as completed',
     body: 'Feedback can now be left.',
-    href: demo.parent_id === user.id ? '/tutor/dashboard' : '/parent/dashboard',
+    href: demo.parent_id === user.id ? '/tutor/dashboard/demos' : '/parent/dashboard/demos',
   })
 
   await logActivity({

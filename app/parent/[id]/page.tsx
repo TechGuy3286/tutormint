@@ -10,6 +10,7 @@ import { publicParent } from '@/lib/publicParent'
 import { formatMonthYear } from '@/lib/datetime'
 import { budgetLabel } from '@/lib/feeBands'
 import { teachingMode } from '@/lib/display'
+import { tuitionPath } from '@/lib/slugs'
 import { pageDescription, pageTitle } from '@/lib/seo'
 
 // The parent, as a tutor sees them before applying.
@@ -117,7 +118,12 @@ export default async function PublicParentPage({ params }: { params: Params }) {
             {parent.jobs.map((job) => (
               <li key={job.id}>
                 <Link
-                  href={`/browse/tuitions?job=${job.jobTxId ?? job.id}`}
+                  href={tuitionPath({
+                    public_slug: job.publicSlug,
+                    city: job.city,
+                    job_tx_id: job.jobTxId,
+                    id: job.id,
+                  })}
                   className="flex min-h-[64px] flex-col gap-1 p-4 transition-colors hover:bg-gray-50"
                 >
                   <span className="text-xs font-black text-tm-navy">{job.title}</span>

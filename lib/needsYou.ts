@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Entitlements } from '@/lib/entitlements'
+import { tuitionPath } from '@/lib/slugs'
 
 // What is BLOCKED ON THIS PERSON, and nothing else.
 //
@@ -266,7 +267,7 @@ export async function tutorNeeds({
             id: 'video-rejected',
             title: 'Your introduction video was not accepted',
             why: `You have ${left} of 3 attempt${left === 1 ? '' : 's'} left. A clear, well-lit clip introducing yourself and your subjects is what gets approved.`,
-            action: { label: 'Record a new video', href: '/tutor/upload-youtube' },
+            action: { label: 'Record a new video', href: '/tutor/complete-profile?step=7' },
             tone: 'urgent',
           }
         : {
@@ -300,11 +301,17 @@ export async function tutorNeeds({
     if (admin && n === 1) {
       const { data: job } = await admin
         .from('jobs')
-        .select('title, job_tx_id, id')
+        .select('title, job_tx_id, id, public_slug, city, status')
         .eq('id', shortlisted![0].job_id as string)
         .maybeSingle()
       title = (job?.title as string) ?? null
-      ref = ((job?.job_tx_id as string) ?? (job?.id as string)) ?? null
+      // The tuition's own page, while it is still open. A closed one answers
+      // 410, so that case falls through to the applications list -- which is
+      // where the shortlist itself is recorded anyway.
+      ref =
+        job && job.status === 'open' && job.public_slug
+          ? tuitionPath({ public_slug: job.public_slug as string, city: job.city as string | null })
+          : null
     }
     rows.push({
       id: 'shortlisted',
@@ -315,7 +322,7 @@ export async function tutorNeeds({
         : 'The parent decides next. A message now is what usually turns a shortlist into a hire.',
       action:
         ref !== null
-          ? { label: 'See the tuition', href: `/browse/tuitions?job=${ref}` }
+          ? { label: 'See the tuition', href: ref }
           : { label: 'See your applications', href: '/tutor/dashboard/applications' },
       tone: 'warn',
     })

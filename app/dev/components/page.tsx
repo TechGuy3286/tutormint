@@ -63,6 +63,8 @@ const JOBS: JobCardData[] = [
   {
     id: 'job-1',
     job_tx_id: 'JOB-TX-DEMO1',
+    public_slug: 'o-level-physics-tutor-needed-dha-phase-5-lahore-demo01',
+    status: 'open',
     title: 'O Level Physics tutor needed, DHA Phase 5',
     subjects: ['Physics', 'Mathematics'],
     class_level: 'O Levels',
@@ -83,6 +85,8 @@ const JOBS: JobCardData[] = [
   {
     id: 'job-2',
     job_tx_id: 'JOB-TX-DEMO2',
+    public_slug: 'primary-maths-and-english-twice-weekly-islamabad-demo02',
+    status: 'open',
     title: 'Primary Maths and English, twice weekly',
     subjects: ['Mathematics', 'English'],
     class_level: 'Grade 1 to 5',

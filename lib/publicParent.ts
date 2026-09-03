@@ -24,6 +24,8 @@ import type { BadgeName } from '@/lib/planBadges'
 export type PublicParentJob = {
   id: string
   jobTxId: string | null
+  /** The tuition's own page. Set once at posting and never changes. */
+  publicSlug: string | null
   title: string
   classLevel: string | null
   city: string | null
@@ -96,7 +98,7 @@ export async function publicParent(id: string): Promise<PublicParent | null> {
   const { data: jobs } = await supabase
     .from('jobs')
     .select(
-      'id, job_tx_id, title, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, created_at',
+      'id, job_tx_id, public_slug, title, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, created_at',
     )
     .eq('parent_id', id)
     .eq('status', 'open')
@@ -115,6 +117,7 @@ export async function publicParent(id: string): Promise<PublicParent | null> {
     jobs: (jobs ?? []).map((j) => ({
       id: j.id as string,
       jobTxId: (j.job_tx_id as string) ?? null,
+      publicSlug: (j.public_slug as string) ?? null,
       title: (j.title as string) ?? 'Tuition',
       classLevel: (j.class_level as string) ?? null,
       city: (j.city as string) ?? null,

@@ -117,6 +117,14 @@ export const SCREEN_ACCESS = {
   // Publishing a tutor's video to the world is a bigger decision than
   // approving it for review, so it stops at manager rather than verifier.
   videoVisibility: ['manager'] as AdminRole[],
+  // Moving a tutor's public URL. A verifier decides whether a video and a set
+  // of certificates are acceptable; changing the address a search engine has
+  // indexed and the tutor has pasted into WhatsApp is a different decision and
+  // stops at manager. Tutors cannot change it at all -- there is no self-serve
+  // field -- because an address a member can move at will is one that moves
+  // whenever somebody dislikes a review, and each move costs the profile the
+  // ranking the old URL had earned.
+  tutorSlug: ['manager'] as AdminRole[],
   // T7b — the growth tools. All owner + manager: each of them either spends
   // the platform's reputation (ads, social posts published as us) or creates
   // accounts and deletes them, which is not a queue-worker's job.

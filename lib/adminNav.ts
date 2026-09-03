@@ -136,7 +136,13 @@ export function adminTrail(
       ? (dynamicLabel ??
         // Fallbacks for when the lookup found nothing: the row may have been
         // deleted between the link and the click. A word beats a uuid.
-        (parts[i - 1] === 'users' ? 'Member' : parts[i - 1] === 'jobs' ? 'Tuition' : part))
+        (parts[i - 1] === 'users'
+          ? 'Member'
+          : parts[i - 1] === 'jobs'
+            ? 'Tuition'
+            : parts[i - 1] === 'tutors'
+              ? 'Tutor'
+              : part))
       : SECTION_LABELS[part]
     crumbs.push(i === parts.length - 1 ? { label } : { label, href })
   })
