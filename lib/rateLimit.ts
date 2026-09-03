@@ -29,6 +29,7 @@ export type BucketName =
   | 'report'
   | 'password_change'
   | 'search'
+  | 'ai_generate'
 
 /**
  * The budgets.
@@ -59,6 +60,12 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   // is sized to stop a scraper walking the directory through the suggest
   // endpoint, not to ration typing. Anyone who meets it is not searching.
   search: { windowSeconds: 60, max: 90 },
+  // Writing a job post with the Claude API. Tighter than the other activity
+  // buckets and for a different reason: every call costs real money, the way
+  // otp_send does. Twenty an hour is far more than a parent posting one
+  // tuition needs -- they press Generate, read it, maybe press it again -- and
+  // it is nowhere near enough to be worth scripting.
+  ai_generate: { windowSeconds: 3600, max: 20 },
 }
 
 export type RateLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number }

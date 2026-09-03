@@ -1,4 +1,5 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
+import { budgetLabel } from '@/lib/feeBands'
 import { notFound } from 'next/navigation'
 import { MapPin, Wallet, Clock, GraduationCap } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
@@ -29,7 +30,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
   const { data: job } = await supabase
     .from('jobs')
     .select(
-      'id, job_tx_id, parent_id, title, subjects, class_level, city, area, teaching_mode, budget_pkr, timings, description, status, is_featured, child_id, created_at, hired_tutor_id',
+      'id, job_tx_id, parent_id, title, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, description, status, is_featured, child_id, created_at, hired_tutor_id',
     )
     .eq(isUuid ? 'id' : 'job_tx_id', jobId)
     .maybeSingle()
@@ -165,10 +166,19 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
                 {job.timings as string}
               </p>
             ) : null}
-            {job.budget_pkr ? (
+            {budgetLabel(
+              job.budget_min_pkr as number | null,
+              job.budget_max_pkr as number | null,
+              job.budget_pkr as number | null,
+            ) ? (
               <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
                 <Wallet size={14} className="text-gray-500" />
-                Rs. {(job.budget_pkr as number).toLocaleString('en-PK')} / month
+                {budgetLabel(
+                  job.budget_min_pkr as number | null,
+                  job.budget_max_pkr as number | null,
+                  job.budget_pkr as number | null,
+                )}{' '}
+                / month
               </p>
             ) : null}
           </div>

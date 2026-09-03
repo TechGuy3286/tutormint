@@ -1,6 +1,7 @@
 'use client'
 
 import { postGated } from '@/lib/gatedFetch'
+import { budgetLabel } from '@/lib/feeBands'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -37,6 +38,8 @@ export type JobCardData = {
   area: string | null
   teaching_mode: string | null
   budget_pkr: number | null
+  budget_min_pkr?: number | null
+  budget_max_pkr?: number | null
   description: string | null
   created_at: string
   is_featured: boolean | null
@@ -180,10 +183,13 @@ export default function JobCard({
                 {teachingMode(job.teaching_mode)}
               </p>
             )}
-            {job.budget_pkr ? (
+            {/* The BAND the parent chose, when there is one. Rendering only
+                its lower bound would under-state a band-posted job by up to
+                ten thousand rupees. */}
+            {budgetLabel(job.budget_min_pkr, job.budget_max_pkr, job.budget_pkr) ? (
               <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
                 <Wallet size={14} className="shrink-0 text-gray-500" />
-                Rs. {job.budget_pkr.toLocaleString('en-PK')} / month
+                {budgetLabel(job.budget_min_pkr, job.budget_max_pkr, job.budget_pkr)} / month
               </p>
             ) : null}
           </div>

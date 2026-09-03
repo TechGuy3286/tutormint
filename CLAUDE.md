@@ -1278,6 +1278,102 @@ stays populated until the owner says otherwise.
   them as base64 `data:` URIs, so a rule written about the image file would have
   caught the wrong rows.
 
+## AI-assisted job posting (3 Sep 2026)
+
+`/parent/dashboard/post-job` is one card with three numbered steps, not four
+boxed sections. The parent SELECTS — level, grade, subjects, city, area, mode,
+budget band, days, times — and writes nothing. **"Write this for me"** turns
+those selections into a title and a description through
+`POST /api/parent/jobs/generate`, which calls the Claude API server-side.
+
+**It is an assist, not a gate.** The title and description are ordinary
+editable fields. A parent who would rather type their own never presses
+Generate; a parent who does can rewrite every word; nothing posts that they
+have not seen. Posting itself is unchanged — still blocked until CNIC and
+address are verified, still quota-checked, still writes `job_subjects`, still
+`logActivity`.
+
+**Generation spends no job quota**, and that is not a detail: pressing Generate
+twice, reading both and posting neither has cost the parent nothing. Quota is
+consumed in `createJob`, when a job exists. What generation does spend is
+money, so it has its own rate-limit bucket, `ai_generate` (20/hour/user, sized
+like `otp_send` rather than like `apply` for the same reason — each call is
+billable). No migration was needed for that: `rate_limits.bucket` has no CHECK.
+
+### As built — the parts that needed a decision
+
+**`ANTHROPIC_API_KEY` is protected by a build error, not by a convention.**
+`lib/ai/anthropic.ts` imports `server-only`, so a client component importing it
+fails the build rather than shipping a billable credential into every browser
+bundle. That is the one dependency this change adds: 1KB, zero runtime, and
+published for exactly this.
+
+**An instruction in a prompt is a request, not a guarantee.** So the generated
+text is VERIFIED against the selection set before a parent ever sees it.
+`unsupportedFacts()` scans for **numbers** the parent did not select, because
+almost every way this could embarrass someone is numeric — an exam grade, a
+percentage, a fee, a number of sessions, a child's age. Those read as specific
+and checkable, and a reader will believe them. A number in the output and in
+none of the selections was invented, and that is decidable rather than a
+judgement call. It does NOT catch invented prose ("she is a bright girl"); the
+prompt argues against that, the 60–100 word ceiling leaves little room for it,
+and the parent reads everything before it posts. The limit is stated at the
+function rather than left for someone to discover.
+
+**The fallback is a first-class path, not an error branch.** With no key, a
+failed call, unparseable JSON, the wrong length, or a figure that fails the
+verifier, `composeJobCopy()` builds the same two fields deterministically from
+the selections and the form says so in words — "We put this together from your
+choices." A composed fallback presented as a generation is a small lie that
+costs trust the first time somebody notices the change in tone. **Nobody is
+ever blocked from posting because a generation call failed.**
+
+**The pure half is its own file.** `lib/ai/jobBrief.ts` holds the composer and
+the verifier; `lib/ai/jobCopy.ts` holds the API call. The split exists because
+`server-only` refuses to load in a test runner, and the composer and verifier
+are the two parts most worth testing — `npm run test:jobcopy`, 11 assertions,
+same reasoning as `lib/feedGrouping.ts`.
+
+**Subjects are resolved server-side from `taxonomy_master` ids**, never taken
+as names from the request body. The ids are what the parent selected; a name in
+a request is a string somebody could put anything in, and it would end up in
+copy published under that parent's name on a public board.
+
+**Generation is NOT gated on verification**, deliberately. It writes nothing
+and publishes nothing, and a second gate here would refuse a parent who is
+mid-way through their CNIC review and drafting a post to have ready. The gate
+lives where the job is created. Suspension does close it, with everything else.
+
+### The budget band (migration 37)
+
+The budget is now the same five bands `/browse/tuitions` filters by, because a
+free number asks a parent to know what a tutor costs before they have seen one.
+A band has two ends and `jobs.budget_pkr` is one integer, so **`budget_min_pkr`
+and `budget_max_pkr` were added** — additive, nothing existing changed meaning,
+and a job posted before the migration has them NULL, which reads correctly as
+"we only have the one number for this job".
+
+`budget_pkr` is still written, as the band's lower bound (or its upper bound for
+the band with no lower one). That is chosen so **every band round-trips through
+the existing `>=` / `<=` filter unchanged** — the table is in the migration —
+which is why no query, index or card had to be rewritten to find jobs posted
+through the new select. What did change is the *label*: `budgetLabel()` renders
+the range, because showing only the lower bound would under-state a band-posted
+job by up to ten thousand rupees.
+
+### Two things fixed on the way
+
+`components/TaxonomySelector.tsx` rendered its Level, Grade and Subjects
+sections as three bordered, tinted panels — three boxes inside one step of one
+card, which is the exact thing this pass exists to remove. They are quiet
+groups now. Its three search inputs were also 30–34px tall, under the 44px
+rule, on a form that is otherwise all taps.
+
+**What is NOT proven: the Claude path itself.** `ANTHROPIC_API_KEY` is set in
+no environment — not `.env.local`, not Vercel — so every generation to date has
+returned the composed fallback, which is what production serves until a key is
+added. The verifier and the composer are tested; the model's own output is not.
+
 ## Messaging is a two-pane inbox (3 Sep 2026)
 
 `/parent/dashboard/messages` and `/tutor/dashboard/messages` are one inbox with

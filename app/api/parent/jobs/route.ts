@@ -25,6 +25,10 @@ const JobBody = z.object({
   area: z.string().max(120).nullish(),
   teachingMode: z.string().max(60).nullish(),
   budgetPkr: rupees.nullish(),
+  // The budget arrives as a BAND (migration 37). budgetPkr is still accepted
+  // for the jobs posted before bands and for any caller that has not moved.
+  budgetMin: rupees.nullish(),
+  budgetMax: rupees.nullish(),
   schedule: z.string().max(500).nullish(),
   description: z.string().max(5000, 'Keep the description under 5000 characters.').nullish(),
   childId: uuid.nullish(),
@@ -45,6 +49,8 @@ function parseInput(body: z.infer<typeof JobBody>): JobInput {
     area: str(body.area),
     teachingMode: str(body.teachingMode),
     budgetPkr: body.budgetPkr ?? null,
+    budgetMin: body.budgetMin ?? null,
+    budgetMax: body.budgetMax ?? null,
     schedule: str(body.schedule),
     description: str(body.description),
     childId: str(body.childId),

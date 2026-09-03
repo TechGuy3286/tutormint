@@ -14,7 +14,8 @@
     "backup": "bash scripts/backup.sh",
     "check": "tsc --noEmit && next build && npm run check:contrast",
     "test:delivery": "tsx --test scripts/test-delivery.ts",
-    "check:contrast": "tsx scripts/contrast-check.ts"
+    "check:contrast": "tsx scripts/contrast-check.ts",
+    "test:jobcopy": "tsx --test scripts/test-jobcopy.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -24,6 +25,7 @@
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
     "sharp": "^0.35.3",
     "zod": "^4.5.4"
   },

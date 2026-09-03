@@ -63,3 +63,25 @@ export function feeChipLabel(min: string, max: string): string {
   if (min) return `From Rs ${Number(min).toLocaleString('en-PK')}`
   return `Up to Rs ${Number(max).toLocaleString('en-PK')}`
 }
+
+/**
+ * How a job's budget reads on a card.
+ *
+ * A job posted through the band select carries the range the parent actually
+ * chose; one posted before migration 37 carries only `budget_pkr`. Rendering
+ * the range's lower bound as though it were the budget would under-state every
+ * band-posted job by up to ten thousand rupees, which is exactly the sort of
+ * quiet wrongness a tutor would notice and a parent would never see.
+ */
+export function budgetLabel(
+  min: number | null | undefined,
+  max: number | null | undefined,
+  budgetPkr: number | null | undefined,
+): string | null {
+  if (min !== null && min !== undefined) return feeChipLabel(String(min), max == null ? '' : String(max))
+  if (max !== null && max !== undefined) return feeChipLabel('', String(max))
+  if (budgetPkr !== null && budgetPkr !== undefined) {
+    return `Rs. ${budgetPkr.toLocaleString('en-PK')}`
+  }
+  return null
+}

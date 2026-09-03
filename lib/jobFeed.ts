@@ -156,6 +156,8 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       area: (j.area as string) ?? null,
       teaching_mode: (j.teaching_mode as string) ?? null,
       budget_pkr: (j.budget_pkr as number) ?? null,
+      budget_min_pkr: (j.budget_min_pkr as number) ?? null,
+      budget_max_pkr: (j.budget_max_pkr as number) ?? null,
       description: (j.description as string) ?? null,
       created_at: (j.created_at as string) ?? new Date().toISOString(),
       is_featured: (j.is_featured as boolean) ?? false,
@@ -169,7 +171,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
 }
 
 const JOB_COLUMNS =
-  'id, job_tx_id, title, subjects, class_level, city, area, teaching_mode, budget_pkr, description, created_at, is_featured, parent_id, status'
+  'id, job_tx_id, title, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, parent_id, status'
 
 /**
  * Open jobs that match a tutor's subjects, their city first.

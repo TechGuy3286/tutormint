@@ -40,6 +40,14 @@ export type JobInput = {
    */
   teachingMode: string | null
   budgetPkr: number | null
+  /**
+   * The budget BAND the parent chose (migration 37). A band has two ends and
+   * `budget_pkr` is one integer, so both are stored: the range is what the
+   * parent actually said, and `budget_pkr` stays the single figure every
+   * existing query, index and card already reads.
+   */
+  budgetMin?: number | null
+  budgetMax?: number | null
   schedule: string | null
   description: string | null
   childId: string | null
@@ -136,7 +144,9 @@ export async function createJob(
       city: input.city,
       area: input.area ?? '',
       teaching_mode: input.teachingMode || 'both',
-      budget_pkr: input.budgetPkr,
+      budget_pkr: bandFigure(input),
+      budget_min_pkr: input.budgetMin ?? null,
+      budget_max_pkr: input.budgetMax ?? null,
       description: input.description,
       child_id: input.childId,
       status: 'open',
@@ -146,7 +156,7 @@ export async function createJob(
       // Legacy NOT NULL columns, mirrored until T8 removes them.
       subject: labels.join(', ') || 'Tuition',
       grade: input.classLevel ?? '',
-      budget: input.budgetPkr === null ? '' : String(input.budgetPkr),
+      budget: bandFigure(input) === null ? '' : String(bandFigure(input)),
       timings: input.schedule ?? '',
     })
     .select('id, job_tx_id')
@@ -221,13 +231,15 @@ export async function updateJob(
       city: input.city,
       area: input.area ?? '',
       teaching_mode: input.teachingMode || 'both',
-      budget_pkr: input.budgetPkr,
+      budget_pkr: bandFigure(input),
+      budget_min_pkr: input.budgetMin ?? null,
+      budget_max_pkr: input.budgetMax ?? null,
       description: input.description,
       child_id: input.childId,
       subjects: labels,
       subject: labels.join(', ') || 'Tuition',
       grade: input.classLevel ?? '',
-      budget: input.budgetPkr === null ? '' : String(input.budgetPkr),
+      budget: bandFigure(input) === null ? '' : String(bandFigure(input)),
       timings: input.schedule ?? '',
     })
     .eq('id', jobId)
@@ -473,6 +485,21 @@ export async function hireApplicant(
 }
 
 /** Display labels for taxonomy_master ids, in taxonomy order. */
+/**
+ * The one figure that represents a band, for `jobs.budget_pkr`.
+ *
+ * The band's lower bound, or its upper bound for the band that has no lower
+ * one ("Under Rs 5,000"). Chosen so every band round-trips through the
+ * EXISTING browse filter, which compares budget_pkr with >= budgetMin and
+ * <= budgetMax -- see the table in migration 37. That is why /browse/tuitions
+ * needed no change to find jobs posted through the new select.
+ */
+function bandFigure(input: JobInput): number | null {
+  if (input.budgetMin !== null && input.budgetMin !== undefined) return input.budgetMin
+  if (input.budgetMax !== null && input.budgetMax !== undefined) return input.budgetMax
+  return input.budgetPkr
+}
+
 export async function subjectLabels(masterIds: number[]): Promise<string[]> {
   if (masterIds.length === 0) return []
 

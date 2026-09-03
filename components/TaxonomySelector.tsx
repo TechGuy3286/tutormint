@@ -73,14 +73,14 @@ export default function TaxonomySelector({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         
         {/* Level Selector */}
-        <div className="space-y-2 bg-tm-bg p-4 rounded-2xl border border-gray-100">
-          <label className="text-xs font-bold text-tm-navy block">📚 Level (Searchable)</label>
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-tm-navy block">Level</label>
           <input 
             type="text"
             placeholder="Search levels..."
             value={levelSearch}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSearch(e.target.value)}
-            className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-slate-700"
+            className="w-full min-h-[44px] p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-slate-700"
           />
           <select 
             value={selectedLevel} 
@@ -99,14 +99,14 @@ export default function TaxonomySelector({
         </div>
 
         {/* Grade Selector */}
-        <div className="space-y-2 bg-tm-bg p-4 rounded-2xl border border-gray-100">
-          <label className="text-xs font-bold text-tm-navy block">🎓 Grade / Specialisation (Searchable)</label>
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-tm-navy block">Grade or specialisation</label>
           <input 
             type="text"
             placeholder="Search grades..."
             value={gradeSearch}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGradeSearch(e.target.value)}
-            className="w-full p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-slate-700"
+            className="w-full min-h-[44px] p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-slate-700"
           />
           <select 
             value={selectedGrade} 
@@ -126,16 +126,16 @@ export default function TaxonomySelector({
       </div>
 
       {/* Subjects Checkboxes */}
-      <div className="space-y-2 bg-tm-bg p-4 rounded-2xl border border-gray-100">
+      <div className="space-y-2">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
-          <label className="text-xs font-bold text-tm-navy block">📖 Select Subjects</label>
+          <label className="text-xs font-bold text-tm-navy block">Subjects</label>
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <input 
               type="text"
               placeholder="Search subjects..."
               value={subjectSearch}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubjectSearch(e.target.value)}
-              className="p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none flex-1 sm:w-48 text-slate-700"
+              className="min-h-[44px] p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none flex-1 sm:w-48 text-slate-700"
             />
             <button 
               type="button" 

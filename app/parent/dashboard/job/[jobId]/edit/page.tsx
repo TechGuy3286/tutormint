@@ -29,7 +29,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ jobId:
   const { data: job } = await supabase
     .from('jobs')
     .select(
-      'id, job_tx_id, parent_id, title, class_level, city, area, teaching_mode, budget_pkr, timings, description, status, child_id',
+      'id, job_tx_id, parent_id, title, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, description, status, child_id',
     )
     .eq(isUuid ? 'id' : 'job_tx_id', jobId)
     .maybeSingle()
@@ -74,7 +74,13 @@ export default async function EditJobPage({ params }: { params: Promise<{ jobId:
             city: (job.city as string) ?? '',
             area: (job.area as string) ?? '',
             teachingMode: (job.teaching_mode as string) ?? '',
-            budgetPkr: job.budget_pkr ? String(job.budget_pkr) : '',
+            // The band, so the select reopens on the one the parent chose.
+            // A job posted before migration 37 has neither end stored, and
+            // `bandFor` maps that to "Any budget" rather than inventing a band
+            // from the single figure -- which would silently change what the
+            // job says the next time anything else is edited.
+            budgetMin: job.budget_min_pkr ? String(job.budget_min_pkr) : '',
+            budgetMax: job.budget_max_pkr ? String(job.budget_max_pkr) : '',
             schedule: (job.timings as string) ?? '',
             description: (job.description as string) ?? '',
             childId: (job.child_id as string) ?? '',
