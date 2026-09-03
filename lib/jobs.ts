@@ -70,6 +70,24 @@ function validate(input: JobInput): string | null {
   if (input.budgetPkr !== null && (input.budgetPkr < 0 || input.budgetPkr > 10_000_000)) {
     return 'Enter a realistic monthly budget.'
   }
+  // The band's own ends, held to the same range. The form only ever sends one
+  // of five fixed pairs, but this is a request body and the CHECK constraint
+  // behind it only asserts min <= max -- it would happily store a nine-figure
+  // "budget" that no card could render sensibly.
+  for (const end of [input.budgetMin, input.budgetMax]) {
+    if (end !== null && end !== undefined && (end < 0 || end > 10_000_000)) {
+      return 'Enter a realistic monthly budget.'
+    }
+  }
+  if (
+    input.budgetMin !== null &&
+    input.budgetMin !== undefined &&
+    input.budgetMax !== null &&
+    input.budgetMax !== undefined &&
+    input.budgetMin > input.budgetMax
+  ) {
+    return 'That budget range runs backwards.'
+  }
   return null
 }
 
