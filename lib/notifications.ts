@@ -37,6 +37,13 @@ export type NotificationKind =
   | 'account_reinstated'
   // T-Funnel -- a matching job, told to tutors who cannot yet apply for it.
   | 'job_matched'
+  // The verification decision itself. Both queues emailed the member and wrote
+  // their timeline, and neither put anything in the product -- so the single
+  // most consequential message the platform sends ("you are verified", "here is
+  // why you were not") was the one thing a member could not find by opening the
+  // site. Added when the bell shipped, because that is when it became visible.
+  | 'verification_approved'
+  | 'verification_rejected'
 
 export async function notify(params: {
   userId: string

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
+import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 import { parseBody, z, text, uuid } from '@/lib/validate'
 
@@ -89,6 +90,20 @@ export async function POST(request: Request) {
     targetType: 'profile',
     targetId: parentId,
     meta: { decision: action, reason },
+  })
+
+  // And in the product, not only in an inbox. Approval is what unlocks posting
+  // a job, so a parent who never opens the email would otherwise keep hitting a
+  // gate that had already been lifted.
+  await notify({
+    userId: parentId,
+    kind: action === 'approve' ? 'verification_approved' : 'verification_rejected',
+    title: action === 'approve' ? 'You are verified' : 'Verification needs more information',
+    body:
+      action === 'approve'
+        ? 'You can now post tuitions and message tutors.'
+        : (reason ?? 'Please re-submit your CNIC and address.'),
+    href: action === 'approve' ? '/parent/dashboard/post-job' : '/parent/verify',
   })
 
   // Approval is what unlocks posting a job, and rejection is useless without

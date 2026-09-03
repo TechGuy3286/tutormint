@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
+import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 import { parseBody, z, text, uuid } from '@/lib/validate'
 import { suspendMember, unsuspendMember } from '@/lib/moderation'
@@ -125,6 +126,26 @@ export async function POST(request: Request) {
       resubmissionLocked,
     },
   })
+
+  // In-app, not only by email. A tutor who is told "verified" in an inbox they
+  // may not check has no way to learn it from the product itself.
+  if (action === 'approve' || action === 'hold') {
+    await notify({
+      userId: tutorId,
+      kind: action === 'approve' ? 'verification_approved' : 'verification_rejected',
+      title:
+        action === 'approve'
+          ? 'Your profile is verified'
+          : 'Your verification video needs another try',
+      body:
+        action === 'approve'
+          ? 'Parents can now see your Verified badge.'
+          : resubmissionLocked
+            ? `${reason} You have used all ${MAX_ATTEMPTS} attempts — contact support to continue.`
+            : `${reason} You can record another video.`,
+      href: action === 'approve' ? '/tutor/dashboard' : '/tutor/upload-youtube',
+    })
+  }
 
   await logActivity({
     userId: tutorId,

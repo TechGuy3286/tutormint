@@ -108,7 +108,7 @@ const SECTIONS: LegalSection[] = [
         <li>
           Sending you emails about your account: verification decisions, being shortlisted or hired,
           payment receipts, and plan expiry. You can switch off the non-essential ones at{' '}
-          <Link href="/account/notifications">Notification settings</Link>.
+          <Link href="/account/notifications/settings">Notification settings</Link>.
         </li>
         <li>
           Investigating reports, preventing fraud and abuse, and deciding whether to warn or suspend
@@ -332,7 +332,7 @@ const SECTIONS: LegalSection[] = [
           </li>
           <li>
             <strong>Choose your emails</strong> — at{' '}
-            <Link href="/account/notifications">Notification settings</Link>. Emails about
+            <Link href="/account/notifications/settings">Notification settings</Link>. Emails about
             verification, payments, plan expiry and moderation are always sent; they are the ones
             you would be worse off missing.
           </li>

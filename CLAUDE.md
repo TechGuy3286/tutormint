@@ -1076,3 +1076,97 @@ regression.** Five of the six listed tutors have a real `avatar_url` pointing at
 a flat PNG the seed script uploaded, so `Avatar` correctly renders the photo it
 was given. Bilal Ahmad, who has none, correctly renders "BA" on a brand tint.
 Seed-data cleanup is already on the T8b list.
+
+## Navigation and notifications (3 Sep 2026)
+
+- The header's signed-in control is an avatar + name dropdown whose items come from `profiles.role`. One source of truth, `lib/userMenu.ts` — never two hand-maintained copies for desktop and mobile.
+- A notification bell in the header carries the unread count from `notifications`, opens a panel of recent items, and marks read on open. `/account/notifications` is the full list with filters.
+- Notifications are never manufactured. Every row corresponds to a real event; a missing event type is fixed by adding the `notify()` call, not by writing rows.
+
+### As built
+
+**Two finished features were unreachable, and that was the whole point.**
+`/parent/dashboard/messages` and `/tutor/dashboard/messages` were built, wired
+and linked from nothing — reachable only by typing the URL. `notifications` held
+**49 real rows, all unread**, written since T5 by applications, jobs, messaging,
+demos, payments and moderation, with no screen in the product that could display
+one. Neither needed building; both needed a way in.
+
+**The menu is plain data resolved on the server.** `lib/userMenu.ts` returns
+`{label, href, icon}` where `icon` is a STRING key, because the header is a
+server component and every prop crossing to the client has to survive
+serialisation. That file also imports nothing server-only: `SCREEN_ACCESS` lives
+in `lib/adminAuth.ts`, which reaches for `next/navigation` and the cookie-backed
+client and cannot be bundled for the browser — so the header filters the admin
+screens and passes the result in. A manager's menu therefore shows Tutor
+moderation, Parent verification, Payments, Reports and Members, and **no Team
+entry**, because `SCREEN_ACCESS.team` is owner-only. The menu must never offer a
+door that is locked.
+
+**`OR is_admin()` meant RLS could not answer "my notifications".** The SELECT
+policy is `(user_id = auth.uid()) OR is_admin()`, added so admin screens can
+investigate an account. Leaning on it put **another member's message
+notifications in a manager's bell, with their own unread count**, on the first
+test run — 24 unread for an account with none. Every read in
+`lib/notificationFeed.ts` now filters `user_id` explicitly and the policy is the
+backstop it was written to be. This is CLAUDE.md's own rule ("filter them in the
+route or the RLS policy, don't just hide them in JSX") in the direction people
+forget: the policy was *broader* than the feature wanted.
+
+**The panel marks read only what it displayed.** The route returns 20 and the
+panel renders 8; marking all 20 would clear a dozen notifications nobody saw.
+One `PANEL_LIMIT` drives both, because two numbers is how they diverge. And
+"mark everything unread" was rejected outright: a notification that lands while
+the panel is open is exactly the one most likely to say somebody hired you.
+
+**The verification decision was the missing `notify()`.** Both queues —
+`/api/admin/tutors/moderate` and `/api/admin/parents/verify` — sent an email and
+wrote `logActivity`, and put nothing in the product. So the single most
+consequential message the platform sends, "you are verified" or "here is why you
+were not", was the one a member could not find by opening the site. Two kinds
+added (`verification_approved`, `verification_rejected`); no migration, because
+`notifications.kind` is `text` with no CHECK constraint.
+
+**Mark-read is deliberately NOT in `logActivity`, and that is a departure from
+rule 11.** It is a read receipt, not a state change: logging it would add a
+timeline row every time somebody opens the bell, and a timeline that records
+opening the bell is a timeline nobody can read the hires out of. The rule exists
+for accountability over consequential changes. Flagged rather than done
+silently — overrule it and it is one line.
+
+**`/account/notifications` was the email settings page.** The list took that URL
+because it is what a member clicking "Notifications" is looking for; settings
+moved to `/account/notifications/settings`, and every inbound link moved with
+it — two in `/privacy` and the footer of every outgoing email in
+`lib/notify/templates.ts`. A settings link that lands on a list is a link that
+has stopped working.
+
+**Empty states name the next real step, per role.** A tutor is told to complete
+their profile, a parent to browse tutors, an admin that their own account is
+quiet and the queues are in the admin panel — telling a manager that
+"notifications arrive when a tutor applies to your job" describes somebody
+else's product to them. A *filtered* empty is a different situation from an
+empty inbox, and offers clearing the filter instead. The two message-list empty
+states already did this work and were left alone.
+
+**Timestamps carry an explicit `timeZone`.** `toLocaleString('en-PK')` with no
+zone formats in the runtime's: UTC on the server, Asia/Karachi in the browser —
+different text for the same instant, which is React error #418. That bug is live
+on `/parent/dashboard` today via `DemoInbox`; the new components do not repeat
+it.
+
+### Homepage and footer, second pass
+
+The first pass stopped short. The two hero buttons were `min-h-[176px]` with the
+icon pinned top-left and the label bottom-left: **350px of vertical space to say
+eight words.** Icon and label are one row now and the height follows the
+content. The footer's separate copyright band was merged into the single band,
+line height and column gaps tightened.
+
+**At 1280x800 the whole page including the footer now fits with no scroll:
+document height 800px against an 800px viewport.** It was 1214px before any of
+this work and 1040px after the first pass. At 390x844 the document is 1272px
+(from 2150px), with the pill, HIRE, headline, subline and both buttons above the
+fold; the remaining scroll is footer, which cannot compress further without
+dropping below 44px touch targets on thirteen links. No copy changed and no type
+size was reduced — every change is a padding, a margin or a flex direction.

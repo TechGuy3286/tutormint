@@ -71,7 +71,7 @@ function shell(heading: string, paragraphs: string[], cta?: { label: string; hre
   <p style="max-width:520px;margin:16px auto 0;font-size:11px;line-height:1.6;color:#94a3b8;text-align:center;">
     TutorMint · <a href="${escapeHtml(SITE_URL)}" style="color:#94a3b8;">tutormint.org</a><br />
     You can change which emails you receive at
-    <a href="${escapeHtml(link('/account/notifications'))}" style="color:#94a3b8;">Notification settings</a>.
+    <a href="${escapeHtml(link('/account/notifications/settings'))}" style="color:#94a3b8;">Notification settings</a>.
   </p>
 </div>`
 }
@@ -87,7 +87,7 @@ function escapeHtml(s: string): string {
 function plain(heading: string, paragraphs: string[], cta?: { label: string; href: string }): string {
   const parts = [heading, '', ...paragraphs]
   if (cta) parts.push('', `${cta.label}: ${link(cta.href)}`)
-  parts.push('', '—', 'TutorMint · tutormint.org', `Notification settings: ${link('/account/notifications')}`)
+  parts.push('', '—', 'TutorMint · tutormint.org', `Notification settings: ${link('/account/notifications/settings')}`)
   return parts.join('\n')
 }
 

@@ -50,8 +50,8 @@ export default function Footer() {
 
   return (
     <footer className="mt-auto bg-tm-black text-slate-300">
-      <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
-        <div className="grid grid-cols-1 gap-7 lg:grid-cols-5 lg:gap-8">
+      <div className="mx-auto max-w-6xl px-5 py-7 sm:px-8 sm:py-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5 lg:gap-8">
           {/* Brand */}
           <div className="lg:pr-4">
             <img
@@ -61,12 +61,12 @@ export default function Footer() {
               height={752}
               className="h-8 w-auto object-contain"
             />
-            <p className="mt-3 max-w-xs text-xs leading-relaxed text-slate-400">
+            <p className="mt-2 max-w-xs text-xs leading-snug text-slate-400">
               Pakistan&rsquo;s Largest 100% Verified Tutors Network. 0% commission.
             </p>
 
             {socials.length > 0 && (
-              <ul className="mt-3 flex flex-wrap items-center gap-1">
+              <ul className="mt-2 flex flex-wrap items-center gap-1">
                 {socials.map((s) => (
                   <li key={s.name}>
                     <a
@@ -88,7 +88,7 @@ export default function Footer() {
               long strip: same links, same 44px targets, half the height.
               `contents` at lg hands them back to the 5-column desktop grid,
               so the approved desktop layout is unchanged. */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-7 sm:grid-cols-4 lg:contents">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-4 lg:contents">
           <FooterColumn
             heading="For Tutors"
             links={[
@@ -125,15 +125,15 @@ export default function Footer() {
             <h2 className="text-xs font-bold uppercase tracking-wider text-tm-mint">
               Support &amp; Contact
             </h2>
-            <ul className="mt-2 space-y-0.5 text-sm">
-              <li className="flex min-h-[44px] items-center text-slate-400 md:min-h-[30px]">
+            <ul className="mt-2 text-sm">
+              <li className="flex min-h-[44px] items-center text-slate-400 md:min-h-[28px]">
                 Lahore, Pakistan
               </li>
               {support.email && (
                 <li>
                   <a
                     href={`mailto:${support.email}`}
-                    className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[30px]"
+                    className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
                   >
                     {support.email}
                   </a>
@@ -142,12 +142,12 @@ export default function Footer() {
               <li>
                 <Link
                   href="/support"
-                  className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[30px]"
+                  className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
                 >
                   Help &amp; Support
                 </Link>
               </li>
-              <li className="flex min-h-[44px] items-center gap-2 text-sm font-semibold text-tm-mint md:min-h-[30px]">
+              <li className="flex min-h-[44px] items-center gap-2 text-sm font-semibold text-tm-mint md:min-h-[28px]">
                 <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-tm-mint" />
                 Verified Secure Platform
               </li>
@@ -156,7 +156,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-7 flex flex-col gap-1 border-t border-white/10 pt-5 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-col gap-1 border-t border-white/10 pt-3 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
           {/* The legal entity, not the brand. CLAUDE.md's "Legal entity"
               section confines "Tutor Mint (Pvt) Ltd" to legal contexts, and
               the footer copyright line is named as one of them. */}
@@ -186,12 +186,12 @@ function FooterColumn({
   return (
     <div>
       <h2 className="text-xs font-bold uppercase tracking-wider text-tm-mint">{heading}</h2>
-      <ul className="mt-2 space-y-0.5 text-sm">
+      <ul className="mt-2 text-sm">
         {links.map((l) => (
           <li key={l.href + l.label}>
             <Link
               href={l.href}
-              className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[30px]"
+              className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
             >
               {l.label}
             </Link>
