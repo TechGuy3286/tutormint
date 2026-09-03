@@ -9,6 +9,7 @@ import { browseJobs, type JobFilters } from '@/lib/jobFeed'
 import JobCard from '@/components/JobCard'
 import AdSlot from '@/components/ads/AdSlot'
 import JobFilterBar, { type JobFilterValues } from './JobFilterBar'
+import MoreJobs from './MoreJobs'
 
 // /browse/tuitions -- the other half of the organic-search surface.
 //
@@ -60,6 +61,42 @@ async function subjectLabel(masterId: number | null): Promise<string | null> {
   return subjectName ?? levelName
 }
 
+/**
+ * rel=prev / rel=next for the ?page=N series.
+ *
+ * The list scrolls for a person, but a crawler does not scroll: without these
+ * links the only page of the directory it can ever reach is the first one, and
+ * every job past position 12 would be invisible to search. Next emits them
+ * from `metadata.pagination`.
+ *
+ * Built from the live searchParams so a filter added later is carried into the
+ * series automatically — a rel=next that silently dropped ?city= would point
+ * the crawler at a different list from the one it is reading.
+ */
+function paginationLinks(
+  base: string,
+  sp: Record<string, string | string[] | undefined>,
+  page: number,
+  hasNext: boolean,
+) {
+  const href = (n: number) => {
+    const params = new URLSearchParams()
+    for (const [k, v] of Object.entries(sp)) {
+      if (k === 'page') continue
+      const first = Array.isArray(v) ? v[0] : v
+      if (first) params.set(k, first)
+    }
+    if (n > 1) params.set('page', String(n))
+    const qs = params.toString()
+    return qs ? `${base}?${qs}` : base
+  }
+
+  return {
+    previous: page > 1 ? href(page - 1) : undefined,
+    next: hasNext ? href(page + 1) : undefined,
+  }
+}
+
 export async function generateMetadata({
   searchParams,
 }: {
@@ -76,9 +113,27 @@ export async function generateMetadata({
     ? `Open ${label} tuition jobs${where} posted by verified parents. Free to browse and apply on TutorMint.`
     : `Open home and online tuition jobs${where} posted by verified parents. Free to browse and apply on TutorMint.`
 
+  const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
+  // Identical arguments to the page body's own call is not possible here --
+  // browseJobs is not memoised -- so this asks for a single row and reads the
+  // exact count off it, which is the cheapest way to know whether a next page
+  // exists.
+  const { total } = await browseJobs(
+    {
+      masterId: intOrNull(one(sp.subject)),
+      city: one(sp.city) || null,
+      mode: one(sp.mode) || null,
+      budgetMin: intOrNull(one(sp.budgetMin)),
+      budgetMax: intOrNull(one(sp.budgetMax)),
+      q: one(sp.q) || null,
+    },
+    1,
+  )
+
   return {
     title,
     description,
+    pagination: paginationLinks('/browse/tuitions', sp, page, page * 12 < total),
     alternates: {
       canonical: city ? `/browse/tuitions?city=${encodeURIComponent(city)}` : '/browse/tuitions',
     },
@@ -106,7 +161,10 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     q: q || null,
   }
 
-  const { jobs, total } = await browseJobs(filters, PAGE_SIZE, (page - 1) * PAGE_SIZE)
+  // The first window is server-rendered — this page is an organic-search
+  // surface and ?page=N must keep resolving for crawlers and shared links.
+  // Everything below it is appended by MoreJobs from a keyset cursor.
+  const { jobs, total, nextCursor } = await browseJobs(filters, PAGE_SIZE, (page - 1) * PAGE_SIZE)
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const supabase = await createClient()
@@ -180,8 +238,8 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   }
 
   return (
-    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mx-auto max-w-5xl space-y-6">
+    <main className="min-h-screen bg-tm-bg px-4 py-4 text-slate-700 sm:px-6 sm:py-6 lg:px-8">
+      <div className="mx-auto max-w-5xl space-y-4">
         <Breadcrumbs items={[{ label: 'Find tuitions' }]} />
         <header className="space-y-1">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">
@@ -220,7 +278,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
                   showApply={showApply}
                   applied={appliedIds.has(job.id)}
                 />
-                {(i + 1) % AD_EVERY === 0 && i + 1 < jobs.length && (
+                {(i + 1) % AD_EVERY === 0 && (
                   <AdSlot
                     slot="browse-inline"
                     audience="tutors"
@@ -232,34 +290,36 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
           </div>
         )}
 
-        {pages > 1 && (
-          <nav className="flex items-center justify-between gap-3 pt-2" aria-label="Pagination">
-            {page > 1 ? (
-              <Link
-                href={pageHref(page - 1)}
-                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy"
-              >
-                Previous
-              </Link>
-            ) : (
-              <span />
-            )}
-            <span className="text-xs font-bold text-gray-500">
-              Page {page} of {pages}
-            </span>
-            {page < pages ? (
-              <Link
-                href={pageHref(page + 1)}
-                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy"
-              >
-                Next
-              </Link>
-            ) : (
-              <span />
-            )}
-          </nav>
+        {/* No numbered pagination (CLAUDE.md, 3 Sep 2026). */}
+        {jobs.length > 0 && (
+          <MoreJobs
+            params={{ ...jobParams(sp), ...(page > 1 ? { page: String(page) } : {}) }}
+            initialCursor={nextCursor}
+            total={total}
+            serverCount={(page - 1) * PAGE_SIZE + jobs.length}
+            signedIn={!!user}
+            showApply={showApply}
+            adEvery={AD_EVERY}
+          />
         )}
       </div>
     </main>
   )
+}
+
+/**
+ * The filters, straight off the live searchParams.
+ *
+ * Read from `sp` rather than rebuilt from the parsed values so a filter added
+ * later is carried into load-more without anybody having to remember this
+ * function exists — the failure mode being a second window that quietly
+ * ignores the city the reader searched for.
+ */
+function jobParams(sp: Record<string, string | string[] | undefined>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const k of ['subject', 'city', 'mode', 'budgetMin', 'budgetMax', 'q']) {
+    const v = Array.isArray(sp[k]) ? sp[k][0] : sp[k]
+    if (v) out[k] = v
+  }
+  return out
 }

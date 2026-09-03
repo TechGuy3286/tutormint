@@ -1,0 +1,147 @@
+import { cache } from 'react'
+
+import { createClient } from '@/lib/supabase/server'
+import { encodeCursor, decodeCursor } from '@/lib/cursor'
+import type { TutorCardData } from '@/components/TutorCard'
+
+// The one place /browse/tutors is queried, shared by the page and the
+// load-more route.
+//
+// Two callers, one query, on purpose: the page server-renders the first window
+// and the route appends the rest, and if those drifted apart a reader would
+// scroll from one ordering into another without anything saying so.
+
+export type TutorFilters = {
+  masterId: number | null
+  city: string
+  area: string
+  mode: string
+  gender: string
+  feeMin: string
+  feeMax: string
+  q: string
+}
+
+/** The sort key rank_tutors() orders by. Everything needed to say "after this row". */
+type TutorCursor = { t: number; l: number; s: number; h: string }
+
+export type RankedTutor = TutorCardData & {
+  tier: number
+  location_score: number
+  score: number
+  sort_hash: string
+  total_count: number
+}
+
+function intOrNull(v: string): number | null {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null
+}
+
+/** Reads the filter set out of a URLSearchParams or a Next searchParams object. */
+export function tutorFiltersFrom(get: (k: string) => string): TutorFilters {
+  return {
+    masterId: intOrNull(get('subject')),
+    city: get('city'),
+    area: get('area'),
+    mode: get('mode'),
+    gender: get('gender'),
+    feeMin: get('feeMin'),
+    feeMax: get('feeMax'),
+    q: get('q'),
+  }
+}
+
+export function tutorFiltersToParams(f: TutorFilters): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (f.masterId) out.subject = String(f.masterId)
+  for (const k of ['city', 'area', 'mode', 'gender', 'feeMin', 'feeMax', 'q'] as const) {
+    if (f[k]) out[k] = f[k]
+  }
+  return out
+}
+
+/**
+ * One window of ranked tutors.
+ *
+ * `offset` answers a cold `?page=N` arrival — a crawler or a shared link, with
+ * no row to continue from. `cursor` answers "more, after the row I am looking
+ * at", and is what load-more uses: between two requests a plan can lapse or a
+ * rating can move, and with OFFSET every row above the window shifts, so the
+ * reader sees a tutor twice or never sees one at all.
+ */
+export type RankArgs = {
+  filters: TutorFilters
+  limit: number
+  offset?: number
+  cursor?: string | null
+}
+
+export type RankResult = {
+  tutors: RankedTutor[]
+  total: number
+  nextCursor: string | null
+  error: boolean
+}
+
+/**
+ * Keyed on a serialised argument list rather than on the object, because
+ * React's cache() compares arguments with Object.is and a fresh object literal
+ * is never equal to the last one. Without this, generateMetadata and the page
+ * body ask the database the same question twice on every single request —
+ * generateMetadata needs the total to decide whether rel=next exists, and the
+ * page needs the rows, and it is one query.
+ */
+export const rankedTutors = (args: RankArgs): Promise<RankResult> => rankedTutorsCached(JSON.stringify(args))
+
+const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
+  const { filters, limit, offset = 0, cursor = null } = JSON.parse(key) as RankArgs
+  const supabase = await createClient()
+  const after = decodeCursor<TutorCursor>(cursor)
+
+  const { data, error } = await supabase.rpc('rank_tutors', {
+    p_master_id: filters.masterId,
+    p_city: filters.city || null,
+    p_area: filters.area || null,
+    p_teaching_mode: filters.mode || null,
+    p_gender: filters.gender || null,
+    p_fee_min: intOrNull(filters.feeMin),
+    p_fee_max: intOrNull(filters.feeMax),
+    p_query: filters.q || null,
+    p_limit: limit,
+    // A cursor and an offset are two answers to the same question, so a
+    // request carrying a cursor never also skips rows.
+    p_offset: after ? 0 : offset,
+    p_after_tier: after?.t ?? null,
+    p_after_loc: after?.l ?? null,
+    p_after_score: after?.s ?? null,
+    p_after_hash: after?.h ?? null,
+  })
+
+  const tutors = (data ?? []) as RankedTutor[]
+  const total = tutors[0]?.total_count ?? 0
+  const seen = (after ? 0 : offset) + tutors.length
+
+  return {
+    tutors,
+    total,
+    // Null means "that was the end", which is what the footer renders as a
+    // sentence rather than as silence. Derived from the total rather than from
+    // a short page, so a window that happens to land exactly on the boundary
+    // does not offer a Load more button that returns nothing.
+    nextCursor: tutors.length === 0 || seen >= total ? null : cursorFor(tutors[tutors.length - 1]),
+    error: !!error,
+  }
+})
+
+export function cursorFor(row: RankedTutor): string {
+  // round(score, 2) is what the ORDER BY compares, and it is what the function
+  // compares the cursor against. Sending the unrounded score back would make
+  // the boundary row compare unequal to itself and be served twice.
+  return encodeCursor({
+    t: row.tier,
+    l: row.location_score,
+    s: Math.round(Number(row.score) * 100) / 100,
+    h: row.sort_hash,
+  } satisfies TutorCursor)
+}

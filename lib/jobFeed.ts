@@ -24,6 +24,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
+import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import type { JobCardData } from '@/components/JobCard'
 
 type ParentFacts = {
@@ -250,11 +251,24 @@ export type JobFilters = {
  * Filtering on subject compares taxonomy_master ids through job_subjects, so
  * "O Levels Physics" matches only that, never "Physics" at Primary.
  */
+/** The sort key browseJobs orders by, and therefore what a cursor must carry. */
+type JobCursor = { f: boolean; c: string; i: string }
+
+/**
+ * One window of open tuitions.
+ *
+ * `offset` answers a cold ?page=N arrival with nothing to continue from — a
+ * crawler, or a shared link. `cursor` answers "more, after the job I can see",
+ * and is what load-more uses: jobs are posted and closed continuously, so with
+ * OFFSET a reader scrolling a busy board sees the same tuition twice or misses
+ * one entirely.
+ */
 export async function browseJobs(
   filters: JobFilters,
   limit = 12,
   offset = 0,
-): Promise<{ jobs: JobCardData[]; total: number }> {
+  cursor: string | null = null,
+): Promise<{ jobs: JobCardData[]; total: number; nextCursor: string | null }> {
   const supabase = await createClient()
 
   let matchingIds: string[] | null = null
@@ -264,7 +278,7 @@ export async function browseJobs(
       .select('job_id')
       .eq('master_id', filters.masterId)
     matchingIds = Array.from(new Set((links ?? []).map((l) => l.job_id as string)))
-    if (matchingIds.length === 0) return { jobs: [], total: 0 }
+    if (matchingIds.length === 0) return { jobs: [], total: 0, nextCursor: null }
   }
 
   const build = () => {
@@ -282,14 +296,51 @@ export async function browseJobs(
     return q
   }
 
-  const { data, count } = await build()
+  // `id` is not decoration: (is_featured, created_at) is not unique -- two
+  // jobs posted in the same second would compare equal, and a keyset cursor
+  // cannot say which side of a tie it is on. With the id the key is total, so
+  // no row can be straddled.
+  let q = build()
     .order('is_featured', { ascending: false })
     .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+    .order('id', { ascending: false })
+
+  const after = decodeCursor<JobCursor>(cursor)
+  if (after) {
+    // Strictly after the cursor row under that ordering. PostgREST needs the
+    // values quoted: a timestamptz carries '+' and ':' and a bare one would be
+    // parsed as more filter syntax.
+    const f = after.f ? 'true' : 'false'
+    q = q.or(
+      [
+        `is_featured.lt.${f}`,
+        `and(is_featured.eq.${f},created_at.lt."${after.c}")`,
+        `and(is_featured.eq.${f},created_at.eq."${after.c}",id.lt."${after.i}")`,
+      ].join(','),
+    )
+  } else if (offset > 0) {
+    q = q.range(offset, offset + limit - 1)
+  }
+
+  if (after || offset === 0) q = q.limit(limit)
+
+  const { data, count } = await q
+  const rows = (data ?? []) as Record<string, unknown>[]
+  const last = rows[rows.length - 1]
+  const total = count ?? 0
+  const seen = (after ? 0 : offset) + rows.length
 
   return {
-    jobs: await decorate((data ?? []) as Record<string, unknown>[]),
-    total: count ?? 0,
+    jobs: await decorate(rows),
+    total,
+    nextCursor:
+      rows.length === 0 || seen >= total || !last
+        ? null
+        : encodeCursor({
+            f: !!last.is_featured,
+            c: String(last.created_at),
+            i: String(last.id),
+          } satisfies JobCursor),
   }
 }
 

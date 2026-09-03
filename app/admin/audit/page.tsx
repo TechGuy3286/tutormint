@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { auditPage } from '@/lib/auditFeed'
+import AuditEntry from './AuditEntry'
+import MoreEntries from './MoreEntries'
 
 // The admin audit trail. owner / manager. Read-only, and read-only by
 // construction: admin_audit_log has a SELECT policy and nothing else, so there
@@ -33,18 +36,12 @@ export default async function AdminAuditPage({
     )
   }
 
-  let query = admin
-    .from('admin_audit_log')
-    .select('id, actor_id, actor_role, actor_email, action, target_type, target_id, detail, created_at')
-    .order('created_at', { ascending: false })
-    .range((pageNum - 1) * PAGE_SIZE, pageNum * PAGE_SIZE - 1)
-
-  // Prefix filter: 'tutor' matches tutor.approve, tutor.suspend and so on, so
-  // the chips stay meaningful as new actions are added.
-  if (action !== 'all') query = query.like('action', `${action}.%`)
-  if (actor.trim()) query = query.ilike('actor_email', `%${actor.trim()}%`)
-
-  const { data: entries } = await query
+  // The first window server-side, the rest appended from a keyset cursor.
+  const { entries, nextCursor } = await auditPage({
+    filters: { action, actor },
+    limit: PAGE_SIZE,
+    offset: (pageNum - 1) * PAGE_SIZE,
+  })
 
   // Which action families actually exist, so the chips reflect reality rather
   // than a hardcoded list that drifts.
@@ -53,29 +50,10 @@ export default async function AdminAuditPage({
     new Set((allActions ?? []).map((a) => (a.action as string).split('.')[0])),
   ).sort()
 
-  const targetIds = Array.from(
-    new Set((entries ?? []).map((e) => e.target_id as string).filter(Boolean)),
-  ).filter((v) => /^[0-9a-f-]{36}$/i.test(v))
-
-  const { data: people } = await admin
-    .from('profiles')
-    .select('id, full_name')
-    .in('id', targetIds.length ? targetIds : ['00000000-0000-0000-0000-000000000000'])
-
-  const nameById = new Map((people ?? []).map((p) => [p.id as string, p.full_name as string]))
-
   const chipHref = (a: string) => {
     const p = new URLSearchParams()
     if (a !== 'all') p.set('action', a)
     if (actor.trim()) p.set('actor', actor.trim())
-    return `/admin/audit${p.toString() ? `?${p}` : ''}`
-  }
-
-  const pageHref = (n: number) => {
-    const p = new URLSearchParams()
-    if (action !== 'all') p.set('action', action)
-    if (actor.trim()) p.set('actor', actor.trim())
-    if (n > 1) p.set('page', String(n))
     return `/admin/audit${p.toString() ? `?${p}` : ''}`
   }
 
@@ -121,82 +99,29 @@ export default async function AdminAuditPage({
         ))}
       </nav>
 
-      {(entries ?? []).length === 0 ? (
+      {entries.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           Nothing matches that.
         </p>
       ) : (
         <ol className="space-y-2">
-          {(entries ?? []).map((e) => (
-            <li key={e.id as string} className="space-y-1 rounded-2xl border border-gray-200 bg-white p-3">
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-black text-slate-600">
-                  {e.action as string}
-                </span>
-                {/* The role is the "with what authority" half of the entry, so
-                    it must not be the part that gets truncated. At 360px a long
-                    address used to eat it entirely: the email truncates inside
-                    its own span, the role never shrinks. */}
-                <span className="flex min-w-0 flex-1 items-baseline gap-1">
-                  <span className="min-w-0 truncate text-xs font-semibold text-tm-navy">
-                    {(e.actor_email as string) ?? 'system'}
-                  </span>
-                  <span className="shrink-0 text-xs font-normal text-gray-500">
-                    ({(e.actor_role as string) ?? '—'})
-                  </span>
-                </span>
-                <span className="shrink-0 text-[11px] text-gray-500">
-                  {new Date(e.created_at as string).toLocaleString('en-PK')}
-                </span>
-              </div>
-
-              <p className="text-[11px] text-gray-500">
-                {(e.target_type as string) ?? 'target'}:{' '}
-                {e.target_id && nameById.has(e.target_id as string) ? (
-                  <Link
-                    href={`/admin/users/${e.target_id}`}
-                    className="font-bold text-tm-navy hover:underline"
-                  >
-                    {nameById.get(e.target_id as string)}
-                  </Link>
-                ) : (
-                  <span className="font-mono">{(e.target_id as string) ?? '—'}</span>
-                )}
-              </p>
-
-              {Object.keys((e.detail as Record<string, unknown>) ?? {}).length > 0 && (
-                <p className="break-words text-[11px] leading-relaxed text-gray-500">
-                  {Object.entries(e.detail as Record<string, unknown>)
-                    .filter(([, v]) => v !== null && v !== undefined && v !== '')
-                    .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
-                    .join(' · ')}
-                </p>
-              )}
-            </li>
+          {entries.map((e) => (
+            <AuditEntry key={e.id} entry={e} />
           ))}
         </ol>
       )}
 
-      <div className="flex items-center justify-between gap-2">
-        {pageNum > 1 ? (
-          <Link
-            href={pageHref(pageNum - 1)}
-            className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
-          >
-            ← Newer
-          </Link>
-        ) : (
-          <span />
-        )}
-        {(entries ?? []).length === PAGE_SIZE && (
-          <Link
-            href={pageHref(pageNum + 1)}
-            className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
-          >
-            Older →
-          </Link>
-        )}
-      </div>
+      {/* No Newer/Older paging (CLAUDE.md, 3 Sep 2026). */}
+      {entries.length > 0 && (
+        <MoreEntries
+          params={{
+            ...(action !== 'all' ? { action } : {}),
+            ...(actor.trim() ? { actor: actor.trim() } : {}),
+          }}
+          initialCursor={nextCursor}
+          serverCount={(pageNum - 1) * PAGE_SIZE + entries.length}
+        />
+      )}
     </div>
   )
 }

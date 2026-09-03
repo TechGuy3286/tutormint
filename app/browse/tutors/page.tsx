@@ -7,6 +7,8 @@ import { logSearchPerformed } from '@/lib/activityLog'
 import TutorCard, { type TutorCardData, type CardViewer } from '@/components/TutorCard'
 import AdSlot from '@/components/ads/AdSlot'
 import TutorFilterBar, { type FilterValues } from './TutorFilterBar'
+import MoreTutors from './MoreTutors'
+import { rankedTutors, tutorFiltersFrom, tutorFiltersToParams } from '@/lib/browseTutors'
 
 // /browse/tutors -- a server component, on purpose.
 //
@@ -60,6 +62,42 @@ async function subjectLabel(masterId: number | null): Promise<string | null> {
   return subjectName ?? levelName
 }
 
+/**
+ * rel=prev / rel=next for the ?page=N series.
+ *
+ * The list scrolls for a person, but a crawler does not scroll: without these
+ * links the only page of the directory it can ever reach is the first one, and
+ * every tutor past position 12 would be invisible to search. Next emits them
+ * from `metadata.pagination`.
+ *
+ * Built from the live searchParams so a filter added later is carried into the
+ * series automatically — a rel=next that silently dropped ?city= would point
+ * the crawler at a different list from the one it is reading.
+ */
+function paginationLinks(
+  base: string,
+  sp: Record<string, string | string[] | undefined>,
+  page: number,
+  hasNext: boolean,
+) {
+  const href = (n: number) => {
+    const params = new URLSearchParams()
+    for (const [k, v] of Object.entries(sp)) {
+      if (k === 'page') continue
+      const first = Array.isArray(v) ? v[0] : v
+      if (first) params.set(k, first)
+    }
+    if (n > 1) params.set('page', String(n))
+    const qs = params.toString()
+    return qs ? `${base}?${qs}` : base
+  }
+
+  return {
+    previous: page > 1 ? href(page - 1) : undefined,
+    next: hasNext ? href(page + 1) : undefined,
+  }
+}
+
 export async function generateMetadata({
   searchParams,
 }: {
@@ -76,9 +114,19 @@ export async function generateMetadata({
     ? `Browse verified ${label} tutors${where}. Real profiles, verified identity, video introductions. Free to browse on TutorMint.`
     : `Browse verified home and online tutors${where}. Real profiles, verified identity, video introductions. Free to browse on TutorMint.`
 
+  const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
+  // Identical arguments to the page body's own call, so React's cache() serves
+  // both from one query rather than asking the directory twice per request.
+  const { total } = await rankedTutors({
+    filters: tutorFiltersFrom((k) => one(sp[k])),
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
+  })
+
   return {
     title,
     description,
+    pagination: paginationLinks('/browse/tutors', sp, page, page * 12 < total),
     alternates: { canonical: city ? `/browse/tutors?city=${encodeURIComponent(city)}` : '/browse/tutors' },
     openGraph: { title, description, type: 'website' },
   }
@@ -118,21 +166,20 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
 
   const supabase = await createClient()
 
-  const { data: rows, error } = await supabase.rpc('rank_tutors', {
-    p_master_id: subjectId,
-    p_city: city || null,
-    p_area: area || null,
-    p_teaching_mode: mode || null,
-    p_gender: gender || null,
-    p_fee_min: intOrNull(feeMin),
-    p_fee_max: intOrNull(feeMax),
-    p_query: q || null,
-    p_limit: PAGE_SIZE,
-    p_offset: (page - 1) * PAGE_SIZE,
+  // The first window is rendered here, on the server, exactly as before: this
+  // page is the platform's organic-search surface and the tutors must be in the
+  // HTML. ?page=N still resolves, still server-side, so a crawler that has
+  // followed rel=next and a member who shared a deep link both get real markup.
+  //
+  // Everything BELOW this window is appended by MoreTutors from a keyset
+  // cursor, because offset paging repeats and skips rows as the directory
+  // changes underneath a reader. See supabase/migrations/32.
+  const listFilters = tutorFiltersFrom((k) => one(sp[k]))
+  const { tutors, total, nextCursor, error } = await rankedTutors({
+    filters: listFilters,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
   })
-
-  const tutors = (rows ?? []) as (TutorCardData & { total_count: number })[]
-  const total = tutors[0]?.total_count ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   // Who is looking. Guests get the full page -- browsing never asks for an
@@ -208,8 +255,8 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   }
 
   return (
-    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mx-auto max-w-5xl space-y-6">
+    <main className="min-h-screen bg-tm-bg px-4 py-4 text-slate-700 sm:px-6 sm:py-6 lg:px-8">
+      <div className="mx-auto max-w-5xl space-y-4">
         <Breadcrumbs items={[{ label: 'Find tutors' }]} />
         <header className="space-y-1">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">
@@ -295,7 +342,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
                 />
                 {/* One inline slot after every 8 results, never inside the
                     ranking itself. */}
-                {(i + 1) % AD_EVERY === 0 && i + 1 < tutors.length && (
+                {(i + 1) % AD_EVERY === 0 && (
                   <AdSlot
                     slot="browse-inline"
                     audience="parents"
@@ -308,32 +355,18 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
           </div>
         )}
 
-        {pages > 1 && (
-          <nav className="flex items-center justify-between gap-3 pt-2" aria-label="Pagination">
-            {page > 1 ? (
-              <Link
-                href={pageHref(page - 1)}
-                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy"
-              >
-                Previous
-              </Link>
-            ) : (
-              <span />
-            )}
-            <span className="text-xs font-bold text-gray-500">
-              Page {page} of {pages}
-            </span>
-            {page < pages ? (
-              <Link
-                href={pageHref(page + 1)}
-                className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy"
-              >
-                Next
-              </Link>
-            ) : (
-              <span />
-            )}
-          </nav>
+        {/* No numbered pagination (CLAUDE.md, 3 Sep 2026). MoreTutors appends
+            from the cursor this window ended on, and renders the Load more
+            button, the scroll trigger and the end-of-results line. */}
+        {tutors.length > 0 && (
+          <MoreTutors
+            params={{ ...tutorFiltersToParams(listFilters), ...(page > 1 ? { page: String(page) } : {}) }}
+            initialCursor={nextCursor}
+            total={total}
+            serverCount={(page - 1) * PAGE_SIZE + tutors.length}
+            viewer={viewer}
+            adEvery={AD_EVERY}
+          />
         )}
       </div>
     </main>

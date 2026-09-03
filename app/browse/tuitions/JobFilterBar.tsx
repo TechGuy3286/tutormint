@@ -98,10 +98,19 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
     }
   }
 
+  // At lg the three field groups become ONE five-column grid via `contents`,
+  // so nine filters occupy two rows instead of three. That is ~70px of an
+  // 800px laptop viewport handed back to the results, which is the point of
+  // the 3 Sep spacing pass: on a browse page the results are the content and
+  // the controls are not.
+  //
+  // Below lg the groups keep their own rows, because the cascade reads as a
+  // cascade — category, then level, then subject — and flattening it on a
+  // phone would put "Subject" beside "City".
   const panel = (
-    <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <label className="space-y-1">
+    <div className="space-y-2 lg:grid lg:grid-cols-5 lg:gap-2 lg:space-y-0">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:contents">
+        <label className="space-y-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Category</span>
           <select
             className={FIELD}
@@ -117,7 +126,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             ))}
           </select>
         </label>
-        <label className="space-y-1">
+        <label className="space-y-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Level</span>
           <select className={FIELD} value={level} disabled={!category} onChange={(e) => chooseLevel(e.target.value)}>
             <option value="">Any level</option>
@@ -126,7 +135,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             ))}
           </select>
         </label>
-        <label className="space-y-1">
+        <label className="space-y-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Subject</span>
           <select
             className={FIELD}
@@ -142,8 +151,8 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <label className="space-y-1">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:contents">
+        <label className="space-y-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">City</span>
           <select className={FIELD} value={values.city} onChange={(e) => apply({ city: e.target.value })}>
             <option value="">Any city</option>
@@ -152,7 +161,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             ))}
           </select>
         </label>
-        <label className="space-y-1">
+        <label className="space-y-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Mode</span>
           <select className={FIELD} value={values.mode} onChange={(e) => apply({ mode: e.target.value })}>
             <option value="">Any mode</option>
@@ -161,7 +170,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             ))}
           </select>
         </label>
-        <label className="space-y-1">
+        <label className="space-y-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Budget from</span>
           <input
             type="number"
@@ -171,7 +180,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             onBlur={(e) => e.target.value !== values.budgetMin && apply({ budgetMin: e.target.value })}
           />
         </label>
-        <label className="space-y-1">
+        <label className="space-y-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Budget up to</span>
           <input
             type="number"
@@ -186,7 +195,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
   )
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex gap-2">
         <Typeahead
           initialQuery={values.q}

@@ -4,6 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { findJunkAccounts } from '@/lib/cleanup'
 import CleanupClient from './CleanupClient'
 import MemberSearch from './MemberSearch'
+import MemberRow from './MemberRow'
+import MoreMembers from './MoreMembers'
+import { memberPage } from '@/lib/memberFeed'
 
 // The member directory. owner / manager / support.
 //
@@ -17,19 +20,8 @@ import MemberSearch from './MemberSearch'
 
 export const dynamic = 'force-dynamic'
 
-type Row = {
-  id: string
-  name: string
-  email: string
-  phone: string | null
-  role: string
-  slug: string | null
-  completion: number
-  verified: boolean
-  suspended: boolean
-  plan: string | null
-  createdAt: string
-}
+// One window. The list scrolls, so this is a window size, not a cap.
+const PAGE_SIZE = 100
 
 export default async function AdminUsersPage({
   searchParams,
@@ -56,84 +48,14 @@ export default async function AdminUsersPage({
     )
   }
 
-  let query = admin
-    .from('profiles')
-    .select(
-      'id, full_name, email, phone_number, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended, created_at',
-    )
-    .order('created_at', { ascending: false })
-    .limit(100)
-
-  const term = q.trim()
-  if (term) {
-    // A slug search is resolved first and folded into the same OR, so one box
-    // matches "usman", "seed+verified-usman@…", "0300…" and "verified-usman".
-    const { data: bySlug } = await admin
-      .from('tutor_profiles')
-      .select('id')
-      .ilike('slug', `%${term}%`)
-      .limit(50)
-
-    const slugIds = (bySlug ?? []).map((t) => t.id as string)
-    const escaped = term.replace(/[%,()]/g, '')
-    const clauses = [
-      `full_name.ilike.%${escaped}%`,
-      `email.ilike.%${escaped}%`,
-      `phone_number.ilike.%${escaped}%`,
-    ]
-    if (slugIds.length > 0) clauses.push(`id.in.(${slugIds.join(',')})`)
-    query = query.or(clauses.join(','))
-  }
-
-  if (role === 'tutor') query = query.eq('role', 'tutor')
-  else if (role === 'parent') query = query.in('role', ['parent', 'academy'])
-  else if (role === 'admin') query = query.eq('role', 'admin')
-
-  if (status === 'suspended') query = query.eq('is_suspended', true)
-
-  const { data: profiles } = await query
-  const ids = (profiles ?? []).map((p) => p.id as string)
-
-  const [{ data: tutorRows }, { data: subs }, { data: plans }] = await Promise.all([
-    admin
-      .from('tutor_profiles')
-      .select('id, slug')
-      .in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']),
-    admin
-      .from('subscriptions')
-      .select('user_id, plan_code')
-      .eq('status', 'active')
-      .gt('expires_at', new Date().toISOString())
-      .in('user_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']),
-    admin.from('plans').select('code, name'),
-  ])
-
-  const slugById = new Map((tutorRows ?? []).map((t) => [t.id as string, t.slug as string]))
-  const planByUser = new Map((subs ?? []).map((s) => [s.user_id as string, s.plan_code as string]))
-  const planName = new Map((plans ?? []).map((p) => [p.code as string, p.name as string]))
-
-  const rows: Row[] = (profiles ?? []).map((p) => {
-    const verified = !!p.cnic_verified_at && !!p.address_verified_at
-    // Same rule getEntitlements uses: a verified parent is on the free plan
-    // with no subscription row of their own.
-    let planCode = planByUser.get(p.id as string) ?? null
-    if (!planCode && p.role !== 'tutor' && p.role !== 'admin' && verified) {
-      planCode = 'parent_verified'
-    }
-    return {
-      id: p.id as string,
-      name: (p.full_name as string) ?? '—',
-      email: (p.email as string) ?? '—',
-      phone: (p.phone_number as string) || null,
-      role: p.role as string,
-      slug: slugById.get(p.id as string) ?? null,
-      completion: (p.profile_completion as number) ?? 0,
-      verified,
-      suspended: !!p.is_suspended,
-      plan: planCode ? (planName.get(planCode) ?? planCode) : null,
-      createdAt: p.created_at as string,
-    }
+  // The first window server-side; MoreMembers appends the rest from a keyset
+  // cursor. This list used to stop at 100 and say "First 100 matches" in the
+  // heading — honest about being truncated, and useless as a directory.
+  const { rows, nextCursor } = await memberPage({
+    filters: { q, role, status },
+    limit: PAGE_SIZE,
   })
+  const term = q.trim()
 
   const chip = (key: string, value: string, label: string, current: string) => {
     const params = new URLSearchParams()
@@ -166,8 +88,7 @@ export default async function AdminUsersPage({
       <header className="space-y-1">
         <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Members</h1>
         <p className="text-xs text-gray-500">
-          {rows.length === 100 ? 'First 100 matches' : `${rows.length} member${rows.length === 1 ? '' : 's'}`}
-          {term ? ` matching “${term}”` : ''}
+          Every account, newest first{term ? ` matching “${term}”` : ''}.
         </p>
       </header>
 
@@ -196,40 +117,21 @@ export default async function AdminUsersPage({
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => (
-            <li key={r.id}>
-              <Link
-                href={`/admin/users/${r.id}`}
-                className={`block space-y-1 rounded-2xl border bg-white p-4 transition-colors hover:border-tm-navy ${
-                  r.suspended ? 'border-tm-gold/30' : 'border-gray-200'
-                }`}
-              >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="min-w-0 truncate text-sm font-black text-tm-navy">{r.name}</p>
-                  <span className="flex shrink-0 items-center gap-1.5">
-                    {r.suspended && (
-                      <span className="rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-black uppercase text-tm-gold-ink">
-                        suspended
-                      </span>
-                    )}
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700">
-                      {r.role}
-                    </span>
-                  </span>
-                </div>
-                <p className="truncate text-[11px] text-gray-500">
-                  {r.email}
-                  {r.phone ? ` · ${r.phone}` : ''}
-                  {r.slug ? ` · /tutor/${r.slug}` : ''}
-                </p>
-                <p className="text-[11px] text-gray-500">
-                  {r.plan ?? 'No plan'} · {r.completion}% complete ·{' '}
-                  {r.verified ? 'verified' : 'not verified'} · joined{' '}
-                  {new Date(r.createdAt).toLocaleDateString('en-PK')}
-                </p>
-              </Link>
-            </li>
+            <MemberRow key={r.id} row={r} />
           ))}
         </ul>
+      )}
+
+      {rows.length > 0 && (
+        <MoreMembers
+          params={{
+            ...(term ? { q: term } : {}),
+            ...(role !== 'all' ? { role } : {}),
+            ...(status !== 'all' ? { status } : {}),
+          }}
+          initialCursor={nextCursor}
+          serverCount={rows.length}
+        />
       )}
     </div>
   )

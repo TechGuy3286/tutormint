@@ -8,6 +8,14 @@
 //
 // It is a server component with no client JavaScript at all. This is the page
 // every organic visitor lands on, and it renders as HTML on the first byte.
+//
+// SPACING was authorised on 3 Sep 2026 and is the only thing that has changed
+// here since: every number below is a padding or a margin. Order, copy, type
+// sizes and the two buttons are exactly as approved. The brief for it was that
+// dead space and wasted scroll are defects rather than neutral choices, so the
+// eyebrow, HIRE, the headline, the subline and BOTH buttons now sit above the
+// fold at 390x844 and 1280x800 with room to spare, rather than the second
+// button finishing 79px short of the bottom edge on a laptop.
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -38,33 +46,33 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function HomePage() {
   return (
     <div className="bg-tm-bg">
-      <section className="mx-auto flex max-w-5xl flex-col items-center px-4 pt-12 pb-16 text-center sm:px-6 sm:pt-16 sm:pb-24">
+      <section className="mx-auto flex max-w-5xl flex-col items-center px-4 pt-6 pb-10 text-center sm:px-6 sm:pt-10 sm:pb-14">
         {/* Eyebrow pill */}
         <p className="rounded-full border border-tm-green-deep/20 bg-tm-tint-green px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-tm-navy sm:text-xs sm:tracking-[0.18em]">
           Pakistan&rsquo;s Largest Verified Tutors &amp; Teachers Network
         </p>
 
         {/* HIRE */}
-        <p className="mt-8 text-4xl font-black tracking-[0.18em] text-tm-green-deep sm:mt-10 sm:text-6xl">
+        <p className="mt-5 text-4xl font-black tracking-[0.18em] text-tm-green-deep sm:mt-7 sm:text-6xl">
           HIRE
         </p>
 
         {/* Headline. One <h1> for the page, with the line break the design
             uses on desktop and natural wrapping on a phone. */}
-        <h1 className="tm-headline mt-3 text-3xl font-black leading-[1.15] text-tm-black sm:mt-4 sm:text-5xl md:text-6xl">
+        <h1 className="tm-headline mt-2 text-3xl font-black leading-[1.15] text-tm-black sm:mt-3 sm:text-5xl md:text-6xl">
           Trusted, Degree-Verified{' '}
           <span className="whitespace-nowrap">
             Tutors/Teachers <span className="text-tm-red">FREE</span>
           </span>
         </h1>
 
-        <p className="mt-4 text-sm font-bold italic text-tm-red sm:mt-5 sm:text-base">
+        <p className="mt-3 text-sm font-bold italic text-tm-red sm:mt-4 sm:text-base">
           No Fee &bull; No Commission &bull; No Middleman &bull; Live Demo
         </p>
 
         {/* The two calls to action. Stacked below 640px, side by side above --
             the one responsive change the lock permits. */}
-        <div className="mt-10 grid w-full max-w-3xl grid-cols-1 gap-5 sm:mt-14 sm:grid-cols-2">
+        <div className="mt-6 grid w-full max-w-3xl grid-cols-1 gap-4 sm:mt-9 sm:grid-cols-2 sm:gap-5">
           <HomeCta
             href="/browse/tutors"
             label="Find Tutors / Teachers"

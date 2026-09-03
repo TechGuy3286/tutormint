@@ -974,3 +974,105 @@ is `tm-gold-ink` on light and plain `tm-gold` on navy; the star itself is filled
 gold on both. The site's own auth-card wordmarks were left on `tm-navy` rather
 than retrofitted to `tm-black`: both clear AA, and changing eight files on an
 inference is not what was asked.
+
+## Homepage — third owner authorisation (3 Sep 2026)
+
+- Vertical spacing and footer density on the locked homepage are authorised for change. Layout order, copy and the two large buttons stay as approved. Simplicity and minimal UI is the platform's stated philosophy — dead space, wasted scroll and heavy chrome are defects, not neutral choices, on every page.
+
+## No pagination (owner, 3 Sep 2026)
+
+- Lists use infinite scroll, never numbered pagination. On the public browse pages the first page must still be server-rendered and `?page=N` URLs must still resolve server-side, because those pages are the platform's organic-search surface.
+
+### As built (infinite scroll, homepage spacing, compact footer) — 3 Sep 2026
+
+**Two access patterns, one ordering.** A scrolling list and a crawlable list
+want opposite things from a database, and the requirement is both at once. So
+every converted list keeps `p_offset` AND gains a keyset cursor, and the caller
+picks by which question it is answering:
+
+- **`?page=N`** — a crawler following `rel=next`, or a shared link, arriving
+  cold with no row to continue from. OFFSET is the only thing that can answer
+  that, and it is correct for it: a crawler reads one page and leaves.
+- **Load more** — a reader who already holds the last row on their screen.
+  OFFSET is wrong here. Between two requests a tutor is verified, a rating
+  moves, a plan lapses, a job closes; every row above the window shifts, and the
+  reader sees the same tutor twice or never sees one at all.
+
+Migration 32 rewrote `rank_tutors()` for this. It now **returns** every
+component of its own sort key — tier, location score, rounded score and the
+daily rotation hash — because a cursor the caller cannot see is a cursor the
+caller cannot send back. The hash is what makes the key TOTAL: md5 of a uuid is
+unique, so no two rows compare equal and nothing can be straddled. The same
+reasoning added `id` as a tiebreaker to the jobs, audit and member queries:
+`created_at` alone is not unique, and two rows in the same millisecond are
+ordinary on a busy board or an admin working a queue.
+
+**`count(*) over ()` had to go.** It was correct while the only narrowing was
+LIMIT/OFFSET — window functions run before LIMIT — but it silently starts
+counting "rows left below the cursor" the moment a WHERE is added, so page two
+would have reported a smaller directory than page one. The total is now a
+subquery over the eligible set, taken before the cursor applies.
+
+**The Load more button is not decoration.** An IntersectionObserver fires on
+scroll, and a keyboard or screen-reader user may never generate one — for them a
+scroll-only list simply ends early with nothing saying so. The button is the
+accessible path, the observer is the convenience, and both call the same loader.
+The end of a list is stated in words: running out of content with no message is
+indistinguishable from a list that broke.
+
+**Scroll restoration is sessionStorage, and that is allowed here.** CLAUDE.md
+rule 2 forbids localStorage/sessionStorage for login or role state; a list's
+scroll offset and its already-loaded rows are neither. Keyed by the filter set,
+so returning to a *different* search never restores the previous one's rows, and
+skipped entirely above 400KB rather than filling the quota and breaking every
+list in the tab.
+
+**Ads had to grow a client path or quietly stop being delivered.** `AdSlot` is
+an async server component and cannot render inside the client list, so without
+`/api/ads/inline` the second and later windows of /browse would carry no ads at
+all — halving an advertiser's delivered impressions on the page they bought. The
+two things that make the numbers reportable stay on the server: the ad is
+**chosen** there (weighted rotation, expiry enforced by RLS) and the impression
+is **recorded** there. `ad_events` still has no INSERT policy for anyone. The
+viewer's role comes from the session, never the query string, so nobody can
+label their own impressions as a tutor's. `components/ads/AdView.tsx` is the
+shared markup, so the Sponsored/TutorMint label rule has one implementation.
+
+**What was converted, and what was not.** Three lists had real pagination and
+all three are done: `/browse/tutors`, `/browse/tuitions`, `/admin/audit`.
+`/admin/users` had no pagination but a hard cap whose own heading read "First
+100 matches" — truncated and honest about it, which for a directory is useless,
+so it scrolls too. **Still capped, and not converted in this pass:**
+`/admin/tutors`, `/admin/parents`, `/admin/payments`, `/admin/reports`,
+`/admin/ads`, `/admin/social`, `/admin/plans` (100–200 rows each) and the member
+timeline on `/admin/users/[id]` (300). None is near its cap on 28 accounts, and
+each needs its own cursor key and route; the mechanism is now in place, so they
+are mechanical. `listThreads()` and the applicant list have no cap and no paging
+at all — there is nothing there to replace.
+
+**The homepage was not short of space above the fold; it was spending it.** Both
+buttons already fitted at 390x844 and 1280x800 — the second finished 79px short
+of a laptop's bottom edge — so the fix was rhythm, not rescue. Padding and
+margins only: no copy, no order, no type size, no button changed. The document
+went from 2150px to 1488px at 390 wide.
+
+**The footer was 1376px tall on a phone** — taller than the viewport it sat
+under, and 64% of the whole homepage document. One column, four link lists
+stacked into a strip, each link a 44px touch target. They sit in a 2-column grid
+below `sm` now (`lg:contents` hands them back to the approved 5-column desktop
+layout untouched), which halves the height **without shrinking a single tap
+target**: 1376px → 802px on mobile, 397px → 327px on desktop. Every link, the
+social icons and the legal line are unchanged.
+
+**Browse results start 112px higher on a laptop.** The desktop filter panel was
+three rows of fields; at `lg` the three groups now flatten into one five-column
+grid via `contents`, so nine filters take two rows. Below `lg` they keep their
+own rows, because the cascade reads as a cascade — category, then level, then
+subject — and flattening it on a phone would put "Subject" beside "City". First
+result at 1280x800: 557px → 445px.
+
+**The solid-colour discs on /browse/tutors are seed data, not a fallback
+regression.** Five of the six listed tutors have a real `avatar_url` pointing at
+a flat PNG the seed script uploaded, so `Avatar` correctly renders the photo it
+was given. Bilal Ahmad, who has none, correctly renders "BA" on a brand tint.
+Seed-data cleanup is already on the T8b list.
