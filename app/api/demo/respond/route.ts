@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { parseBody, z, uuid } from '@/lib/validate'
+import { formatDateTime } from '@/lib/datetime'
 
 // The tutor answers a demo request: accept with a proposed time, or decline
 // with a reason.
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
     userId: demo.parent_id as string,
     kind: 'demo_accepted',
     title: 'Your demo was accepted',
-    body: `Proposed time: ${proposed.toLocaleString('en-PK')}`,
+    body: `Proposed time: ${formatDateTime(proposed)}`,
     href: '/parent/dashboard',
   })
   await logActivity({

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { MessageSquare, Lock } from 'lucide-react'
+import { formatDate, formatDateTime } from '@/lib/datetime'
 
 export type QueueReport = {
   id: string
@@ -141,7 +142,7 @@ export default function ReportQueue({
                       'no specific member'
                     )}
                     {r.reportedRole ? ` (${r.reportedRole})` : ''} ·{' '}
-                    {new Date(r.createdAt).toLocaleString('en-PK')}
+                    {formatDateTime(r.createdAt)}
                   </p>
                 </div>
                 <span
@@ -181,7 +182,7 @@ export default function ReportQueue({
                         {r.messages.map((m, i) => (
                           <div key={i} className="space-y-0.5">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
-                              {m.who} · {new Date(m.at).toLocaleString('en-PK')}
+                              {m.who} · {formatDateTime(m.at)}
                             </p>
                             <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">
                               {m.body}
@@ -207,7 +208,7 @@ export default function ReportQueue({
                 <p className="rounded-xl bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
                   <strong className="uppercase tracking-wide">{r.actionTaken}</strong> —{' '}
                   {r.resolutionNote}
-                  {r.reviewedAt ? ` · ${new Date(r.reviewedAt).toLocaleString('en-PK')}` : ''}
+                  {r.reviewedAt ? ` · ${formatDateTime(r.reviewedAt)}` : ''}
                 </p>
               )}
 
@@ -312,7 +313,7 @@ export default function ReportQueue({
                   </Link>
                 </span>
                 <span className="text-[11px] text-gray-500">
-                  {new Date(b.createdAt).toLocaleDateString('en-PK')}
+                  {formatDate(b.createdAt)}
                 </span>
               </li>
             ))}

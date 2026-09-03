@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/components/admin/adminFetch'
+import { formatDate, formatDateTime } from '@/lib/datetime'
 
 // The payments screen: a queue of transfers to decide on, and the ledger of
 // what is currently active.
@@ -153,7 +154,7 @@ export default function PaymentQueue({
                     label="Channel"
                     value={p.provider === 'manual' ? (p.method ?? 'transfer') : p.provider}
                   />
-                  <Cell label="Submitted" value={new Date(p.createdAt).toLocaleString('en-PK')} />
+                  <Cell label="Submitted" value={formatDateTime(p.createdAt)} />
                   <Cell label="Our reference" value={p.ourReference ?? '—'} mono />
                   <Cell label="Their transaction" value={p.payerReference ?? '—'} mono />
                 </dl>
@@ -298,7 +299,7 @@ function expiryWords(s: SubscriptionRow): string {
   if (!s.expiresAt) return 'No end date'
   const d = new Date(s.expiresAt)
   const days = Math.ceil((d.getTime() - Date.now()) / 86_400_000)
-  const date = d.toLocaleDateString('en-PK')
+  const date = formatDate(d)
   if (s.status !== 'active') return date
   return days <= 0 ? `${date} (lapsed)` : `${date} (${days}d)`
 }

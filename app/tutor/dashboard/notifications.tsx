@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { formatDate } from '@/lib/datetime'
 
 export default function TutorNotificationsWidget() {
   const [notifications, setNotifications] = useState<any[]>([])
@@ -32,7 +33,7 @@ export default function TutorNotificationsWidget() {
             <span className="text-tm-green-deep text-base mt-0.5">🔔</span>
             <div className="space-y-1">
               <p className="text-xs font-bold text-slate-900">{note.message}</p>
-              <span className="text-[10px] text-gray-500 block">{new Date(note.created_at).toLocaleDateString()}</span>
+              <span className="text-[10px] text-gray-500 block">{formatDate(note.created_at)}</span>
             </div>
           </div>
         ))}

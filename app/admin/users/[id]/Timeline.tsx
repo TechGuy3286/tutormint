@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { formatDateTime } from '@/lib/datetime'
 
 // The member activity timeline.
 //
@@ -92,7 +93,7 @@ export default function Timeline({
               </span>
               <span className="min-w-0 flex-1 text-xs font-semibold text-tm-navy">{e.label}</span>
               <span className="shrink-0 text-[11px] text-gray-500">
-                {new Date(e.at).toLocaleString('en-PK')}
+                {formatDateTime(e.at)}
               </span>
               {Object.keys(e.meta).length > 0 && (
                 <p className="w-full break-words text-[11px] leading-relaxed text-gray-500">

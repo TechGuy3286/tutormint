@@ -1,5 +1,7 @@
 'use client'
 
+import FileUpload from '@/components/FileUpload'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -68,18 +70,15 @@ export default function ManualPaymentForm({
         />
       </label>
 
-      <label className="block space-y-1">
-        <span className="text-[11px] font-bold text-gray-500">Screenshot of the transfer</span>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white p-2 text-xs"
-        />
-        <span className="block text-[10px] leading-relaxed text-gray-500">
-          Only our finance team can open it. It is stored privately and never shown on your profile.
-        </span>
-      </label>
+      {/* The thumbnail matters most here: a screenshot of the wrong transfer
+          looks exactly like the right one in a browser's file chrome, and the
+          member only finds out when finance rejects the payment days later. */}
+      <FileUpload
+        label="Screenshot of the transfer"
+        acceptLabel="JPG or PNG"
+        onFile={(f) => setFile(f)}
+        hint="Only our finance team can open it. It is stored privately and never shown on your profile."
+      />
 
       {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
 

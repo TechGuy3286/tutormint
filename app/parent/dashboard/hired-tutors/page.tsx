@@ -7,6 +7,7 @@ import BadgeRow from '@/components/badges/BadgeRow'
 import { badgesForPlan } from '@/lib/entitlements'
 import { reviewableEngagements } from '@/lib/reviews'
 import ReviewForm from '@/components/ReviewForm'
+import { formatDate } from '@/lib/datetime'
 
 // Tutors this parent has actually hired.
 //
@@ -106,7 +107,7 @@ export default async function HiredTutorsPage() {
                     </Link>
                     {j.city ? ` · ${j.city}` : ''}
                     {j.hired_at
-                      ? ` · hired ${new Date(j.hired_at as string).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                      ? ` · hired ${formatDate(j.hired_at as string)}`
                       : ''}
                   </p>
 

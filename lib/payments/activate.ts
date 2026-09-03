@@ -22,6 +22,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 import type { AdminRole } from '@/lib/adminAuth'
+import { formatDate } from '@/lib/datetime'
 
 export type ActivationResult =
   | { ok: true; alreadyActive: true; subscriptionId: string | null }
@@ -185,7 +186,7 @@ export async function activatePayment(params: {
     userId,
     kind: 'plan_activated',
     title: `${plan.name} plan is active`,
-    body: `Your ${plan.name} plan runs until ${expiresAt.toLocaleDateString('en-PK')}. There are no refunds.`,
+    body: `Your ${plan.name} plan runs until ${formatDate(expiresAt)}. There are no refunds.`,
     href: audience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard',
   })
 
@@ -204,7 +205,7 @@ export async function activatePayment(params: {
       id: 'plan_activated',
       name: (buyer?.full_name as string) ?? 'there',
       planName: plan.name as string,
-      expiresAt: expiresAt.toLocaleDateString('en-PK'),
+      expiresAt: formatDate(expiresAt),
       amountPkr: (payment.amount_pkr as number) ?? 0,
     },
   )

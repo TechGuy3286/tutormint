@@ -1,5 +1,7 @@
 "use client";
 
+import FileUpload from '@/components/FileUpload';
+
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
 import { useState, useEffect } from "react";
@@ -157,9 +159,7 @@ export default function TutorSettingsPage() {
     }
   };
 
-  const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleProfileImageChange = async (file: File) => {
 
     setUploading(true);
     const publicUrl = await uploadFileToCloud(file);
@@ -169,9 +169,7 @@ export default function TutorSettingsPage() {
     setUploading(false);
   };
 
-  const handleCoverImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleCoverImageChange = async (file: File) => {
 
     setUploading(true);
     const publicUrl = await uploadFileToCloud(file);
@@ -181,9 +179,7 @@ export default function TutorSettingsPage() {
     setUploading(false);
   };
 
-  const handleSelfieCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleSelfieCapture = async (file: File) => {
 
     setUploading(true);
     const publicUrl = await uploadFileToCloud(file);
@@ -193,9 +189,7 @@ export default function TutorSettingsPage() {
     setUploading(false);
   };
 
-  const handleFileUploadField = async (e: React.ChangeEvent<HTMLInputElement>, fieldKey: string) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileUploadField = async (file: File, fieldKey: string) => {
 
     setUploading(true);
     const publicUrl = await uploadFileToCloud(file);
@@ -205,9 +199,7 @@ export default function TutorSettingsPage() {
     setUploading(false);
   };
 
-  const handlePortfolioVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handlePortfolioVideoUpload = async (file: File) => {
 
     setUploadingVideo(true);
     setYoutubeStatus("Uploading portfolio video directly to YouTube...");
@@ -237,8 +229,7 @@ export default function TutorSettingsPage() {
     }
   };
 
-  const handleAddDegree = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleAddDegree = async (file: File) => {
     let fileUrl = "";
     if (file) {
       const uploaded = await uploadFileToCloud(file);
@@ -253,8 +244,7 @@ export default function TutorSettingsPage() {
     setNewDegree({ title: "", institute: "", year: "", fileName: "", fileUrl: "" });
   };
 
-  const handleAddCert = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleAddCert = async (file: File) => {
     let fileUrl = "";
     if (file) {
       const uploaded = await uploadFileToCloud(file);
@@ -459,15 +449,7 @@ export default function TutorSettingsPage() {
                     No Cover Image
                   </div>
                 )}
-                <label className="px-4 py-2.5 bg-tm-black hover:bg-tm-black/90 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
-                  Browse Cover
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={handleCoverImageChange} 
-                    className="hidden" 
-                  />
-                </label>
+                <FileUpload label="Cover image" acceptLabel="JPG or PNG" busy={uploading} onFile={handleCoverImageChange} />
               </div>
             </div>
           </div>
@@ -493,15 +475,7 @@ export default function TutorSettingsPage() {
                     ring="border-2 border-tm-green-deep shadow-md"
                     className="h-28 w-28 text-2xl"
                   />
-                  <label className="px-4 py-2.5 bg-tm-black hover:bg-tm-black/90 text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
-                    Browse
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={handleProfileImageChange}
-                      className="hidden" 
-                    />
-                  </label>
+                  <FileUpload label="Profile photo" acceptLabel="JPG or PNG" busy={uploading} onFile={handleProfileImageChange} />
                 </div>
               </div>
 
@@ -515,16 +489,7 @@ export default function TutorSettingsPage() {
                     className="w-28 h-28 rounded-2xl object-cover border-2 border-tm-navy shadow-md shrink-0" 
                   />
                   <div className="space-y-1">
-                    <label className="px-4 py-2.5 bg-tm-navy hover:bg-tm-navy-hover text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs inline-block">
-                      Browse (Take Selfie)
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        capture="user" 
-                        onChange={handleSelfieCapture} 
-                        className="hidden" 
-                      />
-                    </label>
+                    <FileUpload label="Selfie" acceptLabel="JPG or PNG" busy={uploading} onFile={handleSelfieCapture} />
                   </div>
                 </div>
               </div>
@@ -725,10 +690,14 @@ export default function TutorSettingsPage() {
               <p className="text-xs text-slate-300">
                 Upload your portfolio video to showcase your teaching style directly.
               </p>
-              <label className="inline-block px-5 py-3 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl cursor-pointer shadow-md">
-                {uploadingVideo ? "Uploading Portfolio..." : "Upload portfolio Video"}
-                <input type="file" accept="video/*" className="hidden" onChange={handlePortfolioVideoUpload} disabled={uploadingVideo} />
-              </label>
+              <FileUpload
+                label="Portfolio video"
+                accept="video/*"
+                acceptLabel="MP4 or MOV"
+                maxBytes={200 * 1024 * 1024}
+                busy={uploadingVideo}
+                onFile={handlePortfolioVideoUpload}
+              />
               {youtubeStatus && <p className="text-xs font-bold text-tm-mint">{youtubeStatus}</p>}
               {formData.videoIntroUrl && (
                 <p className="text-[11px] text-slate-300 font-mono">🔗 Portfolio Video Linked: {formData.videoIntroUrl}</p>
@@ -752,15 +721,7 @@ export default function TutorSettingsPage() {
                     {formData.cnicFrontUrl ? "Uploaded ✓" : "Not Uploaded"}
                   </span>
                 </div>
-                <label className="block w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-tm-navy cursor-pointer hover:bg-gray-50 transition-colors">
-                  {formData.cnicFrontUrl ? "Change File" : "Browse"}
-                  <input 
-                    type="file" 
-                    accept="image/*,application/pdf" 
-                    onChange={(e) => handleFileUploadField(e, 'cnicFrontUrl')}
-                    className="hidden" 
-                  />
-                </label>
+                <FileUpload label="CNIC front" acceptLabel="JPG or PNG" busy={uploading} onFile={(f) => handleFileUploadField(f, 'cnicFrontUrl')} />
                 {formData.cnicFrontUrl && (
                   <div className="p-3 bg-tm-tint-green border border-tm-green-deep/30 rounded-xl flex items-center justify-between text-xs">
                     <span className="text-tm-green-deep font-bold truncate">📄 CNIC Front File Linked</span>
@@ -779,15 +740,7 @@ export default function TutorSettingsPage() {
                     {formData.cnicBackUrl ? "Uploaded ✓" : "Not Uploaded"}
                   </span>
                 </div>
-                <label className="block w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-tm-navy cursor-pointer hover:bg-gray-50 transition-colors">
-                  {formData.cnicBackUrl ? "Change File" : "Browse"}
-                  <input 
-                    type="file" 
-                    accept="image/*,application/pdf" 
-                    onChange={(e) => handleFileUploadField(e, 'cnicBackUrl')}
-                    className="hidden" 
-                  />
-                </label>
+                <FileUpload label="CNIC back" acceptLabel="JPG or PNG" busy={uploading} onFile={(f) => handleFileUploadField(f, 'cnicBackUrl')} />
                 {formData.cnicBackUrl && (
                   <div className="p-3 bg-tm-tint-green border border-tm-green-deep/30 rounded-xl flex items-center justify-between text-xs">
                     <span className="text-tm-green-deep font-bold truncate">📄 CNIC Back File Linked</span>
@@ -822,10 +775,7 @@ export default function TutorSettingsPage() {
               <input type="text" value={newDegree.title} onChange={(e) => setNewDegree({...newDegree, title: e.target.value})} placeholder="Degree Title" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
               <input type="text" value={newDegree.institute} onChange={(e) => setNewDegree({...newDegree, institute: e.target.value})} placeholder="Institute" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
               <input type="text" value={newDegree.year} onChange={(e) => setNewDegree({...newDegree, year: e.target.value})} placeholder="Year" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
-              <label className="block p-3 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-tm-navy cursor-pointer hover:bg-gray-50 transition-colors">
-                Browse
-                <input type="file" onChange={handleAddDegree} className="hidden" />
-              </label>
+              <FileUpload label="Degree document" acceptLabel="JPG or PNG" busy={uploading} onFile={handleAddDegree} />
             </div>
             <button type="button" onClick={pushDegree} className="px-4 py-2.5 bg-tm-black text-white font-bold rounded-xl text-xs cursor-pointer">+ Add Degree Document</button>
           </div>
@@ -851,10 +801,7 @@ export default function TutorSettingsPage() {
               <input type="text" value={newCert.title} onChange={(e) => setNewCert({...newCert, title: e.target.value})} placeholder="Certification Title" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
               <input type="text" value={newCert.issuer} onChange={(e) => setNewCert({...newCert, issuer: e.target.value})} placeholder="Issuer" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
               <input type="text" value={newCert.year} onChange={(e) => setNewCert({...newCert, year: e.target.value})} placeholder="Year" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
-              <label className="block p-3 bg-white border border-gray-200 rounded-xl text-xs text-center font-bold text-tm-navy cursor-pointer hover:bg-gray-50 transition-colors">
-                Browse
-                <input type="file" onChange={handleAddCert} className="hidden" />
-              </label>
+              <FileUpload label="Certification document" acceptLabel="JPG or PNG" busy={uploading} onFile={handleAddCert} />
             </div>
             <button type="button" onClick={pushCert} className="px-4 py-2.5 bg-tm-black text-white font-bold rounded-xl text-xs cursor-pointer">+ Add Certification Document</button>
           </div>

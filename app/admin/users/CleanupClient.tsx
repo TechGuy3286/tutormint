@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
+import { formatDate } from '@/lib/datetime'
 
 export type Candidate = {
   id: string
@@ -128,7 +129,7 @@ export default function CleanupClient({
                     </span>
                     <span className="block text-[11px] text-gray-500">{c.reason}</span>
                     <span className="block text-[11px] text-gray-500">
-                      Created {new Date(c.createdAt).toLocaleDateString('en-PK')} ·{' '}
+                      Created {formatDate(c.createdAt)} ·{' '}
                       {c.confirmed ? 'confirmed' : 'never confirmed'} ·{' '}
                       {c.hasProfile ? `profile (${c.role})` : 'no profile row'}
                     </span>

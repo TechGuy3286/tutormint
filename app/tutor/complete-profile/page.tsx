@@ -1,5 +1,7 @@
 'use client'
 
+import FileUpload from '@/components/FileUpload'
+
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
@@ -315,7 +317,7 @@ function CompleteProfileInner() {
                   ring="border border-gray-200"
                   className="h-20 w-20 text-lg"
                 />
-                <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadAvatar(e.target.files[0])} className="block w-full text-xs min-h-[44px]" />
+                <FileUpload label="Profile photo" acceptLabel="JPG or PNG" onFile={uploadAvatar} />
                 <p className="text-[11px] text-gray-500">By uploading you agree TutorMint may use this photo in promotional material.</p>
               </div>
               <Field id="headline" label="Professional tagline" value={form.headline} onChange={(v) => set('headline', v)} placeholder="O/A Level Physics specialist" />
@@ -370,14 +372,14 @@ function CompleteProfileInner() {
                 <label htmlFor="degrees-input" className="text-xs font-bold text-tm-navy">Your degrees (one per line)</label>
                 <textarea id="degrees-input" rows={3} value={form.degreesText} onChange={(e) => set('degreesText', e.target.value)} placeholder="BS Physics — Punjab University (2019)" className={inputCls} />
                 <label className="block text-xs font-bold text-tm-navy pt-2">Certificate image</label>
-                <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadDoc('degree', e.target.files[0], 'Degree certificate')} className="block w-full text-xs min-h-[44px]" />
+                <FileUpload label="Degree certificate" acceptLabel="JPG or PNG" onFile={(f) => uploadDoc('degree', f, 'Degree certificate')} />
                 <DocList docs={docs.filter((d) => d.kind === 'degree')} alt="Degree certificate preview" />
               </div>
               <hr className="border-gray-100" />
               <div className="space-y-1" id="cnic">
                 <Field id="cnic_number" label="CNIC number" value={form.cnic_number} onChange={(v) => set('cnic_number', v)} placeholder="35202-1234567-8" />
                 <label className="block text-xs font-bold text-tm-navy pt-2">CNIC image</label>
-                <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadDoc('cnic', e.target.files[0], 'CNIC')} className="block w-full text-xs min-h-[44px]" />
+                <FileUpload label="CNIC image" acceptLabel="JPG or PNG" onFile={(f) => uploadDoc('cnic', f, 'CNIC')} />
                 <DocList docs={docs.filter((d) => d.kind === 'cnic')} alt="CNIC preview" />
                 <p className="text-[11px] text-gray-500">Only you and our verification team can see this. Previews are watermarked and protected against casual copying.</p>
               </div>
@@ -422,7 +424,13 @@ function CompleteProfileInner() {
                   You have used all 3 submissions. Please contact support@tutormint.org.
                 </p>
               ) : (
-                <input type="file" accept="video/*" onChange={(e) => e.target.files?.[0] && uploadVideo(e.target.files[0])} className="block w-full text-xs min-h-[44px]" />
+                <FileUpload
+                  label="Introduction video"
+                  accept="video/*"
+                  acceptLabel="MP4 or MOV"
+                  maxBytes={200 * 1024 * 1024}
+                  onFile={uploadVideo}
+                />
               )}
               {videoMsg && <p className="text-[11px] font-bold text-slate-700 bg-tm-bg border border-gray-200 rounded-xl p-3">{videoMsg}</p>}
               {shown >= 100 && (

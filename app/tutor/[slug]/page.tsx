@@ -15,6 +15,7 @@ import FeaturedTag from '@/components/badges/FeaturedTag'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import ReportButton from '@/components/ReportButton'
 import ProfileActions from './ProfileActions'
+import { formatDate } from '@/lib/datetime'
 
 // The public tutor profile. Server component, results in the HTML.
 //
@@ -509,10 +510,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   </p>
                   {r.comment && <p className="text-xs leading-relaxed">{r.comment}</p>}
                   <p className="text-[10px] text-gray-500">
-                    {new Date(r.created_at).toLocaleDateString('en-PK', {
-                      month: 'short',
-                      year: 'numeric',
-                    })}
+                    {formatDate(r.created_at)}
                   </p>
                 </li>
               ))}

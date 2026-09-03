@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/components/admin/adminFetch'
+import { formatDate } from '@/lib/datetime'
 
 export type PlanRow = {
   code: string
@@ -87,7 +88,7 @@ export default function PlanGrantClient({
 
     setMsg(
       action === 'grant'
-        ? `${planCode} granted to ${open.fullName} until ${new Date(json.expiresAt ?? Date.now()).toLocaleDateString()}.`
+        ? `${planCode} granted to ${open.fullName} until ${formatDate(json.expiresAt ?? Date.now())}.`
         : `Revoked ${json.revoked} active subscription(s) for ${open.fullName}.`,
     )
     setOpen(null)
@@ -179,7 +180,7 @@ export default function PlanGrantClient({
                 <h2 className="text-base font-black text-tm-navy truncate">{open.fullName}</h2>
                 <p className="text-[11px] text-gray-500 truncate">
                   {open.role} · current: {open.activePlan ?? 'none'}
-                  {open.expiresAt ? ` (until ${new Date(open.expiresAt).toLocaleDateString()})` : ''}
+                  {open.expiresAt ? ` (until ${formatDate(open.expiresAt)})` : ''}
                 </p>
               </div>
               <button onClick={() => setOpen(null)} className="text-gray-500 text-xl min-h-[44px] px-2" aria-label="Close">

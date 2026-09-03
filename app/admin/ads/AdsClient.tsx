@@ -1,7 +1,10 @@
 'use client'
 
+import FileUpload from '@/components/FileUpload'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { formatDate } from '@/lib/datetime'
 
 // The ads screen: a create form and a list with per-ad analytics.
 //
@@ -145,11 +148,12 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
           </Field>
 
           <Field label="Creative (image)">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="min-h-[44px] w-full rounded-xl border border-gray-200 p-2 text-xs"
+            {/* Admin sees the creative before an advertiser's banner goes into
+                rotation, which is the one place a wrong file is public. */}
+            <FileUpload
+              label="Ad creative"
+              acceptLabel="JPG or PNG"
+              onFile={(f) => setFile(f)}
             />
           </Field>
 
@@ -285,8 +289,8 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
                 </dl>
 
                 <p className="text-[11px] text-gray-500">
-                  {new Date(a.startsAt).toLocaleDateString('en-PK')} →{' '}
-                  {a.endsAt ? new Date(a.endsAt).toLocaleDateString('en-PK') : 'no end date'}
+                  {formatDate(a.startsAt)} →{' '}
+                  {a.endsAt ? formatDate(a.endsAt) : 'no end date'}
                   {a.targetUrl ? ` · ${a.targetUrl}` : ''}
                 </p>
 

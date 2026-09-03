@@ -1,5 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 
+// Re-exported so existing callers keep one import site; the definitions live
+// in lib/feedGrouping.ts, which client components can also reach.
+export { groupFeed } from '@/lib/feedGrouping'
+export type { FeedItem, FeedGroup } from '@/lib/feedGrouping'
+import type { FeedItem } from '@/lib/feedGrouping'
+
 // The ACTIVITY band: what has actually happened, newest first.
 //
 // Two sources, because neither is complete on its own. `notifications` holds
@@ -21,15 +27,6 @@ import { createClient } from '@/lib/supabase/server'
 // hands an admin every member's rows in their own feed -- exactly the bug the
 // notification bell shipped with and had to be fixed for. The policy is the
 // backstop; the query is the control.
-
-export type FeedItem = {
-  id: string
-  source: 'notification' | 'activity'
-  text: string
-  href: string | null
-  at: string
-  unread: boolean
-}
 
 /**
  * Member-facing labels for the events worth showing on someone's own dashboard.
@@ -166,7 +163,7 @@ export async function recentActivity({
   const [{ data: notes }, { data: acts }] = await Promise.all([
     supabase
       .from('notifications')
-      .select('id, title, href, read_at, created_at')
+      .select('id, kind, title, href, read_at, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit),
@@ -183,6 +180,7 @@ export async function recentActivity({
     ...(notes ?? []).map((n) => ({
       id: `n-${n.id as string}`,
       source: 'notification' as const,
+      type: (n.kind as string) ?? 'notification',
       text: n.title as string,
       href: (n.href as string) ?? null,
       at: n.created_at as string,
@@ -191,6 +189,7 @@ export async function recentActivity({
     ...(acts ?? []).map((a) => ({
       id: `a-${a.id as string}`,
       source: 'activity' as const,
+      type: a.event as string,
       text: LABEL[a.event as string] ?? (a.event as string),
       href: hrefFor(
         a.event as string,
@@ -206,3 +205,4 @@ export async function recentActivity({
   items.sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime())
   return items.slice(0, limit)
 }
+

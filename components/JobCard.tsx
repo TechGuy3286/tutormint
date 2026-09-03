@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { GraduationCap, MapPin, Wallet, Clock, Building2 } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
+import { formatMonthYear } from '@/lib/datetime'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import Avatar from '@/components/Avatar'
 import AuthGateModal from '@/components/AuthGateModal'
@@ -53,7 +54,7 @@ function postedAgo(iso: string): string {
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   if (days < 30) return `${days}d ago`
-  return new Date(iso).toLocaleDateString('en-PK', { month: 'short', year: 'numeric' })
+  return formatMonthYear(iso)
 }
 
 export default function JobCard({

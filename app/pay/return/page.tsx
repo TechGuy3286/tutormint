@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import BadgeRow from '@/components/badges/BadgeRow'
+import { formatDate } from '@/lib/datetime'
 
 // Where the gateway sends the member back to.
 //
@@ -53,7 +54,7 @@ export default async function PayReturnPage({
               <p className="text-xs leading-relaxed text-gray-500">
                 {ent.planName} · {ent.displayedQuota} this month
                 {ent.expiresAt
-                  ? ` · renews ${new Date(ent.expiresAt).toLocaleDateString('en-PK')}`
+                  ? ` · renews ${formatDate(ent.expiresAt)}`
                   : ''}
               </p>
               {ent.badges.length > 0 && (

@@ -6,8 +6,11 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import { getSessionUser } from '@/lib/auth'
 import { notificationPage, unreadCount, type NotificationGroup } from '@/lib/notificationFeed'
 
+import ActivityCard from '@/components/dashboard/ActivityCard'
+import { groupFeed } from '@/lib/feedGrouping'
+import { notificationsToFeed } from '@/lib/notificationsToFeed'
+
 import MoreNotifications from './MoreNotifications'
-import NotificationItem from './NotificationItem'
 
 // Everything the platform has told this member.
 //
@@ -96,9 +99,12 @@ export default async function NotificationsPage({
         <EmptyState role={role} group={group} />
       ) : (
         <>
-          <ul className="space-y-2">
-            {rows.map((n) => (
-              <NotificationItem key={n.id} row={n} />
+          {/* The same card, the same grid and the same grouping as the
+              dashboard band — one implementation, so the two surfaces cannot
+              drift into looking like different products. */}
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {groupFeed(notificationsToFeed(rows)).map((g) => (
+              <ActivityCard key={g.key} group={g} />
             ))}
           </ul>
           <MoreNotifications group={group} initialCursor={nextCursor} serverCount={rows.length} />

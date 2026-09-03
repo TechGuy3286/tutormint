@@ -6,6 +6,7 @@ import AdSlot from '@/components/ads/AdSlot'
 import BadgeRow from '@/components/badges/BadgeRow'
 import ActivityBand from '@/components/dashboard/ActivityBand'
 import NeedsYou from '@/components/dashboard/NeedsYou'
+import ViewerFace from '@/components/dashboard/ViewerFace'
 import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
 import { getSessionUser } from '@/lib/auth'
 import { computeCompletion } from '@/lib/completion'
@@ -169,11 +170,19 @@ export default async function TutorDashboardPage() {
         <>
           <ul className="space-y-1.5">
             {teasers.map((t) => (
-              <li key={t.id} className="flex items-start justify-between gap-3">
-                {/* Blur, not omission: the tutor can see that a real person
-                    looked, without being told who. */}
+              <li key={t.id} className="flex items-center gap-2.5">
+                {/* Out of focus, not omitted: the tutor can see that a real
+                    person looked, without being told who. The picture itself
+                    is only sent when the plan grants identity — see
+                    ViewerFace for why a CSS blur would not have been enough. */}
+                <ViewerFace
+                  identified={t.identified}
+                  name={t.text.split(' ')[0]}
+                  avatarUrl={t.avatarUrl}
+                  seed={t.id}
+                />
                 <p
-                  className={`text-[11px] leading-relaxed ${
+                  className={`min-w-0 flex-1 text-[11px] leading-relaxed ${
                     t.identified ? 'font-bold text-tm-navy' : 'text-slate-700'
                   }`}
                 >

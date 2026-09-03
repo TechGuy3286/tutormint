@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { formatDate, formatDateTime } from '@/lib/datetime'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MemberActions from './MemberActions'
 import Timeline, { type TimelineEvent } from './Timeline'
@@ -243,7 +244,7 @@ export default async function AdminMemberPage({
         <p className="rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-3 text-xs leading-relaxed text-tm-gold-ink">
           <strong>Suspended</strong>
           {profile.suspended_at
-            ? ` on ${new Date(profile.suspended_at as string).toLocaleString('en-PK')}`
+            ? ` on ${formatDateTime(profile.suspended_at as string)}`
             : ''}
           : {profile.suspension_reason as string}
         </p>
@@ -256,7 +257,7 @@ export default async function AdminMemberPage({
         <Fact label="City" value={(profile.city as string) ?? '—'} />
         <Fact
           label="Joined"
-          value={new Date(profile.created_at as string).toLocaleDateString('en-PK')}
+          value={formatDate(profile.created_at as string)}
         />
         {isTutor && tutor && (
           <>
@@ -297,7 +298,7 @@ export default async function AdminMemberPage({
             <Row
               key={j.id as string}
               main={j.title as string}
-              sub={`${j.status}${j.is_featured ? ' · featured' : ''} · ${new Date(j.created_at as string).toLocaleDateString('en-PK')}`}
+              sub={`${j.status}${j.is_featured ? ' · featured' : ''} · ${formatDate(j.created_at as string)}`}
             />
           ))}
         </Panel>
@@ -307,7 +308,7 @@ export default async function AdminMemberPage({
             <Row
               key={a.id as string}
               main={a.withdrawn_at ? 'Withdrawn' : (a.status as string)}
-              sub={new Date(a.created_at as string).toLocaleDateString('en-PK')}
+              sub={formatDate(a.created_at as string)}
             />
           ))}
         </Panel>
@@ -317,7 +318,7 @@ export default async function AdminMemberPage({
             <Row
               key={p.id as string}
               main={`${planName.get(p.plan_code as string) ?? p.plan_code} — Rs. ${(p.amount_pkr as number).toLocaleString('en-PK')}`}
-              sub={`${p.status} · ${p.provider} · ${new Date(p.created_at as string).toLocaleDateString('en-PK')}`}
+              sub={`${p.status} · ${p.provider} · ${formatDate(p.created_at as string)}`}
             />
           ))}
         </Panel>
@@ -327,7 +328,7 @@ export default async function AdminMemberPage({
             <Row
               key={s.id as string}
               main={planName.get(s.plan_code as string) ?? (s.plan_code as string)}
-              sub={`${s.status} · ${s.source} · until ${s.expires_at ? new Date(s.expires_at as string).toLocaleDateString('en-PK') : '—'}`}
+              sub={`${s.status} · ${s.source} · until ${s.expires_at ? formatDate(s.expires_at as string) : '—'}`}
             />
           ))}
         </Panel>
@@ -337,7 +338,7 @@ export default async function AdminMemberPage({
             <Row
               key={r.id as string}
               main={`${r.reason} on a ${r.target_type}`}
-              sub={`${r.status} · ${new Date(r.created_at as string).toLocaleDateString('en-PK')}`}
+              sub={`${r.status} · ${formatDate(r.created_at as string)}`}
             />
           ))}
         </Panel>
@@ -347,7 +348,7 @@ export default async function AdminMemberPage({
             <Row
               key={r.id as string}
               main={`${r.reason} on a ${r.target_type}`}
-              sub={`${r.status} · ${new Date(r.created_at as string).toLocaleDateString('en-PK')}`}
+              sub={`${r.status} · ${formatDate(r.created_at as string)}`}
             />
           ))}
         </Panel>
@@ -357,7 +358,7 @@ export default async function AdminMemberPage({
             <Row
               key={p.id as string}
               main={`${p.kind}: ${p.reason}`}
-              sub={new Date(p.created_at as string).toLocaleString('en-PK')}
+              sub={formatDateTime(p.created_at as string)}
             />
           ))}
         </Panel>
@@ -367,7 +368,7 @@ export default async function AdminMemberPage({
             <Row
               key={a.id as string}
               main={a.action as string}
-              sub={`${a.actor_email ?? 'system'} (${a.actor_role ?? '—'}) · ${new Date(a.created_at as string).toLocaleString('en-PK')}`}
+              sub={`${a.actor_email ?? 'system'} (${a.actor_role ?? '—'}) · ${formatDateTime(a.created_at as string)}`}
             />
           ))}
         </Panel>

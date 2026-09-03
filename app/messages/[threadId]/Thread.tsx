@@ -6,6 +6,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Send, Lock, ShieldAlert } from 'lucide-react'
+import { formatDateTime } from '@/lib/datetime'
 
 // The message list and composer.
 //
@@ -130,12 +131,7 @@ export default function Thread({
               >
                 <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">{m.body}</p>
                 <p className={`text-[10px] ${m.mine ? 'text-white/60' : 'text-gray-500'}`}>
-                  {new Date(m.createdAt).toLocaleString('en-PK', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {formatDateTime(m.createdAt)}
                 </p>
               </div>
             </div>

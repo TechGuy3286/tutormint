@@ -81,7 +81,9 @@ const PARENT: MenuItem[] = [
   { label: 'Notifications', href: '/account/notifications', icon: 'bell' },
   { label: 'Browse tutors', href: '/browse/tutors', icon: 'browse' },
   { label: 'Packages', href: '/parent/packages', icon: 'package' },
-  { label: 'Settings', href: '/parent/verify', icon: 'settings', separated: true },
+  // Was /parent/verify — the verification flow, which is a one-way
+  // submission and not where somebody goes to fix a mistyped city.
+  { label: 'Settings', href: '/parent/dashboard/settings', icon: 'settings', separated: true },
 ]
 
 /**

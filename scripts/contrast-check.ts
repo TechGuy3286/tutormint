@@ -178,6 +178,16 @@ const PAIRS: Pair[] = [
   { fg: 'red', bg: 'tintRed', where: 'initials avatar, red' },
   { fg: 'goldInk', bg: 'tintGold', where: 'initials avatar, gold' },
 
+  // The activity-card discs (lib/activityFamily.ts FAMILY_STYLE). The same
+  // four brand pairs as the avatar above, listed separately because they are a
+  // second public use of them: an icon glyph rather than two letters, at a
+  // different size, on every dashboard and on /account/notifications. If the
+  // avatar were ever dropped these rows must still hold the tints to account.
+  { fg: 'navy', bg: 'tintNavy', where: 'activity card disc, messages' },
+  { fg: 'goldInk', bg: 'tintGold', where: 'activity card disc, plans and payments' },
+  { fg: 'greenDeep', bg: 'tintGreen', where: 'activity card disc, verification and hires' },
+  { fg: 'red', bg: 'tintRed', where: 'activity card disc, moderation' },
+
   // The social banner (next/og). Its colours are literals from lib/brand.ts,
   // so they are invisible to a className grep and have to be listed by hand.
   { fg: 'black', bg: 'white', where: 'social banner wordmark, light template' },

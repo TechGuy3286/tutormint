@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { MessageSquare } from 'lucide-react'
 import type { ThreadSummary } from '@/lib/messaging'
+import { formatDate } from '@/lib/datetime'
 
 // The conversation list, shared by both dashboards.
 //
@@ -59,10 +60,7 @@ export default function ThreadList({
               <span className="truncate text-xs font-black text-tm-navy">{t.otherName}</span>
               {t.lastMessageAt && (
                 <span className="shrink-0 text-[10px] text-gray-500">
-                  {new Date(t.lastMessageAt).toLocaleDateString('en-PK', {
-                    day: 'numeric',
-                    month: 'short',
-                  })}
+                  {formatDate(t.lastMessageAt)}
                 </span>
               )}
             </div>

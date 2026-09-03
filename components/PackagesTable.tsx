@@ -4,6 +4,7 @@ import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import type { BadgeName } from '@/lib/planBadges'
 import BuyButton from '@/components/packages/BuyButton'
+import { formatDate } from '@/lib/datetime'
 
 // The plan matrix, rendered from the `plans` table.
 //
@@ -123,7 +124,7 @@ export default function PackagesTable({
                   <p className="text-[11px] font-black text-tm-green-deep">Your current plan</p>
                   {expiresAt && (
                     <p className="text-[10px] font-semibold text-tm-green-deep">
-                      Runs until {new Date(expiresAt).toLocaleDateString('en-PK')}
+                      Runs until {formatDate(expiresAt)}
                     </p>
                   )}
                 </div>

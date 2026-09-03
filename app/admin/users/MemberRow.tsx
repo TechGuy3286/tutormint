@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import type { MemberRow as Row } from '@/lib/memberFeed'
+import { formatDate } from '@/lib/datetime'
 
 // One member row, rendered identically whether the server drew it or the
 // browser appended it.
@@ -35,7 +36,7 @@ export default function MemberRow({ row: r }: { row: Row }) {
         <p className="text-[11px] text-gray-500">
           {r.plan ?? 'No plan'} · {r.completion}% complete ·{' '}
           {r.verified ? 'verified' : 'not verified'} · joined{' '}
-          {new Date(r.createdAt).toLocaleDateString('en-PK')}
+          {formatDate(r.createdAt)}
         </p>
       </Link>
     </li>

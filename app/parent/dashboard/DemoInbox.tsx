@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import ReviewForm from '@/components/ReviewForm'
+import { formatDateTime } from '@/lib/datetime'
 
 // Demo requests, from either side.
 //
@@ -115,7 +116,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
 
               {d.proposedTime && (
                 <p className="text-[11px] font-semibold text-tm-green-deep">
-                  Proposed: {new Date(d.proposedTime).toLocaleString('en-PK')}
+                  Proposed: {formatDateTime(d.proposedTime)}
                 </p>
               )}
               {d.declineReason && (

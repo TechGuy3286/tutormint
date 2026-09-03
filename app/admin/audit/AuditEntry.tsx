@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { formatDateTime } from '@/lib/datetime'
 
 // One audit row, rendered the same whether the server drew it or the browser
 // appended it. Extracted for that reason: a second copy of this markup would be
@@ -39,7 +40,7 @@ export default function AuditEntry({ entry }: { entry: AuditRow }) {
           </span>
         </span>
         <span className="shrink-0 text-[11px] text-gray-500">
-          {new Date(entry.created_at).toLocaleString('en-PK')}
+          {formatDateTime(entry.created_at)}
         </span>
       </div>
 

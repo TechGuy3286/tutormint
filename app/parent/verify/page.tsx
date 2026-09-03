@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
+import FileUpload from '@/components/FileUpload'
 import { calculateParentCompletion } from '@/lib/profileChecklist'
 
 // Parent verification: CNIC number + image, address, mobile OTP.
@@ -185,18 +186,54 @@ export default function ParentVerifyPage() {
             <label htmlFor="address-input" className="text-xs font-bold text-tm-navy">Home address</label>
             <textarea id="address-input" rows={2} value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} />
           </div>
-          <F id="cnic_number" label="CNIC number" value={cnic} onChange={setCnic} placeholder="35202-1234567-8" />
+          {/* ONE CARD, ONE TASK. The number and the photograph of the card it
+              is printed on were two separate blocks with two headings, which
+              reads as two unrelated chores — and a parent who filled in the
+              number and stopped had no signal that the job was half done.
+              They are one heading now, and the card is either complete or it
+              is not. */}
+          <fieldset
+            id="cnic"
+            className="space-y-3 rounded-2xl border border-gray-200 bg-tm-bg p-4"
+          >
+            <legend className="px-1 text-xs font-black text-tm-navy">Your CNIC</legend>
+            <p className="text-[11px] leading-relaxed text-gray-500">
+              The number and a photo of the card. Both are needed before you can post a
+              tuition, and only you and our verification team can see them.
+            </p>
 
-          <div className="space-y-1" id="cnic_image">
-            <label className="text-xs font-bold text-tm-navy">CNIC image</label>
-            <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadCnic(e.target.files[0])} className="block w-full text-xs min-h-[44px]" />
-            {docs.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                {docs.map((d) => <SecureDocumentPreview key={d.id} documentId={d.id} alt="CNIC preview" />)}
-              </div>
-            )}
-            <p className="text-[11px] text-gray-500">Only you and our verification team can see this.</p>
-          </div>
+            <div className="space-y-1" id="cnic_number">
+              <label htmlFor="cnic_number-input" className="text-xs font-bold text-tm-navy">
+                CNIC number
+              </label>
+              <input
+                id="cnic_number-input"
+                value={cnic}
+                placeholder="35202-1234567-8"
+                inputMode="numeric"
+                onChange={(e) => setCnic(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+
+            <div id="cnic_image">
+              <FileUpload
+                label="CNIC image"
+                acceptLabel="JPG or PNG"
+                hint="The front of the card, with all four corners in frame and the text readable."
+                onFile={uploadCnic}
+                currentPreview={
+                  docs.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2 pb-2">
+                      {docs.map((d) => (
+                        <SecureDocumentPreview key={d.id} documentId={d.id} alt="CNIC preview" />
+                      ))}
+                    </div>
+                  ) : undefined
+                }
+              />
+            </div>
+          </fieldset>
 
           <div className="space-y-2 pt-1" id="phone">
             <label className="text-xs font-bold text-tm-navy">Mobile number</label>

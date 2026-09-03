@@ -20,6 +20,23 @@ export type ViewTeaser = {
   /** Ready-to-render sentence. Never contains a name unless identity is granted. */
   text: string
   identified: boolean
+  /**
+   * The viewer's picture — ONLY when identity has been granted.
+   *
+   * The brief asked for the photo blurred for a free tutor and unblurred on
+   * upgrade. A CSS filter over the real <img> would do that visually and give
+   * the whole thing away: the URL sits in the DOM, avatars are public (they
+   * render on every job card), and one devtools panel turns the paid feature
+   * into a cosmetic one. That is the exact failure this file's header warns
+   * about -- identity is withheld in server code, after entitlements, or it is
+   * not withheld at all.
+   *
+   * So a free tutor is sent NO url, and the teaser draws a blurred tinted disc
+   * seeded from the VIEW row rather than the viewer, so two views by the same
+   * parent cannot even be matched to each other. Upgrading replaces it with
+   * the real photograph, which is the promise the brief was making.
+   */
+  avatarUrl: string | null
 }
 
 function ago(iso: string): string {
@@ -95,14 +112,19 @@ export async function viewTeasers(
 
   // Names only when the plan grants it.
   const namesById = new Map<string, string>()
+  const avatarById = new Map<string, string | null>()
   if (revealIdentity) {
     const viewerIds = Array.from(
       new Set(rows.map((r) => r.viewer_id as string | null).filter(Boolean) as string[]),
     )
     if (viewerIds.length > 0) {
-      const { data: people } = await admin.from('profiles').select('id, full_name').in('id', viewerIds)
+      const { data: people } = await admin
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', viewerIds)
       for (const p of people ?? []) {
         namesById.set(p.id as string, (p.full_name as string) ?? 'A parent')
+        avatarById.set(p.id as string, (p.avatar_url as string) ?? null)
       }
     }
   }
@@ -122,6 +144,8 @@ export async function viewTeasers(
       when: ago(r.created_at as string),
       text: `${who}${searching}${place} viewed your profile`,
       identified: !!name,
+      // Only ever populated on the identified branch — see the type.
+      avatarUrl: name && r.viewer_id ? (avatarById.get(r.viewer_id as string) ?? null) : null,
     }
   })
 

@@ -1,5 +1,7 @@
 'use client'
 
+import FileUpload from '@/components/FileUpload'
+
 import { useState } from 'react'
 import { AlertTriangle, Check, Download } from 'lucide-react'
 
@@ -98,20 +100,21 @@ export default function ImportClient() {
       </a>
 
       <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-        <label className="block space-y-1">
-          <span className="text-[11px] font-bold text-gray-500">CSV file</span>
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null)
-              setVerdicts(null)
-              setResults(null)
-              setSummary(null)
-            }}
-            className="min-h-[44px] w-full rounded-xl border border-gray-200 p-2 text-xs"
-          />
-        </label>
+        {/* A spreadsheet, not an image — so no thumbnail, but the file name
+            and size still show, which is what tells an admin they picked last
+            month's export by mistake. */}
+        <FileUpload
+          label="CSV file"
+          accept=".csv,text/csv"
+          acceptLabel="CSV"
+          maxBytes={10 * 1024 * 1024}
+          onFile={(f) => {
+            setFile(f)
+            setVerdicts(null)
+            setResults(null)
+            setSummary(null)
+          }}
+        />
 
         <button
           type="button"
