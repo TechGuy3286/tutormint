@@ -84,6 +84,8 @@ export const NEUTRAL = {
   slate700: '#334155',
   slate800: '#1E293B',
   gray200: '#E5E7EB',
+  gray300: '#D1D5DB',
+  gray500: '#6B7280',
 } as const
 
 /**
@@ -123,3 +125,48 @@ export function initialsOf(name: string | null | undefined): string {
     .join('')
     .toUpperCase()
 }
+
+/**
+ * The chart palette, and the evidence for it.
+ *
+ * Two series need two hues that a colour-blind reader can still tell apart.
+ * Run through the dataviz validator against the light chart surface:
+ *
+ *   #2E7D4F + #F59E0B   lightness band PASS · chroma PASS
+ *                       CVD separation PASS (ΔE 18.7 protan, 32.7 tritan)
+ *                       normal-vision PASS (ΔE 30.4)
+ *                       contrast vs surface WARN — #F59E0B is 2.09:1
+ *
+ * The two other brand pairs that clear the lightness band both land in the
+ * 6–8 CVD floor band (green↔red ΔE 7.1, green↔gold-ink ΔE 7.4), which is a
+ * worse failure: a reader who cannot separate the series cannot read the chart
+ * at all, whereas a fill that is light against white is still perfectly
+ * locatable next to its legend swatch. tm-navy fails the band outright at
+ * L 0.289 — it is a heading colour, not a fill.
+ *
+ * The gold WARN is relieved as the guidance requires: every chart here ships a
+ * table view, and gold is used only as a FILL, which is what CLAUDE.md's brand
+ * rules already restrict it to.
+ *
+ * `single` is for one-series charts, where there is no separation to preserve
+ * and navy is the platform's data colour.
+ */
+export const CHART = {
+  /** Fixed order — a series keeps its hue when a filter changes the count. */
+  series: [BRAND.greenDeep, BRAND.gold] as const,
+  single: BRAND.navy,
+  /** Gridlines and axes: one step off the surface, hairline, solid. */
+  grid: NEUTRAL.slate200,
+  /**
+   * Axis ticks and direct labels.
+   *
+   * The recessive grey a chart wants is slate-400, and slate-400 is 2.6:1 on
+   * white -- it cannot be text at any size, which is the same finding that
+   * removed text-gray-400 from admin in the September brand pass. Axis labels
+   * ARE text, so this is gray-500 (4.83:1) and the recession is carried by
+   * size and weight instead of by lightness.
+   */
+  axisInk: NEUTRAL.gray500,
+  /** What the 2px gap between touching marks is painted in. */
+  surface: BRAND.white,
+} as const

@@ -86,7 +86,6 @@ export default async function AdminUsersPage({
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Members</h1>
         <p className="text-xs text-gray-500">
           Every account, newest first{term ? ` matching “${term}”` : ''}.
         </p>

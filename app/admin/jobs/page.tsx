@@ -51,7 +51,6 @@ export default async function AdminJobsPage({
   return (
     <div className="space-y-4">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-tm-navy">Tuitions</h1>
         <p className="text-xs text-gray-500">
           {total} {total === 1 ? 'tuition' : 'tuitions'}
           {filtered ? ' matching these filters' : ' posted on TutorMint'}.

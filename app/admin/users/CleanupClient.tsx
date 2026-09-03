@@ -79,7 +79,7 @@ export default function CleanupClient({
         <Link href="/admin/users" className="text-xs font-bold text-tm-red hover:underline">
           ← All members
         </Link>
-        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Junk accounts</h1>
+        <h2 className="text-lg font-black text-tm-navy">Junk accounts</h2>
         <p className="text-xs leading-relaxed text-gray-500">
           {candidates.length} of {scanned} accounts look like junk: an address that cannot receive
           mail, or a domain one keystroke from a real provider, or unconfirmed for over a month.

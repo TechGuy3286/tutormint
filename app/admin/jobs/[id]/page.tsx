@@ -110,7 +110,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
     <div className="space-y-4">
       <header className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-black text-tm-navy">{job.title as string}</h1>
+          <h2 className="text-xl font-black text-tm-navy">{job.title as string}</h2>
           {job.is_featured && (
             <span className="rounded-full bg-tm-gold px-2 py-0.5 text-[10px] font-black text-tm-navy">
               Featured

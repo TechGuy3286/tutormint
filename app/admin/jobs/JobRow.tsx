@@ -1,4 +1,6 @@
 import Link from 'next/link'
+
+import StatusChip from '@/components/admin/StatusChip'
 import { Users } from 'lucide-react'
 import TimeAgo from '@/components/TimeAgo'
 import type { AdminJobRow } from '@/lib/adminJobs'
@@ -9,12 +11,6 @@ import type { AdminJobRow } from '@/lib/adminJobs'
 // string a parent or a tutor quotes in a support message -- an admin should
 // never have to open a job to find out whether it is the one they were asked
 // about.
-
-const STATUS_STYLE: Record<string, string> = {
-  open: 'bg-tm-tint-green text-tm-green-deep',
-  hired: 'bg-tm-tint-navy text-tm-navy',
-  closed: 'bg-gray-100 text-gray-700',
-}
 
 export default function JobRow({ row }: { row: AdminJobRow }) {
   return (
@@ -36,13 +32,7 @@ export default function JobRow({ row }: { row: AdminJobRow }) {
                 Featured
               </span>
             )}
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-black capitalize ${
-                STATUS_STYLE[row.status] ?? 'bg-gray-100 text-gray-700'
-              }`}
-            >
-              {row.status}
-            </span>
+            <StatusChip status={row.status} />
           </div>
         </div>
 

@@ -129,3 +129,15 @@ export function verificationStatus(raw: string | null | undefined): string {
       return titleCase(raw ?? '—')
   }
 }
+
+/**
+ * Any stored status, as a word.
+ *
+ * The generic fallback for the admin chip: the queues carry statuses from six
+ * different columns and most of them just need title-casing. Where a column
+ * has its own vocabulary -- an application, a job, a demo, a verification --
+ * use that column's helper above, which knows the wording a member expects.
+ */
+export function statusLabel(raw: string | null | undefined): string {
+  return titleCase(raw ?? '—')
+}

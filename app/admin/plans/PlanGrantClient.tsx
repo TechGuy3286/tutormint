@@ -100,7 +100,6 @@ export default function PlanGrantClient({
   return (
     <div className="space-y-4">
       <header className="space-y-1">
-        <h1 className="text-xl sm:text-2xl font-black text-tm-navy">Plans</h1>
         <p className="text-xs text-gray-500">
           Grant or revoke a plan on any account. Grants are recorded as{' '}
           <code className="text-[10px]">admin_grant</code> so they can be told apart from real

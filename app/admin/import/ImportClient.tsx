@@ -83,7 +83,6 @@ export default function ImportClient() {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Import tutors</h1>
         <p className="text-xs leading-relaxed text-gray-500">
           Imported profiles are reachable by direct link but stay out of search until the tutor
           claims theirs — first sign-in, terms, and an OTP on their number. Import never skips

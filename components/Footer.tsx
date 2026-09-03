@@ -23,6 +23,7 @@
 // social profiles are all environment-configured, and a channel with nothing
 // set is not rendered rather than shown as a dead link (CLAUDE.md rule 7).
 
+import { headers } from 'next/headers'
 import Link from 'next/link'
 import { supportContactFromEnv } from '@/lib/support'
 
@@ -43,7 +44,18 @@ function socialLinks(): SocialLink[] {
     .map(([name, icon, href]) => ({ name, icon, href: href!.trim() }))
 }
 
-export default function Footer() {
+export default async function Footer() {
+  // /admin is a dashboard shell, not a marketing page: it has its own
+  // navigation in a sidebar, and the site footer under it offered a signed-in
+  // moderator "Sign Up" and "Login" links plus 700px of link columns below the
+  // queue they were working. components/Navbar.tsx already returns null here
+  // for the same reason; this is the other half of that.
+  //
+  // The headers() read costs no static rendering that the Navbar above has not
+  // already spent -- it is in the same root layout, and reads the same header.
+  const path = (await headers()).get('x-tm-pathname') ?? ''
+  if (path === '/admin' || path.startsWith('/admin/')) return null
+
   const support = supportContactFromEnv()
   const socials = socialLinks()
   const year = new Date().getFullYear()

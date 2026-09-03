@@ -89,6 +89,7 @@ const C = {
   slate100: '#F1F5F9',
   // Tailwind's own greys, needed because admin leans on them for muted text.
   gray400: '#9CA3AF',
+  gray300: '#D1D5DB',
   gray500: '#6B7280',
   gray100: '#F3F4F6',
   gray700: '#374151',
@@ -165,6 +166,27 @@ const PAIRS: Pair[] = [
   { fg: 'greenDeep', bg: 'tintGreen', where: 'admin approved and reinstated badges' },
   { fg: 'navy', bg: 'white', where: 'admin headings and table text' },
   { fg: 'mint', bg: 'black', where: 'admin header wordmark on the black bar' },
+
+  // The admin sidebar (4 Sep 2026). A dark rail with a white content column,
+  // so every label on it is a foreground on tm-black.
+  { fg: 'gray300', bg: 'black', where: 'admin sidebar nav labels and group headings' },
+  { fg: 'white', bg: 'black', where: 'admin sidebar, the active section' },
+  { fg: 'mint', bg: 'black', where: 'admin sidebar wordmark' },
+  { fg: 'navy', bg: 'white', where: 'admin header page title' },
+  { fg: 'gray500', bg: 'white', where: 'admin header breadcrumbs and Exit' },
+  { fg: 'greenDeep', bg: 'tintGreen', where: 'admin header role chip' },
+
+  // The overview charts. Marks carry the series colour; every piece of TEXT on
+  // them wears an ink token, which is why the axis is gray-500 and not the
+  // slate-400 a chart would otherwise reach for -- see CHART.axisInk.
+  //
+  // NOT LISTED, and deliberately: tm-gold as a bar fill is 2.09:1 against the
+  // card. It is a fill, never text, and the dataviz validator's contrast
+  // relief is satisfied by the table view every chart ships with.
+  { fg: 'gray500', bg: 'white', where: 'chart axis ticks and direct labels' },
+  { fg: 'navy', bg: 'white', where: 'chart titles and tooltip headings' },
+  { fg: 'slate700', bg: 'white', where: 'chart tooltip body and table cells' },
+  { fg: 'goldInk', bg: 'tintGold', where: 'needs-attention count disc' },
 
   // The homepage hero pill, authorised 2 Sep 2026.
   { fg: 'navy', bg: 'tintGreen', where: 'homepage hero pill' },

@@ -4,37 +4,13 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { MessageSquare, Lock } from 'lucide-react'
+import InfiniteFooter from '@/components/InfiniteFooter'
 import { formatDate, formatDateTime } from '@/lib/datetime'
+import { useInfinite } from '@/lib/useInfinite'
+import type { QueueBlockRow, QueueReportRow } from '@/lib/adminQueues'
 
-export type QueueReport = {
-  id: string
-  reporterId: string | null
-  reporterName: string
-  reportedId: string | null
-  reportedName: string | null
-  reportedRole: string | null
-  reportedSuspended: boolean
-  targetType: string
-  targetId: string | null
-  reason: string
-  detail: string | null
-  status: 'open' | 'actioned' | 'dismissed'
-  actionTaken: string | null
-  resolutionNote: string | null
-  createdAt: string
-  reviewedAt: string | null
-  /** Present only for reports that name a thread. null everywhere else. */
-  messages: { who: string; body: string; at: string }[] | null
-}
-
-export type BlockRow = {
-  id: string
-  blockerId: string
-  blockerName: string
-  blockedId: string
-  blockedName: string
-  createdAt: string
-}
+export type QueueReport = QueueReportRow
+export type BlockRow = QueueBlockRow
 
 const FILTERS = [
   { key: 'open', label: 'Open' },
@@ -56,12 +32,34 @@ export default function ReportQueue({
   reports,
   blocks,
   filter,
+  reportsCursor,
+  reportsTotal,
+  blocksCursor,
+  blocksTotal,
 }: {
   reports: QueueReport[]
   blocks: BlockRow[]
   filter: string
+  reportsCursor: string | null
+  reportsTotal: number
+  blocksCursor: string | null
+  blocksTotal: number
 }) {
   const router = useRouter()
+  const moreReports = useInfinite<QueueReport>({
+    endpoint: '/api/admin/queues/reports',
+    params: { filter },
+    initialCursor: reportsCursor,
+    storageKey: `tm:more:admin-reports:${filter}`,
+  })
+  const moreBlocks = useInfinite<BlockRow>({
+    endpoint: '/api/admin/queues/blocks',
+    params: {},
+    initialCursor: blocksCursor,
+    storageKey: 'tm:more:admin-blocks',
+  })
+  const allReports = [...reports, ...moreReports.items]
+  const allBlocks = [...blocks, ...moreBlocks.items]
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [openThread, setOpenThread] = useState<string | null>(null)
@@ -113,13 +111,13 @@ export default function ReportQueue({
         </p>
       )}
 
-      {reports.length === 0 ? (
+      {allReports.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           Nothing here.
         </p>
       ) : (
         <ul className="space-y-3">
-          {reports.map((r) => (
+          {allReports.map((r) => (
             <li key={r.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 space-y-0.5">
@@ -285,6 +283,18 @@ export default function ReportQueue({
         </ul>
       )}
 
+      {allReports.length > 0 && (
+        <InfiniteFooter
+          state={moreReports.state}
+          done={moreReports.done}
+          loadMore={moreReports.loadMore}
+          sentinel={moreReports.sentinel}
+          loadedCount={allReports.length}
+          total={reportsTotal}
+          noun="reports"
+        />
+      )}
+
       {/* --------------------------------------------------------- blocks --- */}
       <section className="space-y-2">
         <h2 className="text-sm font-black text-tm-navy">Blocks</h2>
@@ -292,13 +302,13 @@ export default function ReportQueue({
           Read-only. A block is a member&rsquo;s own decision and admins do not undo it — this list
           exists so a report can be read in context when two people have already stopped talking.
         </p>
-        {blocks.length === 0 ? (
+        {allBlocks.length === 0 ? (
           <p className="rounded-2xl border border-gray-200 bg-white p-4 text-center text-xs text-gray-500">
             Nobody has blocked anybody.
           </p>
         ) : (
           <ul className="space-y-2">
-            {blocks.map((b) => (
+            {allBlocks.map((b) => (
               <li
                 key={b.id}
                 className="flex flex-wrap items-baseline justify-between gap-2 rounded-2xl border border-gray-200 bg-white p-3 text-xs"
@@ -318,6 +328,18 @@ export default function ReportQueue({
               </li>
             ))}
           </ul>
+        )}
+
+        {allBlocks.length > 0 && (
+          <InfiniteFooter
+            state={moreBlocks.state}
+            done={moreBlocks.done}
+            loadMore={moreBlocks.loadMore}
+            sentinel={moreBlocks.sentinel}
+            loadedCount={allBlocks.length}
+            total={blocksTotal}
+            noun="blocks"
+          />
         )}
       </section>
     </div>

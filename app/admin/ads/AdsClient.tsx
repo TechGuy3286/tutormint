@@ -4,7 +4,10 @@ import FileUpload from '@/components/FileUpload'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import InfiniteFooter from '@/components/InfiniteFooter'
 import { formatDate } from '@/lib/datetime'
+import { useInfinite } from '@/lib/useInfinite'
+import type { QueueAdRow } from '@/lib/adminQueues'
 
 // The ads screen: a create form and a list with per-ad analytics.
 //
@@ -12,23 +15,7 @@ import { formatDate } from '@/lib/datetime'
 // window, a weight and three actions, none of which survive being squeezed
 // into a column at 360px.
 
-export type AdRow = {
-  id: string
-  title: string
-  clientName: string | null
-  description: string | null
-  imageUrl: string | null
-  targetUrl: string | null
-  audience: 'parents' | 'tutors' | 'both'
-  startsAt: string
-  endsAt: string | null
-  weight: number
-  status: 'draft' | 'active' | 'paused'
-  impressions: number
-  clicks: number
-  live: boolean
-  expired: boolean
-}
+export type AdRow = QueueAdRow
 
 const AUDIENCES = [
   { code: 'parents', label: 'Parents (browse tutors, parent dashboard)' },
@@ -47,8 +34,23 @@ const EMPTY = {
   endsAt: '',
 }
 
-export default function AdsClient({ ads }: { ads: AdRow[] }) {
+export default function AdsClient({
+  ads,
+  initialCursor,
+  total,
+}: {
+  ads: AdRow[]
+  initialCursor: string | null
+  total: number
+}) {
   const router = useRouter()
+  const more = useInfinite<AdRow>({
+    endpoint: '/api/admin/queues/ads',
+    params: {},
+    initialCursor,
+    storageKey: 'tm:more:admin-ads',
+  })
+  const all = [...ads, ...more.items]
   const [form, setForm] = useState(EMPTY)
   const [file, setFile] = useState<File | null>(null)
   const [creating, setCreating] = useState(false)
@@ -104,7 +106,6 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Advertisements</h1>
         <p className="text-xs leading-relaxed text-gray-500">
           Banners only. Ads never appear as tutor cards and never enter search ranking — ranking is
           sold through plans. Slots: after every 8 browse results, the parent dashboard, and the
@@ -241,13 +242,13 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
         </button>
       )}
 
-      {ads.length === 0 ? (
+      {all.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           No advertisements yet. Empty slots show a TutorMint house creative.
         </p>
       ) : (
         <ul className="space-y-3">
-          {ads.map((a) => {
+          {all.map((a) => {
             const ctr = a.impressions > 0 ? ((a.clicks / a.impressions) * 100).toFixed(1) : '—'
             return (
               <li key={a.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
@@ -327,6 +328,18 @@ export default function AdsClient({ ads }: { ads: AdRow[] }) {
             )
           })}
         </ul>
+      )}
+
+      {all.length > 0 && (
+        <InfiniteFooter
+          state={more.state}
+          done={more.done}
+          loadMore={more.loadMore}
+          sentinel={more.sentinel}
+          loadedCount={all.length}
+          total={total}
+          noun="advertisements"
+        />
       )}
     </div>
   )

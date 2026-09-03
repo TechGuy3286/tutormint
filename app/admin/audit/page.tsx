@@ -60,7 +60,6 @@ export default async function AdminAuditPage({
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Audit</h1>
         <p className="text-xs text-gray-500">
           Every admin mutation, append-only. Nothing on this page can change a row.
         </p>

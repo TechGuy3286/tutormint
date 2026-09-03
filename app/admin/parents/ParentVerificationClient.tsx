@@ -3,22 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import InfiniteFooter from '@/components/InfiniteFooter'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
+import StatusChip from '@/components/admin/StatusChip'
+import { useInfinite } from '@/lib/useInfinite'
+import type { QueueParentRow } from '@/lib/adminQueues'
 
-export type QueueParent = {
-  id: string
-  fullName: string
-  email: string
-  city: string | null
-  address: string | null
-  cnicNumber: string | null
-  phone: string | null
-  phoneVerified: boolean
-  state: string
-  submittedAt: string | null
-  completion: number
-  cnicDocumentId: string | null
-}
+export type QueueParent = QueueParentRow
 
 const FILTERS = [
   { key: 'submitted', label: 'Awaiting review' },
@@ -29,11 +20,22 @@ const FILTERS = [
 export default function ParentVerificationClient({
   parents,
   filter,
+  initialCursor,
+  total,
 }: {
   parents: QueueParent[]
   filter: string
+  initialCursor: string | null
+  total: number
 }) {
   const router = useRouter()
+  const more = useInfinite<QueueParent>({
+    endpoint: '/api/admin/queues/parents',
+    params: { filter },
+    initialCursor,
+    storageKey: `tm:more:admin-parents:${filter}`,
+  })
+  const all = [...parents, ...more.items]
   const [open, setOpen] = useState<QueueParent | null>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
@@ -75,12 +77,9 @@ export default function ParentVerificationClient({
 
   return (
     <div className="space-y-4">
-      <header className="space-y-1">
-        <h1 className="text-xl sm:text-2xl font-black text-tm-navy">Parent verification</h1>
-        <p className="text-xs text-gray-500">
-          Approving sets CNIC and address verified, which is what unblocks job posting.
-        </p>
-      </header>
+      <p className="text-xs text-gray-500">
+        Approving sets CNIC and address verified, which is what unblocks job posting.
+      </p>
 
       <nav className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Filter">
         {FILTERS.map((f) => (
@@ -105,13 +104,13 @@ export default function ParentVerificationClient({
         </p>
       )}
 
-      {parents.length === 0 ? (
+      {all.length === 0 ? (
         <p className="bg-white border border-gray-200 rounded-2xl p-6 text-center text-xs font-bold text-gray-500">
           Nothing in this queue.
         </p>
       ) : (
         <ul className="space-y-2">
-          {parents.map((p) => (
+          {all.map((p) => (
             <li key={p.id}>
               <button
                 onClick={() => {
@@ -127,23 +126,23 @@ export default function ParentVerificationClient({
                     {p.city ?? '—'} · {p.completion}% · {p.cnicDocumentId ? 'CNIC uploaded' : 'no CNIC'}
                   </p>
                 </div>
-                <span
-                  className={`shrink-0 px-2 py-1 rounded-lg border text-[10px] font-bold capitalize ${
-                    p.state === 'approved'
-                      ? 'bg-tm-tint-green text-tm-green-deep border-tm-green-deep/30'
-                      : p.state === 'submitted'
-                        ? 'bg-tm-tint-gold text-tm-gold-ink border-tm-gold/30'
-                        : p.state === 'rejected'
-                          ? 'bg-tm-tint-red text-tm-red border-tm-red/30'
-                          : 'bg-gray-50 text-gray-600 border-gray-200'
-                  }`}
-                >
-                  {p.state}
-                </span>
+                <StatusChip status={p.state} />
               </button>
             </li>
           ))}
         </ul>
+      )}
+
+      {all.length > 0 && (
+        <InfiniteFooter
+          state={more.state}
+          done={more.done}
+          loadMore={more.loadMore}
+          sentinel={more.sentinel}
+          loadedCount={all.length}
+          total={total}
+          noun="parents"
+        />
       )}
 
       {open && (

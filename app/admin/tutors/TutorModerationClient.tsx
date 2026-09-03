@@ -4,29 +4,16 @@ import Avatar from '@/components/Avatar'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import InfiniteFooter from '@/components/InfiniteFooter'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
+import StatusChip from '@/components/admin/StatusChip'
+import { useInfinite } from '@/lib/useInfinite'
+import type { QueueTutorRow } from '@/lib/adminQueues'
 
-export type QueueTutor = {
-  id: string
-  fullName: string
-  email: string
-  headline: string | null
-  city: string | null
-  area: string | null
-  avatarUrl: string | null
-  videoYoutubeId: string | null
-  videoStatus: string
-  videoVisibility: string
-  videoAttempts: number
-  verificationStatus: string
-  ratingAvg: number
-  ratingCount: number
-  degrees: string[]
-  completion: number
-  cnicNumber: string | null
-  phone: string | null
-  documents: { id: string; kind: 'cnic' | 'degree'; label: string | null }[]
-}
+// The row shape is defined once, beside the query that builds it. A type-only
+// import is erased at compile time, so nothing from that server-only module
+// reaches the browser bundle.
+export type QueueTutor = QueueTutorRow
 
 const FILTERS = [
   { key: 'pending', label: 'Pending video' },
@@ -40,13 +27,27 @@ export default function TutorModerationClient({
   tutors,
   filter,
   canSetVisibility,
+  initialCursor,
+  total,
 }: {
   tutors: QueueTutor[]
   filter: string
   /** Only owner/manager may publish a video; a verifier sees the state, not the control. */
   canSetVisibility: boolean
+  initialCursor: string | null
+  total: number
 }) {
   const router = useRouter()
+  // The server rendered the first window; this only ever appends to it. The
+  // filter is part of the storage key so returning to a DIFFERENT tab never
+  // restores the previous one's rows.
+  const more = useInfinite<QueueTutor>({
+    endpoint: '/api/admin/queues/tutors',
+    params: { filter },
+    initialCursor,
+    storageKey: `tm:more:admin-tutors:${filter}`,
+  })
+  const all = [...tutors, ...more.items]
   const [open, setOpen] = useState<QueueTutor | null>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
@@ -112,12 +113,9 @@ export default function TutorModerationClient({
 
   return (
     <div className="space-y-4">
-      <header className="space-y-1">
-        <h1 className="text-xl sm:text-2xl font-black text-tm-navy">Tutor moderation</h1>
-        <p className="text-xs text-gray-500">
-          Every decision needs a written reason and is recorded in the audit log.
-        </p>
-      </header>
+      <p className="text-xs text-gray-500">
+        Every decision needs a written reason and is recorded in the audit log.
+      </p>
 
       <nav className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Filter">
         {FILTERS.map((f) => (
@@ -142,13 +140,13 @@ export default function TutorModerationClient({
         </p>
       )}
 
-      {tutors.length === 0 ? (
+      {all.length === 0 ? (
         <p className="bg-white border border-gray-200 rounded-2xl p-6 text-center text-xs font-bold text-gray-500">
           Nothing in this queue.
         </p>
       ) : (
         <ul className="space-y-2">
-          {tutors.map((t) => (
+          {all.map((t) => (
             <li key={t.id}>
               <button
                 onClick={() => {
@@ -181,6 +179,18 @@ export default function TutorModerationClient({
             </li>
           ))}
         </ul>
+      )}
+
+      {all.length > 0 && (
+        <InfiniteFooter
+          state={more.state}
+          done={more.done}
+          loadMore={more.loadMore}
+          sentinel={more.sentinel}
+          loadedCount={all.length}
+          total={total}
+          noun="tutors"
+        />
       )}
 
       {/* Detail drawer */}
@@ -343,18 +353,10 @@ function Info({ label, value }: { label: string; value: string }) {
   )
 }
 
+// One word, one tint, and the same rendering as every other admin list --
+// this used to be a bordered pill unique to this screen, so "pending" looked
+// different here from the payments queue two clicks away.
 function StatusPill({ status, videoStatus }: { status: string; videoStatus: string }) {
-  const cls =
-    status === 'suspended'
-      ? 'bg-tm-tint-red text-tm-red border-tm-red/30'
-      : status === 'verified'
-        ? 'bg-tm-tint-green text-tm-green-deep border-tm-green-deep/30'
-        : videoStatus === 'uploaded'
-          ? 'bg-tm-tint-gold text-tm-gold-ink border-tm-gold/30'
-          : 'bg-gray-50 text-gray-600 border-gray-200'
-  return (
-    <span className={`shrink-0 px-2 py-1 rounded-lg border text-[10px] font-bold capitalize ${cls}`}>
-      {status === 'pending' && videoStatus === 'uploaded' ? 'review' : status}
-    </span>
-  )
+  const waiting = status === 'pending' && videoStatus === 'uploaded'
+  return <StatusChip status={waiting ? 'submitted' : status} label={waiting ? 'Review' : undefined} />
 }

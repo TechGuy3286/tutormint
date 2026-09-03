@@ -105,7 +105,6 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
   if (tutors.length === 0) {
     return (
       <div className="space-y-3">
-        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Social posts</h1>
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
           No listed tutors to post about yet.
         </p>
@@ -116,7 +115,6 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Social posts</h1>
         <p className="text-xs leading-relaxed text-gray-500">
           Everything but the headline comes from the tutor&rsquo;s live profile. Only listed tutors
           appear here — suspended accounts and unclaimed imports are not promoted.

@@ -115,7 +115,6 @@ export default async function AdminUsagePage({
     <div className="space-y-5">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="space-y-1">
-          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Quota usage</h1>
           <p className="text-xs text-gray-500">
             Period {period}. Real counts against the real cap, including for members whose plan
             says &ldquo;Unlimited&rdquo;.

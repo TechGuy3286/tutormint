@@ -6,7 +6,8 @@ import { describeUtm } from '@/lib/utm'
 import { applicationStatus, jobStatus } from '@/lib/display'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MemberActions from './MemberActions'
-import Timeline, { type TimelineEvent } from './Timeline'
+import { loadMemberTimeline } from '@/lib/adminQueues'
+import Timeline from './Timeline'
 
 // One member, everything about them in one place.
 //
@@ -21,76 +22,6 @@ import Timeline, { type TimelineEvent } from './Timeline'
 
 export const dynamic = 'force-dynamic'
 
-const EVENT_LABEL: Record<string, string> = {
-  registered: 'Registered',
-  login: 'Signed in',
-  otp_verified: 'Verified their phone',
-  profile_updated: 'Updated their profile',
-  completion_changed: 'Profile completion changed',
-  subjects_changed: 'Changed their subjects',
-  document_uploaded: 'Uploaded a document',
-  video_submitted: 'Submitted an introduction video',
-  verification_submitted: 'Submitted verification',
-  verification_decision_received: 'Verification decision',
-  job_posted: 'Posted a job',
-  job_edited: 'Edited a job',
-  job_closed: 'Closed a job',
-  application_submitted: 'Applied for a job',
-  application_withdrawn: 'Withdrew an application',
-  demo_requested: 'Requested a demo',
-  demo_accepted: 'Accepted a demo',
-  demo_declined: 'Declined a demo',
-  demo_completed: 'Completed a demo',
-  message_sent: 'Sent a message',
-  shortlist_added: 'Shortlisted a tutor',
-  shortlist_removed: 'Removed a shortlist',
-  profile_viewed: 'Viewed a tutor profile',
-  search_performed: 'Searched',
-  blocked: 'Blocked a member',
-  blocked_by: 'Was blocked',
-  unblocked: 'Unblocked a member',
-  reported: 'Filed a report',
-  reported_by: 'Was reported',
-  report_resolved: 'A report they filed was resolved',
-  payment_submitted: 'Started a payment',
-  payment_rejected: 'A payment was rejected',
-  plan_purchased: 'Bought a plan',
-  plan_expiring: 'Plan expiry reminder',
-  plan_granted: 'Plan granted by an admin',
-  plan_revoked: 'Plan revoked by an admin',
-  plan_expired: 'Plan expired',
-  warned: 'Warned',
-  suspended: 'Suspended',
-  unsuspended: 'Reinstated',
-  staff_created: 'Staff account created',
-  staff_role_changed: 'Staff role changed',
-  staff_suspended: 'Staff access suspended',
-  staff_reactivated: 'Staff access restored',
-  video_visibility_changed: 'Video visibility changed',
-}
-
-/** Broad buckets for the timeline filter. */
-const GROUPS: Record<string, string[]> = {
-  account: [
-    'registered', 'login', 'otp_verified', 'profile_updated', 'completion_changed',
-    'subjects_changed', 'document_uploaded', 'video_submitted', 'verification_submitted',
-    'verification_decision_received', 'video_visibility_changed',
-  ],
-  activity: [
-    'job_posted', 'job_edited', 'job_closed', 'application_submitted', 'application_withdrawn',
-    'demo_requested', 'demo_accepted', 'demo_declined', 'demo_completed', 'message_sent',
-    'shortlist_added', 'shortlist_removed', 'profile_viewed', 'search_performed',
-  ],
-  money: [
-    'payment_submitted', 'payment_rejected', 'plan_purchased', 'plan_expiring', 'plan_granted',
-    'plan_revoked', 'plan_expired',
-  ],
-  moderation: [
-    'blocked', 'blocked_by', 'unblocked', 'reported', 'reported_by', 'report_resolved',
-    'warned', 'suspended', 'unsuspended', 'staff_created', 'staff_role_changed',
-    'staff_suspended', 'staff_reactivated',
-  ],
-}
 
 export default async function AdminMemberPage({
   params,
@@ -126,7 +57,6 @@ export default async function AdminMemberPage({
 
   const [
     { data: tutor },
-    { data: activity },
     { data: jobs },
     { data: applications },
     { data: payments },
@@ -142,12 +72,6 @@ export default async function AdminMemberPage({
       .select('id, slug, verification_status, video_status, video_visibility, rating_avg, rating_count, is_featured')
       .eq('id', id)
       .maybeSingle(),
-    admin
-      .from('user_activity_log')
-      .select('id, event, target_type, target_id, meta, created_at')
-      .eq('user_id', id)
-      .order('created_at', { ascending: false })
-      .limit(300),
     admin
       .from('jobs')
       .select('id, job_tx_id, title, status, is_featured, created_at')
@@ -214,18 +138,9 @@ export default async function AdminMemberPage({
 
   const planName = new Map((plans ?? []).map((p) => [p.code as string, p.name as string]))
 
-  const allowed = group === 'all' ? null : new Set(GROUPS[group] ?? [])
-  const events: TimelineEvent[] = (activity ?? [])
-    .filter((a) => !allowed || allowed.has(a.event as string))
-    .map((a) => ({
-      id: a.id as string,
-      event: a.event as string,
-      label: EVENT_LABEL[a.event as string] ?? (a.event as string),
-      targetType: (a.target_type as string) ?? null,
-      targetId: (a.target_id as string) ?? null,
-      meta: (a.meta as Record<string, unknown>) ?? {},
-      at: a.created_at as string,
-    }))
+  // The group is applied in the query, not over a fetched window -- see
+  // lib/adminQueues.ts for why that mattered.
+  const timeline = await loadMemberTimeline({ userId: id, group })
 
   const verified = !!profile.cnic_verified_at && !!profile.address_verified_at
 
@@ -234,9 +149,9 @@ export default async function AdminMemberPage({
       <header className="space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-black text-tm-navy sm:text-2xl">
+            <h2 className="truncate text-xl font-black text-tm-navy sm:text-2xl">
               {profile.full_name as string}
-            </h1>
+            </h2>
             <p className="truncate text-xs text-gray-500">
               {profile.email as string}
               {profile.phone_number ? ` · ${profile.phone_number}` : ''}
@@ -400,7 +315,13 @@ export default async function AdminMemberPage({
         </Panel>
       </div>
 
-      <Timeline events={events} memberId={id} group={group} />
+      <Timeline
+        events={timeline.rows}
+        memberId={id}
+        group={group}
+        initialCursor={timeline.nextCursor}
+        total={timeline.total}
+      />
     </div>
   )
 }

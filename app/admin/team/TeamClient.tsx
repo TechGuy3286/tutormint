@@ -88,7 +88,6 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Team</h1>
         <p className="text-xs text-gray-500">
           There is exactly one owner and it cannot be changed here. Every other role can be granted,
           changed and revoked.

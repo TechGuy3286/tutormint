@@ -3,8 +3,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import InfiniteFooter from '@/components/InfiniteFooter'
+import StatusChip from '@/components/admin/StatusChip'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { formatDate, formatDateTime } from '@/lib/datetime'
+import { useInfinite } from '@/lib/useInfinite'
+import type { QueuePaymentRow, QueueSubscriptionRow } from '@/lib/adminQueues'
 
 // The payments screen: a queue of transfers to decide on, and the ledger of
 // what is currently active.
@@ -14,39 +18,8 @@ import { formatDate, formatDateTime } from '@/lib/datetime'
 // scrollbar; from sm up it is a table inside its own overflow container so the
 // page body never scrolls sideways.
 
-export type QueuePayment = {
-  id: string
-  userId: string
-  name: string
-  email: string
-  planCode: string
-  planName: string
-  amountPkr: number
-  provider: string
-  method: string | null
-  ourReference: string | null
-  payerReference: string | null
-  /** The campaign this member arrived on, source · medium · campaign. */
-  cameFrom: string | null
-  hasScreenshot: boolean
-  status: 'pending' | 'approved' | 'rejected'
-  rejectionReason: string | null
-  createdAt: string
-  reviewedAt: string | null
-}
-
-export type SubscriptionRow = {
-  id: string
-  name: string
-  email: string
-  role: string
-  planName: string
-  status: string
-  startsAt: string
-  expiresAt: string | null
-  source: string
-  note: string | null
-}
+export type QueuePayment = QueuePaymentRow
+export type SubscriptionRow = QueueSubscriptionRow
 
 const FILTERS = [
   { key: 'pending', label: 'Pending' },
@@ -59,12 +32,36 @@ export default function PaymentQueue({
   payments,
   subscriptions,
   filter,
+  paymentsCursor,
+  paymentsTotal,
+  subscriptionsCursor,
+  subscriptionsTotal,
 }: {
   payments: QueuePayment[]
   subscriptions: SubscriptionRow[]
   filter: string
+  paymentsCursor: string | null
+  paymentsTotal: number
+  subscriptionsCursor: string | null
+  subscriptionsTotal: number
 }) {
   const router = useRouter()
+  // Two lists on one screen, two cursors. They page independently: reading
+  // further down the ledger has nothing to do with the queue above it.
+  const morePayments = useInfinite<QueuePayment>({
+    endpoint: '/api/admin/queues/payments',
+    params: { filter },
+    initialCursor: paymentsCursor,
+    storageKey: `tm:more:admin-payments:${filter}`,
+  })
+  const moreSubs = useInfinite<SubscriptionRow>({
+    endpoint: '/api/admin/queues/subscriptions',
+    params: {},
+    initialCursor: subscriptionsCursor,
+    storageKey: 'tm:more:admin-subscriptions',
+  })
+  const allPayments = [...payments, ...morePayments.items]
+  const allSubs = [...subscriptions, ...moreSubs.items]
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<string | null>(null)
@@ -120,33 +117,23 @@ export default function PaymentQueue({
       {/* ------------------------------------------------------- queue --- */}
       <section className="space-y-3">
         <h2 className="text-sm font-black text-tm-navy">
-          Payments {payments.length > 0 ? `(${payments.length})` : ''}
+          Payments {paymentsTotal > 0 ? `(${paymentsTotal})` : ''}
         </h2>
 
-        {payments.length === 0 ? (
+        {allPayments.length === 0 ? (
           <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
             Nothing here.
           </p>
         ) : (
           <ul className="space-y-3">
-            {payments.map((p) => (
+            {allPayments.map((p) => (
               <li key={p.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-tm-navy">{p.name}</p>
                     <p className="truncate text-[11px] text-gray-500">{p.email}</p>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-                      p.status === 'approved'
-                        ? 'bg-tm-tint-green text-tm-green-deep'
-                        : p.status === 'rejected'
-                          ? 'bg-tm-tint-red text-tm-red'
-                          : 'bg-tm-tint-gold text-tm-gold-ink'
-                    }`}
-                  >
-                    {p.status}
-                  </span>
+                  <StatusChip status={p.status} />
                 </div>
 
                 <dl className="grid grid-cols-2 gap-2 text-[11px]">
@@ -236,13 +223,25 @@ export default function PaymentQueue({
             ))}
           </ul>
         )}
+
+        {allPayments.length > 0 && (
+          <InfiniteFooter
+            state={morePayments.state}
+            done={morePayments.done}
+            loadMore={morePayments.loadMore}
+            sentinel={morePayments.sentinel}
+            loadedCount={allPayments.length}
+            total={paymentsTotal}
+            noun="payments"
+          />
+        )}
       </section>
 
       {/* ------------------------------------------------- subscriptions --- */}
       <section className="space-y-3">
         <h2 className="text-sm font-black text-tm-navy">Subscriptions</h2>
 
-        {subscriptions.length === 0 ? (
+        {allSubs.length === 0 ? (
           <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
             No subscriptions yet.
           </p>
@@ -250,7 +249,7 @@ export default function PaymentQueue({
           <>
             {/* Cards under sm — a six-column table at 360px is unreadable. */}
             <ul className="space-y-2 sm:hidden">
-              {subscriptions.map((s) => (
+              {allSubs.map((s) => (
                 <li key={s.id} className="space-y-1 rounded-2xl border border-gray-200 bg-white p-3">
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="truncate text-xs font-black text-tm-navy">{s.name}</p>
@@ -277,7 +276,7 @@ export default function PaymentQueue({
                   </tr>
                 </thead>
                 <tbody>
-                  {subscriptions.map((s) => (
+                  {allSubs.map((s) => (
                     <tr key={s.id} className="border-b border-gray-100 last:border-0">
                       <td className="p-3">
                         <span className="block font-bold text-tm-navy">{s.name}</span>
@@ -296,6 +295,18 @@ export default function PaymentQueue({
             </div>
           </>
         )}
+
+        {allSubs.length > 0 && (
+          <InfiniteFooter
+            state={moreSubs.state}
+            done={moreSubs.done}
+            loadMore={moreSubs.loadMore}
+            sentinel={moreSubs.sentinel}
+            loadedCount={allSubs.length}
+            total={subscriptionsTotal}
+            noun="subscriptions"
+          />
+        )}
       </section>
     </div>
   )
@@ -308,20 +319,6 @@ function expiryWords(s: SubscriptionRow): string {
   const date = formatDate(d)
   if (s.status !== 'active') return date
   return days <= 0 ? `${date} (lapsed)` : `${date} (${days}d)`
-}
-
-function StatusChip({ status }: { status: string }) {
-  const tone =
-    status === 'active'
-      ? 'bg-tm-tint-green text-tm-green-deep'
-      : status === 'expired'
-        ? 'bg-gray-100 text-gray-700'
-        : 'bg-tm-tint-gold text-tm-gold-ink'
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${tone}`}>
-      {status}
-    </span>
-  )
 }
 
 function Cell({ label, value, mono }: { label: string; value: string; mono?: boolean }) {

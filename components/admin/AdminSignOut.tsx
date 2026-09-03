@@ -17,7 +17,7 @@ import { createClient } from '@/lib/supabase/client'
 // and ending a privileged session are different intentions, and a moderator
 // who wanted the site back should not be logged out for asking.
 
-export default function AdminSignOut() {
+export default function AdminSignOut({ tone = 'dark' }: { tone?: 'light' | 'dark' }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
 
@@ -32,7 +32,11 @@ export default function AdminSignOut() {
         router.refresh()
       }}
       aria-label="Sign out"
-      className="flex min-h-[44px] shrink-0 items-center gap-1.5 px-2 text-[11px] font-bold text-gray-300 transition-colors hover:text-white disabled:opacity-60 sm:px-3"
+      className={`flex min-h-[44px] shrink-0 items-center gap-1.5 px-2 text-[11px] font-bold transition-colors disabled:opacity-60 sm:px-3 ${
+        tone === 'dark'
+          ? 'text-gray-300 hover:text-white'
+          : 'text-gray-500 hover:text-tm-navy'
+      }`}
     >
       <LogOut aria-hidden size={14} />
       {/* Icon only on a phone — the label is what pushed Exit off the edge.
