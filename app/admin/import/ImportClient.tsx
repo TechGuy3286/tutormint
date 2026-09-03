@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal, UPLOAD_TIMEOUT_MS } from '@/lib/submit'
+
 import FileUpload from '@/components/FileUpload'
 
 import { useState } from 'react'
@@ -42,7 +44,7 @@ export default function ImportClient() {
       const fd = new FormData()
       fd.set('action', action)
       fd.set('file', file)
-      const res = await fetch('/api/admin/import', { method: 'POST', body: fd })
+      const res = await fetch('/api/admin/import', { signal: submitSignal(UPLOAD_TIMEOUT_MS), method: 'POST', body: fd })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'That did not work.')
 

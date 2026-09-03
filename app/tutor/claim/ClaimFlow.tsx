@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -43,7 +45,7 @@ export default function ClaimFlow({
     setError(null)
     setNote(null)
     try {
-      const res = await fetch(url, {
+      const res = await fetch(url, { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

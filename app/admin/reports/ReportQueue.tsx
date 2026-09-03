@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -70,7 +72,7 @@ export default function ReportQueue({
     setBusy(reportId)
     setError(null)
     try {
-      const res = await fetch('/api/admin/reports', {
+      const res = await fetch('/api/admin/reports', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reportId, action, reason }),

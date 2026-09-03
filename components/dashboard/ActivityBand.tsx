@@ -18,15 +18,27 @@ import { groupFeed, type FeedItem } from '@/lib/feedGrouping'
 //
 // Runs of the same event on the same day collapse into one card with a count
 // and expand to every row behind it. See groupFeed for the invariant.
+//
+// MESSAGES ARE THE EXCEPTION, and collapse across the WHOLE band rather than
+// per day. A member with a live conversation generates more message events
+// than everything else put together, and per-day grouping turned that into
+// three cards on a nine-card band -- so "you were hired" was below the fold
+// because somebody had written on Tuesday and again on Thursday. One card
+// says how many and how recent, and goes to the inbox. Every other event type
+// keeps per-day grouping, because two job posts on different days genuinely
+// are two things that happened.
 
 export default function ActivityBand({
   items,
   emptyHint,
+  inboxHref,
 }: {
   items: FeedItem[]
   emptyHint: string
+  /** Where the single messages card points. Role-specific, so it is passed in. */
+  inboxHref: string
 }) {
-  const groups = groupFeed(items)
+  const groups = groupFeed(items, { messages: 'all', inboxHref })
 
   return (
     <section aria-labelledby="activity" className="space-y-2">

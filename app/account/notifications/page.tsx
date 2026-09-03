@@ -99,11 +99,18 @@ export default async function NotificationsPage({
         <EmptyState role={role} group={group} />
       ) : (
         <>
-          {/* The same card, the same grid and the same grouping as the
-              dashboard band — one implementation, so the two surfaces cannot
-              drift into looking like different products. */}
+          {/* The same card and the same grid as the dashboard band — one
+              implementation, so the two surfaces cannot drift into looking
+              like different products.
+              
+              THE GROUPING DIFFERS, on purpose. The band collapses every
+              message into one card because it is a summary and its job is to
+              stop a conversation burying a hire. This IS the list, so it
+              collapses per CONVERSATION instead: eleven messages from three
+              people are three rows, each opening its own thread, rather than
+              eleven rows or one. */}
           <ul className="grid gap-2 sm:grid-cols-2">
-            {groupFeed(notificationsToFeed(rows)).map((g) => (
+            {groupFeed(notificationsToFeed(rows), { messages: 'byThread' }).map((g) => (
               <ActivityCard key={g.key} group={g} />
             ))}
           </ul>

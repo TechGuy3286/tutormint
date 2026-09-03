@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState } from 'react'
 import { Flag } from 'lucide-react'
 
@@ -48,7 +50,7 @@ export default function ReportButton({
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/reports', {
+      const res = await fetch('/api/reports', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reportedId, targetType, targetId, reason, detail }),

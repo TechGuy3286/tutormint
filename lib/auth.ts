@@ -5,8 +5,10 @@
 // sessionStorage.
 
 import { cache } from 'react'
+import { redirect } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/server'
+import { homeForRole, nextForRole } from '@/lib/authRoutes'
 
 export type { Role } from '@/lib/authRoutes'
 import type { Role } from '@/lib/authRoutes'
@@ -78,3 +80,27 @@ export const getSessionUser = cache(async function getSessionUser(): Promise<Ses
 // import them without pulling next/headers into the browser bundle. Re-exported
 // here so server callers still have one import.
 export { homeForRole, nextForRole } from '@/lib/authRoutes'
+
+/**
+ * Send a signed-in member away from an auth page.
+ *
+ * /login, /register and /forgot-password are for people who do not have a
+ * session, and until now they rendered their form to people who did. Submitting
+ * that form is the bug this closes: the sign-in succeeded, the router was asked
+ * to move to a page the member was already entitled to, and when that move did
+ * not take there was nothing on screen but "SIGNING IN…". A member who is
+ * already signed in should never be shown the form at all.
+ *
+ * Honours `?next=` through nextForRole, so an interrupted action still
+ * completes -- a guest who signed in in another tab and came back to a stale
+ * /login?next=/parent/dashboard/job/x lands on the job, not on a dashboard.
+ *
+ * Signing out is unaffected: it clears the session first, so the next visit to
+ * /login has nothing to redirect.
+ */
+export async function redirectIfSignedIn(next?: string | null): Promise<void> {
+  const session = await getSessionUser()
+  if (!session) return
+  const role = (session.profile?.role as Role | null) ?? null
+  redirect(nextForRole(next, role) ?? homeForRole(role))
+}

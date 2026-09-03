@@ -1,3 +1,5 @@
+import { redirectIfSignedIn } from '@/lib/auth'
+
 import RegisterForm from './RegisterForm'
 
 // The single registration page. /tutor/register is a server redirect here,
@@ -22,5 +24,9 @@ export default async function RegisterPage({
   searchParams: Promise<{ next?: string }>
 }) {
   const { next } = await searchParams
+  // Somebody with a session is not creating an account. Before this they saw
+  // the form, filled it in and were told the mobile number was already taken --
+  // by themselves.
+  await redirectIfSignedIn(next)
   return <RegisterForm next={next} />
 }

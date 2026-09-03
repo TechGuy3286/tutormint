@@ -42,10 +42,23 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
   const style = FAMILY_STYLE[family]
   const Icon = ICONS[style.icon]
 
-  const grouped = group.count > 1
-  const title = grouped
-    ? groupedLabel(group.type, group.count, group.head.text)
-    : group.head.text
+  // A band-wide messages card is a LINK, not a disclosure: the rows behind it
+  // are from different conversations, so there is no useful list to unfold --
+  // the place to read them is the inbox, which is where it points.
+  const collapsedMessages = !!group.collapsedAcrossDays
+  const grouped = group.count > 1 && !collapsedMessages
+  // "7 new messages" is right for seven waiting and wrong for seven already
+  // read -- and a collapsed messages card is the one place a member sees a
+  // count of messages they have already opened. The per-type phrasing in
+  // lib/activityFamily has no way to know that, so any message count words
+  // itself from the group's own unread state.
+  const isMessages = family === 'messages' && group.count > 1
+  const title = isMessages
+    ? `${group.count} ${group.unread ? 'new ' : ''}messages`
+    : group.count > 1
+      ? groupedLabel(group.type, group.count, group.head.text)
+      : group.head.text
+  const href = group.href
 
   const body = (
     <span className="flex min-w-0 items-start gap-3">
@@ -69,6 +82,9 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
           </span>
         </span>
         <span className="block text-[11px] text-gray-500" title={formatDateTime(group.head.at)}>
+          {/* "latest" only when the card stands for more than one thing --
+              otherwise it would claim a run where there is a single event. */}
+          {collapsedMessages && group.count > 1 ? 'latest ' : ''}
           <TimeAgo iso={group.head.at} />
         </span>
       </span>
@@ -125,8 +141,8 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
             </ul>
           )}
         </>
-      ) : group.head.href ? (
-        <Link href={group.head.href} className="flex min-h-[44px] items-center p-3">
+      ) : href ? (
+        <Link href={href} className="flex min-h-[44px] items-center p-3">
           {body}
         </Link>
       ) : (

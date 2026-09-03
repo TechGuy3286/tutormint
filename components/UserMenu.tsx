@@ -98,8 +98,15 @@ export default function UserMenu({
 
   const logout = async () => {
     setBusy(true)
-    await createClient().auth.signOut()
-    setOpen(false)
+    try {
+      await createClient().auth.signOut()
+    } finally {
+      // Cleared whatever happened. Sign-out is the one control a member
+      // reaches for when something has already gone wrong, and leaving it
+      // disabled means their only remaining option is to close the tab.
+      setBusy(false)
+      setOpen(false)
+    }
     router.push('/')
     router.refresh()
   }

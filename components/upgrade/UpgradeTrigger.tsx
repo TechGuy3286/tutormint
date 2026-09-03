@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState } from 'react'
 import type { GateReason } from '@/lib/gate'
 import { useUpgradeSheet } from './UpgradeProvider'
@@ -36,7 +38,7 @@ export default function UpgradeTrigger({
   const open = async () => {
     setBusy(true)
     try {
-      const res = await fetch('/api/gate', {
+      const res = await fetch('/api/gate', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),

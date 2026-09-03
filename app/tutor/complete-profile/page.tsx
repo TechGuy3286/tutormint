@@ -3,6 +3,7 @@
 import FileUpload from '@/components/FileUpload'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
+import { UPLOAD_TIMEOUT_MS, submitJson, submitSignal } from '@/lib/submit'
 import Avatar from '@/components/Avatar'
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -160,13 +161,13 @@ function CompleteProfileInner() {
 
   async function saveStep(payload: Record<string, unknown>) {
     setSaving(true); setErr(''); setMsg('')
-    const res = await fetch('/api/profile/save', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-    })
-    const json = await res.json()
+    const { ok, data, error: failed } = await submitJson<{ completion?: number }>(
+      '/api/profile/save',
+      payload,
+    )
     setSaving(false)
-    if (!res.ok) { setErr(json.error ?? 'Could not save.'); return false }
-    if (typeof json.completion === 'number') setPercent(json.completion)
+    if (!ok) { setErr(failed ?? 'Could not save.'); return false }
+    if (typeof data?.completion === 'number') setPercent(data.completion)
     setMsg('Saved.')
     return true
   }
@@ -191,7 +192,7 @@ function CompleteProfileInner() {
     const fd = new FormData()
     fd.append('kind', kind); fd.append('file', file)
     if (label) fd.append('label', label)
-    const res = await fetch('/api/documents/upload', { method: 'POST', body: fd })
+    const res = await fetch('/api/documents/upload', { signal: submitSignal(UPLOAD_TIMEOUT_MS), method: 'POST', body: fd })
     const json = await res.json()
     setSaving(false)
     if (!res.ok) { setErr(json.error ?? 'Upload failed.'); return }
@@ -212,7 +213,7 @@ function CompleteProfileInner() {
 
   async function sendOtp() {
     setOtpMsg(''); setErr('')
-    const res = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', phone }) })
+    const res = await fetch('/api/auth/otp', { signal: submitSignal(), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', phone }) })
     const json = await res.json()
     if (!res.ok) { setErr(json.error ?? 'Could not send code.'); if (json.retryAfterSeconds) setCooldown(json.retryAfterSeconds); return }
     setOtpSent(true); setCooldown(60)
@@ -221,7 +222,7 @@ function CompleteProfileInner() {
 
   async function verifyOtp() {
     setOtpMsg(''); setErr('')
-    const res = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', phone, code: otp }) })
+    const res = await fetch('/api/auth/otp', { signal: submitSignal(), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', phone, code: otp }) })
     const json = await res.json()
     if (!res.ok) { setErr(json.error ?? 'Could not verify.'); return }
     setPhoneVerified(true); setOtpMsg('Mobile number verified.')
@@ -232,7 +233,7 @@ function CompleteProfileInner() {
     setVideoMsg(''); setErr(''); setSaving(true)
     const fd = new FormData()
     fd.append('video', file); fd.append('title', `TutorMint intro — ${form.full_name}`)
-    const res = await fetch('/tutor/upload-youtube', { method: 'POST', body: fd })
+    const res = await fetch('/tutor/upload-youtube', { signal: submitSignal(UPLOAD_TIMEOUT_MS), method: 'POST', body: fd })
     const json = await res.json()
     setSaving(false)
     if (!res.ok) {

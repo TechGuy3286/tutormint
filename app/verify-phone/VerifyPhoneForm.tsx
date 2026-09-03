@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { STUCK_MESSAGE, armEscape, submitJson, submitSignal } from '@/lib/submit'
+import SubmitEscape from '@/components/SubmitEscape'
 import { formatPkMobile } from '@/lib/phone'
 
 // The code entry itself.
@@ -26,6 +28,7 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [locked, setLocked] = useState(false)
+  const [stuckHref, setStuckHref] = useState<string | null>(null)
 
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS)
   const [changing, setChanging] = useState(false)
@@ -47,16 +50,14 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
     setError('')
     setNotice('')
 
-    const res = await fetch('/api/auth/otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'verify', phone: currentMobile, code }),
-    })
-    const data = await res.json().catch(() => ({}))
+    const { ok, data, error: failed } = await submitJson<{ locked?: boolean }>(
+      '/api/auth/otp',
+      { action: 'verify', phone: currentMobile, code },
+    )
 
-    if (!res.ok) {
-      setError(data.error ?? 'That code was not accepted.')
-      if (data.locked) {
+    if (!ok) {
+      setError(failed ?? 'That code was not accepted.')
+      if (data?.locked) {
         setLocked(true)
         setCooldown(0) // they need a new code now, so do not make them wait
       }
@@ -64,6 +65,14 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
       return
     }
 
+    // The number is verified whatever happens next, so a stalled navigation
+    // must not read as a failed verification -- the member would ask for
+    // another code they no longer need.
+    armEscape(() => {
+      setBusy(false)
+      setStuckHref(home)
+      setError(STUCK_MESSAGE)
+    })
     // router.refresh() first so the proxy re-reads the profile it is gating on
     // before the dashboard is requested; without it the push can race the
     // cookie-backed session and bounce straight back here.
@@ -76,7 +85,7 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
     setError('')
     setNotice('')
 
-    const res = await fetch('/api/auth/otp', {
+    const res = await fetch('/api/auth/otp', { signal: submitSignal(),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'send', phone: currentMobile }),
@@ -105,7 +114,7 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
     setError('')
     setNotice('')
 
-    const res = await fetch('/api/auth/phone', {
+    const res = await fetch('/api/auth/phone', { signal: submitSignal(),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mobile: newMobile }),
@@ -135,9 +144,13 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
   return (
     <div className="space-y-4">
       {error && (
-        <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="space-y-2 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red"
+        >
+          <p>{error}</p>
+          {stuckHref && <SubmitEscape href={stuckHref} />}
+        </div>
       )}
       {notice && (
         <p className="rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-center text-xs font-bold text-tm-green-deep">

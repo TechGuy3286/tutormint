@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+
+import SubmitEscape from '@/components/SubmitEscape'
+import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import { usePathname } from 'next/navigation'
 
 // "Buy" on a plan card.
@@ -35,6 +38,7 @@ export default function BuyButton({
   const pathname = usePathname()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [stuck, setStuck] = useState<string | null>(null)
 
   const label = upgrading ? `Switch to ${planName}` : `Get ${planName}`
 
@@ -46,26 +50,42 @@ export default function BuyButton({
 
     setBusy(true)
     setError(null)
-    try {
-      const res = await fetch('/api/payments/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planCode }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not start the payment.')
+    const { ok, data, error: failed } = await submitJson<{
+      mode?: string
+      url?: string
+      next?: string
+    }>('/api/payments/checkout', { planCode })
 
-      if (json.mode === 'redirect') {
-        // A real gateway is off-origin, so this is a full navigation, not a
-        // client-side route change.
-        window.location.assign(json.url)
-        return
-      }
-      router.push(json.next)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start the payment.')
+    if (!ok || !data) {
+      setError(failed ?? 'Could not start the payment.')
       setBusy(false)
+      return
     }
+
+    // Either destination is a hand-off, so the spinner is meant to end with
+    // the page — but a checkout button that spins forever is the worst one on
+    // the platform to get wrong, because the member's next move is to press it
+    // again. The deadline hands them the link instead.
+    const target = data.mode === 'redirect' ? (data.url ?? '') : (data.next ?? '')
+    if (!target) {
+      setError('Could not start the payment.')
+      setBusy(false)
+      return
+    }
+
+    armEscape(() => {
+      setBusy(false)
+      setStuck(target)
+      setError(STUCK_MESSAGE)
+    })
+
+    if (data.mode === 'redirect') {
+      // A real gateway is off-origin, so this is a full navigation, not a
+      // client-side route change.
+      window.location.assign(target)
+      return
+    }
+    router.push(target)
   }
 
   return (
@@ -80,7 +100,12 @@ export default function BuyButton({
       >
         {busy ? 'Starting…' : label}
       </button>
-      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
+      {error && (
+        <div role="alert" className="space-y-2">
+          <p className="text-[11px] font-bold text-tm-red">{error}</p>
+          {stuck && <SubmitEscape href={stuck} />}
+        </div>
+      )}
       <p className="text-center text-[10px] text-gray-500">
         Rs. {pricePkr.toLocaleString('en-PK')} for 30 days · no refunds
       </p>

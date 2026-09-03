@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { Check, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -71,7 +73,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
     setError(null)
     setSaved(false)
     try {
-      const res = await fetch('/api/parent/profile', {
+      const res = await fetch('/api/parent/profile', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fullName, city, area, address, avatarUrl: avatarUrl ?? '' }),
@@ -98,7 +100,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
     // Saved immediately rather than waiting for the Save button. A picture is
     // not part of the form the way a name is — somebody who uploads one and
     // navigates away expects it to have stuck.
-    const res = await fetch('/api/parent/profile', {
+    const res = await fetch('/api/parent/profile', { signal: submitSignal(),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fullName, city, area, address, avatarUrl: data.publicUrl }),
@@ -112,7 +114,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
   const sendCode = async () => {
     setOtpMsg(null)
     setError(null)
-    const res = await fetch('/api/auth/otp', {
+    const res = await fetch('/api/auth/otp', { signal: submitSignal(),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'send', phone }),
@@ -131,7 +133,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
   const verifyCode = async () => {
     setOtpMsg(null)
     setError(null)
-    const res = await fetch('/api/auth/otp', {
+    const res = await fetch('/api/auth/otp', { signal: submitSignal(),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'verify', phone, code: otp }),

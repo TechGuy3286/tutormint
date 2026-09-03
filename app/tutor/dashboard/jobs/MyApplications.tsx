@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -37,7 +39,7 @@ export default function MyApplications({ applications }: { applications: MyAppli
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/applications', {
+      const res = await fetch('/api/applications', { signal: submitSignal(),
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ applicationId: id }),

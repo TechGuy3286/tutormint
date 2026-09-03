@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { Bell, Loader2 } from 'lucide-react'
 import TimeAgo from '@/components/TimeAgo'
 import Link from 'next/link'
@@ -76,7 +78,7 @@ export default function NotificationBell({
     setFailed(false)
     ;(async () => {
       try {
-        const r = await fetch('/api/notifications?group=all', {
+        const r = await fetch('/api/notifications?group=all', { signal: submitSignal(),
           headers: { accept: 'application/json' },
         })
         if (!r.ok) throw new Error(String(r.status))
@@ -91,7 +93,7 @@ export default function NotificationBell({
           .filter((n) => !n.read_at)
           .map((n) => n.id)
         if (shown.length === 0) return
-        const marked = await fetch('/api/notifications/read', {
+        const marked = await fetch('/api/notifications/read', { signal: submitSignal(),
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids: shown }),

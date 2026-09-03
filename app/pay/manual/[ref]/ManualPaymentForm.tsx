@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal, UPLOAD_TIMEOUT_MS } from '@/lib/submit'
+
 import FileUpload from '@/components/FileUpload'
 
 import { useState } from 'react'
@@ -32,7 +34,7 @@ export default function ManualPaymentForm({
       form.set('payerReference', payerReference.trim())
       if (file) form.set('screenshot', file)
 
-      const res = await fetch('/api/payments/manual', { method: 'POST', body: form })
+      const res = await fetch('/api/payments/manual', { signal: submitSignal(UPLOAD_TIMEOUT_MS), method: 'POST', body: form })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not submit your payment.')
       router.refresh()

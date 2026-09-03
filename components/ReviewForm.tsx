@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Star } from 'lucide-react'
@@ -36,7 +38,7 @@ export default function ReviewForm({
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/reviews', {
+      const res = await fetch('/api/reviews', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tutorId, jobId, demoRequestId, rating, comment }),

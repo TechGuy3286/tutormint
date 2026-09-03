@@ -1,5 +1,7 @@
 'use client'
 
+import { submitError, submitSignal } from '@/lib/submit'
+
 // adminFetch — fetch, plus the password prompt for destructive actions.
 //
 // The server decides which actions need a fresh password (lib/reauth.ts) and
@@ -21,12 +23,29 @@ export type AdminFetchResult<T = unknown> = {
   data: T
 }
 
+async function attempt<T>(
+  input: string,
+  init?: RequestInit,
+): Promise<{ res: Response; data: T & { reauth?: boolean; error?: string } } | { failure: string }> {
+  try {
+    const res = await fetch(input, { ...init, signal: submitSignal() })
+    const data = (await res.json().catch(() => ({}))) as T & { reauth?: boolean; error?: string }
+    return { res, data }
+  } catch (e) {
+    return { failure: submitError(e, 'Could not reach the server.') }
+  }
+}
+
 export async function adminFetch<T = Record<string, unknown>>(
   input: string,
   init?: RequestInit,
 ): Promise<AdminFetchResult<T>> {
-  let res = await fetch(input, init)
-  let data = (await res.json().catch(() => ({}))) as T & { reauth?: boolean; error?: string }
+  const first = await attempt<T>(input, init)
+  if ('failure' in first) {
+    return { ok: false, status: 0, data: { error: first.failure } as T }
+  }
+  let res = first.res
+  let data = first.data
 
   if (res.status === 401 && data?.reauth) {
     const password = window.prompt(
@@ -37,25 +56,32 @@ export async function adminFetch<T = Record<string, unknown>>(
     // server's message rather than inventing one.
     if (!password) return { ok: false, status: res.status, data }
 
-    const confirm = await fetch('/api/admin/reauth', {
+    const confirmed = await attempt<{ error?: string }>('/api/admin/reauth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),
     })
 
-    if (!confirm.ok) {
-      const j = (await confirm.json().catch(() => ({}))) as { error?: string }
+    if ('failure' in confirmed) {
+      return { ok: false, status: 0, data: { error: confirmed.failure } as T }
+    }
+
+    if (!confirmed.res.ok) {
       return {
         ok: false,
-        status: confirm.status,
-        data: { error: j.error ?? 'That password is not right.' } as T,
+        status: confirmed.res.status,
+        data: { error: confirmed.data.error ?? 'That password is not right.' } as T,
       }
     }
 
     // Retry once. Only once: if it comes back asking again, something is wrong
     // with the clock or the session, and a loop would just keep asking.
-    res = await fetch(input, init)
-    data = (await res.json().catch(() => ({}))) as T & { reauth?: boolean; error?: string }
+    const second = await attempt<T>(input, init)
+    if ('failure' in second) {
+      return { ok: false, status: 0, data: { error: second.failure } as T }
+    }
+    res = second.res
+    data = second.data
   }
 
   return { ok: res.ok, status: res.status, data }

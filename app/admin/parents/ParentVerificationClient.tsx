@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { submitJson } from '@/lib/submit'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import StatusChip from '@/components/admin/StatusChip'
@@ -52,16 +53,19 @@ export default function ParentVerificationClient({
     setErr('')
     setMsg('')
 
-    const res = await fetch('/api/admin/parents/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parentId: open.id, action, reason: reason.trim() }),
+    // submitJson rather than a bare fetch: `await res.json()` on a dead
+    // network or an HTML error page throws, and the setBusy(false) below it
+    // never ran -- the queue's button stayed on "Working…" until the tab was
+    // reloaded, with the decision neither made nor reported.
+    const { ok, error: failed } = await submitJson('/api/admin/parents/verify', {
+      parentId: open.id,
+      action,
+      reason: reason.trim(),
     })
-    const json = await res.json()
     setBusy(false)
 
-    if (!res.ok) {
-      setErr(json.error ?? 'Action failed.')
+    if (!ok) {
+      setErr(failed ?? 'Action failed.')
       return
     }
 

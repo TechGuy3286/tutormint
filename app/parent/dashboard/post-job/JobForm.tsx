@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useEffect, useMemo, useState } from 'react'
@@ -190,7 +192,7 @@ export default function JobForm({
     try {
       const masterIds = await resolveMasterIds(v.category, v.level, levelLeaf ? [] : v.subjects)
 
-      const res = await fetch('/api/parent/jobs/generate', {
+      const res = await fetch('/api/parent/jobs/generate', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

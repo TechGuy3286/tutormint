@@ -280,6 +280,7 @@ export default async function TutorDashboardPage() {
 
         <ActivityBand
           items={activity}
+          inboxHref="/tutor/dashboard/messages"
           emptyHint="Nothing has happened yet. Applications, parent replies and demo requests will appear here."
         />
 

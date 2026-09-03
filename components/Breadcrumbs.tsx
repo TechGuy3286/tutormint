@@ -1,6 +1,6 @@
 import { Fragment } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Home } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Home } from 'lucide-react'
 
 import { absoluteUrl } from '@/lib/siteUrl'
 
@@ -18,9 +18,25 @@ import { absoluteUrl } from '@/lib/siteUrl'
 //
 // JSON-LD. BreadcrumbList with absolute URLs on the canonical host, which is
 // why lib/siteUrl.ts exists. The current page is included as the last item and
-// carries no link, matching schema.org's own example. There is no other
-// structured data on the site yet -- Organization, WebSite and the rest are
-// T9's 9.2 -- so this emits its own <script> rather than extending something.
+// carries no link, matching schema.org's own example.
+//
+// THE BACK CONTROL IS DERIVED FROM THIS TRAIL, not passed in beside it. That is
+// the whole reason it lives here: a separate <BackLink href=…> prop would be a
+// second statement of where "up" is, and the two would disagree the first time
+// a page's trail changed and its back button did not. There is one answer and
+// both the arrow and the crumb read it.
+//
+// It appears from two levels deep. One level -- /browse/tutors, /faq -- has
+// nowhere to go but Home, which the trail's own first crumb already offers.
+//
+// IT IS A LINK TO THE PARENT, NEVER history.back(). A member who arrived on a
+// job from a WhatsApp message has no history to go back to, and one who came
+// via three filter changes would be sent to a filter, not up a level. The
+// parent crumb is where "up" actually is.
+//
+// On a phone it is the PRIMARY way back: full 44px row above the trail, with
+// the destination in the label. On a laptop it sits inline, left of the trail,
+// where it reads as part of the same control.
 
 export type Crumb = {
   label: string
@@ -28,7 +44,33 @@ export type Crumb = {
   href?: string
 }
 
-export default function Breadcrumbs({ items }: { items: Crumb[] }) {
+/**
+ * The nearest ancestor with a destination.
+ *
+ * Walks back from the crumb before the current page, because a middle crumb
+ * without an href is a label rather than a place -- skipping it lands on
+ * somewhere that exists instead of nowhere.
+ */
+function nearestAncestor(trail: Crumb[]): Crumb | null {
+  for (let i = trail.length - 2; i >= 0; i--) {
+    if (trail[i].href) return trail[i]
+  }
+  return null
+}
+
+export default function Breadcrumbs({
+  items,
+  backFallbackHref,
+}: {
+  items: Crumb[]
+  /**
+   * Where "up" goes when no ancestor in the trail carries an href -- the role
+   * dashboard, for a page that names its own parent without linking it. Every
+   * trail on the platform today does link its ancestors, so this is a backstop
+   * rather than a routine path; Home is the last resort.
+   */
+  backFallbackHref?: string
+}) {
   const trail: Crumb[] = [{ label: 'Home', href: '/' }, ...items]
 
   // Everything between Home and the last two entries collapses on mobile.
@@ -36,6 +78,12 @@ export default function Breadcrumbs({ items }: { items: Crumb[] }) {
   const collapsibleFrom = 1
   const collapsibleTo = lastIndex - 1 // exclusive of the parent
   const hasCollapsed = collapsibleTo > collapsibleFrom
+
+  // Two or more levels deep: `items` excludes Home, so length >= 2 means the
+  // current page has a real parent that is not the homepage.
+  const parent = items.length >= 2 ? nearestAncestor(trail) : null
+  const backHref = parent?.href ?? backFallbackHref ?? '/'
+  const backLabel = parent?.label ?? 'Home'
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -50,7 +98,21 @@ export default function Breadcrumbs({ items }: { items: Crumb[] }) {
 
   return (
     <nav aria-label="Breadcrumb" className="mb-3 sm:mb-4">
-      <ol className="flex items-center gap-1 overflow-hidden text-[11px] text-gray-500 sm:text-xs">
+      {/* Below sm the back control is a row of its own with the trail beneath
+          it -- on a phone it is the primary way back and gets a full 44px
+          target. From sm up the two share a line and it sits left of the
+          trail, where it reads as one control. */}
+      <div className="sm:flex sm:items-center sm:gap-2">
+        {parent && (
+          <Link
+            href={backHref}
+            className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 pr-3 text-xs font-bold text-tm-navy hover:underline sm:min-h-[32px] sm:pr-0"
+          >
+            <ArrowLeft aria-hidden size={16} className="shrink-0" />
+            <span className="truncate">Back to {backLabel}</span>
+          </Link>
+        )}
+        <ol className="flex min-w-0 items-center gap-1 overflow-hidden text-[11px] text-gray-500 sm:text-xs">
         {trail.map((c, i) => {
           const isLast = i === lastIndex
           const isCollapsed = hasCollapsed && i >= collapsibleFrom && i < collapsibleTo
@@ -107,7 +169,8 @@ export default function Breadcrumbs({ items }: { items: Crumb[] }) {
             </Fragment>
           )
         })}
-      </ol>
+        </ol>
+      </div>
 
       <script
         type="application/ld+json"

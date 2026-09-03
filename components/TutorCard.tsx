@@ -1,6 +1,7 @@
 'use client'
 
 import { postGated } from '@/lib/gatedFetch'
+import { armEscape, submitSignal } from '@/lib/submit'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -153,7 +154,7 @@ export default function TutorCard({
     setBusy(true)
     setNotice(null)
     try {
-      const res = await fetch('/api/shortlist', {
+      const res = await fetch('/api/shortlist', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tutorId: tutor.id, action: saved ? 'remove' : 'add' }),
@@ -173,7 +174,7 @@ export default function TutorCard({
     setBusy(true)
     setNotice(null)
     try {
-      const res = await fetch('/api/demo/request', {
+      const res = await fetch('/api/demo/request', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tutorId: tutor.id }),
@@ -198,7 +199,16 @@ export default function TutorCard({
       upgradeSheet?.showGate,
     )
     if (r.ok) {
-      window.location.href = `/messages/${r.data.threadId}`
+      // A full navigation, so the spinner is meant to end with the page. It is
+      // still given a deadline: a browser that blocks or loses the assignment
+      // would otherwise leave this button disabled with the thread already
+      // created and no way to reach it.
+      const href = `/messages/${r.data.threadId}`
+      armEscape(() => {
+        setBusy(false)
+        setNotice('Your conversation is ready — open Messages to continue.')
+      })
+      window.location.href = href
       return
     }
     // A plan or verification refusal is the sheet's to explain, with the tap

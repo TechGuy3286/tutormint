@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -38,7 +40,7 @@ export default function JobActions({
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/parent/jobs/close', {
+      const res = await fetch('/api/parent/jobs/close', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobId }),

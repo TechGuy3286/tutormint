@@ -27,7 +27,13 @@ export default function AdminSignOut({ tone = 'dark' }: { tone?: 'light' | 'dark
       disabled={busy}
       onClick={async () => {
         setBusy(true)
-        await createClient().auth.signOut()
+        try {
+          await createClient().auth.signOut()
+        } finally {
+          // See components/UserMenu.tsx: a sign-out that cannot finish must
+          // not also take away the button.
+          setBusy(false)
+        }
         router.push('/')
         router.refresh()
       }}

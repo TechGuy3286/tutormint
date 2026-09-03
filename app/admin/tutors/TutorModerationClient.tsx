@@ -8,6 +8,7 @@ import InfiniteFooter from '@/components/InfiniteFooter'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import StatusChip from '@/components/admin/StatusChip'
 import { useInfinite } from '@/lib/useInfinite'
+import { submitJson, submitSignal } from '@/lib/submit'
 import type { QueueTutorRow } from '@/lib/adminQueues'
 
 // The row shape is defined once, beside the query that builds it. A type-only
@@ -60,7 +61,7 @@ export default function TutorModerationClient({
     setErr('')
     setMsg('')
     try {
-      const res = await fetch('/api/admin/tutors/video-visibility', {
+      const res = await fetch('/api/admin/tutors/video-visibility', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tutorId: open.id, visibility }),
@@ -89,22 +90,22 @@ export default function TutorModerationClient({
     setErr('')
     setMsg('')
 
-    const res = await fetch('/api/admin/tutors/moderate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tutorId: open.id, action, reason: reason.trim() }),
-    })
-    const json = await res.json()
+    // See the parent queue for why this is not a bare fetch: a throw on the
+    // json parse skipped setBusy(false) and left the decision button spinning.
+    const { ok, data, error: failed } = await submitJson<{ resubmissionLocked?: boolean }>(
+      '/api/admin/tutors/moderate',
+      { tutorId: open.id, action, reason: reason.trim() },
+    )
     setBusy(false)
 
-    if (!res.ok) {
-      setErr(json.error ?? 'Action failed.')
+    if (!ok) {
+      setErr(failed ?? 'Action failed.')
       return
     }
 
     setMsg(
       `${action} recorded.` +
-        (json.resubmissionLocked ? ' Resubmission is now locked (3 strikes).' : ''),
+        (data?.resubmissionLocked ? ' Resubmission is now locked (3 strikes).' : ''),
     )
     setReason('')
     setOpen(null)

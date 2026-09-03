@@ -3,31 +3,39 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+import SubmitEscape from '@/components/SubmitEscape'
+import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
+
 export default function PasswordForm({ next }: { next: string | null }) {
   const router = useRouter()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [stuck, setStuck] = useState<string | null>(null)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError(null)
-    try {
-      const res = await fetch('/api/account/password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not set your password.')
-      router.push(next ?? '/')
-      router.refresh()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not set your password.')
+    const { ok, error: failed } = await submitJson('/api/account/password', { password })
+    if (!ok) {
+      setError(failed ?? 'Could not set your password.')
       setBusy(false)
+      return
     }
+
+    // The password IS changed by this point. A stalled navigation must not
+    // read as a failure -- somebody who sets it again would be told their new
+    // password is the same as their old one.
+    const target = next ?? '/'
+    armEscape(() => {
+      setBusy(false)
+      setStuck(target)
+      setError(STUCK_MESSAGE)
+    })
+    router.push(target)
+    router.refresh()
   }
 
   const mismatch = confirm.length > 0 && password !== confirm
@@ -63,7 +71,12 @@ export default function PasswordForm({ next }: { next: string | null }) {
       </label>
 
       {mismatch && <p className="text-[11px] font-bold text-tm-red">Those do not match.</p>}
-      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
+      {error && (
+        <div role="alert" className="space-y-2">
+          <p className="text-[11px] font-bold text-tm-red">{error}</p>
+          {stuck && <SubmitEscape href={stuck} />}
+        </div>
+      )}
 
       <button
         type="submit"

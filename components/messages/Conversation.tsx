@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -69,7 +71,7 @@ export default function Conversation({
   // clearing the unread dot for a conversation somebody only hovered over is
   // worse than clearing it a beat late.
   useEffect(() => {
-    void fetch('/api/messages/read', {
+    void fetch('/api/messages/read', { signal: submitSignal(),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ threadId }),
@@ -95,7 +97,7 @@ export default function Conversation({
     try {
       const r = await fetch(
         `/api/messages/history?threadId=${threadId}&cursor=${encodeURIComponent(cursor)}`,
-        { headers: { accept: 'application/json' } },
+        { signal: submitSignal(), headers: { accept: 'application/json' } },
       )
       if (!r.ok) throw new Error(String(r.status))
       const page = (await r.json()) as { items: ThreadMessage[]; cursor: string | null }
@@ -133,7 +135,7 @@ export default function Conversation({
   const block = async () => {
     setBusy(true)
     try {
-      const res = await fetch('/api/blocks', {
+      const res = await fetch('/api/blocks', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: otherId }),
@@ -154,7 +156,7 @@ export default function Conversation({
   const report = async () => {
     setBusy(true)
     try {
-      const res = await fetch('/api/reports', {
+      const res = await fetch('/api/reports', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

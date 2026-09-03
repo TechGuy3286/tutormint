@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import FileUpload from '@/components/FileUpload'
 
 import { useState } from 'react'
@@ -61,7 +63,7 @@ export default function AdsClient({
     setBusy(id)
     setError(null)
     try {
-      const res = await fetch('/api/admin/ads', { method: 'POST', body })
+      const res = await fetch('/api/admin/ads', { signal: submitSignal(), method: 'POST', body })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'That did not work.')
       router.refresh()

@@ -4,6 +4,8 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
+import SubmitEscape from '@/components/SubmitEscape'
 
 // The single registration page. /tutor/register is a server redirect here,
 // kept because tutor referral links (?ref=) carry that path.
@@ -45,6 +47,7 @@ export default function RegisterForm({ next }: { next?: string }) {
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [stuckHref, setStuckHref] = useState<string | null>(null)
 
   const router = useRouter()
 
@@ -54,24 +57,21 @@ export default function RegisterForm({ next }: { next?: string }) {
     setErrorMsg('')
     setFieldErrors({})
 
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        role,
-        fullName,
-        mobile,
-        email: email.trim() || undefined,
-        password,
-        acceptedTerms,
-      }),
+    const { ok, data, error: failed } = await submitJson<{
+      next?: string
+      fields?: Record<string, string>
+    }>('/api/auth/register', {
+      role,
+      fullName,
+      mobile,
+      email: email.trim() || undefined,
+      password,
+      acceptedTerms,
     })
 
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok) {
-      setErrorMsg(data.error ?? 'Could not create your account.')
-      setFieldErrors(data.fields ?? {})
+    if (!ok) {
+      setErrorMsg(failed ?? 'Could not create your account.')
+      setFieldErrors(data?.fields ?? {})
       setLoading(false)
       return
     }
@@ -79,10 +79,19 @@ export default function RegisterForm({ next }: { next?: string }) {
     // Straight to the gate. A member who was mid-action when they were asked
     // to sign up keeps their destination: /verify-phone hands it back once the
     // number is proved, so they land on the thing they were doing.
-    const target = data.next === '/verify-phone' && next
+    const target = data?.next === '/verify-phone' && next
       ? `/verify-phone?next=${encodeURIComponent(next)}`
-      : (data.next ?? '/verify-phone')
+      : (data?.next ?? '/verify-phone')
 
+    // The account exists at this point. If the navigation does not take, the
+    // member must not be left watching a spinner on a form they have already
+    // successfully submitted -- pressing it again would only tell them the
+    // number is taken, by themselves.
+    armEscape(() => {
+      setLoading(false)
+      setStuckHref(target)
+      setErrorMsg(STUCK_MESSAGE)
+    })
     router.refresh()
     router.push(target)
   }
@@ -109,8 +118,12 @@ export default function RegisterForm({ next }: { next?: string }) {
         </div>
 
         {errorMsg && (
-          <div className="p-3 bg-tm-tint-red border border-tm-red/30 text-tm-red text-xs font-bold rounded-xl text-center">
-            {errorMsg}
+          <div
+            role="alert"
+            className="space-y-2 p-3 bg-tm-tint-red border border-tm-red/30 text-tm-red text-xs font-bold rounded-xl text-center"
+          >
+            <p>{errorMsg}</p>
+            {stuckHref && <SubmitEscape href={stuckHref} />}
           </div>
         )}
 

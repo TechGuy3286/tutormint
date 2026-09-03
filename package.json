@@ -15,7 +15,8 @@
     "check": "tsc --noEmit && next build && npm run check:contrast",
     "test:delivery": "tsx --test scripts/test-delivery.ts",
     "check:contrast": "tsx scripts/contrast-check.ts",
-    "test:jobcopy": "tsx --test scripts/test-jobcopy.ts"
+    "test:jobcopy": "tsx --test scripts/test-jobcopy.ts",
+    "test:grouping": "tsx --test scripts/test-grouping.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

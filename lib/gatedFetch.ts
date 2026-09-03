@@ -1,6 +1,7 @@
 'use client'
 
 import type { Gate } from '@/lib/gate'
+import { submitError, submitSignal } from '@/lib/submit'
 
 // The client half of the gate contract.
 //
@@ -29,13 +30,22 @@ export async function postGated<T = unknown>(
 ): Promise<GatedResult<T>> {
   let res: Response
   try {
+    // Bounded. Every caller clears its busy flag on the line after this await,
+    // so a request that never settles is a button that never comes back --
+    // which is the same defect whether the cause is a hung socket or a missing
+    // branch. `submitSignal` is the platform-wide ten seconds.
     res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: submitSignal(),
     })
-  } catch {
-    return { ok: false, gated: false, error: 'Could not reach the server. Check your connection.' }
+  } catch (e) {
+    return {
+      ok: false,
+      gated: false,
+      error: submitError(e, 'Could not reach the server. Check your connection.'),
+    }
   }
 
   let json: { error?: string; gate?: Gate } & Record<string, unknown> = {}

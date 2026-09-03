@@ -1,6 +1,7 @@
 'use client'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
+import { UPLOAD_TIMEOUT_MS, submitError, submitJson, submitSignal } from '@/lib/submit'
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -83,28 +84,42 @@ export default function ParentVerifyPage() {
 
   async function saveDetails() {
     setSaving(true); setErr(''); setMsg('')
-    const res = await fetch('/api/profile/save', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profile: { full_name: fullName, city, address, cnic_number: cnic } }),
+    // submitJson, not a bare fetch: `await res.json()` threw on a dead
+    // network and the setSaving(false) after it never ran, so Save sat on
+    // "Saving…" and the verification could not be submitted at all.
+    const { ok, error: failed } = await submitJson('/api/profile/save', {
+      profile: { full_name: fullName, city, address, cnic_number: cnic },
     })
-    const json = await res.json(); setSaving(false)
-    if (!res.ok) { setErr(json.error ?? 'Could not save.'); return false }
+    setSaving(false)
+    if (!ok) { setErr(failed ?? 'Could not save.'); return false }
     setMsg('Saved.'); return true
   }
 
   async function uploadCnic(file: File) {
     setSaving(true); setErr('')
     const fd = new FormData(); fd.append('kind', 'cnic'); fd.append('file', file)
-    const res = await fetch('/api/documents/upload', { method: 'POST', body: fd })
-    const json = await res.json(); setSaving(false)
-    if (!res.ok) { setErr(json.error ?? 'Upload failed.'); return }
-    setDocs((d) => [{ id: json.documentId, kind: 'cnic', label: 'CNIC' }, ...d])
+    // An upload is the one submit here that cannot use submitJson (FormData,
+    // and a slow connection legitimately needs longer than ten seconds), so it
+    // gets the guarantee the other way round: a try/finally.
+    let json: { documentId?: string; error?: string } = {}
+    let ok = false
+    try {
+      const res = await fetch('/api/documents/upload', { signal: submitSignal(UPLOAD_TIMEOUT_MS), method: 'POST', body: fd })
+      json = await res.json().catch(() => ({}))
+      ok = res.ok
+    } catch (e) {
+      json = { error: submitError(e, 'Upload failed.') }
+    } finally {
+      setSaving(false)
+    }
+    if (!ok) { setErr(json.error ?? 'Upload failed.'); return }
+    setDocs((d) => [{ id: json.documentId ?? '', kind: 'cnic', label: 'CNIC' }, ...d])
     setMsg('CNIC uploaded.')
   }
 
   async function sendOtp() {
     setOtpMsg(''); setErr('')
-    const res = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', phone }) })
+    const res = await fetch('/api/auth/otp', { signal: submitSignal(), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', phone }) })
     const json = await res.json()
     if (!res.ok) { setErr(json.error ?? 'Could not send code.'); if (json.retryAfterSeconds) setCooldown(json.retryAfterSeconds); return }
     setOtpSent(true); setCooldown(60)
@@ -113,7 +128,7 @@ export default function ParentVerifyPage() {
 
   async function verifyOtp() {
     setOtpMsg(''); setErr('')
-    const res = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', phone, code: otp }) })
+    const res = await fetch('/api/auth/otp', { signal: submitSignal(), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', phone, code: otp }) })
     const json = await res.json()
     if (!res.ok) { setErr(json.error ?? 'Could not verify.'); return }
     setPhoneVerified(true); setOtpMsg('Mobile number verified.'); await load()
@@ -122,9 +137,9 @@ export default function ParentVerifyPage() {
   async function submitForReview() {
     if (!(await saveDetails())) return
     setSaving(true); setErr('')
-    const res = await fetch('/api/parent/verify', { method: 'POST' })
-    const json = await res.json(); setSaving(false)
-    if (!res.ok) { setErr(json.error ?? 'Could not submit.'); return }
+    const { ok, error: failed } = await submitJson('/api/parent/verify', {})
+    setSaving(false)
+    if (!ok) { setErr(failed ?? 'Could not submit.'); return }
     setState('submitted'); setMsg('Submitted for review.')
   }
 

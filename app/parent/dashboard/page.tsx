@@ -194,6 +194,7 @@ export default async function ParentDashboardPage() {
 
         <ActivityBand
           items={activity}
+          inboxHref="/parent/dashboard/messages"
           emptyHint="Nothing has happened yet. Applications, replies and demo answers will appear here as they arrive."
         />
 

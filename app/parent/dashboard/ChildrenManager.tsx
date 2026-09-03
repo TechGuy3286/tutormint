@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, GraduationCap } from 'lucide-react'
@@ -24,7 +26,7 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/parent/children', {
+      const res = await fetch('/api/parent/children', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, classLevel }),
@@ -45,7 +47,7 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
   const remove = async (id: string) => {
     setBusy(true)
     try {
-      await fetch('/api/parent/children', {
+      await fetch('/api/parent/children', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, action: 'remove' }),

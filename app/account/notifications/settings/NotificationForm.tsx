@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState } from 'react'
 
 export default function NotificationForm({ optedOut }: { optedOut: boolean }) {
@@ -16,7 +18,7 @@ export default function NotificationForm({ optedOut }: { optedOut: boolean }) {
     setMessage(null)
 
     try {
-      const res = await fetch('/api/account/notifications', {
+      const res = await fetch('/api/account/notifications', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emailOptOut: !next }),

@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState } from 'react'
 
 export default function CancellationModal({ jobTxId, scheduledTime, onClose }: { jobTxId: string, scheduledTime: string, onClose: () => void }) {
@@ -12,7 +14,7 @@ export default function CancellationModal({ jobTxId, scheduledTime, onClose }: {
 
     setLoading(true)
     try {
-      const res = await fetch('/api/demo/cancel', {
+      const res = await fetch('/api/demo/cancel', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobTxId, scheduledTime, reason })

@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useMemo, useState } from 'react'
 import { Copy, Download } from 'lucide-react'
 
@@ -80,13 +82,13 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
     setError(null)
     try {
       // Audited before the download, not on every preview keystroke.
-      await fetch('/api/admin/social', {
+      await fetch('/api/admin/social', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug, template, format, edited: headline.trim().length > 0 }),
       })
 
-      const res = await fetch(imageUrl)
+      const res = await fetch(imageUrl, { signal: submitSignal() })
       if (!res.ok) throw new Error(await res.text())
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)

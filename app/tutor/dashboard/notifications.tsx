@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState, useEffect } from 'react'
 import { formatDate } from '@/lib/datetime'
 
@@ -8,7 +10,10 @@ export default function TutorNotificationsWidget() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/tutor/activity')
+    // Bounded for the same reason as everything else, though nothing imports
+    // this widget today -- see the note in the PR. An unbounded read here would
+    // leave `loading` true for ever, which renders as nothing at all.
+    fetch('/api/tutor/activity', { signal: submitSignal() })
       .then(res => res.json())
       .then(data => {
         if (data.notifications) {

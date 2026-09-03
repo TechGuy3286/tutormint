@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -16,7 +18,7 @@ export default function SimulatorButtons({ reference }: { reference: string }) {
     setBusy(outcome)
     setError(null)
     try {
-      const res = await fetch('/api/payments/simulate', {
+      const res = await fetch('/api/payments/simulate', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reference, outcome }),

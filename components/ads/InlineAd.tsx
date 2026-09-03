@@ -1,5 +1,7 @@
 'use client'
 
+import { submitSignal } from '@/lib/submit'
+
 import { useEffect, useState } from 'react'
 
 import AdView from '@/components/ads/AdView'
@@ -23,6 +25,10 @@ export default function InlineAd({ audience, index }: { audience: 'parents' | 't
   useEffect(() => {
     let live = true
     fetch(`/api/ads/inline?audience=${audience}&index=${index}`, {
+      // Bounded like every other request the browser makes. An ad slot that
+      // hangs is a slot that never resolves and never falls back, so the
+      // reader gets neither an ad nor the house creative.
+      signal: submitSignal(),
       headers: { accept: 'application/json' },
     })
       .then((r) => (r.ok ? r.json() : null))

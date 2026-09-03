@@ -36,7 +36,7 @@ export default function MoreNotifications({
           and the count on a card must always match the rows under it. */}
       {items.length > 0 && (
         <ul className="grid gap-2 sm:grid-cols-2">
-          {groupFeed(notificationsToFeed(items)).map((g) => (
+          {groupFeed(notificationsToFeed(items), { messages: 'byThread' }).map((g) => (
             <ActivityCard key={g.key} group={g} />
           ))}
         </ul>
