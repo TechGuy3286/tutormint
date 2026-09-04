@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   const file = form.get('file')
   const label = form.get('label')
 
-  if (kind !== 'cnic' && kind !== 'degree') {
+  if (kind !== 'cnic' && kind !== 'degree' && kind !== 'selfie') {
     return NextResponse.json({ error: 'Unknown document type.' }, { status: 400 })
   }
   if (!(file instanceof File) || file.size === 0) {

@@ -313,3 +313,91 @@ tutor for both her subjects, so her position widget correctly hides. Each
 surface was therefore captured on the account that can show it. Both tutors were
 temporarily moved to `status='expired'` to make them free, and both were
 restored to `premium active` afterwards.
+
+## Public CNIC scans secured (4 Sep 2026)
+
+The tutor settings page had uploaded both sides of a CNIC through the same
+helper as the avatar, into the **public** `tutor-media` bucket. Two members'
+national identity cards were fetchable by URL with no credential at all
+(confirmed with an anonymous curl: 200, image/png). The writer was removed on
+4 Sep; `scripts/secure-public-cnic.ts` dealt with the four objects it left.
+
+**Copied first, then deleted.** One member (Alishba, a real account) had her
+CNIC images *nowhere* except the public bucket, so a delete-first would have
+destroyed her only copies. The copy phase downloaded her two objects and stored
+them exactly as `/api/documents/upload` would — original + watermarked preview
+into private `identity-docs`, a `user_documents` row per side, and
+`profiles.cnic_image_path` set to the front's original path. The copies were
+verified through `/api/documents/<id>/preview`: an admin (verifier) got 200
+image/jpeg on both; a signed-in non-owner, non-admin tutor got 404 on both. The
+other member (Ali Raza, seed) already had a private `user_documents` row, so
+nothing was copied for him.
+
+**Deleted at 2026-09-04T11:14:57.417Z (UTC):**
+
+```
+public/tutor-media/a412120a-5cb0-4ab4-9749-4f67ff67df76-1787918126552.png   Alishba front
+public/tutor-media/a412120a-5cb0-4ab4-9749-4f67ff67df76-1787918138684.png   Alishba back
+public/tutor-media/535aada4-a04d-49c6-8a3d-b48c89c8f491-1788468632293.jpeg  Ali Raza front
+public/tutor-media/535aada4-a04d-49c6-8a3d-b48c89c8f491-1788468638750.jpeg  Ali Raza back
+```
+
+`tutor_profiles.cnic_front_url` / `cnic_back_url` were cleared to NULL on both
+rows in the same run. After deletion each URL returns `{"statusCode":"404",
+"error":"not_found","code":"NoSuchKey"}` — Supabase wraps a storage 404 in an
+HTTP 400 at the public endpoint, so the HTTP status reads 400 while the body is
+an authoritative object-not-found. A brief window of 200s immediately after the
+delete was Cloudflare edge cache of the exact original URL; a cache-busting
+query returned `CF-Cache-Status: BYPASS` and the 404 body throughout, and the
+bare URLs evicted within a minute.
+
+Alishba's two objects were byte-identical (same sha256) — she uploaded one image
+for both sides. Both labels were preserved as they were.
+
+## Fabricated credentials cleared (migration 46, 4 Sep 2026)
+
+The tutor settings page initialised its client state with sample content — an
+"MS Mathematics — LUMS, Lahore (2021)" degree and a "Cambridge Certified
+Educator" certificate — and the loader only overwrote a list when the row
+already had one, so a tutor with none kept the sample and the next Save wrote it
+as their own. Migration 46 removed those exact strings: `UPDATE 1` (Alishba's
+LUMS degree) and `UPDATE 3` (the Cambridge certificate on Alishba plus two seed
+tutors — one more than first counted; all three carried the identical
+empty-`fileUrl` sample cert). Scoped by exact value so a genuinely typed
+credential cannot match; idempotent.
+
+Completion recomputed afterwards (`scripts/recompute-completion.ts`, using the
+same pure checklist the app uses): Alishba **0 → 33** — the stored 0 was stale
+and 33 is the truth; the clearing did not lower it, because `certifications` is
+not a checklist item and her fake degree never counted (the degree item needs an
+uploaded certificate document she never had). The two seed tutors stayed at 100,
+confirming the fake cert never propped up their legitimate completion.
+
+## The selfie became a private document (migration 45, 4 Sep 2026)
+
+The verification selfie uploaded through the public `tutor-media` bucket — a
+face photo held "for verification only" on a public URL. Zero rows carried a
+`selfie_url`, so the writer was the whole defect. `user_documents.kind` was
+widened to include `'selfie'`, and the tutor settings page now uploads it
+through `/api/documents/upload` (private `identity-docs`, EXIF stripped, served
+only to owner and admin through the authorising preview route). `selfie_url`
+stays unread and unwritten, like the CNIC URL columns.
+
+### Every upload writer and its bucket (audit, 4 Sep 2026)
+
+| Writer | Bucket | Visibility | Content | Identity |
+|---|---|---|---|---|
+| `parent/dashboard/settings` avatar | `avatars` | public | avatar | no |
+| `tutor/complete-profile` avatar | `avatars` | public | avatar | no |
+| `tutor/dashboard/settings` avatar + cover | `tutor-media` | public | avatar, cover | no |
+| `tutor/dashboard/settings` selfie | `identity-docs` (via `/api/documents/upload`) | **private** | selfie | **yes** |
+| `api/documents/upload` → `lib/documents` | `identity-docs` | **private** | CNIC, degree, selfie | **yes** |
+| `api/admin/ads` creative | `ads` | public | ad banner | no |
+| `api/payments/manual` proof | `payment-proofs` | **private** | payment screenshot | no (financial) |
+| `scripts/seed-dev` | `avatars` + `identity-docs` | mixed | avatars public, CNIC/degree private | mixed |
+
+Every identity-related upload — CNIC, selfie, degree certificate — targets the
+private `identity-docs` bucket and is served only through
+`/api/documents/[id]/preview`. Degree certificates are readable by any signed-in
+user through that route so a parent can see a tutor's qualifications, but the
+bucket itself is private and anonymous requests are refused.

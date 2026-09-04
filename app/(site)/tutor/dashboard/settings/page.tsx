@@ -47,9 +47,14 @@ export default function TutorSettingsPage() {
     teachingModes: ['in_person'] as string[],
     profileImage: "",
     coverImageUrl: "",
-    selfieUrl: "",
     videoIntroUrl: ""
   });
+  // The selfie is a PRIVATE document (user_documents kind='selfie'), not a
+  // tutor_profiles column. This state holds only the authorising preview
+  // route, /api/documents/<id>/preview -- no storage URL ever reaches this
+  // page. selfie_url used to be written here with a public tutor-media URL;
+  // that writer is the defect migration 45 exists to close.
+  const [selfiePreviewUrl, setSelfiePreviewUrl] = useState("");
 
   // EMPTY DEFAULTS, and this is not tidying.
   //
@@ -147,9 +152,20 @@ export default function TutorSettingsPage() {
           teachingModes: parsedModes,
           profileImage: data.avatar_url || formData.profileImage,
           coverImageUrl: data.cover_image_url || "",
-          selfieUrl: data.selfie_url || "",
           videoIntroUrl: data.video_intro_url || ""
         });
+        // Latest selfie document, if one exists. Owner-read RLS on
+        // user_documents makes this the member's own row only; the preview
+        // URL is the authorising route, not a storage path.
+        const { data: selfieDoc } = await supabase
+          .from('user_documents')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('kind', 'selfie')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (selfieDoc) setSelfiePreviewUrl(`/api/documents/${selfieDoc.id}/preview`);
         // Set UNCONDITIONALLY. The `length > 0` guards these had were the
         // mechanism of the bug above: an empty row left the sample content in
         // place, and the next Save wrote it as the tutor's own.
@@ -223,13 +239,28 @@ export default function TutorSettingsPage() {
   };
 
   const handleSelfieCapture = async (file: File) => {
-
+    // NOT uploadFileToCloud. That helper targets the public tutor-media
+    // bucket, which is right for the avatar and the cover and was wrong for
+    // a verification photo of a person's face. The selfie goes through the
+    // same private flow as the CNIC: identity-docs bucket, EXIF stripped,
+    // served only through the authorising preview route to owner and admin.
     setUploading(true);
-    const publicUrl = await uploadFileToCloud(file);
-    if (publicUrl) {
-      setFormData(prev => ({ ...prev, selfieUrl: publicUrl }));
+    try {
+      const body = new FormData();
+      body.append('kind', 'selfie');
+      body.append('file', file);
+      const res = await fetch('/api/documents/upload', { method: 'POST', body });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.previewUrl) {
+        setSelfiePreviewUrl(data.previewUrl);
+      } else {
+        alert(data?.error || 'That photo could not be uploaded. Try a JPG or PNG.');
+      }
+    } catch {
+      alert('That photo could not be uploaded. Check your connection and try again.');
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   const handlePortfolioVideoUpload = async (file: File) => {
@@ -382,7 +413,9 @@ export default function TutorSettingsPage() {
         availability_list: availabilityList,
         avatar_url: formData.profileImage,
         cover_image_url: formData.coverImageUrl,
-        selfie_url: formData.selfieUrl,
+        // selfie_url is NOT written any more. The selfie is a private
+        // user_documents row (kind='selfie') since migration 45 -- the upload
+        // handler stores it; nothing about it belongs in this upsert.
         // cnic_front_url / cnic_back_url are NOT written any more. They held
         // PUBLIC tutor-media URLs -- a national identity card fetchable by
         // anyone with the address -- and the identity card above stores both
@@ -558,10 +591,10 @@ export default function TutorSettingsPage() {
                   onFile={handleSelfieCapture}
                   hint="Held for verification only. It is never shown to parents."
                   currentPreview={
-                    formData.selfieUrl ? (
+                    selfiePreviewUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={formData.selfieUrl}
+                        src={selfiePreviewUrl}
                         alt="Your verification selfie"
                         className="h-full w-full object-cover"
                       />

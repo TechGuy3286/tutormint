@@ -75,9 +75,11 @@ export async function buildWatermarkedPreview(input: Buffer): Promise<Buffer> {
     .toBuffer()
 }
 
+export type DocumentKind = 'cnic' | 'degree' | 'selfie'
+
 export type StoredDocument = {
   id: string
-  kind: 'cnic' | 'degree'
+  kind: DocumentKind
   originalPath: string
   previewPath: string
 }
@@ -92,7 +94,7 @@ export type StoredDocument = {
 export async function storeDocument(
   supabase: SupabaseClient,
   userId: string,
-  kind: 'cnic' | 'degree',
+  kind: DocumentKind,
   file: File,
   label?: string,
 ): Promise<{ ok: true; doc: StoredDocument } | { ok: false; error: string }> {

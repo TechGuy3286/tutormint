@@ -10,9 +10,13 @@ import { DOCS_BUCKET } from '@/lib/documents'
 //
 // Rights, decided HERE and only here:
 //   cnic   -> the owner, or an admin. Nobody else, signed in or not.
+//   selfie -> same as cnic. Held for verification only, never shown to parents.
 //   degree -> the owner, an admin, or any SIGNED-IN user, so a parent can see
 //             a tutor's qualifications. Anonymous requests are refused, which
 //             keeps certificates away from scrapers.
+//
+// degree is the ONLY kind widened beyond owner+admin. A kind added later is
+// private by default -- the test below names degree, not the private kinds.
 //
 // The row lookup and the download both use the service-role client. That is
 // deliberate: storage RLS on identity-docs is owner+admin only, so a parent
@@ -54,8 +58,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const isOwner = doc.user_id === user.id
 
-  if (!isOwner && doc.kind === 'cnic') {
-    // Only an admin may see someone else's CNIC.
+  if (!isOwner && doc.kind !== 'degree') {
+    // Only an admin may see someone else's CNIC or selfie.
     const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
     if (me?.role !== 'admin') return deny()
   }
