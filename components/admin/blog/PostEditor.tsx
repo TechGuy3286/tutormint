@@ -113,8 +113,9 @@ export default function PostEditor({
         post.sourceNotes,
         post.title,
         post.confirmedFigures.map((c) => c.figure),
+        landingOptions,
       ),
-    [post.body, post.sourceNotes, post.title, post.confirmedFigures],
+    [post.body, post.sourceNotes, post.title, post.confirmedFigures, landingOptions],
   )
   const figureBlocked = figures.active && figures.untraced.length > 0
 
@@ -191,15 +192,21 @@ export default function PostEditor({
         confirmedFigures: [],
       }))
       setDirty(true)
-      setGenNote(
-        data.source === 'claude'
-          ? data.untraced?.length
+      if (data.source === 'claude') {
+        setGenNote(
+          data.untraced?.length
             ? `Draft ready — but ${data.untraced.length} figure(s) are not in your notes. Check the highlighted list before reviewing.`
-            : 'Draft ready. Read it through, edit, then tick Reviewed.'
-          : data.note === 'unconfigured'
-            ? 'No AI key is configured, so we composed this draft from your notes. Edit it into shape.'
-            : 'The AI draft is unavailable right now, so we composed this from your notes. Edit it into shape.',
-      )
+            : 'Draft ready. Read it through, edit, then tick Reviewed.',
+        )
+      } else {
+        // The real reason, in plain words. `reason` is the verbatim API failure
+        // (status + body); we compose from the notes so the editor stays usable.
+        const why =
+          data.note === 'unconfigured'
+            ? 'no API key is configured'
+            : (data.reason as string | null) || 'the model did not respond'
+        setGenNote(`AI drafting is unavailable: ${why}. We composed this draft from your notes instead — edit it into shape.`)
+      }
     } catch {
       setError('Network error while generating. Try again.')
     } finally {

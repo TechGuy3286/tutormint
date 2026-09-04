@@ -16,6 +16,7 @@ import {
 import { slugTaken } from '@/lib/blogFeed'
 import { revalidateBlog, notifySearchEngines } from '@/lib/blogPublish'
 import { figureGate } from '@/lib/ai/blogBrief'
+import { landingOptionsForEditor } from '@/lib/blogEditor'
 
 // Blog CMS mutations. Save + review is manager or support (support drafts);
 // publish, schedule, unpublish and delete stop at manager.
@@ -122,7 +123,16 @@ export async function POST(request: Request) {
     // shows the same flags, but this is the line that actually holds — an
     // instruction in a prompt is a request, and the verifier is the guarantee.
     if (reviewed) {
-      const g = figureGate(body.body, sourceNotes, body.title, confirmedFigures.map((c) => c.figure))
+      // Digits inside a link to a real landing page are exempt (a page title is
+      // not a statistic), so the gate reads the same live set the editor does.
+      const landing = await landingOptionsForEditor()
+      const g = figureGate(
+        body.body,
+        sourceNotes,
+        body.title,
+        confirmedFigures.map((c) => c.figure),
+        landing,
+      )
       if (g.active && g.untraced.length > 0) {
         return NextResponse.json(
           {

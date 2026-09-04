@@ -42,9 +42,14 @@ export type BlogDraft = {
   source: 'claude' | 'composed'
   /** Set when a generation was attempted and did not produce usable text. */
   note?: string
+  /** The verbatim failure reason (status + body) when a call failed. Admin-only. */
+  reason?: string
   /** Figures in the body that do not trace to the notes. */
   untraced: string[]
 }
+
+/** A live landing page the body may link to, for the figure exemption below. */
+export type LandingRef = { path: string; label: string }
 
 export type ConfirmedFigure = { figure: string; source: string }
 
@@ -81,18 +86,39 @@ function numbersOf(s: string | null | undefined): Set<string> {
  *   - Any figure the manager confirmed with a source.
  *
  * `confirmed` is the list of figure strings already confirmed.
+ *
+ * `landing` exempts digits that are part of a REAL landing page's own title,
+ * when the body links to that page: a page title ("Grade 1 to 5 Mathematics")
+ * is not a statistic. The exemption uses the landing page's CANONICAL label,
+ * not the author's free-text link text, so a stat smuggled into a link label
+ * ("[83% pass](/tutors/lahore/o-levels-physics)") is still flagged — 83 is not
+ * in that page's title. Only links whose path is a known live landing count.
  */
+const LINK_RE = /\[[^\]]+\]\(([^)\s]+)\)/g
+
 export function unsupportedFigures(
   body: string,
   notes: string,
   title: string,
   confirmed: string[] = [],
+  landing: LandingRef[] = [],
 ): string[] {
   const allowed = new Set<string>([
     ...numbersOf(notes),
     ...numbersOf(title),
     ...confirmed.flatMap((c) => [c, c.replace(/,/g, '')]),
   ])
+
+  // Exempt the digits of a real landing page's title, but only when the body
+  // actually links to that page.
+  if (landing.length > 0) {
+    const byPath = new Map(landing.map((l) => [l.path.replace(/^\//, ''), l.label]))
+    for (const m of body.matchAll(LINK_RE)) {
+      const href = m[1].replace(/^\//, '')
+      const label = byPath.get(href)
+      if (label) for (const n of numbersOf(label)) allowed.add(n)
+    }
+  }
 
   const found: string[] = []
   for (const m of body.matchAll(/\d[\d,]*/g)) {
@@ -120,9 +146,10 @@ export function figureGate(
   notes: string,
   title: string,
   confirmed: string[] = [],
+  landing: LandingRef[] = [],
 ): { active: boolean; untraced: string[] } {
   if (!notes.trim()) return { active: false, untraced: [] }
-  return { active: true, untraced: unsupportedFigures(body, notes, title, confirmed) }
+  return { active: true, untraced: unsupportedFigures(body, notes, title, confirmed, landing) }
 }
 
 // ------------------------------------------------------------- SEO tail ----

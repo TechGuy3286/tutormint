@@ -18,7 +18,7 @@
 // save (app/api/admin/blog/route.ts) -- the browser is never the only thing
 // holding the line.
 
-import { complete, isConfigured } from './anthropic'
+import { complete, isConfigured, MODEL } from './anthropic'
 import {
   BLOG_MAX_WORDS,
   BLOG_MIN_WORDS,
@@ -33,8 +33,8 @@ import {
 export { composeBlogDraft, unsupportedFigures } from './blogBrief'
 export type { BlogBrief, BlogDraft } from './blogBrief'
 
-/** Reported to the audit log so a reader knows which model wrote a draft. */
-export const BLOG_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
+/** The model, from the one place it is defined. Reported to the audit log. */
+export const BLOG_MODEL = MODEL
 
 function brandBrief(brief: BlogBrief): string {
   const links =
@@ -92,7 +92,9 @@ function factsBlock(brief: BlogBrief): string {
 export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
   const fallback = composeBlogDraft(brief)
 
-  if (!isConfigured()) return { ...fallback, note: 'unconfigured' }
+  if (!isConfigured()) {
+    return { ...fallback, note: 'unconfigured', reason: 'ANTHROPIC_API_KEY is not set' }
+  }
   if (!brief.title.trim()) return { ...fallback, note: 'no title' }
 
   const result = await complete({
@@ -105,8 +107,11 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
   })
 
   if (!result.ok) {
+    // The verbatim status + body from the API (never the key — that is only in
+    // the request header, never the response). Threaded to the admin client and
+    // the audit row so the real cause is visible, not a generic "failed".
     console.error('[blogCopy] generation failed:', result.reason)
-    return { ...fallback, note: 'failed' }
+    return { ...fallback, note: 'failed', reason: result.reason }
   }
 
   let parsed: { body?: unknown; seoTitle?: unknown; seoDescription?: unknown }
@@ -139,7 +144,7 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
   const seoLead = typeof parsed.seoDescription === 'string' ? parsed.seoDescription.trim() : ''
   const seoDescription = withBrandTail(seoLead || brief.title)
 
-  const untraced = unsupportedFigures(body, brief.notes, brief.title)
+  const untraced = unsupportedFigures(body, brief.notes, brief.title, [], brief.landingLinks)
 
   return { body, seoTitle, seoDescription, source: 'claude', untraced }
 }

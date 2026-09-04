@@ -7,6 +7,7 @@ import { parseBody, z } from '@/lib/validate'
 import { clusterLabel, isClusterSlug } from '@/lib/blog'
 import { landingOptionsForEditor } from '@/lib/blogEditor'
 import { generateBlogDraft, BLOG_MODEL, type BlogBrief } from '@/lib/ai/blogCopy'
+import { listModels } from '@/lib/ai/anthropic'
 
 // "Generate draft" — a blog body and its SEO fields, composed from the
 // manager's title and fact notes, checked before it is handed back.
@@ -62,6 +63,19 @@ export async function POST(request: Request) {
 
   const draft = await generateBlogDraft(brief)
 
+  // When the call to the model actually failed (not a missing key, not a
+  // missing title), ask the API which models this key can reach. That is the
+  // one fact that separates "wrong model id" from "auth/billing", and it turns
+  // a mystery into a decision. Only on a real failure, so a healthy path costs
+  // no extra round trip.
+  let availableModels: string[] | null = null
+  let modelsReason: string | null = null
+  if (draft.source === 'composed' && draft.note === 'failed') {
+    const models = await listModels()
+    if (models.ok) availableModels = models.ids
+    else modelsReason = models.reason
+  }
+
   await logAdminAction({
     actorId: gate.actor.id,
     actorRole: gate.actor.adminRole,
@@ -78,22 +92,27 @@ export async function POST(request: Request) {
       noteLines: body.notes.split('\n').filter((l) => l.trim()).length,
       source: draft.source,
       note: draft.note ?? null,
+      // The verbatim API failure (status + body), so the cause is on the record.
+      reason: draft.reason ?? null,
+      availableModels,
+      modelsReason,
       untracedCount: draft.untraced.length,
       cluster: body.cluster,
       language: body.language,
     },
   })
 
-  // `source` and `note` are returned so the editor can say, quietly and
-  // truthfully, that it composed this one itself when there is no key or the
-  // call failed — a fallback presented as a generation costs trust the first
-  // time the difference in tone is noticed.
+  // `source`, `note` and `reason` are returned so the editor can say, in plain
+  // words, exactly why it composed this one itself — a fallback presented as a
+  // generation costs trust the first time the difference in tone is noticed.
   return NextResponse.json({
     body: draft.body,
     seoTitle: draft.seoTitle,
     seoDescription: draft.seoDescription,
     source: draft.source,
     note: draft.note ?? null,
+    reason: draft.reason ?? null,
+    availableModels,
     untraced: draft.untraced,
   })
 }

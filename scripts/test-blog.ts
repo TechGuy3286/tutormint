@@ -193,3 +193,24 @@ test('the composed fallback invents no figure not in its notes', () => {
   assert.deepEqual(unsupportedFigures(draft.body, brief.notes, brief.title), [])
   assert.equal(draft.source, 'composed')
 })
+
+// -------------------------------------- figure exemption for landing links --
+
+test('digits in a real landing page title are exempt when the body links to it', () => {
+  const landing = [
+    { path: 'tuitions/lahore/grade-1-to-5-mathematics', label: 'Grade 1 to 5 Mathematics · Lahore (tuitions)' },
+  ]
+  const body = 'See [Grade 1 to 5 Mathematics · Lahore](/tuitions/lahore/grade-1-to-5-mathematics) for options.'
+  assert.deepEqual(unsupportedFigures(body, 'notes with no numbers', 'A guide', [], landing), [])
+})
+
+test('a statistic smuggled into a landing link label is still flagged', () => {
+  const landing = [{ path: 'tutors/lahore/o-levels-physics', label: 'O Levels Physics · Lahore (tutors)' }]
+  const body = 'Our tutors get [an 83% pass rate](/tutors/lahore/o-levels-physics).'
+  assert.deepEqual(unsupportedFigures(body, 'notes', 'A guide', [], landing), ['83'])
+})
+
+test('a digit in a link to an unknown path is not exempt', () => {
+  const body = 'Read the [Grade 10 guide](/tutors/lahore/made-up) about grade 10.'
+  assert.deepEqual(unsupportedFigures(body, 'notes', 'A guide', [], []), ['10'])
+})
