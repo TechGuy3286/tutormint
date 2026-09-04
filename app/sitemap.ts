@@ -4,6 +4,7 @@ import { citySegment } from '@/lib/slugs'
 import { PREVIEW_MODE } from '@/lib/preview'
 import { SITE_URL } from '@/lib/siteUrl'
 import { liveLandingPages } from '@/lib/landing'
+import { publishedSlugs } from '@/lib/blogFeed'
 
 // The sitemap: every listed tutor and every open tuition.
 //
@@ -41,6 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/tutor/packages`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE}/parent/packages`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
+    { url: `${BASE}/blog`, lastModified: now, changeFrequency: 'daily', priority: 0.6 },
     { url: `${BASE}/faq`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
     { url: `${BASE}/support`, lastModified: now, changeFrequency: 'monthly', priority: 0.3 },
     { url: `${BASE}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
@@ -95,7 +97,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }))
 
-    return [...staticPages, ...tutorPages, ...jobPages, ...landingPages]
+    // Published blog posts. Absent while preview is on (behind the return above).
+    const posts = await publishedSlugs()
+    const postPages: MetadataRoute.Sitemap = posts.map((p) => ({
+      url: `${BASE}/blog/${p.slug}`,
+      lastModified: p.updatedAt ? new Date(p.updatedAt) : now,
+      changeFrequency: 'monthly' as const,
+      priority: 0.5,
+    }))
+
+    return [...staticPages, ...tutorPages, ...jobPages, ...landingPages, ...postPages]
   } catch {
     // A database blip must not produce a 500 for the crawler; the static
     // pages are still worth serving.

@@ -19,7 +19,8 @@
     "test:grouping": "tsx --test scripts/test-grouping.ts",
     "migrate:avatars": "tsx scripts/migrate-data-uri-avatars.ts",
     "reset:seedcast": "tsx scripts/reset-seed-cast.ts",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "test:blog": "tsx --test scripts/test-blog.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

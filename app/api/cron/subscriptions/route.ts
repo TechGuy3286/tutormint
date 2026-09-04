@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { runSubscriptionSweep } from '@/lib/payments/expiry'
+import { publishDuePosts } from '@/lib/blogPublish'
 
 // Daily subscription sweep: remind at T-3, expire at zero.
 //
@@ -38,10 +39,19 @@ async function handle(request: Request) {
 
   const result = await runSubscriptionSweep()
 
+  // The blog's scheduled-publish sweep rides the same daily cron. Independent
+  // of the subscription result — a blog error must not look like a billing one,
+  // and vice versa — but its errors are surfaced the same way.
+  const blog = await publishDuePosts()
+
   // Errors are reported, not swallowed: a sweep that silently half-ran is how
   // a member keeps a plan they stopped paying for.
-  const status = result.errors.length > 0 ? 500 : 200
-  return NextResponse.json({ ok: result.errors.length === 0, ...result }, { status })
+  const errors = [...result.errors, ...blog.errors]
+  const status = errors.length > 0 ? 500 : 200
+  return NextResponse.json(
+    { ok: errors.length === 0, ...result, blog: { published: blog.published, slugs: blog.slugs, errors: blog.errors } },
+    { status },
+  )
 }
 
 export const GET = handle

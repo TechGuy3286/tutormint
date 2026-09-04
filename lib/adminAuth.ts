@@ -137,4 +137,10 @@ export const SCREEN_ACCESS = {
   import: ['manager'] as AdminRole[],
   // Deleting accounts is owner-only: it is the one admin action with no undo.
   cleanup: [] as AdminRole[],
+  // T9.3 — the blog CMS. READ + draft editing is manager + support (support
+  // drafts, owner/manager publish). PUBLISH, unpublish, schedule and delete
+  // stop at manager: putting the platform's editorial voice on a public page is
+  // not a first-line action, the same reasoning as the other Growth tools.
+  blog: ['manager', 'support'] as AdminRole[],
+  blogPublish: ['manager'] as AdminRole[],
 }

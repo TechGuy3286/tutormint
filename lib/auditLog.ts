@@ -46,6 +46,12 @@ export type AuditAction =
   | 'job.close'
   | 'job.unfeature'
   | 'job.remove'
+  // T9.3 blog CMS. Saves are recorded as post_revisions (a fuller record than
+  // one audit line); the consequential state changes are audited here.
+  | 'blog.publish'
+  | 'blog.unpublish'
+  | 'blog.schedule'
+  | 'blog.delete'
 
 export async function logAdminAction(params: {
   actorId: string

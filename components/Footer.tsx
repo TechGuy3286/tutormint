@@ -138,9 +138,10 @@ export default async function Footer() {
             heading="Trust & Legal"
             links={[
               { label: 'About Us', href: '/about' },
-              // 'Blog & Guides' pointed at /blog, which rendered two invented
-              // articles with invented dates. The route is gone until the CMS
-              // in T9 (9.3) gives it real posts — see CLAUDE.md.
+              // Restored with the blog CMS (T9.3): /blog now renders real,
+              // reviewed posts from the database rather than the two invented
+              // articles the route was withdrawn for on 3 Sep.
+              { label: 'Blog & Guides', href: '/blog' },
               { label: 'FAQs', href: '/faq' },
               { label: 'Privacy Policy', href: '/privacy' },
               { label: 'Terms of Service', href: '/terms' },

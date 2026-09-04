@@ -1901,3 +1901,104 @@ as "Under review" instead of disappearing from the card.
 Normalising the columns themselves is still worth doing and is not done — it
 needs a decision about which spelling wins. Until then the display layer accepts
 every spelling, so the fix holds whichever way that decision goes.
+
+## Blog CMS, part 1 — editor, publishing, public pages (T9.3, 4 Sep 2026)
+
+Restores `/blog`, withdrawn on 3 Sep for want of real content. Under precedence
+rule 10 this supersedes "`/blog` is withdrawn until 9.3" — the route now renders
+real, reviewed rows from the database, and the footer link and sitemap entry are
+back. Migration 49.
+
+**Two tables, service-role writes.** `posts` and `post_revisions` (migration
+49). `posts` has ONE public SELECT policy — `status = 'published' or is_admin()`
+— and no write policy at all: every mutation is an audited admin route holding
+the service key, exactly like `advertisements` and `notifications`. So there is
+no write policy for the RLS audit to scrutinise, and an anon key sees published
+posts and nothing else. `post_revisions` is admin-read only (one SELECT policy,
+`is_admin()`), server-written. `posts` is on `rls-audit`'s PUBLIC_READ with that
+reasoning.
+
+**Clusters are a fixed set**, CHECK-enforced in the column and mirrored in
+`lib/blog.ts` (`POST_CLUSTERS`): Cost & hiring, Boards & exams, Subject guides,
+City guides, Tutor career, Safety & trust, Urdu. A typo cannot invent a cluster
+the index has no filter for.
+
+**Markdown is rendered by our own constrained renderer** (`lib/markdown.ts`),
+not a library. Every character of source is HTML-escaped first and the only tags
+in the output are ones the renderer emits from a fixed whitelist — there is no
+path by which source text becomes a tag, so there is no XSS to sanitise after,
+which is what a Markdown+sanitiser pair would spend two dependencies achieving.
+Links are validated (http/https/mailto/relative only; `javascript:` drops to
+plain text). `parseMarkdown` returns ordered segments (HTML runs + embed
+markers) plus the headings (one source of truth for the TOC) and reading time.
+Tested in `scripts/test-blog.ts` (`npm run test:blog`) — the "source can never
+become a tag" guarantee is exactly what a unit test should pin.
+
+**Embeds.** A line that is exactly `{{tutor:slug}}` or `{{job:public-slug}}`
+becomes a live card, rendered server-side from current data (`BlogEmbedTutor`
+reads `tutor_directory` via `tutorCardBySlug`; `BlogEmbedJob` reads
+`jobByPublicSlug`). A delisted tutor or a closed job renders nothing rather than
+a dead reference — what a post says about a tutor cannot drift from what the
+directory shows.
+
+**The publish gate is the stored state.** `canPublish()` in `lib/blog.ts` is
+read by BOTH the editor button and the server route: publish is allowed only
+when a human has saved at least one edit (`edited_by_human`) AND ticked reviewed,
+and the post has title, slug, body and — if a cover is set — cover alt text. The
+editor disables Publish while there are unsaved changes, because the server
+judges the LAST SAVED row and the two must agree. Save + review is manager or
+support (support drafts); publish, schedule, unpublish and delete stop at
+manager (`SCREEN_ACCESS.blog` vs `blogPublish`). Every save writes a
+`post_revisions` row (a fuller record than one audit line); publish / schedule /
+unpublish / delete additionally write `admin_audit_log`.
+
+**Slug is immutable after publish** (`slug_locked`), set true at first publish;
+the editor locks the field. A draft can still be renamed.
+
+**Scheduling** rides the existing daily subscription cron
+(`/api/cron/subscriptions` → `publishDuePosts()` in `lib/blogPublish.ts`),
+idempotent: it only flips rows still `scheduled` whose `publish_at` has passed,
+and sets `published_at` once.
+
+**Unpublish returns a branded 404, not 410, and here is why.** The spec asked
+for 410; Next 16's page-level status interrupts stop at 401/403/404
+(`ALLOWED_CODES`), and an unpublished row is invisible to edge middleware under
+RLS while the service-role key must never run at the edge — so a true 410 with a
+branded body is not cleanly reachable in this stack. `/blog/[slug]/not-found.tsx`
+is a friendly page (never blank, links to /blog); the URL leaves the sitemap on
+unpublish, which is the signal a crawler actually acts on. A middleware 410
+could only be a blank body, which the spec forbids.
+
+**Search-engine notify is best-effort and honest.** `notifySearchEngines()`
+runs only when preview mode is OFF (pinging while noindex is the opposite
+signal), and only pings IndexNow when `INDEXNOW_KEY` is set. Google retired its
+sitemap-ping endpoint in 2023; Search Console submission is a launch step
+(T8b). Nothing here fabricates a "pinged Google".
+
+**Analytics.** `views` and `cta_clicks` are incremented server-side only, via
+the SECURITY DEFINER `increment_post_metric()` granted to `service_role` alone
+(atomic, published-rows only). The view beacon fires once per browser session
+(sessionStorage-guarded); the CTA beacon fires on the reader CTA. Not
+rate-limited — a view count is a low-stakes vanity metric, unlike `ad_events`.
+
+**Public pages.** `/blog` (server-rendered first window, cluster-filter links,
+infinite scroll), `/blog/[slug]` (reading time, TOC from H2s, related posts,
+audience CTA with no price, share buttons, Article + BreadcrumbList JSON-LD, OG
+/ Twitter cards; Urdu posts render `dir="rtl"`), and `/blog/feed.xml` (RSS 2.0).
+Every public page honours preview mode through the existing global flag — the
+root layout's robots meta and `robots.ts` cover the blog like everything else,
+and the sitemap withholds posts while preview is on.
+
+**Related landing pages link through the live set.** The author picks them in
+the editor from `liveLandingPages()`; `RelatedLanding` resolves them against the
+live set again at render, so a page that has dropped below the threshold is not
+shown. This is how "a subject or city mention links through the landing helper"
+is realised on a post — through the picker, not by scanning prose, because a
+mislinked auto-detected word is worse than none.
+
+**The a/an article helper** (`lib/article.ts`) picks "a"/"an" by SOUND: acronyms
+and single capitals by their spoken first letter ("an O Levels", "an IGCSE", "a
+GCSE"), a curated consonant-sound set for vowel-letter words ("a university"),
+then the plain vowel-letter rule with a silent-h set. It fixes the landing-page
+CTA that read "a O Levels" and is used wherever a subject name follows an
+article.

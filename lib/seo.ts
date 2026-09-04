@@ -354,6 +354,45 @@ export function itemListJsonLd(params: {
 }
 
 /**
+ * Article, for a blog post.
+ *
+ * `author` is the company (Tutor Mint (Pvt) Ltd), not a staff member — the
+ * posts are the platform's editorial voice, and naming an individual would put
+ * a real person's name on marketing content to no purpose, the same reasoning
+ * that keeps directors off /about. `datePublished` is the first publish and
+ * never moves; `dateModified` follows edits. The image, headline and
+ * description are only emitted when present.
+ */
+export function articleJsonLd(a: {
+  url: string
+  title: string
+  description: string | null
+  image: string | null
+  datePublished: string | null
+  dateModified: string | null
+  language: string
+  legalName: string
+  section: string
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    '@id': `${a.url}#article`,
+    mainEntityOfPage: a.url,
+    url: a.url,
+    headline: a.title,
+    ...(a.description ? { description: a.description } : {}),
+    ...(a.image ? { image: a.image } : {}),
+    ...(a.datePublished ? { datePublished: a.datePublished } : {}),
+    ...(a.dateModified ? { dateModified: a.dateModified } : {}),
+    inLanguage: a.language === 'ur' ? 'ur-PK' : 'en-PK',
+    articleSection: a.section,
+    author: { '@type': 'Organization', name: a.legalName, url: SITE_URL },
+    publisher: { '@id': `${SITE_URL}/#organization` },
+  }
+}
+
+/**
  * One <script type="application/ld+json">.
  *
  * Every caller builds its object from typed literals and database values;

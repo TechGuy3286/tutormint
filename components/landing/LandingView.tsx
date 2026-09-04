@@ -14,6 +14,7 @@ import { tutorPath, tuitionPath } from '@/lib/slugs'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { itemListJsonLd, jsonLdScript } from '@/lib/seo'
 import { buildIntro, liveLandingPages, type LandingCombo, type IntroFacts } from '@/lib/landing'
+import { article } from '@/lib/article'
 
 // The city × subject landing page, one component for both kinds. It is server-
 // rendered from data: the H1, the intro sentence, the ranked list, the
@@ -183,7 +184,7 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
         {/* CTAs. No price on either — a public page never signals a paywall. */}
         <section className="grid grid-cols-1 gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:grid-cols-2 sm:p-5">
           <div className="space-y-1">
-            <p className="text-sm font-black text-tm-navy">Looking for a {subjectName} tutor in {city}?</p>
+            <p className="text-sm font-black text-tm-navy">Looking for {article(subjectName)} {subjectName} tutor in {city}?</p>
             <p className="text-xs text-gray-500">Post your tuition and let verified tutors come to you.</p>
             <Link
               href="/parent/dashboard/post-job"

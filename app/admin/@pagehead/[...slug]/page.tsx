@@ -27,12 +27,15 @@ const LABEL_SCREEN = {
   jobs: SCREEN_ACCESS.jobs,
   users: SCREEN_ACCESS.users,
   tutors: SCREEN_ACCESS.tutors,
+  blog: SCREEN_ACCESS.blog,
 } as const
 
 async function dynamicLabel(slug: string[]): Promise<string | null> {
   const [section, id] = slug
   if (!id || slug.length !== 2) return null
-  if (section !== 'jobs' && section !== 'users' && section !== 'tutors') return null
+  if (section !== 'jobs' && section !== 'users' && section !== 'tutors' && section !== 'blog') {
+    return null
+  }
 
   // A finance admin who types a job URL is bounced by the page's own guard;
   // the trail must not leak the title on the way past.
@@ -45,6 +48,14 @@ async function dynamicLabel(slug: string[]): Promise<string | null> {
   if (section === 'jobs') {
     const { data } = await admin.from('jobs').select('job_tx_id').eq('id', id).maybeSingle()
     return (data?.job_tx_id as string) ?? null
+  }
+
+  if (section === 'blog') {
+    // 'new' is not an id; it resolves through SECTION_LABELS, not here. A real
+    // id that does not parse as a uuid is left to fall back to a word.
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return null
+    const { data } = await admin.from('posts').select('title').eq('id', id).maybeSingle()
+    return (data?.title as string) ?? null
   }
 
   const { data } = await admin.from('profiles').select('full_name').eq('id', id).maybeSingle()

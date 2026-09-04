@@ -31,6 +31,7 @@ export type AdminScreen =
   | 'social'
   | 'import'
   | 'seo'
+  | 'blog'
 
 export type NavItem = {
   href: string
@@ -83,6 +84,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/social', label: 'Social posts', icon: 'camera', screen: 'social' },
       { href: '/admin/import', label: 'Bulk import', icon: 'upload', screen: 'import' },
       { href: '/admin/seo/landing', label: 'Landing pages', icon: 'search', screen: 'seo' },
+      { href: '/admin/blog', label: 'Blog', icon: 'newspaper', screen: 'blog' },
     ],
   },
 ]
@@ -96,6 +98,8 @@ export const NAV_GROUPS: NavGroup[] = [
 export const SECTION_LABELS: Record<string, string> = {
   ads: 'Advertisements',
   audit: 'Audit',
+  blog: 'Blog',
+  new: 'New post',
   import: 'Bulk import',
   jobs: 'Tuitions',
   parents: 'Parents',
@@ -146,7 +150,9 @@ export function adminTrail(
             ? 'Tuition'
             : parts[i - 1] === 'tutors'
               ? 'Tutor'
-              : part))
+              : parts[i - 1] === 'blog'
+                ? 'Post'
+                : part))
       : SECTION_LABELS[part]
     crumbs.push(i === parts.length - 1 ? { label } : { label, href })
   })

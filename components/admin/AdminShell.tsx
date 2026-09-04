@@ -16,6 +16,7 @@ import {
   KeyRound,
   Megaphone,
   Menu,
+  Newspaper,
   Scroll,
   Search,
   Upload,
@@ -62,6 +63,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
   camera: Camera,
   upload: Upload,
   search: Search,
+  newspaper: Newspaper,
 }
 
 const COOKIE = 'tm_admin_nav'

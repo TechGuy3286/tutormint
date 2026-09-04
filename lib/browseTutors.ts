@@ -221,3 +221,62 @@ export function cursorFor(row: RankedTutor): string {
     h: row.sort_hash,
   } satisfies TutorCursor)
 }
+
+/**
+ * One listed tutor's card by slug, for a blog embed.
+ *
+ * Reads tutor_directory (the listing view — so an unlisted or suspended tutor
+ * simply is not found and the embed renders nothing), enriches the subject
+ * chips with their landing links exactly as the browse list does, and resolves
+ * the plan code so the badges match what the same tutor shows everywhere else.
+ * The plan is read through the service role because subscriptions is not
+ * public; a missing service key just means no badge, never a broken card.
+ */
+export async function tutorCardBySlug(slug: string): Promise<TutorCardData | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('tutor_directory')
+    .select(
+      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, hourly_rate_pkr, experience_years, rating_avg, rating_count',
+    )
+    .eq('slug', slug)
+    .maybeSingle()
+  if (!data) return null
+
+  const base: RankedTutor = {
+    ...(data as Record<string, unknown>),
+    subject_labels: null,
+    plan_code: null,
+    tier: 0,
+    location_score: 0,
+    score: 0,
+    sort_hash: '',
+    total_count: 0,
+  } as RankedTutor
+
+  const [withLinks] = await withSubjectLinks(supabase, [base])
+  const links = withLinks.subject_links ?? []
+
+  // The active plan, for badges. Service role, because subscriptions is owner-
+  // or-admin only under RLS.
+  let planCode: string | null = null
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+  if (admin) {
+    const { data: sub } = await admin
+      .from('subscriptions')
+      .select('plan_code, expires_at')
+      .eq('user_id', base.id)
+      .eq('status', 'active')
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle()
+    planCode = (sub?.plan_code as string) ?? null
+  }
+
+  return {
+    ...withLinks,
+    subject_labels: links.map((l) => l.label),
+    subject_links: links,
+    plan_code: planCode,
+  }
+}
