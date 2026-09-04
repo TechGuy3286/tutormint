@@ -176,8 +176,19 @@ export default function TutorSettingsPage() {
               : [],
         );
         setAvailabilityList(Array.isArray(data.availability_list) ? data.availability_list : []);
-        setDegrees(Array.isArray(data.degrees) ? data.degrees : []);
-        setCertifications(Array.isArray(data.certifications) ? data.certifications : []);
+        // degrees is stored as text[] on some rows (a bare string per degree)
+        // and object[] on others. Coerce a string entry to the object shape so
+        // the row renders its title instead of an empty "()". Display only.
+        const asDegree = (d: unknown) =>
+          typeof d === 'string'
+            ? { title: d, institute: '', year: '', fileName: '', fileUrl: '' }
+            : (d as { title: string; institute: string; year: string; fileName: string; fileUrl: string });
+        const asCert = (c: unknown) =>
+          typeof c === 'string'
+            ? { title: c, issuer: '', year: '', fileName: '', fileUrl: '' }
+            : (c as { title: string; issuer: string; year: string; fileName: string; fileUrl: string });
+        setDegrees(Array.isArray(data.degrees) ? data.degrees.map(asDegree) : []);
+        setCertifications(Array.isArray(data.certifications) ? data.certifications.map(asCert) : []);
       }
     } catch (err) {
       console.error("Error loading tutor profile:", err);
@@ -751,10 +762,13 @@ export default function TutorSettingsPage() {
                   className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
                 >
                   <span>
-                    <strong className="text-tm-navy">{deg.title}</strong>{' '}
-                    <span className="text-gray-500">
-                      {deg.institute} ({deg.year})
-                    </span>
+                    <strong className="text-tm-navy">{deg.title}</strong>
+                    {(deg.institute || deg.year) && (
+                      <span className="text-gray-500">
+                        {' '}
+                        {[deg.institute, deg.year].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
                   </span>
                   <button
                     type="button"
@@ -802,10 +816,13 @@ export default function TutorSettingsPage() {
                   className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
                 >
                   <span>
-                    <strong className="text-tm-navy">{cert.title}</strong>{' '}
-                    <span className="text-gray-500">
-                      {cert.issuer} ({cert.year})
-                    </span>
+                    <strong className="text-tm-navy">{cert.title}</strong>
+                    {(cert.issuer || cert.year) && (
+                      <span className="text-gray-500">
+                        {' '}
+                        {[cert.issuer, cert.year].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
                   </span>
                   <button
                     type="button"
