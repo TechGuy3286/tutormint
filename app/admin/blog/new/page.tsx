@@ -3,6 +3,7 @@ import PostEditor from '@/components/admin/blog/PostEditor'
 import { landingOptionsForEditor, emptyEditorPost } from '@/lib/blogEditor'
 import { getSuggestion } from '@/lib/contentQueue/feed'
 import { isClusterSlug, type PostAudience, type PostLanguage } from '@/lib/blog'
+import { slugify } from '@/lib/slugs'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +34,9 @@ export default async function NewPostPage({
       initial = {
         ...initial,
         title: s.title,
+        // Pre-derive the slug from the pre-filled title; the editor keeps it
+        // tracking the title (this is a new post) until it is hand-edited.
+        slug: slugify(s.title),
         cluster: s.cluster && isClusterSlug(s.cluster) ? s.cluster : initial.cluster,
         audience: s.audience as PostAudience,
         language: s.language as PostLanguage,

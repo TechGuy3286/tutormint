@@ -91,9 +91,11 @@ export default function PostEditor({
   const [confirmDraft, setConfirmDraft] = useState<Record<string, string>>({})
   // The body textarea, for the toolbar to insert Markdown at the cursor.
   const bodyRef = useRef<HTMLTextAreaElement>(null)
-  // Whether the slug has been hand-edited. Until it is, the slug tracks the
-  // title as it is typed (and it is locked after publishing either way).
-  const [slugEdited, setSlugEdited] = useState(!!initial.slug)
+  // Whether the slug should stop tracking the title. It tracks on a NEW post
+  // (so a typed or pre-filled title fills the slug) and stops once the slug is
+  // hand-edited; on an EXISTING post it does not auto-track. Published slugs are
+  // locked regardless.
+  const [slugEdited, setSlugEdited] = useState(!!initial.id)
 
   const set = <K extends keyof EditorPost>(key: K, value: EditorPost[K]) => {
     setPost((p) => ({ ...p, [key]: value }))
