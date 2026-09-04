@@ -214,3 +214,15 @@ test('a digit in a link to an unknown path is not exempt', () => {
   const body = 'Read the [Grade 10 guide](/tutors/lahore/made-up) about grade 10.'
   assert.deepEqual(unsupportedFigures(body, 'notes', 'A guide', [], []), ['10'])
 })
+
+// ------------------------------------- ordered-list markers are not stats ---
+
+test('ordered-list enumerators are not flagged as figures', () => {
+  const body = 'Steps:\n\n1. Pick a tutor\n2. Book a demo\n3. Start lessons'
+  assert.deepEqual(unsupportedFigures(body, 'notes with no numbers', 'A guide'), [])
+})
+
+test('a statistic inside ordered-list text is still flagged', () => {
+  const body = '1. Fees can reach 25000 rupees a month'
+  assert.deepEqual(unsupportedFigures(body, 'notes', 'A guide'), ['25000'])
+})

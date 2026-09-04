@@ -2138,11 +2138,41 @@ the brief's comparison tables render — cells are escaped and run through
 `inline()` like everything else, so a cell cannot become a tag (tested). Wide
 tables scroll inside their own box, not the page.
 
-**What is proven and what is not.** The verifier, the composer, the SEO tail and
-the table renderer are unit-tested (`npm run test:blog`, 22 assertions). The
-Claude path itself is **not** — `ANTHROPIC_API_KEY` is set in no environment, so
-every generation returns the composed fallback until a key is added, exactly as
-with AI-assisted job posting. Covers render fully without a key.
+**What is proven.** The verifier, the composer, the SEO tail, the exemptions and
+the table renderer are unit-tested (`npm run test:blog`, 27 assertions). The
+Claude path is proven end to end on production: a live generation returns
+`source: 'claude'` with a ~1,000-word answer-first draft, a real SEO title and a
+brand-line description. Covers render without a key.
+
+### The failing-call diagnosis (4 Sep 2026)
+
+The first live runs fell back to the composed draft, and the cause was found by
+surfacing the verbatim API error (status + body — never the key, which is only
+ever a request header) to the admin editor and the `blog.generate` audit row,
+and, on a real failure, the accessible model list from `GET /v1/models`. Two
+causes, in order:
+
+- **`temperature` is deprecated for `claude-sonnet-5`.** The model answered
+  `400 invalid_request_error` for a parameter every call carried, which is why
+  **both** blog drafting and AI job-post copy were silently composing instead.
+  `complete()` no longer sends `temperature`. The model id was never wrong —
+  `claude-sonnet-5` is on the key's model list — so the model lives in **one**
+  exported constant in `lib/ai/anthropic.ts`, changed nowhere else.
+- **The 20s timeout was too short for long-form.** A job advert fits in 20s; a
+  900–1,400 word post does not, and timed out into the fallback. `complete()`
+  now takes a per-call `timeoutMs`; blog drafting uses 55s under a 60s route
+  `maxDuration`, and still falls back cleanly if it runs over.
+
+If the error had been authentication or billing, that is an owner-side fix and
+the diagnostic says so plainly; it was neither. Whatever the cause, the editor
+now shows it in words: **"AI drafting is unavailable: &lt;reason&gt;."**
+
+**The figure gate learned two non-statistics.** A digit that is part of a real
+landing page's own **title** is exempt when the body links to that page (using
+the page's canonical label, so a stat smuggled into a link label is still
+flagged); and an **ordered-list enumerator** ("1.", "2.") is stripped before the
+scan, because a numbered list is not a set of statistics. Everything else stays
+strict — a bare number in prose that is not in the notes is still flagged.
 
 ## Roadmap — remaining (4 Sep 2026)
 

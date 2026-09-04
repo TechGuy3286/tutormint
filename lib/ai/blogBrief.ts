@@ -120,8 +120,14 @@ export function unsupportedFigures(
     }
   }
 
+  // An ordered-list enumerator ("1.", "2.") is not a statistic. Strip the
+  // leading marker before scanning so a numbered list does not block review —
+  // numbers inside the list text are still scanned. Same OL shape the Markdown
+  // renderer recognises.
+  const scanned = body.replace(/^[ \t]*\d+\.[ \t]+/gm, '')
+
   const found: string[] = []
-  for (const m of body.matchAll(/\d[\d,]*/g)) {
+  for (const m of scanned.matchAll(/\d[\d,]*/g)) {
     const raw = m[0]
     const bare = raw.replace(/,/g, '')
     if (allowed.has(raw) || allowed.has(bare)) continue
