@@ -2,6 +2,7 @@ import { cache } from 'react'
 
 import { createClient } from '@/lib/supabase/server'
 import { encodeCursor, decodeCursor } from '@/lib/cursor'
+import { getLandingLinker } from '@/lib/landing'
 import type { TutorCardData } from '@/components/TutorCard'
 
 // The one place /browse/tutors is queried, shared by the page and the
@@ -196,7 +197,17 @@ async function withSubjectLinks(
     byTutor.set(l.tutor_id as string, list)
   }
 
-  return tutors.map((t) => ({ ...t, subject_links: byTutor.get(t.id) ?? [] }))
+  // Each subject chip links to the landing page for this tutor's subject in
+  // their city when one exists, and to the browse filter when it does not --
+  // decided once, here, so a card never links to a page that is not there.
+  const linker = await getLandingLinker()
+  return tutors.map((t) => ({
+    ...t,
+    subject_links: (byTutor.get(t.id) ?? []).map((l) => ({
+      ...l,
+      href: linker.tutorSubjectHref(l.masterId, t.city),
+    })),
+  }))
 }
 
 export function cursorFor(row: RankedTutor): string {

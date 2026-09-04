@@ -50,7 +50,7 @@ export type TutorCardData = {
    * platform is on master_id, so a link built from the label alone would be a
    * text search dressed up as a filter.
    */
-  subject_links?: { label: string; masterId: number }[]
+  subject_links?: { label: string; masterId: number; href?: string }[]
   plan_code: string | null
 }
 
@@ -324,9 +324,12 @@ export default function TutorCard({
                       <span key={l.masterId}>
                         {i > 0 && ', '}
                         <InlineLink
-                          href={`/browse/tutors?subject=${l.masterId}${
-                            tutor.city ? `&city=${encodeURIComponent(tutor.city)}` : ''
-                          }`}
+                          href={
+                            l.href ??
+                            `/browse/tutors?subject=${l.masterId}${
+                              tutor.city ? `&city=${encodeURIComponent(tutor.city)}` : ''
+                            }`
+                          }
                         >
                           {l.label}
                         </InlineLink>

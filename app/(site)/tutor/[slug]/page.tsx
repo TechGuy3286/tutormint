@@ -19,6 +19,7 @@ import ProfileActions from './ProfileActions'
 import { formatDate } from '@/lib/datetime'
 import { teachingMode } from '@/lib/display'
 import { jsonLdScript, pageDescription, pageTitle, tutorJsonLd } from '@/lib/seo'
+import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
 
 // The public tutor profile. Server component, results in the HTML.
@@ -353,9 +354,13 @@ export default async function TutorPublicProfile({ params }: { params: Params })
     if (s.subject) byLevel.get(key)!.push({ label: s.subject, masterId: s.master_id })
   }
 
-  /** /browse/tutors, filtered to one taxonomy id, in this tutor's city. */
-  const subjectHref = (masterId: number) =>
-    `/browse/tutors?subject=${masterId}${tutor.city ? `&city=${encodeURIComponent(tutor.city)}` : ''}`
+  /**
+   * The landing page for this subject in this tutor's city when one exists,
+   * the browse filter otherwise. One helper decides, so a chip never points at
+   * a page that is not there.
+   */
+  const linker = await getLandingLinker()
+  const subjectHref = (masterId: number) => linker.tutorSubjectHref(masterId, tutor.city)
 
   // Person + Service, linked to each other and to the Organization on the
   // homepage. Nothing is asserted that the profile does not hold -- no rating

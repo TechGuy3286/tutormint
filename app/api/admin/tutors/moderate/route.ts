@@ -117,6 +117,11 @@ export async function POST(request: Request) {
     await activatePausedIfListed(tutorId)
   }
 
+  // Approve/suspend/unsuspend change whether the tutor is listed, which opens
+  // or closes their landing pages.
+  const { revalidateLanding } = await import('@/lib/landingRevalidate')
+  revalidateLanding()
+
   const attemptsAfter = (patch.video_attempts as number | undefined) ?? tutor.video_attempts ?? 0
   const resubmissionLocked = attemptsAfter >= MAX_ATTEMPTS
 

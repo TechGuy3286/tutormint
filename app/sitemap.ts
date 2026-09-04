@@ -3,6 +3,7 @@ import { createPublicClient } from '@/lib/supabase/public'
 import { citySegment } from '@/lib/slugs'
 import { PREVIEW_MODE } from '@/lib/preview'
 import { SITE_URL } from '@/lib/siteUrl'
+import { liveLandingPages } from '@/lib/landing'
 
 // The sitemap: every listed tutor and every open tuition.
 //
@@ -81,7 +82,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     }))
 
-    return [...staticPages, ...tutorPages, ...jobPages]
+    // The T9.1 landing pages: every (city, subject) that clears the threshold,
+    // listed once. Read from the same tagged cache the pages and the link
+    // helper use, so a combination that has just crossed the threshold appears
+    // here as soon as that cache is revalidated. Absent entirely while preview
+    // is on, because this whole block is behind the PREVIEW_MODE return above.
+    const landing = await liveLandingPages()
+    const landingPages: MetadataRoute.Sitemap = landing.map((p) => ({
+      url: `${BASE}/${p.kind}/${p.citySlug}/${p.subjectSlug}`,
+      lastModified: now,
+      changeFrequency: 'daily' as const,
+      priority: 0.7,
+    }))
+
+    return [...staticPages, ...tutorPages, ...jobPages, ...landingPages]
   } catch {
     // A database blip must not produce a 500 for the crawler; the static
     // pages are still worth serving.

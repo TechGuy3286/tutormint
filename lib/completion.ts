@@ -96,5 +96,11 @@ export async function recomputeCompletion(userId: string): Promise<Completion | 
     await activatePausedIfListed(userId)
   }
 
+  // A completion change can list or unlist a tutor, which opens or closes their
+  // (city, subject) landing pages. Mark the landing cache stale so the pages,
+  // the sitemap and the link helper pick it up. Cheap and idempotent.
+  const { revalidateLanding } = await import('@/lib/landingRevalidate')
+  revalidateLanding()
+
   return completion
 }

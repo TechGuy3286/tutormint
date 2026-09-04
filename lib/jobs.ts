@@ -25,6 +25,7 @@ import { logActivity } from '@/lib/activityLog'
 import { notify, notifyMany } from '@/lib/notifications'
 import { tuitionPath } from '@/lib/slugs'
 import { deliverEmail } from '@/lib/notify'
+import { revalidateLanding } from '@/lib/landingRevalidate'
 
 export type JobInput = {
   title: string
@@ -218,6 +219,9 @@ export async function createJob(
     input,
   )
 
+  // A new open tuition can open a (city, subject) tuition landing page.
+  revalidateLanding()
+
   return { ok: true, id: job.id as string, jobTxId: job.job_tx_id as string }
 }
 
@@ -332,6 +336,10 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
   }
 
   await logActivity({ userId: parentId, event: 'job_closed', targetType: 'job', targetId: jobId })
+
+  // A closed tuition can close its landing pages (drop the count below the
+  // threshold), so refresh the landing cache.
+  revalidateLanding()
 
   return { ok: true }
 }
@@ -505,6 +513,9 @@ export async function hireApplicant(
     targetId: applicationId,
     meta: { outcome: 'hired', jobId: job.id },
   })
+
+  // Hiring closes the tuition, so it may close a landing page.
+  revalidateLanding()
 
   return { ok: true, tutorId: application.tutor_id as string }
 }

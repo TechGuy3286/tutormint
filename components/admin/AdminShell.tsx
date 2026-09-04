@@ -17,6 +17,7 @@ import {
   Megaphone,
   Menu,
   Scroll,
+  Search,
   Upload,
   Users,
   Wallet,
@@ -60,6 +61,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
   megaphone: Megaphone,
   camera: Camera,
   upload: Upload,
+  search: Search,
 }
 
 const COOKIE = 'tm_admin_nav'

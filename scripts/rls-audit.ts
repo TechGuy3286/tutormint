@@ -65,6 +65,8 @@ const PUBLIC_READ: Record<string, string> = {
   job_subjects: 'which subjects a job wants, for the job cards',
   tutor_subjects: 'which subjects a tutor teaches, for the tutor cards',
   reviews: 'ratings shown on public tutor profiles',
+  landing_combinations:
+    'listed-tutor and open-tuition counts per (city, subject) for the T9.1 landing pages; a security_invoker view, so anon sees only what it already can (listed tutors, open jobs) — counts, no personal data',
   slug_history:
     'retired tutor URLs -> the account they belong to; the redirect map, and exactly what the old URL already told anybody holding it. No write policy at all',
   advertisements: 'the banner rotation; the RLS policy returns only live ads, and created_by is stripped by a column privilege',

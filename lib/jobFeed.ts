@@ -25,6 +25,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
+import { getLandingLinker } from '@/lib/landing'
 import type { JobCardData } from '@/components/JobCard'
 
 type ParentFacts = {
@@ -153,8 +154,13 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
     Array.from(new Set(rawJobs.map((j) => j.parent_id as string).filter(Boolean))),
   )
 
+  // A job's subject chips link to the tutors who teach it: the landing page for
+  // that subject in the job's city when one exists, the browse filter otherwise.
+  const linker = await getLandingLinker()
+
   return rawJobs.map((j) => {
     const f = facts.get(j.parent_id as string)
+    const city = (j.city as string) ?? null
     return {
       id: j.id as string,
       job_tx_id: (j.job_tx_id as string) ?? null,
@@ -164,7 +170,10 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       // Fall back to the legacy text column for jobs posted before the join
       // table existed, so old posts still show what they are for.
       subjects: subjectsByJob.get(j.id as string) ?? (j.subjects as string[] | null) ?? null,
-      subject_links: linksByJob.get(j.id as string) ?? [],
+      subject_links: (linksByJob.get(j.id as string) ?? []).map((l) => ({
+        ...l,
+        href: linker.tutorSubjectHref(l.masterId, city),
+      })),
       class_level: (j.class_level as string) ?? null,
       city: (j.city as string) ?? null,
       area: (j.area as string) ?? null,

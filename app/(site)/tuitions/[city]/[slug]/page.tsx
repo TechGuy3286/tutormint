@@ -19,7 +19,17 @@ import { teachingMode } from '@/lib/display'
 import { PREVIEW_MODE } from '@/lib/preview'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle } from '@/lib/seo'
+import { isSubjectSlug, resolveLanding } from '@/lib/landing'
+import LandingView from '@/components/landing/LandingView'
 import ApplyPanel from './ApplyPanel'
+
+// THIS ROUTE SERVES TWO PAGES. Next forbids two dynamic param names at one
+// position, so /tuitions/[city]/[subject] (the T9.1 landing) cannot be its own
+// route alongside /tuitions/[city]/[slug] (this tuition detail). They share the
+// segment: if it is a known taxonomy SUBJECT slug (o-levels-physics), this is a
+// landing page; otherwise it is a tuition's public_slug. The two namespaces do
+// not collide — a public_slug always carries a hash suffix — so the subject
+// check is unambiguous and runs first.
 
 // A posted tuition, with its own address.
 //
@@ -58,7 +68,23 @@ export const dynamic = 'force-dynamic'
 type Params = Promise<{ city: string; slug: string }>
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
-  const { slug } = await params
+  const { city, slug } = await params
+
+  // Landing page (a subject slug), not a tuition.
+  if (await isSubjectSlug(slug)) {
+    const combo = await resolveLanding('tuitions', city, slug)
+    if (!combo) return { title: pageTitle('Tuitions'), robots: { index: false, follow: true } }
+    const heading = `${combo.subjectName} tuitions in ${combo.city}`
+    const lead = `${combo.count} open ${combo.subjectName} tuition${combo.count === 1 ? '' : 's'} in ${combo.city}`
+    return {
+      title: pageTitle(heading),
+      description: pageDescription(lead),
+      alternates: { canonical: `/tuitions/${combo.citySlug}/${combo.subjectSlug}` },
+      openGraph: { title: pageTitle(heading), description: pageDescription(lead), type: 'website' },
+      ...(PREVIEW_MODE ? { robots: { index: false, follow: false } } : {}),
+    }
+  }
+
   const job = await jobByPublicSlug(slug)
 
   // `job.status !== 'open'` for the same reason the body checks it: an admin
@@ -92,6 +118,14 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 export default async function TuitionPage({ params }: { params: Params }) {
   const { city: citySeg, slug } = await params
+
+  // Landing page branch: a subject slug renders the city × subject landing,
+  // 404 below the threshold. A tuition slug falls through to the detail page.
+  if (await isSubjectSlug(slug)) {
+    const combo = await resolveLanding('tuitions', citySeg, slug)
+    if (!combo) notFound()
+    return <LandingView combo={combo} />
+  }
 
   const job = await jobByPublicSlug(slug)
 
@@ -204,7 +238,10 @@ export default async function TuitionPage({ params }: { params: Params }) {
               return link ? (
                 <Link
                   key={s}
-                  href={`/browse/tutors?subject=${link.masterId}${job.city ? `&city=${encodeURIComponent(job.city)}` : ''}`}
+                  href={
+                    link.href ??
+                    `/browse/tutors?subject=${link.masterId}${job.city ? `&city=${encodeURIComponent(job.city)}` : ''}`
+                  }
                   className={`${cls} hover:ring-tm-navy`}
                 >
                   {s}

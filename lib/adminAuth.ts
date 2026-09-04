@@ -114,6 +114,10 @@ export const SCREEN_ACCESS = {
   jobsMutate: ['manager'] as AdminRole[],
   users: ['manager', 'support'] as AdminRole[],
   audit: ['manager'] as AdminRole[],
+  // T9.1 — the landing-page monitor. Read-only: which city × subject pages are
+  // live, and which sit one tutor short of opening. Owner + manager, a growth
+  // view like the other T7b tools.
+  seo: ['manager'] as AdminRole[],
   // Publishing a tutor's video to the world is a bigger decision than
   // approving it for review, so it stops at manager rather than verifier.
   videoVisibility: ['manager'] as AdminRole[],

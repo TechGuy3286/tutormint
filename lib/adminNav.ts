@@ -30,6 +30,7 @@ export type AdminScreen =
   | 'ads'
   | 'social'
   | 'import'
+  | 'seo'
 
 export type NavItem = {
   href: string
@@ -81,6 +82,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/ads', label: 'Advertisements', icon: 'megaphone', screen: 'ads' },
       { href: '/admin/social', label: 'Social posts', icon: 'camera', screen: 'social' },
       { href: '/admin/import', label: 'Bulk import', icon: 'upload', screen: 'import' },
+      { href: '/admin/seo/landing', label: 'Landing pages', icon: 'search', screen: 'seo' },
     ],
   },
 ]
@@ -100,6 +102,8 @@ export const SECTION_LABELS: Record<string, string> = {
   payments: 'Payments',
   plans: 'Plans',
   reports: 'Reports',
+  seo: 'SEO',
+  landing: 'Landing pages',
   social: 'Social posts',
   team: 'Team',
   tutors: 'Tutors',

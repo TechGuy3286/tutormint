@@ -1228,6 +1228,79 @@ Neither rule was edited to fit. If the owner would rather have the teaser
 literally first, that is a one-line move in that file — but it needs to be an
 instruction, because it silently costs the blocking item its position.
 
+## Landing pages, as built (T9.1, 4 Sep 2026)
+
+City × subject landing pages — `/tutors/[city]/[subject]` and
+`/tuitions/[city]/[subject]` — are how the directory wins search: one page per
+real combination, built from real data. What was decided in building them:
+
+- **The threshold is one constant.** `LANDING_THRESHOLD = 3` in `lib/landing.ts`.
+  A page exists only where at least three listed tutors (or open tuitions) share
+  the combination; below it the route is a 404 and the page is absent from the
+  sitemap. The page, the sitemap, the admin view and the link helper all read
+  that one number — they cannot disagree about where a page exists.
+
+- **The enumerator is the `landing_combinations` view** (migration 48): listed-
+  tutor and open-tuition counts per (city, master_id), a `security_invoker`
+  view so anon sees only listed tutors and open jobs — counts, no personal data.
+  `lib/landing.ts` maps master_id ↔ a subject slug derived from the level+subject
+  display names (so the URL and the H1 are the same words) and city ↔
+  `citySegment()`.
+
+- **No two pages share a paragraph.** Every visible string is built from the
+  combination's own numbers — count, the fee/budget band actually present, the
+  modes offered, the areas represented — as a sentence, not a stat row
+  (`buildIntro`). The title/description come from the 9.2 templates with the
+  real count in the lead. A template that produced the same paragraph on two
+  pages would defeat the whole point; the intro is data or it is nothing.
+
+- **Revalidation.** The combination set is cached under the `landing` tag
+  (`unstable_cache`, revalidate every 3 hours). It is revalidated on demand —
+  `revalidateLanding()` → `revalidateTag('landing', 'max')` — whenever a listing
+  changes that can open or close a page: a tutor crossing 100% or a moderation
+  decision (`recomputeCompletion`, the moderation route, `goLive`), and a
+  tuition opening or closing (`createJob`, `closeJob`, `hireApplicant`). The
+  ROUTES are dynamic, not fully static ISR: the ranked list runs through the
+  cookie-scoped client and `rank_tutors` rotates daily on purpose, so the page
+  re-renders per request while the combination set — what decides existence, the
+  sitemap and the link helper — is the ISR-cached, on-demand-revalidated part.
+
+- **Preview mode is honoured through the existing single flag.** While
+  `NEXT_PUBLIC_PREVIEW_MODE` is on, `app/layout.tsx` sets robots noindex on every
+  page (landing pages included) and `app/sitemap.ts` withholds them; when it is
+  off, the sitemap lists every live landing page once. Nothing landing-specific
+  was added to the preview mechanism.
+
+- **Landing pages are the canonical target for subject and city links.** A
+  subject mention anywhere — tutor profiles, tutor and job cards, the tuition
+  detail — links to the landing page when it exists and falls back to the browse
+  filter when it does not. One helper decides: `getLandingLinker()` in
+  `lib/landing.ts`, wired into the card data layer (`browseTutors`'
+  `withSubjectLinks`, `jobFeed`'s `decorate` attach a computed `href` to each
+  `subject_links` entry) and the two server profile/detail pages. Nothing links
+  to a page that is not there. City-only mentions (a bare `?city=`, the FAQ city
+  links) have no landing to point at — there are no city-only landing pages —
+  and stay on the browse filter; the browse filter bars remain the browse
+  controls, not landing links.
+
+- **No ads on landing pages.** CLAUDE.md permits exactly three ad placements;
+  a landing page is not one. The ad-injecting `MoreTutors`/`MoreJobs` are
+  deliberately not reused — `components/landing/MoreLanding*.tsx` render the same
+  cards from the same endpoints without ads.
+
+- **`/admin/seo/landing`** (owner/manager, read-only) lists every live page with
+  its count and sitemap status, and the combinations sitting one short of the
+  threshold — where recruiting one more tutor opens a page. It reads the view
+  uncached, so an admin sees the true current counts.
+
+- **The tuitions landing shares the tuition-detail route.** Next forbids two
+  param names at one position, so `/tuitions/[city]/[subject]` cannot be its own
+  route beside `/tuitions/[city]/[slug]`. The detail route checks whether the
+  segment is a known subject slug (a landing) or a tuition `public_slug` (a
+  detail); the namespaces do not collide because a `public_slug` always carries
+  a hash suffix. The tutors landing is a clean new route (`/tutors/` is plural,
+  distinct from `/tutor/[slug]`).
+
 ## Preview mode — comes OFF before launch (3 Sep 2026)
 
 The whole site is `noindex` and `robots.txt` disallows every crawler, and a

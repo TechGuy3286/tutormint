@@ -327,6 +327,33 @@ export function faqJsonLd(items: { q: string; a: string }[]) {
 }
 
 /**
+ * ItemList for a landing page: the listed tutors or open tuitions on it, in the
+ * order they are ranked, each a real URL. It names what the page actually
+ * shows — nothing invented — so the structured data and the visible list are
+ * the same set. `url` items are enough for a ranked list of links; the target
+ * pages carry their own Person/Service or JobPosting markup.
+ */
+export function itemListJsonLd(params: {
+  name: string
+  url: string
+  items: { name: string; url: string }[]
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    '@id': `${params.url}#itemlist`,
+    name: params.name,
+    numberOfItems: params.items.length,
+    itemListElement: params.items.map((it, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: it.name,
+      url: it.url,
+    })),
+  }
+}
+
+/**
  * One <script type="application/ld+json">.
  *
  * Every caller builds its object from typed literals and database values;

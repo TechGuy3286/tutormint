@@ -42,7 +42,7 @@ export type JobCardData = {
    * the tutors who teach that exact level-and-subject. Empty for a job posted
    * before the join table existed, whose subjects survive only as text.
    */
-  subject_links?: { label: string; masterId: number }[]
+  subject_links?: { label: string; masterId: number; href?: string }[]
   class_level: string | null
   city: string | null
   area: string | null
@@ -177,7 +177,10 @@ export default function JobCard({
                 return link ? (
                   <Link
                     key={s}
-                    href={`/browse/tutors?subject=${link.masterId}${job.city ? `&city=${encodeURIComponent(job.city)}` : ''}`}
+                    href={
+                      link.href ??
+                      `/browse/tutors?subject=${link.masterId}${job.city ? `&city=${encodeURIComponent(job.city)}` : ''}`
+                    }
                     className={`${cls} relative z-10 hover:ring-tm-navy`}
                   >
                     {s}
