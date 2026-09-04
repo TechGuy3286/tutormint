@@ -2,6 +2,9 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import { Info, TrendingUp } from 'lucide-react'
 
 import AdSlot from '@/components/ads/AdSlot'
+import OnlineSuitableChip from '@/components/OnlineSuitableChip'
+import VerifiedShareCard from '@/components/tutor/VerifiedShareCard'
+import { absoluteUrl } from '@/lib/siteUrl'
 import ActivityBand from '@/components/dashboard/ActivityBand'
 import NeedsYou from '@/components/dashboard/NeedsYou'
 import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
@@ -221,6 +224,16 @@ export default async function TutorDashboardPage() {
           }
         />
 
+        {/* You're verified — a share card, shown the moment the tutor is
+            LISTED (the same condition their badge appears under). Generated
+            from their own profile; posting is the tutor's, via the buttons. */}
+        {listed && tutorProfile?.slug && (
+          <VerifiedShareCard
+            profileUrl={absoluteUrl(`/tutor/${tutorProfile.slug}`)}
+            firstName={(session?.profile?.full_name ?? 'there').split(' ')[0]}
+          />
+        )}
+
         {/* ------------------------------------------- the 199 funnel --- */}
         <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} />
 
@@ -267,8 +280,11 @@ export default async function TutorDashboardPage() {
                     <span className="block truncate text-[11px] font-bold text-tm-navy">
                       {j.title}
                     </span>
-                    <span className="block truncate text-[10px] text-gray-500">
-                      {[j.area, j.city].filter(Boolean).join(', ') || 'Pakistan'}
+                    <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                      <span className="truncate">
+                        {[j.area, j.city].filter(Boolean).join(', ') || 'Pakistan'}
+                      </span>
+                      {j.onlineSuitable && <OnlineSuitableChip />}
                     </span>
                     {/* Why this job is here, in one line. Matching is unchanged;
                         this only names the shared subject and the location tie. */}

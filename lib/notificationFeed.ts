@@ -28,6 +28,8 @@ export type NotificationRow = {
   href: string | null
   read_at: string | null
   created_at: string
+  /** Structured extras for the card — e.g. { online_suitable: true }. */
+  meta?: Record<string, unknown> | null
 }
 
 /** The filter chips on /account/notifications, and what each covers. */
@@ -92,7 +94,7 @@ export async function notificationPage({
 
   let query = supabase
     .from('notifications')
-    .select('id, kind, title, body, href, read_at, created_at')
+    .select('id, kind, title, body, href, read_at, created_at, meta')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     // created_at alone is not unique: a job being filled notifies every

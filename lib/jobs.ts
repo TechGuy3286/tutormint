@@ -585,7 +585,7 @@ export async function subjectLabels(masterIds: number[]): Promise<string[]> {
 async function notifyMatchingTutors(
   jobId: string,
   publicSlug: string | null,
-  input: { masterIds: number[]; city: string | null; area?: string | null },
+  input: { masterIds: number[]; city: string | null; area?: string | null; teachingMode?: string | null },
 ): Promise<void> {
   try {
     const admin = createAdminClient()
@@ -604,27 +604,57 @@ async function notifyMatchingTutors(
     // tutor_directory, not tutor_profiles: only tutors the platform is actually
     // showing to parents. Telling a suspended or unlisted tutor about work they
     // cannot be found for is noise.
-    const { data: listed } = await admin
+    const { data: sameCityRows } = await admin
       .from('tutor_directory')
       .select('id')
       .in('id', tutorIds)
       .eq('city', input.city)
       .limit(50)
+    const sameCityIds = new Set((sameCityRows ?? []).map((r) => r.id as string))
+
+    // Cross-city tutors are a match ONLY when the tuition can be taught online
+    // (lib/matchChip.ts). For an online/both job we also notify a bounded set
+    // of them, flagged so the card carries a "Suitable for online" chip; an
+    // in-person job never fans out beyond its own city. Capped hard — a popular
+    // subject taught online must not turn one post into a nationwide mailing.
+    let crossCityIds: string[] = []
+    if (input.teachingMode === 'online' || input.teachingMode === 'both') {
+      const { data: crossRows } = await admin
+        .from('tutor_directory')
+        .select('id')
+        .in('id', tutorIds)
+        .neq('city', input.city) // null-city tutors are excluded by <> ; correct — we cannot claim online suitability for an unknown city
+        .limit(30)
+      crossCityIds = (crossRows ?? [])
+        .map((r) => r.id as string)
+        .filter((id) => !sameCityIds.has(id))
+    }
 
     const subjectName = await subjectLabelFor(admin, input.masterIds[0])
     const where = input.area ? `${input.area}, ${input.city}` : input.city
+    // The tuition's own page. This used to be `/browse/tuitions?job=<id>` -- a
+    // query parameter nothing on that page reads, so the tutor landed on the
+    // unfiltered board and had to find the job the notification was about.
+    const href = tuitionPath({ public_slug: publicSlug, city: input.city, id: jobId })
 
-    for (const row of listed ?? []) {
+    for (const id of sameCityIds) {
       await notify({
-        userId: row.id as string,
+        userId: id,
         kind: 'job_matched',
         title: `New ${subjectName} job in ${where}`,
         body: `New ${subjectName} job in ${where} — Verified tutors can apply.`,
-        // The tuition's own page. This used to be `/browse/tuitions?job=<id>`
-        // -- a query parameter nothing on that page reads, so the tutor landed
-        // on the unfiltered board and had to find the job the notification was
-        // about.
-        href: tuitionPath({ public_slug: publicSlug, city: input.city, id: jobId }),
+        href,
+      })
+    }
+
+    for (const id of crossCityIds) {
+      await notify({
+        userId: id,
+        kind: 'job_matched',
+        title: `New ${subjectName} job in ${where}`,
+        body: `New ${subjectName} job in ${where}, teachable online — Verified tutors can apply.`,
+        href,
+        meta: { online_suitable: true },
       })
     }
   } catch {

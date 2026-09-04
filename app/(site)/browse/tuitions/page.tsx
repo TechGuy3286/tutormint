@@ -6,7 +6,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createPublicClient } from '@/lib/supabase/public'
 import { getEntitlements } from '@/lib/entitlements'
+import { cookies } from 'next/headers'
 import { logSearchPerformed } from '@/lib/activityLog'
+import { logAnonSearch } from '@/lib/anonSearch'
+import { ANON_COOKIE, isAnonId } from '@/lib/anonSession'
 import { browseJobs, type JobFilters } from '@/lib/jobFeed'
 import JobCard from '@/components/JobCard'
 import AdSlot from '@/components/ads/AdSlot'
@@ -175,11 +178,18 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   } = await supabase.auth.getUser()
 
   let isTutor = false
+  let viewerCity: string | null = null
   let appliedIds = new Set<string>()
 
   if (user) {
     const ent = await getEntitlements(user.id)
     isTutor = ent.audience === 'tutor'
+
+    // Only to decide the "Suitable for online" chip on cross-city online jobs.
+    if (isTutor) {
+      const { data: tp } = await supabase.from('tutor_profiles').select('city').eq('id', user.id).maybeSingle()
+      viewerCity = (tp?.city as string | null) ?? null
+    }
 
     if (isTutor && jobs.length > 0) {
       const { data: mine } = await supabase
@@ -203,6 +213,21 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
         },
         results: total,
       })
+    }
+  } else {
+    // Anonymous demand — most of the traffic. Session-scoped, no PII, never on
+    // a member timeline. See lib/anonSearch.ts.
+    const filtered = !!(subjectId || city || mode || budgetMin || budgetMax || q)
+    if (filtered) {
+      const sessionId = (await cookies()).get(ANON_COOKIE)?.value
+      if (isAnonId(sessionId)) {
+        await logAnonSearch({
+          sessionId,
+          surface: 'tuitions',
+          filters: { master_id: subjectId, city: city || null, mode: mode || null },
+          results: total,
+        })
+      }
     }
   }
 
@@ -280,6 +305,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
                   signedIn={!!user}
                   showApply={showApply}
                   applied={appliedIds.has(job.id)}
+                  viewerCity={viewerCity}
                 />
                 {(i + 1) % AD_EVERY === 0 && (
                   <AdSlot
@@ -303,6 +329,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             signedIn={!!user}
             showApply={showApply}
             adEvery={AD_EVERY}
+            viewerCity={viewerCity}
           />
         )}
       </div>

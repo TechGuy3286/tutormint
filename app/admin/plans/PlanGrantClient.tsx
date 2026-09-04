@@ -5,6 +5,8 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
+import Typeahead from '@/components/search/Typeahead'
 import { formatDate } from '@/lib/datetime'
 
 export type PlanRow = {
@@ -46,6 +48,7 @@ export default function PlanGrantClient({
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
   const toast = useToast()
+  const confirm = useConfirm()
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -64,6 +67,14 @@ export default function PlanGrantClient({
 
   async function submit(action: 'grant' | 'revoke') {
     if (!open) return
+    if (action === 'revoke') {
+      const ok = await confirm({
+        title: `Revoke ${open.fullName}'s plan?`,
+        body: 'Their active subscription ends now and the plan powers switch off. Nothing else is deleted.',
+        confirmLabel: 'Revoke',
+      })
+      if (!ok) return
+    }
     setBusy(true)
     setErr('')
     setMsg('')
@@ -124,11 +135,14 @@ export default function PlanGrantClient({
         </p>
       )}
 
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
+      {/* The platform typeahead, suggest={false}: this screen searches every
+          account (parents, staff, unlisted), which the public suggest index
+          does not carry — so results filter the loaded list as you type. */}
+      <Typeahead
         placeholder="Search by name or email…"
-        className="w-full min-h-[44px] p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy"
+        ariaLabel="Search accounts"
+        suggest={false}
+        onQueryChange={setQ}
       />
 
       <ul className="space-y-2">

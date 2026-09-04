@@ -6,6 +6,8 @@ import FileUpload from '@/components/FileUpload'
 
 import { useState } from 'react'
 import { AlertTriangle, Check, Download } from 'lucide-react'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 type Verdict = { line: number; name: string; mobile: string; ok: boolean; errors: string[] }
 type Result = {
@@ -36,8 +38,20 @@ export default function ImportClient() {
   )
   const [results, setResults] = useState<Result[] | null>(null)
 
+  const toast = useToast()
+  const confirm = useConfirm()
+
   const post = async (action: 'validate' | 'apply') => {
     if (!file) return
+    if (action === 'apply') {
+      const ok = await confirm({
+        title: `Import ${summary?.clean ?? 'the clean'} tutor${summary?.clean === 1 ? '' : 's'}?`,
+        body: 'This creates real accounts for every clean row. Rejected rows are skipped.',
+        confirmLabel: 'Import',
+        destructive: false,
+      })
+      if (!ok) return
+    }
     setBusy(action)
     setError(null)
     try {
@@ -55,9 +69,12 @@ export default function ImportClient() {
       } else {
         setResults(json.results)
         setSummary({ total: json.total, clean: json.created, rejected: json.rejectedCount })
+        toast.success(`Imported ${json.created} tutor${json.created === 1 ? '' : 's'}.`)
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not work.')
+      const message = e instanceof Error ? e.message : 'That did not work.'
+      setError(message)
+      toast.error(message)
     } finally {
       setBusy(null)
     }

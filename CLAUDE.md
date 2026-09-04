@@ -2240,6 +2240,78 @@ seen Markdown can write a post. **Slug auto-fills from the title as it is
 typed**, until it is hand-edited (then it stops tracking) or the post is
 published (then it is locked) — an emptied slug resumes tracking the title.
 
+## Growth pass — social templates, anon search, mobile footer, chip (5 Sep 2026)
+
+Six changes, migration 52 (additive: `anon_search_events`, `notifications.meta`).
+
+**Two new social templates** in the existing generator (`app/api/admin/social/image/render.tsx`),
+brand tokens only, one-word wordmark, star as inline SVG, pixel-stable:
+- **success** — a "Congratulations" card (script-style italic greeting, bold
+  occasion, the portrait in a rounded frame on a `tm-tint-green` panel, three
+  facts in a soft card, badges where earned). Used for "You're Verified" and
+  "Hired".
+- **announcement** — navy ground, oversized headline, circular portrait with
+  name + role, a `tm-gold` date block, a detail/venue strip. Used for roundups
+  and events.
+The renderer now dispatches by template through shared helpers (`Wordmark`,
+`Portrait`, `BadgePills`, `StarRating`, `Fact`, `CtaStrip`) so the wordmark trick
+and the badge/rating rules live once. `BannerTutor` gained `experience_years`.
+The admin route passes `subhead`/`date` (announcement only). The **"You're
+Verified" card is tutor-facing and automatic**: `/api/tutor/social/verified`
+renders the success card for the authenticated tutor's OWN listed profile (reads
+`tutor_directory` keyed on their id, so they can only render their own, and only
+when LISTED — the same condition their badge appears under), and
+`components/tutor/VerifiedShareCard.tsx` shows it on the dashboard with WhatsApp
+/ Facebook / Save-for-Instagram buttons. It sits below NEEDS YOU and the teaser,
+respecting the fixed band order. WhatsApp and Facebook share the profile LINK
+(their web intents take a URL, not a file); Instagram has no web intent, so its
+button downloads the PNG to post manually.
+
+**The two admin pickers use the platform typeahead** (`suggest={false}`, like
+`/admin/users`): the social generator's tutor picker (searches name, area,
+subject over the loaded list) and `/admin/plans`' account picker (name, email).
+A plain `<select>` stops working past a few dozen names.
+
+**Anonymous searches are logged.** `search_performed` (member timeline) needs a
+user id, so guest searches — most of the demand on a "feels free" site — were
+invisible to the content queue. They now go to `anon_search_events`, a SEPARATE
+table (so "never on a member timeline" holds by construction), keyed on a random
+per-device uuid in a first-party httpOnly cookie (`tm_anon`, set in `proxy.ts`
+beside the UTM cookie — no IP, no fingerprint, no PII). Collapsed like the member
+path, rate-limited on the session id (`anon_search` bucket). Admin-read RLS, no
+write policy (server writes via service role). The content queue's search-gap
+signal (`lib/contentQueue/build.ts`) reads BOTH sources into one demand count.
+
+**The mobile footer is two bodies.** Below 768px: logo, one social row, four
+tap-to-open sections (native `<details>`, so no JS and the footer stays a server
+component), the legal line — dropping "Empowering education across Pakistan".
+The desktop body (`hidden md:block`) is the approved layout, unchanged. Signed-in
+members see no Sign Up / Login (in both bodies — showing a signed-in visitor a
+login link is a wart); a link in both the Tutors and Parents sections (Sign Up,
+Login) is deduped to appear once on mobile. `signedIn` comes from the
+React-`cache()`d `getSessionUser()` the Navbar already calls, so no extra auth
+round trip.
+
+**Admin mutations toast and confirm.** Every remaining admin approve / reject /
+suspend / grant / revoke / delete / close now shows a `useToast` toast, and the
+three `window.confirm` calls (ads delete, job remove, blog delete) plus the
+no-confirm destructive actions (tutor suspend, parent reject, staff role change +
+suspend, import apply, blog unpublish) go through `useConfirm`. Files that already
+confirmed via a required-reason input or a type-DELETE gate kept that and only
+gained toasts (payments, reports, member actions, cleanup, slug).
+
+**Cross-city "Suitable for online" chip** (`lib/matchChip.ts`, one rule for all
+three surfaces). A tuition in a DIFFERENT city from the tutor is a match only if
+it can be taught online; when it is, a `tm-tint-navy` chip appears beside the
+mode. In-person cross-city is NOT a match and is dropped from the curated match
+surfaces. Wired into: the dashboard "jobs matching you" strip (`jobsThisWeek`
+loosened to include cross-city online and exclude in-person cross-city), the
+browse `JobCard` (new `viewerCity` prop, fetched for signed-in tutors on
+`/browse/tuitions` and the tutor jobs board; guests have no city so no chip), and
+the matching-job notification (`notifyMatchingTutors` now also fans out to a
+bounded set of cross-city online tutors, flagged via `notifications.meta.online_suitable`,
+which `NotificationBell` renders as the chip).
+
 ## Roadmap — remaining (4 Sep 2026)
 
 The state of the world as of this date, so the next session starts from the plan

@@ -4,6 +4,8 @@ import { submitSignal } from '@/lib/submit'
 
 import { useMemo, useState } from 'react'
 import { Copy, Download } from 'lucide-react'
+import Typeahead from '@/components/search/Typeahead'
+import { useToast } from '@/components/ui/Toast'
 
 export type PickerTutor = {
   slug: string
@@ -19,6 +21,8 @@ export type PickerTutor = {
 const TEMPLATES = [
   { code: 'spotlight', label: 'Spotlight', blurb: 'Light background, profile-led' },
   { code: 'bold', label: 'Bold', blurb: 'Dark background, high contrast for feeds' },
+  { code: 'success', label: 'Success story', blurb: '“Congratulations” — verified or hired' },
+  { code: 'announcement', label: 'Announcement', blurb: 'Navy, for roundups and events' },
 ]
 
 const FORMATS = [
@@ -29,27 +33,53 @@ const FORMATS = [
 
 // Pick a tutor, pick a look, download the PNG and copy the caption.
 //
-// Only ONE line is editable, and it replaces the tutor's headline. Everything
-// else — name, badges, subjects, city, rating — comes from the live profile, so
-// what gets posted about a tutor and what the site says about them cannot
-// disagree. That constraint is the feature.
+// Only the headline (and, for an announcement, a date and a detail line) is
+// editable. Everything else — name, badges, subjects, city, rating — comes from
+// the live profile, so what gets posted about a tutor and what the site says
+// about them cannot disagree. That constraint is the feature.
+//
+// The tutor is chosen through the platform typeahead (suggest={false}): the
+// public suggestion index holds listed tutors and open jobs, which is not the
+// set this screen searches, so it filters the loaded list by name, area or
+// subject as the admin types. A plain <select> stops working past a few dozen.
 
 export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
   const [slug, setSlug] = useState(tutors[0]?.slug ?? '')
+  const [query, setQuery] = useState('')
   const [template, setTemplate] = useState('spotlight')
   const [format, setFormat] = useState('square')
   const [headline, setHeadline] = useState('')
+  const [subhead, setSubhead] = useState('')
+  const [dateLabel, setDateLabel] = useState('')
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const toast = useToast()
 
   const tutor = useMemo(() => tutors.find((t) => t.slug === slug) ?? null, [tutors, slug])
+
+  const matches = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    const scored = needle
+      ? tutors.filter(
+          (t) =>
+            t.name.toLowerCase().includes(needle) ||
+            (t.area ?? '').toLowerCase().includes(needle) ||
+            (t.city ?? '').toLowerCase().includes(needle) ||
+            t.subjects.some((s) => s.toLowerCase().includes(needle)),
+        )
+      : tutors
+    return scored.slice(0, 8)
+  }, [query, tutors])
+
+  const isAnnouncement = template === 'announcement'
 
   const imageUrl = useMemo(() => {
     const p = new URLSearchParams({ slug, format, template })
     if (headline.trim()) p.set('headline', headline.trim())
+    if (isAnnouncement && subhead.trim()) p.set('subhead', subhead.trim())
+    if (isAnnouncement && dateLabel.trim()) p.set('date', dateLabel.trim())
     return `/api/admin/social/image?${p}`
-  }, [slug, format, template, headline])
+  }, [slug, format, template, headline, subhead, dateLabel, isAnnouncement])
 
   const caption = useMemo(() => {
     if (!tutor) return ''
@@ -79,7 +109,6 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
 
   const download = async () => {
     setBusy(true)
-    setError(null)
     try {
       // Audited before the download, not on every preview keystroke.
       await fetch('/api/admin/social', { signal: submitSignal(),
@@ -94,11 +123,12 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `tutormint-${slug}-${format}.png`
+      a.download = `tutormint-${slug}-${template}-${format}.png`
       a.click()
       URL.revokeObjectURL(url)
+      toast.success('Image downloaded.')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not render that image.')
+      toast.error(e instanceof Error ? e.message : 'Could not render that image.')
     } finally {
       setBusy(false)
     }
@@ -126,20 +156,40 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_420px]">
         <div className="space-y-3">
           <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-            <label className="block space-y-1">
+            <div className="space-y-1">
               <span className="text-[11px] font-bold text-gray-500">Tutor</span>
-              <select
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold"
-              >
-                {tutors.map((t) => (
-                  <option key={t.slug} value={t.slug}>
-                    {t.name} — /{t.slug}
-                  </option>
+              <Typeahead
+                placeholder="Search by name, area or subject…"
+                ariaLabel="Search tutors"
+                suggest={false}
+                onQueryChange={setQuery}
+              />
+              <ul className="max-h-64 space-y-1 overflow-y-auto">
+                {matches.map((t) => (
+                  <li key={t.slug}>
+                    <button
+                      type="button"
+                      onClick={() => setSlug(t.slug)}
+                      className={`flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left ${
+                        slug === t.slug ? 'border-tm-navy bg-tm-bg' : 'border-gray-200'
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-bold text-tm-navy">{t.name}</span>
+                        <span className="block truncate text-[10px] text-gray-500">
+                          {[t.area, t.city].filter(Boolean).join(', ') || 'Pakistan'}
+                          {t.subjects.length > 0 ? ` · ${t.subjects.slice(0, 2).join(', ')}` : ''}
+                        </span>
+                      </span>
+                      {slug === t.slug && <span className="shrink-0 text-[10px] font-bold text-tm-navy">Selected</span>}
+                    </button>
+                  </li>
                 ))}
-              </select>
-            </label>
+                {matches.length === 0 && (
+                  <li className="px-1 py-2 text-[11px] text-gray-500">No tutor matches that.</li>
+                )}
+              </ul>
+            </div>
 
             <fieldset className="space-y-2">
               <legend className="text-[11px] font-bold text-gray-500">Template</legend>
@@ -182,19 +232,52 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
 
             <label className="block space-y-1">
               <span className="text-[11px] font-bold text-gray-500">
-                Headline (optional — replaces the tutor&rsquo;s own)
+                {template === 'success'
+                  ? 'Headline (the occasion — e.g. “You’re Verified!”)'
+                  : template === 'announcement'
+                    ? 'Headline (the announcement)'
+                    : 'Headline (optional — replaces the tutor’s own)'}
               </span>
               <input
                 value={headline}
                 maxLength={90}
                 onChange={(e) => setHeadline(e.target.value)}
-                placeholder={tutor?.headline ?? 'Verified tutor on TutorMint'}
+                placeholder={
+                  template === 'success'
+                    ? "You're Verified!"
+                    : template === 'announcement'
+                      ? 'New verified tutors this month'
+                      : (tutor?.headline ?? 'Verified tutor on TutorMint')
+                }
                 className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs font-semibold"
               />
-              <span className="block text-[10px] text-gray-500">
-                {headline.length}/90 · the only line you can change
-              </span>
+              <span className="block text-[10px] text-gray-500">{headline.length}/90</span>
             </label>
+
+            {isAnnouncement && (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-bold text-gray-500">Date (optional)</span>
+                  <input
+                    value={dateLabel}
+                    maxLength={40}
+                    onChange={(e) => setDateLabel(e.target.value)}
+                    placeholder="September 2026"
+                    className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs font-semibold"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-bold text-gray-500">Detail / venue (optional)</span>
+                  <input
+                    value={subhead}
+                    maxLength={90}
+                    onChange={(e) => setSubhead(e.target.value)}
+                    placeholder="tutormint.org"
+                    className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs font-semibold"
+                  />
+                </label>
+              </div>
+            )}
 
             <button
               type="button"
@@ -205,8 +288,6 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
               <Download size={14} />
               {busy ? 'Rendering…' : 'Download PNG'}
             </button>
-
-            {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
           </section>
 
           <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">

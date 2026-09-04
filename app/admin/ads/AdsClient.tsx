@@ -10,6 +10,8 @@ import { useRouter } from 'next/navigation'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import { formatDate } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { QueueAdRow } from '@/lib/adminQueues'
 
 // The ads screen: a create form and a list with per-ad analytics.
@@ -59,6 +61,8 @@ export default function AdsClient({
   const [creating, setCreating] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const toast = useToast()
+  const confirm = useConfirm()
 
   const post = async (body: FormData, id: string) => {
     setBusy(id)
@@ -70,7 +74,9 @@ export default function AdsClient({
       router.refresh()
       return json
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not work.')
+      const message = e instanceof Error ? e.message : 'That did not work.'
+      setError(message)
+      toast.error(message)
       return null
     } finally {
       setBusy(null)
@@ -87,23 +93,33 @@ export default function AdsClient({
       setForm(EMPTY)
       setFile(null)
       setCreating(false)
+      toast.success('Advertisement created as a draft.')
     }
   }
 
-  const setStatus = (id: string, status: string) => {
+  const setStatus = async (id: string, status: string) => {
     const fd = new FormData()
     fd.set('action', 'status')
     fd.set('adId', id)
     fd.set('status', status)
-    return post(fd, id)
+    const json = await post(fd, id)
+    if (json) toast.success(status === 'active' ? 'Advertisement is live.' : 'Advertisement paused.')
+    return json
   }
 
-  const remove = (id: string, title: string) => {
-    if (!window.confirm(`Delete “${title}”? Its impression and click history goes with it.`)) return
+  const remove = async (id: string, title: string) => {
+    const ok = await confirm({
+      title: `Delete “${title}”?`,
+      body: 'Its impression and click history goes with it. This cannot be undone.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     const fd = new FormData()
     fd.set('action', 'delete')
     fd.set('adId', id)
-    return post(fd, id)
+    const json = await post(fd, id)
+    if (json) toast.success('Advertisement deleted.')
+    return json
   }
 
   return (

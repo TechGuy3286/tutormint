@@ -5,7 +5,10 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
+import { cookies } from 'next/headers'
 import { logSearchPerformed } from '@/lib/activityLog'
+import { logAnonSearch } from '@/lib/anonSearch'
+import { ANON_COOKIE, isAnonId } from '@/lib/anonSession'
 import TutorCard, { type TutorCardData, type CardViewer } from '@/components/TutorCard'
 import AdSlot from '@/components/ads/AdSlot'
 import TutorFilterBar, { type FilterValues } from './TutorFilterBar'
@@ -229,6 +232,22 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
         },
         results: total,
       })
+    }
+  } else {
+    // Guests are most of the traffic on a "feels free" site, so their searches
+    // are most of the demand. Logged session-scoped and anonymous — see
+    // lib/anonSearch.ts — never on any member timeline.
+    const filtered = !!(subjectId || city || area || mode || gender || feeMin || feeMax || q)
+    if (filtered) {
+      const sessionId = (await cookies()).get(ANON_COOKIE)?.value
+      if (isAnonId(sessionId)) {
+        await logAnonSearch({
+          sessionId,
+          surface: 'tutors',
+          filters: { master_id: subjectId, city: city || null, area: area || null, mode: mode || null, gender: gender || null },
+          results: total,
+        })
+      }
     }
   }
 

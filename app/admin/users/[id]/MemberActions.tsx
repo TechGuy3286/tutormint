@@ -5,6 +5,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/components/admin/adminFetch'
+import { useToast } from '@/components/ui/Toast'
 
 // Quick actions on a member page.
 //
@@ -35,6 +36,7 @@ export default function MemberActions({
   isTutor: boolean
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [open, setOpen] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
@@ -55,9 +57,18 @@ export default function MemberActions({
       if (!ok) throw new Error(json.error ?? 'That did not work.')
       setOpen(null)
       setReason('')
+      toast.success(
+        action === 'warn'
+          ? 'Warning sent. The member has been notified.'
+          : action === 'unsuspend'
+            ? 'Reinstated. The member has been notified.'
+            : 'Suspended. The member has been notified.',
+      )
       router.refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not work.')
+      const msg = e instanceof Error ? e.message : 'That did not work.'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setBusy(false)
     }

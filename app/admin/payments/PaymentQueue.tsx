@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import StatusChip from '@/components/admin/StatusChip'
 import { adminFetch } from '@/components/admin/adminFetch'
+import { useToast } from '@/components/ui/Toast'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
 import type { QueuePaymentRow, QueueSubscriptionRow } from '@/lib/adminQueues'
@@ -47,6 +48,7 @@ export default function PaymentQueue({
   subscriptionsTotal: number
 }) {
   const router = useRouter()
+  const toast = useToast()
   // Two lists on one screen, two cursors. They page independently: reading
   // further down the ledger has nothing to do with the queue above it.
   const morePayments = useInfinite<QueuePayment>({
@@ -83,9 +85,16 @@ export default function PaymentQueue({
       if (!ok) throw new Error(json.error ?? 'That did not work.')
       setRejecting(null)
       setReason('')
+      toast.success(
+        action === 'approve'
+          ? 'Payment approved. The member has been notified.'
+          : 'Payment rejected. The member has been notified.',
+      )
       router.refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not work.')
+      const msg = e instanceof Error ? e.message : 'That did not work.'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setBusy(null)
     }

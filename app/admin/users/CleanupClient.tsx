@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
+import { useToast } from '@/components/ui/Toast'
 import { formatDate } from '@/lib/datetime'
 
 export type Candidate = {
@@ -33,6 +34,7 @@ export default function CleanupClient({
   scanned: number
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -63,11 +65,18 @@ export default function CleanupClient({
         `Deleted ${json.deleted} account${json.deleted === 1 ? '' : 's'}` +
           (json.refused ? ` · ${json.refused} refused (they have activity now)` : ''),
       )
+      toast.success(
+        typeof json.deleted === 'number'
+          ? `Deleted ${json.deleted} account${json.deleted === 1 ? '' : 's'}.`
+          : 'Junk accounts deleted.',
+      )
       setSelected(new Set())
       setConfirm('')
       router.refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not work.')
+      const msg = e instanceof Error ? e.message : 'That did not work.'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setBusy(false)
     }

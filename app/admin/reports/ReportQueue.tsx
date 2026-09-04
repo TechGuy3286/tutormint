@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, Lock, MessageSquare, X } from 'lucide-react'
 import InfiniteFooter from '@/components/InfiniteFooter'
+import { useToast } from '@/components/ui/Toast'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
 import type { QueueBlockRow, QueueReportRow } from '@/lib/adminQueues'
@@ -48,6 +49,7 @@ export default function ReportQueue({
   blocksTotal: number
 }) {
   const router = useRouter()
+  const toast = useToast()
   const moreReports = useInfinite<QueueReport>({
     endpoint: '/api/admin/queues/reports',
     params: { filter },
@@ -81,9 +83,20 @@ export default function ReportQueue({
       if (!res.ok) throw new Error(json.error ?? 'That did not work.')
       setActing(null)
       setReason('')
+      toast.success(
+        action === 'dismiss'
+          ? 'Report dismissed.'
+          : action === 'warn'
+            ? 'Warning sent. The member has been notified.'
+            : action === 'unsuspend'
+              ? 'Member reinstated. The member has been notified.'
+              : 'Member suspended. The member has been notified.',
+      )
       router.refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not work.')
+      const msg = e instanceof Error ? e.message : 'That did not work.'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setBusy(null)
     }

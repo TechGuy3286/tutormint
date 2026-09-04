@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 // Close, un-feature, remove.
 //
@@ -31,9 +33,18 @@ export default function JobActions({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  const toast = useToast()
+  const confirm = useConfirm()
 
   const act = async (action: 'close' | 'unfeature' | 'remove') => {
-    if (action === 'remove' && !window.confirm('Remove this tuition from the board?')) return
+    if (action === 'remove') {
+      const ok = await confirm({
+        title: 'Remove this tuition from the board?',
+        body: 'It closes and loses its Featured tag. Nothing is deleted — the post, its applications and its conversations stay.',
+        confirmLabel: 'Remove',
+      })
+      if (!ok) return
+    }
     setBusy(action)
     setError(null)
     setDone(null)
@@ -45,17 +56,20 @@ export default function JobActions({
     })
 
     if (r.ok) {
-      setDone(
+      const message =
         action === 'close'
           ? 'Closed. The parent has been notified.'
           : action === 'unfeature'
             ? 'Featured tag removed. The parent has been notified.'
-            : 'Removed from the board. The parent has been notified.',
-      )
+            : 'Removed from the board. The parent has been notified.'
+      setDone(message)
+      toast.success(message)
       setReason('')
       router.refresh()
     } else {
-      setError(r.data?.error ?? 'Could not do that.')
+      const message = r.data?.error ?? 'Could not do that.'
+      setError(message)
+      toast.error(message)
     }
     setBusy(null)
   }

@@ -17,10 +17,12 @@ export default function MoreOpenJobs({
   initialCursor,
   total,
   serverCount,
+  viewerCity = null,
 }: {
   initialCursor: string | null
   total: number
   serverCount: number
+  viewerCity?: string | null
 }) {
   // The board takes no filters, so its identity is fixed — but the key still
   // gets a name of its own so restoring it can never collide with the stored
@@ -47,6 +49,7 @@ export default function MoreOpenJobs({
                 signedIn
                 showApply
                 applied={!!j.applied}
+                viewerCity={viewerCity}
               />
             </div>
           ))}

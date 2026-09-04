@@ -9,6 +9,8 @@ import InfiniteFooter from '@/components/InfiniteFooter'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import StatusChip from '@/components/admin/StatusChip'
 import { useInfinite } from '@/lib/useInfinite'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { QueueParentRow } from '@/lib/adminQueues'
 
 export type QueueParent = QueueParentRow
@@ -43,12 +45,22 @@ export default function ParentVerificationClient({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
+  const toast = useToast()
+  const confirm = useConfirm()
 
   async function act(action: 'approve' | 'reject') {
     if (!open) return
     if (reason.trim().length < 3) {
       setErr('Write a reason — it is recorded, and a rejection reason is shown to the parent.')
       return
+    }
+    if (action === 'reject') {
+      const ok = await confirm({
+        title: `Reject ${open.fullName}'s verification?`,
+        body: 'They cannot post jobs until they correct and resubmit. Your reason is shown to them.',
+        confirmLabel: 'Reject',
+      })
+      if (!ok) return
     }
     setBusy(true)
     setErr('')
@@ -67,14 +79,16 @@ export default function ParentVerificationClient({
 
     if (!ok) {
       setErr(failed ?? 'Action failed.')
+      toast.error(failed ?? 'Action failed.')
       return
     }
 
-    setMsg(
+    const message =
       action === 'approve'
         ? `${open.fullName} approved — they can now post jobs.`
-        : `${open.fullName} rejected. They can correct and resubmit.`,
-    )
+        : `${open.fullName} rejected. They can correct and resubmit.`
+    setMsg(message)
+    toast.success(message)
     setReason('')
     setOpen(null)
     router.refresh()

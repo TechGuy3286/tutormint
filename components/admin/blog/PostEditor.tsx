@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { AlertCircle, AlertTriangle, CheckCircle2, Eye, Lock, Pencil, Sparkles } from 'lucide-react'
 
 import FileUpload from '@/components/FileUpload'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import {
   AUDIENCES,
   LANGUAGES,
@@ -87,6 +89,8 @@ export default function PostEditor({
   const [scheduleAt, setScheduleAt] = useState('')
   const [generating, setGenerating] = useState(false)
   const [genNote, setGenNote] = useState<string | null>(null)
+  const toast = useToast()
+  const confirm = useConfirm()
   // The in-progress "confirm with a source" input, keyed by figure.
   const [confirmDraft, setConfirmDraft] = useState<Record<string, string>>({})
   // The body textarea, for the toolbar to insert Markdown at the cursor.
@@ -154,11 +158,13 @@ export default function PostEditor({
       const data = await res.json()
       if (!res.ok) {
         setError(data.error ?? 'That did not go through.')
+        toast.error(data.error ?? 'That did not go through.')
         return null
       }
       return data
     } catch {
       setError('Network error. Try again.')
+      toast.error('Network error. Try again.')
       return null
     } finally {
       setBusy(false)
@@ -333,6 +339,7 @@ export default function PostEditor({
     saved.current = next
     setDirty(false)
     setNotice('Saved.')
+    toast.success('Saved.')
     if (!initial.id && data.id) {
       // A brand-new post now has a URL — move to it so a refresh keeps the id.
       router.replace(`/admin/blog/${data.id}`)
@@ -348,6 +355,7 @@ export default function PostEditor({
     setPost(next)
     saved.current = next
     setNotice('Published. It is live now.')
+    toast.success('Published. It is live now.')
     router.refresh()
   }
 
@@ -362,25 +370,39 @@ export default function PostEditor({
     setPost(next)
     saved.current = next
     setNotice('Scheduled.')
+    toast.success('Scheduled.')
     router.refresh()
   }
 
   async function doUnpublish() {
     if (!post.id) return
+    const ok = await confirm({
+      title: 'Unpublish this post?',
+      body: 'The live page comes down and shows a friendly notice with a link to the blog. You can publish it again later.',
+      confirmLabel: 'Unpublish',
+    })
+    if (!ok) return
     const data = await post_('unpublish', { id: post.id })
     if (!data) return
     const next = { ...post, status: 'unpublished' as PostStatus }
     setPost(next)
     saved.current = next
     setNotice('Unpublished. The page now shows a friendly notice with a link to the blog.')
+    toast.success('Unpublished.')
     router.refresh()
   }
 
   async function doDelete() {
     if (!post.id) return
-    if (!window.confirm('Delete this post permanently? This cannot be undone.')) return
+    const ok = await confirm({
+      title: 'Delete this post permanently?',
+      body: 'This cannot be undone. If you only want to take it off the site, unpublish it instead.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     const data = await post_('delete', { id: post.id })
     if (!data) return
+    toast.success('Post deleted.')
     router.replace('/admin/blog')
   }
 

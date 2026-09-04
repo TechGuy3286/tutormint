@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
 import NotificationCta from '@/components/notifications/NotificationCta'
+import OnlineSuitableChip from '@/components/OnlineSuitableChip'
 import { isPlanEnding } from '@/lib/feedGrouping'
 import type { NotificationRow } from '@/lib/notificationFeed'
 
@@ -227,6 +228,9 @@ function NotificationLine({ row, onNavigate }: { row: NotificationRow; onNavigat
         </span>
       </span>
       {row.body && <span className="block pt-0.5 text-[11px] leading-relaxed text-gray-500">{row.body}</span>}
+      {row.meta && (row.meta as Record<string, unknown>).online_suitable ? (
+        <span className="block pt-1"><OnlineSuitableChip /></span>
+      ) : null}
       <span className="block pt-0.5 text-[10px] text-gray-500"><TimeAgo iso={row.created_at} /></span>
     </>
   )

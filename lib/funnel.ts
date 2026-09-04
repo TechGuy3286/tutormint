@@ -12,6 +12,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { notify } from '@/lib/notifications'
+import { matchVisibility } from '@/lib/matchChip'
 
 export type Position = {
   /** 1-based rank among listed tutors for this subject and city. */
@@ -228,6 +229,12 @@ export type WeekJob = {
    * location relationship, so a matched card explains itself.
    */
   matchReason: string
+  /**
+   * The job is in a different city from the tutor but can be taught online, so
+   * the strip shows a "Suitable for online" chip. In-person cross-city jobs are
+   * not matches and are dropped before this list is built (lib/matchChip.ts).
+   */
+  onlineSuitable: boolean
 }
 
 /** Jobs opened in the last 7 days that match this tutor's subjects. */
@@ -244,22 +251,28 @@ export async function jobsThisWeek(userId: string, city: string | null): Promise
 
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
 
-  let q = db
+  // No city filter in SQL. A same-city job matches; a cross-city job matches
+  // ONLY when it can be taught online. We over-fetch and apply that rule in JS
+  // (matchVisibility), because filtering to a single city in SQL would drop the
+  // cross-city online matches this strip is meant to surface, and a LIMIT
+  // before the rule could drop good matches for excluded ones.
+  const { data } = await db
     .from('jobs')
     .select('id, job_tx_id, title, city, area, created_at, teaching_mode')
     .in('id', jobIds)
     .eq('status', 'open')
     .gte('created_at', weekAgo)
     .order('created_at', { ascending: false })
-    .limit(5)
+    .limit(20)
 
-  if (city) q = q.eq('city', city)
-
-  const { data } = await q
-  const rows = (data ?? []) as {
+  const allRows = (data ?? []) as {
     id: string; job_tx_id: string | null; title: string; city: string | null
     area: string | null; created_at: string; teaching_mode: string | null
   }[]
+  // Drop in-person jobs in another city — not a match — then take the strip's 5.
+  const rows = allRows
+    .filter((r) => matchVisibility(r.city, r.teaching_mode, city) !== 'exclude')
+    .slice(0, 5)
   if (rows.length === 0) return []
 
   // Which of THIS tutor's subjects each shown job shares, and the name of one,
@@ -306,14 +319,12 @@ export async function jobsThisWeek(userId: string, city: string | null): Promise
     }
   }
 
-  const norm = (v: string | null | undefined) => (v ?? '').trim().toLowerCase()
-
   return rows.map((r) => {
     const masterId = sharedMasterByJob.get(r.id)
     const subject = masterId !== undefined ? labelByMaster.get(masterId) : null
-    const sameCity = !!city && norm(r.city) !== '' && norm(r.city) === norm(city)
-    const onlinePossible = r.teaching_mode === 'online' || r.teaching_mode === 'both'
-    const where = sameCity ? 'same city' : onlinePossible ? 'online possible' : null
+    const visibility = matchVisibility(r.city, r.teaching_mode, city)
+    const onlineSuitable = visibility === 'online'
+    const where = visibility === 'same_city' ? (city ? 'same city' : null) : 'online possible'
     const matchReason = subject
       ? `Matched: ${subject}${where ? ` · ${where}` : ''}`
       : where
@@ -327,6 +338,7 @@ export async function jobsThisWeek(userId: string, city: string | null): Promise
       area: r.area,
       created_at: r.created_at,
       matchReason,
+      onlineSuitable,
     }
   })
 }

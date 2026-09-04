@@ -33,6 +33,8 @@ export async function GET(request: Request) {
   const format = url.searchParams.get('format') ?? 'square'
   const template = url.searchParams.get('template') ?? 'spotlight'
   const headline = (url.searchParams.get('headline') ?? '').slice(0, 90)
+  const subhead = (url.searchParams.get('subhead') ?? '').slice(0, 90)
+  const dateLabel = (url.searchParams.get('date') ?? '').slice(0, 40)
 
   if (!FORMATS[format]) return new Response('Unknown format.', { status: 400 })
 
@@ -41,7 +43,7 @@ export async function GET(request: Request) {
 
   const { data: tutor } = await admin
     .from('tutor_directory')
-    .select('id, slug, full_name, headline, city, area, subjects, rating_avg, rating_count, avatar_url')
+    .select('id, slug, full_name, headline, city, area, subjects, rating_avg, rating_count, avatar_url, experience_years')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -62,5 +64,7 @@ export async function GET(request: Request) {
     format,
     template,
     headline,
+    subhead,
+    dateLabel,
   })
 }

@@ -78,6 +78,12 @@ export async function notify(params: {
   title: string
   body?: string | null
   href?: string | null
+  /**
+   * A small structured bag the card can style from — e.g. { online_suitable:
+   * true } so a cross-city matched-tuition notification shows the "Suitable for
+   * online" chip. Defaults to '{}'. Never message text; the privacy line holds.
+   */
+  meta?: Record<string, unknown> | null
 }): Promise<void> {
   const admin = createAdminClient()
   if (!admin) {
@@ -91,6 +97,7 @@ export async function notify(params: {
     title: params.title,
     body: params.body ?? null,
     href: params.href ?? null,
+    meta: params.meta ?? {},
   })
 
   if (error) console.error('[notify] failed', params.kind, error.message)

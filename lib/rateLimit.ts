@@ -29,6 +29,7 @@ export type BucketName =
   | 'report'
   | 'password_change'
   | 'search'
+  | 'anon_search'
   | 'ai_generate'
   | 'ai_blog'
   | 'client_error'
@@ -62,6 +63,11 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   // is sized to stop a scraper walking the directory through the suggest
   // endpoint, not to ration typing. Anyone who meets it is not searching.
   search: { windowSeconds: 60, max: 90 },
+  // Anonymous browse-search telemetry, keyed on the per-device anon session id
+  // (lib/anonSearch.ts). The browse page logs at most one collapsed event per
+  // filter change, so an honest visitor never approaches this; it stops a
+  // scraper from writing our demand signal for us by walking the board.
+  anon_search: { windowSeconds: 60, max: 20 },
   // Writing a job post with the Claude API. Tighter than the other activity
   // buckets and for a different reason: every call costs real money, the way
   // otp_send does. Twenty an hour is far more than a parent posting one

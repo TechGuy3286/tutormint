@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Copy, KeyRound, Mail, ShieldAlert, Undo2 } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 // The Team screen.
 //
@@ -49,6 +51,8 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
   } | null>(null)
   const [suspendingId, setSuspendingId] = useState<string | null>(null)
   const [reason, setReason] = useState('')
+  const toast = useToast()
+  const confirm = useConfirm()
 
   const call = async (payload: Record<string, unknown>, id: string) => {
     setBusy(id)
@@ -66,16 +70,34 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
       router.refresh()
       return json
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not work.')
+      const message = e instanceof Error ? e.message : 'That did not work.'
+      setError(message)
+      toast.error(message)
       return null
     } finally {
       setBusy(null)
     }
   }
 
+  // The role select fires immediately, so it confirms first — a mis-click on a
+  // dropdown must not silently hand someone finance or take it away.
+  const changeRole = async (s: StaffRow, adminRole: string) => {
+    if (adminRole === s.adminRole) return
+    const ok = await confirm({
+      title: `Change ${s.name}'s role to ${adminRole}?`,
+      body: 'It takes effect immediately and is recorded in the audit log.',
+      confirmLabel: 'Change role',
+      destructive: false,
+    })
+    if (!ok) return
+    const json = await call({ action: 'role', userId: s.id, adminRole }, s.id)
+    if (json) toast.success(`${s.name} is now ${adminRole}.`)
+  }
+
   const create = async () => {
     const json = await call({ action: 'create', ...form }, 'new')
     if (!json) return
+    toast.success('Staff account created.')
     setNewAccount({
       email: form.email,
       invited: !!json.invited,
@@ -280,7 +302,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                   <select
                     value={s.adminRole}
                     disabled={busy === s.id}
-                    onChange={(e) => call({ action: 'role', userId: s.id, adminRole: e.target.value }, s.id)}
+                    onChange={(e) => changeRole(s, e.target.value)}
                     className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold"
                   >
                     {ROLES.map((r) => (
@@ -305,7 +327,8 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                         type="button"
                         disabled={reason.trim().length < 5 || busy === s.id}
                         onClick={async () => {
-                          await call({ action: 'suspend', userId: s.id, reason }, s.id)
+                          const json = await call({ action: 'suspend', userId: s.id, reason }, s.id)
+                          if (json) toast.success(`${s.name}'s access suspended.`)
                           setSuspendingId(null)
                           setReason('')
                         }}
@@ -329,7 +352,10 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                   <button
                     type="button"
                     disabled={busy === s.id}
-                    onClick={() => call({ action: 'reactivate', userId: s.id }, s.id)}
+                    onClick={async () => {
+                      const json = await call({ action: 'reactivate', userId: s.id }, s.id)
+                      if (json) toast.success(`${s.name}'s access reactivated.`)
+                    }}
                     className="min-h-[44px] w-full rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white"
                   >
                     Reactivate

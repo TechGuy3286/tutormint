@@ -10,6 +10,8 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { Building2, Clock, FileText, GraduationCap, MapPin, Wallet } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
+import OnlineSuitableChip from '@/components/OnlineSuitableChip'
+import { showsOnlineChip } from '@/lib/matchChip'
 import { teachingMode } from '@/lib/display'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import Avatar from '@/components/Avatar'
@@ -67,6 +69,7 @@ export default function JobCard({
   signedIn = false,
   showApply = false,
   applied = false,
+  viewerCity = null,
 }: {
   job: JobCardData
   href?: string
@@ -75,6 +78,12 @@ export default function JobCard({
   showApply?: boolean
   /** This tutor has already applied. */
   applied?: boolean
+  /**
+   * The viewing tutor's own city, when the viewer is a signed-in tutor. Used
+   * only to show the "Suitable for online" chip on a cross-city online job.
+   * Null for guests and parents — no chip, the board still shows every job.
+   */
+  viewerCity?: string | null
 }) {
   const upgradeSheet = useUpgradeSheet()
   const toast = useToast()
@@ -213,9 +222,10 @@ export default function JobCard({
                 'Flexible'}
             </p>
             {teachingMode(job.teaching_mode) && (
-              <p className="flex items-center gap-2 text-xs text-slate-700">
+              <p className="flex flex-wrap items-center gap-2 text-xs text-slate-700">
                 <Building2 size={14} className="shrink-0 text-gray-500" />
                 {teachingMode(job.teaching_mode)}
+                {showsOnlineChip(job.city, job.teaching_mode, viewerCity) && <OnlineSuitableChip />}
               </p>
             )}
             {/* The BAND the parent chose, when there is one. Rendering only

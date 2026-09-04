@@ -3,6 +3,7 @@
 import { useState } from 'react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
+import { useToast } from '@/components/ui/Toast'
 import { slugify } from '@/lib/slugs'
 
 // The one place a tutor's public address can be changed.
@@ -27,6 +28,7 @@ export default function SlugField({
   initialSlug: string | null
   canEdit: boolean
 }) {
+  const toast = useToast()
   const [slug, setSlug] = useState(initialSlug ?? '')
   const [saved, setSaved] = useState(initialSlug ?? '')
   const [busy, setBusy] = useState<'idle' | 'suggesting' | 'saving'>('idle')
@@ -69,7 +71,12 @@ export default function SlugField({
       body: JSON.stringify({ tutorId, slug: normalised }),
     })
     setBusy('idle')
-    if (!r.ok) return setError(r.data?.error ?? 'Could not save that address.')
+    if (!r.ok) {
+      const msg = r.data?.error ?? 'Could not save that address.'
+      setError(msg)
+      toast.error(msg)
+      return
+    }
 
     const next = r.data?.slug ?? normalised
     setSlug(next)
@@ -80,6 +87,11 @@ export default function SlugField({
         : r.data?.previous
           ? `Saved. /tutor/${r.data.previous} now redirects here, and the tutor has been told.`
           : 'Saved. The tutor has been told.',
+    )
+    toast.success(
+      r.data?.unchanged
+        ? 'No change — the address is already that.'
+        : 'Public URL updated. The old link now redirects.',
     )
   }
 

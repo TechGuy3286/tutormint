@@ -19,6 +19,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { UTM_COOKIE, UTM_MAX_AGE_SECONDS, encodeUtm, readUtmFromUrl } from '@/lib/utm'
+import { ANON_COOKIE, ANON_MAX_AGE_SECONDS, newAnonId } from '@/lib/anonSession'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
 // return screen). Every page under it reads the signed-in member's own
@@ -119,10 +120,31 @@ function captureUtm(request: NextRequest, response: NextResponse): void {
   })
 }
 
+/**
+ * A pseudonymous per-device id for anonymous search telemetry.
+ *
+ * Set only when ABSENT (like the UTM cookie), so it is stable for the life of
+ * the cookie. It is a random uuid — no IP, no fingerprint, no PII. httpOnly:
+ * nothing in the browser needs to read it, and it must not be settable from
+ * client script. The browse page reads it server-side to collapse a guest's
+ * searches into one demand signal; see lib/anonSearch.ts.
+ */
+function captureAnon(request: NextRequest, response: NextResponse): void {
+  if (request.cookies.has(ANON_COOKIE)) return
+  response.cookies.set(ANON_COOKIE, newAnonId(), {
+    maxAge: ANON_MAX_AGE_SECONDS,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  })
+}
+
 export async function proxy(request: NextRequest) {
   const forwarded = withTuitionCity(request) ?? request
   let response = NextResponse.next({ request: forwarded })
   captureUtm(request, response)
+  captureAnon(request, response)
 
   const supabaseKey =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
@@ -147,6 +169,7 @@ export async function proxy(request: NextRequest) {
         // exactly the requests that refreshed a token, which is a subset
         // nobody would think to test.
         captureUtm(request, response)
+        captureAnon(request, response)
         cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
       },
     },

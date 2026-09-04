@@ -51,25 +51,43 @@ const REPORT_MIN = 3
  */
 async function searchGapCandidates(admin: Admin, covered: Set<string>): Promise<Candidate[]> {
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString()
-  const { data } = await admin
-    .from('user_activity_log')
-    .select('meta')
-    .eq('event', 'search_performed')
-    .gte('created_at', since)
-    .limit(5000)
+
+  // Both signals: member searches (user_activity_log, filtered on the tutors
+  // surface) AND anonymous searches (anon_search_events — most of the traffic
+  // on a "feels free" site). Counted into one map so demand reflects everyone,
+  // not only the signed-in minority.
+  const [members, anon] = await Promise.all([
+    admin
+      .from('user_activity_log')
+      .select('meta')
+      .eq('event', 'search_performed')
+      .gte('created_at', since)
+      .limit(5000),
+    admin
+      .from('anon_search_events')
+      .select('surface, master_id, city')
+      .eq('surface', 'tutors')
+      .gte('created_at', since)
+      .limit(5000),
+  ])
 
   // Count searches per (master_id, city), tutors surface only.
   const counts = new Map<string, { masterId: number; city: string; n: number }>()
-  for (const row of data ?? []) {
-    const meta = (row.meta ?? {}) as Record<string, unknown>
-    if (meta.surface !== 'tutors') continue
-    const masterId = Number(meta.master_id)
-    const city = typeof meta.city === 'string' ? meta.city.trim() : ''
-    if (!masterId || !city) continue
+  const tally = (masterId: number, cityRaw: unknown) => {
+    const city = typeof cityRaw === 'string' ? cityRaw.trim() : ''
+    if (!masterId || !city) return
     const key = `${masterId}::${city.toLowerCase()}`
     const cur = counts.get(key) ?? { masterId, city, n: 0 }
     cur.n += 1
     counts.set(key, cur)
+  }
+  for (const row of members.data ?? []) {
+    const meta = (row.meta ?? {}) as Record<string, unknown>
+    if (meta.surface !== 'tutors') continue
+    tally(Number(meta.master_id), meta.city)
+  }
+  for (const row of anon.data ?? []) {
+    tally(Number((row as { master_id: unknown }).master_id), (row as { city: unknown }).city)
   }
 
   const [byMaster, combos] = await Promise.all([subjectMetaByMaster(), liveCombinationsAll()])

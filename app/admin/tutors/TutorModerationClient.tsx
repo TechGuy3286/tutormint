@@ -10,6 +10,8 @@ import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import StatusChip from '@/components/admin/StatusChip'
 import { useInfinite } from '@/lib/useInfinite'
 import { submitJson, submitSignal } from '@/lib/submit'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { QueueTutorRow } from '@/lib/adminQueues'
 
 // The row shape is defined once, beside the query that builds it. A type-only
@@ -55,6 +57,8 @@ export default function TutorModerationClient({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
+  const toast = useToast()
+  const confirm = useConfirm()
 
   async function setVisibility(visibility: 'private' | 'unlisted' | 'public') {
     if (!open) return
@@ -71,11 +75,15 @@ export default function TutorModerationClient({
       if (!res.ok) throw new Error(json.error ?? 'That did not work.')
       // Say what actually happened. Without YOUTUBE_* credentials the choice is
       // recorded here and NOT applied on YouTube, and a green tick would be a lie.
-      setMsg(json.note ?? `Video is now ${visibility} on YouTube.`)
+      const note = json.note ?? `Video is now ${visibility} on YouTube.`
+      setMsg(note)
+      toast.success(note)
       setOpen({ ...open, videoVisibility: visibility })
       router.refresh()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'That did not work.')
+      const message = e instanceof Error ? e.message : 'That did not work.'
+      setErr(message)
+      toast.error(message)
     } finally {
       setBusy(false)
     }
@@ -86,6 +94,14 @@ export default function TutorModerationClient({
     if (reason.trim().length < 3) {
       setErr('Write a reason — it is recorded and shown to the tutor.')
       return
+    }
+    if (action === 'suspend') {
+      const ok = await confirm({
+        title: `Suspend ${open.fullName ?? 'this tutor'}?`,
+        body: 'They are delisted at once and lose posting, applying, contact and badges. Nothing is deleted; you can reinstate later.',
+        confirmLabel: 'Suspend',
+      })
+      if (!ok) return
     }
     setBusy(true)
     setErr('')
@@ -101,13 +117,15 @@ export default function TutorModerationClient({
 
     if (!ok) {
       setErr(failed ?? 'Action failed.')
+      toast.error(failed ?? 'Action failed.')
       return
     }
 
-    setMsg(
+    const message =
       `${action} recorded.` +
-        (data?.resubmissionLocked ? ' Resubmission is now locked (3 strikes).' : ''),
-    )
+      (data?.resubmissionLocked ? ' Resubmission is now locked (3 strikes).' : '')
+    setMsg(message)
+    toast.success(message)
     setReason('')
     setOpen(null)
     router.refresh()
