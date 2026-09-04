@@ -2058,3 +2058,103 @@ button sins; this one is enforced by review and the grep in the evidence.
   credential now (`components/tutor/CredentialEditor.tsx`): thumbnail, summary,
   Edit (expands the fields inline), Remove — the field group flex-wraps onto two
   lines inside the card at every width, and no byte count appears anywhere.
+
+## Roadmap — remaining (4 Sep 2026)
+
+The state of the world as of this date, so the next session starts from the plan
+rather than rediscovering it. Nothing here is built yet; the sections above
+describe what is.
+
+### Code, in order
+
+1. **Blog CMS part 2 — AI drafting.** A manager enters a title and 3–5 fact
+   notes and presses "Generate draft"; the server calls the Claude API
+   (`ANTHROPIC_API_KEY`, server-side) with the fixed brand brief (plain, warm,
+   Pakistan-specific; 900–1,400 words; answer-first; H2 sections; a table where
+   useful; an FAQ block; audience CTA; links to relevant landing pages; NEVER
+   invent statistics). Publish stays disabled until a human edits and ticks
+   reviewed — the part-1 gate is unchanged. Covers are auto-rendered via
+   `next/og` `ImageResponse` (1200×630 + 1080×1080) from title + cluster in brand
+   colours, 3–4 templates rotating by cluster, with a manual-upload override
+   (alt text mandatory). **The fallback when `ANTHROPIC_API_KEY` is absent is a
+   first-class path, not an error branch** — the same discipline as the
+   AI-assisted job posting (`lib/ai/`): no key, a failed call, unparseable JSON
+   or the wrong length composes a plain draft from the notes and says so in
+   words. The verifier that catches invented numbers (`unsupportedFacts`) is
+   reused. No key is set in any environment today, so every generation returns
+   the composed fallback until one is added.
+
+2. **Blog CMS part 3 — the content queue (9.4).** The system suggests what to
+   publish from: on-site `search_performed` events with low/zero results by
+   subject×city; Google Search Console API queries at positions 8–20; the
+   built-in Pakistani academic calendar (board registration Dec–Jan, Matric/Inter
+   exams Mar–May, O/A Level May–Jun & Oct–Nov, results Jul–Aug, admissions
+   Aug–Sep, Ramadan) suggesting six weeks ahead; content-map coverage gaps; and
+   support/FAQ/report reasons. Each suggestion carries a proposed title, cluster,
+   audience, language, a priority score and visible evidence lines, with Generate
+   / Snooze / Dismiss-with-reason. A Monday email digest to managers lists the
+   top 3 to publish plus posts due for refresh; nothing auto-publishes. The same
+   engine emits **recruitment-gap cards** (high searches, few tutors) routed to
+   the import/bulk-onboarding manager.
+
+3. **Growth — social templates + typeahead pickers.** Success-story and
+   announcement social templates built from the owner's reference artwork, added
+   to the existing `next/og` social generator (`/admin/social`). And the
+   instant-search typeahead (`components/search/Typeahead.tsx`) on the two admin
+   pickers that still use a plain input: the social generator's tutor picker and
+   `/admin/plans`' account search — with `suggest={false}` like `/admin/users`,
+   because those screens need parents, staff and unlisted rows the public
+   suggest index does not carry.
+
+4. **Moderation — offensive-word filter.** English / Urdu / Roman-Urdu, matched
+   server-side, that can block or warn on a message; the word list is
+   admin-editable (a table, not a constant). Three blocks against one member in a
+   day auto-files a report into the existing reports queue. It sits in the same
+   server path as number-masking (`lib/masking.ts` neighbourhood) so message
+   bodies are scanned once.
+
+5. **T8b — launch remainder.** Cloudflare Turnstile on `/login` and `/register`
+   via Supabase attack-protection; the nonce-based CSP threaded through
+   `proxy.ts` that closes the `'unsafe-inline'` gap documented in
+   `next.config.ts`; WhatsApp delivery of the T-3 expiry reminder
+   (`deliverExpiryReminder`, currently email-only); the region migration to
+   Mumbai `ap-south-1`; seed-data cleanup **on explicit owner instruction** (the
+   directory stays populated until then — see the seed-data notes); and the merge
+   of `rebuild` → `main`. Preview mode coming off is the launch gate, not a T8b
+   code task — see below.
+
+### Owner actions blocking launch (not code)
+
+- **SMS provider** — undecided (Twilio vs a Pakistani gateway). Mobile signup on
+  the live site cannot deliver OTPs until one exists. The hardest blocker.
+- **SMTP** on the Supabase project — not configured; password-reset email and
+  staff invites cannot send.
+- **AssanPay go-live** — in negotiation; until then manual transfer + admin
+  approval is the only paid path.
+- **CUIN and NTN** into `app_settings` (`company.reg_no`, `company.ntn`) — until
+  filled, every company-number row hides itself and the schema omits the
+  identifier, by design.
+- **Vercel Production Branch → `rebuild`** so a release is a normal deploy rather
+  than the manual `vercel redeploy --target production` used throughout.
+- **Logo artwork as one word** ("TutorMint") — the header and footer logo images
+  render "Tutor Mint" (two words); the brand rule wants one word everywhere a
+  member looks. New artwork is an owner/design task, not code.
+- **`ANTHROPIC_API_KEY`** in Vercel — without it the AI drafting (item 1) and the
+  AI-assisted job posting both serve their composed fallbacks.
+
+### Launch day
+
+Preview mode off (`NEXT_PUBLIC_PREVIEW_MODE=false` in Vercel, redeploy) — the one
+flag that flips noindex off and lets the sitemap list tutors, tuitions, landing
+pages and blog posts. Submit the sitemap to Google Search Console and Bing.
+Create the Google Business Profile for the Model Town office. Do this only once
+real, verified tutors are listed — submitting a sitemap while noindex is the
+contradiction that wastes the launch.
+
+### Ideas not yet decided
+
+- **Tutor-facing search-performance panel** — "you appeared for these searches,
+  at these positions". Post-launch, and it needs the Search Console API wired
+  first (part 3 brings that in).
+- **Meta-ads landing pages** — dedicated campaign entry pages, separate from the
+  organic city×subject landing pages. Not scoped; needs an ads decision first.
