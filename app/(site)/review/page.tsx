@@ -155,7 +155,7 @@ export default function ReviewPage() {
 
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 w-full py-4 bg-slate-900 hover:bg-tm-green-deep text-white font-bold text-xs tracking-widest uppercase rounded-xl shadow-lg transition-all"
+              className="inline-flex items-center gap-1.5 w-full py-4 bg-slate-900 hover:bg-tm-green-deep text-white font-bold text-xs rounded-xl shadow-lg transition-all"
             >
               <Send aria-hidden size={14} />
               Submit Review & Publish to Profile

@@ -64,7 +64,7 @@ export default function CancellationModal({ jobTxId, scheduledTime, onClose }: {
             <button
               type="button"
               onClick={onClose}
-              className="items-center gap-1.5 flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-slate-700 font-bold text-xs uppercase rounded-xl transition-all"
+              className="items-center gap-1.5 flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-slate-700 font-bold text-xs rounded-xl transition-all"
             >
               <CalendarCheck aria-hidden size={14} />
               Keep Demo
@@ -72,7 +72,7 @@ export default function CancellationModal({ jobTxId, scheduledTime, onClose }: {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase rounded-xl transition-all shadow-md disabled:opacity-50"
+              className="flex-1 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl transition-all shadow-md disabled:opacity-50"
             >
               {loading ? 'Processing...' : 'Confirm Cancellation'}
             </button>
