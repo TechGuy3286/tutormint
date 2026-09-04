@@ -27,6 +27,7 @@ export function toEditorPost(row: Record<string, unknown>): EditorPost {
     language: (row.language as PostLanguage) ?? 'en',
     body: (row.body as string) ?? '',
     coverPath: (row.cover_path as string) ?? null,
+    coverSquarePath: (row.cover_square_path as string) ?? null,
     coverAlt: (row.cover_alt as string) ?? null,
     seoTitle: (row.seo_title as string) ?? '',
     seoDescription: (row.seo_description as string) ?? '',
@@ -35,6 +36,9 @@ export function toEditorPost(row: Record<string, unknown>): EditorPost {
     editedByHuman: !!row.edited_by_human,
     status: (row.status as PostStatus) ?? 'draft',
     publishAt: (row.publish_at as string) ?? null,
+    sourceNotes: (row.source_notes as string) ?? '',
+    confirmedFigures:
+      (row.confirmed_figures as { figure: string; source: string }[] | null) ?? [],
   }
 }
 
@@ -49,6 +53,7 @@ export function emptyEditorPost(): EditorPost {
     language: 'en',
     body: '',
     coverPath: null,
+    coverSquarePath: null,
     coverAlt: null,
     seoTitle: '',
     seoDescription: '',
@@ -57,5 +62,7 @@ export function emptyEditorPost(): EditorPost {
     editedByHuman: false,
     status: 'draft',
     publishAt: null,
+    sourceNotes: '',
+    confirmedFigures: [],
   }
 }

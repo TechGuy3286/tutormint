@@ -30,7 +30,12 @@ const PROSE =
   '[&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-tm-black [&_pre]:p-3 [&_pre]:text-xs [&_pre]:text-slate-100 ' +
   '[&_pre_code]:bg-transparent [&_pre_code]:px-0 [&_pre_code]:py-0 ' +
   '[&_hr]:my-6 [&_hr]:border-gray-200 ' +
-  '[&_img]:my-4 [&_img]:rounded-xl'
+  '[&_img]:my-4 [&_img]:rounded-xl ' +
+  // Wide tables scroll inside their own box rather than the page (the
+  // no-horizontal-scroll rule): display:block + overflow-x-auto on the table.
+  '[&_table]:my-4 [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-xs ' +
+  '[&_th]:border [&_th]:border-gray-200 [&_th]:bg-tm-tint-navy [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-bold [&_th]:text-tm-navy ' +
+  '[&_td]:border [&_td]:border-gray-200 [&_td]:px-3 [&_td]:py-2 [&_td]:align-top'
 
 export default function PostBody({ segments }: { segments: MarkdownSegment[] }) {
   return (

@@ -13,6 +13,7 @@ export default async function NewPostPage() {
       initial={emptyEditorPost()}
       landingOptions={landingOptions}
       canPublishCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogPublish)}
+      canGenerate={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogGenerate)}
     />
   )
 }

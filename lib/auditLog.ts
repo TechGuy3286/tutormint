@@ -52,6 +52,9 @@ export type AuditAction =
   | 'blog.unpublish'
   | 'blog.schedule'
   | 'blog.delete'
+  // Part 2: an AI-assisted draft was generated. Audited with the note size and
+  // the model, because it spends money and produces words we publish.
+  | 'blog.generate'
 
 export async function logAdminAction(params: {
   actorId: string

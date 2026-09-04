@@ -143,4 +143,9 @@ export const SCREEN_ACCESS = {
   // not a first-line action, the same reasoning as the other Growth tools.
   blog: ['manager', 'support'] as AdminRole[],
   blogPublish: ['manager'] as AdminRole[],
+  // Part 2 — AI drafting. Owner and manager only, NOT support: generation
+  // spends money and is the model speaking in our editorial voice, so it sits
+  // with publish rather than with drafting. (roleSatisfies always admits the
+  // owner, so ['manager'] is owner + manager.)
+  blogGenerate: ['manager'] as AdminRole[],
 }

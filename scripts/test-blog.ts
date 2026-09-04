@@ -16,6 +16,13 @@ import assert from 'node:assert/strict'
 
 import { parseMarkdown, plainText } from '../lib/markdown'
 import { article, withArticle } from '../lib/article'
+import {
+  composeBlogDraft,
+  figureGate,
+  unsupportedFigures,
+  withBrandTail,
+  type BlogBrief,
+} from '../lib/ai/blogBrief'
 
 function html(md: string): string {
   return parseMarkdown(md)
@@ -100,4 +107,89 @@ test('article picks a/an by sound, not by letter', () => {
   // Silent h.
   assert.equal(article('hour'), 'an')
   assert.equal(withArticle('O Levels'), 'an O Levels')
+})
+
+// ------------------------------------------------- GFM tables (renderer) ----
+
+test('a pipe table renders as a real table, cells escaped', () => {
+  const out = html('| Board | Fee |\n| --- | --- |\n| Cambridge | Rs 8,000 |\n| Edexcel | Rs 9,000 |')
+  assert.ok(out.includes('<table>'), 'a table element is emitted')
+  assert.ok(out.includes('<th>Board</th>'), 'header cell')
+  assert.ok(out.includes('<td>Cambridge</td>'), 'body cell')
+  assert.ok(out.includes('Rs 8,000'), 'cell content survives')
+})
+
+test('a table cell cannot become a tag', () => {
+  const out = html('| A | B |\n| --- | --- |\n| <img src=x> | ok |')
+  assert.ok(!/<img src=x>/.test(out), 'raw tag must not appear')
+  assert.ok(out.includes('&lt;img'), 'it is escaped')
+})
+
+test('a lone pipe line is a paragraph, not a table', () => {
+  const out = html('This costs Rs 10 | 20 per hour')
+  assert.ok(!out.includes('<table>'), 'no delimiter row means no table')
+  assert.ok(out.includes('<p>'), 'it stays a paragraph')
+})
+
+// --------------------------------------------- figure verifier (blog AI) ----
+
+const NOTES = 'O Level fees are Rs 8,000 to 15,000 a month. Cambridge and Edexcel boards.'
+
+test('a figure in the notes is not flagged', () => {
+  assert.deepEqual(unsupportedFigures('Fees run about Rs 8,000.', NOTES, ''), [])
+})
+
+test('a figure that appears in neither notes nor title is flagged', () => {
+  assert.deepEqual(unsupportedFigures('Pass rates hit 92% last year.', NOTES, ''), ['92'])
+})
+
+test('a figure in the title is allowed (the manager asserted it)', () => {
+  assert.deepEqual(unsupportedFigures('Great for Grade 10 students.', '', 'Grade 10 physics guide'), [])
+})
+
+test('comma and bare forms of one number are the same figure', () => {
+  assert.deepEqual(unsupportedFigures('Around 15000 rupees.', NOTES, ''), [])
+})
+
+test('a confirmed figure counts as traced', () => {
+  assert.deepEqual(unsupportedFigures('Roughly 92% pass.', NOTES, '', ['92']), [])
+})
+
+test('figureGate is inactive with no notes (part-1 hand-written flow)', () => {
+  const g = figureGate('A post mentioning 5 tips and 92%.', '', 'Five tips')
+  assert.equal(g.active, false)
+  assert.deepEqual(g.untraced, [])
+})
+
+test('figureGate is active and flags with notes present', () => {
+  const g = figureGate('Pass rates hit 92%.', NOTES, 'Physics fees')
+  assert.equal(g.active, true)
+  assert.deepEqual(g.untraced, ['92'])
+})
+
+// ---------------------------------------------------- SEO + composer --------
+
+test('withBrandTail ends with the brand line and fits 155', () => {
+  const d = withBrandTail('A short lead about O Level Physics tutors in Lahore')
+  assert.ok(d.length <= 155, `length ${d.length} must be <= 155`)
+  assert.ok(d.includes('No fee, no commission, no middleman.'), 'brand line present')
+})
+
+test('withBrandTail does not double the brand line', () => {
+  const d = withBrandTail('Find tutors — no commission at all')
+  assert.equal((d.match(/no commission/gi) ?? []).length, 1)
+})
+
+test('the composed fallback invents no figure not in its notes', () => {
+  const brief: BlogBrief = {
+    title: 'O Level Physics tutors in Lahore',
+    clusterLabel: 'Subject guides',
+    audience: 'parents',
+    language: 'en',
+    notes: 'Fees are Rs 8,000 to 15,000. In-person in DHA and Gulberg.',
+    landingLinks: [],
+  }
+  const draft = composeBlogDraft(brief)
+  assert.deepEqual(unsupportedFigures(draft.body, brief.notes, brief.title), [])
+  assert.equal(draft.source, 'composed')
 })

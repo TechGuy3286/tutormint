@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, CheckCircle2, Eye, Lock, Pencil } from 'lucide-react'
+import { AlertCircle, AlertTriangle, CheckCircle2, Eye, Lock, Pencil, Sparkles } from 'lucide-react'
 
 import FileUpload from '@/components/FileUpload'
 import {
@@ -19,6 +19,7 @@ import {
   type PostLanguage,
   type PostStatus,
 } from '@/lib/blog'
+import { figureGate, type ConfirmedFigure } from '@/lib/ai/blogBrief'
 import { parseMarkdown } from '@/lib/markdown'
 import { slugify } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
@@ -41,6 +42,7 @@ export type EditorPost = {
   language: PostLanguage
   body: string
   coverPath: string | null
+  coverSquarePath: string | null
   coverAlt: string | null
   seoTitle: string
   seoDescription: string
@@ -49,6 +51,10 @@ export type EditorPost = {
   editedByHuman: boolean
   status: PostStatus
   publishAt: string | null
+  /** Fact notes the draft was generated from; drives the figure gate. */
+  sourceNotes: string
+  /** Figures the manager confirmed with a written source. */
+  confirmedFigures: ConfirmedFigure[]
 }
 
 type LandingOption = { path: string; label: string }
@@ -57,10 +63,13 @@ export default function PostEditor({
   initial,
   landingOptions,
   canPublishCap,
+  canGenerate,
 }: {
   initial: EditorPost
   landingOptions: LandingOption[]
   canPublishCap: boolean
+  /** Owner + manager: may call the Claude API to draft. */
+  canGenerate: boolean
 }) {
   const router = useRouter()
 
@@ -73,6 +82,10 @@ export default function PostEditor({
   const [notice, setNotice] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [scheduleAt, setScheduleAt] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [genNote, setGenNote] = useState<string | null>(null)
+  // The in-progress "confirm with a source" input, keyed by figure.
+  const [confirmDraft, setConfirmDraft] = useState<Record<string, string>>({})
 
   const set = <K extends keyof EditorPost>(key: K, value: EditorPost[K]) => {
     setPost((p) => ({ ...p, [key]: value }))
@@ -89,6 +102,21 @@ export default function PostEditor({
   }
 
   const preview = useMemo(() => parseMarkdown(post.body), [post.body])
+
+  // The figure gate, computed live from the current (unsaved) body — the same
+  // rule the server enforces on save. Active only when there are notes; then
+  // every number in the body must trace to them or be confirmed with a source.
+  const figures = useMemo(
+    () =>
+      figureGate(
+        post.body,
+        post.sourceNotes,
+        post.title,
+        post.confirmedFigures.map((c) => c.figure),
+      ),
+    [post.body, post.sourceNotes, post.title, post.confirmedFigures],
+  )
+  const figureBlocked = figures.active && figures.untraced.length > 0
 
   const gate = canPublish({
     title: saved.current.title,
@@ -126,6 +154,111 @@ export default function PostEditor({
     }
   }
 
+  // Generate a draft from the title + notes. Loads the body and SEO fields as
+  // ordinary editable text — it saves nothing and never ticks Reviewed.
+  async function generateDraft() {
+    if (!post.title.trim()) {
+      setError('Give the post a title first.')
+      return
+    }
+    setGenerating(true)
+    setError(null)
+    setNotice(null)
+    setGenNote(null)
+    try {
+      const res = await fetch('/api/admin/blog/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          title: post.title,
+          cluster: post.cluster,
+          audience: post.audience,
+          language: post.language,
+          notes: post.sourceNotes,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'Could not generate a draft.')
+        return
+      }
+      setPost((p) => ({
+        ...p,
+        body: data.body,
+        seoTitle: data.seoTitle || p.seoTitle,
+        seoDescription: data.seoDescription || p.seoDescription,
+        // A fresh draft supersedes prior confirmations — its figures are new.
+        confirmedFigures: [],
+      }))
+      setDirty(true)
+      setGenNote(
+        data.source === 'claude'
+          ? data.untraced?.length
+            ? `Draft ready — but ${data.untraced.length} figure(s) are not in your notes. Check the highlighted list before reviewing.`
+            : 'Draft ready. Read it through, edit, then tick Reviewed.'
+          : 'No AI key configured, so we composed this from your notes. Edit it into shape.',
+      )
+    } catch {
+      setError('Network error while generating. Try again.')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  // Generate a cover from the title + cluster, at both sizes.
+  async function generateCover() {
+    if (!post.title.trim()) {
+      setError('Give the post a title first.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/blog/generate-cover', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: post.title, cluster: post.cluster }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'Could not generate a cover.')
+        return
+      }
+      setPost((p) => ({
+        ...p,
+        coverPath: data.coverPath,
+        coverSquarePath: data.coverSquarePath,
+        // Alt for a generated cover is derived server-side; keep any hand-typed
+        // alt the manager already wrote.
+        coverAlt: p.coverAlt?.trim() ? p.coverAlt : data.coverAlt,
+      }))
+      setDirty(true)
+      setNotice('Cover generated at both sizes. Save to keep it.')
+    } catch {
+      setError('Network error while generating the cover.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function confirmFigure(figure: string) {
+    const source = (confirmDraft[figure] ?? '').trim()
+    if (!source) return
+    setPost((p) => ({
+      ...p,
+      confirmedFigures: [
+        ...p.confirmedFigures.filter((c) => c.figure !== figure),
+        { figure, source },
+      ],
+    }))
+    setConfirmDraft((d) => {
+      const next = { ...d }
+      delete next[figure]
+      return next
+    })
+    setDirty(true)
+  }
+
   async function save() {
     const data = await post_('save', {
       id: post.id ?? undefined,
@@ -136,11 +269,14 @@ export default function PostEditor({
       language: post.language,
       body: post.body,
       coverPath: post.coverPath,
+      coverSquarePath: post.coverSquarePath,
       coverAlt: post.coverAlt,
       seoTitle: post.seoTitle,
       seoDescription: post.seoDescription,
       relatedLandingPages: post.related,
       reviewed: post.reviewed,
+      sourceNotes: post.sourceNotes,
+      confirmedFigures: post.confirmedFigures,
     })
     if (!data) return
     const next: EditorPost = {
@@ -323,6 +459,50 @@ export default function PostEditor({
             </div>
           </div>
 
+          {/* Draft with AI — owner + manager only. Saves nothing; loads the
+              body and SEO fields for the human to edit and review. */}
+          {canGenerate && (
+            <div className={card}>
+              <div className="flex items-center gap-1.5">
+                <Sparkles aria-hidden size={14} className="text-tm-navy" />
+                <p className={label}>Draft with AI</p>
+              </div>
+              <div>
+                <label htmlFor="ai-notes" className="text-[11px] font-semibold text-gray-600">
+                  Fact notes <span className="font-normal">(3–5 lines: local numbers, a name, a story)</span>
+                </label>
+                <textarea
+                  id="ai-notes"
+                  value={post.sourceNotes}
+                  onChange={(e) => set('sourceNotes', e.target.value)}
+                  rows={4}
+                  placeholder={
+                    'O Level Physics fees in Lahore are typically Rs 8,000–15,000 a month\nMost parents want in-person tutoring in DHA and Gulberg\nExam boards: Cambridge and Edexcel'
+                  }
+                  className={`${input} text-xs`}
+                  dir={post.language === 'ur' ? 'rtl' : undefined}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={generateDraft}
+                  disabled={generating || !post.title.trim()}
+                  className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-60"
+                >
+                  <Sparkles aria-hidden size={13} />
+                  {generating ? 'Writing…' : 'Generate draft'}
+                </button>
+                <span className="text-[11px] text-gray-500">
+                  Every figure must trace to your notes. A few rupees per draft.
+                </span>
+              </div>
+              {genNote && (
+                <p className="rounded-xl bg-tm-tint-navy p-2.5 text-[11px] font-semibold text-tm-navy">{genNote}</p>
+              )}
+            </div>
+          )}
+
           {/* Body + live preview */}
           <div className={card}>
             <div className="flex items-center justify-between">
@@ -356,6 +536,83 @@ export default function PostEditor({
               <code className="rounded bg-tm-tint-navy px-1">{'{{job:public-slug}}'}</code> on its own line.
             </p>
           </div>
+
+          {/* Figure gate — every number in the body must trace to the notes.
+              Blocks Reviewed until each flagged figure is edited out or
+              confirmed with a source. Shown only when there are notes. */}
+          {figureBlocked && (
+            <div className="rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-4">
+              <div className="flex items-start gap-1.5">
+                <AlertTriangle aria-hidden size={15} className="mt-px shrink-0 text-tm-gold-ink" />
+                <div>
+                  <p className="text-xs font-black text-tm-gold-ink">
+                    {figures.untraced.length} figure{figures.untraced.length === 1 ? '' : 's'} not in your notes
+                  </p>
+                  <p className="text-[11px] text-tm-gold-ink">
+                    Edit each out of the body, add it to your notes, or confirm it with a source.
+                    You cannot mark this Reviewed until they are cleared.
+                  </p>
+                </div>
+              </div>
+              <ul className="mt-3 space-y-2">
+                {figures.untraced.map((f) => (
+                  <li key={f} className="rounded-xl bg-white p-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <code className="rounded bg-tm-tint-red px-1.5 py-0.5 text-[11px] font-black text-tm-red">
+                        {f}
+                      </code>
+                      <span className="text-[11px] text-gray-500">not in your notes</span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <input
+                        value={confirmDraft[f] ?? ''}
+                        onChange={(e) => setConfirmDraft((d) => ({ ...d, [f]: e.target.value }))}
+                        placeholder="Source for this figure…"
+                        className="min-h-[40px] flex-1 rounded-lg border border-gray-200 px-2.5 text-xs text-tm-navy focus:border-tm-navy focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => confirmFigure(f)}
+                        disabled={!(confirmDraft[f] ?? '').trim()}
+                        className="inline-flex min-h-[40px] items-center rounded-lg border border-gray-200 px-3 text-[11px] font-bold text-tm-navy hover:border-tm-navy disabled:opacity-50"
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {post.confirmedFigures.length > 0 && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-3">
+              <p className="text-[11px] font-bold text-tm-navy">Confirmed figures</p>
+              <ul className="mt-1.5 space-y-1">
+                {post.confirmedFigures.map((c) => (
+                  <li key={c.figure} className="flex items-start gap-2 text-[11px] text-gray-600">
+                    <code className="rounded bg-tm-tint-green px-1.5 py-0.5 font-black text-tm-green-deep">
+                      {c.figure}
+                    </code>
+                    <span className="min-w-0 flex-1">{c.source}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPost((p) => ({
+                          ...p,
+                          confirmedFigures: p.confirmedFigures.filter((x) => x.figure !== c.figure),
+                        }))
+                        setDirty(true)
+                      }}
+                      className="shrink-0 text-tm-red hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* SEO */}
           <div className={card}>
@@ -459,11 +716,41 @@ export default function PostEditor({
           {/* Cover */}
           <div className={card}>
             <p className={label}>Cover image</p>
+            {/* Generate a branded cover from the title + cluster, at both sizes,
+                or upload one below. A generated cover derives its own alt text. */}
+            <button
+              type="button"
+              onClick={generateCover}
+              disabled={busy || !post.title.trim()}
+              className="inline-flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy hover:border-tm-navy disabled:opacity-60"
+            >
+              <Sparkles aria-hidden size={13} />
+              Generate cover
+            </button>
+            {post.coverSquarePath && (
+              <div className="grid grid-cols-2 gap-2">
+                <figure className="space-y-1">
+                  <div className="overflow-hidden rounded-lg border border-gray-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={publicBlogUrl(post.coverPath!)} alt="" className="aspect-[1200/630] w-full object-cover" />
+                  </div>
+                  <figcaption className="text-[10px] font-semibold text-gray-500">Post · 1200×630</figcaption>
+                </figure>
+                <figure className="space-y-1">
+                  <div className="overflow-hidden rounded-lg border border-gray-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={publicBlogUrl(post.coverSquarePath)} alt="" className="aspect-square w-full object-cover" />
+                  </div>
+                  <figcaption className="text-[10px] font-semibold text-gray-500">Social · 1080×1080</figcaption>
+                </figure>
+              </div>
+            )}
+            <p className="text-[11px] text-gray-500">or upload your own:</p>
             <FileUpload
               label="Cover image"
               acceptLabel="JPG or PNG"
               currentPreview={
-                coverUrl ? (
+                coverUrl && !post.coverSquarePath ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={coverUrl} alt="" className="h-full w-full object-cover" />
                 ) : undefined
@@ -474,7 +761,10 @@ export default function PostEditor({
                 const res = await fetch('/api/admin/blog/cover', { method: 'POST', body: fd })
                 const data = await res.json()
                 if (!res.ok) throw new Error(data.error ?? 'Upload failed.')
-                set('coverPath', data.path)
+                // An uploaded cover replaces the generated pair; drop the square
+                // variant so the previews reflect what is actually set.
+                setPost((p) => ({ ...p, coverPath: data.path, coverSquarePath: null }))
+                setDirty(true)
               }}
             />
             <div>
@@ -522,13 +812,24 @@ export default function PostEditor({
               <input
                 type="checkbox"
                 checked={post.reviewed}
-                onChange={(e) => set('reviewed', e.target.checked)}
+                // Ticking Reviewed is blocked while figures are untraced — the
+                // same gate the server enforces on save.
+                disabled={figureBlocked && !post.reviewed}
+                onChange={(e) => {
+                  if (e.target.checked && figureBlocked) {
+                    setError('Clear the flagged figures before marking this Reviewed.')
+                    return
+                  }
+                  set('reviewed', e.target.checked)
+                }}
                 className="mt-0.5"
               />
               <span>
                 Reviewed — a person has read this through.
                 <span className="block font-normal text-gray-500">
-                  Required before publishing. Save to record it.
+                  {figureBlocked
+                    ? 'Blocked: clear the flagged figures above first.'
+                    : 'Required before publishing. Save to record it.'}
                 </span>
               </span>
             </label>
@@ -597,7 +898,10 @@ function BodyPreview({ segments }: { segments: ReturnType<typeof parseMarkdown>[
     '[&_p]:my-2 [&_a]:font-semibold [&_a]:text-tm-red [&_a]:underline [&_strong]:font-bold [&_strong]:text-tm-navy ' +
     '[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 ' +
     '[&_blockquote]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-tm-navy/30 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-gray-600 ' +
-    '[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-tm-black [&_pre]:p-3 [&_pre]:text-xs [&_pre]:text-slate-100'
+    '[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-tm-black [&_pre]:p-3 [&_pre]:text-xs [&_pre]:text-slate-100 ' +
+    '[&_table]:my-3 [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-xs ' +
+    '[&_th]:border [&_th]:border-gray-200 [&_th]:bg-tm-tint-navy [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-bold [&_th]:text-tm-navy ' +
+    '[&_td]:border [&_td]:border-gray-200 [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top'
   return (
     <div className={PROSE}>
       {segments.map((seg, i) =>

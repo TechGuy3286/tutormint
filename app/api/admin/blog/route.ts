@@ -15,6 +15,7 @@ import {
 } from '@/lib/blog'
 import { slugTaken } from '@/lib/blogFeed'
 import { revalidateBlog, notifySearchEngines } from '@/lib/blogPublish'
+import { figureGate } from '@/lib/ai/blogBrief'
 
 // Blog CMS mutations. Save + review is manager or support (support drafts);
 // publish, schedule, unpublish and delete stop at manager.
@@ -40,11 +41,20 @@ const SaveBody = z.object({
   language: z.enum(['en', 'ur']),
   body: z.string().max(100_000),
   coverPath: z.string().nullable().optional(),
+  coverSquarePath: z.string().nullable().optional(),
   coverAlt: z.string().max(300).nullable().optional(),
   seoTitle: z.string().max(300).nullable().optional(),
   seoDescription: z.string().max(600).nullable().optional(),
   relatedLandingPages: z.array(z.string().max(200)).max(20).optional(),
   reviewed: z.boolean().optional(),
+  // The fact notes the draft was generated from, kept so the figure gate can
+  // be re-run server-side. Empty for a hand-written post.
+  sourceNotes: z.string().max(4000).nullable().optional(),
+  // Figures the manager confirmed with a written source, each {figure, source}.
+  confirmedFigures: z
+    .array(z.object({ figure: z.string().max(40), source: z.string().max(300) }))
+    .max(50)
+    .optional(),
 })
 
 const IdBody = z.object({
@@ -103,6 +113,27 @@ export async function POST(request: Request) {
     const reviewed = !!body.reviewed
     const nowIso = new Date().toISOString()
 
+    const sourceNotes = (body.sourceNotes ?? '').trim()
+    const confirmedFigures = body.confirmedFigures ?? []
+
+    // THE FIGURE GATE, enforced server-side, not only in the editor. When there
+    // are notes, every number in the body must trace to them or be confirmed
+    // with a source; Reviewed cannot be ticked while any remain. The browser
+    // shows the same flags, but this is the line that actually holds — an
+    // instruction in a prompt is a request, and the verifier is the guarantee.
+    if (reviewed) {
+      const g = figureGate(body.body, sourceNotes, body.title, confirmedFigures.map((c) => c.figure))
+      if (g.active && g.untraced.length > 0) {
+        return NextResponse.json(
+          {
+            error: `These figures are not in your notes: ${g.untraced.join(', ')}. Edit each out, add it to your notes, or confirm it with a source before marking this Reviewed.`,
+            untraced: g.untraced,
+          },
+          { status: 400 },
+        )
+      }
+    }
+
     // Status: a published/scheduled post stays as it is on an edit (the change
     // goes live / stays scheduled); a draft becomes 'reviewed' when the box is
     // ticked and 'draft' otherwise.
@@ -122,10 +153,13 @@ export async function POST(request: Request) {
       language: body.language,
       body: body.body,
       cover_path: body.coverPath ?? null,
+      cover_square_path: body.coverSquarePath ?? null,
       cover_alt: (body.coverAlt ?? '').trim() || null,
       seo_title: (body.seoTitle ?? '').trim().slice(0, SEO_TITLE_MAX) || null,
       seo_description: (body.seoDescription ?? '').trim().slice(0, SEO_DESCRIPTION_MAX) || null,
       related_landing_pages: body.relatedLandingPages ?? [],
+      source_notes: sourceNotes || null,
+      confirmed_figures: confirmedFigures,
       status,
       edited_by_human: true,
       reviewed,
@@ -165,6 +199,7 @@ export async function POST(request: Request) {
       seo_title: row.seo_title,
       seo_description: row.seo_description,
       related_landing_pages: row.related_landing_pages,
+      source_notes: row.source_notes,
       status: row.status,
       editor_id: gate.actor.id,
     })

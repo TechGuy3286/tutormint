@@ -2059,6 +2059,91 @@ button sins; this one is enforced by review and the grep in the evidence.
   Edit (expands the fields inline), Remove — the field group flex-wraps onto two
   lines inside the card at every width, and no byte count appears anywhere.
 
+## Blog CMS, part 2 — AI drafting and generated covers (T9.3, 4 Sep 2026)
+
+On top of part 1. **The human gate is untouched:** nothing publishes without a
+saved human edit and the Reviewed tick (`canPublish`). This adds a drafting aid
+and a cover generator, both first-class fallbacks, both audited. Migration 50 —
+three additive columns on `posts` (`source_notes`, `confirmed_figures`,
+`cover_square_path`) and `source_notes` on `post_revisions`. Nothing existing
+changes shape.
+
+**The brief is fixed and server-side.** `lib/ai/blogCopy.ts` (`generateBlogDraft`)
+calls the Claude API through `lib/ai/anthropic.ts` (which imports `server-only`,
+so a client importing it is a build error, not a leaked credential): plain,
+warm, Pakistan-specific; answer-first; H2 sections; a Markdown pipe table where
+it helps; an FAQ block; the audience CTA with **no price** (the conversion
+rules); internal links **only** to the live landing set it is handed, never an
+invented URL; and the hard rule — **NEVER invent a statistic**, use the notes or
+say "typically". Roman-Urdu when the language is `ur`. The manager enters a
+title and 3–5 fact notes and presses Generate; the draft lands as an ordinary
+editable body. It **saves nothing and never ticks Reviewed** — generating is not
+publishing.
+
+**The verifier is the guarantee the prompt is not.** `lib/ai/blogBrief.ts` is
+the pure half (no `server-only`, so it runs in the editor, on the server, and in
+the test runner — same split as `jobBrief.ts`). `unsupportedFigures()` extends
+the job-posting verifier: it flags **numbers** in the body that appear in
+neither the notes nor the title nor the confirmed list, because a numeric
+invention on a blog — a pass rate, a fee, a percentage — reads as researched
+fact and is quoted back at us. It does **not** catch invented prose; that is the
+accepted limit (the prompt argues against it and a human reads every word).
+
+**The figure gate.** `figureGate()` is **active only when there are notes** — a
+hand-written part-1 post with no notes is not blocked, or every "5 tips" and
+"Grade 10" in it would need confirming, a regression of a shipped flow. With
+notes present, every figure must trace to them or be **confirmed with a written
+source** (`confirmed_figures`, `{figure, source}`); until each flagged figure is
+edited out, added to the notes, or confirmed, **Reviewed cannot be ticked**. The
+editor shows the flags live and disables the Reviewed box; the save route
+(`/api/admin/blog`) re-runs the same gate and **refuses a save that ticks
+Reviewed while figures are untraced** — the browser is never the only thing
+holding the line. Publish is transitively gated because it already requires
+Reviewed.
+
+**SEO fields are generated with the draft.** `seo_title` ≤60, `seo_description`
+≤155 ending with the brand line via `withBrandTail()` — both editable, both in
+the Google-preview box.
+
+**Covers via `next/og`.** `app/api/admin/blog/cover-image/render.tsx`
+(`renderCover`) draws a **1200×630** (post + OG) and a **1080×1080** (social)
+from title + cluster — brand tokens only (literals; satori resolves no Tailwind
+or var()), navy title on a tinted ground, a simple cluster glyph, the one-word
+`TutorMint` wordmark (the same negative-margin trick the social banner
+documents). **Four templates rotate by cluster** so the index is not uniform.
+Pixel-stable: no clock, no randomness. `GET /api/admin/blog/cover-image` renders
+a live preview; `POST .../generate-cover` renders both sizes, uploads them to
+the public `blog` bucket, and **derives the alt text** (a generated picture of
+the title can describe itself; an uploaded cover still needs alt by hand). An
+upload replaces the generated pair and drops the square variant.
+
+**Rate limit + audit.** Generation is owner + manager only
+(`SCREEN_ACCESS.blogGenerate = ['manager']`, NOT support — it spends money and
+speaks in our voice), rate-limited through `consume_rate_limit` on the new
+`ai_blog` bucket (sized like `ai_generate`; no migration — `rate_limits.bucket`
+has no CHECK), and audited as `blog.generate` with the **note size** (chars and
+lines) and the **model** — never the note text, which is the manager's working
+material. Cover generation sits on `SCREEN_ACCESS.blog` (it carries no
+invented-fact risk).
+
+**The fallback is a first-class path.** No `ANTHROPIC_API_KEY`, a failed call,
+unparseable JSON, or a too-short reply all return `composeBlogDraft()` — a plain
+draft built from the notes (each note line a talking point, a structural FAQ and
+CTA, and **no number the notes do not carry**, so it can never fail its own
+verifier). The editor says so in words ("we composed this from your notes"). The
+button never spins forever and the editor is never blocked.
+
+**Tables in the renderer.** `lib/markdown.ts` gained GFM pipe-table support so
+the brief's comparison tables render — cells are escaped and run through
+`inline()` like everything else, so a cell cannot become a tag (tested). Wide
+tables scroll inside their own box, not the page.
+
+**What is proven and what is not.** The verifier, the composer, the SEO tail and
+the table renderer are unit-tested (`npm run test:blog`, 22 assertions). The
+Claude path itself is **not** — `ANTHROPIC_API_KEY` is set in no environment, so
+every generation returns the composed fallback until a key is added, exactly as
+with AI-assisted job posting. Covers render fully without a key.
+
 ## Roadmap — remaining (4 Sep 2026)
 
 The state of the world as of this date, so the next session starts from the plan

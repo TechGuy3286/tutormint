@@ -30,6 +30,7 @@ export type BucketName =
   | 'password_change'
   | 'search'
   | 'ai_generate'
+  | 'ai_blog'
   | 'client_error'
 
 /**
@@ -67,6 +68,11 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   // tuition needs -- they press Generate, read it, maybe press it again -- and
   // it is nowhere near enough to be worth scripting.
   ai_generate: { windowSeconds: 3600, max: 20 },
+  // Drafting a blog post with the Claude API. Sized like ai_generate and for
+  // the same reason: every call costs real money. Owner and manager only reach
+  // the route, and twenty an hour is far more drafting than a person does and
+  // nowhere near worth scripting.
+  ai_blog: { windowSeconds: 3600, max: 20 },
   // Swallowed client-side errors (lib/silentFailure.ts). Sized to be generous
   // to a browser that is genuinely having a bad time -- one broken page can
   // legitimately report several distinct failures -- and small enough that a

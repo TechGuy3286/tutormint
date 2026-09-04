@@ -46,6 +46,29 @@ const HR_RE = /^(-{3,}|\*{3,}|_{3,})$/
 const UL_RE = /^\s*[-*]\s+(.+)$/
 const OL_RE = /^\s*\d+\.\s+(.+)$/
 const BLOCKQUOTE_RE = /^>\s?(.*)$/
+// A GFM pipe table: a header row of `|`-separated cells followed by a delimiter
+// row of dashes (with optional alignment colons). Cells are escaped and run
+// through inline() like everything else, so a table cannot become a tag any
+// more than a paragraph can.
+const TABLE_DELIM_RE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/
+
+/** True when line `i` opens a table (a header row above a delimiter row). */
+function isTableStart(lines: string[], i: number): boolean {
+  return (
+    i + 1 < lines.length &&
+    lines[i].includes('|') &&
+    TABLE_DELIM_RE.test(lines[i + 1]) &&
+    lines[i].trim() !== ''
+  )
+}
+
+/** Split a `|`-delimited row into trimmed cell strings, dropping outer pipes. */
+function tableCells(line: string): string[] {
+  let s = line.trim()
+  if (s.startsWith('|')) s = s.slice(1)
+  if (s.endsWith('|')) s = s.slice(0, -1)
+  return s.split('|').map((c) => c.trim())
+}
 
 // A sentinel that HTML-escaped source text can never contain, used to stash
 // finished inline spans while emphasis is applied around them. Written as an
@@ -186,6 +209,28 @@ export function parseMarkdown(md: string): ParsedPost {
       continue
     }
 
+    // Table -- a header row above a `--- | ---` delimiter, then body rows.
+    if (isTableStart(lines, i)) {
+      const head = tableCells(lines[i])
+      i += 2 // header + delimiter
+      const rows: string[][] = []
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim() !== '') {
+        rows.push(tableCells(lines[i]))
+        i++
+      }
+      const th = head.map((c) => `<th>${inline(esc(c))}</th>`).join('')
+      const trs = rows
+        .map(
+          (r) =>
+            `<tr>${head
+              .map((_, ci) => `<td>${inline(esc(r[ci] ?? ''))}</td>`)
+              .join('')}</tr>`,
+        )
+        .join('')
+      push(`<table><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`)
+      continue
+    }
+
     // Horizontal rule.
     if (HR_RE.test(trimmed)) {
       push('<hr />')
@@ -239,7 +284,8 @@ export function parseMarkdown(md: string): ParsedPost {
         HR_RE.test(t) ||
         UL_RE.test(l) ||
         OL_RE.test(l) ||
-        BLOCKQUOTE_RE.test(l)
+        BLOCKQUOTE_RE.test(l) ||
+        isTableStart(lines, i)
       ) {
         break
       }
@@ -273,7 +319,7 @@ export function plainText(md: string): string {
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/[#>*_`~-]/g, ' ')
+    .replace(/[#>*_`~|-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
