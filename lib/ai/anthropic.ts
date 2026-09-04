@@ -19,11 +19,12 @@ import 'server-only'
  * THE MODEL — one constant, changed here and nowhere else.
  *
  * Sonnet rather than Haiku: this writes words a member puts their name to on a
- * public page, a few hundred tokens a handful of times a day. The id below is
- * the current Sonnet-class model; `listModels()` reports what this key can
- * actually reach, and the generation route surfaces that list when a call
- * fails so the id can be checked against reality. Overridable by env so it can
- * be retargeted without a deploy if the default is retired.
+ * public page, a few hundred tokens a handful of times a day. `claude-sonnet-5`
+ * is confirmed present on this key's GET /v1/models list (4 Sep 2026), so the
+ * failures were never a wrong id — they were the deprecated `temperature`
+ * parameter below. `listModels()` reports what this key can reach, and the
+ * generation route surfaces that list when a call fails so an id can be checked
+ * against reality. Overridable by env if the default is ever retired.
  */
 export const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
@@ -55,12 +56,10 @@ export async function complete({
   system,
   prompt,
   maxTokens = 600,
-  temperature = 0.4,
 }: {
   system: string
   prompt: string
   maxTokens?: number
-  temperature?: number
 }): Promise<CompletionResult> {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) return { ok: false, reason: 'ANTHROPIC_API_KEY is not set' }
@@ -69,6 +68,10 @@ export async function complete({
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
+    // NO `temperature`. claude-sonnet-5 answers 400 "`temperature` is deprecated
+    // for this model" if it is sent, which is exactly why every AI generation
+    // (blog AND job posting) was silently falling back to the composed draft.
+    // The model uses its own default; we do not need to steer it.
     const res = await fetch(ENDPOINT, {
       method: 'POST',
       signal: controller.signal,
@@ -80,7 +83,6 @@ export async function complete({
       body: JSON.stringify({
         model: MODEL,
         max_tokens: maxTokens,
-        temperature,
         system,
         messages: [{ role: 'user', content: prompt }],
       }),

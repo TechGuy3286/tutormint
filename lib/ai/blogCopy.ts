@@ -103,7 +103,6 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
     // 1600 words of Markdown plus two SEO fields: generously above the ceiling
     // so a good draft is never cut mid-sentence into an unparseable reply.
     maxTokens: 4000,
-    temperature: 0.5,
   })
 
   if (!result.ok) {
