@@ -65,7 +65,8 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
 const COOKIE = 'tm_admin_nav'
 
 function rememberCollapsed(collapsed: boolean) {
-  // A year, path-scoped to the whole site so it survives an Exit and a return.
+  // A year, path-scoped to the whole site so it survives a trip out to the
+  // public pages and back.
   document.cookie = `${COOKIE}=${collapsed ? 'collapsed' : 'open'}; path=/; max-age=31536000; samesite=lax`
 }
 
@@ -292,11 +293,15 @@ export default function AdminShell({
               </span>
               {bell}
               {signOut}
+              {/* "Back to site", not "Exit". Exit sat beside Sign out and
+                  the two read as the same action — one of them ends your
+                  session and one of them does not, and nothing in the label
+                  said which. This one names its destination. */}
               <Link
                 href="/"
-                className="flex min-h-[44px] shrink-0 items-center px-2 text-[11px] font-bold text-gray-500 transition-colors hover:text-tm-navy sm:px-3"
+                className="flex min-h-[44px] shrink-0 items-center whitespace-nowrap px-2 text-[11px] font-bold text-gray-500 transition-colors hover:text-tm-navy sm:px-3"
               >
-                Exit
+                Back to site
               </Link>
             </div>
           </div>

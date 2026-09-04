@@ -378,9 +378,11 @@ export async function browseJobs(
  * One tuition by its public address.
  *
  * Anon may read open jobs only (jobs_public_read_open), so a closed one comes
- * back null here -- which is correct: the public page has nothing to show for
- * it beyond "this is gone", and that answer comes from job_page_status()
- * instead, which returns two facts and no content.
+ * back null here -- which is correct: the page has nothing to show for it, and
+ * answers 404. There was a second call after this one, job_page_status(), a
+ * SECURITY DEFINER that told a closed address from an imaginary one so the
+ * body could say "filled" rather than "closed". Both led to the same page, so
+ * it bought a word for a query and is gone -- dropped in migration 43.
  */
 export async function jobByPublicSlug(slug: string): Promise<JobCardData | null> {
   const supabase = await createClient()
@@ -394,22 +396,6 @@ export async function jobByPublicSlug(slug: string): Promise<JobCardData | null>
   return job ?? null
 }
 
-/**
- * Did this address ever exist, and what state is it in?
- *
- * The 410 answer. SECURITY DEFINER in the database because anon cannot see a
- * closed job at all; it returns the status and the city and nothing else --
- * enough to say "filled" and offer the right browse link, and not enough to be
- * a way of reading closed tuitions.
- */
-export async function jobPageStatus(
-  slug: string,
-): Promise<{ status: string; city: string | null } | null> {
-  const supabase = await createClient()
-  const { data } = await supabase.rpc('job_page_status', { p_slug: slug })
-  const row = (data as { status: string; city: string | null }[] | null)?.[0]
-  return row ?? null
-}
 
 /** One job by its human id or uuid, for the detail view. */
 export async function jobByRef(ref: string): Promise<JobCardData | null> {

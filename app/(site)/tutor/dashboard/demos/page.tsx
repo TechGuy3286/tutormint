@@ -4,7 +4,7 @@ import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-import DemoInbox, { type DemoRow } from '@/app/parent/dashboard/DemoInbox'
+import DemoInbox, { type DemoRow } from '@/app/(site)/parent/dashboard/DemoInbox'
 
 // Demo requests from parents, moved off the tutor dashboard for the same
 // reason as the parent side: it is an interactive queue, not a summary.

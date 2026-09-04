@@ -60,12 +60,13 @@ Hired/closed status lives in `jobs.status` + `jobs.hired_tutor_id` — never loc
 
 ### Tutor plans
 
-| Plan | PKR/mo | Badges shown | Apply quota (real / displayed) | View parent contact & WhatsApp | Send WhatsApp | Initiate in-app message | Search rank |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| verified | 199 | Verified | 10 / "10" | no | no | no — can only reply to messages received and apply via job application | 1 (low) |
-| premium | 499 | Verified + Premium | 25 / "25" | no | yes | yes, any parent | 2 |
-| featured | 999 | Verified + Premium + Featured (yellow tiny "Featured" tag on card) | 100 / "Unlimited" | yes | yes | yes | 3 (top) |
+| Plan | PKR/mo | Badges shown | Apply quota (real / displayed) | See who viewed your profile | View parent contact & WhatsApp | Send WhatsApp | Initiate in-app message | Search rank |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| verified | 199 | Verified | 10 / "10" | **yes** | no | no | no — can only reply to messages received and apply via job application | 1 (low) |
+| premium | 499 | Verified + Premium | 25 / "25" | yes | no | yes | yes, any parent | 2 |
+| featured | 999 | Verified + Premium + Featured (yellow tiny "Featured" tag on card) | 100 / "Unlimited" | yes | yes | yes | yes | 3 (top) |
 
+- **Viewer identity is a Verified power (owner, 4 Sep 2026; migration 43).** It was premium-and-above until then, which meant the profile-view teaser — the tutor dashboard's primary upsell surface and the whole point of the 199 funnel — had to sell Rs 499. `plans.can_see_viewer_identity` is now true on verified, premium and featured, and `REQUIRES.tutor_viewer_identity` in `lib/gate.ts` reads `'verified'`. **Premium's reasons to upgrade are the three it still owns alone: 25 applications against 10, WhatsApp to parents, and search priority.** The column moved before the button did, because a gate must never offer a plan whose row does not carry the power.
 - Profile completion (100%) is mandatory before any badge shows or any paid plan activates. A tutor may pay first; the badge appears when completion hits 100% and admin verification passes.
 - Unverified / incomplete tutors are **not listed** in `/browse/tutors`.
 

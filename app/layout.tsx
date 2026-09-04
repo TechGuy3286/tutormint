@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import PreviewBanner from "@/components/PreviewBanner";
 import { PREVIEW_MODE } from "@/lib/preview";
-import Footer from "@/components/Footer";
 import OfflineNotice from "@/components/OfflineNotice";
 import { UpgradeProvider } from '@/components/upgrade/UpgradeProvider'
 
@@ -39,6 +36,14 @@ export const metadata: Metadata = {
   },
 };
 
+// The document, and nothing else.
+//
+// The header, the preview strip and the footer used to be here, each deciding
+// for itself whether it was under /admin by reading a path header. A root
+// layout renders once per full page load and is NOT re-rendered on client
+// navigation, so that decision went stale the moment somebody left /admin
+// without a reload. They live in app/(site)/layout.tsx now; /admin is outside
+// that group with its own shell. See components/SiteChrome.tsx.
 export default function RootLayout({
   children,
 }: {
@@ -48,10 +53,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-tm-bg antialiased flex flex-col min-h-screen">
         <UpgradeProvider>
-          <Navbar />
-          <PreviewBanner />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          {children}
           <OfflineNotice />
         </UpgradeProvider>
       </body>

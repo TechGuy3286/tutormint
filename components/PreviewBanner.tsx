@@ -1,5 +1,3 @@
-import { headers } from 'next/headers'
-
 import { PREVIEW_MODE, PREVIEW_NOTICE } from '@/lib/preview'
 
 // The preview notice.
@@ -15,14 +13,13 @@ import { PREVIEW_MODE, PREVIEW_NOTICE } from '@/lib/preview'
 // is that somebody arriving cold should know what they are looking at.
 //
 // It renders wherever the site header renders — one place, so it cannot go
-// missing from a page somebody adds next month. /admin is the exception,
-// because admin is not a public page and its own bar is the chrome there.
+// missing from a page somebody adds next month. /admin does not get one
+// because admin is not a public page and its own bar is the chrome there; that
+// is now a fact about the route tree (admin sits outside app/(site)) rather
+// than a path check this component makes for itself.
 
-export default async function PreviewBanner() {
+export default function PreviewBanner() {
   if (!PREVIEW_MODE) return null
-
-  const path = (await headers()).get('x-tm-pathname') ?? ''
-  if (path === '/admin' || path.startsWith('/admin/')) return null
 
   return (
     <p

@@ -236,10 +236,23 @@ export async function recentActivity({
   userId,
   role,
   limit = 8,
+  hideKinds = [],
 }: {
   userId: string
   role: string | null
   limit?: number
+  /**
+   * Notification kinds this band must not repeat.
+   *
+   * The tutor dashboard passes `profile_viewed`: the teaser card directly
+   * above it is that surface, with the counts, the faces and the button, and
+   * the same events listed again eight rows lower is the dashboard telling
+   * somebody the same thing twice in one screen. The rows are untouched
+   * everywhere else — the bell still counts them and
+   * /account/notifications still lists them — because this is a duplication
+   * on one page, not a decision that the event is uninteresting.
+   */
+  hideKinds?: string[]
 }): Promise<FeedItem[]> {
   const supabase = await createClient()
 
@@ -287,7 +300,10 @@ export async function recentActivity({
     })),
   ]
 
-  items.sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime())
-  return dedupeAcrossSources(items).slice(0, limit)
+  const hidden = new Set(hideKinds)
+  const visible = hidden.size ? items.filter((i) => !hidden.has(i.type)) : items
+
+  visible.sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime())
+  return dedupeAcrossSources(visible).slice(0, limit)
 }
 

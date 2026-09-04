@@ -20,6 +20,8 @@
 // it tells a parent nothing. Collisions are broken with a hash of the row's
 // own uuid instead, which carries no information about the person.
 
+import { CITIES } from '@/lib/locations'
+
 /** Mirrors public.tm_slugify(): lowercase, non-alphanumerics to hyphens. */
 export function slugify(text: string | null | undefined): string {
   return (text ?? '')
@@ -42,6 +44,33 @@ export function slugify(text: string | null | undefined): string {
  */
 export function citySegment(city: string | null | undefined): string {
   return slugify(city) || 'pakistan'
+}
+
+/**
+ * The city a tuition URL's first segment names, for a browse filter.
+ *
+ * The reverse of citySegment(), and it has to be reversible without a database
+ * read: the segment-level not-found page for a tuition knows the URL and
+ * nothing else — by the time it renders, the row it would have asked about has
+ * already been established not to be readable.
+ *
+ * A known city wins, so "islamabad" filters on exactly the string jobs.city
+ * holds. Anything else is title-cased, which is right for the cities that are
+ * one or more plain words and is at worst a filter that matches nothing — the
+ * page offers the unfiltered board beside it either way.
+ */
+export function cityFromSegment(segment: string | null | undefined): string | null {
+  const seg = (segment ?? '').trim()
+  if (!seg || seg === 'pakistan') return null
+
+  const known = CITIES.find((c) => citySegment(c) === seg)
+  if (known) return known
+
+  return seg
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(' ')
 }
 
 /**

@@ -75,7 +75,9 @@ export default async function TutorDashboardPage() {
         videoStatus: (tutorProfile?.video_status as string) ?? null,
         videoAttempts: (tutorProfile?.video_attempts as number) ?? 0,
       }),
-      recentActivity({ userId, role: 'tutor', limit: 8 }),
+      // profile_viewed is hidden here and only here: ViewsCard is directly
+      // above this band and is the surface for it. See recentActivity().
+      recentActivity({ userId, role: 'tutor', limit: 8, hideKinds: ['profile_viewed'] }),
       viewSummary(userId, ent.canSeeViewerIdentity, 20),
       matchingJobsForTutor(userId, tutorProfile?.city ?? null),
       unreadMessageCount(userId),

@@ -58,7 +58,7 @@ export default async function ProfileViewsPage() {
         {!ent.canSeeViewerIdentity && views.total > 0 && (
           <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
             <p className="text-xs leading-relaxed text-slate-700">
-              These are real people who opened your profile. Premium shows their name and photo,
+              These are real people who opened your profile. Verified shows their name and photo,
               alongside the subject and area they searched for.
             </p>
             <UpgradeTrigger

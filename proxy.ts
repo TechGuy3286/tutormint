@@ -49,21 +49,47 @@ function matches(pathname: string, list: string[]): boolean {
   return list.some((p) => pathname === p || pathname.startsWith(p + '/'))
 }
 
-/**
- * The current path, forwarded to server components.
+/*
+ * THE PATH HEADER IS GONE, AND ONE NARROW HEADER REPLACES IT.
  *
- * Next gives a layout no way to ask which URL is rendering, and the root
- * layout has to know one thing: whether this request is inside /admin, which
- * renders its own header and must not also get the site one. Route groups
- * cannot answer it either — there is a single root layout and /admin nests
- * inside it. So the path is put on the request here and read with headers().
+ * This file used to copy request.nextUrl.pathname onto `x-tm-pathname` for
+ * every request, so the root layout's Navbar, Footer and PreviewBanner could
+ * each ask whether they were under /admin. That read was correct on a full page
+ * load and STALE on every client navigation after one — a root layout is not
+ * re-rendered when the route below it changes — so leaving /admin without a
+ * reload produced a site with no chrome at all. app/(site) is a route group
+ * whose layout owns the chrome now, which is a question the router answers by
+ * itself, and that header is gone.
+ *
+ * `x-tm-tuition-city` is not the same mistake, for two reasons worth stating
+ * because the two look alike:
+ *
+ *   * It is read by a LEAF, not by the root layout —
+ *     app/(site)/tuitions/[city]/[slug]/not-found.tsx. A leaf is re-rendered on
+ *     every navigation, full load or RSC fetch, and that fetch goes through
+ *     here with the real URL. There is no window in which it can be stale.
+ *   * A not-found boundary takes no props and cannot read route params, and
+ *     usePathname() is not available to it: a nested not-found.tsx that renders
+ *     ANY Client Component is silently ignored in Next 16.3 and the parent
+ *     boundary renders instead (verified — a server component in the same file
+ *     renders; a client one, colocated or imported, does not). So the segment
+ *     of the URL naming the city has to arrive some other way, and this is the
+ *     only one.
+ *
+ * Set on /tuitions/* only, from the URL. No database read — the city is already
+ * in the path — so a closed tuition still costs exactly one query, the one that
+ * came back empty.
  */
-const PATH_HEADER = 'x-tm-pathname'
+const TUITION_CITY_HEADER = 'x-tm-tuition-city'
 
-function withPath(request: NextRequest): Headers {
+function withTuitionCity(request: NextRequest): { headers: Headers } | undefined {
+  const { pathname } = request.nextUrl
+  if (!pathname.startsWith('/tuitions/')) return undefined
+  const city = pathname.split('/')[2]
+  if (!city) return undefined
   const headers = new Headers(request.headers)
-  headers.set(PATH_HEADER, request.nextUrl.pathname)
-  return headers
+  headers.set(TUITION_CITY_HEADER, city)
+  return { headers }
 }
 
 /**
@@ -94,7 +120,8 @@ function captureUtm(request: NextRequest, response: NextResponse): void {
 }
 
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request: { headers: withPath(request) } })
+  const forwarded = withTuitionCity(request) ?? request
+  let response = NextResponse.next({ request: forwarded })
   captureUtm(request, response)
 
   const supabaseKey =
@@ -114,13 +141,11 @@ export async function proxy(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        // Rebuilt with the same forwarded path — dropping it here would make
-        // the header present only on requests that did not refresh a token.
-        response = NextResponse.next({ request: { headers: withPath(request) } })
-        // Re-applied for the same reason the path header is: this rebuilds the
-        // response, and anything set on the old one is gone. Dropping it here
-        // would lose attribution on exactly the requests that refreshed a
-        // token, which is a subset nobody would think to test.
+        response = NextResponse.next({ request: forwarded })
+        // Re-applied because this REBUILDS the response, and anything set on
+        // the old one is gone. Dropping it here would lose attribution on
+        // exactly the requests that refreshed a token, which is a subset
+        // nobody would think to test.
         captureUtm(request, response)
         cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
       },

@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
-import ChildrenManager, { type Child } from '@/app/parent/dashboard/ChildrenManager'
-import NotificationForm from '@/app/account/notifications/settings/NotificationForm'
+import ChildrenManager, { type Child } from '@/app/(site)/parent/dashboard/ChildrenManager'
+import NotificationForm from '@/app/(site)/account/notifications/settings/NotificationForm'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 

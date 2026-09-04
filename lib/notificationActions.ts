@@ -39,8 +39,8 @@ export type NotificationCta =
 export function ctaFor(row: { kind: string; href: string | null }): NotificationCta | null {
   switch (row.kind) {
     // Identity is the thing being offered, so the button opens the sheet
-    // rather than a priced page. See lib/gate: the reason resolves to Premium,
-    // which is the plan that actually carries can_see_viewer_identity.
+    // rather than a priced page. See lib/gate: the reason resolves to whichever
+    // plan actually carries can_see_viewer_identity, which is Verified.
     case 'profile_viewed':
       return { kind: 'upgrade', label: 'See who', reason: 'tutor_viewer_identity' }
 

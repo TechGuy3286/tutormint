@@ -1,12 +1,15 @@
 import type { Metadata } from 'next'
-import ErrorShell from '@/components/ErrorShell'
 
-// 404.
+import NotFoundView from '@/components/NotFoundView'
+import SiteChrome from '@/components/SiteChrome'
+
+// The 404 for a URL that matches NO route at all.
 //
-// Also where a tutor slug lands when the profile exists but may not be shown:
-// a suspended tutor and a made-up URL are answered identically and on purpose.
-// "That profile is suspended" would confirm the account exists and invite a
-// guess at why, which is nobody's business but theirs and ours.
+// It renders inside the root layout and nothing else — it is outside app/(site)
+// and outside every other group, so it is the one page that has to bring its
+// own header and footer. A notFound() thrown from a page inside the site group
+// lands on app/(site)/not-found.tsx instead, and gets the chrome from the
+// layout like any other page there.
 
 export const metadata: Metadata = {
   title: 'Page not found | TutorMint',
@@ -15,15 +18,8 @@ export const metadata: Metadata = {
 
 export default function NotFound() {
   return (
-    <ErrorShell
-      code="404"
-      title="We could not find that page"
-      message="The link may be out of date, or the profile may no longer be listed. Everything else is still where you left it."
-      actions={[
-        { label: 'Find a tutor', href: '/browse/tutors' },
-        { label: 'Find tuitions', href: '/browse/tuitions', tone: 'quiet' },
-        { label: 'Go to the homepage', href: '/', tone: 'quiet' },
-      ]}
-    />
+    <SiteChrome>
+      <NotFoundView />
+    </SiteChrome>
   )
 }

@@ -1,9 +1,11 @@
 // components/Footer.tsx — the compact black footer from
 // design/reference/homepage.png.
 //
-// It lives in the root layout, so this is the footer on every page: brand
-// column, four link columns, social row, and the "Verified Secure Platform"
-// line.
+// It is rendered by app/(site)/layout.tsx, so this is the footer on every
+// public page: brand column, four link columns, social row, and the "Verified
+// Secure Platform" line. /admin is outside that route group and has its own
+// shell, which is why this file no longer tests the path for itself -- see
+// components/SiteChrome.tsx for what that check got wrong.
 //
 // DENSITY, authorised 3 Sep 2026. It measured 1376px tall at 390px wide --
 // larger than the phone viewport it sat under, and 64% of the whole
@@ -23,7 +25,6 @@
 // social profiles are all environment-configured, and a channel with nothing
 // set is not rendered rather than shown as a dead link (CLAUDE.md rule 7).
 
-import { headers } from 'next/headers'
 import Image from 'next/image'
 import Link from 'next/link'
 import { supportContactFromEnv } from '@/lib/support'
@@ -46,17 +47,6 @@ function socialLinks(): SocialLink[] {
 }
 
 export default async function Footer() {
-  // /admin is a dashboard shell, not a marketing page: it has its own
-  // navigation in a sidebar, and the site footer under it offered a signed-in
-  // moderator "Sign Up" and "Login" links plus 700px of link columns below the
-  // queue they were working. components/Navbar.tsx already returns null here
-  // for the same reason; this is the other half of that.
-  //
-  // The headers() read costs no static rendering that the Navbar above has not
-  // already spent -- it is in the same root layout, and reads the same header.
-  const path = (await headers()).get('x-tm-pathname') ?? ''
-  if (path === '/admin' || path.startsWith('/admin/')) return null
-
   const support = supportContactFromEnv()
   const socials = socialLinks()
   const year = new Date().getFullYear()

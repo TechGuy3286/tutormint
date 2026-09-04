@@ -12,7 +12,7 @@ import ReportButton from '@/components/ReportButton'
 import { budgetLabel } from '@/lib/feeBands'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
-import { jobByPublicSlug, jobPageStatus } from '@/lib/jobFeed'
+import { jobByPublicSlug } from '@/lib/jobFeed'
 import { citySegment } from '@/lib/slugs'
 import { formatDate } from '@/lib/datetime'
 import { teachingMode } from '@/lib/display'
@@ -31,22 +31,22 @@ import ApplyPanel from './ApplyPanel'
 //
 // THREE STATES, and each has to be honest about itself:
 //
-//   open      the full page, JobPosting JSON-LD, Apply behind the usual gate.
-//   closed    a "this tuition has closed" page that says which, and links to
-//   or hired  the board for that city.
-//   missing   404, the same as any address that never existed.
+//   open              the full page, JobPosting JSON-LD, Apply behind the gate.
+//   closed or hired   404, rendered by not-found.tsx in this folder.
+//   missing           404, the same page.
 //
-// THE CLOSED PAGE ANSWERS 200, NOT 410, and that is a deliberate trade rather
-// than an oversight. The App Router gives a page no way to set its own status:
-// notFound() is the only interrupt with one, and there is no `gone()`. A real
-// 410 therefore had to come from proxy.ts, which meant a database round trip on
-// EVERY request to a tuition page — including every open one — because nothing
-// in the URL says which state the row is in. That is a permanent cost on an
-// organic-search surface to speed up de-indexing of a handful of closed posts.
+// A CLOSED TUITION IS A 404, and the three states collapse to two on purpose.
+// The first version of this page answered 200 with a "this tuition has closed"
+// body, because the App Router gives a page no way to set its own status; the
+// version before that got a real 410 out of proxy.ts at the cost of a database
+// round trip on EVERY tuition request, open ones included. notFound() is the
+// one interrupt that does carry a status, and 404 is true of an address that no
+// longer serves anything — so the status, the body and the query count are all
+// right at once, with no proxy involvement.
 //
-// What actually keeps a closed tuition out of an index is the `noindex` in
-// generateMetadata below, which is served either way. The visible page is the
-// same as it was.
+// It also drops the second query. Telling "closed" from "filled" from "never
+// existed" meant asking job_page_status() after jobByPublicSlug() had already
+// come back empty, and all three answers led to the same place.
 //
 // THE CITY SEGMENT IS DECORATION, and deliberately so: `public_slug` alone
 // identifies the row. A parent who corrects the city on a posted tuition
@@ -57,25 +57,16 @@ export const dynamic = 'force-dynamic'
 
 type Params = Promise<{ city: string; slug: string }>
 
-/** What a parent can be told about a tuition that is no longer taking applications. */
-function goneCopy(status: string): string {
-  return status === 'hired'
-    ? 'This tuition has been filled — the parent has hired a tutor.'
-    : 'This tuition has been closed by the parent.'
-}
-
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params
   const job = await jobByPublicSlug(slug)
 
   // `job.status !== 'open'` for the same reason the body checks it: an admin
-  // and the job's own parent can read a closed row, and a 410 that carries the
-  // tuition's title in its <title> is a page arguing with its own status code.
+  // and the job's own parent can read a closed row, and a title carrying the
+  // tuition's own headline on a page answering 404 is a page arguing with its
+  // status code. Next injects noindex on a 404 by itself; `follow` keeps the
+  // links onward to the city's open board worth something.
   if (!job || job.status !== 'open') {
-    // noindex is what actually removes a closed tuition from a search index,
-    // and it is the only signal this page can send: a page cannot set its own
-    // status code in the App Router. `follow: true` so the links onward to the
-    // city's open board are still worth something.
     return { title: pageTitle('Tuition closed'), robots: { index: false, follow: true } }
   }
 
@@ -106,57 +97,13 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
   // ------------------------------------------------------------ gone / 404 --
   //
-  // TWO WAYS TO BE GONE, and both render the same body.
-  //
-  //   * anon and ordinary members cannot read a closed job at all
-  //     (jobs_public_read_open), so `job` is null and job_page_status() -- a
-  //     SECURITY DEFINER returning two facts -- says whether the address was
-  //     ever real.
-  //   * an ADMIN, and the job's own parent, CAN read it: that same policy has
-  //     `OR parent_id = auth.uid() OR is_admin()`. Without the status test
-  //     below they would get the full open page — Apply button and JobPosting
-  //     structured data — for a tuition that has been filled. A parent's own
-  //     view of a closed tuition is on their dashboard, where it can still be
-  //     reopened.
-  if (!job || job.status !== 'open') {
-    const known = job
-      ? { status: job.status, city: job.city }
-      : await jobPageStatus(slug)
-    if (!known) notFound()
-
-    const back = known.city
-      ? `/browse/tuitions?city=${encodeURIComponent(known.city)}`
-      : '/browse/tuitions'
-
-    return (
-      <main className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6">
-        <Breadcrumbs
-          items={[{ label: 'Find tuitions', href: '/browse/tuitions' }, { label: 'Tuition closed' }]}
-        />
-        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-6 text-center sm:p-8">
-          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">This tuition has closed</h1>
-          <p className="mx-auto max-w-md text-sm leading-relaxed text-slate-700">
-            {goneCopy(known.status)} There are other open tuitions
-            {known.city ? ` in ${known.city}` : ''}, and new ones are posted every day.
-          </p>
-          <div className="flex flex-col items-center gap-2 pt-1 sm:flex-row sm:justify-center">
-            <Link
-              href={back}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-slate-700"
-            >
-              {known.city ? `Open tuitions in ${known.city}` : 'Browse open tuitions'}
-            </Link>
-            <Link
-              href="/browse/tuitions"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
-            >
-              All tuitions in Pakistan
-            </Link>
-          </div>
-        </section>
-      </main>
-    )
-  }
+  // `job.status !== 'open'` is not redundant with the null check. An ADMIN and
+  // the job's own parent CAN read a closed row — jobs_public_read_open is
+  // `status = 'open' OR parent_id = auth.uid() OR is_admin()` — so without it
+  // those two would get the full open page, Apply button and JobPosting
+  // structured data, for a tuition that has been filled. A parent's own view
+  // of their closed tuition is on their dashboard, where it can be reopened.
+  if (!job || job.status !== 'open') notFound()
 
   // The slug is the identity; the city segment is a label. A stale one is
   // corrected rather than 404'd, so a link shared before the parent fixed

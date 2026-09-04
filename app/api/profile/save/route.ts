@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
+import { BAD_AVATAR_MESSAGE, isOurStorageUrl } from '@/lib/avatarUrl'
 import { parseBody, z } from '@/lib/validate'
 import { ensureTutorSlug } from '@/lib/tutorSlug'
 
@@ -66,6 +67,16 @@ export async function POST(request: Request) {
 
   if (role === 'tutor') {
     const tutorPatch = pick(body.tutorProfile, TUTOR_FIELDS)
+
+    // The picture must be a file in one of our buckets. This route had no
+    // check on avatar_url at all, which is how a 4MB base64 string ended up in
+    // a column that is read on every request and inlined into every page that
+    // renders the tutor. See lib/avatarUrl.ts; /api/parent/profile has always
+    // done the equivalent.
+    const avatar = tutorPatch.avatar_url
+    if (typeof avatar === 'string' && avatar !== '' && !isOurStorageUrl(avatar)) {
+      return NextResponse.json({ error: BAD_AVATAR_MESSAGE }, { status: 400 })
+    }
 
     if (Object.keys(tutorPatch).length > 0) {
       const { error } = await supabase.from('tutor_profiles').update(tutorPatch).eq('id', user.id)

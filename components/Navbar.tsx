@@ -1,4 +1,3 @@
-import { headers } from 'next/headers'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -36,6 +35,14 @@ import { menuForRole, type AdminEntry } from '@/lib/userMenu'
 // Suspense boundary: a static shell with a dynamic hole. That flag changes
 // caching semantics for the whole application and belongs in its own change.
 // It is on the T8b list.
+//
+// IT NO LONGER ASKS WHETHER IT IS UNDER /admin. It used to: admin has its own
+// bar with the role chip, so this one returned null there after reading
+// `x-tm-pathname`. That read is only correct on a full page load — a root
+// layout is not re-rendered on client navigation — so leaving /admin without a
+// reload produced a homepage with no header at all. The header is now rendered
+// by app/(site)/layout.tsx and admin sits outside that group, so the router
+// mounts and unmounts it. See components/SiteChrome.tsx.
 
 /** The admin screens this actor may actually open, for their menu. */
 async function adminScreensFor(): Promise<AdminEntry[]> {
@@ -59,14 +66,6 @@ async function adminScreensFor(): Promise<AdminEntry[]> {
 }
 
 export default async function Navbar() {
-  // /admin renders its own bar — wordmark, role chip, notifications, exit and
-  // sign out — so the site header would be the SAME FUNCTIONS TWICE, stacked,
-  // costing ~148px before any content. One header, and admin keeps the one
-  // that carries the role chip, because that is the piece admin work needs.
-  // The path arrives from proxy.ts; a layout has no other way to know it.
-  const path = (await headers()).get('x-tm-pathname') ?? ''
-  if (path === '/admin' || path.startsWith('/admin/')) return null
-
   const session = await getSessionUser()
 
   if (!session) {

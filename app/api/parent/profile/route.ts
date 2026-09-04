@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { BAD_AVATAR_MESSAGE, isOurStorageUrl } from '@/lib/avatarUrl'
 import { logActivity } from '@/lib/activityLog'
 import { recomputeCompletion } from '@/lib/completion'
 import { createClient } from '@/lib/supabase/server'
@@ -49,15 +50,11 @@ export async function POST(request: Request) {
 
   // The avatar has to be one of ours. An arbitrary URL here would let somebody
   // point their picture at a tracker that fires for every tutor who opens
-  // their job — the picture is rendered on public job cards.
-  if (body.avatarUrl) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-    if (!supabaseUrl || !body.avatarUrl.startsWith(`${supabaseUrl}/storage/v1/object/public/avatars/`)) {
-      return NextResponse.json(
-        { error: 'That picture could not be saved. Please upload it again.' },
-        { status: 400 },
-      )
-    }
+  // their job — the picture is rendered on public job cards — and a data: URI
+  // would put the image bytes themselves into every page that renders it. The
+  // rule moved to lib/avatarUrl.ts when the tutor route needed the same one.
+  if (body.avatarUrl && !isOurStorageUrl(body.avatarUrl)) {
+    return NextResponse.json({ error: BAD_AVATAR_MESSAGE }, { status: 400 })
   }
 
   const { error } = await supabase

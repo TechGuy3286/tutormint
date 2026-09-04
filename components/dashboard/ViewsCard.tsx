@@ -24,15 +24,16 @@ import type { ViewSummary } from '@/lib/profileViews'
 // by the same parent cannot be matched to each other by comparing colours.
 //
 // THE BUTTON CARRIES A REASON, NEVER A PRICE. `tutor_viewer_identity` resolves
-// to the Premium card when the sheet is opened, so a tutor dashboard ships with
-// no pricing in its HTML — the same rule the locked contact row follows.
+// to whichever plan holds can_see_viewer_identity when the sheet is opened —
+// Verified, since migration 43 — so a tutor dashboard ships with no pricing in
+// its HTML at all, the same rule the locked contact row follows.
 
 export default function ViewsCard({
   summary,
   identityGranted,
 }: {
   summary: ViewSummary
-  /** plans.can_see_viewer_identity — premium and featured. */
+  /** plans.can_see_viewer_identity — verified, premium and featured. */
   identityGranted: boolean
 }) {
   const { total, thisWeek, latest, faces } = summary
@@ -79,9 +80,13 @@ export default function ViewsCard({
               </div>
             )}
 
+            {/* "· N this week" only when N is not simply the total again.
+                A tutor whose every view arrived this week was being told
+                "6 parents viewed your profile · 6 this week", which reads as
+                two facts and is one. */}
             <p className="min-w-0 flex-1 text-sm font-black leading-snug text-tm-navy">
               {total} {total === 1 ? 'parent' : 'parents'} viewed your profile
-              {thisWeek > 0 && (
+              {thisWeek > 0 && thisWeek !== total && (
                 <span className="font-bold text-gray-500"> · {thisWeek} this week</span>
               )}
             </p>

@@ -87,12 +87,14 @@ const REQUIRES: Record<GateReason, string | null> = {
   tutor_apply_quota: 'premium',
   tutor_message: 'premium',
   tutor_contact: 'featured',
-  // PREMIUM, not verified. `plans.can_see_viewer_identity` is true on premium
-  // and featured and false on verified -- so a "See who" button that sold the
-  // Rs 199 plan would take money for a thing that plan does not do. The
-  // wording rule cuts both ways: we sell visibility, and we do not sell a
-  // power the row does not carry.
-  tutor_viewer_identity: 'premium',
+  // VERIFIED, as of migration 43, and the plan row moved with it: this said
+  // 'premium' for exactly as long as can_see_viewer_identity was false on
+  // verified. The rule that produced both is the same one -- a button never
+  // sells a power its plan does not carry -- so changing the offer meant
+  // changing the row, not the label. Owner decision, 4 Sep 2026: seeing who
+  // looked at you is what the Rs 199 plan is for, and Premium's argument is
+  // 25 applications, WhatsApp and search priority.
+  tutor_viewer_identity: 'verified',
   parent_hire: 'parent_featured',
   parent_contact: 'parent_featured',
   parent_post_quota: 'parent_featured',
@@ -208,13 +210,13 @@ export async function buildGate(
         kind: 'upgrade',
         title: 'See who is looking at you',
         body:
-          'Premium shows the name and photo of every parent who opens your profile, alongside ' +
-          'the subject and area they searched for. It also lets you message any parent directly, ' +
-          'without waiting for them to write first.',
+          'Verified shows the name and photo of every parent who opens your profile, alongside ' +
+          'the subject and area they searched for — so you know who is looking before you spend ' +
+          'an application. It also puts you above free tutors in search.',
         audience: 'tutor',
         plan,
         href: packagesHref('tutor', required),
-        ctaLabel: 'See Premium',
+        ctaLabel: 'See Verified',
         actionable: true,
       }
 

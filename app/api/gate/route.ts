@@ -26,9 +26,20 @@ import { parseBody, z } from '@/lib/validate'
 
 export const dynamic = 'force-dynamic'
 
+// EVERY REASON AN <UpgradeTrigger> CAN CARRY MUST BE LISTED HERE. The trigger
+// swallows a failed gate on purpose -- a locked row already says it is locked,
+// and an error banner over it is noise -- so a reason missing from this list
+// does not fail loudly: the button simply does nothing, forever, and looks
+// fine. That is exactly what happened to `tutor_viewer_identity`, which
+// shipped on the profile-view teaser and on /tutor/dashboard/views with no
+// entry here, so "See who" was a no-op from the day it was added.
+//
+// The check is one line: `grep -ro 'reason="[a-z_]*"' components app | sort -u`
+// against this array.
 const ALLOWED: GateReason[] = [
   'tutor_contact',
   'tutor_message',
+  'tutor_viewer_identity',
   'parent_contact',
   'parent_hire',
   'parent_verify',

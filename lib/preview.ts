@@ -32,5 +32,4 @@
 export const PREVIEW_MODE = process.env.NEXT_PUBLIC_PREVIEW_MODE !== 'false'
 
 /** What the banner says. Kept here so the copy travels with the flag. */
-export const PREVIEW_NOTICE =
-  'TutorMint is in preview while we onboard verified tutors. Listings you see now are limited.'
+export const PREVIEW_NOTICE = "We're launching soon. What you see here is a preview."
