@@ -32,7 +32,11 @@ const ENDPOINT = 'https://api.anthropic.com/v1/messages'
 const MODELS_ENDPOINT = 'https://api.anthropic.com/v1/models'
 const API_VERSION = '2023-06-01'
 
-/** How long to wait before giving up and letting the caller compose its own. */
+/**
+ * Default wait before giving up and letting the caller compose its own. Fine
+ * for a short job advert; long-form blog drafting overrides it (a 1,400-word
+ * post takes longer to write than 20s) — see complete()'s `timeoutMs`.
+ */
 const TIMEOUT_MS = 20_000
 
 export type CompletionResult =
@@ -56,16 +60,18 @@ export async function complete({
   system,
   prompt,
   maxTokens = 600,
+  timeoutMs = TIMEOUT_MS,
 }: {
   system: string
   prompt: string
   maxTokens?: number
+  timeoutMs?: number
 }): Promise<CompletionResult> {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) return { ok: false, reason: 'ANTHROPIC_API_KEY is not set' }
 
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     // NO `temperature`. claude-sonnet-5 answers 400 "`temperature` is deprecated
@@ -109,7 +115,7 @@ export async function complete({
     return { ok: true, text }
   } catch (e) {
     const aborted = e instanceof Error && e.name === 'AbortError'
-    return { ok: false, reason: aborted ? `timed out after ${TIMEOUT_MS}ms` : String(e) }
+    return { ok: false, reason: aborted ? `timed out after ${timeoutMs}ms` : String(e) }
   } finally {
     clearTimeout(timer)
   }

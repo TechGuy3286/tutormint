@@ -28,6 +28,10 @@ import { listModels } from '@/lib/ai/anthropic'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// A 900-1,400 word draft takes longer than the default function budget; the
+// model call itself is capped at 55s (lib/ai/blogCopy.ts), so 60s leaves room
+// for it to finish and fall back cleanly if it does not.
+export const maxDuration = 60
 
 const Body = z.object({
   title: z.string().trim().min(1, 'Give the post a title first.').max(200),

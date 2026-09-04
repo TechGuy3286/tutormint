@@ -103,6 +103,10 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
     // 1600 words of Markdown plus two SEO fields: generously above the ceiling
     // so a good draft is never cut mid-sentence into an unparseable reply.
     maxTokens: 4000,
+    // A long-form draft takes far longer than a job advert. 55s stays under the
+    // route's 60s platform budget, so our own timeout fires first with a clean
+    // "timed out" and a composed fallback, rather than a platform 504.
+    timeoutMs: 55_000,
   })
 
   if (!result.ok) {
