@@ -196,7 +196,9 @@ export default function PostEditor({
           ? data.untraced?.length
             ? `Draft ready — but ${data.untraced.length} figure(s) are not in your notes. Check the highlighted list before reviewing.`
             : 'Draft ready. Read it through, edit, then tick Reviewed.'
-          : 'No AI key configured, so we composed this from your notes. Edit it into shape.',
+          : data.note === 'unconfigured'
+            ? 'No AI key is configured, so we composed this draft from your notes. Edit it into shape.'
+            : 'The AI draft is unavailable right now, so we composed this from your notes. Edit it into shape.',
       )
     } catch {
       setError('Network error while generating. Try again.')
