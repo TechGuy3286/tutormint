@@ -2174,6 +2174,72 @@ flagged); and an **ordered-list enumerator** ("1.", "2.") is stripped before the
 scan, because a numbered list is not a set of statistics. Everything else stays
 strict — a bare number in prose that is not in the notes is still flagged.
 
+## Blog CMS, part 3 — content queue, editor toolbar, slug auto-fill (T9.4, 5 Sep 2026)
+
+The system suggests what to publish. Migration 51 — one table,
+`content_suggestions`; the signals read tables that already exist.
+
+**Five signals, each a small module returning candidates with evidence**
+(`lib/contentQueue/build.ts`):
+
+- **Search gaps** — the collapsed `search_performed` events over 30 days (no
+  free-text query is ever stored), grouped by subject × city, paired with the
+  tutors listed for each now. "40 searches for O Levels Physics in Lahore, 3
+  listed tutors."
+- **Academic calendar** (`lib/contentQueue/core.ts`, pure) — the fixed
+  Pakistani schedule: board registration Dec–Jan, Matric/Inter exams Mar–May,
+  O/A Level May–Jun and Oct–Nov, results Jul–Aug, admissions Aug–Sep, Ramadan
+  (movable, dated per year). Suggested six weeks ahead; the fingerprint carries
+  the year, so the same topic refreshes yearly.
+- **Coverage gaps** — a live landing page with 10+ listed tutors and no
+  published post linking to it: a page we can already rank, waiting for its
+  article.
+- **What people ask** — open report reasons over 60 days, clustered into trust
+  topics. (There is no support-ticket table yet — /support is FAQ + WhatsApp —
+  so reports are the only "what people ask" source; the module extends when one
+  exists.)
+- **Search Console 8–20** — built but **dormant**: `searchConsoleStatus()`
+  returns "Not connected" with the setup steps and **no candidates** until
+  `GSC_SERVICE_ACCOUNT_JSON` + `GSC_SITE_URL` exist. It never fabricates data.
+
+**Priority is explainable, never a bare number.** `priority = demand ×
+rankProximity × seasonality × gapAge`, and every component is stored on the row
+(`priority_components`) and shown on the card. `gapAge` rises one step per
+fortnight (capped at 4), so an old unfilled gap gets louder.
+
+**A dismissed topic returns only on a MATERIAL change.** `evidenceHash()` is a
+coarse, log-bucketed hash of the evidence figures: 40 → 44 searches is the same
+hash and stays dismissed; 40 → 120 crosses a bucket and resurfaces. A dismissed
+row's hash is frozen (never refreshed by a rebuild) so the next change is
+compared to the dismissal snapshot. `drafted` and `dismissed` are decisions and
+survive rebuilds; a `suggested`/`snoozed` row whose evidence vanishes is pruned.
+
+**Rebuilt nightly by the existing cron** (`/api/cron/subscriptions` →
+`rebuildContentQueue`), de-duplicated against posts already written (a content
+topic whose landing page a published post already links to is dropped).
+
+**Monday digest** (`lib/contentQueue/digest.ts`): top three topics + posts
+published 12+ months ago, to owner and manager, on the same daily cron — it
+sends only on Monday (Asia/Karachi) and only once a day, guarded by an
+`app_settings` timestamp. Nothing auto-publishes; the email points at the queue.
+
+**`/admin/blog/queue`** (manager + support): content cards (title, cluster,
+audience, language, the priority with its breakdown, evidence in plain words)
+with **Draft this** (opens the editor at `/admin/blog/new?suggestion=<id>`
+pre-filled — title, cluster, audience, language, and the evidence as the fact
+notes, so part 2 writes it), **Snooze** (2 weeks) and **Dismiss** with a reason.
+A second card type, **recruitment gaps** ("Faisalabad: 210 searches, 2 tutors"),
+is routed to Bulk import, not the blog. Opening a draft threads the suggestion
+id through; the first **save** marks the suggestion `drafted` so it leaves the
+queue — tied to real work existing, not merely to opening the editor.
+
+**Editor toolbar** — a formatting bar above the Markdown body inserts at the
+cursor: heading, bold, italic, list, link, image, embed tutor card, embed
+tuition card. Storage is unchanged (still Markdown); a manager who has never
+seen Markdown can write a post. **Slug auto-fills from the title as it is
+typed**, until it is hand-edited (then it stops tracking) or the post is
+published (then it is locked) — an emptied slug resumes tracking the title.
+
 ## Roadmap — remaining (4 Sep 2026)
 
 The state of the world as of this date, so the next session starts from the plan

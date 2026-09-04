@@ -64,12 +64,15 @@ export default function PostEditor({
   landingOptions,
   canPublishCap,
   canGenerate,
+  suggestionId = null,
 }: {
   initial: EditorPost
   landingOptions: LandingOption[]
   canPublishCap: boolean
   /** Owner + manager: may call the Claude API to draft. */
   canGenerate: boolean
+  /** The content-queue suggestion this editor was opened from, if any. */
+  suggestionId?: string | null
 }) {
   const router = useRouter()
 
@@ -86,6 +89,11 @@ export default function PostEditor({
   const [genNote, setGenNote] = useState<string | null>(null)
   // The in-progress "confirm with a source" input, keyed by figure.
   const [confirmDraft, setConfirmDraft] = useState<Record<string, string>>({})
+  // The body textarea, for the toolbar to insert Markdown at the cursor.
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
+  // Whether the slug has been hand-edited. Until it is, the slug tracks the
+  // title as it is typed (and it is locked after publishing either way).
+  const [slugEdited, setSlugEdited] = useState(!!initial.slug)
 
   const set = <K extends keyof EditorPost>(key: K, value: EditorPost[K]) => {
     setPost((p) => ({ ...p, [key]: value }))
@@ -250,6 +258,27 @@ export default function PostEditor({
     }
   }
 
+  // Insert Markdown at the cursor (or wrap the selection). Keeps focus and puts
+  // the caret where the writer will keep typing, so the toolbar is usable
+  // without touching the mouse twice.
+  function insertMarkdown(before: string, after = '', placeholder = '') {
+    const el = bodyRef.current
+    const value = post.body
+    const start = el?.selectionStart ?? value.length
+    const end = el?.selectionEnd ?? value.length
+    const selected = value.slice(start, end) || placeholder
+    const next = value.slice(0, start) + before + selected + after + value.slice(end)
+    setPost((p) => ({ ...p, body: next }))
+    setDirty(true)
+    // Restore focus and place the caret inside the inserted text.
+    requestAnimationFrame(() => {
+      if (!el) return
+      el.focus()
+      const caret = start + before.length
+      el.setSelectionRange(caret, caret + selected.length)
+    })
+  }
+
   function confirmFigure(figure: string) {
     const source = (confirmDraft[figure] ?? '').trim()
     if (!source) return
@@ -286,6 +315,9 @@ export default function PostEditor({
       reviewed: post.reviewed,
       sourceNotes: post.sourceNotes,
       confirmedFigures: post.confirmedFigures,
+      // Only meaningful on the first save; the route ignores it once the post
+      // exists (it marks the suggestion drafted in the insert branch).
+      suggestionId: !post.id ? suggestionId ?? undefined : undefined,
     })
     if (!data) return
     const next: EditorPost = {
@@ -443,7 +475,18 @@ export default function PostEditor({
               <input
                 id="post-title"
                 value={post.title}
-                onChange={(e) => set('title', e.target.value)}
+                onChange={(e) => {
+                  const title = e.target.value
+                  // The slug tracks the title as it is typed, until the slug is
+                  // hand-edited or the post is published (slug then locked).
+                  setPost((p) => ({
+                    ...p,
+                    title,
+                    slug: !p.slugLocked && !slugEdited ? slugify(title) : p.slug,
+                  }))
+                  setDirty(true)
+                  setNotice(null)
+                }}
                 placeholder="What is this post about?"
                 className={input}
               />
@@ -457,8 +500,17 @@ export default function PostEditor({
                 <input
                   id="post-slug"
                   value={post.slug}
-                  onChange={(e) => set('slug', slugify(e.target.value))}
-                  onBlur={() => !post.slug && post.title && set('slug', slugify(post.title))}
+                  onChange={(e) => {
+                    setSlugEdited(true)
+                    set('slug', slugify(e.target.value))
+                  }}
+                  onBlur={() => {
+                    // An emptied slug falls back to tracking the title again.
+                    if (!post.slug) {
+                      setSlugEdited(false)
+                      if (post.title) set('slug', slugify(post.title))
+                    }
+                  }}
                   disabled={post.slugLocked}
                   placeholder={slugify(post.title) || 'post-slug'}
                   className={`${input} mt-0 flex-1 ${post.slugLocked ? 'bg-gray-50 text-gray-500' : ''}`}
@@ -527,11 +579,42 @@ export default function PostEditor({
                 {showPreview ? 'Write' : 'Preview'}
               </button>
             </div>
+            {/* Formatting toolbar — inserts Markdown at the cursor, so a writer
+                who has never seen Markdown can still format a post. Hidden in
+                Preview, where there is nothing to insert into. */}
+            {!showPreview && (
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { label: 'H2', title: 'Heading', run: () => insertMarkdown('\n## ', '', 'Heading') },
+                  { label: 'B', title: 'Bold', run: () => insertMarkdown('**', '**', 'bold'), bold: true },
+                  { label: 'I', title: 'Italic', run: () => insertMarkdown('_', '_', 'italic'), italic: true },
+                  { label: 'List', title: 'Bulleted list', run: () => insertMarkdown('\n- ', '', 'item') },
+                  { label: 'Link', title: 'Link', run: () => insertMarkdown('[', '](https://)', 'text') },
+                  { label: 'Image', title: 'Image', run: () => insertMarkdown('![', '](https://)', 'alt text') },
+                  { label: 'Tutor', title: 'Embed a tutor card', run: () => insertMarkdown('\n{{tutor:', '}}\n', 'tutor-slug') },
+                  { label: 'Tuition', title: 'Embed a tuition card', run: () => insertMarkdown('\n{{job:', '}}\n', 'tuition-slug') },
+                ].map((b) => (
+                  <button
+                    key={b.label}
+                    type="button"
+                    title={b.title}
+                    aria-label={b.title}
+                    onClick={b.run}
+                    className={`min-h-[36px] min-w-[36px] rounded-lg border border-gray-200 px-2 text-xs text-tm-navy hover:border-tm-navy hover:bg-tm-bg ${
+                      b.bold ? 'font-black' : b.italic ? 'italic' : 'font-bold'
+                    }`}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            )}
             {showPreview ? (
               <BodyPreview segments={preview.segments} />
             ) : (
               <textarea
                 id="post-body"
+                ref={bodyRef}
                 value={post.body}
                 onChange={(e) => set('body', e.target.value)}
                 rows={18}

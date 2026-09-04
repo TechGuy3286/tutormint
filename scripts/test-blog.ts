@@ -226,3 +226,51 @@ test('a statistic inside ordered-list text is still flagged', () => {
   const body = '1. Fees can reach 25000 rupees a month'
   assert.deepEqual(unsupportedFigures(body, 'notes', 'A guide'), ['25000'])
 })
+
+// ------------------------------------------------ content queue (9.4) core --
+
+import {
+  priorityOf,
+  gapAgeFactor,
+  evidenceHash,
+  calendarCandidates,
+} from '../lib/contentQueue/core'
+
+test('priority is the product of its components', () => {
+  assert.equal(priorityOf({ demand: 40, rankProximity: 1.5, seasonality: 1, gapAge: 1 }), 60)
+  assert.equal(priorityOf({ demand: 20, rankProximity: 1, seasonality: 3, gapAge: 2 }), 120)
+})
+
+test('gapAge rises one step per fortnight, capped at 4', () => {
+  const now = new Date('2026-03-01T00:00:00Z')
+  assert.equal(gapAgeFactor(now, now), 1)
+  assert.equal(gapAgeFactor(new Date('2026-02-15T00:00:00Z'), now), 2)
+  assert.equal(gapAgeFactor(new Date('2025-01-01T00:00:00Z'), now), 4)
+})
+
+test('evidence hash is stable under a small change, moves on a big one', () => {
+  assert.equal(evidenceHash({ searches: 40 }), evidenceHash({ searches: 43 }))
+  assert.notEqual(evidenceHash({ searches: 40 }), evidenceHash({ searches: 90 }))
+})
+
+test('a dismissed topic returns only when its evidence changes materially', () => {
+  // The rebuild resurfaces a dismissed row when the new hash differs.
+  const dismissedHash = evidenceHash({ searches: 40, tutors: 0 })
+  assert.equal(evidenceHash({ searches: 44, tutors: 0 }), dismissedHash) // stays dismissed
+  assert.notEqual(evidenceHash({ searches: 120, tutors: 0 }), dismissedHash) // returns
+})
+
+test('the calendar suggests a topic six weeks ahead, with the year in the id', () => {
+  // Nov 5 2026 is ~26 days before board registration opens (Dec 1).
+  const cands = calendarCandidates(new Date('2026-11-05T00:00:00Z'))
+  const reg = cands.find((c) => c.fingerprint.startsWith('calendar:board-registration:'))
+  assert.ok(reg, 'board registration should be suggested')
+  assert.equal(reg!.fingerprint, 'calendar:board-registration:2026')
+  assert.equal(reg!.cluster, 'boards-exams')
+})
+
+test('the calendar suggests nothing far from any event', () => {
+  // Deep in a quiet stretch: nothing within six weeks.
+  const cands = calendarCandidates(new Date('2026-10-12T00:00:00Z'))
+  assert.equal(cands.length, 0)
+})

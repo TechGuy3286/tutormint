@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { runSubscriptionSweep } from '@/lib/payments/expiry'
 import { publishDuePosts } from '@/lib/blogPublish'
+import { rebuildContentQueue } from '@/lib/contentQueue/build'
+import { deliverContentDigest } from '@/lib/contentQueue/digest'
 
 // Daily subscription sweep: remind at T-3, expire at zero.
 //
@@ -18,6 +20,9 @@ import { publishDuePosts } from '@/lib/blogPublish'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// The nightly content-queue rebuild reads several tables and upserts dozens of
+// rows on top of the billing sweep; 60s gives the whole tick room.
+export const maxDuration = 60
 
 function authorised(request: Request): boolean {
   const secret = process.env.CRON_SECRET
@@ -44,12 +49,25 @@ async function handle(request: Request) {
   // and vice versa — but its errors are surfaced the same way.
   const blog = await publishDuePosts()
 
+  // The content queue is rebuilt nightly (CLAUDE.md 9.4), and the Monday digest
+  // rides the same tick — it sends only on Monday and only once a day, so on
+  // every other day deliverContentDigest is a cheap no-op. Both are wrapped so a
+  // queue error cannot fail the billing sweep.
+  const queue = await rebuildContentQueue().catch((e) => ({ errors: [String(e)] }) as { errors: string[] })
+  const digest = await deliverContentDigest().catch((e) => ({ sent: false, recipients: 0, reason: String(e) }))
+
   // Errors are reported, not swallowed: a sweep that silently half-ran is how
   // a member keeps a plan they stopped paying for.
-  const errors = [...result.errors, ...blog.errors]
+  const errors = [...result.errors, ...blog.errors, ...('errors' in queue ? queue.errors : [])]
   const status = errors.length > 0 ? 500 : 200
   return NextResponse.json(
-    { ok: errors.length === 0, ...result, blog: { published: blog.published, slugs: blog.slugs, errors: blog.errors } },
+    {
+      ok: errors.length === 0,
+      ...result,
+      blog: { published: blog.published, slugs: blog.slugs, errors: blog.errors },
+      queue,
+      digest,
+    },
     { status },
   )
 }

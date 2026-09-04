@@ -56,6 +56,9 @@ const SaveBody = z.object({
     .array(z.object({ figure: z.string().max(40), source: z.string().max(300) }))
     .max(50)
     .optional(),
+  // The content-queue suggestion this post was started from, if any. Marks the
+  // suggestion 'drafted' on first save so it leaves the queue.
+  suggestionId: z.string().max(64).optional(),
 })
 
 const IdBody = z.object({
@@ -193,6 +196,17 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: msg }, { status: 400 })
       }
       postId = data.id as string
+
+      // A post now exists from this suggestion — mark it drafted so it leaves
+      // the queue and the nightly rebuild does not re-suggest it. Only on the
+      // first save (the insert branch), and only a still-open suggestion.
+      if (body.suggestionId) {
+        await admin
+          .from('content_suggestions')
+          .update({ status: 'drafted', drafted_post_id: postId, updated_at: nowIso })
+          .eq('id', body.suggestionId)
+          .in('status', ['suggested', 'snoozed'])
+      }
     }
 
     // A revision per save, so nothing is silently lost.

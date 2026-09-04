@@ -17,6 +17,7 @@ import {
   Megaphone,
   Menu,
   Newspaper,
+  ListChecks,
   Scroll,
   Search,
   Upload,
@@ -64,6 +65,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
   upload: Upload,
   search: Search,
   newspaper: Newspaper,
+  listChecks: ListChecks,
 }
 
 const COOKIE = 'tm_admin_nav'

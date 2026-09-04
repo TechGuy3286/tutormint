@@ -29,6 +29,7 @@ export type TemplateId =
   | 'plan_activated'
   | 'plan_expiring'
   | 'plan_expired'
+  | 'content_digest'
 
 export type RenderedEmail = {
   subject: string
@@ -128,6 +129,11 @@ export type TemplateInput =
   | { id: 'plan_activated'; name: string; planName: string; expiresAt: string; amountPkr: number }
   | { id: 'plan_expiring'; name: string; planName: string; daysLeft: number }
   | { id: 'plan_expired'; name: string; planName: string }
+  | {
+      id: 'content_digest'
+      suggestions: { title: string; why: string; href: string }[]
+      refresh: { title: string; href: string }[]
+    }
 
 export function render(input: TemplateInput): RenderedEmail {
   switch (input.id) {
@@ -279,5 +285,30 @@ export function render(input: TemplateInput): RenderedEmail {
         true, // billing
         { label: 'Get my position back', href: '/tutor/packages' },
       )
+
+    // The Monday content digest to owner + manager. An internal ops email, so
+    // it is marked essential -- it should not be silenced by a member-facing
+    // opt-out toggle. Nothing here auto-publishes; it points at the queue.
+    case 'content_digest': {
+      const lines: string[] = []
+      if (input.suggestions.length > 0) {
+        lines.push('Top topics to publish this week:')
+        input.suggestions.forEach((sug, i) => lines.push(`${i + 1}. ${sug.title} — ${sug.why}`))
+      } else {
+        lines.push('No new topics are queued this week.')
+      }
+      if (input.refresh.length > 0) {
+        lines.push('')
+        lines.push('Posts due a refresh (published over a year ago):')
+        input.refresh.forEach((r) => lines.push(`• ${r.title}`))
+      }
+      return build(
+        'Your weekly content queue',
+        'What to publish this week',
+        lines,
+        true, // internal ops
+        { label: 'Open the content queue', href: '/admin/blog/queue' },
+      )
+    }
   }
 }

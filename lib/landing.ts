@@ -117,6 +117,19 @@ async function subjectIndex(): Promise<SubjectIndex> {
   return { byMaster, bySlug }
 }
 
+/**
+ * master_id -> subject meta, for callers that hold a taxonomy id and need its
+ * display name and slug (the content queue's search-gap signal). Independent of
+ * listing counts — a subject with zero listed tutors still resolves here, which
+ * is exactly the case a gap signal is about.
+ */
+export async function subjectMetaByMaster(): Promise<Map<number, SubjectMeta>> {
+  return (await subjectIndex()).byMaster
+}
+
+/** The URL city segment for a city name, so a signal can build a landing path. */
+export { citySegment }
+
 // --- the live combinations --------------------------------------------------
 
 /**
