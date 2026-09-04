@@ -54,7 +54,7 @@ export default async function BlogIndexPage({
   const page = Math.max(1, Number(sp.page) || 1)
   const offset = (page - 1) * PAGE_SIZE
 
-  const { items, total, nextCursor } = await listPublishedPosts({
+  const { items, nextCursor } = await listPublishedPosts({
     cluster,
     limit: PAGE_SIZE,
     offset,
@@ -108,11 +108,7 @@ export default async function BlogIndexPage({
                 <PostCard key={p.id} post={p} />
               ))}
             </div>
-            <MorePosts
-              params={cluster ? { cluster } : {}}
-              initialCursor={nextCursor}
-              total={total}
-            />
+            <MorePosts params={cluster ? { cluster } : {}} initialCursor={nextCursor} />
           </>
         )}
       </div>

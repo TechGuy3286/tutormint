@@ -3,22 +3,23 @@
 import { useMemo } from 'react'
 
 import PostCard from '@/components/blog/PostCard'
-import InfiniteFooter from '@/components/InfiniteFooter'
 import { useInfinite } from '@/lib/useInfinite'
 import type { BlogListItem } from '@/lib/blogFeed'
 
 // The client half of the /blog index: appends more post cards below the
 // server-rendered first window. Same pattern as the browse and landing lists —
 // the first page is server HTML (organic-search surface), this only appends.
+//
+// It renders only the load-more tail, never an end-of-list message: the page
+// already shows the first window, and this component's own item list starts
+// empty, so a "no posts" line here would contradict a visible post.
 
 export default function MorePosts({
   params,
   initialCursor,
-  total,
 }: {
   params: Record<string, string>
   initialCursor: string | null
-  total: number
 }) {
   const storageKey = useMemo(
     () => `tm:blog:${new URLSearchParams(params).toString()}`,
@@ -40,15 +41,26 @@ export default function MorePosts({
           ))}
         </div>
       )}
-      <InfiniteFooter
-        state={state}
-        done={done}
-        loadMore={loadMore}
-        sentinel={sentinel}
-        loadedCount={items.length}
-        total={total}
-        noun="posts"
-      />
+
+      <div ref={sentinel} aria-hidden className="h-px" />
+
+      {!done && (
+        <div className="flex justify-center py-2">
+          <button
+            type="button"
+            onClick={loadMore}
+            disabled={state === 'loading'}
+            className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-tm-navy disabled:opacity-60"
+          >
+            {state === 'loading' ? 'Loading…' : 'Load more posts'}
+          </button>
+        </div>
+      )}
+      {state === 'error' && (
+        <p className="pb-2 text-center text-xs font-semibold text-tm-red">
+          Could not load more. Try again.
+        </p>
+      )}
     </>
   )
 }
