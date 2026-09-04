@@ -1,4 +1,4 @@
-import { List } from 'lucide-react'
+import { List, Bell } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -176,6 +176,9 @@ function EmptyState({ role, group }: { role: string | null; group: NotificationG
 
   return (
     <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-8 text-center">
+      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-tm-bg text-gray-500">
+        <Bell aria-hidden size={18} />
+      </div>
       <p className="text-xs font-bold text-tm-navy">No notifications yet</p>
       <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">{copy.hint}</p>
       <div className="mx-auto flex max-w-xs flex-col gap-2">

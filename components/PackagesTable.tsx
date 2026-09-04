@@ -48,6 +48,7 @@ export default function PackagesTable({
   quotaNoun,
   instantActivation,
   signedIn,
+  verified,
 }: {
   plans: PlanRow[]
   audience: 'tutor' | 'parent'
@@ -59,7 +60,14 @@ export default function PackagesTable({
   /** True when a gateway is live; false while manual transfer is the path. */
   instantActivation: boolean
   signedIn: boolean
+  /** Identity verified. Only gates the parent free "Verify to unlock" tier. */
+  verified: boolean
 }) {
+  // The held plan's tier, by search_rank (higher = higher tier). Drives which
+  // cards read "Upgrade", which are the current plan, and which show nothing:
+  // there are no downgrade offers.
+  const currentRank = plans.find((p) => p.code === currentPlan)?.search_rank ?? 0
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -67,6 +75,7 @@ export default function PackagesTable({
           const mine = p.code === currentPlan
           const spotlit = !mine && p.code === highlight
           const free = p.price_pkr === 0
+          const lower = !mine && p.search_rank < currentRank
 
           return (
             <section
@@ -121,21 +130,31 @@ export default function PackagesTable({
 
               {mine ? (
                 <div className="space-y-1 rounded-xl bg-tm-green-deep/10 p-3 text-center">
-                  <p className="text-[11px] font-black text-tm-green-deep">Your current plan</p>
+                  <p className="text-[11px] font-black text-tm-green-deep">Current plan</p>
                   {expiresAt && (
                     <p className="text-[10px] font-semibold text-tm-green-deep">
                       Runs until {formatDate(expiresAt)}
                     </p>
                   )}
                 </div>
+              ) : lower ? (
+                // No downgrade offers: a member never sees a button for a tier
+                // below the one they hold.
+                null
               ) : free ? (
-                <Link
-                  href="/parent/verify"
-                  className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
-                >
-                  <ShieldCheck aria-hidden size={14} />
-                  Verify to unlock
-                </Link>
+                // The free (parent Verified) tier. "Verify to unlock" only when
+                // identity is actually not verified; a verified member sees
+                // nothing here (this card is either their own plan, handled
+                // above, or below them, handled above).
+                !verified ? (
+                  <Link
+                    href="/parent/verify"
+                    className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+                  >
+                    <ShieldCheck aria-hidden size={14} />
+                    Verify to unlock
+                  </Link>
+                ) : null
               ) : (
                 <BuyButton
                   planCode={p.code}

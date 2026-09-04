@@ -179,11 +179,15 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
   let isTutor = false
   let viewerCity: string | null = null
+  let viewerRole: string | null = null
+  let viewerPlan: string | null = null
   let appliedIds = new Set<string>()
 
   if (user) {
     const ent = await getEntitlements(user.id)
     isTutor = ent.audience === 'tutor'
+    viewerRole = ent.role
+    viewerPlan = ent.plan
 
     // Only to decide the "Suitable for online" chip on cross-city online jobs.
     if (isTutor) {
@@ -312,6 +316,8 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
                     slot="browse-inline"
                     audience="tutors"
                     index={Math.floor(i / AD_EVERY)}
+                    viewerRole={viewerRole}
+                    viewerPlan={viewerPlan}
                   />
                 )}
               </div>

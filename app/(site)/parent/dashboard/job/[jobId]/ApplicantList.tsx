@@ -8,8 +8,9 @@ import { useToast } from '@/components/ui/Toast'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Bookmark, BookmarkX, Lock, MessageSquare } from 'lucide-react'
+import { Bookmark, BookmarkX, Lock, MessageSquare, Users } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
+import EmptyState from '@/components/EmptyState'
 import type { BadgeName } from '@/lib/planBadges'
 
 // The applicants on one job, and what a parent can do with them.
@@ -91,9 +92,11 @@ export default function ApplicantList({
 
   if (live.length === 0) {
     return (
-      <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
-        No applications yet. Tutors whose subjects match will see this job on their dashboard.
-      </p>
+      <EmptyState
+        icon={<Users aria-hidden size={18} />}
+        title="No applications yet. Tutors whose subjects match will see this job on their dashboard — you can also invite one from browse."
+        action={{ label: 'Find tutors', href: '/browse/tutors' }}
+      />
     )
   }
 

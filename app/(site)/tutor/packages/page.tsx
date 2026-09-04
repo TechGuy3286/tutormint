@@ -125,6 +125,7 @@ export default async function TutorPackagesPage({
           quotaNoun="job applications"
           instantActivation={provider.id !== 'manual'}
           signedIn={!!ent}
+          verified
         />
 
         {/* Where to read more, and what the words mean. A packages page that

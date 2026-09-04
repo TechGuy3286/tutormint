@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { buildGate, type GateReason } from '@/lib/gate'
+import { planRank } from '@/lib/upsell'
 import { parseBody, z } from '@/lib/validate'
 
 // POST /api/gate  ->  { gate }
@@ -82,5 +83,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ gate: null })
   }
 
-  return NextResponse.json({ gate: await buildGate(reason, ent) })
+  const gate = await buildGate(reason, ent)
+
+  // Belt-and-braces on the "never offer a held or lower plan" rule (lib/upsell):
+  // a gate keyed to a fixed unlocking plan must not pitch a plan at or below
+  // what the member already holds. In practice the UI keeps a paying member off
+  // these surfaces, but the offer itself is guarded here too rather than trusted
+  // to the caller.
+  if (gate?.plan?.code && ent.audience) {
+    const held = planRank(ent.audience, ent.plan)
+    const offered = planRank(ent.audience, gate.plan.code)
+    if (offered > 0 && offered <= held) {
+      return NextResponse.json({ gate: null })
+    }
+  }
+
+  return NextResponse.json({ gate })
 }

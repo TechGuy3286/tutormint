@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { Activity } from 'lucide-react'
 
 import ActivityCard from '@/components/dashboard/ActivityCard'
+import EmptyState from '@/components/EmptyState'
 import { groupFeed, type FeedItem } from '@/lib/feedGrouping'
 
 // The second band: what has happened, newest first.
@@ -32,11 +34,14 @@ export default function ActivityBand({
   items,
   emptyHint,
   inboxHref,
+  emptyAction,
 }: {
   items: FeedItem[]
   emptyHint: string
   /** Where the single messages card points. Role-specific, so it is passed in. */
   inboxHref: string
+  /** The one thing to do when the timeline is empty. Role-specific. */
+  emptyAction?: { label: string; href: string }
 }) {
   const groups = groupFeed(items, { messages: 'all', inboxHref })
 
@@ -57,9 +62,7 @@ export default function ActivityBand({
       </div>
 
       {groups.length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed text-gray-500">
-          {emptyHint}
-        </p>
+        <EmptyState icon={<Activity aria-hidden size={18} />} title={emptyHint} action={emptyAction} />
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {groups.map((g) => (

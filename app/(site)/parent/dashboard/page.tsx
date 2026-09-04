@@ -7,7 +7,7 @@ import ActivityBand from '@/components/dashboard/ActivityBand'
 import IdentityBlock from '@/components/dashboard/IdentityBlock'
 import NeedsYou from '@/components/dashboard/NeedsYou'
 import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
-import IdentityCard from '@/components/identity/IdentityCard'
+import IdentityStatusLine from '@/components/identity/IdentityStatusLine'
 import { getSessionUser } from '@/lib/auth'
 import { loadIdentity } from '@/lib/identity'
 import { recentActivity } from '@/lib/dashboardFeed'
@@ -70,7 +70,19 @@ export default async function ParentDashboardPage() {
         addressVerified: !!profile?.address_verified_at,
         verificationState: (profile?.verification_state as string) ?? null,
       }),
-      recentActivity({ userId, role: 'parent', limit: 8 }),
+      // The "plan ended · Reactivate" card must not appear while a plan is
+      // live. It surfaces on TWO bands — Needs you (lapsedPlanRow) and this
+      // timeline (a plan_expired feed item) — and both read ent, the computed
+      // authority, so a member who reactivated is never told their plan ended.
+      recentActivity({
+        userId,
+        role: 'parent',
+        limit: 8,
+        hideKinds:
+          ent.plan || ent.planPaused
+            ? ['plan_expired', 'plan_revoked', 'plan_cancelled', 'plan_ended']
+            : [],
+      }),
       loadIdentity(userId),
       supabase.from('jobs').select('id, status, hired_tutor_id').eq('parent_id', userId),
       unreadMessageCount(userId),
@@ -205,7 +217,20 @@ export default async function ParentDashboardPage() {
           </Link>
         )}
 
-        <IdentityCard identity={identity} role="parent" />
+        {/* Compact status line only. The CNIC form and "Request a change" live
+            in Settings → Identity (/parent/verify). "Verified" needs BOTH CNIC
+            and address; a partial approval reads as Pending review, never a
+            "Verified" state beside an upload prompt. */}
+        <IdentityStatusLine
+          state={
+            verified
+              ? 'approved'
+              : identity.state === 'approved'
+                ? 'submitted'
+                : identity.state
+          }
+          settingsHref="/parent/verify"
+        />
 
         <NeedsYou
           rows={needs}
@@ -220,12 +245,13 @@ export default async function ParentDashboardPage() {
           items={activity}
           inboxHref="/parent/dashboard/messages"
           emptyHint="Nothing has happened yet. Applications, replies and demo answers will appear here as they arrive."
+          emptyAction={{ label: 'Browse tutors', href: '/browse/tutors' }}
         />
 
         <YourThings rows={things} />
 
         {/* The parent dashboard slot from the revenue spec. One per page. */}
-        <AdSlot slot="parent-sidebar" audience="parents" viewerRole="parent" />
+        <AdSlot slot="parent-sidebar" audience="parents" viewerRole="parent" viewerPlan={ent.plan} />
       </div>
     </main>
   )

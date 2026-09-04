@@ -181,6 +181,9 @@ export default function NotificationBell({
 
             {items !== null && items.length === 0 && (
               <div className="space-y-3 p-6 text-center">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-tm-bg text-gray-500">
+                  <Bell aria-hidden size={18} />
+                </div>
                 <p className="text-xs font-bold text-tm-navy">Nothing yet</p>
                 <p className="text-xs leading-relaxed text-gray-500">{emptyHint}</p>
                 <Link

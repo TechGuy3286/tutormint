@@ -2240,6 +2240,73 @@ seen Markdown can write a post. **Slug auto-fills from the title as it is
 typed**, until it is hand-edited (then it stops tracking) or the post is
 published (then it is locked) — an emptied slug resumes tracking the title.
 
+## Mobile polish, both roles (5 Sep 2026)
+
+A pass over the two dashboards, cards, packages and empty states. No migration.
+
+**The cross-city notification now checks BOTH modes.** The Growth PR's
+`notifyMatchingTutors` cross-city fan-out gated on the JOB's mode only, so an
+in-person-only tutor in another city was notified for an online job. It now also
+requires the tutor's own `teaching_mode ∈ {online, both}` (read from
+`tutor_directory`). In-app `notify()` is not gated by any preference for any
+kind (`email_opt_out` governs email only, and `job_matched` sends no email), so
+this notification respects preferences exactly as every other in-app one does.
+
+**The identity form is off the dashboards.** Both dashboards embedded the full
+identity card (CNIC front/back, selfie, "Request a change"); it now lives only
+in Settings → Identity (tutor `/tutor/dashboard/settings`, parent
+`/parent/verify`). The dashboards show one compact `IdentityStatusLine`:
+Verified / Pending review / Not submitted → Complete in Settings (link). A
+Verified account shows only "Verified" — never "FRONT Not uploaded · BACK Not
+uploaded"; the documents are retained privately and there is nothing to prompt.
+The parent line reads Verified only when BOTH CNIC and address are approved (a
+partial approval is Pending review).
+
+**Upsell never offers the held plan or a lower one.** `lib/upsell.ts`
+(`nextUpsell`, `planRank`) is the one answer to "what higher plan do we offer?",
+returning the next rung or null at the top — superseding the never-null
+`lib/upgradePath.ts` `nextPlan`. The main leak was the house ads (`lib/ads.ts`):
+they ignored the viewer and pitched `house-parent-featured` to Featured parents
+and `house-tutor-featured`/`-premium` to Featured/Premium tutors. `houseUpsellAd`
+picks the lowest creative strictly ABOVE the held plan, or null; `AdSlot` and
+`/api/ads/inline` render nothing when null, but only filter when the viewer's
+audience matches the slot's. `/api/gate` gained a belt-and-braces guard: a gate
+whose offered plan is at or below the held plan returns `{ gate: null }`.
+
+**The stale expiry card is gone.** `lapsedPlanRow` (`lib/needsYou.ts`) guarded
+only `ent.plan`; a PAUSED plan has `ent.plan === null` while `ent.planPaused`,
+so a live paid plan showed "your plan ended" beside its own tile. The guard is
+now `if (ent.plan || ent.planPaused) return null` — `ent` is the computed
+authority; the raw `subscriptions` read (which can hold a stale expired row from
+a previous plan) is only reached when there is genuinely no live plan.
+
+**Packages state is per-tier and per-role** (`PackagesTable`, `BuyButton`):
+"Current plan" (disabled) on the held tier, "Upgrade to X" on higher tiers,
+nothing on lower tiers (no downgrade offers), and "Verify to unlock" only when
+identity is actually not verified. Tier order comes from `search_rank`; a new
+`verified` prop gates the parent free tier (a parent holds any plan only once
+verified, so `!!ent.plan` is the verified fact).
+
+**Card actions are one row at every width** (`components/CardActions.tsx`): the
+primary actions stay visible and the rest fold into a "More" overlay menu — no
+button wraps to a second row, labels always stay, icon+label throughout. Tutor
+cards (View Profile, Send Message, Demo, Shortlist) show two primaries + More on
+mobile; tuition cards (View details, Apply) fit in one row with no More.
+
+**"Either" is now "In person or online"** everywhere (filters, cards, profile,
+job form, notifications) via the one `lib/display.ts` `teachingMode()` helper.
+Stored values are unchanged.
+
+**Post-a-tuition drops "Select all"** — `TaxonomySelector` gained
+`allowSelectAll` (default true; false only from the job form). Nobody posts one
+tuition for every subject.
+
+**Empty states** (`components/EmptyState.tsx`): one icon, one sentence, one
+action. Wired into the applicant list, activity band, demo inbox, the tutor
+open-tuitions list, the free-tutor matching-jobs strip, the parent my-tuitions
+list, and the notification empties (bell + full page). There is no parent
+"saved tutors" list page in the product, so "saved" has no empty state to add.
+
 ## Growth pass — social templates, anon search, mobile footer, chip (5 Sep 2026)
 
 Six changes, migration 52 (additive: `anon_search_events`, `notifications.meta`).

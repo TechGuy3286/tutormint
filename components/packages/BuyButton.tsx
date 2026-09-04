@@ -40,7 +40,9 @@ export default function BuyButton({
   const [error, setError] = useState<string | null>(null)
   const [stuck, setStuck] = useState<string | null>(null)
 
-  const label = upgrading ? `Switch to ${planName}` : `Get ${planName}`
+  // "Upgrade" when the member holds a lower plan (PackagesTable only renders
+  // this button on the held plan's higher tiers); "Get X" for a first purchase.
+  const label = upgrading ? `Upgrade to ${planName}` : `Get ${planName}`
 
   const start = async () => {
     if (!signedIn) {

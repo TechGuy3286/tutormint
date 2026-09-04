@@ -30,8 +30,10 @@ function titleCase(raw: string): string {
 /**
  * How a tuition or a tutor is taught.
  *
- * "Either" rather than "Both" for the both-modes case: a parent reading a job
- * card is choosing, and "Either" is the word that says the choice is theirs.
+ * The both-modes case reads "In person or online" — spelled out rather than
+ * "Either", which said the choice was there but not what the choices were. One
+ * phrase everywhere it appears (filters, cards, profile, job form, notifications)
+ * so the label cannot drift. The stored value is unchanged ('both').
  */
 export function teachingMode(raw: string | null | undefined): string | null {
   if (!raw) return null
@@ -49,7 +51,7 @@ export function teachingMode(raw: string | null | undefined): string | null {
     case 'both':
     case 'either':
     case 'any':
-      return 'Either'
+      return 'In person or online'
     default:
       return titleCase(raw)
   }

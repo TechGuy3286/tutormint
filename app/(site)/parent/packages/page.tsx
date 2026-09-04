@@ -76,6 +76,7 @@ export default async function ParentPackagesPage({
           quotaNoun="job posts"
           instantActivation={provider.id !== 'manual'}
           signedIn={!!ent}
+          verified={!!ent?.plan}
         />
 
         <section className="rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed text-gray-500 sm:p-5">

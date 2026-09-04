@@ -200,9 +200,13 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
     canInitiateMessage: false,
   }
   let saved = new Set<string>()
+  // Only for the house-ad upsell filter, so an inline ad never pitches a plan
+  // the viewer already holds.
+  let viewerPlan: string | null = null
 
   if (user) {
     const ent = await getEntitlements(user.id)
+    viewerPlan = ent.plan
     viewer = {
       signedIn: true,
       role: ent.role,
@@ -375,6 +379,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
                     audience="parents"
                     index={Math.floor(i / AD_EVERY)}
                     viewerRole={viewer.role ?? null}
+                    viewerPlan={viewerPlan}
                   />
                 )}
               </div>

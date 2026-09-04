@@ -7,7 +7,11 @@ import { useEffect, useState } from 'react'
 import AdView from '@/components/ads/AdView'
 import type { HouseAd, PaidAd } from '@/lib/ads'
 
-type Payload = { kind: 'paid'; ad: PaidAd } | { kind: 'house'; ad: HouseAd }
+type Payload =
+  | { kind: 'paid'; ad: PaidAd }
+  | { kind: 'house'; ad: HouseAd }
+  // A member already at the top of their plan ladder: no honest upsell to show.
+  | { kind: 'none' }
 
 // The browse ad slot for rows the browser appended.
 //
@@ -44,6 +48,6 @@ export default function InlineAd({ audience, index }: { audience: 'parents' | 't
     }
   }, [audience, index])
 
-  if (!payload) return null
+  if (!payload || payload.kind === 'none') return null
   return <AdView ad={payload} />
 }

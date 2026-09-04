@@ -8,7 +8,8 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
 import { useState } from 'react'
-import { Building2, Clock, FileText, GraduationCap, MapPin, Wallet } from 'lucide-react'
+import { Building2, Clock, FileText, GraduationCap, MapPin, Wallet, Send } from 'lucide-react'
+import CardActions, { type CardAction } from '@/components/CardActions'
 import BadgeRow from '@/components/badges/BadgeRow'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
 import { showsOnlineChip } from '@/lib/matchChip'
@@ -250,24 +251,34 @@ export default function JobCard({
               : 'Verified parent — cannot complete a hire yet'}
           </p>
 
-          <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-            <Link
-              href={detailHref}
-              className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-tm-bg px-4 text-xs font-bold text-slate-700 transition-colors hover:bg-gray-100"
-            >
-              <FileText aria-hidden size={14} />
-              View details
-            </Link>
-            {showApply && (
-              <button
-                type="button"
-                onClick={apply}
-                disabled={state !== 'idle'}
-                className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:bg-gray-300"
-              >
-                {state === 'done' ? 'Applied' : state === 'sending' ? 'Sending…' : 'Apply'}
-              </button>
-            )}
+          {/* One non-wrapping row at every width (was stacked on mobile). Two
+              actions, so no More menu is needed. */}
+          <div className="pt-1">
+            <CardActions
+              actions={
+                [
+                  {
+                    key: 'view',
+                    label: 'View details',
+                    icon: <FileText aria-hidden size={14} />,
+                    className: 'border border-gray-200 bg-tm-bg text-slate-700 hover:bg-gray-100',
+                    href: detailHref,
+                  },
+                  ...(showApply
+                    ? [
+                        {
+                          key: 'apply',
+                          label: state === 'done' ? 'Applied' : state === 'sending' ? 'Sending…' : 'Apply',
+                          icon: <Send aria-hidden size={14} />,
+                          className: 'bg-tm-red text-white hover:bg-tm-red-hover disabled:bg-gray-300',
+                          onClick: apply,
+                          disabled: state !== 'idle',
+                        } as CardAction,
+                      ]
+                    : []),
+                ] as CardAction[]
+              }
+            />
           </div>
 
           {/* Reporting a post is only meaningful once signed in -- an

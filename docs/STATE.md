@@ -401,3 +401,32 @@ private `identity-docs` bucket and is served only through
 `/api/documents/[id]/preview`. Degree certificates are readable by any signed-in
 user through that route so a parent can see a tutor's qualifications, but the
 bucket itself is private and anonymous requests are refused.
+
+## Mobile polish, both roles (5 Sep 2026)
+
+A UI pass over the dashboards, cards, packages and empty states. No migration;
+no change to matching logic, entitlements or the seed cast.
+
+- **Cross-city notification fix.** `notifyMatchingTutors` (`lib/jobs.ts`) now
+  requires BOTH the job's mode and the tutor's own `teaching_mode` to allow
+  online before notifying a cross-city tutor (was job-mode only). In-app
+  notifications carry no per-kind preference on the platform, so this behaves
+  like every other `notify()`.
+- **Identity off the dashboards.** New `components/identity/IdentityStatusLine.tsx`
+  (Verified / Pending review / Not submitted → Settings). The full `IdentityCard`
+  stays only in `/tutor/dashboard/settings` and `/parent/verify`. A verified
+  account never shows an upload prompt.
+- **`lib/upsell.ts`** (`nextUpsell`, `planRank`) — the single "next higher plan
+  or null" helper. Wired into `lib/ads.ts` `houseUpsellAd`, `components/ads/AdSlot.tsx`,
+  `app/api/ads/inline/route.ts` (renders nothing at the top of the ladder), and a
+  guard in `app/api/gate/route.ts`. Supersedes `lib/upgradePath.ts` `nextPlan`.
+- **Expiry card** — `lapsedPlanRow` guard is now `if (ent.plan || ent.planPaused)`,
+  so a live active OR paused plan suppresses the "plan ended" card.
+- **Packages** — `PackagesTable` + `BuyButton`: Current plan / Upgrade to X /
+  nothing below / "Verify to unlock" only when unverified. New `verified` prop.
+- **`components/CardActions.tsx`** — one no-wrap row of icon+label buttons with a
+  "More" overflow menu; used by `TutorCard` and `JobCard`.
+- **`lib/display.ts`** `teachingMode()` "both" → "In person or online".
+- **`TaxonomySelector`** `allowSelectAll` prop (off for post-a-tuition).
+- **`components/EmptyState.tsx`** — one icon/sentence/action, wired into the weak
+  and missing list empties across both roles.

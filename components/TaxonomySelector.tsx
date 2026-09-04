@@ -10,6 +10,9 @@ interface TaxonomySelectorProps {
   setSelectedGrade: (grade: string) => void;
   selectedSubjects: string[];
   setSelectedSubjects: (subjects: string[]) => void;
+  /** "Select all" bulk toggle. Off for post-a-tuition — nobody posts one
+      tuition for every subject. On elsewhere (a tutor may teach many). */
+  allowSelectAll?: boolean;
 }
 
 export default function TaxonomySelector({
@@ -18,7 +21,8 @@ export default function TaxonomySelector({
   selectedGrade,
   setSelectedGrade,
   selectedSubjects,
-  setSelectedSubjects
+  setSelectedSubjects,
+  allowSelectAll = true,
 }: TaxonomySelectorProps) {
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyNode>({});
   const [loading, setLoading] = useState<boolean>(true);
@@ -169,19 +173,21 @@ export default function TaxonomySelector({
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubjectSearch(e.target.value)}
               className="min-h-[44px] p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none flex-1 sm:w-48 text-slate-700"
             />
-            <button 
-              type="button" 
-              onClick={() => {
-                if (selectedSubjects.length === availableSubjects.length) {
-                  setSelectedSubjects([]);
-                } else {
-                  setSelectedSubjects([...availableSubjects]);
-                }
-              }}
-              className="inline-flex min-h-[44px] items-center text-[11px] font-extrabold text-tm-red hover:underline whitespace-nowrap cursor-pointer"
-            >
-              {selectedSubjects.length === availableSubjects.length ? "Deselect All" : "Select All"}
-            </button>
+            {allowSelectAll && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedSubjects.length === availableSubjects.length) {
+                    setSelectedSubjects([]);
+                  } else {
+                    setSelectedSubjects([...availableSubjects]);
+                  }
+                }}
+                className="inline-flex min-h-[44px] items-center text-[11px] font-extrabold text-tm-red hover:underline whitespace-nowrap cursor-pointer"
+              >
+                {selectedSubjects.length === availableSubjects.length ? "Deselect All" : "Select All"}
+              </button>
+            )}
           </div>
         </div>
 

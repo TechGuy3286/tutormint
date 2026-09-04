@@ -619,11 +619,15 @@ async function notifyMatchingTutors(
     // subject taught online must not turn one post into a nationwide mailing.
     let crossCityIds: string[] = []
     if (input.teachingMode === 'online' || input.teachingMode === 'both') {
+      // BOTH sides must allow online: the job (checked above) AND the tutor's
+      // own teaching_mode. An in-person-only tutor in another city cannot take
+      // an online job across cities, so notifying them would be noise.
       const { data: crossRows } = await admin
         .from('tutor_directory')
         .select('id')
         .in('id', tutorIds)
         .neq('city', input.city) // null-city tutors are excluded by <> ; correct — we cannot claim online suitability for an unknown city
+        .in('teaching_mode', ['online', 'both'])
         .limit(30)
       crossCityIds = (crossRows ?? [])
         .map((r) => r.id as string)

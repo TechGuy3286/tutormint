@@ -6,7 +6,8 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
 import { useState } from 'react'
 import Link from 'next/link'
-import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, Mail, Star } from 'lucide-react'
+import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, Mail, Star, Eye } from 'lucide-react'
+import CardActions, { type CardAction } from '@/components/CardActions'
 import { teachingMode } from '@/lib/display'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
@@ -256,9 +257,6 @@ export default function TutorCard({
     setBusy(false)
   }
 
-  const btn =
-    'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-colors disabled:opacity-60'
-
   return (
     <>
       <article className="relative rounded-2xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md sm:p-6">
@@ -391,47 +389,52 @@ export default function TutorCard({
                 Without it the overlay swallows Shortlist, Demo and Send
                 Message, and all four buttons would silently become "open the
                 profile" — the exact failure this pattern is known for. */}
-            <div className="relative z-10 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-              <Link
-                href={profileHref}
-                className={`${btn} bg-tm-black text-white hover:bg-tm-navy`}
-              >
-                View Profile
-              </Link>
-
-              <button
-                type="button"
-                onClick={toggleShortlist}
-                disabled={busy}
-                aria-pressed={saved}
-                className={`${btn} border border-tm-red text-tm-red hover:bg-tm-tint-red`}
-              >
-                <Heart size={14} className={saved ? 'fill-tm-red' : ''} />
-                {saved ? 'Shortlisted' : 'Shortlist'}
-              </button>
-
-              <button
-                type="button"
-                onClick={requestDemo}
-                disabled={busy}
-                className={`${btn} bg-tm-red text-white hover:bg-tm-red-hover`}
-              >
-                <Play size={14} className="fill-white" />
-                Demo
-              </button>
-
-              {showMessage && (
-                <button
-                  type="button"
-                  onClick={onMessage}
-                  disabled={busy}
-                  className={`${btn} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}
-                >
-                  <Mail size={14} />
-                  Send Message
-                </button>
-              )}
-            </div>
+            {/* One non-wrapping row at every width. View Profile and (for a
+                parent/guest) Send Message stay visible; Demo and Shortlist fold
+                into More when there are four actions. A tutor viewer has three
+                (no Send Message) and sees them all. */}
+            <CardActions
+              actions={
+                [
+                  {
+                    key: 'view',
+                    label: 'View Profile',
+                    icon: <Eye size={14} aria-hidden />,
+                    className: 'bg-tm-black text-white hover:bg-tm-navy',
+                    href: profileHref,
+                  },
+                  ...(showMessage
+                    ? [
+                        {
+                          key: 'message',
+                          label: 'Message',
+                          icon: <Mail size={14} aria-hidden />,
+                          className: 'bg-tm-green-deep text-white hover:bg-tm-green-deep-hover',
+                          onClick: onMessage,
+                          disabled: busy,
+                        } as CardAction,
+                      ]
+                    : []),
+                  {
+                    key: 'demo',
+                    label: 'Demo',
+                    icon: <Play size={14} aria-hidden />,
+                    className: 'bg-tm-red text-white hover:bg-tm-red-hover',
+                    onClick: requestDemo,
+                    disabled: busy,
+                  },
+                  {
+                    key: 'shortlist',
+                    label: saved ? 'Shortlisted' : 'Shortlist',
+                    icon: <Heart size={14} className={saved ? 'fill-tm-red' : ''} aria-hidden />,
+                    className: 'border border-tm-red text-tm-red hover:bg-tm-tint-red',
+                    onClick: toggleShortlist,
+                    disabled: busy,
+                    ariaPressed: saved,
+                  },
+                ] as CardAction[]
+              }
+            />
 
             {notice && (
               <p className="relative z-10 pt-2 text-[11px] font-semibold leading-snug text-slate-700">

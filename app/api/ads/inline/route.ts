@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 
-import { houseAd, pickAd, recordImpression, type AdAudience } from '@/lib/ads'
+import { houseAd, houseUpsellAd, pickAd, recordImpression, type AdAudience } from '@/lib/ads'
 import { getSessionUser } from '@/lib/auth'
+import { getEntitlements } from '@/lib/entitlements'
+import type { UpsellAudience } from '@/lib/upsell'
 
 // One inline browse ad, for the windows infinite scroll appends.
 //
@@ -34,6 +36,21 @@ export async function GET(request: Request) {
   if (paid) {
     await recordImpression(paid.id, 'browse-inline', viewerRole)
     return NextResponse.json({ kind: 'paid', ad: paid })
+  }
+
+  // House fallback with upsell discipline: a member of this slot's audience is
+  // pitched only a plan above the one they hold, and nothing at the top.
+  const viewer: UpsellAudience | null =
+    viewerRole === 'tutor' ? 'tutor' : viewerRole === 'parent' || viewerRole === 'academy' ? 'parent' : null
+  if (
+    viewer &&
+    session?.user?.id &&
+    ((viewer === 'parent' && audience === 'parents') || (viewer === 'tutor' && audience === 'tutors'))
+  ) {
+    const ent = await getEntitlements(session.user.id)
+    const house = houseUpsellAd(viewer, ent.plan)
+    if (!house) return NextResponse.json({ kind: 'none' })
+    return NextResponse.json({ kind: 'house', ad: house })
   }
 
   return NextResponse.json({

@@ -1,5 +1,6 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
-import { Info } from 'lucide-react'
+import { Info, Briefcase } from 'lucide-react'
+import EmptyState from '@/components/EmptyState'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -98,9 +99,11 @@ export default async function TutorJobsPage() {
         <section className="space-y-3">
           <h2 className="text-sm font-black text-tm-navy">All open tuitions</h2>
           {jobs.length === 0 ? (
-            <p className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-xs text-gray-500">
-              Nothing posted yet. Keep your profile complete so parents find you in search.
-            </p>
+            <EmptyState
+              icon={<Briefcase aria-hidden size={18} />}
+              title="No open tuitions right now. Keep your profile at 100% so parents find you in search, and check back — new tuitions are posted every day."
+              action={{ label: 'Complete your profile', href: '/tutor/dashboard/settings' }}
+            />
           ) : (
             <>
               <div className="space-y-3">

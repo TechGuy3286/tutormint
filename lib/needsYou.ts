@@ -102,8 +102,13 @@ async function lapsedPlanRow(
   ent: Entitlements,
   href: string,
 ): Promise<NeedRow | null> {
-  // A member who has since bought again is not being told their plan ended.
-  if (ent.plan) return null
+  // A member who has a live plan is never told a plan ended — whether it is
+  // ACTIVE (ent.plan) or PAUSED (ent.planPaused: paid, waiting on 100% to
+  // start). ent is the computed authority; the raw subscriptions row read
+  // below is denormalised and can still hold a stale expired/cancelled row from
+  // a previous plan, which is exactly the case this guard rules out. Missing
+  // the paused case is what showed "your plan ended" beside a live plan tile.
+  if (ent.plan || ent.planPaused) return null
 
   const supabase = await createClient()
   const { data } = await supabase

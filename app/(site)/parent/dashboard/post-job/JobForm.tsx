@@ -299,6 +299,7 @@ export default function JobForm({
               setSelectedGrade={(x) => setV((p) => ({ ...p, level: x, subjects: [] }))}
               selectedSubjects={v.subjects}
               setSelectedSubjects={(x) => set('subjects', x)}
+              allowSelectAll={false}
             />
           )}
           {levelLeaf && (

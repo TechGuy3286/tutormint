@@ -3,6 +3,7 @@ import { Info, TrendingUp } from 'lucide-react'
 
 import AdSlot from '@/components/ads/AdSlot'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
+import EmptyState from '@/components/EmptyState'
 import VerifiedShareCard from '@/components/tutor/VerifiedShareCard'
 import { absoluteUrl } from '@/lib/siteUrl'
 import ActivityBand from '@/components/dashboard/ActivityBand'
@@ -18,7 +19,7 @@ import { unreadMessageCount } from '@/lib/messaging'
 import { tutorNeeds } from '@/lib/needsYou'
 import IdentityBlock from '@/components/dashboard/IdentityBlock'
 import ViewsCard from '@/components/dashboard/ViewsCard'
-import IdentityCard from '@/components/identity/IdentityCard'
+import IdentityStatusLine from '@/components/identity/IdentityStatusLine'
 import { loadIdentity } from '@/lib/identity'
 import { viewSummary } from '@/lib/profileViews'
 import { createClient } from '@/lib/supabase/server'
@@ -102,7 +103,19 @@ export default async function TutorDashboardPage() {
       }),
       // profile_viewed is hidden here and only here: ViewsCard is directly
       // above this band and is the surface for it. See recentActivity().
-      recentActivity({ userId, role: 'tutor', limit: 8, hideKinds: ['profile_viewed'] }),
+      // profile_viewed: the teaser above is that surface. The plan-ended kinds:
+      // suppressed while a plan is live, so a reactivated tutor is never shown a
+      // "plan ended · Reactivate" card beside their active plan (same rule as
+      // the Needs-you lapsedPlanRow).
+      recentActivity({
+        userId,
+        role: 'tutor',
+        limit: 8,
+        hideKinds:
+          ent.plan || ent.planPaused
+            ? ['profile_viewed', 'plan_expired', 'plan_revoked', 'plan_cancelled', 'plan_ended']
+            : ['profile_viewed'],
+      }),
       viewSummary(userId, ent.canSeeViewerIdentity, 20),
       loadIdentity(userId),
       matchingJobsForTutor(userId, tutorProfile?.city ?? null),
@@ -237,11 +250,12 @@ export default async function TutorDashboardPage() {
         {/* ------------------------------------------- the 199 funnel --- */}
         <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} />
 
-        {/* The same card the parent dashboard renders. A tutor's CNIC used to
-            live in a settings section headed "ANTI-DOWNLOAD PROTECTED
-            DOCUMENTS" that uploaded it to a PUBLIC bucket -- see
-            components/identity/IdentityCard.tsx. */}
-        <IdentityCard identity={identity} role="tutor" />
+        {/* One compact status line, not the full identity form. The CNIC
+            front/back, selfie and "Request a change" live only in
+            Settings → Identity (/tutor/dashboard/settings). A verified account
+            shows only "Verified" — never an upload prompt for documents it is
+            retaining privately. */}
+        <IdentityStatusLine state={identity.state} settingsHref="/tutor/dashboard/settings" />
 
         {free && position && (
           // id, so the rank_dropped notification's button has somewhere to
@@ -270,9 +284,16 @@ export default async function TutorDashboardPage() {
           </section>
         )}
 
-        {free && weekJobs.length > 0 && (
+        {free && (
           <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
             <h2 className="text-xs font-black text-tm-navy">Jobs matching you this week</h2>
+            {weekJobs.length === 0 ? (
+              <EmptyState
+                icon={<TrendingUp aria-hidden size={18} />}
+                title="No new tuitions matched your subjects this week. Keep your subjects and city set so parents find you — new tuitions are posted daily."
+                action={{ label: 'See all open tuitions', href: '/tutor/dashboard/jobs' }}
+              />
+            ) : (
             <ul className="divide-y divide-gray-100">
               {weekJobs.slice(0, 3).map((j) => (
                 <li key={j.id} className="flex items-center justify-between gap-3 py-2">
@@ -299,6 +320,7 @@ export default async function TutorDashboardPage() {
                 </li>
               ))}
             </ul>
+            )}
           </section>
         )}
 
@@ -306,6 +328,7 @@ export default async function TutorDashboardPage() {
           items={activity}
           inboxHref="/tutor/dashboard/messages"
           emptyHint="Nothing has happened yet. Applications, parent replies and demo requests will appear here."
+          emptyAction={{ label: 'See open tuitions', href: '/tutor/dashboard/jobs' }}
         />
 
         <YourThings rows={things} />
@@ -321,7 +344,7 @@ export default async function TutorDashboardPage() {
 
         {/* House and promo creatives only, per the revenue spec — tutors are
             not sold to advertisers. */}
-        <AdSlot slot="tutor-dashboard" audience="tutors" viewerRole="tutor" />
+        <AdSlot slot="tutor-dashboard" audience="tutors" viewerRole="tutor" viewerPlan={ent.plan} />
       </div>
     </main>
   )

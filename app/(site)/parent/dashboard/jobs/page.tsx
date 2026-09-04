@@ -1,6 +1,7 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
-import { Plus, ShieldCheck } from 'lucide-react'
+import { Plus, Briefcase } from 'lucide-react'
+import EmptyState from '@/components/EmptyState'
 
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import { getSessionUser } from '@/lib/auth'
@@ -80,23 +81,19 @@ export default async function ParentJobsPage() {
         </header>
 
         {(jobs ?? []).length === 0 ? (
-          <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-6 text-center">
-            <p className="text-xs font-bold text-tm-navy">You have not posted a tuition yet</p>
-            <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
-              {verified
-                ? 'Post what you need and tutors will apply.'
-                : 'Once your CNIC and address are approved you can post a job.'}
-            </p>
-            {!verified && (
-              <Link
-                href="/parent/verify"
-                className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white"
-              >
-                <ShieldCheck aria-hidden size={14} />
-                Verify now
-              </Link>
-            )}
-          </div>
+          <EmptyState
+            icon={<Briefcase aria-hidden size={18} />}
+            title={
+              verified
+                ? 'You have not posted a tuition yet. Post what you need and tutors will apply.'
+                : 'You have not posted a tuition yet. Once your CNIC and address are approved you can post a job.'
+            }
+            action={
+              verified
+                ? { label: 'Post a tuition', href: '/parent/dashboard/post-job' }
+                : { label: 'Verify now', href: '/parent/verify' }
+            }
+          />
         ) : (
           <ul className="space-y-2">
             {(jobs ?? []).map((j) => {

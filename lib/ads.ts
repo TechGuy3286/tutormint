@@ -21,6 +21,8 @@
 
 import { createPublicClient } from '@/lib/supabase/public'
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { PlanCode } from '@/lib/entitlements'
+import { planRank, type UpsellAudience } from '@/lib/upsell'
 
 export type AdAudience = 'parents' | 'tutors'
 
@@ -44,6 +46,9 @@ export type HouseAd = {
   body: string
   cta: string
   href: string
+  /** The plan this creative pitches, so it is never shown to a member who
+      already holds it or a higher one. See houseUpsellAd(). */
+  plan: PlanCode
 }
 
 export type Ad = PaidAd | HouseAd
@@ -57,6 +62,7 @@ const HOUSE_ADS: Record<AdAudience, HouseAd[]> = {
       body: 'Featured parents view phone and WhatsApp, message any tutor, and complete hires.',
       cta: 'See parent packages',
       href: '/parent/packages?plan=parent_featured',
+      plan: 'parent_featured',
     },
     {
       kind: 'house',
@@ -65,6 +71,7 @@ const HOUSE_ADS: Record<AdAudience, HouseAd[]> = {
       body: 'Approve your CNIC and address once, then post up to five tuitions a month at no cost.',
       cta: 'Verify my account',
       href: '/parent/verify',
+      plan: 'parent_verified',
     },
   ],
   tutors: [
@@ -75,6 +82,7 @@ const HOUSE_ADS: Record<AdAudience, HouseAd[]> = {
       body: 'Featured tutors rank above Premium and Verified, and see who is looking for them.',
       cta: 'See tutor packages',
       href: '/tutor/packages?plan=featured',
+      plan: 'featured',
     },
     {
       kind: 'house',
@@ -83,6 +91,7 @@ const HOUSE_ADS: Record<AdAudience, HouseAd[]> = {
       body: 'Premium lets you start the conversation instead of waiting to be found.',
       cta: 'See tutor packages',
       href: '/tutor/packages?plan=premium',
+      plan: 'premium',
     },
   ],
 }
@@ -90,6 +99,23 @@ const HOUSE_ADS: Record<AdAudience, HouseAd[]> = {
 export function houseAd(audience: AdAudience, index = 0): HouseAd {
   const pool = HOUSE_ADS[audience]
   return pool[index % pool.length]
+}
+
+/**
+ * The house creative to show a signed-in member, respecting their plan: the
+ * lowest-ranked creative strictly ABOVE the plan they hold, or null when they
+ * are already at (or above) the top creative. So a Featured parent is pitched
+ * nothing on the parent slot, and a Featured tutor nothing on the tutor slot —
+ * never their own plan or a lower one.
+ */
+export function houseUpsellAd(audience: UpsellAudience, plan: string | null): HouseAd | null {
+  const held = planRank(audience, plan)
+  const pool = HOUSE_ADS[audience === 'tutor' ? 'tutors' : 'parents']
+  const above = pool
+    .map((ad) => ({ ad, rank: planRank(audience, ad.plan) }))
+    .filter((x) => x.rank > held)
+    .sort((a, b) => a.rank - b.rank)
+  return above[0]?.ad ?? null
 }
 
 type AdRow = {
