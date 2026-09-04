@@ -7,6 +7,7 @@ import TimeAgo from '@/components/TimeAgo'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
+import NotificationCta from '@/components/notifications/NotificationCta'
 import type { NotificationRow } from '@/lib/notificationFeed'
 
 // The header bell.
@@ -205,6 +206,8 @@ export default function NotificationBell({
 }
 
 function NotificationLine({ row, onNavigate }: { row: NotificationRow; onNavigate: () => void }) {
+  const cta = <NotificationCta row={row} className="mt-1.5" />
+
   const inner = (
     <>
       <span className="flex items-start gap-2">
@@ -224,15 +227,24 @@ function NotificationLine({ row, onNavigate }: { row: NotificationRow; onNavigat
   // a link to that thing; when it does not — a plan expiring, say — it is not
   // dressed up as one, because a link that goes nowhere is worse than plain
   // text.
+  // The action sits OUTSIDE the row's own link rather than inside it: an
+  // <a> inside an <a> is invalid, and an upgrade button nested in a link would
+  // navigate as well as open the sheet.
   return row.href ? (
-    <Link
-      href={row.href}
-      onClick={onNavigate}
-      className="block min-h-[44px] px-4 py-3 transition-colors hover:bg-tm-bg"
-    >
-      {inner}
-    </Link>
+    <div>
+      <Link
+        href={row.href}
+        onClick={onNavigate}
+        className="block min-h-[44px] px-4 pb-1 pt-3 transition-colors hover:bg-tm-bg"
+      >
+        {inner}
+      </Link>
+      <div className="px-4 pb-3 empty:hidden">{cta}</div>
+    </div>
   ) : (
-    <div className="min-h-[44px] px-4 py-3">{inner}</div>
+    <div className="min-h-[44px] px-4 py-3">
+      {inner}
+      <div className="empty:hidden">{cta}</div>
+    </div>
   )
 }

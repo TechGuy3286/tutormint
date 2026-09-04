@@ -71,6 +71,7 @@ export type GateReason =
   | 'tutor_apply_quota'
   | 'tutor_message'
   | 'tutor_contact'
+  | 'tutor_viewer_identity'
   | 'parent_verify'
   | 'parent_hire'
   | 'parent_contact'
@@ -86,6 +87,12 @@ const REQUIRES: Record<GateReason, string | null> = {
   tutor_apply_quota: 'premium',
   tutor_message: 'premium',
   tutor_contact: 'featured',
+  // PREMIUM, not verified. `plans.can_see_viewer_identity` is true on premium
+  // and featured and false on verified -- so a "See who" button that sold the
+  // Rs 199 plan would take money for a thing that plan does not do. The
+  // wording rule cuts both ways: we sell visibility, and we do not sell a
+  // power the row does not carry.
+  tutor_viewer_identity: 'premium',
   parent_hire: 'parent_featured',
   parent_contact: 'parent_featured',
   parent_post_quota: 'parent_featured',
@@ -189,6 +196,21 @@ export async function buildGate(
         kind: 'quota',
         title: "You have used this month's applications",
         body: `Your allowance resets at the start of next month. Premium raises it to ${plan?.displayedQuota ?? 'more'} a month and lets you message parents directly.`,
+        audience: 'tutor',
+        plan,
+        href: packagesHref('tutor', required),
+        ctaLabel: 'See Premium',
+        actionable: true,
+      }
+
+    case 'tutor_viewer_identity':
+      return {
+        kind: 'upgrade',
+        title: 'See who is looking at you',
+        body:
+          'Premium shows the name and photo of every parent who opens your profile, alongside ' +
+          'the subject and area they searched for. It also lets you message any parent directly, ' +
+          'without waiting for them to write first.',
         audience: 'tutor',
         plan,
         href: packagesHref('tutor', required),

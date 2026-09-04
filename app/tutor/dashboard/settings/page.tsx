@@ -1,6 +1,7 @@
 "use client";
 
 import FileUpload from '@/components/FileUpload';
+import { submitForm } from '@/lib/submit'
 import { TEACHING_MODES, canonicalMode } from '@/lib/locations'
 import { teachingMode } from '@/lib/display'
 
@@ -215,24 +216,39 @@ export default function TutorSettingsPage() {
     uploadData.append("title", `${formData.fullName} Portfolio Video | TutorMint`);
     uploadData.append("description", `Verified portfolio video submitted via TutorMint.`);
 
-    try {
-      const res = await fetch("/api/tutor/upload-youtube", {
-        method: "POST",
-        body: uploadData,
-      });
+    // /tutor/upload-youtube, NOT /api/tutor/upload-youtube. There is no route
+    // at the /api path and never was: app/api/tutor/ holds claim/ and jobs/
+    // only, so this POST answered 404 and video upload from this screen has
+    // been dead. The working handler is app/tutor/upload-youtube/route.ts,
+    // which is what /tutor/complete-profile has always posted to.
+    const res = await submitForm<{
+      success?: boolean
+      videoId?: string
+      attemptsLeft?: number
+      error?: string
+    }>("/tutor/upload-youtube", uploadData)
 
-      const result = await res.json();
-      if (result.success) {
-        setFormData(prev => ({ ...prev, videoIntroUrl: result.videoUrl }));
-        setYoutubeStatus("✅ Portfolio Video successfully uploaded to YouTube!");
-      } else {
-        setYoutubeStatus("❌ Upload Failed: " + result.error);
-      }
-    } catch (err: any) {
-      setYoutubeStatus("❌ Error: " + err.message);
-    } finally {
-      setUploadingVideo(false);
+    if (!res.ok || !res.data?.success) {
+      // The route's own message when it has one -- it explains a missing
+      // YouTube credential and a used-up third attempt in words a tutor can
+      // act on -- and submitForm's bounded failure when it does not.
+      setYoutubeStatus("Upload failed: " + (res.data?.error ?? res.error ?? "please try again."))
+      setUploadingVideo(false)
+      return
     }
+
+    // The route returns `videoId`, not `videoUrl`; reading the wrong key here
+    // stored `undefined` on every successful upload.
+    setFormData(prev => ({
+      ...prev,
+      videoIntroUrl: res.data?.videoId ? `https://www.youtube.com/watch?v=${res.data.videoId}` : prev.videoIntroUrl,
+    }));
+    setYoutubeStatus(
+      typeof res.data.attemptsLeft === 'number'
+        ? `Video submitted for review. ${res.data.attemptsLeft} submission${res.data.attemptsLeft === 1 ? '' : 's'} left.`
+        : "Video submitted for review.",
+    )
+    setUploadingVideo(false)
   };
 
   const handleAddDegree = async (file: File) => {
@@ -494,11 +510,23 @@ export default function TutorSettingsPage() {
               <div className="space-y-2 p-4 bg-tm-bg border border-gray-200 rounded-2xl">
                 <label className="block text-xs font-bold text-tm-navy">Selfie</label>
                 <div className="flex items-center gap-4">
-                  <img 
-                    src={formData.selfieUrl || "/logo.png"} 
-                    alt="Selfie" 
-                    className="w-28 h-28 rounded-2xl object-cover border-2 border-tm-navy shadow-md shrink-0" 
-                  />
+                  {/* The fallback here was /logo.png -- the 2048px brand
+                      wordmark, squashed into a 112px square and labelled
+                      "Selfie", as though it were the tutor's own photograph.
+                      An empty state says what is missing; a placeholder that
+                      looks like content does not. */}
+                  {formData.selfieUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={formData.selfieUrl}
+                      alt="Your verification selfie"
+                      className="w-28 h-28 rounded-2xl object-cover border-2 border-tm-navy shadow-md shrink-0"
+                    />
+                  ) : (
+                    <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white p-2 text-center text-[11px] font-medium text-gray-500">
+                      No selfie yet
+                    </div>
+                  )}
                   <div className="space-y-1">
                     <FileUpload label="Selfie" acceptLabel="JPG or PNG" busy={uploading} onFile={handleSelfieCapture} />
                   </div>

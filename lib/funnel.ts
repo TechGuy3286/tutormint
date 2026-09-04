@@ -11,6 +11,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { notify } from '@/lib/notifications'
 
 export type Position = {
   /** 1-based rank among listed tutors for this subject and city. */
@@ -99,12 +100,89 @@ export async function tutorPosition(userId: string): Promise<Position | null> {
     ? await db.from('taxonomy_levels').select('name').eq('slug', label.level_slug).maybeSingle()
     : { data: null }
 
-  return {
+  const position: Position = {
     rank: index + 1,
     total: best.rows.length,
     subjectLabel: (subject?.name as string) ?? (level?.name as string) ?? 'your subject',
     city,
     paidAbove,
+  }
+
+  await recordRank(userId, best.masterId, position)
+
+  return position
+}
+
+/**
+ * Remember where the tutor stood, and tell them when it gets worse.
+ *
+ * `rank_dropped` has to be a real event, and "real" here means measured
+ * against something rather than asserted — so the widget writes one row per
+ * tutor every time it runs, and compares against what it wrote last time.
+ *
+ * FOUR CONDITIONS before anybody is told, and each removes a way of crying
+ * wolf:
+ *   * the same subject and city, or the comparison is between two different
+ *     leaderboards and means nothing;
+ *   * a strictly worse rank — equal is not news;
+ *   * not the first reading, which has nothing to compare against;
+ *   * at most one a day, because a tutor near a boundary can cross it twice in
+ *     an afternoon and a notification that fires on noise gets muted.
+ *
+ * Best-effort throughout: this runs inside a dashboard render, and a dashboard
+ * that failed to load because a snapshot could not be written would be a much
+ * worse trade than a missed notification.
+ */
+async function recordRank(userId: string, masterId: number, position: Position): Promise<void> {
+  const admin = createAdminClient()
+  if (!admin) return
+
+  try {
+    const { data: previous } = await admin
+      .from('tutor_rank_snapshots')
+      .select('master_id, city, rank, updated_at')
+      .eq('tutor_id', userId)
+      .maybeSingle()
+
+    await admin.from('tutor_rank_snapshots').upsert({
+      tutor_id: userId,
+      master_id: masterId,
+      city: position.city,
+      rank: position.rank,
+      total: position.total,
+      updated_at: new Date().toISOString(),
+    })
+
+    if (!previous) return
+    if (previous.master_id !== masterId) return
+    if ((previous.city ?? null) !== position.city) return
+    if (position.rank <= (previous.rank as number)) return
+
+    const dayAgo = new Date(Date.now() - 24 * 3600_000).toISOString()
+    const { data: recent } = await admin
+      .from('notifications')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('kind', 'rank_dropped')
+      .gt('created_at', dayAgo)
+      .limit(1)
+      .maybeSingle()
+    if (recent) return
+
+    await notify({
+      userId,
+      kind: 'rank_dropped',
+      title: `You have dropped to #${position.rank} for ${position.subjectLabel}${
+        position.city ? ` in ${position.city}` : ''
+      }`,
+      body:
+        position.paidAbove > 0
+          ? `${position.paidAbove} of the ${position.rank - 1} tutors above you are there because they hold a plan.`
+          : `You were #${previous.rank} the last time we looked.`,
+      href: '/tutor/dashboard#position',
+    })
+  } catch {
+    // See above: never fail a dashboard over a snapshot.
   }
 }
 

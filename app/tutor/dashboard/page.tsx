@@ -1,12 +1,11 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
-import { Eye, Info, TrendingUp } from 'lucide-react'
+import { Info, TrendingUp } from 'lucide-react'
 
 import AdSlot from '@/components/ads/AdSlot'
 import BadgeRow from '@/components/badges/BadgeRow'
 import ActivityBand from '@/components/dashboard/ActivityBand'
 import NeedsYou from '@/components/dashboard/NeedsYou'
-import ViewerFace from '@/components/dashboard/ViewerFace'
 import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
 import { getSessionUser } from '@/lib/auth'
 import { computeCompletion } from '@/lib/completion'
@@ -16,7 +15,8 @@ import { jobsThisWeek, tutorPosition } from '@/lib/funnel'
 import { matchingJobsForTutor } from '@/lib/jobFeed'
 import { unreadMessageCount } from '@/lib/messaging'
 import { tutorNeeds } from '@/lib/needsYou'
-import { viewTeasers } from '@/lib/profileViews'
+import ViewsCard from '@/components/dashboard/ViewsCard'
+import { viewSummary } from '@/lib/profileViews'
 import { createClient } from '@/lib/supabase/server'
 
 import ApplyFromStrip from './ApplyFromStrip'
@@ -65,7 +65,7 @@ export default async function TutorDashboardPage() {
   const listed = percent >= 100 && tutorProfile?.verification_status !== 'suspended'
   const free = !ent.plan
 
-  const [needs, activity, { teasers, total: viewTotal }, matching, unreadMessages, { data: apps }, { data: demos }] =
+  const [needs, activity, views, matching, unreadMessages, { data: apps }, { data: demos }] =
     await Promise.all([
       tutorNeeds({
         userId,
@@ -76,7 +76,7 @@ export default async function TutorDashboardPage() {
         videoAttempts: (tutorProfile?.video_attempts as number) ?? 0,
       }),
       recentActivity({ userId, role: 'tutor', limit: 8 }),
-      viewTeasers(userId, ent.canSeeViewerIdentity, 3),
+      viewSummary(userId, ent.canSeeViewerIdentity, 20),
       matchingJobsForTutor(userId, tutorProfile?.city ?? null),
       unreadMessageCount(userId),
       supabase.from('applications').select('id, status, withdrawn_at').eq('tutor_id', userId),
@@ -137,7 +137,7 @@ export default async function TutorDashboardPage() {
     {
       key: 'views',
       label: 'Profile views',
-      count: viewTotal,
+      count: views.total,
       href: tutorProfile?.slug ? `/tutor/${tutorProfile.slug}` : '/tutor/dashboard',
       icon: 'views',
     },
@@ -150,62 +150,6 @@ export default async function TutorDashboardPage() {
       icon: 'plan',
     },
   ]
-
-  const teaserCard = (
-    <section className="space-y-2.5 rounded-2xl border border-gray-200 bg-white p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-xs font-black text-tm-navy">
-          <Eye aria-hidden size={15} className="text-gray-500" />
-          Who looked at you
-        </h2>
-        {viewTotal > 0 && (
-          <span className="text-[11px] font-bold text-gray-500">{viewTotal} total</span>
-        )}
-      </div>
-
-      {teasers.length === 0 ? (
-        <p className="text-[11px] text-gray-500">
-          No profile views yet. Views appear here as parents find you in search.
-        </p>
-      ) : (
-        <>
-          <ul className="space-y-1.5">
-            {teasers.map((t) => (
-              <li key={t.id} className="flex items-center gap-2.5">
-                {/* Out of focus, not omitted: the tutor can see that a real
-                    person looked, without being told who. The picture itself
-                    is only sent when the plan grants identity — see
-                    ViewerFace for why a CSS blur would not have been enough. */}
-                <ViewerFace
-                  identified={t.identified}
-                  name={t.text.split(' ')[0]}
-                  avatarUrl={t.avatarUrl}
-                  seed={t.id}
-                />
-                <p
-                  className={`min-w-0 flex-1 text-[11px] leading-relaxed ${
-                    t.identified ? 'font-bold text-tm-navy' : 'text-slate-700'
-                  }`}
-                >
-                  {t.text}
-                </p>
-                <span className="shrink-0 text-[10px] text-gray-500">{t.when}</span>
-              </li>
-            ))}
-          </ul>
-          {!ent.canSeeViewerIdentity && (
-            <Link
-              href="/tutor/packages?plan=premium"
-              className="flex min-h-[44px] items-center gap-2 rounded-xl bg-tm-tint-gold px-3 text-[11px] font-bold text-tm-gold-ink"
-            >
-              <TrendingUp aria-hidden size={14} />
-              Upgrade to Premium to see who these parents are
-            </Link>
-          )}
-        </>
-      )}
-    </section>
-  )
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
@@ -230,10 +174,15 @@ export default async function TutorDashboardPage() {
         />
 
         {/* ------------------------------------------- the 199 funnel --- */}
-        {teaserCard}
+        <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} />
 
         {free && position && (
-          <section className="space-y-1.5 rounded-2xl border border-gray-200 bg-white p-4">
+          // id, so the rank_dropped notification's button has somewhere to
+          // land: the fact is in the notification, the detail is here.
+          <section
+            id="position"
+            className="scroll-mt-24 space-y-1.5 rounded-2xl border border-gray-200 bg-white p-4"
+          >
             <h2 className="flex items-center gap-2 text-xs font-black text-tm-navy">
               <TrendingUp aria-hidden size={15} className="text-gray-500" />
               Your position

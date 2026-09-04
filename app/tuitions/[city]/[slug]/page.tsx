@@ -32,12 +32,21 @@ import ApplyPanel from './ApplyPanel'
 // THREE STATES, and each has to be honest about itself:
 //
 //   open      the full page, JobPosting JSON-LD, Apply behind the usual gate.
-//   closed    410 Gone with a link to the board. proxy.ts sets the status --
-//   or hired  the App Router has no way for a page to set its own -- and this
-//             component renders the body for it. 404 would be a lie ("there
-//             was never anything here") and is the slower of the two signals
-//             for getting a page out of an index.
+//   closed    a "this tuition has closed" page that says which, and links to
+//   or hired  the board for that city.
 //   missing   404, the same as any address that never existed.
+//
+// THE CLOSED PAGE ANSWERS 200, NOT 410, and that is a deliberate trade rather
+// than an oversight. The App Router gives a page no way to set its own status:
+// notFound() is the only interrupt with one, and there is no `gone()`. A real
+// 410 therefore had to come from proxy.ts, which meant a database round trip on
+// EVERY request to a tuition page — including every open one — because nothing
+// in the URL says which state the row is in. That is a permanent cost on an
+// organic-search surface to speed up de-indexing of a handful of closed posts.
+//
+// What actually keeps a closed tuition out of an index is the `noindex` in
+// generateMetadata below, which is served either way. The visible page is the
+// same as it was.
 //
 // THE CITY SEGMENT IS DECORATION, and deliberately so: `public_slug` alone
 // identifies the row. A parent who corrects the city on a posted tuition
@@ -63,9 +72,10 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   // and the job's own parent can read a closed row, and a 410 that carries the
   // tuition's title in its <title> is a page arguing with its own status code.
   if (!job || job.status !== 'open') {
-    // A closed tuition still has a title in a search result until the 410 is
-    // picked up. noindex says the same thing to a crawler that has not read
-    // the status code yet.
+    // noindex is what actually removes a closed tuition from a search index,
+    // and it is the only signal this page can send: a page cannot set its own
+    // status code in the App Router. `follow: true` so the links onward to the
+    // city's open board are still worth something.
     return { title: pageTitle('Tuition closed'), robots: { index: false, follow: true } }
   }
 
@@ -96,9 +106,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
   // ------------------------------------------------------------ gone / 404 --
   //
-  // TWO WAYS TO BE GONE, and both have to render the same body, because
-  // proxy.ts has already answered 410 for both and a page whose content
-  // disagrees with its status code is worse than either alone.
+  // TWO WAYS TO BE GONE, and both render the same body.
   //
   //   * anon and ordinary members cannot read a closed job at all
   //     (jobs_public_read_open), so `job` is null and job_page_status() -- a
@@ -106,9 +114,10 @@ export default async function TuitionPage({ params }: { params: Params }) {
   //     ever real.
   //   * an ADMIN, and the job's own parent, CAN read it: that same policy has
   //     `OR parent_id = auth.uid() OR is_admin()`. Without the status test
-  //     below they would get the full page under a 410, which is exactly the
-  //     contradiction this comment exists to prevent. A parent's own view of a
-  //     closed tuition is on their dashboard, where it can still be reopened.
+  //     below they would get the full open page — Apply button and JobPosting
+  //     structured data — for a tuition that has been filled. A parent's own
+  //     view of a closed tuition is on their dashboard, where it can still be
+  //     reopened.
   if (!job || job.status !== 'open') {
     const known = job
       ? { status: job.status, city: job.city }

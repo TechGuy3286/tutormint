@@ -106,6 +106,11 @@ const NO_POLICY_OK: Record<string, string> = {
   _t2_remapped_subjects: 'T2 migration receipt',
   phone_otps: 'OTP codes: written and consumed by the server only, never read by a client',
   ad_events: 'impressions and clicks: server-written, admin-read via the service role',
+  tutor_rank_snapshots:
+    'where each tutor stood the last time the position widget ran, one row each. ' +
+    'Written and read through the service role only: a tutor learns nothing from their own row ' +
+    'that the widget does not already show them, and a readable table is a feed of where every ' +
+    'listed tutor ranks.',
   rate_limits:
     'request counters: written only through consume_rate_limit(), which is granted to service_role alone. ' +
     'Readable by nobody with a client key on purpose — the counters would tell an attacker how much budget is left.',

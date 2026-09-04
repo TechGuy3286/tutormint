@@ -24,6 +24,7 @@
 // set is not rendered rather than shown as a dead link (CLAUDE.md rule 7).
 
 import { headers } from 'next/headers'
+import Image from 'next/image'
 import Link from 'next/link'
 import { supportContactFromEnv } from '@/lib/support'
 
@@ -66,11 +67,16 @@ export default async function Footer() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5 lg:gap-8">
           {/* Brand */}
           <div className="lg:pr-4">
-            <img
+            {/* next/image for the same reason as the header wordmark: the
+                file is 2048x752 and 641KB, drawn 32px tall. The width/height
+                here were 2448x752 -- the filename's number, not the image's
+                -- so the aspect ratio the browser reserved was wrong too. */}
+            <Image
               src="/TutorMint-Footer-Logo-2448x752.png"
               alt="TutorMint"
-              width={2448}
+              width={2048}
               height={752}
+              sizes="87px"
               className="h-8 w-auto object-contain"
             />
             <p className="mt-2 max-w-xs text-xs leading-snug text-slate-400">
@@ -88,7 +94,17 @@ export default async function Footer() {
                       aria-label={`TutorMint on ${s.name}`}
                       className="flex h-11 w-11 items-center justify-center rounded-lg transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint"
                     >
-                      <img src={s.icon} alt="" width={20} height={20} className="h-5 w-5 object-contain" />
+                      {/* 2048x2048 source files, 2-3MB each, five of them,
+                          all drawn at 20x20. That was 12MB of icons on every
+                          page. */}
+                      <Image
+                        src={s.icon}
+                        alt=""
+                        width={2048}
+                        height={2048}
+                        sizes="20px"
+                        className="h-5 w-5 object-contain"
+                      />
                     </a>
                   </li>
                 ))}

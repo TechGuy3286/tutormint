@@ -17,6 +17,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export type ViewTeaser = {
   id: string
   when: string
+  /** The raw timestamp, for <TimeAgo>. `when` is the pre-formatted fallback. */
+  at: string
+  /** "AS & A Levels Mathematics", when the view came from a search. */
+  subject: string | null
+  /** The area, else the city, else null. */
+  where: string | null
   /** Ready-to-render sentence. Never contains a name unless identity is granted. */
   text: string
   identified: boolean
@@ -142,6 +148,9 @@ export async function viewTeasers(
     return {
       id: r.id as string,
       when: ago(r.created_at as string),
+      at: r.created_at as string,
+      subject,
+      where,
       text: `${who}${searching}${place} viewed your profile`,
       identified: !!name,
       // Only ever populated on the identified branch — see the type.
@@ -150,4 +159,60 @@ export async function viewTeasers(
   })
 
   return { teasers, total: count ?? teasers.length }
+}
+
+/**
+ * The compact card's numbers, in one query alongside the rows.
+ *
+ * WHAT CHANGED AND WHY. The teaser used to be a list of up to six rows that
+ * all said the same shape of thing -- a disc, a sentence, a timestamp -- and
+ * on a dashboard whose first band is already a list, it read as more log. The
+ * headline is what a tutor actually wants ("25 parents viewed your profile · 3
+ * this week"); the detail worth keeping is ONE line of the most recent view,
+ * which is the line the spec always described and which the list buried at the
+ * top of six near-identical ones.
+ *
+ * `thisWeek` is a real count over the last seven days, not a slice of the six
+ * rows fetched -- a tutor with forty views this week would otherwise be told
+ * six.
+ */
+export type ViewSummary = {
+  total: number
+  thisWeek: number
+  /** The most recent view, for the one-line detail. */
+  latest: ViewTeaser | null
+  /** 3-5 rows, for the stack of discs. Identity only when the plan grants it. */
+  faces: ViewTeaser[]
+  /** Every row fetched, for the full list page. */
+  teasers: ViewTeaser[]
+}
+
+export async function viewSummary(
+  tutorId: string,
+  revealIdentity: boolean,
+  limit = 20,
+): Promise<ViewSummary> {
+  const { teasers, total } = await viewTeasers(tutorId, revealIdentity, limit)
+
+  let thisWeek = 0
+  const admin = createAdminClient()
+  if (admin) {
+    const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
+    const { count } = await admin
+      .from('profile_views')
+      .select('id', { count: 'exact', head: true })
+      .eq('tutor_id', tutorId)
+      .gte('created_at', since)
+    thisWeek = count ?? 0
+  }
+
+  return {
+    total,
+    thisWeek,
+    latest: teasers[0] ?? null,
+    // Five is the most that reads as a stack rather than a queue at 40px
+    // overlapping by half.
+    faces: teasers.slice(0, 5),
+    teasers,
+  }
 }

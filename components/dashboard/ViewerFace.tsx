@@ -52,7 +52,11 @@ export default function ViewerFace({
   return (
     <span
       aria-hidden
-      className={`relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-gray-200 ${tint.className}`}
+      // inline-BLOCK, not a bare span. Width and height do not apply to an
+      // inline box, and this rendered 2px wide the moment it stopped being a
+      // direct flex child — which is exactly what happened when the teaser
+      // became a stack of discs rather than a list of rows.
+      className={`relative inline-block h-8 w-8 shrink-0 overflow-hidden rounded-full border border-gray-200 align-middle ${tint.className}`}
     >
       {/* Two soft shapes under a blur: it reads as an out-of-focus face
           without ever having been one. */}

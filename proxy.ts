@@ -93,102 +93,6 @@ function captureUtm(request: NextRequest, response: NextResponse): void {
   })
 }
 
-/**
- * One PostgREST RPC, straight over fetch.
- *
- * Deliberately not another Supabase client: these two calls carry no session,
- * need no cookie handling, and creating a second client per request to make
- * one function call is more moving parts than the call itself.
- */
-async function rpc<T>(fn: string, body: Record<string, unknown>): Promise<T | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) return null
-
-  try {
-    const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
-      method: 'POST',
-      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(3000),
-    })
-    if (!res.ok) return null
-    return (await res.json()) as T
-  } catch {
-    // A database blip must not turn a working page into an error. Both callers
-    // fall through to the page, which renders or 404s on its own.
-    return null
-  }
-}
-
-/**
- * A retired tutor address -> 301 to the current one.
- *
- * THIS IS IN PROXY RATHER THAN IN THE PAGE FOR ONE REASON: the status code.
- * The App Router has no 301 primitive at all -- permanentRedirect() and
- * next.config redirects both emit 308 -- and proxy is the only place a real
- * 301 can be produced. 308 would in practice be treated the same way by Google
- * and Bing, but "301" is what every link-checker, every CDN rule and every
- * person who curls a URL is looking for.
- *
- * THE COST, stated plainly: one small RPC on every tutor-profile request,
- * including the great majority that resolve fine, because nothing in the URL
- * says whether an address is live or retired. It runs only on single-segment
- * paths under /tutor -- /tutor/dashboard and the rest are excluded by name --
- * and it fails open.
- */
-const TUTOR_RESERVED = new Set([
-  'dashboard',
-  'claim',
-  'packages',
-  'complete-profile',
-  'upload-youtube',
-  'register',
-  'login',
-])
-
-async function tutorSlugRedirect(request: NextRequest, pathname: string) {
-  const parts = pathname.split('/').filter(Boolean)
-  if (parts.length !== 2 || parts[0] !== 'tutor') return null
-  const slug = decodeURIComponent(parts[1])
-  if (TUTOR_RESERVED.has(slug)) return null
-
-  const moved = await rpc<string | null>('tutor_slug_redirect', { p_old: slug })
-  if (!moved || moved === slug) return null
-
-  const url = request.nextUrl.clone()
-  url.pathname = `/tutor/${moved}`
-  return NextResponse.redirect(url, 301)
-}
-
-/**
- * A closed or hired tuition answers 410 Gone.
- *
- * Same reason as above: a page cannot set its own status, and 410 has no
- * interrupt at all. The rewrite is to the SAME url, so the page renders its
- * own "this tuition is closed" body -- there is one component, not a second
- * gone-page to keep in step -- and only the status code comes from here.
- *
- * 410 rather than 404 because 404 asserts something untrue ("there was never
- * anything at this address") and is the slower of the two signals for getting
- * a page out of an index. A tuition that was filled is exactly what 410 is
- * for.
- */
-async function tuitionGone(request: NextRequest, pathname: string) {
-  const parts = pathname.split('/').filter(Boolean)
-  if (parts.length !== 3 || parts[0] !== 'tuitions') return null
-
-  const rows = await rpc<{ status: string; city: string | null }[]>('job_page_status', {
-    p_slug: decodeURIComponent(parts[2]),
-  })
-  const status = rows?.[0]?.status
-  if (!status || status === 'open') return null
-
-  return NextResponse.rewrite(request.nextUrl, { status: 410 })
-}
-
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: withPath(request) } })
   captureUtm(request, response)
@@ -231,17 +135,20 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // Both of these are about a status code, not about access, so they run
-  // regardless of who is asking.
-  if (pathname.startsWith('/tutor/')) {
-    const moved = await tutorSlugRedirect(request, pathname)
-    if (moved) return moved
-  }
-  if (pathname.startsWith('/tuitions/')) {
-    const gone = await tuitionGone(request, pathname)
-    if (gone) return gone
-  }
-
+  // NOTHING TO DO WITH SLUGS OR TUITIONS HAPPENS HERE ANY MORE.
+  //
+  // For one week this file answered a retired tutor slug with a real 301 and a
+  // closed tuition with a real 410, because a page cannot set its own status
+  // code. Both needed a database round trip on EVERY request to
+  // /tutor/<anything> and /tuitions/<city>/<slug> — including the great
+  // majority that resolve perfectly well — because nothing in a URL says
+  // whether the address is live or retired.
+  //
+  // That is a permanent cost on the platform's two organic-search surfaces to
+  // buy a difference in status code that Google and Bing treat identically
+  // (308 is the permanent redirect; 301 is its HTTP/1.0-era predecessor). The
+  // pages do both themselves now — see app/tutor/[slug] and
+  // app/tuitions/[city]/[slug].
   if (!user && matches(pathname, PROTECTED)) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

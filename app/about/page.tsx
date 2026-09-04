@@ -120,17 +120,25 @@ export default async function AboutPage() {
             </a>
           </dd>
 
-          <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            SECP registration
-          </dt>
-          <dd className={company.regNoPending ? 'text-gray-500' : ''}>{company.regNo}</dd>
+          {/* Shown only once the number is real -- see LegalDoc's
+              entitySection for why a printed {{COMPANY_REG_NO}} was worse
+              than an absent row. */}
+          {!company.regNoPending && (
+            <>
+              <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                SECP registration
+              </dt>
+              <dd>{company.regNo}</dd>
+            </>
+          )}
 
-          <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">NTN</dt>
-          <dd className={company.ntnPending ? 'text-gray-500' : ''}>{company.ntn}</dd>
+          {!company.ntnPending && (
+            <>
+              <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">NTN</dt>
+              <dd>{company.ntn}</dd>
+            </>
+          )}
         </dl>
-        <p className="text-xs text-gray-500">
-          Directors: Mohson Raza (CEO &amp; Director), Sabir Ali (Director).
-        </p>
       </section>
 
       <section className="flex flex-col gap-2 sm:flex-row">

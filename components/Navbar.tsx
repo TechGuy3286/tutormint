@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import Image from 'next/image'
 import Link from 'next/link'
 
 import NotificationBell from '@/components/notifications/NotificationBell'
@@ -139,8 +140,28 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 shadow-xs sm:px-12">
       <Link href="/" className="flex shrink-0 items-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="TutorMint" className="h-11 w-auto object-contain sm:h-14" />
+        {/* next/image, not a raw <img>, and the reason is one number:
+            /logo.png is a 2048x752 PNG weighing 997KB, rendered at 153px
+            wide. The footer's five social icons are 2048x2048 PNGs totalling
+            12MB, drawn at 20x20. Every page was pulling ~13.8MB of artwork,
+            and on any real connection the wordmark queued behind it and
+            arrived late enough to look absent -- which is exactly how it was
+            reported.
+
+            next/image resizes and re-encodes on the server, so this becomes a
+            few KB of WebP at the size it is actually drawn. The artwork on
+            disk is untouched. `priority` because it is above the fold on
+            every page; without it Next lazy-loads and we are back where we
+            started. */}
+        <Image
+          src="/logo.png"
+          alt="TutorMint"
+          width={2048}
+          height={752}
+          priority
+          sizes="(min-width: 640px) 153px, 120px"
+          className="h-11 w-auto object-contain sm:h-14"
+        />
       </Link>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     </header>

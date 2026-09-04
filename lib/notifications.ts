@@ -56,6 +56,21 @@ export type NotificationKind =
   // into WhatsApp now redirects is the version of this that becomes a support
   // ticket. No migration: notifications.kind is text with no CHECK constraint.
   | 'profile_address_changed'
+  // T-Teaser. Two events that already existed as facts on the dashboard and
+  // as nothing a member could be told about.
+  //
+  // `profile_viewed` is throttled to one a day per tutor in recordView(): a
+  // notification per view would be a notification per page load by a browsing
+  // parent, and the dashboard card carries the running total anyway. It never
+  // names the viewer — identity is what Premium sells, and a notification is
+  // not a place to give it away.
+  //
+  // `rank_dropped` fires from the position widget when a tutor's rank for
+  // their main subject falls, at most once a day. It is a real event with a
+  // real cause, which is the whole test for whether a notification should
+  // exist.
+  | 'profile_viewed'
+  | 'rank_dropped'
 
 export async function notify(params: {
   userId: string

@@ -53,15 +53,30 @@ export function entitySection(company: Company): LegalSection {
             <a href={`mailto:${company.email}`}>{company.email}</a>
           </dd>
 
-          <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            SECP registration number
-          </dt>
-          <dd className={company.regNoPending ? 'text-gray-500' : undefined}>{company.regNo}</dd>
+          {/* A ROW APPEARS ONLY WHEN THE NUMBER IS REAL.
+              These rendered the literal strings {{COMPANY_REG_NO}} and
+              {{COMPANY_NTN}} to visitors -- a template placeholder printed on
+              a legal page, which reads as a page nobody finished rather than
+              as a fact we do not have yet. app_settings holds both (migration
+              38), so each row starts appearing the moment an admin fills one
+              in, with no deploy. */}
+          {!company.regNoPending && (
+            <>
+              <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                SECP registration number
+              </dt>
+              <dd>{company.regNo}</dd>
+            </>
+          )}
 
-          <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            National Tax Number
-          </dt>
-          <dd className={company.ntnPending ? 'text-gray-500' : undefined}>{company.ntn}</dd>
+          {!company.ntnPending && (
+            <>
+              <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                National Tax Number
+              </dt>
+              <dd>{company.ntn}</dd>
+            </>
+          )}
         </dl>
         <p>
           Notices under this document may be sent to that address or to that email. The brand is

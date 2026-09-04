@@ -10,6 +10,7 @@ import {
 import Link from 'next/link'
 import { useState } from 'react'
 
+import NotificationCta from '@/components/notifications/NotificationCta'
 import { FAMILY_STYLE, familyFor, groupedLabel } from '@/lib/activityFamily'
 import type { FeedGroup } from '@/lib/feedGrouping'
 import { formatDateTime } from '@/lib/datetime'
@@ -59,6 +60,16 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
       ? groupedLabel(group.type, group.count, group.head.text)
       : group.head.text
   const href = group.href
+
+  // The inline action. Only on a card that stands for ONE notification: a run
+  // of four matched jobs collapsed into one card has four different tuitions
+  // behind it, and a single "See the tuition" button would silently pick the
+  // newest. Expanding the run gives each row its own link, which is the honest
+  // answer for that case.
+  const cta =
+    group.count === 1 && group.head.source === 'notification' ? (
+      <NotificationCta row={{ kind: group.type, href: group.head.href }} />
+    ) : null
 
   const body = (
     <span className="flex min-w-0 items-start gap-3">
@@ -142,12 +153,18 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
           )}
         </>
       ) : href ? (
-        <Link href={href} className="flex min-h-[44px] items-center p-3">
-          {body}
-        </Link>
+        <div className="relative">
+          <Link href={href} className="flex min-h-[44px] items-center p-3">
+            {body}
+          </Link>
+          {cta && <div className="px-3 pb-3 pl-[60px]">{cta}</div>}
+        </div>
       ) : (
         // Not every event has an honest destination; the card still renders.
-        <div className="flex min-h-[44px] items-center p-3">{body}</div>
+        <div className="flex min-h-[44px] flex-col items-start p-3">
+          {body}
+          {cta && <div className="pl-[48px] pt-2">{cta}</div>}
+        </div>
       )}
     </li>
   )

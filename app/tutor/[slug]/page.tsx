@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlements'
 import { logActivity } from '@/lib/activityLog'
+import { notify } from '@/lib/notifications'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
@@ -161,16 +162,110 @@ async function recordView(tutorId: string, viewerId: string | null, viewerRole: 
     search_city: searchCity,
     source: searchSubject || searchArea || searchCity ? 'search' : 'direct',
   })
+
+  await notifyProfileViewed({
+    admin,
+    tutorId,
+    subjectMasterId: searchSubject,
+    area: searchArea,
+    city: searchCity,
+  })
+}
+
+/**
+ * Tell the tutor somebody looked — at most once a day.
+ *
+ * ONE A DAY, NOT ONE A VIEW. A parent comparing five tutors generates five
+ * views in a minute, and a browsing session would otherwise arrive as a
+ * notification storm about a fact the dashboard card already totals. The
+ * throttle is a query for this tutor's most recent profile_viewed rather than
+ * a stored timestamp: the notification IS the record, so there is nothing to
+ * keep in step.
+ *
+ * IT NEVER NAMES THE VIEWER. Identity is what Premium sells and what
+ * lib/profileViews withholds in server code; a notification that leaked a name
+ * would hand it out through the back door. The body carries the search that
+ * led here — the subject and the area — which is the useful half and is not
+ * about the person.
+ */
+async function notifyProfileViewed(params: {
+  admin: ReturnType<typeof createAdminClient>
+  tutorId: string
+  subjectMasterId: string | null
+  area: string | null
+  city: string | null
+}) {
+  const { admin, tutorId } = params
+  if (!admin) return
+
+  const dayAgo = new Date(Date.now() - 24 * 3600_000).toISOString()
+  const { data: recent } = await admin
+    .from('notifications')
+    .select('id')
+    .eq('user_id', tutorId)
+    .eq('kind', 'profile_viewed')
+    .gt('created_at', dayAgo)
+    .limit(1)
+    .maybeSingle()
+  if (recent) return
+
+  let subject: string | null = null
+  const masterId = Number(params.subjectMasterId)
+  if (Number.isFinite(masterId) && masterId > 0) {
+    const { data: m } = await admin
+      .from('taxonomy_master')
+      .select('level_slug, subject_slug')
+      .eq('id', masterId)
+      .maybeSingle()
+    if (m) {
+      const [{ data: level }, { data: sub }] = await Promise.all([
+        admin.from('taxonomy_levels').select('name').eq('slug', m.level_slug).maybeSingle(),
+        m.subject_slug
+          ? admin.from('taxonomy_subjects').select('name').eq('slug', m.subject_slug).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ])
+      const levelName = (level?.name as string) ?? ''
+      const subjectName = (sub as { name?: string } | null)?.name ?? null
+      subject = subjectName ? `${levelName} ${subjectName}`.trim() : levelName || null
+    }
+  }
+
+  const where = params.area || params.city || null
+  const detail =
+    subject && where
+      ? `Searching ${subject} in ${where}.`
+      : subject
+        ? `Searching ${subject}.`
+        : where
+          ? `A parent in ${where}.`
+          : null
+
+  await notify({
+    userId: tutorId,
+    kind: 'profile_viewed',
+    title: '1 parent viewed your profile',
+    body: detail,
+    href: '/tutor/dashboard/views',
+  })
 }
 
 export default async function TutorPublicProfile({ params }: { params: Params }) {
   const { slug } = await params
   const tutor = await loadTutor(slug)
-  // An address that used to work still does. 301 rather than 308: this is a
-  // GET-only page and 301 is the code every crawler and every link-checker
-  // already understands as "the page moved, update your record".
+  // An address that used to work still does.
   //
-  // Straight to the CURRENT slug, never to another retired one — the lookup
+  // 308, which is what the App Router emits: permanentRedirect() and
+  // next.config redirects have no other setting, and Google and Bing treat it
+  // exactly as they treat 301 — it is the same instruction, minus the
+  // HTTP/1.0-era ambiguity about whether a POST may be replayed as a GET.
+  //
+  // THE LOOKUP RUNS ONLY WHEN THE PAGE WOULD 404, which is the whole reason it
+  // moved here from proxy.ts. There it had to run on every request to
+  // /tutor/<anything>, because nothing in a URL says whether an address is
+  // live or retired — a database round trip on this site's main organic-search
+  // surface to buy a status code nobody distinguishes.
+  //
+  // Straight to the CURRENT slug, never to another retired one: the lookup
   // reads the tutor's live address rather than walking history forward, so a
   // profile whose URL has changed three times still resolves in one hop.
   if (!tutor) {

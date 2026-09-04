@@ -48,6 +48,11 @@ export const NOTIFICATION_GROUPS = {
     'account_reinstated',
     'verification_approved',
     'verification_rejected',
+    'profile_address_changed',
+    // Visibility: who saw you, and where you stand. Filed under account
+    // rather than jobs because neither is about a specific tuition.
+    'profile_viewed',
+    'rank_dropped',
   ],
 } as const
 
