@@ -50,6 +50,15 @@ export type FileUploadProps = {
   maxBytes?: number
   /** Called with a validated file. Throw or reject to surface an error. */
   onFile: (file: File) => Promise<void> | void
+  /**
+   * Remove the STORED file. When set, the Remove button deletes what is stored
+   * (the caller does the server delete, confirmation and toast, then clears its
+   * own `currentPreview`) rather than only clearing the local preview — which is
+   * what "Remove does nothing" was: with a stored document, clearing the local
+   * pick left the stored one on screen and on disk. Without it, Remove only
+   * discards a freshly-picked, not-yet-uploaded file.
+   */
+  onRemove?: () => Promise<void> | void
   /** Owned by the caller when the upload is driven from outside. */
   busy?: boolean
   /**
@@ -87,6 +96,7 @@ export default function FileUpload({
   acceptLabel = 'JPG or PNG',
   maxBytes = 5 * MB,
   onFile,
+  onRemove,
   busy = false,
   currentPreview,
   shape = 'wide',
@@ -103,8 +113,9 @@ export default function FileUpload({
     null,
   )
   const [uploading, setUploading] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
-  const working = busy || uploading
+  const working = busy || uploading || removing
 
   const accepts = useCallback(
     (file: File): string | null => {
@@ -148,11 +159,35 @@ export default function FileUpload({
     [accepts, disabled, onFile],
   )
 
-  const clear = () => {
+  const clearLocal = () => {
     if (chosen?.url) URL.revokeObjectURL(chosen.url)
     setChosen(null)
     setError(null)
     if (input.current) input.current.value = ''
+  }
+
+  // Remove. With a STORED file and an onRemove handler, this deletes what is
+  // stored — the caller does the server delete, the confirmation and the toast,
+  // then clears its own currentPreview. Otherwise it just discards a
+  // freshly-picked file that has not been committed. This is the fix for
+  // "Remove does nothing": before, a stored document had no path to deletion at
+  // all, so pressing Remove cleared a local pick that was not even there.
+  const hasStoredNow = currentPreview !== undefined && currentPreview !== null
+  const remove = async () => {
+    if (onRemove && hasStoredNow) {
+      setRemoving(true)
+      setError(null)
+      try {
+        await onRemove()
+        clearLocal()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'That could not be removed.')
+      } finally {
+        setRemoving(false)
+      }
+      return
+    }
+    clearLocal()
   }
 
   // Something is on screen when a file has just been chosen OR when one is
@@ -175,7 +210,7 @@ export default function FileUpload({
       </button>
       <button
         type="button"
-        onClick={clear}
+        onClick={() => void remove()}
         disabled={working}
         aria-label={`Remove ${label}`}
         className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold text-tm-red transition-colors hover:bg-tm-tint-red disabled:opacity-60"
@@ -295,7 +330,7 @@ export default function FileUpload({
             {chosen && (
               <button
                 type="button"
-                onClick={clear}
+                onClick={() => void remove()}
                 disabled={working}
                 aria-label={`Remove ${label}`}
                 className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold text-tm-red transition-colors hover:bg-tm-tint-red disabled:opacity-60"
@@ -353,9 +388,9 @@ export default function FileUpload({
             )}
           </div>
           <div className="min-w-0 flex-1 space-y-0.5">
-            <p className="truncate text-xs font-bold text-tm-navy">{chosen?.name ?? label}</p>
+            <p className="truncate text-xs font-bold text-tm-navy">{label}</p>
             <p className="text-[11px] text-gray-500">
-              {working ? 'Uploading…' : chosen ? prettyBytes(chosen.size) : 'Uploaded'}
+              {removing ? 'Removing…' : working ? 'Uploading…' : 'Uploaded'}
             </p>
             {working && (
               <div

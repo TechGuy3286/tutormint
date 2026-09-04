@@ -5,6 +5,7 @@ import TimeAgo from '@/components/TimeAgo'
 import { budgetLabel } from '@/lib/feeBands'
 import { tuitionPath } from '@/lib/slugs'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
+import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
 import { useState } from 'react'
 import { Building2, Clock, FileText, GraduationCap, MapPin, Wallet } from 'lucide-react'
@@ -76,6 +77,7 @@ export default function JobCard({
   applied?: boolean
 }) {
   const upgradeSheet = useUpgradeSheet()
+  const toast = useToast()
   const [gateOpen, setGateOpen] = useState(false)
   const [state, setState] = useState<'idle' | 'sending' | 'done'>(applied ? 'done' : 'idle')
   const [notice, setNotice] = useState<string | null>(null)
@@ -93,15 +95,18 @@ export default function JobCard({
       if (r.ok) {
         setState('done')
         setNotice('Application sent.')
+        toast.success('Application sent.')
       } else {
         // A gate has already been explained by the sheet. Repeating it as a
         // red line under the button says the same thing twice and reads as a
         // second, different problem.
         setNotice(r.gated ? null : r.error)
+        if (!r.gated) toast.error(r.error)
         setState('idle')
       }
     } catch {
       setNotice('Could not send your application.')
+      toast.error('Could not send your application.')
       setState('idle')
     }
   }

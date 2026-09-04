@@ -1,11 +1,13 @@
 'use client'
 
-import { Trash2, Undo2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 // The tutor's own applications, with withdrawal.
 //
@@ -33,12 +35,19 @@ const LABEL: Record<MyApplication['status'], string> = {
 
 export default function MyApplications({ applications }: { applications: MyApplication[] }) {
   const router = useRouter()
-  const [confirming, setConfirming] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const toast = useToast()
+  const confirm = useConfirm()
+  const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const withdraw = async (id: string) => {
-    setBusy(true)
+  const withdraw = async (id: string, jobTitle: string) => {
+    const ok = await confirm({
+      title: 'Withdraw this application?',
+      body: 'Withdrawing does not return the application to your monthly allowance.',
+      confirmLabel: 'Withdraw',
+    })
+    if (!ok) return
+    setBusy(id)
     setError(null)
     try {
       const res = await fetch('/api/applications', { signal: submitSignal(),
@@ -48,12 +57,12 @@ export default function MyApplications({ applications }: { applications: MyAppli
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not withdraw.')
-      setConfirming(null)
+      toast.success(`Withdrawn from “${jobTitle}”.`)
       router.refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not withdraw.')
+      toast.error(e instanceof Error ? e.message : 'Could not withdraw.')
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
@@ -83,43 +92,15 @@ export default function MyApplications({ applications }: { applications: MyAppli
             </div>
 
             {!a.withdrawn && a.status !== 'hired' && a.jobStatus === 'open' && (
-              <>
-                {confirming === a.id ? (
-                  <div className="space-y-2">
-                    <p className="text-[11px] leading-relaxed text-slate-700">
-                      Withdrawing does not return the application to your monthly allowance.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => withdraw(a.id)}
-                        disabled={busy}
-                        className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-tm-red px-3 text-xs font-bold text-white"
-                      >
-                        <Trash2 aria-hidden size={13} />
-                        {busy ? 'Withdrawing…' : 'Withdraw anyway'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirming(null)}
-                        className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
-                      >
-                        <Undo2 aria-hidden size={13} />
-                        Keep it
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirming(a.id)}
-                    className="inline-flex min-h-[44px] items-center gap-1.5 text-[11px] font-bold text-gray-500 underline"
-                  >
-                    <Trash2 aria-hidden size={12} />
-                    Withdraw
-                  </button>
-                )}
-              </>
+              <button
+                type="button"
+                onClick={() => withdraw(a.id, a.jobTitle)}
+                disabled={busy === a.id}
+                className="inline-flex min-h-[44px] items-center gap-1.5 text-[11px] font-bold text-gray-500 underline disabled:opacity-60"
+              >
+                <Trash2 aria-hidden size={12} />
+                {busy === a.id ? 'Withdrawing…' : 'Withdraw'}
+              </button>
             )}
           </li>
         ))}

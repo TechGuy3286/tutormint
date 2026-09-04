@@ -101,7 +101,7 @@ export default function ProfileCompletionWidget({
 
       <Link
         href={href}
-        className="gap-1.5 flex items-center justify-center min-h-[44px] w-full py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
+        className="gap-1.5 flex items-center justify-center min-h-[44px] w-full py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs rounded-xl transition-colors"
       >
         <ArrowRight aria-hidden size={14} />
         Continue

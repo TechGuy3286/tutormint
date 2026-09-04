@@ -181,7 +181,7 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
         <button
           type="submit"
           disabled={busy || code.length < 6 || locked}
-          className="w-full min-h-[44px] rounded-xl bg-tm-red py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
+          className="w-full min-h-[44px] rounded-xl bg-tm-red py-3.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
         >
           {busy ? 'Checking…' : 'Verify and continue'}
         </button>
@@ -227,7 +227,7 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
           <button
             type="submit"
             disabled={busy || !newMobile.trim()}
-            className="inline-flex items-center gap-1.5 w-full min-h-[44px] rounded-xl bg-tm-navy py-3 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-tm-navy-hover disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 w-full min-h-[44px] rounded-xl bg-tm-navy py-3 text-xs font-bold text-white transition-colors hover:bg-tm-navy-hover disabled:opacity-50"
           >
             <MessageSquare aria-hidden size={14} />
             Send code to this number

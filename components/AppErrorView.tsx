@@ -38,7 +38,7 @@ export default function AppErrorView({
           <button
             type="button"
             onClick={reset}
-            className="inline-flex items-center gap-1.5 min-h-[44px] w-full rounded-xl bg-tm-black px-4 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-slate-700"
+            className="inline-flex items-center gap-1.5 min-h-[44px] w-full rounded-xl bg-tm-black px-4 text-xs font-bold text-white transition-colors hover:bg-slate-700"
           >
             <RotateCcw aria-hidden size={14} />
             Try again

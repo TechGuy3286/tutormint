@@ -4,6 +4,7 @@ import { applicationStatus } from '@/lib/display'
 
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
+import { useToast } from '@/components/ui/Toast'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -49,18 +50,24 @@ export default function ApplicantList({
 }) {
   const router = useRouter()
   const upgradeSheet = useUpgradeSheet()
+  const toast = useToast()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const act = async (url: string, payload: Record<string, unknown>, id: string) => {
+  const act = async (url: string, payload: Record<string, unknown>, id: string, success: string) => {
     setBusy(id)
     setError(null)
     const r = await postGated(url, payload, upgradeSheet?.showGate)
     // A gate is not an error: the sheet has said what is needed and offers the
     // one tap that fixes it. Echoing the sentence here as well would read as a
     // separate failure.
-    if (r.ok) router.refresh()
-    else if (!r.gated) setError(r.error)
+    if (r.ok) {
+      toast.success(success)
+      router.refresh()
+    } else if (!r.gated) {
+      setError(r.error)
+      toast.error(r.error)
+    }
     setBusy(null)
   }
 
@@ -73,7 +80,10 @@ export default function ApplicantList({
       upgradeSheet?.showGate,
     )
     if (r.ok) router.push(`/messages/${r.data.threadId}`)
-    else if (!r.gated) setError(r.error)
+    else if (!r.gated) {
+      setError(r.error)
+      toast.error(r.error)
+    }
     setBusy(null)
   }
 
@@ -144,6 +154,7 @@ export default function ApplicantList({
                       status: a.status === 'shortlisted' ? 'applied' : 'shortlisted',
                     },
                     a.id,
+                    a.status === 'shortlisted' ? 'Removed from your shortlist.' : 'Applicant shortlisted.',
                   )
                 }
                 className={`${BTN} border border-gray-200 text-slate-700`}
@@ -175,7 +186,7 @@ export default function ApplicantList({
                 type="button"
                 disabled={busy === a.id}
                 onClick={() =>
-                  act('/api/applications/status', { applicationId: a.id, status: 'rejected' }, a.id)
+                  act('/api/applications/status', { applicationId: a.id, status: 'rejected' }, a.id, 'Applicant declined.')
                 }
                 className={`${BTN} border border-gray-200 text-slate-700`}
               >
@@ -185,7 +196,7 @@ export default function ApplicantList({
               <button
                 type="button"
                 disabled={busy === a.id}
-                onClick={() => act('/api/parent/hire', { applicationId: a.id }, a.id)}
+                onClick={() => act('/api/parent/hire', { applicationId: a.id }, a.id, 'Tutor hired.')}
                 className={`${BTN} ${
                   canHire ? 'bg-tm-red text-white' : 'bg-tm-gold text-tm-navy'
                 }`}

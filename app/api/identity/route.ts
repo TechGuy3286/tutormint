@@ -5,6 +5,7 @@ import { formatCnic, isValidCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { recomputeCompletion } from '@/lib/completion'
 import { loadIdentity } from '@/lib/identity'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBody, z } from '@/lib/validate'
 
 // The identity card's three writes, for either role.
@@ -37,8 +38,9 @@ export async function GET() {
 }
 
 const Body = z.object({
-  action: z.enum(['save-number', 'submit', 'reopen']),
+  action: z.enum(['save-number', 'submit', 'reopen', 'remove-image']),
   cnicNumber: z.string().max(40).optional(),
+  documentId: z.string().max(64).optional(),
 })
 
 export async function POST(request: Request) {
@@ -50,7 +52,43 @@ export async function POST(request: Request) {
 
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
-  const { action, cnicNumber } = parsed.data
+  const { action, cnicNumber, documentId } = parsed.data
+
+  // ------------------------------------------------------ remove-image ----
+  //
+  // Delete a stored CNIC image (a front or a back). This is the write that
+  // "Remove does nothing" was missing entirely — there was no route at all, so
+  // pressing Remove cleared a local preview and left the document on disk.
+  //
+  // Ownership is checked before anything is touched: the row must be this
+  // user's cnic document. The storage objects live in the PRIVATE identity-docs
+  // bucket, which has no owner-delete policy (only owner read/insert/update),
+  // so the storage removal goes through the service role — the row itself the
+  // owner may delete, but doing both here keeps them from diverging.
+  if (action === 'remove-image') {
+    if (!documentId) return NextResponse.json({ error: 'Which document?' }, { status: 400 })
+
+    const admin = createAdminClient()
+    if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
+
+    const { data: doc } = await admin
+      .from('user_documents')
+      .select('id, user_id, kind, original_path, preview_path')
+      .eq('id', documentId)
+      .maybeSingle()
+
+    if (!doc || doc.user_id !== user.id || doc.kind !== 'cnic') {
+      return NextResponse.json({ error: 'That document was not found.' }, { status: 404 })
+    }
+
+    const paths = [doc.original_path, doc.preview_path].filter(Boolean) as string[]
+    if (paths.length > 0) await admin.storage.from('identity-docs').remove(paths)
+    const { error } = await admin.from('user_documents').delete().eq('id', documentId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+    await recomputeCompletion(user.id)
+    return NextResponse.json({ success: true })
+  }
 
   // ------------------------------------------------------- save-number ----
   if (action === 'save-number') {

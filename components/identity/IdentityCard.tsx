@@ -6,6 +6,8 @@ import { useState } from 'react'
 
 import FileUpload from '@/components/FileUpload'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { CNIC_FORMAT_HINT, formatCnic, isValidCnic, maskCnic } from '@/lib/cnic'
 import { formatDate } from '@/lib/datetime'
 import type { Identity } from '@/lib/identity'
@@ -57,6 +59,8 @@ const CONSEQUENCE: Record<Props['role'], string> = {
 
 export default function IdentityCard({ identity, role }: Props) {
   const router = useRouter()
+  const toast = useToast()
+  const confirm = useConfirm()
 
   const [number, setNumber] = useState(identity.cnicNumber ?? '')
   const [front, setFront] = useState(identity.front)
@@ -84,11 +88,40 @@ export default function IdentityCard({ identity, role }: Props) {
     setBusy(false)
     if (!ok) {
       setError(failed ?? CNIC_FORMAT_HINT)
+      toast.error(failed ?? CNIC_FORMAT_HINT)
       return false
     }
     setNotice('CNIC number saved.')
+    toast.success('CNIC number saved.')
     router.refresh()
     return true
+  }
+
+  // Delete a stored CNIC image. Confirm first (it is destructive — the member
+  // has to re-upload before they can submit), then the server delete, then the
+  // toast. Passed to FileUpload as onRemove; this is the fix for the Remove
+  // button that did nothing.
+  async function removeSide(side: 'front' | 'back') {
+    const doc = side === 'front' ? front : back
+    if (!doc) return
+    const ok = await confirm({
+      title: `Remove the ${side} of your CNIC?`,
+      body: 'You will need to upload it again before you can send your card for checking.',
+      confirmLabel: 'Remove',
+    })
+    if (!ok) return
+    const { ok: done, error: failed } = await submitJson('/api/identity', {
+      action: 'remove-image',
+      documentId: doc.id,
+    })
+    if (!done) {
+      toast.error(failed ?? 'That could not be removed.')
+      return
+    }
+    if (side === 'front') setFront(null)
+    else setBack(null)
+    toast.success(`${side === 'front' ? 'Front' : 'Back'} of your CNIC removed.`)
+    router.refresh()
   }
 
   async function upload(file: File, side: 'front' | 'back') {
@@ -133,6 +166,7 @@ export default function IdentityCard({ identity, role }: Props) {
     if (side === 'back') setBack(doc)
     else setFront(doc)
     setNotice(`${side === 'back' ? 'Back' : 'Front'} of your card uploaded.`)
+    toast.success(`${side === 'back' ? 'Back' : 'Front'} of your card uploaded.`)
     router.refresh()
   }
 
@@ -144,11 +178,13 @@ export default function IdentityCard({ identity, role }: Props) {
     setBusy(false)
     if (!ok) {
       setError(failed ?? 'Could not submit that.')
+      toast.error(failed ?? 'Could not submit that.')
       return
     }
     setState('submitted')
     setEditing(false)
     setNotice('Sent for checking.')
+    toast.success('Sent for checking.')
     router.refresh()
   }
 
@@ -159,11 +195,13 @@ export default function IdentityCard({ identity, role }: Props) {
     setBusy(false)
     if (!ok) {
       setError(failed ?? 'Could not reopen that.')
+      toast.error(failed ?? 'Could not reopen that.')
       return
     }
     setState('none')
     setEditing(true)
     setNotice('Replace whichever side has changed, then send it again.')
+    toast.success('You can replace a side and send it again.')
     router.refresh()
   }
 
@@ -257,6 +295,7 @@ export default function IdentityCard({ identity, role }: Props) {
               hint="All four corners in frame, and the text readable."
               disabled={!isValidCnic(number)}
               onFile={(f) => upload(f, 'front')}
+              onRemove={front ? () => removeSide('front') : undefined}
               currentPreview={
                 front ? (
                   <SecureDocumentPreview documentId={front.id} alt="Front of your CNIC" />
@@ -269,6 +308,7 @@ export default function IdentityCard({ identity, role }: Props) {
               hint="The side with the address and the expiry date."
               disabled={!isValidCnic(number)}
               onFile={(f) => upload(f, 'back')}
+              onRemove={back ? () => removeSide('back') : undefined}
               currentPreview={
                 back ? (
                   <SecureDocumentPreview documentId={back.id} alt="Back of your CNIC" />
@@ -281,7 +321,7 @@ export default function IdentityCard({ identity, role }: Props) {
             type="button"
             onClick={() => void submit()}
             disabled={!canSubmit}
-            className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-tm-red px-5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-tm-red-hover disabled:opacity-50 sm:w-auto"
+            className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:opacity-50 sm:w-auto"
           >
             <Send aria-hidden size={14} />
             Send for checking

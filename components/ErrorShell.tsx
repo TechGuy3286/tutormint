@@ -55,7 +55,7 @@ export default function ErrorShell({
               className={
                 a.tone === 'quiet'
                   ? 'flex min-h-[44px] w-full items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy'
-                  : 'flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-red-hover'
+                  : 'flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover'
               }
             >
               {a.label}

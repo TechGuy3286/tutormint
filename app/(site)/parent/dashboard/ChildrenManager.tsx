@@ -4,6 +4,8 @@ import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { GraduationCap, Plus, Trash2, Undo2 } from 'lucide-react'
 
 // "My children" on the parent dashboard.
@@ -21,6 +23,8 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
   const [classLevel, setClassLevel] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const toast = useToast()
+  const confirm = useConfirm()
 
   const save = async () => {
     setBusy(true)
@@ -36,22 +40,32 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
       setName('')
       setClassLevel('')
       setAdding(false)
+      toast.success('Child added.')
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save.')
+      toast.error(e instanceof Error ? e.message : 'Could not save.')
     } finally {
       setBusy(false)
     }
   }
 
-  const remove = async (id: string) => {
+  const remove = async (id: string, childName: string) => {
+    const ok = await confirm({
+      title: 'Delete this child?',
+      body: `${childName} will be removed from your account. Any tuition that references them stays as it is.`,
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     setBusy(true)
     try {
-      await fetch('/api/parent/children', { signal: submitSignal(),
+      const res = await fetch('/api/parent/children', { signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, action: 'remove' }),
       })
+      if (res.ok) toast.success(`${childName} removed.`)
+      else toast.error('Could not remove that child.')
       router.refresh()
     } finally {
       setBusy(false)
@@ -95,7 +109,7 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
               </span>
               <button
                 type="button"
-                onClick={() => remove(c.id)}
+                onClick={() => remove(c.id, c.name)}
                 disabled={busy}
                 aria-label={`Remove ${c.name}`}
                 className="flex min-h-[44px] min-w-[44px] items-center justify-center text-gray-500 hover:text-tm-red"

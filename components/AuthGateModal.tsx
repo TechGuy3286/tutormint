@@ -136,7 +136,7 @@ export default function AuthGateModal({
         <div className="space-y-2 pt-1">
           <button
             onClick={goToLogin}
-            className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
+            className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl transition-colors"
           >
             <LogIn aria-hidden size={14} />
             {copy.cta}

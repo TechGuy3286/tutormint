@@ -245,7 +245,7 @@ export default function ParentVerifyPage() {
           <button
             onClick={submitForReview}
             disabled={saving || completion.percent < 100 || state === 'submitted'}
-            className="inline-flex flex-[2] min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-50"
+            className="inline-flex flex-[2] min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl disabled:opacity-50"
           >
             {state === 'submitted' ? (
               <>
@@ -270,9 +270,9 @@ export default function ParentVerifyPage() {
 const inputCls =
   'w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy focus:bg-white'
 const btnDark =
-  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs rounded-xl disabled:opacity-40 transition-colors'
 const btnRed =
-  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl disabled:opacity-40 transition-colors'
 
 function F({ id, label, value, onChange, placeholder }: {
   id: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string

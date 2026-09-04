@@ -3,6 +3,7 @@
 import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
+import { useToast } from '@/components/ui/Toast'
 import { Flag, Undo2 } from 'lucide-react'
 
 // "Report" — one component, three places (tutor profile, job card, thread).
@@ -45,6 +46,7 @@ export default function ReportButton({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const toast = useToast()
 
   const submit = async () => {
     setBusy(true)
@@ -59,8 +61,10 @@ export default function ReportButton({
       if (!res.ok) throw new Error(json.error ?? 'Could not send that report.')
       setDone(true)
       setOpen(false)
+      toast.success('Report received. Our team will review it.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not send that report.')
+      toast.error(e instanceof Error ? e.message : 'Could not send that report.')
     } finally {
       setBusy(false)
     }

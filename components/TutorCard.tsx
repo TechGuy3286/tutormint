@@ -3,6 +3,7 @@
 import { postGated } from '@/lib/gatedFetch'
 import { armEscape, submitSignal } from '@/lib/submit'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
+import { useToast } from '@/components/ui/Toast'
 import { useState } from 'react'
 import Link from 'next/link'
 import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, Mail, Star } from 'lucide-react'
@@ -156,6 +157,7 @@ export default function TutorCard({
   const [gateOpen, setGateOpen] = useState(false)
   const [gateIntent, setGateIntent] = useState<AuthIntent>('shortlist')
   const upgradeSheet = useUpgradeSheet()
+  const toast = useToast()
 
   const profileHref = tutor.slug ? `/tutor/${tutor.slug}` : '#'
   const badges = badgesForPlan(tutor.plan_code, true)
@@ -191,7 +193,9 @@ export default function TutorCard({
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not update your shortlist.')
       setSaved(json.saved)
+      toast.success(json.saved ? 'Added to your shortlist.' : 'Removed from your shortlist.')
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not update your shortlist.')
       setNotice(e instanceof Error ? e.message : 'Could not update your shortlist.')
     } finally {
       setBusy(false)
@@ -210,8 +214,11 @@ export default function TutorCard({
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not send your demo request.')
-      setNotice(`Demo requested. ${tutor.full_name.split(' ')[0]} will reply with a time.`)
+      const msg = `Demo requested. ${tutor.full_name.split(' ')[0]} will reply with a time.`
+      setNotice(msg)
+      toast.success(msg)
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not send your demo request.')
       setNotice(e instanceof Error ? e.message : 'Could not send your demo request.')
     } finally {
       setBusy(false)
@@ -242,7 +249,10 @@ export default function TutorCard({
     }
     // A plan or verification refusal is the sheet's to explain, with the tap
     // that resolves it. Only genuine failures land in the notice line.
-    if (!r.gated) setNotice(r.error)
+    if (!r.gated) {
+      setNotice(r.error)
+      toast.error(r.error)
+    }
     setBusy(false)
   }
 

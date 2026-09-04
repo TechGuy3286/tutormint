@@ -286,7 +286,7 @@ export default function RegisterForm({ next }: { next?: string }) {
           <button
             type="submit"
             disabled={loading || !acceptedTerms}
-            className="w-full min-h-[44px] py-3.5 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all disabled:opacity-50"
+            className="w-full min-h-[44px] py-3.5 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50"
           >
             {loading ? 'Creating account…' : 'Create Account'}
           </button>

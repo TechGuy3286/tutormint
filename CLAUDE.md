@@ -2002,3 +2002,59 @@ GCSE"), a curated consonant-sound set for vowel-letter words ("a university"),
 then the plain vowel-letter rule with a silent-h set. It fixes the landing-page
 CTA that read "a O Levels" and is used wherever a subject name follows an
 article.
+
+## Feedback: toasts, confirms, no all-caps buttons (4 Sep 2026)
+
+Three platform-wide UI rules, each with one shared implementation.
+
+**Every mutation shows a toast.** `components/ui/Toast.tsx` is the one toast —
+`useToast()` gives `success(msg)` / `error(msg)`. Bottom-centre on a phone,
+bottom-right on a laptop; success green, failure red WITH THE REASON; a 44px
+dismiss; auto-clears (4s success, 7s error, paused on hover); announced to
+screen readers via `role="status"`/`"alert"` in an aria-live region. It is
+mounted once in `app/layout.tsx`. Wired into every member-facing mutation:
+identity number-save / image-upload / image-remove / submit / reopen, shortlist,
+demo request, message send, in-app report, block, apply, application withdraw,
+child add/remove, tuition close, applicant shortlist/decline/hire, and the admin
+plan grant/revoke; degrees and certifications toast through CredentialEditor.
+Inline notices were kept only where they add field-specific context (a CNIC
+format hint under its field); the toast is the transient confirmation.
+
+**Every destructive action confirms first**, through the one dialog
+(`components/ui/ConfirmDialog.tsx`, `useConfirm()` → `Promise<boolean>`): the
+destructive button is `tm-red`, Escape and a backdrop click cancel, focus moves
+to Cancel on open (a destructive action is never one stray Enter away) and
+returns to the trigger on close, Tab is trapped. It replaced the bespoke inline
+confirms that had grown per-feature (withdraw, close job). Wired to: remove a
+CNIC image, withdraw an application, delete a child, close a tuition, and block
+someone. ("Sign out of all devices" is named in the same breath in the feedback
+but is not a feature on the platform today; when it is added it uses this
+dialog.)
+
+**No all-caps buttons.** A button's label is title/sentence case as written —
+"Send for checking", never "SEND FOR CHECKING". The `uppercase tracking-wider`
+idiom was removed from every button and link across the app (22 across 14
+files); it stays only on micro-labels and chips (a `<dt>`, a table header, a
+status pill), which are not buttons. `check:contrast` already forbids the other
+button sins; this one is enforced by review and the grep in the evidence.
+
+**Two supporting fixes from the same pass.**
+
+- **Remove on the identity card did nothing, and now deletes.** `FileUpload`'s
+  Remove only ever cleared a locally-picked file; with a STORED document
+  (`currentPreview` set) it cleared nothing and left the document on screen and
+  on disk — and it made no server request, so there was nothing in the
+  silent-failure log either (the diagnosis was the absence). `FileUpload` gained
+  an `onRemove` callback; the identity card wires it to a new `remove-image`
+  action on `/api/identity` that deletes the `user_documents` row and its
+  storage objects (service role, because `identity-docs` has no owner-delete
+  storage policy), behind the confirm dialog and with a toast. Replace was
+  already correct (it uploads a new side).
+
+- **Uploaded-file tiles say what the file IS, not its name or size.** The wide
+  `FileUpload` tile reads the semantic label ("Front of your CNIC") and a status
+  word ("Uploaded" / "Uploading…" / "Removing…"); the truncated file name and
+  the "130 KB" are gone. The degrees and certifications cards are one row per
+  credential now (`components/tutor/CredentialEditor.tsx`): thumbnail, summary,
+  Edit (expands the fields inline), Remove — the field group flex-wraps onto two
+  lines inside the card at every width, and no byte count appears anywhere.

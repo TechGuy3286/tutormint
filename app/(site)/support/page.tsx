@@ -167,7 +167,7 @@ export default async function SupportPage() {
               href={wa}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-tm-green-deep px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-green-deep-hover"
+              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-tm-green-deep px-4 py-3.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-green-deep-hover"
             >
               <MessageCircle size={16} aria-hidden />
               Message us on WhatsApp
@@ -176,7 +176,7 @@ export default async function SupportPage() {
           {contact.email && (
             <a
               href={`mailto:${contact.email}`}
-              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-tm-navy transition-colors hover:border-tm-navy"
+              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
             >
               <Mail size={16} aria-hidden />
               Email us

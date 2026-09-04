@@ -81,7 +81,7 @@ export default function PasswordForm({ next }: { next: string | null }) {
       <button
         type="submit"
         disabled={busy || password.length < 10 || mismatch}
-        className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:bg-tm-red-hover disabled:bg-gray-300"
+        className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-tm-red-hover disabled:bg-gray-300"
       >
         {busy ? 'Saving…' : 'Set my password'}
       </button>

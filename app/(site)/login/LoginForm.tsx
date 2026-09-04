@@ -185,7 +185,7 @@ export default function LoginForm({ next }: { next: string | null }) {
             <button
               type="submit"
               disabled={loading}
-              className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:bg-tm-red-hover disabled:opacity-50"
+              className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-tm-red-hover disabled:opacity-50"
             >
               {loading ? 'Signing in…' : 'Sign in'}
             </button>

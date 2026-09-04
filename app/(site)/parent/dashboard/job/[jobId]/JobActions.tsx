@@ -1,18 +1,20 @@
 'use client'
-import { Lock, PencilLine, Undo2 } from 'lucide-react'
+import { Lock, PencilLine } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 // Edit and close, on the parent's own job.
 //
-// Closing asks for confirmation because it is not reversible from the UI and
-// it notifies every applicant. Only an open job can be edited: changing the
-// subject under people who have already applied would waste their quota on a
-// job they never chose.
+// Closing goes through the one shared confirm dialog (it is not reversible and
+// it notifies every applicant) and reports the outcome as a toast. Only an open
+// job can be edited: changing the subject under people who have already applied
+// would waste their quota on a job they never chose.
 
 export default function JobActions({
   jobId,
@@ -24,9 +26,9 @@ export default function JobActions({
   status: string
 }) {
   const router = useRouter()
-  const [confirming, setConfirming] = useState(false)
+  const toast = useToast()
+  const confirm = useConfirm()
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   if (status !== 'open') {
     return (
@@ -38,8 +40,13 @@ export default function JobActions({
   }
 
   const close = async () => {
+    const ok = await confirm({
+      title: 'Close this tuition?',
+      body: 'Closing tells everyone who applied that the job is gone, and it cannot be reopened.',
+      confirmLabel: 'Close tuition',
+    })
+    if (!ok) return
     setBusy(true)
-    setError(null)
     try {
       const res = await fetch('/api/parent/jobs/close', { signal: submitSignal(),
         method: 'POST',
@@ -48,62 +55,33 @@ export default function JobActions({
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not close the job.')
+      toast.success('Tuition closed.')
       router.refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not close the job.')
+      toast.error(e instanceof Error ? e.message : 'Could not close the job.')
     } finally {
       setBusy(false)
-      setConfirming(false)
     }
   }
 
   return (
-    <div className="space-y-2 pt-1">
-      {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
-
-      {confirming ? (
-        <div className="space-y-2 rounded-xl bg-tm-bg p-3">
-          <p className="text-[11px] leading-relaxed text-slate-700">
-            Closing tells everyone who applied that the job is gone, and it cannot be reopened.
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={close}
-              disabled={busy}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white"
-            >
-              <Lock aria-hidden size={14} />
-              {busy ? 'Closing…' : 'Yes, close it'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming(false)}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
-            >
-              <Undo2 aria-hidden size={14} />
-              Keep open
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Link
-            href={`/parent/dashboard/job/${jobRef}/edit`}
-            className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
-          >
-            <PencilLine aria-hidden size={14} />
-            Edit
-          </Link>
-          <button
-            type="button"
-            onClick={() => setConfirming(true)}
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
-          >
-            Close job
-          </button>
-        </div>
-      )}
+    <div className="flex flex-col gap-2 pt-1 sm:flex-row">
+      <Link
+        href={`/parent/dashboard/job/${jobRef}/edit`}
+        className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
+      >
+        <PencilLine aria-hidden size={14} />
+        Edit
+      </Link>
+      <button
+        type="button"
+        onClick={close}
+        disabled={busy}
+        className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 disabled:opacity-60"
+      >
+        <Lock aria-hidden size={14} />
+        {busy ? 'Closing…' : 'Close job'}
+      </button>
     </div>
   )
 }

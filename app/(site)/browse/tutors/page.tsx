@@ -325,7 +325,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
               )}
               <Link
                 href="/parent/dashboard/post-job"
-                className="gap-1.5 flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-red-hover"
+                className="gap-1.5 flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover"
               >
                 <Plus aria-hidden size={14} />
                 Post your tuition instead

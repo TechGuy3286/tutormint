@@ -3,6 +3,8 @@ import "./globals.css";
 import { PREVIEW_MODE } from "@/lib/preview";
 import OfflineNotice from "@/components/OfflineNotice";
 import { UpgradeProvider } from '@/components/upgrade/UpgradeProvider'
+import { ToastProvider } from '@/components/ui/Toast'
+import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
 
 export const metadata: Metadata = {
   title: "TutorMint - Pakistan's Largest Verified Tutors Network",
@@ -52,10 +54,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-tm-bg antialiased flex flex-col min-h-screen">
-        <UpgradeProvider>
-          {children}
-          <OfflineNotice />
-        </UpgradeProvider>
+        <ToastProvider>
+          <ConfirmProvider>
+            <UpgradeProvider>
+              {children}
+              <OfflineNotice />
+            </UpgradeProvider>
+          </ConfirmProvider>
+        </ToastProvider>
       </body>
     </html>
   );

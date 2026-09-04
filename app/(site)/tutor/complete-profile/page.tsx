@@ -472,7 +472,7 @@ function CompleteProfileInner() {
           Back
         </button>
         {step < STEPS.length && (
-          <button onClick={next} disabled={saving} className="flex-[2] sm:flex-none min-h-[44px] px-6 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-50">
+          <button onClick={next} disabled={saving} className="flex-[2] sm:flex-none min-h-[44px] px-6 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl disabled:opacity-50">
             {saving ? 'Saving…' : 'Save & continue'}
           </button>
         )}
@@ -484,9 +484,9 @@ function CompleteProfileInner() {
 const inputCls =
   'w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy focus:bg-white'
 const btnDark =
-  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs rounded-xl disabled:opacity-40 transition-colors'
 const btnRed =
-  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl disabled:opacity-40 transition-colors'
 
 function Field({ id, label, value, onChange, type = 'text', placeholder }: {
   id: string; label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string

@@ -4,6 +4,7 @@ import { Ban, Gift } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/components/admin/adminFetch'
+import { useToast } from '@/components/ui/Toast'
 import { formatDate } from '@/lib/datetime'
 
 export type PlanRow = {
@@ -44,6 +45,7 @@ export default function PlanGrantClient({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
+  const toast = useToast()
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -84,14 +86,16 @@ export default function PlanGrantClient({
 
     if (!ok) {
       setErr(json.error ?? 'Action failed.')
+      toast.error(json.error ?? 'Action failed.')
       return
     }
 
-    setMsg(
+    const message =
       action === 'grant'
         ? `${planCode} granted to ${open.fullName} until ${formatDate(json.expiresAt ?? Date.now())}.`
-        : `Revoked ${json.revoked} active subscription(s) for ${open.fullName}.`,
-    )
+        : `Revoked ${json.revoked} active subscription(s) for ${open.fullName}.`
+    setMsg(message)
+    toast.success(action === 'grant' ? `Plan granted to ${open.fullName}.` : `Plan revoked for ${open.fullName}.`)
     setOpen(null)
     setPlanCode('')
     setNote('')

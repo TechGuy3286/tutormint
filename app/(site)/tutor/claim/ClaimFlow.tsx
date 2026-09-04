@@ -191,7 +191,7 @@ export default function ClaimFlow({
             router.refresh()
           }
         }}
-        className="inline-flex items-center justify-center gap-1.5 min-h-[44px] w-full rounded-xl bg-tm-red px-4 text-xs font-bold uppercase tracking-wider text-white disabled:bg-gray-300"
+        className="inline-flex items-center justify-center gap-1.5 min-h-[44px] w-full rounded-xl bg-tm-red px-4 text-xs font-bold text-white disabled:bg-gray-300"
       >
         <BadgeCheck aria-hidden size={14} />
         Claim my profile

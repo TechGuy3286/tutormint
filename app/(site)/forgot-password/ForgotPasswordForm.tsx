@@ -148,7 +148,7 @@ export default function ForgotPasswordForm() {
             <button
               type="button"
               onClick={() => router.push('/login')}
-              className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold uppercase tracking-wider text-white hover:bg-tm-red-hover"
+              className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover"
             >
               Go to sign in
             </button>
@@ -226,7 +226,7 @@ export default function ForgotPasswordForm() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
+                  className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
                 >
                   {busy ? 'Sending…' : 'Send reset link'}
                 </button>
@@ -254,7 +254,7 @@ export default function ForgotPasswordForm() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
+                  className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
                 >
                   {busy ? 'Sending…' : 'Send code'}
                 </button>
@@ -302,7 +302,7 @@ export default function ForgotPasswordForm() {
                 <button
                   type="submit"
                   disabled={busy || code.length < 6}
-                  className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
+                  className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
                 >
                   {busy ? 'Setting…' : 'Set new password'}
                 </button>

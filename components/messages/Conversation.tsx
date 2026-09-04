@@ -10,6 +10,8 @@ import { useRouter } from 'next/navigation'
 import { Ban, ChevronUp, Flag, Loader2, Lock, Send, ShieldAlert } from 'lucide-react'
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import Avatar from '@/components/Avatar'
 import { formatDate, formatDateTime, pkDayKey } from '@/lib/datetime'
 import type { ThreadMessage } from '@/lib/messaging'
@@ -52,6 +54,8 @@ export default function Conversation({
 }) {
   const router = useRouter()
   const upgradeSheet = useUpgradeSheet()
+  const toast = useToast()
+  const confirm = useConfirm()
 
   const [older, setOlder] = useState<ThreadMessage[]>([])
   const [cursor, setCursor] = useState<string | null>(initialCursor)
@@ -125,17 +129,27 @@ export default function Conversation({
     const r = await postGated('/api/messages', { threadId, body }, upgradeSheet?.showGate)
     if (r.ok) {
       setDraft('')
+      toast.success('Message sent.')
       router.refresh()
       requestAnimationFrame(() => bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }))
     } else if (!r.gated) {
       // A refused send keeps the draft: the member has not made a mistake, and
       // retyping the message would be a second punishment.
       setError(r.error)
+      toast.error(r.error)
     }
     setBusy(false)
   }
 
   const block = async () => {
+    setMenuOpen(false)
+    // Blocking is a hard, mutual cut-off — confirm before it happens.
+    const ok = await confirm({
+      title: `Block ${otherName}?`,
+      body: 'Neither of you will be able to message or apply to the other. You can unblock later.',
+      confirmLabel: 'Block',
+    })
+    if (!ok) return
     setBusy(true)
     try {
       const res = await fetch('/api/blocks', { signal: submitSignal(),
@@ -144,12 +158,12 @@ export default function Conversation({
         body: JSON.stringify({ userId: otherId }),
       })
       const json = await res.json()
-      setNotice(
-        res.ok
-          ? `${otherName} is blocked. Neither of you can message or apply to the other.`
-          : (json.error ?? 'Could not block.'),
-      )
-      setMenuOpen(false)
+      if (res.ok) {
+        setNotice(`${otherName} is blocked. Neither of you can message or apply to the other.`)
+        toast.success(`${otherName} is blocked.`)
+      } else {
+        toast.error(json.error ?? 'Could not block.')
+      }
       router.refresh()
     } finally {
       setBusy(false)
@@ -170,7 +184,12 @@ export default function Conversation({
         }),
       })
       const json = await res.json()
-      setNotice(res.ok ? json.message : (json.error ?? 'Could not report.'))
+      if (res.ok) {
+        setNotice(json.message)
+        toast.success(json.message ?? 'Report received.')
+      } else {
+        toast.error(json.error ?? 'Could not report.')
+      }
       setMenuOpen(false)
     } finally {
       setBusy(false)

@@ -9,6 +9,7 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
 import { X, Plus, Save } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
+import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
 import type { Identity } from '@/lib/identity'
 import { reportSilentFailure } from '@/lib/silentFailure'
 import { useState, useEffect } from "react";
@@ -82,15 +83,8 @@ export default function TutorSettingsPage() {
   const [newDayInput, setNewDayInput] = useState("Monday");
   const [newTimeInput, setNewTimeInput] = useState("");
 
-  const [degrees, setDegrees] = useState<
-    { title: string; institute: string; year: string; fileName: string; fileUrl: string }[]
-  >([]);
-  const [newDegree, setNewDegree] = useState({ title: "", institute: "", year: "", fileName: "", fileUrl: "" });
-
-  const [certifications, setCertifications] = useState<
-    { title: string; issuer: string; year: string; fileName: string; fileUrl: string }[]
-  >([]);
-  const [newCert, setNewCert] = useState({ title: "", issuer: "", year: "", fileName: "", fileUrl: "" });
+  const [degrees, setDegrees] = useState<Credential[]>([]);
+  const [certifications, setCertifications] = useState<Credential[]>([]);
 
   useEffect(() => {
     loadTutorProfile();
@@ -308,35 +302,11 @@ export default function TutorSettingsPage() {
     setUploadingVideo(false)
   };
 
-  const handleAddDegree = async (file: File) => {
-    let fileUrl = "";
-    if (file) {
-      const uploaded = await uploadFileToCloud(file);
-      if (uploaded) fileUrl = uploaded;
-    }
-    setNewDegree({ ...newDegree, fileName: file?.name || "", fileUrl });
-  };
-
-  const pushDegree = () => {
-    if (!newDegree.title) return;
-    setDegrees([...degrees, newDegree]);
-    setNewDegree({ title: "", institute: "", year: "", fileName: "", fileUrl: "" });
-  };
-
-  const handleAddCert = async (file: File) => {
-    let fileUrl = "";
-    if (file) {
-      const uploaded = await uploadFileToCloud(file);
-      if (uploaded) fileUrl = uploaded;
-    }
-    setNewCert({ ...newCert, fileName: file?.name || "", fileUrl });
-  };
-
-  const pushCert = () => {
-    if (!newCert.title) return;
-    setCertifications([...certifications, newCert]);
-    setNewCert({ title: "", issuer: "", year: "", fileName: "", fileUrl: "" });
-  };
+  // Degrees and certifications are edited through CredentialEditor now — one
+  // row per credential, inline add/edit, wrapping fields. The old add/push
+  // handlers and their draft state are gone with the two-row card.
+  const uploadCredential = async (file: File): Promise<string> =>
+    (await uploadFileToCloud(file)) ?? "";
 
   const addSpecialtySubject = () => {
     if (!newSubjInput.trim()) return;
@@ -754,110 +724,30 @@ export default function TutorSettingsPage() {
 
         {/* ---------------------------------------------------------- degrees */}
         <Card title="Degrees" hint="Your certificate images are private — watermarked previews only, never downloadable.">
-          {degrees.length > 0 && (
-            <ul className="space-y-2">
-              {degrees.map((deg, idx) => (
-                <li
-                  key={idx}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
-                >
-                  <span>
-                    <strong className="text-tm-navy">{deg.title}</strong>
-                    {(deg.institute || deg.year) && (
-                      <span className="text-gray-500">
-                        {' '}
-                        {[deg.institute, deg.year].filter(Boolean).join(' · ')}
-                      </span>
-                    )}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setDegrees(degrees.filter((_, i) => i !== idx))}
-                    aria-label={`Remove ${deg.title}`}
-                    className="inline-flex min-h-[36px] items-center gap-1 font-bold text-tm-red"
-                  >
-                    <X aria-hidden size={13} /> Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-center">
-            <label className="block">
-              <span className="sr-only">Degree title</span>
-              <input type="text" value={newDegree.title} onChange={(e) => setNewDegree({ ...newDegree, title: e.target.value })} placeholder="Degree" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
-            </label>
-            <label className="block">
-              <span className="sr-only">Institute</span>
-              <input type="text" value={newDegree.institute} onChange={(e) => setNewDegree({ ...newDegree, institute: e.target.value })} placeholder="Institute" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
-            </label>
-            <label className="block">
-              <span className="sr-only">Year</span>
-              <input type="text" value={newDegree.year} onChange={(e) => setNewDegree({ ...newDegree, year: e.target.value })} placeholder="Year" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
-            </label>
-            <FileUpload label="Degree certificate" acceptLabel="JPG or PNG" busy={uploading} onFile={handleAddDegree} />
-          </div>
-          <button
-            type="button"
-            onClick={pushDegree}
-            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-black px-4 text-xs font-bold text-white"
-          >
-            <Plus aria-hidden size={14} /> Add degree
-          </button>
+          <CredentialEditor
+            items={degrees}
+            onChange={setDegrees}
+            uploadFile={uploadCredential}
+            noun="degree"
+            titlePlaceholder="Degree (e.g. BSc Mathematics)"
+            field2Key="institute"
+            field2Placeholder="Institute"
+            addLabel="Add degree"
+          />
         </Card>
 
         {/* --------------------------------------------------- certifications */}
         <Card title="Certifications" hint="Optional. Same private treatment as your degrees.">
-          {certifications.length > 0 && (
-            <ul className="space-y-2">
-              {certifications.map((cert, idx) => (
-                <li
-                  key={idx}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
-                >
-                  <span>
-                    <strong className="text-tm-navy">{cert.title}</strong>
-                    {(cert.issuer || cert.year) && (
-                      <span className="text-gray-500">
-                        {' '}
-                        {[cert.issuer, cert.year].filter(Boolean).join(' · ')}
-                      </span>
-                    )}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setCertifications(certifications.filter((_, i) => i !== idx))}
-                    aria-label={`Remove ${cert.title}`}
-                    className="inline-flex min-h-[36px] items-center gap-1 font-bold text-tm-red"
-                  >
-                    <X aria-hidden size={13} /> Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-center">
-            <label className="block">
-              <span className="sr-only">Certification title</span>
-              <input type="text" value={newCert.title} onChange={(e) => setNewCert({ ...newCert, title: e.target.value })} placeholder="Certification" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
-            </label>
-            <label className="block">
-              <span className="sr-only">Issuer</span>
-              <input type="text" value={newCert.issuer} onChange={(e) => setNewCert({ ...newCert, issuer: e.target.value })} placeholder="Issuer" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
-            </label>
-            <label className="block">
-              <span className="sr-only">Year</span>
-              <input type="text" value={newCert.year} onChange={(e) => setNewCert({ ...newCert, year: e.target.value })} placeholder="Year" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
-            </label>
-            <FileUpload label="Certification document" acceptLabel="JPG or PNG" busy={uploading} onFile={handleAddCert} />
-          </div>
-          <button
-            type="button"
-            onClick={pushCert}
-            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-black px-4 text-xs font-bold text-white"
-          >
-            <Plus aria-hidden size={14} /> Add certification
-          </button>
+          <CredentialEditor
+            items={certifications}
+            onChange={setCertifications}
+            uploadFile={uploadCredential}
+            noun="certification"
+            titlePlaceholder="Certification"
+            field2Key="issuer"
+            field2Placeholder="Issuer"
+            addLabel="Add certification"
+          />
         </Card>
 
         {/* ------------------------------------------------------------- save */}
