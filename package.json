@@ -17,7 +17,9 @@
     "check:contrast": "tsx scripts/contrast-check.ts",
     "test:jobcopy": "tsx --test scripts/test-jobcopy.ts",
     "test:grouping": "tsx --test scripts/test-grouping.ts",
-    "migrate:avatars": "tsx scripts/migrate-data-uri-avatars.ts"
+    "migrate:avatars": "tsx scripts/migrate-data-uri-avatars.ts",
+    "reset:seedcast": "tsx scripts/reset-seed-cast.ts",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

@@ -135,12 +135,28 @@ export async function activatePayment(params: {
     }
   }
 
-  // One active subscription at a time.
+  // One active subscription at a time. A paused one is cancelled too -- a fresh
+  // purchase supersedes an earlier paused buy.
   await admin
     .from('subscriptions')
     .update({ status: 'cancelled' })
     .eq('user_id', userId)
-    .eq('status', 'active')
+    .in('status', ['active', 'paused'])
+
+  // THE MONTH STARTS AT GO-LIVE. A tutor who buys while not yet listed (under
+  // 100%, or verification not yet passed) gets an activated-but-PAUSED
+  // subscription: paid for, but the 30 days do not begin until they appear in
+  // the directory. lib/payments/goLive.ts flips it to active on that day. A
+  // parent, or a tutor already listed, activates immediately as before.
+  let paused = false
+  if (audience === 'tutor') {
+    const { data: listedRow } = await admin
+      .from('tutor_directory')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle()
+    paused = !listedRow
+  }
 
   const startsAt = new Date()
   const days = (plan.duration_days as number) || 30
@@ -151,9 +167,13 @@ export async function activatePayment(params: {
     .insert({
       user_id: userId,
       plan_code: planCode,
+      // A paused plan has no CLOCK: expires_at stays NULL until go-live, so the
+      // sweep (which filters expires_at) and getEntitlements both leave it be.
+      // starts_at is NOT NULL, so it records the purchase instant and is reset
+      // to the real start on the day the plan goes live.
       starts_at: startsAt.toISOString(),
-      expires_at: expiresAt.toISOString(),
-      status: 'active',
+      expires_at: paused ? null : expiresAt.toISOString(),
+      status: paused ? 'paused' : 'active',
       source: 'purchase',
       payment_id: payment.id,
     })
@@ -180,13 +200,17 @@ export async function activatePayment(params: {
     return { ok: false, status: 400, error: payError.message }
   }
 
-  await applyPlanFlags(userId, planCode)
+  // Featured flags are a cache of a RUNNING plan. A paused plan is not running,
+  // so it is not tagged until go-live (goLive.ts calls applyPlanFlags then).
+  if (!paused) await applyPlanFlags(userId, planCode)
 
   await notify({
     userId,
     kind: 'plan_activated',
-    title: `${plan.name} plan is active`,
-    body: `Your ${plan.name} plan runs until ${formatDate(expiresAt)}. There are no refunds.`,
+    title: paused ? `${plan.name} plan is ready` : `${plan.name} plan is active`,
+    body: paused
+      ? `Your ${plan.name} plan is paid for. Your month starts the day you go live — finish your profile to 100% and it begins automatically. There are no refunds.`
+      : `Your ${plan.name} plan runs until ${formatDate(expiresAt)}. There are no refunds.`,
     href: audience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard',
   })
 

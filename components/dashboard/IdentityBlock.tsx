@@ -33,6 +33,7 @@ export default function IdentityBlock({
   completion,
   completionHref,
   editHref,
+  planNotice,
 }: {
   name: string
   avatarUrl: string | null
@@ -46,6 +47,12 @@ export default function IdentityBlock({
   completionHref: string
   /** The member's own public page or settings, when there is one. */
   editHref?: { label: string; href: string }
+  /**
+   * Shown when a tutor has PAID but is not yet listed: "Verified plan active ·
+   * your badge appears when your profile reaches 100%." A paid plan alone never
+   * draws a badge, so this explains where the badge went. Built by the caller.
+   */
+  planNotice?: string
 }) {
   const incomplete = completion < 100
   // A conic gradient rather than an SVG: it is one element, it needs no
@@ -83,6 +90,10 @@ export default function IdentityBlock({
         </div>
 
         <p className="text-xs font-semibold text-gray-500">{line}</p>
+
+        {planNotice && (
+          <p className="text-[11px] font-semibold text-tm-gold-ink">{planNotice}</p>
+        )}
 
         {incomplete ? (
           // The number in words as well as in the ring, and a link that goes

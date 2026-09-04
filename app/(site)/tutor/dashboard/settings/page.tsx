@@ -7,6 +7,7 @@ import { teachingMode } from '@/lib/display'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
+import { X, Plus, Save } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
 import type { Identity } from '@/lib/identity'
 import { reportSilentFailure } from '@/lib/silentFailure'
@@ -46,7 +47,6 @@ export default function TutorSettingsPage() {
     areaName: "",
     teachingModes: ['in_person'] as string[],
     profileImage: "",
-    coverImageUrl: "",
     videoIntroUrl: ""
   });
   // The selfie is a PRIVATE document (user_documents kind='selfie'), not a
@@ -151,7 +151,6 @@ export default function TutorSettingsPage() {
           areaName: data.area || "",
           teachingModes: parsedModes,
           profileImage: data.avatar_url || formData.profileImage,
-          coverImageUrl: data.cover_image_url || "",
           videoIntroUrl: data.video_intro_url || ""
         });
         // Latest selfie document, if one exists. Owner-read RLS on
@@ -224,16 +223,6 @@ export default function TutorSettingsPage() {
     const publicUrl = await uploadFileToCloud(file);
     if (publicUrl) {
       setFormData(prev => ({ ...prev, profileImage: publicUrl }));
-    }
-    setUploading(false);
-  };
-
-  const handleCoverImageChange = async (file: File) => {
-
-    setUploading(true);
-    const publicUrl = await uploadFileToCloud(file);
-    if (publicUrl) {
-      setFormData(prev => ({ ...prev, coverImageUrl: publicUrl }));
     }
     setUploading(false);
   };
@@ -412,7 +401,6 @@ export default function TutorSettingsPage() {
         specialty_list: specialtyList,
         availability_list: availabilityList,
         avatar_url: formData.profileImage,
-        cover_image_url: formData.coverImageUrl,
         // selfie_url is NOT written any more. The selfie is a private
         // user_documents row (kind='selfie') since migration 45 -- the upload
         // handler stores it; nothing about it belongs in this upsert.
@@ -445,507 +433,500 @@ export default function TutorSettingsPage() {
   };
 
   return (
-    <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8 flex-1 w-full text-slate-700 font-sans">
-      
+    <main className="mx-auto w-full max-w-2xl flex-1 space-y-5 px-4 py-6 font-sans text-slate-700 sm:px-6">
       {/* Was a hand-rolled trail with no Home entry and no BreadcrumbList. */}
       <Breadcrumbs items={[{ label: 'Tutor dashboard', href: '/tutor/dashboard' }, { label: 'Settings' }]} />
 
-      {/* HEADER CARD */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-black text-tm-navy">Settings</h1>
-          <p className="text-xs sm:text-sm text-gray-600 font-medium">
-            Manage your Professional Credentials, Available Timings, Multiple Teaching Modes, Verification Documents, and Security Settings.
-          </p>
-        </div>
-      </div>
+      <header className="space-y-1">
+        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Settings</h1>
+        <p className="text-xs text-gray-500">
+          Your profile, subjects, availability and documents — one card per thing.
+        </p>
+      </header>
 
       {uploading && (
-        <div className="p-3 bg-tm-tint-navy border border-tm-navy/30 text-tm-navy rounded-xl text-xs font-bold animate-pulse">
-          ⏳ Processing and uploading media securely...
-        </div>
+        <p className="rounded-xl border border-tm-navy/20 bg-tm-tint-navy p-3 text-xs font-bold text-tm-navy">
+          Uploading securely…
+        </p>
       )}
 
-      {/* FORM CARD */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm">
-        <form onSubmit={handleSave} className="space-y-6">
-          
-          {/* SECTION: PERSONAL & CONTACT INFORMATION */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Personal & Contact Information</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-tm-navy">Full Name</label>
-                <input 
-                  type="text" 
-                  value={formData.fullName} 
-                  onChange={(e) => setFormData({...formData, fullName: e.target.value})} 
-                  className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium focus:outline-none focus:border-tm-navy" 
-                  required 
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-tm-navy">Email (Locked)</label>
-                <input 
-                  type="email" 
-                  value={tutorEmail} 
-                  disabled 
-                  className="w-full p-3 bg-gray-100 border border-gray-200 rounded-xl text-xs text-gray-700 cursor-not-allowed font-medium" 
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-tm-navy">Phone Number</label>
-                <input 
-                  type="text" 
-                  value={formData.phone_number} 
-                  onChange={(e) => setFormData({...formData, phone_number: e.target.value})} 
-                  className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-tm-navy">WhatsApp Number</label>
-                <input 
-                  type="text" 
-                  value={formData.whatsapp_number} 
-                  onChange={(e) => setFormData({...formData, whatsapp_number: e.target.value})} 
-                  className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
-                />
-              </div>
-            </div>
+      <form onSubmit={handleSave} className="space-y-5">
+        {/* ---------------------------------------------------------- details */}
+        <Card title="Your details">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="sr-only">Full name</span>
+              <input
+                type="text"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                placeholder="Full name"
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium focus:border-tm-navy focus:outline-none"
+                required
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="sr-only">Email (cannot be changed)</span>
+              <input
+                type="email"
+                value={tutorEmail}
+                disabled
+                aria-label="Email, cannot be changed"
+                className="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-100 p-3 text-xs font-medium text-gray-500"
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="sr-only">Phone number</span>
+              <input
+                type="tel"
+                value={formData.phone_number}
+                onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                placeholder="Phone number"
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="sr-only">WhatsApp number</span>
+              <input
+                type="tel"
+                value={formData.whatsapp_number}
+                onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
+                placeholder="WhatsApp number"
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+              />
+            </label>
           </div>
+        </Card>
 
-          <hr className="border-gray-200 my-6" />
-
-          {/* SECTION: COVER IMAGE */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Cover Image</h3>
-              <span className="text-[11px] text-gray-500 font-medium">Recommended size: 1200 × 400 px</span>
-            </div>
-            <div className="space-y-2 p-4 bg-tm-bg border border-gray-200 rounded-2xl">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {formData.coverImageUrl ? (
-                  <img 
-                    src={formData.coverImageUrl} 
-                    alt="Cover Preview" 
-                    className="w-full sm:w-48 h-24 rounded-xl object-cover border border-gray-300 shadow-xs" 
+        {/* ----------------------------------------------------------- photos */}
+        <Card title="Your photos" hint="Your profile photo is what parents see. Your selfie is held for verification only and never shown.">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FileUpload
+              label="Profile photo"
+              acceptLabel="JPG or PNG"
+              shape="square"
+              changeLabel="Change photo"
+              busy={uploading}
+              onFile={handleProfileImageChange}
+              currentPreview={
+                <Avatar
+                  name={formData.fullName}
+                  src={formData.profileImage || null}
+                  decorative
+                  ring=""
+                  className="h-full w-full rounded-none text-2xl"
+                />
+              }
+            />
+            <FileUpload
+              label="Verification selfie"
+              acceptLabel="JPG or PNG"
+              shape="square"
+              changeLabel="Retake"
+              busy={uploading}
+              onFile={handleSelfieCapture}
+              currentPreview={
+                selfiePreviewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={selfiePreviewUrl}
+                    alt="Your verification selfie"
+                    className="h-full w-full object-cover"
                   />
-                ) : (
-                  <div className="w-full sm:w-48 h-24 rounded-xl bg-gray-200 flex items-center justify-center text-[11px] text-gray-500 font-medium border border-dashed border-gray-300">
-                    No Cover Image
-                  </div>
-                )}
-                <FileUpload label="Cover image" acceptLabel="JPG or PNG" busy={uploading} onFile={handleCoverImageChange} />
-              </div>
-            </div>
+                ) : undefined
+              }
+            />
           </div>
+        </Card>
 
-          <hr className="border-gray-200 my-6" />
-
-          {/* SECTION: PROFILE & VERIFICATION PHOTOS */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Profile & Verification Photos</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              
-              {/* Profile Picture.
-                  ONE CONTROL, not a picture beside a drop zone. The old
-                  arrangement showed the stored photo in an <Avatar> and the
-                  uploader next to it, so after a successful upload the
-                  uploader reverted to "Tap to choose" while the avatar showed
-                  the new photo -- two components disagreeing about whether
-                  anything had happened. FileUpload's square shape IS the
-                  preview. */}
-              <div className="space-y-2 p-4 bg-tm-bg border border-gray-200 rounded-2xl">
-                <label className="block text-xs font-bold text-tm-navy">Profile picture</label>
-                <FileUpload
-                  label="Profile photo"
-                  acceptLabel="JPG or PNG"
-                  shape="square"
-                  busy={uploading}
-                  onFile={handleProfileImageChange}
-                  hint="This is the photo parents see on your card and your profile."
-                  currentPreview={
-                    <Avatar
-                      name={formData.fullName}
-                      src={formData.profileImage || null}
-                      decorative
-                      ring=""
-                      className="h-full w-full rounded-none text-2xl"
+        {/* --------------------------------------------------------- location */}
+        <Card title="Where you teach">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="sr-only">City</span>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder="City"
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+                required
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="sr-only">Area</span>
+              <input
+                type="text"
+                value={formData.areaName}
+                onChange={(e) => setFormData({ ...formData, areaName: e.target.value })}
+                placeholder="Area"
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+                required
+              />
+            </label>
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-tm-navy">How you teach</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {TEACHING_MODES.filter((m) => m !== 'both').map((mode) => {
+                const isChecked = formData.teachingModes.includes(mode);
+                return (
+                  <label
+                    key={mode}
+                    className={`flex min-h-[44px] cursor-pointer items-center gap-3 rounded-xl border p-3 text-xs font-bold transition-colors ${
+                      isChecked
+                        ? 'border-tm-green-deep/30 bg-tm-tint-green text-tm-green-deep'
+                        : 'border-gray-200 bg-tm-bg text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {
+                        const updated = isChecked
+                          ? formData.teachingModes.filter((m) => m !== mode)
+                          : [...formData.teachingModes, mode];
+                        setFormData({ ...formData, teachingModes: updated });
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-tm-green-deep focus:ring-tm-green-deep"
                     />
-                  }
-                />
-              </div>
-
-              {/* Selfie */}
-              <div className="space-y-2 p-4 bg-tm-bg border border-gray-200 rounded-2xl">
-                <label className="block text-xs font-bold text-tm-navy">Selfie</label>
-                <FileUpload
-                  label="Selfie"
-                  acceptLabel="JPG or PNG"
-                  shape="square"
-                  changeLabel="Retake"
-                  busy={uploading}
-                  onFile={handleSelfieCapture}
-                  hint="Held for verification only. It is never shown to parents."
-                  currentPreview={
-                    selfiePreviewUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={selfiePreviewUrl}
-                        alt="Your verification selfie"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : undefined
-                  }
-                />
-              </div>
-
+                    <span>{teachingMode(mode)}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
+        </Card>
 
-          <hr className="border-gray-200 my-6" />
-
-          {/* SECTION: LOCATION & MULTIPLE TEACHING MODES */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Location & Teaching Modes</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-tm-navy">City</label>
-                <input 
-                  type="text" 
-                  value={formData.city} 
-                  onChange={(e) => setFormData({...formData, city: e.target.value})} 
-                  className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
-                  required 
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-tm-navy">Area Name</label>
-                <input 
-                  type="text" 
-                  value={formData.areaName} 
-                  onChange={(e) => setFormData({...formData, areaName: e.target.value})} 
-                  className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
-                  required 
-                />
-              </div>
-            </div>
-
-            {/* MULTIPLE TEACHING MODES CHECKBOXES */}
-            <div className="space-y-2 pt-2">
-              <label className="block text-xs font-bold text-tm-navy">Teaching Modes (Select all that you are comfortable with)</label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {TEACHING_MODES.filter((m) => m !== 'both').map((mode) => {
-                  const isChecked = formData.teachingModes.includes(mode);
-                  return (
-                    <label 
-                      key={mode} 
-                      className={`flex items-center gap-3 p-3.5 rounded-2xl border text-xs font-bold cursor-pointer transition-all ${
-                        isChecked ? 'bg-tm-tint-green border-tm-green-deep/30 text-tm-green-deep shadow-2xs' : 'bg-tm-bg border-gray-200 text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <input 
-                        type="checkbox" 
-                        checked={isChecked} 
-                        onChange={() => {
-                          const updated = isChecked 
-                            ? formData.teachingModes.filter(m => m !== mode)
-                            : [...formData.teachingModes, mode];
-                          setFormData({...formData, teachingModes: updated});
-                        }}
-                        className="w-4 h-4 rounded border-gray-300 text-tm-green-deep focus:ring-tm-green-deep" 
-                      />
-                      <span>{teachingMode(mode)}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          <hr className="border-gray-200 my-6" />
-
-          {/* SECTION: SPECIALTY SUBJECTS */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Specialty Subject(s)</h3>
-            <div className="space-y-2">
+        {/* --------------------------------------------------------- subjects */}
+        <Card title="Subjects you specialise in">
+          {specialtyList.length > 0 && (
+            <ul className="space-y-2">
               {specialtyList.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs">
+                <li
+                  key={idx}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
+                >
                   <span className="font-bold text-tm-navy">{item.subject}</span>
-                  <span className="px-2.5 py-1 bg-tm-tint-green text-tm-green-deep font-bold rounded-lg border border-tm-green-deep/30">
-                    Level: {item.level}
+                  <span className="rounded-lg border border-tm-green-deep/30 bg-tm-tint-green px-2.5 py-1 font-bold text-tm-green-deep">
+                    {item.level}
                   </span>
-                  <button 
-                    type="button" 
-                    onClick={() => setSpecialtyList(specialtyList.filter((_, i) => i !== idx))} 
-                    className="text-tm-red font-bold cursor-pointer"
+                  <button
+                    type="button"
+                    onClick={() => setSpecialtyList(specialtyList.filter((_, i) => i !== idx))}
+                    aria-label={`Remove ${item.subject}`}
+                    className="ml-auto inline-flex min-h-[36px] items-center gap-1 font-bold text-tm-red"
                   >
-                    Remove ✕
+                    <X aria-hidden size={13} /> Remove
                   </button>
-                </div>
+                </li>
               ))}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 items-center bg-tm-bg p-4 rounded-2xl border border-gray-200">
-              <input 
-                type="text" 
-                value={newSubjInput} 
-                onChange={(e) => setNewSubjInput(e.target.value)} 
-                placeholder="Enter Subject (e.g. Chemistry)" 
-                className="p-3 bg-white border border-gray-200 rounded-xl text-xs font-medium" 
+            </ul>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-center">
+            <label className="block sm:col-span-1">
+              <span className="sr-only">Subject</span>
+              <input
+                type="text"
+                value={newSubjInput}
+                onChange={(e) => setNewSubjInput(e.target.value)}
+                placeholder="Subject, e.g. Chemistry"
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
               />
-              <div className="flex items-center gap-4 text-xs font-bold text-tm-navy">
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input 
-                    type="radio" 
-                    name="expertiseLevel" 
-                    value="Basic" 
-                    checked={newLevelInput === "Basic"} 
-                    onChange={(e) => setNewLevelInput(e.target.value)} 
-                  /> Basic
+            </label>
+            <div className="flex items-center gap-4 text-xs font-bold text-tm-navy">
+              {['Basic', 'Expert', 'Advance'].map((lvl) => (
+                <label key={lvl} className="flex cursor-pointer items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="expertiseLevel"
+                    value={lvl}
+                    checked={newLevelInput === lvl}
+                    onChange={(e) => setNewLevelInput(e.target.value)}
+                  />
+                  {lvl}
                 </label>
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input 
-                    type="radio" 
-                    name="expertiseLevel" 
-                    value="Expert" 
-                    checked={newLevelInput === "Expert"} 
-                    onChange={(e) => setNewLevelInput(e.target.value)} 
-                  /> Expert
-                </label>
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input 
-                    type="radio" 
-                    name="expertiseLevel" 
-                    value="Advance" 
-                    checked={newLevelInput === "Advance"} 
-                    onChange={(e) => setNewLevelInput(e.target.value)} 
-                  /> Advance
-                </label>
-              </div>
-              <button 
-                type="button" 
-                onClick={addSpecialtySubject} 
-                className="px-4 py-3 bg-tm-black text-white font-bold rounded-xl text-xs cursor-pointer hover:bg-black transition-colors"
-              >
-                + Add Subject
-              </button>
-            </div>
-          </div>
-
-          <hr className="border-gray-200 my-6" />
-
-          {/* SECTION: AVAILABLE TIMINGS & SCHEDULE */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Available Timings & Booking Schedule</h3>
-            <div className="space-y-2">
-              {availabilityList.map((slot, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs">
-                  <div>
-                    <strong className="text-tm-navy">{slot.day}</strong> — <span className="text-gray-600 font-medium">{slot.timeSlot}</span>
-                  </div>
-                  <button 
-                    type="button" 
-                    onClick={() => setAvailabilityList(availabilityList.filter((_, i) => i !== idx))} 
-                    className="text-tm-red font-bold cursor-pointer"
-                  >
-                    Remove ✕
-                  </button>
-                </div>
               ))}
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 items-center bg-tm-bg p-4 rounded-2xl border border-gray-200">
-              <select 
-                value={newDayInput} 
-                onChange={(e) => setNewDayInput(e.target.value)} 
-                className="p-3 bg-white border border-gray-200 rounded-xl text-xs font-medium"
-              >
-                <option value="Monday">Monday</option>
-                <option value="Tuesday">Tuesday</option>
-                <option value="Wednesday">Wednesday</option>
-                <option value="Thursday">Thursday</option>
-                <option value="Friday">Friday</option>
-                <option value="Saturday">Saturday</option>
-                <option value="Sunday">Sunday</option>
-              </select>
-              <input 
-                type="text" 
-                value={newTimeInput} 
-                onChange={(e) => setNewTimeInput(e.target.value)} 
-                placeholder="Time Slot (e.g. 04:00 PM - 07:00 PM)" 
-                className="p-3 bg-white border border-gray-200 rounded-xl text-xs font-medium" 
-              />
-              <button 
-                type="button" 
-                onClick={addAvailabilitySlot} 
-                className="px-4 py-3 bg-tm-black text-white font-bold rounded-xl text-xs cursor-pointer hover:bg-black transition-colors"
-              >
-                + Add Timing Slot
-              </button>
-            </div>
-          </div>
-
-          <hr className="border-gray-200 my-6" />
-
-          {/* SECTION: VIDEO PORTFOLIO */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Video Portfolio</h3>
-            <div className="p-5 bg-slate-900 rounded-2xl text-white space-y-3">
-              <h4 className="text-xs font-black uppercase tracking-wider text-tm-mint">YouTube Portfolio Video</h4>
-              <p className="text-xs text-slate-300">
-                Upload your portfolio video to showcase your teaching style directly.
-              </p>
-              <FileUpload
-                label="Portfolio video"
-                accept="video/*"
-                acceptLabel="MP4 or MOV"
-                maxBytes={200 * 1024 * 1024}
-                busy={uploadingVideo}
-                onFile={handlePortfolioVideoUpload}
-              />
-              {youtubeStatus && <p className="text-xs font-bold text-tm-mint">{youtubeStatus}</p>}
-              {formData.videoIntroUrl && (
-                <p className="text-[11px] text-slate-300 font-mono">🔗 Portfolio Video Linked: {formData.videoIntroUrl}</p>
-              )}
-            </div>
-          </div>
-
-          <hr className="border-gray-200 my-6" />
-
-          {/* Identity documents.
-              WAS "ANTI-DOWNLOAD PROTECTED DOCUMENTS", and the heading was the
-              only protection in it: both CNIC sides went through the same
-              helper as the avatar, into the PUBLIC tutor-media bucket, and the
-              block below rendered a "View Securely" link to that public URL.
-              Two real members' national identity cards were fetchable by
-              anybody who had the address. It renders the shared IdentityCard
-              now, which is the parent flow -- private bucket, watermarked
-              previews, served only through an authorising route. */}
-          {identity && <IdentityCard identity={identity} role="tutor" />}
-
-          <hr className="border-gray-200 my-6" />
-
-          {/* SECTION: DEGREES */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Degrees</h3>
-            <div className="space-y-2">
-              {degrees.map((deg, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs">
-                  <div>
-                    <strong className="text-tm-navy">{deg.title}</strong> — <span className="text-gray-600">{deg.institute} ({deg.year})</span>
-                    <div className="text-[10px] text-tm-green-deep font-mono">🔒 Protected</div>
-                  </div>
-                  <button type="button" onClick={() => setDegrees(degrees.filter((_, i) => i !== idx))} className="text-tm-red font-bold px-2 py-1 cursor-pointer">Remove ✕</button>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 items-center">
-              <input type="text" value={newDegree.title} onChange={(e) => setNewDegree({...newDegree, title: e.target.value})} placeholder="Degree Title" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
-              <input type="text" value={newDegree.institute} onChange={(e) => setNewDegree({...newDegree, institute: e.target.value})} placeholder="Institute" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
-              <input type="text" value={newDegree.year} onChange={(e) => setNewDegree({...newDegree, year: e.target.value})} placeholder="Year" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
-              <FileUpload label="Degree document" acceptLabel="JPG or PNG" busy={uploading} onFile={handleAddDegree} />
-            </div>
-            <button type="button" onClick={pushDegree} className="px-4 py-2.5 bg-tm-black text-white font-bold rounded-xl text-xs cursor-pointer">+ Add Degree Document</button>
-          </div>
-
-          <hr className="border-gray-200 my-6" />
-
-          {/* SECTION: CERTIFICATIONS */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Certifications & Document Uploads</h3>
-            <div className="space-y-2">
-              {certifications.map((cert, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs">
-                  <div>
-                    <strong className="text-tm-navy">{cert.title}</strong> — <span className="text-gray-600">{cert.issuer} ({cert.year})</span>
-                    <div className="text-[10px] text-tm-green-deep font-mono">🔒 Protected</div>
-                  </div>
-                  <button type="button" onClick={() => setCertifications(certifications.filter((_, i) => i !== idx))} className="text-tm-red font-bold px-2 py-1 cursor-pointer">Remove ✕</button>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 items-center">
-              <input type="text" value={newCert.title} onChange={(e) => setNewCert({...newCert, title: e.target.value})} placeholder="Certification Title" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
-              <input type="text" value={newCert.issuer} onChange={(e) => setNewCert({...newCert, issuer: e.target.value})} placeholder="Issuer" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
-              <input type="text" value={newCert.year} onChange={(e) => setNewCert({...newCert, year: e.target.value})} placeholder="Year" className="p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" />
-              <FileUpload label="Certification document" acceptLabel="JPG or PNG" busy={uploading} onFile={handleAddCert} />
-            </div>
-            <button type="button" onClick={pushCert} className="px-4 py-2.5 bg-tm-black text-white font-bold rounded-xl text-xs cursor-pointer">+ Add Certification Document</button>
-          </div>
-
-          {/* SAVE BUTTON & SUCCESS MESSAGE POSITIONED TOGETHER */}
-          <div className="pt-6 border-t border-gray-200 flex flex-col sm:flex-row items-center gap-4">
-            <button 
-              type="submit" 
-              disabled={uploading} 
-              className="flex-1 w-full py-4 bg-tm-red hover:bg-tm-red-hover text-white font-extrabold rounded-xl text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+            <button
+              type="button"
+              onClick={addSpecialtySubject}
+              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-black px-4 text-xs font-bold text-white"
             >
-              {uploading ? "Saving Profile Settings..." : "Save Profile Settings & Media ➔"}
+              <Plus aria-hidden size={14} /> Add subject
             </button>
-
-            {successMsg && (
-              <div className="w-full sm:w-auto px-5 py-4 bg-tm-tint-green border border-tm-green-deep/30 text-tm-green-deep rounded-xl text-xs font-bold shadow-sm shrink-0 flex items-center justify-center">
-                {successMsg}
-              </div>
-            )}
           </div>
-        </form>
-      </div>
+        </Card>
 
-      {/* SECTION: CHANGE PASSWORD (SEPARATE CARD) */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6">
-        <div className="space-y-1">
-          <h3 className="text-sm font-black uppercase tracking-wider text-tm-navy">Change Password</h3>
-          <p className="text-xs text-gray-500 font-medium">Update your account password securely.</p>
-        </div>
-
-        {passwordMsg && (
-          <div className={`p-3 rounded-xl text-xs font-bold ${passwordMsg.startsWith('✅') ? 'bg-tm-tint-green text-tm-green-deep border border-tm-green-deep/30' : 'bg-tm-tint-red text-tm-red border border-tm-red/30'}`}>
-            {passwordMsg}
-          </div>
-        )}
-
-        <form onSubmit={handlePasswordChange} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-tm-navy">New Password</label>
-              <input 
-                type="password" 
-                value={newPassword} 
-                onChange={(e) => setNewPassword(e.target.value)} 
-                placeholder="••••••••" 
-                className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
-                required 
+        {/* ----------------------------------------------------- availability */}
+        <Card title="When you are available">
+          {availabilityList.length > 0 && (
+            <ul className="space-y-2">
+              {availabilityList.map((slot, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
+                >
+                  <span>
+                    <strong className="text-tm-navy">{slot.day}</strong>{' '}
+                    <span className="font-medium text-gray-500">{slot.timeSlot}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAvailabilityList(availabilityList.filter((_, i) => i !== idx))}
+                    aria-label={`Remove ${slot.day} ${slot.timeSlot}`}
+                    className="inline-flex min-h-[36px] items-center gap-1 font-bold text-tm-red"
+                  >
+                    <X aria-hidden size={13} /> Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-center">
+            <label className="block">
+              <span className="sr-only">Day</span>
+              <select
+                value={newDayInput}
+                onChange={(e) => setNewDayInput(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+              >
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="sr-only">Time slot</span>
+              <input
+                type="text"
+                value={newTimeInput}
+                onChange={(e) => setNewTimeInput(e.target.value)}
+                placeholder="Time, e.g. 4:00 PM – 7:00 PM"
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
               />
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-tm-navy">Confirm New Password</label>
-              <input 
-                type="password" 
-                value={confirmPassword} 
-                onChange={(e) => setConfirmPassword(e.target.value)} 
-                placeholder="••••••••" 
-                className="w-full p-3 bg-tm-bg border border-gray-200 rounded-xl text-xs font-medium" 
-                required 
-              />
-            </div>
+            </label>
+            <button
+              type="button"
+              onClick={addAvailabilitySlot}
+              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-black px-4 text-xs font-bold text-white"
+            >
+              <Plus aria-hidden size={14} /> Add time
+            </button>
           </div>
-          <button 
-            type="submit" 
-            disabled={passwordLoading} 
-            className="px-6 py-3.5 bg-tm-black hover:bg-tm-black/90 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer"
+        </Card>
+
+        {/* ------------------------------------------------------------ video */}
+        <Card title="Introduction video" hint="Upload a short video showing how you teach. It is reviewed before it appears on your profile.">
+          <FileUpload
+            label="Introduction video"
+            accept="video/*"
+            acceptLabel="MP4 or MOV"
+            maxBytes={200 * 1024 * 1024}
+            busy={uploadingVideo}
+            onFile={handlePortfolioVideoUpload}
+          />
+          {youtubeStatus && <p className="text-xs font-bold text-tm-green-deep">{youtubeStatus}</p>}
+          {formData.videoIntroUrl && (
+            <p className="text-[11px] font-semibold text-gray-500">Your introduction video is linked.</p>
+          )}
+        </Card>
+
+        {/* --------------------------------------------------------- identity */}
+        {/* Was "ANTI-DOWNLOAD PROTECTED DOCUMENTS", whose heading was the only
+            protection in it: both CNIC sides went to the PUBLIC tutor-media
+            bucket. It renders the shared IdentityCard now — private bucket,
+            watermarked previews, served only through an authorising route. */}
+        {identity && <IdentityCard identity={identity} role="tutor" />}
+
+        {/* ---------------------------------------------------------- degrees */}
+        <Card title="Degrees" hint="Your certificate images are private — watermarked previews only, never downloadable.">
+          {degrees.length > 0 && (
+            <ul className="space-y-2">
+              {degrees.map((deg, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
+                >
+                  <span>
+                    <strong className="text-tm-navy">{deg.title}</strong>{' '}
+                    <span className="text-gray-500">
+                      {deg.institute} ({deg.year})
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDegrees(degrees.filter((_, i) => i !== idx))}
+                    aria-label={`Remove ${deg.title}`}
+                    className="inline-flex min-h-[36px] items-center gap-1 font-bold text-tm-red"
+                  >
+                    <X aria-hidden size={13} /> Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-center">
+            <label className="block">
+              <span className="sr-only">Degree title</span>
+              <input type="text" value={newDegree.title} onChange={(e) => setNewDegree({ ...newDegree, title: e.target.value })} placeholder="Degree" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
+            </label>
+            <label className="block">
+              <span className="sr-only">Institute</span>
+              <input type="text" value={newDegree.institute} onChange={(e) => setNewDegree({ ...newDegree, institute: e.target.value })} placeholder="Institute" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
+            </label>
+            <label className="block">
+              <span className="sr-only">Year</span>
+              <input type="text" value={newDegree.year} onChange={(e) => setNewDegree({ ...newDegree, year: e.target.value })} placeholder="Year" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
+            </label>
+            <FileUpload label="Degree certificate" acceptLabel="JPG or PNG" busy={uploading} onFile={handleAddDegree} />
+          </div>
+          <button
+            type="button"
+            onClick={pushDegree}
+            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-black px-4 text-xs font-bold text-white"
           >
-            {passwordLoading ? "Updating Password..." : "Update Password ➔"}
+            <Plus aria-hidden size={14} /> Add degree
+          </button>
+        </Card>
+
+        {/* --------------------------------------------------- certifications */}
+        <Card title="Certifications" hint="Optional. Same private treatment as your degrees.">
+          {certifications.length > 0 && (
+            <ul className="space-y-2">
+              {certifications.map((cert, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
+                >
+                  <span>
+                    <strong className="text-tm-navy">{cert.title}</strong>{' '}
+                    <span className="text-gray-500">
+                      {cert.issuer} ({cert.year})
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCertifications(certifications.filter((_, i) => i !== idx))}
+                    aria-label={`Remove ${cert.title}`}
+                    className="inline-flex min-h-[36px] items-center gap-1 font-bold text-tm-red"
+                  >
+                    <X aria-hidden size={13} /> Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-center">
+            <label className="block">
+              <span className="sr-only">Certification title</span>
+              <input type="text" value={newCert.title} onChange={(e) => setNewCert({ ...newCert, title: e.target.value })} placeholder="Certification" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
+            </label>
+            <label className="block">
+              <span className="sr-only">Issuer</span>
+              <input type="text" value={newCert.issuer} onChange={(e) => setNewCert({ ...newCert, issuer: e.target.value })} placeholder="Issuer" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
+            </label>
+            <label className="block">
+              <span className="sr-only">Year</span>
+              <input type="text" value={newCert.year} onChange={(e) => setNewCert({ ...newCert, year: e.target.value })} placeholder="Year" className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium" />
+            </label>
+            <FileUpload label="Certification document" acceptLabel="JPG or PNG" busy={uploading} onFile={handleAddCert} />
+          </div>
+          <button
+            type="button"
+            onClick={pushCert}
+            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-black px-4 text-xs font-bold text-white"
+          >
+            <Plus aria-hidden size={14} /> Add certification
+          </button>
+        </Card>
+
+        {/* ------------------------------------------------------------- save */}
+        <div className="flex flex-col items-center gap-3 sm:flex-row">
+          <button
+            type="submit"
+            disabled={uploading}
+            className="inline-flex min-h-[48px] w-full flex-1 items-center justify-center gap-2 rounded-xl bg-tm-red px-4 text-xs font-extrabold text-white hover:bg-tm-red-hover disabled:opacity-60"
+          >
+            <Save aria-hidden size={15} /> {uploading ? 'Saving…' : 'Save changes'}
+          </button>
+          {successMsg && (
+            <p className="shrink-0 rounded-xl border border-tm-green-deep/30 bg-tm-tint-green px-4 py-3 text-xs font-bold text-tm-green-deep">
+              {successMsg}
+            </p>
+          )}
+        </div>
+      </form>
+
+      {/* ------------------------------------------------------------ password */}
+      <Card title="Change password" hint="Update your account password.">
+        {passwordMsg && (
+          <p
+            className={`rounded-xl p-3 text-xs font-bold ${
+              passwordMsg.startsWith('✅')
+                ? 'border border-tm-green-deep/30 bg-tm-tint-green text-tm-green-deep'
+                : 'border border-tm-red/30 bg-tm-tint-red text-tm-red'
+            }`}
+          >
+            {passwordMsg}
+          </p>
+        )}
+        <form onSubmit={handlePasswordChange} className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="sr-only">New password</span>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="New password"
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="sr-only">Confirm new password</span>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+                required
+              />
+            </label>
+          </div>
+          <button
+            type="submit"
+            disabled={passwordLoading}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-tm-black px-6 text-xs font-extrabold text-white disabled:opacity-60"
+          >
+            <Save aria-hidden size={15} /> {passwordLoading ? 'Updating…' : 'Update password'}
           </button>
         </form>
-      </div>
-
+      </Card>
     </main>
+  );
+}
+
+function Card({
+  title,
+  hint,
+  children,
+}: {
+  title: string
+  hint?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+      <div className="space-y-0.5">
+        <h2 className="text-sm font-black text-tm-navy">{title}</h2>
+        {hint && <p className="text-[11px] leading-relaxed text-gray-500">{hint}</p>}
+      </div>
+      {children}
+    </section>
   );
 }

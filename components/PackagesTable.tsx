@@ -164,6 +164,13 @@ export default function PackagesTable({
             ? 'Card and wallet payments activate as soon as the payment is confirmed.'
             : 'Bank and wallet transfers are confirmed by a person, usually within a few hours. You will get a notification the moment your plan starts.'}
         </p>
+        {audience === 'tutor' && (
+          <p>
+            <strong className="text-tm-navy">Your month starts the day you go live.</strong> If you
+            buy before your profile is 100%, the plan is paid for but paused — the badge and the 30
+            days both begin the day you become listed, so nothing counts down while you finish.
+          </p>
+        )}
         <p>
           <strong className="text-tm-navy">No refunds.</strong> Plans are non-refundable once
           activated, including if you change plan part-way through a month. This is set out in the{' '}

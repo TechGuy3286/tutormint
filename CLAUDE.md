@@ -1263,6 +1263,73 @@ going out. It belongs with Search Console and the Business Profile in T8b,
 because submitting a sitemap and being `noindex` at the same time is the
 contradiction that wastes the launch.
 
+## The seed cast is a fixed cast, and it is asserted (4 Sep 2026)
+
+The demo accounts are a *cast*: each `seed+<role/plan>-<name>` is named for the
+role and plan it demonstrates, so an evidence screenshot lands on the right kind
+of account. The canonical definition is `scripts/seedCast.ts`; the readable copy
+with the shared password is `docs/SEED_CAST.md`.
+
+**Any evidence step that changes a seed account's plan, status or completion
+restores it in the same run, and asserts the restore.** This is a rule, not a
+hope: the cast drifts precisely because a run flips an account to Featured to
+photograph a Featured surface and either forgets to restore it or restores it to
+the wrong baseline. On 4 Sep 2026, five of nine cast members had drifted this
+way — two free tutors carrying Premium, the Premium and Verified tutors both on
+Featured, a "verified, no plan" parent holding parent_featured, an "unverified"
+parent with an approved CNIC. The residue of earlier evidence runs, every one of
+them a restore that did not happen or went to the wrong place.
+
+Two tools hold the line, and both must stay green:
+
+- `npm run reset:seedcast` (`scripts/reset-seed-cast.ts`) reports drift against
+  the cast and, with `--apply`, puts every account back. Idempotent. It never
+  writes `profile_completion` — completion is derived, and forcing a number is
+  the fabrication trap; a cast member below its expected completion is warned,
+  not papered over.
+- `npm run smoke` (`scripts/smoke.ts`) creates one tutor and one parent through
+  the real signup API, deletes them, and asserts the cast snapshot is identical
+  before and after. Creating a member must never touch a seed row; a drift fails
+  the run.
+
+Badges follow the cast: a listed tutor with a plan shows the plan's badges; a
+free tutor at 100% is listed with **no** badge; a paid plan on an unlisted tutor
+shows none (see the badge/listing rule).
+
+## A badge means LISTED, and the plan month starts at go-live (4 Sep 2026)
+
+**A paid plan alone never draws a badge.** A tutor's badge appears only when
+they are LISTED — the `tutor_directory` rule: 100% complete, not suspended,
+verification not rejected/suspended, and claimed if imported. The gate is one
+pure function, `tutorListed()` in `lib/planBadges.ts`; the public surfaces
+(profile, browse, social) are listed by construction because they read views
+that encode the rule, and the tutor's own dashboard reads `ent.listed` from
+`getEntitlements`, which computes it the same way. Before this, the dashboard
+gated the badge on completion alone, so a tutor at 100% but delisted (e.g.
+rejected) with a plan wrongly saw a badge on their own dashboard.
+
+An unlisted tutor who has a plan (active on a delisted profile, or paused) sees,
+in the identity block: **"&lt;Plan&gt; plan active · your badge appears when your
+profile reaches 100%."** — so the missing badge explains itself.
+
+**The plan month starts the day the tutor goes live, not the day they pay.** A
+tutor who buys while under 100% gets an *activated-but-paused* subscription
+(`subscriptions.status = 'paused'`, `expires_at` NULL — no clock). It confers no
+powers and no badge. `lib/payments/goLive.ts` `activatePausedIfListed()` flips
+it to active with a fresh 30-day window the day the tutor becomes listed, and is
+called from the two choke points where listing can change:
+`recomputeCompletion()` (reaching 100%) and the admin tutor-moderation approve.
+`getEntitlements` treats a paused sub as no plan (powers off) but surfaces
+`planPaused`/`pausedPlanName` for the dashboard; the expiry sweep already filters
+`status='active'`, so it leaves paused rows alone. The packages page and checkout
+carry the line **"Your month starts the day you go live."**
+
+**Under 100%, buying is never hard-blocked.** The upgrade sheet, for a tutor
+under 100%, leads with *"Your profile is N% complete. Your badge and listing
+start the moment you reach 100%."* — **Finish profile first** as the primary
+button and **Buy anyway** as the secondary (`Gate.secondary`, built in
+`lib/gate.ts`). The plan card stays, so buying early is a choice, not a wall.
+
 ## Seed data reaching real visitors (3 Sep 2026)
 
 Three defects on the public board, repaired in migration 34 — a data repair, in

@@ -44,3 +44,33 @@ export function badgesForPlan(
 export function isFeaturedPlan(plan: string | null | undefined): boolean {
   return plan === 'featured' || plan === 'parent_featured'
 }
+
+/**
+ * Is this tutor LISTED — the one gate a badge must clear.
+ *
+ * A paid plan alone never draws a badge (owner, 4 Sep 2026). The badge appears
+ * only when the tutor is listed, and "listed" is exactly the `tutor_directory`
+ * rule expressed in TypeScript so every badge surface can share it:
+ *
+ *   100% complete, not suspended, verification not rejected/suspended, and
+ *   either not an import or a claimed one.
+ *
+ * The public surfaces (profile, browse, social) already read views that encode
+ * this, so they are listed by construction. The one surface that was not gated
+ * on it is the tutor's OWN dashboard, which read entitlements and showed a
+ * badge at 100% even for a delisted (e.g. rejected) tutor with a plan. Routing
+ * that through here closes it, and keeps the definition in one place.
+ */
+export function tutorListed(input: {
+  profileComplete: boolean
+  verificationStatus?: string | null
+  isSuspended?: boolean | null
+  imported?: boolean | null
+  claimedAt?: string | null
+}): boolean {
+  if (!input.profileComplete) return false
+  if (input.isSuspended) return false
+  if (input.verificationStatus === 'suspended' || input.verificationStatus === 'rejected') return false
+  if (input.imported && !input.claimedAt) return false
+  return true
+}

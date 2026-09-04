@@ -61,6 +61,12 @@ export type Gate = {
   ctaLabel: string
   /** When false the sheet shows no action button, only a dismiss. */
   actionable: boolean
+  /**
+   * A second, lower-emphasis action. Present only for a tutor under 100%: the
+   * primary becomes "Finish profile first" and this carries "Buy anyway", so
+   * buying is never hard-blocked but finishing is the steered path.
+   */
+  secondary?: { label: string; href: string }
 }
 
 export type GateReason =
@@ -122,7 +128,47 @@ async function loadPlan(code: string): Promise<GatePlan | undefined> {
  * `ent` is optional so a caller that has already established the member cannot
  * do the thing (a blocked pair, say) does not have to load entitlements again.
  */
+/**
+ * The public builder: the base gate, plus the under-100% tutor treatment.
+ *
+ * A tutor who has not reached 100% is not listed, so buying now buys a plan
+ * whose badge and clock wait for go-live (see lib/payments/goLive.ts). The
+ * honest thing to lead with is the completion, not the price -- so any tutor
+ * upgrade/quota/complete gate, when the tutor is under 100%, leads with "finish
+ * first" and keeps buying as a secondary action. Never a hard block: the plan
+ * card and "Buy anyway" stay.
+ */
 export async function buildGate(
+  reason: GateReason,
+  ent?: Pick<Entitlements, 'audience' | 'plan' | 'quota' | 'profileCompletion'> | null,
+): Promise<Gate> {
+  const gate = await buildBaseGate(reason, ent)
+
+  const pct = ent?.profileCompletion
+  const tutorUnder =
+    gate.audience === 'tutor' &&
+    typeof pct === 'number' &&
+    pct < 100 &&
+    (gate.kind === 'upgrade' || gate.kind === 'quota' || gate.kind === 'complete')
+
+  if (!tutorUnder) return gate
+
+  // Buy-anyway goes to the plan the gate was about; with no specific plan (the
+  // bare "finish your profile" gate) it lands on the Verified entry card.
+  const buyHref = gate.plan
+    ? packagesHref('tutor', gate.plan.code)
+    : packagesHref('tutor', 'verified')
+
+  return {
+    ...gate,
+    body: `Your profile is ${pct}% complete. Your badge and listing start the moment you reach 100%.`,
+    href: '/tutor/complete-profile',
+    ctaLabel: 'Finish profile first',
+    secondary: { label: 'Buy anyway', href: buyHref },
+  }
+}
+
+async function buildBaseGate(
   reason: GateReason,
   ent?: Pick<Entitlements, 'audience' | 'plan' | 'quota'> | null,
 ): Promise<Gate> {

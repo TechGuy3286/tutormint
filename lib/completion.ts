@@ -86,5 +86,15 @@ export async function recomputeCompletion(userId: string): Promise<Completion | 
     .update({ profile_completion: completion.percent })
     .eq('id', userId)
 
+  // Reaching 100% is the usual way a tutor goes live, so this is the natural
+  // place to start a plan they bought while under it. Idempotent and cheap: it
+  // only does anything for a tutor who now appears in the directory AND holds a
+  // paused subscription. A dynamic import keeps the payments module out of the
+  // many write routes that call recomputeCompletion but never touch a plan.
+  if (completion.percent >= 100) {
+    const { activatePausedIfListed } = await import('@/lib/payments/goLive')
+    await activatePausedIfListed(userId)
+  }
+
   return completion
 }

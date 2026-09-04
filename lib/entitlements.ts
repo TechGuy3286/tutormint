@@ -25,7 +25,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { badgesForPlan, isFeaturedPlan, type BadgeName } from '@/lib/planBadges'
+import { badgesForPlan, isFeaturedPlan, tutorListed, type BadgeName } from '@/lib/planBadges'
 
 // The pure plan -> badge mapping lives in lib/planBadges.ts so client
 // components can import it without pulling next/headers into the browser
@@ -69,6 +69,24 @@ export type Entitlements = {
   tagLabel: string | null
   /** Badges are withheld below 100% however much was paid. */
   profileComplete: boolean
+  /** The raw percentage, for a gate that says "your profile is 93% complete". */
+  profileCompletion: number
+  /**
+   * Tutor is LISTED — 100% complete, not suspended, verification not
+   * rejected/suspended, and claimed if imported. This, not profileComplete, is
+   * what a badge clears: a paid plan alone never draws one. Always true-ish for
+   * parents (they are not listed anywhere; kept `false` and unused for them).
+   */
+  listed: boolean
+  /**
+   * The member has PAID for a plan whose 30 days have not started, because a
+   * tutor bought while under 100%. It grants no powers and no badge yet; the
+   * clock and the badge both begin on the day they go live. `plan` stays null
+   * while paused -- gated routes must not treat a paused plan as active -- but
+   * the dashboard shows "<plan> plan active · your badge appears at 100%".
+   */
+  planPaused: boolean
+  pausedPlanName: string | null
   /**
    * Suspended by a moderator. Every power is off regardless of what was paid,
    * and no subscription is cancelled -- the plan keeps running, so reinstating
@@ -97,6 +115,10 @@ const NOTHING = (userId: string): Entitlements => ({
   badges: [],
   tagLabel: null,
   profileComplete: false,
+  profileCompletion: 0,
+  listed: false,
+  planPaused: false,
+  pausedPlanName: null,
   suspended: false,
 })
 
@@ -148,7 +170,35 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
   const audience: 'tutor' | 'parent' | null =
     role === 'tutor' ? 'tutor' : role === 'parent' || role === 'academy' ? 'parent' : null
 
-  const profileComplete = (profile.profile_completion ?? 0) >= 100
+  const profileCompletion = profile.profile_completion ?? 0
+  const profileComplete = profileCompletion >= 100
+
+  // For a tutor, read the listing facts ONCE here: verification_status (also
+  // the second suspension signal below), and the import/claim state. `listed`
+  // is what badges clear -- computed the same way tutor_directory decides who
+  // is in browse -- so a delisted tutor with a plan shows no badge on their own
+  // dashboard, which reads these entitlements.
+  type TutorRow = { verification_status: string | null; imported: boolean | null; claimed_at: string | null }
+  let tutorRow: TutorRow | null = null
+  if (role === 'tutor') {
+    const { data: tp } = await db
+      .from('tutor_profiles')
+      .select('verification_status, imported, claimed_at')
+      .eq('id', userId)
+      .maybeSingle()
+    tutorRow = (tp as TutorRow | null) ?? null
+  }
+
+  const listed =
+    role === 'tutor'
+      ? tutorListed({
+          profileComplete,
+          verificationStatus: tutorRow?.verification_status,
+          isSuspended: profile.is_suspended,
+          imported: tutorRow?.imported,
+          claimedAt: tutorRow?.claimed_at,
+        })
+      : false
 
   // Suspension short-circuits everything below.
   // Suspension short-circuits everything below.
@@ -168,18 +218,17 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
   // to 'complete your profile' at 100% completion. Treating either as
   // suspended means no path can miss one, whichever flag a row carries.
   const suspendedByProfile = !!profile.is_suspended
-  let suspendedByListing = false
-  if (!suspendedByProfile && role === 'tutor') {
-    const { data: tp } = await db
-      .from('tutor_profiles')
-      .select('verification_status')
-      .eq('id', userId)
-      .maybeSingle()
-    suspendedByListing = tp?.verification_status === 'suspended'
-  }
+  const suspendedByListing = tutorRow?.verification_status === 'suspended'
 
   if (suspendedByProfile || suspendedByListing) {
-    return { ...NOTHING(userId), role, audience, profileComplete, suspended: true }
+    return {
+      ...NOTHING(userId),
+      role,
+      audience,
+      profileComplete,
+      profileCompletion,
+      suspended: true,
+    }
   }
 
   // Highest-ranked unexpired subscription wins, so an admin grant layered over
@@ -215,8 +264,29 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     if (free) best = { plan: free, expiresAt: null }
   }
 
+  // A PAUSED plan: paid for, but the 30 days have not started because the tutor
+  // bought while under 100%. It confers nothing here -- gated routes must not
+  // see it as active -- but is surfaced so the dashboard can say the plan is
+  // waiting. Only consulted when there is no active plan to report.
+  let planPaused = false
+  let pausedPlanName: string | null = null
   if (!best) {
-    return { ...NOTHING(userId), role, audience, profileComplete }
+    const { data: paused } = await db
+      .from('subscriptions')
+      .select('plan_code')
+      .eq('user_id', userId)
+      .eq('status', 'paused')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (paused) {
+      planPaused = true
+      pausedPlanName = plans.get(paused.plan_code as string)?.name ?? null
+    }
+  }
+
+  if (!best) {
+    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, listed, planPaused, pausedPlanName }
   }
 
   const p = best.plan
@@ -250,9 +320,15 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     canHire: !!p.can_hire,
     canSeeViewerIdentity: !!p.can_see_viewer_identity,
     searchRank: p.search_rank ?? 0,
-    badges: badgesForPlan(p.code, profileComplete),
-    tagLabel: profileComplete ? p.tag_label : null,
+    // A tutor's badge clears `listed` (100% + verification + claimed), not bare
+    // completion; a parent has no listing, so completion is their gate.
+    badges: badgesForPlan(p.code, audience === 'tutor' ? listed : profileComplete),
+    tagLabel: (audience === 'tutor' ? listed : profileComplete) ? p.tag_label : null,
     profileComplete,
+    profileCompletion,
+    listed,
+    planPaused: false,
+    pausedPlanName: null,
     suspended: false,
   }
 }

@@ -63,8 +63,9 @@ export default async function TutorPackagesPage({
           </p>
           {ent && !ent.profileComplete && (
             <p className="rounded-xl bg-tm-tint-gold p-3 text-[11px] leading-relaxed text-tm-gold-ink">
-              You can buy a plan now, but badges stay hidden until your profile reaches 100% and
-              your video is approved. Nothing is lost — the badge appears the moment you get there.
+              Your month starts the day you go live. You can buy now, but the badge and the 30 days
+              both begin when your profile reaches 100% — nothing is lost, and nothing counts down
+              in the meantime.
             </p>
           )}
         </header>

@@ -214,11 +214,24 @@ export async function hiresThisMonth(): Promise<number> {
   return count ?? 0
 }
 
+export type WeekJob = {
+  id: string
+  job_tx_id: string | null
+  title: string
+  city: string | null
+  area: string | null
+  created_at: string
+  /**
+   * Why this job is in the strip, in one line: "Matched: Chemistry · same city"
+   * or "Matched: Chemistry · online possible". The matching logic is unchanged
+   * -- this only names the subject the tutor and the job share and states the
+   * location relationship, so a matched card explains itself.
+   */
+  matchReason: string
+}
+
 /** Jobs opened in the last 7 days that match this tutor's subjects. */
-export async function jobsThisWeek(
-  userId: string,
-  city: string | null,
-): Promise<{ id: string; job_tx_id: string | null; title: string; city: string | null; area: string | null; created_at: string }[]> {
+export async function jobsThisWeek(userId: string, city: string | null): Promise<WeekJob[]> {
   const db = createAdminClient() ?? (await createClient())
 
   const { data: subs } = await db.from('tutor_subjects').select('master_id').eq('tutor_id', userId)
@@ -233,7 +246,7 @@ export async function jobsThisWeek(
 
   let q = db
     .from('jobs')
-    .select('id, job_tx_id, title, city, area, created_at')
+    .select('id, job_tx_id, title, city, area, created_at, teaching_mode')
     .in('id', jobIds)
     .eq('status', 'open')
     .gte('created_at', weekAgo)
@@ -243,5 +256,77 @@ export async function jobsThisWeek(
   if (city) q = q.eq('city', city)
 
   const { data } = await q
-  return (data ?? []) as never
+  const rows = (data ?? []) as {
+    id: string; job_tx_id: string | null; title: string; city: string | null
+    area: string | null; created_at: string; teaching_mode: string | null
+  }[]
+  if (rows.length === 0) return []
+
+  // Which of THIS tutor's subjects each shown job shares, and the name of one,
+  // so the reason line can say what matched. Restricted to the tutor's ids, so
+  // it names a shared subject and not just any subject on the job.
+  const shownIds = rows.map((r) => r.id)
+  const { data: shared } = await db
+    .from('job_subjects')
+    .select('job_id, master_id')
+    .in('job_id', shownIds)
+    .in('master_id', ids)
+
+  const sharedMasterByJob = new Map<string, number>()
+  for (const s of shared ?? []) {
+    if (!sharedMasterByJob.has(s.job_id as string)) {
+      sharedMasterByJob.set(s.job_id as string, s.master_id as number)
+    }
+  }
+
+  // Resolve the shared master ids to subject names (subject, or the level name
+  // for level-leaf taxonomy) -- the same resolution the job cards use.
+  const masterIds = [...new Set([...sharedMasterByJob.values()])]
+  const labelByMaster = new Map<number, string>()
+  if (masterIds.length > 0) {
+    const { data: master } = await db
+      .from('taxonomy_master')
+      .select('id, level_slug, subject_slug')
+      .in('id', masterIds)
+    const levelSlugs = [...new Set((master ?? []).map((m) => m.level_slug as string))]
+    const subjectSlugs = [
+      ...new Set((master ?? []).map((m) => m.subject_slug as string | null).filter(Boolean) as string[]),
+    ]
+    const [{ data: levels }, { data: subjects }] = await Promise.all([
+      db.from('taxonomy_levels').select('slug, name').in('slug', levelSlugs),
+      subjectSlugs.length > 0
+        ? db.from('taxonomy_subjects').select('slug, name').in('slug', subjectSlugs)
+        : Promise.resolve({ data: [] as { slug: string; name: string }[] }),
+    ])
+    const levelName = new Map((levels ?? []).map((l) => [l.slug as string, l.name as string]))
+    const subjectName = new Map((subjects ?? []).map((s) => [s.slug as string, s.name as string]))
+    for (const m of master ?? []) {
+      const subject = m.subject_slug ? subjectName.get(m.subject_slug as string) : null
+      labelByMaster.set(m.id as number, subject ?? levelName.get(m.level_slug as string) ?? '')
+    }
+  }
+
+  const norm = (v: string | null | undefined) => (v ?? '').trim().toLowerCase()
+
+  return rows.map((r) => {
+    const masterId = sharedMasterByJob.get(r.id)
+    const subject = masterId !== undefined ? labelByMaster.get(masterId) : null
+    const sameCity = !!city && norm(r.city) !== '' && norm(r.city) === norm(city)
+    const onlinePossible = r.teaching_mode === 'online' || r.teaching_mode === 'both'
+    const where = sameCity ? 'same city' : onlinePossible ? 'online possible' : null
+    const matchReason = subject
+      ? `Matched: ${subject}${where ? ` · ${where}` : ''}`
+      : where
+        ? `Matched · ${where}`
+        : 'Matched to your subjects'
+    return {
+      id: r.id,
+      job_tx_id: r.job_tx_id,
+      title: r.title,
+      city: r.city,
+      area: r.area,
+      created_at: r.created_at,
+      matchReason,
+    }
+  })
 }

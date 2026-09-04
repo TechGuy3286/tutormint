@@ -168,6 +168,17 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
               {gate.ctaLabel}
             </Link>
           )}
+          {/* "Buy anyway" for a tutor under 100%: buying is never blocked, only
+              made the second choice after finishing the profile. */}
+          {gate.secondary && (
+            <Link
+              href={gate.secondary.href}
+              onClick={onClose}
+              className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-tm-navy/20 bg-tm-tint-navy px-4 text-xs font-bold text-tm-navy"
+            >
+              {gate.secondary.label}
+            </Link>
+          )}
           <button
             type="button"
             onClick={onClose}

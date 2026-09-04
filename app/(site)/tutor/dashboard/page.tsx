@@ -63,8 +63,21 @@ export default async function TutorDashboardPage() {
   ])
 
   const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
-  const listed = percent >= 100 && tutorProfile?.verification_status !== 'suspended'
-  const free = !ent.plan
+  // The authoritative listing fact, computed once in the entitlements layer
+  // (100% + verification not rejected/suspended + claimed). Using it here keeps
+  // "Listed tutor" and the badge on the same rule.
+  const listed = ent.listed
+  const free = !ent.plan && !ent.planPaused
+
+  // A tutor who has PAID but is not yet listed: their badge is waiting on 100%.
+  // A paid plan alone never draws a badge, so the identity block says where it
+  // went. Covers both a paused plan (bought under 100%) and an active plan on a
+  // delisted profile.
+  const planForNotice = ent.pausedPlanName ?? ent.planName
+  const planNotice =
+    !listed && planForNotice
+      ? `${planForNotice} plan active · your badge appears when your profile reaches 100%.`
+      : undefined
 
   const [
     needs,
@@ -165,9 +178,13 @@ export default async function TutorDashboardPage() {
     },
     {
       key: 'plan',
-      label: ent.planName ? `${ent.planName} plan` : 'No active plan',
+      label: ent.planName
+        ? `${ent.planName} plan`
+        : ent.pausedPlanName
+          ? `${ent.pausedPlanName} plan`
+          : 'No active plan',
       count: ent.plan ? ent.quotaLeft : null,
-      note: ent.plan ? 'applies left' : undefined,
+      note: ent.plan ? 'applies left' : ent.planPaused ? 'starts at 100%' : undefined,
       href: '/tutor/packages',
       icon: 'plan',
     },
@@ -185,6 +202,7 @@ export default async function TutorDashboardPage() {
           avatarUrl={session?.profile?.avatar_url ?? null}
           badges={ent.badges}
           line={identityLine}
+          planNotice={planNotice}
           completion={percent}
           completionHref="/tutor/complete-profile"
           editHref={
@@ -251,6 +269,11 @@ export default async function TutorDashboardPage() {
                     </span>
                     <span className="block truncate text-[10px] text-gray-500">
                       {[j.area, j.city].filter(Boolean).join(', ') || 'Pakistan'}
+                    </span>
+                    {/* Why this job is here, in one line. Matching is unchanged;
+                        this only names the shared subject and the location tie. */}
+                    <span className="block truncate text-[10px] font-semibold text-tm-green-deep">
+                      {j.matchReason}
                     </span>
                   </span>
                   {/* Apply routes through the upgrade sheet: the button is

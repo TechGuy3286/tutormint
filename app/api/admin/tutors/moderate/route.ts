@@ -108,6 +108,15 @@ export async function POST(request: Request) {
   const { error } = await admin.from('tutor_profiles').update(patch).eq('id', tutorId)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
+  // A verification decision can make a tutor LISTED — approve turns
+  // verification_status to 'verified', and unsuspend clears the suspension. If
+  // the tutor bought a plan while not yet listed, that plan starts now. Cheap
+  // and idempotent: it acts only on a paused subscription for a listed tutor.
+  if (action === 'approve' || action === 'unsuspend') {
+    const { activatePausedIfListed } = await import('@/lib/payments/goLive')
+    await activatePausedIfListed(tutorId)
+  }
+
   const attemptsAfter = (patch.video_attempts as number | undefined) ?? tutor.video_attempts ?? 0
   const resubmissionLocked = attemptsAfter >= MAX_ATTEMPTS
 
