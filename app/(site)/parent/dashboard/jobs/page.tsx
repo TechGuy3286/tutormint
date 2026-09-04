@@ -1,6 +1,6 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { Plus, ShieldCheck } from 'lucide-react'
 
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import { getSessionUser } from '@/lib/auth'
@@ -90,8 +90,9 @@ export default async function ParentJobsPage() {
             {!verified && (
               <Link
                 href="/parent/verify"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white"
+                className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white"
               >
+                <ShieldCheck aria-hidden size={14} />
                 Verify now
               </Link>
             )}

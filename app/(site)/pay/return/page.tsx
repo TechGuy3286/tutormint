@@ -1,6 +1,6 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
-import { CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, CreditCard, LayoutDashboard, XCircle } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
@@ -99,14 +99,16 @@ export default async function PayReturnPage({
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
             href={home}
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
+            className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
           >
+            <LayoutDashboard aria-hidden size={14} />
             Go to my dashboard
           </Link>
           <Link
             href={packages}
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
+            className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
           >
+            <CreditCard aria-hidden size={14} />
             Packages
           </Link>
         </div>

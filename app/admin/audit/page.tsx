@@ -1,3 +1,4 @@
+import { Filter } from 'lucide-react'
 import Link from 'next/link'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -76,8 +77,9 @@ export default async function AdminAuditPage({
         {action !== 'all' && <input type="hidden" name="action" value={action} />}
         <button
           type="submit"
-          className="min-h-[44px] rounded-xl bg-tm-black px-6 text-xs font-bold text-white"
+          className="inline-flex items-center gap-1.5 min-h-[44px] rounded-xl bg-tm-black px-6 text-xs font-bold text-white"
         >
+          <Filter aria-hidden size={14} />
           Filter
         </button>
       </form>

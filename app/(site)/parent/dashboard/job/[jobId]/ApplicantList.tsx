@@ -7,7 +7,7 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Lock } from 'lucide-react'
+import { Bookmark, BookmarkX, Lock, MessageSquare } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
 import type { BadgeName } from '@/lib/planBadges'
 
@@ -36,7 +36,7 @@ export type Applicant = {
 }
 
 const BTN =
-  'inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl px-3 text-xs font-bold transition-colors disabled:opacity-60'
+  'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-colors disabled:opacity-60'
 
 export default function ApplicantList({
   applicants,
@@ -148,7 +148,17 @@ export default function ApplicantList({
                 }
                 className={`${BTN} border border-gray-200 text-slate-700`}
               >
-                {a.status === 'shortlisted' ? 'Un-shortlist' : 'Shortlist'}
+                {a.status === 'shortlisted' ? (
+                  <>
+                    <BookmarkX aria-hidden size={13} />
+                    Un-shortlist
+                  </>
+                ) : (
+                  <>
+                    <Bookmark aria-hidden size={13} />
+                    Shortlist
+                  </>
+                )}
               </button>
 
               <button
@@ -157,6 +167,7 @@ export default function ApplicantList({
                 onClick={() => message(a.tutorId)}
                 className={`${BTN} bg-tm-green-deep text-white`}
               >
+                <MessageSquare aria-hidden size={13} />
                 Message
               </button>
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { Send } from 'lucide-react'
 import { useState } from 'react'
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
@@ -36,8 +37,9 @@ export default function ApplyFromStrip({ jobId }: { jobId: string }) {
         type="button"
         onClick={apply}
         disabled={state === 'busy'}
-        className="inline-flex min-h-[44px] items-center rounded-xl bg-tm-red px-3 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-60"
+        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-red px-3 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-60"
       >
+        <Send aria-hidden size={13} />
         Apply
       </button>
       {error && <span className="block pt-1 text-[10px] text-tm-red">{error}</span>}

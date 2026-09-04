@@ -56,6 +56,12 @@ export function ctaFor(row: { kind: string; href: string | null }): Notification
     // equal columns.
     case 'plan_expired':
     case 'plan_expiring':
+    // Every way a plan can end takes the same button. A member whose plan was
+    // revoked by an admin is in exactly the position a member whose plan
+    // lapsed is in -- the powers are gone and buying them back is the action.
+    case 'plan_revoked':
+    case 'plan_cancelled':
+    case 'plan_ended':
       return {
         kind: 'link',
         label: 'Reactivate',

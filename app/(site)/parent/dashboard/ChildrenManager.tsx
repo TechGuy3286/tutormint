@@ -4,7 +4,7 @@ import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, GraduationCap } from 'lucide-react'
+import { GraduationCap, Plus, Trash2, Undo2 } from 'lucide-react'
 
 // "My children" on the parent dashboard.
 //
@@ -129,15 +129,16 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
               type="button"
               onClick={save}
               disabled={busy || name.trim().length < 2}
-              className="min-h-[44px] flex-1 rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
+              className="items-center gap-1.5 min-h-[44px] flex-1 rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
             >
               {busy ? 'Saving…' : 'Save'}
             </button>
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+              className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
             >
+              <Undo2 aria-hidden size={13} />
               Cancel
             </button>
           </div>

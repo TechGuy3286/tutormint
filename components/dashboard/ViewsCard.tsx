@@ -111,8 +111,9 @@ export default function ViewsCard({
           {identityGranted ? (
             <Link
               href="/tutor/dashboard/views"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+              className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
             >
+              <Eye aria-hidden size={14} />
               See who
             </Link>
           ) : (

@@ -1,4 +1,5 @@
 'use client'
+import { Ban, Gift } from 'lucide-react'
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -240,15 +241,17 @@ export default function PlanGrantClient({
               <button
                 onClick={() => submit('grant')}
                 disabled={busy || !planCode}
-                className="min-h-[44px] py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-bold rounded-xl disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-bold rounded-xl disabled:opacity-50"
               >
+                <Gift aria-hidden size={13} />
                 Grant
               </button>
               <button
                 onClick={() => submit('revoke')}
                 disabled={busy || !open.activePlan}
-                className="min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl disabled:opacity-50"
               >
+                <Ban aria-hidden size={13} />
                 Revoke active
               </button>
             </div>

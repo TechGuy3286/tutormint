@@ -260,7 +260,7 @@ export async function setApplicationStatus(params: {
 
   const { error } = await supabase
     .from('applications')
-    .update({ status: params.status })
+    .update({ status: params.status, status_changed_at: new Date().toISOString() })
     .eq('id', params.applicationId)
 
   if (error) return { ok: false, status: 400, error: error.message }

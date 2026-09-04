@@ -1,5 +1,6 @@
 'use client'
 
+import { reportSilentFailure } from '@/lib/silentFailure'
 import { submitSignal } from '@/lib/submit'
 
 import { Bell, Loader2 } from 'lucide-react'
@@ -8,6 +9,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
 import NotificationCta from '@/components/notifications/NotificationCta'
+import { isPlanEnding } from '@/lib/feedGrouping'
 import type { NotificationRow } from '@/lib/notificationFeed'
 
 // The header bell.
@@ -103,8 +105,9 @@ export default function NotificationBell({
           const { unread: left } = (await marked.json()) as { unread: number }
           setUnread(left)
         }
-      } catch {
+      } catch (e) {
         if (live) setFailed(true)
+        reportSilentFailure('NotificationBell.load', e)
       }
     })()
     return () => {
@@ -207,6 +210,11 @@ export default function NotificationBell({
 
 function NotificationLine({ row, onNavigate }: { row: NotificationRow; onNavigate: () => void }) {
   const cta = <NotificationCta row={row} className="mt-1.5" />
+  // The same red treatment the ACTIVITY band gives a plan ending, so a member
+  // who sees it in the bell and again on the dashboard sees one thing twice
+  // rather than two different-looking things.
+  const urgent = isPlanEnding(row.kind) || row.kind === 'plan_expiring'
+  const frame = urgent ? 'border-l-2 border-tm-red bg-tm-tint-red/40' : ''
 
   const inner = (
     <>
@@ -235,14 +243,14 @@ function NotificationLine({ row, onNavigate }: { row: NotificationRow; onNavigat
       <Link
         href={row.href}
         onClick={onNavigate}
-        className="block min-h-[44px] px-4 pb-1 pt-3 transition-colors hover:bg-tm-bg"
+        className={`block min-h-[44px] px-4 pb-1 pt-3 transition-colors hover:bg-tm-bg ${frame}`}
       >
         {inner}
       </Link>
-      <div className="px-4 pb-3 empty:hidden">{cta}</div>
+      <div className={`px-4 pb-3 empty:hidden ${urgent ? 'bg-tm-tint-red/40' : ''}`}>{cta}</div>
     </div>
   ) : (
-    <div className="min-h-[44px] px-4 py-3">
+    <div className={`min-h-[44px] px-4 py-3 ${frame}`}>
       {inner}
       <div className="empty:hidden">{cta}</div>
     </div>

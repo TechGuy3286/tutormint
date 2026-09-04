@@ -1,3 +1,4 @@
+import { Users } from 'lucide-react'
 import Link from 'next/link'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -42,8 +43,9 @@ export default async function AdminReportsPage({
         </p>
         <Link
           href="/admin/users"
-          className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
+          className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
         >
+          <Users aria-hidden size={14} />
           Members
         </Link>
       </header>

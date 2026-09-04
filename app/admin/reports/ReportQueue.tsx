@@ -5,7 +5,7 @@ import { submitSignal } from '@/lib/submit'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { MessageSquare, Lock } from 'lucide-react'
+import { AlertTriangle, Lock, MessageSquare, X } from 'lucide-react'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
@@ -249,8 +249,9 @@ export default function ReportQueue({
                     <button
                       type="button"
                       onClick={() => setActing({ id: r.id, action: 'dismiss' })}
-                      className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
                     >
+                      <X aria-hidden size={13} />
                       Dismiss
                     </button>
                     {r.reportedId && (
@@ -258,8 +259,9 @@ export default function ReportQueue({
                         <button
                           type="button"
                           onClick={() => setActing({ id: r.id, action: 'warn' })}
-                          className="min-h-[44px] rounded-xl bg-tm-gold px-3 text-xs font-bold text-tm-navy"
+                          className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-gold px-3 text-xs font-bold text-tm-navy"
                         >
+                          <AlertTriangle aria-hidden size={13} />
                           Warn
                         </button>
                         <button

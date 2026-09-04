@@ -3,11 +3,13 @@ import Link from 'next/link'
 import { Plus } from 'lucide-react'
 
 import AdSlot from '@/components/ads/AdSlot'
-import BadgeRow from '@/components/badges/BadgeRow'
 import ActivityBand from '@/components/dashboard/ActivityBand'
+import IdentityBlock from '@/components/dashboard/IdentityBlock'
 import NeedsYou from '@/components/dashboard/NeedsYou'
 import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
+import IdentityCard from '@/components/identity/IdentityCard'
 import { getSessionUser } from '@/lib/auth'
+import { loadIdentity } from '@/lib/identity'
 import { recentActivity } from '@/lib/dashboardFeed'
 import { getEntitlements } from '@/lib/entitlements'
 import { unreadMessageCount } from '@/lib/messaging'
@@ -42,7 +44,9 @@ export default async function ParentDashboardPage() {
   const [{ data: profile }, ent] = await Promise.all([
     supabase
       .from('profiles')
-      .select('full_name, verification_state, cnic_verified_at, address_verified_at')
+      .select(
+        'full_name, avatar_url, city, verification_state, cnic_verified_at, address_verified_at, profile_completion',
+      )
       .eq('id', userId)
       .maybeSingle(),
     getEntitlements(userId),
@@ -50,8 +54,15 @@ export default async function ParentDashboardPage() {
 
   const verified = !!profile?.cnic_verified_at && !!profile?.address_verified_at
 
-  const [needs, activity, { data: jobs }, unreadMessages, { data: demos }, { data: children }] =
-    await Promise.all([
+  const [
+    needs,
+    activity,
+    identity,
+    { data: jobs },
+    unreadMessages,
+    { data: demos },
+    { data: children },
+  ] = await Promise.all([
       parentNeeds({
         userId,
         ent,
@@ -60,6 +71,7 @@ export default async function ParentDashboardPage() {
         verificationState: (profile?.verification_state as string) ?? null,
       }),
       recentActivity({ userId, role: 'parent', limit: 8 }),
+      loadIdentity(userId),
       supabase.from('jobs').select('id, status, hired_tutor_id').eq('parent_id', userId),
       unreadMessageCount(userId),
       supabase.from('demo_requests').select('id, status').eq('parent_id', userId),
@@ -93,7 +105,16 @@ export default async function ParentDashboardPage() {
     ['requested', 'accepted'].includes(d.status as string),
   ).length
 
-  const firstName = (profile?.full_name ?? 'there').split(' ')[0]
+  const completion = (profile?.profile_completion as number | null) ?? 0
+  // "Verified parent - Karachi". The city is dropped rather than written as
+  // "unknown": a member who has not told us where they are does not need to be
+  // reminded of it on their own dashboard every visit.
+  const identityLine = [
+    verified ? 'Verified parent' : 'Parent',
+    (profile?.city as string | null) || null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   const things: ThingRow[] = [
     {
@@ -158,30 +179,33 @@ export default async function ParentDashboardPage() {
       <div className="mx-auto max-w-3xl space-y-5">
         <Breadcrumbs items={[{ label: 'Parent dashboard' }]} />
 
-        <header className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <h1 className="text-xl font-black text-tm-navy sm:text-2xl">
-              Welcome back, {firstName}
-            </h1>
-            <p className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-              {verified ? 'Your account is verified' : 'Verification pending'}
-              {ent.badges.length > 0 && <BadgeRow badges={ent.badges} size="sm" />}
-            </p>
-          </div>
-          {/* The one primary ACTION on this page. It creates something, so it
-              is a button. Messages, Browse tutors and Packages went to the
-              menu — those go somewhere, and navigation dressed as a button is
-              what made this page read like a form. */}
-          {verified && (
-            <Link
-              href="/parent/dashboard/post-job"
-              className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
-            >
-              <Plus aria-hidden size={14} />
-              Post a job
-            </Link>
-          )}
-        </header>
+        {/* Who this is, from the outside. The same component the tutor
+            dashboard uses -- see IdentityBlock for why one and not two. */}
+        <IdentityBlock
+          name={profile?.full_name ?? 'Your account'}
+          avatarUrl={(profile?.avatar_url as string | null) ?? null}
+          badges={ent.badges}
+          line={identityLine}
+          completion={completion}
+          completionHref="/parent/verify"
+          editHref={{ label: 'Edit your details', href: '/parent/dashboard/settings' }}
+        />
+
+        {/* The one primary ACTION on this page. It creates something, so it is
+            a button. Messages, Browse tutors and Packages went to the menu --
+            those go somewhere, and navigation dressed as a button is what made
+            this page read like a form. */}
+        {verified && (
+          <Link
+            href="/parent/dashboard/post-job"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
+          >
+            <Plus aria-hidden size={14} />
+            Post a job
+          </Link>
+        )}
+
+        <IdentityCard identity={identity} role="parent" />
 
         <NeedsYou
           rows={needs}

@@ -1,4 +1,5 @@
 'use client'
+import { Check, X } from 'lucide-react'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -127,7 +128,12 @@ export default function ParentVerificationClient({
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-black text-tm-navy truncate">{p.fullName}</p>
                   <p className="text-[11px] text-gray-500 truncate">
-                    {p.city ?? '—'} · {p.completion}% · {p.cnicDocumentId ? 'CNIC uploaded' : 'no CNIC'}
+                    {p.city ?? '—'} · {p.completion}% ·{' '}
+                    {p.cnicFrontId && p.cnicBackId
+                      ? 'both sides uploaded'
+                      : p.cnicFrontId || p.cnicBackId
+                        ? 'one side only'
+                        : 'no CNIC'}
                   </p>
                 </div>
                 <StatusChip status={p.state} />
@@ -185,10 +191,26 @@ export default function ParentVerificationClient({
               </p>
             </div>
 
-            {open.cnicDocumentId ? (
-              <div className="space-y-1">
-                <p className="text-[11px] font-bold text-tm-navy">CNIC — watermarked preview</p>
-                <SecureDocumentPreview documentId={open.cnicDocumentId} alt="CNIC preview" />
+            {/* THE NUMBER SITS WITH THE IMAGES, in full and monospaced.
+                Checking a card IS comparing the typed digits against the ones
+                in the photograph, and the number was three rows up in a
+                two-column grid of chips while the image was down here -- so
+                the one comparison this screen exists for was the one thing it
+                did not put side by side. Full, not masked: masking it would
+                make the check impossible, and this screen is already restricted
+                to admins who may work the queue. */}
+            {open.cnicFrontId || open.cnicBackId ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-[11px] font-bold text-tm-navy">CNIC — watermarked previews</p>
+                  <p className="font-mono text-xs font-black text-tm-navy">
+                    {open.cnicNumber ?? 'no number typed'}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <DocSide id={open.cnicFrontId} label="Front" />
+                  <DocSide id={open.cnicBackId} label="Back" />
+                </div>
               </div>
             ) : (
               <p className="text-[11px] font-bold text-tm-gold-ink bg-tm-tint-gold border border-tm-gold/30 rounded-xl p-2.5">
@@ -212,10 +234,12 @@ export default function ParentVerificationClient({
             {err && <p className="text-[11px] font-bold text-tm-red">{err}</p>}
 
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => act('approve')} disabled={busy} className="min-h-[44px] py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
+              <button onClick={() => act('approve')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
+                <Check aria-hidden size={13} />
                 Approve
               </button>
-              <button onClick={() => act('reject')} disabled={busy} className="min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
+              <button onClick={() => act('reject')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
+                <X aria-hidden size={13} />
                 Reject
               </button>
             </div>
@@ -231,6 +255,22 @@ function Info({ label, value }: { label: string; value: string }) {
     <div className="bg-tm-bg border border-gray-100 rounded-xl p-2">
       <dt className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">{label}</dt>
       <dd className="text-[11px] font-bold text-tm-navy capitalize truncate">{value}</dd>
+    </div>
+  )
+}
+
+/** One side of the card, or an honest gap where it should be. */
+function DocSide({ id, label }: { id: string | null; label: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">{label}</p>
+      {id ? (
+        <SecureDocumentPreview documentId={id} alt={`CNIC ${label.toLowerCase()}`} />
+      ) : (
+        <p className="grid min-h-[72px] place-items-center rounded-xl border border-dashed border-gray-200 bg-tm-bg text-[11px] font-bold text-gray-500">
+          Not uploaded
+        </p>
+      )}
     </div>
   )
 }

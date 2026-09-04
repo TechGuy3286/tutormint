@@ -1,5 +1,7 @@
 'use client'
 
+import { CheckCircle2, XCircle } from 'lucide-react'
+
 import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
@@ -39,16 +41,18 @@ export default function SimulatorButtons({ reference }: { reference: string }) {
         type="button"
         disabled={busy !== null}
         onClick={() => pay('success')}
-        className="min-h-[44px] w-full rounded bg-tm-green-deep px-4 text-sm font-bold text-white disabled:opacity-60"
+        className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded bg-tm-green-deep px-4 text-sm font-bold text-white disabled:opacity-60"
       >
+        <CheckCircle2 aria-hidden size={14} />
         {busy === 'success' ? 'Processing…' : 'Pay success'}
       </button>
       <button
         type="button"
         disabled={busy !== null}
         onClick={() => pay('failed')}
-        className="min-h-[44px] w-full rounded border border-slate-300 px-4 text-sm font-bold text-slate-700 disabled:opacity-60"
+        className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded border border-slate-300 px-4 text-sm font-bold text-slate-700 disabled:opacity-60"
       >
+        <XCircle aria-hidden size={14} />
         {busy === 'failed' ? 'Processing…' : 'Pay fail'}
       </button>
     </div>

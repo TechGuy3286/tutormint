@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Briefcase, MessagesSquare } from 'lucide-react'
+import { ArrowLeft, Briefcase, MessagesSquare, Zap } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -90,8 +90,9 @@ export default async function InboxShell({
           </p>
           <Link
             href="/tutor/packages?plan=premium"
-            className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+            className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
           >
+            <Zap aria-hidden size={14} />
             See Premium
           </Link>
         </div>

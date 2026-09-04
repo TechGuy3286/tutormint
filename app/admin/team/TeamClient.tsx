@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, KeyRound, Mail, ShieldAlert } from 'lucide-react'
+import { Copy, KeyRound, Mail, ShieldAlert, Undo2 } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 
 // The Team screen.
@@ -200,15 +200,16 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
               type="button"
               onClick={create}
               disabled={busy === 'new' || form.email.trim().length < 5 || form.fullName.trim().length < 2}
-              className="min-h-[44px] rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
+              className="inline-flex items-center gap-1.5 min-h-[44px] rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
             >
               {busy === 'new' ? 'Creating…' : 'Create account'}
             </button>
             <button
               type="button"
               onClick={() => setCreating(false)}
-              className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+              className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
             >
+              <Undo2 aria-hidden size={13} />
               Cancel
             </button>
           </div>
@@ -318,7 +319,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                           setSuspendingId(null)
                           setReason('')
                         }}
-                        className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+                        className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                       >
                         Cancel
                       </button>

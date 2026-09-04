@@ -7,6 +7,9 @@ import { teachingMode } from '@/lib/display'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
+import IdentityCard from '@/components/identity/IdentityCard'
+import type { Identity } from '@/lib/identity'
+import { reportSilentFailure } from '@/lib/silentFailure'
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -20,6 +23,9 @@ export default function TutorSettingsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [youtubeStatus, setYoutubeStatus] = useState("");
+  // The identity card's data. Over HTTP because this page is a client
+  // component; the two dashboards call loadIdentity() on the server.
+  const [identity, setIdentity] = useState<Identity | null>(null);
 
   // Change Password States
   const [currentPassword, setCurrentPassword] = useState("");
@@ -29,47 +35,76 @@ export default function TutorSettingsPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   const [formData, setFormData] = useState({
-    fullName: "Alishba Mam Tutor",
-    phone_number: "0300-5671234",
-    whatsapp_number: "923005671234",
-    city: "Lahore",
-    areaName: "DHA Phase 5",
+    // Empty, not sample data. These carried a real member's name, mobile and
+    // area as defaults, which flashed on screen for every tutor before their
+    // own row loaded -- and CLAUDE.md rule 7 forbids mock data in a shipped
+    // page for exactly that reason.
+    fullName: "",
+    phone_number: "",
+    whatsapp_number: "",
+    city: "",
+    areaName: "",
     teachingModes: ['in_person'] as string[],
     profileImage: "",
     coverImageUrl: "",
     selfieUrl: "",
-    cnicFrontUrl: "",
-    cnicBackUrl: "",
     videoIntroUrl: ""
   });
 
-  const [specialtyList, setSpecialtyList] = useState([
-    { subject: "Mathematics", level: "Expert" },
-    { subject: "Physics", level: "Advance" }
-  ]);
+  // EMPTY DEFAULTS, and this is not tidying.
+  //
+  // These four lists were seeded with plausible sample content -- an MS
+  // Mathematics from LUMS, a Cambridge Certified Educator certificate, Physics
+  // at "Advance", Monday and Wednesday 4-7pm. The load below then only
+  // overwrote a list when the tutor's own row had one:
+  //
+  //     if (data.degrees && data.degrees.length > 0) setDegrees(data.degrees)
+  //
+  // so a tutor with no degrees kept the sample, and Save wrote it to their
+  // profile as a qualification they had never claimed. It has already
+  // happened: one live tutor carries "MS Mathematics — LUMS, Lahore (2021)"
+  // and two carry the Cambridge certificate, none of them entered by the
+  // person they are attributed to. On a platform that sells degree-verified
+  // tutors that is the most damaging possible thing to invent.
+  //
+  // Empty defaults, and every list is set unconditionally from the row.
+  const [specialtyList, setSpecialtyList] = useState<{ subject: string; level: string }[]>([]);
   const [newSubjInput, setNewSubjInput] = useState("");
   const [newLevelInput, setNewLevelInput] = useState("Basic");
 
   // Availability & Timings
-  const [availabilityList, setAvailabilityList] = useState([
-    { day: "Monday", timeSlot: "04:00 PM - 07:00 PM" },
-    { day: "Wednesday", timeSlot: "04:00 PM - 07:00 PM" }
-  ]);
+  const [availabilityList, setAvailabilityList] = useState<{ day: string; timeSlot: string }[]>([]);
   const [newDayInput, setNewDayInput] = useState("Monday");
   const [newTimeInput, setNewTimeInput] = useState("");
 
-  const [degrees, setDegrees] = useState([
-    { title: "MS Mathematics", institute: "LUMS, Lahore", year: "2021", fileName: "degree_ms.pdf", fileUrl: "" }
-  ]);
+  const [degrees, setDegrees] = useState<
+    { title: string; institute: string; year: string; fileName: string; fileUrl: string }[]
+  >([]);
   const [newDegree, setNewDegree] = useState({ title: "", institute: "", year: "", fileName: "", fileUrl: "" });
 
-  const [certifications, setCertifications] = useState([
-    { title: "Cambridge Certified Educator", issuer: "CAIE", year: "2022", fileName: "cert_cambridge.pdf", fileUrl: "" }
-  ]);
+  const [certifications, setCertifications] = useState<
+    { title: string; issuer: string; year: string; fileName: string; fileUrl: string }[]
+  >([]);
   const [newCert, setNewCert] = useState({ title: "", issuer: "", year: "", fileName: "", fileUrl: "" });
 
   useEffect(() => {
     loadTutorProfile();
+  }, []);
+
+  // The identity card's data. A failure here hides the card rather than
+  // breaking the page: the rest of the settings screen is still usable, and
+  // the card is also on the dashboard.
+  useEffect(() => {
+    let live = true;
+    fetch('/api/identity', { headers: { accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (live && j?.identity) setIdentity(j.identity as Identity);
+      })
+      .catch((e) => reportSilentFailure('TutorSettings.identity', e));
+    return () => {
+      live = false;
+    };
   }, []);
 
   const loadTutorProfile = async () => {
@@ -113,20 +148,21 @@ export default function TutorSettingsPage() {
           profileImage: data.avatar_url || formData.profileImage,
           coverImageUrl: data.cover_image_url || "",
           selfieUrl: data.selfie_url || "",
-          cnicFrontUrl: data.cnic_front_url || "",
-          cnicBackUrl: data.cnic_back_url || data.experience_letter_url || "",
           videoIntroUrl: data.video_intro_url || ""
         });
-        if (data.specialty_list && Array.isArray(data.specialty_list)) {
-          setSpecialtyList(data.specialty_list);
-        } else if (data.specialty_subjects) {
-          setSpecialtyList([{ subject: data.specialty_subjects, level: "Expert" }]);
-        }
-        if (data.availability_list && Array.isArray(data.availability_list)) {
-          setAvailabilityList(data.availability_list);
-        }
-        if (data.degrees && data.degrees.length > 0) setDegrees(data.degrees);
-        if (data.certifications && data.certifications.length > 0) setCertifications(data.certifications);
+        // Set UNCONDITIONALLY. The `length > 0` guards these had were the
+        // mechanism of the bug above: an empty row left the sample content in
+        // place, and the next Save wrote it as the tutor's own.
+        setSpecialtyList(
+          Array.isArray(data.specialty_list)
+            ? data.specialty_list
+            : data.specialty_subjects
+              ? [{ subject: data.specialty_subjects, level: "Expert" }]
+              : [],
+        );
+        setAvailabilityList(Array.isArray(data.availability_list) ? data.availability_list : []);
+        setDegrees(Array.isArray(data.degrees) ? data.degrees : []);
+        setCertifications(Array.isArray(data.certifications) ? data.certifications : []);
       }
     } catch (err) {
       console.error("Error loading tutor profile:", err);
@@ -192,16 +228,6 @@ export default function TutorSettingsPage() {
     const publicUrl = await uploadFileToCloud(file);
     if (publicUrl) {
       setFormData(prev => ({ ...prev, selfieUrl: publicUrl }));
-    }
-    setUploading(false);
-  };
-
-  const handleFileUploadField = async (file: File, fieldKey: string) => {
-
-    setUploading(true);
-    const publicUrl = await uploadFileToCloud(file);
-    if (publicUrl) {
-      setFormData(prev => ({ ...prev, [fieldKey]: publicUrl }));
     }
     setUploading(false);
   };
@@ -357,9 +383,12 @@ export default function TutorSettingsPage() {
         avatar_url: formData.profileImage,
         cover_image_url: formData.coverImageUrl,
         selfie_url: formData.selfieUrl,
-        cnic_front_url: formData.cnicFrontUrl,
-        cnic_back_url: formData.cnicBackUrl,
-        experience_letter_url: formData.cnicBackUrl,
+        // cnic_front_url / cnic_back_url are NOT written any more. They held
+        // PUBLIC tutor-media URLs -- a national identity card fetchable by
+        // anyone with the address -- and the identity card above stores both
+        // sides in the private identity-docs bucket instead. The columns are
+        // left in place rather than dropped so the two rows that already
+        // carry a value stay findable; nothing reads them.
         video_intro_url: formData.videoIntroUrl,
         degrees: degrees,
         certifications: certifications,
@@ -488,49 +517,57 @@ export default function TutorSettingsPage() {
             <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Profile & Verification Photos</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               
-              {/* Profile Picture */}
+              {/* Profile Picture.
+                  ONE CONTROL, not a picture beside a drop zone. The old
+                  arrangement showed the stored photo in an <Avatar> and the
+                  uploader next to it, so after a successful upload the
+                  uploader reverted to "Tap to choose" while the avatar showed
+                  the new photo -- two components disagreeing about whether
+                  anything had happened. FileUpload's square shape IS the
+                  preview. */}
               <div className="space-y-2 p-4 bg-tm-bg border border-gray-200 rounded-2xl">
-                <label className="block text-xs font-bold text-tm-navy">Profile Picture</label>
-                <div className="flex items-center gap-4">
-                  {/* profileImage starts as '' -- this was <img src="">,
-                      which every browser draws as a broken-image icon on the
-                      screen where a tutor goes to add their photo. */}
-                  <Avatar
-                    name={formData.fullName}
-                    src={formData.profileImage || null}
-                    decorative
-                    ring="border-2 border-tm-green-deep shadow-md"
-                    className="h-28 w-28 text-2xl"
-                  />
-                  <FileUpload label="Profile photo" acceptLabel="JPG or PNG" busy={uploading} onFile={handleProfileImageChange} />
-                </div>
+                <label className="block text-xs font-bold text-tm-navy">Profile picture</label>
+                <FileUpload
+                  label="Profile photo"
+                  acceptLabel="JPG or PNG"
+                  shape="square"
+                  busy={uploading}
+                  onFile={handleProfileImageChange}
+                  hint="This is the photo parents see on your card and your profile."
+                  currentPreview={
+                    <Avatar
+                      name={formData.fullName}
+                      src={formData.profileImage || null}
+                      decorative
+                      ring=""
+                      className="h-full w-full rounded-none text-2xl"
+                    />
+                  }
+                />
               </div>
 
               {/* Selfie */}
               <div className="space-y-2 p-4 bg-tm-bg border border-gray-200 rounded-2xl">
                 <label className="block text-xs font-bold text-tm-navy">Selfie</label>
-                <div className="flex items-center gap-4">
-                  {/* The fallback here was /logo.png -- the 2048px brand
-                      wordmark, squashed into a 112px square and labelled
-                      "Selfie", as though it were the tutor's own photograph.
-                      An empty state says what is missing; a placeholder that
-                      looks like content does not. */}
-                  {formData.selfieUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={formData.selfieUrl}
-                      alt="Your verification selfie"
-                      className="w-28 h-28 rounded-2xl object-cover border-2 border-tm-navy shadow-md shrink-0"
-                    />
-                  ) : (
-                    <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white p-2 text-center text-[11px] font-medium text-gray-500">
-                      No selfie yet
-                    </div>
-                  )}
-                  <div className="space-y-1">
-                    <FileUpload label="Selfie" acceptLabel="JPG or PNG" busy={uploading} onFile={handleSelfieCapture} />
-                  </div>
-                </div>
+                <FileUpload
+                  label="Selfie"
+                  acceptLabel="JPG or PNG"
+                  shape="square"
+                  changeLabel="Retake"
+                  busy={uploading}
+                  onFile={handleSelfieCapture}
+                  hint="Held for verification only. It is never shown to parents."
+                  currentPreview={
+                    formData.selfieUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={formData.selfieUrl}
+                        alt="Your verification selfie"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : undefined
+                  }
+                />
               </div>
 
             </div>
@@ -746,52 +783,16 @@ export default function TutorSettingsPage() {
 
           <hr className="border-gray-200 my-6" />
 
-          {/* SECTION: ANTI-DOWNLOAD PROTECTED DOCUMENTS */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-tm-navy">Anti-Download Protected Documents</h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              
-              {/* CNIC Front */}
-              <div className="p-4 bg-tm-bg border border-gray-200 rounded-2xl space-y-2">
-                <div className="flex justify-between items-center text-xs font-bold">
-                  <span>🆔 CNIC Front Verification</span>
-                  <span className={formData.cnicFrontUrl ? "text-tm-green-deep font-bold" : "text-gray-500"}>
-                    {formData.cnicFrontUrl ? "Uploaded ✓" : "Not Uploaded"}
-                  </span>
-                </div>
-                <FileUpload label="CNIC front" acceptLabel="JPG or PNG" busy={uploading} onFile={(f) => handleFileUploadField(f, 'cnicFrontUrl')} />
-                {formData.cnicFrontUrl && (
-                  <div className="p-3 bg-tm-tint-green border border-tm-green-deep/30 rounded-xl flex items-center justify-between text-xs">
-                    <span className="text-tm-green-deep font-bold truncate">📄 CNIC Front File Linked</span>
-                    <a href={formData.cnicFrontUrl} target="_blank" rel="noreferrer" className="text-tm-navy font-bold hover:underline shrink-0 ml-2">
-                      View Securely ↗
-                    </a>
-                  </div>
-                )}
-              </div>
-
-              {/* CNIC Back */}
-              <div className="p-4 bg-tm-bg border border-gray-200 rounded-2xl space-y-2">
-                <div className="flex justify-between items-center text-xs font-bold">
-                  <span>🆔 CNIC Back Verification</span>
-                  <span className={formData.cnicBackUrl ? "text-tm-green-deep font-bold" : "text-gray-500"}>
-                    {formData.cnicBackUrl ? "Uploaded ✓" : "Not Uploaded"}
-                  </span>
-                </div>
-                <FileUpload label="CNIC back" acceptLabel="JPG or PNG" busy={uploading} onFile={(f) => handleFileUploadField(f, 'cnicBackUrl')} />
-                {formData.cnicBackUrl && (
-                  <div className="p-3 bg-tm-tint-green border border-tm-green-deep/30 rounded-xl flex items-center justify-between text-xs">
-                    <span className="text-tm-green-deep font-bold truncate">📄 CNIC Back File Linked</span>
-                    <a href={formData.cnicBackUrl} target="_blank" rel="noreferrer" className="text-tm-navy font-bold hover:underline shrink-0 ml-2">
-                      View Securely ↗
-                    </a>
-                  </div>
-                )}
-              </div>
-
-            </div>
-          </div>
+          {/* Identity documents.
+              WAS "ANTI-DOWNLOAD PROTECTED DOCUMENTS", and the heading was the
+              only protection in it: both CNIC sides went through the same
+              helper as the avatar, into the PUBLIC tutor-media bucket, and the
+              block below rendered a "View Securely" link to that public URL.
+              Two real members' national identity cards were fetchable by
+              anybody who had the address. It renders the shared IdentityCard
+              now, which is the parent flow -- private bucket, watermarked
+              previews, served only through an authorising route. */}
+          {identity && <IdentityCard identity={identity} role="tutor" />}
 
           <hr className="border-gray-200 my-6" />
 

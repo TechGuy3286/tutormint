@@ -1,5 +1,7 @@
 'use client'
 
+import { ShieldCheck } from 'lucide-react'
+
 import FileUpload from '@/components/FileUpload'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -404,7 +406,10 @@ function CompleteProfileInner() {
                   {otpSent && (
                     <>
                       <Field id="otp" label="6-digit code" value={otp} onChange={setOtp} placeholder="000000" />
-                      <button onClick={verifyOtp} disabled={!otp} className={btnRed}>Verify</button>
+                      <button onClick={verifyOtp} disabled={!otp} className={btnRed}>
+                        <ShieldCheck aria-hidden size={13} />
+                        Verify
+                      </button>
                     </>
                   )}
                   {otpMsg && <p className="text-[11px] font-bold text-tm-green-deep">{otpMsg}</p>}
@@ -479,9 +484,9 @@ function CompleteProfileInner() {
 const inputCls =
   'w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy focus:bg-white'
 const btnDark =
-  'w-full min-h-[44px] py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
 const btnRed =
-  'w-full min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
 
 function Field({ id, label, value, onChange, type = 'text', placeholder }: {
   id: string; label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string

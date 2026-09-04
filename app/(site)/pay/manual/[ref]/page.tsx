@@ -1,7 +1,7 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { manualInstructions, availableMethods } from '@/lib/payments/manual'
@@ -129,8 +129,9 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
 
         <Link
           href={packagesHref}
-          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
+          className="gap-1.5 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
         >
+          <ArrowLeft aria-hidden size={14} />
           Back to packages
         </Link>
       </div>

@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock } from 'lucide-react'
 
+import DismissNeed from '@/components/dashboard/DismissNeed'
 import type { NeedRow } from '@/lib/needsYou'
 
 // The first band on both dashboards: what is blocked on this person.
@@ -60,18 +61,26 @@ export default function NeedsYou({
                     <p className="text-[11px] leading-relaxed text-gray-500">{r.why}</p>
                   </div>
                 </div>
-                {/* The single action. A second link here would make the reader
-                    choose before they can act. */}
-                <Link
-                  href={r.action.href}
-                  className={`inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl px-4 text-xs font-bold transition-colors ${
-                    r.tone === 'urgent'
-                      ? 'bg-tm-red text-white hover:bg-tm-red-hover'
-                      : 'border border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
-                  }`}
-                >
-                  {r.action.label}
-                </Link>
+                <div className="flex shrink-0 items-center gap-1">
+                  {/* The single action. A second LINK here would make the
+                      reader choose before they can act; the dismiss beside it
+                      is not a second destination, it is the way to stop being
+                      told. Only the lapsed-plan row carries one. */}
+                  <Link
+                    href={r.action.href}
+                    className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold transition-colors ${
+                      r.tone === 'urgent'
+                        ? 'bg-tm-red text-white hover:bg-tm-red-hover'
+                        : 'border border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+                    }`}
+                  >
+                    <ArrowRight aria-hidden size={13} />
+                    {r.action.label}
+                  </Link>
+                  {r.dismissSubscriptionId && (
+                    <DismissNeed subscriptionId={r.dismissSubscriptionId} />
+                  )}
+                </div>
               </li>
             )
           })}

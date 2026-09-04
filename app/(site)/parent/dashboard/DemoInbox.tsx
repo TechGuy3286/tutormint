@@ -1,4 +1,5 @@
 'use client'
+import { CalendarCheck, Check, CheckCheck, Send, Star, X } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
 
@@ -37,7 +38,7 @@ export type DemoRow = {
 }
 
 const BTN =
-  'inline-flex min-h-[44px] items-center justify-center rounded-xl px-3 text-xs font-bold transition-colors disabled:opacity-60'
+  'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-colors disabled:opacity-60'
 
 export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; demos: DemoRow[] }) {
   const router = useRouter()
@@ -150,6 +151,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                         }
                         className={`${BTN} w-full bg-tm-green-deep text-white`}
                       >
+                        <CalendarCheck aria-hidden size={13} />
                         Confirm time
                       </button>
                     </div>
@@ -168,8 +170,9 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                         onClick={() =>
                           call('/api/demo/respond', { demoId: d.id, action: 'decline', reason })
                         }
-                        className={`${BTN} w-full bg-tm-red text-white`}
+                        className={`inline-flex items-center gap-1.5 ${BTN} w-full bg-tm-red text-white`}
                       >
+                        <Send aria-hidden size={13} />
                         Send decline
                       </button>
                     </div>
@@ -180,6 +183,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                         onClick={() => setOpenForm(`accept-${d.id}`)}
                         className={`${BTN} bg-tm-green-deep text-white`}
                       >
+                        <Check aria-hidden size={13} />
                         Accept
                       </button>
                       <button
@@ -187,6 +191,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                         onClick={() => setOpenForm(`decline-${d.id}`)}
                         className={`${BTN} border border-gray-200 text-slate-700`}
                       >
+                        <X aria-hidden size={13} />
                         Decline
                       </button>
                     </div>
@@ -203,6 +208,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                     onClick={() => call('/api/demo/complete', { demoId: d.id })}
                     className={`${BTN} bg-tm-black text-white`}
                   >
+                    <CheckCheck aria-hidden size={13} />
                     Mark completed
                   </button>
                   <button
@@ -211,6 +217,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                     onClick={() => call('/api/demo/cancel', { demoId: d.id })}
                     className={`${BTN} border border-gray-200 text-slate-700`}
                   >
+                    <X aria-hidden size={13} />
                     Cancel
                   </button>
                 </div>
@@ -223,6 +230,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                   onClick={() => call('/api/demo/cancel', { demoId: d.id })}
                   className={`${BTN} w-full border border-gray-200 text-slate-700`}
                 >
+                  <X aria-hidden size={13} />
                   Cancel request
                 </button>
               )}
@@ -260,8 +268,9 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                         onClick={() =>
                           call('/api/demo/feedback', { demoId: d.id, rating, text: feedback })
                         }
-                        className={`${BTN} w-full bg-tm-green-deep text-white`}
+                        className={`inline-flex items-center gap-1.5 ${BTN} w-full bg-tm-green-deep text-white`}
                       >
+                        <Send aria-hidden size={13} />
                         Send feedback
                       </button>
                     </>
@@ -271,6 +280,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
                       onClick={() => setOpenForm(`fb-${d.id}`)}
                       className={`${BTN} w-full bg-tm-green-deep text-white`}
                     >
+                      <Star aria-hidden size={13} />
                       Leave feedback
                     </button>
                   )}

@@ -1,12 +1,14 @@
 'use client'
+import { Clock, MessageSquare, Save, Send, ShieldCheck } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
-import { UPLOAD_TIMEOUT_MS, submitError, submitJson, submitSignal } from '@/lib/submit'
+import { submitJson, submitSignal } from '@/lib/submit'
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import SecureDocumentPreview from '@/components/SecureDocumentPreview'
-import FileUpload from '@/components/FileUpload'
+import IdentityCard from '@/components/identity/IdentityCard'
+import type { Identity } from '@/lib/identity'
+import { reportSilentFailure } from '@/lib/silentFailure'
 import { calculateParentCompletion } from '@/lib/profileChecklist'
 
 // Parent verification: CNIC number + image, address, mobile OTP.
@@ -40,6 +42,7 @@ export default function ParentVerifyPage() {
   const [phoneVerified, setPhoneVerified] = useState(false)
   const [cooldown, setCooldown] = useState(0)
 
+  const [identity, setIdentity] = useState<Identity | null>(null)
   const [state, setState] = useState<'none' | 'submitted' | 'approved' | 'rejected'>('none')
   const [rejectionReason, setRejectionReason] = useState<string | null>(null)
 
@@ -74,6 +77,17 @@ export default function ParentVerifyPage() {
 
   useEffect(() => { load() }, [load])
 
+  // The identity card loads its own data, so it stays in step with the copy on
+  // the tutor dashboard rather than being re-derived from this page's state.
+  useEffect(() => {
+    let live = true
+    fetch('/api/identity', { headers: { accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (live && j?.identity) setIdentity(j.identity as Identity) })
+      .catch((e) => reportSilentFailure('ParentVerify.identity', e))
+    return () => { live = false }
+  }, [state, docs.length])
+
   const completion = calculateParentCompletion({
     profile: {
       full_name: fullName, city, address, cnic_number: cnic,
@@ -95,27 +109,6 @@ export default function ParentVerifyPage() {
     setMsg('Saved.'); return true
   }
 
-  async function uploadCnic(file: File) {
-    setSaving(true); setErr('')
-    const fd = new FormData(); fd.append('kind', 'cnic'); fd.append('file', file)
-    // An upload is the one submit here that cannot use submitJson (FormData,
-    // and a slow connection legitimately needs longer than ten seconds), so it
-    // gets the guarantee the other way round: a try/finally.
-    let json: { documentId?: string; error?: string } = {}
-    let ok = false
-    try {
-      const res = await fetch('/api/documents/upload', { signal: submitSignal(UPLOAD_TIMEOUT_MS), method: 'POST', body: fd })
-      json = await res.json().catch(() => ({}))
-      ok = res.ok
-    } catch (e) {
-      json = { error: submitError(e, 'Upload failed.') }
-    } finally {
-      setSaving(false)
-    }
-    if (!ok) { setErr(json.error ?? 'Upload failed.'); return }
-    setDocs((d) => [{ id: json.documentId ?? '', kind: 'cnic', label: 'CNIC' }, ...d])
-    setMsg('CNIC uploaded.')
-  }
 
   async function sendOtp() {
     setOtpMsg(''); setErr('')
@@ -201,54 +194,15 @@ export default function ParentVerifyPage() {
             <label htmlFor="address-input" className="text-xs font-bold text-tm-navy">Home address</label>
             <textarea id="address-input" rows={2} value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} />
           </div>
-          {/* ONE CARD, ONE TASK. The number and the photograph of the card it
-              is printed on were two separate blocks with two headings, which
-              reads as two unrelated chores — and a parent who filled in the
-              number and stopped had no signal that the job was half done.
-              They are one heading now, and the card is either complete or it
-              is not. */}
-          <fieldset
-            id="cnic"
-            className="space-y-3 rounded-2xl border border-gray-200 bg-tm-bg p-4"
-          >
-            <legend className="px-1 text-xs font-black text-tm-navy">Your CNIC</legend>
-            <p className="text-[11px] leading-relaxed text-gray-500">
-              The number and a photo of the card. Both are needed before you can post a
-              tuition, and only you and our verification team can see them.
-            </p>
-
-            <div className="space-y-1" id="cnic_number">
-              <label htmlFor="cnic_number-input" className="text-xs font-bold text-tm-navy">
-                CNIC number
-              </label>
-              <input
-                id="cnic_number-input"
-                value={cnic}
-                placeholder="35202-1234567-8"
-                inputMode="numeric"
-                onChange={(e) => setCnic(e.target.value)}
-                className={inputCls}
-              />
-            </div>
-
-            <div id="cnic_image">
-              <FileUpload
-                label="CNIC image"
-                acceptLabel="JPG or PNG"
-                hint="The front of the card, with all four corners in frame and the text readable."
-                onFile={uploadCnic}
-                currentPreview={
-                  docs.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-2 pb-2">
-                      {docs.map((d) => (
-                        <SecureDocumentPreview key={d.id} documentId={d.id} alt="CNIC preview" />
-                      ))}
-                    </div>
-                  ) : undefined
-                }
-              />
-            </div>
-          </fieldset>
+          {/* The identity card, the same component the tutor settings page
+              and both dashboards render. It was a bespoke fieldset here, with
+              its own number field and a single-image uploader; the tutor side
+              had a different one that wrote to a public bucket. One card. */}
+          {identity ? (
+            <IdentityCard identity={identity} role="parent" />
+          ) : (
+            <p className="text-[11px] text-gray-500">Loading your identity documents…</p>
+          )}
 
           <div className="space-y-2 pt-1" id="phone">
             <label className="text-xs font-bold text-tm-navy">Mobile number</label>
@@ -258,12 +212,16 @@ export default function ParentVerifyPage() {
               <>
                 <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="03214567890" className={inputCls} />
                 <button onClick={sendOtp} disabled={cooldown > 0 || !phone} className={btnDark}>
+                  <MessageSquare aria-hidden size={13} />
                   {cooldown > 0 ? `Resend in ${cooldown}s` : otpSent ? 'Resend code' : 'Send code'}
                 </button>
                 {otpSent && (
                   <>
                     <input value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className={inputCls} />
-                    <button onClick={verifyOtp} disabled={!otp} className={btnRed}>Verify</button>
+                    <button onClick={verifyOtp} disabled={!otp} className={btnRed}>
+                      <ShieldCheck aria-hidden size={13} />
+                      Verify
+                    </button>
                   </>
                 )}
                 {otpMsg && <p className="text-[11px] font-bold text-tm-green-deep">{otpMsg}</p>}
@@ -280,15 +238,26 @@ export default function ParentVerifyPage() {
         )}
 
         <div className="flex flex-col sm:flex-row gap-2">
-          <button onClick={saveDetails} disabled={saving} className="flex-1 min-h-[44px] py-3 bg-tm-bg border border-gray-200 text-slate-700 font-bold text-xs rounded-xl disabled:opacity-50">
+          <button onClick={saveDetails} disabled={saving} className="inline-flex items-center justify-center gap-1.5 flex-1 min-h-[44px] py-3 bg-tm-bg border border-gray-200 text-slate-700 font-bold text-xs rounded-xl disabled:opacity-50">
+            <Save aria-hidden size={14} />
             Save for later
           </button>
           <button
             onClick={submitForReview}
             disabled={saving || completion.percent < 100 || state === 'submitted'}
-            className="flex-[2] min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-50"
+            className="inline-flex flex-[2] min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-50"
           >
-            {state === 'submitted' ? 'Awaiting review' : 'Submit for verification'}
+            {state === 'submitted' ? (
+              <>
+                <Clock aria-hidden size={14} />
+                Awaiting review
+              </>
+            ) : (
+              <>
+                <Send aria-hidden size={14} />
+                Submit for verification
+              </>
+            )}
           </button>
         </div>
 
@@ -301,9 +270,9 @@ export default function ParentVerifyPage() {
 const inputCls =
   'w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy focus:bg-white'
 const btnDark =
-  'w-full min-h-[44px] py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
 const btnRed =
-  'w-full min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
+  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl disabled:opacity-40 transition-colors'
 
 function F({ id, label, value, onChange, placeholder }: {
   id: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string

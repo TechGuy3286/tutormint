@@ -141,3 +141,35 @@ export function verificationStatus(raw: string | null | undefined): string {
 export function statusLabel(raw: string | null | undefined): string {
   return titleCase(raw ?? '—')
 }
+
+/**
+ * A plan code as a member sees it: "Verified", "Premium", "Featured".
+ *
+ * Mirrors plans.name, and deliberately does NOT read the table. This is called
+ * once per row while rendering a feed, and a database round trip per activity
+ * line to turn `verified` into `Verified` is a query budget spent on a word.
+ * The two parent codes carry the same names as their tutor counterparts --
+ * which is correct, because a parent's Featured plan is called Featured.
+ *
+ * Total, like every other helper here: an unrecognised code is title-cased
+ * rather than dropped, so a plan added by a future migration reads as itself
+ * instead of vanishing from the sentence.
+ */
+export function planLabel(code: string | null | undefined): string | null {
+  if (!code) return null
+  const known: Record<string, string> = {
+    verified: 'Verified',
+    premium: 'Premium',
+    featured: 'Featured',
+    parent_verified: 'Verified',
+    parent_featured: 'Featured',
+  }
+  return (
+    known[code] ??
+    code
+      .split(/[_\s-]+/)
+      .filter(Boolean)
+      .map((w) => w[0].toUpperCase() + w.slice(1))
+      .join(' ')
+  )
+}

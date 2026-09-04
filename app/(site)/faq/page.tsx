@@ -1,3 +1,4 @@
+import { GraduationCap, LifeBuoy, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -118,14 +119,16 @@ export default function FAQPage() {
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
             href="/support"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-slate-700"
+            className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-slate-700"
           >
+            <LifeBuoy aria-hidden size={14} />
             Contact support
           </Link>
           <Link
             href="/browse/tutors"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+            className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
           >
+            <GraduationCap aria-hidden size={14} />
             Browse tutors
           </Link>
           {/* /tutor/register is a redirect stub to /register, kept alive
@@ -133,8 +136,9 @@ export default function FAQPage() {
               it. This page is the reason it is still routed at all. */}
           <Link
             href="/tutor/register"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+            className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
           >
+            <UserPlus aria-hidden size={14} />
             Sign up as a tutor
           </Link>
         </div>

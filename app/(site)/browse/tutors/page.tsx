@@ -1,3 +1,4 @@
+import { Globe, Plus } from 'lucide-react'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { parseMode } from '@/lib/locations'
 import type { Metadata } from 'next'
@@ -316,15 +317,17 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
               {mode !== 'online' && (
                 <Link
                   href={widen({ mode: undefined, area: undefined })}
-                  className="flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+                  className="gap-1.5 flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
                 >
+                  <Globe aria-hidden size={14} />
                   Include tutors who teach online
                 </Link>
               )}
               <Link
                 href="/parent/dashboard/post-job"
-                className="flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-red-hover"
+                className="gap-1.5 flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-colors hover:bg-tm-red-hover"
               >
+                <Plus aria-hidden size={14} />
                 Post your tuition instead
               </Link>
               <Link

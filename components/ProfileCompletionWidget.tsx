@@ -1,5 +1,6 @@
 'use client'
 
+import { ArrowRight, Plus } from 'lucide-react'
 import Link from 'next/link'
 import type { ChecklistItem } from '@/lib/profileChecklist'
 
@@ -85,7 +86,8 @@ export default function ProfileCompletionWidget({
                 className="flex items-center justify-between gap-3 min-h-[44px] px-3 py-2 rounded-xl bg-tm-bg hover:bg-gray-100 border border-gray-100 transition-colors"
               >
                 <span className="text-xs font-medium text-slate-700">{item.label}</span>
-                <span className="text-[10px] font-bold text-tm-red uppercase tracking-wider shrink-0">
+                <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-tm-red">
+                  <Plus aria-hidden size={12} />
                   Add
                 </span>
               </Link>
@@ -99,8 +101,9 @@ export default function ProfileCompletionWidget({
 
       <Link
         href={href}
-        className="flex items-center justify-center min-h-[44px] w-full py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
+        className="gap-1.5 flex items-center justify-center min-h-[44px] w-full py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
       >
+        <ArrowRight aria-hidden size={14} />
         Continue
       </Link>
     </section>

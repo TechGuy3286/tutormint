@@ -1,5 +1,6 @@
 'use client'
 
+import { reportSilentFailure } from '@/lib/silentFailure'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 // The one implementation of "and then some more".
@@ -139,10 +140,11 @@ export function useInfinite<T>({
       setItems((prev) => [...prev, ...page.items])
       setCursor(page.cursor)
       setState('idle')
-    } catch {
+    } catch (e) {
       // Left recoverable on purpose: the cursor is unchanged, so pressing
       // "Load more" again retries exactly the request that failed.
       setState('error')
+      reportSilentFailure('useInfinite.loadMore', e, { endpoint })
     } finally {
       busy.current = false
     }

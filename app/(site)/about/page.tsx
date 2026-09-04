@@ -1,3 +1,4 @@
+import { Briefcase, GraduationCap, LifeBuoy } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -144,20 +145,23 @@ export default async function AboutPage() {
       <section className="flex flex-col gap-2 sm:flex-row">
         <Link
           href="/browse/tutors"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-green-deep px-5 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep-hover"
+          className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-green-deep px-5 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep-hover"
         >
+          <GraduationCap aria-hidden size={14} />
           Find tutors
         </Link>
         <Link
           href="/browse/tuitions"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-navy px-5 text-xs font-bold text-white transition-colors hover:bg-tm-navy-hover"
+          className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-navy px-5 text-xs font-bold text-white transition-colors hover:bg-tm-navy-hover"
         >
+          <Briefcase aria-hidden size={14} />
           Find tuitions
         </Link>
         <Link
           href="/support"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+          className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
         >
+          <LifeBuoy aria-hidden size={14} />
           Contact us
         </Link>
       </section>

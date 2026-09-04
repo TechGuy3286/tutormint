@@ -262,7 +262,17 @@ export type QueueParentRow = {
   state: string
   submittedAt: string | null
   completion: number
-  cnicDocumentId: string | null
+  /**
+   * Both sides of the card, newest first per side.
+   *
+   * Was a single `cnicDocumentId`. A verifier comparing a typed number against
+   * a photograph needs the side the number is printed on, and the queue was
+   * showing whichever document happened to sort first -- so a parent who
+   * uploaded the back last had their back photo shown as "the CNIC" with no
+   * number visible on it at all.
+   */
+  cnicFrontId: string | null
+  cnicBackId: string | null
 }
 
 export async function loadParentQueue({
@@ -302,9 +312,10 @@ export async function loadParentQueue({
   const ids = page.map((p) => p.id as string)
   const { data: docs } = await admin
     .from('user_documents')
-    .select('id, user_id, kind')
+    .select('id, user_id, kind, label, created_at')
     .eq('kind', 'cnic')
     .in('user_id', ids.length ? ids : [NO_MATCH])
+    .order('created_at', { ascending: false })
 
   const rows: QueueParentRow[] = page.map((p) => ({
     id: p.id as string,
@@ -318,7 +329,15 @@ export async function loadParentQueue({
     state: (p.verification_state as string) ?? 'none',
     submittedAt: (p.verification_submitted_at as string) ?? null,
     completion: (p.profile_completion as number) ?? 0,
-    cnicDocumentId: (docs?.find((d) => d.user_id === p.id)?.id as string) ?? null,
+    // A row written before the front/back split has no label and is the front:
+    // that is what the single uploader asked for, in copy that said "the front
+    // of the card".
+    cnicFrontId:
+      (docs?.find((d) => d.user_id === p.id && (d.label as string | null) !== 'back')
+        ?.id as string) ?? null,
+    cnicBackId:
+      (docs?.find((d) => d.user_id === p.id && (d.label as string | null) === 'back')
+        ?.id as string) ?? null,
   }))
 
   return { rows, nextCursor, total }

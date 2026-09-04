@@ -1,4 +1,5 @@
 'use client'
+import { Pause, Trash2, Undo2 } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
 
@@ -221,15 +222,16 @@ export default function AdsClient({
               type="button"
               onClick={create}
               disabled={busy === 'new' || form.title.trim().length < 3}
-              className="min-h-[44px] rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
+              className="inline-flex items-center gap-1.5 min-h-[44px] rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
             >
               {busy === 'new' ? 'Saving…' : 'Create as draft'}
             </button>
             <button
               type="button"
               onClick={() => setCreating(false)}
-              className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+              className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
             >
+              <Undo2 aria-hidden size={13} />
               Cancel
             </button>
           </div>
@@ -312,8 +314,9 @@ export default function AdsClient({
                       type="button"
                       disabled={busy === a.id}
                       onClick={() => setStatus(a.id, 'paused')}
-                      className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
                     >
+                      <Pause aria-hidden size={13} />
                       Pause
                     </button>
                   )}
@@ -321,8 +324,9 @@ export default function AdsClient({
                     type="button"
                     disabled={busy === a.id}
                     onClick={() => remove(a.id, a.title)}
-                    className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-tm-red"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-tm-red"
                   >
+                    <Trash2 aria-hidden size={13} />
                     Delete
                   </button>
                 </div>

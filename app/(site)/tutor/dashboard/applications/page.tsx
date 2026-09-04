@@ -1,6 +1,6 @@
+import { Briefcase } from 'lucide-react'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
-import { tuitionPath } from '@/lib/slugs'
 
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
@@ -90,8 +90,9 @@ export default async function TutorApplicationsPage() {
             </p>
             <Link
               href="/tutor/dashboard/jobs"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
+              className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
             >
+              <Briefcase aria-hidden size={14} />
               See open tuitions
             </Link>
           </div>
@@ -108,15 +109,13 @@ export default async function TutorApplicationsPage() {
               return (
                 <li key={a.id as string}>
                   <Link
-                    // The tuition's own page while it is open. A closed or
-                    // filled one answers 410, so those rows point at the board
-                    // instead -- the application still shows its own status
-                    // here, which is what the tutor came for.
-                    href={
-                      job && job.status === 'open' && job.slug
-                        ? tuitionPath({ public_slug: job.slug, city: job.city })
-                        : '/browse/tuitions'
-                    }
+                    // The APPLICATION's own page, always -- never the tuition
+                    // and never the board. A row on this list is about
+                    // something the tutor did; sending them to the parent's
+                    // advert answered a different question, and sending them
+                    // to /browse/tuitions when it had closed answered none.
+                    // The tuition is linked from that page when it is open.
+                    href={`/tutor/dashboard/applications/${a.id as string}`}
                     className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md"
                   >
                     <span className="min-w-0 space-y-1">

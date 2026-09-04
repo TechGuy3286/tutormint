@@ -3,7 +3,7 @@
 import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
-import { Flag } from 'lucide-react'
+import { Flag, Undo2 } from 'lucide-react'
 
 // "Report" — one component, three places (tutor profile, job card, thread).
 //
@@ -132,8 +132,9 @@ export default function ReportButton({
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+          className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
         >
+          <Undo2 aria-hidden size={13} />
           Cancel
         </button>
       </div>

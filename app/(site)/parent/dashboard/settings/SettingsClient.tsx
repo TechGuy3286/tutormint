@@ -2,7 +2,7 @@
 
 import { submitSignal } from '@/lib/submit'
 
-import { Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, ShieldCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -160,25 +160,28 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
 
       {/* ------------------------------------------------------- picture --- */}
       <Card title="Your picture" hint="Tutors see this on the tuitions you post. It is not contact information.">
-        <div className="flex items-center gap-4">
-          <Avatar
-            name={fullName || 'You'}
-            src={avatarUrl}
-            seed={initial.userId}
-            decorative
-            ring="border border-gray-200"
-            className="h-16 w-16 shrink-0 text-base"
-          />
-          <div className="min-w-0 flex-1">
-            <FileUpload
-              label="Profile picture"
-              acceptLabel="JPG or PNG"
-              maxBytes={5 * 1024 * 1024}
-              onFile={uploadAvatar}
-              hint="A clear photo of your face helps tutors recognise you."
+        {/* One control, square. The picture used to sit in an <Avatar> beside
+            a full-width drop zone, so after a successful upload the zone said
+            "Tap to choose" while the avatar next to it showed the new photo --
+            two components disagreeing about whether anything had happened. */}
+        <FileUpload
+          label="Profile picture"
+          acceptLabel="JPG or PNG"
+          shape="square"
+          maxBytes={5 * 1024 * 1024}
+          onFile={uploadAvatar}
+          hint="A clear photo of your face helps tutors recognise you."
+          currentPreview={
+            <Avatar
+              name={fullName || 'You'}
+              src={avatarUrl}
+              seed={initial.userId}
+              decorative
+              ring=""
+              className="h-full w-full rounded-none text-xl"
             />
-          </div>
-        </div>
+          }
+        />
       </Card>
 
       {/* --------------------------------------------------------- about --- */}
@@ -310,8 +313,9 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
                   type="button"
                   onClick={verifyCode}
                   disabled={otp.trim().length < 4}
-                  className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:opacity-50"
+                  className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:opacity-50"
                 >
+                  <ShieldCheck aria-hidden size={14} />
                   Verify
                 </button>
               </div>

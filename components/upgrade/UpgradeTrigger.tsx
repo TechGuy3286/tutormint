@@ -1,5 +1,6 @@
 'use client'
 
+import { reportSilentFailure } from '@/lib/silentFailure'
 import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
@@ -47,11 +48,22 @@ export default function UpgradeTrigger({
         setAuthOpen(true)
         return
       }
-      const json = (await res.json()) as { gate?: import('@/lib/gate').Gate | null }
+      const json = (await res.json()) as {
+        gate?: import('@/lib/gate').Gate | null
+        error?: string
+      }
+      // A 4xx here means the button did nothing, and the member is deliberately
+      // not told -- so WE have to be. `tutor_viewer_identity` shipped missing
+      // from the route's allowlist and "See who" was a no-op for a day with
+      // nothing anywhere saying so. See lib/silentFailure.ts.
+      if (!res.ok || !json.gate) {
+        reportSilentFailure('UpgradeTrigger.gate', json.error ?? `HTTP ${res.status}`, { reason })
+      }
       if (json.gate) upgradeSheet?.showGate(json.gate)
-    } catch {
+    } catch (e) {
       // A sheet that cannot load is not worth an error banner over a locked
-      // row: the row already says the thing is locked.
+      // row: the row already says the thing is locked. It is worth a log line.
+      reportSilentFailure('UpgradeTrigger.gate', e, { reason })
     } finally {
       setBusy(false)
     }

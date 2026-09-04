@@ -1,4 +1,5 @@
 'use client'
+import { CalendarCheck } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
 
@@ -63,8 +64,9 @@ export default function CancellationModal({ jobTxId, scheduledTime, onClose }: {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-slate-700 font-bold text-xs uppercase rounded-xl transition-all"
+              className="items-center gap-1.5 flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-slate-700 font-bold text-xs uppercase rounded-xl transition-all"
             >
+              <CalendarCheck aria-hidden size={14} />
               Keep Demo
             </button>
             <button

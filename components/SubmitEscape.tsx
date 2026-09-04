@@ -1,3 +1,4 @@
+import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 
 // The way out of a submit that succeeded but did not move the page.
@@ -17,8 +18,9 @@ export default function SubmitEscape({ href }: { href: string }) {
   return (
     <Link
       href={href}
-      className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-black px-4 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep"
+      className="gap-1.5 flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-black px-4 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep"
     >
+      <ArrowRight aria-hidden size={14} />
       Continue
     </Link>
   )

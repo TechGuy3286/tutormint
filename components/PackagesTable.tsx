@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Check, X } from 'lucide-react'
+import { Check, ShieldCheck, X } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import type { BadgeName } from '@/lib/planBadges'
@@ -131,8 +131,9 @@ export default function PackagesTable({
               ) : free ? (
                 <Link
                   href="/parent/verify"
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+                  className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                 >
+                  <ShieldCheck aria-hidden size={14} />
                   Verify to unlock
                 </Link>
               ) : (

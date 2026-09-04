@@ -1,5 +1,7 @@
 'use client'
 
+import { ArrowLeft, Smartphone } from 'lucide-react'
+
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -163,14 +165,16 @@ export default function ForgotPasswordForm() {
                 setEmailSent(false)
                 setMode('mobile')
               }}
-              className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy hover:border-tm-navy"
+              className="flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy hover:border-tm-navy"
             >
+              <Smartphone aria-hidden size={14} />
               Use my mobile number instead
             </button>
             <Link
               href="/login"
-              className="flex min-h-[44px] items-center justify-center text-xs font-bold text-gray-500 hover:text-tm-navy"
+              className="flex min-h-[44px] items-center justify-center gap-1.5 text-xs font-bold text-gray-500 hover:text-tm-navy"
             >
+              <ArrowLeft aria-hidden size={14} />
               Back to sign in
             </Link>
           </div>

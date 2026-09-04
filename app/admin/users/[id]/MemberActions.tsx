@@ -1,4 +1,5 @@
 'use client'
+import { AlertTriangle, Ban, ClipboardList, CreditCard, RotateCcw } from 'lucide-react'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -116,24 +117,27 @@ export default function MemberActions({
           <button
             type="button"
             onClick={() => setOpen('warn')}
-            className="min-h-[44px] rounded-xl bg-tm-gold px-4 text-xs font-bold text-tm-navy"
+            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-gold px-4 text-xs font-bold text-tm-navy"
           >
+            <AlertTriangle aria-hidden size={13} />
             Warn
           </button>
           {suspended ? (
             <button
               type="button"
               onClick={() => setOpen('unsuspend')}
-              className="min-h-[44px] rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white"
+              className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white"
             >
+              <RotateCcw aria-hidden size={13} />
               Reinstate
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setOpen('suspend')}
-              className="min-h-[44px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white"
+              className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white"
             >
+              <Ban aria-hidden size={13} />
               Suspend
             </button>
           )}
@@ -144,16 +148,18 @@ export default function MemberActions({
         {!isStaff && (
           <Link
             href="/admin/plans"
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+            className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
           >
+            <CreditCard aria-hidden size={14} />
             Grant or revoke a plan
           </Link>
         )}
         {isTutor && (
           <Link
             href="/admin/tutors"
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+            className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
           >
+            <ClipboardList aria-hidden size={14} />
             Open moderation queue
           </Link>
         )}

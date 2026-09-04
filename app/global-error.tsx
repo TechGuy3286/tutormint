@@ -1,5 +1,6 @@
 'use client'
 
+
 import { BRAND, NEUTRAL } from '@/lib/brand'
 
 // The last resort: an error in the root layout itself.

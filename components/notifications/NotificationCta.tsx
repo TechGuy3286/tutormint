@@ -1,9 +1,11 @@
 'use client'
 
+import { ArrowRight, Eye, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 
 import UpgradeTrigger from '@/components/upgrade/UpgradeTrigger'
 import { ctaFor, type NotificationCta as Cta } from '@/lib/notificationActions'
+import { isPlanEnding } from '@/lib/feedGrouping'
 
 // The button on a notification card, drawn once for all three surfaces.
 //
@@ -27,23 +29,38 @@ export default function NotificationCta({
   const cta: Cta | null = ctaFor(row)
   if (!cta) return null
 
+  // A plan that has ended, or is about to, gets the SOLID red button. It is the
+  // only notification on the platform whose subject is something the member has
+  // already lost, and a quiet outlined control beside that sentence reads as an
+  // optional extra. Everything else stays secondary on purpose -- a list where
+  // every row shouts is a list nobody reads.
+  const urgent = isPlanEnding(row.kind) || row.kind === 'plan_expiring'
+
   const style =
-    `relative z-10 inline-flex min-h-[36px] items-center justify-center rounded-lg px-3 text-[11px] font-black transition-colors ${className}`
+    `relative z-10 inline-flex min-h-[36px] items-center justify-center gap-1.5 rounded-lg px-3 text-[11px] font-black transition-colors ${className}`
 
   if (cta.kind === 'upgrade') {
     return (
       <UpgradeTrigger reason={cta.reason} className={`${style} bg-tm-gold text-tm-navy hover:opacity-90`}>
+        <Eye aria-hidden size={12} />
         {cta.label}
       </UpgradeTrigger>
     )
   }
 
+  const Icon = urgent ? RefreshCw : ArrowRight
+
   return (
     <Link
       href={cta.href}
       onClick={(e) => e.stopPropagation()}
-      className={`${style} border border-gray-200 bg-white text-tm-navy hover:border-tm-navy`}
+      className={`${style} ${
+        urgent
+          ? 'bg-tm-red text-white hover:bg-tm-red-hover'
+          : 'border border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+      }`}
     >
+      <Icon aria-hidden size={12} />
       {cta.label}
     </Link>
   )

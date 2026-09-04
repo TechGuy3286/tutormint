@@ -1,3 +1,4 @@
+import { ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -222,8 +223,9 @@ export default async function AdminMemberPage({
           {tutor?.slug && (
             <Link
               href={`/tutor/${tutor.slug}`}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
+              className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
             >
+              <ExternalLink aria-hidden size={14} />
               Open public profile
             </Link>
           )}

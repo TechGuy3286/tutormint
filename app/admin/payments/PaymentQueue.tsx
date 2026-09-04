@@ -1,4 +1,5 @@
 'use client'
+import { Receipt, Undo2, X } from 'lucide-react'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -163,8 +164,9 @@ export default function PaymentQueue({
                     href={`/api/payments/proof/${p.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+                    className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                   >
+                    <Receipt aria-hidden size={14} />
                     Open receipt
                   </a>
                 )}
@@ -184,8 +186,9 @@ export default function PaymentQueue({
                           type="button"
                           disabled={reason.trim().length < 5 || busy === p.id}
                           onClick={() => decide(p.id, 'reject')}
-                          className="min-h-[44px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white disabled:bg-gray-300"
+                          className="inline-flex items-center gap-1.5 min-h-[44px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white disabled:bg-gray-300"
                         >
+                          <X aria-hidden size={13} />
                           Confirm reject
                         </button>
                         <button
@@ -194,8 +197,9 @@ export default function PaymentQueue({
                             setRejecting(null)
                             setReason('')
                           }}
-                          className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+                          className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                         >
+                          <Undo2 aria-hidden size={13} />
                           Cancel
                         </button>
                       </div>
@@ -213,8 +217,9 @@ export default function PaymentQueue({
                       <button
                         type="button"
                         onClick={() => setRejecting(p.id)}
-                        className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+                        className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                       >
+                        <X aria-hidden size={13} />
                         Reject
                       </button>
                     </div>

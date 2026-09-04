@@ -4,7 +4,7 @@ import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Star } from 'lucide-react'
+import { Star, Undo2 } from 'lucide-react'
 
 // "Leave a review", shown only where one has actually been earned.
 //
@@ -121,15 +121,16 @@ export default function ReviewForm({
           type="button"
           onClick={submit}
           disabled={busy || comment.trim().length < 10}
-          className="min-h-[44px] flex-1 rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white disabled:bg-gray-300"
+          className="items-center gap-1.5 min-h-[44px] flex-1 rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white disabled:bg-gray-300"
         >
           {busy ? 'Saving…' : 'Publish review'}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+          className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
         >
+          <Undo2 aria-hidden size={13} />
           Cancel
         </button>
       </div>

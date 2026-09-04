@@ -25,14 +25,13 @@
  * IDEMPOTENT. It only ever looks at rows whose avatar_url starts with `data:`,
  * so a second run finds nothing. Re-running after a partial failure resumes.
  *
- * --apply NEEDS A TERMINAL. guardWrites() refuses an unattended production
- * write, and there is only the one project. The three rows that existed on
- * 4 Sep 2026 were therefore moved by hand -- psql to read and rewrite, the
- * storage REST API to upload -- with the same paths and the same bucket this
- * writes, verified against the dry run below. If a fourth ever appears:
+ * The three rows that existed on 4 Sep 2026 were moved by hand -- psql to read
+ * and rewrite, the storage REST API to upload -- because guardWrites() refused
+ * an unattended production write at the time and this shell has no terminal.
+ * It now takes --confirm, so a fourth would go through the script:
  *
- *     npx tsx scripts/migrate-data-uri-avatars.ts            # from a terminal
- *     ALLOW_SEED_ON_PRODUCTION=1 npx tsx scripts/migrate-data-uri-avatars.ts --apply
+ *     npx tsx scripts/migrate-data-uri-avatars.ts            # dry run
+ *     ALLOW_SEED_ON_PRODUCTION=1 npx tsx scripts/migrate-data-uri-avatars.ts  *       --apply --confirm=<production project ref>
  *
  * profiles IS THE ONLY THING IT WRITES. tutor_profiles.avatar_url is kept in
  * step by the mirror trigger from migration 42, so writing both here would be

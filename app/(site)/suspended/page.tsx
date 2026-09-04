@@ -1,7 +1,7 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ShieldAlert } from 'lucide-react'
+import { ArrowLeft, LifeBuoy, ShieldAlert } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
 
 // Where a suspended member lands.
@@ -50,14 +50,16 @@ export default async function SuspendedPage() {
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
             href="/support"
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
+            className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
           >
+            <LifeBuoy aria-hidden size={14} />
             Contact support
           </Link>
           <Link
             href="/"
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
+            className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
           >
+            <ArrowLeft aria-hidden size={14} />
             Back to TutorMint
           </Link>
         </div>

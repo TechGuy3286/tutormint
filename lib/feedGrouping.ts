@@ -85,6 +85,31 @@ function isMessage(item: FeedItem): boolean {
   return familyFor(item.type) === 'messages'
 }
 
+/**
+ * EVERY WAY A PLAN CAN END IS ONE HAPPENING.
+ *
+ * Expiry, an admin revoking, a cancellation and an "ended" notice arrive as
+ * four different kinds from two different tables, and a member whose plan
+ * lapsed saw two or three consecutive cards all saying so -- which reads as a
+ * fault rather than as one event, and only one of them carried the Reactivate
+ * button. Grouping keys on this rather than on the raw type, so the run
+ * collapses on the notifications page and in the dashboard band alike.
+ *
+ * Deliberately narrow. plan_purchased and plan_granted are NOT folded in: a
+ * plan starting and a plan ending are opposite facts, and merging them would
+ * produce a card whose wording depends on which arrived last.
+ */
+const PLAN_ENDING = new Set(['plan_expired', 'plan_revoked', 'plan_cancelled', 'plan_ended'])
+
+export function isPlanEnding(type: string): boolean {
+  return PLAN_ENDING.has(type)
+}
+
+/** What grouping compares. The raw type for everything except a plan ending. */
+export function groupType(type: string): string {
+  return PLAN_ENDING.has(type) ? 'plan_ended' : type
+}
+
 
 /**
  * Collapse CONSECUTIVE identical types from the same Karachi day.
@@ -155,13 +180,29 @@ export function groupFeed(
     const sameRun =
       last &&
       !collapsed.has(last.key) &&
-      last.type === item.type &&
+      groupType(last.type) === groupType(item.type) &&
       pkDayKey(last.head.at) === pkDayKey(item.at)
 
     if (sameRun) {
       last.items.push(item)
       last.count = last.items.length
       last.unread = last.unread || item.unread
+      // THE NOTIFICATION'S WORDING WINS on a merged plan ending. The rows come
+      // from two tables: `user_activity_log` yields a sentence derived from an
+      // event name, `notifications` yields the one we actually wrote to this
+      // member, and only the notification carries an href for the Reactivate
+      // button. Promoted in place, so the card keeps its position in the
+      // timeline -- the head is what the card shows, `items` still holds
+      // every row, and the losslessness invariant is untouched.
+      if (
+        isPlanEnding(item.type) &&
+        item.source === 'notification' &&
+        last.head.source === 'activity'
+      ) {
+        last.head = item
+        last.type = item.type
+        last.href = item.href
+      }
       continue
     }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircle, Loader2, UploadCloud, X } from 'lucide-react'
+import { AlertCircle, Camera, Loader2, RefreshCw, UploadCloud, X } from 'lucide-react'
 import { useCallback, useId, useRef, useState } from 'react'
 
 // The one file picker on the platform.
@@ -22,6 +22,23 @@ import { useCallback, useId, useRef, useState } from 'react'
 // server-side in /api/documents/upload and friends; this only means somebody
 // on a phone connection is told in the same second rather than after a 6 MB
 // upload completes and is refused.
+//
+// THE PREVIEW HAS TO SURVIVE THE UPLOAD, and until now it did not. The local
+// object URL is discarded when the component remounts -- which is exactly what
+// a router.refresh() after a successful save does -- so a member who had just
+// uploaded their CNIC came back to an empty drop zone reading "Tap to choose",
+// with no way to tell whether the upload had worked. They uploaded it again.
+// `currentPreview` is now shown in the SAME frame as Replace and Remove
+// instead of only in the empty state, so a stored file looks like a stored
+// file. For a private bucket the caller passes a node that renders through
+// /api/documents/[id]/preview -- there is no public URL to show and there must
+// not be one.
+//
+// SHAPE. An avatar and a CNIC scan are not the same picture. `square` is a
+// 160px well with the current photo inside it and "Change photo" beneath --
+// the shape of the thing being uploaded, so somebody can see at a glance
+// whether their face is centred. `wide` is the full-width drop zone, which is
+// right for a document or a screenshot and wrong for a head-and-shoulders.
 
 export type FileUploadProps = {
   /** What is being uploaded, e.g. "CNIC image". Becomes the accessible name. */
@@ -35,8 +52,22 @@ export type FileUploadProps = {
   onFile: (file: File) => Promise<void> | void
   /** Owned by the caller when the upload is driven from outside. */
   busy?: boolean
-  /** An existing preview to show instead of the empty state. */
+  /**
+   * What is already stored, if anything.
+   *
+   * Rendered in the empty state AND beside Replace/Remove after an upload, so
+   * the zone never claims to be empty when a file exists. For a private bucket
+   * this is a node that fetches through an authorising route; never a URL.
+   */
   currentPreview?: React.ReactNode
+  /**
+   * 'wide' — the full-width dashed drop zone. Documents, screenshots, files.
+   * 'square' — a 160px well showing the current image, with the action under
+   * it. Avatars and anything else where the crop is the point.
+   */
+  shape?: 'wide' | 'square'
+  /** Replaces "Tap to choose…" on a square well once something is stored. */
+  changeLabel?: string
   hint?: string
   disabled?: boolean
   className?: string
@@ -58,6 +89,8 @@ export default function FileUpload({
   onFile,
   busy = false,
   currentPreview,
+  shape = 'wide',
+  changeLabel = 'Change photo',
   hint,
   disabled = false,
   className = '',
@@ -122,6 +155,173 @@ export default function FileUpload({
     if (input.current) input.current.value = ''
   }
 
+  // Something is on screen when a file has just been chosen OR when one is
+  // already stored. The old condition was `chosen` alone, which is why a
+  // remount after a successful save showed the empty state over a file that
+  // existed.
+  const hasStored = currentPreview !== undefined && currentPreview !== null
+  const showFrame = !!chosen || hasStored
+
+  const actions = (
+    <div className="flex shrink-0 gap-1">
+      <button
+        type="button"
+        onClick={() => input.current?.click()}
+        disabled={working}
+        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-[11px] font-bold text-tm-navy transition-colors hover:border-tm-navy disabled:opacity-60"
+      >
+        <RefreshCw aria-hidden size={13} />
+        Replace
+      </button>
+      <button
+        type="button"
+        onClick={clear}
+        disabled={working}
+        aria-label={`Remove ${label}`}
+        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold text-tm-red transition-colors hover:bg-tm-tint-red disabled:opacity-60"
+      >
+        <X aria-hidden size={13} />
+        Remove
+      </button>
+    </div>
+  )
+
+  const dropZone = (
+    // A label, not a div with a click handler: it is focusable, it is
+    // activated by Enter and Space for free, and it names the input.
+    <label
+      htmlFor={inputId}
+      onDragOver={(e) => {
+        e.preventDefault()
+        if (!disabled && !working) setDragging(true)
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragging(false)
+        void take(e.dataTransfer.files?.[0])
+      }}
+      className={`flex min-h-[96px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed p-4 text-center transition-colors focus-within:border-tm-navy ${
+        disabled || working
+          ? 'cursor-not-allowed border-gray-200 bg-tm-bg opacity-60'
+          : dragging
+            ? 'border-tm-navy bg-tm-tint-navy'
+            : 'border-gray-200 bg-white hover:border-tm-navy'
+      }`}
+    >
+      {working ? (
+        <Loader2 aria-hidden size={20} className="animate-spin text-gray-500" />
+      ) : (
+        <UploadCloud aria-hidden size={20} className="text-gray-500" />
+      )}
+      <span className="text-xs font-bold text-tm-navy">{label}</span>
+      <span className="text-[11px] text-gray-500">
+        Tap to choose, or drag a file here · {acceptLabel}, up to {prettyBytes(maxBytes)}
+      </span>
+    </label>
+  )
+
+  // ------------------------------------------------------------- square ----
+  //
+  // The well IS the preview: a 160px picture with the action beneath it, which
+  // is what an avatar control looks like everywhere else and what makes a badly
+  // framed photograph obvious before it is saved.
+  if (shape === 'square') {
+    const inWell = chosen?.url ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={chosen.url} alt={`${label} preview`} className="h-full w-full object-cover" />
+    ) : hasStored ? (
+      currentPreview
+    ) : null
+
+    return (
+      <div className={`space-y-2 ${className}`}>
+        <input
+          ref={input}
+          id={inputId}
+          type="file"
+          accept={accept}
+          disabled={disabled || working}
+          className="sr-only"
+          onChange={(e) => void take(e.target.files?.[0])}
+        />
+
+        <div className="flex flex-col items-start gap-2">
+          <label
+            htmlFor={inputId}
+            onDragOver={(e) => {
+              e.preventDefault()
+              if (!disabled && !working) setDragging(true)
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragging(false)
+              void take(e.dataTransfer.files?.[0])
+            }}
+            className={`relative grid h-40 w-40 cursor-pointer place-items-center overflow-hidden rounded-2xl border-2 transition-colors focus-within:border-tm-navy ${
+              disabled || working
+                ? 'cursor-not-allowed border-dashed border-gray-200 bg-tm-bg opacity-60'
+                : dragging
+                  ? 'border-dashed border-tm-navy bg-tm-tint-navy'
+                  : inWell
+                    ? 'border-solid border-gray-200 bg-tm-bg'
+                    : 'border-dashed border-gray-200 bg-white hover:border-tm-navy'
+            }`}
+          >
+            {inWell ?? (
+              <span className="flex flex-col items-center gap-1 px-3 text-center">
+                <UploadCloud aria-hidden size={22} className="text-gray-500" />
+                <span className="text-[11px] font-bold text-tm-navy">{label}</span>
+              </span>
+            )}
+            {working && (
+              <span className="absolute inset-0 grid place-items-center bg-tm-black/40">
+                <Loader2 aria-hidden size={22} className="animate-spin text-white" />
+              </span>
+            )}
+          </label>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => input.current?.click()}
+              disabled={disabled || working}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-[11px] font-bold text-tm-navy transition-colors hover:border-tm-navy disabled:opacity-60"
+            >
+              <Camera aria-hidden size={13} />
+              {inWell ? changeLabel : 'Choose a photo'}
+            </button>
+            {chosen && (
+              <button
+                type="button"
+                onClick={clear}
+                disabled={working}
+                aria-label={`Remove ${label}`}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold text-tm-red transition-colors hover:bg-tm-tint-red disabled:opacity-60"
+              >
+                <X aria-hidden size={13} />
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+
+        {hint && !error && <p className="text-[11px] text-gray-500">{hint}</p>}
+        {error && (
+          <p
+            role="alert"
+            className="flex items-start gap-1.5 rounded-xl bg-tm-tint-red p-2.5 text-[11px] font-semibold text-tm-red-hover"
+          >
+            <AlertCircle aria-hidden size={13} className="mt-px shrink-0" />
+            {error}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  // --------------------------------------------------------------- wide ----
   return (
     <div className={`space-y-2 ${className}`}>
       <input
@@ -134,24 +334,28 @@ export default function FileUpload({
         onChange={(e) => void take(e.target.files?.[0])}
       />
 
-      {chosen ? (
+      {showFrame ? (
         <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3">
-          {chosen.url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={chosen.url}
-              alt={`${label} preview`}
-              className="h-16 w-16 shrink-0 rounded-xl border border-gray-200 object-cover"
-            />
-          ) : (
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-tm-bg text-[10px] font-black text-gray-500">
-              FILE
-            </span>
-          )}
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-tm-bg">
+            {chosen?.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={chosen.url}
+                alt={`${label} preview`}
+                className="h-full w-full object-cover"
+              />
+            ) : hasStored ? (
+              currentPreview
+            ) : (
+              <span className="grid h-full w-full place-items-center text-[10px] font-black text-gray-500">
+                FILE
+              </span>
+            )}
+          </div>
           <div className="min-w-0 flex-1 space-y-0.5">
-            <p className="truncate text-xs font-bold text-tm-navy">{chosen.name}</p>
+            <p className="truncate text-xs font-bold text-tm-navy">{chosen?.name ?? label}</p>
             <p className="text-[11px] text-gray-500">
-              {working ? 'Uploading…' : prettyBytes(chosen.size)}
+              {working ? 'Uploading…' : chosen ? prettyBytes(chosen.size) : 'Uploaded'}
             </p>
             {working && (
               <div
@@ -166,64 +370,10 @@ export default function FileUpload({
               </div>
             )}
           </div>
-          <div className="flex shrink-0 flex-col gap-1">
-            <button
-              type="button"
-              onClick={() => input.current?.click()}
-              disabled={working}
-              className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 px-3 text-[11px] font-bold text-tm-navy transition-colors hover:border-tm-navy disabled:opacity-60"
-            >
-              Replace
-            </button>
-            <button
-              type="button"
-              onClick={clear}
-              disabled={working}
-              aria-label={`Remove ${label}`}
-              className="inline-flex min-h-[44px] items-center gap-1 rounded-xl px-3 text-[11px] font-bold text-tm-red transition-colors hover:bg-tm-tint-red disabled:opacity-60"
-            >
-              <X aria-hidden size={13} />
-              Remove
-            </button>
-          </div>
+          {actions}
         </div>
       ) : (
-        <>
-          {currentPreview}
-          {/* A label, not a div with a click handler: it is focusable, it is
-              activated by Enter and Space for free, and it names the input. */}
-          <label
-            htmlFor={inputId}
-            onDragOver={(e) => {
-              e.preventDefault()
-              if (!disabled && !working) setDragging(true)
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault()
-              setDragging(false)
-              void take(e.dataTransfer.files?.[0])
-            }}
-            className={`flex min-h-[96px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed p-4 text-center transition-colors focus-within:border-tm-navy ${
-              disabled || working
-                ? 'cursor-not-allowed border-gray-200 bg-tm-bg opacity-60'
-                : dragging
-                  ? 'border-tm-navy bg-tm-tint-navy'
-                  : 'border-gray-200 bg-white hover:border-tm-navy'
-            }`}
-          >
-            {working ? (
-              <Loader2 aria-hidden size={20} className="animate-spin text-gray-500" />
-            ) : (
-              <UploadCloud aria-hidden size={20} className="text-gray-500" />
-            )}
-            <span className="text-xs font-bold text-tm-navy">{label}</span>
-            <span className="text-[11px] text-gray-500">
-              Tap to choose, or drag a file here · {acceptLabel}, up to{' '}
-              {prettyBytes(maxBytes)}
-            </span>
-          </label>
-        </>
+        dropZone
       )}
 
       {hint && !error && <p className="text-[11px] text-gray-500">{hint}</p>}

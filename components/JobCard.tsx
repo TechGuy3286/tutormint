@@ -7,7 +7,7 @@ import { tuitionPath } from '@/lib/slugs'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import Link from 'next/link'
 import { useState } from 'react'
-import { GraduationCap, MapPin, Wallet, Clock, Building2 } from 'lucide-react'
+import { Building2, Clock, FileText, GraduationCap, MapPin, Wallet } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
 import { teachingMode } from '@/lib/display'
 import FeaturedTag from '@/components/badges/FeaturedTag'
@@ -235,8 +235,9 @@ export default function JobCard({
           <div className="flex flex-col gap-2 pt-1 sm:flex-row">
             <Link
               href={detailHref}
-              className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-tm-bg px-4 text-xs font-bold text-slate-700 transition-colors hover:bg-gray-100"
+              className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-tm-bg px-4 text-xs font-bold text-slate-700 transition-colors hover:bg-gray-100"
             >
+              <FileText aria-hidden size={14} />
               View details
             </Link>
             {showApply && (

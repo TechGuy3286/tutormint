@@ -1,3 +1,4 @@
+import { Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -102,8 +103,9 @@ export default async function AdminUsersPage({
         {roleSatisfies(actor.adminRole, SCREEN_ACCESS.cleanup) && (
           <Link
             href="/admin/users?filter=suspicious"
-            className="inline-flex min-h-[44px] items-center rounded-xl border border-tm-gold/30 bg-tm-tint-gold px-4 text-xs font-bold text-tm-gold-ink"
+            className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-tm-gold/30 bg-tm-tint-gold px-4 text-xs font-bold text-tm-gold-ink"
           >
+            <Trash2 aria-hidden size={14} />
             Junk accounts
           </Link>
         )}

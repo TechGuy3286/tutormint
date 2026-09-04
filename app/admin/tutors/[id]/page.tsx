@@ -1,3 +1,4 @@
+import { ClipboardList, ExternalLink, Users } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -149,21 +150,24 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
         {tutor.slug && (
           <Link
             href={`/tutor/${tutor.slug as string}`}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
+            className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
           >
+            <ExternalLink aria-hidden size={14} />
             Open public profile
           </Link>
         )}
         <Link
           href={`/admin/users/${id}`}
-          className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
+          className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
         >
+          <Users aria-hidden size={14} />
           Member record and timeline
         </Link>
         <Link
           href="/admin/tutors"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
+          className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
         >
+          <ClipboardList aria-hidden size={14} />
           Moderation queue
         </Link>
       </div>

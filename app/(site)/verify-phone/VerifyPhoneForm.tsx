@@ -1,4 +1,5 @@
 'use client'
+import { MessageSquare } from 'lucide-react'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -226,8 +227,9 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
           <button
             type="submit"
             disabled={busy || !newMobile.trim()}
-            className="w-full min-h-[44px] rounded-xl bg-tm-navy py-3 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-tm-navy-hover disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 w-full min-h-[44px] rounded-xl bg-tm-navy py-3 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-tm-navy-hover disabled:opacity-50"
           >
+            <MessageSquare aria-hidden size={14} />
             Send code to this number
           </button>
         </form>

@@ -1,5 +1,6 @@
 'use client'
 
+import { ArrowLeft, LogIn } from 'lucide-react'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -135,14 +136,16 @@ export default function AuthGateModal({
         <div className="space-y-2 pt-1">
           <button
             onClick={goToLogin}
-            className="w-full min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
+            className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
           >
+            <LogIn aria-hidden size={14} />
             {copy.cta}
           </button>
           <button
             onClick={onClose}
-            className="w-full min-h-[44px] py-3 bg-tm-bg hover:bg-gray-100 text-slate-700 font-bold text-xs rounded-xl border border-gray-200 transition-colors"
+            className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 py-3 bg-tm-bg hover:bg-gray-100 text-slate-700 font-bold text-xs rounded-xl border border-gray-200 transition-colors"
           >
+            <ArrowLeft aria-hidden size={14} />
             Keep browsing
           </button>
         </div>

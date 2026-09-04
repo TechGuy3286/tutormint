@@ -30,6 +30,7 @@ export type BucketName =
   | 'password_change'
   | 'search'
   | 'ai_generate'
+  | 'client_error'
 
 /**
  * The budgets.
@@ -66,6 +67,12 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   // tuition needs -- they press Generate, read it, maybe press it again -- and
   // it is nowhere near enough to be worth scripting.
   ai_generate: { windowSeconds: 3600, max: 20 },
+  // Swallowed client-side errors (lib/silentFailure.ts). Sized to be generous
+  // to a browser that is genuinely having a bad time -- one broken page can
+  // legitimately report several distinct failures -- and small enough that a
+  // script cannot write our logs for us. The caller is a fire-and-forget
+  // beacon and is told nothing when it meets this.
+  client_error: { windowSeconds: 3600, max: 60 },
 }
 
 export type RateLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number }

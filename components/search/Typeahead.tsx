@@ -1,5 +1,6 @@
 'use client'
 
+import { reportSilentFailure } from '@/lib/silentFailure'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, X, Clock, TrendingUp } from 'lucide-react'
@@ -118,8 +119,11 @@ export default function Typeahead({
         const data = (await res.json()) as { suggestions: Suggestion[]; popular: Suggestion[] }
         setSuggestions(data.suggestions ?? [])
         setPopular(data.popular ?? [])
-      } catch {
-        // An aborted request is the normal case here, not a failure.
+      } catch (e) {
+        // An aborted request is the normal case here, not a failure -- the
+        // member typed another character. Anything else means the panel stayed
+        // empty for a reason nobody would ever hear about.
+        if (!controller.signal.aborted) reportSilentFailure('Typeahead.suggest', e)
       } finally {
         if (!controller.signal.aborted) setLoading(false)
       }

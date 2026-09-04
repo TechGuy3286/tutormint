@@ -1,3 +1,4 @@
+import { List } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -142,8 +143,9 @@ function EmptyState({ role, group }: { role: string | null; group: NotificationG
         </p>
         <Link
           href="/account/notifications"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-4 text-xs font-bold text-white transition-colors hover:bg-tm-navy"
+          className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-4 text-xs font-bold text-white transition-colors hover:bg-tm-navy"
         >
+          <List aria-hidden size={14} />
           Show all notifications
         </Link>
       </div>

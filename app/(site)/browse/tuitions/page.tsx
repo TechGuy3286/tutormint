@@ -1,3 +1,4 @@
+import { List } from 'lucide-react'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { parseMode } from '@/lib/locations'
 import type { Metadata } from 'next'
@@ -264,8 +265,9 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             </p>
             <Link
               href="/browse/tuitions"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
+              className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
             >
+              <List aria-hidden size={14} />
               Show all tuitions
             </Link>
           </div>

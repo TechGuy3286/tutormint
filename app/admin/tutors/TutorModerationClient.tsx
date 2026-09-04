@@ -1,4 +1,5 @@
 'use client'
+import { Ban, Check, Pause, RotateCcw } from 'lucide-react'
 
 import Avatar from '@/components/Avatar'
 import { useState } from 'react'
@@ -294,13 +295,29 @@ export default function TutorModerationClient({
 
             {open.documents.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[11px] font-bold text-tm-navy">
-                  Documents — watermarked previews, admin rights
-                </p>
+                {/* THE NUMBER SITS WITH THE IMAGES. Checking a card is
+                    comparing the typed digits against the ones in the
+                    photograph, and the number was a chip several rows up while
+                    the images were here -- the one comparison this screen
+                    exists for was the one thing it did not put side by side.
+                    Full, not masked: masking it would make the check
+                    impossible, and only admins who may work this queue reach
+                    this screen. */}
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-[11px] font-bold text-tm-navy">
+                    Documents — watermarked previews, admin rights
+                  </p>
+                  <p className="font-mono text-xs font-black text-tm-navy">
+                    {open.cnicNumber ?? 'no CNIC number typed'}
+                  </p>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   {open.documents.map((d) => (
                     <div key={d.id} className="space-y-1">
-                      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">{d.kind}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
+                        {/* "cnic" alone was ambiguous once both sides exist. */}
+                        {d.kind === 'cnic' ? `CNIC ${d.label === 'back' ? 'back' : 'front'}` : d.kind}
+                      </p>
                       <SecureDocumentPreview documentId={d.id} alt={`${d.kind} preview`} />
                     </div>
                   ))}
@@ -330,18 +347,22 @@ export default function TutorModerationClient({
             )}
 
             <div className="grid grid-cols-3 gap-2">
-              <button onClick={() => act('approve')} disabled={busy} className="min-h-[44px] py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
+              <button onClick={() => act('approve')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
+                <Check aria-hidden size={13} />
                 Approve
               </button>
-              <button onClick={() => act('hold')} disabled={busy} className="min-h-[44px] py-3 bg-tm-gold hover:bg-tm-gold-hover text-tm-black text-xs font-bold rounded-xl disabled:opacity-50">
+              <button onClick={() => act('hold')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-gold hover:bg-tm-gold-hover text-tm-black text-xs font-bold rounded-xl disabled:opacity-50">
+                <Pause aria-hidden size={13} />
                 Hold
               </button>
               {open.verificationStatus === 'suspended' ? (
-                <button onClick={() => act('unsuspend')} disabled={busy} className="min-h-[44px] py-3 bg-tm-black text-white text-xs font-bold rounded-xl disabled:opacity-50">
+                <button onClick={() => act('unsuspend')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-black text-white text-xs font-bold rounded-xl disabled:opacity-50">
+                  <RotateCcw aria-hidden size={13} />
                   Unsuspend
                 </button>
               ) : (
-                <button onClick={() => act('suspend')} disabled={busy} className="min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
+                <button onClick={() => act('suspend')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
+                  <Ban aria-hidden size={13} />
                   Suspend
                 </button>
               )}

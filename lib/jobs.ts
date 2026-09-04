@@ -404,7 +404,7 @@ export async function hireApplicant(
 
   const { error: appError } = await supabase
     .from('applications')
-    .update({ status: 'hired' })
+    .update({ status: 'hired', status_changed_at: now })
     .eq('id', applicationId)
   if (appError) return { ok: false, status: 400, error: appError.message }
 
@@ -434,7 +434,7 @@ export async function hireApplicant(
     if ((others ?? []).length > 0) {
       await admin
         .from('applications')
-        .update({ status: 'rejected' })
+        .update({ status: 'rejected', status_changed_at: now })
         .in(
           'id',
           (others ?? []).map((o) => o.id as string),

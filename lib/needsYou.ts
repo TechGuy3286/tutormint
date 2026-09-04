@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { planLabel } from '@/lib/display'
 import type { Entitlements } from '@/lib/entitlements'
 import { tuitionPath } from '@/lib/slugs'
 
@@ -36,6 +37,17 @@ export type NeedRow = {
   action: { label: string; href: string }
   /** 'urgent' is a real block; 'warn' is a deadline approaching. */
   tone: 'urgent' | 'warn'
+  /**
+   * The subscription this row is about, when the row can be dismissed.
+   *
+   * Only the lapsed-plan row carries one. Everything else in this band is a
+   * real block -- an unverified CNIC does not stop being a block because
+   * somebody pressed a cross -- and a dismissable blocker is a blocker people
+   * dismiss. A plan that has ended is different: the member may simply have
+   * decided not to renew, and telling them so on every visit forever is
+   * nagging rather than informing.
+   */
+  dismissSubscriptionId?: string
 }
 
 /** Days before expiry that a plan starts asking to be renewed. */
@@ -69,6 +81,64 @@ function expiryRow(
         : 'When it ends you can no longer complete a hire or see tutor contact details. Your jobs stay open.',
     action: { label: 'Renew', href },
     tone: 'warn',
+  }
+}
+
+/**
+ * The row for a plan that has already ended.
+ *
+ * expiryRow() cannot produce this: getEntitlements() filters on
+ * `expires_at > now()`, so the instant a plan lapses `ent.plan` is null and
+ * there is nothing left in the entitlements to notice. The fact lives in the
+ * subscription row, which is not deleted.
+ *
+ * Shown until the member reactivates or dismisses it. Losing a plan is the one
+ * thing on this band the member did not do and may not have registered -- the
+ * badges come off, the search position drops, and nothing on the dashboard
+ * said so except a notification they may never have opened.
+ */
+async function lapsedPlanRow(
+  userId: string,
+  ent: Entitlements,
+  href: string,
+): Promise<NeedRow | null> {
+  // A member who has since bought again is not being told their plan ended.
+  if (ent.plan) return null
+
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('subscriptions')
+    .select('id, plan_code, expires_at, status, lapse_dismissed_at')
+    .eq('user_id', userId)
+    .in('status', ['expired', 'cancelled'])
+    .is('lapse_dismissed_at', null)
+    .order('expires_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!data) return null
+
+  const plan = planLabel(data.plan_code as string) ?? 'Your'
+  const days = daysUntil(data.expires_at as string | null)
+  const ago = days === null ? null : Math.abs(days)
+
+  return {
+    id: 'plan-lapsed',
+    title: `Your ${plan} plan has ended`,
+    // The consequence, in what was lost rather than in what is owed. The
+    // conversion rules are explicit that an expiry is worded as a loss of
+    // visibility and never as an invoice.
+    why:
+      ent.audience === 'tutor'
+        ? `Your badges are off and you now appear below Verified tutors in search${
+            ago !== null ? `, since ${ago === 0 ? 'today' : `${ago} day${ago === 1 ? '' : 's'} ago`}` : ''
+          }. Nothing has been deleted.`
+        : `You can no longer complete a hire or see tutor contact details${
+            ago !== null ? `, since ${ago === 0 ? 'today' : `${ago} day${ago === 1 ? '' : 's'} ago`}` : ''
+          }. Your tuitions are still open.`,
+    action: { label: 'Reactivate', href },
+    tone: 'urgent',
+    dismissSubscriptionId: data.id as string,
   }
 }
 
@@ -211,6 +281,9 @@ export async function parentNeeds({
   const expiring = expiryRow(ent, '/parent/packages')
   if (expiring) rows.push(expiring)
 
+  const lapsed = await lapsedPlanRow(userId, ent, '/parent/packages?plan=parent_featured')
+  if (lapsed) rows.push(lapsed)
+
   return rows
 }
 
@@ -330,6 +403,9 @@ export async function tutorNeeds({
 
   const expiring = expiryRow(ent, '/tutor/packages')
   if (expiring) rows.push(expiring)
+
+  const lapsed = await lapsedPlanRow(userId, ent, '/tutor/packages?plan=verified')
+  if (lapsed) rows.push(lapsed)
 
   return rows
 }

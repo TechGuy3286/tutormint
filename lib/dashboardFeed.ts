@@ -1,3 +1,4 @@
+import { planLabel } from '@/lib/display'
 import { createClient } from '@/lib/supabase/server'
 
 // Re-exported so existing callers keep one import site; the definitions live
@@ -62,7 +63,10 @@ const LABEL: Record<string, string> = {
   payment_submitted: 'You started a payment',
   payment_rejected: 'A payment was not approved',
   plan_purchased: 'Your plan started',
-  plan_granted: 'A plan was added to your account',
+  // "A plan was added to your account" -- passive, and it did not say which,
+  // on the one event a member most wants named. planLabel() turns the code in
+  // the row's own meta into the word on the packages page. See labelFor().
+  plan_granted: 'Your plan was activated',
   plan_expiring: 'Your plan is close to expiring',
   plan_expired: 'Your plan ended',
   plan_revoked: 'Your plan was removed',
@@ -90,6 +94,33 @@ const LABEL: Record<string, string> = {
 //
 //   staff_*, video_visibility_changed, report_resolved
 //       -- admin lifecycle, not the member's own doing.
+
+/**
+ * The member-facing sentence for one activity row.
+ *
+ * Almost always the flat string in LABEL. The plan events are the exception:
+ * the code is in the row's own meta, so "Your plan was activated" becomes
+ * "Featured plan activated" without a second query. A row with no planCode
+ * falls back to the flat wording rather than printing "null plan activated".
+ */
+function labelFor(event: string, meta: Record<string, unknown> | null): string {
+  const flat = LABEL[event] ?? event
+  const plan = planLabel((meta?.planCode as string | null) ?? null)
+  if (!plan) return flat
+  switch (event) {
+    case 'plan_granted':
+    case 'plan_purchased':
+      return `${plan} plan activated`
+    case 'plan_expired':
+      return `${plan} plan ended`
+    case 'plan_revoked':
+      return `${plan} plan was removed`
+    case 'plan_expiring':
+      return `${plan} plan is close to expiring`
+    default:
+      return flat
+  }
+}
 
 /** Where an activity row points, or null when there is no honest destination. */
 function hrefFor(
@@ -170,7 +201,17 @@ const CANONICAL: Record<string, string> = {
   plan_purchased: 'plan_started',
   plan_granted: 'plan_started',
   plan_activated: 'plan_started',
+  // EVERY WAY A PLAN CAN END IS ONE HAPPENING. Expiry writes plan_expired to
+  // the activity log and a plan_expired notification; an admin revoking writes
+  // plan_revoked and (via the same path) a notification of its own; a
+  // cancellation writes another. Left ungrouped, a member whose plan lapsed saw
+  // two or three cards in a row all saying their plan had ended, which reads as
+  // a fault rather than as one event -- and only one of them carried the
+  // Reactivate button.
   plan_expired: 'plan_ended',
+  plan_revoked: 'plan_ended',
+  plan_cancelled: 'plan_ended',
+  plan_ended: 'plan_ended',
   payment_submitted: 'payment_started',
   payment_rejected: 'payment_rejected',
   verification_decision_received: 'verification_decision',
@@ -267,7 +308,9 @@ export async function recentActivity({
       .limit(limit * 2),
     supabase
       .from('user_activity_log')
-      .select('id, event, target_type, target_id, created_at')
+      // `meta` for the plan code: "Your plan was activated" has to be able to
+      // say WHICH plan, and the code is already on the row.
+      .select('id, event, target_type, target_id, meta, created_at')
       .eq('user_id', userId)
       .in('event', Object.keys(LABEL))
       .order('created_at', { ascending: false })
@@ -288,7 +331,7 @@ export async function recentActivity({
       id: `a-${a.id as string}`,
       source: 'activity' as const,
       type: a.event as string,
-      text: LABEL[a.event as string] ?? (a.event as string),
+      text: labelFor(a.event as string, a.meta as Record<string, unknown> | null),
       href: hrefFor(
         a.event as string,
         (a.target_type as string) ?? null,

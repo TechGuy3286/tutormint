@@ -1,7 +1,7 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, CreditCard } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
@@ -78,8 +78,9 @@ export default async function PostJobPage() {
             </p>
             <Link
               href="/parent/packages?plan=parent_featured"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
+              className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
             >
+              <CreditCard aria-hidden size={14} />
               See packages
             </Link>
           </section>

@@ -1,4 +1,5 @@
 'use client'
+import { Send } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { useState } from 'react'
@@ -154,8 +155,9 @@ export default function ReviewPage() {
 
             <button
               type="submit"
-              className="w-full py-4 bg-slate-900 hover:bg-tm-green-deep text-white font-bold text-xs tracking-widest uppercase rounded-xl shadow-lg transition-all"
+              className="inline-flex items-center gap-1.5 w-full py-4 bg-slate-900 hover:bg-tm-green-deep text-white font-bold text-xs tracking-widest uppercase rounded-xl shadow-lg transition-all"
             >
+              <Send aria-hidden size={14} />
               Submit Review & Publish to Profile
             </button>
           </form>

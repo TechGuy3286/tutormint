@@ -1,3 +1,4 @@
+import { List, Search } from 'lucide-react'
 import Link from 'next/link'
 import { headers } from 'next/headers'
 
@@ -44,14 +45,16 @@ export default async function TuitionNotFound() {
         <div className="flex flex-col items-center gap-2 pt-1 sm:flex-row sm:justify-center">
           <Link
             href={city ? `/browse/tuitions?city=${encodeURIComponent(city)}` : '/browse/tuitions'}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-slate-700"
+            className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-slate-700"
           >
+            <Search aria-hidden size={14} />
             Find similar tuitions
           </Link>
           <Link
             href="/browse/tuitions"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+            className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
           >
+            <List aria-hidden size={14} />
             All tuitions in Pakistan
           </Link>
         </div>

@@ -1,5 +1,7 @@
 'use client'
 
+import { Trash2, Undo2 } from 'lucide-react'
+
 import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
@@ -92,15 +94,17 @@ export default function MyApplications({ applications }: { applications: MyAppli
                         type="button"
                         onClick={() => withdraw(a.id)}
                         disabled={busy}
-                        className="min-h-[44px] flex-1 rounded-xl bg-tm-red px-3 text-xs font-bold text-white"
+                        className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-tm-red px-3 text-xs font-bold text-white"
                       >
+                        <Trash2 aria-hidden size={13} />
                         {busy ? 'Withdrawing…' : 'Withdraw anyway'}
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirming(null)}
-                        className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
+                        className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
                       >
+                        <Undo2 aria-hidden size={13} />
                         Keep it
                       </button>
                     </div>
@@ -109,8 +113,9 @@ export default function MyApplications({ applications }: { applications: MyAppli
                   <button
                     type="button"
                     onClick={() => setConfirming(a.id)}
-                    className="min-h-[44px] text-[11px] font-bold text-gray-500 underline"
+                    className="inline-flex min-h-[44px] items-center gap-1.5 text-[11px] font-bold text-gray-500 underline"
                   >
+                    <Trash2 aria-hidden size={12} />
                     Withdraw
                   </button>
                 )}

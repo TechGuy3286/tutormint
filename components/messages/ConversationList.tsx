@@ -1,8 +1,9 @@
 'use client'
 
+import { reportSilentFailure } from '@/lib/silentFailure'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MessageSquare, Loader2 } from 'lucide-react'
+import { Loader2, MessageSquare, X } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import Typeahead from '@/components/search/Typeahead'
 import { useInfinite } from '@/lib/useInfinite'
@@ -60,9 +61,11 @@ export default function ConversationList({
       })
       if (!r.ok) throw new Error(String(r.status))
       setFound((await r.json()) as { items: ThreadRow[]; cursor: string | null })
-    } catch {
+    } catch (e) {
       // An aborted request is the normal case here -- the member typed another
-      // character. Nothing to report; the next one lands.
+      // character -- and the next one lands. Anything else left the search
+      // showing nothing with no explanation.
+      if (!ctrl.signal.aborted) reportSilentFailure('ConversationList.search', e)
     } finally {
       if (!ctrl.signal.aborted) setSearching(false)
     }
@@ -265,8 +268,9 @@ function Empty({
           <button
             type="button"
             onClick={onClear}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-[11px] font-bold text-tm-navy transition-colors hover:border-tm-navy"
+            className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-[11px] font-bold text-tm-navy transition-colors hover:border-tm-navy"
           >
+            <X aria-hidden size={14} />
             Clear the search
           </button>
         )}

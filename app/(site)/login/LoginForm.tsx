@@ -1,4 +1,5 @@
 'use client'
+import { Mail } from 'lucide-react'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -133,8 +134,9 @@ export default function LoginForm({ next }: { next: string | null }) {
                 <button
                   type="button"
                   onClick={handleResend}
-                  className="min-h-[44px] w-full rounded-xl bg-tm-black px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep"
+                  className="inline-flex items-center gap-1.5 min-h-[44px] w-full rounded-xl bg-tm-black px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep"
                 >
+                  <Mail aria-hidden size={14} />
                   Resend confirmation email
                 </button>
               )}

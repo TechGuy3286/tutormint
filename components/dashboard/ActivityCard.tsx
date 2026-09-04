@@ -12,7 +12,7 @@ import { useState } from 'react'
 
 import NotificationCta from '@/components/notifications/NotificationCta'
 import { FAMILY_STYLE, familyFor, groupedLabel } from '@/lib/activityFamily'
-import type { FeedGroup } from '@/lib/feedGrouping'
+import { isPlanEnding, type FeedGroup } from '@/lib/feedGrouping'
 import { formatDateTime } from '@/lib/datetime'
 import TimeAgo from '@/components/TimeAgo'
 
@@ -47,7 +47,14 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
   // are from different conversations, so there is no useful list to unfold --
   // the place to read them is the inbox, which is where it points.
   const collapsedMessages = !!group.collapsedAcrossDays
-  const grouped = group.count > 1 && !collapsedMessages
+  // A plan ending is ONE card even when several rows produced it, and it is
+  // never a disclosure: expiry, an admin revoking and a cancellation are the
+  // same fact reported three ways, and offering to unfold them into "your plan
+  // ended / your plan ended / your plan was removed" is a worse answer than the
+  // one sentence. groupFeed has already promoted the notification to head, so
+  // the wording and the href are the ones we wrote to this member.
+  const planEnd = isPlanEnding(group.type)
+  const grouped = group.count > 1 && !collapsedMessages && !planEnd
   // "7 new messages" is right for seven waiting and wrong for seven already
   // read -- and a collapsed messages card is the one place a member sees a
   // count of messages they have already opened. The per-type phrasing in
@@ -56,7 +63,7 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
   const isMessages = family === 'messages' && group.count > 1
   const title = isMessages
     ? `${group.count} ${group.unread ? 'new ' : ''}messages`
-    : group.count > 1
+    : group.count > 1 && !planEnd
       ? groupedLabel(group.type, group.count, group.head.text)
       : group.head.text
   const href = group.href
@@ -66,8 +73,10 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
   // behind it, and a single "See the tuition" button would silently pick the
   // newest. Expanding the run gives each row its own link, which is the honest
   // answer for that case.
+  // A plan ending is the exception to "one notification only": the whole point
+  // of merging it is that the button survives the merge.
   const cta =
-    group.count === 1 && group.head.source === 'notification' ? (
+    (group.count === 1 || planEnd) && group.head.source === 'notification' ? (
       <NotificationCta row={{ kind: group.type, href: group.head.href }} />
     ) : null
 
@@ -102,8 +111,21 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
     </span>
   )
 
+  // A plan that has ended or is about to is the one card on this band with a
+  // consequence attached to ignoring it: visibility already lost, or lost in a
+  // few days. Everything else here is a report of something that happened.
+  // Red border and a soft red shadow -- the same family as the NEEDS YOU
+  // urgent row, so the two read as the same level of "this one".
+  const urgent = planEnd || group.type === 'plan_expiring'
+
   return (
-    <li className="rounded-2xl border border-gray-200 bg-white shadow-xs transition-shadow hover:shadow-md">
+    <li
+      className={`rounded-2xl border bg-white transition-shadow ${
+        urgent
+          ? 'border-tm-red shadow-[0_2px_14px_-6px_var(--color-tm-red)] hover:shadow-md'
+          : 'border-gray-200 shadow-xs hover:shadow-md'
+      }`}
+    >
       {grouped ? (
         <>
           <button

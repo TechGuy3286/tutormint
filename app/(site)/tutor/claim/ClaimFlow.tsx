@@ -5,7 +5,7 @@ import { submitSignal } from '@/lib/submit'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check } from 'lucide-react'
+import { BadgeCheck, Check } from 'lucide-react'
 
 // Terms, then OTP, then claim.
 //
@@ -191,8 +191,9 @@ export default function ClaimFlow({
             router.refresh()
           }
         }}
-        className="min-h-[44px] w-full rounded-xl bg-tm-red px-4 text-xs font-bold uppercase tracking-wider text-white disabled:bg-gray-300"
+        className="inline-flex items-center justify-center gap-1.5 min-h-[44px] w-full rounded-xl bg-tm-red px-4 text-xs font-bold uppercase tracking-wider text-white disabled:bg-gray-300"
       >
+        <BadgeCheck aria-hidden size={14} />
         Claim my profile
       </button>
 

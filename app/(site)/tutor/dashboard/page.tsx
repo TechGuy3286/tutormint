@@ -1,9 +1,7 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
-import Link from 'next/link'
 import { Info, TrendingUp } from 'lucide-react'
 
 import AdSlot from '@/components/ads/AdSlot'
-import BadgeRow from '@/components/badges/BadgeRow'
 import ActivityBand from '@/components/dashboard/ActivityBand'
 import NeedsYou from '@/components/dashboard/NeedsYou'
 import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
@@ -15,7 +13,10 @@ import { jobsThisWeek, tutorPosition } from '@/lib/funnel'
 import { matchingJobsForTutor } from '@/lib/jobFeed'
 import { unreadMessageCount } from '@/lib/messaging'
 import { tutorNeeds } from '@/lib/needsYou'
+import IdentityBlock from '@/components/dashboard/IdentityBlock'
 import ViewsCard from '@/components/dashboard/ViewsCard'
+import IdentityCard from '@/components/identity/IdentityCard'
+import { loadIdentity } from '@/lib/identity'
 import { viewSummary } from '@/lib/profileViews'
 import { createClient } from '@/lib/supabase/server'
 
@@ -65,8 +66,16 @@ export default async function TutorDashboardPage() {
   const listed = percent >= 100 && tutorProfile?.verification_status !== 'suspended'
   const free = !ent.plan
 
-  const [needs, activity, views, matching, unreadMessages, { data: apps }, { data: demos }] =
-    await Promise.all([
+  const [
+    needs,
+    activity,
+    views,
+    identity,
+    matching,
+    unreadMessages,
+    { data: apps },
+    { data: demos },
+  ] = await Promise.all([
       tutorNeeds({
         userId,
         ent,
@@ -79,6 +88,7 @@ export default async function TutorDashboardPage() {
       // above this band and is the surface for it. See recentActivity().
       recentActivity({ userId, role: 'tutor', limit: 8, hideKinds: ['profile_viewed'] }),
       viewSummary(userId, ent.canSeeViewerIdentity, 20),
+      loadIdentity(userId),
       matchingJobsForTutor(userId, tutorProfile?.city ?? null),
       unreadMessageCount(userId),
       supabase.from('applications').select('id, status, withdrawn_at').eq('tutor_id', userId),
@@ -99,7 +109,17 @@ export default async function TutorDashboardPage() {
     ['requested', 'accepted'].includes(d.status as string),
   ).length
 
-  const firstName = (session?.profile?.full_name ?? 'there').split(' ')[0]
+  // "Verified tutor - Lahore". `listed` is the fact that matters to a tutor
+  // and it is not the same as holding a badge: a complete, unsuspended profile
+  // is listed whatever the plan. The city is dropped rather than written as
+  // "unknown" -- a tutor who has not filled it in does not need telling on
+  // every visit, and the completion link above says so already.
+  const identityLine = [
+    listed ? 'Listed tutor' : 'Not listed yet',
+    (tutorProfile?.city as string | null) || session?.profile?.city || null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   const things: ThingRow[] = [
     {
@@ -158,13 +178,21 @@ export default async function TutorDashboardPage() {
       <div className="mx-auto max-w-3xl space-y-5">
         <Breadcrumbs items={[{ label: 'Tutor dashboard' }]} />
 
-        <header className="space-y-1">
-          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Welcome back, {firstName}</h1>
-          <p className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-            {listed ? 'You are listed in the tutor directory' : 'You are not listed yet'}
-            {ent.badges.length > 0 && <BadgeRow badges={ent.badges} size="sm" />}
-          </p>
-        </header>
+        {/* Who this is, from the outside -- the same component the parent
+            dashboard uses. See IdentityBlock for why one and not two. */}
+        <IdentityBlock
+          name={session?.profile?.full_name ?? 'Your profile'}
+          avatarUrl={session?.profile?.avatar_url ?? null}
+          badges={ent.badges}
+          line={identityLine}
+          completion={percent}
+          completionHref="/tutor/complete-profile"
+          editHref={
+            tutorProfile?.slug
+              ? { label: 'View your public profile', href: `/tutor/${tutorProfile.slug}` }
+              : { label: 'Edit your profile', href: '/tutor/dashboard/settings' }
+          }
+        />
 
         <NeedsYou
           rows={needs}
@@ -177,6 +205,12 @@ export default async function TutorDashboardPage() {
 
         {/* ------------------------------------------- the 199 funnel --- */}
         <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} />
+
+        {/* The same card the parent dashboard renders. A tutor's CNIC used to
+            live in a settings section headed "ANTI-DOWNLOAD PROTECTED
+            DOCUMENTS" that uploaded it to a PUBLIC bucket -- see
+            components/identity/IdentityCard.tsx. */}
+        <IdentityCard identity={identity} role="tutor" />
 
         {free && position && (
           // id, so the rank_dropped notification's button has somewhere to

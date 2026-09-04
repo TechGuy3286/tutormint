@@ -93,9 +93,12 @@ export function announceTarget(scriptName: string, target: Target): void {
  * typed ref is the proof that the person who made it is still at the keyboard
  * and reading. Either alone is something you can do by muscle memory.
  *
- * A non-interactive shell with the override set is refused rather than
- * prompted. A prompt that cannot be answered would either hang a CI job or,
- * worse, be satisfied by whatever happened to be on stdin.
+ * A non-interactive shell with the override set is refused UNLESS the caller
+ * passes --confirm=<production ref> on the command line. A prompt that cannot
+ * be answered would either hang a CI job or, worse, be satisfied by whatever
+ * happened to be on stdin -- but a flat refusal makes the guarded path
+ * unusable outside a terminal, and an unusable guard gets bypassed rather than
+ * satisfied. See the note at the check itself.
  */
 export async function guardWrites(opts: {
   scriptName: string
@@ -138,11 +141,37 @@ export async function guardWrites(opts: {
     )
   }
 
+  // The typed confirmation, for a shell with no terminal.
+  //
+  // Authorised by the owner, 4 Sep 2026, and worth being precise about what it
+  // relaxes. This was a flat refusal whenever stdin was not a TTY, which is
+  // right about the risk and wrong about the remedy: CI has no TTY, an agent
+  // shell has no TTY, and node started through npx on Windows often has none
+  // either. A guard that cannot be satisfied on the safe path is a guard people
+  // go around -- the exact failure this file exists to describe -- and going
+  // around it means running the same writes from an ad-hoc script with no
+  // announcement, no ref check and no backup reminder at all.
+  //
+  // Both paths still demand the same two things of ONE invocation: the override
+  // variable set, and the operator naming the live project ref themselves. What
+  // is given up is only "a human is watching the terminal at this moment". A
+  // wrong ref still refuses; an absent flag on a non-interactive shell still
+  // refuses.
+  const confirmFlag = process.argv.find((a) => a.startsWith('--confirm='))
+  if (confirmFlag) {
+    if (confirmFlag.slice('--confirm='.length).trim() !== PRODUCTION_PROJECT_REF) {
+      die('--confirm did not name the production project. Nothing was written.')
+    }
+    console.warn(`⚠  Confirmed by --confirm. Writing to PRODUCTION.\n   ${opts.action}\n`)
+    return target
+  }
+
   if (!process.stdin.isTTY) {
     die(
       `${OVERRIDE_VAR}=1 is set but this is not an interactive terminal, so the\n` +
-        `  confirmation cannot be answered. Refusing to write to production\n` +
-        `  unattended.`,
+        `  confirmation cannot be answered.\n\n` +
+        `  Either run it from a terminal, or name the project on the command line:\n\n` +
+        `      ${OVERRIDE_VAR}=1 npx tsx scripts/<name>.ts --apply --confirm=${PRODUCTION_PROJECT_REF}\n`,
     )
   }
 

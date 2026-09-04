@@ -1,4 +1,5 @@
 'use client'
+import { Lock, PencilLine, Undo2 } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
 
@@ -72,6 +73,7 @@ export default function JobActions({
               disabled={busy}
               className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white"
             >
+              <Lock aria-hidden size={14} />
               {busy ? 'Closing…' : 'Yes, close it'}
             </button>
             <button
@@ -79,6 +81,7 @@ export default function JobActions({
               onClick={() => setConfirming(false)}
               className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
             >
+              <Undo2 aria-hidden size={14} />
               Keep open
             </button>
           </div>
@@ -87,8 +90,9 @@ export default function JobActions({
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
             href={`/parent/dashboard/job/${jobRef}/edit`}
-            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
+            className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
           >
+            <PencilLine aria-hidden size={14} />
             Edit
           </Link>
           <button

@@ -1,11 +1,13 @@
 'use client'
 
+import { COMPOSER_HINT, isSendKey } from '@/lib/composerKeys'
+import { reportSilentFailure } from '@/lib/silentFailure'
 import { submitSignal } from '@/lib/submit'
 
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Lock, ShieldAlert, ChevronUp, Loader2 } from 'lucide-react'
+import { Ban, ChevronUp, Flag, Loader2, Lock, Send, ShieldAlert } from 'lucide-react'
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import Avatar from '@/components/Avatar'
@@ -107,8 +109,9 @@ export default function Conversation({
       requestAnimationFrame(() => {
         if (el) el.scrollTop = el.scrollHeight - before
       })
-    } catch {
+    } catch (e) {
       // The cursor is untouched, so the button retries exactly this request.
+      reportSilentFailure('Conversation.loadOlder', e)
     } finally {
       setLoadingOlder(false)
     }
@@ -322,24 +325,41 @@ export default function Conversation({
               </span>
             </p>
           ) : (
-            <div className="flex gap-2">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={1}
-                placeholder="Write a message"
-                aria-label="Message"
-                className="min-h-[44px] flex-1 resize-none rounded-xl border border-gray-200 bg-white px-3 py-3 text-xs outline-none focus:border-tm-red"
-              />
-              <button
-                type="button"
-                onClick={send}
-                disabled={busy || !draft.trim()}
-                aria-label="Send message"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-tm-green-deep px-4 text-white disabled:bg-gray-300"
-              >
-                <Send size={16} aria-hidden />
-              </button>
+            <div className="space-y-1">
+              <div className="flex gap-2">
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  // Enter sends, Shift+Enter is a newline, and an open IME is
+                  // left alone -- see lib/composerKeys.ts for why that last
+                  // one is not optional on a platform with Urdu keyboards.
+                  onKeyDown={(e) => {
+                    if (!isSendKey(e)) return
+                    e.preventDefault()
+                    if (!busy && draft.trim()) void send()
+                  }}
+                  rows={1}
+                  placeholder="Write a message"
+                  aria-label="Message"
+                  aria-describedby="composer-hint"
+                  className="min-h-[44px] flex-1 resize-none rounded-xl border border-gray-200 bg-white px-3 py-3 text-xs outline-none focus:border-tm-red"
+                />
+                <button
+                  type="button"
+                  onClick={send}
+                  disabled={busy || !draft.trim()}
+                  aria-label="Send message"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-tm-green-deep px-4 text-white disabled:bg-gray-300"
+                >
+                  <Send size={16} aria-hidden />
+                </button>
+              </div>
+              {/* Stated, not left to be discovered. A shortcut nobody knows
+                  about is a shortcut nobody uses, and the same line warns the
+                  person who was about to press Enter for a paragraph break. */}
+              <p id="composer-hint" className="text-[10px] text-gray-500">
+                {COMPOSER_HINT}
+              </p>
             </div>
           )}
 
@@ -359,16 +379,18 @@ export default function Conversation({
                   type="button"
                   onClick={report}
                   disabled={busy}
-                  className="min-h-[44px] rounded-xl border border-gray-200 px-3 text-[11px] font-bold text-slate-700"
+                  className="inline-flex items-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-3 text-[11px] font-bold text-slate-700"
                 >
+                  <Flag aria-hidden size={14} />
                   Report
                 </button>
                 <button
                   type="button"
                   onClick={block}
                   disabled={busy}
-                  className="min-h-[44px] rounded-xl border border-tm-red px-3 text-[11px] font-bold text-tm-red"
+                  className="inline-flex items-center gap-1.5 min-h-[44px] rounded-xl border border-tm-red px-3 text-[11px] font-bold text-tm-red"
                 >
+                  <Ban aria-hidden size={14} />
                   Block
                 </button>
               </div>
