@@ -20,14 +20,17 @@
     "migrate:avatars": "tsx scripts/migrate-data-uri-avatars.ts",
     "reset:seedcast": "tsx scripts/reset-seed-cast.ts",
     "smoke": "tsx scripts/smoke.ts",
-    "test:blog": "tsx --test scripts/test-blog.ts"
+    "test:blog": "tsx --test scripts/test-blog.ts",
+    "test:cv": "tsx --test scripts/test-cv.ts"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.9.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "googleapis": "^176.0.0",
     "lucide-react": "^1.38.0",
     "next": "16.3.0",
+    "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "recharts": "^3.10.1",
@@ -38,6 +41,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

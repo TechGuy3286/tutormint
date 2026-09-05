@@ -2379,6 +2379,90 @@ the matching-job notification (`notifyMatchingTutors` now also fans out to a
 bounded set of cross-city online tutors, flagged via `notifications.meta.online_suitable`,
 which `NotificationBell` renders as the chip).
 
+## Tutor CV builder — as built (5 Sep 2026)
+
+The conversion feature: most tutors pay a net café to compose a CV, and the
+platform already holds every fact. `/tutor/dashboard/cv` renders a print-ready
+CV from the live profile. No migration — nothing is stored as a separate CV
+record; the profile is the source, edited only in Settings.
+
+**One data mapper feeds two renderers.** `lib/cv/model.ts` is PURE (`toCvModel`,
+no server-only, no DB) so the on-screen preview and the PDF are built from the
+same function and cannot diverge — `lib/cv/build.ts` reads the tutor's OWN
+profile into a `CvRaw` (base tables, NOT `tutor_public_page`, which returns
+nothing for a tutor under 100%; every tutor sees their own preview), and the
+mapper turns it into the `CvModel` both consume. Three rules live in the mapper,
+each unit-tested (`npm run test:cv`): a section with no data is omitted; the
+contact block obeys its "Include my contact details" toggle (default on — it is
+their CV); and the photo is a validated avatar or nothing — `isOurStorageUrl`
+allows only our avatar buckets, so an identity-docs object (a CNIC or selfie), a
+`data:` URI or a foreign host is rejected and can never reach a CV.
+
+**The preview is free; the PDF download is gated at Verified.** Every tutor,
+free included, sees a live on-screen preview (HTML, `components/cv/CvPreview.tsx`,
+no watermark) in either template. Download hits `/api/tutor/cv/pdf`, which
+enforces the gate server-side: `canDownloadCv(ent)` (`lib/cv/access.ts`, pure)
+is Verified-and-above; a free tutor gets the `cv_download` gate response, a
+Verified+ tutor gets `application/pdf`. The dashboard card and the download
+button offer the next plan via the upsell (`UpgradeTrigger reason="cv_download"`
+→ the `/api/gate` short-circuit and planRank guard), never a lower one. A
+successful download toasts and logs `cv_downloaded`.
+
+**The PDF is pure JS, no headless browser.** `@react-pdf/renderer`
+(`lib/cv/pdf.tsx`, Node runtime, `maxDuration=60`), A4 portrait, brand tokens as
+literals from `lib/brand.ts` the way next/og needs them. The font is embedded:
+Geist Regular (OFL, the face Next ships) as a base64 data URI in `lib/cv/font.ts`
+— carried in the PDF's own bytes, so it prints identically at any shop with no
+font file to trace or fetch; emphasis is size + colour, not a second weight. The
+avatar is fetched into a data URI (`lib/cv/assets.ts`, bounded) so the render
+never depends on a live image request, and the footer QR of the profile URL is
+generated with `qrcode`. Two templates: **Classic** (navy header band, photo
+left, mint accent rule) and **Minimal** (white, name over a thin red rule).
+Sections with no data are absent; the footer — "Verified tutor on TutorMint" +
+profile URL + QR — is on both.
+
+**One build/test note.** `@react-pdf/renderer` cannot be imported under the
+`tsx --test` runner — its `@react-pdf/hyphenate` dependency's export map has no
+require/CJS condition — so the tests cover the pure mapper and the access gate;
+the PDF bytes are proven by the build (the route compiles), a local run
+(200 · `application/pdf` · `%PDF-`) and the live smoke. Next's bundler resolves
+the dependency fine, so nothing goes in `serverExternalPackages`.
+
+## Settings, identity cards, shortlist — as built (5 Sep 2026)
+
+Three Minimal-UI fixes alongside the CV builder.
+
+**The inline add-rows wrap and use the primary button.** The subjects add-row on
+the tutor settings page forced a `sm:grid-cols-3` that slid the "Add subject"
+button over the "Advance" radio between ~640 and 768px, and the button was
+`bg-tm-black`. It is now a wrapping layout — input full width, level radios on
+their own line, the button right-aligned — with the `tm-red` primary style. The
+availability add-row (same forced grid) got the same rework. The degree /
+certification rows (`CredentialEditor`) already wrapped; areas and experience are
+plain inputs, no add-row.
+
+**Identity documents are replaced, never removed.** `FileUpload` gained
+`allowRemove` (default true; false on the CNIC front/back and the selfie), so
+those cards show only **Replace** — the file is retained privately either way,
+and "delete then re-upload before you can submit" was a worse flow. The
+`remove-image` action and its client path (`IdentityCard.removeSide`) are gone,
+including the server branch in `/api/identity` (no admin used it). The filled
+`FileUpload` row now wraps cleanly (thumbnail, the "Uploaded" label beside it,
+Replace) instead of clipping the label under the thumbnail on a phone. Each card
+names its own document — **Front CNIC**, **Back CNIC**, **Selfie** — where all
+three read "Front CNIC" before.
+
+**The shortlist finally has a home.** Cards everywhere offer Shortlist, but a
+parent could never see the list — it was write-only. The parent dashboard now
+has a **Shortlisted tutors** section (`components/parent/ShortlistSection.tsx`):
+the same `TutorCard`/`CardActions` row with the in-card Shortlist toggle hidden
+(`hideShortlist`), plus one explicit **Remove from shortlist** with a confirm and
+a toast that drops the card. An `EmptyState` shows when there are none.
+`tutorCardsByIds` (`lib/browseTutors.ts`) loads the cards from `tutor_directory`
+— so a tutor who has since unlisted drops out — ordered by the shortlist's own
+`created_at`. No new table: `shortlists` (RLS `user_id = auth.uid()`) already
+existed.
+
 ## Roadmap — remaining (4 Sep 2026)
 
 The state of the world as of this date, so the next session starts from the plan

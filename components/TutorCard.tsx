@@ -145,12 +145,20 @@ export default function TutorCard({
   viewer = GUEST,
   initiallySaved = false,
   showMessage = false,
+  hideShortlist = false,
 }: {
   tutor: TutorCardData
   viewer?: CardViewer
   initiallySaved?: boolean
   /** Shown to guests and to parents; a tutor browsing tutors cannot message them. */
   showMessage?: boolean
+  /**
+   * Omit the Shortlist toggle. Used on the parent's own "Shortlisted tutors"
+   * section, where removal is an explicit "Remove from shortlist" with a
+   * confirm — so an in-card toggle that silently un-saves would be a second,
+   * confusing path.
+   */
+  hideShortlist?: boolean
 }) {
   const [saved, setSaved] = useState(initiallySaved)
   const [busy, setBusy] = useState(false)
@@ -423,15 +431,19 @@ export default function TutorCard({
                     onClick: requestDemo,
                     disabled: busy,
                   },
-                  {
-                    key: 'shortlist',
-                    label: saved ? 'Shortlisted' : 'Shortlist',
-                    icon: <Heart size={14} className={saved ? 'fill-tm-red' : ''} aria-hidden />,
-                    className: 'border border-tm-red text-tm-red hover:bg-tm-tint-red',
-                    onClick: toggleShortlist,
-                    disabled: busy,
-                    ariaPressed: saved,
-                  },
+                  ...(hideShortlist
+                    ? []
+                    : [
+                        {
+                          key: 'shortlist',
+                          label: saved ? 'Shortlisted' : 'Shortlist',
+                          icon: <Heart size={14} className={saved ? 'fill-tm-red' : ''} aria-hidden />,
+                          className: 'border border-tm-red text-tm-red hover:bg-tm-tint-red',
+                          onClick: toggleShortlist,
+                          disabled: busy,
+                          ariaPressed: saved,
+                        } as CardAction,
+                      ]),
                 ] as CardAction[]
               }
             />

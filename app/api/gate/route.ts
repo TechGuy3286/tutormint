@@ -41,6 +41,7 @@ const ALLOWED: GateReason[] = [
   'tutor_contact',
   'tutor_message',
   'tutor_viewer_identity',
+  'cv_download',
   'parent_contact',
   'parent_hire',
   'parent_verify',
@@ -78,7 +79,11 @@ export async function POST(request: Request) {
     (reason === 'parent_contact' && ent.canViewContact) ||
     (reason === 'tutor_contact' && ent.canViewContact) ||
     (reason === 'parent_hire' && ent.canHire) ||
-    (reason === 'tutor_message' && ent.canInitiateMessage)
+    (reason === 'tutor_message' && ent.canInitiateMessage) ||
+    // A Verified+ tutor already owns the CV download; do not sell it back.
+    (reason === 'cv_download' &&
+      ent.audience === 'tutor' &&
+      planRank('tutor', ent.plan) >= planRank('tutor', 'verified'))
   ) {
     return NextResponse.json({ gate: null })
   }

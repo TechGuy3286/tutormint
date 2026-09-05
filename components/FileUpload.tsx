@@ -59,6 +59,13 @@ export type FileUploadProps = {
    * discards a freshly-picked, not-yet-uploaded file.
    */
   onRemove?: () => Promise<void> | void
+  /**
+   * Show the Remove button. Default true. Off for the identity documents (CNIC
+   * front/back, selfie), where Replace is the only action — a member does not
+   * delete an identity document, they replace it; the file is retained
+   * privately either way.
+   */
+  allowRemove?: boolean
   /** Owned by the caller when the upload is driven from outside. */
   busy?: boolean
   /**
@@ -97,6 +104,7 @@ export default function FileUpload({
   maxBytes = 5 * MB,
   onFile,
   onRemove,
+  allowRemove = true,
   busy = false,
   currentPreview,
   shape = 'wide',
@@ -198,7 +206,7 @@ export default function FileUpload({
   const showFrame = !!chosen || hasStored
 
   const actions = (
-    <div className="flex shrink-0 gap-1">
+    <div className="flex gap-1">
       <button
         type="button"
         onClick={() => input.current?.click()}
@@ -208,16 +216,18 @@ export default function FileUpload({
         <RefreshCw aria-hidden size={13} />
         Replace
       </button>
-      <button
-        type="button"
-        onClick={() => void remove()}
-        disabled={working}
-        aria-label={`Remove ${label}`}
-        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold text-tm-red transition-colors hover:bg-tm-tint-red disabled:opacity-60"
-      >
-        <X aria-hidden size={13} />
-        Remove
-      </button>
+      {allowRemove && (
+        <button
+          type="button"
+          onClick={() => void remove()}
+          disabled={working}
+          aria-label={`Remove ${label}`}
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold text-tm-red transition-colors hover:bg-tm-tint-red disabled:opacity-60"
+        >
+          <X aria-hidden size={13} />
+          Remove
+        </button>
+      )}
     </div>
   )
 
@@ -327,7 +337,7 @@ export default function FileUpload({
               <Camera aria-hidden size={13} />
               {inWell ? changeLabel : 'Choose a photo'}
             </button>
-            {chosen && (
+            {allowRemove && chosen && (
               <button
                 type="button"
                 onClick={() => void remove()}
@@ -370,7 +380,10 @@ export default function FileUpload({
       />
 
       {showFrame ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3">
+        // Wraps cleanly: the thumbnail and its "Uploaded" label stay together,
+        // and Replace drops onto its own line when the card is too narrow to
+        // hold all three — instead of the label being clipped under the thumb.
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3">
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-tm-bg">
             {chosen?.url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -387,7 +400,7 @@ export default function FileUpload({
               </span>
             )}
           </div>
-          <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="min-w-0 flex-1 basis-40 space-y-0.5">
             <p className="truncate text-xs font-bold text-tm-navy">{label}</p>
             <p className="text-[11px] text-gray-500">
               {removing ? 'Removing…' : working ? 'Uploading…' : 'Uploaded'}

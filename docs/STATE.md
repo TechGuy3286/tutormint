@@ -430,3 +430,34 @@ no change to matching logic, entitlements or the seed cast.
 - **`TaxonomySelector`** `allowSelectAll` prop (off for post-a-tuition).
 - **`components/EmptyState.tsx`** — one icon/sentence/action, wired into the weak
   and missing list empties across both roles.
+
+## Tutor CV builder + settings/identity/shortlist fixes (5 Sep 2026)
+
+A conversion feature plus three Minimal-UI fixes. No migration (shortlists and
+the profile tables already exist).
+
+- **Tutor CV builder** — `/tutor/dashboard/cv`. One pure data mapper
+  (`lib/cv/model.ts` `toCvModel`) feeds both the HTML preview
+  (`components/cv/CvPreview.tsx`) and the PDF (`lib/cv/pdf.tsx`, @react-pdf/renderer,
+  Node runtime); `lib/cv/build.ts` reads the tutor's own profile into a CvRaw.
+  Preview is free to every tutor; the PDF download is gated at Verified
+  (`lib/cv/access.ts` `canDownloadCv`; `/api/tutor/cv/pdf` returns the gate for a
+  free tutor, `application/pdf` for Verified+; logs `cv_downloaded`). New gate
+  reason `cv_download` (verified) in `lib/gate.ts` + `/api/gate`. Font embedded
+  as base64 (`lib/cv/font.ts`, Geist OFL); QR + avatar data URIs in
+  `lib/cv/assets.ts`. Two templates (Classic/Minimal). Photo validated to avatar
+  buckets — identity docs can never reach a CV. Dashboard card
+  `components/tutor/CvCard.tsx` + a Settings link. Tests: `scripts/test-cv.ts`
+  (`npm run test:cv`, 8 assertions — mapper omissions/contact toggle/identity-doc
+  rejection, and the access gate). Deps added: `@react-pdf/renderer`, `qrcode`.
+- **Settings add-rows** — subjects and availability rows rewrapped (input full
+  width, radios own line, right-aligned `tm-red` button); no more overlap at the
+  sm breakpoint.
+- **Identity cards** — `FileUpload` `allowRemove` (false for CNIC front/back +
+  selfie); Replace is the only action; `remove-image` client path + server
+  branch deleted; filled row wraps (label no longer clipped); labels are now
+  "Front CNIC" / "Back CNIC" / "Selfie".
+- **Shortlist** — parent dashboard "Shortlisted tutors" section
+  (`components/parent/ShortlistSection.tsx`) with `TutorCard` (new `hideShortlist`
+  prop) + "Remove from shortlist" (confirm + toast) + `EmptyState`.
+  `tutorCardsByIds` in `lib/browseTutors.ts`. No new table.

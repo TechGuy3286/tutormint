@@ -7,7 +7,8 @@ import { teachingMode } from '@/lib/display'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
-import { X, Plus, Save } from 'lucide-react'
+import Link from 'next/link'
+import { X, Plus, Save, FileText, ArrowRight } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
 import type { Identity } from '@/lib/identity'
@@ -425,6 +426,23 @@ export default function TutorSettingsPage() {
         </p>
       </header>
 
+      {/* Everything on this page also builds the tutor's CV. */}
+      <Link
+        href="/tutor/dashboard/cv"
+        className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-tm-navy"
+      >
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-tm-tint-navy text-tm-navy">
+          <FileText aria-hidden size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black text-tm-navy">Your CV</p>
+          <p className="text-[11px] text-gray-500">
+            A print-ready CV, built from everything on this page.
+          </p>
+        </div>
+        <ArrowRight aria-hidden size={16} className="shrink-0 text-tm-red" />
+      </Link>
+
       {uploading && (
         <p className="rounded-xl border border-tm-navy/20 bg-tm-tint-navy p-3 text-xs font-bold text-tm-navy">
           Uploading securely…
@@ -500,11 +518,12 @@ export default function TutorSettingsPage() {
               }
             />
             <FileUpload
-              label="Verification selfie"
+              label="Selfie"
               acceptLabel="JPG or PNG"
               shape="square"
               changeLabel="Retake"
               busy={uploading}
+              allowRemove={false}
               onFile={handleSelfieCapture}
               currentPreview={
                 selfiePreviewUrl ? (
@@ -604,8 +623,12 @@ export default function TutorSettingsPage() {
               ))}
             </ul>
           )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-center">
-            <label className="block sm:col-span-1">
+          {/* Input full width, the level radios on their own line, the button
+              right-aligned — a wrapping layout so nothing collides at any width
+              (the old sm:grid-cols-3 forced the button over the "Advance"
+              radio between ~640 and 768px). */}
+          <div className="space-y-3">
+            <label className="block">
               <span className="sr-only">Subject</span>
               <input
                 type="text"
@@ -615,27 +638,29 @@ export default function TutorSettingsPage() {
                 className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
               />
             </label>
-            <div className="flex items-center gap-4 text-xs font-bold text-tm-navy">
-              {['Basic', 'Expert', 'Advance'].map((lvl) => (
-                <label key={lvl} className="flex cursor-pointer items-center gap-1.5">
-                  <input
-                    type="radio"
-                    name="expertiseLevel"
-                    value={lvl}
-                    checked={newLevelInput === lvl}
-                    onChange={(e) => setNewLevelInput(e.target.value)}
-                  />
-                  {lvl}
-                </label>
-              ))}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-tm-navy">
+                {['Basic', 'Expert', 'Advance'].map((lvl) => (
+                  <label key={lvl} className="flex cursor-pointer items-center gap-1.5">
+                    <input
+                      type="radio"
+                      name="expertiseLevel"
+                      value={lvl}
+                      checked={newLevelInput === lvl}
+                      onChange={(e) => setNewLevelInput(e.target.value)}
+                    />
+                    {lvl}
+                  </label>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={addSpecialtySubject}
+                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
+              >
+                <Plus aria-hidden size={14} /> Add subject
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={addSpecialtySubject}
-              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-black px-4 text-xs font-bold text-white"
-            >
-              <Plus aria-hidden size={14} /> Add subject
-            </button>
           </div>
         </Card>
 
@@ -664,38 +689,45 @@ export default function TutorSettingsPage() {
               ))}
             </ul>
           )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-center">
-            <label className="block">
-              <span className="sr-only">Day</span>
-              <select
-                value={newDayInput}
-                onChange={(e) => setNewDayInput(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+          {/* Two fields side by side, the button on its own line below — the
+              same wrapping rework as the subjects row, so the forced three-up
+              grid can no longer crowd the button at the sm breakpoint. */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="sr-only">Day</span>
+                <select
+                  value={newDayInput}
+                  onChange={(e) => setNewDayInput(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+                >
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="sr-only">Time slot</span>
+                <input
+                  type="text"
+                  value={newTimeInput}
+                  onChange={(e) => setNewTimeInput(e.target.value)}
+                  placeholder="Time, e.g. 4:00 PM – 7:00 PM"
+                  className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+                />
+              </label>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={addAvailabilitySlot}
+                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
               >
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="sr-only">Time slot</span>
-              <input
-                type="text"
-                value={newTimeInput}
-                onChange={(e) => setNewTimeInput(e.target.value)}
-                placeholder="Time, e.g. 4:00 PM – 7:00 PM"
-                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={addAvailabilitySlot}
-              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-black px-4 text-xs font-bold text-white"
-            >
-              <Plus aria-hidden size={14} /> Add time
-            </button>
+                <Plus aria-hidden size={14} /> Add time
+              </button>
+            </div>
           </div>
         </Card>
 

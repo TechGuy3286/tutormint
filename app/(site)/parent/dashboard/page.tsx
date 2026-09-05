@@ -8,6 +8,9 @@ import IdentityBlock from '@/components/dashboard/IdentityBlock'
 import NeedsYou from '@/components/dashboard/NeedsYou'
 import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
 import IdentityStatusLine from '@/components/identity/IdentityStatusLine'
+import ShortlistSection from '@/components/parent/ShortlistSection'
+import { type CardViewer } from '@/components/TutorCard'
+import { tutorCardsByIds } from '@/lib/browseTutors'
 import { getSessionUser } from '@/lib/auth'
 import { loadIdentity } from '@/lib/identity'
 import { recentActivity } from '@/lib/dashboardFeed'
@@ -62,6 +65,7 @@ export default async function ParentDashboardPage() {
     unreadMessages,
     { data: demos },
     { data: children },
+    { data: shortlisted },
   ] = await Promise.all([
       parentNeeds({
         userId,
@@ -88,7 +92,24 @@ export default async function ParentDashboardPage() {
       unreadMessageCount(userId),
       supabase.from('demo_requests').select('id, status').eq('parent_id', userId),
       supabase.from('children').select('id').eq('parent_id', userId),
+      // The parent's shortlist, newest first. RLS scopes it to their own rows.
+      supabase.from('shortlists').select('tutor_id, created_at').order('created_at', { ascending: false }),
     ])
+
+  // Full cards for the shortlisted tutors, in shortlist order. Reads the
+  // listing view, so any that have since unlisted or been suspended drop out.
+  const shortlistIds = (shortlisted ?? []).map((s) => s.tutor_id as string)
+  const shortlistCards = await tutorCardsByIds(shortlistIds)
+  const shortlistOrder = new Map(shortlistIds.map((id, i) => [id, i]))
+  shortlistCards.sort(
+    (a, b) => (shortlistOrder.get(a.id) ?? 0) - (shortlistOrder.get(b.id) ?? 0),
+  )
+  const shortlistViewer: CardViewer = {
+    signedIn: true,
+    role: ent.role,
+    verifiedParent: ent.audience === 'parent' && !!ent.plan,
+    canInitiateMessage: ent.canInitiateMessage,
+  }
 
   const allJobs = jobs ?? []
   const openJobs = allJobs.filter((j) => j.status === 'open')
@@ -249,6 +270,10 @@ export default async function ParentDashboardPage() {
         />
 
         <YourThings rows={things} />
+
+        {/* The shortlist finally has a home — the cards a parent saved, which
+            until now they could add to but never see. */}
+        <ShortlistSection initial={shortlistCards} viewer={shortlistViewer} />
 
         {/* The parent dashboard slot from the revenue spec. One per page. */}
         <AdSlot slot="parent-sidebar" audience="parents" viewerRole="parent" viewerPlan={ent.plan} />

@@ -78,6 +78,7 @@ export type GateReason =
   | 'tutor_message'
   | 'tutor_contact'
   | 'tutor_viewer_identity'
+  | 'cv_download'
   | 'parent_verify'
   | 'parent_hire'
   | 'parent_contact'
@@ -101,6 +102,9 @@ const REQUIRES: Record<GateReason, string | null> = {
   // looked at you is what the Rs 199 plan is for, and Premium's argument is
   // 25 applications, WhatsApp and search priority.
   tutor_viewer_identity: 'verified',
+  // Downloading the print-ready CV built from the profile. Verified (199) and
+  // above; the preview is free to everyone, only the download is gated.
+  cv_download: 'verified',
   parent_hire: 'parent_featured',
   parent_contact: 'parent_featured',
   parent_post_quota: 'parent_featured',
@@ -259,6 +263,21 @@ async function buildBaseGate(
           'Verified shows the name and photo of every parent who opens your profile, alongside ' +
           'the subject and area they searched for — so you know who is looking before you spend ' +
           'an application. It also puts you above free tutors in search.',
+        audience: 'tutor',
+        plan,
+        href: packagesHref('tutor', required),
+        ctaLabel: 'See Verified',
+        actionable: true,
+      }
+
+    case 'cv_download':
+      return {
+        kind: 'upgrade',
+        title: 'Download your CV with Verified',
+        body:
+          'Your CV is built from your profile and yours to preview any time. Verified unlocks the ' +
+          'print-ready PDF — with your verified badge — to send to parents and print at any shop. ' +
+          'It also puts you above free tutors in search.',
         audience: 'tutor',
         plan,
         href: packagesHref('tutor', required),

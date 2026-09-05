@@ -5,6 +5,8 @@ import AdSlot from '@/components/ads/AdSlot'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
 import EmptyState from '@/components/EmptyState'
 import VerifiedShareCard from '@/components/tutor/VerifiedShareCard'
+import CvCard from '@/components/tutor/CvCard'
+import { canDownloadCv } from '@/lib/cv/access'
 import { absoluteUrl } from '@/lib/siteUrl'
 import ActivityBand from '@/components/dashboard/ActivityBand'
 import NeedsYou from '@/components/dashboard/NeedsYou'
@@ -246,6 +248,10 @@ export default async function TutorDashboardPage() {
             firstName={(session?.profile?.full_name ?? 'there').split(' ')[0]}
           />
         )}
+
+        {/* Your CV — the print-ready CV built from the profile. Preview is free
+            to every tutor; the download is Verified-gated (via the upsell). */}
+        <CvCard canDownload={canDownloadCv(ent)} />
 
         {/* ------------------------------------------- the 199 funnel --- */}
         <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} />

@@ -76,6 +76,8 @@ export type ActivityEvent =
   // T8a — email confirmation and notification preferences.
   | 'email_confirmed'
   | 'email_preferences_changed'
+  // A tutor downloaded their CV PDF (the Verified-gated conversion feature).
+  | 'cv_downloaded'
 
 export async function logActivity(params: {
   userId: string

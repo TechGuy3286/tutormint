@@ -280,3 +280,64 @@ export async function tutorCardBySlug(slug: string): Promise<TutorCardData | nul
     plan_code: planCode,
   }
 }
+
+/**
+ * Full cards for a set of tutor ids, for the parent's shortlist section.
+ *
+ * Reads tutor_directory (the listing view), so a tutor the parent shortlisted
+ * who has since unlisted or been suspended simply drops out — the shortlist can
+ * only ever show tutors the site itself is still showing. Subject chips get
+ * their landing links exactly as the browse list does, and the active plan is
+ * resolved in one batched service-role query so the badges match everywhere
+ * else. `.in('id', ids)` does not preserve order; the caller sorts.
+ */
+export async function tutorCardsByIds(ids: string[]): Promise<TutorCardData[]> {
+  if (ids.length === 0) return []
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('tutor_directory')
+    .select(
+      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, hourly_rate_pkr, experience_years, rating_avg, rating_count',
+    )
+    .in('id', ids)
+  const rows = (data ?? []) as Record<string, unknown>[]
+  if (rows.length === 0) return []
+
+  const base: RankedTutor[] = rows.map(
+    (d) =>
+      ({
+        ...d,
+        subject_labels: null,
+        plan_code: null,
+        tier: 0,
+        location_score: 0,
+        score: 0,
+        sort_hash: '',
+        total_count: 0,
+      }) as RankedTutor,
+  )
+  const withLinks = await withSubjectLinks(supabase, base)
+
+  // Active plan per tutor, batched. Service role — subscriptions is owner/admin
+  // only under RLS. A missing key just means no badge, never a broken card.
+  const planByUser = new Map<string, string>()
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+  if (admin) {
+    const { data: subs } = await admin
+      .from('subscriptions')
+      .select('user_id, plan_code')
+      .eq('status', 'active')
+      .gt('expires_at', new Date().toISOString())
+      .in('user_id', ids)
+    for (const s of subs ?? []) {
+      if (!planByUser.has(s.user_id as string)) planByUser.set(s.user_id as string, s.plan_code as string)
+    }
+  }
+
+  return withLinks.map((t) => ({
+    ...t,
+    subject_labels: (t.subject_links ?? []).map((l) => l.label),
+    plan_code: planByUser.get(t.id) ?? null,
+  }))
+}

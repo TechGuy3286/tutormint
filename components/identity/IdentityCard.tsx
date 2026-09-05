@@ -7,7 +7,6 @@ import { useState } from 'react'
 import FileUpload from '@/components/FileUpload'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import { useToast } from '@/components/ui/Toast'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { CNIC_FORMAT_HINT, formatCnic, isValidCnic, maskCnic } from '@/lib/cnic'
 import { formatDate } from '@/lib/datetime'
 import type { Identity } from '@/lib/identity'
@@ -60,7 +59,6 @@ const CONSEQUENCE: Record<Props['role'], string> = {
 export default function IdentityCard({ identity, role }: Props) {
   const router = useRouter()
   const toast = useToast()
-  const confirm = useConfirm()
 
   const [number, setNumber] = useState(identity.cnicNumber ?? '')
   const [front, setFront] = useState(identity.front)
@@ -97,32 +95,10 @@ export default function IdentityCard({ identity, role }: Props) {
     return true
   }
 
-  // Delete a stored CNIC image. Confirm first (it is destructive — the member
-  // has to re-upload before they can submit), then the server delete, then the
-  // toast. Passed to FileUpload as onRemove; this is the fix for the Remove
-  // button that did nothing.
-  async function removeSide(side: 'front' | 'back') {
-    const doc = side === 'front' ? front : back
-    if (!doc) return
-    const ok = await confirm({
-      title: `Remove the ${side} of your CNIC?`,
-      body: 'You will need to upload it again before you can send your card for checking.',
-      confirmLabel: 'Remove',
-    })
-    if (!ok) return
-    const { ok: done, error: failed } = await submitJson('/api/identity', {
-      action: 'remove-image',
-      documentId: doc.id,
-    })
-    if (!done) {
-      toast.error(failed ?? 'That could not be removed.')
-      return
-    }
-    if (side === 'front') setFront(null)
-    else setBack(null)
-    toast.success(`${side === 'front' ? 'Front' : 'Back'} of your CNIC removed.`)
-    router.refresh()
-  }
+  // A stored identity document is REPLACED, never removed — the file is
+  // retained privately either way, and "delete then re-upload before you can
+  // submit" is a worse flow than replacing in place. So there is no remove
+  // path here (and none in /api/identity): Replace is the only action.
 
   async function upload(file: File, side: 'front' | 'back') {
     setError('')
@@ -290,28 +266,28 @@ export default function IdentityCard({ identity, role }: Props) {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FileUpload
-              label="Front of your CNIC"
+              label="Front CNIC"
               acceptLabel="JPG or PNG"
               hint="All four corners in frame, and the text readable."
               disabled={!isValidCnic(number)}
+              allowRemove={false}
               onFile={(f) => upload(f, 'front')}
-              onRemove={front ? () => removeSide('front') : undefined}
               currentPreview={
                 front ? (
-                  <SecureDocumentPreview documentId={front.id} alt="Front of your CNIC" />
+                  <SecureDocumentPreview documentId={front.id} alt="Front CNIC" />
                 ) : undefined
               }
             />
             <FileUpload
-              label="Back of your CNIC"
+              label="Back CNIC"
               acceptLabel="JPG or PNG"
               hint="The side with the address and the expiry date."
               disabled={!isValidCnic(number)}
+              allowRemove={false}
               onFile={(f) => upload(f, 'back')}
-              onRemove={back ? () => removeSide('back') : undefined}
               currentPreview={
                 back ? (
-                  <SecureDocumentPreview documentId={back.id} alt="Back of your CNIC" />
+                  <SecureDocumentPreview documentId={back.id} alt="Back CNIC" />
                 ) : undefined
               }
             />
@@ -339,8 +315,8 @@ export default function IdentityCard({ identity, role }: Props) {
       ) : (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <Thumb doc={front} label="Front" />
-            <Thumb doc={back} label="Back" />
+            <Thumb doc={front} label="Front CNIC" />
+            <Thumb doc={back} label="Back CNIC" />
           </div>
 
           {state === 'submitted' ? (
@@ -385,7 +361,7 @@ function Thumb({ doc, label }: { doc: { id: string } | null; label: string }) {
     <div className="space-y-1">
       <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">{label}</p>
       {doc ? (
-        <SecureDocumentPreview documentId={doc.id} alt={`${label} of your CNIC`} />
+        <SecureDocumentPreview documentId={doc.id} alt={label} />
       ) : (
         <p className="grid min-h-[72px] place-items-center rounded-xl border border-dashed border-gray-200 bg-tm-bg text-[11px] font-bold text-gray-500">
           Not uploaded
