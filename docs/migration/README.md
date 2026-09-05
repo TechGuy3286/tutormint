@@ -134,7 +134,7 @@ Byte content verified: 123/123 objects copied, a 5% SHA-256 sample byte-identica
 ## Latency (median server-side query, warm)
 
 - Sydney (pre-flight baseline): **465.375 ms**
-- Mumbai (post-cutover): __TBD_AT_CUTOVER__ ms
+- Mumbai (post-cutover): **115.6 ms** median (min 79, max 204), vs Sydney **372.3 ms** measured at the same time — **~3.2× faster** from this operator's location (Pakistan is far closer to Mumbai than to Sydney). Vercel functions run in `bom1` (Mumbai), co-located with the database.
 
 ## Rollback — env-only (Sydney is untouched)
 
