@@ -120,24 +120,18 @@ export default function NotificationBell({
     }
   }, [open])
 
-  // A new notification lands live: increment the badge without a reload, and if
-  // the panel is open, drop the row in at the top. Filtered to this member's own
-  // rows server-side (and RLS applies on top), so an admin's bell does not tick
-  // for the whole platform. See migration 54 (notifications in the realtime
-  // publication).
+  // A new notification lands live: increment the badge without a reload.
+  // notify() broadcasts a contentless 'new' signal to `notify:<userId>` (see
+  // lib/notifications.ts); we subscribe and bump the count. Broadcast, not
+  // postgres_changes — the same transport the messages system uses on
+  // production — so there is no RLS-on-the-socket subtlety, and since the wire
+  // carries no data, a guessed channel leaks nothing. The exact count re-syncs
+  // from the authenticated route whenever the panel opens.
   useEffect(() => {
     const supabase = createClient()
     const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        (payload) => {
-          const row = payload.new as NotificationRow
-          setUnread((u) => u + 1)
-          setItems((prev) => (prev ? [row, ...prev] : prev))
-        },
-      )
+      .channel(`notify:${userId}`)
+      .on('broadcast', { event: 'new' }, () => setUnread((u) => u + 1))
       .subscribe()
     return () => {
       void supabase.removeChannel(channel)

@@ -2699,11 +2699,15 @@ preview** (react-pdf `Svg` paths in the neutral the preview uses, not "•").
 **Notification bell.** The badge caps at **99 → "99+"** (was 9 → "9+").
 **"Mark all read"** exists now — a bell-panel button and a full-page button
 (`markAllRead` + `/api/notifications/read-all`) that zero the count. A **new
-notification increments the badge live over Realtime** without a reload:
-`NotificationBell` subscribes to `postgres_changes` INSERT on `notifications`
-filtered `user_id=eq.<me>` (migration 54 adds the table to the
-`supabase_realtime` publication; RLS applies on top, so a member receives only
-their own). Opening the panel still marks the shown unread read and drops the
+notification increments the badge live** without a reload: `notify()` broadcasts
+a contentless `new` signal to `notify:<userId>` (Supabase's HTTP broadcast
+endpoint, service role) and `NotificationBell` subscribes and bumps the count.
+Broadcast, not `postgres_changes` — the transport the messages system already
+uses on production, with no RLS-on-the-socket subtlety, and carrying no data so
+a guessed channel leaks nothing; the exact count re-syncs from the authenticated
+route on panel open. (Migration 54 added `notifications` to the
+`supabase_realtime` publication as a belt-and-braces option; the live path is the
+broadcast.) Opening the panel still marks the shown unread read and drops the
 badge; the count equals `/account/notifications` (same `unreadCount`). The
 dashboard "Messages" tile remains a deliberate `message_received`-only subset of
 the bell's total — it reads the same rows, so it agrees on messages; it is not

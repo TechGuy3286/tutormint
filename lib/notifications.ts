@@ -11,6 +11,31 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// A live SIGNAL to the recipient's bell — no content crosses the wire, just
+// "you have a new one". The bell (components/notifications/NotificationBell.tsx)
+// subscribes to `notify:<userId>` and increments; on panel open it re-syncs the
+// exact count from the authenticated route. Broadcast (not postgres_changes) for
+// the same reason the messages system uses it: it works through Supabase's HTTP
+// broadcast endpoint with no RLS-on-the-socket subtlety, and it carries no data,
+// so a guessed channel name leaks nothing. Fire-and-forget: a notification that
+// is stored must never be reported as failed because the live ping did not send.
+async function broadcastNotify(userIds: string[]): Promise<void> {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!base || !key || userIds.length === 0) return
+  try {
+    await fetch(`${base}/realtime/v1/api/broadcast`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: key, Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        messages: [...new Set(userIds)].map((id) => ({ topic: `notify:${id}`, event: 'new', payload: {} })),
+      }),
+    })
+  } catch {
+    /* the row is stored; the live ping is best-effort */
+  }
+}
+
 export type NotificationKind =
   | 'application_received'
   | 'application_withdrawn'
@@ -100,7 +125,11 @@ export async function notify(params: {
     meta: params.meta ?? {},
   })
 
-  if (error) console.error('[notify] failed', params.kind, error.message)
+  if (error) {
+    console.error('[notify] failed', params.kind, error.message)
+    return
+  }
+  await broadcastNotify([params.userId])
 }
 
 /** Same notification to several people — used when a job is filled. */
@@ -121,5 +150,9 @@ export async function notifyMany(
     })),
   )
 
-  if (error) console.error('[notify] bulk failed', params.kind, error.message)
+  if (error) {
+    console.error('[notify] bulk failed', params.kind, error.message)
+    return
+  }
+  await broadcastNotify(userIds)
 }
