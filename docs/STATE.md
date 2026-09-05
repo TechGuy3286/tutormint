@@ -461,3 +461,30 @@ the profile tables already exist).
   (`components/parent/ShortlistSection.tsx`) with `TutorCard` (new `hideShortlist`
   prop) + "Remove from shortlist" (confirm + toast) + `EmptyState`.
   `tutorCardsByIds` in `lib/browseTutors.ts`. No new table.
+
+## Tutor dashboard cleanup (5 Sep 2026)
+
+`app/tutor/dashboard/page.tsx`. No migration; seed cast untouched.
+
+- **On-demand share card.** The always-present "You're verified" card (which
+  rendered a satori image on every dashboard load) is replaced by
+  `components/tutor/ShareVerifiedBadge.tsx` — a "Share your verified badge" text
+  link in the header card (`IdentityBlock`'s new `extra` slot), listed tutors
+  only, opening a dialog that renders the card + its three share buttons on
+  click. Nothing renders before the click. `VerifiedShareCard.tsx` deleted;
+  `/api/tutor/social/verified` route kept.
+- **Order** (both widths): header → teaser → Needs you → identity line → CV →
+  Activity → Your things. Teaser is first with nothing above it (reverses the
+  "Needs you first" band order per owner instruction); free-only position +
+  matching-jobs cards stay grouped under the teaser. Needs you now sits directly
+  above the identity line — the empty gap between them is gone.
+- **Badge/identity contradiction = seed-data gap, not a gate bug.** Badges are
+  gated on `tutor_profiles.verification_status` (`tutorListed`/`ent.listed`); the
+  identity line was reading `profiles.cnic_verified_at`/`verification_state`. For
+  every listed verified seed tutor those disagree (verified + 100% but CNIC
+  columns unset, despite uploaded CNIC docs). Display-only fix: a tutor's
+  identity line reads "Verified" when `verification_status === 'verified'`
+  (the admin decision IS the tutor's identity approval), mirroring the parent
+  dashboard's override. Inconsistent seed rows reported to the owner in
+  CLAUDE.md; the cast is not touched (`reset-seed-cast.ts` sets tutor CNIC
+  columns for no one, so the gap persists across resets).

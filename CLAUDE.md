@@ -1228,6 +1228,13 @@ Neither rule was edited to fit. If the owner would rather have the teaser
 literally first, that is a one-line move in that file — but it needs to be an
 instruction, because it silently costs the blocking item its position.
 
+**Superseded 5 Sep 2026 — the teaser is now literally first.** The owner gave
+the instruction the last paragraph asked for: the "Who looked at you" teaser
+sits immediately below the header card, with nothing above it, and NEEDS YOU
+moves below it. See "Tutor dashboard cleanup, as built (5 Sep 2026)". The
+conversion rule wins the tie now; the blocking-item argument stands but the
+owner chose the upsell surface's position over it deliberately.
+
 ## Landing pages, as built (T9.1, 4 Sep 2026)
 
 City × subject landing pages — `/tutors/[city]/[subject]` and
@@ -2462,6 +2469,78 @@ a toast that drops the card. An `EmptyState` shows when there are none.
 — so a tutor who has since unlisted drops out — ordered by the shortlist's own
 `created_at`. No new table: `shortlists` (RLS `user_id = auth.uid()`) already
 existed.
+
+## Tutor dashboard cleanup, as built (5 Sep 2026)
+
+Three fixes to `app/tutor/dashboard/page.tsx`. No migration; the seed cast is
+untouched.
+
+**The "You're verified" share card is on demand now, not on every load.** It
+was an always-present section whose `<img src="/api/tutor/social/verified">`
+fired a **satori image render on the server on every dashboard load** — a real
+cost paid on each visit for a conversion surface almost nobody used, and no
+Claude API is involved either way. It is now a small text link,
+`components/tutor/ShareVerifiedBadge.tsx` ("Share your verified badge", Share2
+icon), rendered in the header card (`IdentityBlock`'s new optional `extra` slot)
+beside "View your public profile" and only for a **listed** tutor. Clicking
+opens a dialog that renders the card and its three buttons at that moment — the
+image element mounts only while the dialog is open, so nothing is generated
+before the click. `VerifiedShareCard.tsx` is deleted; the
+`/api/tutor/social/verified` route stays (it now serves the on-demand dialog).
+The dialog carries the same accessibility contract as `ConfirmDialog` (Escape
+and backdrop close, focus into the dialog on open and back to the trigger on
+close).
+
+**Dashboard order, both widths:** header card → "Who looked at you" teaser →
+Needs you → Identity status line → CV card → Activity → Your things. The teaser
+sits immediately below the header with **nothing above it** — this reverses the
+"NEEDS YOU first" band order (see that section, now superseded); the owner chose
+the primary upsell surface's position over the blocking-item argument. The
+free-only funnel siblings (the "Your position" and "Jobs matching you this week"
+cards) stay grouped directly under the teaser, since they are the same 199
+funnel and "nothing above the teaser" puts the funnel at the top. Needs you now
+sits directly above the identity status line — no card between them — which
+removes the empty gap the owner saw there.
+
+**The badge / identity-line contradiction was a seed-data gap, not a gate bug.**
+A listed seed tutor (e.g. Ali Raza = `seed+featured-ali`) showed Verified +
+Premium + Featured badges while the identity line read "Not submitted". The
+badge is correctly gated on `tutor_directory`'s rule via
+`tutorListed()`/`ent.listed`, which keys on `tutor_profiles.verification_status`
+— NOT on the CNIC columns. The identity line, however, was reading
+`loadIdentity`'s state, which comes from `profiles.cnic_verified_at` /
+`verification_state`. For every listed verified seed tutor those two facts
+disagree: `verification_status='verified'` and completion 100 (so badges show),
+but `cnic_verified_at` is null and `verification_state='none'` (so the line said
+"Not submitted") — even though they have uploaded CNIC docs (`cnic_number`,
+`cnic_image_path` and ≥1 `user_documents` cnic row all present). In production
+the two move together through the moderation flow; the seed set
+`verification_status` directly and never advanced the CNIC columns.
+
+The fix is display-only and does not touch the seed: for a **tutor**, the
+identity line reads "Identity: Verified" whenever
+`tutor_profiles.verification_status === 'verified'` — the admin's verification
+decision IS the identity approval for a tutor (video + CNIC + degree audit) —
+regardless of the separate CNIC column or image presence; below 'verified' the
+CNIC-derived `loadIdentity` state stands. This mirrors the parent dashboard,
+which already overrides the same line from its own approval facts (CNIC +
+address). Only the tutor dashboard's identity line was affected; no badge
+surface (profile, browse, social, dashboard) was changed, because none was
+wrong.
+
+**Inconsistent seed rows reported to the owner (not touched — the cast stays):**
+every listed verified seed tutor carries `verification_status='verified'` with
+`profiles.cnic_verified_at` null and `verification_state='none'` despite having
+uploaded CNIC —
+`seed+featured-ali`, `seed+premium-sara`, `seed+verified-usman`,
+`seed+free-nadia`, `seed+free-hina` (and `seed+suspended-omar`, which shows no
+badge anyway). Separately, `seed+unverified-zain` (meant to be an unverified,
+browse-only parent) carries `verification_state='approved'` while
+`cnic_verified_at` and `address_verified_at` are both null — harmless in the UI
+(the parent line keys on cnic+address, so it reads "Pending review", not
+Verified), but a stale value. `scripts/reset-seed-cast.ts` sets
+`cnic_verified_at` for parents only, so this tutor gap persists across resets;
+the owner can decide whether to seed the tutor CNIC-approval columns.
 
 ## Roadmap — remaining (4 Sep 2026)
 

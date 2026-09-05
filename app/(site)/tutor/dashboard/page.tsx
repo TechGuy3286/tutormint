@@ -4,7 +4,7 @@ import { Info, TrendingUp } from 'lucide-react'
 import AdSlot from '@/components/ads/AdSlot'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
 import EmptyState from '@/components/EmptyState'
-import VerifiedShareCard from '@/components/tutor/VerifiedShareCard'
+import ShareVerifiedBadge from '@/components/tutor/ShareVerifiedBadge'
 import CvCard from '@/components/tutor/CvCard'
 import { canDownloadCv } from '@/lib/cv/access'
 import { absoluteUrl } from '@/lib/siteUrl'
@@ -152,6 +152,21 @@ export default async function TutorDashboardPage() {
     .filter(Boolean)
     .join(' · ')
 
+  // The identity status line, for a tutor.
+  //
+  // loadIdentity reads the CNIC columns on `profiles` (cnic_verified_at /
+  // verification_state). For a tutor those are NOT the identity-approval fact:
+  // a tutor's identity is approved by the admin moderation decision, which lands
+  // on tutor_profiles.verification_status='verified' (video + CNIC + degree
+  // audit). So a verified tutor reads "Identity: Verified" here — regardless of
+  // whether the separate CNIC column was advanced, and regardless of image
+  // presence — which keeps the line from contradicting the Verified badge above
+  // it. This mirrors the parent dashboard, which overrides the same line from
+  // its own approval facts (cnic + address). Below 'verified', the CNIC-derived
+  // state stands.
+  const identityLineState =
+    tutorProfile?.verification_status === 'verified' ? 'approved' : identity.state
+
   const things: ThingRow[] = [
     {
       key: 'applications',
@@ -214,7 +229,12 @@ export default async function TutorDashboardPage() {
         <Breadcrumbs items={[{ label: 'Tutor dashboard' }]} />
 
         {/* Who this is, from the outside -- the same component the parent
-            dashboard uses. See IdentityBlock for why one and not two. */}
+            dashboard uses. See IdentityBlock for why one and not two.
+
+            The "Share your verified badge" link sits here, in the header card,
+            beside "View your public profile" and only for a LISTED tutor. It is
+            an on-demand trigger: the share image (and its server render) happens
+            only when the dialog opens, never on dashboard load. */}
         <IdentityBlock
           name={session?.profile?.full_name ?? 'Your profile'}
           avatarUrl={session?.profile?.avatar_url ?? null}
@@ -228,40 +248,23 @@ export default async function TutorDashboardPage() {
               ? { label: 'View your public profile', href: `/tutor/${tutorProfile.slug}` }
               : { label: 'Edit your profile', href: '/tutor/dashboard/settings' }
           }
-        />
-
-        <NeedsYou
-          rows={needs}
-          emptyHint={
-            listed
-              ? 'Your profile is live and parents can find you.'
-              : 'Nothing is blocking you right now.'
+          extra={
+            listed && tutorProfile?.slug ? (
+              <ShareVerifiedBadge
+                profileUrl={absoluteUrl(`/tutor/${tutorProfile.slug}`)}
+                firstName={(session?.profile?.full_name ?? 'there').split(' ')[0]}
+              />
+            ) : undefined
           }
         />
 
-        {/* You're verified — a share card, shown the moment the tutor is
-            LISTED (the same condition their badge appears under). Generated
-            from their own profile; posting is the tutor's, via the buttons. */}
-        {listed && tutorProfile?.slug && (
-          <VerifiedShareCard
-            profileUrl={absoluteUrl(`/tutor/${tutorProfile.slug}`)}
-            firstName={(session?.profile?.full_name ?? 'there').split(' ')[0]}
-          />
-        )}
-
-        {/* Your CV — the print-ready CV built from the profile. Preview is free
-            to every tutor; the download is Verified-gated (via the upsell). */}
-        <CvCard canDownload={canDownloadCv(ent)} />
-
-        {/* ------------------------------------------- the 199 funnel --- */}
+        {/* ------------------------------------------- the 199 funnel ---
+            The "Who looked at you" teaser is the primary upsell surface and sits
+            immediately below the header — nothing is inserted above it (owner,
+            5 Sep 2026, superseding the earlier "Needs you first" band order).
+            The free-only position and matching-jobs cards are its funnel
+            siblings and stay grouped with it. */}
         <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} />
-
-        {/* One compact status line, not the full identity form. The CNIC
-            front/back, selfie and "Request a change" live only in
-            Settings → Identity (/tutor/dashboard/settings). A verified account
-            shows only "Verified" — never an upload prompt for documents it is
-            retaining privately. */}
-        <IdentityStatusLine state={identity.state} settingsHref="/tutor/dashboard/settings" />
 
         {free && position && (
           // id, so the rank_dropped notification's button has somewhere to
@@ -329,6 +332,27 @@ export default async function TutorDashboardPage() {
             )}
           </section>
         )}
+
+        <NeedsYou
+          rows={needs}
+          emptyHint={
+            listed
+              ? 'Your profile is live and parents can find you.'
+              : 'Nothing is blocking you right now.'
+          }
+        />
+
+        {/* One compact status line, not the full identity form. The CNIC
+            front/back, selfie and "Request a change" live only in
+            Settings → Identity (/tutor/dashboard/settings). A verified tutor
+            reads "Identity: Verified" — the admin's verification decision IS the
+            identity approval for a tutor; see identityLineState above. It sits
+            directly below Needs you: no card between them, no empty gap. */}
+        <IdentityStatusLine state={identityLineState} settingsHref="/tutor/dashboard/settings" />
+
+        {/* Your CV — the print-ready CV built from the profile. Preview is free
+            to every tutor; the download is Verified-gated (via the upsell). */}
+        <CvCard canDownload={canDownloadCv(ent)} />
 
         <ActivityBand
           items={activity}

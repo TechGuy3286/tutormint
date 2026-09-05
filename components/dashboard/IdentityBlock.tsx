@@ -34,6 +34,7 @@ export default function IdentityBlock({
   completionHref,
   editHref,
   planNotice,
+  extra,
 }: {
   name: string
   avatarUrl: string | null
@@ -47,6 +48,12 @@ export default function IdentityBlock({
   completionHref: string
   /** The member's own public page or settings, when there is one. */
   editHref?: { label: string; href: string }
+  /**
+   * An optional action rendered beside the edit link at 100% — the tutor
+   * dashboard passes the on-demand "Share your verified badge" trigger here, so
+   * it sits in the header card and nothing renders a share image on page load.
+   */
+  extra?: React.ReactNode
   /**
    * Shown when a tutor has PAID but is not yet listed: "Verified plan active ·
    * your badge appears when your profile reaches 100%." A paid plan alone never
@@ -105,13 +112,18 @@ export default function IdentityBlock({
             {completion}% complete — finish your profile
           </Link>
         ) : (
-          editHref && (
-            <Link
-              href={editHref.href}
-              className="inline-flex min-h-[32px] items-center text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline"
-            >
-              {editHref.label}
-            </Link>
+          (editHref || extra) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {editHref && (
+                <Link
+                  href={editHref.href}
+                  className="inline-flex min-h-[32px] items-center text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline"
+                >
+                  {editHref.label}
+                </Link>
+              )}
+              {extra}
+            </div>
           )
         )}
       </div>
