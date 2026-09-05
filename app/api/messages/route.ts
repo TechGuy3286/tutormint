@@ -13,7 +13,18 @@ import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 
 const MessageBody = z.object({
   threadId: uuid,
-  body: text({ min: 1, max: 4000, label: 'Message' }),
+  // Optional because a photo message may carry no text; sendMessage enforces
+  // "a body OR an attachment".
+  body: z.string().max(4000, 'Message is too long (4000 characters max).').optional(),
+  replyTo: uuid.nullish(),
+  attachment: z
+    .object({
+      path: z.string().min(1).max(400),
+      w: z.number().int().nonnegative(),
+      h: z.number().int().nonnegative(),
+      bytes: z.number().int().positive(),
+    })
+    .nullish(),
 })
 
 export async function POST(request: Request) {
@@ -37,6 +48,8 @@ export async function POST(request: Request) {
     actorId: user.id,
     threadId: body.threadId,
     body: body.body ?? '',
+    replyTo: body.replyTo ?? null,
+    attachment: body.attachment ?? null,
   })
 
   if (!result.ok) return NextResponse.json({ error: result.error, gate: result.gate }, { status: result.status })

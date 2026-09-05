@@ -540,6 +540,32 @@ export async function loadReportQueue({
     }
   }
 
+  // A reported MESSAGE loads only that one message — never the rest of the
+  // thread. This is stricter than the thread report above and is the privacy
+  // rule for a per-message report: the admin sees exactly what was reported.
+  const messageTargetIds = Array.from(
+    new Set(
+      page
+        .filter((r) => r.target_type === 'message' && r.target_id)
+        .map((r) => r.target_id as string)
+        .filter((id) => /^[0-9a-f-]{36}$/i.test(id)),
+    ),
+  )
+  const messageById = new Map<string, { senderId: string; body: string; at: string }>()
+  if (messageTargetIds.length > 0) {
+    const { data: single } = await admin
+      .from('messages')
+      .select('id, sender_id, body, created_at')
+      .in('id', messageTargetIds)
+    for (const m of single ?? []) {
+      messageById.set(m.id as string, {
+        senderId: m.sender_id as string,
+        body: (m.body as string) ?? '',
+        at: m.created_at as string,
+      })
+    }
+  }
+
   const rows: QueueReportRow[] = page.map((r) => {
     const reportedId = (r.reported_id as string) ?? null
     return {
@@ -568,7 +594,15 @@ export async function loadReportQueue({
               body: m.body,
               at: m.at,
             }))
-          : null,
+          : r.target_type === 'message' && r.target_id && messageById.has(r.target_id as string)
+            ? [
+                {
+                  who: who.get(messageById.get(r.target_id as string)!.senderId)?.name ?? 'Member',
+                  body: messageById.get(r.target_id as string)!.body,
+                  at: messageById.get(r.target_id as string)!.at,
+                },
+              ]
+            : null,
     }
   })
 

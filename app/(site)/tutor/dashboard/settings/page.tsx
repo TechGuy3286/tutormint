@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { X, Plus, Save, FileText, ArrowRight } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
+import QuickRepliesEditor from '@/components/tutor/QuickRepliesEditor'
 import type { Identity } from '@/lib/identity'
 import { reportSilentFailure } from '@/lib/silentFailure'
 import { useState, useEffect } from "react";
@@ -780,6 +781,12 @@ export default function TutorSettingsPage() {
             field2Placeholder="Issuer"
             addLabel="Add certification"
           />
+        </Card>
+
+        {/* -------------------------------------------------- quick replies */}
+        {/* Self-contained: saves to its own route, not the profile form. */}
+        <Card title="Quick replies" hint="One-tap openers for your Messages composer.">
+          <QuickRepliesEditor />
         </Card>
 
         {/* ------------------------------------------------------------- save */}

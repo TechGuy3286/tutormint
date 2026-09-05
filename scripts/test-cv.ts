@@ -30,7 +30,7 @@ const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { toCvModel, type CvRaw } from '../lib/cv/model'
+import { toCvModel, cvContactRows, type CvRaw } from '../lib/cv/model'
 import { canDownloadCv } from '../lib/cv/access'
 
 function raw(over: Partial<CvRaw> = {}): CvRaw {
@@ -133,6 +133,43 @@ test('teaching mode is spelled out, headline is top subject · city', () => {
   const m = toCvModel(raw(), { includeContact: true })
   assert.equal(m.teachingMode, 'In person or online')
   assert.equal(m.headline, 'Physics · Lahore')
+})
+
+test('level labels are singular — the same mapper the public profile uses', () => {
+  const m = toCvModel(raw({ subjectGroups: [{ level: 'O Levels', subjects: ['Physics'] }] }), {
+    includeContact: true,
+  })
+  assert.equal(m.subjects[0].level, 'O Level')
+  // A level-leaf headline is singular too.
+  const leaf = toCvModel(raw({ subjectGroups: [{ level: 'AS & A Levels', subjects: [] }], city: null }), {
+    includeContact: true,
+  })
+  assert.equal(leaf.subjects[0].level, 'AS & A Level')
+  assert.equal(leaf.headline, 'AS & A Level')
+})
+
+// ----------------------------------------------------- contact rows ---
+
+test('same phone and WhatsApp collapse to one Phone / WhatsApp line', () => {
+  const rows = cvContactRows({ phone: '0300-1234567', whatsapp: '03001234567', email: 'a@b.com' })
+  assert.equal(rows.length, 2)
+  assert.deepEqual(rows[0], { kind: 'phone', label: 'Phone / WhatsApp', value: '0300-1234567' })
+  assert.deepEqual(rows[1], { kind: 'email', label: null, value: 'a@b.com' })
+})
+
+test('different phone and WhatsApp print as two lines', () => {
+  const rows = cvContactRows({ phone: '03001234567', whatsapp: '03009999999' })
+  assert.deepEqual(rows, [
+    { kind: 'phone', label: null, value: '03001234567' },
+    { kind: 'phone', label: 'WhatsApp', value: '03009999999' },
+  ])
+})
+
+test('WhatsApp-only and null contact', () => {
+  assert.deepEqual(cvContactRows({ whatsapp: '03001234567' }), [
+    { kind: 'phone', label: 'WhatsApp', value: '03001234567' },
+  ])
+  assert.deepEqual(cvContactRows(null), [])
 })
 
 // --------------------------------------------------------------- the gate ---

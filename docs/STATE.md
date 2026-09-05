@@ -488,3 +488,36 @@ the profile tables already exist).
   dashboard's override. Inconsistent seed rows reported to the owner in
   CLAUDE.md; the cast is not touched (`reset-seed-cast.ts` sets tutor CNIC
   columns for no one, so the gap persists across resets).
+
+## Messaging part 2 + CV/seed fixes (5 Sep 2026)
+
+Migration 53 (additive; backup `public-20260905-135040.sql` taken first, applied
+via psql). RLS audit 168/168.
+
+- **Schema**: `messages` + `reply_to`, `read_at`, `deleted_for uuid[]`,
+  `attachment_{path,w,h,bytes}`. New tables `message_reports` (admin-read,
+  message snapshot) and `tutor_quick_replies` (owner-scoped). New private bucket
+  `message-media` (owner+admin storage read).
+- **Realtime**: broadcast channel `thread:<id>` (`useThreadChannel`) carries
+  signals only (msg/seen/typing), no content. New-message delivery, seen ticks
+  (`read_at`) and the typing indicator ride it. Bodies still come only through
+  the masked server render.
+- **Per-message menu** (long-press / right-click): Copy · Reply (quotes, stores
+  `reply_to`) · Report (reason picker → `message_reports` + a `reports` row with
+  target_type='message'; admin sees only that message) · Delete for me
+  (`deleted_for`, per-user, no delete-for-everyone).
+- **Photo attachments** gated by `canViewContact` (`mayAttachPhoto`), JPG/PNG
+  ≤5 MB, sharp-reencoded (EXIF stripped), private bucket, served participant-only
+  via `/api/messages/media/[id]`. Disabled paperclip → `tutor_contact`/
+  `parent_contact` upsell.
+- **Tutor quick replies**: chips above the composer (insert, never send),
+  edited in Settings (`QuickRepliesEditor`, max 6), route
+  `/api/tutor/quick-replies`.
+- **List**: server-formatted stamp (`messageListTime`), "Photo" preview.
+- **Tests**: `test:messaging` (8), `test:seedcast` (4); `test:cv` now 12.
+- **CV fixes**: monitor icon for teaching mode; Phone/WhatsApp merge via shared
+  `cvContactRows`; singular level labels via `levelLabel` (shared with the public
+  profile).
+- **reset-seed-cast**: sets tutor CNIC-approval columns for verified seed tutors,
+  clears stale `verification_state` on unverified-zain (`expectedIdentity`).
+  Not run against production.

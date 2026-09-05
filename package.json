@@ -21,7 +21,9 @@
     "reset:seedcast": "tsx scripts/reset-seed-cast.ts",
     "smoke": "tsx scripts/smoke.ts",
     "test:blog": "tsx --test scripts/test-blog.ts",
-    "test:cv": "tsx --test scripts/test-cv.ts"
+    "test:cv": "tsx --test scripts/test-cv.ts",
+    "test:seedcast": "tsx --test scripts/test-seedcast.ts",
+    "test:messaging": "tsx --test scripts/test-messaging.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

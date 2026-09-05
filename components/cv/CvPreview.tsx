@@ -1,6 +1,6 @@
-import { BookOpen, Briefcase, GraduationCap, Mail, MapPin, Phone } from 'lucide-react'
+import { BookOpen, Briefcase, GraduationCap, Mail, MapPin, Monitor, Phone } from 'lucide-react'
 
-import type { CvModel, CvTemplate } from '@/lib/cv/model'
+import { cvContactRows, type CvModel, type CvTemplate } from '@/lib/cv/model'
 
 // The on-screen CV preview. HTML, tm-* tokens only, the SAME data (CvModel) the
 // PDF renders from and the same section order, so what a tutor sees is what
@@ -102,7 +102,7 @@ function Sections({ model, headingClass }: { model: CvModel; headingClass: strin
             )}
             {model.teachingMode && (
               <li className="flex items-center gap-2">
-                <MapPin aria-hidden size={13} className="shrink-0 text-gray-500" />
+                <Monitor aria-hidden size={13} className="shrink-0 text-gray-500" />
                 {model.teachingMode}
               </li>
             )}
@@ -135,24 +135,16 @@ function Sections({ model, headingClass }: { model: CvModel; headingClass: strin
         <section>
           <H>Contact</H>
           <ul className="space-y-1">
-            {model.contact.phone && (
-              <li className="flex items-center gap-2">
-                <Phone aria-hidden size={13} className="shrink-0 text-gray-500" />
-                {model.contact.phone}
+            {cvContactRows(model.contact).map((r, i) => (
+              <li key={i} className="flex items-center gap-2">
+                {r.kind === 'email' ? (
+                  <Mail aria-hidden size={13} className="shrink-0 text-gray-500" />
+                ) : (
+                  <Phone aria-hidden size={13} className="shrink-0 text-gray-500" />
+                )}
+                {r.label ? `${r.label}: ${r.value}` : r.value}
               </li>
-            )}
-            {model.contact.whatsapp && (
-              <li className="flex items-center gap-2">
-                <Phone aria-hidden size={13} className="shrink-0 text-gray-500" />
-                WhatsApp: {model.contact.whatsapp}
-              </li>
-            )}
-            {model.contact.email && (
-              <li className="flex items-center gap-2">
-                <Mail aria-hidden size={13} className="shrink-0 text-gray-500" />
-                {model.contact.email}
-              </li>
-            )}
+            ))}
           </ul>
         </section>
       )}

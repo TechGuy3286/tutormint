@@ -22,7 +22,7 @@
 
 import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
-import { SEED_CAST, type CastMember } from './seedCast'
+import { SEED_CAST, expectedIdentity, type CastMember } from './seedCast'
 import { guardWrites, die } from './target'
 
 function loadEnv(): Record<string, string> {
@@ -67,7 +67,9 @@ async function main() {
   for (const m of SEED_CAST) {
     const { data: profile } = await admin
       .from('profiles')
-      .select('id, role, is_suspended, cnic_verified_at, address_verified_at, profile_completion')
+      .select(
+        'id, role, is_suspended, cnic_verified_at, address_verified_at, verification_state, profile_completion',
+      )
       .eq('email', m.email)
       .maybeSingle()
     if (!profile) {
@@ -161,6 +163,23 @@ async function main() {
           await admin.from('tutor_profiles').update({ is_featured: wantFeatured }).eq('id', id)
         }
       }
+
+      // The identity line reads profiles.cnic_verified_at. A seed tutor made
+      // 'verified' on tutor_profiles never had it set, so the line said "Not
+      // submitted" beside the badges. Set it to match the cast's identity
+      // intent (a verified tutor's identity is approved). Idempotent: only
+      // moves when the boolean differs, so a re-run does not re-stamp the date.
+      const wantIdentity = expectedIdentity(m)
+      const hasCnic = !!profile.cnic_verified_at
+      if (hasCnic !== wantIdentity.verified) {
+        changes.push(`${m.key}: cnic_verified_at ${hasCnic} -> ${wantIdentity.verified}`)
+        if (apply) {
+          await admin
+            .from('profiles')
+            .update({ cnic_verified_at: wantIdentity.verified ? new Date().toISOString() : null })
+            .eq('id', id)
+        }
+      }
     }
 
     // --- parent CNIC + address verification (the free verified tier)
@@ -175,6 +194,19 @@ async function main() {
             .update({ cnic_verified_at: stamp, address_verified_at: stamp })
             .eq('id', id)
         }
+      }
+    }
+
+    // --- verification_state, for both roles. It is the other column the
+    // identity line reads, and it must agree with cnic_verified_at: 'approved'
+    // for a verified member, 'none' otherwise. This also clears the stale
+    // 'approved' on seed+unverified-zain, an unverified parent whose state
+    // column was left set by an earlier run.
+    const wantState = expectedIdentity(m).verificationState
+    if ((profile.verification_state ?? 'none') !== wantState) {
+      changes.push(`${m.key}: verification_state ${profile.verification_state} -> ${wantState}`)
+      if (apply) {
+        await admin.from('profiles').update({ verification_state: wantState }).eq('id', id)
       }
     }
 

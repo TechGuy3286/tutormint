@@ -62,6 +62,20 @@ export function demoMode(raw: string | null | undefined): string | null {
   return teachingMode(raw)
 }
 
+/**
+ * A taxonomy level name, as a person reads it: "O Level", not "O Levels".
+ *
+ * The taxonomy stores the plural programme name ("O Levels", "AS & A Levels"),
+ * but a single tutor's profile and their CV read the singular — "O Level
+ * Physics". ONE mapper so the public profile and the CV cannot diverge on the
+ * same label. Total: an unrecognised name passes through unchanged, so a level
+ * added by a future migration reads as itself. The stored value is untouched;
+ * matching everywhere is on `master_id`, never on this string.
+ */
+export function levelLabel(raw: string | null | undefined): string {
+  return (raw ?? '').replace(/\bLevels\b/g, 'Level')
+}
+
 /** Where an application stands, from the tutor's side. */
 export function applicationStatus(raw: string | null | undefined): string {
   switch ((raw ?? '').trim().toLowerCase()) {

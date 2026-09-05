@@ -85,6 +85,39 @@ export function relativeTime(value: When): string {
   return formatDate(d)
 }
 
+/** "2:05 pm", in Karachi time. */
+export function formatTime(value: When): string {
+  const d = toDate(value)
+  return d
+    ? d.toLocaleTimeString('en-PK', { hour: 'numeric', minute: '2-digit', timeZone: PK_TIMEZONE })
+    : ''
+}
+
+/**
+ * The stamp beside a conversation in the inbox list: today → the time,
+ * within the last week → the weekday ("Mon"), older → the date ("3 Sep").
+ *
+ * Compute this on the SERVER and pass the string down — it depends on "now",
+ * and a client re-derivation would risk the hydration mismatch lib/datetime
+ * exists to prevent. The buckets are decided by the Karachi calendar day, not a
+ * raw hour difference, so a message from late last night reads as a weekday,
+ * not as a time.
+ */
+export function messageListTime(value: When): string {
+  const d = toDate(value)
+  if (!d) return ''
+  const today = pkDayKey(Date.now())
+  const day = pkDayKey(d)
+  if (day === today) return formatTime(d)
+  // Both keys are YYYY-MM-DD, so Date.parse gives UTC midnights and the
+  // difference is a whole number of calendar days.
+  const daysAgo = Math.round((Date.parse(today) - Date.parse(day)) / 86_400_000)
+  if (daysAgo >= 1 && daysAgo < 7) {
+    return d.toLocaleDateString('en-PK', { weekday: 'short', timeZone: PK_TIMEZONE })
+  }
+  return d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', timeZone: PK_TIMEZONE })
+}
+
 /** The Karachi calendar day an instant falls on, as YYYY-MM-DD. */
 export function pkDayKey(value: When): string {
   const d = toDate(value)

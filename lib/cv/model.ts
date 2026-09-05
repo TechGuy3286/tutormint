@@ -13,7 +13,7 @@
 //     a CNIC or a selfie can never reach a CV.
 
 import { isOurStorageUrl } from '@/lib/avatarUrl'
-import { teachingMode } from '@/lib/display'
+import { levelLabel, teachingMode } from '@/lib/display'
 
 export type CvSubjectGroup = { level: string; subjects: string[] }
 
@@ -81,15 +81,19 @@ export function toCvModel(raw: CvRaw, opts: CvOptions): CvModel {
   // a foreign host is rejected, so a CNIC or selfie cannot appear on a CV.
   const photoUrl = raw.avatarUrl && isOurStorageUrl(raw.avatarUrl) ? raw.avatarUrl : null
 
+  // Subjects: drop groups with no level and no subjects, and route every level
+  // through the ONE display mapper the public profile uses ("O Level", not "O
+  // Levels"), so the two surfaces cannot diverge.
+  const subjects = raw.subjectGroups
+    .filter((g) => clean(g.level) || g.subjects.length > 0)
+    .map((g) => ({ level: levelLabel(g.level), subjects: g.subjects }))
+
   const headline =
-    [topSubject(raw.subjectGroups), clean(raw.city)].filter(Boolean).join(' · ') ||
+    [topSubject(subjects), clean(raw.city)].filter(Boolean).join(' · ') ||
     clean(raw.headline) ||
     null
 
   const location = [clean(raw.area), clean(raw.city)].filter(Boolean).join(', ') || null
-
-  // Subjects: drop groups that carry no level and no subjects.
-  const subjects = raw.subjectGroups.filter((g) => clean(g.level) || g.subjects.length > 0)
 
   const degrees = raw.degrees.map((d) => d.trim()).filter((d) => d.length > 0)
   const languages = raw.languages.map((l) => l.trim()).filter((l) => l.length > 0)
@@ -118,6 +122,32 @@ export function toCvModel(raw: CvRaw, opts: CvOptions): CvModel {
     profileUrl: raw.profileUrl,
     completion: raw.completion,
   }
+}
+
+// A contact row, resolved once here so the preview and the PDF render the same
+// lines. When phone and WhatsApp are the same number they collapse to one
+// "Phone / WhatsApp" line rather than printing the same digits twice.
+export type CvContactRow = { kind: 'phone' | 'email'; label: string | null; value: string }
+
+function sameNumber(a: string, b: string): boolean {
+  const digits = (x: string) => x.replace(/\D/g, '')
+  const da = digits(a)
+  const db = digits(b)
+  return da.length > 0 && da === db
+}
+
+export function cvContactRows(contact: CvContact | null): CvContactRow[] {
+  if (!contact) return []
+  const rows: CvContactRow[] = []
+  const { phone, whatsapp, email } = contact
+  if (phone && whatsapp && sameNumber(phone, whatsapp)) {
+    rows.push({ kind: 'phone', label: 'Phone / WhatsApp', value: phone })
+  } else {
+    if (phone) rows.push({ kind: 'phone', label: null, value: phone })
+    if (whatsapp) rows.push({ kind: 'phone', label: 'WhatsApp', value: whatsapp })
+  }
+  if (email) rows.push({ kind: 'email', label: null, value: email })
+  return rows
 }
 
 export type CvTemplate = 'classic' | 'minimal'

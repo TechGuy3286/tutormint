@@ -2542,6 +2542,100 @@ Verified), but a stale value. `scripts/reset-seed-cast.ts` sets
 `cnic_verified_at` for parents only, so this tutor gap persists across resets;
 the owner can decide whether to seed the tutor CNIC-approval columns.
 
+## Messaging part 2 — as built (5 Sep 2026)
+
+WhatsApp-familiar messaging on the existing two-pane inbox, and two small CV /
+seed fixes alongside it. Migration 53 (additive; backup taken first). Not built
+(out of scope, named so nobody assumes they were missed): stories, communities,
+calls, reactions, and the offensive-word filter (its own Moderation PR).
+
+**One migration, additive.** `messages` gains `reply_to`, `read_at`,
+`deleted_for uuid[]`, and `attachment_{path,w,h,bytes}`. New tables
+`message_reports` (admin-read only; a reported message with a `message_snapshot`
+so the admin sees exactly it) and `tutor_quick_replies` (owner-scoped, `tutor_id
+= auth.uid()`). New private bucket `message-media` (owner + admin storage read;
+served only through the participant-checked route). RLS audit **168/168** — the
+new public tables carry scoped/admin policies, nothing anon-readable, no
+allowlist edit needed.
+
+**Delivery moved to Realtime, still masked at the source.** New-message delivery
+was a plain `router.refresh()` after send; it now rides a Supabase **broadcast**
+channel `thread:<id>` (`components/messages/useThreadChannel.ts`). The channel
+carries only SIGNALS — `msg` (pull the new message by refreshing the RLS-scoped
+server render), `seen` (refresh so a sent tick turns double), and `typing`
+(debounced, never persisted) — and **no content**, so a guessed channel leaks
+"someone is typing", never a body. Bodies still come only through the
+server-rendered, `renderMessageBody`-masked path; broadcast is not enabled for
+`postgres_changes`, so nothing replicates message rows to clients.
+
+**Seen + typing.** `read_at` is stamped on the OTHER party's messages when a
+member opens the thread (`markThreadRead`, service role, participant-checked —
+`messages` has no member UPDATE policy, so a receipt is a server write). The
+sender's own bubbles show a single tick (sent) or double green tick (seen). "Ali
+is typing…" comes from the `typing` broadcast, auto-clearing after 3.5s.
+
+**Per-message menu** (long-press on touch, right-click on desktop): Copy · Reply
+· Report · Delete for me. **Reply** quotes the message above the composer and
+stores `reply_to`; the quoted snippet is masked and clipped. **Report** opens a
+reason picker (the confirm step) and writes BOTH a `message_reports` row (with
+the snapshot) and a `reports` row with `target_type='message'`, `target_id=<the
+message>`, so the admin reports queue shows **only the reported message** —
+`loadReportQueue` loads that one message by id, never the rest of the thread
+(stricter than a thread report). Toast "Reported. Our team will review it."
+**Delete for me** confirms first, then appends the id to `deleted_for` (the row
+is never removed — there is no delete-for-everyone); the read path filters it out
+for the deleter only, and it stays for the other participant.
+
+**Photo attachments, gated by the SAME rule as contact.** The paperclip is
+enabled only when `ent.canViewContact` (`mayAttachPhoto`) — no new entitlement;
+others get the disabled paperclip and the standard `tutor_contact`/`parent_contact`
+upsell (never a lower plan). JPG/PNG ≤ 5 MB, re-encoded through `sharp` (strips
+EXIF, gives real dimensions), stored in the private `message-media` bucket at
+`<uid>/…`; `sendMessage` re-checks the path prefix and the gate before attaching.
+Served only through `/api/messages/media/[id]`, which returns the bytes only to a
+participant of the message's thread (`attachmentPathFor`) and 404s everyone else.
+A bare photo previews as "Photo" in the list, and notifications never say more
+than that. Identity documents never touch this path — a different bucket, a
+different route.
+
+**Tutor quick replies.** A row of chips above the tutor's composer, tap to insert
+(never to send). Editable in Settings → **Quick replies** (`QuickRepliesEditor`,
+max 6, plain text, its own save route `/api/tutor/quick-replies`). Defaults live
+in `lib/messagingRules.ts` and show as the empty-state starting point; nothing is
+stored until Save.
+
+**List + header unchanged in shape**, refined per spec: the conversation-list
+stamp is server-formatted (today → time, this week → weekday, else date, via
+`messageListTime` in `lib/datetime.ts` — computed server-side so there is no
+client re-derivation to mismatch); the preview shows "Photo" for a bare
+attachment. Unread pill, header bell and the dashboard Messages tile still read
+the same `notifications` rows, so they agree.
+
+**Pure rules are unit-tested** (`npm run test:messaging`, 8 assertions,
+`lib/messagingRules.ts`): a message deleted-for-me is invisible to the deleter
+and no one else; only a thread participant may view an attachment; the paperclip
+follows `canViewContact`; JPG/PNG ≤ 5 MB; quick replies trimmed/capped; "Photo"
+preview. The end-to-end wiring (routes, RLS, Realtime) is proven by the live
+smoke.
+
+### CV + seed fixes shipped in the same PR
+
+- **CV teaching-mode icon** is now a monitor, not the address pin
+  (`components/cv/CvPreview.tsx`). **Phone / WhatsApp collapse to one line** when
+  they are the same number, via a shared `cvContactRows` mapper used by both the
+  HTML preview and the PDF (`lib/cv/model.ts`) — one mapper, no divergence.
+  **Level labels are singular** ("O Level", not "O Levels") through a new
+  `levelLabel` helper in `lib/display.ts`, used by BOTH the CV mapper and the
+  public tutor profile's subjects section — again one mapper. `npm run test:cv`
+  now 12 assertions.
+- **`scripts/reset-seed-cast.ts`** sets the tutor CNIC-approval columns
+  (`cnic_verified_at`, `verification_state`) for every seed tutor whose
+  verification is 'verified', and clears the stale `verification_state` on
+  `seed+unverified-zain`. The decision is a pure helper `expectedIdentity`
+  (`scripts/seedCast.ts`) with a consistency invariant (verified ⟺ state
+  'approved'), unit-tested in `npm run test:seedcast` (4 assertions). Script
+  change only — NOT run against production in this PR.
+
 ## Roadmap — remaining (4 Sep 2026)
 
 The state of the world as of this date, so the next session starts from the plan

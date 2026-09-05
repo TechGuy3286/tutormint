@@ -96,6 +96,28 @@ export const SEED_CAST: CastMember[] = [
   },
 ]
 
+/**
+ * The identity-line columns a cast member's `profiles` row should carry, derived
+ * from the cast intent — PURE, so the reset can write it and a unit test can
+ * assert it agrees with itself.
+ *
+ * The dashboard identity line reads `cnic_verified_at` and `verification_state`.
+ * A seed tutor is made 'verified' straight on `tutor_profiles.verification_status`
+ * (the video/moderation path), which never advanced those CNIC columns — so the
+ * line read "Not submitted" beside three badges. A verified tutor's identity IS
+ * approved, so the columns must say so. For a parent the identity fact is CNIC +
+ * address approved (`parentVerified`). Everyone else is 'none'.
+ *
+ * INVARIANT (what the test pins): `verified` is true exactly when
+ * `verificationState === 'approved'`. A row can never claim one without the other.
+ */
+export type IdentityIntent = { verified: boolean; verificationState: 'approved' | 'none' }
+
+export function expectedIdentity(m: CastMember): IdentityIntent {
+  const verified = m.role === 'tutor' ? m.verification === 'verified' : !!m.parentVerified
+  return { verified, verificationState: verified ? 'approved' : 'none' }
+}
+
 /** The fields the smoke test snapshots and compares. */
 export type CastSnapshotRow = {
   email: string

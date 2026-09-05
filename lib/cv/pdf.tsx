@@ -4,7 +4,7 @@ import { Document, Font, Image, Page, StyleSheet, Text, View, renderToBuffer } f
 
 import { BRAND, NEUTRAL } from '@/lib/brand'
 import { GEIST_REGULAR_DATA_URI } from '@/lib/cv/font'
-import type { CvModel, CvTemplate } from '@/lib/cv/model'
+import { cvContactRows, type CvModel, type CvTemplate } from '@/lib/cv/model'
 
 // The CV PDF — pure JS via @react-pdf/renderer, no headless browser, no
 // external service. Same data (CvModel) and same section order as the on-screen
@@ -123,9 +123,9 @@ function Sections({ model, headingColor }: { model: CvModel; headingColor: strin
       {model.contact && (
         <View style={s.section}>
           <H>Contact</H>
-          {model.contact.phone ? <Item>{model.contact.phone}</Item> : null}
-          {model.contact.whatsapp ? <Item>WhatsApp: {model.contact.whatsapp}</Item> : null}
-          {model.contact.email ? <Item>{model.contact.email}</Item> : null}
+          {cvContactRows(model.contact).map((r, i) => (
+            <Item key={i}>{r.label ? `${r.label}: ${r.value}` : r.value}</Item>
+          ))}
         </View>
       )}
     </View>

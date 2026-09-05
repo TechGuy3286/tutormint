@@ -7,7 +7,6 @@ import { Loader2, MessageSquare, X } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import Typeahead from '@/components/search/Typeahead'
 import { useInfinite } from '@/lib/useInfinite'
-import TimeAgo from '@/components/TimeAgo'
 import type { ThreadRow } from '@/lib/messaging'
 
 // The left pane: every conversation this member has had, newest first.
@@ -186,9 +185,9 @@ function Rows({
                   >
                     {t.otherName}
                   </span>
-                  <span className="shrink-0 text-[10px] text-gray-500">
-                    <TimeAgo iso={t.lastMessageAt} />
-                  </span>
+                  {/* Server-formatted (today → time, this week → weekday, else
+                      date) so there is no client re-derivation to mismatch. */}
+                  <span className="shrink-0 text-[10px] text-gray-500">{t.lastMessageLabel}</span>
                 </div>
                 {t.jobTitle && (
                   <p className="truncate text-[10px] font-semibold text-tm-green-deep">

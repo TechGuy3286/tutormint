@@ -29,6 +29,15 @@ import { upgradeHref } from '@/lib/upgradePath'
 import { buildGate, type Gate } from '@/lib/gate'
 import { notify } from '@/lib/notifications'
 import { deliverMessageDigest } from '@/lib/notify'
+import { previewText } from '@/lib/messagingRules'
+import { messageListTime } from '@/lib/datetime'
+
+/** The message a reply quotes, resolved to a short (masked) snippet. */
+export type MessageReplyRef = { id: string; snippet: string; mine: boolean }
+
+/** A photo attachment. The URL is built from the message id on the client and
+    served, participant-checked, by /api/messages/media/[id]. */
+export type MessageAttachment = { w: number | null; h: number | null }
 
 export type ThreadMessage = {
   id: string
@@ -37,6 +46,11 @@ export type ThreadMessage = {
   body: string
   masked: boolean
   createdAt: string
+  /** When the recipient read it. For the sender's own messages this drives the
+      single (sent) vs double (seen) tick. Null until read. */
+  readAt: string | null
+  replyTo: MessageReplyRef | null
+  attachment: MessageAttachment | null
 }
 
 type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate }
@@ -178,9 +192,15 @@ export async function sendMessage(params: {
   actorId: string
   threadId: string
   body: string
+  /** The message being quoted, if any. Must belong to the same thread. */
+  replyTo?: string | null
+  /** A photo already uploaded to message-media by this sender, if any. */
+  attachment?: { path: string; w: number; h: number; bytes: number } | null
 }): Promise<{ ok: true; messageId: string } | Fail> {
   const body = params.body.trim()
-  if (!body) return { ok: false, status: 400, error: 'Write something first.' }
+  const attachment = params.attachment ?? null
+  // A message needs a body OR a photo. Both together (a caption) is fine.
+  if (!body && !attachment) return { ok: false, status: 400, error: 'Write something first.' }
   if (body.length > 4000) {
     return { ok: false, status: 400, error: 'Message is too long (4000 characters max).' }
   }
@@ -198,6 +218,31 @@ export async function sendMessage(params: {
   const me = params.actorId
   if (thread.participant_a !== me && thread.participant_b !== me) {
     return { ok: false, status: 403, error: 'Conversation not found.' }
+  }
+
+  // A photo attachment is gated by the SAME rule as seeing contact details, and
+  // its object must be one this sender uploaded (path is `<uid>/...`). No new
+  // rule: a member who cannot see contact cannot send a photo.
+  if (attachment) {
+    const ent = await getEntitlements(me)
+    if (!ent.canViewContact) {
+      return { ok: false, status: 403, error: 'Upgrade to send photos.', gate: await buildGate('tutor_message', ent) }
+    }
+    if (!attachment.path.startsWith(`${me}/`)) {
+      return { ok: false, status: 400, error: 'That photo could not be attached.' }
+    }
+  }
+
+  // A reply must quote a message in THIS thread — never a peek into another one.
+  let replyTo: string | null = null
+  if (params.replyTo) {
+    const { data: quoted } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('id', params.replyTo)
+      .eq('thread_id', thread.id)
+      .maybeSingle()
+    replyTo = quoted ? (quoted.id as string) : null
   }
 
   const other = thread.participant_a === me ? thread.participant_b : thread.participant_a
@@ -235,6 +280,11 @@ export async function sendMessage(params: {
       thread_id: thread.id,
       sender_id: me,
       body,
+      reply_to: replyTo,
+      attachment_path: attachment?.path ?? null,
+      attachment_w: attachment?.w ?? null,
+      attachment_h: attachment?.h ?? null,
+      attachment_bytes: attachment?.bytes ?? null,
       // Legacy NOT NULL columns, mirrored until T8 removes them.
       job_id: (thread.job_id as string) ?? '',
       sender: me,
@@ -330,6 +380,9 @@ export type ThreadRow = {
   otherAvatar: string | null
   otherRole: string | null
   lastMessageAt: string
+  /** Server-formatted stamp (today → time, this week → weekday, else date), so
+      the client renders a string and never re-derives it from `now`. */
+  lastMessageLabel: string
   preview: string
   unread: number
 }
@@ -417,13 +470,40 @@ async function unreadByThread(userId: string): Promise<Map<string, number>> {
  */
 export async function markThreadRead(userId: string, threadId: string): Promise<void> {
   const supabase = await createClient()
+  const now = new Date().toISOString()
+
   await supabase
     .from('notifications')
-    .update({ read_at: new Date().toISOString() })
+    .update({ read_at: now })
     .eq('user_id', userId)
     .eq('kind', 'message_received')
     .eq('href', `/messages/${threadId}`)
     .is('read_at', null)
+
+  // Stamp read_at on the OTHER party's messages in this thread — this is what
+  // turns their sent tick into a seen tick. Through the service role, and only
+  // for a genuine participant: `messages` has no member UPDATE policy (a member
+  // must not be able to edit a row), so the receipt is a server write, gated by
+  // the same participant check the read route runs before calling this.
+  const admin = createAdminClient()
+  if (admin) {
+    const { data: thread } = await admin
+      .from('threads')
+      .select('participant_a, participant_b')
+      .eq('id', threadId)
+      .maybeSingle()
+    if (
+      thread &&
+      (thread.participant_a === userId || thread.participant_b === userId)
+    ) {
+      await admin
+        .from('messages')
+        .update({ read_at: now })
+        .eq('thread_id', threadId)
+        .neq('sender_id', userId)
+        .is('read_at', null)
+    }
+  }
 }
 
 /**
@@ -568,7 +648,7 @@ export async function threadPage({
     admin
       ? admin
           .from('messages')
-          .select('thread_id, body, created_at')
+          .select('thread_id, body, created_at, attachment_path, deleted_for')
           .in('thread_id', threadIds)
           .order('created_at', { ascending: false })
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
@@ -592,10 +672,19 @@ export async function threadPage({
     })
   }
 
-  const latest = new Map<string, string>()
+  // The newest message per thread that is NOT deleted-for-me, so a preview never
+  // shows a line the reader deleted. An attachment with no body previews as
+  // "Photo" (attachments never leak past that word, here or in notifications).
+  const latest = new Map<string, { body: string; hasAttachment: boolean }>()
   for (const m of previews.data ?? []) {
     const key = m.thread_id as string
-    if (!latest.has(key)) latest.set(key, (m.body as string) ?? '')
+    if (latest.has(key)) continue
+    const deletedFor = (m.deleted_for as string[] | null) ?? []
+    if (deletedFor.includes(userId)) continue
+    latest.set(key, {
+      body: (m.body as string) ?? '',
+      hasAttachment: !!(m.attachment_path as string | null),
+    })
   }
 
   // One entitlement lookup per counterpart, not one per thread: the same
@@ -611,10 +700,13 @@ export async function threadPage({
     const otherId =
       t.participant_a === userId ? (t.participant_b as string) : (t.participant_a as string)
     const job = t.job_id ? jobInfo.get(t.job_id as string) : undefined
+    const newest = latest.get(t.id as string)
     // Masked here as well as in the thread. A preview is a message body with
     // fewer characters, and leaking a number through the list would make the
-    // masking inside the conversation pointless.
-    const rendered = renderMessageBody(latest.get(t.id as string) ?? '', share.get(otherId) ?? false)
+    // masking inside the conversation pointless. A bare attachment reads "Photo".
+    const previewSource = previewText(newest?.body ?? '', newest?.hasAttachment ?? false)
+    const rendered = renderMessageBody(previewSource, share.get(otherId) ?? false)
+    const lastMessageAt = (t.last_message_at as string) ?? (t.created_at as string)
 
     return {
       id: t.id as string,
@@ -625,7 +717,8 @@ export async function threadPage({
       otherName: names.get(otherId)?.name ?? NAME_FALLBACK,
       otherAvatar: names.get(otherId)?.avatar ?? null,
       otherRole: names.get(otherId)?.role ?? null,
-      lastMessageAt: (t.last_message_at as string) ?? (t.created_at as string),
+      lastMessageAt,
+      lastMessageLabel: messageListTime(lastMessageAt),
       preview: rendered.text.slice(0, 140),
       unread: unread.get(t.id as string) ?? 0,
     }
@@ -782,8 +875,11 @@ export async function messagePage({
 
   let query = supabase
     .from('messages')
-    .select('id, sender_id, body, created_at')
+    .select('id, sender_id, body, created_at, reply_to, read_at, attachment_path, attachment_w, attachment_h')
     .eq('thread_id', threadId)
+    // A message this reader deleted for themselves is invisible to them, and
+    // only them — the row stays for the other participant.
+    .not('deleted_for', 'cs', `{${userId}}`)
 
   const after = decodeCursor<MessageCursor>(cursor)
   if (after) {
@@ -805,6 +901,26 @@ export async function messagePage({
     ? encodeCursor({ c: oldest.created_at as string, i: oldest.id as string })
     : null
 
+  // Resolve the messages these ones quote, so a reply can show a snippet above
+  // its own text. Same thread, so the member's own client (owns_thread) may read
+  // them; the snippet is masked like everything else and clipped short.
+  const replyIds = [...new Set(window.map((m) => m.reply_to as string | null).filter(Boolean) as string[])]
+  const replySnippets = new Map<string, MessageReplyRef>()
+  if (replyIds.length > 0) {
+    const { data: quoted } = await supabase
+      .from('messages')
+      .select('id, sender_id, body, attachment_path')
+      .in('id', replyIds)
+    for (const q of quoted ?? []) {
+      const source = previewText((q.body as string) ?? '', !!(q.attachment_path as string | null))
+      replySnippets.set(q.id as string, {
+        id: q.id as string,
+        snippet: renderMessageBody(source, mayShare).text.slice(0, 90),
+        mine: (q.sender_id as string) === userId,
+      })
+    }
+  }
+
   const items: ThreadMessage[] = window
     .slice()
     .reverse()
@@ -812,6 +928,8 @@ export async function messagePage({
       // Masked on the server. The digits are not sent to a reader who may not
       // have them, so there is nothing in the browser to un-hide.
       const rendered = renderMessageBody((m.body as string) ?? '', mayShare)
+      const replyToId = m.reply_to as string | null
+      const hasAttachment = !!(m.attachment_path as string | null)
       return {
         id: m.id as string,
         senderId: m.sender_id as string,
@@ -819,8 +937,162 @@ export async function messagePage({
         body: rendered.text,
         masked: rendered.masked,
         createdAt: m.created_at as string,
+        readAt: (m.read_at as string | null) ?? null,
+        replyTo: replyToId ? (replySnippets.get(replyToId) ?? null) : null,
+        attachment: hasAttachment
+          ? { w: (m.attachment_w as number | null) ?? null, h: (m.attachment_h as number | null) ?? null }
+          : null,
       }
     })
 
   return { items, cursor: next }
+}
+
+// ---------------------------------------------------------------------------
+// Per-message actions
+// ---------------------------------------------------------------------------
+
+/** The message row, with the thread's participants, for a participant check. */
+async function messageWithParticipants(messageId: string) {
+  const admin = createAdminClient()
+  if (!admin) return null
+  const { data: msg } = await admin
+    .from('messages')
+    .select('id, thread_id, sender_id, body, attachment_path')
+    .eq('id', messageId)
+    .maybeSingle()
+  if (!msg) return null
+  const { data: thread } = await admin
+    .from('threads')
+    .select('id, participant_a, participant_b')
+    .eq('id', msg.thread_id as string)
+    .maybeSingle()
+  if (!thread) return null
+  return { msg, thread, admin }
+}
+
+/**
+ * Delete a message FOR THIS READER only. The row is never removed — the id is
+ * appended to `deleted_for`, so the message stays for the other participant and
+ * simply stops being returned to the deleter (messagePage filters it out).
+ * There is no delete-for-everyone.
+ */
+export async function deleteMessageForMe(
+  userId: string,
+  messageId: string,
+): Promise<{ ok: true } | Fail> {
+  const found = await messageWithParticipants(messageId)
+  if (!found) return { ok: false, status: 404, error: 'Message not found.' }
+  const { thread, admin } = found
+  if (thread.participant_a !== userId && thread.participant_b !== userId) {
+    return { ok: false, status: 404, error: 'Message not found.' }
+  }
+  const { data: current } = await admin
+    .from('messages')
+    .select('deleted_for')
+    .eq('id', messageId)
+    .maybeSingle()
+  const set = new Set<string>(((current?.deleted_for as string[] | null) ?? []).filter(Boolean))
+  set.add(userId)
+  const { error } = await admin
+    .from('messages')
+    .update({ deleted_for: [...set] })
+    .eq('id', messageId)
+  if (error) return { ok: false, status: 400, error: error.message }
+  return { ok: true }
+}
+
+/**
+ * Report a single message. Writes the message-level record (with a snapshot of
+ * the body, so the admin sees exactly the reported message and never has to open
+ * the thread) AND a row in the shared `reports` queue so it is worked like any
+ * other report. Only a participant may report a message in their own thread.
+ */
+export async function reportMessage(
+  userId: string,
+  messageId: string,
+  reason: string,
+): Promise<{ ok: true; message: string } | Fail> {
+  const found = await messageWithParticipants(messageId)
+  if (!found) return { ok: false, status: 404, error: 'Message not found.' }
+  const { msg, thread, admin } = found
+  if (thread.participant_a !== userId && thread.participant_b !== userId) {
+    return { ok: false, status: 404, error: 'Message not found.' }
+  }
+
+  const reportedId = (msg.sender_id as string) === userId ? null : (msg.sender_id as string)
+
+  const { error } = await admin.from('message_reports').insert({
+    message_id: messageId,
+    thread_id: msg.thread_id as string,
+    reporter_id: userId,
+    reported_id: reportedId,
+    reason,
+    message_snapshot: (msg.body as string) ?? '',
+  })
+  if (error) return { ok: false, status: 400, error: error.message }
+
+  // Surface it in the admin reports queue. target_id is the MESSAGE, so the
+  // queue shows only the reported message — never the rest of the thread.
+  await admin.from('reports').insert({
+    reporter_id: userId,
+    reported_id: reportedId,
+    target_type: 'message',
+    target_id: messageId,
+    reason,
+  })
+
+  await logActivity({
+    userId,
+    event: 'reported',
+    targetType: 'message',
+    targetId: messageId,
+    meta: { reason },
+  })
+
+  return { ok: true, message: 'Reported. Our team will review it.' }
+}
+
+/**
+ * The path of a message's attachment, IF the caller is a participant of its
+ * thread. Null otherwise — the serve route turns that into a 404, so a photo is
+ * readable only inside the conversation it belongs to.
+ */
+export async function attachmentPathFor(
+  userId: string,
+  messageId: string,
+): Promise<string | null> {
+  const found = await messageWithParticipants(messageId)
+  if (!found) return null
+  const { msg, thread } = found
+  if (thread.participant_a !== userId && thread.participant_b !== userId) return null
+  return (msg.attachment_path as string | null) ?? null
+}
+
+// ---------------------------------------------------------------------------
+// Tutor quick replies
+// ---------------------------------------------------------------------------
+
+/** A tutor's saved quick replies, in order. Empty list when none saved. */
+export async function loadQuickReplies(tutorId: string): Promise<string[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('tutor_quick_replies')
+    .select('body, sort_order')
+    .eq('tutor_id', tutorId)
+    .order('sort_order', { ascending: true })
+  return (data ?? []).map((r) => r.body as string)
+}
+
+/**
+ * Replace a tutor's quick replies with a sanitised list (capped at
+ * MAX_QUICK_REPLIES). Owner-scoped by RLS (tutor_id = auth.uid()).
+ */
+export async function saveQuickReplies(tutorId: string, list: string[]): Promise<void> {
+  const supabase = await createClient()
+  await supabase.from('tutor_quick_replies').delete().eq('tutor_id', tutorId)
+  if (list.length === 0) return
+  await supabase.from('tutor_quick_replies').insert(
+    list.map((body, i) => ({ tutor_id: tutorId, body, sort_order: i })),
+  )
 }

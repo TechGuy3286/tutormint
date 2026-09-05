@@ -7,7 +7,9 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import Conversation from '@/components/messages/Conversation'
 import ConversationList from '@/components/messages/ConversationList'
 import { getEntitlements } from '@/lib/entitlements'
-import { messagePage, threadHeader, threadPage } from '@/lib/messaging'
+import { loadQuickReplies, messagePage, threadHeader, threadPage } from '@/lib/messaging'
+import { mayAttachPhoto } from '@/lib/messagingRules'
+import { createClient } from '@/lib/supabase/server'
 
 // The inbox, both roles, one implementation.
 //
@@ -43,10 +45,15 @@ export default async function InboxShell({
   const upgrade =
     role === 'tutor' ? '/tutor/packages?plan=featured' : '/parent/packages?plan=parent_featured'
 
-  const [list, ent] = await Promise.all([
+  const supabase = await createClient()
+  const [list, ent, { data: self }, quickReplies] = await Promise.all([
     threadPage({ userId, limit: LIST_PAGE }),
     getEntitlements(userId),
+    supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
+    role === 'tutor' ? loadQuickReplies(userId) : Promise.resolve([] as string[]),
   ])
+  const selfName = ((self?.full_name as string | null) || 'You').split(' ')[0]
+  const contactReason = role === 'tutor' ? 'tutor_contact' : 'parent_contact'
 
   const header = threadId ? await threadHeader(userId, threadId) : null
 
@@ -215,6 +222,10 @@ export default async function InboxShell({
                 canShareContact={header.canShareContact}
                 suspended={ent.suspended}
                 upgradeHref={upgrade}
+                selfName={selfName}
+                canAttach={mayAttachPhoto(ent)}
+                contactReason={contactReason}
+                quickReplies={quickReplies}
               />
             </>
           ) : (

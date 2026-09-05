@@ -17,7 +17,7 @@ import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import ReportButton from '@/components/ReportButton'
 import ProfileActions from './ProfileActions'
 import { formatDate } from '@/lib/datetime'
-import { teachingMode } from '@/lib/display'
+import { levelLabel, teachingMode } from '@/lib/display'
 import { jsonLdScript, pageDescription, pageTitle, tutorJsonLd } from '@/lib/seo'
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
@@ -573,7 +573,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               {[...byLevel.entries()].map(([level, subjects]) => (
                 <div key={level} className="space-y-1.5">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                    {level}
+                    {levelLabel(level)}
                   </p>
                   {/* Every mention of a thing links to the thing. A
                       level-leaf (Test Preparation, Sports, Holy Quran) has no
@@ -585,7 +585,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                         href={subjectHref(levelMaster.get(level) ?? 0)}
                         className="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-gray-200 hover:ring-tm-navy"
                       >
-                        {level.split(' — ')[1] ?? level}
+                        {levelLabel(level.split(' — ')[1] ?? level)}
                       </Link>
                     ) : (
                       subjects.map((s) => (
