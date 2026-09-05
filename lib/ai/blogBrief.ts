@@ -65,6 +65,11 @@ function numbersOf(s: string | null | undefined): Set<string> {
   return out
 }
 
+/** A four-digit year (1900–2099) is a date, not a statistic. */
+function isYear(bare: string): boolean {
+  return /^(?:19|20)\d\d$/.test(bare)
+}
+
 /**
  * Figures in `body` that the notes do not support.
  *
@@ -103,9 +108,14 @@ export function unsupportedFigures(
   confirmed: string[] = [],
   landing: LandingRef[] = [],
 ): string[] {
+  // Title numbers count as asserted facts ONLY when there are notes. With no
+  // notes the post is meant to be figure-free (the title-only generation path),
+  // so a non-year number in the title does not license the same number in the
+  // body — only a year survives, via the year exemption in the scan below.
+  const hasNotes = notes.trim().length > 0
   const allowed = new Set<string>([
     ...numbersOf(notes),
-    ...numbersOf(title),
+    ...(hasNotes ? numbersOf(title) : []),
     ...confirmed.flatMap((c) => [c, c.replace(/,/g, '')]),
   ])
 
@@ -130,6 +140,7 @@ export function unsupportedFigures(
   for (const m of scanned.matchAll(/\d[\d,]*/g)) {
     const raw = m[0]
     const bare = raw.replace(/,/g, '')
+    if (isYear(bare)) continue // a year is a date, never a statistic
     if (allowed.has(raw) || allowed.has(bare)) continue
     found.push(raw)
   }

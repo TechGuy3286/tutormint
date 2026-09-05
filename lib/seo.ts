@@ -373,7 +373,19 @@ export function articleJsonLd(a: {
   language: string
   legalName: string
   section: string
+  /** The post's subject (a taxonomy name), when set — emitted as `about`. */
+  subject?: string | null
+  /** The post's city, when set — emitted as an `about` Place and a keyword. */
+  city?: string | null
 }) {
+  // `about` and `keywords` are emitted ONLY from what the post actually carries
+  // — a subject Thing, a city Place — never invented. A post with neither omits
+  // both, exactly as the other optional fields do.
+  const about: Record<string, string>[] = []
+  if (a.subject && a.subject.trim()) about.push({ '@type': 'Thing', name: a.subject.trim() })
+  if (a.city && a.city.trim()) about.push({ '@type': 'Place', name: a.city.trim() })
+  const keywords = [a.subject?.trim(), a.city?.trim(), a.section].filter(Boolean).join(', ')
+
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -387,6 +399,8 @@ export function articleJsonLd(a: {
     ...(a.dateModified ? { dateModified: a.dateModified } : {}),
     inLanguage: a.language === 'ur' ? 'ur-PK' : 'en-PK',
     articleSection: a.section,
+    ...(about.length > 0 ? { about } : {}),
+    ...(keywords ? { keywords } : {}),
     author: { '@type': 'Organization', name: a.legalName, url: SITE_URL },
     publisher: { '@id': `${SITE_URL}/#organization` },
   }

@@ -1,12 +1,15 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, AlertTriangle, CheckCircle2, Eye, Lock, Pencil, Sparkles } from 'lucide-react'
+import { AlertCircle, AlertTriangle, CheckCircle2, Eye, Image as ImageIcon, Lightbulb, Lock, Pencil, Shuffle, Sparkles, X } from 'lucide-react'
 
 import FileUpload from '@/components/FileUpload'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { CITIES } from '@/lib/locations'
+import { fetchAllSubjects } from '@/lib/taxonomy'
+import type { EditorSuggestion } from '@/lib/contentQueue/feed'
 import {
   AUDIENCES,
   LANGUAGES,
@@ -14,6 +17,7 @@ import {
   SEO_DESCRIPTION_MAX,
   SEO_TITLE_MAX,
   canPublish,
+  clusterLabel,
   postPath,
   publicBlogUrl,
   statusLabel,
@@ -49,6 +53,9 @@ export type EditorPost = {
   seoTitle: string
   seoDescription: string
   related: string[]
+  /** Optional city / subject (display strings) for the composer + JSON-LD. */
+  city: string
+  subject: string
   reviewed: boolean
   editedByHuman: boolean
   status: PostStatus
@@ -61,15 +68,27 @@ export type EditorPost = {
 
 type LandingOption = { path: string; label: string }
 
+const SOURCE_LABEL: Record<string, string> = {
+  search_gap: 'Search demand',
+  calendar: 'Seasonal',
+  coverage_gap: 'Ready to rank',
+  reports: 'From reports',
+  gsc: 'Search Console',
+  recruitment: 'Recruitment',
+}
+
 export default function PostEditor({
   initial,
   landingOptions,
+  suggestions = [],
   canPublishCap,
   canGenerate,
   suggestionId = null,
 }: {
   initial: EditorPost
   landingOptions: LandingOption[]
+  /** The open content queue, for the "Start from a suggested title" panel. */
+  suggestions?: EditorSuggestion[]
   canPublishCap: boolean
   /** Owner + manager: may call the Claude API to draft. */
   canGenerate: boolean
@@ -79,6 +98,9 @@ export default function PostEditor({
   const router = useRouter()
 
   const [post, setPost] = useState<EditorPost>(initial)
+  // The linked suggestion is state, not a fixed prop: picking one from the panel
+  // links it, so a first save marks it drafted and publish/delete follow.
+  const [linkedSuggestion, setLinkedSuggestion] = useState<string | null>(suggestionId)
   // The last-saved snapshot the publish gate is judged against.
   const saved = useRef<EditorPost>(initial)
   const [dirty, setDirty] = useState(false)
@@ -100,6 +122,53 @@ export default function PostEditor({
   // hand-edited; on an EXISTING post it does not auto-track. Published slugs are
   // locked regardless.
   const [slugEdited, setSlugEdited] = useState(!!initial.id)
+
+  // Cover composer: the three previews use seeds base..base+2; Shuffle advances
+  // the base by three for a fresh trio.
+  const [coverBase, setCoverBase] = useState(0)
+  // A debounced mirror of the fields the preview reads, so live-typing does not
+  // fire a satori render on every keystroke. Commit (pickCover) uses the exact
+  // current values.
+  const [pv, setPv] = useState({
+    title: initial.title,
+    cluster: initial.cluster,
+    city: initial.city,
+    subject: initial.subject,
+    audience: initial.audience,
+    slug: initial.slug,
+  })
+  // Subject typeahead options, loaded once (client taxonomy cache).
+  const [subjectOptions, setSubjectOptions] = useState<string[]>([])
+  useEffect(() => {
+    let live = true
+    fetchAllSubjects()
+      .then((s) => live && setSubjectOptions(s))
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [])
+  // The open content queue for the panel, held locally so a Dismiss removes the
+  // row without a reload. Only shown on a brand-new post.
+  const [openSuggestions, setOpenSuggestions] = useState<EditorSuggestion[]>(suggestions)
+  const [suggestionQuery, setSuggestionQuery] = useState('')
+  const [panelOpen, setPanelOpen] = useState(true)
+
+  useEffect(() => {
+    const t = setTimeout(
+      () =>
+        setPv({
+          title: post.title,
+          cluster: post.cluster,
+          city: post.city,
+          subject: post.subject,
+          audience: post.audience,
+          slug: post.slug,
+        }),
+      500,
+    )
+    return () => clearTimeout(t)
+  }, [post.title, post.cluster, post.city, post.subject, post.audience, post.slug])
 
   const set = <K extends keyof EditorPost>(key: K, value: EditorPost[K]) => {
     setPost((p) => ({ ...p, [key]: value }))
@@ -214,6 +283,12 @@ export default function PostEditor({
             ? `Draft ready — but ${data.untraced.length} figure(s) are not in your notes. Check the highlighted list before reviewing.`
             : 'Draft ready. Read it through, edit, then tick Reviewed.',
         )
+      } else if (data.note === 'figures') {
+        // The model added figures with no notes to back them; we used the
+        // figure-free composed draft instead.
+        setGenNote(
+          'With no fact notes the post is written figure-free. The AI draft included figures, so we used a figure-free version instead — add fact notes if you want numbers.',
+        )
       } else {
         // The real reason, in plain words. `reason` is the verbatim API failure
         // (status + body); we compose from the notes so the editor stays usable.
@@ -230,8 +305,25 @@ export default function PostEditor({
     }
   }
 
-  // Generate a cover from the title + cluster, at both sizes.
-  async function generateCover() {
+  // The composer preview URL for one seed — an <img> points at it while the
+  // manager compares the three variants. Built from the current post fields, so
+  // the previews update as the title/cluster/city/subject change.
+  function composeUrl(seed: number): string {
+    const q = new URLSearchParams({
+      title: pv.title,
+      cluster: pv.cluster,
+      audience: pv.audience,
+      seed: String(seed),
+    })
+    if (pv.city.trim()) q.set('city', pv.city.trim())
+    if (pv.subject.trim()) q.set('subject', pv.subject.trim())
+    if (pv.slug) q.set('slug', pv.slug)
+    return `/api/admin/blog/cover-compose?${q.toString()}`
+  }
+
+  // Commit the chosen composed variant to the blog bucket and set it as the
+  // cover. A composed cover is a single wide image (no square variant).
+  async function pickCover(seed: number) {
     if (!post.title.trim()) {
       setError('Give the post a title first.')
       return
@@ -242,27 +334,85 @@ export default function PostEditor({
       const res = await fetch('/api/admin/blog/generate-cover', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title: post.title, cluster: post.cluster }),
+        body: JSON.stringify({
+          title: post.title,
+          cluster: post.cluster,
+          city: post.city.trim() || null,
+          subject: post.subject.trim() || null,
+          audience: post.audience,
+          slug: post.slug || null,
+          seed,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
         setError(data.error ?? 'Could not generate a cover.')
+        toast.error(data.error ?? 'Could not generate a cover.')
         return
       }
       setPost((p) => ({
         ...p,
         coverPath: data.coverPath,
-        coverSquarePath: data.coverSquarePath,
-        // Alt for a generated cover is derived server-side; keep any hand-typed
-        // alt the manager already wrote.
-        coverAlt: p.coverAlt?.trim() ? p.coverAlt : data.coverAlt,
+        coverSquarePath: null,
+        // Auto alt, editable. Keep a hand-typed alt, but replace a previous
+        // auto one (a different variant describes a different picture).
+        coverAlt: !p.coverAlt || p.coverAlt.startsWith('Illustration:') ? data.coverAlt : p.coverAlt,
       }))
       setDirty(true)
-      setNotice('Cover generated at both sizes. Save to keep it.')
+      setNotice('Cover set. Save to keep it.')
+      toast.success('Cover set.')
     } catch {
       setError('Network error while generating the cover.')
+      toast.error('Network error while generating the cover.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  // Pick a suggested title: fill the fields and link the post to the suggestion.
+  function useSuggestion(s: EditorSuggestion) {
+    setPost((p) => ({
+      ...p,
+      title: s.title,
+      slug: p.slugLocked || slugEdited ? p.slug : slugify(s.title),
+      cluster: s.cluster && POST_CLUSTERS.some((c) => c.slug === s.cluster) ? s.cluster : p.cluster,
+      audience: s.audience as PostAudience,
+      language: s.language as PostLanguage,
+      city: s.city ?? p.city,
+      subject: s.subject ?? p.subject,
+      sourceNotes: s.notes || p.sourceNotes,
+    }))
+    setLinkedSuggestion(s.id)
+    setDirty(true)
+    setPanelOpen(false)
+    toast.success('Title added. Fill in the rest and generate a draft.')
+  }
+
+  // Dismiss a suggestion from the queue (confirm + toast), same route the
+  // /admin/blog/queue screen uses.
+  async function dismissSuggestion(s: EditorSuggestion) {
+    const ok = await confirm({
+      title: 'Dismiss this suggestion?',
+      body: 'It leaves the queue and only returns if its evidence changes materially.',
+      confirmLabel: 'Dismiss',
+    })
+    if (!ok) return
+    try {
+      const res = await fetch('/api/admin/blog/queue', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'dismiss', id: s.id }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        toast.error(d.error ?? 'Could not dismiss it.')
+        return
+      }
+      setOpenSuggestions((list) => list.filter((x) => x.id !== s.id))
+      if (linkedSuggestion === s.id) setLinkedSuggestion(null)
+      toast.success('Dismissed.')
+    } catch {
+      toast.error('Network error. Try again.')
     }
   }
 
@@ -320,12 +470,14 @@ export default function PostEditor({
       seoTitle: post.seoTitle,
       seoDescription: post.seoDescription,
       relatedLandingPages: post.related,
+      city: post.city,
+      subject: post.subject,
       reviewed: post.reviewed,
       sourceNotes: post.sourceNotes,
       confirmedFigures: post.confirmedFigures,
       // Only meaningful on the first save; the route ignores it once the post
       // exists (it marks the suggestion drafted in the insert branch).
-      suggestionId: !post.id ? suggestionId ?? undefined : undefined,
+      suggestionId: !post.id ? linkedSuggestion ?? undefined : undefined,
     })
     if (!data) return
     const next: EditorPost = {
@@ -411,10 +563,82 @@ export default function PostEditor({
     'mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-tm-navy placeholder:text-gray-500 focus:border-tm-navy focus:outline-none'
   const card = 'rounded-2xl border border-gray-200 bg-white p-4 space-y-3'
 
-  const coverUrl = post.coverPath ? publicBlogUrl(post.coverPath) : null
+  const filteredSuggestions = openSuggestions.filter((s) => {
+    const q = suggestionQuery.trim().toLowerCase()
+    if (!q) return true
+    return `${s.title} ${s.city ?? ''} ${s.subject ?? ''} ${clusterLabel(s.cluster ?? '')}`.toLowerCase().includes(q)
+  })
 
   return (
     <div className="space-y-4">
+      {/* Start from a suggested title — new posts only. */}
+      {!post.id && openSuggestions.length > 0 && (
+        <div className="rounded-2xl border border-tm-navy/15 bg-tm-tint-navy/40 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <Lightbulb aria-hidden size={15} className="text-tm-navy" />
+              <p className="text-xs font-black text-tm-navy">Start from a suggested title</p>
+              <span className="text-[11px] text-gray-500">{openSuggestions.length} in the queue</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPanelOpen((v) => !v)}
+              className="text-[11px] font-bold text-tm-navy hover:underline"
+            >
+              {panelOpen ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          {panelOpen && (
+            <>
+              <input
+                value={suggestionQuery}
+                onChange={(e) => setSuggestionQuery(e.target.value)}
+                placeholder="Search suggestions…"
+                aria-label="Search suggestions"
+                className="mt-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-tm-navy placeholder:text-gray-500 focus:border-tm-navy focus:outline-none"
+              />
+              <ul className="mt-2 max-h-72 space-y-2 overflow-y-auto">
+                {filteredSuggestions.map((s) => (
+                  <li key={s.id} className="rounded-xl border border-gray-200 bg-white p-3">
+                    <p className="text-sm font-bold text-tm-navy">{s.title}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+                      <span className="rounded-full bg-tm-tint-navy px-2 py-0.5 font-bold text-tm-navy">
+                        {clusterLabel(s.cluster ?? '')}
+                      </span>
+                      {s.subject && <span className="text-gray-600">{s.subject}</span>}
+                      {s.city && <span className="text-gray-600">· {s.city}</span>}
+                      <span className="text-gray-500">
+                        {SOURCE_LABEL[s.source] ?? s.source}
+                        {s.evidence[0] ? ` — ${s.evidence[0]}` : ''}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => useSuggestion(s)}
+                        className="inline-flex min-h-[36px] items-center rounded-lg bg-tm-navy px-3 text-[11px] font-bold text-white hover:bg-tm-navy-hover"
+                      >
+                        Use this title
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => dismissSuggestion(s)}
+                        className="inline-flex min-h-[36px] items-center gap-1 rounded-lg border border-gray-200 px-3 text-[11px] font-bold text-tm-red hover:bg-tm-tint-red"
+                      >
+                        <X aria-hidden size={12} /> Dismiss
+                      </button>
+                    </div>
+                  </li>
+                ))}
+                {filteredSuggestions.length === 0 && (
+                  <li className="p-2 text-[11px] text-gray-500">No suggestions match “{suggestionQuery}”.</li>
+                )}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Status + primary actions */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-tm-tint-navy px-2.5 py-1 text-[11px] font-bold text-tm-navy">
@@ -484,6 +708,10 @@ export default function PostEditor({
             {gate.reasons.map((r) => (
               <li key={r}>• {r}</li>
             ))}
+            {/* Cover is optional, so this is advisory, not a gate. */}
+            <li className={post.coverPath ? 'font-semibold text-tm-green-deep' : ''}>
+              {post.coverPath ? '✓ Cover set' : '○ Cover not set (optional, but recommended for sharing)'}
+            </li>
           </ul>
         </div>
       )}
@@ -567,6 +795,10 @@ export default function PostEditor({
                   className={`${input} text-xs`}
                   dir={post.language === 'ur' ? 'rtl' : undefined}
                 />
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Add fact notes if you want figures in the post. With no notes, the draft is written with
+                  no figures at all.
+                </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <button
@@ -827,60 +1059,121 @@ export default function PostEditor({
                 ))}
               </select>
             </div>
+            {/* Optional city + subject — a native typeahead over the same city
+                list and taxonomy the rest of the site uses. Feed the cover
+                composer and the post's JSON-LD about/keywords. */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label htmlFor="post-city" className={label}>
+                  City <span className="font-normal text-gray-500">(optional)</span>
+                </label>
+                <input
+                  id="post-city"
+                  list="post-city-list"
+                  value={post.city}
+                  onChange={(e) => set('city', e.target.value)}
+                  placeholder="e.g. Lahore"
+                  className={input}
+                />
+                <datalist id="post-city-list">
+                  {CITIES.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
+              <div>
+                <label htmlFor="post-subject" className={label}>
+                  Subject <span className="font-normal text-gray-500">(optional)</span>
+                </label>
+                <input
+                  id="post-subject"
+                  list="post-subject-list"
+                  value={post.subject}
+                  onChange={(e) => set('subject', e.target.value)}
+                  placeholder="e.g. O Level Physics"
+                  className={input}
+                />
+                <datalist id="post-subject-list">
+                  {subjectOptions.slice(0, 400).map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              </div>
+            </div>
           </div>
 
           {/* Cover */}
           <div className={card}>
-            <p className={label}>Cover image</p>
-            {/* Generate a branded cover from the title + cluster, at both sizes,
-                or upload one below. A generated cover derives its own alt text. */}
-            <button
-              type="button"
-              onClick={generateCover}
-              disabled={busy || !post.title.trim()}
-              className="inline-flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy hover:border-tm-navy disabled:opacity-60"
-            >
-              <Sparkles aria-hidden size={13} />
-              Generate cover
-            </button>
-            {post.coverSquarePath && (
-              <div className="grid grid-cols-2 gap-2">
-                <figure className="space-y-1">
-                  <div className="overflow-hidden rounded-lg border border-gray-200">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={publicBlogUrl(post.coverPath!)} alt="" className="aspect-[1200/630] w-full object-cover" />
-                  </div>
-                  <figcaption className="text-[10px] font-semibold text-gray-500">Post · 1200×630</figcaption>
-                </figure>
-                <figure className="space-y-1">
-                  <div className="overflow-hidden rounded-lg border border-gray-200">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={publicBlogUrl(post.coverSquarePath)} alt="" className="aspect-square w-full object-cover" />
-                  </div>
-                  <figcaption className="text-[10px] font-semibold text-gray-500">Social · 1080×1080</figcaption>
-                </figure>
-              </div>
+            <div className="flex items-center gap-1.5">
+              <ImageIcon aria-hidden size={14} className="text-tm-navy" />
+              <p className={label}>Cover image</p>
+            </div>
+            {/* Three composed variants (seeds base..base+2) built from the brand
+                asset library — pick one, or Shuffle for three more. A picked
+                cover derives its own alt text. */}
+            {pv.title.trim() ? (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  {[0, 1, 2].map((i) => {
+                    const seed = coverBase + i
+                    const src = composeUrl(seed)
+                    return (
+                      <button
+                        key={src}
+                        type="button"
+                        onClick={() => pickCover(seed)}
+                        disabled={busy}
+                        title="Use this cover"
+                        className="group overflow-hidden rounded-lg border border-gray-200 hover:border-tm-navy disabled:opacity-60"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={src} alt={`Cover option ${i + 1}`} className="aspect-[1200/630] w-full bg-tm-bg object-cover" />
+                        <span className="block bg-tm-bg py-1 text-center text-[10px] font-bold text-tm-navy group-hover:bg-tm-tint-navy">
+                          Use
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCoverBase((b) => b + 3)}
+                    className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-[11px] font-bold text-tm-navy hover:border-tm-navy"
+                  >
+                    <Shuffle aria-hidden size={12} /> Shuffle
+                  </button>
+                  <span className="text-[11px] text-gray-500">Pick one, or shuffle for three more.</span>
+                </div>
+              </>
+            ) : (
+              <p className="text-[11px] text-gray-500">Add a title to generate cover options.</p>
             )}
+
+            {/* The cover currently set. */}
+            {post.coverPath && (
+              <figure className="space-y-1">
+                <div className="overflow-hidden rounded-lg border-2 border-tm-navy/30">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={publicBlogUrl(post.coverPath)} alt="" className="aspect-[1200/630] w-full object-cover" />
+                </div>
+                <figcaption className="text-[10px] font-semibold text-tm-green-deep">Current cover · 1200×630</figcaption>
+              </figure>
+            )}
+
             <p className="text-[11px] text-gray-500">or upload your own:</p>
             <FileUpload
               label="Cover image"
               acceptLabel="JPG or PNG"
-              currentPreview={
-                coverUrl && !post.coverSquarePath ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={coverUrl} alt="" className="h-full w-full object-cover" />
-                ) : undefined
-              }
               onFile={async (file) => {
                 const fd = new FormData()
                 fd.append('file', file)
                 const res = await fetch('/api/admin/blog/cover', { method: 'POST', body: fd })
                 const data = await res.json()
                 if (!res.ok) throw new Error(data.error ?? 'Upload failed.')
-                // An uploaded cover replaces the generated pair; drop the square
-                // variant so the previews reflect what is actually set.
                 setPost((p) => ({ ...p, coverPath: data.path, coverSquarePath: null }))
                 setDirty(true)
+                toast.success('Cover uploaded.')
               }}
             />
             <div>

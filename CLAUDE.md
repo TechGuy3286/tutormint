@@ -2247,6 +2247,86 @@ seen Markdown can write a post. **Slug auto-fills from the title as it is
 typed**, until it is hand-edited (then it stops tracking) or the post is
 published (then it is locked) — an emptied slug resumes tracking the title.
 
+## Blog part 4 — suggested titles + composed covers (T9.3/9.4, 5 Sep 2026)
+
+Covers are now COMPOSED from a committed brand asset library — no external image
+API, anywhere. And the content queue reaches into the editor: a new post can
+start from a suggested title, and a draft can be written from a title alone.
+Migration 55 (additive; backup taken first), applied to the one database.
+
+**The asset library is white-keyed PNGs, and the catalogue is the source of
+truth.** `public/covers/` shipped with 33 owner-made 2K JPEGs (skylines, people,
+motifs; navy/mint/red on white). `scripts/covers-build.ts` processes them ONCE
+and is committed: it maps each file to a short content slug, keys pure white to
+transparent (a soft 225–245 min-channel ramp, so edges are clean), trims the
+margins, downscales per kind (cities ≤1600w, people ≤1200h, motifs ≤800), writes
+`public/covers/<slug>.png`, deletes the JPEG, and regenerates
+`lib/covers/catalog.ts` from what is on disk. The catalogue — slug, kind
+(`city | person | motif`), tags, natural size — is the SOURCE OF TRUTH:
+`scripts/test-covers.ts` asserts every catalogued file exists and every PNG on
+disk is catalogued, both ways. The build is re-runnable (with the JPEGs gone it
+just rebuilds the catalogue). The 8 cities are Lahore/Karachi (skylines),
+Islamabad (Faisal Mosque), Rawalpindi/Peshawar (skylines), Faisalabad (clock
+tower), Multan (shrine) and a Pakistan map (the fallback); a book-on-a-rehal maps
+to `quran`. There is no external image API in the cover feature — the library is
+the whole source.
+
+**The composer is deterministic and pure/render-split, like the social banner.**
+`lib/covers/select.ts` (PURE — no next/og, no fs) decides everything a cover
+shows from the post: city → its silhouette (fallback pakistan-map); subject → its
+motif (fallback book); audience → person (parents→parent-child, tutors→a teacher
+alternating, else student); cluster → a second motif (cost-hiring→wallet,
+safety-trust→shield, boards-exams→certificate, else search); two motifs deduped.
+`lib/covers/compose.tsx` (next/og, brand LITERALS, NO server-only — so it renders
+under the test runner) paints a 1200×630 with the title (auto-sized, ≤3 lines,
+navy on light / white on navy), the city silhouette across the bottom, the person
+bottom-right and the motifs in soft cards, on one of three grounds (white / mint
+tint / navy). The navy ground lays a light "stage" band so the navy skyline reads
+against it. `lib/covers/assets.ts` (server-only) loads each asset fs-first, CDN
+second, into a data URI (satori embeds data URIs; public/ is not on the Vercel
+lambda's fs); `lib/covers/render.ts` (server-only) orchestrates. The **seed**
+picks the ground (0/1/2 = white/mint/navy) and the layout; **Shuffle** advances
+the seed by three, rotating the ground under the whole trio and re-rolling the
+teacher and motif order — a visibly different trio, still deterministic per seed.
+Every title/ground pair is on `check:contrast`.
+
+**Editor: three composed variants, pick one, or Shuffle.** `POST
+generate-cover` commits the chosen seed to the `blog` bucket (a single wide
+image; `cover_square_path` is cleared, as an upload does) and derives its alt
+text ("Illustration: the Lahore skyline, a parent and child, an atom and a
+wallet."); `GET cover-compose` is the live preview the editor points three
+`<img>` at (debounced 500ms so live-typing does not fire a satori render per
+keystroke). The old title+cluster template renderer is gone. Upload-your-own
+stays. Posts gained optional **city** and **subject** fields (native-typeahead
+datalists over `CITIES` and the taxonomy), used by the composer and appended to
+the post's JSON-LD `about`/`keywords` when present (emitted only from what the
+post carries — never invented).
+
+**Start from a suggested title.** The New-post editor shows a panel of the open
+content queue (search box, per-item Dismiss with confirm+toast → the same
+`/admin/blog/queue` route the queue screen uses). Picking one fills title, slug,
+cluster, audience, city and subject (the last two parsed from the suggestion's
+fingerprint via `listEditorSuggestions`) and links `post.suggestion_id`. The
+first **save** marks the suggestion `drafted`; **publishing** marks it `done`
+(migration 55 widened the status CHECK); **deleting the draft** reopens it to
+`suggested`. This supersedes the queue-only `?suggestion=` flow, which still
+works and now routes through the same enriched list.
+
+**Draft from a title alone.** Fact notes are optional now. With notes, behaviour
+is unchanged. With NO notes the model is told to write with no figures at all,
+and if it slips one in the draft falls back to the figure-free composed draft, so
+title-only generation always passes the figure gate. In `unsupportedFigures`, a
+four-digit **year (1900–2099) is never a statistic**, and a non-year **title
+number is credited only when there are notes** — so a title-only draft's only
+allowed numeral is a year, matching the rule that a figure-free post is the point
+of the no-notes path. The persistent `figureGate` stays notes-gated, so the
+part-1 hand-written flow is unblocked exactly as before. The before-publishing
+checklist gained a "Cover set" line (advisory — a cover is not a publish gate).
+
+Gates at close: tsc 0 · build 0 · check:contrast 89 · rls:audit 168/168 ·
+test:covers 16 · test:blog 35 · test:social 7 · test:cv 14 · test:messaging 8 ·
+test:seedcast 4 · test:jobcopy/grouping/delivery all pass.
+
 ## Mobile polish, both roles (5 Sep 2026)
 
 A pass over the two dashboards, cards, packages and empty states. No migration.

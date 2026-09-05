@@ -85,6 +85,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     language: post.language,
     legalName: company.legalName,
     section: clusterLabel(post.cluster),
+    subject: post.subject,
+    city: post.city,
   })
 
   return (

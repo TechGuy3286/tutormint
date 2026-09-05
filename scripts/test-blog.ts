@@ -143,8 +143,18 @@ test('a figure that appears in neither notes nor title is flagged', () => {
   assert.deepEqual(unsupportedFigures('Pass rates hit 92% last year.', NOTES, ''), ['92'])
 })
 
-test('a figure in the title is allowed (the manager asserted it)', () => {
-  assert.deepEqual(unsupportedFigures('Great for Grade 10 students.', '', 'Grade 10 physics guide'), [])
+test('a title figure is allowed WHEN there are notes (the manager asserted it)', () => {
+  assert.deepEqual(unsupportedFigures('Great for Grade 10 students.', NOTES, 'Grade 10 physics guide'), [])
+})
+
+test('with no notes, a non-year title figure is NOT credited (part-4 title-only rule)', () => {
+  // The title-only generation path must be figure-free; only a year survives.
+  assert.deepEqual(unsupportedFigures('Great for Grade 10 students.', '', 'Grade 10 physics guide'), ['10'])
+})
+
+test('a year is never flagged, notes or not', () => {
+  assert.deepEqual(unsupportedFigures('The 2026 syllabus changed.', '', 'A guide'), [])
+  assert.deepEqual(unsupportedFigures('Back in 1998 and again in 2026.', NOTES, 'A guide'), [])
 })
 
 test('comma and bare forms of one number are the same figure', () => {

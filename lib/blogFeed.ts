@@ -44,6 +44,9 @@ export type BlogPost = {
   seoTitle: string | null
   seoDescription: string | null
   relatedLandingPages: string[]
+  /** Optional city / subject (display strings) for the composer and JSON-LD. */
+  city: string | null
+  subject: string | null
   publishedAt: string | null
   updatedAt: string
 }
@@ -161,6 +164,8 @@ function toPost(r: Record<string, unknown>): BlogPost {
     seoTitle: (r.seo_title as string) ?? null,
     seoDescription: (r.seo_description as string) ?? null,
     relatedLandingPages: (r.related_landing_pages as string[]) ?? [],
+    city: (r.city as string) ?? null,
+    subject: (r.subject as string) ?? null,
     publishedAt: (r.published_at as string) ?? null,
     updatedAt: r.updated_at as string,
   }

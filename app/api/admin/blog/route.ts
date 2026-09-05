@@ -47,6 +47,10 @@ const SaveBody = z.object({
   seoTitle: z.string().max(300).nullable().optional(),
   seoDescription: z.string().max(600).nullable().optional(),
   relatedLandingPages: z.array(z.string().max(200)).max(20).optional(),
+  // Optional city and subject (display strings) — the composer and the JSON-LD
+  // about/keywords read them.
+  city: z.string().max(80).nullable().optional(),
+  subject: z.string().max(120).nullable().optional(),
   reviewed: z.boolean().optional(),
   // The fact notes the draft was generated from, kept so the figure gate can
   // be re-run server-side. Empty for a hand-written post.
@@ -171,6 +175,8 @@ export async function POST(request: Request) {
       seo_title: (body.seoTitle ?? '').trim().slice(0, SEO_TITLE_MAX) || null,
       seo_description: (body.seoDescription ?? '').trim().slice(0, SEO_DESCRIPTION_MAX) || null,
       related_landing_pages: body.relatedLandingPages ?? [],
+      city: (body.city ?? '').trim() || null,
+      subject: (body.subject ?? '').trim() || null,
       source_notes: sourceNotes || null,
       confirmed_figures: confirmedFigures,
       status,
@@ -187,7 +193,9 @@ export async function POST(request: Request) {
     } else {
       const { data, error } = await admin
         .from('posts')
-        .insert({ ...row, author_id: gate.actor.id })
+        // Record the suggestion this post was started from, so publishing marks
+        // it 'done' and deleting the draft reopens it.
+        .insert({ ...row, author_id: gate.actor.id, suggestion_id: body.suggestionId ?? null })
         .select('id')
         .single()
       if (error) {
@@ -271,6 +279,15 @@ export async function POST(request: Request) {
       .eq('id', post.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
+    // A published post from a suggestion closes it for good ('done'), distinct
+    // from 'drafted' (an open draft that reopens if deleted).
+    if (post.suggestion_id) {
+      await admin
+        .from('content_suggestions')
+        .update({ status: 'done', updated_at: nowIso })
+        .eq('id', post.suggestion_id as string)
+    }
+
     await logAdminAction({
       actorId: pub.actor.id,
       actorRole: pub.actor.adminRole,
@@ -338,6 +355,16 @@ export async function POST(request: Request) {
   // ----------------------------------------------------------- delete ----
   const { error } = await admin.from('posts').delete().eq('id', post.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Deleting a draft made from a suggestion reopens it, so the topic returns to
+  // the queue rather than being silently lost with the draft.
+  if (post.suggestion_id) {
+    await admin
+      .from('content_suggestions')
+      .update({ status: 'suggested', drafted_post_id: null, updated_at: nowIso })
+      .eq('id', post.suggestion_id as string)
+      .in('status', ['drafted', 'done'])
+  }
 
   await logAdminAction({
     actorId: pub.actor.id,

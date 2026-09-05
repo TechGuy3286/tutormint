@@ -1,25 +1,27 @@
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import PostEditor from '@/components/admin/blog/PostEditor'
 import { landingOptionsForEditor, emptyEditorPost } from '@/lib/blogEditor'
-import { getSuggestion } from '@/lib/contentQueue/feed'
+import { listEditorSuggestions } from '@/lib/contentQueue/feed'
 import { isClusterSlug, type PostAudience, type PostLanguage } from '@/lib/blog'
 import { slugify } from '@/lib/slugs'
 
 export const dynamic = 'force-dynamic'
 
-// New post. When opened from the content queue (?suggestion=<id>) the editor is
-// pre-filled — title, cluster, audience, language, and the evidence as the fact
-// notes — so part 2 writes the draft. The suggestion id is threaded through so
-// that saving the post marks the suggestion 'drafted' and it leaves the queue.
+// New post. A "Start from a suggested title" panel lists the open content queue;
+// picking one (or arriving from the queue's "Draft this" at ?suggestion=<id>)
+// pre-fills title, slug, cluster, audience, language, city, subject and the
+// evidence as fact notes, and links the post to the suggestion so the first
+// save marks it 'drafted', publishing marks it 'done', and deleting reopens it.
 
 export default async function NewPostPage({
   searchParams,
 }: {
   searchParams: Promise<{ suggestion?: string }>
 }) {
-  const [actor, landingOptions, { suggestion }] = await Promise.all([
+  const [actor, landingOptions, suggestions, { suggestion }] = await Promise.all([
     requireAdminRole(...SCREEN_ACCESS.blog),
     landingOptionsForEditor(),
+    listEditorSuggestions(),
     searchParams,
   ])
 
@@ -27,19 +29,18 @@ export default async function NewPostPage({
   let suggestionId: string | null = null
 
   if (suggestion) {
-    const s = await getSuggestion(suggestion)
-    // Only a live content suggestion pre-fills; a recruitment card is not a post.
-    if (s && s.card === 'content' && (s.status === 'suggested' || s.status === 'snoozed')) {
+    const s = suggestions.find((x) => x.id === suggestion)
+    if (s) {
       suggestionId = s.id
       initial = {
         ...initial,
         title: s.title,
-        // Pre-derive the slug from the pre-filled title; the editor keeps it
-        // tracking the title (this is a new post) until it is hand-edited.
         slug: slugify(s.title),
         cluster: s.cluster && isClusterSlug(s.cluster) ? s.cluster : initial.cluster,
         audience: s.audience as PostAudience,
         language: s.language as PostLanguage,
+        city: s.city ?? '',
+        subject: s.subject ?? '',
         sourceNotes: s.notes,
       }
     }
@@ -49,6 +50,7 @@ export default async function NewPostPage({
     <PostEditor
       initial={initial}
       landingOptions={landingOptions}
+      suggestions={suggestions}
       canPublishCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogPublish)}
       canGenerate={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogGenerate)}
       suggestionId={suggestionId}

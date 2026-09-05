@@ -37,10 +37,17 @@ export type { BlogBrief, BlogDraft } from './blogBrief'
 export const BLOG_MODEL = MODEL
 
 function brandBrief(brief: BlogBrief): string {
+  const noNotes = !brief.notes.trim()
   const links =
     brief.landingLinks.length > 0
       ? brief.landingLinks.map((l) => `- ${l.label}: /${l.path}`).join('\n')
       : '(none available — do not invent internal links)'
+
+  // With no fact notes there is nothing to back a number, so the post must carry
+  // none. With notes, the standard rule applies (use only the numbers given).
+  const figureRule = noNotes
+    ? 'THE HARD RULE — you were given NO facts. Write with NO figures AT ALL: no numbers, no percentages, no fees, no counts, no pass rates, no dates. Describe every magnitude in words ("typically", "most", "a few", "affordable"). A single invented figure fails the draft.'
+    : 'THE HARD RULE — NEVER INVENT STATISTICS. Use ONLY numbers, fees, percentages, dates, pass rates, counts and names that appear in the facts below. If you do not have a number, write "typically" or describe it in words. A made-up statistic on a blog is quoted back as fact — do not produce one.'
 
   const cta =
     brief.audience === 'tutors'
@@ -61,7 +68,7 @@ function brandBrief(brief: BlogBrief): string {
     cta,
     'Internal links: you MAY link to these landing pages where relevant, using their exact paths. Do not invent any other internal link:',
     links,
-    'THE HARD RULE — NEVER INVENT STATISTICS. Use ONLY numbers, fees, percentages, dates, pass rates, counts and names that appear in the facts below. If you do not have a number, write "typically" or describe it in words. A made-up statistic on a blog is quoted back as fact — do not produce one.',
+    figureRule,
     brief.language === 'ur'
       ? 'Write in Roman Urdu (Urdu written in the Latin alphabet), the way Pakistanis text — not formal Nastaliq Urdu, and not English.'
       : 'Write in clear English.',
@@ -148,6 +155,14 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
   const seoDescription = withBrandTail(seoLead || brief.title)
 
   const untraced = unsupportedFigures(body, brief.notes, brief.title, [], brief.landingLinks)
+
+  // Title-only generation (no notes) must be figure-free. If the model slipped a
+  // figure in anyway, fall back to the composed draft — which carries no number
+  // the notes do not, so the result always passes the figure gate.
+  if (!brief.notes.trim() && untraced.length > 0) {
+    console.error('[blogCopy] no-notes draft included figures, composing instead:', untraced.join(', '))
+    return { ...fallback, note: 'figures', reason: `the draft included unbacked figures (${untraced.join(', ')})` }
+  }
 
   return { body, seoTitle, seoDescription, source: 'claude', untraced }
 }

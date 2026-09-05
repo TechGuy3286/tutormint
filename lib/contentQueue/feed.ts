@@ -7,6 +7,8 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { subjectMetaByMaster, citySegment } from '@/lib/landing'
+import { CITIES } from '@/lib/locations'
 import type { Audience, Language, SuggestionCard, SuggestionSource, PriorityComponents } from './core'
 
 export type Suggestion = {
@@ -58,6 +60,63 @@ export async function listSuggestions(): Promise<{ content: Suggestion[]; recrui
     content: all.filter((s) => s.card === 'content'),
     recruitment: all.filter((s) => s.card === 'recruitment'),
   }
+}
+
+/**
+ * A suggestion enriched with the city and subject its fingerprint encodes, for
+ * the "Start from a suggested title" panel in the editor — picking one fills
+ * those post fields too. The search/coverage fingerprints carry a master id or
+ * a subject slug and a city slug; calendar/report topics carry neither and
+ * resolve to null, which the editor simply leaves blank.
+ */
+export type EditorSuggestion = Suggestion & { city: string | null; subject: string | null }
+
+function cityFromSlug(slug: string): string {
+  const match = CITIES.find((c) => citySegment(c) === slug)
+  if (match) return match
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())
+}
+
+/** The open content queue (suggested + snoozed) for the editor panel. */
+export async function listEditorSuggestions(): Promise<EditorSuggestion[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const { data } = await admin
+    .from('content_suggestions')
+    .select('*')
+    .eq('card', 'content')
+    .in('status', ['suggested', 'snoozed'])
+    .order('priority', { ascending: false })
+    .limit(60)
+  const rows = data ?? []
+  if (rows.length === 0) return []
+
+  const byMaster = await subjectMetaByMaster()
+  const bySubjectSlug = new Map<string, string>()
+  for (const m of byMaster.values()) bySubjectSlug.set(m.slug, m.name)
+
+  return rows.map((r) => {
+    const s = toSuggestion(r)
+    let city: string | null = null
+    let subject: string | null = null
+    const fp = (r.fingerprint as string) ?? ''
+    if (fp.startsWith('search:')) {
+      // search:tutors:<masterId>:<citySlug>
+      const parts = fp.split(':')
+      const masterId = Number(parts[2])
+      const citySlug = parts[3] ?? ''
+      subject = byMaster.get(masterId)?.name ?? null
+      if (citySlug) city = cityFromSlug(citySlug)
+    } else if (fp.startsWith('coverage:')) {
+      // coverage:tutors/<citySlug>/<subjectSlug>
+      const path = fp.slice('coverage:'.length).split('/')
+      const citySlug = path[1] ?? ''
+      const subjectSlug = path[2] ?? ''
+      subject = bySubjectSlug.get(subjectSlug) ?? null
+      if (citySlug) city = cityFromSlug(citySlug)
+    }
+    return { ...s, city, subject }
+  })
 }
 
 /** One suggestion, for the editor pre-fill. */

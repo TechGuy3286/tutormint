@@ -544,3 +544,26 @@ Migration 54 (notifications → supabase_realtime publication; backup taken).
 - **Notification carry-over**: badge caps 99→"99+"; Mark all read (bell + page,
   `/api/notifications/read-all`); live Realtime increment (postgres_changes on
   notifications, migration 54); count parity verified.
+
+## Blog part 4 — composed covers + suggested titles (5 Sep 2026)
+
+Migration 55 (posts.city/subject/suggestion_id + content_suggestions 'done'
+status; additive; backup `public-20260905-161343.sql` taken first, applied to the
+one production DB).
+
+- **Asset library**: `scripts/covers-build.ts` (committed, re-runnable) turned 33
+  owner JPEGs in `public/covers/` into white-keyed transparent PNGs and wrote
+  `lib/covers/catalog.ts` (the source of truth). No external image API. The
+  JPEGs were untracked; backed up to the scratchpad before deletion.
+- **Composer**: `lib/covers/select.ts` (pure) + `compose.tsx` (next/og, no
+  server-only) + `assets.ts`/`render.ts` (server-only). 1200×630, three grounds
+  (white/mint/navy) by seed; Shuffle rotates the ground + re-rolls teacher/motif
+  order. Deterministic. `GET cover-compose` previews, `POST generate-cover`
+  commits the picked seed + derives alt; old template renderer deleted.
+- **Editor**: three variants + Shuffle + pick (toasts); city/subject typeahead
+  fields (JSON-LD about/keywords via `articleJsonLd`); "Start from a suggested
+  title" panel (search + Dismiss); suggestion lifecycle drafted→done→(reopen on
+  delete). Notes optional for generation; no-notes → figure-free (year exemption,
+  title numbers credited only with notes); checklist "Cover set" line.
+- **Gates**: tsc 0 · build 0 · check:contrast 89 · rls:audit 168/168 ·
+  test:covers 16 · test:blog 35 · all others pass.

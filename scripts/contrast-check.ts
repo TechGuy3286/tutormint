@@ -258,6 +258,15 @@ const PAIRS: Pair[] = [
   { fg: 'navy', bg: 'tintGreen', where: 'social v2 success panel occasion & name' },
   { fg: 'greenDeep', bg: 'tintGreen', where: 'social v2 success "Congratulations" script' },
   { fg: 'navy', bg: 'white', where: 'social v2 inverted Premium badge, bold (navy on white)' },
+
+  // Blog composed covers (lib/covers/compose.tsx). next/og literals from
+  // lib/brand.ts, three grounds: white, mint tint, navy. Every text/ground pair.
+  { fg: 'navy', bg: 'tintGreen', where: 'blog cover title, mint ground' },
+  { fg: 'white', bg: 'navy', where: 'blog cover title + wordmark, navy ground' },
+  { fg: 'slate700', bg: 'tintGreen', where: 'blog cover site line, mint ground' },
+  { fg: 'mint', bg: 'navy', where: 'blog cover site line + wordmark "Mint", navy ground' },
+  { fg: 'black', bg: 'tintGreen', where: 'blog cover wordmark "Tutor", mint ground' },
+  { fg: 'red', bg: 'tintGreen', where: 'blog cover wordmark "Mint", mint ground' },
 ]
 
 // ----------------------------------------------------------------- run ------

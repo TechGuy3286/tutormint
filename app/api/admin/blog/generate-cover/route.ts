@@ -3,20 +3,20 @@ import { randomUUID } from 'node:crypto'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { clusterLabel, isClusterSlug, publicBlogUrl } from '@/lib/blog'
+import { isClusterSlug, publicBlogUrl } from '@/lib/blog'
 import { parseBody, z } from '@/lib/validate'
+import { composeCoverResponse, composeCoverAlt } from '@/lib/covers/render'
+import type { CoverInput } from '@/lib/covers/select'
 
-import { renderCover } from '../cover-image/render'
-
-// Generate a cover from the post's title + cluster, at BOTH sizes, and store
-// them in the public `blog` bucket. cover_path holds the 1200x630 (post + OG);
-// cover_square_path holds the 1080x1080 social variant. The manager may still
-// replace either with an upload (../cover), which sets cover_path only.
+// Commit ONE chosen composed cover variant (the seed the manager picked among
+// the three previews) to the public `blog` bucket, at 1200x630. A composed
+// cover is a single wide image — there is no square social variant — so
+// cover_square_path is cleared, exactly as an uploaded cover does.
 //
-// Alt text is DERIVED here so a generated cover is never missing it -- the
-// publish gate requires alt whenever a cover is set, and a generated picture of
-// the title can describe itself. An uploaded cover still needs alt by hand,
-// because we cannot know what the manager's photo shows.
+// Alt text is DERIVED here from the same selection the picture was composed
+// from ("Illustration: the Lahore skyline, a parent and child, an atom and a
+// wallet."), so a generated cover is never missing the alt the publish gate
+// requires. The manager can still edit it.
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -24,11 +24,12 @@ export const dynamic = 'force-dynamic'
 const Body = z.object({
   title: z.string().trim().min(1, 'Give the post a title first.').max(200),
   cluster: z.string().refine(isClusterSlug, 'Choose a topic cluster.'),
+  city: z.string().max(80).nullable().optional(),
+  subject: z.string().max(120).nullable().optional(),
+  audience: z.enum(['parents', 'tutors', 'both']).optional(),
+  slug: z.string().max(200).nullable().optional(),
+  seed: z.number().int().min(0).max(999).optional(),
 })
-
-async function pngBytes(res: Response): Promise<Uint8Array> {
-  return new Uint8Array(await res.arrayBuffer())
-}
 
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.blog)
@@ -39,34 +40,35 @@ export async function POST(request: Request) {
 
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
-  const { title, cluster } = parsed.data
-  const label = clusterLabel(cluster)
+  const d = parsed.data
 
-  const stamp = randomUUID()
-  const widePath = `covers/gen-${stamp}-wide.png`
-  const squarePath = `covers/gen-${stamp}-square.png`
+  const input: CoverInput = {
+    title: d.title,
+    cluster: d.cluster,
+    city: d.city ?? null,
+    subject: d.subject ?? null,
+    audience: d.audience ?? 'both',
+    slug: d.slug ?? null,
+  }
+  const seed = d.seed ?? 0
+
+  const coverPath = `covers/gen-${randomUUID()}.png`
 
   try {
-    const wide = await pngBytes(renderCover({ title, clusterLabel: label, size: 'wide' }))
-    const square = await pngBytes(renderCover({ title, clusterLabel: label, size: 'square' }))
-
-    const up1 = await admin.storage.from('blog').upload(widePath, wide, { contentType: 'image/png', upsert: false })
-    if (up1.error) return NextResponse.json({ error: up1.error.message }, { status: 400 })
-    const up2 = await admin.storage.from('blog').upload(squarePath, square, { contentType: 'image/png', upsert: false })
-    if (up2.error) return NextResponse.json({ error: up2.error.message }, { status: 400 })
+    const res = await composeCoverResponse(input, seed)
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    const up = await admin.storage.from('blog').upload(coverPath, bytes, { contentType: 'image/png', upsert: false })
+    if (up.error) return NextResponse.json({ error: up.error.message }, { status: 400 })
   } catch (e) {
-    console.error('[blog cover] render/upload failed:', String(e))
+    console.error('[blog cover] compose/upload failed:', String(e))
     return NextResponse.json({ error: 'Could not render the cover.' }, { status: 500 })
   }
 
-  const coverAlt = `${title} — TutorMint ${label} guide`
-
   return NextResponse.json({
     success: true,
-    coverPath: widePath,
-    coverSquarePath: squarePath,
-    coverAlt,
-    coverUrl: publicBlogUrl(widePath),
-    coverSquareUrl: publicBlogUrl(squarePath),
+    coverPath,
+    coverSquarePath: null,
+    coverAlt: composeCoverAlt(input, seed),
+    coverUrl: publicBlogUrl(coverPath),
   })
 }
