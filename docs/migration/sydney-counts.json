@@ -1,0 +1,513 @@
+{
+  "stamp": "2026-09-05T15:29:53.936Z",
+  "from": "flhiraqouizzwnasuraj",
+  "major": "17",
+  "counts": [
+    {
+      "sch": "auth",
+      "tbl": "audit_log_entries",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "custom_oauth_providers",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "flow_state",
+      "n": 7
+    },
+    {
+      "sch": "auth",
+      "tbl": "identities",
+      "n": 48
+    },
+    {
+      "sch": "auth",
+      "tbl": "instances",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "mfa_amr_claims",
+      "n": 389
+    },
+    {
+      "sch": "auth",
+      "tbl": "mfa_challenges",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "mfa_factors",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "oauth_authorizations",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "oauth_client_states",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "oauth_clients",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "oauth_consents",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "one_time_tokens",
+      "n": 1
+    },
+    {
+      "sch": "auth",
+      "tbl": "refresh_tokens",
+      "n": 410
+    },
+    {
+      "sch": "auth",
+      "tbl": "saml_providers",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "saml_relay_states",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "schema_migrations",
+      "n": 77
+    },
+    {
+      "sch": "auth",
+      "tbl": "sessions",
+      "n": 389
+    },
+    {
+      "sch": "auth",
+      "tbl": "sso_domains",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "sso_providers",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "users",
+      "n": 50
+    },
+    {
+      "sch": "auth",
+      "tbl": "webauthn_challenges",
+      "n": 0
+    },
+    {
+      "sch": "auth",
+      "tbl": "webauthn_credentials",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "_t1_degrees_unconverted",
+      "n": 1
+    },
+    {
+      "sch": "public",
+      "tbl": "_t1_unmatched_subjects",
+      "n": 6
+    },
+    {
+      "sch": "public",
+      "tbl": "_t1_unmigrated_messages",
+      "n": 3
+    },
+    {
+      "sch": "public",
+      "tbl": "_t1_unmigrated_rows",
+      "n": 4
+    },
+    {
+      "sch": "public",
+      "tbl": "_t2_remapped_subjects",
+      "n": 19
+    },
+    {
+      "sch": "public",
+      "tbl": "academy_affiliations",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "ad_events",
+      "n": 11
+    },
+    {
+      "sch": "public",
+      "tbl": "admin_audit_log",
+      "n": 67
+    },
+    {
+      "sch": "public",
+      "tbl": "advertisements",
+      "n": 1
+    },
+    {
+      "sch": "public",
+      "tbl": "anon_search_events",
+      "n": 12
+    },
+    {
+      "sch": "public",
+      "tbl": "app_settings",
+      "n": 8
+    },
+    {
+      "sch": "public",
+      "tbl": "applications",
+      "n": 10
+    },
+    {
+      "sch": "public",
+      "tbl": "children",
+      "n": 3
+    },
+    {
+      "sch": "public",
+      "tbl": "content_suggestions",
+      "n": 1
+    },
+    {
+      "sch": "public",
+      "tbl": "demo_feedback",
+      "n": 1
+    },
+    {
+      "sch": "public",
+      "tbl": "demo_requests",
+      "n": 2
+    },
+    {
+      "sch": "public",
+      "tbl": "job_subjects",
+      "n": 47
+    },
+    {
+      "sch": "public",
+      "tbl": "jobs",
+      "n": 60
+    },
+    {
+      "sch": "public",
+      "tbl": "legacy_job_messages",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "legacy_parent_jobs",
+      "n": 47
+    },
+    {
+      "sch": "public",
+      "tbl": "legacy_parent_profiles",
+      "n": 2
+    },
+    {
+      "sch": "public",
+      "tbl": "legacy_parents",
+      "n": 2
+    },
+    {
+      "sch": "public",
+      "tbl": "legacy_tuition_applications",
+      "n": 1
+    },
+    {
+      "sch": "public",
+      "tbl": "legacy_tuitions",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "legacy_tutor_activities",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "legacy_tutor_applications",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "legacy_tutor_trust_fees",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "legacy_tutors",
+      "n": 5
+    },
+    {
+      "sch": "public",
+      "tbl": "message_reports",
+      "n": 1
+    },
+    {
+      "sch": "public",
+      "tbl": "messages",
+      "n": 18
+    },
+    {
+      "sch": "public",
+      "tbl": "notifications",
+      "n": 66
+    },
+    {
+      "sch": "public",
+      "tbl": "payments",
+      "n": 8
+    },
+    {
+      "sch": "public",
+      "tbl": "penalties_log",
+      "n": 10
+    },
+    {
+      "sch": "public",
+      "tbl": "phone_otps",
+      "n": 5
+    },
+    {
+      "sch": "public",
+      "tbl": "plans",
+      "n": 5
+    },
+    {
+      "sch": "public",
+      "tbl": "post_revisions",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "posts",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "profile_views",
+      "n": 116
+    },
+    {
+      "sch": "public",
+      "tbl": "profiles",
+      "n": 30
+    },
+    {
+      "sch": "public",
+      "tbl": "rate_limits",
+      "n": 187
+    },
+    {
+      "sch": "public",
+      "tbl": "reports",
+      "n": 5
+    },
+    {
+      "sch": "public",
+      "tbl": "reviews",
+      "n": 3
+    },
+    {
+      "sch": "public",
+      "tbl": "shortlists",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "slug_history",
+      "n": 11
+    },
+    {
+      "sch": "public",
+      "tbl": "subscriptions",
+      "n": 15
+    },
+    {
+      "sch": "public",
+      "tbl": "taxonomy_aliases",
+      "n": 31
+    },
+    {
+      "sch": "public",
+      "tbl": "taxonomy_categories",
+      "n": 13
+    },
+    {
+      "sch": "public",
+      "tbl": "taxonomy_levels",
+      "n": 133
+    },
+    {
+      "sch": "public",
+      "tbl": "taxonomy_master",
+      "n": 896
+    },
+    {
+      "sch": "public",
+      "tbl": "taxonomy_subjects",
+      "n": 363
+    },
+    {
+      "sch": "public",
+      "tbl": "threads",
+      "n": 8
+    },
+    {
+      "sch": "public",
+      "tbl": "tutor_profiles",
+      "n": 17
+    },
+    {
+      "sch": "public",
+      "tbl": "tutor_quick_replies",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "tutor_rank_snapshots",
+      "n": 1
+    },
+    {
+      "sch": "public",
+      "tbl": "tutor_slots",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "tutor_subjects",
+      "n": 17
+    },
+    {
+      "sch": "public",
+      "tbl": "usage_counters",
+      "n": 8
+    },
+    {
+      "sch": "public",
+      "tbl": "user_activity_log",
+      "n": 562
+    },
+    {
+      "sch": "public",
+      "tbl": "user_blocks",
+      "n": 0
+    },
+    {
+      "sch": "public",
+      "tbl": "user_documents",
+      "n": 15
+    },
+    {
+      "sch": "storage",
+      "tbl": "buckets",
+      "n": 7
+    },
+    {
+      "sch": "storage",
+      "tbl": "buckets_analytics",
+      "n": 0
+    },
+    {
+      "sch": "storage",
+      "tbl": "buckets_vectors",
+      "n": 0
+    },
+    {
+      "sch": "storage",
+      "tbl": "migrations",
+      "n": 65
+    },
+    {
+      "sch": "storage",
+      "tbl": "objects",
+      "n": 123
+    },
+    {
+      "sch": "storage",
+      "tbl": "s3_multipart_uploads",
+      "n": 0
+    },
+    {
+      "sch": "storage",
+      "tbl": "s3_multipart_uploads_parts",
+      "n": 0
+    },
+    {
+      "sch": "storage",
+      "tbl": "vector_indexes",
+      "n": 0
+    }
+  ],
+  "buckets": [
+    {
+      "id": "ads",
+      "public": true,
+      "objects": 1,
+      "bytes": 2214911
+    },
+    {
+      "id": "avatars",
+      "public": true,
+      "objects": 20,
+      "bytes": 508339
+    },
+    {
+      "id": "blog",
+      "public": true,
+      "objects": 5,
+      "bytes": 326920
+    },
+    {
+      "id": "identity-docs",
+      "public": false,
+      "objects": 82,
+      "bytes": 543070
+    },
+    {
+      "id": "message-media",
+      "public": false,
+      "objects": 0,
+      "bytes": 0
+    },
+    {
+      "id": "payment-proofs",
+      "public": false,
+      "objects": 2,
+      "bytes": 140
+    },
+    {
+      "id": "tutor-media",
+      "public": true,
+      "objects": 13,
+      "bytes": 11773140
+    }
+  ],
+  "policyCount": 112,
+  "publication": [
+    "public.legacy_tuitions",
+    "public.notifications"
+  ],
+  "cron": [],
+  "latency": 465.375
+}

@@ -40,8 +40,8 @@ fi
 # serves tutormint.org, so a backup file should never be ambiguous about what
 # it is a backup OF.
 BACKUP_REF="$(printf '%s' "$SUPABASE_DB_URL" | sed -n 's#.*://postgres\.\([a-z0-9]*\).*#\1#p')"
-if [ "$BACKUP_REF" = "flhiraqouizzwnasuraj" ]; then
-  echo "project $BACKUP_REF (PRODUCTION) - read-only dump"
+if [ "$BACKUP_REF" = "yhekiqtelsictqkfxrfj" ]; then
+  echo "project $BACKUP_REF (PRODUCTION, Mumbai ap-south-1) - read-only dump"
 else
   echo "project ${BACKUP_REF:-unknown} - read-only dump"
 fi

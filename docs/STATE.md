@@ -171,9 +171,12 @@ shift, and the URL updating with no Enter pressed.
 
 ## One Supabase project, and the guard that pointed the wrong way (2 Sep 2026)
 
-**There is one Supabase project — `flhiraqouizzwnasuraj` — and it serves both
-preview and production.** `PRODUCTION_CHECKLIST.md` says as much ("a preview
-points at the same Supabase project"), and T8b's "seed-data cleanup" task is
+**There is one Supabase project, and it serves both preview and production.**
+(It was Sydney `flhiraqouizzwnasuraj` when this was written; production moved to
+Mumbai `yhekiqtelsictqkfxrfj` / ap-south-1 on 5 Sep 2026 — see "Region migration
+to Mumbai" below. Still one project serving both.) `PRODUCTION_CHECKLIST.md`
+says as much ("a preview points at the same Supabase project"), and T8b's
+"seed-data cleanup" task is
 the other half of the evidence: a dry run of `seed:cleanup` lists **15 live
 `seed+*@tutormint.dev` accounts** sitting on the database tutormint.org reads
 from.

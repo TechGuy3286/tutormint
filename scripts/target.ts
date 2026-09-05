@@ -27,8 +27,13 @@ import { createInterface } from 'node:readline'
  * If a genuine second project is ever created for development, this constant
  * does not change: it always names production, and a dev project is simply
  * anything that is not this.
+ *
+ * Production moved from Sydney (ap-southeast-2, `flhiraqouizzwnasuraj`) to
+ * Mumbai (ap-south-1, `yhekiqtelsictqkfxrfj`) on 5 Sep 2026 — see CLAUDE.md
+ * "Deployment reality". The old Sydney project is retained (untouched) until the
+ * owner deletes it; this ref is the one that serves tutormint.org now.
  */
-export const PRODUCTION_PROJECT_REF = 'flhiraqouizzwnasuraj'
+export const PRODUCTION_PROJECT_REF = 'yhekiqtelsictqkfxrfj'
 
 /** The one env var that permits a write script to touch production. */
 export const OVERRIDE_VAR = 'ALLOW_SEED_ON_PRODUCTION'
