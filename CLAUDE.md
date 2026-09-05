@@ -2636,6 +2636,79 @@ smoke.
   'approved'), unit-tested in `npm run test:seedcast` (4 assertions). Script
   change only — NOT run against production in this PR.
 
+## Social templates v2 — as built (5 Sep 2026)
+
+Every social creative is now recognisably ours. Four templates (Spotlight light,
+Bold dark, Success-story green panel, Announcement navy) × three formats
+(square/story/wide), plus the tutor's on-demand "Share your verified badge" card
+— all twelve render with zero satori errors.
+
+**One text source.** Every word on a creative comes from `lib/social/copy.ts`
+(pure — no next/og, no DB), so the render module (`app/api/admin/social/image/render.tsx`)
+and the caption box read the SAME strings and cannot diverge. `scripts/test-social.ts`
+(`npm run test:social`) scans it: the word **"commission" appears exactly once**
+on every template (the tagline), the fixed band text is present on every
+template, subjects carry singular level labels capped at three, the teaching
+chip follows the online rule, and the caption carries the tagline once + URL +
+handles + five hashtags.
+
+**The fixed brand band** (`BrandBand` in render.tsx) rides all four templates,
+all three formats, and the tutor card: the one-word wordmark; the tagline **"No
+fee. No commission. No middleman." exactly once** (and "commission" appears
+nowhere else on the creative); `tutormint.org`; the handle line
+`@tutormint.official` with the Facebook/Instagram/YouTube/TikTok marks
+(`lib/social/marks.ts` — the `public/` PNGs downscaled to 72px and base64-embedded,
+the same no-fs-on-Vercel discipline as the CV font) and **"X: @TotorMint5"**
+separately; and a **QR of the tutor's public profile** (the `qrcode` package,
+`cvQrDataUri`, the same helper the CV uses). Placement adapts per format (bottom
+strip on square/wide, lower block on story); content is identical.
+
+**Richer body from the live profile.** Photo (or initials disc), name + badges,
+rating + count when present, up to three subjects with singular level labels
+(`lib/display.ts` `levelLabel`, resolved from `tutor_subjects` because
+`tutor_directory.subjects` is null — `lib/social/data.ts`), years of experience,
+a teaching-mode chip ("Suitable for online" when `allowsOnline`), area · city,
+and a template-specific CTA (Spotlight/Bold "Hire verified tutors on
+tutormint.org"; Success "Congratulations — verified on TutorMint" / "— hired
+through TutorMint" by the occasion toggle; Announcement the admin's headline).
+Sections with no data are omitted. Templates stay visually distinct; the band is
+the constant. Brand tokens only (hex literals for satori); `check:contrast`
+covers every text/background pair across the templates (83 pairs).
+
+**Caption box.** Built from the same `SocialData` by `buildCaption` — one line
+about the tutor, the tagline once, the profile URL, the handles, five hashtags
+(#TutorMint · city tag · subject tag · two evergreen); the announcement caption
+leads with the headline. "Copy caption" and "Download PNG" both toast. The admin
+preview still updates on every template/format switch via `<img key={url}>` — no
+full reload. The tutor's own contact details never appear on a creative.
+
+## Carry-overs shipped in the same PR (5 Sep 2026)
+
+**CV PDF ↔ preview parity.** Every heading and line's text now comes from
+`cvSections()`/`cvTextLines()` in `lib/cv/model.ts` — the preview
+(`components/cv/CvPreview.tsx`) and the PDF (`lib/cv/pdf.tsx`) build NO string of
+their own. `scripts/test-cv.ts` serialises the preview (react-dom/server) and
+asserts it equals `cvTextLines`; the PDF renders the same lines by construction
+(it cannot be imported under tsx — the @react-pdf/hyphenate CJS gap — so its
+equality rests on reading the same functions + the smoke). The PDF **name is
+genuinely bold** (Geist Bold embedded in `lib/cv/font.ts` — react-pdf has no
+faux-bold), the **headline sits on its own line** with its own line-height (no
+overlap in either template), and the **bullets are the same icons as the
+preview** (react-pdf `Svg` paths in the neutral the preview uses, not "•").
+
+**Notification bell.** The badge caps at **99 → "99+"** (was 9 → "9+").
+**"Mark all read"** exists now — a bell-panel button and a full-page button
+(`markAllRead` + `/api/notifications/read-all`) that zero the count. A **new
+notification increments the badge live over Realtime** without a reload:
+`NotificationBell` subscribes to `postgres_changes` INSERT on `notifications`
+filtered `user_id=eq.<me>` (migration 54 adds the table to the
+`supabase_realtime` publication; RLS applies on top, so a member receives only
+their own). Opening the panel still marks the shown unread read and drops the
+badge; the count equals `/account/notifications` (same `unreadCount`). The
+dashboard "Messages" tile remains a deliberate `message_received`-only subset of
+the bell's total — it reads the same rows, so it agrees on messages; it is not
+meant to equal the bell's all-kinds total.
+
 ## Roadmap — remaining (4 Sep 2026)
 
 The state of the world as of this date, so the next session starts from the plan

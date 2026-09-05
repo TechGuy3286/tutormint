@@ -1,6 +1,18 @@
 import { BookOpen, Briefcase, GraduationCap, Mail, MapPin, Monitor, Phone } from 'lucide-react'
 
-import { cvContactRows, type CvModel, type CvTemplate } from '@/lib/cv/model'
+import { cvSections, type CvIcon, type CvModel, type CvTemplate } from '@/lib/cv/model'
+
+// The icon each section line carries. The SAME set the PDF draws (lib/cv/pdf.tsx
+// PdfIcon), so a book beside a subject on screen is a book beside it in print.
+const ICONS: Record<CvIcon, typeof BookOpen> = {
+  book: BookOpen,
+  briefcase: Briefcase,
+  monitor: Monitor,
+  pin: MapPin,
+  graduation: GraduationCap,
+  phone: Phone,
+  mail: Mail,
+}
 
 // The on-screen CV preview. HTML, tm-* tokens only, the SAME data (CvModel) the
 // PDF renders from and the same section order, so what a tutor sees is what
@@ -53,101 +65,38 @@ function Footer({ model, qrDataUrl }: { model: CvModel; qrDataUrl: string }) {
 }
 
 function Sections({ model, headingClass }: { model: CvModel; headingClass: string }) {
-  const H = ({ children }: { children: React.ReactNode }) => (
-    <h3 className={`mb-1.5 text-[11px] font-black uppercase tracking-wider ${headingClass}`}>
-      {children}
-    </h3>
-  )
+  // Every heading and every line's text comes from cvSections(model) — the same
+  // function the PDF reads — so the two renderers cannot word anything
+  // differently. Only the styling and the icon glyphs are renderer-specific.
   return (
     <div className="space-y-4 text-xs leading-relaxed text-slate-700">
-      {model.about && (
-        <section>
-          <H>About</H>
-          <p className="whitespace-pre-line">{model.about}</p>
+      {cvSections(model).map((section) => (
+        <section key={section.key}>
+          <h3 className={`mb-1.5 text-[11px] font-black uppercase tracking-wider ${headingClass}`}>
+            {section.heading}
+          </h3>
+          {section.lines.every((l) => l.icon === null) ? (
+            // A paragraph section (About, Languages): no bullets.
+            section.lines.map((l, i) => (
+              <p key={i} className="whitespace-pre-line">
+                {l.text}
+              </p>
+            ))
+          ) : (
+            <ul className="space-y-1">
+              {section.lines.map((l, i) => {
+                const Icon = l.icon ? ICONS[l.icon] : null
+                return (
+                  <li key={i} className="flex items-start gap-2">
+                    {Icon && <Icon aria-hidden size={13} className="mt-0.5 shrink-0 text-gray-500" />}
+                    <span>{l.text}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </section>
-      )}
-
-      {model.subjects.length > 0 && (
-        <section>
-          <H>Subjects</H>
-          <ul className="space-y-1">
-            {model.subjects.map((g) => (
-              <li key={g.level} className="flex items-start gap-2">
-                <BookOpen aria-hidden size={13} className="mt-0.5 shrink-0 text-gray-500" />
-                <span>
-                  <span className="font-bold text-tm-navy">{g.level}</span>
-                  {g.subjects.length > 0 && <> — {g.subjects.join(', ')}</>}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {(model.experienceYears || model.location || model.teachingMode) && (
-        <section>
-          <H>Teaching</H>
-          <ul className="space-y-1">
-            {model.experienceYears && (
-              <li className="flex items-center gap-2">
-                <Briefcase aria-hidden size={13} className="shrink-0 text-gray-500" />
-                {model.experienceYears} year{model.experienceYears === 1 ? '' : 's'} of experience
-              </li>
-            )}
-            {model.location && (
-              <li className="flex items-center gap-2">
-                <MapPin aria-hidden size={13} className="shrink-0 text-gray-500" />
-                {model.location}
-              </li>
-            )}
-            {model.teachingMode && (
-              <li className="flex items-center gap-2">
-                <Monitor aria-hidden size={13} className="shrink-0 text-gray-500" />
-                {model.teachingMode}
-              </li>
-            )}
-          </ul>
-        </section>
-      )}
-
-      {model.degrees.length > 0 && (
-        <section>
-          <H>Education</H>
-          <ul className="space-y-1">
-            {model.degrees.map((d, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <GraduationCap aria-hidden size={13} className="mt-0.5 shrink-0 text-gray-500" />
-                {d}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {model.languages.length > 0 && (
-        <section>
-          <H>Languages</H>
-          <p>{model.languages.join(', ')}</p>
-        </section>
-      )}
-
-      {model.contact && (
-        <section>
-          <H>Contact</H>
-          <ul className="space-y-1">
-            {cvContactRows(model.contact).map((r, i) => (
-              <li key={i} className="flex items-center gap-2">
-                {r.kind === 'email' ? (
-                  <Mail aria-hidden size={13} className="shrink-0 text-gray-500" />
-                ) : (
-                  <Phone aria-hidden size={13} className="shrink-0 text-gray-500" />
-                )}
-                {r.label ? `${r.label}: ${r.value}` : r.value}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      ))}
     </div>
   )
 }

@@ -154,3 +154,25 @@ export async function markRead(ids: string[]): Promise<number> {
     .select('id')
   return (data ?? []).length
 }
+
+/**
+ * Mark ALL of the caller's unread notifications read — the "Mark all read"
+ * action, which deliberately clears everything (unlike markRead, which clears
+ * only what the bell showed). A member who presses it is choosing to zero the
+ * count. Scoped by notifications_own_mark_read to the caller's own rows.
+ */
+export async function markAllRead(): Promise<number> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return 0
+
+  const { data } = await supabase
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+    .is('read_at', null)
+    .select('id')
+  return (data ?? []).length
+}

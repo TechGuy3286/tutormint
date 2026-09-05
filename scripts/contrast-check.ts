@@ -242,6 +242,22 @@ const PAIRS: Pair[] = [
   { fg: 'goldInk', bg: 'white', where: 'social banner rating, light template' },
   { fg: 'gold', bg: 'navy', where: 'social banner rating, bold template' },
   { fg: 'slate300', bg: 'navy', where: 'social banner muted copy, bold template' },
+
+  // Social templates v2 — the band and the richer body, on every template ×
+  // format. Colours do not change by format (only sizes do), so one row per
+  // (fg, bg) covers all three formats. The band is fixed across all four
+  // templates; the rest are the body pairs each template uses.
+  { fg: 'greenDeep', bg: 'white', where: 'social v2 eyebrow, light templates' },
+  { fg: 'navy', bg: 'white', where: 'social v2 name / CTA / band tagline, light templates' },
+  { fg: 'slate700', bg: 'white', where: 'social v2 place, facts & band handles, light templates' },
+  { fg: 'navy', bg: 'tintNavy', where: 'social v2 subject chip, spotlight' },
+  { fg: 'white', bg: 'slate800', where: 'social v2 subject chip, bold' },
+  { fg: 'white', bg: 'greenDeep', where: 'social v2 teaching chip / Verified badge' },
+  { fg: 'navy', bg: 'mint', where: 'social v2 teaching chip, bold' },
+  { fg: 'black', bg: 'gold', where: 'social v2 Featured badge & announcement date chip' },
+  { fg: 'navy', bg: 'tintGreen', where: 'social v2 success panel occasion & name' },
+  { fg: 'greenDeep', bg: 'tintGreen', where: 'social v2 success "Congratulations" script' },
+  { fg: 'navy', bg: 'white', where: 'social v2 inverted Premium badge, bold (navy on white)' },
 ]
 
 // ----------------------------------------------------------------- run ------

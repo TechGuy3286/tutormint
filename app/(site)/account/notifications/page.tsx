@@ -12,6 +12,7 @@ import { groupFeed } from '@/lib/feedGrouping'
 import { notificationsToFeed } from '@/lib/notificationsToFeed'
 
 import MoreNotifications from './MoreNotifications'
+import MarkAllReadButton from '@/components/notifications/MarkAllReadButton'
 
 // Everything the platform has told this member.
 //
@@ -71,12 +72,15 @@ export default async function NotificationsPage({
             {unread > 0 ? `${unread} unread` : 'All caught up'}
           </p>
         </div>
-        <Link
-          href="/account/notifications/settings"
-          className="inline-flex min-h-[44px] items-center text-xs font-bold text-tm-red hover:underline"
-        >
-          Email settings
-        </Link>
+        <div className="flex items-center gap-3">
+          {unread > 0 && <MarkAllReadButton />}
+          <Link
+            href="/account/notifications/settings"
+            className="inline-flex min-h-[44px] items-center text-xs font-bold text-tm-red hover:underline"
+          >
+            Email settings
+          </Link>
+        </div>
       </header>
 
       <nav aria-label="Filter notifications" className="flex flex-wrap gap-2">

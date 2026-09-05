@@ -6,6 +6,9 @@ import { useMemo, useState } from 'react'
 import { Copy, Download } from 'lucide-react'
 import Typeahead from '@/components/search/Typeahead'
 import { useToast } from '@/components/ui/Toast'
+import { buildCaption, type SocialData, type SocialTemplate } from '@/lib/social/copy'
+
+const SITE_ORIGIN = 'https://www.tutormint.org'
 
 export type PickerTutor = {
   slug: string
@@ -16,6 +19,8 @@ export type PickerTutor = {
   subjects: string[]
   rating: number
   ratingCount: number
+  experienceYears: number | null
+  teachingMode: string | null
 }
 
 const TEMPLATES = [
@@ -51,6 +56,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
   const [headline, setHeadline] = useState('')
   const [subhead, setSubhead] = useState('')
   const [dateLabel, setDateLabel] = useState('')
+  const [successKind, setSuccessKind] = useState<'verified' | 'hired'>('verified')
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
   const toast = useToast()
@@ -73,39 +79,39 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
 
   const isAnnouncement = template === 'announcement'
 
+  const isSuccess = template === 'success'
+
   const imageUrl = useMemo(() => {
     const p = new URLSearchParams({ slug, format, template })
     if (headline.trim()) p.set('headline', headline.trim())
     if (isAnnouncement && subhead.trim()) p.set('subhead', subhead.trim())
     if (isAnnouncement && dateLabel.trim()) p.set('date', dateLabel.trim())
+    if (isSuccess) p.set('kind', successKind)
     return `/api/admin/social/image?${p}`
-  }, [slug, format, template, headline, subhead, dateLabel, isAnnouncement])
+  }, [slug, format, template, headline, subhead, dateLabel, isAnnouncement, isSuccess, successKind])
 
+  // The caption is built from the SAME copy module the creative renders from, so
+  // what is pasted and what is drawn cannot diverge (tagline once, profile URL,
+  // handles, five hashtags; announcement leads with the headline).
   const caption = useMemo(() => {
     if (!tutor) return ''
-    const place = [tutor.area, tutor.city].filter(Boolean).join(', ')
-    const subjects = tutor.subjects.slice(0, 3).join(', ')
-    const tags = [
-      '#TutorMint',
-      tutor.city ? `#${tutor.city.replace(/\s+/g, '')}Tutor` : null,
-      ...tutor.subjects.slice(0, 2).map((s) => `#${s.replace(/[^A-Za-z0-9]/g, '')}`),
-      '#VerifiedTutors',
-    ].filter(Boolean)
-
-    return [
-      `Meet ${tutor.name} — a verified tutor on TutorMint.`,
-      subjects ? `Teaching ${subjects}${place ? ` in ${place}` : ''}.` : place ? `Based in ${place}.` : '',
-      tutor.ratingCount > 0 ? `Rated ${tutor.rating.toFixed(1)}★ by ${tutor.ratingCount} parent${tutor.ratingCount === 1 ? '' : 's'}.` : '',
-      '',
-      `Hire verified tutors on tutormint.org`,
-      `https://tutormint.org/tutor/${tutor.slug}`,
-      '',
-      tags.join(' '),
-    ]
-      .filter((l) => l !== null)
-      .join('\n')
-      .replace(/\n{3,}/g, '\n\n')
-  }, [tutor])
+    const data: SocialData = {
+      slug: tutor.slug,
+      name: tutor.name,
+      badges: [],
+      subjects: tutor.subjects,
+      ratingAvg: tutor.rating,
+      ratingCount: tutor.ratingCount,
+      experienceYears: tutor.experienceYears,
+      teachingMode: tutor.teachingMode,
+      city: tutor.city,
+      area: tutor.area,
+      profileUrl: `${SITE_ORIGIN}/tutor/${tutor.slug}`,
+      successKind,
+      headline: headline.trim() || null,
+    }
+    return buildCaption(template as SocialTemplate, data)
+  }, [tutor, template, headline, successKind])
 
   const download = async () => {
     setBusy(true)
@@ -254,6 +260,26 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
               <span className="block text-[10px] text-gray-500">{headline.length}/90</span>
             </label>
 
+            {isSuccess && (
+              <fieldset className="space-y-2">
+                <legend className="text-[11px] font-bold text-gray-500">Occasion</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['verified', 'hired'] as const).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setSuccessKind(k)}
+                      className={`min-h-[44px] rounded-xl border px-3 py-2 text-xs font-bold capitalize ${
+                        successKind === k ? 'border-tm-navy bg-tm-bg' : 'border-gray-200'
+                      }`}
+                    >
+                      {k === 'verified' ? 'Verified on TutorMint' : 'Hired through TutorMint'}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+
             {isAnnouncement && (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <label className="block space-y-1">
@@ -295,15 +321,20 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
               <h2 className="text-sm font-black text-tm-navy">Caption</h2>
               <button
                 type="button"
-                onClick={() => {
-                  navigator.clipboard?.writeText(caption)
-                  setCopied(true)
-                  setTimeout(() => setCopied(false), 1500)
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard?.writeText(caption)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 1500)
+                    toast.success('Caption copied.')
+                  } catch {
+                    toast.error('Could not copy the caption.')
+                  }
                 }}
                 className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-xs font-bold text-slate-700"
               >
                 <Copy size={14} />
-                {copied ? 'Copied' : 'Copy'}
+                {copied ? 'Copied' : 'Copy caption'}
               </button>
             </div>
             <pre className="whitespace-pre-wrap break-words rounded-xl bg-tm-bg p-3 font-sans text-xs leading-relaxed">

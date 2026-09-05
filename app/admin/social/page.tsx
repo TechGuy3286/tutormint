@@ -1,5 +1,6 @@
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { resolveSubjectLabelsBatch } from '@/lib/social/data'
 import SocialClient, { type PickerTutor } from './SocialClient'
 
 // The social post generator. owner / manager.
@@ -29,9 +30,18 @@ export default async function AdminSocialPage() {
 
   const { data: tutors } = await admin
     .from('tutor_directory')
-    .select('slug, full_name, headline, city, area, subjects, rating_avg, rating_count')
+    .select('id, slug, full_name, headline, city, area, rating_avg, rating_count, experience_years, teaching_mode')
     .order('full_name')
     .limit(200)
+
+  // Subjects are not stored on the view — resolve them (with singular level
+  // labels) so the caption carries real subjects and hashtags, in one batched
+  // set of queries rather than one per tutor.
+  const subjectsByTutor = await resolveSubjectLabelsBatch(
+    admin,
+    (tutors ?? []).map((t) => t.id as string),
+    3,
+  )
 
   const rows: PickerTutor[] = (tutors ?? []).map((t) => ({
     slug: t.slug as string,
@@ -39,9 +49,11 @@ export default async function AdminSocialPage() {
     headline: (t.headline as string) ?? null,
     city: (t.city as string) ?? null,
     area: (t.area as string) ?? null,
-    subjects: ((t.subjects as string[]) ?? []).slice(0, 6),
+    subjects: subjectsByTutor.get(t.id as string) ?? [],
     rating: Number(t.rating_avg ?? 0),
     ratingCount: Number(t.rating_count ?? 0),
+    experienceYears: (t.experience_years as number | null) ?? null,
+    teachingMode: (t.teaching_mode as string | null) ?? null,
   }))
 
   return <SocialClient tutors={rows} />

@@ -521,3 +521,26 @@ via psql). RLS audit 168/168.
 - **reset-seed-cast**: sets tutor CNIC-approval columns for verified seed tutors,
   clears stale `verification_state` on unverified-zain (`expectedIdentity`).
   Not run against production.
+
+## Social templates v2 + CV/notification carry-overs (5 Sep 2026)
+
+Migration 54 (notifications → supabase_realtime publication; backup taken).
+
+- **Social v2**: 4 templates (spotlight/bold/success/announcement) × 3 formats,
+  all 12 render zero-error. One text source `lib/social/copy.ts` (pure). Fixed
+  brand band (`BrandBand`): one-word wordmark, tagline "No fee. No commission. No
+  middleman." once, tutormint.org, @tutormint.official + FB/IG/YT/TikTok marks
+  (`lib/social/marks.ts`, downscaled base64), "X: @TutorMint5", QR (cvQrDataUri).
+  Richer body: subjects with singular level labels (`lib/social/data.ts` resolves
+  from tutor_subjects — the view column is null), rating, experience, teaching
+  chip (allowsOnline → "Suitable for online"), place, template CTA. Caption box
+  from same data (`buildCaption`), Copy + Download toasts, live preview.
+  `test:social` (7) asserts single-commission + band + caption. contrast-check
+  extended to 83 pairs.
+- **CV carry-over**: `cvSections`/`cvTextLines` in model.ts are the single text
+  source for preview + PDF; `test:cv` (14) serialises the preview and asserts
+  equality. PDF name bold (Geist Bold embedded), headline own line + line-height,
+  bullets → react-pdf Svg icons matching the preview.
+- **Notification carry-over**: badge caps 99→"99+"; Mark all read (bell + page,
+  `/api/notifications/read-all`); live Realtime increment (postgres_changes on
+  notifications, migration 54); count parity verified.

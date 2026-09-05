@@ -56,6 +56,7 @@ export default async function AdminLayout({
       search={<AdminSearch />}
       bell={
         <NotificationBell
+          userId={actor.id}
           initialUnread={unread}
           emptyHint="Your account has nothing waiting. Member reports and queues are in the sidebar."
           emptyAction={{ label: 'Open reports', href: '/admin/reports' }}

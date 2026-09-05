@@ -30,8 +30,12 @@ const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { toCvModel, cvContactRows, type CvRaw } from '../lib/cv/model'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+
+import { toCvModel, cvContactRows, cvSections, cvTextLines, type CvRaw } from '../lib/cv/model'
 import { canDownloadCv } from '../lib/cv/access'
+import CvPreview from '../components/cv/CvPreview'
 
 function raw(over: Partial<CvRaw> = {}): CvRaw {
   return {
@@ -146,6 +150,63 @@ test('level labels are singular — the same mapper the public profile uses', ()
   })
   assert.equal(leaf.subjects[0].level, 'AS & A Level')
   assert.equal(leaf.headline, 'AS & A Level')
+})
+
+// ------------------------------------------- preview == PDF text ---
+
+// Normalise rendered HTML to a plain visible-text string: strip tags, decode the
+// few entities the preview emits, collapse whitespace (nbsp included).
+function visibleText(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;| /g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&#x2F;/g, '/')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+test('the preview renders exactly cvTextLines — the PDF reads the same source', () => {
+  const model = toCvModel(raw(), { includeContact: true })
+  const html = renderToStaticMarkup(
+    createElement(CvPreview, { model, template: 'classic', qrDataUrl: 'data:image/png;base64,AAAA' }),
+  )
+  // Whitespace-insensitive: the footer wordmark is two adjacent inline spans
+  // ("Tutor" + "Mint") that read as one word "TutorMint", but stripping the tag
+  // between them inserts a space. Comparing the characters in order, ignoring
+  // whitespace, keeps every label's text and order while tolerating that.
+  const squash = (str: string) => visibleText(str).replace(/\s+/g, '')
+  const text = squash(html)
+
+  // cvTextLines(model) is, by construction, exactly what the PDF emits (header
+  // name/headline, then every section heading + line, then the footer). Assert
+  // the PREVIEW's visible text contains each of those lines IN ORDER — so the
+  // two outputs render identical text with no renderer building its own string.
+  // (The PDF cannot be imported under tsx — the @react-pdf/hyphenate CJS export
+  // gap — so its equality rests on reading cvSections/cvTextLines + the smoke.)
+  let cursor = 0
+  for (const line of cvTextLines(model)) {
+    const needle = squash(line)
+    const at = text.indexOf(needle, cursor)
+    assert.ok(at >= cursor, `preview missing or out of order: "${line}"`)
+    cursor = at + needle.length
+  }
+})
+
+test('cvSections omits empty sections and carries the exact labels', () => {
+  const model = toCvModel(
+    raw({ bio: '  ', degrees: [], languages: [], experienceYears: 0, phone: null, whatsapp: null, email: null }),
+    { includeContact: true },
+  )
+  const keys = cvSections(model).map((s) => s.key)
+  assert.deepEqual(keys, ['subjects', 'teaching']) // about/education/languages/contact all gone
+  const teaching = cvSections(model).find((s) => s.key === 'teaching')!
+  assert.deepEqual(teaching.lines.map((l) => l.text), ['DHA Phase 5, Lahore', 'In person or online'])
+  assert.deepEqual(
+    teaching.lines.map((l) => l.icon),
+    ['pin', 'monitor'],
+  )
 })
 
 // ----------------------------------------------------- contact rows ---

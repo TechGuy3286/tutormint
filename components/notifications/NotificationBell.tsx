@@ -3,7 +3,7 @@
 import { reportSilentFailure } from '@/lib/silentFailure'
 import { submitSignal } from '@/lib/submit'
 
-import { Bell, Loader2 } from 'lucide-react'
+import { Bell, CheckCheck, Loader2 } from 'lucide-react'
 import TimeAgo from '@/components/TimeAgo'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 import NotificationCta from '@/components/notifications/NotificationCta'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
 import { isPlanEnding } from '@/lib/feedGrouping'
+import { createClient } from '@/lib/supabase/client'
 import type { NotificationRow } from '@/lib/notificationFeed'
 
 // The header bell.
@@ -32,11 +33,14 @@ import type { NotificationRow } from '@/lib/notificationFeed'
 const PANEL_LIMIT = 8
 
 export default function NotificationBell({
+  userId,
   initialUnread,
   emptyHint,
   emptyAction,
   tone = 'light',
 }: {
+  /** The viewer, for the Realtime subscription filter. */
+  userId: string
   initialUnread: number
   /** What to say when there is nothing — never a blank panel. */
   emptyHint: string
@@ -116,7 +120,49 @@ export default function NotificationBell({
     }
   }, [open])
 
-  const badge = unread > 9 ? '9+' : String(unread)
+  // A new notification lands live: increment the badge without a reload, and if
+  // the panel is open, drop the row in at the top. Filtered to this member's own
+  // rows server-side (and RLS applies on top), so an admin's bell does not tick
+  // for the whole platform. See migration 54 (notifications in the realtime
+  // publication).
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`notifications:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+        (payload) => {
+          const row = payload.new as NotificationRow
+          setUnread((u) => u + 1)
+          setItems((prev) => (prev ? [row, ...prev] : prev))
+        },
+      )
+      .subscribe()
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [userId])
+
+  const markAll = async () => {
+    setUnread(0)
+    setItems((prev) => (prev ? prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })) : prev))
+    try {
+      const r = await fetch('/api/notifications/read-all', {
+        signal: submitSignal(),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (r.ok) {
+        const { unread: left } = (await r.json()) as { unread: number }
+        setUnread(left)
+      }
+    } catch (e) {
+      reportSilentFailure('NotificationBell.markAll', e)
+    }
+  }
+
+  const badge = unread > 99 ? '99+' : String(unread)
 
   return (
     <div ref={wrap} className="relative">
@@ -157,13 +203,25 @@ export default function NotificationBell({
               <h2 className="text-xs font-black uppercase tracking-wide text-tm-navy">
                 Notifications
               </h2>
-              <Link
-                href="/account/notifications"
-                onClick={() => setOpen(false)}
-                className="text-[11px] font-bold text-tm-red hover:underline"
-              >
-                See all
-              </Link>
+              <div className="flex items-center gap-3">
+                {unread > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAll}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-tm-navy hover:underline"
+                  >
+                    <CheckCheck aria-hidden size={13} />
+                    Mark all read
+                  </button>
+                )}
+                <Link
+                  href="/account/notifications"
+                  onClick={() => setOpen(false)}
+                  className="text-[11px] font-bold text-tm-red hover:underline"
+                >
+                  See all
+                </Link>
+              </div>
             </div>
 
             {items === null && !failed && (

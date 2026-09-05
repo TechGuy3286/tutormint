@@ -126,7 +126,12 @@ export default async function Navbar() {
 
   return (
     <Shell>
-      <NotificationBell initialUnread={unread} emptyHint={empty.hint} emptyAction={empty.action} />
+      <NotificationBell
+        userId={session.user.id}
+        initialUnread={unread}
+        emptyHint={empty.hint}
+        emptyAction={empty.action}
+      />
       <UserMenu
         name={name}
         avatarUrl={session.profile?.avatar_url ?? null}

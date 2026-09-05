@@ -150,6 +150,98 @@ export function cvContactRows(contact: CvContact | null): CvContactRow[] {
   return rows
 }
 
+// ---------------------------------------------------------------------------
+// The rendered content — every label, in ONE place.
+// ---------------------------------------------------------------------------
+//
+// The preview (components/cv/CvPreview.tsx) and the PDF (lib/cv/pdf.tsx) both
+// render from cvSections()/cvTextLines() and build NO display string of their
+// own — so the two cannot diverge on the wording of a heading, a "5 years of
+// experience", or a contact line. scripts/test-cv.ts serialises the preview and
+// asserts it equals cvTextLines(model); the PDF renders the same lines by
+// construction (it cannot be imported under the tsx test runner — the
+// @react-pdf/hyphenate CJS export gap — so its equality rests on reading the
+// same functions plus the live smoke).
+
+export type CvIcon = 'book' | 'briefcase' | 'monitor' | 'pin' | 'graduation' | 'phone' | 'mail'
+
+/** A line in a section. `icon: null` is a plain paragraph (About, Languages). */
+export type CvLine = { icon: CvIcon | null; text: string }
+export type CvSection = { key: string; heading: string; lines: CvLine[] }
+
+function experienceLine(years: number): string {
+  return `${years} year${years === 1 ? '' : 's'} of experience`
+}
+
+export function cvSections(model: CvModel): CvSection[] {
+  const sections: CvSection[] = []
+
+  if (model.about) {
+    sections.push({ key: 'about', heading: 'About', lines: [{ icon: null, text: model.about }] })
+  }
+
+  if (model.subjects.length > 0) {
+    sections.push({
+      key: 'subjects',
+      heading: 'Subjects',
+      lines: model.subjects.map((g) => ({
+        icon: 'book' as const,
+        text: g.subjects.length > 0 ? `${g.level} — ${g.subjects.join(', ')}` : g.level,
+      })),
+    })
+  }
+
+  const teaching: CvLine[] = []
+  if (model.experienceYears) teaching.push({ icon: 'briefcase', text: experienceLine(model.experienceYears) })
+  if (model.location) teaching.push({ icon: 'pin', text: model.location })
+  if (model.teachingMode) teaching.push({ icon: 'monitor', text: model.teachingMode })
+  if (teaching.length > 0) sections.push({ key: 'teaching', heading: 'Teaching', lines: teaching })
+
+  if (model.degrees.length > 0) {
+    sections.push({
+      key: 'education',
+      heading: 'Education',
+      lines: model.degrees.map((d) => ({ icon: 'graduation' as const, text: d })),
+    })
+  }
+
+  if (model.languages.length > 0) {
+    sections.push({
+      key: 'languages',
+      heading: 'Languages',
+      lines: [{ icon: null, text: model.languages.join(', ') }],
+    })
+  }
+
+  const contactRows = cvContactRows(model.contact)
+  if (contactRows.length > 0) {
+    sections.push({
+      key: 'contact',
+      heading: 'Contact',
+      lines: contactRows.map((r) => ({
+        icon: (r.kind === 'email' ? 'mail' : 'phone') as CvIcon,
+        text: r.label ? `${r.label}: ${r.value}` : r.value,
+      })),
+    })
+  }
+
+  return sections
+}
+
+/** The CV's full visible text, in order: header, every section, footer. The
+    single source both renderers are checked against. */
+export function cvTextLines(model: CvModel): string[] {
+  const lines: string[] = [model.name]
+  if (model.headline) lines.push(model.headline)
+  for (const s of cvSections(model)) {
+    lines.push(s.heading)
+    for (const l of s.lines) lines.push(l.text)
+  }
+  lines.push('Verified tutor on TutorMint')
+  lines.push(model.profileUrl)
+  return lines
+}
+
 export type CvTemplate = 'classic' | 'minimal'
 
 export function isCvTemplate(v: string | null | undefined): v is CvTemplate {
