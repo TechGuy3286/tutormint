@@ -8,7 +8,7 @@ import Conversation from '@/components/messages/Conversation'
 import ConversationList from '@/components/messages/ConversationList'
 import { getEntitlements } from '@/lib/entitlements'
 import { loadQuickReplies, messagePage, threadHeader, threadPage } from '@/lib/messaging'
-import { mayAttachPhoto } from '@/lib/messagingRules'
+import { mayAttachPhoto, DEFAULT_QUICK_REPLIES } from '@/lib/messagingRules'
 import { createClient } from '@/lib/supabase/server'
 
 // The inbox, both roles, one implementation.
@@ -54,6 +54,10 @@ export default async function InboxShell({
   ])
   const selfName = ((self?.full_name as string | null) || 'You').split(' ')[0]
   const contactReason = role === 'tutor' ? 'tutor_contact' : 'parent_contact'
+  // A tutor who has saved none sees the defaults as a starting set (the spec
+  // calls them defaults, editable in Settings); once they save, theirs win.
+  const chips =
+    role === 'tutor' ? (quickReplies.length > 0 ? quickReplies : DEFAULT_QUICK_REPLIES) : []
 
   const header = threadId ? await threadHeader(userId, threadId) : null
 
@@ -225,7 +229,7 @@ export default async function InboxShell({
                 selfName={selfName}
                 canAttach={mayAttachPhoto(ent)}
                 contactReason={contactReason}
-                quickReplies={quickReplies}
+                quickReplies={chips}
               />
             </>
           ) : (
