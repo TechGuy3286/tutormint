@@ -60,8 +60,9 @@ export type Entitlements = {
   canHire: boolean
   /**
    * Tutor-side: may see WHO viewed their profile, not just that someone did.
-   * Deliberately separate from canViewContact -- Premium reveals the viewer's
-   * name, Featured additionally reveals contact details.
+   * Deliberately separate from canViewContact -- Verified (199) and above reveal
+   * the viewer's name (migration 57); Featured additionally reveals contact
+   * details on the profile.
    */
   canSeeViewerIdentity: boolean
   searchRank: number

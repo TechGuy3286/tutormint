@@ -9,12 +9,13 @@ import 'server-only'
 //
 // 1. The WEEKLY VIEW TEASER. `profile_viewed` already fires per view (throttled
 //    to one a day, no upsell — see app/(site)/tutor/[slug]/page.tsx). This is a
-//    different message: a weekly roll-up that DOES carry the Premium CTA —
-//    "N parents viewed your profile this week — see who with Premium" — capped
+//    different message: a weekly roll-up that DOES carry the Verified CTA —
+//    "N parents viewed your profile this week — see who with Verified" — capped
 //    at one a week, and never sent on a zero-view week (a "0 parents viewed you"
-//    nudge sells nothing and reads as a taunt). It goes only to tutors who
-//    cannot already see viewer identity, so a Premium or Featured tutor — who
-//    already gets the name — is never pitched what they hold.
+//    nudge sells nothing and reads as a taunt). Viewer identity unlocks at
+//    Verified (199) and above (migration 57), so this goes ONLY to free/no-plan
+//    tutors — the ones who cannot already see who viewed them — and its CTA is
+//    plan=verified, the primary 199-funnel conversion.
 //
 // 2. The QUOTA NUDGE at 80% of the month's allowance, once a period. It fires
 //    only for a plan whose displayed allowance is a real number: a plan that
@@ -85,16 +86,17 @@ async function deliverViewTeasers(admin: Admin): Promise<{ sent: number; errors:
       const ent = await getEntitlements(tutorId)
       if (ent.suspended) continue
       if (ent.audience !== 'tutor') continue
-      // Premium and Featured already see the viewer's name; the upsell would be
-      // noise. The offer is always Premium (viewer identity is a Premium power).
+      // Verified, Premium and Featured all see the viewer's name now (migration
+      // 57); the upsell would be noise for them. So this reaches only free/no-plan
+      // tutors, and the offer is always Verified (the 199-funnel entry plan).
       if (ent.canSeeViewerIdentity) continue
 
       await notify({
         userId: tutorId,
         kind: 'viewer_weekly_teaser',
         title: `${n} ${n === 1 ? 'parent' : 'parents'} viewed your profile this week`,
-        body: 'Premium reveals who they are — see every viewer’s name.',
-        href: '/tutor/packages?plan=premium',
+        body: 'Verified reveals who they are — see every viewer’s name.',
+        href: '/tutor/packages?plan=verified',
       })
       sent++
     } catch (e) {

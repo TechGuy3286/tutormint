@@ -25,7 +25,7 @@ import type { ViewSummary } from '@/lib/profileViews'
 //
 // THE BUTTON CARRIES A REASON, NEVER A PRICE. `tutor_viewer_identity` resolves
 // to whichever plan holds can_see_viewer_identity when the sheet is opened —
-// Premium and above, since migration 56 (owner reversal, 7 Sep 2026) — so a
+// Verified (199) and above, since migration 57 (owner, 8 Sep 2026) — so a
 // tutor dashboard ships with no pricing in its HTML at all, the same rule the
 // locked contact row follows.
 
@@ -34,7 +34,7 @@ export default function ViewsCard({
   identityGranted,
 }: {
   summary: ViewSummary
-  /** plans.can_see_viewer_identity — premium and featured (owner, 7 Sep 2026). */
+  /** plans.can_see_viewer_identity — verified and above (owner, 8 Sep 2026). */
   identityGranted: boolean
 }) {
   const { total, thisWeek, latest, faces } = summary

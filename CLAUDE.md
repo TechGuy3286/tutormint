@@ -2901,17 +2901,12 @@ The pass that made the site brand-complete for partner testing. Most of it was
 verification — much was already built and correct — so this records the deltas
 and the decisions, not a re-description of what already stood.
 
-**Viewer identity moved back to Premium (migration 56).** Migration 43 had made
+**Viewer identity moved back to Premium (migration 56). — SUPERSEDED 8 Sep 2026,
+see "Viewer identity unlocks at Verified" below; migration 57 reverts this and
+the copy in this paragraph no longer describes the code.** Migration 43 had made
 "see who viewed your profile" a Verified (199) power to drive the 199 funnel;
-the owner reversed it. `plans.can_see_viewer_identity` is now false on verified
-(migration 56, a single idempotent column update), and
-`REQUIRES.tutor_viewer_identity` in `lib/gate.ts` reads `'premium'`. The column
-moved before the label, then the label followed — the same discipline migration
-43 documented, run in reverse: a gate must never offer a plan whose row does not
-carry the power. Premium's exclusive reasons to upgrade are the three it still
-owns — 25 applications against 10, WhatsApp to parents, and search priority — and
-viewer identity is now one more. The teaser copy and `ViewsCard` sell Premium;
-`app/(site)/tutor/dashboard/views` says "Premium shows their name."
+Part 3 briefly reversed it to Premium via migration 56, then the owner reversed
+that reversal. The live rule is Verified and above.
 
 **Avatars never break again (defensive, on top of the data fix).** The live
 breakage was a stale Sydney `avatar_url` against the Mumbai-derived CSP
@@ -2987,3 +2982,30 @@ readable without cross-referencing the spec.
 Gates at close: tsc 0 · build 0 · check:contrast 89 · rls:audit 168/168 ·
 test:blog 35 · test:covers 16 · test:cv 14 · test:delivery 14 · test:jobcopy 11 ·
 test:grouping 8 · test:messaging 8 · test:social 7 · test:seedcast 4 — all pass.
+
+## Viewer identity unlocks at Verified (owner, 8 Sep 2026) — SUPERSEDES everything above
+
+**This is the locked decision. Under precedence rule 10 it beats every earlier
+statement on viewer identity — the migration-43 spec text, the entitlements
+matrix, and the Part 3 migration-56 paragraph — wherever they differ.**
+
+- **"Who looked at you" — the viewer's NAME and photo — unlocks at Verified (199)
+  and above.** `plans.can_see_viewer_identity` is true on verified, premium and
+  featured (migration 57 restores it on verified, reverting migration 56).
+- **Only free / no-plan tutors get the anonymised teaser** — the parent photo
+  blurred, the seed-based disc, the searched subject and area but no name. Their
+  CTA points at **`plan=verified`** (the 199-funnel entry), never premium.
+- `REQUIRES.tutor_viewer_identity` in `lib/gate.ts` reads **`'verified'`**; the
+  gate body and `ViewsCard` / `app/(site)/tutor/dashboard/views` sell Verified;
+  `lib/conversionSweep.ts`'s `viewer_weekly_teaser` sells Verified with
+  `plan=verified` and reaches only tutors who cannot already see identity (now
+  free/no-plan).
+- Why: seeing who viewed you is the primary reward of the 199 funnel and the
+  tutor dashboard's main upsell surface — so it must sell the 199 plan, not the
+  499 one. This was the migration-43 intent; migration 56 briefly moved it to
+  Premium and was reversed. **The row moved before the label** each time (the
+  column via migration, then the gate), so a button never offered a plan whose
+  row did not carry the power.
+- Premium's exclusive reasons to upgrade remain the three it owns alone: 25
+  applications against 10, WhatsApp to parents, and search priority. Featured
+  adds parent contact details on the profile.

@@ -94,12 +94,14 @@ const REQUIRES: Record<GateReason, string | null> = {
   tutor_apply_quota: 'premium',
   tutor_message: 'premium',
   tutor_contact: 'featured',
-  // PREMIUM and above (owner reversal, 7 Sep 2026; migration 56 flips
-  // can_see_viewer_identity back to false on verified). Seeing the parent's NAME
-  // is a Premium power again; Verified/Free see the anonymised teaser and the
-  // upsell here. Same rule as before -- a button never sells a power its plan
-  // does not carry -- so the row (migration 56) moved before this label.
-  tutor_viewer_identity: 'premium',
+  // VERIFIED (199) and above (owner, 8 Sep 2026; migration 57 sets
+  // can_see_viewer_identity = true on verified again, restoring the migration-43
+  // decision). Seeing the parent's NAME is the primary 199-funnel reward, so the
+  // profile-view teaser sells Verified, not Premium. Only free/no-plan tutors get
+  // the anonymised teaser and this upsell. Same rule as always -- a button never
+  // sells a power its plan does not carry -- so the row (migration 57) moved
+  // before this label. This supersedes the migration-56 flip to 'premium'.
+  tutor_viewer_identity: 'verified',
   // Downloading the print-ready CV built from the profile. Verified (199) and
   // above; the preview is free to everyone, only the download is gated.
   cv_download: 'verified',
@@ -258,14 +260,14 @@ async function buildBaseGate(
         kind: 'upgrade',
         title: 'See who is looking at you',
         body:
-          'Premium shows the name and photo of every parent who opens your profile, alongside ' +
+          'Verified shows the name and photo of every parent who opens your profile, alongside ' +
           'the subject and area they searched for — so you know who is looking before you spend ' +
-          'an application. It also lets you message any parent directly and puts you above free ' +
-          'and verified tutors in search.',
+          'an application. Verified also lists you in search and gives you the badge parents look ' +
+          'for.',
         audience: 'tutor',
         plan,
         href: packagesHref('tutor', required),
-        ctaLabel: 'See Premium',
+        ctaLabel: 'See Verified',
         actionable: true,
       }
 
