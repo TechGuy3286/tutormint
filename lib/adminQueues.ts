@@ -174,16 +174,19 @@ export type QueueTutorRow = {
 
 export async function loadTutorQueue({
   filter,
+  search = '',
   cursor,
   limit = QUEUE_PAGE,
 }: {
   filter: string
+  search?: string
   cursor?: string | null
   limit?: number
 }) {
   const admin = createAdminClient()
   if (!admin) return { rows: [] as QueueTutorRow[], nextCursor: null, total: 0 }
 
+  const term = search.trim().replace(/[%,()]/g, '')
   const build = () => {
     let q = admin
       .from('tutor_profiles')
@@ -193,6 +196,12 @@ export async function loadTutorQueue({
       )
     if (filter === 'pending') q = q.eq('video_status', 'uploaded')
     else if (filter === 'suspended') q = q.eq('verification_status', 'suspended')
+    // Free-text search over the columns tutor_profiles carries directly.
+    if (term) {
+      q = q.or(
+        `full_name.ilike.%${term}%,email.ilike.%${term}%,city.ilike.%${term}%,headline.ilike.%${term}%,slug.ilike.%${term}%`,
+      )
+    }
     return q
   }
 
@@ -367,15 +376,33 @@ export type QueuePaymentRow = {
 
 export async function loadPaymentQueue({
   filter,
+  search = '',
   cursor,
   limit = QUEUE_PAGE,
 }: {
   filter: string
+  search?: string
   cursor?: string | null
   limit?: number
 }) {
   const admin = createAdminClient()
   if (!admin) return { rows: [] as QueuePaymentRow[], nextCursor: null, total: 0 }
+
+  const term = search.trim().replace(/[%,()]/g, '')
+
+  // Payments carry no name — the payer's name lives on `profiles`. So a search
+  // resolves matching payer ids first (by name or email), and OR's them with a
+  // match on the payment's own references, so an admin can paste either a
+  // person's name or the reference from a receipt.
+  let payerIds: string[] | null = null
+  if (term) {
+    const { data: payers } = await admin
+      .from('profiles')
+      .select('id')
+      .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
+      .limit(500)
+    payerIds = (payers ?? []).map((p) => p.id as string)
+  }
 
   const build = () => {
     let q = admin
@@ -385,6 +412,15 @@ export async function loadPaymentQueue({
         { count: 'exact' },
       )
     if (filter !== 'all') q = q.eq('status', filter)
+    if (term) {
+      // A PostgREST OR spanning a name match (via resolved ids) and the
+      // references on the row. An empty payer list still lets a reference match
+      // through — `in.()` is an always-false term, not an error.
+      const idList = (payerIds ?? []).join(',')
+      q = q.or(
+        `user_id.in.(${idList || NO_MATCH}),provider_ref.ilike.%${term}%,reference.ilike.%${term}%`,
+      )
+    }
     return q
   }
 

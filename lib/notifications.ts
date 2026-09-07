@@ -96,6 +96,17 @@ export type NotificationKind =
   // exist.
   | 'profile_viewed'
   | 'rank_dropped'
+  // T-Conversion (Part 3). The weekly roll-up of the view teaser and the quota
+  // heads-up, both fired from the daily cron (lib/conversionSweep.ts). Unlike
+  // `profile_viewed` (per-day, no upsell), `viewer_weekly_teaser` carries the
+  // Premium CTA — "N parents viewed your profile this week, see who with
+  // Premium" — capped at one a week and never sent on a zero-view week. It is
+  // sent only to tutors who cannot already see viewer identity, so a Premium or
+  // Featured tutor is never pitched what they already have. `quota_nudge` fires
+  // once a period at 80% of a real numeric allowance — never for a plan that
+  // advertises "Unlimited", whose real cap must not be surfaced to the member.
+  | 'viewer_weekly_teaser'
+  | 'quota_nudge'
 
 export async function notify(params: {
   userId: string

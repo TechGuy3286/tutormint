@@ -94,14 +94,12 @@ const REQUIRES: Record<GateReason, string | null> = {
   tutor_apply_quota: 'premium',
   tutor_message: 'premium',
   tutor_contact: 'featured',
-  // VERIFIED, as of migration 43, and the plan row moved with it: this said
-  // 'premium' for exactly as long as can_see_viewer_identity was false on
-  // verified. The rule that produced both is the same one -- a button never
-  // sells a power its plan does not carry -- so changing the offer meant
-  // changing the row, not the label. Owner decision, 4 Sep 2026: seeing who
-  // looked at you is what the Rs 199 plan is for, and Premium's argument is
-  // 25 applications, WhatsApp and search priority.
-  tutor_viewer_identity: 'verified',
+  // PREMIUM and above (owner reversal, 7 Sep 2026; migration 56 flips
+  // can_see_viewer_identity back to false on verified). Seeing the parent's NAME
+  // is a Premium power again; Verified/Free see the anonymised teaser and the
+  // upsell here. Same rule as before -- a button never sells a power its plan
+  // does not carry -- so the row (migration 56) moved before this label.
+  tutor_viewer_identity: 'premium',
   // Downloading the print-ready CV built from the profile. Verified (199) and
   // above; the preview is free to everyone, only the download is gated.
   cv_download: 'verified',
@@ -260,13 +258,14 @@ async function buildBaseGate(
         kind: 'upgrade',
         title: 'See who is looking at you',
         body:
-          'Verified shows the name and photo of every parent who opens your profile, alongside ' +
+          'Premium shows the name and photo of every parent who opens your profile, alongside ' +
           'the subject and area they searched for — so you know who is looking before you spend ' +
-          'an application. It also puts you above free tutors in search.',
+          'an application. It also lets you message any parent directly and puts you above free ' +
+          'and verified tutors in search.',
         audience: 'tutor',
         plan,
         href: packagesHref('tutor', required),
-        ctaLabel: 'See Verified',
+        ctaLabel: 'See Premium',
         actionable: true,
       }
 

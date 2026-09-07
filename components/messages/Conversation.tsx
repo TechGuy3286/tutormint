@@ -69,7 +69,6 @@ export default function Conversation({
   initialCursor,
   canShareContact,
   suspended,
-  upgradeHref,
   selfName,
   canAttach,
   contactReason,
@@ -83,7 +82,6 @@ export default function Conversation({
   initialCursor: string | null
   canShareContact: boolean
   suspended: boolean
-  upgradeHref: string
   /** The viewer's own name, for the typing broadcast. */
   selfName: string
   /** May this member attach a photo (same rule as seeing contact details). */
@@ -509,9 +507,13 @@ export default function Conversation({
             <Lock size={14} className="mt-px shrink-0" aria-hidden />
             <span>
               Phone numbers are hidden in this conversation.{' '}
-              <Link href={upgradeHref} className="font-bold underline">
+              {/* The same gated surface as the paperclip: it opens the upgrade
+                  sheet on tap rather than linking to a packages page, so the
+                  member sees the plan card that unlocks contact, not a raw
+                  price in the HTML. */}
+              <UpgradeTrigger reason={contactReason} className="font-bold underline">
                 Upgrade
-              </Link>{' '}
+              </UpgradeTrigger>{' '}
               to see contact details once both sides can share them.
             </span>
           </p>

@@ -819,6 +819,7 @@ This replaces an inverted guard. `seed-dev.ts` and `seed-cleanup.ts` each hardco
 - The brand is written "TutorMint" — one word, no space — in every surface: UI, wordmarks, social banners, emails, captions, receipts, schema. "Tutor Mint" (two words) appears ONLY inside the legal name "Tutor Mint (Pvt) Ltd" in legal contexts (footer copyright, Terms, Privacy, receipts, merchant name).
 - The admin panel follows the same brand-token-only colour rule as the public site. No non-token colours anywhere, including admin.
 - Homepage hero pill text colour: tm-navy (#151E6B). This is an explicit owner authorisation dated 2 Sep 2026 and is the only permitted change to the locked homepage in this pass — recorded in the "Homepage is LOCKED" section above so it is not reverted later.
+- **Brand story (for /about + social bios).** TutorMint = where genuine tutors are *minted* — like a mint certifies every coin, we verify every tutor (degrees, CNIC, video) before they carry the badge; the logo's two figures are a tutor and a parent in direct conversation, no middleman. Taglines: **"Genuine tutors, minted daily."** / **"Every tutor, certified genuine."** (added by the owner, Part 3, 7 Sep 2026.)
 
 ### As built (2 Sep 2026) — what the admin brand pass actually found
 
@@ -2893,3 +2894,96 @@ contradiction that wastes the launch.
   first (part 3 brings that in).
 - **Meta-ads landing pages** — dedicated campaign entry pages, separate from the
   organic city×subject landing pages. Not scoped; needs an ads decision first.
+
+## Part 3 — brand-complete UI, instant search, conversion, legal identity (as built, 7–8 Sep 2026)
+
+The pass that made the site brand-complete for partner testing. Most of it was
+verification — much was already built and correct — so this records the deltas
+and the decisions, not a re-description of what already stood.
+
+**Viewer identity moved back to Premium (migration 56).** Migration 43 had made
+"see who viewed your profile" a Verified (199) power to drive the 199 funnel;
+the owner reversed it. `plans.can_see_viewer_identity` is now false on verified
+(migration 56, a single idempotent column update), and
+`REQUIRES.tutor_viewer_identity` in `lib/gate.ts` reads `'premium'`. The column
+moved before the label, then the label followed — the same discipline migration
+43 documented, run in reverse: a gate must never offer a plan whose row does not
+carry the power. Premium's exclusive reasons to upgrade are the three it still
+owns — 25 applications against 10, WhatsApp to parents, and search priority — and
+viewer identity is now one more. The teaser copy and `ViewsCard` sell Premium;
+`app/(site)/tutor/dashboard/views` says "Premium shows their name."
+
+**Avatars never break again (defensive, on top of the data fix).** The live
+breakage was a stale Sydney `avatar_url` against the Mumbai-derived CSP
+`img-src` — a host the CSP does not name renders nothing. The region task
+rewrote the six rows; this added `normalizeStorageSrc()` in
+`components/Avatar.tsx`, which rewrites any `https://<ref>.supabase.co/storage/…`
+origin to the current `NEXT_PUBLIC_SUPABASE_URL` origin at render time, so a
+future host change cannot resurface the bug. The shared `<Avatar>` still falls
+back to the initials disc — never a broken-image icon.
+
+**Instant search reached the last three admin lists.** Browse tutors, browse
+tuitions and the member directory were already typeaheads; this wired the admin
+**tutor** and **payment** queues, the two the T-Search "deliberate limits" note
+named as still owing it. `components/admin/QueueSearch.tsx` is the shared input —
+`Typeahead` with `suggest={false}`, the same rule the member directory follows:
+the public suggest index holds only listed tutors and open jobs, and is blind to
+the pending, suspended and unclaimed rows an admin opens a queue to find, so
+there is no panel, only a live-refreshing server query. `loadTutorQueue` gained
+an `.or()` over name/email/city/headline/slug; `loadPaymentQueue` resolves payer
+ids by name/email and OR's them with the payment's own references (a receipt's
+reference is what a payer quotes). Both thread `search` through the shared
+load-more route (`app/api/admin/queues/[kind]/route.ts`) and the clients' storage
+keys, so a searched window never restores an unsearched one's rows. No search
+button was added anywhere.
+
+**The conversion sweep — two nudges the 199 funnel wanted
+(`lib/conversionSweep.ts`, on the daily cron).** The per-view `profile_viewed`
+notification already existed (per-day, no upsell); this added the WEEKLY
+`viewer_weekly_teaser` — "N parents viewed your profile this week", body sells
+Premium, `→ /tutor/packages?plan=premium` — capped at one a week, never sent on a
+zero-view week, and only to tutors who cannot already see viewer identity (a
+Premium/Featured tutor is never pitched what they hold). And `quota_nudge` at 80%
+of the month's allowance, once a period — only for a plan whose displayed
+allowance is a real number, so a plan advertising "Unlimited" never has its real
+100-cap surfaced to the member. Both caps are the notification itself: "did we
+already nudge this week / this period" is a query for the last one of that kind,
+no new column, exactly as `profile_viewed` and `rank_dropped` throttle. Both are
+post-signup and land in the bell, so the "no price before signup" rule holds by
+construction.
+
+**The upgrade sheet took the inbox's last plain link.** The system was already
+wired into apply, hire, contact, CV and parent-jobs (all through
+`postGated`/`UpgradeTrigger`). The one remaining plain `<Link>` to a packages
+page — the "phone numbers are hidden, Upgrade" chip in `Conversation.tsx` — now
+opens the sheet via `UpgradeTrigger reason={contactReason}`, the same reason the
+paperclip already used, so no price ships in the HTML. The dead `upgradeHref`
+prop was retired from `Conversation` and `InboxShell`.
+
+**Legal identity + SEO.** The Terms/Privacy entity paragraph, the /about brand
+story, the homepage Organization + WebSite JSON-LD, the site-wide BreadcrumbList
+(per-page + `LandingView` + `LegalDoc` + the admin layout — every public surface,
+the two landing routes included), and the title/description templates
+("…verified, no commission | TutorMint" / "…on TutorMint, Pakistan's verified
+tutors network. No fee, no commission, no middleman.") were confirmed in place;
+`components/LegalDoc.tsx` folds the SECP number inline and Terms carries the
+messaging-consent paragraph.
+
+**Member directory: mobile column + filtered CSV export.** Each member row shows
+the mobile with a `CopyButton` (a stretched-link card, the button `relative
+z-10` and stop-propagation so it copies without navigating).
+`/api/admin/users/export` streams a CSV honouring the active q/role/status
+filters — Name, Role, Mobile (92… WhatsApp-ready via `normalisePkMobile`),
+WhatsApp, City, Plan, Verification, Joined — owner + manager only
+(`SCREEN_ACCESS.usersExport`), CSV-injection-safe, UTF-8 BOM, and every download
+writes an `admin_audit_log` row (`member.export`, with the filter set and row
+count).
+
+**Ads admin lists each ad's live placements.** Each card carries a "Showing on:"
+line derived from the ad's audience and the fixed slot rules (parent dashboard,
+browse tutors/tuitions after every 8 results), so an advertiser's placement is
+readable without cross-referencing the spec.
+
+Gates at close: tsc 0 · build 0 · check:contrast 89 · rls:audit 168/168 ·
+test:blog 35 · test:covers 16 · test:cv 14 · test:delivery 14 · test:jobcopy 11 ·
+test:grouping 8 · test:messaging 8 · test:social 7 · test:seedcast 4 — all pass.

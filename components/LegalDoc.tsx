@@ -37,10 +37,16 @@ export function entitySection(company: Company): LegalSection {
     body: (
       <>
         <p>
-          TutorMint is a trading name of <strong>{company.legalName}</strong>, a company
+          This agreement, and your use of TutorMint, is between you and{' '}
+          <strong>{company.legalName}</strong>
+          {/* The SECP number appears inline ONLY when it is real. Printing the
+              literal {{COMPANY_REG_NO}} to a visitor reads as an unfinished page,
+              not as a fact we do not have yet (app_settings holds it, migration
+              38). Omit the clause until then. */}
+          {!company.regNoPending && <> (SECP registration number {company.regNo})</>}, a company
           incorporated in Pakistan and registered with the Securities and Exchange Commission of
-          Pakistan. When this document says &quot;we&quot; or &quot;us&quot;, it means that
-          company.
+          Pakistan. TutorMint is its trading name; when this document says &quot;we&quot; or
+          &quot;us&quot;, it means that company.
         </p>
         <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr]">
           <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">
@@ -53,22 +59,8 @@ export function entitySection(company: Company): LegalSection {
             <a href={`mailto:${company.email}`}>{company.email}</a>
           </dd>
 
-          {/* A ROW APPEARS ONLY WHEN THE NUMBER IS REAL.
-              These rendered the literal strings {{COMPANY_REG_NO}} and
-              {{COMPANY_NTN}} to visitors -- a template placeholder printed on
-              a legal page, which reads as a page nobody finished rather than
-              as a fact we do not have yet. app_settings holds both (migration
-              38), so each row starts appearing the moment an admin fills one
-              in, with no deploy. */}
-          {!company.regNoPending && (
-            <>
-              <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                SECP registration number
-              </dt>
-              <dd>{company.regNo}</dd>
-            </>
-          )}
-
+          {/* The National Tax Number row appears only when it is real, for the
+              same reason the SECP number is inlined only when real. */}
           {!company.ntnPending && (
             <>
               <dt className="text-xs font-bold uppercase tracking-wide text-gray-500">

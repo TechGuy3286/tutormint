@@ -55,6 +55,9 @@ export const NOTIFICATION_GROUPS = {
     // rather than jobs because neither is about a specific tuition.
     'profile_viewed',
     'rank_dropped',
+    // Conversion roll-ups (Part 3): the weekly view teaser and the quota nudge.
+    'viewer_weekly_teaser',
+    'quota_nudge',
   ],
 } as const
 

@@ -72,6 +72,14 @@ const SECTIONS: LegalSection[] = [
           </li>
         </ul>
         <p>
+          <strong>Messages to your number.</strong> By giving us your mobile number you agree that
+          we may send you messages about your account — verification codes, security and payment
+          notices, plan reminders and things that need your attention — by SMS or WhatsApp. We may
+          also send occasional messages about TutorMint features and offers to the same number; you
+          can opt out of those at any time by replying STOP or by telling us, and you will still
+          receive the essential account messages.
+        </p>
+        <p>
           You can close your account at any time by asking us. See{' '}
           <Link href="/privacy">the Privacy Policy</Link> for what happens to your information
           afterwards.

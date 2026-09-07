@@ -5,6 +5,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import InfiniteFooter from '@/components/InfiniteFooter'
+import QueueSearch from '@/components/admin/QueueSearch'
 import StatusChip from '@/components/admin/StatusChip'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
@@ -34,6 +35,7 @@ export default function PaymentQueue({
   payments,
   subscriptions,
   filter,
+  search,
   paymentsCursor,
   paymentsTotal,
   subscriptionsCursor,
@@ -42,6 +44,7 @@ export default function PaymentQueue({
   payments: QueuePayment[]
   subscriptions: SubscriptionRow[]
   filter: string
+  search: string
   paymentsCursor: string | null
   paymentsTotal: number
   subscriptionsCursor: string | null
@@ -50,12 +53,15 @@ export default function PaymentQueue({
   const router = useRouter()
   const toast = useToast()
   // Two lists on one screen, two cursors. They page independently: reading
-  // further down the ledger has nothing to do with the queue above it.
+  // further down the ledger has nothing to do with the queue above it. Only the
+  // payments queue is searchable — the search term rides its params and its
+  // storage key so a filtered/searched window never restores a different one's
+  // rows; the ledger below is unaffected.
   const morePayments = useInfinite<QueuePayment>({
     endpoint: '/api/admin/queues/payments',
-    params: { filter },
+    params: { filter, ...(search ? { search } : {}) },
     initialCursor: paymentsCursor,
-    storageKey: `tm:more:admin-payments:${filter}`,
+    storageKey: `tm:more:admin-payments:${filter}:${search}`,
   })
   const moreSubs = useInfinite<SubscriptionRow>({
     endpoint: '/api/admin/queues/subscriptions',
@@ -126,9 +132,19 @@ export default function PaymentQueue({
 
       {/* ------------------------------------------------------- queue --- */}
       <section className="space-y-3">
-        <h2 className="text-sm font-black text-tm-navy">
-          Payments {paymentsTotal > 0 ? `(${paymentsTotal})` : ''}
-        </h2>
+        <div className="flex flex-col gap-3">
+          <h2 className="text-sm font-black text-tm-navy">
+            Payments {paymentsTotal > 0 ? `(${paymentsTotal})` : ''}
+          </h2>
+          {/* Searches the payer's name or email, or a reference off the receipt. */}
+          <QueueSearch
+            basePath="/admin/payments"
+            initialQuery={search}
+            filter={filter}
+            placeholder="Payer name, email, or reference"
+            ariaLabel="Search payments"
+          />
+        </div>
 
         {allPayments.length === 0 ? (
           <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">

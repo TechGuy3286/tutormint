@@ -28,6 +28,24 @@ const AUDIENCES = [
   { code: 'both', label: 'Everyone' },
 ]
 
+// Where an ad actually runs, in plain words, derived from its audience and the
+// fixed slot rules (CLAUDE.md: inline after every 8 browse results, the parent
+// dashboard, and the tutor dashboard — house creatives ONLY). These are paid
+// ads, so the tutor dashboard is never a placement for them. So the owner can
+// always see where an ad shows without knowing the rules.
+function placementsFor(audience: 'parents' | 'tutors' | 'both'): string {
+  const spots: string[] = []
+  if (audience !== 'tutors') spots.push('the parent dashboard')
+  const browse =
+    audience === 'parents'
+      ? 'browse tutors'
+      : audience === 'tutors'
+        ? 'browse tuitions'
+        : 'browse tutors and tuitions'
+  spots.push(`${browse} (after every 8 results)`)
+  return spots.join(' · ')
+}
+
 const EMPTY = {
   title: '',
   clientName: '',
@@ -277,6 +295,10 @@ export default function AdsClient({
                     <p className="truncate text-sm font-black text-tm-navy">{a.title}</p>
                     <p className="truncate text-[11px] text-gray-500">
                       {a.clientName || 'No advertiser named'} · {a.audience} · weight {a.weight}
+                    </p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-gray-600">
+                      <span className="font-bold text-tm-navy">Showing on:</span>{' '}
+                      {placementsFor(a.audience)}
                     </p>
                   </div>
                   <span

@@ -12,10 +12,11 @@ export const dynamic = 'force-dynamic'
 export default async function AdminTutorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>
+  searchParams: Promise<{ filter?: string; q?: string }>
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.tutors)
-  const { filter = 'pending' } = await searchParams
+  const { filter = 'pending', q = '' } = await searchParams
+  const search = q.trim()
 
   const admin = createAdminClient()
   if (!admin) {
@@ -28,12 +29,13 @@ export default async function AdminTutorsPage({
 
   // The first window only, with a cursor for the rest. This list used to stop
   // at a hard 100 with nothing saying so.
-  const { rows, nextCursor, total } = await loadTutorQueue({ filter })
+  const { rows, nextCursor, total } = await loadTutorQueue({ filter, search })
 
   return (
     <TutorModerationClient
       tutors={rows}
       filter={filter}
+      search={search}
       canSetVisibility={roleSatisfies(actor.adminRole, SCREEN_ACCESS.videoVisibility)}
       initialCursor={nextCursor}
       total={total}

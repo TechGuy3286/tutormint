@@ -14,8 +14,10 @@ import { createClient } from '@/lib/supabase/server'
 // The inbox, both roles, one implementation.
 //
 // A parent's inbox and a tutor's inbox differ in four things: where the
-// breadcrumb goes back to, what the empty state suggests doing next, where the
-// upgrade link points, and one notice a reply-only tutor sees. Everything else
+// breadcrumb goes back to, what the empty state suggests doing next, the upsell
+// reason a gated surface carries, and one notice a reply-only tutor sees. The
+// masked-number and paperclip surfaces both open the upgrade sheet from that
+// reason (contactReason) rather than linking to a packages page. Everything else
 // -- the panes, the paging, the masking, the blocked and suspended states --
 // is the same product, so it is the same code. Two copies would be two places
 // for the masking rule to drift apart.
@@ -42,8 +44,6 @@ export default async function InboxShell({
   const basePath = role === 'tutor' ? '/tutor/dashboard/messages' : '/parent/dashboard/messages'
   const dashboard = role === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard'
   const dashboardLabel = role === 'tutor' ? 'Tutor dashboard' : 'Parent dashboard'
-  const upgrade =
-    role === 'tutor' ? '/tutor/packages?plan=featured' : '/parent/packages?plan=parent_featured'
 
   const supabase = await createClient()
   const [list, ent, { data: self }, quickReplies] = await Promise.all([
@@ -225,7 +225,6 @@ export default async function InboxShell({
                 initialCursor={history.cursor}
                 canShareContact={header.canShareContact}
                 suspended={ent.suspended}
-                upgradeHref={upgrade}
                 selfName={selfName}
                 canAttach={mayAttachPhoto(ent)}
                 contactReason={contactReason}

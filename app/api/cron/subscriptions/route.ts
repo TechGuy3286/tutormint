@@ -4,6 +4,7 @@ import { runSubscriptionSweep } from '@/lib/payments/expiry'
 import { publishDuePosts } from '@/lib/blogPublish'
 import { rebuildContentQueue } from '@/lib/contentQueue/build'
 import { deliverContentDigest } from '@/lib/contentQueue/digest'
+import { runConversionSweep } from '@/lib/conversionSweep'
 
 // Daily subscription sweep: remind at T-3, expire at zero.
 //
@@ -56,9 +57,21 @@ async function handle(request: Request) {
   const queue = await rebuildContentQueue().catch((e) => ({ errors: [String(e)] }) as { errors: string[] })
   const digest = await deliverContentDigest().catch((e) => ({ sent: false, recipients: 0, reason: String(e) }))
 
+  // The 199 funnel's two nudges (Part 3): the weekly view teaser and the 80%
+  // quota heads-up. Wrapped like the others so a conversion-sweep error cannot
+  // fail the billing sweep, and its errors are surfaced the same way.
+  const conversion = await runConversionSweep().catch(
+    (e) => ({ teasersSent: 0, quotaNudgesSent: 0, errors: [String(e)] }),
+  )
+
   // Errors are reported, not swallowed: a sweep that silently half-ran is how
   // a member keeps a plan they stopped paying for.
-  const errors = [...result.errors, ...blog.errors, ...('errors' in queue ? queue.errors : [])]
+  const errors = [
+    ...result.errors,
+    ...blog.errors,
+    ...('errors' in queue ? queue.errors : []),
+    ...conversion.errors,
+  ]
   const status = errors.length > 0 ? 500 : 200
   return NextResponse.json(
     {
@@ -67,6 +80,7 @@ async function handle(request: Request) {
       blog: { published: blog.published, slugs: blog.slugs, errors: blog.errors },
       queue,
       digest,
+      conversion,
     },
     { status },
   )

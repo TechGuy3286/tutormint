@@ -6,6 +6,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import InfiniteFooter from '@/components/InfiniteFooter'
+import QueueSearch from '@/components/admin/QueueSearch'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import StatusChip from '@/components/admin/StatusChip'
 import { useInfinite } from '@/lib/useInfinite'
@@ -30,12 +31,14 @@ const MAX_ATTEMPTS = 3
 export default function TutorModerationClient({
   tutors,
   filter,
+  search,
   canSetVisibility,
   initialCursor,
   total,
 }: {
   tutors: QueueTutor[]
   filter: string
+  search: string
   /** Only owner/manager may publish a video; a verifier sees the state, not the control. */
   canSetVisibility: boolean
   initialCursor: string | null
@@ -43,13 +46,14 @@ export default function TutorModerationClient({
 }) {
   const router = useRouter()
   // The server rendered the first window; this only ever appends to it. The
-  // filter is part of the storage key so returning to a DIFFERENT tab never
-  // restores the previous one's rows.
+  // filter AND the search term are part of the storage key and the load-more
+  // params, so returning to a DIFFERENT tab or query never restores the
+  // previous one's rows, and load-more keeps the same filter the server did.
   const more = useInfinite<QueueTutor>({
     endpoint: '/api/admin/queues/tutors',
-    params: { filter },
+    params: { filter, ...(search ? { search } : {}) },
     initialCursor,
-    storageKey: `tm:more:admin-tutors:${filter}`,
+    storageKey: `tm:more:admin-tutors:${filter}:${search}`,
   })
   const all = [...tutors, ...more.items]
   const [open, setOpen] = useState<QueueTutor | null>(null)
@@ -136,6 +140,14 @@ export default function TutorModerationClient({
       <p className="text-xs text-gray-500">
         Every decision needs a written reason and is recorded in the audit log.
       </p>
+
+      <QueueSearch
+        basePath="/admin/tutors"
+        initialQuery={search}
+        filter={filter}
+        placeholder="Name, email, city, headline or slug"
+        ariaLabel="Search tutors"
+      />
 
       <nav className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Filter">
         {FILTERS.map((f) => (

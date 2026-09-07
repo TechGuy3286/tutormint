@@ -22,6 +22,29 @@ import { avatarTint, initialsOf } from '@/lib/brand'
 
 export { initialsOf }
 
+// Defensive host normalisation. Some avatar_url values are stored as ABSOLUTE
+// URLs (the seed script did this), which pins a Supabase project HOST into the
+// data. When the project moves — as it did Sydney -> Mumbai — that stale host no
+// longer matches the CSP `img-src` (derived from NEXT_PUBLIC_SUPABASE_URL at
+// build), so the browser BLOCKS the image and it renders broken. Rewriting any
+// Supabase-storage origin to the CURRENT host at render time means a host change
+// can never break an avatar again: storage is copied path-for-path, so the file
+// is at the same path on the new project. data:/blob:/foreign URLs pass through
+// untouched.
+const CURRENT_SUPABASE_ORIGIN = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').origin
+  } catch {
+    return ''
+  }
+})()
+
+export function normalizeStorageSrc(src: string): string {
+  if (!CURRENT_SUPABASE_ORIGIN) return src
+  const m = src.match(/^https:\/\/[a-z0-9]+\.supabase\.co(\/storage\/.*)$/i)
+  return m ? CURRENT_SUPABASE_ORIGIN + m[1] : src
+}
+
 export default function Avatar({
   name,
   src,
@@ -48,7 +71,7 @@ export default function Avatar({
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={src}
+        src={normalizeStorageSrc(src)}
         alt={decorative ? '' : (name ?? '')}
         aria-hidden={decorative || undefined}
         className={`shrink-0 rounded-full bg-tm-bg object-cover ${ring} ${className}`}

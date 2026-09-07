@@ -113,6 +113,10 @@ export const SCREEN_ACCESS = {
   jobs: ['manager', 'support'] as AdminRole[],
   jobsMutate: ['manager'] as AdminRole[],
   users: ['manager', 'support'] as AdminRole[],
+  // Exporting the member directory to CSV carries mobile numbers off the
+  // platform, so it is owner + manager only — one rung above the read-only
+  // directory (which support can see) — and every export is audit-logged.
+  usersExport: ['manager'] as AdminRole[],
   audit: ['manager'] as AdminRole[],
   // T9.1 — the landing-page monitor. Read-only: which city × subject pages are
   // live, and which sit one tutor short of opening. Owner + manager, a growth

@@ -19,6 +19,8 @@ export type MemberRow = {
   name: string
   email: string
   phone: string | null
+  whatsapp: string | null
+  city: string | null
   role: string
   slug: string | null
   completion: number
@@ -49,7 +51,7 @@ export async function memberPage({
   let query = admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended, created_at',
+      'id, full_name, email, phone_number, whatsapp, city, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended, created_at',
     )
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
@@ -123,6 +125,8 @@ export async function memberPage({
       name: (p.full_name as string) ?? '—',
       email: (p.email as string) ?? '—',
       phone: (p.phone_number as string) || null,
+      whatsapp: (p.whatsapp as string) || null,
+      city: (p.city as string) || null,
       role: p.role as string,
       slug: slugById.get(p.id as string) ?? null,
       completion: (p.profile_completion as number) ?? 0,
@@ -145,4 +149,27 @@ export async function memberPage({
         ? null
         : encodeCursor({ c: last.createdAt, i: last.id } satisfies MemberCursor),
   }
+}
+
+/**
+ * Every member matching the active filters, for the CSV export. Reuses
+ * memberPage so the export honours EXACTLY the filters the admin is looking at
+ * (same q/role/status logic, same plan/verification resolution). Bounded: the
+ * member base is small, and the cap + page ceiling stop any runaway.
+ */
+export async function allMembersForExport(filters: MemberFilters, cap = 5000): Promise<MemberRow[]> {
+  const pageSize = 200
+  const out: MemberRow[] = []
+  let cursor: string | null = null
+  for (let i = 0; i < Math.ceil(cap / pageSize) && out.length < cap; i++) {
+    const { rows, nextCursor }: { rows: MemberRow[]; nextCursor: string | null } = await memberPage({
+      filters,
+      limit: pageSize,
+      cursor,
+    })
+    out.push(...rows)
+    if (!nextCursor) break
+    cursor = nextCursor
+  }
+  return out.slice(0, cap)
 }

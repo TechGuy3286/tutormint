@@ -30,16 +30,18 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-type Args = { filter: string; cursor: string | null; params: URLSearchParams }
+type Args = { filter: string; search: string; cursor: string | null; params: URLSearchParams }
 
 const LOADERS: Record<QueueKind, (args: Args) => Promise<{
   rows: unknown[]
   nextCursor: string | null
   total: number
 }>> = {
-  tutors: ({ filter, cursor }) => loadTutorQueue({ filter, cursor, limit: QUEUE_PAGE }),
+  tutors: ({ filter, search, cursor }) =>
+    loadTutorQueue({ filter, search, cursor, limit: QUEUE_PAGE }),
   parents: ({ filter, cursor }) => loadParentQueue({ filter, cursor, limit: QUEUE_PAGE }),
-  payments: ({ filter, cursor }) => loadPaymentQueue({ filter, cursor, limit: QUEUE_PAGE }),
+  payments: ({ filter, search, cursor }) =>
+    loadPaymentQueue({ filter, search, cursor, limit: QUEUE_PAGE }),
   subscriptions: ({ cursor }) => loadSubscriptionLedger({ cursor, limit: QUEUE_PAGE }),
   reports: ({ filter, cursor }) => loadReportQueue({ filter, cursor, limit: QUEUE_PAGE }),
   blocks: ({ cursor }) => loadBlockList({ cursor, limit: QUEUE_PAGE }),
@@ -73,6 +75,7 @@ export async function GET(
   const url = new URL(request.url)
   const { rows, nextCursor } = await LOADERS[queue]({
     filter: url.searchParams.get('filter') ?? 'all',
+    search: url.searchParams.get('search') ?? '',
     cursor: url.searchParams.get('cursor'),
     params: url.searchParams,
   })

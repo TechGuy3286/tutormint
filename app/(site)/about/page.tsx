@@ -54,6 +54,18 @@ export default async function AboutPage() {
         </p>
 
         <div className="space-y-2">
+          <h2 className="text-base font-black text-tm-navy">Why “Mint”?</h2>
+          <p>
+            A mint is where genuine coins are struck and certified. TutorMint is where genuine
+            tutors are <em>minted</em>: we verify every tutor — degrees, CNIC and an introduction
+            video — before they carry the badge, so a parent knows the person they found is real
+            before they send the first message. The two figures in our logo are a tutor and a
+            parent, talking directly — no agency, no middleman between them.{' '}
+            <strong>Genuine tutors, minted daily.</strong>
+          </p>
+        </div>
+
+        <div className="space-y-2">
           <h2 className="text-base font-black text-tm-navy">We take nothing from the fee</h2>
           <p>
             A home-tuition academy typically keeps half of the first month and often a share of

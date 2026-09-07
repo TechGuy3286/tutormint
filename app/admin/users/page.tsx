@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react'
+import { Download, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -58,6 +58,15 @@ export default async function AdminUsersPage({
   })
   const term = q.trim()
 
+  const exportQs = [
+    term ? `q=${encodeURIComponent(term)}` : '',
+    role !== 'all' ? `role=${role}` : '',
+    status !== 'all' ? `status=${status}` : '',
+  ]
+    .filter(Boolean)
+    .join('&')
+  const exportHref = `/api/admin/users/export${exportQs ? `?${exportQs}` : ''}`
+
   const chip = (key: string, value: string, label: string, current: string) => {
     const params = new URLSearchParams()
     if (term) params.set('q', term)
@@ -108,6 +117,17 @@ export default async function AdminUsersPage({
             <Trash2 aria-hidden size={14} />
             Junk accounts
           </Link>
+        )}
+        {/* Export honours the active filters and is owner + manager only; the
+            route audit-logs every download. */}
+        {roleSatisfies(actor.adminRole, SCREEN_ACCESS.usersExport) && (
+          <a
+            href={exportHref}
+            className="gap-1.5 ml-auto inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy hover:border-tm-navy"
+          >
+            <Download aria-hidden size={14} />
+            Export CSV
+          </a>
         )}
       </div>
 

@@ -21,10 +21,11 @@ export const dynamic = 'force-dynamic'
 export default async function AdminPaymentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>
+  searchParams: Promise<{ filter?: string; q?: string }>
 }) {
   await requireAdminRole(...SCREEN_ACCESS.payments)
-  const { filter = 'pending' } = await searchParams
+  const { filter = 'pending', q = '' } = await searchParams
+  const search = q.trim()
 
   const admin = createAdminClient()
   if (!admin) {
@@ -36,7 +37,7 @@ export default async function AdminPaymentsPage({
   }
 
   const [payments, subscriptions] = await Promise.all([
-    loadPaymentQueue({ filter }),
+    loadPaymentQueue({ filter, search }),
     loadSubscriptionLedger({}),
   ])
 
@@ -59,6 +60,7 @@ export default async function AdminPaymentsPage({
         payments={payments.rows}
         subscriptions={subscriptions.rows}
         filter={filter}
+        search={search}
         paymentsCursor={payments.nextCursor}
         paymentsTotal={payments.total}
         subscriptionsCursor={subscriptions.nextCursor}
