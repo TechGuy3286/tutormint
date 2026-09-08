@@ -1,9 +1,11 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { MessageCircle, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { homeForRole, nextForRole, type Role } from '@/lib/authRoutes'
 import { formatPkMobile } from '@/lib/phone'
+import { getSupportContact, whatsappHref } from '@/lib/support'
 import VerifyPhoneForm from './VerifyPhoneForm'
 
 // The gate screen.
@@ -58,6 +60,18 @@ export default async function VerifyPhonePage({
 
   const mobile = (profile.phone_number as string) || ''
 
+  // The fallback (owner, Part 6). Until a real SMS provider exists, a member who
+  // cannot receive a code has no route forward — /verify-phone would be a dead
+  // end. The same pattern /support uses: WhatsApp + email from app_settings with
+  // env fallbacks, never hardcoded, and a channel with nothing configured is not
+  // offered. No invented delivery time. This block comes out when the provider
+  // lands (there will be a working code path then).
+  const support = await getSupportContact()
+  const waHref = whatsappHref(
+    support.whatsapp,
+    "Assalam-o-Alaikum, I'm not receiving my TutorMint verification code. Please help me verify my number.",
+  )
+
   return (
     <main className="flex min-h-screen flex-col bg-tm-bg p-4 text-slate-700 sm:p-6">
       <Breadcrumbs items={[{ label: 'Verify your number' }]} />
@@ -77,6 +91,39 @@ export default async function VerifyPhonePage({
           mobile={mobile}
           home={nextForRole(next, role) ?? home}
         />
+
+        {/* Not a dead end. Only rendered when a channel is actually configured —
+            a wa.me/ or mailto: with nothing behind it is worse than no button. */}
+        {(waHref || support.email) && (
+          <div className="space-y-2 rounded-2xl border border-gray-200 bg-tm-bg p-4">
+            <p className="text-xs font-bold text-tm-navy">Not receiving the code?</p>
+            <p className="text-[11px] leading-relaxed text-gray-500">
+              Message us and we&rsquo;ll verify you.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {waHref && (
+                <a
+                  href={waHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep-hover"
+                >
+                  <MessageCircle aria-hidden size={14} />
+                  WhatsApp us
+                </a>
+              )}
+              {support.email && (
+                <a
+                  href={`mailto:${support.email}?subject=${encodeURIComponent('Not receiving my TutorMint verification code')}`}
+                  className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+                >
+                  <Mail aria-hidden size={14} />
+                  Email us
+                </a>
+              )}
+            </div>
+          </div>
+        )}
       </div>
       </div>
     </main>

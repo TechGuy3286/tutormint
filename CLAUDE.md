@@ -3252,5 +3252,75 @@ threshold, and computeEntitlements for banned / suspended / bridge / active /
 free-parent. `test-delivery.ts` gained the bridge-allowed-in-production case
 alongside the existing DEV_DEFAULT_OTP-refuses-in-production one. What is genuine
 DB-integration (the login 403, the phone_verified_via write, the live blocklist
-read, the under_review flip) is proven by its pure core plus the live smoke — no
+read, the under_review flip) is proven by its pure core plus code review — no
 browser was driven, as in Part 4.
+
+**Correction (Part 6, 9 Sep):** the sentence above originally read "pure core
+plus the live smoke". That overstated it. Part 5's only live-database access was
+READ-ONLY: the psql verification SELECTs (view row counts, the pre-58
+symmetric-diff, a `tutor_public_page` spot check, the email-branch and
+bridge-account counts) and `rls:audit`'s read probes. `scripts/smoke.ts` was NOT
+run in Part 5, and Part 5 wrote NOTHING to the one production database — the
+right call, the same one Part 4 made. The DB-integration paths rest on their
+pure-core unit tests and code review, not on an executed end-to-end run.
+
+## Part 6 decisions (owner, 9 Sep 2026 — later than the Part 5 block)
+
+Later-dated than the Part 5 block, so under precedence rule 10 these win over
+anything above them they touch. Small gaps, no new systems: no table, no
+migration.
+
+- **An under-review profile renders but is never indexed.** Keeping the URL alive
+  (Part 5) was to protect the tutor's page from a single report, not to publish a
+  notice to Google. While `under_review` is true the page sets
+  `robots: { index: false }` per-page, dropped the moment the flag clears. It is
+  already out of the sitemap and out of `tutor_directory`; this closes the last
+  path in. This is a per-page exception to "Index now, banner stays" — the same
+  shape as the authenticated/admin pages that already carry their own per-page
+  noindex, not a reversal of it.
+- **The bridge banner counts down.** `BridgeBanner` reads `BRIDGE_OTP_EXPIRES` and
+  shows days remaining: "Bridge OTP is active — 6 days remaining. Remove when the
+  SMS provider lands." Fail-closed on a missing expiry is correct, but a deadline
+  that arrives silently closes signup silently, and the public pages are indexed
+  now — so once expired the banner stays up with different copy rather than
+  vanishing.
+- **`/verify-phone` is not a dead end.** Until a real SMS provider exists, a member
+  who cannot receive a code has no route forward. The screen gains an honest line
+  and the WhatsApp + email fallback from `app_settings`, the same pattern
+  `/support` uses: "Not receiving the code? Message us and we'll verify you." No
+  invented delivery time, no promise about how fast. This comes out when the
+  provider lands.
+
+### As built (Part 6, 9 Sep 2026)
+
+NO migration, NO new table — three targeted gaps closed. Pure cores extracted so
+the new behaviour is unit-tested without the one shared database.
+
+- **Under-review noindex.** `app/(site)/tutor/[slug]/page.tsx` gained a shared
+  `tutorUnderReview(id)` (service-role read — the flag is not in
+  `tutor_public_page`'s fixed column allowlist), used by BOTH `generateMetadata`
+  (adds `robots: { index: false, follow: false }` only while under review, so a
+  resolved profile returns no robots key and is indexable again immediately) and
+  the page body (the amber notice). `force-dynamic` means no caching to stale the
+  flag. `app/sitemap.ts` and the `tutor_directory` exclusion are UNCHANGED —
+  under-review tutors were already absent from both (the sitemap reads
+  `listed_tutor_slugs()` → `tutor_directory`); this only closed the direct-URL
+  index path.
+- **Bridge countdown.** The pure `bridgeBanner(status, now)` in `lib/sms`
+  (`{ show, expired, message }`): while active, `Math.max(1, ceil(daysLeft))` with
+  the owner's exact copy; past expiry (`codeSet && expired`), a red "has expired —
+  new signups can no longer verify" strip that stays up; absent only when a bridge
+  was never configured. `components/admin/BridgeBanner.tsx` renders it on every
+  admin screen it already appeared on (the shell banner slot). Tested in
+  `test-auth-trust.ts` (6-day count, singular "1 day", past-expiry, never-set).
+- **/verify-phone fallback.** The page reads `getSupportContact()` (app_settings
+  first, env fallback, never hardcoded — CLAUDE.md rule 7) and renders a "Not
+  receiving the code?" block with WhatsApp and/or email, each shown only when that
+  channel is actually configured (a `wa.me/` or `mailto:` with nothing behind it
+  is worse than no button). No invented delivery time.
+- **/verify-email left alone, and why.** It is unreachable through the app now:
+  `/api/auth/register`'s email branch returns a 400 before creating anything and
+  never hands back `next: '/verify-email'`, so `RegisterForm` never navigates
+  there. The route file remains (a "check your inbox" screen for a flow that
+  cannot start), reached only by typing the URL. It needs no fallback; it comes
+  back into use in the same PR that ungates the email branch (when SMTP lands).

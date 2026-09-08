@@ -138,6 +138,38 @@ export function bridgeStatus(): BridgeStatus {
 }
 
 /**
+ * The admin banner's copy and whether to show it (owner, Part 6). Pure, so the
+ * day count and the past-expiry state are unit-testable with a fixed `now`.
+ *
+ * A deadline that arrives silently would close signup silently now that the
+ * public pages are indexed — so the banner counts DOWN while active, and stays
+ * up (with different copy) once expired, rather than disappearing the moment the
+ * bridge goes dead. It is absent only when a bridge was never configured.
+ */
+export function bridgeBanner(
+  status: BridgeStatus,
+  now: number = Date.now(),
+): { show: boolean; expired: boolean; message: string } {
+  if (status.active && status.expiresAt) {
+    const days = Math.max(1, Math.ceil((Date.parse(status.expiresAt) - now) / 86_400_000))
+    return {
+      show: true,
+      expired: false,
+      message: `Bridge OTP is active — ${days} day${days === 1 ? '' : 's'} remaining. Remove when the SMS provider lands.`,
+    }
+  }
+  if (status.codeSet && status.expired) {
+    return {
+      show: true,
+      expired: true,
+      message:
+        'Bridge OTP has expired — new signups can no longer verify their number. Remove BRIDGE_OTP and connect the SMS provider.',
+    }
+  }
+  return { show: false, expired: false, message: '' }
+}
+
+/**
  * Startup assertion. Called from instrumentation.ts, which Next runs once per
  * server instance before it serves a request.
  *

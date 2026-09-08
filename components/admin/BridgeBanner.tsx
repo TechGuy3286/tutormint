@@ -1,29 +1,38 @@
 import { AlertTriangle } from 'lucide-react'
 
-import { bridgeStatus } from '@/lib/sms'
-import { formatDate } from '@/lib/datetime'
+import { bridgeStatus, bridgeBanner } from '@/lib/sms'
 
-// The BRIDGE_OTP leash banner (owner, Part 5). While the shared bridge code is
-// active, every admin screen carries this amber strip so nobody forgets it is
-// on: a shared code that verifies any signup is a fake-account risk on an
-// indexed site, and it is meant to come off the day a real SMS provider lands.
-// Server component — bridgeStatus() reads env, so this ships no secret to the
-// browser and renders nothing at all when the bridge is off.
+// The BRIDGE_OTP leash banner (owner, Part 5; countdown added Part 6). While the
+// shared bridge code is active it shows the days remaining, so a deadline does
+// not arrive silently and close signup silently now that the public pages are
+// indexed. Once expired it stays up with different copy rather than
+// disappearing — a dead bridge with no SMS provider means new signups cannot
+// verify at all, which admins need told. It is absent only when a bridge was
+// never configured. Server component — bridgeStatus() reads env, so this ships
+// no secret to the browser.
 
 export default function BridgeBanner() {
-  const status = bridgeStatus()
-  if (!status.active) return null
+  const banner = bridgeBanner(bridgeStatus())
+  if (!banner.show) return null
 
   return (
     <div
       role="status"
-      className="flex items-start gap-2 border-b border-tm-gold/40 bg-tm-tint-gold px-4 py-2 text-tm-gold-ink sm:px-6"
+      className={`flex items-start gap-2 border-b px-4 py-2 sm:px-6 ${
+        banner.expired
+          ? 'border-tm-red/40 bg-tm-tint-red text-tm-red'
+          : 'border-tm-gold/40 bg-tm-tint-gold text-tm-gold-ink'
+      }`}
     >
       <AlertTriangle aria-hidden size={16} className="mt-0.5 shrink-0" />
       <p className="text-[11px] font-bold leading-relaxed">
-        Bridge OTP is active — remove when the SMS provider lands.
-        {status.expiresAt ? ` It expires on ${formatDate(status.expiresAt)}.` : ''}{' '}
-        Bridge-verified accounts hold no plan and no badge until they re-verify with a real code.
+        {banner.message}
+        {!banner.expired && (
+          <>
+            {' '}
+            Bridge-verified accounts hold no plan and no badge until they re-verify with a real code.
+          </>
+        )}
       </p>
     </div>
   )

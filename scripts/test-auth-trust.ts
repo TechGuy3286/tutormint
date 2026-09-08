@@ -15,7 +15,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { bridgeStatus, bridgeOtpCode } from '../lib/sms'
+import { bridgeStatus, bridgeOtpCode, bridgeBanner } from '../lib/sms'
 import { otpMatch, resendWaitSeconds, RESEND_COOLDOWN_MS } from '../lib/otp'
 import { applySessionPersistence, persistOffFrom } from '../lib/sessionCookies'
 import { hashCnic, blocklistHit } from '../lib/blocklistCore'
@@ -76,6 +76,30 @@ test('bridge: a code with NO expiry env is off — an unbounded bridge is imposs
   withEnv({ BRIDGE_OTP: undefined, BRIDGE_OTP_EXPIRES: future() }, () => {
     assert.equal(bridgeStatus().active, false)
   })
+})
+
+test('bridgeBanner: counts down while active, and stays up (differently) once expired', () => {
+  const now = Date.parse('2026-09-09T00:00:00Z')
+  const inDays = (d: number) => new Date(now + d * 86_400_000).toISOString()
+
+  // Six days out, active: a day count and the active copy.
+  const six = bridgeBanner({ active: true, codeSet: true, expiresAt: inDays(6), expired: false }, now)
+  assert.equal(six.show, true)
+  assert.equal(six.expired, false)
+  assert.equal(six.message, 'Bridge OTP is active — 6 days remaining. Remove when the SMS provider lands.')
+
+  // Under a day still reads as 1 (a countdown never shows 0 while active), and singular.
+  const soon = bridgeBanner({ active: true, codeSet: true, expiresAt: new Date(now + 3600_000).toISOString(), expired: false }, now)
+  assert.match(soon.message, /1 day remaining/)
+
+  // Past expiry: shown, plainly, not vanished.
+  const gone = bridgeBanner({ active: false, codeSet: true, expiresAt: inDays(-1), expired: true }, now)
+  assert.equal(gone.show, true)
+  assert.equal(gone.expired, true)
+  assert.match(gone.message, /has expired/)
+
+  // Never configured: no banner at all.
+  assert.equal(bridgeBanner({ active: false, codeSet: false, expiresAt: null, expired: false }, now).show, false)
 })
 
 test('otpMatch: the dev bypass wins a tie, so a bridge value never masquerades', () => {

@@ -77,6 +77,14 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const tutor = await loadTutor(slug)
   if (!tutor) return { title: pageTitle('Tutor not found') }
 
+  // UNDER REVIEW renders but is NEVER indexed (owner, Part 6). Keeping the URL
+  // alive protects the page from a single report; it does not publish the amber
+  // notice to Google. The flag is not in tutor_public_page's fixed allowlist, so
+  // it is read here via the service role, per-request — the noindex drops the
+  // moment the flag clears. (The tutor is already out of tutor_directory and the
+  // sitemap; this closes the last path in.)
+  const underReview = await tutorUnderReview(tutor.id)
+
   const subjects = Array.from(
     new Set(tutor.subjects.map((s) => s.subject ?? s.level).filter(Boolean)),
   ).slice(0, 3)
@@ -97,6 +105,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     title,
     description,
     alternates: { canonical: `/tutor/${tutor.slug}` },
+    // Indexable by default; noindex only while under review. A resolved profile
+    // returns no robots key, so it is indexable again the moment the flag clears.
+    ...(underReview ? { robots: { index: false, follow: false } } : {}),
     openGraph: {
       title,
       description,
@@ -104,6 +115,22 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       images: tutor.avatar_url ? [tutor.avatar_url] : undefined,
     },
   }
+}
+
+/**
+ * Is this tutor under review? Read via the service role — the flag is not in
+ * tutor_public_page's fixed column allowlist. Shared by generateMetadata (for
+ * the noindex) and the page body (for the amber notice), so both agree.
+ */
+async function tutorUnderReview(tutorId: string): Promise<boolean> {
+  const admin = createAdminClient()
+  if (!admin) return false
+  const { data } = await admin
+    .from('tutor_profiles')
+    .select('under_review')
+    .eq('id', tutorId)
+    .maybeSingle()
+  return !!data?.under_review
 }
 
 /**
@@ -287,20 +314,9 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   // UNDER REVIEW delists but does not unpublish (owner, Part 5). The profile
   // still renders — tutor_visible_profiles does not exclude it — but with a
   // plain amber notice in place of the contact and apply affordances while a
-  // report is checked. The flag is not in tutor_public_page's fixed column
-  // allowlist, so it is read here via the service role.
-  let underReview = false
-  {
-    const admin = createAdminClient()
-    if (admin) {
-      const { data: ur } = await admin
-        .from('tutor_profiles')
-        .select('under_review')
-        .eq('id', tutor.id)
-        .maybeSingle()
-      underReview = !!ur?.under_review
-    }
-  }
+  // report is checked, and it is noindex (generateMetadata) so it renders for a
+  // person following the link but is never indexed. Same helper as the metadata.
+  const underReview = await tutorUnderReview(tutor.id)
 
   await recordView(tutor.id, user?.id ?? null, ent?.role ?? null)
 
