@@ -1,43 +1,35 @@
 import type { MetadataRoute } from 'next'
 
-import { PREVIEW_MODE } from '@/lib/preview'
-
 // robots.txt.
 //
-// Everything public is crawlable — the browse pages and tutor profiles are the
-// platform's entire organic-search surface, and TutorMint has no interest in
-// hiding them. What is disallowed is everything that is either private, or a
-// crawl trap:
+// PUBLIC PAGES ARE CRAWLABLE, INDEXED NOW (owner, 8 Sep 2026). The browse pages,
+// tutor profiles, tuition pages, landing pages, blog and the marketing pages are
+// the platform's entire organic-search surface, and indexing is opened even
+// while the "launching soon" banner is still up — the banner (PreviewBanner) is
+// now decoupled from indexing. See "Index now, banner stays" in CLAUDE.md and
+// lib/preview.ts.
 //
-//   PRIVATE. /admin, /api, dashboards, messages, the account pages. Crawling
-//   these returns a redirect to /login for an anonymous crawler, so nothing
-//   leaks either way — but a search result reading "Sign in — TutorMint" for
+// What stays disallowed is everything that is either private, or a crawl trap:
+//
+//   PRIVATE. /admin, /api, dashboards, /verify-phone, /verify-email, messages,
+//   the account pages. Crawling these returns a login redirect for an anonymous
+//   crawler, so nothing leaks — but a result reading "Sign in — TutorMint" for
 //   somebody's dashboard URL is a worse result than no result.
 //
-//   TRAPS. /pay, /messages/<id> and /browse/tuitions?job=... are unbounded or
+//   TRAPS. /pay, /messages/<id> and /browse/...?<filters> are unbounded or
 //   session-specific. A crawler that follows them spends its budget on pages
 //   nobody searches for, and that budget comes out of the tutor profiles.
 //
 // This is not a security control. Disallow is a request, not a boundary; the
 // boundary is row-level security and the server-side layout gates. A crawler
 // that ignores robots.txt gets a login redirect, not somebody's data.
+//
+// The apex permanently redirects to www (next.config.ts), so the canonical host
+// — and the Sitemap line — are www, matching lib/siteUrl.
 
-const BASE = 'https://tutormint.org'
+const BASE = 'https://www.tutormint.org'
 
 export default function robots(): MetadataRoute.Robots {
-  // PREVIEW. While the directory is mostly seed accounts, nothing should be
-  // indexed at all: those pages would become the ones that rank, and a real
-  // tutor would later compete with a fixture for their own name. The sitemap
-  // is withheld too — offering a map of pages we have just asked not to be
-  // crawled is a mixed signal, and some crawlers take the sitemap as the
-  // stronger one. Flip NEXT_PUBLIC_PREVIEW_MODE=false to restore all of it.
-  if (PREVIEW_MODE) {
-    return {
-      rules: [{ userAgent: '*', disallow: '/' }],
-      host: BASE,
-    }
-  }
-
   return {
     rules: [
       {
@@ -53,6 +45,8 @@ export default function robots(): MetadataRoute.Robots {
           '/parent/dashboard',
           '/parent/verify',
           '/account/',
+          '/verify-phone',
+          '/verify-email',
           '/messages',
           '/chat/',
           '/pay/',

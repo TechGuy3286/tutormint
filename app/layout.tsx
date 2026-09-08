@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { PREVIEW_MODE } from "@/lib/preview";
 import OfflineNotice from "@/components/OfflineNotice";
 import { UpgradeProvider } from '@/components/upgrade/UpgradeProvider'
 import { ToastProvider } from '@/components/ui/Toast'
@@ -10,10 +9,11 @@ export const metadata: Metadata = {
   title: "TutorMint - Pakistan's Largest Verified Tutors Network",
   description: "Connect directly with verified tutors and parents across Pakistan.",
   metadataBase: new URL('https://www.tutormint.org'),
-  // Site-wide noindex while the directory is mostly fixtures. One flag, in
-  // lib/preview.ts — see the note there for why indexing seed accounts now is
-  // expensive to undo later.
-  ...(PREVIEW_MODE ? { robots: { index: false, follow: false } } : {}),
+  // Public pages are indexable NOW (owner, 8 Sep 2026) — indexing is decoupled
+  // from the "launching soon" banner, which stays. There is no site-wide
+  // noindex; authenticated and admin pages set their own robots noindex in
+  // their metadata and are disallowed in robots.txt. See "Index now, banner
+  // stays" in CLAUDE.md.
   openGraph: {
     title: "TutorMint - Pakistan's Largest Verified Tutors Network",
     description: "Connect directly with verified tutors and parents across Pakistan.",

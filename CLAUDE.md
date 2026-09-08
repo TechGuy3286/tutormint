@@ -3100,3 +3100,30 @@ at signup and at claim. CNIC is stored as a sha256 hash, never in the clear.
 **Terms.** The fraud clause (permanent termination, plan forfeited without
 refund, evidence preserved, blocklist) is in the "Warnings, suspension and
 closing accounts" section; the messaging-consent line was already present.
+
+## Index now, banner stays (owner, 8 Sep 2026) — SUPERSEDES "Preview mode comes OFF before launch"
+
+**The owner decided to index the public pages NOW, while the "launching soon"
+banner stays up.** Under precedence rule 10 this supersedes the T8b GATE in
+"Preview mode — comes OFF before launch (3 Sep 2026)", which said indexing must
+wait until real verified tutors are listed. Production's `robots.txt` was
+blocking every crawler (GSC live test: "Blocked by robots.txt"); that is the
+concrete cost this fixes.
+
+- **`NEXT_PUBLIC_PREVIEW_MODE` now controls only the banner** (`components/
+  PreviewBanner.tsx`). It no longer drives any SEO behaviour — the three-places
+  design in `lib/preview.ts` is decoupled.
+- **`app/robots.ts`** always serves the public rules: `Allow: /` with disallows
+  only for `/admin`, `/api`, the dashboards, `/parent/verify`, `/tutor/complete-profile`,
+  `/tutor/claim`, `/account`, `/verify-phone`, `/verify-email`, `/messages`,
+  `/chat`, `/pay`, `/suspended`, `/dev`, the auth forms, and the `?`-filtered
+  browse variants. `Sitemap:` and `host` are **www** (the apex 301s to www).
+- **`app/layout.tsx`** sets no site-wide noindex. Authenticated/admin pages keep
+  their own per-page `robots: { index: false }` and are robots-disallowed +
+  auth-gated, so only the public surface becomes indexable.
+- **`app/sitemap.ts`** always lists tutors, tuitions, landing pages and blog
+  posts (the preview withholding is gone).
+- There is no `X-Robots-Tag` header anywhere; the only noindex was the layout
+  meta removed here.
+- The seed-directory concern the old gate raised (fixtures ranking for a real
+  tutor's name later) is a known, accepted trade the owner made deliberately.

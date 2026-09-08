@@ -1,7 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { createPublicClient } from '@/lib/supabase/public'
 import { citySegment } from '@/lib/slugs'
-import { PREVIEW_MODE } from '@/lib/preview'
 import { SITE_URL } from '@/lib/siteUrl'
 import { liveLandingPages } from '@/lib/landing'
 import { publishedSlugs } from '@/lib/blogFeed'
@@ -49,11 +48,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
   ]
 
-  // While the site is noindex, listing individual tutors and tuitions would be
-  // a mixed signal -- robots.txt already withholds the sitemap for the same
-  // reason. The static pages stay so the file is valid rather than empty.
-  if (PREVIEW_MODE) return staticPages
-
+  // Public pages are indexed now (owner, 8 Sep 2026), so the sitemap lists
+  // every listed tutor and open tuition alongside the static pages — the
+  // preview-mode withholding is gone. If the tutor/tuition reads fail we still
+  // return the static pages rather than an empty file.
   try {
     const supabase = createPublicClient()
 
