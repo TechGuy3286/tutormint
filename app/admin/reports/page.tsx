@@ -1,7 +1,7 @@
 import { Users } from 'lucide-react'
 import Link from 'next/link'
 
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadBlockList, loadReportQueue } from '@/lib/adminQueues'
 import { createAdminClient } from '@/lib/supabase/admin'
 import ReportQueue from './ReportQueue'
@@ -21,7 +21,10 @@ export default async function AdminReportsPage({
 }: {
   searchParams: Promise<{ filter?: string }>
 }) {
-  await requireAdminRole(...SCREEN_ACCESS.reports)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.reports)
+  // Ban from the queue is owner/manager only (the route enforces it too); a
+  // support admin working the queue never sees the button.
+  const canBan = roleSatisfies(actor.adminRole, ['manager'])
   const { filter = 'open' } = await searchParams
 
   const admin = createAdminClient()
@@ -54,6 +57,7 @@ export default async function AdminReportsPage({
         reports={reports.rows}
         blocks={blocks.rows}
         filter={filter}
+        canBan={canBan}
         reportsCursor={reports.nextCursor}
         reportsTotal={reports.total}
         blocksCursor={blocks.nextCursor}

@@ -44,6 +44,38 @@ export type VerifyResult =
   | { ok: true; userId: string | null; devBypass: boolean; bridged: boolean }
   | { ok: false; status: number; error: string; attemptsLeft?: number; locked?: boolean }
 
+/**
+ * Seconds a member must still wait before Resend re-enables — 0 when the
+ * cooldown has passed. Pure, so the 5-minute countdown is unit-testable with a
+ * fixed `now`: the resend button and this share one number.
+ */
+export function resendWaitSeconds(
+  lastSentAtMs: number,
+  nowMs: number,
+  cooldownMs: number = RESEND_COOLDOWN_MS,
+): number {
+  const since = nowMs - lastSentAtMs
+  if (since >= cooldownMs) return 0
+  return Math.ceil((cooldownMs - since) / 1000)
+}
+
+/**
+ * Which special code, if any, a submitted OTP is: the dev bypass, the
+ * production bridge, or neither. The bypass wins a tie so a bridge value never
+ * masquerades as one; `bridged` downstream is true only for the bridge, which
+ * is what lets the verify route tag phone_verified_via='bridge'. Pure.
+ */
+export function otpMatch(
+  submitted: string,
+  bypass: string | null,
+  bridge: string | null,
+): 'bypass' | 'bridge' | 'none' {
+  const s = submitted.trim()
+  if (bypass && s === bypass) return 'bypass'
+  if (bridge && s === bridge) return 'bridge'
+  return 'none'
+}
+
 const UNAVAILABLE = {
   ok: false as const,
   status: 503,
@@ -87,9 +119,8 @@ export async function sendOtp(opts: {
   }
 
   if (recent && recent.length > 0) {
-    const since = now - new Date(recent[0].created_at).getTime()
-    if (since < RESEND_COOLDOWN_MS) {
-      const wait = Math.ceil((RESEND_COOLDOWN_MS - since) / 1000)
+    const wait = resendWaitSeconds(new Date(recent[0].created_at).getTime(), now)
+    if (wait > 0) {
       return {
         ok: false,
         status: 429,
@@ -187,10 +218,9 @@ export async function verifyOtp(opts: {
   // dev bypass (DEV_DEFAULT_OTP, non-production only) and bridge (BRIDGE_OTP,
   // production-allowed) are checked together; `bridged` is true only for the
   // bridge, so the verify route can tag phone_verified_via='bridge'.
-  const bypass = devOtpCode()
-  const bridge = bridgeOtpCode()
-  const isBypass = !!bypass && submitted === bypass
-  const isBridge = !isBypass && !!bridge && submitted === bridge
+  const match = otpMatch(submitted, devOtpCode(), bridgeOtpCode())
+  const isBypass = match === 'bypass'
+  const isBridge = match === 'bridge'
   if (isBypass || isBridge) {
     if (!otp) {
       return { ok: false, status: 400, error: 'No active code for this number. Request a new one.' }

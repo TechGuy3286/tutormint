@@ -1,26 +1,16 @@
 import 'server-only'
 
-import { createHash } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { hashCnic, blocklistHit, type BlocklistHit, type BlocklistRow } from '@/lib/blocklistCore'
 
 // The internal signup/claim blocklist: a banned account's mobile and CNIC, so
 // the same person cannot simply register a fresh account (owner, Sunday 6 Sep).
-//
-// THE CNIC IS HASHED, NEVER STORED IN THE CLEAR. The blocklist exists to
-// recognise a returning banned person, not to be a second copy of everyone's
-// national identity number sitting in a table an admin can read. A one-way
-// sha256 of the digits is enough to match a resubmission and useless as a leak.
-// The mobile is stored normalised (it is not identity-grade and must be matched
-// against what signup normalises to).
+// The pure key derivation and match live in lib/blocklistCore.ts (no
+// 'server-only', so they are unit-testable); this file adds the service-role
+// reads and writes.
 
-export function hashCnic(cnic: string | null | undefined): string | null {
-  if (!cnic) return null
-  const digits = String(cnic).replace(/\D/g, '')
-  if (digits.length < 13) return null
-  return createHash('sha256').update(digits).digest('hex')
-}
-
-export type BlocklistHit = { mobile: boolean; cnic: boolean }
+export { hashCnic, blocklistHit }
+export type { BlocklistHit, BlocklistRow }
 
 /** Is this mobile or CNIC on the blocklist? Null when neither is. */
 export async function checkBlocklist(opts: {
@@ -41,10 +31,7 @@ export async function checkBlocklist(opts: {
   const { data } = await admin.from('signup_blocklist').select('mobile, cnic_hash').or(ors.join(','))
   if (!data || data.length === 0) return null
 
-  return {
-    mobile: !!mobile && data.some((r) => r.mobile === mobile),
-    cnic: !!cnicHash && data.some((r) => r.cnic_hash === cnicHash),
-  }
+  return blocklistHit(data as BlocklistRow[], { mobile, cnicHash })
 }
 
 /** Add a banned account's mobile and CNIC to the blocklist (service-role path). */

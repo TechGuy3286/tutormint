@@ -31,6 +31,7 @@ import { notify } from '@/lib/notifications'
 import { deliverMessageDigest } from '@/lib/notify'
 import { previewText } from '@/lib/messagingRules'
 import { messageListTime } from '@/lib/datetime'
+import { teamUnreadCount } from '@/lib/adminMessaging'
 
 /** The message a reply quotes, resolved to a short (masked) snippet. */
 export type MessageReplyRef = { id: string; snippet: string; mine: boolean }
@@ -525,7 +526,13 @@ export async function unreadMessageCount(userId: string): Promise<number> {
     .eq('user_id', userId)
     .eq('kind', 'message_received')
     .is('read_at', null)
-  return count ?? 0
+
+  // Official TutorMint Team messages live in the same inbox now (owner, Part 5),
+  // so the dashboard "Messages" tile counts them too — "two message screens is a
+  // place official messages go unread" was the whole reason for unifying. Read
+  // from the admin_messages store, the pinned Team row's own source of truth.
+  const team = await teamUnreadCount(userId)
+  return (count ?? 0) + team
 }
 
 /** How many conversations this member has. For the dashboard count only. */

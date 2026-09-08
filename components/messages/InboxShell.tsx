@@ -1,13 +1,15 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Briefcase, MessagesSquare, Zap } from 'lucide-react'
+import { ArrowLeft, Briefcase, MessagesSquare, ShieldCheck, Zap } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Conversation from '@/components/messages/Conversation'
 import ConversationList from '@/components/messages/ConversationList'
+import TeamPane from '@/components/messages/TeamPane'
 import { getEntitlements } from '@/lib/entitlements'
 import { loadQuickReplies, messagePage, threadHeader, threadPage } from '@/lib/messaging'
+import { loadTeamSummary } from '@/lib/adminMessaging'
 import { mayAttachPhoto, DEFAULT_QUICK_REPLIES } from '@/lib/messagingRules'
 import { createClient } from '@/lib/supabase/server'
 
@@ -45,12 +47,19 @@ export default async function InboxShell({
   const dashboard = role === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard'
   const dashboardLabel = role === 'tutor' ? 'Tutor dashboard' : 'Parent dashboard'
 
+  // The official TutorMint Team conversation lives in this same inbox now
+  // (owner, Part 5). `team` is a reserved thread id, not a `threads` row — it
+  // opens the dedicated admin_messages store through TeamPane, which keeps the
+  // "no chat-browsing screen" line true by construction.
+  const isTeam = threadId === 'team'
+
   const supabase = await createClient()
-  const [list, ent, { data: self }, quickReplies] = await Promise.all([
+  const [list, ent, { data: self }, quickReplies, teamSummary] = await Promise.all([
     threadPage({ userId, limit: LIST_PAGE }),
     getEntitlements(userId),
     supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
     role === 'tutor' ? loadQuickReplies(userId) : Promise.resolve([] as string[]),
+    loadTeamSummary(userId),
   ])
   const selfName = ((self?.full_name as string | null) || 'You').split(' ')[0]
   const contactReason = role === 'tutor' ? 'tutor_contact' : 'parent_contact'
@@ -59,13 +68,14 @@ export default async function InboxShell({
   const chips =
     role === 'tutor' ? (quickReplies.length > 0 ? quickReplies : DEFAULT_QUICK_REPLIES) : []
 
-  const header = threadId ? await threadHeader(userId, threadId) : null
+  const header = threadId && !isTeam ? await threadHeader(userId, threadId) : null
 
   // A thread that is not this member's, does not exist, or is between a
   // blocked pair all land here identically. `threadHeader` returns null for
   // every one of them on purpose: a 404 that distinguishes "not yours" from
-  // "does not exist" is a way to enumerate conversations.
-  if (threadId && !header) notFound()
+  // "does not exist" is a way to enumerate conversations. `team` is exempt — it
+  // is a reserved id resolved by TeamPane, not a threads row.
+  if (threadId && !isTeam && !header) notFound()
 
   const history =
     header && (await messagePage({
@@ -75,19 +85,25 @@ export default async function InboxShell({
       canShareContact: header.canShareContact,
     }))
 
-  const selected = Boolean(header)
+  const selected = Boolean(header) || isTeam
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <Breadcrumbs
         items={
-          header
+          isTeam
             ? [
                 { label: dashboardLabel, href: dashboard },
                 { label: 'Messages', href: basePath },
-                { label: header.otherName },
+                { label: 'TutorMint Team' },
               ]
-            : [{ label: dashboardLabel, href: dashboard }, { label: 'Messages' }]
+            : header
+              ? [
+                  { label: dashboardLabel, href: dashboard },
+                  { label: 'Messages', href: basePath },
+                  { label: header.otherName },
+                ]
+              : [{ label: dashboardLabel, href: dashboard }, { label: 'Messages' }]
         }
       />
 
@@ -118,6 +134,46 @@ export default async function InboxShell({
             selected ? 'hidden' : 'flex'
           }`}
         >
+          {/* The official TutorMint Team channel, pinned above the member's own
+              conversations (owner, Part 5). Only when there is one to show — a
+              member the Team has never written to sees no empty channel. */}
+          {teamSummary.hasAny && (
+            <Link
+              href={`${basePath}/team`}
+              aria-current={isTeam ? 'true' : undefined}
+              className={`flex min-h-[72px] items-center gap-3 border-b border-l-4 border-b-gray-200 px-3 py-3 transition-colors ${
+                isTeam ? 'border-l-tm-navy bg-tm-bg' : 'border-l-transparent hover:bg-gray-50'
+              }`}
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-tm-navy text-white">
+                <ShieldCheck aria-hidden size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <span
+                  className={`block truncate text-xs ${
+                    teamSummary.unread > 0 ? 'font-black text-tm-navy' : 'font-bold text-slate-700'
+                  }`}
+                >
+                  TutorMint Team
+                </span>
+                <p
+                  className={`truncate text-[11px] ${
+                    teamSummary.unread > 0 ? 'font-semibold text-slate-700' : 'text-gray-500'
+                  }`}
+                >
+                  {teamSummary.lastBody || 'Official messages about your account'}
+                </p>
+              </div>
+              {teamSummary.unread > 0 && (
+                <span
+                  className="ml-1 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-tm-red px-1.5 text-[10px] font-black text-white"
+                  aria-label={`${teamSummary.unread} unread`}
+                >
+                  {teamSummary.unread > 9 ? '9+' : teamSummary.unread}
+                </span>
+              )}
+            </Link>
+          )}
           <ConversationList
             initial={list.items}
             initialCursor={list.cursor}
@@ -149,7 +205,9 @@ export default async function InboxShell({
           aria-label="Conversation"
           className={`min-h-0 flex-col lg:flex ${selected ? 'flex' : 'hidden'}`}
         >
-          {header && history ? (
+          {isTeam ? (
+            <TeamPane userId={userId} backPath={basePath} />
+          ) : header && history ? (
             <>
               <div className="flex items-center gap-2 border-b border-gray-200 px-3 py-2.5 sm:px-4">
                 {/* The way back on a phone. Below lg the list is not on

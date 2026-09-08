@@ -118,10 +118,17 @@ export async function activatePayment(params: {
   const userId = payment.user_id as string
   const { data: profile } = await admin
     .from('profiles')
-    .select('id, role')
+    .select('id, role, phone_verified_via')
     .eq('id', userId)
     .maybeSingle()
   if (!profile) return { ok: false, status: 404, error: 'Account not found.' }
+
+  // The BRIDGE lock (owner, Part 5): an account whose number was proved only by
+  // the BRIDGE_OTP stopgap cannot ACTIVATE a paid plan. The payment is still
+  // accepted and recorded — refusing it would lose the money — but the
+  // subscription is paused (clock stopped) until they re-verify with a real
+  // code, so no month is spent while getEntitlements withholds every power.
+  const bridgeLocked = (profile.phone_verified_via as string | null) === 'bridge'
 
   // A tutor plan on a parent account grants nonsense: getEntitlements filters
   // subscriptions by audience, so the member would pay and get nothing. Refuse
@@ -157,6 +164,8 @@ export async function activatePayment(params: {
       .maybeSingle()
     paused = !listedRow
   }
+  // A bridge-locked account pauses regardless of audience or listing.
+  if (bridgeLocked) paused = true
 
   const startsAt = new Date()
   const days = (plan.duration_days as number) || 30
@@ -209,7 +218,9 @@ export async function activatePayment(params: {
     kind: 'plan_activated',
     title: paused ? `${plan.name} plan is ready` : `${plan.name} plan is active`,
     body: paused
-      ? `Your ${plan.name} plan is paid for. Your month starts the day you go live — finish your profile to 100% and it begins automatically. There are no refunds.`
+      ? bridgeLocked
+        ? `Your ${plan.name} plan is paid for. It starts the day you verify your mobile number with a real code — until then it is on hold, so no time is used. There are no refunds.`
+        : `Your ${plan.name} plan is paid for. Your month starts the day you go live — finish your profile to 100% and it begins automatically. There are no refunds.`
       : `Your ${plan.name} plan runs until ${formatDate(expiresAt)}. There are no refunds.`,
     href: audience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard',
   })

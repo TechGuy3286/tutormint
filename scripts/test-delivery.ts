@@ -193,6 +193,40 @@ test('the OTP bypass follows VERCEL_ENV, not NODE_ENV', async () => {
   assert.equal(clean.threw, false, 'unset on the live site is fine')
 })
 
+test('the BRIDGE_OTP stopgap is allowed on the live site, and does not trip the boot guard', async () => {
+  // The bridge is deliberately different from DEV_DEFAULT_OTP: it is meant to
+  // run ON production until a real SMS provider lands, so it must NOT be gated
+  // by isProduction and must NOT make assertOtpSafety throw (that guard inspects
+  // only DEV_DEFAULT_OTP). Asserted in a child process with VERCEL_ENV=production.
+  const { execFileSync } = await import('node:child_process')
+
+  const script = `
+    const { bridgeOtpCode, bridgeStatus, assertOtpSafety } = require('./lib/sms/index.ts')
+    const out = { code: bridgeOtpCode(), active: bridgeStatus().active, threw: false }
+    try { assertOtpSafety() } catch { out.threw = true }
+    console.log(JSON.stringify(out))
+  `
+  const future = new Date(Date.now() + 7 * 86400000).toISOString()
+  const run = (env: Record<string, string>) =>
+    JSON.parse(
+      execFileSync(process.execPath, ['--import', 'tsx', '-e', script], {
+        encoding: 'utf8',
+        env: { ...process.env, VERCEL_ENV: '', DEV_DEFAULT_OTP: '', BRIDGE_OTP: '', BRIDGE_OTP_EXPIRES: '', ...env },
+      }).trim(),
+    ) as { code: string | null; active: boolean; threw: boolean }
+
+  const live = run({ NODE_ENV: 'production', VERCEL_ENV: 'production', BRIDGE_OTP: '654321', BRIDGE_OTP_EXPIRES: future })
+  assert.equal(live.code, '654321', 'the bridge code verifies on the live site')
+  assert.equal(live.active, true)
+  assert.equal(live.threw, false, 'and does NOT trip the DEV_DEFAULT_OTP boot guard')
+
+  const expired = run({
+    NODE_ENV: 'production', VERCEL_ENV: 'production',
+    BRIDGE_OTP: '654321', BRIDGE_OTP_EXPIRES: new Date(Date.now() - 86400000).toISOString(),
+  })
+  assert.equal(expired.code, null, 'past its expiry the bridge stops verifying, even on the live site')
+})
+
 test('the payment simulator follows VERCEL_ENV too', async () => {
   const { execFileSync } = await import('node:child_process')
 

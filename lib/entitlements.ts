@@ -96,6 +96,17 @@ export type Entitlements = {
   suspended: boolean
   /** Permanently banned (fraud). Every power is off; login is walled elsewhere. */
   banned: boolean
+  /** How the number was proved: 'otp' | 'bridge' | null. */
+  phoneVerifiedVia: string | null
+  /**
+   * The number was proved only by the BRIDGE_OTP stopgap, never by a real code
+   * (owner, Part 5). A shared bridge code proves nothing, and mobile
+   * verification is one pillar of "Trust = verification" — so a bridge-verified
+   * account holds NO plan and NO badge until it re-verifies with a real code.
+   * Every power is off, exactly like a lapsed plan; the account is otherwise
+   * usable (it is not suspended), and the dashboard explains the lock.
+   */
+  bridgeLocked: boolean
 }
 
 const NOTHING = (userId: string): Entitlements => ({
@@ -124,6 +135,8 @@ const NOTHING = (userId: string): Entitlements => ({
   pausedPlanName: null,
   suspended: false,
   banned: false,
+  phoneVerifiedVia: null,
+  bridgeLocked: false,
 })
 
 /** YYYY-MM — the period usage_counters is keyed by. */
@@ -157,17 +170,36 @@ type PlanRow = {
  * their own entitlements -- so a missing service key degrades to "your own
  * plan still works" rather than to "nobody has a plan".
  */
-export async function getEntitlements(userId: string): Promise<Entitlements> {
-  if (!userId) return NOTHING(userId)
+/** The already-fetched facts computeEntitlements decides from. */
+export type EntitlementInputs = {
+  userId: string
+  profile: {
+    role: string | null
+    profile_completion: number | null
+    cnic_verified_at: string | null
+    address_verified_at: string | null
+    is_suspended: boolean | null
+    is_banned: boolean | null
+    phone_verified_via: string | null
+  } | null
+  tutorRow: { verification_status: string | null; imported: boolean | null; claimed_at: string | null } | null
+  /** Active AND unexpired subscription rows — the caller filters status/expiry. */
+  activeSubs: { plan_code: string; expires_at: string | null }[]
+  /** The most-recent paused subscription's plan code, or null. */
+  pausedPlanCode: string | null
+  plans: PlanRow[]
+  counter: { jobs_applied: number | null; jobs_posted: number | null } | null
+}
 
-  const db = createAdminClient() ?? (await createClient())
-
-  const { data: profile } = await db
-    .from('profiles')
-    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended, is_banned')
-    .eq('id', userId)
-    .maybeSingle()
-
+/**
+ * The whole entitlement decision, as a PURE function (owner, Part 5 — so it is
+ * unit-testable without the one shared database). getEntitlements() below does
+ * the I/O and hands the fetched rows here; the ordering of the short-circuits —
+ * banned, then suspended, then the bridge lock, then plan resolution — is the
+ * contract, and each is exercised by scripts/test-auth-trust.ts.
+ */
+export function computeEntitlements(input: EntitlementInputs): Entitlements {
+  const { userId, profile, tutorRow } = input
   if (!profile) return NOTHING(userId)
 
   const role = (profile.role as string | null) ?? null
@@ -177,22 +209,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
   const profileCompletion = profile.profile_completion ?? 0
   const profileComplete = profileCompletion >= 100
 
-  // For a tutor, read the listing facts ONCE here: verification_status (also
-  // the second suspension signal below), and the import/claim state. `listed`
-  // is what badges clear -- computed the same way tutor_directory decides who
-  // is in browse -- so a delisted tutor with a plan shows no badge on their own
-  // dashboard, which reads these entitlements.
-  type TutorRow = { verification_status: string | null; imported: boolean | null; claimed_at: string | null }
-  let tutorRow: TutorRow | null = null
-  if (role === 'tutor') {
-    const { data: tp } = await db
-      .from('tutor_profiles')
-      .select('verification_status, imported, claimed_at')
-      .eq('id', userId)
-      .maybeSingle()
-    tutorRow = (tp as TutorRow | null) ?? null
-  }
-
+  // `listed` is what a tutor's badge clears — the tutor_directory rule in TS.
   const listed =
     role === 'tutor'
       ? tutorListed({
@@ -204,76 +221,44 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
         })
       : false
 
-  // Suspension short-circuits everything below.
-  // Suspension short-circuits everything below.
-  //
-  // Doing it here rather than in each gated route means one decision closes
-  // posting, applying, hiring, messaging, contact reveal and badges at once --
-  // and a route added next year is covered without anyone remembering to.
-  // The subscription row is untouched, so reinstatement needs no refund and no
-  // re-purchase.
-  //
-  // EITHER FLAG COUNTS. profiles.is_suspended is the fact and lib/moderation.ts
-  // is its only writer, but tutor_profiles.verification_status='suspended' was
-  // reachable on its own through the video queue, and rows written before that
-  // was fixed still exist. Reading only the profile flag left such a tutor
-  // un-suspended everywhere that matters -- entitlements, the dashboards, the
-  // upgrade sheet -- while being invisible in the directory, so they were told
-  // to 'complete your profile' at 100% completion. Treating either as
-  // suspended means no path can miss one, whichever flag a row carries.
-  // A ban closes everything the same way suspension does — the login route
-  // already refuses a banned account, so this is the backstop for a session
-  // that was live when the ban landed.
+  // BAN short-circuits everything. The login route already refuses a banned
+  // account with no session; this is the backstop for a session that was live
+  // when the ban landed. Reported as suspended too, so every "if suspended"
+  // check downstream also closes for a banned account.
   if (profile.is_banned) {
-    return {
-      ...NOTHING(userId),
-      role,
-      audience,
-      profileComplete,
-      profileCompletion,
-      suspended: true,
-      banned: true,
-    }
+    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, suspended: true, banned: true }
   }
 
+  // SUSPENSION short-circuits the rest. EITHER FLAG COUNTS: profiles.is_suspended
+  // is the fact, but tutor_profiles.verification_status='suspended' was once
+  // reachable on its own and rows still carry it — reading only the profile flag
+  // left such a tutor told to 'complete your profile' at 100%.
   const suspendedByProfile = !!profile.is_suspended
   const suspendedByListing = tutorRow?.verification_status === 'suspended'
-
   if (suspendedByProfile || suspendedByListing) {
-    return {
-      ...NOTHING(userId),
-      role,
-      audience,
-      profileComplete,
-      profileCompletion,
-      suspended: true,
-    }
+    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, suspended: true }
   }
 
-  // Highest-ranked unexpired subscription wins, so an admin grant layered over
-  // an older plan does not downgrade anyone.
-  const { data: subs } = await db
-    .from('subscriptions')
-    .select('plan_code, expires_at, status')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .gt('expires_at', new Date().toISOString())
-
-  const { data: planRows } = await db
-    .from('plans')
-    .select(
-      'code, audience, name, monthly_quota, displayed_quota, can_view_contact, can_whatsapp, can_initiate_message, can_hire, can_see_viewer_identity, search_rank, badges, tag_label',
-    )
+  // The BRIDGE lock (owner, Part 5). A number proved only by the BRIDGE_OTP
+  // stopgap holds no plan and no badge until re-verified with a real code —
+  // decided BEFORE plans are considered, so it holds even if a plan row is
+  // active. `listed` is kept (the lock removes plan/badge, not the listing).
+  const phoneVerifiedVia = (profile.phone_verified_via as string | null) ?? null
+  if (phoneVerifiedVia === 'bridge') {
+    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, listed, phoneVerifiedVia, bridgeLocked: true }
+  }
 
   const plans = new Map<string, PlanRow>()
-  for (const p of (planRows ?? []) as PlanRow[]) plans.set(p.code, p)
+  for (const p of input.plans) plans.set(p.code, p)
 
+  // Highest-ranked active subscription wins, so an admin grant layered over an
+  // older plan does not downgrade anyone.
   let best: { plan: PlanRow; expiresAt: string | null } | null = null
-  for (const s of subs ?? []) {
-    const p = plans.get(s.plan_code as string)
+  for (const s of input.activeSubs) {
+    const p = plans.get(s.plan_code)
     if (!p || p.audience !== audience) continue
     if (!best || (p.search_rank ?? 0) > (best.plan.search_rank ?? 0)) {
-      best = { plan: p, expiresAt: (s.expires_at as string) ?? null }
+      best = { plan: p, expiresAt: s.expires_at ?? null }
     }
   }
 
@@ -283,44 +268,23 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     if (free) best = { plan: free, expiresAt: null }
   }
 
-  // A PAUSED plan: paid for, but the 30 days have not started because the tutor
-  // bought while under 100%. It confers nothing here -- gated routes must not
-  // see it as active -- but is surfaced so the dashboard can say the plan is
-  // waiting. Only consulted when there is no active plan to report.
+  // A PAUSED plan: paid for, but the clock has not started. It confers nothing;
+  // surfaced only so the dashboard can say the plan is waiting.
   let planPaused = false
   let pausedPlanName: string | null = null
-  if (!best) {
-    const { data: paused } = await db
-      .from('subscriptions')
-      .select('plan_code')
-      .eq('user_id', userId)
-      .eq('status', 'paused')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (paused) {
-      planPaused = true
-      pausedPlanName = plans.get(paused.plan_code as string)?.name ?? null
-    }
+  if (!best && input.pausedPlanCode) {
+    planPaused = true
+    pausedPlanName = plans.get(input.pausedPlanCode)?.name ?? null
   }
 
   if (!best) {
-    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, listed, planPaused, pausedPlanName }
+    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, listed, planPaused, pausedPlanName, phoneVerifiedVia }
   }
 
   const p = best.plan
   const quota = p.monthly_quota ?? 0
-
-  // Tutors spend quota on applications, parents on job posts.
-  const { data: counter } = await db
-    .from('usage_counters')
-    .select('jobs_applied, jobs_posted, messages_initiated')
-    .eq('user_id', userId)
-    .eq('period', currentPeriod())
-    .maybeSingle()
-
   const quotaUsed =
-    audience === 'tutor' ? (counter?.jobs_applied ?? 0) : (counter?.jobs_posted ?? 0)
+    audience === 'tutor' ? (input.counter?.jobs_applied ?? 0) : (input.counter?.jobs_posted ?? 0)
 
   return {
     userId,
@@ -339,8 +303,8 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     canHire: !!p.can_hire,
     canSeeViewerIdentity: !!p.can_see_viewer_identity,
     searchRank: p.search_rank ?? 0,
-    // A tutor's badge clears `listed` (100% + verification + claimed), not bare
-    // completion; a parent has no listing, so completion is their gate.
+    // A tutor's badge clears `listed`; a parent has no listing, so completion is
+    // their gate.
     badges: badgesForPlan(p.code, audience === 'tutor' ? listed : profileComplete),
     tagLabel: (audience === 'tutor' ? listed : profileComplete) ? p.tag_label : null,
     profileComplete,
@@ -350,7 +314,80 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     pausedPlanName: null,
     suspended: false,
     banned: false,
+    phoneVerifiedVia,
+    bridgeLocked: false,
   }
+}
+
+export async function getEntitlements(userId: string): Promise<Entitlements> {
+  if (!userId) return NOTHING(userId)
+
+  const db = createAdminClient() ?? (await createClient())
+
+  const { data: profile } = await db
+    .from('profiles')
+    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended, is_banned, phone_verified_via')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (!profile) return NOTHING(userId)
+
+  const role = (profile.role as string | null) ?? null
+
+  // Fetch the rest in parallel, then let the pure function decide. The locked
+  // paths (banned/suspended/bridge) do not read subs, but fetching them anyway
+  // is a couple of small reads on rare accounts and keeps the decision pure.
+  const [tutorRes, subsRes, planRes, pausedRes, counterRes] = await Promise.all([
+    role === 'tutor'
+      ? db.from('tutor_profiles').select('verification_status, imported, claimed_at').eq('id', userId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    db
+      .from('subscriptions')
+      .select('plan_code, expires_at, status')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .gt('expires_at', new Date().toISOString()),
+    db
+      .from('plans')
+      .select(
+        'code, audience, name, monthly_quota, displayed_quota, can_view_contact, can_whatsapp, can_initiate_message, can_hire, can_see_viewer_identity, search_rank, badges, tag_label',
+      ),
+    db
+      .from('subscriptions')
+      .select('plan_code')
+      .eq('user_id', userId)
+      .eq('status', 'paused')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    db
+      .from('usage_counters')
+      .select('jobs_applied, jobs_posted, messages_initiated')
+      .eq('user_id', userId)
+      .eq('period', currentPeriod())
+      .maybeSingle(),
+  ])
+
+  return computeEntitlements({
+    userId,
+    profile: {
+      role,
+      profile_completion: (profile.profile_completion as number | null) ?? null,
+      cnic_verified_at: (profile.cnic_verified_at as string | null) ?? null,
+      address_verified_at: (profile.address_verified_at as string | null) ?? null,
+      is_suspended: (profile.is_suspended as boolean | null) ?? null,
+      is_banned: (profile.is_banned as boolean | null) ?? null,
+      phone_verified_via: (profile.phone_verified_via as string | null) ?? null,
+    },
+    tutorRow: (tutorRes.data as EntitlementInputs['tutorRow']) ?? null,
+    activeSubs: ((subsRes.data ?? []) as { plan_code: string; expires_at: string | null }[]).map((s) => ({
+      plan_code: s.plan_code,
+      expires_at: s.expires_at ?? null,
+    })),
+    pausedPlanCode: (pausedRes.data?.plan_code as string | null) ?? null,
+    plans: (planRes.data ?? []) as PlanRow[],
+    counter: (counterRes.data as EntitlementInputs['counter']) ?? null,
+  })
 }
 
 /**

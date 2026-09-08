@@ -87,6 +87,7 @@ export default function AdminShell({
   signOut,
   roleLabel,
   email,
+  banner,
   children,
 }: {
   groups: NavGroup[]
@@ -97,6 +98,8 @@ export default function AdminShell({
   signOut: React.ReactNode
   roleLabel: string
   email: string | null
+  /** A full-width strip below the header (e.g. the BRIDGE_OTP banner). */
+  banner?: React.ReactNode
   children: React.ReactNode
 }) {
   const pathname = usePathname() ?? '/admin'
@@ -318,6 +321,8 @@ export default function AdminShell({
               with the title and five controls without one of them wrapping. */}
           <div className="px-4 pb-2 sm:px-6 lg:hidden">{search}</div>
         </header>
+
+        {banner}
 
         <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">{children}</main>
       </div>

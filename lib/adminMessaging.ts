@@ -92,6 +92,55 @@ export async function loadConversation(memberId: string): Promise<AdminMessage[]
   }))
 }
 
+/**
+ * The member's side of the Team channel, folded to one summary for the inbox's
+ * pinned row (owner, Part 5 — Team messages live in the role inbox now). Unread
+ * counts the Team's own 'out' messages the member has not read, from the store
+ * itself, so the pinned row's dot cannot disagree with the conversation.
+ */
+export type TeamSummary = {
+  hasAny: boolean
+  lastBody: string | null
+  lastAt: string | null
+  unread: number
+}
+
+export async function loadTeamSummary(memberId: string): Promise<TeamSummary> {
+  const admin = createAdminClient()
+  if (!admin) return { hasAny: false, lastBody: null, lastAt: null, unread: 0 }
+
+  const { data: rows } = await admin
+    .from('admin_messages')
+    .select('direction, body, created_at, read_at')
+    .eq('member_id', memberId)
+    .order('created_at', { ascending: false })
+    .limit(200)
+
+  if (!rows || rows.length === 0) return { hasAny: false, lastBody: null, lastAt: null, unread: 0 }
+
+  const unread = rows.filter((r) => r.direction === 'out' && !r.read_at).length
+  const last = rows[0]
+  return {
+    hasAny: true,
+    lastBody: (last.body as string) ?? null,
+    lastAt: (last.created_at as string) ?? null,
+    unread,
+  }
+}
+
+/** How many official Team messages this member has not read. */
+export async function teamUnreadCount(memberId: string): Promise<number> {
+  const admin = createAdminClient()
+  if (!admin) return 0
+  const { count } = await admin
+    .from('admin_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('member_id', memberId)
+    .eq('direction', 'out')
+    .is('read_at', null)
+  return count ?? 0
+}
+
 export type InboxThread = {
   memberId: string
   memberName: string

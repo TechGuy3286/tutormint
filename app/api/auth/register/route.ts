@@ -7,6 +7,7 @@ import { normalisePkMobile, syntheticEmail, looksLikeEmail } from '@/lib/phone'
 import { parseBody, z } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { sendOtp } from '@/lib/otp'
+import { bridgeStatus } from '@/lib/sms'
 import { checkBlocklist } from '@/lib/blocklist'
 import { homeForRole } from '@/lib/authRoutes'
 
@@ -91,65 +92,18 @@ export async function POST(request: Request) {
   const utm = decodeUtm((await cookies()).get(UTM_COOKIE)?.value ?? null)
 
   // ====================================================== EMAIL PATH ========
-  // An address takes the confirmation-link path: the account is created
-  // UNconfirmed (no session), Supabase sends a link, and the member finishes
-  // by clicking it. No phone, so no gate and no OTP. It signs in only after
-  // confirmation, so this returns signedIn:false.
+  // GATED UNTIL SMTP (owner, Part 5, 8 Sep). The public pages are indexed now,
+  // so real strangers reach /register — and the email path's only verification
+  // is a confirmation link that cannot be delivered until SMTP is configured on
+  // the Supabase project. An account whose sole way in cannot arrive is a member
+  // with no way in and no way out, so the route stops BEFORE creating anything
+  // and points them at the mobile path, which works today. This deliberately
+  // reverses the Part 4 email branch; re-enable it in the same PR that configures
+  // SMTP (the same open owner item password-reset email waits on). The field
+  // still accepts an address so the message can explain why.
   if (asEmail) {
-    const authEmail = rawId.toLowerCase()
-
-    const { data: existingEmail } = await admin
-      .from('profiles')
-      .select('id')
-      .eq('email', authEmail)
-      .limit(1)
-      .maybeSingle()
-    if (existingEmail) {
-      return NextResponse.json(
-        {
-          error: 'An account already uses that email address.',
-          fields: { identifier: 'An account already uses that email address. Try signing in instead.' },
-        },
-        { status: 409 },
-      )
-    }
-
-    // signUp (not admin.createUser) so Supabase sends the confirmation email
-    // and leaves the account unconfirmed with no session. Delivery needs SMTP
-    // on the project (an open owner item); until then the account exists and
-    // the link cannot arrive, the same limitation as password-reset email.
-    const supabase = await createClient()
-    const origin = new URL(request.url).origin
-    const { error: signUpError } = await supabase.auth.signUp({
-      email: authEmail,
-      password: body.password,
-      options: {
-        data: { role: body.role, full_name: body.fullName },
-        emailRedirectTo: `${origin}/api/auth/callback`,
-      },
-    })
-    if (signUpError) {
-      const msg = signUpError.message.toLowerCase()
-      if (msg.includes('already') || msg.includes('registered')) {
-        return NextResponse.json(
-          { error: 'An account with those details already exists. Try signing in instead.' },
-          { status: 409 },
-        )
-      }
-      return NextResponse.json({ error: signUpError.message }, { status: 400 })
-    }
-
-    // Attribution is on the profile the trigger just wrote. Best-effort.
-    if (hasUtm(utm)) {
-      await admin.from('profiles').update(utm).eq('email', authEmail)
-    }
-
-    return NextResponse.json({
-      success: true,
-      signedIn: false,
-      role: body.role,
-      next: `/verify-email?to=${encodeURIComponent(authEmail)}`,
-    })
+    const message = "Email signup isn't available yet. Please sign up with your mobile number."
+    return NextResponse.json({ error: message, fields: { identifier: message } }, { status: 400 })
   }
 
   // ====================================================== MOBILE PATH =======
@@ -159,6 +113,17 @@ export async function POST(request: Request) {
   const blocked = await checkBlocklist({ mobile })
   if (blocked?.mobile) {
     return NextResponse.json({ error: BLOCKED, fields: { identifier: BLOCKED } }, { status: 403 })
+  }
+
+  // BRIDGE leash (owner, Part 5): while the shared BRIDGE_OTP code is active,
+  // one code verifies every signup, so a tighter per-IP cap sits on top of the
+  // ordinary `register` budget. It stops a script minting a batch of
+  // bridge-verified accounts on an indexed site — the exact fake-account vector
+  // the leash exists to close. Off when the bridge is not active, so a genuine
+  // provider deployment is not throttled.
+  if (bridgeStatus().active) {
+    const bridgeLimit = await rateLimit('register_bridge', callerIp(request))
+    if (!bridgeLimit.allowed) return tooManyRequests(bridgeLimit.retryAfterSeconds, 'sign-up attempts')
   }
 
   const authEmail = syntheticEmail(mobile)

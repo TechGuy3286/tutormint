@@ -22,6 +22,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export type BucketName =
   | 'login'
   | 'register'
+  | 'register_bridge'
   | 'otp_send'
   | 'otp_verify'
   | 'apply'
@@ -52,6 +53,11 @@ export type BucketName =
 const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   login: { windowSeconds: 900, max: 10 }, // 10 per 15 min per IP
   register: { windowSeconds: 3600, max: 5 }, // 5 accounts an hour per IP
+  // A tighter cap that applies ONLY while the shared BRIDGE_OTP code is active
+  // (lib/sms bridgeStatus): a single code verifies every signup, so a batch
+  // from one IP is the fake-account vector. Three an hour is more than a real
+  // household setting up tutor + parent accounts needs, and far below scriptable.
+  register_bridge: { windowSeconds: 3600, max: 3 },
   otp_send: { windowSeconds: 3600, max: 8 }, // costs real money per message
   otp_verify: { windowSeconds: 900, max: 10 },
   apply: { windowSeconds: 3600, max: 40 },

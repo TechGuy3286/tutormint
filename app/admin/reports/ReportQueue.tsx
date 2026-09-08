@@ -5,7 +5,7 @@ import { submitSignal } from '@/lib/submit'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, Lock, MessageSquare, X } from 'lucide-react'
+import { AlertTriangle, Ban, Lock, MessageSquare, X } from 'lucide-react'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import { useToast } from '@/components/ui/Toast'
 import { formatDate, formatDateTime } from '@/lib/datetime'
@@ -35,6 +35,7 @@ export default function ReportQueue({
   reports,
   blocks,
   filter,
+  canBan,
   reportsCursor,
   reportsTotal,
   blocksCursor,
@@ -43,6 +44,8 @@ export default function ReportQueue({
   reports: QueueReport[]
   blocks: BlockRow[]
   filter: string
+  /** Owner/manager may ban from the queue; support sees no Ban button. */
+  canBan: boolean
   reportsCursor: string | null
   reportsTotal: number
   blocksCursor: string | null
@@ -69,6 +72,15 @@ export default function ReportQueue({
   const [openThread, setOpenThread] = useState<string | null>(null)
   const [acting, setActing] = useState<{ id: string; action: string } | null>(null)
   const [reason, setReason] = useState('')
+  // Ban is destructive and permanent, so it takes a typed confirmation — the
+  // same "BAN" gate the member page uses — on top of the written reason.
+  const [banText, setBanText] = useState('')
+
+  const resetActing = () => {
+    setActing(null)
+    setReason('')
+    setBanText('')
+  }
 
   const decide = async (reportId: string, action: string) => {
     setBusy(reportId)
@@ -81,8 +93,7 @@ export default function ReportQueue({
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'That did not work.')
-      setActing(null)
-      setReason('')
+      resetActing()
       toast.success(
         action === 'dismiss'
           ? 'Report dismissed.'
@@ -90,7 +101,9 @@ export default function ReportQueue({
             ? 'Warning sent. The member has been notified.'
             : action === 'unsuspend'
               ? 'Member reinstated. The member has been notified.'
-              : 'Member suspended. The member has been notified.',
+              : action === 'ban'
+                ? 'Member banned. Their mobile and CNIC are on the signup blocklist.'
+                : 'Member suspended. The member has been notified.',
       )
       router.refresh()
     } catch (e) {
@@ -236,21 +249,39 @@ export default function ReportQueue({
                       aria-label="Reason"
                       className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs font-semibold"
                     />
+                    {acting.action === 'ban' && (
+                      <div className="space-y-1.5 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3">
+                        <p className="text-[11px] font-bold leading-relaxed text-tm-red">
+                          A ban is permanent. The account is closed, its mobile and CNIC go on the
+                          signup blocklist, and only an owner can reverse it. Type BAN to confirm.
+                        </p>
+                        <input
+                          value={banText}
+                          onChange={(e) => setBanText(e.target.value)}
+                          placeholder="Type BAN"
+                          aria-label="Type BAN to confirm"
+                          className="min-h-[44px] w-full rounded-xl border border-tm-red/40 bg-white px-3 text-xs font-black uppercase tracking-widest text-tm-red"
+                        />
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        disabled={reason.trim().length < 5 || busy === r.id}
+                        disabled={
+                          reason.trim().length < 5 ||
+                          busy === r.id ||
+                          (acting.action === 'ban' && banText.trim() !== 'BAN')
+                        }
                         onClick={() => decide(r.id, acting.action)}
-                        className="min-h-[44px] rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:bg-gray-300"
+                        className={`min-h-[44px] rounded-xl px-4 text-xs font-bold text-white disabled:bg-gray-300 ${
+                          acting.action === 'ban' ? 'bg-tm-red hover:bg-tm-red-hover' : 'bg-tm-black'
+                        }`}
                       >
                         {busy === r.id ? 'Working…' : `Confirm ${acting.action}`}
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setActing(null)
-                          setReason('')
-                        }}
+                        onClick={resetActing}
                         className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                       >
                         Cancel
@@ -291,6 +322,20 @@ export default function ReportQueue({
                         >
                           {r.reportedSuspended ? 'Unsuspend' : 'Suspend'}
                         </button>
+                        {/* Ban: a verifier working the queue does not have to
+                            leave it, but only owner/manager see this (the route
+                            enforces it too). Distinct from Suspend — permanent,
+                            typed confirmation. */}
+                        {canBan && !r.reportedBanned && (
+                          <button
+                            type="button"
+                            onClick={() => setActing({ id: r.id, action: 'ban' })}
+                            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-tm-red bg-white px-3 text-xs font-bold text-tm-red"
+                          >
+                            <Ban aria-hidden size={13} />
+                            Ban
+                          </button>
+                        )}
                       </>
                     )}
                   </div>

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import AdminSearch from '@/components/admin/AdminSearch'
 import AdminShell from '@/components/admin/AdminShell'
 import AdminSignOut from '@/components/admin/AdminSignOut'
+import BridgeBanner from '@/components/admin/BridgeBanner'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { NAV_GROUPS, type NavGroup } from '@/lib/adminNav'
@@ -63,6 +64,7 @@ export default async function AdminLayout({
         />
       }
       signOut={<AdminSignOut tone="light" />}
+      banner={<BridgeBanner />}
     >
       {children}
     </AdminShell>

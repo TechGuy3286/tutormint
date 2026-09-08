@@ -6,10 +6,11 @@ import { Send } from 'lucide-react'
 import { submitSignal } from '@/lib/submit'
 import { useToast } from '@/components/ui/Toast'
 
-// The member's reply into the official conversation. Posts to
-// /api/account/messages; the reply shows up in /admin/inbox.
+// The member's reply into the official TutorMint Team conversation, shown inside
+// the role inbox's Team pane. Posts to /api/account/messages; the reply appears
+// in /admin/inbox.
 
-export default function ReplyBox() {
+export default function TeamReply() {
   const router = useRouter()
   const toast = useToast()
   const [body, setBody] = useState('')
@@ -22,7 +23,7 @@ export default function ReplyBox() {
         signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: body.trim() }),
+        body: JSON.stringify({ action: 'reply', body: body.trim() }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error ?? 'Could not send your reply.')
@@ -37,7 +38,7 @@ export default function ReplyBox() {
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 sm:flex-row">
+    <div className="flex flex-col gap-2 border-t border-gray-200 p-3 sm:flex-row">
       <textarea
         rows={2}
         value={body}

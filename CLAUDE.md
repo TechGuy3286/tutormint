@@ -33,14 +33,14 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 
 `tutor_profiles` is canonical for tutors. The ten pre-rebuild tables (`tutors`, `parents`, `parent_profiles`, `parent_jobs`, `tuitions`, `tutor_applications`, `tuition_applications`, `job_messages`, `tutor_activities`, and the old `profiles` shape) were **renamed to `legacy_*` in T8a, not dropped** — a forgotten caller must break visibly and the rows must remain findable.
 
-- `profiles` — `id (= auth.users.id)`, `role`, `admin_role ('owner'|'manager'|'verifier'|'finance'|'support', null unless role='admin')`, `full_name`, `email`, `phone`, `whatsapp`, `phone_verified_at`, `phone_gate_required bool default false`, `city`, `province`, `address`, `cnic_number`, `cnic_image_path` (private bucket `identity-docs`), `cnic_verified_at`, `address_verified_at`, `avatar_url`, `profile_completion int`, `is_suspended bool`, `email_opt_out bool`, `welcomed_at`, `last_message_digest_at`, `must_change_password bool`, `created_at`
-- `tutor_profiles` — `id (= profiles.id)`, `slug unique`, `headline`, `bio`, `class_levels text[]`, `degrees text[]`, `teaching_mode`, `online_platforms text[]`, `area`, `hourly_rate_pkr`, `experience_years`, `video_youtube_id`, `video_status ('none'|'uploaded'|'approved'|'rejected')`, `video_submissions int` (3-strike cap), `verification_status ('pending'|'verified'|'rejected'|'suspended')`, `is_featured bool`, `imported bool default false`, `claimed_at timestamptz`, `rating_avg`, `rating_count`
+- `profiles` — `id (= auth.users.id)`, `role`, `admin_role ('owner'|'manager'|'verifier'|'finance'|'support', null unless role='admin')`, `full_name`, `email`, `phone`, `whatsapp`, `phone_verified_at`, `phone_gate_required bool default false`, `phone_verified_via ('otp'|'bridge'|null)` (migration 58 — how the number was proved; 'bridge' = the BRIDGE_OTP stopgap, no plan/badge until re-verified), `city`, `province`, `address`, `cnic_number`, `cnic_image_path` (private bucket `identity-docs`), `cnic_verified_at`, `address_verified_at`, `avatar_url`, `profile_completion int`, `is_suspended bool`, `is_banned bool default false` + `banned_at` + `banned_reason` + `banned_by` (migration 58 — a PERMANENT status distinct from suspend), `email_opt_out bool`, `welcomed_at`, `last_message_digest_at`, `must_change_password bool`, `created_at`
+- `tutor_profiles` — `id (= profiles.id)`, `slug unique`, `headline`, `bio`, `class_levels text[]`, `degrees text[]`, `teaching_mode`, `online_platforms text[]`, `area`, `hourly_rate_pkr`, `experience_years`, `video_youtube_id`, `video_status ('none'|'uploaded'|'approved'|'rejected')`, `video_submissions int` (3-strike cap), `verification_status ('pending'|'verified'|'rejected'|'suspended')`, `under_review bool default false` + `review_reason` (migration 58 — a reported profile; delisted from `tutor_directory` but still renders via `tutor_visible_profiles`), `is_featured bool`, `imported bool default false`, `claimed_at timestamptz`, `rating_avg`, `rating_count`
 - **Subjects are join tables, not arrays.** `tutor_subjects(tutor_id, master_id)` and `job_subjects(job_id, master_id)` reference `taxonomy_master.id`. `tutor_profiles.subjects text[]` and `jobs.subjects text[]` are retired — any remaining column is legacy and must not be read.
 - `plans` — seed rows (see matrix). `code`, `audience ('tutor'|'parent')`, `name`, `price_pkr`, `duration_days = 30`, `monthly_quota`, `displayed_quota text`, `can_view_contact`, `can_whatsapp`, `can_initiate_message`, `can_hire`, `search_rank int`, `badges text[]`, `tag_label`
 - `subscriptions` — `id`, `user_id`, `plan_code`, `starts_at`, `expires_at`, `status ('active'|'expired'|'cancelled')`, `payment_id`, `reminded_at`
 - `payments` — `id`, `user_id`, `plan_code`, `amount_pkr`, `provider`, `provider_ref` (idempotency key, unique per `(provider, provider_ref)`), `method ('jazzcash'|'easypaisa'|'bank'|'assanpay')`, `reference`, `screenshot_path` (private bucket `payment-proofs`), `status ('pending'|'approved'|'rejected')`, `reviewed_by`, `reviewed_at`, `created_at`
 - `usage_counters` — `user_id`, `period (YYYY-MM, UTC calendar month)`, `jobs_applied int`, `jobs_posted int`, `messages_initiated int`, unique(user_id, period)
-- `jobs` — `id`, `job_tx_id` (keep existing human id), `parent_id`, `child_id nullable`, `title`, `class_level`, `city`, `area`, `teaching_mode`, `budget_pkr`, `description`, `status ('open'|'closed'|'hired')`, `hired_tutor_id`, `is_featured bool` (cache of the parent's plan via `applyPlanFlags()`), `created_at`
+- `jobs` — `id`, `job_tx_id` (keep existing human id), `parent_id`, `child_id nullable`, `title`, `class_level`, `city`, `area`, `teaching_mode`, `budget_pkr`, `description`, `status ('open'|'closed'|'hired')`, `hired_tutor_id`, `is_featured bool` (cache of the parent's plan via `applyPlanFlags()`), `under_review bool default false` + `review_reason` (migration 58 — a reported tuition; stays visible with an amber sticker, Apply paused), `created_at`
 - `applications` — `id`, `job_id`, `tutor_id`, `message`, `status ('applied'|'shortlisted'|'hired'|'rejected')`, `created_at`, unique(job_id, tutor_id)
 - `threads` — `id`, `job_id nullable`, `participant_a`, `participant_b`, `initiated_by`; `messages` — `id`, `thread_id`, `sender_id`, `body` (stored raw; rendered masked when either side lacks contact rights), `created_at`
 - `children` — `id`, `parent_id`, `name`, `class_level` (a parent dashboard supports multiple children; a job may reference one)
@@ -50,6 +50,9 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 - `phone_otps` — `phone`, `purpose ('verify'|'reset')`, `code`, `expires_at`, `consumed_at`, `attempts`
 - `user_activity_log` — the member timeline (see that section). `admin_audit_log` — every admin mutation. `user_blocks`, `penalties_log`, `profile_views`, `academy_affiliations`, `tutor_slots` — kept and wired per their tasks.
 - `advertisements` + `ad_events` — see the advertisements spec. `app_settings` — support contact, pay details, `{{COMPANY_REG_NO}}`, `{{COMPANY_NTN}}`.
+- `admin_messages` (migration 58) — the official TutorMint Team ↔ member channel: `id`, `member_id`, `direction ('out'|'in')`, `admin_id` (who sent an 'out'; never shown to the member), `template_key`, `body`, `read_at`, `created_at`. A DEDICATED store, deliberately NOT `threads`, so the "no chat-browsing screen" line holds by construction. Read at `/admin/inbox` and, for the member, in the role inbox's pinned Team row (Part 5). RLS: `member_id = auth.uid() or is_admin()`; every write is a server path.
+- `admin_message_templates` (migration 58) — owner/manager-editable templates seeded with cnic_unclear, address_untraceable, job_under_review, video_rerecord, profile_completion_nudge, payment_received, payment_approved: `key`, `title`, `subject`, `body` (`{name}`/`{job_title}`/`{reason}` placeholders). Admin-read RLS.
+- `signup_blocklist` (migration 58) — a banned account's `mobile` (normalised MSISDN) and `cnic_hash` (sha256 of the digits, NEVER the CNIC in the clear), plus `reason`, `source_user_id`, `created_by`. Checked at signup and at claim; admin-read RLS, service-role writes.
 - `taxonomy_categories` / `taxonomy_levels` / `taxonomy_subjects` / `taxonomy_master` — keep as is (used by `lib/taxonomy.ts`), plus an admin-editable alias table for Roman-Urdu spellings.
 
 Views: `tutor_directory` ("is this tutor listed?" — browse, `rank_tutors()`, sitemap all read it) and `tutor_visible_profiles` ("may this URL render?" — adds unclaimed imports, granted to nobody, reached only via the SECURITY DEFINER `tutor_public_page()`).
@@ -98,6 +101,8 @@ Hired/closed status lives in `jobs.status` + `jobs.hired_tutor_id` — never loc
 
 ## Auth & verification flows
 
+**SUPERSEDED by "Auth & trust decisions" (Sunday 6 Sep) and "Part 5 decisions" (8 Sep) — the signup FIELD is now a single "Mobile number or email" identifier, and the email PATH is gated off until SMTP (an address returns "Email signup isn't available yet. Please sign up with your mobile number." and creates no account). The mobile-first mechanics below (synthetic email, phone gate, OTP) still stand; the retired-email-first note is stale — mobile is the only path that creates an account today, not because email-first was retired but because email signup is switched off until SMTP.**
+
 **Signup is mobile-first — see "Mobile-first signup" and its "As built (T-UI2)" notes, which are canonical. The email-first flow described in earlier drafts is retired.** In short: `/register` creates the account from a mobile number (synthetic `<msisdn>@users.tutormint.org` when no email is given), signs the user in immediately, sends an OTP, and `proxy.ts` holds accounts with `phone_gate_required = true` and `phone_verified_at is null` on `/verify-phone`.
 
 - **One `/login`**, accepting email **or** Pakistani mobile (mapped server-side through `lib/phone.ts` in `/api/auth/login`, which returns one identical message for every failure so the route is not a membership oracle). After sign-in read `profiles.role` once → `/tutor/dashboard` | `/parent/dashboard` | `/admin`. `/parent/login` and `/tutor/login` are server redirects to `/login`.
@@ -111,7 +116,7 @@ Hired/closed status lives in `jobs.status` + `jobs.hired_tutor_id` — never loc
 
 ## Pages to keep (canonical) and delete
 
-Keep: `/`, `/browse/tutors` (+`/browse/tutors/[id]`), `/browse/tuitions`, `/tutor/[slug]` public profile, `/login`, `/register`, `/forgot-password`, `/verify-phone`, `/tutor/claim`, `/suspended`, `/account/notifications`, `/tutor/dashboard/*` (`settings`, `jobs`, `messages`, `notifications`), `/parent/dashboard/*`, `/chat/[jobId]`, `/tutor/packages`, `/parent/packages`, `/pay/simulator/[ref]` (non-production), `/admin/*`, `/about`, `/faq`, `/privacy`, `/terms`, `/support`, `/review`. T9 adds `/tutors/[city]/[subject]` and `/tuitions/[city]/[subject]`.
+Keep: `/`, `/browse/tutors` (+`/browse/tutors/[id]`), `/browse/tuitions`, `/tutor/[slug]` public profile, `/login`, `/register`, `/forgot-password`, `/verify-phone`, `/verify-email` (the email-path confirmation screen; the email path itself is gated off until SMTP — Part 5), `/tutor/claim`, `/suspended`, `/account/notifications`, `/tutor/dashboard/*` (`settings`, `jobs`, `messages`, `notifications`), `/parent/dashboard/*`, `/chat/[jobId]`, `/tutor/packages`, `/parent/packages`, `/pay/simulator/[ref]` (non-production), `/admin/*` (incl. `/admin/inbox`, the Team ↔ member channel — migration 58), `/about`, `/faq`, `/privacy`, `/terms`, `/support`, `/review`. T9 adds `/tutors/[city]/[subject]` and `/tuitions/[city]/[subject]`. **`/account/messages` is now a redirect** into the role inbox's Team pane (`/{role}/dashboard/messages/team`) — Part 5 unified official messages into the one inbox.
 
 `/browse` → redirect to `/browse/tutors`. Homepage keeps the two buttons: **Find Tutors / Teachers** → `/browse/tutors`, **Find Tuitions / Jobs** → `/browse/tuitions`.
 
@@ -607,6 +612,8 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 
 ## Register / login form rules — as built (T8a), superseded on labels
 
+**SUPERSEDED by "Auth & trust decisions" (Sunday 6 Sep) — the "Register form"/"Mobile-first signup" sections it points forward to are themselves superseded on the identifier field: `/register` now has ONE "Mobile number or email" field, not separate mobile + optional email. Login gained "Remember me" and every password field a show/hide eye. The rest below still stands.**
+
 **The role labels and the mobile-first flow in this section are superseded by "Register form" and "Mobile-first signup" below.** What still stands:
 
 - `/register` is minimal and centred at all widths: role radios at the top, full name, password, consent checkbox, and the sign-in link. **No mention of school or academy on any auth form** — institutions register as parents; only the FAQ explains this. City and every other detail are collected in profile completion, never at signup.
@@ -684,10 +691,14 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 
 ## Register form — supersedes the earlier "Register / login form rules" label wording
 
+**SUPERSEDED by "Auth & trust decisions" (Sunday 6 Sep) on the identifier — the two fields "mobile number" + "optional email" are now ONE "Mobile number or email" field. The role radios and no-city-at-signup still stand.**
+
 - Role radios at the top read exactly: **Tutor** and **Parent / Institution**. Helper text under the second: "Parents, schools and academies looking for tutors." Institutions are ordinary parent accounts with identical rights and plans — no separate entity, role, label, or flow anywhere else in the platform.
 - Everything else from the mobile-first signup section stands: full name, mobile number, password, optional email, consent checkbox; no city at signup.
 
 ## Mobile-first signup (owner, 1 Sep)
+
+**SUPERSEDED on two points by "Auth & trust decisions" (Sunday 6 Sep): (1) the signup identifier is ONE "Mobile number or email" field, not "mobile number + optional email" — and the email path is gated off until SMTP (see "Part 5 decisions"), so mobile is the only path that creates an account today; (2) the /verify-phone resend cooldown is FIVE MINUTES with a visible mm:ss countdown, not 60s. Everything else here — synthetic email, the phone gate, OTP purposes, the SMS-provider prerequisite — still stands.**
 
 - /register: role radios "Tutor" and "Parent / Institution" (helper: "Parents, schools and academies looking for tutors"), full name, mobile number (Pakistani format, normalised to E.164), password, terms/consent checkbox. Email optional ("for receipts and reminders"). No city.
 - Signup creates the auth user (synthetic internal email <msisdn>@users.tutormint.org when no email is given; the real email otherwise), profiles row, tutor_profiles for tutors, signs the user in immediately, and sends an OTP to the mobile.
@@ -698,6 +709,8 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 - A real SMS provider is a hard go-live prerequisite; DEV_DEFAULT_OTP serves preview/dev only.
 
 ### As built (T-UI2) — the three places the spec had to be made precise
+
+**Still canonical, with ONE clause superseded: the signup FORM now presents a single "Mobile number or email" identifier field (Auth & trust decisions, Sunday 6 Sep), not a separate mobile field with an optional email. Everything below — `phone_gate_required`, the enumerated gate list, OTP `purpose`, the synthetic-email login identifier, and the E.164 convention — still holds exactly as written.**
 
 **The gate needs its own flag.** Written as `phone_verified_at is null` alone,
 it would also catch every account that predates it: 21 of the 28 profiles that
@@ -3127,3 +3140,117 @@ concrete cost this fixes.
   meta removed here.
 - The seed-directory concern the old gate raised (fixtures ranking for a real
   tutor's name later) is a known, accepted trade the owner made deliberately.
+
+## Part 5 decisions (owner, 8 Sep 2026 — later than "Index now, banner stays")
+
+Later-dated than both "Viewer identity unlocks at Verified" and "Index now,
+banner stays", so under precedence rule 10 these win over anything above them
+they touch.
+
+- **Under review delists, it does not unpublish.** `under_review` removes a tutor
+  from `tutor_directory` — browse, `rank_tutors()`, search and the sitemap — and
+  nothing else. `tutor_visible_profiles` still renders the profile, with a plain
+  amber notice in place of the contact and apply affordances. A single report
+  from one verified member must not be able to 404 the SEO asset a tutor pays 199
+  a month for. Banned and suspended accounts are unchanged: out of both views,
+  branded 404 shell per "Graceful handling of unknown input". Jobs stay as built —
+  visible, amber sticker, Apply paused with the plain message.
+- **Email signup is gated until SMTP.** The identifier field still accepts an
+  address, but the route stops before creating the account and returns: "Email
+  signup isn't available yet. Please sign up with your mobile number." No account,
+  no dead confirmation screen. This reverses the Part 4 behaviour deliberately:
+  the public pages are now indexed, so real strangers can reach /register, and an
+  account whose only verification path cannot deliver is a member with no way in
+  and no way out. Re-enable the email branch in the same PR that configures SMTP —
+  it is the same open owner item password-reset email waits on.
+- **BRIDGE_OTP is time-boxed, rate-limited, and buys nothing.** It requires
+  `BRIDGE_OTP_EXPIRES` (a date) in env; past that date it stops verifying whether
+  or not the code is still set. While active: signup is rate-limited per IP, and
+  every admin screen carries an amber banner reading "Bridge OTP is active —
+  remove when the SMS provider lands." A `phone_verified_via='bridge'` account
+  cannot activate a paid plan and cannot hold the Verified badge until it
+  re-verifies with a real code. Mobile verification is one of the four things
+  "Trust = verification" rests on; a shared code proves nothing, and with the site
+  now indexed an unbounded bypass is a bulk fake-account vector aimed at the only
+  thing the platform sells.
+- **One member inbox.** Official "TutorMint Team" messages appear in the existing
+  `/{role}/dashboard/messages` inbox, system-styled, alongside member threads. The
+  dedicated `admin_messages` store stays — it is what keeps the "no chat-browsing
+  screen" line true by construction, and that reasoning is correct.
+  `/account/messages` becomes a redirect into the role inbox, the same treatment
+  `/messages/[threadId]` already gets. Two message screens is a place official
+  messages go unread.
+- **The Canonical tables section is part of the definition of done.** Every
+  migration that adds a table or a column updates it in the same PR. A future
+  session reads that list as the schema reference; migration 58's three tables and
+  its new columns were absent from it.
+
+### As built (Part 5, 8 Sep 2026)
+
+NO migration — every change is app-level (envs, view behaviour was already
+correct). Gates at close: tsc 0 · build 0 · check:contrast 89 · rls:audit
+**174/174** · test:authtrust 15 · test:delivery 15 · every other suite green.
+
+**Verifications, first.** Migration 58's view redefinitions were confirmed
+provably additive against the pre-58 backup: identical column lists in both
+views, only added WHERE predicates (`is_banned` on both, `under_review` on
+`tutor_directory` only), and 0 differing rows vs. the pre-58 logic against the
+live tables (directory=6, visible=8). And the under-review question was settled:
+an under-review tutor's public URL **renders** (via `tutor_visible_profiles` →
+`tutor_public_page`) while being delisted from browse/search/sitemap — the
+As-built paragraph was right, the Part 4 report's "both listing views exclude
+under-review" was wrong. `lib/underReview.ts`'s doc comment carried the same
+error and was corrected.
+
+**Under review.** `app/(site)/tutor/[slug]/page.tsx` reads `under_review` via the
+service role (it is not in `tutor_public_page`'s fixed allowlist) and, when set,
+shows an amber notice and suppresses the Contact section and the sticky
+`ProfileActions`. `npm run demo:underreview -- --on [key]` / `--off` is an opt-in
+demo, SEPARATE from seed-dev/reset-seed-cast so the asserted cast does not drift.
+
+**Email gate.** `/api/auth/register`'s email branch returns the exact copy above
+before creating anything; the register form's helper adapts. Accounts created
+down the old email branch since Part 4: **0** (queried live), so nothing to
+dispose of; delete nothing stands regardless.
+
+**BRIDGE leash.** `lib/sms` `bridgeStatus()`/`bridgeOtpCode()` require
+`BRIDGE_OTP_EXPIRES` and go dead past it (a missing/invalid expiry ⇒ off, so it
+cannot be left on by omission). A tighter `register_bridge` per-IP cap (3/hour)
+applies only while active. `components/admin/BridgeBanner.tsx` shows the amber
+strip on every admin screen while active. The plan/badge lock lives in
+`computeEntitlements` (bridge ⇒ no plan, no badge, `bridgeLocked`, listing kept),
+`goLive` (a bridge account's paused plan does not start its clock) and `activate`
+(a bridge purchase is recorded but paused). **Interaction with "A badge means
+LISTED":** they compose cleanly — a bridge tutor stays LISTED (still in
+`tutor_directory`, still in browse), but a badge additionally needs a plan, and
+the bridge lock withholds the plan, so the tutor is listed-without-badge (the
+same state a free tutor at 100% is in). The lock does not delist; it removes the
+plan and thus the badge. `login` already forces one re-verification when
+`BRIDGE_OTP` is removed.
+
+**Inbox unification.** The Team channel is a pinned system row in the role inbox
+(`InboxShell`), opened at the reserved thread id `team` → `TeamPane` (reads
+`admin_messages` via `loadConversation`, marks read on open, replies via
+`/api/account/messages`). `/account/messages` redirects to
+`/{role}/dashboard/messages/team`. `unreadMessageCount` (the dashboard tile) now
+adds `teamUnreadCount`. The dedicated store is unchanged, so the no-chat-browsing
+line still holds.
+
+**Ban from the reports queue.** `ReportQueue` gained a Ban button (owner/manager
+only, `canBan` from the page) with the same typed-"BAN" confirmation as the
+member page; the route already supported the action.
+
+**Tests (item 1).** Pure decision cores were extracted so the logic is genuinely
+unit-tested without touching the one shared DB: `bridgeStatus`/`otpMatch`/
+`resendWaitSeconds` (lib/sms, lib/otp), `applySessionPersistence` (lib/
+sessionCookies), `hashCnic`/`blocklistHit` (lib/blocklistCore), `crossesReview
+Threshold` (lib/underReviewCore), and `computeEntitlements` (lib/entitlements —
+getEntitlements is now an I/O wrapper around it). `scripts/test-auth-trust.ts`
+(15 assertions) covers bridge verify/expiry, the resend countdown, remember-me
+session cookies surviving a refresh, blocklist mobile+CNIC matching, the report
+threshold, and computeEntitlements for banned / suspended / bridge / active /
+free-parent. `test-delivery.ts` gained the bridge-allowed-in-production case
+alongside the existing DEV_DEFAULT_OTP-refuses-in-production one. What is genuine
+DB-integration (the login 403, the phone_verified_via write, the live blocklist
+read, the under_review flip) is proven by its pure core plus the live smoke — no
+browser was driven, as in Part 4.

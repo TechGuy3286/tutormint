@@ -2,13 +2,25 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
+import { crossesReviewThreshold } from '@/lib/underReviewCore'
 
-// "Under review" (owner, Sunday 6 Sep). A reported job or tutor profile is
-// paused while an open report is checked: an amber sticker on the card and the
-// detail, applications on a job disabled with "This job is under review", and a
-// tutor profile delisted from search (the two listing views exclude
-// under_review). It is a boolean on jobs/tutor_profiles, not a status value, so
-// nothing about the object's real state (open/closed, verified) is lost.
+export { crossesReviewThreshold }
+
+// "Under review" (owner, Sunday 6 Sep; view behaviour confirmed Part 5, 8 Sep).
+// A reported job or tutor profile is paused while an open report is checked: an
+// amber sticker on the card and the detail, applications on a job disabled with
+// "This job is under review", and a tutor profile DELISTED from search.
+//
+// UNDER REVIEW DELISTS, IT DOES NOT UNPUBLISH. Only `tutor_directory` (browse,
+// rank_tutors(), search, the sitemap) excludes an under-review tutor;
+// `tutor_visible_profiles` — the view tutor_public_page() reads — does NOT, so
+// the public profile URL STILL RENDERS, with a plain amber notice in place of
+// the contact and apply affordances. A single report from one verified member
+// must not be able to 404 the SEO asset a tutor pays 199/mo for. (Banned and
+// suspended accounts ARE out of both views — a branded 404.)
+//
+// It is a boolean on jobs/tutor_profiles, not a status value, so nothing about
+// the object's real state (open/closed, verified) is lost.
 //
 // AUTO-TRIGGER: one report from a VERIFIED member, or two from anyone. Cheap to
 // evaluate (a count and one lookup) and run every time a report is filed.
@@ -65,7 +77,7 @@ export async function evaluateUnderReview(report: {
         .eq('status', 'open')
 
       const anyVerified = await hasVerifiedReporter(admin, rows ?? [])
-      if (!(anyVerified || (count ?? 0) >= 2)) return
+      if (!crossesReviewThreshold({ hasVerifiedReporter: anyVerified, openReportCount: count ?? 0 })) return
 
       const { data: job } = await admin
         .from('jobs')
@@ -100,7 +112,7 @@ export async function evaluateUnderReview(report: {
         .eq('status', 'open')
 
       const anyVerified = await hasVerifiedReporter(admin, rows ?? [])
-      if (!(anyVerified || (count ?? 0) >= 2)) return
+      if (!crossesReviewThreshold({ hasVerifiedReporter: anyVerified, openReportCount: count ?? 0 })) return
 
       const { data: tutor } = await admin
         .from('tutor_profiles')

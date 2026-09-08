@@ -223,8 +223,8 @@ export default function RegisterForm({ next }: { next?: string }) {
               {shape === 'mobile'
                 ? 'We’ll text a code to confirm your number. This is also how you sign in.'
                 : shape === 'email'
-                  ? 'We’ll email you a link to confirm your address.'
-                  : 'Use your mobile number or your email — either one signs you in.'}
+                  ? 'Email sign-up isn’t available yet — please use your mobile number for now.'
+                  : 'Sign up with your mobile number. We’ll text a code to confirm it.'}
             </p>
             {fieldErrors.identifier && (
               <p className="text-[11px] font-bold text-tm-red">{fieldErrors.identifier}</p>

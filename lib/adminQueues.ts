@@ -480,6 +480,7 @@ export type QueueReportRow = {
   reportedName: string | null
   reportedRole: string | null
   reportedSuspended: boolean
+  reportedBanned: boolean
   targetType: string
   targetId: string | null
   reason: string
@@ -529,7 +530,7 @@ export async function loadReportQueue({
 
   const { data: people } = await admin
     .from('profiles')
-    .select('id, full_name, email, role, is_suspended')
+    .select('id, full_name, email, role, is_suspended, is_banned')
     .in('id', ids.length ? ids : [NO_MATCH])
 
   const who = new Map(
@@ -539,6 +540,7 @@ export async function loadReportQueue({
         name: (p.full_name as string) ?? '—',
         role: p.role as string,
         suspended: !!p.is_suspended,
+        banned: !!p.is_banned,
       },
     ]),
   )
@@ -614,6 +616,7 @@ export async function loadReportQueue({
       reportedName: reportedId ? (who.get(reportedId)?.name ?? '—') : null,
       reportedRole: reportedId ? (who.get(reportedId)?.role ?? null) : null,
       reportedSuspended: reportedId ? !!who.get(reportedId)?.suspended : false,
+      reportedBanned: reportedId ? !!who.get(reportedId)?.banned : false,
       targetType: r.target_type as string,
       targetId: (r.target_id as string) ?? null,
       reason: r.reason as string,

@@ -14,6 +14,8 @@
     "backup": "bash scripts/backup.sh",
     "check": "tsc --noEmit && next build && npm run check:contrast",
     "test:delivery": "tsx --test scripts/test-delivery.ts",
+    "test:authtrust": "tsx --test scripts/test-auth-trust.ts",
+    "demo:underreview": "tsx scripts/demo-under-review.ts",
     "check:contrast": "tsx scripts/contrast-check.ts",
     "test:jobcopy": "tsx --test scripts/test-jobcopy.ts",
     "test:grouping": "tsx --test scripts/test-grouping.ts",

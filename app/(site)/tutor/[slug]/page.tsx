@@ -284,6 +284,24 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   const canViewContact = !!ent?.canViewContact
   const isSelf = user?.id === tutor.id
 
+  // UNDER REVIEW delists but does not unpublish (owner, Part 5). The profile
+  // still renders — tutor_visible_profiles does not exclude it — but with a
+  // plain amber notice in place of the contact and apply affordances while a
+  // report is checked. The flag is not in tutor_public_page's fixed column
+  // allowlist, so it is read here via the service role.
+  let underReview = false
+  {
+    const admin = createAdminClient()
+    if (admin) {
+      const { data: ur } = await admin
+        .from('tutor_profiles')
+        .select('under_review')
+        .eq('id', tutor.id)
+        .maybeSingle()
+      underReview = !!ur?.under_review
+    }
+  }
+
   await recordView(tutor.id, user?.id ?? null, ent?.role ?? null)
 
   if (user && !isSelf) {
@@ -480,7 +498,23 @@ export default async function TutorPublicProfile({ params }: { params: Params })
           </div>
         </section>
 
+        {/* --------------------------------------------------- under review --- */}
+        {underReview && (
+          <section
+            role="status"
+            className="rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-4 text-tm-gold-ink sm:p-6"
+          >
+            <p className="text-sm font-black">This profile is under review</p>
+            <p className="mt-1 text-xs leading-relaxed">
+              {isSelf
+                ? 'Your profile is temporarily under review while our team checks a report. It is hidden from search and contact is paused until the review is complete. Nothing has been deleted.'
+                : 'This tutor’s profile is temporarily under review while our team checks a report. Contact and messaging are paused until it is complete.'}
+            </p>
+          </section>
+        )}
+
         {/* ------------------------------------------------------ contact --- */}
+        {!underReview && (
         <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
           <h2 className="text-sm font-black text-tm-navy">Contact</h2>
           {contactUnlocked && !hasContact ? (
@@ -538,6 +572,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
             </div>
           )}
         </section>
+        )}
 
         {/* -------------------------------------------------------- video --- */}
         {tutor.video_youtube_id && (
@@ -712,15 +747,19 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         )}
       </div>
 
-      {/* Sticky primary actions on mobile, inline from sm. */}
-      <ProfileActions
-        tutorId={tutor.id}
-        tutorName={tutor.full_name}
-        signedIn={!!user}
-        isSelf={isSelf}
-        initiallySaved={saved}
-        canMessage={!ent || ent.audience !== 'tutor'}
-      />
+      {/* Sticky primary actions on mobile, inline from sm. Suppressed while the
+          profile is under review — apply/message/demo are exactly the
+          affordances the amber notice replaces. */}
+      {!underReview && (
+        <ProfileActions
+          tutorId={tutor.id}
+          tutorName={tutor.full_name}
+          signedIn={!!user}
+          isSelf={isSelf}
+          initiallySaved={saved}
+          canMessage={!ent || ent.audience !== 'tutor'}
+        />
+      )}
     </main>
   )
 }

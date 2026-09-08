@@ -39,14 +39,32 @@ export async function activatePausedIfListed(userId: string): Promise<{ activate
     .maybeSingle()
   if (!paused) return { activated: false }
 
-  // The authoritative listing check: membership of the same view browse reads,
-  // so "went live" here means exactly "appears in the directory".
-  const { data: listedRow } = await admin
-    .from('tutor_directory')
-    .select('id')
+  // The BRIDGE lock (owner, Part 5): a number proved only by the BRIDGE_OTP
+  // stopgap cannot start a paid plan. Do not begin the 30 days — the paused row
+  // waits until they re-verify with a real code, so a bridge account never
+  // burns a month it cannot use. getEntitlements withholds powers regardless;
+  // this is what stops the clock. Checked for BOTH roles, because a paused
+  // PARENT sub only ever exists because of this lock (a normal parent purchase
+  // activates immediately), so re-verification is exactly its trigger.
+  const { data: prof } = await admin
+    .from('profiles')
+    .select('role, phone_verified_via')
     .eq('id', userId)
     .maybeSingle()
-  if (!listedRow) return { activated: false }
+  if ((prof?.phone_verified_via as string | null) === 'bridge') return { activated: false }
+
+  // The authoritative listing check applies to TUTORS only — "went live" means
+  // "appears in the directory". A parent is not listed anywhere, so a paused
+  // parent sub (which can only be a bridge-blocked purchase) activates once the
+  // bridge lock above has cleared.
+  if (prof?.role === 'tutor') {
+    const { data: listedRow } = await admin
+      .from('tutor_directory')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle()
+    if (!listedRow) return { activated: false }
+  }
 
   const planCode = paused.plan_code as string
   const { data: plan } = await admin
@@ -77,12 +95,15 @@ export async function activatePausedIfListed(userId: string): Promise<{ activate
   await applyPlanFlags(userId, planCode)
 
   const planName = (plan?.name as string) ?? planCode
+  const isTutor = prof?.role === 'tutor'
   await notify({
     userId,
     kind: 'plan_activated',
     title: `Your ${planName} plan has started`,
-    body: `You are now listed, so your ${planName} plan is running until ${formatDate(expiresAt)}. There are no refunds.`,
-    href: '/tutor/dashboard',
+    body: isTutor
+      ? `You are now listed, so your ${planName} plan is running until ${formatDate(expiresAt)}. There are no refunds.`
+      : `Your ${planName} plan is now running until ${formatDate(expiresAt)}. There are no refunds.`,
+    href: isTutor ? '/tutor/dashboard' : '/parent/dashboard',
   })
 
   await logActivity({

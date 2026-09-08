@@ -8,11 +8,11 @@ import { parseBody, z } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { bridgeOtpCode } from '@/lib/sms'
 import { PERSIST_COOKIE } from '@/lib/sessionCookies'
+import { BANNED_LOGIN_MESSAGE } from '@/lib/authMessages'
 
 // The exact banned-login message (owner, Sunday 6 Sep). Shown verbatim, and no
 // session is created — the account is signed out again before this returns.
-const BANNED_MESSAGE =
-  'Your account has been banned due to fraudulent activities. Please contact support.'
+const BANNED_MESSAGE = BANNED_LOGIN_MESSAGE
 
 // Sign in with an email address OR a Pakistani mobile number.
 //

@@ -5,6 +5,7 @@ import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, pkMobile } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { sendOtp, verifyOtp } from '@/lib/otp'
+import { activatePausedIfListed } from '@/lib/payments/goLive'
 import { normalisePkMobile } from '@/lib/phone'
 
 // Phone / WhatsApp OTP for the SIGNED-IN account.
@@ -116,6 +117,16 @@ export async function POST(request: Request) {
     .eq('id', user.id)
 
   await recomputeCompletion(user.id)
+
+  // A REAL verification lifts the BRIDGE lock: if this account paid for a plan
+  // while bridge-verified, its subscription was paused (clock stopped) and
+  // getEntitlements withheld every power. Now that the number is proved by a
+  // real code, start it. Safe when there is nothing paused (a no-op), and only
+  // on a genuine code — a bridge verify does not clear its own lock.
+  if (!result.bridged) {
+    await activatePausedIfListed(user.id)
+  }
+
   await logActivity({
     userId: user.id,
     event: 'otp_verified',

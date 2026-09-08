@@ -80,8 +80,13 @@ export default async function TutorDashboardPage() {
   // went. Covers both a paused plan (bought under 100%) and an active plan on a
   // delisted profile.
   const planForNotice = ent.pausedPlanName ?? ent.planName
-  const planNotice =
-    !listed && planForNotice
+  const planNotice = ent.bridgeLocked
+    ? // The BRIDGE lock (owner, Part 5): the number was proved only by the
+      // temporary bridge code, so no plan or badge until it is re-verified with
+      // a real code. That happens once, automatically, on the next sign-in after
+      // the SMS provider goes live.
+      'Your number was verified with a temporary code. Your badge and plan unlock once you verify it with a real code — this happens automatically next time you sign in after SMS goes live.'
+    : !listed && planForNotice
       ? `${planForNotice} plan active · your badge appears when your profile reaches 100%.`
       : undefined
 

@@ -87,10 +87,54 @@ export function devOtpCode(): string | null {
  *
  * assertOtpSafety() below inspects only DEV_DEFAULT_OTP, so this does not trip
  * the production boot guard.
+ *
+ * TIME-BOXED (owner, Part 5, 8 Sep). A shared code on an indexed site is a bulk
+ * fake-account vector, so the bridge is LEASHED: it is active ONLY while
+ * BRIDGE_OTP is set AND `BRIDGE_OTP_EXPIRES` (a date) is set AND that date is in
+ * the future. Past the expiry it stops verifying whether or not the code is
+ * still set — and a missing/invalid expiry means OFF, so an unbounded bridge is
+ * not something anybody can leave switched on by forgetting to remove it. When
+ * it lapses, bridgeOtpCode() returns null, which is exactly the signal the login
+ * route uses to make bridge-verified accounts re-verify once with a real code.
  */
 export function bridgeOtpCode(): string | null {
-  const v = process.env.BRIDGE_OTP
-  return v && v.trim() ? v.trim() : null
+  return bridgeStatus().active ? (process.env.BRIDGE_OTP as string).trim() : null
+}
+
+export type BridgeStatus = {
+  /** Set and unexpired: the bridge code verifies signups right now. */
+  active: boolean
+  /** A code is configured (BRIDGE_OTP present), regardless of expiry. */
+  codeSet: boolean
+  /** The parsed expiry, ISO, or null when the env is missing/unparseable. */
+  expiresAt: string | null
+  /** A code is set and an expiry is set but that date has already passed. */
+  expired: boolean
+}
+
+/**
+ * The bridge's state, for the admin banner and the leash decisions.
+ *
+ * Kept as a small pure function (no I/O) so the tests can drive it by setting
+ * the two env vars, and so every caller — bridgeOtpCode(), the admin banner,
+ * the tighter signup rate limit — reads exactly one definition of "active".
+ */
+export function bridgeStatus(): BridgeStatus {
+  const code = process.env.BRIDGE_OTP
+  const codeSet = !!(code && code.trim())
+
+  const rawExpiry = process.env.BRIDGE_OTP_EXPIRES
+  let expiresAt: string | null = null
+  if (rawExpiry && rawExpiry.trim()) {
+    const t = Date.parse(rawExpiry.trim())
+    if (Number.isFinite(t)) expiresAt = new Date(t).toISOString()
+  }
+
+  const expired = codeSet && !!expiresAt && Date.parse(expiresAt) <= Date.now()
+  // Active requires BOTH the code and a future expiry. No expiry ⇒ never active,
+  // so the bridge cannot be left on indefinitely by omission.
+  const active = codeSet && !!expiresAt && !expired
+  return { active, codeSet, expiresAt, expired }
 }
 
 /**
