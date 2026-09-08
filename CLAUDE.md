@@ -3644,9 +3644,18 @@ stays `false` until the provisioning script sets exactly one `true`.
   already has an account or if a team account already exists (exactly one).
   Production writes go through `guardWrites` (backup first).
 
-  **OWNER ACTION:** supply a real team-controlled email or mobile and run
+  **PROVISIONED (owner, 9 Sep 2026):** the team account is live as
+  `jobs@tutormint.org` (a real Hostinger mailbox on the domain, owner-supplied),
+  `is_team_account=true`, `parent_featured` active — user id
+  `03db2d7c-158f-4794-8e2a-e7b421792cc3`. Confirmed end to end: the public
+  `/parent/[id]` card and every job card / detail page render "TutorMint" with no
+  person name and the parent badges dropped, and a job posted by it resolves
+  `posted_by_team=true` (the "Posted by TutorMint" pill). The team operates
+  applications by signing into that mailbox's account (a temp password was set at
+  provisioning; a password reset to the inbox also works). To re-provision on a
+  fresh DB or move the identifier, run
   `ALLOW_SEED_ON_PRODUCTION=1 npx tsx scripts/provision-team-parent.ts --email=<addr> --apply --confirm=yhekiqtelsictqkfxrfj`
-  (or `--mobile=`). Until then `/admin/jobs/new` shows a plain "team account not
+  (or `--mobile=`). When not provisioned, `/admin/jobs/new` shows a plain "team account not
   set up yet" panel and posting is disabled — pointed at no invented recipient.
 
 - **Posting reuses the one job shape.** `createTeamJob(input, actor, origin)` in
