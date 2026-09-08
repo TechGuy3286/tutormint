@@ -353,6 +353,14 @@ const SECTIONS: LegalSection[] = [
           part of a paid month.
         </p>
         <p>
+          <strong>Fraud ends an account permanently.</strong> Fraud, scams, impersonation, fake or
+          forged documents, and payment deception lead to immediate and permanent termination of
+          your account without prior notice, and any active plan is forfeited without a refund. We
+          may preserve evidence of what happened and cooperate with law enforcement. A permanently
+          banned account cannot sign in, and the mobile number and CNIC associated with it may be
+          prevented from being used to open another account.
+        </p>
+        <p>
           Every decision is recorded with a written reason, and we tell you what it was. If you
           think we have it wrong, reply and a different person will look again.
         </p>

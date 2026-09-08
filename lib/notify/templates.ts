@@ -30,6 +30,7 @@ export type TemplateId =
   | 'plan_expiring'
   | 'plan_expired'
   | 'content_digest'
+  | 'admin_message'
 
 export type RenderedEmail = {
   subject: string
@@ -134,6 +135,9 @@ export type TemplateInput =
       suggestions: { title: string; why: string; href: string }[]
       refresh: { title: string; href: string }[]
     }
+  // An official message from the TutorMint Team, sent by an admin. Essential:
+  // the admin chose to send it, and it is account/verification correspondence.
+  | { id: 'admin_message'; body: string }
 
 export function render(input: TemplateInput): RenderedEmail {
   switch (input.id) {
@@ -308,6 +312,21 @@ export function render(input: TemplateInput): RenderedEmail {
         lines,
         true, // internal ops
         { label: 'Open the content queue', href: '/admin/blog/queue' },
+      )
+    }
+
+    // -------------------------------------------------------------------
+    case 'admin_message': {
+      // The body is written by an admin (from a template or by hand) and shown
+      // verbatim. The member reads and replies in the app; the email is the
+      // heads-up. Essential — the admin chose to send it.
+      const paragraphs = input.body.split('\n').filter((p) => p.trim().length > 0)
+      return build(
+        'A message from the TutorMint Team',
+        'A message from the TutorMint Team',
+        paragraphs.length > 0 ? paragraphs : [input.body],
+        true,
+        { label: 'Open your messages', href: '/account/messages' },
       )
     }
   }

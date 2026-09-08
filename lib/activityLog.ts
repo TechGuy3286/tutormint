@@ -60,6 +60,10 @@ export type ActivityEvent =
   | 'plan_expired'
   | 'suspended'
   | 'unsuspended'
+  // Part 4 — permanent ban, distinct from suspension; official Team message.
+  | 'banned'
+  | 'unbanned'
+  | 'admin_message_received'
   // T7a — moderation outcomes and staff lifecycle.
   | 'warned'
   | 'report_resolved'

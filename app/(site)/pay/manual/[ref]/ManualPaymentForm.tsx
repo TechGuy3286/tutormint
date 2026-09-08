@@ -3,6 +3,7 @@
 import { submitSignal, UPLOAD_TIMEOUT_MS } from '@/lib/submit'
 
 import FileUpload from '@/components/FileUpload'
+import { useToast } from '@/components/ui/Toast'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -18,6 +19,7 @@ export default function ManualPaymentForm({
   methods: { code: string; label: string }[]
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [method, setMethod] = useState(methods[0]?.code ?? '')
   const [payerReference, setPayerReference] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -37,6 +39,9 @@ export default function ManualPaymentForm({
       const res = await fetch('/api/payments/manual', { signal: submitSignal(UPLOAD_TIMEOUT_MS), method: 'POST', body: form })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not submit your payment.')
+      // No silent successes. Manual transfers are never "instant" — say what
+      // actually happens next.
+      toast.success('Payment submitted. It’s usually activated within a few hours.')
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not submit your payment.')

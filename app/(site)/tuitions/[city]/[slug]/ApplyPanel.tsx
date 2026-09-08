@@ -23,16 +23,27 @@ export default function ApplyPanel({
   title,
   signedIn,
   applied,
+  underReview = false,
 }: {
   jobId: string
   title: string
   signedIn: boolean
   applied: boolean
+  /** Paused while a report is checked — Apply is disabled with a plain message. */
+  underReview?: boolean
 }) {
   const upgradeSheet = useUpgradeSheet()
   const [gateOpen, setGateOpen] = useState(false)
   const [state, setState] = useState<'idle' | 'sending' | 'done'>(applied ? 'done' : 'idle')
   const [notice, setNotice] = useState<string | null>(null)
+
+  if (underReview) {
+    return (
+      <p className="rounded-xl bg-tm-tint-gold p-3 text-xs font-bold text-tm-gold-ink">
+        This job is under review and is not accepting applications right now.
+      </p>
+    )
+  }
 
   const apply = async () => {
     if (!signedIn) return setGateOpen(true)

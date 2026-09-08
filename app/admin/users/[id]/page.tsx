@@ -1,7 +1,7 @@
 import { ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { describeUtm } from '@/lib/utm'
 import { applicationStatus, jobStatus } from '@/lib/display'
@@ -47,7 +47,7 @@ export default async function AdminMemberPage({
   const { data: profile } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, created_at, utm_source, utm_medium, utm_campaign, utm_content',
+      'id, full_name, email, phone_number, whatsapp, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, phone_verified_via, created_at, utm_source, utm_medium, utm_campaign, utm_content',
     )
     .eq('id', id)
     .maybeSingle()
@@ -159,9 +159,19 @@ export default async function AdminMemberPage({
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            {profile.is_banned && (
+              <span className="rounded-full bg-tm-tint-red px-2 py-0.5 text-[10px] font-black uppercase text-tm-red">
+                banned
+              </span>
+            )}
             {profile.is_suspended && (
               <span className="rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-black uppercase text-tm-gold-ink">
                 suspended
+              </span>
+            )}
+            {profile.phone_verified_via === 'bridge' && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700">
+                bridge-verified
               </span>
             )}
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700">
@@ -170,6 +180,14 @@ export default async function AdminMemberPage({
           </div>
         </div>
       </header>
+
+      {profile.is_banned && (
+        <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs leading-relaxed text-tm-red">
+          <strong>Banned</strong>
+          {profile.banned_reason ? `: ${profile.banned_reason as string}` : '.'} Their mobile and CNIC
+          are on the signup blocklist.
+        </p>
+      )}
 
       {profile.is_suspended && profile.suspension_reason && (
         <p className="rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-3 text-xs leading-relaxed text-tm-gold-ink">
@@ -236,6 +254,9 @@ export default async function AdminMemberPage({
         userId={id}
         name={profile.full_name as string}
         suspended={!!profile.is_suspended}
+        banned={!!profile.is_banned}
+        canBan={roleSatisfies(actor.adminRole, ['manager'])}
+        canUnban={roleSatisfies(actor.adminRole, [])}
         isSelf={id === actor.id}
         isStaff={profile.role === 'admin'}
         isOwner={profile.admin_role === 'owner'}

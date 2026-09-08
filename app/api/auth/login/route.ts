@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile, syntheticEmail, looksLikeEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
+import { bridgeOtpCode } from '@/lib/sms'
+import { PERSIST_COOKIE } from '@/lib/sessionCookies'
+
+// The exact banned-login message (owner, Sunday 6 Sep). Shown verbatim, and no
+// session is created — the account is signed out again before this returns.
+const BANNED_MESSAGE =
+  'Your account has been banned due to fraudulent activities. Please contact support.'
 
 // Sign in with an email address OR a Pakistani mobile number.
 //
@@ -35,6 +43,9 @@ const GENERIC = 'Those sign-in details are not right. Please check and try again
 const LoginBody = z.object({
   identifier: z.string().min(1).max(320),
   password: z.string().min(1).max(200),
+  // Checked by default (persistent session, as before); unchecked means a
+  // session cookie only. Optional so older clients keep working.
+  rememberMe: z.boolean().optional().default(true),
 })
 
 export async function POST(request: Request) {
@@ -54,14 +65,22 @@ export async function POST(request: Request) {
 
   const identifier = parsed.data.identifier.trim()
   const password = parsed.data.password
+  const rememberMe = parsed.data.rememberMe
 
   const email = await resolveEmail(identifier)
   if (!email) return NextResponse.json({ error: GENERIC }, { status: 400 })
 
+  // Remember the member's choice for later refreshes (proxy + server client
+  // read this), and set it BEFORE sign-in so the flag is on the same response
+  // that carries the new auth cookies. A session cookie itself — no maxAge — so
+  // "not remembered" does not outlive the browser either.
+  const jar = await cookies()
+  if (rememberMe) jar.delete(PERSIST_COOKIE)
+  else jar.set(PERSIST_COOKIE, '0', { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/' })
+
   // The @supabase/ssr server client writes the session cookies onto the
-  // response, so signing in here leaves the browser signed in exactly as a
-  // client-side sign-in would.
-  const supabase = await createClient()
+  // response; sessionOnly strips their maxAge when remember-me is off.
+  const supabase = await createClient({ sessionOnly: !rememberMe })
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
@@ -77,11 +96,40 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, must_change_password, is_suspended')
+    .select('role, must_change_password, is_suspended, is_banned, phone_verified_via')
     .eq('id', data.user.id)
     .maybeSingle()
 
+  // BANNED blocks login with NO session. signInWithPassword already wrote the
+  // cookies; sign out again so nothing survives, and answer with the exact
+  // message. Unlike the generic oracle, this account IS authenticated, so
+  // naming the state is not a membership leak.
+  if (profile?.is_banned) {
+    await supabase.auth.signOut()
+    return NextResponse.json(
+      { error: BANNED_MESSAGE, banned: true, supportHref: '/support' },
+      { status: 403 },
+    )
+  }
+
   await logActivity({ userId: data.user.id, event: 'login', meta: { via: looksLikeEmail(identifier) ? 'email' : 'mobile' } })
+
+  // Bridge re-verification: a number proved by the BRIDGE_OTP stopgap must be
+  // re-verified once the real provider lands (owner, Sunday 6 Sep). We detect
+  // that here — bridge-verified account, bridge no longer configured — and
+  // raise the phone gate again, so proxy.ts routes them to /verify-phone on
+  // their next request to prove the number with a real code.
+  let reverify = false
+  if (profile?.phone_verified_via === 'bridge' && !bridgeOtpCode()) {
+    const admin = createAdminClient()
+    if (admin) {
+      await admin
+        .from('profiles')
+        .update({ phone_verified_at: null, phone_gate_required: true, phone_verified_via: null })
+        .eq('id', data.user.id)
+      reverify = true
+    }
+  }
 
   return NextResponse.json({
     success: true,
@@ -91,6 +139,7 @@ export async function POST(request: Request) {
     // on the page that explains why.
     mustChangePassword: !!profile?.must_change_password,
     suspended: !!profile?.is_suspended,
+    reverify,
   })
 }
 

@@ -6,6 +6,7 @@ import ChildrenManager, { type Child } from '@/app/(site)/parent/dashboard/Child
 import NotificationForm from '@/app/(site)/account/notifications/settings/NotificationForm'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { isSyntheticEmail } from '@/lib/phone'
 
 import SettingsClient, { type ParentSettings } from './SettingsClient'
 
@@ -50,12 +51,18 @@ export default async function ParentSettingsPage() {
       .order('created_at'),
   ])
 
+  // A synthetic <msisdn>@users.tutormint.org address is not one the member
+  // chose — it reads as empty so the card offers "Add an email".
+  const rawEmail = (profile?.email as string) ?? ''
+  const realEmail = isSyntheticEmail(rawEmail) ? '' : rawEmail
+
   const initial: ParentSettings = {
     userId,
     fullName: (profile?.full_name as string) ?? '',
     avatarUrl: (profile?.avatar_url as string) ?? null,
     phone: (profile?.phone_number as string) ?? '',
     phoneVerified: !!profile?.phone_verified_at,
+    email: realEmail,
     city: (profile?.city as string) ?? '',
     area: (profile?.area as string) ?? '',
     address: (profile?.address as string) ?? '',
@@ -86,7 +93,7 @@ export default async function ParentSettingsPage() {
           <div className="space-y-0.5">
             <h2 className="text-sm font-black text-tm-navy">Emails</h2>
             <p className="text-[11px] leading-relaxed text-gray-500">
-              Going to {(profile?.email as string) ?? 'your address'}.
+              {realEmail ? `Going to ${realEmail}.` : 'Add an email above to receive receipts and reminders.'}
             </p>
           </div>
           <NotificationForm optedOut={!!profile?.email_opt_out} />

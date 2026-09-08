@@ -71,6 +71,29 @@ export function devOtpCode(): string | null {
 }
 
 /**
+ * The BRIDGE OTP code, or null.
+ *
+ * DELIBERATELY ALLOWED IN PRODUCTION, and deliberately a DIFFERENT variable
+ * from DEV_DEFAULT_OTP (owner, Sunday 6 Sep). Until the owner's third-party OTP
+ * API is enabled there is no way to deliver a real code on the live site, and a
+ * signup that creates an account nobody can verify is worse than a shared bridge
+ * code the owner controls and hands out. So `BRIDGE_OTP` verifies any signup —
+ * but every account it verifies is TAGGED `phone_verified_via='bridge'`, is
+ * visible as such in admin and the CSV export, and is made to re-verify once
+ * when the bridge is removed (see the login route). This is the whole reason it
+ * is separate from DEV_DEFAULT_OTP: that one is a test convenience that must
+ * NEVER reach production (assertOtpSafety throws on it), and this one is an
+ * owner-operated stopgap that lives ON production until a real provider lands.
+ *
+ * assertOtpSafety() below inspects only DEV_DEFAULT_OTP, so this does not trip
+ * the production boot guard.
+ */
+export function bridgeOtpCode(): string | null {
+  const v = process.env.BRIDGE_OTP
+  return v && v.trim() ? v.trim() : null
+}
+
+/**
  * Startup assertion. Called from instrumentation.ts, which Next runs once per
  * server instance before it serves a request.
  *

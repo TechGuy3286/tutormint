@@ -1,6 +1,7 @@
 "use client";
 
 import FileUpload from '@/components/FileUpload';
+import PasswordInput from '@/components/ui/PasswordInput'
 import { submitForm } from '@/lib/submit'
 import { TEACHING_MODES, canonicalMode } from '@/lib/locations'
 import { teachingMode } from '@/lib/display'
@@ -823,8 +824,7 @@ export default function TutorSettingsPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="sr-only">New password</span>
-              <input
-                type="password"
+              <PasswordInput
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="New password"
@@ -834,8 +834,7 @@ export default function TutorSettingsPage() {
             </label>
             <label className="block">
               <span className="sr-only">Confirm new password</span>
-              <input
-                type="password"
+              <PasswordInput
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"

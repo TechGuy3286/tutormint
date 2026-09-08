@@ -107,6 +107,11 @@ export type NotificationKind =
   // advertises "Unlimited", whose real cap must not be surfaced to the member.
   | 'viewer_weekly_teaser'
   | 'quota_nudge'
+  // Part 4 — an official message from the TutorMint Team, and the report-driven
+  // "under review" pause and its clearance.
+  | 'admin_message'
+  | 'under_review'
+  | 'under_review_cleared'
 
 export async function notify(params: {
   userId: string

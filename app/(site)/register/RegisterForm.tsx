@@ -6,20 +6,24 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
+import PasswordInput from '@/components/ui/PasswordInput'
 
 // The single registration page. /tutor/register is a server redirect here,
 // kept because tutor referral links (?ref=) carry that path.
 //
-// MOBILE-FIRST. The mobile number is the required identifier and email is
-// optional, because in Pakistan a great many members have a number they use
-// daily and an address they do not. An account with no email signs in with the
-// number, through the synthetic address the bulk import already uses.
+// ONE IDENTIFIER FIELD (owner, Sunday 6 Sep). "Mobile number or email": digits
+// take the mobile path (an OTP to confirm the number), an address takes the
+// email path (a confirmation link). The form does not decide which — it sends
+// the raw identifier and /api/auth/register branches on it — but the helper
+// text under the field updates as they type so a member knows what will happen.
+// The other of the two can be added later in settings.
 //
 // The account is NOT created in the browser. /api/auth/register does it,
-// because deriving the synthetic address, checking for a duplicate number
-// across all profiles, and creating the user with the email pre-confirmed all
-// need the service role. It signs the member in and sends the first code, and
-// this page then hands them to /verify-phone.
+// because deriving the synthetic address, checking for a duplicate across all
+// profiles, and creating the user all need the service role. On the mobile path
+// it signs the member in and sends the first code and this page hands them to
+// /verify-phone; on the email path it creates an unconfirmed account and hands
+// them to /verify-email.
 //
 // Schools and academies register as ordinary parent accounts. The radio says
 // "Parent / Institution" so an academy owner recognises themselves, and that
@@ -27,6 +31,18 @@ import SubmitEscape from '@/components/SubmitEscape'
 // are identical to any other parent's.
 
 type Role = 'tutor' | 'parent'
+
+// Cheap, client-only shape guess purely for the helper text — the real
+// decision (and the real validation) is the server's. Anything with an "@" is
+// treated as heading down the email path; anything that is only digits and
+// phone punctuation is the mobile path.
+function identifierShape(v: string): 'mobile' | 'email' | 'unknown' {
+  const t = v.trim()
+  if (!t) return 'unknown'
+  if (t.includes('@')) return 'email'
+  if (/^[\d+\-\s()]+$/.test(t)) return 'mobile'
+  return 'unknown'
+}
 
 const ROLES: { value: Role; label: string; helper?: string }[] = [
   { value: 'tutor', label: 'Tutor' },
@@ -40,8 +56,7 @@ const ROLES: { value: Role; label: string; helper?: string }[] = [
 export default function RegisterForm({ next }: { next?: string }) {
   const [role, setRole] = useState<Role>('parent')
   const [fullName, setFullName] = useState('')
-  const [mobile, setMobile] = useState('')
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -50,6 +65,7 @@ export default function RegisterForm({ next }: { next?: string }) {
   const [stuckHref, setStuckHref] = useState<string | null>(null)
 
   const router = useRouter()
+  const shape = identifierShape(identifier)
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,8 +79,7 @@ export default function RegisterForm({ next }: { next?: string }) {
     }>('/api/auth/register', {
       role,
       fullName,
-      mobile,
-      email: email.trim() || undefined,
+      identifier,
       password,
       acceptedTerms,
     })
@@ -76,9 +91,11 @@ export default function RegisterForm({ next }: { next?: string }) {
       return
     }
 
-    // Straight to the gate. A member who was mid-action when they were asked
-    // to sign up keeps their destination: /verify-phone hands it back once the
-    // number is proved, so they land on the thing they were doing.
+    // The server tells us where to go: /verify-phone for the mobile path (the
+    // account is signed in and a code is on its way), /verify-email for the
+    // email path (an unconfirmed account, a link on its way). Only the mobile
+    // path carries `next` forward — the email path breaks the session until the
+    // link is clicked, so there is nothing to hand back yet.
     const target = data?.next === '/verify-phone' && next
       ? `/verify-phone?next=${encodeURIComponent(next)}`
       : (data?.next ?? '/verify-phone')
@@ -186,43 +203,31 @@ export default function RegisterForm({ next }: { next?: string }) {
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="mobile" className="text-xs font-bold text-tm-navy">
-              Mobile number
+            <label htmlFor="identifier" className="text-xs font-bold text-tm-navy">
+              Mobile number or email
             </label>
             <input
-              id="mobile"
+              id="identifier"
               required
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="0300 1234567"
-              className={fieldClass('mobile')}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              inputMode="text"
+              autoComplete="username"
+              placeholder="0300 1234567 or name@example.com"
+              className={fieldClass('identifier')}
             />
+            {/* Adaptive helper: it says what will happen with what they have
+                typed so far, so the mobile-vs-email choice is never a surprise
+                after they submit. */}
             <p className="text-[11px] text-gray-500">
-              We send a code to confirm it. This is also how you sign in.
+              {shape === 'mobile'
+                ? 'We’ll text a code to confirm your number. This is also how you sign in.'
+                : shape === 'email'
+                  ? 'We’ll email you a link to confirm your address.'
+                  : 'Use your mobile number or your email — either one signs you in.'}
             </p>
-            {fieldErrors.mobile && (
-              <p className="text-[11px] font-bold text-tm-red">{fieldErrors.mobile}</p>
-            )}
-          </div>
-
-          <div className="space-y-1">
-            <label htmlFor="email" className="text-xs font-bold text-tm-navy">
-              Email address <span className="font-normal text-gray-500">(optional)</span>
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              className={fieldClass('email')}
-            />
-            <p className="text-[11px] text-gray-500">For receipts and reminders.</p>
-            {fieldErrors.email && (
-              <p className="text-[11px] font-bold text-tm-red">{fieldErrors.email}</p>
+            {fieldErrors.identifier && (
+              <p className="text-[11px] font-bold text-tm-red">{fieldErrors.identifier}</p>
             )}
           </div>
 
@@ -230,9 +235,8 @@ export default function RegisterForm({ next }: { next?: string }) {
             <label htmlFor="password" className="text-xs font-bold text-tm-navy">
               Password
             </label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               required
               minLength={8}
               autoComplete="new-password"

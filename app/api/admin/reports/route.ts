@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
-import { warnMember, suspendMember, unsuspendMember } from '@/lib/moderation'
+import { warnMember, suspendMember, unsuspendMember, banMember } from '@/lib/moderation'
+import { clearUnderReview } from '@/lib/underReview'
 import { parseBody, z, uuid } from '@/lib/validate'
 
 // Working a report: dismiss, warn, suspend, unsuspend.
@@ -41,8 +42,12 @@ export async function POST(request: Request) {
   const reason = (body.reason ?? '').trim()
 
   if (!reportId) return NextResponse.json({ error: 'Missing report.' }, { status: 400 })
-  if (!['dismiss', 'warn', 'suspend', 'unsuspend'].includes(action)) {
+  if (!['dismiss', 'warn', 'suspend', 'unsuspend', 'ban'].includes(action)) {
     return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
+  }
+  // Ban from the queue is owner/manager only (support can dismiss/warn/suspend).
+  if (action === 'ban' && !roleSatisfies(actor.adminRole, ['manager'])) {
+    return NextResponse.json({ error: 'Only an owner or manager can ban an account.' }, { status: 403 })
   }
   if (reason.length < 5) {
     return NextResponse.json(
@@ -78,6 +83,9 @@ export async function POST(request: Request) {
   } else if (action === 'unsuspend') {
     const r = await unsuspendMember({ userId: reportedId!, reason, actor })
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })
+  } else if (action === 'ban') {
+    const r = await banMember({ userId: reportedId!, reason, actor })
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })
   }
 
   // ---------------------------------------------------- close the report ---
@@ -93,6 +101,31 @@ export async function POST(request: Request) {
     .eq('id', reportId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Lift the "under review" pause on the target. A dismiss reopens it and tells
+  // the owner; an uphold clears the flag while the sanction carries the
+  // consequence onward.
+  await clearUnderReview(
+    {
+      targetType: report.target_type as string,
+      targetId: report.target_id as string | null,
+      reportedId,
+    },
+    action === 'dismiss',
+  )
+
+  // False reporters accumulate penalties: a dismissed report against a named
+  // member is recorded against the reporter. A record, not a member-facing
+  // sanction — it is what makes a pattern visible on the member page.
+  if (action === 'dismiss' && reportedId && report.reporter_id) {
+    await admin.from('penalties_log').insert({
+      user_id: report.reporter_id as string,
+      kind: 'report_penalty',
+      reason: 'A report you filed was reviewed and dismissed.',
+      issued_by: actor.id,
+      report_id: reportId,
+    })
+  }
 
   await logAdminAction({
     actorId: actor.id,

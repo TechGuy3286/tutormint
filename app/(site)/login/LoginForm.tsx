@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import SubmitEscape from '@/components/SubmitEscape'
+import PasswordInput from '@/components/ui/PasswordInput'
 import { createClient } from '@/lib/supabase/client'
 import { homeForRole, nextForRole, type Role } from '@/lib/authRoutes'
 import { armEscape, STUCK_MESSAGE, submitError, submitJson } from '@/lib/submit'
@@ -35,10 +36,12 @@ import { armEscape, STUCK_MESSAGE, submitError, submitJson } from '@/lib/submit'
 export default function LoginForm({ next }: { next: string | null }) {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(true)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [stuckHref, setStuckHref] = useState<string | null>(null)
   const [needsConfirm, setNeedsConfirm] = useState<string | null>(null)
+  const [supportHref, setSupportHref] = useState<string | null>(null)
   const [resendMsg, setResendMsg] = useState('')
 
   const router = useRouter()
@@ -63,6 +66,7 @@ export default function LoginForm({ next }: { next: string | null }) {
     setResendMsg('')
     setStuckHref(null)
     setNeedsConfirm(null)
+    setSupportHref(null)
 
     const { ok, data, error } = await submitJson<{
       role?: string | null
@@ -70,16 +74,25 @@ export default function LoginForm({ next }: { next: string | null }) {
       mustChangePassword?: boolean
       needsConfirm?: boolean
       email?: string
-    }>('/api/auth/login', { identifier, password })
+      banned?: boolean
+      supportHref?: string
+      reverify?: boolean
+    }>('/api/auth/login', { identifier, password, rememberMe })
 
     if (!ok || !data) {
       setErrorMsg(error ?? 'Could not sign you in.')
       if (data?.needsConfirm) setNeedsConfirm(data.email ?? identifier)
+      // A banned account is signed out server-side; there is no session to
+      // route, so we stay on the form and show the message with a support link.
+      if (data?.banned) setSupportHref(data.supportHref ?? '/support')
       setLoading(false)
       return
     }
 
     if (data.suspended) return go('/suspended')
+
+    // A bridge-verified number whose bridge was removed must re-prove itself.
+    if (data.reverify) return go('/verify-phone')
 
     if (data.mustChangePassword) {
       // A temporary password is good for exactly one sign-in.
@@ -130,6 +143,14 @@ export default function LoginForm({ next }: { next: string | null }) {
             >
               <p>{errorMsg}</p>
               {stuckHref && <SubmitEscape href={stuckHref} />}
+              {supportHref && (
+                <Link
+                  href={supportHref}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-black px-4 py-2 text-xs font-bold text-white hover:bg-tm-navy"
+                >
+                  Contact support
+                </Link>
+              )}
               {needsConfirm && (
                 <button
                   type="button"
@@ -170,9 +191,8 @@ export default function LoginForm({ next }: { next: string | null }) {
               <label htmlFor="password" className="text-xs font-bold text-tm-navy">
                 Password
               </label>
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
                 required
                 autoComplete="current-password"
                 value={password}
@@ -181,6 +201,16 @@ export default function LoginForm({ next }: { next: string | null }) {
                 className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-sm outline-none focus:border-tm-navy focus:bg-white"
               />
             </div>
+
+            <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-xs font-bold text-tm-navy">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 accent-tm-red"
+              />
+              Remember me on this device
+            </label>
 
             <button
               type="submit"

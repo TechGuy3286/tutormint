@@ -4,6 +4,7 @@ import { Send } from 'lucide-react'
 import { useState } from 'react'
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
+import { useToast } from '@/components/ui/Toast'
 
 // Apply, from the "matching you this week" strip on a free tutor's dashboard.
 //
@@ -15,6 +16,7 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 
 export default function ApplyFromStrip({ jobId }: { jobId: string }) {
   const upgradeSheet = useUpgradeSheet()
+  const toast = useToast()
   const [state, setState] = useState<'idle' | 'busy' | 'done'>('idle')
   const [error, setError] = useState<string | null>(null)
 
@@ -22,7 +24,10 @@ export default function ApplyFromStrip({ jobId }: { jobId: string }) {
     setState('busy')
     setError(null)
     const r = await postGated('/api/applications', { jobId }, upgradeSheet?.showGate)
-    if (r.ok) return setState('done')
+    if (r.ok) {
+      toast.success('Application sent.')
+      return setState('done')
+    }
     if (!r.gated) setError(r.error)
     setState('idle')
   }

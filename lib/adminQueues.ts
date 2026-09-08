@@ -70,7 +70,7 @@ export const TIMELINE_GROUPS: Record<string, string[]> = {
   account: [
     'registered', 'login', 'otp_verified', 'profile_updated', 'completion_changed',
     'subjects_changed', 'document_uploaded', 'video_submitted', 'verification_submitted',
-    'verification_decision_received', 'video_visibility_changed',
+    'verification_decision_received', 'video_visibility_changed', 'admin_message_received',
   ],
   activity: [
     'job_posted', 'job_edited', 'job_closed', 'application_submitted', 'application_withdrawn',
@@ -83,8 +83,8 @@ export const TIMELINE_GROUPS: Record<string, string[]> = {
   ],
   moderation: [
     'blocked', 'blocked_by', 'unblocked', 'reported', 'reported_by', 'report_resolved',
-    'warned', 'suspended', 'unsuspended', 'staff_created', 'staff_role_changed',
-    'staff_suspended', 'staff_reactivated',
+    'warned', 'suspended', 'unsuspended', 'banned', 'unbanned', 'staff_created',
+    'staff_role_changed', 'staff_suspended', 'staff_reactivated',
   ],
 }
 

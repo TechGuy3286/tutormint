@@ -24,13 +24,16 @@
 // is what stops the SMS step being skipped by simply reading the code back.
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getSmsProvider, devOtpCode } from '@/lib/sms'
+import { getSmsProvider, devOtpCode, bridgeOtpCode } from '@/lib/sms'
 
 export type OtpPurpose = 'verify' | 'reset'
 
 export const CODE_TTL_MS = 10 * 60 * 1000
 export const MAX_ATTEMPTS = 5
-export const RESEND_COOLDOWN_MS = 60 * 1000
+// Five minutes (owner, Sunday 6 Sep): Resend sits behind a visible countdown
+// and auto-reactivates. The 10-minute code TTL outlives one cooldown, so a
+// member always has a live code while they wait to resend.
+export const RESEND_COOLDOWN_MS = 5 * 60 * 1000
 export const MAX_SENDS_PER_HOUR = 5
 
 export type SendResult =
@@ -38,7 +41,7 @@ export type SendResult =
   | { ok: false; status: number; error: string; detail?: string; retryAfterSeconds?: number }
 
 export type VerifyResult =
-  | { ok: true; userId: string | null; devBypass: boolean }
+  | { ok: true; userId: string | null; devBypass: boolean; bridged: boolean }
   | { ok: false; status: number; error: string; attemptsLeft?: number; locked?: boolean }
 
 const UNAVAILABLE = {
@@ -115,6 +118,15 @@ export async function sendOtp(opts: {
   // verifies regardless, so no SMS is attempted and no bill is run up.
   if (devOtpCode()) return { ok: true, devBypassActive: true }
 
+  // The bridge is live only WHILE there is no real provider (it exists to fill
+  // exactly that gap). So when a bridge code is set and no provider is
+  // configured, there is nothing to send — the member enters the bridge code
+  // the owner gave them. If a real provider IS configured, fall through and
+  // send the real SMS; the bridge code still verifies as a backstop.
+  if (bridgeOtpCode() && !getSmsProvider().isConfigured()) {
+    return { ok: true, devBypassActive: false }
+  }
+
   const provider = getSmsProvider()
   const sent = await provider.send(
     opts.phone,
@@ -166,13 +178,20 @@ export async function verifyOtp(opts: {
 
   const { data: otp } = await query.maybeSingle()
 
-  // The dev bypass still requires that a code was actually REQUESTED for this
-  // number and purpose. The T3 route accepted it with nothing on file, which
-  // was harmless when the only flow needed a session already; for a signed-out
-  // password reset it would mean anyone could reset any account on a preview
-  // deployment without touching the phone at all.
+  // The dev bypass AND the production bridge both still require that a code was
+  // actually REQUESTED for this number and purpose. The T3 route accepted it
+  // with nothing on file, which was harmless when the only flow needed a
+  // session already; for a signed-out password reset it would mean anyone could
+  // reset any account on a preview deployment without touching the phone at all.
+  //
+  // dev bypass (DEV_DEFAULT_OTP, non-production only) and bridge (BRIDGE_OTP,
+  // production-allowed) are checked together; `bridged` is true only for the
+  // bridge, so the verify route can tag phone_verified_via='bridge'.
   const bypass = devOtpCode()
-  if (bypass && submitted === bypass) {
+  const bridge = bridgeOtpCode()
+  const isBypass = !!bypass && submitted === bypass
+  const isBridge = !isBypass && !!bridge && submitted === bridge
+  if (isBypass || isBridge) {
     if (!otp) {
       return { ok: false, status: 400, error: 'No active code for this number. Request a new one.' }
     }
@@ -180,7 +199,7 @@ export async function verifyOtp(opts: {
       .from('phone_otps')
       .update({ consumed_at: new Date().toISOString() })
       .eq('id', otp.id)
-    return { ok: true, userId: otp.user_id ?? opts.userId ?? null, devBypass: true }
+    return { ok: true, userId: otp.user_id ?? opts.userId ?? null, devBypass: isBypass, bridged: isBridge }
   }
 
   if (!otp) {
@@ -228,5 +247,5 @@ export async function verifyOtp(opts: {
     .update({ consumed_at: new Date().toISOString(), attempts: (otp.attempts ?? 0) + 1 })
     .eq('id', otp.id)
 
-  return { ok: true, userId: otp.user_id ?? opts.userId ?? null, devBypass: false }
+  return { ok: true, userId: otp.user_id ?? opts.userId ?? null, devBypass: false, bridged: false }
 }

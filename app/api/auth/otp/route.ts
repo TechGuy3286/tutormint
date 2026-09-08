@@ -108,6 +108,10 @@ export async function POST(request: Request) {
       phone_number: phone,
       phone_verified_at: new Date().toISOString(),
       phone_verified: true,
+      // How it was proved: 'bridge' when the BRIDGE_OTP stopgap verified it, so
+      // it is visible in admin/CSV and can be made to re-verify when the real
+      // provider lands; 'otp' otherwise.
+      phone_verified_via: result.bridged ? 'bridge' : 'otp',
     })
     .eq('id', user.id)
 

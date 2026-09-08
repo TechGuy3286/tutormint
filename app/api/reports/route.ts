@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, text, uuid } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
+import { evaluateUnderReview } from '@/lib/underReview'
 
 // Report a member, a message thread or a job.
 //
@@ -94,6 +95,16 @@ export async function POST(request: Request) {
       meta: { reason, targetType },
     })
   }
+
+  // Auto-flip the target to "under review" if this report crosses the trigger
+  // (one verified reporter, or two of anyone). Best-effort — never fails the
+  // report.
+  await evaluateUnderReview({
+    targetType,
+    targetId: body.targetId ?? null,
+    reportedId: body.reportedId ?? null,
+    reporterId: user.id,
+  })
 
   return NextResponse.json({
     success: true,

@@ -7,6 +7,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import PasswordInput from '@/components/ui/PasswordInput'
 import { submitJson } from '@/lib/submit'
 
 // Password reset, two ways in.
@@ -286,9 +287,8 @@ export default function ForgotPasswordForm() {
                   <label htmlFor="newPassword" className="text-xs font-bold text-tm-navy">
                     New password
                   </label>
-                  <input
+                  <PasswordInput
                     id="newPassword"
-                    type="password"
                     required
                     minLength={8}
                     autoComplete="new-password"

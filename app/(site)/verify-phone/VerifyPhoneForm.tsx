@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { STUCK_MESSAGE, armEscape, submitJson, submitSignal } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
 import { formatPkMobile } from '@/lib/phone'
+import { useToast } from '@/components/ui/Toast'
 
 // The code entry itself.
 //
@@ -19,10 +20,20 @@ import { formatPkMobile } from '@/lib/phone'
 // has been signed in since the moment the account was created, and bouncing
 // them to a sign-in form would ask them to prove something they just proved.
 
-const RESEND_COOLDOWN_SECONDS = 60
+// Five minutes (owner, Sunday 6 Sep). The button shows a live mm:ss countdown
+// and re-enables itself when it reaches zero; the server enforces the same
+// window (lib/otp RESEND_COOLDOWN_MS), so this is presentation of a real limit.
+const RESEND_COOLDOWN_SECONDS = 5 * 60
+
+function mmss(total: number): string {
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
 
 export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home: string }) {
   const router = useRouter()
+  const toast = useToast()
 
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -65,6 +76,10 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
       setBusy(false)
       return
     }
+
+    // No silent successes: confirm the number is verified before we navigate.
+    // The toast provider lives in the root layout, so it survives the push.
+    toast.success('Number verified.')
 
     // The number is verified whatever happens next, so a stalled navigation
     // must not read as a failed verification -- the member would ask for
@@ -194,7 +209,7 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
           disabled={busy || cooldown > 0}
           className="flex min-h-[44px] items-center justify-center rounded-xl px-3 text-xs font-bold text-tm-navy hover:underline disabled:text-gray-500 disabled:no-underline"
         >
-          {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+          {cooldown > 0 ? `Resend code in ${mmss(cooldown)}` : 'Resend code'}
         </button>
 
         <button

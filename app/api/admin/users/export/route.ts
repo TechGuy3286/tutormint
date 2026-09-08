@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
   const members = await allMembersForExport(filters)
 
-  const header = ['Name', 'Role', 'Mobile', 'WhatsApp', 'City', 'Plan', 'Verification', 'Joined']
+  const header = ['Name', 'Role', 'Mobile', 'WhatsApp', 'City', 'Plan', 'Verification', 'Phone verified via', 'Status', 'Joined']
   const lines = [header.join(',')]
   for (const m of members) {
     lines.push(
@@ -51,6 +51,9 @@ export async function GET(request: Request) {
         csvCell(m.city),
         csvCell(m.plan ?? 'No plan'),
         csvCell(m.verified ? 'Verified' : 'Not verified'),
+        // 'bridge' marks accounts proved by the BRIDGE_OTP stopgap.
+        csvCell(m.phoneVerifiedVia ?? ''),
+        csvCell(m.banned ? 'Banned' : m.suspended ? 'Suspended' : 'Active'),
         csvCell(m.createdAt ? m.createdAt.slice(0, 10) : ''),
       ].join(','),
     )

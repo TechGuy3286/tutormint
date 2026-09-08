@@ -58,6 +58,10 @@ export const NOTIFICATION_GROUPS = {
     // Conversion roll-ups (Part 3): the weekly view teaser and the quota nudge.
     'viewer_weekly_teaser',
     'quota_nudge',
+    // Part 4 — official Team message, and the report-driven review states.
+    'admin_message',
+    'under_review',
+    'under_review_cleared',
   ],
 } as const
 

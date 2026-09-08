@@ -3009,3 +3009,94 @@ matrix, and the Part 3 migration-56 paragraph — wherever they differ.**
 - Premium's exclusive reasons to upgrade remain the three it owns alone: 25
   applications against 10, WhatsApp to parents, and search priority. Featured
   adds parent contact details on the profile.
+
+## Auth & trust decisions (owner, Sunday 6 Sep)
+
+- Signup identifier is ONE field, Facebook-style: "Mobile number or email" — digits → mobile path (OTP), address → email path (confirmation link). Email/mobile can be added later in settings; the register form stays five things: role radios, full name, identifier, password, consent.
+- OTP: 6 digits, 10-min validity, 5 attempts; Resend sits behind a visible 5-minute countdown and auto-reactivates.
+- Bridge OTP: until the owner's third-party OTP API is enabled, env BRIDGE_OTP (allowed in production, separate from DEV_DEFAULT_OTP whose production guard stays) makes that code verify any signup. Accounts verified this way are tagged phone_verified_via='bridge' (visible in admin + a column in the CSV export). When the real provider lands: remove BRIDGE_OTP, bridge-verified users re-verify once on next login.
+- Login: "Remember me" checkbox (checked = persistent session as now; unchecked = session cookie only) and show/hide-password eye on EVERY password field platform-wide.
+- No silent successes: every completed action shows explicit confirmation (toast or screen) — password reset, profile step saved, job posted, application sent, message sent, payment submitted, verification submitted, OTP verified.
+- Admin → member messaging: "Send message" on member pages and queue drawers; delivers as an official in-app notification + thread from "TutorMint Team" (system-styled) + email. Template library (owner/manager editable) seeded with: CNIC unclear, address untraceable, job reported/under review, video re-record ({reason}), profile-completion nudge, payment received/approved. Placeholders auto-fill ({name}, {job_title}); body editable before send; every send audit-logged + on the member timeline; member replies land in an admin support inbox view.
+- Report-driven states: a job (or tutor profile) with an open report flips to "Under Review" — amber sticker on card + detail, applications paused (Apply disabled with "This job is under review", NOT an upgrade sheet), profile temporarily delisted from search. Auto-trigger: 1 report from a verified member or 2 from anyone. Resolution either clears (reopen + canned notification) or upholds (remove/penalise via existing flows). False reporters accumulate penalties.
+- Fraud bans: status 'banned' distinct from 'suspended' (banned = permanent, owner/manager only, audit-logged, shows on timeline). Banned login is refused with: "Your account has been banned due to fraudulent activities. Please contact support." + support link; no session created. The banned account's mobile and CNIC go on an internal blocklist checked at signup and at claim. Terms gain the clause: fraud, scams, impersonation, fake documents, or payment deception → immediate permanent termination without prior notice, active plan forfeited without refund; TutorMint may preserve evidence and cooperate with law enforcement.
+
+### As built (Part 4, 8 Sep 2026)
+
+Migration 58 (additive; applied to the one database, backup of the view defs
+taken first). Gates at close: tsc 0 · build 0 · check:contrast 89 · rls:audit
+**174/174** · all suites pass.
+
+**Single-identifier signup.** `/register` is five fields: role, full name, one
+"Mobile number or email" identifier, password, consent. `/api/auth/register`
+branches: digits → the mobile/OTP path exactly as before (synthetic email,
+`phone_gate_required`, first code, `/verify-phone`); an address → `supabase.auth
+.signUp` (unconfirmed, no session, no phone gate) and `/verify-email`, a
+"check your inbox" screen. The email path's confirmation link needs SMTP on the
+project (the same open owner item password-reset email waits on) — the account
+is created and the screen is honest, but the link cannot arrive until SMTP is
+set. The register form's helper text adapts as you type.
+
+**OTP: 5-minute resend, mm:ss.** `RESEND_COOLDOWN_MS` is 5 minutes; the button
+shows a live `m:ss` countdown and re-enables at zero, on `/verify-phone` and the
+parent settings mobile card. 10-minute validity and 5 attempts unchanged.
+
+**Bridge OTP.** `BRIDGE_OTP` (`lib/sms.ts` `bridgeOtpCode()`) is a SEPARATE env
+from `DEV_DEFAULT_OTP` and is DELIBERATELY allowed in production — it fills the
+gap until a real SMS provider exists. `verifyOtp` accepts it and returns
+`bridged: true`; the OTP route then tags `profiles.phone_verified_via = 'bridge'`
+(else `'otp'`). `sendOtp` skips the (unconfigured) provider while the bridge is
+live. `DEV_DEFAULT_OTP`'s three production guards are untouched — `assertOtpSafety`
+inspects only that variable, so the bridge does not trip the boot guard.
+Bridge-verified accounts are visible in admin (a chip) and the CSV, and the login
+route re-raises the phone gate for a bridge-verified account once `BRIDGE_OTP` is
+removed, so they re-verify once with a real code.
+
+**Remember me + password eyes.** `lib/sessionCookies.ts` + a `tm_persist=0`
+flag cookie: unchecked remember-me strips maxAge/expires from the sb-* auth
+cookies (session cookies), honoured at login AND on every refresh
+(`lib/supabase/server.ts` + `proxy.ts`), so it survives token refresh.
+`components/ui/PasswordInput.tsx` is the one show/hide field — on register,
+login, forgot-password and the forced-change screen (and the tutor settings
+change-password block).
+
+**No silent successes.** Added explicit confirmation to the four hard silent
+flows — forced password change, job posted, payment submitted, OTP verified —
+and the two borderline ones (parent avatar auto-save, `ApplyFromStrip`). The
+inline-banner flows (tutor/parent settings save, tutor video submit, parent
+verify) already confirmed and were left.
+
+**Admin → member messaging (dedicated store).** `admin_messages` +
+`admin_message_templates`, NOT the member↔member `threads` table — that keeps
+the "no chat-browsing screen" privacy line true by construction: `/admin/inbox`
+only ever reads official Team↔member messages. `sendAdminMessage` does the three
+things the spec names — an `admin_message` notification, the thread, and an email
+(`admin_message` template, essential) — plus an audit row (`member.message`) and
+a member-timeline entry (`admin_message_received`). Seven templates seeded
+(`{name}`/`{job_title}`/`{reason}` placeholders), owner/manager editable in the
+inbox; the body is editable before send. The member reads and replies at
+`/account/messages`; replies land in `/admin/inbox`. No fake system auth user
+exists — the member always sees "TutorMint Team", never the acting admin.
+
+**Report-driven Under Review.** `jobs.under_review` / `tutor_profiles.under_review`
+booleans (not a new enum value). `lib/underReview.ts` flips a target to under
+review when a report crosses the trigger (one VERIFIED reporter, or two of
+anyone), notifies the owner, and the two listing views exclude under-review
+tutors from browse/search (a job stays visible with an amber sticker; a tutor is
+delisted). Apply is paused server-side in `lib/applications.ts` with a plain
+message and NO gate (not an upgrade sheet). Resolving the report clears the flag:
+a dismiss reopens + notifies + records a `report_penalty` against the reporter
+(false reporters accumulate penalties); an uphold clears it while the sanction
+carries on. Ban is a queue action too (owner/manager).
+
+**Ban system.** `profiles.is_banned` quartet, mirroring `is_suspended`.
+`banMember`/`unbanMember` in `lib/moderation.ts`: ban is owner/manager with a
+typed-"BAN" confirmation, adds the mobile + hashed CNIC to `signup_blocklist`,
+and is refused at login with the exact message and NO session (the login route
+signs out again). `getEntitlements` short-circuits a banned account to nothing.
+Unban is owner only and clears the blocklist rows. `signup_blocklist` is checked
+at signup and at claim. CNIC is stored as a sha256 hash, never in the clear.
+
+**Terms.** The fraud clause (permanent termination, plan forfeited without
+refund, evidence preserved, blocklist) is in the "Warnings, suspension and
+closing accounts" section; the messaging-consent line was already present.

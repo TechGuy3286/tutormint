@@ -216,6 +216,12 @@ export default async function TuitionPage({ params }: { params: Params }) {
       <article className="relative space-y-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
         {job.is_featured && <FeaturedTag className="absolute right-3 top-3 sm:right-4 sm:top-4" />}
 
+        {job.under_review && (
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-gold px-3 py-1 text-[11px] font-black uppercase tracking-wide text-tm-gold-ink">
+            Under review
+          </p>
+        )}
+
         <header className="space-y-2 pr-16 sm:pr-20">
           <h1 className="text-xl font-black leading-snug text-tm-navy sm:text-2xl">{job.title}</h1>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
@@ -306,6 +312,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
               title={job.title}
               signedIn={!!user}
               applied={applied}
+              underReview={!!job.under_review}
             />
           </div>
         )}

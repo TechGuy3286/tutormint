@@ -10,6 +10,14 @@ import Avatar from '@/components/Avatar'
 import FileUpload from '@/components/FileUpload'
 import { CITIES, CITY_AREAS } from '@/lib/locations'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/ui/Toast'
+import { looksLikeEmail } from '@/lib/phone'
+
+function mmss(total: number): string {
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
 
 // Everything a parent can change about themselves.
 //
@@ -24,6 +32,8 @@ export type ParentSettings = {
   avatarUrl: string | null
   phone: string
   phoneVerified: boolean
+  /** The real address, or '' when the account only has a synthetic mobile one. */
+  email: string
   city: string
   area: string
   address: string
@@ -36,6 +46,35 @@ const LABEL = 'text-xs font-bold text-tm-navy'
 export default function SettingsClient({ initial }: { initial: ParentSettings }) {
   const router = useRouter()
   const supabase = createClient()
+  const toast = useToast()
+
+  // ---------------------------------------------------------------- email ---
+  const [email, setEmail] = useState(initial.email)
+  const [emailBusy, setEmailBusy] = useState(false)
+  const emailChanged = email.trim().toLowerCase() !== initial.email.trim().toLowerCase()
+
+  const saveEmail = async () => {
+    setEmailBusy(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/account/email', {
+        signal: submitSignal(),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Could not save that email.')
+      toast.success(initial.email ? 'Email updated.' : 'Email added.')
+      router.refresh()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not save that email.'
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setEmailBusy(false)
+    }
+  }
 
   const [fullName, setFullName] = useState(initial.fullName)
   const [city, setCity] = useState(initial.city)
@@ -108,6 +147,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
     const json = await res.json()
     if (!res.ok) throw new Error(json.error ?? 'Could not save that picture.')
     setAvatarUrl(data.publicUrl)
+    toast.success('Photo updated.')
     router.refresh()
   }
 
@@ -126,7 +166,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
       return
     }
     setOtpSent(true)
-    setCooldown(60)
+    setCooldown(5 * 60)
     setOtpMsg(json.devBypassActive ? 'Development mode: use the DEV_DEFAULT_OTP code.' : 'Code sent.')
   }
 
@@ -297,7 +337,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
               disabled={cooldown > 0 || phone.replace(/\D/g, '').length < 10}
               className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-tm-navy disabled:opacity-50 sm:w-auto"
             >
-              {cooldown > 0 ? `Resend in ${cooldown}s` : otpSent ? 'Resend code' : 'Send code'}
+              {cooldown > 0 ? `Resend in ${mmss(cooldown)}` : otpSent ? 'Resend code' : 'Send code'}
             </button>
             {otpSent && (
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -323,6 +363,33 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
           </div>
         )}
         {otpMsg && <p className="text-[11px] font-semibold text-tm-green-deep">{otpMsg}</p>}
+      </Card>
+
+      {/* --------------------------------------------------------- email --- */}
+      <Card
+        title={initial.email ? 'Email address' : 'Add an email'}
+        hint="For receipts and reminders — and you can sign in with it too. Your mobile number keeps working either way."
+      >
+        <label className="block space-y-1">
+          <span className={LABEL}>Email</span>
+          <input
+            value={email}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@example.com"
+            className={FIELD}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={saveEmail}
+          disabled={emailBusy || !emailChanged || !looksLikeEmail(email.trim())}
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-tm-navy disabled:opacity-50"
+        >
+          {emailBusy ? 'Saving…' : initial.email ? 'Update email' : 'Add email'}
+        </button>
       </Card>
     </div>
   )

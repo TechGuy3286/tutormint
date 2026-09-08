@@ -37,13 +37,19 @@ export async function applyToJob(params: {
 
   const { data: job } = await supabase
     .from('jobs')
-    .select('id, parent_id, status, title, job_tx_id')
+    .select('id, parent_id, status, title, job_tx_id, under_review')
     .eq('id', params.jobId)
     .maybeSingle()
 
   if (!job) return { ok: false, status: 404, error: 'Job not found.' }
   if (job.status !== 'open') {
     return { ok: false, status: 400, error: 'This job is no longer accepting applications.' }
+  }
+  // Under review: applications are paused while a report is checked. NO gate is
+  // attached — this is not an upgrade opportunity, so the button shows the plain
+  // message rather than the upgrade sheet (owner, Sunday 6 Sep).
+  if (job.under_review) {
+    return { ok: false, status: 403, error: 'This job is under review and is not accepting applications right now.' }
   }
 
   // 0. A parent pressing Apply is not an edge case worth a tutor-shaped

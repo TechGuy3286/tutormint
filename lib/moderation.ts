@@ -21,6 +21,8 @@ import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { applyPlanFlags } from '@/lib/payments/activate'
+import { addToBlocklist, removeFromBlocklistBySource } from '@/lib/blocklist'
+import { normalisePkMobile } from '@/lib/phone'
 import type { AdminRole } from '@/lib/adminAuth'
 
 export type Actor = { id: string; adminRole: AdminRole; email: string | null }
@@ -261,6 +263,155 @@ export async function unsuspendMember(params: {
   await logActivity({
     userId: params.userId,
     event: 'unsuspended',
+    targetType: 'profile',
+    targetId: params.userId,
+    meta: { reason: params.reason },
+  })
+
+  return { ok: true }
+}
+
+/**
+ * Ban a member — a PERMANENT status distinct from suspension (owner, Sunday 6
+ * Sep). Where suspension is a reversible pause, a ban is for fraud: the account
+ * is closed, its mobile and CNIC go on the signup/claim blocklist so the same
+ * person cannot simply re-register, and the login route refuses it outright
+ * with no session. Owner/manager only (enforced by the calling route).
+ *
+ * Nothing is deleted here either — a ban is still a row update, and unban
+ * reverses it — but a banned account is closed for good in every path that
+ * consults it: getEntitlements returns nothing, both listing views exclude it,
+ * and login is walled.
+ */
+export async function banMember(params: {
+  userId: string
+  reason: string
+  actor: Actor
+}): Promise<ModerationResult> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
+  const { data: target } = await admin
+    .from('profiles')
+    .select('id, role, admin_role, is_banned, phone_number, cnic_number')
+    .eq('id', params.userId)
+    .maybeSingle()
+  if (!target) return { ok: false, status: 404, error: 'Member not found.' }
+
+  if (target.admin_role === 'owner') {
+    return { ok: false, status: 403, error: 'The owner account cannot be banned.' }
+  }
+  if (target.id === params.actor.id) {
+    return { ok: false, status: 400, error: 'You cannot ban your own account.' }
+  }
+  if (target.is_banned) return { ok: true, alreadyInState: true }
+
+  const now = new Date().toISOString()
+  const { error } = await admin
+    .from('profiles')
+    .update({
+      is_banned: true,
+      banned_at: now,
+      banned_reason: params.reason,
+      banned_by: params.actor.id,
+    })
+    .eq('id', params.userId)
+  if (error) return { ok: false, status: 400, error: error.message }
+
+  // The mobile and (hashed) CNIC go on the blocklist so a fresh signup or claim
+  // with the same identity is refused.
+  await addToBlocklist({
+    mobile: normalisePkMobile(target.phone_number as string | null),
+    cnic: (target.cnic_number as string | null) ?? null,
+    reason: params.reason,
+    sourceUserId: params.userId,
+    createdBy: params.actor.id,
+  })
+
+  await admin.from('penalties_log').insert({
+    user_id: params.userId,
+    kind: 'ban',
+    reason: params.reason,
+    issued_by: params.actor.id,
+  })
+
+  await logAdminAction({
+    actorId: params.actor.id,
+    actorRole: params.actor.adminRole,
+    actorEmail: params.actor.email,
+    action: 'member.ban',
+    targetType: 'profile',
+    targetId: params.userId,
+    detail: { reason: params.reason, role: target.role },
+  })
+
+  // On the member's own timeline (it is shown in admin). No notification: a
+  // banned account has no session and cannot read one.
+  await logActivity({
+    userId: params.userId,
+    event: 'banned',
+    targetType: 'profile',
+    targetId: params.userId,
+    meta: { reason: params.reason },
+  })
+
+  return { ok: true }
+}
+
+/** Reverse a ban. Owner only (enforced by the route). */
+export async function unbanMember(params: {
+  userId: string
+  reason: string
+  actor: Actor
+}): Promise<ModerationResult> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
+  const { data: target } = await admin
+    .from('profiles')
+    .select('id, role, is_banned')
+    .eq('id', params.userId)
+    .maybeSingle()
+  if (!target) return { ok: false, status: 404, error: 'Member not found.' }
+  if (!target.is_banned) return { ok: true, alreadyInState: true }
+
+  const { error } = await admin
+    .from('profiles')
+    .update({ is_banned: false, banned_at: null, banned_reason: null, banned_by: null })
+    .eq('id', params.userId)
+  if (error) return { ok: false, status: 400, error: error.message }
+
+  // Let the identity through signup/claim again.
+  await removeFromBlocklistBySource(params.userId)
+
+  await admin.from('penalties_log').insert({
+    user_id: params.userId,
+    kind: 'unban',
+    reason: params.reason,
+    issued_by: params.actor.id,
+  })
+
+  await notify({
+    userId: params.userId,
+    kind: 'account_reinstated',
+    title: 'Your account has been reinstated',
+    body: 'You can sign in again. Everything is where you left it.',
+    href: target.role === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard',
+  })
+
+  await logAdminAction({
+    actorId: params.actor.id,
+    actorRole: params.actor.adminRole,
+    actorEmail: params.actor.email,
+    action: 'member.unban',
+    targetType: 'profile',
+    targetId: params.userId,
+    detail: { reason: params.reason, role: target.role },
+  })
+
+  await logActivity({
+    userId: params.userId,
+    event: 'unbanned',
     targetType: 'profile',
     targetId: params.userId,
     meta: { reason: params.reason },

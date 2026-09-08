@@ -26,6 +26,7 @@ export type AdminScreen =
   | 'payments'
   | 'plans'
   | 'reports'
+  | 'inbox'
   | 'audit'
   | 'ads'
   | 'social'
@@ -75,6 +76,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Trust',
     items: [
       { href: '/admin/reports', label: 'Reports', icon: 'flag', screen: 'reports' },
+      { href: '/admin/inbox', label: 'Team inbox', icon: 'mail', screen: 'inbox' },
       { href: '/admin/audit', label: 'Audit', icon: 'scroll', screen: 'audit' },
     ],
   },

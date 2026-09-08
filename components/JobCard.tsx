@@ -57,6 +57,8 @@ export type JobCardData = {
   description: string | null
   created_at: string
   is_featured: boolean | null
+  /** Paused while a report is checked: amber sticker, Apply disabled. */
+  under_review?: boolean | null
   parent_id: string | null
   parent_name: string | null
   parent_avatar_url: string | null
@@ -95,6 +97,7 @@ export default function JobCard({
   // "View details" on the platform went to the unfiltered browse list --
   // which is to say, back to the page the reader was already on.
   const detailHref = href ?? tuitionPath(job)
+  const underReview = !!job.under_review
 
   const apply = async () => {
     if (!signedIn) return setGateOpen(true)
@@ -127,6 +130,11 @@ export default function JobCard({
         {job.is_featured && <FeaturedTag className="absolute right-3 top-3 sm:right-4 sm:top-4" />}
 
         <div className="space-y-3">
+          {underReview && (
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-gold px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-tm-gold-ink">
+              Under review
+            </p>
+          )}
           <div className="space-y-1 pr-16 sm:pr-20">
             <h3 className="text-base font-black leading-snug text-tm-navy sm:text-lg">
               {/* min-h-[44px], not py-0.5: the title is the thing people tap on
@@ -268,11 +276,15 @@ export default function JobCard({
                     ? [
                         {
                           key: 'apply',
-                          label: state === 'done' ? 'Applied' : state === 'sending' ? 'Sending…' : 'Apply',
+                          label: underReview
+                            ? 'Under review'
+                            : state === 'done' ? 'Applied' : state === 'sending' ? 'Sending…' : 'Apply',
                           icon: <Send aria-hidden size={14} />,
                           className: 'bg-tm-red text-white hover:bg-tm-red-hover disabled:bg-gray-300',
-                          onClick: apply,
-                          disabled: state !== 'idle',
+                          // Under review pauses applications — the button says so
+                          // and does nothing (the server refuses regardless).
+                          onClick: underReview ? () => {} : apply,
+                          disabled: underReview || state !== 'idle',
                         } as CardAction,
                       ]
                     : []),

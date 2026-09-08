@@ -20,6 +20,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { UTM_COOKIE, UTM_MAX_AGE_SECONDS, encodeUtm, readUtmFromUrl } from '@/lib/utm'
 import { ANON_COOKIE, ANON_MAX_AGE_SECONDS, newAnonId } from '@/lib/anonSession'
+import { PERSIST_COOKIE, persistOffFrom, applySessionPersistence } from '@/lib/sessionCookies'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
 // return screen). Every page under it reads the signed-in member's own
@@ -170,7 +171,14 @@ export async function proxy(request: NextRequest) {
         // nobody would think to test.
         captureUtm(request, response)
         captureAnon(request, response)
-        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+        // "Remember me" off: keep the refreshed sb-* cookies as session
+        // cookies, or a token refresh here would re-persist a session the
+        // member asked not to be remembered.
+        const persistOff = persistOffFrom(request.cookies.get(PERSIST_COOKIE)?.value)
+        cookiesToSet.forEach((cookie) => {
+          const { name, value, options } = applySessionPersistence(cookie, persistOff)
+          response.cookies.set(name, value, options)
+        })
       },
     },
   })

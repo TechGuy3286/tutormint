@@ -94,6 +94,8 @@ export type Entitlements = {
    * restores exactly what they had.
    */
   suspended: boolean
+  /** Permanently banned (fraud). Every power is off; login is walled elsewhere. */
+  banned: boolean
 }
 
 const NOTHING = (userId: string): Entitlements => ({
@@ -121,6 +123,7 @@ const NOTHING = (userId: string): Entitlements => ({
   planPaused: false,
   pausedPlanName: null,
   suspended: false,
+  banned: false,
 })
 
 /** YYYY-MM — the period usage_counters is keyed by. */
@@ -161,7 +164,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
 
   const { data: profile } = await db
     .from('profiles')
-    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended')
+    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended, is_banned')
     .eq('id', userId)
     .maybeSingle()
 
@@ -218,6 +221,21 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
   // upgrade sheet -- while being invisible in the directory, so they were told
   // to 'complete your profile' at 100% completion. Treating either as
   // suspended means no path can miss one, whichever flag a row carries.
+  // A ban closes everything the same way suspension does — the login route
+  // already refuses a banned account, so this is the backstop for a session
+  // that was live when the ban landed.
+  if (profile.is_banned) {
+    return {
+      ...NOTHING(userId),
+      role,
+      audience,
+      profileComplete,
+      profileCompletion,
+      suspended: true,
+      banned: true,
+    }
+  }
+
   const suspendedByProfile = !!profile.is_suspended
   const suspendedByListing = tutorRow?.verification_status === 'suspended'
 
@@ -331,6 +349,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     planPaused: false,
     pausedPlanName: null,
     suspended: false,
+    banned: false,
   }
 }
 

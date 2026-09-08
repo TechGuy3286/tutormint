@@ -4,6 +4,7 @@ import { submitSignal } from '@/lib/submit'
 
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
+import { useToast } from '@/components/ui/Toast'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Loader2, Info } from 'lucide-react'
@@ -112,6 +113,7 @@ export default function JobForm({
   mode?: 'create' | 'edit'
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [v, setV] = useState<JobFormValues>({ ...EMPTY, ...initial })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -269,6 +271,9 @@ export default function JobForm({
         return
       }
 
+      // No silent successes: confirm before landing on the job. The toast
+      // provider is in the root layout, so it survives the navigation.
+      toast.success(mode === 'edit' ? 'Changes saved.' : 'Tuition posted.')
       router.push(
         mode === 'edit' ? `/parent/dashboard/job/${v.jobId}` : `/parent/dashboard/job/${r.data.jobTxId}`,
       )

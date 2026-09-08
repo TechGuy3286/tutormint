@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z } from '@/lib/validate'
+import { checkBlocklist } from '@/lib/blocklist'
+import { normalisePkMobile } from '@/lib/phone'
 
 // Claim an imported profile.
 //
@@ -79,9 +81,21 @@ export async function POST(request: Request) {
   if (body.action === 'finish') {
     const { data: profile } = await admin
       .from('profiles')
-      .select('must_change_password, phone_verified_at')
+      .select('must_change_password, phone_verified_at, phone_number, cnic_number')
       .eq('id', user.id)
       .maybeSingle()
+
+    // A banned person's mobile/CNIC cannot claim an imported profile either.
+    const blocked = await checkBlocklist({
+      mobile: normalisePkMobile(profile?.phone_number as string | null),
+      cnic: (profile?.cnic_number as string | null) ?? null,
+    })
+    if (blocked) {
+      return NextResponse.json(
+        { error: 'This profile cannot be claimed with these details. Please contact support.' },
+        { status: 403 },
+      )
+    }
 
     if (profile?.must_change_password) {
       return NextResponse.json(

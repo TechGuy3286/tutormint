@@ -14,6 +14,7 @@ import {
   Gauge,
   GraduationCap,
   KeyRound,
+  Mail,
   Megaphone,
   Menu,
   Newspaper,
@@ -66,6 +67,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
   search: Search,
   newspaper: Newspaper,
   listChecks: ListChecks,
+  mail: Mail,
 }
 
 const COOKIE = 'tm_admin_nav'

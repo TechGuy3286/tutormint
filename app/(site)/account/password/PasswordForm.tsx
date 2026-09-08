@@ -4,10 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import SubmitEscape from '@/components/SubmitEscape'
+import PasswordInput from '@/components/ui/PasswordInput'
+import { useToast } from '@/components/ui/Toast'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 
 export default function PasswordForm({ next }: { next: string | null }) {
   const router = useRouter()
+  const toast = useToast()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -24,6 +27,10 @@ export default function PasswordForm({ next }: { next: string | null }) {
       setBusy(false)
       return
     }
+
+    // No silent successes: confirm before we navigate. The toast provider is
+    // in the root layout, so it survives the push to the next page.
+    toast.success('Password updated.')
 
     // The password IS changed by this point. A stalled navigation must not
     // read as a failure -- somebody who sets it again would be told their new
@@ -44,8 +51,7 @@ export default function PasswordForm({ next }: { next: string | null }) {
     <form onSubmit={submit} className="space-y-4">
       <label className="block space-y-1">
         <span className="text-xs font-bold text-tm-navy">New password</span>
-        <input
-          type="password"
+        <PasswordInput
           required
           autoComplete="new-password"
           value={password}
@@ -60,8 +66,7 @@ export default function PasswordForm({ next }: { next: string | null }) {
 
       <label className="block space-y-1">
         <span className="text-xs font-bold text-tm-navy">Type it again</span>
-        <input
-          type="password"
+        <PasswordInput
           required
           autoComplete="new-password"
           value={confirm}
