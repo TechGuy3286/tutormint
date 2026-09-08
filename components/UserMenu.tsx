@@ -159,6 +159,7 @@ export default function UserMenu({
               return (
                 <Link
                   key={`${item.href}-${item.label}`}
+                  prefetch={false}
                   href={item.href}
                   role="menuitem"
                   onClick={() => setOpen(false)}

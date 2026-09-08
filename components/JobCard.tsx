@@ -142,6 +142,7 @@ export default function JobCard({
                   inline-flex rather than block so a two-line title still wraps
                   and the box grows with it. */}
               <Link
+                prefetch={false}
                 href={detailHref}
                 className="inline-flex min-h-[44px] items-center py-1 hover:underline"
               >
@@ -174,6 +175,7 @@ export default function JobCard({
                       four buttons on a TutorCard carry it. */}
                   {job.parent_id ? (
                     <Link
+                      prefetch={false}
                       href={`/parent/${job.parent_id}`}
                       className="relative z-10 inline-flex min-h-[24px] items-center font-semibold text-slate-700 hover:text-tm-red hover:underline"
                     >
@@ -200,6 +202,7 @@ export default function JobCard({
                 return link ? (
                   <Link
                     key={s}
+                    prefetch={false}
                     href={
                       link.href ??
                       `/browse/tutors?subject=${link.masterId}${job.city ? `&city=${encodeURIComponent(job.city)}` : ''}`

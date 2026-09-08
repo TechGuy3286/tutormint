@@ -209,6 +209,7 @@ export default function NotificationBell({
                   </button>
                 )}
                 <Link
+                  prefetch={false}
                   href="/account/notifications"
                   onClick={() => setOpen(false)}
                   className="text-[11px] font-bold text-tm-red hover:underline"
@@ -239,6 +240,7 @@ export default function NotificationBell({
                 <p className="text-xs font-bold text-tm-navy">Nothing yet</p>
                 <p className="text-xs leading-relaxed text-gray-500">{emptyHint}</p>
                 <Link
+                  prefetch={false}
                   href={emptyAction.href}
                   onClick={() => setOpen(false)}
                   className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-4 text-xs font-bold text-white transition-colors hover:bg-tm-navy"
@@ -300,6 +302,7 @@ function NotificationLine({ row, onNavigate }: { row: NotificationRow; onNavigat
   return row.href ? (
     <div>
       <Link
+        prefetch={false}
         href={row.href}
         onClick={onNavigate}
         className={`block min-h-[44px] px-4 pb-1 pt-3 transition-colors hover:bg-tm-bg ${frame}`}

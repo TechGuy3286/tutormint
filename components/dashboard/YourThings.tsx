@@ -75,6 +75,7 @@ export default function YourThings({ rows }: { rows: ThingRow[] }) {
           return (
             <li key={r.key}>
               <Link
+                prefetch={false}
                 href={r.href}
                 className={`flex min-h-[44px] items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 transition-colors ${
                   r.highlight

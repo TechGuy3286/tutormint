@@ -40,7 +40,7 @@ function ActionButton({ a }: { a: CardAction }) {
   )
   if (a.href) {
     return (
-      <Link href={a.href} className={`${BTN} ${a.className}`}>
+      <Link prefetch={false} href={a.href} className={`${BTN} ${a.className}`}>
         {content}
       </Link>
     )
@@ -118,6 +118,7 @@ export default function CardActions({
                 a.href ? (
                   <Link
                     key={a.key}
+                    prefetch={false}
                     href={a.href}
                     role="menuitem"
                     onClick={() => setOpen(false)}

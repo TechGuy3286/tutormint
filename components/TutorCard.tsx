@@ -132,6 +132,7 @@ function DetailLine({
 function InlineLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
+      prefetch={false}
       href={href}
       className="relative z-10 font-semibold text-slate-700 underline decoration-gray-200 underline-offset-2 hover:text-tm-red hover:decoration-tm-red"
     >
@@ -298,6 +299,7 @@ export default function TutorCard({
                   It is also ONE tab stop: the card announces itself as the
                   tutor's name and the four controls follow it in order. */}
               <Link
+                prefetch={false}
                 href={profileHref}
                 className="inline-flex min-h-[44px] items-center py-0.5 after:absolute after:inset-0 after:rounded-2xl after:content-[''] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-navy"
               >

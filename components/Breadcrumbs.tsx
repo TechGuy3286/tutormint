@@ -105,6 +105,7 @@ export default function Breadcrumbs({
       <div className="sm:flex sm:items-center sm:gap-2">
         {parent && (
           <Link
+            prefetch={false}
             href={backHref}
             className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 pr-3 text-xs font-bold text-tm-navy hover:underline sm:min-h-[32px] sm:pr-0"
           >
@@ -152,6 +153,7 @@ export default function Breadcrumbs({
                   </span>
                 ) : (
                   <Link
+                    prefetch={false}
                     href={c.href ?? '/'}
                     className="inline-flex min-h-[32px] min-w-0 items-center gap-1 whitespace-nowrap hover:text-tm-navy hover:underline"
                   >

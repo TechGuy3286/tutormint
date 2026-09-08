@@ -175,6 +175,7 @@ export default async function Footer() {
                   )}
                   <li>
                     <Link
+                      prefetch={false}
                       href="/support"
                       className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
                     >
@@ -262,6 +263,7 @@ function MobileSections({ columns }: { columns: LinkColumn[] }) {
               {links.map((l) => (
                 <li key={l.href + l.label}>
                   <Link
+                    prefetch={false}
                     href={l.href}
                     className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint"
                   >
@@ -299,6 +301,7 @@ function MobileSupport({ support }: { support: { email: string | null } }) {
         )}
         <li>
           <Link
+            prefetch={false}
             href="/support"
             className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint"
           >
@@ -328,6 +331,7 @@ function FooterColumn({ heading, links }: { heading: string; links: FooterLink[]
         {links.map((l) => (
           <li key={l.href + l.label}>
             <Link
+              prefetch={false}
               href={l.href}
               className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
             >
