@@ -22,6 +22,7 @@ import {
   Scroll,
   Search,
   Upload,
+  UserX,
   Users,
   Wallet,
   X,
@@ -68,6 +69,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
   newspaper: Newspaper,
   listChecks: ListChecks,
   mail: Mail,
+  userX: UserX,
 }
 
 const COOKIE = 'tm_admin_nav'

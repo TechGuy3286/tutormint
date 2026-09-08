@@ -5,6 +5,8 @@ import { notify } from '@/lib/notifications'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { deliverEmail } from '@/lib/notify'
+import { normalisePkMobile } from '@/lib/phone'
+import { whatsappHref } from '@/lib/support'
 import type { AdminRole } from '@/lib/adminAuth'
 
 // The official TutorMint Team ↔ member channel (owner, Sunday 6 Sep).
@@ -199,25 +201,62 @@ export async function loadInboxThreads(limit = 100): Promise<InboxThread[]> {
   return ids.map((id) => byMember.get(id)!).filter(Boolean)
 }
 
-/** Send an official message from the Team to a member (admin path). */
+/** The delivery channel for an official message. */
+export type AdminMessageChannel = 'inapp' | 'whatsapp'
+
+/**
+ * Send an official message from the Team to a member (admin path).
+ *
+ * `channel` chooses how it is delivered, and both channels share EVERYTHING
+ * else — the same template body, the same admin_messages thread record, the
+ * same audit log and the same member-timeline entry (owner, 9 Sep):
+ *
+ *   'inapp'    — the original: an in-app notification + an email (+ the record).
+ *   'whatsapp' — WhatsApp is the platform's live channel but there is no
+ *                outbound WhatsApp API here (SMS Point is OTP-only), so this
+ *                returns a wa.me link the ADMIN clicks to actually send. It does
+ *                NOT auto-send in-app/email — those are the other channel — but
+ *                it records, audits and timelines identically. Refused when the
+ *                member has no mobile on file: we never message a number the
+ *                member did not give.
+ */
 export async function sendAdminMessage(params: {
   memberId: string
   body: string
   templateKey?: string | null
+  channel?: AdminMessageChannel
   actor: { id: string; adminRole: AdminRole; email: string | null }
-}): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+}): Promise<{ ok: true; waHref?: string | null } | { ok: false; status: number; error: string }> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
 
+  const channel: AdminMessageChannel = params.channel ?? 'inapp'
   const body = params.body.trim()
   if (body.length < 2) return { ok: false, status: 400, error: 'Write a message.' }
 
   const { data: member } = await admin
     .from('profiles')
-    .select('id, full_name')
+    .select('id, full_name, phone_number, whatsapp')
     .eq('id', params.memberId)
     .maybeSingle()
   if (!member) return { ok: false, status: 404, error: 'Member not found.' }
+
+  // For WhatsApp we need a number the member actually gave. Prefer their stated
+  // WhatsApp number, fall back to their mobile; refuse if there is neither.
+  let waHref: string | null = null
+  if (channel === 'whatsapp') {
+    const msisdn =
+      normalisePkMobile(member.whatsapp as string | null) ??
+      normalisePkMobile(member.phone_number as string | null)
+    if (!msisdn) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'This member has no mobile number on file, so there is no WhatsApp to send to.',
+      }
+    }
+    waHref = whatsappHref(msisdn, body)
+  }
 
   const { error } = await admin.from('admin_messages').insert({
     member_id: params.memberId,
@@ -228,19 +267,22 @@ export async function sendAdminMessage(params: {
   })
   if (error) return { ok: false, status: 400, error: error.message }
 
-  // 1. In-app notification.
-  await notify({
-    userId: params.memberId,
-    kind: 'admin_message',
-    title: `Message from ${TEAM_NAME}`,
-    body: body.length > 140 ? `${body.slice(0, 137)}…` : body,
-    href: '/account/messages',
-  })
+  // The in-app channel also pushes a notification and an email. WhatsApp is
+  // delivered by the admin clicking the returned link, so it skips those — but
+  // the thread record above, the audit below and the timeline below are shared.
+  if (channel === 'inapp') {
+    await notify({
+      userId: params.memberId,
+      kind: 'admin_message',
+      title: `Message from ${TEAM_NAME}`,
+      body: body.length > 140 ? `${body.slice(0, 137)}…` : body,
+      href: '/account/messages',
+    })
+    await deliverEmail({ userId: params.memberId }, { id: 'admin_message', body })
+  }
 
-  // 2. Email (the thread itself is the admin_messages rows above).
-  await deliverEmail({ userId: params.memberId }, { id: 'admin_message', body })
-
-  // 3. Audit + member timeline.
+  // Audit + member timeline — the same for both channels, with the channel
+  // recorded so "sent on WhatsApp" is visible and reviewable.
   await logAdminAction({
     actorId: params.actor.id,
     actorRole: params.actor.adminRole,
@@ -248,17 +290,17 @@ export async function sendAdminMessage(params: {
     action: 'member.message',
     targetType: 'profile',
     targetId: params.memberId,
-    detail: { templateKey: params.templateKey ?? null, length: body.length },
+    detail: { templateKey: params.templateKey ?? null, length: body.length, channel },
   })
   await logActivity({
     userId: params.memberId,
     event: 'admin_message_received',
     targetType: 'profile',
     targetId: params.memberId,
-    meta: { templateKey: params.templateKey ?? null },
+    meta: { templateKey: params.templateKey ?? null, channel },
   })
 
-  return { ok: true }
+  return { ok: true, waHref }
 }
 
 /** A member's reply into their official conversation (member path). */

@@ -203,7 +203,11 @@ export default function TutorModerationClient({
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-black text-tm-navy truncate">{t.fullName}</p>
                   <p className="text-[11px] text-gray-500 truncate">
-                    {t.city ?? '—'} · {t.completion}% complete · {t.videoAttempts}/{MAX_ATTEMPTS} video
+                    {t.city ?? '—'} · {t.completion}% complete
+                    {t.completion < 100 && t.missing.length > 0
+                      ? ` · ${t.missing.length} item${t.missing.length === 1 ? '' : 's'} missing`
+                      : ''}{' '}
+                    · {t.videoAttempts}/{MAX_ATTEMPTS} video
                   </p>
                 </div>
                 <StatusPill status={t.verificationStatus} videoStatus={t.videoStatus} />
@@ -264,6 +268,28 @@ export default function TutorModerationClient({
               <Info label="City / area" value={`${open.city ?? '—'} / ${open.area ?? '—'}`} />
               <Info label="CNIC no." value={open.cnicNumber ?? '—'} />
             </dl>
+
+            {/* Why this tutor is not at 100% — the same checklist the tutor sees,
+                so an admin can tell them exactly what is outstanding. A tutor is
+                only listed at 100%, so this is the list of what keeps them
+                unfindable. */}
+            {open.completion < 100 && open.missing.length > 0 && (
+              <div className="rounded-xl border border-gray-200 bg-tm-bg p-3">
+                <p className="mb-1.5 text-[11px] font-black text-slate-700">
+                  Missing to reach 100% ({open.missing.length})
+                </p>
+                <ul className="flex flex-wrap gap-1.5">
+                  {open.missing.map((m) => (
+                    <li
+                      key={m.key}
+                      className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+                    >
+                      {m.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {open.headline && <p className="text-xs text-slate-700">{open.headline}</p>}
 

@@ -115,6 +115,11 @@ export const SCREEN_ACCESS = {
   jobs: ['manager', 'support'] as AdminRole[],
   jobsMutate: ['manager'] as AdminRole[],
   users: ['manager', 'support'] as AdminRole[],
+  // Orphaned accounts — auth users with no profiles row. A system-health view
+  // that exists because a dropped trigger hid 24 real signups for three days
+  // (see migration 59). Manager + support, the same eyes that work the member
+  // directory, since an orphan is a member who cannot be seen anywhere else.
+  orphans: ['manager', 'support'] as AdminRole[],
   // Exporting the member directory to CSV carries mobile numbers off the
   // platform, so it is owner + manager only — one rung above the read-only
   // directory (which support can see) — and every export is audit-logged.

@@ -21,6 +21,7 @@ export type AdminScreen =
   | 'tutors'
   | 'parents'
   | 'users'
+  | 'orphans'
   | 'team'
   | 'jobs'
   | 'payments'
@@ -61,6 +62,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Members',
     items: [
       { href: '/admin/users', label: 'Members', icon: 'contact', screen: 'users' },
+      { href: '/admin/orphans', label: 'Orphaned accounts', icon: 'userX', screen: 'orphans' },
       { href: '/admin/team', label: 'Team', icon: 'key', screen: 'team' },
     ],
   },
@@ -113,6 +115,7 @@ export const SECTION_LABELS: Record<string, string> = {
   reports: 'Reports',
   seo: 'SEO',
   landing: 'Landing pages',
+  orphans: 'Orphaned accounts',
   social: 'Social posts',
   team: 'Team',
   tutors: 'Tutors',

@@ -13,6 +13,7 @@ import NeedsYou from '@/components/dashboard/NeedsYou'
 import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
 import { getSessionUser } from '@/lib/auth'
 import { computeCompletion } from '@/lib/completion'
+import { checklistHref } from '@/lib/profileChecklist'
 import { recentActivity } from '@/lib/dashboardFeed'
 import { getEntitlements } from '@/lib/entitlements'
 import { jobsThisWeek, tutorPosition } from '@/lib/funnel'
@@ -103,7 +104,7 @@ export default async function TutorDashboardPage() {
       tutorNeeds({
         userId,
         ent,
-        completionPercent: percent,
+        completion,
         verificationStatus: (tutorProfile?.verification_status as string) ?? null,
         videoStatus: (tutorProfile?.video_status as string) ?? null,
         videoAttempts: (tutorProfile?.video_attempts as number) ?? 0,
@@ -247,7 +248,13 @@ export default async function TutorDashboardPage() {
           line={identityLine}
           planNotice={planNotice}
           completion={percent}
-          completionHref="/tutor/complete-profile"
+          completionHref={
+            // Straight to the first missing item, not the top of the form — a
+            // percentage is not an instruction. Full checklist is in Needs you.
+            completion?.missing?.[0]
+              ? checklistHref('tutor', completion.missing[0])
+              : '/tutor/complete-profile'
+          }
           editHref={
             tutorProfile?.slug
               ? { label: 'View your public profile', href: `/tutor/${tutorProfile.slug}` }

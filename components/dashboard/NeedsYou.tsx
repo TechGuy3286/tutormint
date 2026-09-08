@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { AlertTriangle, ArrowRight, CheckCircle2, Clock } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Check, CheckCircle2, Clock, Plus } from 'lucide-react'
 
 import DismissNeed from '@/components/dashboard/DismissNeed'
 import type { NeedRow } from '@/lib/needsYou'
@@ -44,10 +44,8 @@ export default function NeedsYou({
           {rows.map((r) => {
             const Icon = r.tone === 'urgent' ? AlertTriangle : Clock
             return (
-              <li
-                key={r.id}
-                className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-              >
+              <li key={r.id} className="p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="flex min-w-0 items-start gap-2.5">
                   <Icon
                     aria-hidden
@@ -81,6 +79,40 @@ export default function NeedsYou({
                     <DismissNeed subscriptionId={r.dismissSubscriptionId} />
                   )}
                 </div>
+                </div>
+
+                {/* The itemised checklist: what is done, what is not. A
+                    percentage is not an instruction — this is. Each incomplete
+                    item is a direct link to the step that fixes it; done items
+                    are shown ticked so progress is visible. */}
+                {r.checklist && r.checklist.length > 0 && (
+                  <ul className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {r.checklist.map((c) =>
+                      c.done ? (
+                        <li
+                          key={c.key}
+                          className="flex items-center gap-2 rounded-lg bg-tm-tint-green px-2.5 py-2 text-[11px] font-semibold text-tm-green-deep"
+                        >
+                          <Check aria-hidden size={13} className="shrink-0" />
+                          <span className="min-w-0 truncate">{c.label}</span>
+                        </li>
+                      ) : (
+                        <li key={c.key}>
+                          <Link
+                            href={c.href}
+                            className="flex min-h-[40px] items-center justify-between gap-2 rounded-lg border border-gray-200 bg-tm-bg px-2.5 py-2 text-[11px] font-semibold text-slate-700 transition-colors hover:border-tm-red hover:bg-white"
+                          >
+                            <span className="min-w-0 truncate">{c.label}</span>
+                            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-tm-red">
+                              <Plus aria-hidden size={11} />
+                              Add
+                            </span>
+                          </Link>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                )}
               </li>
             )
           })}

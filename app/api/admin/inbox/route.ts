@@ -15,6 +15,7 @@ const SendBody = z.object({
   memberId: uuid,
   body: z.string().min(2, 'Write a message.').max(4000),
   templateKey: z.string().max(64).nullish(),
+  channel: z.enum(['inapp', 'whatsapp']).optional(),
 })
 
 const TemplateBody = z.object({
@@ -36,10 +37,12 @@ export async function POST(request: Request) {
     memberId: body.memberId!,
     body: body.body ?? '',
     templateKey: body.templateKey ?? null,
+    channel: body.channel ?? 'inapp',
     actor: { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email },
   })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
-  return NextResponse.json({ success: true })
+  // waHref (WhatsApp channel only) is the link the admin clicks to actually send.
+  return NextResponse.json({ success: true, waHref: result.waHref ?? null })
 }
 
 export async function PUT(request: Request) {

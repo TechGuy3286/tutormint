@@ -26,6 +26,17 @@ export type Completion = {
   missing: ChecklistItem[]
 }
 
+/**
+ * The deep link that fixes one checklist item — the step of the completion flow
+ * plus the anchor within it. One definition, so the dashboard card, the Needs
+ * you strip and the admin list all point at the same place; the percentage and
+ * the links can never disagree because both come from the same items.
+ */
+export function checklistHref(role: 'tutor' | 'parent', item: ChecklistItem): string {
+  const base = role === 'tutor' ? '/tutor/complete-profile' : '/parent/verify'
+  return `${base}?step=${item.step}#${item.anchor}`
+}
+
 const has = (v: unknown): boolean => {
   if (v === null || v === undefined) return false
   if (typeof v === 'string') return v.trim().length > 0

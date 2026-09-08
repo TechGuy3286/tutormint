@@ -4,6 +4,7 @@ import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { publicAdUrl } from '@/lib/ads'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { describeUtm } from '@/lib/utm'
+import { calculateTutorCompletion } from '@/lib/profileChecklist'
 import type { AdminRole } from '@/lib/adminAuth'
 import { SCREEN_ACCESS } from '@/lib/adminAuth'
 
@@ -166,7 +167,10 @@ export type QueueTutorRow = {
   ratingAvg: number
   ratingCount: number
   degrees: string[]
+  /** Computed live from the checklist, so this and `missing` cannot disagree. */
   completion: number
+  /** The incomplete checklist items — what is stopping this tutor being listed. */
+  missing: { key: string; label: string }[]
   cnicNumber: string | null
   phone: string | null
   documents: { id: string; kind: 'cnic' | 'degree'; label: string | null }[]
@@ -191,7 +195,7 @@ export async function loadTutorQueue({
     let q = admin
       .from('tutor_profiles')
       .select(
-        'id, full_name, email, headline, city, area, avatar_url, video_youtube_id, video_status, video_visibility, video_attempts, verification_status, rating_avg, rating_count, degrees, created_at',
+        'id, full_name, email, headline, city, area, avatar_url, gender, bio, experience_years, hourly_rate_pkr, teaching_mode, video_youtube_id, video_status, video_visibility, video_attempts, verification_status, rating_avg, rating_count, degrees, created_at',
         { count: 'exact' },
       )
     if (filter === 'pending') q = q.eq('video_status', 'uploaded')
@@ -212,19 +216,59 @@ export async function loadTutorQueue({
   })
 
   const ids = page.map((t) => t.id as string)
-  const [{ data: profiles }, { data: docs }] = await Promise.all([
+  const [{ data: profiles }, { data: docs }, { data: subjectRows }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, profile_completion, cnic_number, phone_number')
+      .select('id, full_name, city, profile_completion, cnic_number, cnic_image_path, phone_number, phone_verified_at')
       .in('id', ids.length ? ids : [NO_MATCH]),
     admin
       .from('user_documents')
       .select('id, user_id, kind, label')
       .in('user_id', ids.length ? ids : [NO_MATCH]),
+    admin
+      .from('tutor_subjects')
+      .select('tutor_id')
+      .in('tutor_id', ids.length ? ids : [NO_MATCH]),
   ])
+
+  // Per-tutor subject counts, from one query rather than N.
+  const subjectCount = new Map<string, number>()
+  for (const s of subjectRows ?? []) {
+    const id = s.tutor_id as string
+    subjectCount.set(id, (subjectCount.get(id) ?? 0) + 1)
+  }
 
   const rows: QueueTutorRow[] = page.map((t) => {
     const p = profiles?.find((x) => x.id === t.id)
+    const myDocs = (docs ?? []).filter((d) => d.user_id === t.id)
+    // Completion computed HERE from the same engine the dashboard and the stored
+    // percentage use, so the number and the "what's missing" list cannot
+    // disagree (owner, 9 Sep). profile.* comes from `profiles` (as computeCompletion
+    // reads it), tutor fields from tutor_profiles.
+    const completion = calculateTutorCompletion({
+      profile: {
+        full_name: (p?.full_name as string) ?? (t.full_name as string) ?? null,
+        city: (p?.city as string) ?? null,
+        cnic_number: (p?.cnic_number as string) ?? null,
+        cnic_image_path: (p?.cnic_image_path as string) ?? null,
+        phone_verified_at: (p?.phone_verified_at as string) ?? null,
+      },
+      tutorProfile: {
+        gender: (t.gender as string) ?? null,
+        area: (t.area as string) ?? null,
+        avatar_url: (t.avatar_url as string) ?? null,
+        headline: (t.headline as string) ?? null,
+        bio: (t.bio as string) ?? null,
+        experience_years: (t.experience_years as number) ?? null,
+        hourly_rate_pkr: (t.hourly_rate_pkr as number) ?? null,
+        teaching_mode: (t.teaching_mode as string) ?? null,
+        degrees: ((t.degrees as string[]) ?? []) as string[],
+        video_youtube_id: (t.video_youtube_id as string) ?? null,
+        video_status: (t.video_status as string) ?? null,
+      },
+      subjectCount: subjectCount.get(t.id as string) ?? 0,
+      degreeDocCount: myDocs.filter((d) => d.kind === 'degree').length,
+    })
     return {
       id: t.id as string,
       fullName: t.full_name as string,
@@ -241,11 +285,11 @@ export async function loadTutorQueue({
       ratingAvg: Number(t.rating_avg ?? 0),
       ratingCount: (t.rating_count as number) ?? 0,
       degrees: ((t.degrees as string[]) ?? []) as string[],
-      completion: (p?.profile_completion as number) ?? 0,
+      completion: completion.percent,
+      missing: completion.missing.map((m) => ({ key: m.key, label: m.label })),
       cnicNumber: (p?.cnic_number as string) ?? null,
       phone: (p?.phone_number as string) ?? null,
-      documents: (docs ?? [])
-        .filter((d) => d.user_id === t.id)
+      documents: myDocs
         .map((d) => ({
           id: d.id as string,
           kind: d.kind as 'cnic' | 'degree',

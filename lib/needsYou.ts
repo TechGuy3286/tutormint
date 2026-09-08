@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { planLabel } from '@/lib/display'
 import type { Entitlements } from '@/lib/entitlements'
 import { tuitionPath } from '@/lib/slugs'
+import { checklistHref, type Completion } from '@/lib/profileChecklist'
 
 // What is BLOCKED ON THIS PERSON, and nothing else.
 //
@@ -29,6 +30,9 @@ import { tuitionPath } from '@/lib/slugs'
 // the reader choose before they can act, and the second link is nearly always
 // the one that does nothing for them.
 
+/** One line of an itemised checklist inside a NeedRow (profile completion). */
+export type NeedChecklistItem = { key: string; label: string; done: boolean; href: string }
+
 export type NeedRow = {
   id: string
   title: string
@@ -37,6 +41,14 @@ export type NeedRow = {
   action: { label: string; href: string }
   /** 'urgent' is a real block; 'warn' is a deadline approaching. */
   tone: 'urgent' | 'warn'
+  /**
+   * When present, the row shows exactly which items are done and which are not,
+   * each incomplete one a direct link to the step that fixes it. Only the
+   * completion row carries this — "33% complete" is not an instruction; the list
+   * is. Built from the same profileChecklist items the percentage is, so the two
+   * can never disagree.
+   */
+  checklist?: NeedChecklistItem[]
   /**
    * The subscription this row is about, when the row can be dismissed.
    *
@@ -296,18 +308,20 @@ export async function parentNeeds({
 export async function tutorNeeds({
   userId,
   ent,
-  completionPercent,
+  completion,
   verificationStatus,
   videoStatus,
   videoAttempts,
 }: {
   userId: string
   ent: Entitlements
-  completionPercent: number
+  /** The full checklist, so the row can show what is missing, not just a %. */
+  completion: Completion | null
   verificationStatus: string | null
   videoStatus: string | null
   videoAttempts: number
 }): Promise<NeedRow[]> {
+  const completionPercent = completion?.percent ?? 0
   const rows: NeedRow[] = []
   const supabase = await createClient()
 
@@ -327,12 +341,26 @@ export async function tutorNeeds({
   }
 
   if (completionPercent < 100) {
+    const items = completion?.items ?? []
+    const nextMissing = items.find((i) => !i.done)
     rows.push({
       id: 'completion',
       title: `Your profile is ${completionPercent}% complete`,
       why: 'Tutors are only listed in search at 100%. Until then parents cannot find you, whatever your plan.',
-      action: { label: 'Finish your profile', href: '/tutor/complete-profile' },
+      // The action goes straight to the FIRST missing item, not the top of the
+      // form — a percentage is not an instruction, and neither is "start again".
+      action: nextMissing
+        ? { label: 'Finish your profile', href: checklistHref('tutor', nextMissing) }
+        : { label: 'Finish your profile', href: '/tutor/complete-profile' },
       tone: 'urgent',
+      // The itemised list: what is done, what is not, each incomplete one a
+      // direct link. Built from the same items the percentage is.
+      checklist: items.map((i) => ({
+        key: i.key,
+        label: i.label,
+        done: i.done,
+        href: checklistHref('tutor', i),
+      })),
     })
   }
 

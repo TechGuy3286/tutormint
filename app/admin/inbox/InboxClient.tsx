@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Send, Pencil, ShieldCheck } from 'lucide-react'
+import { Send, Pencil, ShieldCheck, MessageCircle } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { formatDateTime } from '@/lib/datetime'
@@ -23,6 +23,7 @@ export default function InboxClient({
   templates,
   selectedId,
   selectedName,
+  selectedHasMobile,
   conversation,
   canEditTemplates,
 }: {
@@ -30,6 +31,8 @@ export default function InboxClient({
   templates: AdminTemplate[]
   selectedId: string | null
   selectedName: string
+  /** Whether the member has a mobile — decides if WhatsApp is offered. */
+  selectedHasMobile: boolean
   conversation: AdminMessage[]
   canEditTemplates: boolean
 }) {
@@ -58,17 +61,29 @@ export default function InboxClient({
     if (chosen) setBody(fill(chosen.body, { name: selectedName || 'there', jobTitle: nextJob, reason: nextReason }))
   }
 
-  const send = async () => {
+  const send = async (channel: 'inapp' | 'whatsapp') => {
     if (!selectedId) return
     setBusy(true)
     try {
-      const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/inbox', {
+      const { ok, data } = await adminFetch<{ error?: string; waHref?: string | null }>('/api/admin/inbox', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memberId: selectedId, body: body.trim(), templateKey: templateKey || null }),
+        body: JSON.stringify({
+          memberId: selectedId,
+          body: body.trim(),
+          templateKey: templateKey || null,
+          channel,
+        }),
       })
       if (!ok) throw new Error(data.error ?? 'Could not send.')
-      toast.success('Message sent. The member has been notified.')
+      if (channel === 'whatsapp') {
+        // The message is recorded and logged; the admin still sends it in
+        // WhatsApp itself. Open the pre-filled chat in a new tab.
+        if (data.waHref) window.open(data.waHref, '_blank', 'noopener')
+        toast.success('Logged. WhatsApp opened with the message — press send there.')
+      } else {
+        toast.success('Message sent. The member has been notified.')
+      }
       setBody('')
       setTemplateKey('')
       setJobTitle('')
@@ -228,15 +243,36 @@ export default function InboxClient({
                   placeholder={`Write to ${selectedName || 'this member'} — edit the template freely before sending.`}
                   className="w-full rounded-xl border border-gray-200 bg-tm-bg px-3 py-2 text-sm outline-none focus:border-tm-navy focus:bg-white"
                 />
-                <button
-                  type="button"
-                  onClick={send}
-                  disabled={busy || body.trim().length < 2}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-red px-5 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-50"
-                >
-                  <Send aria-hidden size={14} />
-                  {busy ? 'Sending…' : `Send as ${TEAM}`}
-                </button>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => send('inapp')}
+                    disabled={busy || body.trim().length < 2}
+                    className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-tm-red px-5 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-50"
+                  >
+                    <Send aria-hidden size={14} />
+                    {busy ? 'Sending…' : 'In-app + email'}
+                  </button>
+                  {/* WhatsApp — the platform's live channel. Only when the
+                      member has a mobile on file (never a number they did not
+                      give). It records and logs the message like the other
+                      channel, then opens WhatsApp for the admin to send. */}
+                  {selectedHasMobile && (
+                    <button
+                      type="button"
+                      onClick={() => send('whatsapp')}
+                      disabled={busy || body.trim().length < 2}
+                      className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-tm-green-deep px-5 text-xs font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-50"
+                    >
+                      <MessageCircle aria-hidden size={14} />
+                      Send on WhatsApp
+                    </button>
+                  )}
+                </div>
+                <p className="text-[10px] text-gray-500">
+                  Sent as {TEAM}. WhatsApp opens a pre-filled chat you send yourself; every send is
+                  recorded in this thread and the audit log.
+                </p>
               </div>
             </>
           )}

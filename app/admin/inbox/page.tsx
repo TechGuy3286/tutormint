@@ -35,12 +35,17 @@ export default async function AdminInboxPage({
   let conversation = selectedId ? await loadConversation(selectedId) : []
   let selectedName = threads.find((t) => t.memberId === selectedId)?.memberName ?? ''
 
-  if (selectedId && !selectedName) {
+  // Whether this member has a mobile on file — decides if the WhatsApp send is
+  // offered. Fetched here (with the name) so the client never needs the number
+  // itself; the server builds the wa.me link on send.
+  let selectedHasMobile = false
+  if (selectedId) {
     const admin = createAdminClient()
     const { data } = admin
-      ? await admin.from('profiles').select('full_name').eq('id', selectedId).maybeSingle()
+      ? await admin.from('profiles').select('full_name, phone_number, whatsapp').eq('id', selectedId).maybeSingle()
       : { data: null }
-    selectedName = (data?.full_name as string) ?? 'this member'
+    if (!selectedName) selectedName = (data?.full_name as string) ?? 'this member'
+    selectedHasMobile = !!((data?.phone_number as string)?.trim() || (data?.whatsapp as string)?.trim())
   }
 
   // Opening a thread marks the member's replies read (the admin has seen them).
@@ -54,6 +59,7 @@ export default async function AdminInboxPage({
       templates={templates}
       selectedId={selectedId}
       selectedName={selectedName}
+      selectedHasMobile={selectedHasMobile}
       conversation={conversation}
       canEditTemplates={roleSatisfies(actor.adminRole, ['manager'])}
     />
