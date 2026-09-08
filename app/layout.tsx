@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import OfflineNotice from "@/components/OfflineNotice";
+import VerifiedToast from "@/components/VerifiedToast";
 import { UpgradeProvider } from '@/components/upgrade/UpgradeProvider'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
@@ -59,6 +60,7 @@ export default function RootLayout({
             <UpgradeProvider>
               {children}
               <OfflineNotice />
+              <VerifiedToast />
             </UpgradeProvider>
           </ConfirmProvider>
         </ToastProvider>

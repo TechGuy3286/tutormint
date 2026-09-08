@@ -77,6 +77,7 @@ export default function LoginForm({ next }: { next: string | null }) {
       banned?: boolean
       supportHref?: string
       reverify?: boolean
+      needsPhoneVerify?: boolean
     }>('/api/auth/login', { identifier, password, rememberMe })
 
     if (!ok || !data) {
@@ -91,8 +92,10 @@ export default function LoginForm({ next }: { next: string | null }) {
 
     if (data.suspended) return go('/suspended')
 
-    // A bridge-verified number whose bridge was removed must re-prove itself.
-    if (data.reverify) return go('/verify-phone')
+    // Verification before the dashboard (owner, 9 Sep): a mobile-first account
+    // that has not verified its number — or a bridge number whose bridge was
+    // removed — is held at /verify-phone, never landed on a dashboard first.
+    if (data.needsPhoneVerify || data.reverify) return go('/verify-phone')
 
     if (data.mustChangePassword) {
       // A temporary password is good for exactly one sign-in.

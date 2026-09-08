@@ -9,6 +9,7 @@ import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { bridgeOtpCode } from '@/lib/sms'
 import { PERSIST_COOKIE } from '@/lib/sessionCookies'
 import { BANNED_LOGIN_MESSAGE } from '@/lib/authMessages'
+import { needsPhoneGate } from '@/lib/phoneGate'
 
 // The exact banned-login message (owner, Sunday 6 Sep). Shown verbatim, and no
 // session is created — the account is signed out again before this returns.
@@ -86,8 +87,12 @@ export async function POST(request: Request) {
   if (error) {
     const msg = error.message.toLowerCase()
     if (msg.includes('not confirmed') || msg.includes('confirm')) {
+      // The one non-generic login answer, and it is not an oracle: Supabase only
+      // returns "not confirmed" when the password is otherwise correct, so a
+      // stranger guessing never sees it. Verification follows the identifier the
+      // member chose — this is the email path (owner, 9 Sep).
       return NextResponse.json(
-        { error: 'Your email address has not been confirmed yet.', needsConfirm: true, email },
+        { error: 'Please confirm your email address to sign in.', needsConfirm: true, email },
         { status: 400 },
       )
     }
@@ -96,7 +101,7 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, must_change_password, is_suspended, is_banned, phone_verified_via')
+    .select('role, must_change_password, is_suspended, is_banned, phone_verified_via, phone_gate_required, phone_verified_at')
     .eq('id', data.user.id)
     .maybeSingle()
 
@@ -131,6 +136,13 @@ export async function POST(request: Request) {
     }
   }
 
+  // Mobile-first account that has not verified its number yet: hold it at
+  // /verify-phone (owner, 9 Sep — verification before the dashboard). The
+  // session is kept because /verify-phone needs it to send and enter the code;
+  // the client routes there directly so it never lands on a dashboard first.
+  // reverify (a bridge number whose bridge was removed) is the same destination.
+  const needsPhoneVerify = needsPhoneGate(profile) || reverify
+
   return NextResponse.json({
     success: true,
     role: (profile?.role as string) ?? null,
@@ -140,6 +152,7 @@ export async function POST(request: Request) {
     mustChangePassword: !!profile?.must_change_password,
     suspended: !!profile?.is_suspended,
     reverify,
+    needsPhoneVerify,
   })
 }
 

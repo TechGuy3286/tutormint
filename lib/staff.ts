@@ -21,6 +21,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
+import { ensureProfile } from '@/lib/ensureProfile'
 import type { AdminRole } from '@/lib/adminAuth'
 import type { Actor } from '@/lib/moderation'
 
@@ -106,22 +107,23 @@ export async function createStaff(params: {
     userId = created.user.id
   }
 
-  const { error: profileError } = await admin
-    .from('profiles')
-    .update({
-      role: 'admin',
-      admin_role: params.adminRole,
-      full_name: fullName,
-      email,
-      must_change_password: true,
-    })
-    .eq('id', userId)
+  // Authoritative upsert, not a bare .update(): if the on_auth_user_created
+  // trigger is ever missing again (it was, silently, from 5 Sep — see
+  // lib/ensureProfile.ts) an .update().eq(id) hits zero rows and leaves a staff
+  // account with no profile. This creates the row if the trigger did not.
+  const made = await ensureProfile(admin, {
+    userId,
+    role: 'admin',
+    fullName,
+    email,
+    extra: { admin_role: params.adminRole, must_change_password: true },
+  })
 
-  if (profileError) {
+  if (!made.ok) {
     // A half-made staff account is an auth user who can sign in and is not an
     // admin — confusing, and it holds the email address hostage. Remove it.
     await admin.auth.admin.deleteUser(userId)
-    return { ok: false, status: 400, error: profileError.message }
+    return { ok: false, status: 400, error: made.error }
   }
 
   await logAdminAction({

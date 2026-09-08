@@ -20,6 +20,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile, syntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
+import { ensureProfile } from '@/lib/ensureProfile'
 
 export const TEMPLATE_HEADERS = [
   'name',
@@ -379,23 +380,30 @@ export async function createImportedTutor(params: {
   const userId = created.user.id
   const provisionalSlug = slugify(row.name, userId)
 
-  const { error: profileError } = await admin
-    .from('profiles')
-    .update({
-      full_name: row.name,
-      role: 'tutor',
-      phone_number: msisdn,
+  // Authoritative upsert, not a bare .update(): if the on_auth_user_created
+  // trigger is missing (it was, silently, from 5 Sep — see lib/ensureProfile.ts)
+  // an .update().eq(id) hits zero rows and the tutor_profiles insert below then
+  // fails its FK to profiles, failing every import row. skipTutorProfile because
+  // the import writes its own richer tutor_profiles just below.
+  const made = await ensureProfile(admin, {
+    userId,
+    role: 'tutor',
+    fullName: row.name,
+    email,
+    phoneNumber: msisdn,
+    skipTutorProfile: true,
+    extra: {
       whatsapp: normalisePkMobile(row.whatsapp) ?? msisdn,
       city: row.city || null,
       must_change_password: true,
-    })
-    .eq('id', userId)
+    },
+  })
 
-  if (profileError) {
+  if (!made.ok) {
     // Never leave an auth account behind that has no usable profile: it holds
     // the number hostage and cannot be imported again.
     await admin.auth.admin.deleteUser(userId)
-    return fail(profileError.message)
+    return fail(made.error)
   }
 
   const { error: tutorError } = await admin.from('tutor_profiles').upsert({

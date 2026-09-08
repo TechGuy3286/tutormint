@@ -29,7 +29,7 @@ export default async function VerifyEmailPage({
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-tm-tint-green">
             <Mail aria-hidden size={26} className="text-tm-green-deep" />
           </div>
-          <h1 className="text-xl font-black text-tm-navy">Check your email</h1>
+          <h1 className="text-xl font-black text-tm-navy">Your account is created — confirm your email</h1>
           <p className="text-sm leading-relaxed text-slate-700">
             We’ve sent a confirmation link
             {address ? (
@@ -37,7 +37,8 @@ export default async function VerifyEmailPage({
                 {' '}to <span className="font-bold text-tm-navy">{address}</span>
               </>
             ) : null}
-            . Open it to finish creating your account, then sign in.
+            . Open it to confirm your email address, then sign in. You’re not signed in
+            until you do.
           </p>
           <p className="text-[11px] leading-relaxed text-gray-500">
             The link can take a few minutes to arrive. Check your spam folder if you don’t see it.

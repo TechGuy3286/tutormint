@@ -10,6 +10,7 @@ import { sendOtp } from '@/lib/otp'
 import { bridgeStatus } from '@/lib/sms'
 import { checkBlocklist } from '@/lib/blocklist'
 import { homeForRole } from '@/lib/authRoutes'
+import { ensureProfile } from '@/lib/ensureProfile'
 
 // Mobile-first signup.
 //
@@ -61,60 +62,11 @@ const RegisterBody = z.object({
 // has a route.
 const BLOCKED = 'We could not create an account with these details. If you think this is a mistake, please contact support.'
 
-// Create the member's profile rows AUTHORITATIVELY, here, rather than trusting
-// the on_auth_user_created trigger.
-//
-// WHY THIS EXISTS (root cause, 9 Sep). The `on_auth_user_created` trigger on
-// auth.users — the thing that wrote profiles.role from the signup metadata —
-// was DROPPED by the 5 Sep Sydney→Mumbai migration and never reapplied (an
-// auth-schema trigger is not carried by a public-schema dump). With it gone,
-// every signup created an auth user with the right metadata but NO profiles row
-// at all: the mobile path's `.update()` hit zero rows, and the email path had
-// nothing written either. The account then had no role, so every "role is
-// missing → parent" default downstream produced a parent account and the parent
-// dashboard, whatever was selected. Writing the profile explicitly here fixes
-// both paths and is robust to the trigger's absence; if the trigger is later
-// restored it runs first (metadata → same row) and this upsert is a harmless
-// no-op. It replaces the reliance on a trigger a dump silently left behind.
-//
-// This mirrors what migration 14's handle_new_user() did: profiles (+ the
-// account_type mirror), and tutor_profiles for a tutor.
-async function ensureProfile(
-  admin: NonNullable<ReturnType<typeof createAdminClient>>,
-  opts: {
-    userId: string
-    role: 'tutor' | 'parent'
-    fullName: string
-    email: string
-    phoneNumber?: string
-    phoneGateRequired?: boolean
-    utm?: Record<string, unknown>
-  },
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error: pErr } = await admin.from('profiles').upsert(
-    {
-      id: opts.userId,
-      role: opts.role,
-      account_type: opts.role === 'parent' ? 'parent' : null,
-      full_name: opts.fullName,
-      email: opts.email,
-      phone_number: opts.phoneNumber ?? '',
-      ...(opts.phoneGateRequired ? { phone_gate_required: true } : {}),
-      ...(opts.utm ?? {}),
-    },
-    { onConflict: 'id' },
-  )
-  if (pErr) return { ok: false, error: pErr.message }
-
-  if (opts.role === 'tutor') {
-    const { error: tErr } = await admin.from('tutor_profiles').upsert(
-      { id: opts.userId, full_name: opts.fullName, email: opts.email, verification_status: 'pending' },
-      { onConflict: 'id' },
-    )
-    if (tErr) return { ok: false, error: tErr.message }
-  }
-  return { ok: true }
-}
+// The member's profile rows are written AUTHORITATIVELY through the shared
+// ensureProfile() (lib/ensureProfile.ts) rather than trusting the
+// on_auth_user_created trigger — see that file for the root cause. Same helper
+// as staff invites and bulk import, so no auth-user-creating path can silently
+// break again if the trigger is ever lost.
 
 export async function POST(request: Request) {
   const limit = await rateLimit('register', callerIp(request))

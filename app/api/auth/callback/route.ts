@@ -47,8 +47,10 @@ export async function GET(request: NextRequest) {
   //
   // welcomed_at makes it once-only: this callback also runs on a magic-link or
   // password-recovery exchange, and a second welcome to someone who has been a
-  // member for a month reads as a bug, because it is one.
-  await sendWelcomeOnce()
+  // member for a month reads as a bug, because it is one. The return value is
+  // true only on the FIRST confirmation, which is exactly the email verification
+  // we want to confirm on screen (see ?verified=email below).
+  const firstConfirmation = await sendWelcomeOnce()
 
   // The email path chose a role at /register; it must drive the landing page,
   // not silently fall to '/'. When the link carried no explicit next, route by
@@ -64,7 +66,17 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(`${origin}${dest}`)
+  // No silent transitions (owner, 9 Sep): the confirmation link is the moment
+  // the email is verified, and clicking it used to drop the member on a
+  // dashboard with nothing said. On the genuine first confirmation of a signup
+  // (no explicit next — a password reset carries one), hand the dashboard a
+  // one-time flag so it toasts "Your email is confirmed". Not added on a magic
+  // link or a repeat click (firstConfirmation is false then).
+  const verifiedParam = !safeExplicit && firstConfirmation
+  const url = new URL(`${origin}${dest}`)
+  if (verifiedParam) url.searchParams.set('verified', 'email')
+
+  return NextResponse.redirect(url.toString())
 }
 
 /** The signed-in member's role, read through the service role, or null. */
@@ -84,16 +96,18 @@ async function currentRole(): Promise<Role | null> {
   }
 }
 
-async function sendWelcomeOnce(): Promise<void> {
+/** True only on the FIRST confirmation (welcome just sent); false on a repeat
+ *  callback (magic link, password recovery, an already-welcomed member). */
+async function sendWelcomeOnce(): Promise<boolean> {
   try {
     const supabase = await createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) return false
 
     const admin = createAdminClient()
-    if (!admin) return
+    if (!admin) return false
 
     const { data: profile } = await admin
       .from('profiles')
@@ -101,7 +115,7 @@ async function sendWelcomeOnce(): Promise<void> {
       .eq('id', user.id)
       .maybeSingle()
 
-    if (!profile || profile.welcomed_at) return
+    if (!profile || profile.welcomed_at) return false
 
     // Stamped before sending, not after. A retry storm here would mail the
     // same person repeatedly; one lost welcome is a far smaller problem than
@@ -118,8 +132,10 @@ async function sendWelcomeOnce(): Promise<void> {
     )
 
     await logActivity({ userId: user.id, event: 'email_confirmed' })
+    return true
   } catch (e) {
     // Never let a welcome email stop somebody from getting into their account.
     console.error('[auth/callback] welcome email failed', e)
+    return false
   }
 }

@@ -86,12 +86,12 @@ export default async function VerifyPhonePage({
       <div className="w-full max-w-md space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl sm:p-8">
         <div className="space-y-2 text-center">
           <span className="inline-block rounded-2xl bg-tm-tint-green p-3 text-3xl">📱</span>
-          <h1 className="text-xl font-black text-tm-navy">Verify your mobile number</h1>
+          <h1 className="text-xl font-black text-tm-navy">Your account is created — verify your number</h1>
           <p className="text-xs leading-relaxed text-gray-500">
             We sent a 6-digit code on{' '}
             <span className="font-bold text-tm-green-deep">WhatsApp</span> to{' '}
             <span className="font-bold text-tm-navy">{formatPkMobile(mobile)}</span>. Enter it to
-            finish setting up your account.
+            verify your number and reach your dashboard — you can’t continue until you do.
           </p>
         </div>
 

@@ -3431,3 +3431,60 @@ FK failed). Migration 59:
 **A public-only dump does not carry auth-schema triggers.** Any future region
 move or restore must re-verify `on_auth_user_created` exists on `auth.users`
 afterwards, because nothing in a public dump will recreate it.
+
+## Verification comes before the dashboard (owner, 9 Sep 2026)
+
+Later-dated than every block above, so under precedence rule 10 this wins over
+anything it touches. Two rules, and a sweep.
+
+**1. A member is never signed into a USABLE session before their identifier is
+verified.** No landing on a dashboard first and verifying later.
+
+- **Verification follows the identifier they chose.** Registered with an email →
+  they verify the email (a confirmation link). Registered with a mobile → they
+  verify the mobile (an OTP). They are never asked to verify a channel they did
+  not give, and never gated on one they do not have. Adding the second channel
+  later is a **Settings** action, never a gate.
+- **The email path creates no session** until the link is clicked — the account
+  is unconfirmed, and `/verify-email` is the landing (with Resend). **The mobile
+  path signs in but the session reaches only `/verify-phone`** (the proxy phone
+  gate holds it there); that is the verification screen, not a usable session,
+  and it is where the OTP is entered. Neither leaves anyone signed in with no
+  reachable page.
+- **Logging in before verification is refused with a PLAIN message naming what
+  is outstanding, never a generic failure.** Email: an unconfirmed sign-in
+  returns *"Please confirm your email address to sign in"* with a Resend button
+  on the login screen. Mobile: an unverified sign-in routes straight to
+  `/verify-phone` (no dashboard bounce), which states what is needed and has
+  Resend — the session is required there to send/enter the code, so it is held
+  at verification rather than refused on the login form. The email-unconfirmed
+  message is the ONE non-generic login answer, and it is safe: Supabase only
+  returns "not confirmed" when the password is otherwise correct, so it is never
+  a membership oracle for a stranger guessing.
+- **After registering, the member lands on the screen that completes
+  verification, with a clear next action.**
+
+**2. No silent transitions.** Every step in the signup/verification chain states
+itself: account created, verification sent and to which address or number, what
+to do now, and an EXPLICIT confirmation when verification succeeds. Nobody is
+moved between states without being told. As swept and wired:
+
+- **Register → verify screen:** `/verify-email` and `/verify-phone` both open by
+  acknowledging the account exists and naming the exact address/number the
+  code/link went to, and the one action to take.
+- **Verification success is confirmed on screen.** Mobile: `VerifyPhoneForm`
+  toasts *"Number verified."* before routing. Email: the confirmation link's
+  callback lands on the dashboard with `?verified=email`, and a one-time toast
+  (`components/VerifiedToast.tsx`, mounted once under the root `ToastProvider`)
+  says *"Your email is confirmed."* — the previously silent step.
+- **Login refusals name the outstanding step** (rule 1), never "could not sign
+  you in".
+
+**Belt and braces on every auth-user-creating path.** `lib/ensureProfile.ts` is
+the one authoritative profile upsert, used by `/api/auth/register`,
+`lib/staff.ts` (invites) and `lib/import.ts` (bulk import). Every one of them
+previously relied on the trigger's row existing and would break silently if it
+were lost again (staff/import ran that way, undetected, from 5 Sep). The upsert
+supplies every NOT-NULL-without-default column, so it creates the row whether or
+not the trigger fired. Migration 60 backfilled two more owner-confirmed real
+tutors (`javeriafiaz76@`, `gullfatima5868@`) left over from the 59 backfill.
