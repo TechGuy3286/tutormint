@@ -6,7 +6,7 @@ import { normalisePkMobile, syntheticEmail, looksLikeEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
-import { bridgeOtpCode } from '@/lib/sms'
+import { needsBridgeReverify } from '@/lib/sms'
 import { PERSIST_COOKIE } from '@/lib/sessionCookies'
 import { BANNED_LOGIN_MESSAGE } from '@/lib/authMessages'
 import { needsPhoneGate } from '@/lib/phoneGate'
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
   // raise the phone gate again, so proxy.ts routes them to /verify-phone on
   // their next request to prove the number with a real code.
   let reverify = false
-  if (profile?.phone_verified_via === 'bridge' && !bridgeOtpCode()) {
+  if (needsBridgeReverify(profile?.phone_verified_via as string | null)) {
     const admin = createAdminClient()
     if (admin) {
       await admin

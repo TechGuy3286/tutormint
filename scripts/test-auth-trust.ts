@@ -15,7 +15,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { bridgeStatus, bridgeOtpCode, bridgeBanner } from '../lib/sms'
+import { bridgeStatus, bridgeOtpCode, bridgeBanner, needsBridgeReverify } from '../lib/sms'
 import { otpMatch, resendWaitSeconds, RESEND_COOLDOWN_MS } from '../lib/otp'
 import { applySessionPersistence, persistOffFrom } from '../lib/sessionCookies'
 import { hashCnic, blocklistHit } from '../lib/blocklistCore'
@@ -76,6 +76,27 @@ test('bridge: a code with NO expiry env is off — an unbounded bridge is imposs
   // A future expiry but no code is also off.
   withEnv({ BRIDGE_OTP: undefined, BRIDGE_OTP_EXPIRES: future() }, () => {
     assert.equal(bridgeStatus().active, false)
+  })
+})
+
+test('bridge handover: a bridge-verified account re-verifies only once the bridge is gone', () => {
+  // While the bridge is still active, a bridge-verified account is NOT sent back
+  // to re-verify — the handover fires only when the real provider has landed and
+  // the code is removed.
+  withEnv({ BRIDGE_OTP: '654321', BRIDGE_OTP_EXPIRES: future() }, () => {
+    assert.equal(needsBridgeReverify('bridge'), false)
+  })
+  // Bridge removed (no code): a bridge-verified account must re-verify once with
+  // a real code. This is exactly what the login route acts on.
+  withEnv({ BRIDGE_OTP: undefined, BRIDGE_OTP_EXPIRES: undefined }, () => {
+    assert.equal(needsBridgeReverify('bridge'), true)
+    // An already-real ('otp') account, or one with no marker, is never re-gated.
+    assert.equal(needsBridgeReverify('otp'), false)
+    assert.equal(needsBridgeReverify(null), false)
+  })
+  // Bridge code set but EXPIRED counts as gone too (bridgeOtpCode() → null).
+  withEnv({ BRIDGE_OTP: '654321', BRIDGE_OTP_EXPIRES: past() }, () => {
+    assert.equal(needsBridgeReverify('bridge'), true)
   })
 })
 

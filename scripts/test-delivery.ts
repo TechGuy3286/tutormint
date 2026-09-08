@@ -141,6 +141,147 @@ test('twilio: reports itself unconfigured when credentials are missing', async (
   process.env.TWILIO_ACCOUNT_SID = saved
 })
 
+// -------------------------------------------------------------- smspoint ---
+
+const SMSPOINT_KEYS = ['SMSPOINT_USERNAME', 'SMSPOINT_PASSWORD', 'SMSPOINT_CLIENTID', 'SMSPOINT_MASK']
+
+/** A text/plain response, the way SMS Point actually answers. */
+function mockFetchText(status: number, body: string): { calls: Captured[]; restore: () => void } {
+  const calls: Captured[] = []
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    calls.push({ url: String(url), init: init ?? {} })
+    return new Response(body, { status, headers: { 'Content-Type': 'text/plain' } })
+  }) as typeof fetch
+  return { calls, restore: () => { globalThis.fetch = realFetch } }
+}
+
+function setSmspointEnv() {
+  process.env.SMSPOINT_USERNAME = 'user1'
+  process.env.SMSPOINT_PASSWORD = 'pass1'
+  process.env.SMSPOINT_CLIENTID = 'client1'
+  process.env.SMSPOINT_MASK = 'TutorMint'
+}
+
+test('smspoint: builds the send URL from env with no hardcoded values', async () => {
+  setSmspointEnv()
+  const { smspointProvider, SMSPOINT_ENDPOINT } = await import('../lib/sms/smspoint')
+  const m = mockFetchText(200, 'Sent Successfully')
+  try {
+    // Typed with a leading zero and spaces — must survive into the canonical
+    // 92… msisdn on the way out.
+    const r = await smspointProvider.send(
+      '0300 1234567',
+      'Your TutorMint verification code is 123456. It expires in 10 minutes.',
+    )
+    assert.equal(r.ok, true)
+    assert.equal(m.calls.length, 1)
+
+    const u = new URL(m.calls[0].url)
+    // The endpoint comes from the module, not a literal re-typed in the test.
+    assert.equal(u.origin + u.pathname, SMSPOINT_ENDPOINT)
+    assert.equal(u.searchParams.get('username'), 'user1')
+    assert.equal(u.searchParams.get('password'), 'pass1')
+    assert.equal(u.searchParams.get('clientid'), 'client1')
+    assert.equal(u.searchParams.get('mask'), 'TutorMint')
+    assert.equal(u.searchParams.get('Language'), 'English')
+    // 0300… → 923001234567.
+    assert.equal(u.searchParams.get('to'), '923001234567')
+    assert.match(u.searchParams.get('msg') ?? '', /123456/)
+  } finally {
+    m.restore()
+  }
+})
+
+test('smspoint: missing env fails closed — unconfigured, and send() never touches the network', async () => {
+  for (const k of SMSPOINT_KEYS) delete process.env[k]
+  const { smspointProvider } = await import('../lib/sms/smspoint')
+  assert.equal(smspointProvider.isConfigured(), false)
+
+  const m = mockFetchText(200, 'Sent Successfully')
+  try {
+    const r = await smspointProvider.send('03001234567', 'Your code is 123456')
+    assert.equal(r.ok, false)
+    assert.equal(m.calls.length, 0) // nothing sent — no silent success, no bill
+  } finally {
+    m.restore()
+  }
+})
+
+test('smspoint: 200 "Sent Successfully" is accepted; anything else fails closed', async () => {
+  const { smspointAccepted } = await import('../lib/sms/smspoint')
+  assert.equal(smspointAccepted(200, 'Sent Successfully'), true)
+  assert.equal(smspointAccepted(200, 'sent successfully'), true)
+  assert.equal(smspointAccepted(200, 'Invalid username or password'), false) // detectable auth failure
+  assert.equal(smspointAccepted(401, 'Unauthorized'), false)
+  assert.equal(smspointAccepted(500, 'Sent Successfully'), false) // non-2xx
+})
+
+test('smspoint: a failure error carries neither the number nor the code', async () => {
+  setSmspointEnv()
+  const { smspointProvider } = await import('../lib/sms/smspoint')
+  const m = mockFetchText(200, 'Invalid credentials')
+  try {
+    const r = await smspointProvider.send(
+      '03211234567',
+      'Your TutorMint verification code is 987654. It expires in 10 minutes.',
+    )
+    assert.equal(r.ok, false)
+    if (!r.ok) {
+      assert.doesNotMatch(r.error, /987654/) // the code
+      assert.doesNotMatch(r.error, /3211234567/) // the number (any shape)
+    }
+  } finally {
+    m.restore()
+  }
+})
+
+test('getSmsProvider: prefers SMS Point when its env is set', async () => {
+  setSmspointEnv()
+  const { getSmsProvider } = await import('../lib/sms/index')
+  assert.equal(getSmsProvider().name, 'smspoint')
+})
+
+// ---------------------------------------------------- per-number send caps ---
+
+test('sendCapDecision: the per-number DAILY cap holds', async () => {
+  const { sendCapDecision, MAX_SENDS_PER_DAY } = await import('../lib/otp')
+  const now = Date.now()
+  // MAX_SENDS_PER_DAY sends, each in its own hour so the hourly cap is not what
+  // trips — the daily ceiling is.
+  const atCap = Array.from({ length: MAX_SENDS_PER_DAY }, (_, i) => now - (i + 2) * 60 * 60 * 1000)
+  const v = sendCapDecision(atCap, now)
+  assert.equal(v.ok, false)
+  if (!v.ok) assert.equal(v.reason, 'day')
+
+  // One fewer, all spread across separate hours and well past the cooldown → ok.
+  const v2 = sendCapDecision(atCap.slice(1), now)
+  assert.equal(v2.ok, true)
+})
+
+test('sendCapDecision: the hourly burst cap binds within the daily budget', async () => {
+  const { sendCapDecision, MAX_SENDS_PER_HOUR } = await import('../lib/otp')
+  const now = Date.now()
+  // MAX_SENDS_PER_HOUR sends all inside the last hour (spaced past the cooldown).
+  const inHour = Array.from({ length: MAX_SENDS_PER_HOUR }, (_, i) => now - (i * 6 + 6) * 60 * 1000)
+  const v = sendCapDecision(inHour, now)
+  assert.equal(v.ok, false)
+  if (!v.ok) assert.equal(v.reason, 'hour')
+})
+
+test('sendCapDecision: the 5-minute cooldown carries a countdown', async () => {
+  const { sendCapDecision } = await import('../lib/otp')
+  const now = Date.now()
+  // One recent send, two minutes ago → still cooling down, with seconds left.
+  const v = sendCapDecision([now - 2 * 60 * 1000], now)
+  assert.equal(v.ok, false)
+  if (!v.ok) {
+    assert.equal(v.reason, 'cooldown')
+    assert.ok((v.retryAfterSeconds ?? 0) > 0)
+  }
+  // A send six minutes ago is past the 5-minute cooldown → ok.
+  assert.equal(sendCapDecision([now - 6 * 60 * 1000], now).ok, true)
+})
+
 // ----------------------------------------------------------- otp safety ---
 
 test('the OTP bypass follows VERCEL_ENV, not NODE_ENV', async () => {

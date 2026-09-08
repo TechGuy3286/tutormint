@@ -812,7 +812,7 @@ This supersedes the observation in "T-UI1" below that a live fetch of tutormint.
 
 ## Open owner decisions (blocking launch)
 
-- **SMS provider — undecided.** Twilio (card required, fast to set up) vs a Pakistani gateway (cheaper per message, slower to set up). Mobile signup on the live site cannot deliver codes until one exists. This is the hardest blocker.
+- **SMS provider — DECIDED and WIRED (Part 7 stage 2, 9 Sep 2026): SMS Point (smspoint.pk), delivering the code on WhatsApp.** `lib/sms/smspoint.ts` implements the `SmsProvider` interface; `getSmsProvider()` uses it whenever `SMSPOINT_USERNAME/_PASSWORD/_CLIENTID/_MASK` are all set (Twilio stays as the documented alternative). Delivery is fire-and-forget — a 200 "Sent Successfully" means accepted, not delivered, and an exhausted balance is undetectable — so a send is only ever reported as "sent on WhatsApp" with the support fallback always visible, and a per-number daily cap (6/day) bounds the prepaid-balance cost. The owner activates it by setting the four env vars in Vercel; BRIDGE_OTP stays as a backstop until real codes are confirmed arriving.
 - SMTP on the Supabase project — **configured** (Resend, `noreply@tutormint.org`; Part 8). Confirmation, password-reset and staff-invite email deliver. No longer a blocker.
 - AssanPay — in negotiation.
 - CUIN and NTN — **filled** (owner, 9 Sep 2026, from the FBR taxpayer certificate):
@@ -2878,8 +2878,10 @@ describe what is.
 
 ### Owner actions blocking launch (not code)
 
-- **SMS provider** — undecided (Twilio vs a Pakistani gateway). Mobile signup on
-  the live site cannot deliver OTPs until one exists. The hardest blocker.
+- **SMS provider** — **wired: SMS Point over WhatsApp** (Part 7 stage 2). Code
+  is live behind `SMSPOINT_*`; the owner sets those four in Vercel to activate
+  delivery, and removes `BRIDGE_OTP`/`BRIDGE_OTP_EXPIRES` once real codes are
+  confirmed arriving. No longer a code blocker.
 - **SMTP** on the Supabase project — **configured** (Resend, `noreply@tutormint.org`;
   Part 8). Confirmation links, password-reset email and staff invites deliver.
 - **AssanPay go-live** — in negotiation; until then manual transfer + admin
@@ -3393,6 +3395,51 @@ rls:audit 174/174 · suites green.
   stage 1, probe-only) and BRIDGE_OTP. The copy tells the truth about the intended
   channel; the bridge remains the live delivery stopgap until real WhatsApp codes
   are confirmed arriving.
+
+## Part 7 stage 2 — SMS Point OTP delivery, wired (9 Sep 2026)
+
+The probe (stage 1) proved delivery; stage 2 wires it. NO migration.
+
+- **`lib/sms/smspoint.ts`** implements the `SmsProvider` interface —
+  `GET https://smspoint.pk/api/sendsms/?username&password&clientid&msg&to&mask&Language=English`,
+  the URL built by a pure `smspointUrl()` from env creds only (no literals). It
+  delivers on **WhatsApp** from the approved mask. `getSmsProvider()` now returns
+  it first (then Twilio, then the dev console, then `unconfigured`), so it is used
+  whenever the four `SMSPOINT_*` vars are set and **fails closed** otherwise (a
+  stated failure in production, never a silent success). Numbers go through
+  `lib/phone.ts`; the request URL — which carries the code and the credentials —
+  is never logged, echoed, or put in an error (the dev console adapter that does
+  print the message is never returned in production).
+- **Delivery is undetectable** (fire-and-forget: a non-existent number and an
+  exhausted balance both return 200 "Sent Successfully"). So `send()` returns
+  `ok:true` only for a 2xx + a success marker — which still fails closed on the
+  one detectable class, a bad-credentials/format response — and `ok:true` means
+  ACCEPTED, not delivered. The member-facing copy says only "sent on WhatsApp"
+  and the **support fallback is always visible** on `/verify-phone` and the
+  completion Mobile step (never hidden behind a failure the system cannot see).
+- **Per-number rate limits (`lib/otp.ts` `sendCapDecision`, pure):** the 5-minute
+  resend cooldown (existing), a 5/hour burst cap (existing), and a NEW **6/day**
+  per-number cap — the prepaid-cost ceiling, since every send is Re 1 with no way
+  to read the remaining balance. On top sit the per-IP caps (`otp_send`,
+  `register`, and `register_bridge` while the bridge is active). A number cannot
+  open two accounts: `/api/auth/register` rejects a duplicate mobile, and the
+  synthetic `<msisdn>@users.tutormint.org` is unique on `auth.users` by
+  construction, so a second signup fails even if the app check were bypassed.
+- **BRIDGE_OTP is NOT removed here** (owner). It coexists as a backstop: with a
+  provider configured, `sendOtp` sends a real code AND `verifyOtp` still accepts
+  the bridge code. The handover is `needsBridgeReverify()` (pure, unit-tested):
+  once `BRIDGE_OTP` is unset, a `phone_verified_via='bridge'` account is re-gated
+  at next login, re-verifies with a real code (→ `'otp'`), and any paused plan
+  reactivates.
+- **Tests** (`test:delivery` 23, `test:authtrust` 22): the send URL is built from
+  env with no hardcoded values, missing env fails closed and never touches the
+  network, the accept/reject detection, no number or code in a failure error, the
+  per-number day/hour/cooldown caps, and the bridge-handover decision.
+
+**OWNER ACTIONS in Vercel:** set `SMSPOINT_USERNAME`, `SMSPOINT_PASSWORD`,
+`SMSPOINT_CLIENTID`, `SMSPOINT_MASK` to activate delivery. Later, once real codes
+are confirmed on the live site, remove `BRIDGE_OTP` and `BRIDGE_OTP_EXPIRES` and
+redeploy — the handover then runs on each bridge account's next login.
 
 ## The auth trigger, restored (9 Sep 2026) — migration 59
 

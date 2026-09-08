@@ -33,6 +33,7 @@
 // tutormint.org it reads 'production' and nothing below changes.
 
 import type { SmsProvider, SmsResult } from './provider'
+import { smspointProvider } from './smspoint'
 import { twilioProvider } from './twilio'
 import { consoleProvider } from './console'
 import { isProduction, describeEnv } from '@/lib/env'
@@ -52,9 +53,31 @@ const unconfigured: SmsProvider = {
 }
 
 export function getSmsProvider(): SmsProvider {
+  // SMS Point is the live provider (Part 7 stage 2), delivering the code on
+  // WhatsApp. Twilio stays as the documented alternative. A configured real
+  // provider is used in dev too, exactly as twilio was — but the DEV_DEFAULT_OTP
+  // bypass short-circuits sendOtp BEFORE the provider, so a dev with the bypass
+  // set never spends a real message. With neither real provider configured, the
+  // console adapter prints in development, and production falls to `unconfigured`
+  // — a stated failure, never a silent success.
+  if (smspointProvider.isConfigured()) return smspointProvider
   if (twilioProvider.isConfigured()) return twilioProvider
   if (!isProduction()) return consoleProvider
   return unconfigured
+}
+
+/**
+ * Whether a signed-in account must re-verify its number with a REAL code.
+ *
+ * The BRIDGE_OTP stopgap proves a number with a shared code; when the real
+ * provider lands and the bridge is removed, every account proved that way
+ * (`phone_verified_via = 'bridge'`) must verify once more with a real code. This
+ * is the pure decision the login route acts on — raise the phone gate again when
+ * the account is bridge-verified AND the bridge is no longer active. Pure so the
+ * handover is unit-testable without driving the route.
+ */
+export function needsBridgeReverify(phoneVerifiedVia: string | null | undefined): boolean {
+  return phoneVerifiedVia === 'bridge' && !bridgeOtpCode()
 }
 
 /**

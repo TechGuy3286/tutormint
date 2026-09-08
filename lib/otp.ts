@@ -35,6 +35,48 @@ export const MAX_ATTEMPTS = 5
 // member always has a live code while they wait to resend.
 export const RESEND_COOLDOWN_MS = 5 * 60 * 1000
 export const MAX_SENDS_PER_HOUR = 5
+// Per-number DAILY cap (Part 7 stage 2). Every send costs Re 1 from a prepaid
+// balance the provider gives no way to check, and delivery is undetectable — so
+// an uncapped resend is someone else's bill and a silent outage when the credit
+// runs dry. Set one ABOVE the hourly burst cap so both bind independently: the
+// hourly cap (5) limits a burst within any hour, the daily cap (6) is the day's
+// cost ceiling — Rs 6 per number per day, worst case. Six is generous for a real
+// member (the 5-minute cooldown and 10-minute code TTL mean a genuine verify
+// needs one or two, rarely more); it exists to stop deliberate resend-abuse and
+// balance-drain. A member who somehow exhausts it is never stuck: the
+// WhatsApp/email support fallback is ALWAYS visible on /verify-phone and the
+// completion Mobile step, not hidden behind a failure the system cannot detect.
+export const MAX_SENDS_PER_DAY = 6
+
+export type SendCapVerdict =
+  | { ok: true }
+  | { ok: false; reason: 'day' | 'hour' | 'cooldown'; retryAfterSeconds?: number }
+
+/**
+ * Decide whether another code may be sent to a number, from the timestamps of
+ * its recent sends. PURE (no I/O), so the caps are unit-testable with a fixed
+ * `now`: sendOtp does the one query and hands the timestamps here.
+ *
+ * Order: the daily cost ceiling first, then the hourly burst guard, then the
+ * short resend cooldown (the only one that carries a countdown, for the UI).
+ */
+export function sendCapDecision(
+  priorSendsMs: number[],
+  nowMs: number,
+  cooldownMs: number = RESEND_COOLDOWN_MS,
+): SendCapVerdict {
+  const dayCount = priorSendsMs.filter((t) => t > nowMs - 24 * 60 * 60 * 1000).length
+  if (dayCount >= MAX_SENDS_PER_DAY) return { ok: false, reason: 'day' }
+
+  const hourCount = priorSendsMs.filter((t) => t > nowMs - 60 * 60 * 1000).length
+  if (hourCount >= MAX_SENDS_PER_HOUR) return { ok: false, reason: 'hour' }
+
+  if (priorSendsMs.length > 0) {
+    const wait = resendWaitSeconds(Math.max(...priorSendsMs), nowMs, cooldownMs)
+    if (wait > 0) return { ok: false, reason: 'cooldown', retryAfterSeconds: wait }
+  }
+  return { ok: true }
+}
 
 export type SendResult =
   | { ok: true; devBypassActive: boolean }
@@ -99,35 +141,31 @@ export async function sendOtp(opts: {
 
   const now = Date.now()
 
-  // Per-number budget. The route also rate-limits per IP: one stops a single
-  // number being spammed, the other stops a script walking a list of numbers,
-  // and only the second costs real money a message at a time.
+  // Per-number budget: a daily cost ceiling, an hourly burst guard, and the
+  // 5-minute resend cooldown — all decided by sendCapDecision from one 24h read.
+  // The route also rate-limits per IP: the per-number caps stop a single number
+  // being spammed (and cap what one number can cost), the per-IP cap stops a
+  // script walking a LIST of numbers, and only the second is a different money
+  // threat. Every send here is a real Re 1 with no delivery receipt.
   const { data: recent } = await admin
     .from('phone_otps')
     .select('created_at')
     .eq('phone', opts.phone)
     .eq('purpose', opts.purpose)
-    .gte('created_at', new Date(now - 60 * 60 * 1000).toISOString())
-    .order('created_at', { ascending: false })
+    .gte('created_at', new Date(now - 24 * 60 * 60 * 1000).toISOString())
 
-  if (recent && recent.length >= MAX_SENDS_PER_HOUR) {
-    return {
-      ok: false,
-      status: 429,
-      error: 'Too many codes requested for this number. Try again in an hour.',
-    }
-  }
-
-  if (recent && recent.length > 0) {
-    const wait = resendWaitSeconds(new Date(recent[0].created_at).getTime(), now)
-    if (wait > 0) {
-      return {
-        ok: false,
-        status: 429,
-        error: `Please wait ${wait}s before requesting another code.`,
-        retryAfterSeconds: wait,
-      }
-    }
+  const verdict = sendCapDecision(
+    (recent ?? []).map((r) => new Date(r.created_at as string).getTime()),
+    now,
+  )
+  if (!verdict.ok) {
+    const error =
+      verdict.reason === 'day'
+        ? 'You have requested the most codes we allow for this number today. Try again tomorrow, or message support to verify your number.'
+        : verdict.reason === 'hour'
+          ? 'Too many codes requested for this number. Try again in an hour.'
+          : `Please wait ${verdict.retryAfterSeconds}s before requesting another code.`
+    return { ok: false, status: 429, error, retryAfterSeconds: verdict.retryAfterSeconds }
   }
 
   const code = String(Math.floor(100000 + Math.random() * 900000))
