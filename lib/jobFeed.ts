@@ -422,3 +422,36 @@ export async function jobByRef(ref: string): Promise<JobCardData | null> {
   const [job] = await decorate([data as Record<string, unknown>])
   return job ?? null
 }
+
+/**
+ * The tuitions a tutor has saved (hearted), newest-saved first. Open jobs only —
+ * a saved job that has since closed drops out, the same way a shortlisted tutor
+ * who has unlisted drops out of the parent's shortlist.
+ */
+export async function savedJobsForTutor(userId: string): Promise<JobCardData[]> {
+  const supabase = await createClient()
+
+  const { data: saved } = await supabase
+    .from('saved_jobs')
+    .select('job_id, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  const ids = (saved ?? []).map((s) => s.job_id as string)
+  if (ids.length === 0) return []
+
+  const { data: rawJobs } = await supabase
+    .from('jobs')
+    .select(JOB_COLUMNS)
+    .in('id', ids)
+    .eq('status', 'open')
+
+  // Preserve the saved order (newest saved first); the SQL `in` does not.
+  const rank = new Map(ids.map((id, i) => [id, i]))
+  const ordered = (rawJobs ?? [])
+    .slice()
+    .sort((a, b) => (rank.get(a.id as string) ?? 0) - (rank.get(b.id as string) ?? 0))
+
+  return decorate(ordered as Record<string, unknown>[])
+}

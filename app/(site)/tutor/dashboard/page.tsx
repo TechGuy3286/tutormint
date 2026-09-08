@@ -10,6 +10,9 @@ import { canDownloadCv } from '@/lib/cv/access'
 import { absoluteUrl } from '@/lib/siteUrl'
 import ActivityBand from '@/components/dashboard/ActivityBand'
 import NeedsYou from '@/components/dashboard/NeedsYou'
+import ProfileCompletionWidget from '@/components/ProfileCompletionWidget'
+import SavedJobsSection from '@/components/tutor/SavedJobsSection'
+import { savedJobsForTutor } from '@/lib/jobFeed'
 import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
 import { getSessionUser } from '@/lib/auth'
 import { computeCompletion } from '@/lib/completion'
@@ -100,11 +103,11 @@ export default async function TutorDashboardPage() {
     unreadMessages,
     { data: apps },
     { data: demos },
+    savedJobs,
   ] = await Promise.all([
       tutorNeeds({
         userId,
         ent,
-        completion,
         verificationStatus: (tutorProfile?.verification_status as string) ?? null,
         videoStatus: (tutorProfile?.video_status as string) ?? null,
         videoAttempts: (tutorProfile?.video_attempts as number) ?? 0,
@@ -128,8 +131,9 @@ export default async function TutorDashboardPage() {
       loadIdentity(userId),
       matchingJobsForTutor(userId, tutorProfile?.city ?? null),
       unreadMessageCount(userId),
-      supabase.from('applications').select('id, status, withdrawn_at').eq('tutor_id', userId),
+      supabase.from('applications').select('id, job_id, status, withdrawn_at').eq('tutor_id', userId),
       supabase.from('demo_requests').select('id, status').eq('tutor_id', userId),
+      savedJobsForTutor(userId),
     ])
 
   // The rest of the funnel is loaded only for a tutor with no plan: a paying
@@ -140,6 +144,7 @@ export default async function TutorDashboardPage() {
     : [null, []]
 
   const liveApps = (apps ?? []).filter((a) => !a.withdrawn_at)
+  const appliedJobIds = liveApps.map((a) => a.job_id as string)
   // Real rows, not a hard-coded false. See unreadMessageCount().
   const unread = unreadMessages
   const liveDemos = (demos ?? []).filter((d) =>
@@ -249,12 +254,13 @@ export default async function TutorDashboardPage() {
           planNotice={planNotice}
           completion={percent}
           completionHref={
-            // Straight to the first missing item, not the top of the form — a
-            // percentage is not an instruction. Full checklist is in Needs you.
             completion?.missing?.[0]
               ? checklistHref('tutor', completion.missing[0])
               : '/tutor/complete-profile'
           }
+          // The completion PROMPT lives in the dedicated checklist below now, so
+          // the header shows only the ring (a glance) — no duplicated prompt.
+          showCompletionLink={false}
           editHref={
             tutorProfile?.slug
               ? { label: 'View your public profile', href: `/tutor/${tutorProfile.slug}` }
@@ -269,6 +275,18 @@ export default async function TutorDashboardPage() {
             ) : undefined
           }
         />
+
+        {/* Status and what-to-do-next, at the TOP, near the name and badges
+            (owner, 9 Sep — refines the 5 Sep "teaser first" order). The identity
+            status line first, then the ONE completion surface: the checklist of
+            what is done and what is not, each incomplete item a direct link. No
+            second completion prompt anywhere — the header ring is a glance only,
+            and Needs you no longer carries a completion row. */}
+        <IdentityStatusLine state={identityLineState} settingsHref="/tutor/dashboard/settings" />
+
+        {completion && percent < 100 && (
+          <ProfileCompletionWidget percent={percent} items={completion.items} role="tutor" />
+        )}
 
         {/* ------------------------------------------- the 199 funnel ---
             The "Who looked at you" teaser is the primary upsell surface and sits
@@ -354,17 +372,17 @@ export default async function TutorDashboardPage() {
           }
         />
 
-        {/* One compact status line, not the full identity form. The CNIC
-            front/back, selfie and "Request a change" live only in
-            Settings → Identity (/tutor/dashboard/settings). A verified tutor
-            reads "Identity: Verified" — the admin's verification decision IS the
-            identity approval for a tutor; see identityLineState above. It sits
-            directly below Needs you: no card between them, no empty gap. */}
-        <IdentityStatusLine state={identityLineState} settingsHref="/tutor/dashboard/settings" />
-
         {/* Your CV — the print-ready CV built from the profile. Preview is free
             to every tutor; the download is Verified-gated (via the upsell). */}
         <CvCard canDownload={canDownloadCv(ent)} />
+
+        {/* The tuitions this tutor saved — the mirror of the parents' shortlist.
+            Free, no plan; the heart on every job card feeds it. */}
+        <SavedJobsSection
+          initial={savedJobs}
+          viewerCity={(tutorProfile?.city as string | null) ?? null}
+          appliedIds={appliedJobIds}
+        />
 
         <ActivityBand
           items={activity}

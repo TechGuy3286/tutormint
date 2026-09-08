@@ -4,8 +4,28 @@ import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { applyPlanFlags } from '@/lib/payments/activate'
+import { notify } from '@/lib/notifications'
+import { deliverEmail } from '@/lib/notify'
+import { getEntitlements } from '@/lib/entitlements'
 import { parseBody, z, uuid } from '@/lib/validate'
 import { requireFreshAuth } from '@/lib/reauth'
+
+// What a granted plan unlocks, in the member's own terms. Warm and plain — no
+// price, no promise of tuitions or income (owner, 9 Sep). One line per plan.
+function planUnlocks(planCode: string): string {
+  switch (planCode) {
+    case 'verified':
+      return 'You can now see who has viewed your profile and apply to tuitions.'
+    case 'premium':
+      return 'You can now message parents on WhatsApp, apply to more tuitions and appear above Verified tutors in search.'
+    case 'featured':
+      return 'You can now see parent contact details, sit at the top of search and apply without a monthly limit.'
+    case 'parent_featured':
+      return 'You can now hire tutors, see their contact details and WhatsApp, and post tuitions without a monthly limit.'
+    default:
+      return 'Your new plan is now active on your account.'
+  }
+}
 
 // Manual plan grant / revoke — the pre-launch testing tool.
 //
@@ -50,7 +70,7 @@ export async function POST(request: Request) {
 
   const { data: target } = await admin
     .from('profiles')
-    .select('id, email, role')
+    .select('id, email, role, full_name')
     .eq('id', userId)
     .maybeSingle()
   if (!target) return NextResponse.json({ error: 'Account not found.' }, { status: 404 })
@@ -85,6 +105,22 @@ export async function POST(request: Request) {
       userId, event: 'plan_revoked', targetType: 'subscription', targetId: userId,
       meta: { note, plans: (revoked ?? []).map((r) => r.plan_code) },
     })
+
+    // Tell the member their plan ended (owner, 9 Sep — an admin action that
+    // changes what they can do must not be silent). Worded as loss of
+    // visibility, not an invoice, per the conversion rules; nothing is deleted.
+    if ((revoked ?? []).length > 0) {
+      await notify({
+        userId,
+        kind: 'plan_revoked',
+        title: 'Your plan has ended',
+        body:
+          target.role === 'tutor'
+            ? 'Your badges are off and you now appear below Verified tutors in search. Nothing has been deleted.'
+            : 'You can no longer complete a hire or see tutor contact details. Your tuitions stay open.',
+        href: target.role === 'tutor' ? '/tutor/packages' : '/parent/packages',
+      })
+    }
 
     return NextResponse.json({ success: true, action, revoked: (revoked ?? []).length })
   }
@@ -152,6 +188,38 @@ export async function POST(request: Request) {
     userId, event: 'plan_granted', targetType: 'subscription', targetId: created.id,
     meta: { planCode, days, note, source: 'admin_grant' },
   })
+
+  // Tell the member — warm, and never silent (owner, 9 Sep). A granted plan
+  // changes what they can do, so it notifies in-app AND emails, using the same
+  // template library as the other channels. No price (nothing was paid), no
+  // promise of tuitions or income. `listed` decides whether a tutor's badge is
+  // already live or waits on 100%, so the copy is accurate either way.
+  const ent = await getEntitlements(userId)
+  const unlocks = planUnlocks(planCode)
+  // The "badge at 100%" caveat is a tutor-listing rule; a parent tier does not
+  // wait on completion, so parents always get the "live" wording.
+  const live = targetAudience === 'parent' ? true : ent.listed
+  await notify({
+    userId,
+    kind: 'plan_activated',
+    title: `Your ${plan.name} plan is active`,
+    body: live
+      ? targetAudience === 'tutor'
+        ? `Your ${plan.name} badge is now live on your profile. ${unlocks}`
+        : unlocks
+      : `${unlocks} Your badge appears once your profile reaches 100%.`,
+    href: targetAudience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard',
+  })
+  await deliverEmail(
+    { userId },
+    {
+      id: 'plan_granted',
+      name: (target.full_name as string) ?? 'there',
+      planName: plan.name as string,
+      unlocks,
+      listed: live,
+    },
+  )
 
   return NextResponse.json({
     success: true, action, planCode, expiresAt: expiresAt.toISOString(), subscriptionId: created.id,

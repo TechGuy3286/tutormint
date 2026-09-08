@@ -18,12 +18,16 @@ export default function MoreOpenJobs({
   total,
   serverCount,
   viewerCity = null,
+  savedIds = [],
 }: {
   initialCursor: string | null
   total: number
   serverCount: number
   viewerCity?: string | null
+  /** Job ids the tutor has already saved, so the heart renders filled. */
+  savedIds?: string[]
 }) {
+  const saved = useMemo(() => new Set(savedIds), [savedIds])
   // The board takes no filters, so its identity is fixed — but the key still
   // gets a name of its own so restoring it can never collide with the stored
   // rows of /browse/tuitions, which renders the same cards.
@@ -50,6 +54,8 @@ export default function MoreOpenJobs({
                 showApply
                 applied={!!j.applied}
                 viewerCity={viewerCity}
+                saveable
+                initiallySaved={saved.has(j.id)}
               />
             </div>
           ))}

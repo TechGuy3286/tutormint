@@ -32,6 +32,7 @@ export default function IdentityBlock({
   line,
   completion,
   completionHref,
+  showCompletionLink = true,
   editHref,
   planNotice,
   extra,
@@ -46,6 +47,13 @@ export default function IdentityBlock({
   completion: number
   /** Where an incomplete profile is finished. */
   completionHref: string
+  /**
+   * The "N% complete — finish your profile" text link. Kept for the parent
+   * dashboard, which has no completion card of its own; turned OFF on the tutor
+   * dashboard, where a dedicated completion checklist sits directly below (so
+   * the prompt is not shown twice). The ring still renders either way.
+   */
+  showCompletionLink?: boolean
   /** The member's own public page or settings, when there is one. */
   editHref?: { label: string; href: string }
   /**
@@ -102,7 +110,7 @@ export default function IdentityBlock({
           <p className="text-[11px] font-semibold text-tm-gold-ink">{planNotice}</p>
         )}
 
-        {incomplete ? (
+        {incomplete && showCompletionLink ? (
           // The number in words as well as in the ring, and a link that goes
           // straight to the unfinished part.
           <Link

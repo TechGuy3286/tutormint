@@ -182,6 +182,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   let viewerRole: string | null = null
   let viewerPlan: string | null = null
   let appliedIds = new Set<string>()
+  let savedIds = new Set<string>()
 
   if (user) {
     const ent = await getEntitlements(user.id)
@@ -202,6 +203,13 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
         .eq('tutor_id', user.id)
         .in('job_id', jobs.map((j) => j.id))
       appliedIds = new Set((mine ?? []).map((a) => a.job_id as string))
+
+      const { data: savedRows } = await supabase
+        .from('saved_jobs')
+        .select('job_id')
+        .eq('user_id', user.id)
+        .in('job_id', jobs.map((j) => j.id))
+      savedIds = new Set((savedRows ?? []).map((s) => s.job_id as string))
     }
 
     const filtered = !!(subjectId || city || mode || budgetMin || budgetMax || q)
@@ -310,6 +318,8 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
                   showApply={showApply}
                   applied={appliedIds.has(job.id)}
                   viewerCity={viewerCity}
+                  saveable={isTutor}
+                  initiallySaved={savedIds.has(job.id)}
                 />
                 {(i + 1) % AD_EVERY === 0 && (
                   <AdSlot
@@ -336,6 +346,8 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             showApply={showApply}
             adEvery={AD_EVERY}
             viewerCity={viewerCity}
+            saveable={isTutor}
+            savedIds={Array.from(savedIds)}
           />
         )}
       </div>

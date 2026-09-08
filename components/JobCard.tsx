@@ -8,7 +8,7 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
 import { useState } from 'react'
-import { Building2, Clock, FileText, GraduationCap, MapPin, Wallet, Send } from 'lucide-react'
+import { Building2, Clock, FileText, GraduationCap, Heart, MapPin, Wallet, Send } from 'lucide-react'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import BadgeRow from '@/components/badges/BadgeRow'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
@@ -73,6 +73,9 @@ export default function JobCard({
   showApply = false,
   applied = false,
   viewerCity = null,
+  saveable = false,
+  initiallySaved = false,
+  onSavedChange,
 }: {
   job: JobCardData
   href?: string
@@ -87,12 +90,43 @@ export default function JobCard({
    * Null for guests and parents — no chip, the board still shows every job.
    */
   viewerCity?: string | null
+  /** A signed-in tutor may save (heart) the tuition. Free, no plan. */
+  saveable?: boolean
+  /** This tutor has already saved it. */
+  initiallySaved?: boolean
+  /** Fired after a successful save/unsave — the saved-list uses it to drop a card. */
+  onSavedChange?: (saved: boolean) => void
 }) {
   const upgradeSheet = useUpgradeSheet()
   const toast = useToast()
   const [gateOpen, setGateOpen] = useState(false)
   const [state, setState] = useState<'idle' | 'sending' | 'done'>(applied ? 'done' : 'idle')
   const [notice, setNotice] = useState<string | null>(null)
+  const [saved, setSaved] = useState(initiallySaved)
+  const [savingBusy, setSavingBusy] = useState(false)
+
+  const toggleSave = async () => {
+    if (savingBusy) return
+    const next = !saved
+    setSaved(next) // optimistic
+    setSavingBusy(true)
+    try {
+      const res = await fetch('/api/saved-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: job.id, action: next ? 'add' : 'remove' }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error ?? 'Could not update your saved list.')
+      toast.success(next ? 'Saved to your list.' : 'Removed from your saved list.')
+      onSavedChange?.(next)
+    } catch (e) {
+      setSaved(!next) // revert
+      toast.error(e instanceof Error ? e.message : 'Could not update your saved list.')
+    } finally {
+      setSavingBusy(false)
+    }
+  }
   // The tuition's own page. Until migration 40 there was none, and every
   // "View details" on the platform went to the unfiltered browse list --
   // which is to say, back to the page the reader was already on.
@@ -127,7 +161,27 @@ export default function JobCard({
   return (
     <>
       <article className="relative rounded-2xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md sm:p-6">
-        {job.is_featured && <FeaturedTag className="absolute right-3 top-3 sm:right-4 sm:top-4" />}
+        {job.is_featured && (
+          <FeaturedTag
+            className={`absolute top-3 sm:top-4 ${saveable ? 'right-14 sm:right-16' : 'right-3 sm:right-4'}`}
+          />
+        )}
+        {/* The heart — a signed-in tutor saves the tuition. Free, no plan. z-10
+            so the card's own links do not swallow the tap; 44px target. */}
+        {saveable && (
+          <button
+            type="button"
+            onClick={toggleSave}
+            disabled={savingBusy}
+            aria-pressed={saved}
+            aria-label={saved ? 'Remove from saved tuitions' : 'Save this tuition'}
+            className={`absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors sm:right-4 sm:top-4 ${
+              saved ? 'text-tm-red' : 'text-gray-500 hover:text-tm-red'
+            }`}
+          >
+            <Heart aria-hidden size={20} fill={saved ? 'currentColor' : 'none'} />
+          </button>
+        )}
 
         <div className="space-y-3">
           {underReview && (

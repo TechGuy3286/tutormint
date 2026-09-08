@@ -82,6 +82,9 @@ export type ActivityEvent =
   | 'email_preferences_changed'
   // A tutor downloaded their CV PDF (the Verified-gated conversion feature).
   | 'cv_downloaded'
+  // A tutor saved / unsaved a tuition (the tutor-side shortlist).
+  | 'saved_job_added'
+  | 'saved_job_removed'
 
 export async function logActivity(params: {
   userId: string

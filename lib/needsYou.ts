@@ -3,7 +3,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { planLabel } from '@/lib/display'
 import type { Entitlements } from '@/lib/entitlements'
 import { tuitionPath } from '@/lib/slugs'
-import { checklistHref, type Completion } from '@/lib/profileChecklist'
 
 // What is BLOCKED ON THIS PERSON, and nothing else.
 //
@@ -304,24 +303,21 @@ export async function parentNeeds({
   return rows
 }
 
-/** The tutor's blocking work. */
+/** The tutor's blocking work. Completion is handled by the top-of-dashboard
+ *  checklist now, not here — see the note at the removed completion row. */
 export async function tutorNeeds({
   userId,
   ent,
-  completion,
   verificationStatus,
   videoStatus,
   videoAttempts,
 }: {
   userId: string
   ent: Entitlements
-  /** The full checklist, so the row can show what is missing, not just a %. */
-  completion: Completion | null
   verificationStatus: string | null
   videoStatus: string | null
   videoAttempts: number
 }): Promise<NeedRow[]> {
-  const completionPercent = completion?.percent ?? 0
   const rows: NeedRow[] = []
   const supabase = await createClient()
 
@@ -340,29 +336,11 @@ export async function tutorNeeds({
     ]
   }
 
-  if (completionPercent < 100) {
-    const items = completion?.items ?? []
-    const nextMissing = items.find((i) => !i.done)
-    rows.push({
-      id: 'completion',
-      title: `Your profile is ${completionPercent}% complete`,
-      why: 'Tutors are only listed in search at 100%. Until then parents cannot find you, whatever your plan.',
-      // The action goes straight to the FIRST missing item, not the top of the
-      // form — a percentage is not an instruction, and neither is "start again".
-      action: nextMissing
-        ? { label: 'Finish your profile', href: checklistHref('tutor', nextMissing) }
-        : { label: 'Finish your profile', href: '/tutor/complete-profile' },
-      tone: 'urgent',
-      // The itemised list: what is done, what is not, each incomplete one a
-      // direct link. Built from the same items the percentage is.
-      checklist: items.map((i) => ({
-        key: i.key,
-        label: i.label,
-        done: i.done,
-        href: checklistHref('tutor', i),
-      })),
-    })
-  }
+  // Profile completion is NOT a Needs-you row any more (owner, 9 Sep). Status
+  // and what-to-do-next moved to the TOP of the dashboard: the completion
+  // checklist now renders directly under the header, so a second copy here would
+  // be the duplication the band-order pass removed. Needs you keeps the OTHER
+  // blocks below — a rejected video, a shortlist waiting, an expiring plan.
 
   if (videoStatus === 'rejected') {
     const used = videoAttempts ?? 0

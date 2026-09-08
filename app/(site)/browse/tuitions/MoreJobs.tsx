@@ -19,6 +19,8 @@ export default function MoreJobs({
   showApply,
   adEvery,
   viewerCity = null,
+  saveable = false,
+  savedIds = [],
 }: {
   params: Record<string, string>
   initialCursor: string | null
@@ -28,7 +30,10 @@ export default function MoreJobs({
   showApply: boolean
   adEvery: number
   viewerCity?: string | null
+  saveable?: boolean
+  savedIds?: string[]
 }) {
+  const saved = useMemo(() => new Set(savedIds), [savedIds])
   const storageKey = useMemo(
     () => `tm:more:tuitions:${new URLSearchParams(params).toString()}`,
     [params],
@@ -51,7 +56,7 @@ export default function MoreJobs({
             const position = serverCount + i + 1
             return (
               <div key={j.id} className="space-y-4">
-                <JobCard job={j} signedIn={signedIn} showApply={showApply} applied={!!j.applied} viewerCity={viewerCity} />
+                <JobCard job={j} signedIn={signedIn} showApply={showApply} applied={!!j.applied} viewerCity={viewerCity} saveable={saveable} initiallySaved={saved.has(j.id)} />
                 {position % adEvery === 0 && (
                   <InlineAd audience="tutors" index={Math.floor(position / adEvery)} />
                 )}

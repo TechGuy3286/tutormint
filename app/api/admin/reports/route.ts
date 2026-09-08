@@ -3,6 +3,7 @@ import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
+import { notify } from '@/lib/notifications'
 import { warnMember, suspendMember, unsuspendMember, banMember } from '@/lib/moderation'
 import { clearUnderReview } from '@/lib/underReview'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -146,8 +147,17 @@ export async function POST(request: Request) {
 
   // The person who reported deserves to know it was looked at. The outcome is
   // deliberately NOT disclosed -- telling a reporter that the other member was
-  // suspended turns moderation into a scoreboard.
+  // suspended turns moderation into a scoreboard. A notification AND a timeline
+  // entry (owner, 9 Sep — a resolution the reporter never sees is a silent
+  // outcome); the notification carries the same non-disclosure.
   if (report.reporter_id) {
+    await notify({
+      userId: report.reporter_id as string,
+      kind: 'report_resolved',
+      title: 'Your report has been reviewed',
+      body: 'Thank you — our team has reviewed the report you filed and taken the appropriate action.',
+      href: '/account/notifications',
+    })
     await logActivity({
       userId: report.reporter_id as string,
       event: 'report_resolved',

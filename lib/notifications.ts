@@ -69,6 +69,11 @@ export type NotificationKind =
   // site. Added when the bell shipped, because that is when it became visible.
   | 'verification_approved'
   | 'verification_rejected'
+  // Admin action outcomes that were silent (owner, 9 Sep). A manually revoked
+  // plan and a resolved report both change or answer something for the member,
+  // so they are told. notifications.kind is text with no CHECK constraint.
+  | 'plan_revoked'
+  | 'report_resolved'
   // T-AdminJobs. An admin closing, un-featuring or removing somebody's tuition
   // is a consequential change to a thing they made; finding out by noticing it
   // gone is the worst way to learn it. No migration needed --

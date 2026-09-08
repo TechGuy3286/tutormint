@@ -3488,3 +3488,109 @@ were lost again (staff/import ran that way, undetected, from 5 Sep). The upsert
 supplies every NOT-NULL-without-default column, so it creates the row whether or
 not the trigger fired. Migration 60 backfilled two more owner-confirmed real
 tutors (`javeriafiaz76@`, `gullfatima5868@`) left over from the 59 backfill.
+
+## Admin actions tell the member (owner, 9 Sep 2026)
+
+Any admin decision that changes what a member can do MUST notify them, on the
+channels they have, using the existing template library, audit log and member
+timeline. Verifying a tutor and having them receive nothing is the bug this
+closes. The sweep, and what it found:
+
+- **Already told (in-app + email):** tutor video approve/hold
+  (`/api/admin/tutors/moderate`), parent CNIC/address approve/reject
+  (`/api/admin/parents/verify`), payment approve (`lib/payments/activate.ts`).
+- **Already told (in-app):** suspend / unsuspend (`lib/moderation.ts`), payment
+  reject.
+- **Was SILENT, now fixed:**
+  - **Plan grant** (`/api/admin/plans`) — a granted plan changes what a member
+    can do and said nothing (this is what "verified a tutor, received nothing"
+    was: granting the Verified plan). Now an in-app notification AND a warm
+    `plan_granted` email: it congratulates, names what the plan unlocks, and —
+    per the conversion rules — never promises tuitions or income and never
+    mentions a price. `listed` decides whether a tutor's badge is already live or
+    waits on 100%, so the copy is accurate either way.
+  - **Plan revoke** — now notifies (worded as loss of visibility, nothing
+    deleted).
+  - **Report resolved** — the reporter got a timeline row but no notification;
+    now they are notified their report was reviewed, WITHOUT disclosing the
+    outcome (telling a reporter the other member was suspended turns moderation
+    into a scoreboard).
+  - **Ban** — a banned account has no session, so in-app is unreachable; the ban
+    is communicated at the login attempt (the exact message) and now ALSO by a
+    neutral `account_banned` email, the one channel a banned member can still
+    reach.
+
+Two new email templates: `plan_granted` (warm, no price) and `account_banned`
+(neutral). Both are essential (ignore the opt-out).
+
+## Tutor dashboard band order — status and completion first (owner, 9 Sep 2026)
+
+**Refines "Tutor dashboard cleanup, as built (5 Sep 2026)", which put the
+"Who looked at you" teaser literally first. Under precedence rule 10 this wins:
+status and what-to-do-next now sit ABOVE the teaser.** The owner's reason: the
+most important things — is my identity verified, what is still missing on my
+profile — were below the fold, and completion was shown twice.
+
+Order now, both widths: header card (name, badges, avatar, completion RING only)
+→ **Identity status line** (Verified / Pending / Not submitted) → **completion
+checklist** (the one completion surface: what is done, what is not, each
+incomplete item a direct link, via `ProfileCompletionWidget`, shown only under
+100%) → the 199 funnel (teaser, then the free-only position and matching-jobs
+cards) → Needs you → CV → **Saved tuitions** → Activity → Your things.
+
+**One completion surface, not two.** The header ring is a glance (no text
+prompt — `IdentityBlock showCompletionLink={false}` on the tutor dashboard; the
+parent header keeps its prompt, having no checklist card of its own). The
+completion row was REMOVED from `tutorNeeds` — Needs you keeps only the other
+blocks (a rejected video, a shortlist waiting, an expiring plan). The teaser is
+still the primary upsell and still above every other funnel surface; it simply
+sits below the member's own status, which is the thing they open the dashboard
+to check.
+
+## Tutors can save tuitions (owner, 9 Sep 2026)
+
+The mirror of the parents' `shortlists`. `saved_jobs (user_id, job_id)`
+(migration 62), RLS scoped to the owner exactly like shortlists. Saving is FREE
+and needs no plan — it is per-account state, so it lives in the database and
+follows the tutor across devices. Every job card carries a heart for a signed-in
+tutor (`/api/saved-jobs`, optimistic); the tutor dashboard has a "Saved
+tuitions" section (`SavedJobsSection`, open jobs only, newest-saved first) with
+an empty state that points at the jobs board. Wired on the tutor jobs board and
+`/browse/tuitions` (first window + load-more).
+
+## Admin can post a job — DECISION, implementation blocked on the recipient (owner, 9 Sep 2026)
+
+Owner decision, recorded as instructed:
+
+- An admin-posted job is a TRUSTED post: it carries the platform's own
+  verification, not a CNIC-verified parent's, and is marked "Posted by
+  TutorMint", visibly, so it is never mistaken for an unverified listing.
+- It uses the same job form, taxonomy and fields as a parent post. No second job
+  shape.
+- It is audit-logged with the admin who created it and, where known, its source.
+- Applications, messaging and hiring against it must work.
+
+**Implementation is BLOCKED on the recipient question, and per the owner's own
+instruction ("if that flow has a gap, describe it and stop rather than inventing
+a recipient") it was NOT built in this PR.** The gap, precisely:
+
+`jobs.parent_id` is **NOT NULL** and a foreign key to `auth.users`, and the
+entire application machinery is built around it — `applyToJob()` notifies
+`job.parent_id` and makes them the thread participant, `setApplicationStatus()`
+requires `job.parent_id === the caller`, and hire is server-gated to
+`parent_featured`. So an admin-posted job is FORCED to name a real account as
+its parent, and there is no clean one:
+
+- **The posting admin** is a real account, but an `admin` role cannot open the
+  parent dashboard (it is role-gated), cannot hire (not `parent_featured`), and
+  has no member-thread inbox (the admin Team inbox is a separate store,
+  deliberately, to keep the "no chat-browsing screen" line true). So a tutor's
+  application/message would reach an account with no UI to work it.
+- **A dedicated "TutorMint" parent account** would make everything work through
+  the normal parent flows — but creating one is exactly "inventing a recipient",
+  which the owner said to flag rather than do unilaterally.
+
+So this needs an owner decision on the recipient model before it is built. The
+recommendation is a **real, team-operated parent account** (a genuine signup,
+granted `parent_featured`), which every existing flow already supports — but that
+is the owner's call to make, not mine to invent.

@@ -20,6 +20,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
+import { deliverEmail } from '@/lib/notify'
 import { applyPlanFlags } from '@/lib/payments/activate'
 import { addToBlocklist, removeFromBlocklistBySource } from '@/lib/blocklist'
 import { normalisePkMobile } from '@/lib/phone'
@@ -293,7 +294,7 @@ export async function banMember(params: {
 
   const { data: target } = await admin
     .from('profiles')
-    .select('id, role, admin_role, is_banned, phone_number, cnic_number')
+    .select('id, role, admin_role, is_banned, phone_number, cnic_number, full_name')
     .eq('id', params.userId)
     .maybeSingle()
   if (!target) return { ok: false, status: 404, error: 'Member not found.' }
@@ -345,8 +346,11 @@ export async function banMember(params: {
     detail: { reason: params.reason, role: target.role },
   })
 
-  // On the member's own timeline (it is shown in admin). No notification: a
-  // banned account has no session and cannot read one.
+  // On the member's own timeline (it is shown in admin). No IN-APP notification:
+  // a banned account has no session and cannot read one. Email is the one
+  // channel it can still reach, so the ban is told there (owner, 9 Sep — an
+  // action that changes what a member can do must not be silent). Neutral, and
+  // points at support; the login screen carries the same message.
   await logActivity({
     userId: params.userId,
     event: 'banned',
@@ -354,6 +358,11 @@ export async function banMember(params: {
     targetId: params.userId,
     meta: { reason: params.reason },
   })
+
+  await deliverEmail(
+    { userId: params.userId },
+    { id: 'account_banned', name: (target.full_name as string) ?? 'there' },
+  )
 
   return { ok: true }
 }

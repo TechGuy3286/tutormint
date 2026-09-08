@@ -128,8 +128,14 @@ export type TemplateInput =
     }
   | { id: 'message_digest'; name: string; count: number; from: string[] }
   | { id: 'plan_activated'; name: string; planName: string; expiresAt: string; amountPkr: number }
+  // An admin grant, not a purchase — so no amount and no refund line. Warm, and
+  // it names what the plan unlocks without promising tuitions, income or a price.
+  | { id: 'plan_granted'; name: string; planName: string; unlocks: string; listed: boolean }
   | { id: 'plan_expiring'; name: string; planName: string; daysLeft: number }
   | { id: 'plan_expired'; name: string; planName: string }
+  // A ban has no in-app channel (the account cannot sign in), so email is the
+  // only way to tell the member. Neutral, and points at support.
+  | { id: 'account_banned'; name: string }
   | {
       id: 'content_digest'
       suggestions: { title: string; why: string; href: string }[]
@@ -288,6 +294,35 @@ export function render(input: TemplateInput): RenderedEmail {
         ],
         true, // billing
         { label: 'Get my position back', href: '/tutor/packages' },
+      )
+
+    // ---------------------------------------------------------------------
+    case 'plan_granted':
+      return build(
+        `Your ${input.planName} plan is active`,
+        `Congratulations, ${input.name}`,
+        [
+          `Your ${input.planName} plan is now active on your TutorMint account.`,
+          input.unlocks,
+          input.listed
+            ? ''
+            : 'Your badge appears on your profile as soon as it reaches 100%.',
+        ].filter(Boolean),
+        true,
+        { label: 'Open your dashboard', href: '/' },
+      )
+
+    // ---------------------------------------------------------------------
+    case 'account_banned':
+      return build(
+        'Your TutorMint account has been closed',
+        `Hello ${input.name}`,
+        [
+          'Your account has been banned due to fraudulent activities.',
+          'If you believe this is a mistake, please contact support.',
+        ],
+        true,
+        { label: 'Contact support', href: '/support' },
       )
 
     // The Monday content digest to owner + manager. An internal ops email, so

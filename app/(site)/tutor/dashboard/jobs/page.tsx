@@ -48,6 +48,11 @@ export default async function TutorJobsPage() {
 
   const appliedIds = new Set((mine ?? []).map((a) => a.job_id as string))
 
+  // Which of these the tutor has saved (hearted). Free, no plan — every card
+  // gets a heart, filled for the ones already saved.
+  const { data: savedRows } = await supabase.from('saved_jobs').select('job_id').eq('user_id', userId)
+  const savedIds = new Set((savedRows ?? []).map((s) => s.job_id as string))
+
   // Job titles for the tutor's own applications, including jobs that have
   // since closed and therefore no longer appear in the open list.
   const admin = createAdminClient()
@@ -115,11 +120,14 @@ export default async function TutorJobsPage() {
                       showApply
                       applied={appliedIds.has(job.id)}
                       viewerCity={viewerCity}
+                      saveable
+                      initiallySaved={savedIds.has(job.id)}
                     />
                   </div>
                 ))}
               </div>
               <MoreOpenJobs
+                savedIds={Array.from(savedIds)}
                 initialCursor={nextCursor}
                 total={total}
                 serverCount={jobs.length}
