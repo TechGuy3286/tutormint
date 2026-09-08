@@ -815,7 +815,11 @@ This supersedes the observation in "T-UI1" below that a live fetch of tutormint.
 - **SMS provider — undecided.** Twilio (card required, fast to set up) vs a Pakistani gateway (cheaper per message, slower to set up). Mobile signup on the live site cannot deliver codes until one exists. This is the hardest blocker.
 - SMTP on the Supabase project — **configured** (Resend, `noreply@tutormint.org`; Part 8). Confirmation, password-reset and staff-invite email deliver. No longer a blocker.
 - AssanPay — in negotiation.
-- CUIN and NTN — placeholders in Terms and receipts awaiting real numbers.
+- CUIN and NTN — **filled** (owner, 9 Sep 2026, from the FBR taxpayer certificate):
+  `company.reg_no = 0353636` (SECP CUIN), `company.ntn = J833612`, set in
+  `app_settings`. `lib/company.ts` no longer reports `regNoPending`/`ntnPending`,
+  so the SECP-number clause on Terms/Privacy, the NTN row on Terms/Privacy/About,
+  and the Organization JSON-LD `identifier` all render. No longer a blocker.
 
 All four are already described where they bite, and this list is the index rather than a fifth copy: the SMS prerequisite in "Auth & verification flows" and "Mobile-first signup", SMTP in "Auth & verification flows", "Admin, part 1 (T7a)" (staff invites) and the register/login form rules, AssanPay in the owner Q&A and "Payments — the adapter contract", and the two company numbers in "Legal entity". Fix one, check the others.
 
@@ -2880,9 +2884,9 @@ describe what is.
   Part 8). Confirmation links, password-reset email and staff invites deliver.
 - **AssanPay go-live** — in negotiation; until then manual transfer + admin
   approval is the only paid path.
-- **CUIN and NTN** into `app_settings` (`company.reg_no`, `company.ntn`) — until
-  filled, every company-number row hides itself and the schema omits the
-  identifier, by design.
+- **CUIN and NTN** — **DONE** (owner, 9 Sep 2026): `company.reg_no = 0353636`,
+  `company.ntn = J833612` set in `app_settings` from the FBR certificate. The
+  company-number rows and the schema `identifier` now render.
 - **Vercel Production Branch → `rebuild`** so a release is a normal deploy rather
   than the manual `vercel redeploy --target production` used throughout.
 - **Logo artwork as one word** ("TutorMint") — the header and footer logo images

@@ -20,10 +20,20 @@ import type { NeedRow } from '@/lib/needsYou'
 export default function NeedsYou({
   rows,
   emptyHint,
+  blockedEmpty,
 }: {
   rows: NeedRow[]
   /** Role-specific: what this member should know when nothing is pending. */
   emptyHint: string
+  /**
+   * When there are no rows but the member is NOT genuinely clear — e.g. a tutor
+   * who is not listed because their profile is incomplete — the green "nothing
+   * needs you" line would be a lie. In that case this honest amber state renders
+   * instead: it never claims they are clear, and points at the thing that is
+   * actually holding them back. `emptyHint` (and its "Nothing needs you" framing)
+   * is used ONLY when this is absent.
+   */
+  blockedEmpty?: { title: string; hint: string; action?: { label: string; href: string } }
 }) {
   return (
     <section aria-labelledby="needs-you" className="space-y-2">
@@ -35,10 +45,31 @@ export default function NeedsYou({
       </h2>
 
       {rows.length === 0 ? (
-        <p className="flex items-start gap-2 rounded-2xl border border-tm-green-deep/20 bg-tm-tint-green p-4 text-xs font-semibold leading-relaxed text-tm-green-deep">
-          <CheckCircle2 aria-hidden size={16} className="mt-px shrink-0" />
-          Nothing needs you right now. {emptyHint}
-        </p>
+        blockedEmpty ? (
+          <div className="flex flex-col gap-3 rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex min-w-0 items-start gap-2.5">
+              <AlertTriangle aria-hidden size={16} className="mt-0.5 shrink-0 text-tm-gold-ink" />
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-xs font-black text-tm-gold-ink">{blockedEmpty.title}</p>
+                <p className="text-[11px] font-semibold leading-relaxed text-tm-gold-ink">{blockedEmpty.hint}</p>
+              </div>
+            </div>
+            {blockedEmpty.action && (
+              <Link
+                href={blockedEmpty.action.href}
+                className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
+              >
+                <ArrowRight aria-hidden size={13} />
+                {blockedEmpty.action.label}
+              </Link>
+            )}
+          </div>
+        ) : (
+          <p className="flex items-start gap-2 rounded-2xl border border-tm-green-deep/20 bg-tm-tint-green p-4 text-xs font-semibold leading-relaxed text-tm-green-deep">
+            <CheckCircle2 aria-hidden size={16} className="mt-px shrink-0" />
+            Nothing needs you right now. {emptyHint}
+          </p>
+        )
       ) : (
         <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white">
           {rows.map((r) => {

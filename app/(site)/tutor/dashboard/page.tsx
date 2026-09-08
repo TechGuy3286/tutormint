@@ -281,8 +281,17 @@ export default async function TutorDashboardPage() {
             status line first, then the ONE completion surface: the checklist of
             what is done and what is not, each incomplete item a direct link. No
             second completion prompt anywhere — the header ring is a glance only,
-            and Needs you no longer carries a completion row. */}
-        <IdentityStatusLine state={identityLineState} settingsHref="/tutor/dashboard/settings" />
+            and Needs you no longer carries a completion row.
+
+            The 'none' (Not submitted) state is deliberately NOT shown here: it
+            would duplicate the checklist's "CNIC number and image" item — same
+            requirement, two voices, two destinations (Settings vs the exact
+            step). The checklist owns "submit your CNIC" with the right link. The
+            line shows only what the checklist does NOT: the admin-review outcome
+            (Verified / Pending review / Not accepted). */}
+        {identityLineState !== 'none' && (
+          <IdentityStatusLine state={identityLineState} settingsHref="/tutor/dashboard/settings" />
+        )}
 
         {completion && percent < 100 && (
           <ProfileCompletionWidget percent={percent} items={completion.items} role="tutor" />
@@ -352,10 +361,11 @@ export default async function TutorDashboardPage() {
                       {j.matchReason}
                     </span>
                   </span>
-                  {/* Apply routes through the upgrade sheet: the button is
-                      real, the refusal explains itself, and nothing here shows
-                      a price until it is pressed. */}
-                  <ApplyFromStrip jobId={j.id} />
+                  {/* A LISTED free tutor gets the real Apply button (the plan
+                      gate on their own tap). An UNLISTED tutor gets a plain
+                      "Finish profile to apply" link instead — the block is
+                      completion, not a plan, so no upgrade and no price. */}
+                  <ApplyFromStrip jobId={j.id} listed={listed} />
                 </li>
               ))}
             </ul>
@@ -365,10 +375,27 @@ export default async function TutorDashboardPage() {
 
         <NeedsYou
           rows={needs}
-          emptyHint={
+          emptyHint="Your profile is live and parents can find you."
+          // An unlisted tutor must never be told they are clear. When there is no
+          // other blocking row, the honest state is that completion is what stands
+          // between them and being found — the checklist above is how to fix it.
+          blockedEmpty={
             listed
-              ? 'Your profile is live and parents can find you.'
-              : 'Nothing is blocking you right now.'
+              ? undefined
+              : {
+                  title:
+                    percent < 100
+                      ? `Your profile is ${percent}% complete, so you are not listed yet`
+                      : 'Your profile is not listed yet',
+                  hint:
+                    percent < 100
+                      ? 'Parents only see and hear from listed tutors. Finish the checklist above to reach 100% and get listed.'
+                      : 'Parents cannot find you until your profile is listed. Check your verification status in Settings.',
+                  action:
+                    percent < 100
+                      ? { label: 'Finish your profile', href: '/tutor/complete-profile' }
+                      : { label: 'Open Settings', href: '/tutor/dashboard/settings' },
+                }
           }
         />
 
