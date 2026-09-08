@@ -1,13 +1,15 @@
 import Link from 'next/link'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { Mail } from 'lucide-react'
+import ResendEmail from './ResendEmail'
 
-// The email-path landing after signup (owner, Sunday 6 Sep). An account created
-// with an email address is UNconfirmed and has no session — Supabase sends a
-// confirmation link and the member finishes by clicking it. This page is the
-// "check your inbox" screen; it never claims the mail was delivered (delivery
-// needs SMTP on the project, an open owner item), only that a link is on its
-// way to the address they gave.
+// The email-path landing after signup (owner, Sunday 6 Sep; email path live
+// again Part 8, 9 Sep). An account created with an email address is UNconfirmed
+// and has no session — Supabase sends a confirmation link over Resend
+// (noreply@tutormint.org) and the member finishes by clicking it. This page is
+// the "check your inbox" screen; the mail genuinely sends now that SMTP is
+// configured, and a Resend button re-sends it (Supabase caps this to one every
+// 60s per user, and the button surfaces that wait rather than failing quietly).
 
 export const dynamic = 'force-dynamic'
 
@@ -39,8 +41,9 @@ export default async function VerifyEmailPage({
           </p>
           <p className="text-[11px] leading-relaxed text-gray-500">
             The link can take a few minutes to arrive. Check your spam folder if you don’t see it.
-            You can also sign up with a mobile number instead — that confirms instantly with a code.
+            You can also sign up with a mobile number instead — that confirms with a code on WhatsApp.
           </p>
+          {address && <ResendEmail address={address} />}
           <div className="flex flex-col gap-2">
             <Link
               href="/login"

@@ -120,7 +120,7 @@ deployment, the variables are on the wrong environment.
 These are dashboard settings, not code. None of them can be set from this repo.
 
 - [ ] **Confirm email: ON.** Currently OFF on the dev project. With it on, the welcome email is sent from `/api/auth/callback` after the address is proven real.
-- [ ] **SMTP configured**, so confirmation emails and staff invites actually send. Without it, `createStaff()` falls back to a one-time temporary password shown to the owner once — which works, but means a colleague waits for an invite that never arrives.
+- [x] **SMTP configured** (Resend, sender `noreply@tutormint.org`; owner, Part 8, 9 Sep 2026), so confirmation emails, password-reset links and staff invites actually send. (`createStaff()` still falls back to a one-time temporary password if an individual invite send fails — that path stays as a backstop.)
 - [ ] **Leaked-password protection: ON** (Authentication → Policies). Rejects passwords found in known breach corpora.
 - [ ] **Cloudflare Turnstile** on sign-in and sign-up (Authentication → Attack Protection). *Not built in T8a — it is a Supabase-side integration plus a widget on `/login` and `/register`.*
 - [ ] **Rate limits** reviewed under Authentication → Rate Limits. Application-level limits are in `lib/rateLimit.ts`; these are Supabase's own.

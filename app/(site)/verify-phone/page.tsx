@@ -81,7 +81,8 @@ export default async function VerifyPhonePage({
           <span className="inline-block rounded-2xl bg-tm-tint-green p-3 text-3xl">📱</span>
           <h1 className="text-xl font-black text-tm-navy">Verify your mobile number</h1>
           <p className="text-xs leading-relaxed text-gray-500">
-            We sent a 6-digit code to{' '}
+            We sent a 6-digit code on{' '}
+            <span className="font-bold text-tm-green-deep">WhatsApp</span> to{' '}
             <span className="font-bold text-tm-navy">{formatPkMobile(mobile)}</span>. Enter it to
             finish setting up your account.
           </p>
@@ -96,9 +97,9 @@ export default async function VerifyPhonePage({
             a wa.me/ or mailto: with nothing behind it is worse than no button. */}
         {(waHref || support.email) && (
           <div className="space-y-2 rounded-2xl border border-gray-200 bg-tm-bg p-4">
-            <p className="text-xs font-bold text-tm-navy">Not receiving the code?</p>
+            <p className="text-xs font-bold text-tm-navy">No WhatsApp on this number?</p>
             <p className="text-[11px] leading-relaxed text-gray-500">
-              Message us and we&rsquo;ll verify you.
+              If the code hasn&rsquo;t arrived on WhatsApp, message us and we&rsquo;ll verify you.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               {waHref && (

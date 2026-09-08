@@ -101,13 +101,13 @@ Hired/closed status lives in `jobs.status` + `jobs.hired_tutor_id` — never loc
 
 ## Auth & verification flows
 
-**SUPERSEDED by "Auth & trust decisions" (Sunday 6 Sep) and "Part 5 decisions" (8 Sep) — the signup FIELD is now a single "Mobile number or email" identifier, and the email PATH is gated off until SMTP (an address returns "Email signup isn't available yet. Please sign up with your mobile number." and creates no account). The mobile-first mechanics below (synthetic email, phone gate, OTP) still stand; the retired-email-first note is stale — mobile is the only path that creates an account today, not because email-first was retired but because email signup is switched off until SMTP.**
+**SUPERSEDED by "Auth & trust decisions" (Sunday 6 Sep), "Part 5 decisions" (8 Sep) and "Part 8 decisions" (9 Sep) — the signup FIELD is a single "Mobile number or email" identifier, and BOTH PATHS ARE LIVE (Part 8): digits → OTP delivered on WhatsApp; an address → Supabase confirmation link over Resend. The Part 5 email gate was lifted once SMTP was configured. The mobile-first mechanics below (synthetic email, phone gate, OTP) still stand; the "email-first is retired" note is stale — email-first was never the flow, but email signup does now create an account.**
 
 **Signup is mobile-first — see "Mobile-first signup" and its "As built (T-UI2)" notes, which are canonical. The email-first flow described in earlier drafts is retired.** In short: `/register` creates the account from a mobile number (synthetic `<msisdn>@users.tutormint.org` when no email is given), signs the user in immediately, sends an OTP, and `proxy.ts` holds accounts with `phone_gate_required = true` and `phone_verified_at is null` on `/verify-phone`.
 
 - **One `/login`**, accepting email **or** Pakistani mobile (mapped server-side through `lib/phone.ts` in `/api/auth/login`, which returns one identical message for every failure so the route is not a membership oracle). After sign-in read `profiles.role` once → `/tutor/dashboard` | `/parent/dashboard` | `/admin`. `/parent/login` and `/tutor/login` are server redirects to `/login`.
 - **One `/register`** with two role radios: **Tutor** and **Parent / Institution**. Creates the auth user + `profiles` row (+ `tutor_profiles` with `verification_status='pending'` for tutors).
-- **Email confirmation** applies only to accounts registered with an email and no mobile. Mobile-verified accounts never see it. `/api/auth/callback` handles the code exchange. Password-reset delivery needs SMTP on the Supabase project — see `PRODUCTION_CHECKLIST.md`.
+- **Email confirmation** applies only to accounts registered with an email and no mobile. Mobile-verified accounts never see it. `/api/auth/callback` handles the code exchange. **SMTP is configured (Resend, `noreply@tutormint.org`; Part 8), so confirmation links and password-reset email now deliver.**
 - **Phone OTP**: `POST /api/auth/otp` (send) and `/verify`. Checks `expires_at`, single-use (`consumed_at`), max 5 attempts, and carries a `purpose` so a reset cannot eat a pending verification code. `DEV_DEFAULT_OTP` is non-production only, guarded three times (`devOtpCode()`, `assertOtpSafety()` at startup, and the route calling the helper rather than `process.env`), and requires that a code was actually requested. A real SMS provider is a hard go-live prerequisite.
 - **Tutor video**: recorded/uploaded via `app/tutor/upload-youtube` → uploaded to the official channel as **private** → `tutor_profiles.video_youtube_id` + `video_status='uploaded'`. Max 3 submissions; each gets Approve | Hold | Suspend with a written reason; after the 3rd rejection the button locks and support contact is shown. Approving and publishing are different decisions with different permissions (verifier vs manager). Route requires auth + `role='tutor'`; `googleapis` declared; `YOUTUBE_*` documented in `.env.example`.
 - **Degrees**: typed list + certificate image upload. Parents see watermarked, downscaled derivatives from the private bucket; the original is never exposed. Same treatment for CNIC previews (admin-only). Terms say "protected against casual copying", never "cannot be screenshotted".
@@ -116,7 +116,7 @@ Hired/closed status lives in `jobs.status` + `jobs.hired_tutor_id` — never loc
 
 ## Pages to keep (canonical) and delete
 
-Keep: `/`, `/browse/tutors` (+`/browse/tutors/[id]`), `/browse/tuitions`, `/tutor/[slug]` public profile, `/login`, `/register`, `/forgot-password`, `/verify-phone`, `/verify-email` (the email-path confirmation screen; the email path itself is gated off until SMTP — Part 5), `/tutor/claim`, `/suspended`, `/account/notifications`, `/tutor/dashboard/*` (`settings`, `jobs`, `messages`, `notifications`), `/parent/dashboard/*`, `/chat/[jobId]`, `/tutor/packages`, `/parent/packages`, `/pay/simulator/[ref]` (non-production), `/admin/*` (incl. `/admin/inbox`, the Team ↔ member channel — migration 58), `/about`, `/faq`, `/privacy`, `/terms`, `/support`, `/review`. T9 adds `/tutors/[city]/[subject]` and `/tuitions/[city]/[subject]`. **`/account/messages` is now a redirect** into the role inbox's Team pane (`/{role}/dashboard/messages/team`) — Part 5 unified official messages into the one inbox.
+Keep: `/`, `/browse/tutors` (+`/browse/tutors/[id]`), `/browse/tuitions`, `/tutor/[slug]` public profile, `/login`, `/register`, `/forgot-password`, `/verify-phone`, `/verify-email` (the email-path confirmation screen; the email path is LIVE again — Part 8, SMTP configured), `/tutor/claim`, `/suspended`, `/account/notifications`, `/tutor/dashboard/*` (`settings`, `jobs`, `messages`, `notifications`), `/parent/dashboard/*`, `/chat/[jobId]`, `/tutor/packages`, `/parent/packages`, `/pay/simulator/[ref]` (non-production), `/admin/*` (incl. `/admin/inbox`, the Team ↔ member channel — migration 58), `/about`, `/faq`, `/privacy`, `/terms`, `/support`, `/review`. T9 adds `/tutors/[city]/[subject]` and `/tuitions/[city]/[subject]`. **`/account/messages` is now a redirect** into the role inbox's Team pane (`/{role}/dashboard/messages/team`) — Part 5 unified official messages into the one inbox.
 
 `/browse` → redirect to `/browse/tutors`. Homepage keeps the two buttons: **Find Tutors / Teachers** → `/browse/tutors`, **Find Tuitions / Jobs** → `/browse/tuitions`.
 
@@ -620,7 +620,7 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 - Same minimal treatment for `/login`: identifier + password + forgot-password + register link.
 - `/forgot-password` reports the same thing whether or not the address has an account — a reset form that says "no such account" is a membership oracle.
 - The one deviation from "nothing else": the terms + photo-consent acceptance stays. It is a checkbox, not a data field, and consent given by implication through a link nobody opens is not consent anybody would recognise having given.
-- **Password-reset delivery over email needs SMTP on the Supabase project, which is not configured yet** — see `PRODUCTION_CHECKLIST.md`. The mobile OTP reset path works.
+- **Password-reset delivery over email now works** — SMTP is configured on the Supabase project (Resend; Part 8). The mobile OTP reset path also works, and stays the default because most members register with no inbox.
 
 ## Legal entity (owner, 1 Sep 2026)
 
@@ -698,7 +698,7 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 
 ## Mobile-first signup (owner, 1 Sep)
 
-**SUPERSEDED on two points by "Auth & trust decisions" (Sunday 6 Sep): (1) the signup identifier is ONE "Mobile number or email" field, not "mobile number + optional email" — and the email path is gated off until SMTP (see "Part 5 decisions"), so mobile is the only path that creates an account today; (2) the /verify-phone resend cooldown is FIVE MINUTES with a visible mm:ss countdown, not 60s. Everything else here — synthetic email, the phone gate, OTP purposes, the SMS-provider prerequisite — still stands.**
+**SUPERSEDED on two points by "Auth & trust decisions" (Sunday 6 Sep): (1) the signup identifier is ONE "Mobile number or email" field, not "mobile number + optional email" — and BOTH paths now create an account (Part 8: the Part 5 email gate was lifted once SMTP was configured; the mobile code is delivered on WhatsApp); (2) the /verify-phone resend cooldown is FIVE MINUTES with a visible mm:ss countdown, not 60s. Everything else here — synthetic email, the phone gate, OTP purposes, the SMS-provider prerequisite — still stands.**
 
 - /register: role radios "Tutor" and "Parent / Institution" (helper: "Parents, schools and academies looking for tutors"), full name, mobile number (Pakistani format, normalised to E.164), password, terms/consent checkbox. Email optional ("for receipts and reminders"). No city.
 - Signup creates the auth user (synthetic internal email <msisdn>@users.tutormint.org when no email is given; the real email otherwise), profiles row, tutor_profiles for tutors, signs the user in immediately, and sends an OTP to the mobile.
@@ -786,7 +786,7 @@ still uses the app_settings-backed version.
 
 ## Deployment reality (owner, 1–2 Sep 2026)
 
-- **Production Supabase is Mumbai `yhekiqtelsictqkfxrfj` (ap-south-1), and Vercel functions run in `bom1` (Mumbai).** Migrated from Sydney `flhiraqouizzwnasuraj` (ap-southeast-2) on **5 Sep 2026** — a full dump/restore of roles, schema, data (auth users + password hashes, storage bucket/object metadata) and every storage object's bytes; row counts, bucket bytes, a 5% SHA-256 sample, 112 RLS policies, the realtime publication and the 977-column schema all verified identical, `rls:audit` 168/168 on Mumbai. `scripts/target.ts` `PRODUCTION_PROJECT_REF`, `scripts/backup.sh` and `vercel.json` `regions` name Mumbai now; the app reads the Supabase host from `NEXT_PUBLIC_SUPABASE_URL` (Vercel env), so no code hardcodes a ref. **The old Sydney project is retained, untouched, until the owner deletes it** (a few days of normal use first); rollback is env-only — see `docs/migration/README.md`. One thing the migration could NOT copy: the custom SMTP block (`smtp_pass` is API-redacted), so email delivery on Mumbai needs the Resend SMTP settings re-entered by hand in the dashboard (Auth → SMTP). Everything else in Auth (site URL, allow-list, confirm-email, branded subjects + templates) was copied and diffed identical.
+- **Production Supabase is Mumbai `yhekiqtelsictqkfxrfj` (ap-south-1), and Vercel functions run in `bom1` (Mumbai).** Migrated from Sydney `flhiraqouizzwnasuraj` (ap-southeast-2) on **5 Sep 2026** — a full dump/restore of roles, schema, data (auth users + password hashes, storage bucket/object metadata) and every storage object's bytes; row counts, bucket bytes, a 5% SHA-256 sample, 112 RLS policies, the realtime publication and the 977-column schema all verified identical, `rls:audit` 168/168 on Mumbai. `scripts/target.ts` `PRODUCTION_PROJECT_REF`, `scripts/backup.sh` and `vercel.json` `regions` name Mumbai now; the app reads the Supabase host from `NEXT_PUBLIC_SUPABASE_URL` (Vercel env), so no code hardcodes a ref. **The old Sydney project is retained, untouched, until the owner deletes it** (a few days of normal use first); rollback is env-only — see `docs/migration/README.md`. One thing the migration could NOT copy: the custom SMTP block (`smtp_pass` is API-redacted), so email delivery on Mumbai needed the Resend SMTP settings re-entered by hand in the dashboard (Auth → SMTP) — **done (Part 8, 9 Sep): SMTP is configured on Mumbai and email delivers.** Everything else in Auth (site URL, allow-list, confirm-email, branded subjects + templates) was copied and diffed identical.
 - **Production serves the `rebuild` branch.** tutormint.org shows what is on `rebuild`, not `main`. A push to `rebuild` is a release to real visitors — there is no staging buffer. Treat every PR on this branch as production, and never run a data migration on it without a backup taken first.
 - The mobile-first register form and OTP gate are already live to real visitors.
 - Resolved and correct as built: the "Institution" mention lives in the FAQ only, and `no-store` on the phone-gate check is the intended trade.
@@ -813,7 +813,7 @@ This supersedes the observation in "T-UI1" below that a live fetch of tutormint.
 ## Open owner decisions (blocking launch)
 
 - **SMS provider — undecided.** Twilio (card required, fast to set up) vs a Pakistani gateway (cheaper per message, slower to set up). Mobile signup on the live site cannot deliver codes until one exists. This is the hardest blocker.
-- SMTP on the Supabase project — not configured; password-reset email cannot send.
+- SMTP on the Supabase project — **configured** (Resend, `noreply@tutormint.org`; Part 8). Confirmation, password-reset and staff-invite email deliver. No longer a blocker.
 - AssanPay — in negotiation.
 - CUIN and NTN — placeholders in Terms and receipts awaiting real numbers.
 
@@ -2876,8 +2876,8 @@ describe what is.
 
 - **SMS provider** — undecided (Twilio vs a Pakistani gateway). Mobile signup on
   the live site cannot deliver OTPs until one exists. The hardest blocker.
-- **SMTP** on the Supabase project — not configured; password-reset email and
-  staff invites cannot send.
+- **SMTP** on the Supabase project — **configured** (Resend, `noreply@tutormint.org`;
+  Part 8). Confirmation links, password-reset email and staff invites deliver.
 - **AssanPay go-live** — in negotiation; until then manual transfer + admin
   approval is the only paid path.
 - **CUIN and NTN** into `app_settings` (`company.reg_no`, `company.ntn`) — until
@@ -3324,3 +3324,68 @@ the new behaviour is unit-tested without the one shared database.
   there. The route file remains (a "check your inbox" screen for a flow that
   cannot start), reached only by typing the URL. It needs no fallback; it comes
   back into use in the same PR that ungates the email branch (when SMTP lands).
+  **(Part 8, 9 Sep: SMTP landed — the email branch is ungated and /verify-email
+  is reachable again. This paragraph is a historical record of the Part 6 state.)**
+
+## Part 8 decisions (owner, 9 Sep 2026 — later than the Part 6 block)
+
+Later-dated than every block above, so under precedence rule 10 these win over
+anything they touch — in particular they LIFT the Part 5 email gate and correct
+every "email path unavailable / SMTP unconfigured" note above to past tense.
+
+SMTP is now configured on the Supabase project (Resend, sender
+`noreply@tutormint.org`). The Part 5 gate on the email branch was explicitly
+conditional on this ("re-enable the email branch in the same PR that configures
+SMTP"), so this restores it.
+
+- **Both signup paths are live.** The single "Mobile number or email" identifier
+  field accepts either and the user chooses. Digits → OTP (delivered on WhatsApp,
+  see below). An address → Supabase confirmation link over Resend, created
+  UNconfirmed with no session, finished by clicking the link (which lands on
+  `/api/auth/callback`). The Part 5 gate — the 400 "Email signup isn't available
+  yet" that created no account — is removed. This restores the Sunday 6 Sep
+  decision as originally written.
+- **OTP is delivered on WhatsApp, not SMS.** The provider (SMS Point) sends the
+  code as a WhatsApp message from an approved business number; SMS on the same
+  account does not deliver. `/register` and `/verify-phone` say so plainly ("code
+  on WhatsApp") so nobody signs up with a WhatsApp-less number and waits for a
+  message that cannot arrive; the /verify-phone support fallback (Part 6) is the
+  route for anyone without WhatsApp. SMS may be added later as a SECOND channel —
+  the send layer is to grow a new implementation behind the existing `SmsProvider`
+  interface, not surgery on the OTP flow. **BRIDGE_OTP is untouched by this PR**
+  and stays until real codes are confirmed arriving on the live site.
+
+### As built (Part 8, 9 Sep 2026)
+
+NO migration, NO new table. Gates at close: tsc 0 · build 0 · check:contrast 89 ·
+rls:audit 174/174 · suites green.
+
+- **Email branch restored.** `/api/auth/register`'s `if (asEmail)` block is the
+  Part 4 branch again (duplicate-email check → `supabase.auth.signUp` with
+  `emailRedirectTo=/api/auth/callback` → UTM copy → `next: /verify-email?to=`).
+  The confirmation link resolves end to end through `/api/auth/callback`
+  (`exchangeCodeForSession` → `sendWelcomeOnce` → redirect). The mobile path is
+  byte-unchanged (still `/verify-phone`).
+- **Copy.** Register adaptive helper: mobile → "code on WhatsApp", email → "email
+  a confirmation link", unknown → "either works … mobile gets its code on
+  WhatsApp". `/verify-phone` says the code is sent on WhatsApp and the Part 6
+  fallback is retitled "No WhatsApp on this number?". `/verify-email` is honest
+  (mail sends now) and gained a **Resend** button (`ResendEmail.tsx`, browser
+  client `auth.resend({type:'signup'})`) that surfaces Supabase's 60-second
+  per-user minimum as a live countdown rather than failing silently — no oracle
+  concern, it is the address the member just typed.
+- **Password reset over email** already worked in code (`resetPasswordForEmail`
+  in `ForgotPasswordForm`, browser client → `/api/auth/callback?next=/account/password`);
+  it was only waiting on SMTP. Removed the stale "SMTP is not configured yet"
+  comment; mobile stays the default because most members have no inbox, not
+  because email cannot deliver.
+- **Stale-copy sweep.** Corrected the current-status SMTP/email notes: this file's
+  Auth-flows and Pages-to-keep lines, the register-form-rules and Mobile-first
+  superseded banners, and the two "Open owner decisions / Roadmap blocking-launch"
+  SMTP bullets; `PRODUCTION_CHECKLIST.md`'s SMTP item is ticked. Historical dated
+  As-built paragraphs (Part 4/5/6) are left as records with a Part-8 pointer where
+  they would otherwise read as current.
+- **Not touched:** the WhatsApp send-layer wiring itself (SMS Point is Part 7
+  stage 1, probe-only) and BRIDGE_OTP. The copy tells the truth about the intended
+  channel; the bridge remains the live delivery stopgap until real WhatsApp codes
+  are confirmed arriving.

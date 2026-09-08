@@ -92,18 +92,68 @@ export async function POST(request: Request) {
   const utm = decodeUtm((await cookies()).get(UTM_COOKIE)?.value ?? null)
 
   // ====================================================== EMAIL PATH ========
-  // GATED UNTIL SMTP (owner, Part 5, 8 Sep). The public pages are indexed now,
-  // so real strangers reach /register — and the email path's only verification
-  // is a confirmation link that cannot be delivered until SMTP is configured on
-  // the Supabase project. An account whose sole way in cannot arrive is a member
-  // with no way in and no way out, so the route stops BEFORE creating anything
-  // and points them at the mobile path, which works today. This deliberately
-  // reverses the Part 4 email branch; re-enable it in the same PR that configures
-  // SMTP (the same open owner item password-reset email waits on). The field
-  // still accepts an address so the message can explain why.
+  // LIVE AGAIN (owner, Part 8, 9 Sep). The Part 5 gate was explicitly conditional
+  // on SMTP — "re-enable the email branch in the same PR that configures SMTP" —
+  // and SMTP is now configured (Resend, sender noreply@tutormint.org), so the
+  // confirmation link actually delivers. An address takes the confirmation-link
+  // path: the account is created UNconfirmed (no session), Supabase sends a link,
+  // and the member finishes by clicking it. No phone, so no gate and no OTP. It
+  // signs in only after confirmation, so this returns signedIn:false.
   if (asEmail) {
-    const message = "Email signup isn't available yet. Please sign up with your mobile number."
-    return NextResponse.json({ error: message, fields: { identifier: message } }, { status: 400 })
+    const authEmail = rawId.toLowerCase()
+
+    const { data: existingEmail } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('email', authEmail)
+      .limit(1)
+      .maybeSingle()
+    if (existingEmail) {
+      return NextResponse.json(
+        {
+          error: 'An account already uses that email address.',
+          fields: { identifier: 'An account already uses that email address. Try signing in instead.' },
+        },
+        { status: 409 },
+      )
+    }
+
+    // signUp (not admin.createUser) so Supabase sends the confirmation email and
+    // leaves the account unconfirmed with no session. The link lands on
+    // /api/auth/callback, which exchanges the code for a session, sends the
+    // welcome mail once, and forwards on.
+    const supabase = await createClient()
+    const origin = new URL(request.url).origin
+    const { error: signUpError } = await supabase.auth.signUp({
+      email: authEmail,
+      password: body.password,
+      options: {
+        data: { role: body.role, full_name: body.fullName },
+        emailRedirectTo: `${origin}/api/auth/callback`,
+      },
+    })
+    if (signUpError) {
+      const msg = signUpError.message.toLowerCase()
+      if (msg.includes('already') || msg.includes('registered')) {
+        return NextResponse.json(
+          { error: 'An account with those details already exists. Try signing in instead.' },
+          { status: 409 },
+        )
+      }
+      return NextResponse.json({ error: signUpError.message }, { status: 400 })
+    }
+
+    // Attribution is on the profile the trigger just wrote. Best-effort.
+    if (hasUtm(utm)) {
+      await admin.from('profiles').update(utm).eq('email', authEmail)
+    }
+
+    return NextResponse.json({
+      success: true,
+      signedIn: false,
+      role: body.role,
+      next: `/verify-email?to=${encodeURIComponent(authEmail)}`,
+    })
   }
 
   // ====================================================== MOBILE PATH =======

@@ -27,9 +27,9 @@ import { submitJson } from '@/lib/submit'
 // not to be exactly that. The mobile path returns the same message either way;
 // the email path never surfaces its error.
 //
-// Email delivery depends on SMTP being configured on the Supabase project. It
-// is not yet -- see PRODUCTION_CHECKLIST.md -- which is the other reason the
-// mobile path is the default rather than the alternative.
+// Email delivery works: SMTP is configured on the Supabase project (Resend,
+// owner Part 8, 9 Sep). The mobile path stays the DEFAULT because most members
+// register with a number and no inbox — not because email cannot deliver.
 
 type Mode = 'mobile' | 'email'
 

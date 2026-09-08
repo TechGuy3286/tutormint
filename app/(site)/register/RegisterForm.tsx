@@ -218,13 +218,15 @@ export default function RegisterForm({ next }: { next?: string }) {
             />
             {/* Adaptive helper: it says what will happen with what they have
                 typed so far, so the mobile-vs-email choice is never a surprise
-                after they submit. */}
+                after they submit. Both paths are live (owner, Part 8): a mobile
+                number gets its code on WhatsApp; an email gets a confirmation
+                link. */}
             <p className="text-[11px] text-gray-500">
               {shape === 'mobile'
-                ? 'We’ll text a code to confirm your number. This is also how you sign in.'
+                ? 'We’ll send a code on WhatsApp to confirm your number. This is also how you sign in.'
                 : shape === 'email'
-                  ? 'Email sign-up isn’t available yet — please use your mobile number for now.'
-                  : 'Sign up with your mobile number. We’ll text a code to confirm it.'}
+                  ? 'We’ll email you a confirmation link. Open it to finish signing up.'
+                  : 'Use a mobile number or an email — either works. A mobile number gets its code on WhatsApp.'}
             </p>
             {fieldErrors.identifier && (
               <p className="text-[11px] font-bold text-tm-red">{fieldErrors.identifier}</p>
