@@ -22,10 +22,13 @@ import { checkQuota, consumeQuota } from '@/lib/quota'
 import { upgradeHref } from '@/lib/upgradePath'
 import { buildGate, type Gate } from '@/lib/gate'
 import { logActivity } from '@/lib/activityLog'
+import { logAdminAction } from '@/lib/auditLog'
 import { notify, notifyMany } from '@/lib/notifications'
 import { tuitionPath } from '@/lib/slugs'
 import { deliverEmail } from '@/lib/notify'
 import { revalidateLanding } from '@/lib/landingRevalidate'
+import { teamParentId } from '@/lib/teamAccount'
+import type { AdminRole } from '@/lib/adminAuth'
 
 export type JobInput = {
   title: string
@@ -223,6 +226,127 @@ export async function createJob(
   revalidateLanding()
 
   return { ok: true, id: job.id as string, jobTxId: job.job_tx_id as string }
+}
+
+/** Where an admin-posted tuition came from, recorded on the audit row. */
+export type JobOrigin = 'support' | 'referral' | 'external'
+
+/**
+ * Post a tuition on the team-operated TutorMint parent account (owner, 9 Sep).
+ *
+ * This is the ONLY difference from a parent posting: the job is created for the
+ * team account (a real parent_featured account) through the service-role client,
+ * because the RLS insert CHECK is `parent_id = auth.uid()` and the caller is the
+ * admin, not the team account. Everything downstream — applications, threads,
+ * shortlisting, hiring — then runs through the ordinary parent flows with no
+ * special-casing, because `parent_id` names a real account like any other job.
+ *
+ * The parent-side gates in createJob (CNIC/address verification, monthly quota)
+ * are deliberately NOT applied here: a team post carries the platform's own
+ * vetting rather than a CNIC-verified parent's, and the platform is not rate-
+ * limited against a member's monthly cap. `is_featured` is stamped from the team
+ * account's own entitlements, exactly as createJob stamps it from the parent's,
+ * so a properly provisioned parent_featured team account gets the Featured tag.
+ *
+ * It refuses — rather than inventing a recipient — if the team account has not
+ * been provisioned (scripts/provision-team-parent.ts).
+ */
+export async function createTeamJob(
+  input: JobInput,
+  actor: { id: string; adminRole: AdminRole; email: string | null },
+  origin: JobOrigin | null,
+): Promise<{ ok: true; id: string; jobTxId: string; publicSlug: string | null } | Fail> {
+  const problem = validate(input)
+  if (problem) return { ok: false, status: 400, error: problem }
+
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
+  const teamId = await teamParentId()
+  if (!teamId) {
+    return {
+      ok: false,
+      status: 409,
+      error:
+        'The TutorMint team account has not been provisioned yet. An owner must run ' +
+        'scripts/provision-team-parent.ts before a team tuition can be posted.',
+    }
+  }
+
+  // is_featured follows the team account's plan, like any parent's job.
+  const ent = await getEntitlements(teamId)
+
+  const labels = await subjectLabels(input.masterIds)
+  const jobTxId = newJobTxId()
+
+  const { data: job, error } = await admin
+    .from('jobs')
+    .insert({
+      job_tx_id: jobTxId,
+      parent_id: teamId,
+      title: input.title.trim(),
+      class_level: input.classLevel,
+      city: input.city,
+      area: input.area ?? '',
+      teaching_mode: input.teachingMode || 'both',
+      budget_pkr: bandFigure(input),
+      budget_min_pkr: input.budgetMin ?? null,
+      budget_max_pkr: input.budgetMax ?? null,
+      description: input.description,
+      child_id: null,
+      status: 'open',
+      is_featured: !!ent.tagLabel,
+      subjects: labels,
+      subject: labels.join(', ') || 'Tuition',
+      grade: input.classLevel ?? '',
+      budget: bandFigure(input) === null ? '' : String(bandFigure(input)),
+      timings: input.schedule ?? '',
+    })
+    .select('id, job_tx_id, public_slug')
+    .single()
+
+  if (error) return { ok: false, status: 400, error: error.message }
+
+  const { error: linkError } = await admin
+    .from('job_subjects')
+    .insert(input.masterIds.map((master_id) => ({ job_id: job.id, master_id })))
+
+  if (linkError) {
+    await admin.from('jobs').delete().eq('id', job.id)
+    return { ok: false, status: 400, error: linkError.message }
+  }
+
+  // On the team account's own timeline, so a team post appears there like any
+  // other posted job — flagged as admin-posted with the origin and acting admin.
+  await logActivity({
+    userId: teamId,
+    event: 'job_posted',
+    targetType: 'job',
+    targetId: job.id as string,
+    meta: { jobTxId, city: input.city, masterIds: input.masterIds, adminPosted: true, origin, byAdmin: actor.id },
+  })
+
+  // Every admin-posted job is audit-logged with the admin who created it and,
+  // where known, its origin.
+  await logAdminAction({
+    actorId: actor.id,
+    actorRole: actor.adminRole,
+    actorEmail: actor.email,
+    action: 'job.post',
+    targetType: 'job',
+    targetId: job.id as string,
+    detail: { jobTxId, city: input.city, title: input.title.trim(), masterIds: input.masterIds, origin },
+  })
+
+  await notifyMatchingTutors(job.id as string, (job.public_slug as string) ?? null, input)
+  revalidateLanding()
+
+  return {
+    ok: true,
+    id: job.id as string,
+    jobTxId: job.job_tx_id as string,
+    publicSlug: (job.public_slug as string) ?? null,
+  }
 }
 
 export async function updateJob(

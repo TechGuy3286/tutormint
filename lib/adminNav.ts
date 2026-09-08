@@ -70,6 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Marketplace',
     items: [
       { href: '/admin/jobs', label: 'Tuitions', icon: 'clipboard', screen: 'jobs' },
+      { href: '/admin/jobs/new', label: 'Post a tuition', icon: 'filePlus', screen: 'jobs' },
       { href: '/admin/payments', label: 'Payments', icon: 'wallet', screen: 'payments' },
       { href: '/admin/plans', label: 'Plans', icon: 'card', screen: 'plans' },
     ],
@@ -106,7 +107,9 @@ export const SECTION_LABELS: Record<string, string> = {
   audit: 'Audit',
   blog: 'Blog',
   queue: 'Content queue',
-  new: 'New post',
+  // Neutral: shared by /admin/blog/new and /admin/jobs/new, so it reads
+  // correctly under both ("Blog › New", "Tuitions › New").
+  new: 'New',
   import: 'Bulk import',
   jobs: 'Tuitions',
   parents: 'Parents',

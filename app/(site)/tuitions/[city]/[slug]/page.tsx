@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, permanentRedirect } from 'next/navigation'
-import { Briefcase, CalendarDays, Clock, GraduationCap, MapPin, Wallet } from 'lucide-react'
+import { Briefcase, CalendarDays, Clock, GraduationCap, MapPin, ShieldCheck, Wallet } from 'lucide-react'
 
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
@@ -16,7 +16,6 @@ import { jobByPublicSlug } from '@/lib/jobFeed'
 import { citySegment } from '@/lib/slugs'
 import { formatDate } from '@/lib/datetime'
 import { teachingMode } from '@/lib/display'
-import { PREVIEW_MODE } from '@/lib/preview'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle } from '@/lib/seo'
 import { isSubjectSlug, resolveLanding } from '@/lib/landing'
@@ -81,7 +80,6 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       description: pageDescription(lead),
       alternates: { canonical: `/tuitions/${combo.citySlug}/${combo.subjectSlug}` },
       openGraph: { title: pageTitle(heading), description: pageDescription(lead), type: 'website' },
-      ...(PREVIEW_MODE ? { robots: { index: false, follow: false } } : {}),
     }
   }
 
@@ -109,10 +107,11 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     description,
     alternates: { canonical: `/tuitions/${citySegment(job.city)}/${job.public_slug}` },
     openGraph: { title, description, type: 'article' },
-    // Preview mode is site-wide in app/layout.tsx; repeated here because this
-    // page sets its own robots for the closed case and an object replaces the
-    // inherited one rather than merging with it.
-    ...(PREVIEW_MODE ? { robots: { index: false, follow: false } } : {}),
+    // No robots key on an OPEN tuition: indexing is decoupled from preview mode
+    // (owner, 8 Sep 2026) and this page is listed in the sitemap, so it must be
+    // indexable to match. The closed/missing case above sets its own noindex,
+    // and an under-review job stays visible with a sticker (it is not delisted),
+    // so there is nothing to suppress here.
   }
 }
 
@@ -187,7 +186,11 @@ export default async function TuitionPage({ params }: { params: Params }) {
             title: job.title,
             description:
               job.description?.trim() ||
-              `${job.title}${job.city ? ` in ${job.city}` : ''}. Posted by a verified parent on TutorMint.`,
+              `${job.title}${job.city ? ` in ${job.city}` : ''}. ${
+                job.posted_by_team
+                  ? 'Posted by the TutorMint team.'
+                  : 'Posted by a verified parent on TutorMint.'
+              }`,
             datePosted: job.created_at,
             city: job.city,
             area: job.area,
@@ -219,6 +222,14 @@ export default async function TuitionPage({ params }: { params: Params }) {
         {job.under_review && (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-gold px-3 py-1 text-[11px] font-black uppercase tracking-wide text-tm-gold-ink">
             Under review
+          </p>
+        )}
+
+        {/* A trusted team tuition — the platform's own vetting, not a parent's. */}
+        {job.posted_by_team && (
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-3 py-1 text-[11px] font-black uppercase tracking-wide text-tm-navy">
+            <ShieldCheck aria-hidden size={13} />
+            Posted by TutorMint
           </p>
         )}
 
@@ -297,7 +308,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
         {job.description && (
           <div className="space-y-1">
             <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
-              What the parent wrote
+              {job.posted_by_team ? 'About this tuition' : 'What the parent wrote'}
             </h2>
             <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
               {job.description}
@@ -337,15 +348,18 @@ export default async function TuitionPage({ params }: { params: Params }) {
             <div className="min-w-0 space-y-1">
               <Link
                 href={`/parent/${job.parent_id}`}
-                className="inline-flex min-h-[24px] items-center text-sm font-black text-tm-navy hover:text-tm-red hover:underline"
+                className="inline-flex min-h-[24px] items-center gap-1.5 text-sm font-black text-tm-navy hover:text-tm-red hover:underline"
               >
+                {job.posted_by_team && <ShieldCheck aria-hidden size={14} className="text-tm-navy" />}
                 {job.parent_name}
               </Link>
               {job.parent_badges.length > 0 && <BadgeRow badges={job.parent_badges} size="sm" />}
               <p className="text-[11px] leading-relaxed text-gray-500">
-                {job.parent_can_hire
-                  ? 'Featured parent — able to complete a hire.'
-                  : 'Verified parent — cannot complete a hire yet.'}
+                {job.posted_by_team
+                  ? 'A verified team tuition, posted and managed by the TutorMint team.'
+                  : job.parent_can_hire
+                    ? 'Featured parent — able to complete a hire.'
+                    : 'Verified parent — cannot complete a hire yet.'}
               </p>
             </div>
           </div>

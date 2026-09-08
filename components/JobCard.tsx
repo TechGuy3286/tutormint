@@ -8,7 +8,7 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
 import { useState } from 'react'
-import { Building2, Clock, FileText, GraduationCap, Heart, MapPin, Wallet, Send } from 'lucide-react'
+import { Building2, Clock, FileText, GraduationCap, Heart, MapPin, ShieldCheck, Wallet, Send } from 'lucide-react'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import BadgeRow from '@/components/badges/BadgeRow'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
@@ -64,6 +64,12 @@ export type JobCardData = {
   parent_avatar_url: string | null
   parent_badges: BadgeName[]
   parent_can_hire: boolean
+  /**
+   * Posted by the team-operated TutorMint account (migration 63), not a parent.
+   * A trusted team tuition carrying the platform's own vetting — surfaced as a
+   * "Posted by TutorMint" marker so a tutor can always tell.
+   */
+  posted_by_team?: boolean
 }
 
 export default function JobCard({
@@ -189,6 +195,15 @@ export default function JobCard({
               Under review
             </p>
           )}
+          {/* A trusted team tuition. Shown prominently so a tutor can always
+              tell a TutorMint-posted job from a parent's, and knows it carries
+              the platform's own vetting. */}
+          {job.posted_by_team && (
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-tm-navy">
+              <ShieldCheck aria-hidden size={12} />
+              Posted by TutorMint
+            </p>
+          )}
           <div className="space-y-1 pr-16 sm:pr-20">
             <h3 className="text-base font-black leading-snug text-tm-navy sm:text-lg">
               {/* min-h-[44px], not py-0.5: the title is the thing people tap on
@@ -309,11 +324,15 @@ export default function JobCard({
             <p className="line-clamp-2 text-xs leading-relaxed text-slate-700">{job.description}</p>
           )}
 
-          {/* Tutor-side steering: say plainly who can finish a hire. */}
+          {/* Tutor-side steering: say plainly who can finish a hire. A team
+              tuition is operated by the TutorMint team, which can complete a
+              hire — but it is described as a team post, not a "Featured parent". */}
           <p className="text-[11px] font-semibold text-gray-500">
-            {job.parent_can_hire
-              ? 'Featured parent — can complete a hire'
-              : 'Verified parent — cannot complete a hire yet'}
+            {job.posted_by_team
+              ? 'Posted by the TutorMint team — a verified team tuition.'
+              : job.parent_can_hire
+                ? 'Featured parent — can complete a hire'
+                : 'Verified parent — cannot complete a hire yet'}
           </p>
 
           {/* One non-wrapping row at every width (was stacked on mobile). Two

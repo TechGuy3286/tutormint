@@ -114,6 +114,11 @@ export const SCREEN_ACCESS = {
   // destroys the applications attached to it and is not a first-line action.
   jobs: ['manager', 'support'] as AdminRole[],
   jobsMutate: ['manager'] as AdminRole[],
+  // Posting a tuition on the team-operated account (owner, 9 Sep 2026). Manager
+  // + support, the same eyes that read the board: a team post is non-destructive
+  // and often support-originated (a referral, an external request), unlike
+  // closing/removing a tuition, which stays manager-only.
+  jobsPost: ['manager', 'support'] as AdminRole[],
   users: ['manager', 'support'] as AdminRole[],
   // Orphaned accounts — auth users with no profiles row. A system-health view
   // that exists because a dropped trigger hid 24 real signups for three days

@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { liveCombinationsAll, LANDING_THRESHOLD } from '@/lib/landing'
-import { PREVIEW_MODE } from '@/lib/preview'
 import { SITE_URL } from '@/lib/siteUrl'
 
 // /admin/seo/landing — the landing-page monitor. owner / manager, read-only.
@@ -37,9 +36,8 @@ export default async function AdminLandingSeoPage() {
           hours and immediately when a tutor is listed or a tuition opens or closes.
         </p>
         <p className="text-[11px] font-semibold text-tm-gold-ink">
-          {PREVIEW_MODE
-            ? 'Preview mode is ON — every page is noindex and the sitemap withholds these pages until it is off.'
-            : 'Preview mode is OFF — live pages are listed in the sitemap and indexable.'}
+          Live pages are listed in the sitemap and indexable — indexing is on and no longer
+          tied to preview mode (the &ldquo;launching soon&rdquo; banner is separate).
         </p>
       </header>
 
@@ -72,11 +70,9 @@ export default async function AdminLandingSeoPage() {
                     <td className="p-3">{c.subjectName}</td>
                     <td className="p-3 font-black text-tm-navy">{c.count}</td>
                     <td className="p-3">
-                      {PREVIEW_MODE ? (
-                        <span className="text-gray-500">held (preview)</span>
-                      ) : (
-                        <span className="font-semibold text-tm-green-deep">yes</span>
-                      )}
+                      {/* Live pages are always listed now — indexing is decoupled
+                          from preview mode (owner, 8 Sep 2026). */}
+                      <span className="font-semibold text-tm-green-deep">yes</span>
                     </td>
                     <td className="p-3">
                       <Link

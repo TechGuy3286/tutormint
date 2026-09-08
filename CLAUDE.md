@@ -33,7 +33,7 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 
 `tutor_profiles` is canonical for tutors. The ten pre-rebuild tables (`tutors`, `parents`, `parent_profiles`, `parent_jobs`, `tuitions`, `tutor_applications`, `tuition_applications`, `job_messages`, `tutor_activities`, and the old `profiles` shape) were **renamed to `legacy_*` in T8a, not dropped** — a forgotten caller must break visibly and the rows must remain findable.
 
-- `profiles` — `id (= auth.users.id)`, `role`, `admin_role ('owner'|'manager'|'verifier'|'finance'|'support', null unless role='admin')`, `full_name`, `email`, `phone`, `whatsapp`, `phone_verified_at`, `phone_gate_required bool default false`, `phone_verified_via ('otp'|'bridge'|null)` (migration 58 — how the number was proved; 'bridge' = the BRIDGE_OTP stopgap, no plan/badge until re-verified), `city`, `province`, `address`, `cnic_number`, `cnic_image_path` (private bucket `identity-docs`), `cnic_verified_at`, `address_verified_at`, `avatar_url`, `profile_completion int`, `is_suspended bool`, `is_banned bool default false` + `banned_at` + `banned_reason` + `banned_by` (migration 58 — a PERMANENT status distinct from suspend), `email_opt_out bool`, `welcomed_at`, `last_message_digest_at`, `must_change_password bool`, `created_at`
+- `profiles` — `id (= auth.users.id)`, `role`, `admin_role ('owner'|'manager'|'verifier'|'finance'|'support', null unless role='admin')`, `full_name`, `email`, `phone`, `whatsapp`, `phone_verified_at`, `phone_gate_required bool default false`, `phone_verified_via ('otp'|'bridge'|null)` (migration 58 — how the number was proved; 'bridge' = the BRIDGE_OTP stopgap, no plan/badge until re-verified), `city`, `province`, `address`, `cnic_number`, `cnic_image_path` (private bucket `identity-docs`), `cnic_verified_at`, `address_verified_at`, `avatar_url`, `profile_completion int`, `is_suspended bool`, `is_banned bool default false` + `banned_at` + `banned_reason` + `banned_by` (migration 58 — a PERMANENT status distinct from suspend), `email_opt_out bool`, `welcomed_at`, `last_message_digest_at`, `must_change_password bool`, `is_team_account bool default false` (migration 63 — the one team-operated TutorMint parent account that admin-posted jobs belong to; public surfaces render the TutorMint identity for it), `created_at`
 - `tutor_profiles` — `id (= profiles.id)`, `slug unique`, `headline`, `bio`, `class_levels text[]`, `degrees text[]`, `teaching_mode`, `online_platforms text[]`, `area`, `hourly_rate_pkr`, `experience_years`, `video_youtube_id`, `video_status ('none'|'uploaded'|'approved'|'rejected')`, `video_submissions int` (3-strike cap), `verification_status ('pending'|'verified'|'rejected'|'suspended')`, `under_review bool default false` + `review_reason` (migration 58 — a reported profile; delisted from `tutor_directory` but still renders via `tutor_visible_profiles`), `is_featured bool`, `imported bool default false`, `claimed_at timestamptz`, `rating_avg`, `rating_count`
 - **Subjects are join tables, not arrays.** `tutor_subjects(tutor_id, master_id)` and `job_subjects(job_id, master_id)` reference `taxonomy_master.id`. `tutor_profiles.subjects text[]` and `jobs.subjects text[]` are retired — any remaining column is legacy and must not be read.
 - `plans` — seed rows (see matrix). `code`, `audience ('tutor'|'parent')`, `name`, `price_pkr`, `duration_days = 30`, `monthly_quota`, `displayed_quota text`, `can_view_contact`, `can_whatsapp`, `can_initiate_message`, `can_hire`, `search_rank int`, `badges text[]`, `tag_label`
@@ -3594,3 +3594,134 @@ So this needs an owner decision on the recipient model before it is built. The
 recommendation is a **real, team-operated parent account** (a genuine signup,
 granted `parent_featured`), which every existing flow already supports — but that
 is the owner's call to make, not mine to invent.
+
+## Admin can post a job — recipient decided, BUILT (owner, 9 Sep 2026)
+
+**Supersedes the blocked decision immediately above.** Under precedence rule 10
+this wins: the owner chose the recommended recipient model, so the feature is
+built on it. The decision, as instructed:
+
+- **Admin-posted jobs belong to a real, team-operated parent account, granted
+  `parent_featured`.** It is a genuine signup on a mobile number or email the team
+  controls — NOT a synthetic row — so applications, threads, shortlisting and
+  hiring all work through the ordinary parent flows with no special-casing
+  anywhere. `jobs.parent_id` points at this real `auth.users` id like any other
+  job; nothing in `applyToJob` / `setApplicationStatus` / hire had to change.
+- **The job is marked "Posted by TutorMint"** wherever a job is displayed — card,
+  detail page, public tuition page. A tutor can always tell it is a team-posted
+  tuition, and it carries the platform's own vetting rather than a CNIC-verified
+  parent's. The marker is derived from the job's parent being the team account,
+  not a new column on `jobs` (no second job shape).
+- **Same job form, taxonomy and fields** as a parent post. No second job shape,
+  no second table — the admin form calls the same `createJob` path.
+- **Every admin-posted job is audit-logged** with the admin who created it and,
+  where known, its origin (support, referral, external) via `admin_audit_log`.
+- **The team account's own public parent card shows the TutorMint identity**,
+  never a person's name.
+
+**How the team account is created — READ THIS, owner action required.**
+See the "As built" section for exactly how the account is provisioned and what
+the owner must supply (a real mobile or email the team controls).
+
+### As built (admin job posting, 9 Sep 2026)
+
+Migration 63 (additive): one column, `profiles.is_team_account boolean not null
+default false`. NO new column on `jobs` and no second table — "Posted by
+TutorMint" is derived from the job's parent being the team account. Every profile
+stays `false` until the provisioning script sets exactly one `true`.
+
+- **The mechanism is fully built; the account is provisioned by an owner-run
+  script.** `scripts/provision-team-parent.ts` (`npm run provision:team`) creates
+  the real parent account from an identifier the OWNER supplies — `--email=<addr>`
+  (an inbox the team controls; created with `email_confirm`, so no mail is sent
+  and the printed temp password / a later reset is the way in) or `--mobile=<pk>`
+  (a synthetic `<msisdn>@users.tutormint.org` login, phone gate off). It NEVER
+  invents an identifier: with no `--email`/`--mobile` it refuses. It marks the
+  account `is_team_account=true`, `full_name='TutorMint'`, CNIC+address verified
+  and `profile_completion=100` (so it may post and hire and its jobs carry the
+  Featured tag), and grants an active `parent_featured` subscription
+  (`source='admin_grant'`, far-future expiry). It refuses if that email/mobile
+  already has an account or if a team account already exists (exactly one).
+  Production writes go through `guardWrites` (backup first).
+
+  **OWNER ACTION:** supply a real team-controlled email or mobile and run
+  `ALLOW_SEED_ON_PRODUCTION=1 npx tsx scripts/provision-team-parent.ts --email=<addr> --apply --confirm=yhekiqtelsictqkfxrfj`
+  (or `--mobile=`). Until then `/admin/jobs/new` shows a plain "team account not
+  set up yet" panel and posting is disabled — pointed at no invented recipient.
+
+- **Posting reuses the one job shape.** `createTeamJob(input, actor, origin)` in
+  `lib/jobs.ts` posts for the team account through the **service-role client**
+  (the RLS insert CHECK is `parent_id = auth.uid()`, and the caller is the admin,
+  not the team account — this is the ONLY thing that differs from a parent post).
+  It writes the same `jobs` row shape, the same `job_subjects`, stamps
+  `is_featured` from the team account's own entitlements, and skips the parent
+  verification/quota gates (a team post carries the platform's own vetting and is
+  not rate-limited against a member's monthly cap). Everything downstream —
+  `applyToJob`, `setApplicationStatus`, hire — is UNCHANGED, because `parent_id`
+  names a real `parent_featured` account.
+
+- **The form is the same fields.** `/admin/jobs/new` (`AdminJobForm`, manager +
+  support via `SCREEN_ACCESS.jobsPost`) uses the same `TaxonomySelector`, the same
+  city/area/mode/budget-band fields and the SAME `/api/parent/jobs/generate`
+  "Write this for me" call as the parent form, plus an ORIGIN select (support /
+  referral / external) for the audit. It POSTs to `/api/admin/jobs/create`.
+
+- **The trust marker is everywhere a job shows.** `lib/jobFeed.ts`'s `decorate`
+  sets `posted_by_team` (and shows the name as "TutorMint", drops the parent
+  badges) for every reader — browse, the tutor board, matching, saved, the public
+  tuition page — so a "Posted by TutorMint" navy pill renders on the card
+  (`JobCard`) and the detail page, the hire line reads as a team tuition, the
+  JobPosting JSON-LD says "Posted by the TutorMint team", and the team's own
+  `/parent/[id]` card shows "Official TutorMint account", never a person's name.
+
+- **Audit + timeline.** Every team post writes `admin_audit_log` (`job.post`,
+  with the acting admin and the origin) and a `job_posted` timeline row on the
+  team account flagged `adminPosted`.
+
+## robots.txt and sitemap.xml, reconciled (owner, 9 Sep 2026)
+
+**Refines "Index now, banner stays (owner, 8 Sep 2026)", which set the current
+robots rules.** Under precedence rule 10 this refinement wins where it touches
+the sitemap; the robots public-crawl rules from 8 Sep are unchanged.
+
+The contradiction: the sitemap advertised `/register`, `/tutor/packages` and
+`/parent/packages`, while `robots.txt` disallows `/register` (and `/register`
+also carries its own `robots: index:false`). Submitting a URL you have blocked
+is a Search Console error ("Submitted URL blocked by robots.txt") and wastes the
+crawl. Resolved in ONE direction — **remove them from the sitemap** — and here is
+the reasoning per page:
+
+- **`/register`** — excluded from the sitemap; the robots `Disallow` and its
+  page-level `index:false` stay. A signup page with no unique content is not an
+  organic-search target. The owner sends traffic there by direct link and ads,
+  not via Google, so it belongs in neither the sitemap nor the index. Removing
+  the sitemap entry is what clears the contradiction; the block stays.
+- **`/tutor/packages`, `/parent/packages`** — removed from the sitemap. They are
+  price/conversion pages reached by a member's own click, not organic content,
+  so they are not submitted. They stay **crawlable** (no robots block added —
+  they are not sensitive), just not advertised.
+- **`/login`, `/forgot-password`** — already absent from the sitemap; the robots
+  `Disallow` on both is correct and unchanged.
+- **Sweep result:** after the removal, NO path appears in both the sitemap and
+  the robots `Disallow` list. `/register` was the only collision.
+
+**And the reverse error — a listed page that then refuses to be indexed — was
+LIVE and is fixed.** Every open tuition detail page and every tuition *landing*
+page (`/tuitions/[city]/[slug]` and `/tuitions/[city]/[subject]`, one shared
+route) carried a leftover `PREVIEW_MODE ? { robots: index:false }` block. Because
+`NEXT_PUBLIC_PREVIEW_MODE` defaults on, **every tuition page in the sitemap was
+noindex in production** — the exact "listed but refuses indexing" error, in the
+other direction, and inconsistent with the tutor landing pages (which never had
+the block). The blocks are removed; a closed/missing tuition keeps its own 404
+noindex and an under-review job stays visible with a sticker (it is not
+delisted), so nothing indexable is suppressed. Stale "site-wide noindex" comments
+in the tutor-landing page, the blog index, and the false "preview is ON — every
+page is noindex" message on `/admin/seo/landing` were corrected in the same pass.
+
+**Everything the sitemap lists is now genuinely indexable**, confirmed surface by
+surface: tutor profiles come from `listed_tutor_slugs()` → `tutor_directory`
+(excludes under-review, suspended, incomplete and unclaimed imports) and the
+profile page separately noindexes an under-review tutor; open tuitions and tutor
+landing pages carry no noindex; blog URLs come from `publishedSlugs()`
+(`status='published'` only, so no draft leaks). No page in the sitemap carries a
+per-page noindex.

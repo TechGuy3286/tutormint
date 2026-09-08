@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { Briefcase, CalendarDays, MapPin } from 'lucide-react'
+import { Briefcase, CalendarDays, MapPin, ShieldCheck } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -75,6 +75,12 @@ export default async function PublicParentPage({ params }: { params: Params }) {
         />
         <div className="min-w-0 flex-1 space-y-1.5">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">{parent.name}</h1>
+          {parent.team && (
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-tm-navy">
+              <ShieldCheck aria-hidden size={12} />
+              Official TutorMint account
+            </p>
+          )}
           {parent.badges.length > 0 && <BadgeRow badges={parent.badges} size="sm" />}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
             {parent.city && (
@@ -91,11 +97,13 @@ export default async function PublicParentPage({ params }: { params: Params }) {
           {/* Said plainly, because it is the single fact a tutor is weighing
               when they decide whether to spend an application. */}
           <p className="text-[11px] leading-relaxed text-slate-700">
-            {parent.canHire
-              ? 'Featured parent — able to complete a hire.'
-              : parent.verified
-                ? 'Verified parent — CNIC and address approved. Hiring needs a Featured plan.'
-                : 'This member has not completed verification yet.'}
+            {parent.team
+              ? 'Tuitions here are posted and managed by the TutorMint team, and carry the platform’s own vetting.'
+              : parent.canHire
+                ? 'Featured parent — able to complete a hire.'
+                : parent.verified
+                  ? 'Verified parent — CNIC and address approved. Hiring needs a Featured plan.'
+                  : 'This member has not completed verification yet.'}
           </p>
         </div>
       </section>

@@ -37,9 +37,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: BASE, lastModified: now, changeFrequency: 'daily', priority: 1.0 },
     { url: `${BASE}/browse/tutors`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
     { url: `${BASE}/browse/tuitions`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
-    { url: `${BASE}/register`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${BASE}/tutor/packages`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${BASE}/parent/packages`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
+    // NOT listed here, deliberately (owner, 9 Sep 2026): /register is disallowed
+    // in robots.ts and noindexed by its own layout — a signup page with no unique
+    // content is not an organic-search target, so the sitemap must not advertise a
+    // URL the crawler is told not to fetch. /tutor/packages and /parent/packages
+    // are reachable by a member's own click but are price/conversion pages, not
+    // organic content, so they are excluded from the sitemap too (they stay
+    // crawlable — no robots block — just not submitted). /login and
+    // /forgot-password were never listed. See robots-vs-sitemap reconciliation.
     { url: `${BASE}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
     { url: `${BASE}/blog`, lastModified: now, changeFrequency: 'daily', priority: 0.6 },
     { url: `${BASE}/faq`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
@@ -85,8 +90,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // The T9.1 landing pages: every (city, subject) that clears the threshold,
     // listed once. Read from the same tagged cache the pages and the link
     // helper use, so a combination that has just crossed the threshold appears
-    // here as soon as that cache is revalidated. Absent entirely while preview
-    // is on, because this whole block is behind the PREVIEW_MODE return above.
+    // here as soon as that cache is revalidated. (Indexing is decoupled from
+    // preview mode since 8 Sep — these are always listed now.)
     const landing = await liveLandingPages()
     const landingPages: MetadataRoute.Sitemap = landing.map((p) => ({
       url: `${BASE}/${p.kind}/${p.citySlug}/${p.subjectSlug}`,
@@ -95,7 +100,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }))
 
-    // Published blog posts. Absent while preview is on (behind the return above).
+    // Published blog posts (status='published' only — drafts cannot enter here).
     const posts = await publishedSlugs()
     const postPages: MetadataRoute.Sitemap = posts.map((p) => ({
       url: `${BASE}/blog/${p.slug}`,

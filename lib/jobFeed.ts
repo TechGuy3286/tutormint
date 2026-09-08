@@ -26,6 +26,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
+import { TEAM_DISPLAY_NAME } from '@/lib/teamAccount'
 import type { JobCardData } from '@/components/JobCard'
 
 type ParentFacts = {
@@ -33,6 +34,8 @@ type ParentFacts = {
   avatarUrl: string | null
   badges: BadgeName[]
   canHire: boolean
+  /** This job's parent is the team-operated TutorMint account (migration 63). */
+  team: boolean
 }
 
 async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
@@ -45,7 +48,7 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
   const [{ data: profiles }, { data: subs }, { data: plans }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, full_name, avatar_url, profile_completion, cnic_verified_at, address_verified_at')
+      .select('id, full_name, avatar_url, profile_completion, cnic_verified_at, address_verified_at, is_team_account')
       .in('id', ids),
     admin
       .from('subscriptions')
@@ -72,16 +75,23 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
 
   for (const p of profiles ?? []) {
     const id = p.id as string
+    const team = !!(p.is_team_account as boolean | null)
     // A verified parent pays nothing, so they have no subscription row; their
     // free plan is implied by CNIC + address approval.
     let code = bestPlan.get(id) ?? null
     if (!code && p.cnic_verified_at && p.address_verified_at) code = 'parent_verified'
 
     out.set(id, {
-      name: (p.full_name as string | null)?.split(' ')[0] ?? null,
+      // The team account shows the TutorMint identity, never a person's name
+      // (the account is provisioned with full_name 'TutorMint' anyway, but this
+      // makes the surface independent of the row). Its badges are suppressed
+      // because a team post carries the platform's OWN vetting, not a
+      // CNIC-verified parent's — the "Posted by TutorMint" marker says so.
+      name: team ? TEAM_DISPLAY_NAME : ((p.full_name as string | null)?.split(' ')[0] ?? null),
       avatarUrl: (p.avatar_url as string | null) ?? null,
-      badges: badgesForPlan(code, (p.profile_completion ?? 0) >= 100),
+      badges: team ? [] : badgesForPlan(code, (p.profile_completion ?? 0) >= 100),
       canHire: !!(code && planByCode.get(code)?.can_hire),
+      team,
     })
   }
 
@@ -190,6 +200,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       parent_avatar_url: f?.avatarUrl ?? null,
       parent_badges: f?.badges ?? [],
       parent_can_hire: f?.canHire ?? false,
+      posted_by_team: f?.team ?? false,
     }
   })
 }

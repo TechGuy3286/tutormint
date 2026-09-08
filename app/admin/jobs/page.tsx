@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { Plus } from 'lucide-react'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { adminJobFacets, adminJobPage, type AdminJobFilters } from '@/lib/adminJobs'
 
@@ -50,11 +52,20 @@ export default async function AdminJobsPage({
 
   return (
     <div className="space-y-4">
-      <header className="space-y-1">
+      <header className="flex items-start justify-between gap-3">
         <p className="text-xs text-gray-500">
           {total} {total === 1 ? 'tuition' : 'tuitions'}
           {filtered ? ' matching these filters' : ' posted on TutorMint'}.
         </p>
+        {/* jobs read and jobsPost are the same roles (manager + support), so
+            everyone who reaches this screen may post a team tuition. */}
+        <Link
+          href="/admin/jobs/new"
+          className="inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-xl bg-tm-red px-3 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
+        >
+          <Plus size={14} aria-hidden />
+          Post a tuition
+        </Link>
       </header>
 
       <JobFilters values={filters} cities={facets.cities} subjects={facets.subjects} />

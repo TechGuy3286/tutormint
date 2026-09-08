@@ -46,6 +46,8 @@ export type PublicParent = {
   verified: boolean
   canHire: boolean
   badges: BadgeName[]
+  /** The team-operated TutorMint account — the card shows the TutorMint identity. */
+  team: boolean
   jobs: PublicParentJob[]
 }
 
@@ -58,7 +60,7 @@ export async function publicParent(id: string): Promise<PublicParent | null> {
   const { data: profile } = await admin
     .from('profiles')
     // The allowlist. Nothing that could identify or contact them.
-    .select('id, full_name, avatar_url, city, role, is_suspended, created_at, cnic_verified_at, address_verified_at')
+    .select('id, full_name, avatar_url, city, role, is_suspended, created_at, cnic_verified_at, address_verified_at, is_team_account')
     .eq('id', id)
     .maybeSingle()
 
@@ -84,11 +86,16 @@ export async function publicParent(id: string): Promise<PublicParent | null> {
     return plan?.audience === 'parent' && plan?.can_hire === true
   })
 
+  const team = !!(profile.is_team_account as boolean | null)
   const verified = !!profile.cnic_verified_at && !!profile.address_verified_at
 
+  // The team account's public card is the TutorMint identity, never a person's
+  // name (owner, 9 Sep 2026). Its badges are dropped too — a team tuition
+  // carries the platform's own vetting, which the "Posted by TutorMint" marker
+  // on the job says, rather than a parent's Verified/Featured badges.
   const badges: BadgeName[] = []
-  if (verified) badges.push('Verified')
-  if (canHire) badges.push('Featured')
+  if (!team && verified) badges.push('Verified')
+  if (!team && canHire) badges.push('Featured')
 
   // Open jobs only, through the CALLER's client rather than the service role:
   // the jobs table's own read policy decides what is public, and going around
@@ -107,13 +114,14 @@ export async function publicParent(id: string): Promise<PublicParent | null> {
 
   return {
     id: profile.id as string,
-    name: (profile.full_name as string) || 'TutorMint member',
+    name: team ? 'TutorMint' : (profile.full_name as string) || 'TutorMint member',
     avatarUrl: (profile.avatar_url as string) ?? null,
     city: (profile.city as string) ?? null,
     memberSince: profile.created_at as string,
     verified,
     canHire,
     badges,
+    team,
     jobs: (jobs ?? []).map((j) => ({
       id: j.id as string,
       jobTxId: (j.job_tx_id as string) ?? null,

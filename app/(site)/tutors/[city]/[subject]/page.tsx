@@ -18,9 +18,10 @@ import { pageTitle, pageDescription } from '@/lib/seo'
 // combination set behind resolveLanding / the sitemap / the link helper, which
 // is what decides whether this page exists at all. See lib/landing.ts.
 //
-// Preview mode is honoured globally: app/layout.tsx sets robots noindex while
-// NEXT_PUBLIC_PREVIEW_MODE is on, and the sitemap lists these pages only once
-// it is off. Nothing extra is needed here.
+// Indexing is decoupled from preview mode (owner, 8 Sep 2026): there is no
+// site-wide noindex, and this page — being listed in the sitemap when it clears
+// the threshold — carries no robots key of its own, so it is indexable. Nothing
+// extra is needed here.
 
 export const dynamic = 'force-dynamic'
 

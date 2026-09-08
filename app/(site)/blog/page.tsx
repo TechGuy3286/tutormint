@@ -14,8 +14,9 @@ import { absoluteUrl } from '@/lib/siteUrl'
 // infinite scroll for the rest.
 //
 // Withdrawn since 3 Sep for want of real content; restored here now the CMS
-// gives it real rows. Preview mode still keeps the whole site noindex — the
-// global robots flag covers this page like every other.
+// gives it real rows. Indexing is decoupled from preview mode (owner, 8 Sep
+// 2026): there is no site-wide noindex, so this page and its published posts
+// are indexable and listed in the sitemap.
 
 export const dynamic = 'force-dynamic'
 

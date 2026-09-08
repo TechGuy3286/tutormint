@@ -16,6 +16,7 @@
     "test:delivery": "tsx --test scripts/test-delivery.ts",
     "test:authtrust": "tsx --test scripts/test-auth-trust.ts",
     "demo:underreview": "tsx scripts/demo-under-review.ts",
+    "provision:team": "tsx scripts/provision-team-parent.ts",
     "sms:probe": "tsx scripts/sms-probe.ts",
     "check:contrast": "tsx scripts/contrast-check.ts",
     "test:jobcopy": "tsx --test scripts/test-jobcopy.ts",
