@@ -131,5 +131,14 @@ export function menuForRole({
     return items
   }
 
-  return PARENT
+  if (role === 'parent' || role === 'academy') return PARENT
+
+  // No silent parent default (owner, 9 Sep). A session with no role is a broken
+  // profile (the dropped-trigger orphan), not a parent — offering it the parent
+  // dashboard and "Post a job" is exactly how a tutor looked like a parent. Show
+  // only the account items every member has, whatever their role.
+  return [
+    { label: 'Notifications', href: '/account/notifications', icon: 'bell' },
+    { label: 'Settings', href: '/account/notifications/settings', icon: 'settings' },
+  ]
 }

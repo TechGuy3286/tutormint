@@ -48,7 +48,10 @@ export default async function VerifyPhonePage({
     .eq('id', user.id)
     .maybeSingle()
 
-  const role = (profile?.role as Role) ?? 'parent'
+  // No 'parent' default (owner, 9 Sep): a gated account has a role, and quietly
+  // treating a role-less one as a parent is the bug we are removing. A missing
+  // role means a broken profile — homeForRole throws and it surfaces.
+  const role = (profile?.role as Role | null) ?? null
   const home = homeForRole(role)
 
   // Already done, or never gated in the first place (an imported tutor, or an

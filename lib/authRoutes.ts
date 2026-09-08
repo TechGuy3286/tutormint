@@ -12,15 +12,30 @@
 
 export type Role = 'tutor' | 'parent' | 'academy' | 'admin'
 
-/** Where a role belongs after signing in. */
+/**
+ * Where a role belongs after signing in.
+ *
+ * There is NO silent 'parent' fallback (owner, 9 Sep). A missing or unknown role
+ * means the account has no profile row — the exact failure the dropped
+ * on_auth_user_created trigger caused — and quietly routing it to the parent
+ * dashboard is how a tutor became a "parent account". An unrecognised role now
+ * throws, so the broken state surfaces instead of being papered over. Every
+ * caller here routes an AUTHENTICATED member, who must have a role by the time
+ * they reach it. 'academy' is a parent account (CLAUDE.md), so it maps to parent.
+ */
 export function homeForRole(role: Role | null | undefined): string {
   switch (role) {
     case 'admin':
       return '/admin'
     case 'tutor':
       return '/tutor/dashboard'
-    default:
+    case 'parent':
+    case 'academy':
       return '/parent/dashboard'
+    default:
+      throw new Error(
+        `homeForRole: missing or unknown role ${JSON.stringify(role)} — a role must be set before routing.`,
+      )
   }
 }
 

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { deliverEmail } from '@/lib/notify'
 import { logActivity } from '@/lib/activityLog'
+import { homeForRole, type Role } from '@/lib/authRoutes'
 
 // Supabase email-confirmation callback.
 //
@@ -17,10 +18,13 @@ import { logActivity } from '@/lib/activityLog'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
-
-  // Only same-origin paths, never an absolute URL from the query string.
-  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/'
+  // An EXPLICIT, same-origin next only (password-reset sends one). A signup
+  // confirmation link carries none, so this is null there and the role decides.
+  const explicitNext = searchParams.get('next')
+  const safeExplicit =
+    explicitNext && explicitNext.startsWith('/') && !explicitNext.startsWith('//')
+      ? explicitNext
+      : null
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`)
@@ -46,7 +50,38 @@ export async function GET(request: NextRequest) {
   // member for a month reads as a bug, because it is one.
   await sendWelcomeOnce()
 
-  return NextResponse.redirect(`${origin}${safeNext}`)
+  // The email path chose a role at /register; it must drive the landing page,
+  // not silently fall to '/'. When the link carried no explicit next, route by
+  // the role written at signup (ensureProfile). A role-less profile would be a
+  // bug — fall back to the neutral homepage rather than silently picking parent.
+  let dest = safeExplicit
+  if (!dest) {
+    const role = await currentRole()
+    try {
+      dest = homeForRole(role)
+    } catch {
+      dest = '/'
+    }
+  }
+
+  return NextResponse.redirect(`${origin}${dest}`)
+}
+
+/** The signed-in member's role, read through the service role, or null. */
+async function currentRole(): Promise<Role | null> {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return null
+    const admin = createAdminClient()
+    if (!admin) return null
+    const { data } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    return (data?.role as Role) ?? null
+  } catch {
+    return null
+  }
 }
 
 async function sendWelcomeOnce(): Promise<void> {

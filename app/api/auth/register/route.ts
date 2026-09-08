@@ -61,6 +61,61 @@ const RegisterBody = z.object({
 // has a route.
 const BLOCKED = 'We could not create an account with these details. If you think this is a mistake, please contact support.'
 
+// Create the member's profile rows AUTHORITATIVELY, here, rather than trusting
+// the on_auth_user_created trigger.
+//
+// WHY THIS EXISTS (root cause, 9 Sep). The `on_auth_user_created` trigger on
+// auth.users — the thing that wrote profiles.role from the signup metadata —
+// was DROPPED by the 5 Sep Sydney→Mumbai migration and never reapplied (an
+// auth-schema trigger is not carried by a public-schema dump). With it gone,
+// every signup created an auth user with the right metadata but NO profiles row
+// at all: the mobile path's `.update()` hit zero rows, and the email path had
+// nothing written either. The account then had no role, so every "role is
+// missing → parent" default downstream produced a parent account and the parent
+// dashboard, whatever was selected. Writing the profile explicitly here fixes
+// both paths and is robust to the trigger's absence; if the trigger is later
+// restored it runs first (metadata → same row) and this upsert is a harmless
+// no-op. It replaces the reliance on a trigger a dump silently left behind.
+//
+// This mirrors what migration 14's handle_new_user() did: profiles (+ the
+// account_type mirror), and tutor_profiles for a tutor.
+async function ensureProfile(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  opts: {
+    userId: string
+    role: 'tutor' | 'parent'
+    fullName: string
+    email: string
+    phoneNumber?: string
+    phoneGateRequired?: boolean
+    utm?: Record<string, unknown>
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { error: pErr } = await admin.from('profiles').upsert(
+    {
+      id: opts.userId,
+      role: opts.role,
+      account_type: opts.role === 'parent' ? 'parent' : null,
+      full_name: opts.fullName,
+      email: opts.email,
+      phone_number: opts.phoneNumber ?? '',
+      ...(opts.phoneGateRequired ? { phone_gate_required: true } : {}),
+      ...(opts.utm ?? {}),
+    },
+    { onConflict: 'id' },
+  )
+  if (pErr) return { ok: false, error: pErr.message }
+
+  if (opts.role === 'tutor') {
+    const { error: tErr } = await admin.from('tutor_profiles').upsert(
+      { id: opts.userId, full_name: opts.fullName, email: opts.email, verification_status: 'pending' },
+      { onConflict: 'id' },
+    )
+    if (tErr) return { ok: false, error: tErr.message }
+  }
+  return { ok: true }
+}
+
 export async function POST(request: Request) {
   const limit = await rateLimit('register', callerIp(request))
   if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'sign-up attempts')
@@ -124,7 +179,7 @@ export async function POST(request: Request) {
     // welcome mail once, and forwards on.
     const supabase = await createClient()
     const origin = new URL(request.url).origin
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: authEmail,
       password: body.password,
       options: {
@@ -143,9 +198,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: signUpError.message }, { status: 400 })
     }
 
-    // Attribution is on the profile the trigger just wrote. Best-effort.
-    if (hasUtm(utm)) {
-      await admin.from('profiles').update(utm).eq('email', authEmail)
+    // Write the profile with the SELECTED role now — the trigger no longer does
+    // (see ensureProfile). signUp returns the user id even though the account is
+    // unconfirmed, so the role is persisted before the confirmation link is
+    // clicked; the callback then routes by that role.
+    const uid = signUpData.user?.id
+    if (uid) {
+      const made = await ensureProfile(admin, {
+        userId: uid,
+        role: body.role,
+        fullName: body.fullName,
+        email: authEmail,
+        utm: hasUtm(utm) ? utm : undefined,
+      })
+      if (!made.ok) {
+        return NextResponse.json(
+          { error: 'Could not finish creating the account. Please try again.' },
+          { status: 500 },
+        )
+      }
     }
 
     return NextResponse.json({
@@ -219,9 +290,9 @@ export async function POST(request: Request) {
 
   // -------------------------------------------------------------- create ---
   // email_confirm: true — a synthetic address accepts no mail, and the mobile
-  // is what gets verified. The metadata is read by the on_auth_user_created
-  // trigger, which writes profiles (and tutor_profiles for tutors); 'admin' is
-  // rejected there, so a signup cannot mint one.
+  // is what gets verified. The role is written by ensureProfile below (the
+  // metadata is kept on the user too, for the record and for a restored
+  // trigger); the profile is no longer created by a trigger.
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email: authEmail,
     password: body.password,
@@ -245,17 +316,21 @@ export async function POST(request: Request) {
 
   const userId = created.user.id
 
-  const { error: profileError } = await admin
-    .from('profiles')
-    .update({
-      phone_number: mobile,
-      email: authEmail,
-      phone_gate_required: true,
-      ...(hasUtm(utm) ? utm : {}),
-    })
-    .eq('id', userId)
+  // Write the profile (+ tutor_profiles) with the SELECTED role. This was the
+  // trigger's job and used to be a bare `.update()` here that never set role;
+  // with the trigger gone that update wrote to a row that did not exist. See
+  // ensureProfile.
+  const made = await ensureProfile(admin, {
+    userId,
+    role: body.role,
+    fullName: body.fullName,
+    email: authEmail,
+    phoneNumber: mobile,
+    phoneGateRequired: true,
+    utm: hasUtm(utm) ? utm : undefined,
+  })
 
-  if (profileError) {
+  if (!made.ok) {
     await admin.auth.admin.deleteUser(userId)
     return NextResponse.json(
       { error: 'Could not finish creating the account. Please try again.' },
