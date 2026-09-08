@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { homeForRole, nextForRole, type Role } from '@/lib/authRoutes'
 import { formatPkMobile } from '@/lib/phone'
 import { getSupportContact, whatsappHref } from '@/lib/support'
+import { needsPhoneGate } from '@/lib/phoneGate'
 import VerifyPhoneForm from './VerifyPhoneForm'
 
 // The gate screen.
@@ -54,14 +55,17 @@ export default async function VerifyPhonePage({
   const role = (profile?.role as Role | null) ?? null
   const home = homeForRole(role)
 
-  // Already done, or never gated in the first place (an imported tutor, or an
-  // account that predates mobile-first signup). Either way there is nothing to
-  // do here.
-  if (profile?.phone_verified_at || !profile?.phone_gate_required) {
+  // Already done, or never gated in the first place — a verified number, an
+  // email-path account with no mobile, an imported tutor, or an account that
+  // predates mobile-first signup. Same predicate the proxy gates with, so the
+  // page cannot disagree with the redirect that sent someone here.
+  if (!needsPhoneGate(profile)) {
     redirect(nextForRole(next, role) ?? home)
   }
 
-  const mobile = (profile.phone_number as string) || ''
+  // Reached only when needsPhoneGate() was true, which requires a non-null
+  // profile; the optional chain keeps the compiler happy without a bare `!`.
+  const mobile = (profile?.phone_number as string) || ''
 
   // The fallback (owner, Part 6). Until a real SMS provider exists, a member who
   // cannot receive a code has no route forward — /verify-phone would be a dead

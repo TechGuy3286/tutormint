@@ -21,6 +21,7 @@ import type { NextRequest } from 'next/server'
 import { UTM_COOKIE, UTM_MAX_AGE_SECONDS, encodeUtm, readUtmFromUrl } from '@/lib/utm'
 import { ANON_COOKIE, ANON_MAX_AGE_SECONDS, newAnonId } from '@/lib/anonSession'
 import { PERSIST_COOKIE, persistOffFrom, applySessionPersistence } from '@/lib/sessionCookies'
+import { needsPhoneGate } from '@/lib/phoneGate'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
 // return screen). Every page under it reads the signed-in member's own
@@ -236,7 +237,7 @@ export async function proxy(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle()
 
-    if (profile?.phone_gate_required && !profile.phone_verified_at) {
+    if (needsPhoneGate(profile)) {
       const url = request.nextUrl.clone()
       url.pathname = '/verify-phone'
       url.search = ''

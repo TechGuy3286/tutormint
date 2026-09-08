@@ -3389,3 +3389,45 @@ rls:audit 174/174 · suites green.
   stage 1, probe-only) and BRIDGE_OTP. The copy tells the truth about the intended
   channel; the bridge remains the live delivery stopgap until real WhatsApp codes
   are confirmed arriving.
+
+## The auth trigger, restored (9 Sep 2026) — migration 59
+
+The `on_auth_user_created` trigger on `auth.users` — which runs
+`public.handle_new_user()` to write the `profiles` row (and `tutor_profiles` for
+a tutor) from signup metadata — was silently **dropped by the 5 Sep Sydney →
+Mumbai region migration** and never reapplied: that migration was a
+public-schema dump/restore, and an auth-schema trigger is not carried by a
+public dump. The function survived (it is in `public`); the trigger binding did
+not. From 5 Sep until this fix, **every** account-creating path was broken —
+`/api/auth/register` (no profile row → no role → parent default + a
+profile-less dashboard redirect loop), `lib/staff.ts` (`.update()` hit zero
+rows), and `lib/import.ts` (`.update()` hit zero rows, then the `tutor_profiles`
+FK failed). Migration 59:
+
+- **Restores only the trigger binding, not the function.** The live
+  `handle_new_user()` is NEWER than migration 14 (it also writes a
+  `user_activity_log 'registered'` row); recreating migration 14's body would
+  regress it. Verified before attaching that the live function does not error
+  against the current schema — the migration-35-class trap.
+- **Backfilled 11 real orphaned accounts** (all `raw_user_meta_data.role =
+  'tutor'`) from their metadata: `profiles` + `tutor_profiles`. The one
+  synthetic-email (mobile) account among them was reconstructed with
+  `phone_gate_required = true`; the ten real-email accounts with
+  `phone_gate_required = false`. **13 accounts were deliberately left** and
+  reported to the owner: 5 `@example.com` tests, 5 typo/garbage addresses, 3
+  with no role in metadata (no role invented).
+- **ensureProfile stays** in the register route as belt-and-braces — with the
+  trigger back it is a harmless idempotent no-op (verified). **`lib/staff.ts`
+  and `lib/import.ts` still rely on the trigger alone** and were NOT hardened in
+  this PR (out of the "verify" scope); if the trigger is ever lost again they
+  break silently again — recommended follow-up is to give them the same
+  authoritative upsert the register route has.
+- **The phone gate is one pure predicate now** (`lib/phoneGate.ts`
+  `needsPhoneGate`), shared by `proxy.ts` and `/verify-phone` so they cannot
+  disagree. An email-path account with no mobile (`phone_gate_required = false`)
+  is never gated — it reaches its dashboard, and adding a mobile is a Settings
+  action, not a gate. Unit-tested in `scripts/test-auth-trust.ts`.
+
+**A public-only dump does not carry auth-schema triggers.** Any future region
+move or restore must re-verify `on_auth_user_created` exists on `auth.users`
+afterwards, because nothing in a public dump will recreate it.

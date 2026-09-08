@@ -23,6 +23,7 @@ import { normalisePkMobile } from '../lib/phone'
 import { crossesReviewThreshold } from '../lib/underReviewCore'
 import { computeEntitlements, type EntitlementInputs } from '../lib/entitlements'
 import { BANNED_LOGIN_MESSAGE } from '../lib/authMessages'
+import { needsPhoneGate } from '../lib/phoneGate'
 
 // ------------------------------------------------------------ BRIDGE_OTP ---
 
@@ -292,6 +293,35 @@ test('entitlements: a verified parent gets the free parent_verified tier with no
   assert.equal(e.plan, 'parent_verified')
   assert.equal(e.canInitiateMessage, true)
   assert.equal(e.canHire, false)
+})
+
+// ------------------------------------------------------- phone gate --------
+// The predicate proxy.ts and /verify-phone both decide with. The one that
+// matters most here is the no-mobile email account: it must NOT be gated
+// (owner, 9 Sep) — it reaches its dashboard and is never sent to /verify-phone.
+
+test('phone gate: an email-verified account with NO mobile is never gated', () => {
+  // What the email signup path writes: phone_gate_required stays false.
+  assert.equal(needsPhoneGate({ phone_gate_required: false, phone_verified_at: null }), false)
+})
+
+test('phone gate: an unverified mobile-first account IS gated', () => {
+  assert.equal(needsPhoneGate({ phone_gate_required: true, phone_verified_at: null }), true)
+})
+
+test('phone gate: a verified mobile account is not gated', () => {
+  assert.equal(needsPhoneGate({ phone_gate_required: true, phone_verified_at: '2026-09-01T00:00:00Z' }), false)
+})
+
+test('phone gate: a legacy / pre-mobile-first account is not gated', () => {
+  // 21 of the 28 accounts that predated the gate had no verified number; the
+  // flag is what keeps them out of it.
+  assert.equal(needsPhoneGate({ phone_gate_required: false, phone_verified_at: null }), false)
+})
+
+test('phone gate: a missing profile (backfilled orphan) is not gated', () => {
+  assert.equal(needsPhoneGate(null), false)
+  assert.equal(needsPhoneGate(undefined), false)
 })
 
 // --------------------------------------------------------- exact copy ------

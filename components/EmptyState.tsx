@@ -23,7 +23,7 @@ export default function EmptyState({
       {action && (
         <Link
           href={action.href}
-          className="mt-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-black px-4 text-xs font-bold text-white transition-colors hover:bg-tm-navy"
+          className="mt-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
         >
           {action.label}
           <ArrowRight aria-hidden size={13} />
