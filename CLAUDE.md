@@ -51,7 +51,7 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 - `user_activity_log` — the member timeline (see that section). `admin_audit_log` — every admin mutation. `user_blocks`, `penalties_log`, `profile_views`, `academy_affiliations`, `tutor_slots` — kept and wired per their tasks.
 - `advertisements` + `ad_events` — see the advertisements spec. `app_settings` — support contact, pay details, `{{COMPANY_REG_NO}}`, `{{COMPANY_NTN}}`.
 - `admin_messages` (migration 58) — the official TutorMint Team ↔ member channel: `id`, `member_id`, `direction ('out'|'in')`, `admin_id` (who sent an 'out'; never shown to the member), `template_key`, `body`, `read_at`, `created_at`. A DEDICATED store, deliberately NOT `threads`, so the "no chat-browsing screen" line holds by construction. Read at `/admin/inbox` and, for the member, in the role inbox's pinned Team row (Part 5). RLS: `member_id = auth.uid() or is_admin()`; every write is a server path.
-- `admin_message_templates` (migration 58) — owner/manager-editable templates seeded with cnic_unclear, address_untraceable, job_under_review, video_rerecord, profile_completion_nudge, payment_received, payment_approved: `key`, `title`, `subject`, `body` (`{name}`/`{job_title}`/`{reason}` placeholders). Admin-read RLS.
+- `admin_message_templates` (migration 58) — owner/manager-editable templates seeded with cnic_unclear, address_untraceable, job_under_review, video_rerecord, profile_completion_nudge, payment_received, payment_approved, and (migration 64) the three abandoned-signup outreach templates signup_email_unconfirmed, signup_mobile_unverified, signup_profile_unfinished: `key`, `title`, `subject`, `body` (`{name}`/`{job_title}`/`{reason}` placeholders). Admin-read RLS.
 - `signup_blocklist` (migration 58) — a banned account's `mobile` (normalised MSISDN) and `cnic_hash` (sha256 of the digits, NEVER the CNIC in the clear), plus `reason`, `source_user_id`, `created_by`. Checked at signup and at claim; admin-read RLS, service-role writes.
 - `taxonomy_categories` / `taxonomy_levels` / `taxonomy_subjects` / `taxonomy_master` — keep as is (used by `lib/taxonomy.ts`), plus an admin-editable alias table for Roman-Urdu spellings.
 
@@ -3785,3 +3785,84 @@ profile page separately noindexes an under-review tutor; open tuitions and tutor
 landing pages carry no noindex; blog URLs come from `publishedSlugs()`
 (`status='published'` only, so no draft leaks). No page in the sitemap carries a
 per-page noindex.
+
+## Link previews, favicon, Your-things, honest OTP result, abandoned-signup outreach (9 Sep 2026)
+
+Migration 64 (additive — three template rows; backup taken first, applied live).
+
+**Link previews (Open Graph / Twitter).** Next does NOT deep-merge `openGraph` /
+`twitter`: a route that set `openGraph` without `images` shipped a bare link
+preview, which is why WhatsApp showed no image on several pages. `lib/seo.ts`
+gained `socialMeta()` (and `ogImages()`) — a COMPLETE OG + large-image Twitter
+block, absolute URLs, image always present. Wired into the homepage, tutor
+profiles, public tuition pages (both the job and the landing branch), the
+tutors/tuitions city×subject landing pages, and the blog index. Blog posts were
+already complete (cover or branded default) and were left. Pages with their own
+imagery use it (blog cover; a tutor's avatar); pages without fall back to the
+branded 1200×630 default (`/tutormint-logo1200x630.png`). **Privacy:** the tutor
+card is neutralised (no name, no photo, branded default) for an under-review OR
+unclaimed-import tutor (`tutorMetaFlags`); tuition cards carry only the job
+title/place/public description — never the posting parent's account name; parent
+pages are unaffected (no name in OG). Correct WhatsApp/Facebook dimensions
+(1200×630 on the default; a provided image's size is left for the scraper).
+
+**Favicon.** The served `app/favicon.ico` was the Next scaffold default (from
+"Initial commit from Create Next App") — never replaced, which is why no
+TutorMint icon rendered; the 167 KB root `favicon.ico` sat in a directory Next
+never serves (root is not `app/` or `public/`) and was removed. Regenerated from
+`public/tutormint-logo-1080x1080.png` (via sharp; the throwaway generator was
+deleted): a real `app/favicon.ico` (16/32/48, RGBA — Turbopack's ICO decoder
+requires RGBA), `app/icon.png` (512), `app/apple-icon.png` (180), and
+`public/icons/icon-192.png` + `icon-512.png` referenced by a new `app/manifest.ts`
+(theme navy, background the page-ground). The build serves `/icon.png`,
+`/apple-icon.png`, `/manifest.webmanifest` and `/favicon.ico`.
+
+**"Your things" redesign + the "Unlimited" fix.** `components/dashboard/YourThings.tsx`
+(shared by both dashboards, so they cannot drift) is now a stat-tile grid: a
+larger icon in a tinted chip, the number as the loud element (`text-3xl`
+proportional), its label quiet beneath — real card separation, 2/3-column grid.
+The plan tile showed "Featured plan — 99 applies left"; the platform sells that
+cap as **"Unlimited"**, which is correct (`plans.displayed_quota` + CLAUDE.md).
+`isUnlimitedDisplay()` in `lib/entitlements.ts` is the one predicate both
+dashboards and the tutor jobs-page header ("… of Unlimited applications left" →
+"Unlimited applications") read, so a plan advertising Unlimited says Unlimited
+and never surfaces the real 100-cap countdown.
+
+**Honest OTP result + logging.** `lib/otp.ts` `SendResult` now carries an explicit
+`channel: 'provider' | 'bridge' | 'dev-bypass'` on success, so the bridge
+do-nothing path (BRIDGE_OTP active, no provider) can never masquerade as a
+delivered code — the bug behind a signup that produced a code row, no WhatsApp,
+and no error. Every outcome is now logged (`[otp] send … channel=… provider=…
+ok=…`) at info/warn — the path had NO logging at all before, which is why the
+last diagnosis could not say what the provider returned. `provider=none` is the
+"no provider and no bridge" case. NEVER a full number (masked via `maskMsisdn`,
+tested) or the code. Consumers unchanged (the response JSON still carries
+`codeSent`/`devBypassActive`).
+
+**Abandoned-signup outreach.** `/admin/signups` (manager + support,
+`SCREEN_ACCESS.signups`) lists accounts stuck at one of three stages — an email
+signup that never confirmed (`auth.users.email_confirmed_at` null, via the Auth
+admin API), a mobile signup that never verified (`phone_gate_required && !phone_verified_at`),
+and a verified account under 100% completion — with the stage, role, channel,
+signup date and a masked contact (`lib/abandonedSignups.ts`; fixtures, banned,
+suspended and the team account excluded). From it an admin messages them on the
+channel they GAVE — email (in-app + email) for an email signup, WhatsApp for a
+mobile one, never the other way — through the existing `sendAdminMessage`
+(template-driven, editable before send, audit-logged, on the member timeline).
+`sendAdminMessage` now also refuses to email a SYNTHETIC address (belt-and-braces
+so a mobile account is never emailed at `<msisdn>@users.tutormint.org`). Three
+templates seeded (migration 64), no price on any of them.
+
+**Report — shared contact mobile numbers (read-only, not changed).** Across 45
+profiles, 21 carry a contact number (24 have none), all 21 normalise to distinct
+MSISDNs: **0 accounts currently share a contact mobile number.** So enforcing
+uniqueness today would break nothing and needs no data cleanup. The open design
+question (not implemented): the signup duplicate-check already blocks a second
+account CREATED from a mobile, but `whatsapp`/`phone_number` are free-text and a
+member can enter any number, so uniqueness would need to (a) choose which
+column(s) it covers, (b) normalise through `lib/phone.ts` before comparing (the
+same number lives in three shapes), and (c) decide the legitimate-sharing cases
+— a parent and their tutor spouse, a family landline as WhatsApp — that a hard
+unique constraint would wrongly reject. Recommendation left with the owner: a
+soft check (warn/flag on collision) over a hard DB constraint, since there is no
+existing violation to force the issue and a constraint would reject real families.

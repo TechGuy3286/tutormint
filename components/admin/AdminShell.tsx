@@ -23,6 +23,7 @@ import {
   Scroll,
   Search,
   Upload,
+  UserPlus,
   UserX,
   Users,
   Wallet,
@@ -71,6 +72,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
   newspaper: Newspaper,
   listChecks: ListChecks,
   mail: Mail,
+  userPlus: UserPlus,
   userX: UserX,
 }
 

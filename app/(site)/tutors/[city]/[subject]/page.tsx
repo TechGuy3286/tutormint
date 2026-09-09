@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 
 import LandingView from '@/components/landing/LandingView'
 import { resolveLanding } from '@/lib/landing'
-import { pageTitle, pageDescription } from '@/lib/seo'
+import { pageTitle, pageDescription, socialMeta } from '@/lib/seo'
 
 // /tutors/[city]/[subject] — a city × subject landing page for tutors.
 //
@@ -34,11 +34,19 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
   const heading = `${combo.subjectName} tutors in ${combo.city}`
   const lead = `${combo.count} verified ${combo.subjectName} tutor${combo.count === 1 ? '' : 's'} in ${combo.city}`
+  const title = pageTitle(heading)
+  const description = pageDescription(lead)
   return {
-    title: pageTitle(heading),
-    description: pageDescription(lead),
+    title,
+    description,
     alternates: { canonical: `/tutors/${combo.citySlug}/${combo.subjectSlug}` },
-    openGraph: { title: pageTitle(heading), description: pageDescription(lead), type: 'website' },
+    // Branded default image — a landing page has no imagery of its own.
+    ...socialMeta({
+      title,
+      description,
+      path: `/tutors/${combo.citySlug}/${combo.subjectSlug}`,
+      type: 'website',
+    }),
   }
 }
 

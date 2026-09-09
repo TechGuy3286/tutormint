@@ -29,6 +29,9 @@ export type ThingRow = {
   label: string
   /** The number shown. `null` renders an em dash — unknown, not zero. */
   count: number | null
+  /** Overrides `count` with a word — the "Unlimited" plan allowance, where a
+   *  number would surface the real 100-cap the plan advertises away. */
+  display?: string
   /** Short qualifier: "open", "unread", "awaiting you". */
   note?: string
   href: string
@@ -60,7 +63,7 @@ const ICONS = {
 
 export default function YourThings({ rows }: { rows: ThingRow[] }) {
   return (
-    <section aria-labelledby="your-things" className="space-y-2">
+    <section aria-labelledby="your-things" className="space-y-3">
       <h2
         id="your-things"
         className="text-[11px] font-black uppercase tracking-wider text-gray-500"
@@ -68,39 +71,48 @@ export default function YourThings({ rows }: { rows: ThingRow[] }) {
         Your things
       </h2>
 
-      <ul className="grid gap-2 sm:grid-cols-2">
+      {/* Stat tiles: a larger icon in a tinted chip, the number as the loud
+          element, its label quiet beneath it. Two columns on a phone, three on
+          a tablet up — each tile is its own card with real separation, not a row
+          in a cramped list. */}
+      <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {rows.map((r) => {
           const Icon = ICONS[r.icon]
-          const empty = r.count === 0
+          // A word ("Unlimited") wins over the number; then a real number; then
+          // an em dash for "unknown". Zero is a real value, shown, but dimmed.
+          const hasValue = r.display != null || (r.count !== null && r.count !== 0)
+          const value = r.display ?? (r.count === null ? '—' : r.count)
+          const isWord = r.display != null
           return (
             <li key={r.key}>
               <Link
                 prefetch={false}
                 href={r.href}
-                className={`flex min-h-[44px] items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 transition-colors ${
+                className={`flex h-full flex-col justify-between gap-4 rounded-2xl border bg-white p-4 transition-colors ${
                   r.highlight
-                    ? 'border-tm-red/30 hover:border-tm-red'
+                    ? 'border-tm-red/40 hover:border-tm-red'
                     : 'border-gray-200 hover:border-tm-navy'
                 }`}
               >
-                <span className="flex min-w-0 items-center gap-2.5">
-                  {/* Icons stay at the 500 weight even on an empty row. The
-                      lighter grey below it is 2.54:1 on white, fails AA at any
-                      size, and check:contrast rejects it on sight. */}
-                  <Icon aria-hidden size={15} className="shrink-0 text-gray-500" />
-                  <span className="truncate text-xs font-bold text-tm-navy">{r.label}</span>
-                </span>
-                <span className="flex shrink-0 items-baseline gap-1.5">
-                  <span
-                    className={`text-sm font-black ${
-                      empty ? 'text-gray-500' : 'text-tm-navy'
-                    }`}
-                  >
-                    {r.count === null ? '—' : r.count}
+                <span className="flex items-center justify-between gap-2">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-tm-tint-navy">
+                    <Icon aria-hidden size={20} className="text-tm-navy" />
                   </span>
                   {r.note && (
-                    <span className="text-[10px] font-semibold text-gray-500">{r.note}</span>
+                    <span className="truncate rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
+                      {r.note}
+                    </span>
                   )}
+                </span>
+                <span className="flex flex-col gap-1">
+                  <span
+                    className={`font-bold leading-none ${isWord ? 'text-2xl' : 'text-3xl'} ${
+                      hasValue ? (r.highlight ? 'text-tm-red' : 'text-tm-navy') : 'text-gray-500'
+                    }`}
+                  >
+                    {value}
+                  </span>
+                  <span className="text-sm leading-snug text-gray-600">{r.label}</span>
                 </span>
               </Link>
             </li>

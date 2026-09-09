@@ -6,8 +6,7 @@ import PostCard from '@/components/blog/PostCard'
 import MorePosts from '@/components/blog/MorePosts'
 import { listPublishedPosts } from '@/lib/blogFeed'
 import { POST_CLUSTERS, isClusterSlug, clusterLabel } from '@/lib/blog'
-import { pageTitle, pageDescription } from '@/lib/seo'
-import { absoluteUrl } from '@/lib/siteUrl'
+import { pageTitle, pageDescription, socialMeta } from '@/lib/seo'
 
 // /blog — the index. Server-rendered first window (organic-search surface),
 // cluster filters as links (a filtered index is its own crawlable URL), and
@@ -31,17 +30,20 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { cluster } = await searchParams
   const validCluster = cluster && isClusterSlug(cluster) ? cluster : null
-  const name = validCluster ? `${clusterLabel(validCluster)} — TutorMint Blog` : 'TutorMint Blog'
   const canonical = validCluster ? `/blog?cluster=${validCluster}` : '/blog'
+  const title = pageTitle(validCluster ? clusterLabel(validCluster) : 'Blog')
+  const description = pageDescription(
+    validCluster
+      ? `${clusterLabel(validCluster)} guides for parents and tutors`
+      : 'Guides on tuition costs, boards and exams, subjects and safe hiring',
+  )
   return {
-    title: pageTitle(validCluster ? clusterLabel(validCluster) : 'Blog'),
-    description: pageDescription(
-      validCluster
-        ? `${clusterLabel(validCluster)} guides for parents and tutors`
-        : 'Guides on tuition costs, boards and exams, subjects and safe hiring',
-    ),
+    title,
+    description,
     alternates: { canonical },
-    openGraph: { title: name, url: absoluteUrl(canonical), type: 'website' },
+    // Branded default image + Twitter card, so a shared blog-index link is not
+    // a bare preview.
+    ...socialMeta({ title, description, path: canonical, type: 'website' }),
   }
 }
 

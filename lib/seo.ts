@@ -15,11 +15,76 @@
 // footer already follows. A `sameAs` pointing at a stranger's account is worse
 // than an absent one, because search engines treat it as an identity claim.
 
+import type { Metadata } from 'next'
 import { SITE_URL, absoluteUrl } from '@/lib/siteUrl'
 import type { Company } from '@/lib/company'
 
 export const BRAND = 'TutorMint'
 export const SLOGAN = 'No fee, no commission, no middleman'
+
+// The branded share image every page falls back to when it has no imagery of
+// its own — the 1200×630 logo card in the brand palette, already in public/.
+// "Generate or use a branded default" (owner): this is the branded default.
+export const OG_DEFAULT_IMAGE = '/tutormint-logo1200x630.png'
+const OG_DEFAULT_ALT = "TutorMint — Pakistan's verified tutors network"
+
+/**
+ * The OpenGraph `images` array for a page.
+ *
+ * A page WITH its own imagery (a blog cover, a tutor's photo) passes it and it
+ * is used as given — made absolute, size left for the scraper to read, because
+ * covers and avatars vary. A page WITHOUT one gets the branded 1200×630 default,
+ * whose dimensions we DO assert because we know them. `absoluteUrl` leaves an
+ * already-absolute URL (a Supabase public avatar) untouched.
+ */
+export function ogImages(image?: string | null, alt?: string) {
+  const trimmed = (image ?? '').trim()
+  if (trimmed) return [{ url: absoluteUrl(trimmed), alt: alt ?? OG_DEFAULT_ALT }]
+  return [
+    { url: absoluteUrl(OG_DEFAULT_IMAGE), width: 1200, height: 630, alt: alt ?? OG_DEFAULT_ALT },
+  ]
+}
+
+/**
+ * Complete OpenGraph + Twitter blocks for a page.
+ *
+ * WHY A BUILDER, not per-page objects. Next does NOT deep-merge `openGraph` /
+ * `twitter`: a route that sets `openGraph` without `images` does not inherit the
+ * root layout's image — it ships a link preview with NO image, which is exactly
+ * the bare-link bug on WhatsApp. So every shareable page builds a COMPLETE block
+ * here (image always present, twitter always a large-image card) rather than
+ * relying on inheritance. Absolute URLs throughout, because a scraper has no
+ * page context to resolve a relative one.
+ */
+export function socialMeta(opts: {
+  title: string
+  description: string
+  /** Canonical path (e.g. `/tutor/ali`); made absolute for og:url. */
+  path: string
+  /** The page's own image (cover / avatar). Omit for the branded default. */
+  image?: string | null
+  imageAlt?: string
+  type?: 'website' | 'article' | 'profile'
+}): Pick<Metadata, 'openGraph' | 'twitter'> {
+  const images = ogImages(opts.image, opts.imageAlt)
+  return {
+    openGraph: {
+      title: opts.title,
+      description: opts.description,
+      url: absoluteUrl(opts.path),
+      siteName: BRAND,
+      locale: 'en_PK',
+      type: opts.type ?? 'website',
+      images,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: opts.title,
+      description: opts.description,
+      images: images.map((i) => i.url),
+    },
+  }
+}
 
 const TITLE_SUFFIX = 'verified, no commission'
 const DESCRIPTION_TAIL =

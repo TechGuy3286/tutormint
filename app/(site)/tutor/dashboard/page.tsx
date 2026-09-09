@@ -18,7 +18,7 @@ import { getSessionUser } from '@/lib/auth'
 import { computeCompletion } from '@/lib/completion'
 import { checklistHref } from '@/lib/profileChecklist'
 import { recentActivity } from '@/lib/dashboardFeed'
-import { getEntitlements } from '@/lib/entitlements'
+import { getEntitlements, isUnlimitedDisplay } from '@/lib/entitlements'
 import { jobsThisWeek, tutorPosition } from '@/lib/funnel'
 import { matchingJobsForTutor } from '@/lib/jobFeed'
 import { unreadMessageCount } from '@/lib/messaging'
@@ -227,8 +227,20 @@ export default async function TutorDashboardPage() {
         : ent.pausedPlanName
           ? `${ent.pausedPlanName} plan`
           : 'No active plan',
-      count: ent.plan ? ent.quotaLeft : null,
-      note: ent.plan ? 'applies left' : ent.planPaused ? 'starts at 100%' : undefined,
+      // "Unlimited" plans say Unlimited — never the real 100-cap counted down
+      // (that "99 applies left" was the bug). Numbered plans count down honestly.
+      count: ent.plan && !isUnlimitedDisplay(ent.displayedQuota) ? ent.quotaLeft : null,
+      display:
+        ent.plan && isUnlimitedDisplay(ent.displayedQuota)
+          ? (ent.displayedQuota ?? 'Unlimited')
+          : undefined,
+      note: ent.plan
+        ? isUnlimitedDisplay(ent.displayedQuota)
+          ? 'applications'
+          : 'applies left'
+        : ent.planPaused
+          ? 'starts at 100%'
+          : undefined,
       href: '/tutor/packages',
       icon: 'plan',
     },

@@ -144,6 +144,22 @@ export function currentPeriod(d = new Date()): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
+/**
+ * Does a plan's DISPLAYED allowance read as the marketing word ("Unlimited")
+ * rather than a plain number?
+ *
+ * The Featured plans carry `monthly_quota = 100` but `displayed_quota =
+ * 'Unlimited'` — the real 100-cap is enforced and shown to admins, but a member
+ * is never counted down against it (CLAUDE.md: a plan advertising Unlimited says
+ * Unlimited and nothing else; one whose displayed quota IS a number counts down
+ * honestly). This is the one predicate that decides which of the two a surface
+ * shows, so the dashboards and the jobs header cannot disagree.
+ */
+export function isUnlimitedDisplay(displayedQuota: string | null | undefined): boolean {
+  const d = (displayedQuota ?? '').trim()
+  return d.length > 0 && !/^\d+$/.test(d)
+}
+
 type PlanRow = {
   code: string
   audience: string

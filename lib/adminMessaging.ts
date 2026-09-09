@@ -5,7 +5,7 @@ import { notify } from '@/lib/notifications'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { deliverEmail } from '@/lib/notify'
-import { normalisePkMobile } from '@/lib/phone'
+import { normalisePkMobile, isSyntheticEmail } from '@/lib/phone'
 import { whatsappHref } from '@/lib/support'
 import type { AdminRole } from '@/lib/adminAuth'
 
@@ -236,7 +236,7 @@ export async function sendAdminMessage(params: {
 
   const { data: member } = await admin
     .from('profiles')
-    .select('id, full_name, phone_number, whatsapp')
+    .select('id, full_name, phone_number, whatsapp, email')
     .eq('id', params.memberId)
     .maybeSingle()
   if (!member) return { ok: false, status: 404, error: 'Member not found.' }
@@ -278,7 +278,14 @@ export async function sendAdminMessage(params: {
       body: body.length > 140 ? `${body.slice(0, 137)}…` : body,
       href: '/account/messages',
     })
-    await deliverEmail({ userId: params.memberId }, { id: 'admin_message', body })
+    // Never email a SYNTHETIC address (<msisdn>@users.tutormint.org) — it accepts
+    // no mail, so a "send" there is a silent nothing. A mobile-signup member is
+    // reached on WhatsApp, not by email; the in-app notification still lands.
+    // (The outreach view already routes mobile accounts to the WhatsApp channel;
+    // this is the belt-and-braces so no caller can email a number's synthetic.)
+    if (!isSyntheticEmail((member.email as string | null) ?? '')) {
+      await deliverEmail({ userId: params.memberId }, { id: 'admin_message', body })
+    }
   }
 
   // Audit + member timeline — the same for both channels, with the channel

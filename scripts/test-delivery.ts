@@ -518,3 +518,20 @@ test('validate: a CNIC is accepted with or without dashes', async () => {
   assert.equal(cnic.parse('3520112345678'), '3520112345678')
   assert.equal(cnic.safeParse('352011234567').success, false)
 })
+
+// ------------------------------------------------------ otp log masking ---
+
+test('maskMsisdn: a log line never carries the full number', async () => {
+  const { maskMsisdn } = await import('../lib/otp')
+  const full = '923244015462'
+  const masked = maskMsisdn(full)
+  // The whole number must never appear, and the middle digits are gone.
+  assert.equal(masked.includes(full), false, 'the full msisdn must not survive masking')
+  assert.equal(masked.includes('244015'), false, 'the middle digits must be starred')
+  // Shape: first 2 + stars + last 3, so a human can still eyeball which number.
+  assert.equal(masked.startsWith('92'), true)
+  assert.equal(masked.endsWith('462'), true)
+  assert.match(masked, /^\d{2}\*+\d{3}$/)
+  // A short/garbage value degrades to a constant, never echoing what it got.
+  assert.equal(maskMsisdn('123'), '***')
+})

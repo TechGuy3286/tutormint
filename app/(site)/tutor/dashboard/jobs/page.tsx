@@ -4,7 +4,7 @@ import EmptyState from '@/components/EmptyState'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getEntitlements } from '@/lib/entitlements'
+import { getEntitlements, isUnlimitedDisplay } from '@/lib/entitlements'
 import { browseJobs, NO_JOB_FILTERS } from '@/lib/jobFeed'
 import JobCard from '@/components/JobCard'
 import MoreOpenJobs from './MoreOpenJobs'
@@ -89,7 +89,11 @@ export default async function TutorJobsPage() {
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Open tuitions</h1>
           <p className="text-xs text-gray-500">
             {total === 0 ? `No open tuitions right now, ${firstName}.` : `${total} open`}
-            {ent.plan ? ` · ${ent.quotaLeft} of ${ent.displayedQuota} applications left` : ''}
+            {ent.plan
+              ? isUnlimitedDisplay(ent.displayedQuota)
+                ? ' · Unlimited applications'
+                : ` · ${ent.quotaLeft} of ${ent.displayedQuota} applications left`
+              : ''}
           </p>
         </header>
 

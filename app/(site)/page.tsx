@@ -23,7 +23,7 @@ import { Search, ClipboardList } from 'lucide-react'
 import WhatsAppBubble from '@/components/WhatsAppBubble'
 import { getCompany } from '@/lib/company'
 import { getSupportContact } from '@/lib/support'
-import { jsonLdScript, organizationJsonLd, webSiteJsonLd } from '@/lib/seo'
+import { jsonLdScript, organizationJsonLd, socialMeta, webSiteJsonLd } from '@/lib/seo'
 
 export async function generateMetadata(): Promise<Metadata> {
   const title = "Hire Trusted, Degree-Verified Tutors & Teachers | TutorMint"
@@ -34,15 +34,10 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     alternates: { canonical: '/' },
-    openGraph: {
-      title,
-      description,
-      url: '/',
-      siteName: 'TutorMint',
-      locale: 'en_PK',
-      type: 'website',
-    },
-    twitter: { card: 'summary_large_image', title, description },
+    // Complete OG + Twitter with the branded default image — the homepage set
+    // openGraph without images before, which (Next not deep-merging openGraph)
+    // shipped a bare link preview. See socialMeta.
+    ...socialMeta({ title, description, path: '/', type: 'website' }),
   }
 }
 

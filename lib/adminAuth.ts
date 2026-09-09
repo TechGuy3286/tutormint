@@ -125,6 +125,10 @@ export const SCREEN_ACCESS = {
   // (see migration 59). Manager + support, the same eyes that work the member
   // directory, since an orphan is a member who cannot be seen anywhere else.
   orphans: ['manager', 'support'] as AdminRole[],
+  // Abandoned signups — accounts that registered but never verified, or verified
+  // but never finished a profile. An outreach worklist; manager + support, the
+  // same eyes that work the member directory and the Team inbox they send from.
+  signups: ['manager', 'support'] as AdminRole[],
   // Exporting the member directory to CSV carries mobile numbers off the
   // platform, so it is owner + manager only — one rung above the read-only
   // directory (which support can see) — and every export is audit-logged.

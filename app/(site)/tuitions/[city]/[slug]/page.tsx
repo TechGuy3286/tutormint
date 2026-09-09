@@ -17,7 +17,7 @@ import { citySegment } from '@/lib/slugs'
 import { formatDate } from '@/lib/datetime'
 import { teachingMode } from '@/lib/display'
 import { absoluteUrl } from '@/lib/siteUrl'
-import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle } from '@/lib/seo'
+import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, socialMeta } from '@/lib/seo'
 import { isSubjectSlug, resolveLanding } from '@/lib/landing'
 import LandingView from '@/components/landing/LandingView'
 import ApplyPanel from './ApplyPanel'
@@ -75,11 +75,19 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     if (!combo) return { title: pageTitle('Tuitions'), robots: { index: false, follow: true } }
     const heading = `${combo.subjectName} tuitions in ${combo.city}`
     const lead = `${combo.count} open ${combo.subjectName} tuition${combo.count === 1 ? '' : 's'} in ${combo.city}`
+    const title = pageTitle(heading)
+    const description = pageDescription(lead)
     return {
-      title: pageTitle(heading),
-      description: pageDescription(lead),
+      title,
+      description,
       alternates: { canonical: `/tuitions/${combo.citySlug}/${combo.subjectSlug}` },
-      openGraph: { title: pageTitle(heading), description: pageDescription(lead), type: 'website' },
+      // Branded default image — a landing page has no imagery of its own.
+      ...socialMeta({
+        title,
+        description,
+        path: `/tuitions/${combo.citySlug}/${combo.subjectSlug}`,
+        type: 'website',
+      }),
     }
   }
 
@@ -106,7 +114,16 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     title,
     description,
     alternates: { canonical: `/tuitions/${citySegment(job.city)}/${job.public_slug}` },
-    openGraph: { title, description, type: 'article' },
+    // Branded default image (a tuition has no imagery of its own), complete OG +
+    // Twitter so the share is not a bare link. The title/description carry the
+    // job title, place and (public) description only — never the posting
+    // parent's account name, which is not in this data.
+    ...socialMeta({
+      title,
+      description,
+      path: `/tuitions/${citySegment(job.city)}/${job.public_slug}`,
+      type: 'article',
+    }),
     // No robots key on an OPEN tuition: indexing is decoupled from preview mode
     // (owner, 8 Sep 2026) and this page is listed in the sitemap, so it must be
     // indexable to match. The closed/missing case above sets its own noindex,

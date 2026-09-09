@@ -18,7 +18,7 @@ import ReportButton from '@/components/ReportButton'
 import ProfileActions from './ProfileActions'
 import { formatDate } from '@/lib/datetime'
 import { levelLabel, teachingMode } from '@/lib/display'
-import { jsonLdScript, pageDescription, pageTitle, tutorJsonLd } from '@/lib/seo'
+import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorJsonLd } from '@/lib/seo'
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
 
@@ -83,7 +83,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   // it is read here via the service role, per-request — the noindex drops the
   // moment the flag clears. (The tutor is already out of tutor_directory and the
   // sitemap; this closes the last path in.)
-  const underReview = await tutorUnderReview(tutor.id)
+  const flags = await tutorMetaFlags(tutor.id)
 
   const subjects = Array.from(
     new Set(tutor.subjects.map((s) => s.subject ?? s.level).filter(Boolean)),
@@ -91,6 +91,24 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
   const subjectText = subjects.length > 0 ? subjects.join(', ') : 'Verified'
   const city = tutor.city ?? 'Pakistan'
+
+  // SHARE-CARD GUARD (owner): the link preview must never present an
+  // under-review or unclaimed-import tutor as a hireable listing — no name, no
+  // photo. Those pages still RENDER (the claim link and the amber notice depend
+  // on it), but a shared card falls back to a neutral, branded default with no
+  // personal data. A normal listed tutor uses their name and photo.
+  if (flags.shareHidden) {
+    const title = pageTitle('Verified tutors in Pakistan')
+    const description = pageDescription('Find verified, degree-checked tutors across Pakistan')
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tutor/${tutor.slug}` },
+      ...(flags.underReview ? { robots: { index: false, follow: false } } : {}),
+      ...socialMeta({ title, description, path: `/tutor/${tutor.slug}`, type: 'profile' }),
+    }
+  }
+
   // The page name is the tutor and what they teach; the template adds the
   // promise and the brand. A long name plus three subjects will be truncated
   // by the search engine, which is preferable to dropping the brand.
@@ -107,13 +125,17 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     alternates: { canonical: `/tutor/${tutor.slug}` },
     // Indexable by default; noindex only while under review. A resolved profile
     // returns no robots key, so it is indexable again the moment the flag clears.
-    ...(underReview ? { robots: { index: false, follow: false } } : {}),
-    openGraph: {
+    ...(flags.underReview ? { robots: { index: false, follow: false } } : {}),
+    // Their photo when they have one, the branded default otherwise. Complete
+    // OG + Twitter, so the card is never a bare link. See socialMeta.
+    ...socialMeta({
       title,
       description,
+      path: `/tutor/${tutor.slug}`,
+      image: tutor.avatar_url,
+      imageAlt: tutor.full_name,
       type: 'profile',
-      images: tutor.avatar_url ? [tutor.avatar_url] : undefined,
-    },
+    }),
   }
 }
 
@@ -131,6 +153,28 @@ async function tutorUnderReview(tutorId: string): Promise<boolean> {
     .eq('id', tutorId)
     .maybeSingle()
   return !!data?.under_review
+}
+
+/**
+ * Flags generateMetadata needs that are not in tutor_public_page's allowlist,
+ * in one service-role read: whether the profile is under review (→ noindex) and
+ * whether it must be HIDDEN from the share card (under review, OR an import that
+ * has not been claimed — an unclaimed tutor never given a photo/name to the
+ * world through a preview).
+ */
+async function tutorMetaFlags(
+  tutorId: string,
+): Promise<{ underReview: boolean; shareHidden: boolean }> {
+  const admin = createAdminClient()
+  if (!admin) return { underReview: false, shareHidden: false }
+  const { data } = await admin
+    .from('tutor_profiles')
+    .select('under_review, imported, claimed_at')
+    .eq('id', tutorId)
+    .maybeSingle()
+  const underReview = !!data?.under_review
+  const unclaimed = !!data?.imported && !data?.claimed_at
+  return { underReview, shareHidden: underReview || unclaimed }
 }
 
 /**

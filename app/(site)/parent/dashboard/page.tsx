@@ -14,7 +14,7 @@ import { tutorCardsByIds } from '@/lib/browseTutors'
 import { getSessionUser } from '@/lib/auth'
 import { loadIdentity } from '@/lib/identity'
 import { recentActivity } from '@/lib/dashboardFeed'
-import { getEntitlements } from '@/lib/entitlements'
+import { getEntitlements, isUnlimitedDisplay } from '@/lib/entitlements'
 import { unreadMessageCount } from '@/lib/messaging'
 import { parentNeeds } from '@/lib/needsYou'
 import { createClient } from '@/lib/supabase/server'
@@ -200,8 +200,17 @@ export default async function ParentDashboardPage() {
     {
       key: 'plan',
       label: ent.planName ? `${ent.planName} plan` : 'No plan yet',
-      count: ent.plan ? ent.quotaLeft : null,
-      note: ent.plan ? 'posts left' : undefined,
+      // "Unlimited" plans say Unlimited, never the real 100-cap counted down.
+      count: ent.plan && !isUnlimitedDisplay(ent.displayedQuota) ? ent.quotaLeft : null,
+      display:
+        ent.plan && isUnlimitedDisplay(ent.displayedQuota)
+          ? (ent.displayedQuota ?? 'Unlimited')
+          : undefined,
+      note: ent.plan
+        ? isUnlimitedDisplay(ent.displayedQuota)
+          ? 'posts'
+          : 'posts left'
+        : undefined,
       href: '/parent/packages',
       icon: 'plan',
     },

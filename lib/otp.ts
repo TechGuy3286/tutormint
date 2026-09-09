@@ -78,8 +78,21 @@ export function sendCapDecision(
   return { ok: true }
 }
 
+// Which path actually handled a send, made EXPLICIT so a do-nothing send can
+// never masquerade as a real one (owner). Before, the bridge branch returned a
+// bare `{ ok: true }` identical to a provider send — that is how last night's
+// signup produced a code row, no WhatsApp, and no error anywhere.
+//   'provider'   — handed to the SMS provider (accepted ≠ delivered; fire-and-forget)
+//   'bridge'     — BRIDGE_OTP active and no provider: NOTHING dispatched; the
+//                  member uses the owner-distributed code
+//   'dev-bypass' — DEV_DEFAULT_OTP (non-production): nothing dispatched
+export type SmsSendChannel = 'provider' | 'bridge' | 'dev-bypass'
+
 export type SendResult =
-  | { ok: true; devBypassActive: boolean }
+  | { ok: true; channel: SmsSendChannel; devBypassActive: boolean; provider?: string }
+  // A failed send (provider rejected it) AND the "no provider and no bridge"
+  // case both land here — the latter is the `unconfigured` provider returning
+  // ok:false, distinguishable in the logs by provider=none.
   | { ok: false; status: number; error: string; detail?: string; retryAfterSeconds?: number }
 
 export type VerifyResult =
@@ -185,22 +198,46 @@ export async function sendOtp(opts: {
 
   // With the dev bypass active there is nothing to deliver: the bypass code
   // verifies regardless, so no SMS is attempted and no bill is run up.
-  if (devOtpCode()) return { ok: true, devBypassActive: true }
+  if (devOtpCode()) {
+    reportSend({ purpose: opts.purpose, phone: opts.phone, channel: 'dev-bypass', ok: true })
+    return { ok: true, channel: 'dev-bypass', devBypassActive: true }
+  }
+
+  const provider = getSmsProvider()
 
   // The bridge is live only WHILE there is no real provider (it exists to fill
   // exactly that gap). So when a bridge code is set and no provider is
   // configured, there is nothing to send — the member enters the bridge code
   // the owner gave them. If a real provider IS configured, fall through and
   // send the real SMS; the bridge code still verifies as a backstop.
-  if (bridgeOtpCode() && !getSmsProvider().isConfigured()) {
-    return { ok: true, devBypassActive: false }
+  //
+  // This is the do-nothing path the owner flagged: it returns ok:true but marks
+  // channel:'bridge' (never a bare success) AND logs that no message went out,
+  // so a bridge-active-no-provider deployment is VISIBLE in the runtime logs
+  // rather than looking identical to a delivered code.
+  if (bridgeOtpCode() && !provider.isConfigured()) {
+    reportSend({ purpose: opts.purpose, phone: opts.phone, channel: 'bridge', ok: true })
+    return { ok: true, channel: 'bridge', devBypassActive: false }
   }
 
-  const provider = getSmsProvider()
   const sent = await provider.send(
     opts.phone,
     `Your TutorMint verification code is ${code}. It expires in 10 minutes.`,
   )
+
+  // Log every provider outcome — success (accepted, NOT confirmed delivered) and
+  // failure alike. provider=none is the "no provider and no bridge" case (the
+  // unconfigured provider returning ok:false); provider=smspoint ok=false is a
+  // real rejection. Either way it is now a line in the log, where before there
+  // was silence. The error text is the provider's own (carries no number/code).
+  reportSend({
+    purpose: opts.purpose,
+    phone: opts.phone,
+    channel: 'provider',
+    provider: provider.name,
+    ok: sent.ok,
+    error: sent.ok ? undefined : sent.error,
+  })
 
   if (!sent.ok) {
     // Never claim success when nothing was sent.
@@ -212,7 +249,46 @@ export async function sendOtp(opts: {
     }
   }
 
-  return { ok: true, devBypassActive: false }
+  return { ok: true, channel: 'provider', devBypassActive: false, provider: provider.name }
+}
+
+/**
+ * Mask a mobile number for a log line: country code + last 3 digits, the middle
+ * starred. Never the full number. A code is never passed to a logger at all.
+ */
+export function maskMsisdn(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length <= 5) return '***'
+  return `${digits.slice(0, 2)}${'*'.repeat(digits.length - 5)}${digits.slice(-3)}`
+}
+
+/**
+ * One structured, greppable line per send outcome — the logging the diagnosis
+ * found entirely absent from this path. success → info, failure → warn.
+ * NEVER a full number (masked) or the code (never passed here); the only free
+ * text is the provider's own error string, which by contract echoes neither.
+ */
+function reportSend(o: {
+  purpose: OtpPurpose
+  phone: string
+  channel: SmsSendChannel
+  provider?: string
+  ok: boolean
+  error?: string
+}): void {
+  const line = [
+    '[otp] send',
+    `purpose=${o.purpose}`,
+    `to=${maskMsisdn(o.phone)}`,
+    `channel=${o.channel}`,
+    o.provider ? `provider=${o.provider}` : '',
+    `ok=${o.ok}`,
+    !o.ok && o.error ? `error=${JSON.stringify(o.error)}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  if (o.ok) console.info(line)
+  else console.warn(line)
 }
 
 /**
