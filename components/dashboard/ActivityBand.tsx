@@ -7,12 +7,11 @@ import { groupFeed, type FeedItem } from '@/lib/feedGrouping'
 
 // The second band: what has happened, newest first.
 //
-// A GRID OF CARDS, not a list of lines. The previous version was a bordered
-// list of one-line rows -- identical weight, identical shape, no colour -- and
-// on a laptop it was one narrow column of text down the middle of the page. It
-// read as a log file, which is a thing people skip. One column at 390, two at
-// 768, three at 1280, so the same eight events take a third of the height on a
-// laptop and stay one-per-line on a phone.
+// A GRID OF SQUARE TILES, not a list of lines. The previous version was a wide
+// bordered row — icon left, text right — that read like a log file, a thing
+// people skip. Every event now wears the same square category tile the "Your
+// things" grid uses (components/dashboard/StatTile): two to a row on a phone,
+// three on a tablet, four on a laptop.
 //
 // Every row is a real row from `notifications` or `user_activity_log`. Nothing
 // here is synthesised from state -- "your profile is 60% complete" is a fact
@@ -64,7 +63,7 @@ export default function ActivityBand({
       {groups.length === 0 ? (
         <EmptyState icon={<Activity aria-hidden size={18} />} title={emptyHint} action={emptyAction} />
       ) : (
-        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {groups.map((g) => (
             <ActivityCard key={g.key} group={g} />
           ))}

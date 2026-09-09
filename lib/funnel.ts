@@ -188,12 +188,30 @@ async function recordRank(userId: string, masterId: number, position: Position):
 }
 
 /**
- * Hires completed this calendar month, platform-wide.
+ * A hirer whose hire is not real social proof: the seed cast
+ * (seed+…@tutormint.dev), the older dummy/test fixtures, and the team-operated
+ * TutorMint account. A seeded hire counts nobody, and with the preview banner
+ * gone this figure is shown to real strangers on the packages page.
+ */
+function isFixtureHirer(email: string | null, isTeam: boolean | null): boolean {
+  if (isTeam) return true
+  const e = (email ?? '').toLowerCase()
+  return (
+    e.startsWith('seed+') ||
+    e.endsWith('@tutormint.dev') ||
+    e.startsWith('dummy.') ||
+    e.startsWith('test.')
+  )
+}
+
+/**
+ * Hires completed this calendar month by REAL members, platform-wide.
  *
  * Live social proof for the packages page. Counted from real hires, so it
- * cannot drift from reality the way a hand-maintained number would. Returns 0
- * honestly when there have been none -- the caller hides the line rather than
- * rounding a zero up into a claim.
+ * cannot drift from reality the way a hand-maintained number would, and fixture
+ * hires are excluded so a seeded row can never dress itself up as a claim.
+ * Returns 0 honestly when there have been none -- the caller hides the line
+ * rather than rounding a zero up.
  */
 export async function hiresThisMonth(): Promise<number> {
   const db = createAdminClient() ?? (await createClient())
@@ -205,14 +223,30 @@ export async function hiresThisMonth(): Promise<number> {
   // updated_at, so the moment of hire is only recorded on the job. Using the
   // application row would have meant counting every hire ever made and calling
   // it this month's.
-  const { count } = await db
+  const { data: rows } = await db
     .from('jobs')
-    .select('id', { count: 'exact', head: true })
+    .select('parent_id')
     .eq('status', 'hired')
     .not('hired_tutor_id', 'is', null)
     .gte('hired_at', start.toISOString())
 
-  return count ?? 0
+  const parentIds = [...new Set((rows ?? []).map((r) => r.parent_id as string))]
+  if (parentIds.length === 0) return 0
+
+  // Which of those hirers are real. A seed/dummy/team hire is not proof, and
+  // every hire in the database today is one of those, so this correctly shows
+  // nothing until a genuine member hires someone.
+  const { data: parents } = await db
+    .from('profiles')
+    .select('id, email, is_team_account')
+    .in('id', parentIds)
+  const real = new Set(
+    (parents ?? [])
+      .filter((p) => !isFixtureHirer(p.email as string | null, p.is_team_account as boolean | null))
+      .map((p) => p.id as string),
+  )
+
+  return (rows ?? []).filter((r) => real.has(r.parent_id as string)).length
 }
 
 export type WeekJob = {

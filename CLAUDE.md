@@ -4068,3 +4068,53 @@ disappears on a dark browser tab / iOS — every size is therefore flattened ont
 already **edge-to-edge** (~1% margin), so a tighter crop for the 16px entry buys
 nothing; `contain` fills the square without clipping and the mark stays legible
 at 16px. The throwaway generator was deleted, as before.
+
+## Invented ratings removed, square dashboard cards (9 Sep 2026)
+
+With the preview banner gone and the site indexed, the seed directory's
+fabricated figures became a live breach of the "no invented facts, no made-up
+statistics or reviews" guardrail. Migration 66 (data repair, no schema change,
+idempotent, backup taken first, applied live) recomputes `rating_avg` /
+`rating_count` for every `tutor_profiles` row from the actual `reviews` table —
+the same computation `recompute_tutor_rating()` does per-review, applied in
+bulk. So a rating survives ONLY where real review rows exist: 4 of the 6 listed
+tutors (ali, hina, nadia, bilal) fell to 0/0 ("New tutor" / "No reviews yet",
+which the card, profile and JSON-LD already render honestly), and the two with
+real rows are untouched (usman 4.50/2, sara 5.00/1). It is computed, not an
+email list, so it cannot touch a genuinely-rated tutor and self-corrects any
+future drift. **The 3 surviving review rows are themselves seed-authored** (seed
+parents, seeded comments) and shown on usman/sara profiles — reported to the
+owner, not purged, since the owner named them the real baseline and keeps seed
+accounts listed.
+
+`hiresThisMonth()` (packages-page social proof) now excludes fixture and
+team-account hirers (`seed+`/`@tutormint.dev`/`dummy.`/`test.`/`is_team_account`):
+every hire in the database today is seeded, so the "N tutors were hired this
+month" line correctly shows nothing until a genuine member hires someone. The
+caller already hid a zero. Swept the rest: no hardcoded social-proof numbers on
+the marketing pages; `profile_views` is own-dashboard/admin only, never
+stranger-visible; landing/browse counts are truthful counts of listed rows.
+
+**Bilal Ahmad (reported, not changed).** An imported+claimed, phone-verified,
+`verified` mobile account listed at a STORED `profile_completion = 100` that the
+checklist does not compute — `lib/profileChecklist.ts` requires a tagline
+(headline) and an "About you" (bio), both blank on his row, so the 100% is a
+forced/seeded value, not earned. Left listed (empty > fabricated, and it asserts
+nothing untrue); the honest fixes — recompute completion (would delist until a
+real headline+bio are added) or add genuine content (which only the owner or the
+tutor can supply; inventing it is the fabrication we are removing) — await the
+owner's word.
+
+**Square dashboard cards.** Both dashboard bands now share one square
+category-tile shape — `components/dashboard/StatTile.tsx`: a light white card, a
+coloured icon centred in a soft tint chip at the top, a short centred label
+beneath, the count under the chip (icon leads, number is quieter), roughly
+square, two to a row at 360px and up to four on a laptop. `YourThings` renders
+it directly; `ActivityCard` renders it per feed group (family colour, the event
+sentence as the label, the time as the note, the unread dot preserved). One
+shared component so the two dashboards cannot drift. Grouping is kept and still
+lossless (the count is in the sentence); a grouped run links to the itemised
+timeline (`/account/notifications`) rather than silently to its newest row, and
+`ActivityBand`'s "See all" still reaches the full list — the one behaviour delta
+is that a grouped run no longer expands inline. Every colour pair is already in
+`scripts/contrast-check.ts` (tint chips + ink-on-white + gray on white).

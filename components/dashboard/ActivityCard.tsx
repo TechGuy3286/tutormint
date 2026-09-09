@@ -1,34 +1,26 @@
-'use client'
+import { CreditCard, MessageSquare, ShieldAlert, Sparkles } from 'lucide-react'
 
-import {
-  ChevronDown,
-  CreditCard,
-  MessageSquare,
-  ShieldAlert,
-  Sparkles,
-} from 'lucide-react'
-import Link from 'next/link'
-import { useState } from 'react'
-
-import NotificationCta from '@/components/notifications/NotificationCta'
-import { FAMILY_STYLE, familyFor, groupedLabel } from '@/lib/activityFamily'
+import StatTile, { type TileTone } from '@/components/dashboard/StatTile'
+import { familyFor, groupedLabel, type Family } from '@/lib/activityFamily'
 import { isPlanEnding, type FeedGroup } from '@/lib/feedGrouping'
 import { formatDateTime } from '@/lib/datetime'
 import TimeAgo from '@/components/TimeAgo'
 
-// One card in the ACTIVITY grid.
+// One square tile in the ACTIVITY grid.
 //
-// The band this replaced was a flat bordered list of one-line rows and read
-// like a log file: the same weight, the same colour and the same shape for
-// "you were hired" and "you shortlisted a tutor". A card with a coloured disc
-// lets somebody find the money row or the moderation row without reading every
-// line -- the colour is a scanning aid, and it never carries meaning the words
-// do not also carry.
+// The band this replaced was a wide row — icon left, text right — that read
+// like a log file. Every event now wears the same square category tile the
+// "Your things" grid uses (components/dashboard/StatTile): a coloured icon
+// centred at the top, the event centred beneath it, the time under that. The
+// colour is a scanning aid and never carries meaning the words do not.
 //
-// GROUPING IS EXPANDABLE, NEVER LOSSY. Four plan changes on one day collapse
-// into "Your plan changed 4 times", and pressing it lists all four with their
-// own times and links. The count is `items.length`, so the number on the card
-// and the number of rows behind it cannot disagree.
+// GROUPING IS KEPT, NEVER LOSSY. Four plan changes on one day collapse into
+// "Your plan changed 4 times" — the count is `items.length`, so the number in
+// the sentence and the rows behind it cannot disagree. The tile links to the
+// itemised timeline (/account/notifications) rather than to any one of the run:
+// a run of four matched jobs has four different tuitions behind it, and a single
+// destination would silently pick the newest. A card that stands for ONE thing
+// links straight to that thing.
 
 const ICONS = {
   message: MessageSquare,
@@ -37,157 +29,66 @@ const ICONS = {
   shield: ShieldAlert,
 } as const
 
-export default function ActivityCard({ group }: { group: FeedGroup }) {
-  const [open, setOpen] = useState(false)
-  const family = familyFor(group.type)
-  const style = FAMILY_STYLE[family]
-  const Icon = ICONS[style.icon]
+// The four activity families map onto four of the five tile tones. These are
+// the same brand pairs the old discs used (lib/activityFamily FAMILY_STYLE),
+// so nothing about the colour scanning-aid changed — only the card shape.
+const FAMILY_TONE: Record<Family, TileTone> = {
+  messages: 'navy',
+  money: 'gold',
+  progress: 'green',
+  moderation: 'red',
+}
 
-  // A band-wide messages card is a LINK, not a disclosure: the rows behind it
-  // are from different conversations, so there is no useful list to unfold --
-  // the place to read them is the inbox, which is where it points.
+export default function ActivityCard({ group }: { group: FeedGroup }) {
+  const family = familyFor(group.type)
+  const Icon = ICONS[
+    ({ messages: 'message', money: 'money', progress: 'progress', moderation: 'shield' } as const)[
+      family
+    ]
+  ]
+
+  // A band-wide messages card stands for several conversations at once and
+  // points at the inbox; a plan ending is one fact reported up to three ways
+  // (expiry, revoke, cancel) and keeps its single written destination.
   const collapsedMessages = !!group.collapsedAcrossDays
-  // A plan ending is ONE card even when several rows produced it, and it is
-  // never a disclosure: expiry, an admin revoking and a cancellation are the
-  // same fact reported three ways, and offering to unfold them into "your plan
-  // ended / your plan ended / your plan was removed" is a worse answer than the
-  // one sentence. groupFeed has already promoted the notification to head, so
-  // the wording and the href are the ones we wrote to this member.
   const planEnd = isPlanEnding(group.type)
   const grouped = group.count > 1 && !collapsedMessages && !planEnd
-  // "7 new messages" is right for seven waiting and wrong for seven already
-  // read -- and a collapsed messages card is the one place a member sees a
-  // count of messages they have already opened. The per-type phrasing in
-  // lib/activityFamily has no way to know that, so any message count words
-  // itself from the group's own unread state.
+
+  // "N new messages" is right for waiting and wrong for already-read, and a
+  // collapsed messages card is the one place a member sees a count of messages
+  // they have already opened — so it words itself from the group's unread state.
   const isMessages = family === 'messages' && group.count > 1
   const title = isMessages
     ? `${group.count} ${group.unread ? 'new ' : ''}messages`
     : group.count > 1 && !planEnd
       ? groupedLabel(group.type, group.count, group.head.text)
       : group.head.text
-  const href = group.href
 
-  // The inline action. Only on a card that stands for ONE notification: a run
-  // of four matched jobs collapsed into one card has four different tuitions
-  // behind it, and a single "See the tuition" button would silently pick the
-  // newest. Expanding the run gives each row its own link, which is the honest
-  // answer for that case.
-  // A plan ending is the exception to "one notification only": the whole point
-  // of merging it is that the button survives the merge.
-  const cta =
-    (group.count === 1 || planEnd) && group.head.source === 'notification' ? (
-      <NotificationCta row={{ kind: group.type, href: group.head.href }} />
-    ) : null
+  // A grouped run has several destinations behind it, so it goes to the
+  // itemised timeline rather than to the newest row. Everything else links to
+  // its own written href, falling back to the timeline when it names none.
+  const href = grouped ? '/account/notifications' : (group.href ?? '/account/notifications')
 
-  const body = (
-    <span className="flex min-w-0 items-start gap-3">
-      <span
-        aria-hidden
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${style.className}`}
-      >
-        <Icon size={16} />
-      </span>
-      <span className="min-w-0 flex-1 space-y-0.5">
-        <span className="flex items-start gap-1.5">
-          {group.unread && (
-            <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-tm-red" />
-          )}
-          <span
-            className={`block text-xs leading-snug ${
-              group.unread ? 'font-black' : 'font-semibold'
-            } text-tm-navy`}
-          >
-            {title}
-          </span>
-        </span>
-        <span className="block text-[11px] text-gray-500" title={formatDateTime(group.head.at)}>
-          {/* "latest" only when the card stands for more than one thing --
-              otherwise it would claim a run where there is a single event. */}
-          {collapsedMessages && group.count > 1 ? 'latest ' : ''}
-          <TimeAgo iso={group.head.at} />
-        </span>
-      </span>
+  // A plan that has ended or is about to is the one thing here with a
+  // consequence attached to ignoring it — it takes the red highlight.
+  const urgent = planEnd || group.type === 'plan_expiring'
+
+  const note = (
+    <span title={formatDateTime(group.head.at)}>
+      {collapsedMessages && group.count > 1 ? 'latest ' : ''}
+      <TimeAgo iso={group.head.at} />
     </span>
   )
 
-  // A plan that has ended or is about to is the one card on this band with a
-  // consequence attached to ignoring it: visibility already lost, or lost in a
-  // few days. Everything else here is a report of something that happened.
-  // Red border and a soft red shadow -- the same family as the NEEDS YOU
-  // urgent row, so the two read as the same level of "this one".
-  const urgent = planEnd || group.type === 'plan_expiring'
-
   return (
-    <li
-      className={`rounded-2xl border bg-white transition-shadow ${
-        urgent
-          ? 'border-tm-red shadow-[0_2px_14px_-6px_var(--color-tm-red)] hover:shadow-md'
-          : 'border-gray-200 shadow-xs hover:shadow-md'
-      }`}
-    >
-      {grouped ? (
-        <>
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            className="flex min-h-[44px] w-full items-center justify-between gap-2 p-3 text-left"
-          >
-            {body}
-            <ChevronDown
-              aria-hidden
-              size={15}
-              className={`shrink-0 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`}
-            />
-          </button>
-
-          {open && (
-            <ul className="space-y-0.5 border-t border-gray-100 px-3 pb-2 pt-2">
-              {/* EVERY row in the run, not a sample. */}
-              {group.items.map((item) => {
-                const line = (
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-[11px] font-semibold text-slate-700">
-                      {item.text}
-                    </span>
-                    <span className="shrink-0 text-[10px] text-gray-500">
-                      <TimeAgo iso={item.at} />
-                    </span>
-                  </span>
-                )
-                return (
-                  <li key={item.id}>
-                    {item.href ? (
-                      <Link
-                        href={item.href}
-                        className="flex min-h-[44px] items-center rounded-lg px-2 transition-colors hover:bg-tm-bg"
-                      >
-                        {line}
-                      </Link>
-                    ) : (
-                      <span className="flex min-h-[44px] items-center px-2">{line}</span>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </>
-      ) : href ? (
-        <div className="relative">
-          <Link href={href} className="flex min-h-[44px] items-center p-3">
-            {body}
-          </Link>
-          {cta && <div className="px-3 pb-3 pl-[60px]">{cta}</div>}
-        </div>
-      ) : (
-        // Not every event has an honest destination; the card still renders.
-        <div className="flex min-h-[44px] flex-col items-start p-3">
-          {body}
-          {cta && <div className="pl-[48px] pt-2">{cta}</div>}
-        </div>
-      )}
-    </li>
+    <StatTile
+      href={href}
+      tone={FAMILY_TONE[family]}
+      highlight={urgent}
+      unread={group.unread}
+      icon={<Icon aria-hidden size={22} />}
+      label={title}
+      note={note}
+    />
   )
 }
