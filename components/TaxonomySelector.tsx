@@ -36,10 +36,11 @@ export default function TaxonomySelector({
       const tree = await fetchTaxonomyTree();
       setTaxonomyTree(tree);
       setLoading(false);
-      const levels = Object.keys(tree);
-      if (levels.length > 0 && !selectedLevel) {
-        setSelectedLevel(levels[0]);
-      }
+      // NO auto-selection (owner, 10 Sep 2026). The form opens with the level
+      // and grade empty so the person actually chooses, and the subjects grid
+      // stays hidden until they have. An edit flow still pre-fills both from the
+      // saved job via its parent (selectionForMasterIds), which is a real value,
+      // not a default.
     }
     loadTree();
   }, []);
@@ -56,37 +57,10 @@ export default function TaxonomySelector({
     return taxonomyTree[selectedLevel][selectedGrade];
   }, [taxonomyTree, selectedLevel, selectedGrade]);
 
-  /**
-   * Keep the grade in state in step with the grade the listbox is DISPLAYING.
-   *
-   * THE POSTING BLOCKER THIS FIXES. `<select size={4}>` is a listbox, and a
-   * listbox whose React `value` is '' matches no <option> -- so the browser
-   * selects and renders the FIRST option anyway. Choosing a level calls
-   * setSelectedGrade(''), which left every parent looking at a screen that
-   * showed "Middle / Lower Secondary" and "Grade 6 to 8" both selected while
-   * the component believed no grade was chosen at all. availableSubjects was
-   * therefore [], the subject list was empty, and typing "math" filtered an
-   * empty array and stayed empty. It happened on a plain page load too,
-   * because the mount effect picks a level and nothing picked a grade.
-   *
-   * No `change` event fires when the browser does this -- nothing
-   * user-initiated happened -- so React never finds out on its own. The sync
-   * has to be explicit.
-   *
-   * Selecting the first grade rather than clearing the display is the right
-   * way round: the component already auto-picks the first LEVEL on mount, so
-   * a parent has every reason to read the grade beside it as chosen too.
-   */
-  useEffect(() => {
-    if (gradesList.length === 0) return
-    if (!selectedGrade || !gradesList.includes(selectedGrade)) {
-      setSelectedGrade(gradesList[0])
-      setSelectedSubjects([])
-    }
-    // setSelectedGrade / setSelectedSubjects are props and stable in practice;
-    // including them re-runs this whenever the parent re-renders.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gradesList, selectedGrade])
+  // The grade is no longer auto-picked. Changing the level resets the grade to
+  // empty (the Level select's onChange below), so a stale grade cannot persist,
+  // and the custom Select shows its placeholder until the person chooses — the
+  // old `<select size={4}>` divergence that forced an auto-pick is gone with it.
 
   const filteredSubjects = useMemo(() => {
     return availableSubjects.filter((sub: string) => sub.toLowerCase().includes(subjectSearch.toLowerCase()));
@@ -138,7 +112,13 @@ export default function TaxonomySelector({
 
       </div>
 
-      {/* Subjects Checkboxes */}
+      {/* Subjects — hidden until a level AND grade are chosen (owner, 10 Sep
+          2026). No empty box: one short line stands where the grid will be. */}
+      {(!selectedLevel || !selectedGrade) ? (
+        <p className="rounded-xl border border-dashed border-gray-200 bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
+          Choose a level and grade above, and the subjects will appear here.
+        </p>
+      ) : (
       <div className="space-y-2">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
           <label className="text-xs font-bold text-tm-navy block">Subjects</label>
@@ -204,6 +184,7 @@ export default function TaxonomySelector({
         </div>
         )}
       </div>
+      )}
     </div>
   );
 }

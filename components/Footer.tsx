@@ -115,7 +115,7 @@ export default async function Footer() {
               className="h-8 w-auto object-contain"
             />
             <p className="mt-2 max-w-xs text-xs leading-snug text-slate-400">
-              Pakistan&rsquo;s Largest 100% Verified Tutors Network. 0% commission.
+              Pakistan&rsquo;s Largest 100% Verified Tutors Network. No fee. No commission. No middleman.
             </p>
             <SocialRow socials={socials} />
           </div>
@@ -143,7 +143,7 @@ export default async function Footer() {
                 className="h-8 w-auto object-contain"
               />
               <p className="mt-2 max-w-xs text-xs leading-snug text-slate-400">
-                Pakistan&rsquo;s Largest 100% Verified Tutors Network. 0% commission.
+                Pakistan&rsquo;s Largest 100% Verified Tutors Network. No fee. No commission. No middleman.
               </p>
               <SocialRow socials={socials} />
             </div>

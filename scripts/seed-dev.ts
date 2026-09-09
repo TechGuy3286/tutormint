@@ -423,7 +423,7 @@ async function main() {
     // A fixture that only looks complete is worse than no fixture.
     if (wantComplete) {
     const avatarPath = `${id}/seed-avatar.png`
-    const avatarBytes = await solidPng(t.gender === 'female' ? '#d60008' : '#0F172A')
+    const avatarBytes = await solidPng(t.gender === 'female' ? '#C20202' : '#151E6B')
     await db.storage.from('avatars').upload(avatarPath, avatarBytes, {
       contentType: 'image/png',
       upsert: true,
@@ -453,7 +453,7 @@ async function main() {
         db,
         id,
         'degree',
-        new File([await solidPng('#059669')], 'degree.png', { type: 'image/png' }),
+        new File([await solidPng('#2E7D4F')], 'degree.png', { type: 'image/png' }),
         'BS Physics — Punjab University (2019)',
       )
       if (!degreeDoc.ok) die(`degree document (${t.name}): ${degreeDoc.error}`)

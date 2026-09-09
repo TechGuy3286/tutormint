@@ -4247,3 +4247,38 @@ emits `employmentType: 'CONTRACTOR'` and `hiringOrganization` = the TutorMint
 platform for every open tuition, regardless of Job Type; no fields were added.
 See the report for the per-type recommendation (School Job is the one that would
 most benefit from a real `hiringOrganization` and a different `employmentType`).
+
+## Gated subjects, retired-tagline sweep (10 Sep 2026)
+
+**Subjects appear only after Level and Grade are chosen.** `TaxonomySelector` no
+longer auto-selects a level on mount or auto-picks a grade — the form opens with
+both empty so the person actually chooses. Until both are set, the subjects grid
+is hidden and one short dashed line stands where it would be ("Choose a level and
+grade above, and the subjects will appear here"); no empty box, no dead space.
+The old grade auto-pick existed only to paper over the `<select size={4}>`
+listbox divergence, which is gone now that Level/Grade are custom Selects that
+show a placeholder at empty. Applies to the parent job form, the admin job form
+AND tutor complete-profile (all share the component). **Nothing depended on the
+default:** the "Write this for me" brief is gated behind `hasSelection` (button
+stays disabled until a real choice), matching reads the SAVED `job_subjects`, and
+submit already throws a friendly "Choose a level, a grade and at least one
+subject" on empty — so removing the auto-select only removed an unearned default.
+
+**Retired "0% commission" removed.** The footer brand blurb read "…Verified
+Tutors Network. 0% commission." (both the mobile and desktop bodies); it now
+carries the current tagline "No fee. No commission. No middleman." — one
+"commission" per rendered footer. Swept every surface: no other "0% commission"
+variant survives.
+
+**Other retired claims — checked.** "Exact Academic Matching": not present
+anywhere. Retired hex: `lib/notify/templates.ts` (the email button + wordmark)
+carried the retired `#d60008`/`#0F172A`; corrected to `#C20202`/`#151E6B`, and
+`scripts/seed-dev.ts`'s placeholder-image colours (`#d60008`/`#0F172A`/`#059669`)
+to `#C20202`/`#151E6B`/`#2E7D4F`. No retired hex remains in app/, components/,
+lib/ or scripts/ (the only mention left is the documentation comment in
+`app/globals.css` that lists them AS retired). The "TutorMint takes 0% of what
+you earn" copy on /about, /tutor/packages and the FAQ is the intentional
+academy-comparison prose (CLAUDE.md "conversion rules"), not the retired slogan,
+and was left. The one place the slogan appears twice on a page is the homepage —
+its locked, partner-approved hero already carries it and so does the footer; that
+predates this pass and the hero is locked, so it was not touched.

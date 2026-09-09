@@ -61,13 +61,13 @@ function shell(heading: string, paragraphs: string[], cta?: { label: string; hre
     .join('')
 
   const button = cta
-    ? `<p style="margin:22px 0 0;"><a href="${escapeHtml(link(cta.href))}" style="display:inline-block;background:#d60008;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:12px;">${escapeHtml(cta.label)}</a></p>`
+    ? `<p style="margin:22px 0 0;"><a href="${escapeHtml(link(cta.href))}" style="display:inline-block;background:#C20202;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:12px;">${escapeHtml(cta.label)}</a></p>`
     : ''
 
   return `<div style="background:#F8FAFC;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;padding:28px 24px;">
-    <p style="margin:0 0 20px;font-size:20px;font-weight:900;color:#0F172A;">Tutor<span style="color:#d60008;">Mint</span></p>
-    <h1 style="margin:0 0 16px;font-size:18px;font-weight:800;color:#0F172A;line-height:1.35;">${escapeHtml(heading)}</h1>
+    <p style="margin:0 0 20px;font-size:20px;font-weight:900;color:#151E6B;">Tutor<span style="color:#C20202;">Mint</span></p>
+    <h1 style="margin:0 0 16px;font-size:18px;font-weight:800;color:#151E6B;line-height:1.35;">${escapeHtml(heading)}</h1>
     ${body}
     ${button}
   </div>
