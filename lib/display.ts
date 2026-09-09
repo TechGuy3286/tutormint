@@ -28,38 +28,60 @@ function titleCase(raw: string): string {
 }
 
 /**
- * How a tuition or a tutor is taught.
+ * Job Type — the kind of work a tutor wants, or a tuition offers.
  *
- * The both-modes case reads "In person or online" — spelled out rather than
- * "Either", which said the choice was there but not what the choices were. One
- * phrase everywhere it appears (filters, cards, profile, job form, notifications)
- * so the label cannot drift. The stored value is unchanged ('both').
+ * Three mutually-exclusive options (owner, 10 Sep 2026): Home Tuition, Online
+ * Tuition, School Job. One phrase everywhere it appears (filters, cards,
+ * profile, job form, notifications) so the label cannot drift. Total, and
+ * tolerant of the retired values: `both`/`in_person`/`physical` read as Home
+ * Tuition (the value they migrated to), so a browser tab open across the deploy
+ * still renders sensibly.
  */
-export function teachingMode(raw: string | null | undefined): string | null {
+export function jobType(raw: string | null | undefined): string | null {
   if (!raw) return null
   switch (raw.trim().toLowerCase()) {
+    case 'home':
+    case 'home_tuition':
     case 'in_person':
     case 'in-person':
     case 'inperson':
     case 'physical':
     case 'onsite':
     case 'on_site':
-      return 'In person'
-    case 'online':
-    case 'remote':
-      return 'Online'
     case 'both':
     case 'either':
     case 'any':
-      return 'In person or online'
+      return 'Home Tuition'
+    case 'online':
+    case 'online_tuition':
+    case 'remote':
+      return 'Online Tuition'
+    case 'school':
+    case 'school_job':
+      return 'School Job'
     default:
       return titleCase(raw)
   }
 }
 
-/** A demo request's mode. Same vocabulary as a job's. */
+/**
+ * A demo request's location — a different concept from Job Type. A demo happens
+ * once, in one place: in person or online. `demo_requests.mode` still holds
+ * 'in_person' | 'online', untouched by the Job Type change.
+ */
 export function demoMode(raw: string | null | undefined): string | null {
-  return teachingMode(raw)
+  if (!raw) return null
+  switch (raw.trim().toLowerCase()) {
+    case 'in_person':
+    case 'in-person':
+    case 'physical':
+      return 'In person'
+    case 'online':
+    case 'remote':
+      return 'Online'
+    default:
+      return titleCase(raw)
+  }
 }
 
 /**

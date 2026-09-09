@@ -79,9 +79,12 @@ test('subjects show singular level labels, capped at three', () => {
 })
 
 test('the teaching chip follows the online rule', () => {
-  assert.equal(teachingChip('both'), 'Suitable for online')
+  // Job Type (owner, 10 Sep 2026): online reads "Suitable for online"; the
+  // others read their Job Type. 'both' and 'in_person' migrated to Home Tuition.
   assert.equal(teachingChip('online'), 'Suitable for online')
-  assert.equal(teachingChip('in_person'), 'In person')
+  assert.equal(teachingChip('both'), 'Home Tuition')
+  assert.equal(teachingChip('in_person'), 'Home Tuition')
+  assert.equal(teachingChip('school'), 'School Job')
   assert.equal(teachingChip(null), null)
 })
 

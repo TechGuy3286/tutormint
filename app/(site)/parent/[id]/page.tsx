@@ -9,7 +9,7 @@ import TimeAgo from '@/components/TimeAgo'
 import { publicParent } from '@/lib/publicParent'
 import { formatMonthYear } from '@/lib/datetime'
 import { budgetLabel } from '@/lib/feeBands'
-import { teachingMode } from '@/lib/display'
+import { jobType } from '@/lib/display'
 import { tuitionPath } from '@/lib/slugs'
 import { pageDescription, pageTitle } from '@/lib/seo'
 
@@ -137,7 +137,7 @@ export default async function PublicParentPage({ params }: { params: Params }) {
                   <span className="text-xs font-black text-tm-navy">{job.title}</span>
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
                     <Briefcase size={11} aria-hidden />
-                    {[job.classLevel, job.area ?? job.city, teachingMode(job.teachingMode)]
+                    {[job.classLevel, job.area ?? job.city, jobType(job.teachingMode)]
                       .filter(Boolean)
                       .join(' · ')}
                     {budgetLabel(job.budgetMin, job.budgetMax, job.budgetPkr) && (

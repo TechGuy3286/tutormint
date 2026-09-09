@@ -175,7 +175,7 @@ export async function createJob(
       class_level: input.classLevel,
       city: input.city,
       area: input.area ?? '',
-      teaching_mode: input.teachingMode || 'both',
+      teaching_mode: input.teachingMode || 'home',
       budget_pkr: bandFigure(input),
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
@@ -297,7 +297,7 @@ export async function createTeamJob(
       class_level: input.classLevel,
       city: input.city,
       area: input.area ?? '',
-      teaching_mode: input.teachingMode || 'both',
+      teaching_mode: input.teachingMode || 'home',
       budget_pkr: bandFigure(input),
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
@@ -424,7 +424,7 @@ export async function updateJob(
       class_level: input.classLevel,
       city: input.city,
       area: input.area ?? '',
-      teaching_mode: input.teachingMode || 'both',
+      teaching_mode: input.teachingMode || 'home',
       budget_pkr: bandFigure(input),
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
@@ -768,33 +768,35 @@ async function notifyMatchingTutors(
     const tutorIds = [...new Set((matches ?? []).map((m) => m.tutor_id as string))]
     if (tutorIds.length === 0) return
 
+    // Job Type aligns both sides (lib/matchChip.ts): a job only matches tutors
+    // whose own Job Type equals the job's. The stored column is teaching_mode.
+    const jobTypeVal = input.teachingMode || 'home'
+
     // tutor_directory, not tutor_profiles: only tutors the platform is actually
     // showing to parents. Telling a suspended or unlisted tutor about work they
-    // cannot be found for is noise.
+    // cannot be found for is noise. Same city AND the same Job Type.
     const { data: sameCityRows } = await admin
       .from('tutor_directory')
       .select('id')
       .in('id', tutorIds)
       .eq('city', input.city)
+      .eq('teaching_mode', jobTypeVal)
       .limit(50)
     const sameCityIds = new Set((sameCityRows ?? []).map((r) => r.id as string))
 
-    // Cross-city tutors are a match ONLY when the tuition can be taught online
-    // (lib/matchChip.ts). For an online/both job we also notify a bounded set
-    // of them, flagged so the card carries a "Suitable for online" chip; an
-    // in-person job never fans out beyond its own city. Capped hard — a popular
-    // subject taught online must not turn one post into a nationwide mailing.
+    // Cross-city tutors are a match ONLY for an ONLINE job, and only online
+    // tutors (city-agnostic). They are flagged so the card carries a "Suitable
+    // for online" chip. A home or school post never fans out beyond its own
+    // city. Capped hard — a popular subject taught online must not turn one post
+    // into a nationwide mailing.
     let crossCityIds: string[] = []
-    if (input.teachingMode === 'online' || input.teachingMode === 'both') {
-      // BOTH sides must allow online: the job (checked above) AND the tutor's
-      // own teaching_mode. An in-person-only tutor in another city cannot take
-      // an online job across cities, so notifying them would be noise.
+    if (jobTypeVal === 'online') {
       const { data: crossRows } = await admin
         .from('tutor_directory')
         .select('id')
         .in('id', tutorIds)
-        .neq('city', input.city) // null-city tutors are excluded by <> ; correct — we cannot claim online suitability for an unknown city
-        .in('teaching_mode', ['online', 'both'])
+        .neq('city', input.city) // null-city tutors are excluded by <> ; correct — we cannot claim a city match we cannot see
+        .eq('teaching_mode', 'online')
         .limit(30)
       crossCityIds = (crossRows ?? [])
         .map((r) => r.id as string)

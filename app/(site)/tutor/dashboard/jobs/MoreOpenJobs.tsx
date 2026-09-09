@@ -18,12 +18,14 @@ export default function MoreOpenJobs({
   total,
   serverCount,
   viewerCity = null,
+  viewerJobType = null,
   savedIds = [],
 }: {
   initialCursor: string | null
   total: number
   serverCount: number
   viewerCity?: string | null
+  viewerJobType?: string | null
   /** Job ids the tutor has already saved, so the heart renders filled. */
   savedIds?: string[]
 }) {
@@ -54,6 +56,7 @@ export default function MoreOpenJobs({
                 showApply
                 applied={!!j.applied}
                 viewerCity={viewerCity}
+                viewerJobType={viewerJobType}
                 saveable
                 initiallySaved={saved.has(j.id)}
               />

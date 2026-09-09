@@ -13,7 +13,7 @@
 //     a CNIC or a selfie can never reach a CV.
 
 import { isOurStorageUrl } from '@/lib/avatarUrl'
-import { levelLabel, teachingMode } from '@/lib/display'
+import { levelLabel, jobType } from '@/lib/display'
 
 export type CvSubjectGroup = { level: string; subjects: string[] }
 
@@ -116,7 +116,7 @@ export function toCvModel(raw: CvRaw, opts: CvOptions): CvModel {
     degrees,
     experienceYears: raw.experienceYears && raw.experienceYears > 0 ? raw.experienceYears : null,
     location,
-    teachingMode: teachingMode(raw.teachingMode),
+    teachingMode: jobType(raw.teachingMode),
     languages,
     contact,
     profileUrl: raw.profileUrl,

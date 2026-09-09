@@ -9,7 +9,7 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { badgesForPlan } from '@/lib/entitlements'
 import { budgetLabel } from '@/lib/feeBands'
-import { applicationStatus, jobStatus, teachingMode } from '@/lib/display'
+import { applicationStatus, jobStatus, jobType } from '@/lib/display'
 import { formatDate } from '@/lib/datetime'
 import { formatPkMobile, normalisePkMobile } from '@/lib/phone'
 
@@ -171,8 +171,8 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
               {job.class_level as string}
             </dd>
           )}
-          {teachingMode(job.teaching_mode as string) && (
-            <dd>{teachingMode(job.teaching_mode as string)}</dd>
+          {jobType(job.teaching_mode as string) && (
+            <dd>{jobType(job.teaching_mode as string)}</dd>
           )}
           {budgetLabel(
             job.budget_min_pkr as number | null,

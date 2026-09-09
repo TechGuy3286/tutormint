@@ -28,7 +28,7 @@
 //
 // What the verifier can and cannot do is stated at `unsupportedFacts()`.
 
-import { teachingMode } from '@/lib/display'
+import { jobType } from '@/lib/display'
 import { feeChipLabel } from '@/lib/feeBands'
 
 export type JobSelection = {
@@ -38,7 +38,7 @@ export type JobSelection = {
   subjects: string[]
   city: string | null
   area: string | null
-  /** Canonical: 'in_person' | 'online' | 'both'. */
+  /** Canonical Job Type: 'home' | 'online' | 'school'. */
   mode: string | null
   budgetMin: number | null
   budgetMax: number | null
@@ -82,7 +82,7 @@ export function budgetPhrase(sel: JobSelection): string {
 }
 
 export function modePhrase(sel: JobSelection): string {
-  const m = teachingMode(sel.mode)
+  const m = jobType(sel.mode)
   if (!m) return ''
   if (m === 'Online') return 'online'
   if (m === 'In person') return 'in person'

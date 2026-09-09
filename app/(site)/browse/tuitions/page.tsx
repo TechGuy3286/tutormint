@@ -179,6 +179,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
   let isTutor = false
   let viewerCity: string | null = null
+  let viewerJobType: string | null = null
   let viewerRole: string | null = null
   let viewerPlan: string | null = null
   let appliedIds = new Set<string>()
@@ -190,10 +191,16 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     viewerRole = ent.role
     viewerPlan = ent.plan
 
-    // Only to decide the "Suitable for online" chip on cross-city online jobs.
+    // Job Type + city, to align matches and decide the "Suitable for online"
+    // chip on a cross-city online job.
     if (isTutor) {
-      const { data: tp } = await supabase.from('tutor_profiles').select('city').eq('id', user.id).maybeSingle()
+      const { data: tp } = await supabase
+        .from('tutor_profiles')
+        .select('city, teaching_mode')
+        .eq('id', user.id)
+        .maybeSingle()
       viewerCity = (tp?.city as string | null) ?? null
+      viewerJobType = (tp?.teaching_mode as string | null) ?? null
     }
 
     if (isTutor && jobs.length > 0) {
@@ -318,6 +325,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
                   showApply={showApply}
                   applied={appliedIds.has(job.id)}
                   viewerCity={viewerCity}
+                  viewerJobType={viewerJobType}
                   saveable={isTutor}
                   initiallySaved={savedIds.has(job.id)}
                 />
@@ -346,6 +354,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             showApply={showApply}
             adEvery={AD_EVERY}
             viewerCity={viewerCity}
+            viewerJobType={viewerJobType}
             saveable={isTutor}
             savedIds={Array.from(savedIds)}
           />

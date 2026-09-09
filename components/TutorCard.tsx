@@ -7,9 +7,9 @@ import { useToast } from '@/components/ui/Toast'
 import { useState } from 'react'
 import Link from 'next/link'
 import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, Mail, Star, Eye } from 'lucide-react'
-import TeachingModeChip from '@/components/TeachingModeChip'
+import JobTypeChip from '@/components/JobTypeChip'
 import CardActions, { type CardAction } from '@/components/CardActions'
-import { teachingMode } from '@/lib/display'
+import { jobType } from '@/lib/display'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
@@ -334,8 +334,8 @@ export default function TutorCard({
             {/* Teaching mode, made prominent. It was only ever the Area line's
                 fallback below, so a tutor with an area never showed it at all;
                 now it is its own chip, always visible when set. */}
-            {teachingMode(tutor.teaching_mode) && (
-              <TeachingModeChip mode={tutor.teaching_mode} />
+            {jobType(tutor.teaching_mode) && (
+              <JobTypeChip mode={tutor.teaching_mode} />
             )}
 
             <div className="space-y-1.5 pt-0.5">

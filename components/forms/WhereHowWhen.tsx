@@ -1,18 +1,18 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Building2, MapPin, MonitorSmartphone, Wallet, Calendar, Clock } from 'lucide-react'
+import { Building2, MapPin, Briefcase, Wallet, Calendar, Clock } from 'lucide-react'
 
-import { CITIES, TEACHING_MODES } from '@/lib/locations'
+import { CITIES, JOB_TYPES } from '@/lib/locations'
 import { BUDGET_BANDS } from '@/lib/feeBands'
-import { teachingMode } from '@/lib/display'
+import { jobType } from '@/lib/display'
 
 // The "Where, how and when" row of the job form — the six selects for city,
-// area, mode, budget, days and times.
+// area, Job Type, budget, days and times.
 //
 // SHARED by the parent post-a-tuition form AND the admin team-post form, so the
 // two cannot drift: an icon or a placeholder changed here changes in both. Each
-// select carries a recognising icon (location, mode, money, calendar, clock)
+// select carries a recognising icon (location, job type, money, calendar, clock)
 // and a short placeholder that is the field's own noun — "City", not "Choose a
 // city" — since a visible sr-only label already names it for a screen reader.
 
@@ -119,15 +119,15 @@ export default function WhereHowWhen({
         </IconSelect>
 
         <IconSelect
-          icon={<MonitorSmartphone size={15} />}
-          label="Mode"
+          icon={<Briefcase size={15} />}
+          label="Job Type"
           value={mode}
           onChange={onMode}
         >
-          <option value="">Mode</option>
-          {TEACHING_MODES.map((m) => (
+          <option value="">Job Type</option>
+          {JOB_TYPES.map((m) => (
             <option key={m} value={m}>
-              {teachingMode(m)}
+              {jobType(m)}
             </option>
           ))}
         </IconSelect>

@@ -9,8 +9,8 @@
 // QR. The word "commission" appears ONLY in the tagline — the test asserts a
 // single occurrence across each template's whole text.
 
-import { levelLabel, teachingMode } from '@/lib/display'
-import { allowsOnline } from '@/lib/matchChip'
+import { levelLabel, jobType } from '@/lib/display'
+import { isOnlineType } from '@/lib/matchChip'
 
 export type SocialTemplate = 'spotlight' | 'bold' | 'success' | 'announcement'
 export type SocialFormat = 'square' | 'story' | 'wide'
@@ -68,11 +68,12 @@ export function subjectLabels(subjects: string[], limit = 3): string[] {
     .slice(0, limit)
 }
 
-/** The teaching-mode chip. Online-capable tutors read "Suitable for online". */
+/** The Job Type chip. An online tutor reads "Suitable for online"; the others
+ *  read their Job Type (Home Tuition / School Job). */
 export function teachingChip(mode: string | null | undefined): string | null {
   if (!mode) return null
-  if (allowsOnline(mode)) return 'Suitable for online'
-  return teachingMode(mode)
+  if (isOnlineType(mode)) return 'Suitable for online'
+  return jobType(mode)
 }
 
 /** "4.9 (27)" when there are reviews, else null. */

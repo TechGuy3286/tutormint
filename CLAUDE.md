@@ -4168,3 +4168,82 @@ reader. One component, one set of icons and placeholders for both forms.
 Default is collapsed (a level and grade auto-pick on mount), so "What is needed
 taught?" opens compact instead of two four-row listboxes — the win is largest at
 360px. Selecting a new level resets and re-collapses the grade beneath it.
+
+## Job Type replaces teaching mode (owner, 10 Sep 2026) — DECISION
+
+Supersedes "teaching_mode is one spelling" and "Enum values never render raw"
+wherever they describe the three values. The concept is renamed and its domain
+changed; under precedence rule 10 this wins.
+
+- **The field is "Job Type"** everywhere a person reads it, with exactly three
+  mutually-exclusive options: **Home Tuition**, **Online Tuition**, **School
+  Job**. There is no "both" — that value is retired.
+- Applies identically on all three sides: a TUTOR's Job Type is the single kind
+  of work they want (home, online, or a school post); a JOB's Job Type is the
+  single kind of engagement (a family wanting a home tutor, an online tutor, or
+  a school hiring a teacher). A tutor set to School Job is signalling they want
+  school posts, and matching uses that signal — no separate opt-in flag.
+- **Stored values become `home` / `online` / `school`.** Existing `both` maps to
+  `home` (five seed tutors and some fixture jobs; no real member data). The
+  legacy spellings still parse through the display/parse helpers.
+- **The physical column stays named `teaching_mode`** on `tutor_profiles` and
+  `jobs` — deliberately NOT renamed. Renaming it would touch the two public
+  directory views (`tutor_directory`, `tutor_visible_profiles`) and 30+ untyped
+  `.select('teaching_mode')` strings that the type-checker cannot verify, so a
+  missed reference would be a SILENT production break of the public directory.
+  The column keeps its name; its VALUES and every human-facing label, code
+  constant (`JOB_TYPES`), type (`JobType`), helper (`jobType()`), and component
+  (`JobTypeChip`) are Job Type. A missed VALUE is caught loudly by the CHECK
+  constraint; the naming is documented here so `teaching_mode='school'` is not a
+  surprise. `demo_requests.mode` is a different concept (a demo's location) and
+  is untouched.
+- **A School Job is posted by an ordinary Parent / Institution account.** No
+  third role, no separate entity, no institution-specific verification — same
+  CNIC + address verification, same posting flow, same rights as any parent.
+- **Matching is Job-Type-aligned.** A job matches a tutor only when their Job
+  Types are equal; `online` is city-agnostic, `home` and `school` are
+  location-bound (same city). The old cross-city "Suitable for online" chip
+  survives for an online job in a different city from an online tutor.
+- **Structured data unchanged (reported, not extended).** `JobPosting` already
+  emits `employmentType: 'CONTRACTOR'` and `hiringOrganization` = the platform
+  for every open tuition; no fields were added for School Job in this PR (owner
+  asked to report, not add). See the report for the per-type recommendation.
+
+### As built (Job Type, 10 Sep 2026)
+
+Migration 68 (backup taken first, applied live): `teaching_mode` values migrated
+to home/online/school, CHECK swapped, `jobs` default → 'home'. Verified: 62 jobs
+→ home, tutors 17 home / 1 online / 13 null; the two directory views still
+resolve (they keep the column name). Gates: tsc 0 · build 0 · check:contrast 100
+· rls 179/179 · all suites pass (test-cv/test-social updated for the new labels).
+
+Surfaces touched (one vocabulary via `jobType()` / `JobTypeChip` / `JOB_TYPES`):
+`lib/locations` (JOB_TYPES, JobType, parseMode; `canonicalMode` removed —
+single-choice now), `lib/display` (`jobType()`; `demoMode` split out, since a
+demo's location is a separate concept), `lib/matchChip` (Job-Type-aligned
+matching; `matchVisibility(jobType, jobCity, tutorType, tutorCity)`,
+`isOnlineType`), the new `components/JobTypeChip`, the tutor card and public
+profile (prominent chip), `components/JobCard` (chip + `viewerJobType`), both
+browse filters (Job Type / Any Job Type), the shared `WhereHowWhen` used by the
+parent AND admin job forms (the select where "Mode" was, Briefcase icon, "Job
+Type" label — item 3), tutor **settings** (a single-choice radio group, was
+checkboxes) and **complete-profile** (Job Type select), `lib/jobs.ts`
+(default→home, Job-Type-aligned notify fan-out), `lib/funnel.ts` `jobsThisWeek`
+(+tutorType), `lib/social/copy` (chip), `lib/ai/jobBrief`, `lib/cv/model`
+(display only; the internal field stays `teachingMode`), the admin tutor/job
+detail and the parent/tuition public pages, the `viewerJobType` threading
+through the browse and tutor-jobs lists, and the `/dev` showcase mocks.
+
+**Item 2 — Level and Grade are custom selects.** `components/forms/Select.tsx`
+is a keyboard-accessible custom listbox (button shows the value; a searchable
+list opens beneath; Enter/Space/↓ open, ↑/↓ move, Enter chooses, Esc closes;
+combobox/listbox roles) styled to match the "Where, how and when" fields
+(border, height, left icon, chevron). `TaxonomySelector` uses it for Level
+(Layers icon) and Grade (GraduationCap icon), replacing the `size={4}` listboxes
+and the collapse panel — so the whole form is one set of controls.
+
+**JobPosting structured data (reported, unchanged).** `jobPostingJsonLd` still
+emits `employmentType: 'CONTRACTOR'` and `hiringOrganization` = the TutorMint
+platform for every open tuition, regardless of Job Type; no fields were added.
+See the report for the per-type recommendation (School Job is the one that would
+most benefit from a real `hiringOrganization` and a different `employmentType`).

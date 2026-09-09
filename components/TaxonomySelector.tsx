@@ -1,7 +1,9 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
+import { Layers, GraduationCap } from 'lucide-react'
 import { fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
+import Select from '@/components/forms/Select'
 
 interface TaxonomySelectorProps {
   selectedLevel: string;
@@ -27,16 +29,7 @@ export default function TaxonomySelector({
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyNode>({});
   const [loading, setLoading] = useState<boolean>(true);
 
-  const [levelSearch, setLevelSearch] = useState<string>("");
-  const [gradeSearch, setGradeSearch] = useState<string>("");
   const [subjectSearch, setSubjectSearch] = useState<string>("");
-
-  // Once a level and grade are chosen, their long listboxes collapse to the
-  // chosen value with a Change button — a decision already made should not keep
-  // taking four rows of vertical space, which matters most at 360px. A block is
-  // expanded only while it has no value yet or the member pressed Change.
-  const [editLevel, setEditLevel] = useState<boolean>(false);
-  const [editGrade, setEditGrade] = useState<boolean>(false);
 
   useEffect(() => {
     async function loadTree() {
@@ -95,14 +88,6 @@ export default function TaxonomySelector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradesList, selectedGrade])
 
-  const filteredLevels = useMemo(() => {
-    return levelsList.filter((lvl: string) => lvl.toLowerCase().includes(levelSearch.toLowerCase()));
-  }, [levelsList, levelSearch]);
-
-  const filteredGrades = useMemo(() => {
-    return gradesList.filter((grd: string) => grd.toLowerCase().includes(gradeSearch.toLowerCase()));
-  }, [gradesList, gradeSearch]);
-
   const filteredSubjects = useMemo(() => {
     return availableSubjects.filter((sub: string) => sub.toLowerCase().includes(subjectSearch.toLowerCase()));
   }, [availableSubjects, subjectSearch]);
@@ -115,96 +100,40 @@ export default function TaxonomySelector({
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-        {/* Level Selector */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <label className="text-xs font-bold text-tm-navy block">Level</label>
-            {selectedLevel && (
-              <button
-                type="button"
-                onClick={() => setEditLevel((e) => !e)}
-                className="inline-flex min-h-[44px] items-center text-[11px] font-extrabold text-tm-red hover:underline cursor-pointer"
-              >
-                {!editLevel ? 'Change' : 'Done'}
-              </button>
-            )}
-          </div>
-          {selectedLevel && !editLevel ? (
-            <div className="w-full min-h-[44px] flex items-center rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-tm-navy">
-              {selectedLevel}
-            </div>
-          ) : (
-            <>
-              <input
-                type="text"
-                placeholder="Search levels..."
-                value={levelSearch}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSearch(e.target.value)}
-                className="w-full min-h-[44px] p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-slate-700"
-              />
-              <select
-                value={selectedLevel}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                  setSelectedLevel(e.target.value);
-                  setSelectedGrade('');
-                  setSelectedSubjects([]);
-                  setEditLevel(false); // collapse to the choice just made
-                  setEditGrade(false); // the grade re-picks and collapses too
-                }}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-tm-navy"
-                size={4}
-              >
-                {filteredLevels.map((lvl: string) => (
-                  <option key={lvl} value={lvl} className="p-1 rounded">{lvl}</option>
-                ))}
-              </select>
-            </>
-          )}
+        {/* Level — a custom select matching the "Where, how and when" fields. */}
+        <div className="space-y-1">
+          <label className="text-xs font-bold text-tm-navy block">Level</label>
+          <Select
+            ariaLabel="Level"
+            icon={<Layers size={15} aria-hidden />}
+            value={selectedLevel}
+            onChange={(v) => {
+              setSelectedLevel(v);
+              setSelectedGrade('');
+              setSelectedSubjects([]);
+            }}
+            options={levelsList.map((l) => ({ value: l, label: l }))}
+            placeholder="Choose a level"
+            searchable
+          />
         </div>
 
-        {/* Grade Selector */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <label className="text-xs font-bold text-tm-navy block">Grade or specialisation</label>
-            {selectedGrade && (
-              <button
-                type="button"
-                onClick={() => setEditGrade((e) => !e)}
-                className="inline-flex min-h-[44px] items-center text-[11px] font-extrabold text-tm-red hover:underline cursor-pointer"
-              >
-                {!editGrade ? 'Change' : 'Done'}
-              </button>
-            )}
-          </div>
-          {selectedGrade && !editGrade ? (
-            <div className="w-full min-h-[44px] flex items-center rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-tm-navy">
-              {selectedGrade}
-            </div>
-          ) : (
-            <>
-              <input
-                type="text"
-                placeholder="Search grades..."
-                value={gradeSearch}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGradeSearch(e.target.value)}
-                className="w-full min-h-[44px] p-2 bg-white border border-gray-200 rounded-xl text-xs outline-none mb-2 text-slate-700"
-              />
-              <select
-                value={selectedGrade}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                  setSelectedGrade(e.target.value);
-                  setSelectedSubjects([]);
-                  setEditGrade(false); // collapse to the choice just made
-                }}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium outline-none focus:border-tm-navy"
-                size={4}
-              >
-                {filteredGrades.map((grd: string) => (
-                  <option key={grd} value={grd} className="p-1 rounded">{grd}</option>
-                ))}
-              </select>
-            </>
-          )}
+        {/* Grade — same control; the grade auto-picks when the level changes. */}
+        <div className="space-y-1">
+          <label className="text-xs font-bold text-tm-navy block">Grade or specialisation</label>
+          <Select
+            ariaLabel="Grade or specialisation"
+            icon={<GraduationCap size={15} aria-hidden />}
+            value={selectedGrade}
+            onChange={(v) => {
+              setSelectedGrade(v);
+              setSelectedSubjects([]);
+            }}
+            options={gradesList.map((g) => ({ value: g, label: g }))}
+            placeholder="Choose a grade"
+            searchable
+            disabled={gradesList.length === 0}
+          />
         </div>
 
       </div>

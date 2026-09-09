@@ -17,8 +17,8 @@ import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import ReportButton from '@/components/ReportButton'
 import ProfileActions from './ProfileActions'
 import { formatDate } from '@/lib/datetime'
-import { levelLabel, teachingMode } from '@/lib/display'
-import TeachingModeChip from '@/components/TeachingModeChip'
+import { levelLabel, jobType } from '@/lib/display'
+import JobTypeChip from '@/components/JobTypeChip'
 import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorJsonLd } from '@/lib/seo'
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
@@ -517,8 +517,8 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               {/* Teaching mode, made prominent — it was a "· In person or
                   online" tail on the city line below, easy to miss. Now its own
                   chip, the same one the cards use. */}
-              {teachingMode(tutor.teaching_mode) && (
-                <TeachingModeChip mode={tutor.teaching_mode} className="mt-0.5" />
+              {jobType(tutor.teaching_mode) && (
+                <JobTypeChip mode={tutor.teaching_mode} className="mt-0.5" />
               )}
 
               <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-2">

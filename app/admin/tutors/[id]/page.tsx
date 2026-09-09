@@ -7,7 +7,7 @@ import StatusChip from '@/components/admin/StatusChip'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatDate } from '@/lib/datetime'
-import { teachingMode, verificationStatus } from '@/lib/display'
+import { jobType, verificationStatus } from '@/lib/display'
 import SlugField from './SlugField'
 
 // One tutor, as staff.
@@ -107,8 +107,8 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
           </div>
           <p className="text-[11px] text-gray-500">
             {[tutor.area, tutor.city].filter(Boolean).join(', ') || 'No location set'}
-            {teachingMode(tutor.teaching_mode as string)
-              ? ` · ${teachingMode(tutor.teaching_mode as string)}`
+            {jobType(tutor.teaching_mode as string)
+              ? ` · ${jobType(tutor.teaching_mode as string)}`
               : ''}
             {' · '}
             Joined {formatDate(tutor.created_at as string)}

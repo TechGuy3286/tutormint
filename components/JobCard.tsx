@@ -13,7 +13,8 @@ import CardActions, { type CardAction } from '@/components/CardActions'
 import BadgeRow from '@/components/badges/BadgeRow'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
 import { showsOnlineChip } from '@/lib/matchChip'
-import { teachingMode } from '@/lib/display'
+import { jobType } from '@/lib/display'
+import JobTypeChip from '@/components/JobTypeChip'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import Avatar from '@/components/Avatar'
 import AuthGateModal from '@/components/AuthGateModal'
@@ -79,6 +80,7 @@ export default function JobCard({
   showApply = false,
   applied = false,
   viewerCity = null,
+  viewerJobType = null,
   saveable = false,
   initiallySaved = false,
   onSavedChange,
@@ -96,6 +98,9 @@ export default function JobCard({
    * Null for guests and parents — no chip, the board still shows every job.
    */
   viewerCity?: string | null
+  /** The viewing tutor's own Job Type — used with viewerCity to decide the
+   *  "Suitable for online" chip. Null for guests and parents. */
+  viewerJobType?: string | null
   /** A signed-in tutor may save (heart) the tuition. Free, no plan. */
   saveable?: boolean
   /** This tutor has already saved it. */
@@ -298,15 +303,14 @@ export default function JobCard({
             )}
             <p className="flex items-center gap-2 text-xs text-slate-700">
               <MapPin size={14} className="shrink-0 text-gray-500" />
-              {[job.area, job.city].filter(Boolean).join(', ') ||
-                teachingMode(job.teaching_mode) ||
-                'Flexible'}
+              {[job.area, job.city].filter(Boolean).join(', ') || 'Flexible'}
             </p>
-            {teachingMode(job.teaching_mode) && (
+            {jobType(job.teaching_mode) && (
               <p className="flex flex-wrap items-center gap-2 text-xs text-slate-700">
-                <Building2 size={14} className="shrink-0 text-gray-500" />
-                {teachingMode(job.teaching_mode)}
-                {showsOnlineChip(job.city, job.teaching_mode, viewerCity) && <OnlineSuitableChip />}
+                <JobTypeChip mode={job.teaching_mode} />
+                {showsOnlineChip(job.teaching_mode, job.city, viewerJobType, viewerCity) && (
+                  <OnlineSuitableChip />
+                )}
               </p>
             )}
             {/* The BAND the parent chose, when there is one. Rendering only

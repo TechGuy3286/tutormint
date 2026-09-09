@@ -14,8 +14,8 @@ import TaxonomySelector from '@/components/TaxonomySelector'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import { resolveMasterIds, isLevelLeaf, labelsForMasterIds } from '@/lib/taxonomy'
 import { calculateTutorCompletion } from '@/lib/profileChecklist'
-import { TEACHING_MODES } from '@/lib/locations'
-import { teachingMode } from '@/lib/display'
+import { JOB_TYPES } from '@/lib/locations'
+import { jobType } from '@/lib/display'
 
 // Mobile-first, resumable, saves per step. Every step writes through
 // /api/profile/save (or a dedicated upload route), which recomputes
@@ -368,13 +368,13 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
               <Field id="experience_years" label="Years of experience" type="number" value={form.experience_years} onChange={(v) => set('experience_years', v)} />
               <Field id="hourly_rate_pkr" label="Expected monthly fee (PKR)" type="number" value={form.hourly_rate_pkr} onChange={(v) => set('hourly_rate_pkr', v)} />
               <div className="space-y-1" id="teaching_mode">
-                <label htmlFor="mode-select" className="text-xs font-bold text-tm-navy">Teaching mode</label>
+                <label htmlFor="mode-select" className="text-xs font-bold text-tm-navy">Job Type</label>
                 <select id="mode-select" value={form.teaching_mode} onChange={(e) => set('teaching_mode', e.target.value)} className={inputCls}>
                   <option value="">Select…</option>
                   {/* Canonical values, labelled through lib/display so the
                       words here cannot drift from the words on a card. */}
-                  {TEACHING_MODES.map((m) => (
-                    <option key={m} value={m}>{teachingMode(m)}</option>
+                  {JOB_TYPES.map((m) => (
+                    <option key={m} value={m}>{jobType(m)}</option>
                   ))}
                 </select>
               </div>

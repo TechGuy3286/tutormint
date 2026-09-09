@@ -15,7 +15,7 @@ import { getEntitlements } from '@/lib/entitlements'
 import { jobByPublicSlug } from '@/lib/jobFeed'
 import { citySegment } from '@/lib/slugs'
 import { formatDate } from '@/lib/datetime'
-import { teachingMode } from '@/lib/display'
+import { jobType } from '@/lib/display'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, socialMeta } from '@/lib/seo'
 import { isSubjectSlug, resolveLanding } from '@/lib/landing'
@@ -205,7 +205,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
   const showApply = !user || isTutor
   const url = absoluteUrl(`/tuitions/${canonicalCity}/${job.public_slug}`)
   const budget = budgetLabel(job.budget_min_pkr, job.budget_max_pkr, job.budget_pkr)
-  const mode = teachingMode(job.teaching_mode)
+  const mode = jobType(job.teaching_mode)
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6">

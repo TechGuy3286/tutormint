@@ -37,8 +37,9 @@ export default async function TutorJobsPage() {
 
   // The tutor's own city, only to decide the "Suitable for online" chip on a
   // cross-city online tuition.
-  const { data: tp } = await supabase.from('tutor_profiles').select('city').eq('id', userId).maybeSingle()
+  const { data: tp } = await supabase.from('tutor_profiles').select('city, teaching_mode').eq('id', userId).maybeSingle()
   const viewerCity = (tp?.city as string | null) ?? null
+  const viewerJobType = (tp?.teaching_mode as string | null) ?? null
 
   const { data: mine } = await supabase
     .from('applications')
@@ -124,6 +125,7 @@ export default async function TutorJobsPage() {
                       showApply
                       applied={appliedIds.has(job.id)}
                       viewerCity={viewerCity}
+                      viewerJobType={viewerJobType}
                       saveable
                       initiallySaved={savedIds.has(job.id)}
                     />
@@ -136,6 +138,7 @@ export default async function TutorJobsPage() {
                 total={total}
                 serverCount={jobs.length}
                 viewerCity={viewerCity}
+                viewerJobType={viewerJobType}
               />
             </>
           )}

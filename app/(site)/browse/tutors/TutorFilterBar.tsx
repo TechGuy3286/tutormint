@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
-import { CITIES, CITY_AREAS, TEACHING_MODES, GENDERS } from '@/lib/locations'
-import { teachingMode } from '@/lib/display'
+import { CITIES, CITY_AREAS, JOB_TYPES, GENDERS } from '@/lib/locations'
+import { jobType } from '@/lib/display'
 import Typeahead from '@/components/search/Typeahead'
 import { FEE_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
 import {
@@ -228,12 +228,12 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
         </label>
 
         <label className="block">
-          <span className="sr-only">Mode</span>
+          <span className="sr-only">Job Type</span>
           <select className={FIELD} value={values.mode} onChange={(e) => apply({ mode: e.target.value })}>
-            <option value="">Any mode</option>
-            {TEACHING_MODES.map((m) => (
+            <option value="">Any Job Type</option>
+            {JOB_TYPES.map((m) => (
               <option key={m} value={m}>
-                {teachingMode(m)}
+                {jobType(m)}
               </option>
             ))}
           </select>
@@ -320,7 +320,7 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           )}
           {values.city && <Chip label={values.city} onClear={() => apply({ city: null, area: null })} />}
           {values.area && <Chip label={values.area} onClear={() => apply({ area: null })} />}
-          {values.mode && <Chip label={teachingMode(values.mode) ?? values.mode} onClear={() => apply({ mode: null })} />}
+          {values.mode && <Chip label={jobType(values.mode) ?? values.mode} onClear={() => apply({ mode: null })} />}
           {values.gender && <Chip label={values.gender} onClear={() => apply({ gender: null })} />}
           {(values.feeMin || values.feeMax) && (
             <Chip

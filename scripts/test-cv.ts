@@ -133,9 +133,10 @@ test('the photo is an avatar or nothing — identity-docs and foreign URLs are r
   assert.equal(toCvModel(raw({ avatarUrl: null }), { includeContact: true }).photoUrl, null)
 })
 
-test('teaching mode is spelled out, headline is top subject · city', () => {
+test('job type is spelled out, headline is top subject · city', () => {
   const m = toCvModel(raw(), { includeContact: true })
-  assert.equal(m.teachingMode, 'In person or online')
+  // 'both' migrated to Home Tuition (owner, 10 Sep 2026 — no "both").
+  assert.equal(m.teachingMode, 'Home Tuition')
   assert.equal(m.headline, 'Physics · Lahore')
 })
 
@@ -202,7 +203,7 @@ test('cvSections omits empty sections and carries the exact labels', () => {
   const keys = cvSections(model).map((s) => s.key)
   assert.deepEqual(keys, ['subjects', 'teaching']) // about/education/languages/contact all gone
   const teaching = cvSections(model).find((s) => s.key === 'teaching')!
-  assert.deepEqual(teaching.lines.map((l) => l.text), ['DHA Phase 5, Lahore', 'In person or online'])
+  assert.deepEqual(teaching.lines.map((l) => l.text), ['DHA Phase 5, Lahore', 'Home Tuition'])
   assert.deepEqual(
     teaching.lines.map((l) => l.icon),
     ['pin', 'monitor'],

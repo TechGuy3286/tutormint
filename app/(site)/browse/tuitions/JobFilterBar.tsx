@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
-import { CITIES, TEACHING_MODES } from '@/lib/locations'
-import { teachingMode } from '@/lib/display'
+import { CITIES, JOB_TYPES } from '@/lib/locations'
+import { jobType } from '@/lib/display'
 import Typeahead from '@/components/search/Typeahead'
 import { BUDGET_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
 import {
@@ -164,11 +164,11 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
           </select>
         </label>
         <label className="block">
-          <span className="sr-only">Mode</span>
+          <span className="sr-only">Job Type</span>
           <select className={FIELD} value={values.mode} onChange={(e) => apply({ mode: e.target.value })}>
-            <option value="">Any mode</option>
-            {TEACHING_MODES.map((m) => (
-              <option key={m} value={m}>{teachingMode(m)}</option>
+            <option value="">Any Job Type</option>
+            {JOB_TYPES.map((m) => (
+              <option key={m} value={m}>{jobType(m)}</option>
             ))}
           </select>
         </label>
@@ -227,7 +227,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
         <div className="flex flex-wrap items-center gap-2">
           {values.subjectLabel && <Chip label={values.subjectLabel} onClear={() => apply({ subject: null })} />}
           {values.city && <Chip label={values.city} onClear={() => apply({ city: null })} />}
-          {values.mode && <Chip label={teachingMode(values.mode) ?? values.mode} onClear={() => apply({ mode: null })} />}
+          {values.mode && <Chip label={jobType(values.mode) ?? values.mode} onClear={() => apply({ mode: null })} />}
           {(values.budgetMin || values.budgetMax) && (
             <Chip
               label={feeChipLabel(values.budgetMin, values.budgetMax)}

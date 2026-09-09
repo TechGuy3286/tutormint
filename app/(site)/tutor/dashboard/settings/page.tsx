@@ -3,8 +3,8 @@
 import FileUpload from '@/components/FileUpload';
 import PasswordInput from '@/components/ui/PasswordInput'
 import { submitForm } from '@/lib/submit'
-import { TEACHING_MODES, canonicalMode } from '@/lib/locations'
-import { teachingMode } from '@/lib/display'
+import { JOB_TYPES, parseMode } from '@/lib/locations'
+import { jobType } from '@/lib/display'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
@@ -49,7 +49,7 @@ export default function TutorSettingsPage() {
     whatsapp_number: "",
     city: "",
     areaName: "",
-    teachingModes: ['in_person'] as string[],
+    teachingMode: '' as string,
     profileImage: "",
     videoIntroUrl: ""
   });
@@ -127,26 +127,15 @@ export default function TutorSettingsPage() {
         .maybeSingle();
 
       if (data) {
-        // One stored value, expanded back into the two checkboxes it came
-        // from. 'both' ticks both; anything else ticks the one it names.
-        // Older rows held a comma-joined string ('Physical, Online') and the
-        // legacy spellings, so those are still read -- migration 35 converted
-        // them, but a browser tab open across the deploy has not reloaded.
-        const stored = typeof data.teaching_mode === 'string' ? data.teaching_mode.toLowerCase() : '';
-        const parsedModes: string[] =
-          stored.includes(',') || stored.includes('both')
-            ? ['in_person', 'online']
-            : stored.includes('online') || stored.includes('remote')
-              ? ['online']
-              : ['in_person'];
-
+        // One stored Job Type, normalised through parseMode so any legacy value
+        // (in_person / both / 'Physical') maps onto home / online / school.
         setFormData({
           fullName: data.full_name || "",
           phone_number: data.phone_number || "",
           whatsapp_number: data.whatsapp_number || "",
           city: data.city || "",
           areaName: data.area || "",
-          teachingModes: parsedModes,
+          teachingMode: parseMode(data.teaching_mode) ?? '',
           profileImage: data.avatar_url || formData.profileImage,
           videoIntroUrl: data.video_intro_url || ""
         });
@@ -375,12 +364,9 @@ export default function TutorSettingsPage() {
         whatsapp_number: formData.whatsapp_number,
         city: formData.city,
         area: formData.areaName,
-        // ONE canonical value, never a joined list. This line used to be
-        // `teachingModes.join(", ")`, which stored 'Physical, Online' -- a
-        // spelling no filter matched and no display helper understood. It is
-        // also what migration 35's CHECK constraint would now reject, turning
-        // a routine save into a 500.
-        teaching_mode: canonicalMode(formData.teachingModes),
+        // One Job Type value (home | online | school), or null when unset. The
+        // radio group below is single-choice, so there is no list to reduce.
+        teaching_mode: formData.teachingMode || null,
         specialty_subjects: combinedSubjectsString,
         specialty_list: specialtyList,
         availability_list: availabilityList,
@@ -568,10 +554,15 @@ export default function TutorSettingsPage() {
             </label>
           </div>
           <div className="space-y-2">
-            <p className="text-xs font-bold text-tm-navy">How you teach</p>
+            <p className="text-xs font-bold text-tm-navy">Job Type</p>
+            <p className="text-[11px] text-gray-500">
+              The one kind of work you want. A tutor set to School Job is shown school
+              tuitions; the others are shown home or online tuitions.
+            </p>
+            {/* Single choice — the three Job Types are mutually exclusive. */}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {TEACHING_MODES.filter((m) => m !== 'both').map((mode) => {
-                const isChecked = formData.teachingModes.includes(mode);
+              {JOB_TYPES.map((mode) => {
+                const isChecked = formData.teachingMode === mode;
                 return (
                   <label
                     key={mode}
@@ -582,17 +573,13 @@ export default function TutorSettingsPage() {
                     }`}
                   >
                     <input
-                      type="checkbox"
+                      type="radio"
+                      name="teachingMode"
                       checked={isChecked}
-                      onChange={() => {
-                        const updated = isChecked
-                          ? formData.teachingModes.filter((m) => m !== mode)
-                          : [...formData.teachingModes, mode];
-                        setFormData({ ...formData, teachingModes: updated });
-                      }}
-                      className="h-4 w-4 rounded border-gray-300 text-tm-green-deep focus:ring-tm-green-deep"
+                      onChange={() => setFormData({ ...formData, teachingMode: mode })}
+                      className="h-4 w-4 border-gray-300 text-tm-green-deep focus:ring-tm-green-deep"
                     />
-                    <span>{teachingMode(mode)}</span>
+                    <span>{jobType(mode)}</span>
                   </label>
                 );
               })}
