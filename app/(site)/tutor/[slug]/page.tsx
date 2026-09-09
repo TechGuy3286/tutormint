@@ -18,6 +18,7 @@ import ReportButton from '@/components/ReportButton'
 import ProfileActions from './ProfileActions'
 import { formatDate } from '@/lib/datetime'
 import { levelLabel, teachingMode } from '@/lib/display'
+import TeachingModeChip from '@/components/TeachingModeChip'
 import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorJsonLd } from '@/lib/seo'
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
@@ -513,6 +514,13 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                 )}
               </p>
 
+              {/* Teaching mode, made prominent — it was a "· In person or
+                  online" tail on the city line below, easy to miss. Now its own
+                  chip, the same one the cards use. */}
+              {teachingMode(tutor.teaching_mode) && (
+                <TeachingModeChip mode={tutor.teaching_mode} className="mt-0.5" />
+              )}
+
               <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-2">
                 <p className="flex items-center gap-2 text-xs">
                   <MapPin size={14} className="text-gray-500" />
@@ -539,7 +547,6 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   ) : (
                     'Online'
                   )}
-                  {teachingMode(tutor.teaching_mode) ? ` · ${teachingMode(tutor.teaching_mode)}` : ''}
                 </p>
                 <p className="flex items-center gap-2 text-xs">
                   <Briefcase size={14} className="text-gray-500" />

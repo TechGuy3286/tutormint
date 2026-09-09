@@ -9,10 +9,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Loader2, Info } from 'lucide-react'
 import TaxonomySelector from '@/components/TaxonomySelector'
+import WhereHowWhen from '@/components/forms/WhereHowWhen'
 import { isLevelLeaf, resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
-import { CITIES, CITY_AREAS, TEACHING_MODES } from '@/lib/locations'
-import { BUDGET_BANDS, bandFor, bandRange } from '@/lib/feeBands'
-import { teachingMode } from '@/lib/display'
+import { CITY_AREAS } from '@/lib/locations'
+import { bandFor, bandRange } from '@/lib/feeBands'
 import { takeDraft, saveDraft } from '@/components/AuthGateModal'
 
 // Post or edit a tuition.
@@ -80,28 +80,6 @@ const FIELD =
   'w-full min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-tm-navy outline-none focus:border-tm-red'
 
 const LABEL = 'text-[11px] font-bold uppercase tracking-wide text-gray-500'
-
-/**
- * For controls whose first option already says what they are.
- *
- * "CITY" above a select reading "Choose a city" is the same word twice, and
- * six of them stacked is most of the visual weight of step 2. The label stays
- * in the accessibility tree -- a screen reader still hears it, and it is what
- * a form control needs to be announced at all -- it just stops being drawn.
- * Title and Description keep their visible labels: an empty text box with a
- * placeholder is not self-describing once somebody has typed in it.
- */
-const SR_ONLY = 'sr-only'
-
-/**
- * Days and times, as choices rather than a text box.
- *
- * The old field was free text with a placeholder ("Mon/Wed/Fri, evenings"),
- * which is a small essay question in a form that is otherwise all taps -- and
- * whatever a parent typed there went into the generated copy verbatim.
- */
-const DAY_OPTIONS = ['Weekdays', 'Weekends', 'Every day'] as const
-const TIME_OPTIONS = ['Mornings', 'Afternoons', 'Evenings'] as const
 
 export default function JobForm({
   children,
@@ -335,86 +313,26 @@ export default function JobForm({
 
         {/* ------------------------------------------------ 2. where & when */}
         <Step n={2} title="Where, how and when">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <label className="space-y-1">
-              <span className={SR_ONLY}>City</span>
-              <select
-                value={v.city}
-                onChange={(e) => setV((p) => ({ ...p, city: e.target.value, area: '' }))}
-                className={FIELD}
-              >
-                <option value="">Choose a city</option>
-                {CITIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className={SR_ONLY}>Area</span>
-              <select
-                value={v.area}
-                onChange={(e) => set('area', e.target.value)}
-                disabled={areas.length === 0}
-                className={FIELD}
-              >
-                <option value="">Any area</option>
-                {areas.map((a) => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className={SR_ONLY}>Mode</span>
-              <select
-                value={v.teachingMode}
-                onChange={(e) => set('teachingMode', e.target.value)}
-                className={FIELD}
-              >
-                <option value="">Any</option>
-                {TEACHING_MODES.map((m) => (
-                  <option key={m} value={m}>{teachingMode(m)}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <label className="space-y-1">
-              {/* The same five bands as /browse/tuitions, so what a parent
-                  picks here is exactly what a tutor filters by there. */}
-              <span className={SR_ONLY}>Monthly budget</span>
-              <select
-                value={band}
-                onChange={(e) => {
-                  const r = bandRange(e.target.value)
-                  setV((p) => ({ ...p, budgetMin: r.min, budgetMax: r.max }))
-                }}
-                className={FIELD}
-              >
-                {BUDGET_BANDS.map((b) => (
-                  <option key={b.value} value={b.value}>{b.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className={SR_ONLY}>Days</span>
-              <select value={days} onChange={(e) => setDays(e.target.value)} className={FIELD}>
-                <option value="">Any days</option>
-                {DAY_OPTIONS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className={SR_ONLY}>Times</span>
-              <select value={times} onChange={(e) => setTimes(e.target.value)} className={FIELD}>
-                <option value="">Any time</option>
-                {TIME_OPTIONS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            </label>
-          </div>
+          {/* The same five budget bands as /browse/tuitions, so what a parent
+              picks here is exactly what a tutor filters by there. */}
+          <WhereHowWhen
+            city={v.city}
+            area={v.area}
+            mode={v.teachingMode}
+            band={band}
+            days={days}
+            times={times}
+            areas={areas}
+            onCity={(x) => setV((p) => ({ ...p, city: x, area: '' }))}
+            onArea={(x) => set('area', x)}
+            onMode={(x) => set('teachingMode', x)}
+            onBand={(x) => {
+              const r = bandRange(x)
+              setV((p) => ({ ...p, budgetMin: r.min, budgetMax: r.max }))
+            }}
+            onDays={setDays}
+            onTimes={setTimes}
+          />
 
           {mode === 'edit' && v.schedule && !days && !times && (
             <p className="text-[11px] text-gray-500">

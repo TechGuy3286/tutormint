@@ -4118,3 +4118,53 @@ timeline (`/account/notifications`) rather than silently to its newest row, and
 `ActivityBand`'s "See all" still reaches the full list — the one behaviour delta
 is that a grouped run no longer expands inline. Every colour pair is already in
 `scripts/contrast-check.ts` (tint chips + ink-on-white + gray on white).
+
+## Honest ratings, prominent teaching mode, job-form polish (10 Sep 2026)
+
+Follows "Invented ratings removed…" (9 Sep). Migration 67 (data repair, no
+schema change, idempotent, backup taken first, applied live) finishes the job
+and three UI passes accompany it.
+
+**No rating until a real one arrives.** The 3 review rows migration 66 kept were
+themselves seed-authored (seed parents, seeded comments on seed tutors) and,
+banner gone, the only ratings on an indexed site. Migration 67 deletes them
+(scoped to fixture reviewers), which fires `recompute_tutor_rating()` per row, so
+usman and sara fall to 0/0 automatically. **Verified: every one of the 31
+`tutor_profiles` is now 0/0** — no tutor shows a rating anywhere until a real
+parent leaves one. The card ("New tutor"), profile ("No reviews yet") and JSON-LD
+(no `aggregateRating`) already render that honestly.
+
+**Bilal Ahmad recomputed and delisted.** His stored `profile_completion = 100`
+was never earned: the real checklist (`lib/profileChecklist`, 15 items, floored)
+scores him 9/15 = **60%** — missing photo, headline, bio, degrees+certificate,
+CNIC and video (six items, not the two first thought). Migration 67 sets 60,
+scoped to his id, so he leaves `tutor_directory` (100%-only) until he genuinely
+completes it. No content invented; a later profile edit re-runs
+`recomputeCompletion()` and keeps it honest. Seeded `experience_years`/
+`hourly_rate` were LEFT (self-declared attributes, not platform statistics —
+owner-confirmed).
+
+**Teaching mode is now prominent and consistent.** It was buried: on the card
+only the Area line's fallback (invisible whenever a tutor had an area), on the
+profile a "· In person or online" tail on the city line. `components/
+TeachingModeChip.tsx` is one chip (icon + `teachingMode()` label — Users/Wifi/
+MonitorSmartphone for in_person/online/both) used on both the card (its own
+element, always shown when set) and the profile (below the rating). Browse and
+search already filtered mode through the same `teachingMode()` vocabulary, so
+one wording holds everywhere. `bg-tm-tint-navy`/`text-tm-navy`, an existing pair.
+
+**Job form polish, shared so the two forms cannot drift.** `components/forms/
+WhereHowWhen.tsx` is the six-select "Where, how and when" row (city, area, mode,
+budget, days, times), used by BOTH the parent post-a-tuition form and the admin
+team-post form. Each select carries a recognising left icon (Building2, MapPin,
+MonitorSmartphone, Wallet, Calendar, Clock) beside its own text — never
+icon-only — and a short placeholder that is the field's noun ("City" not "Choose
+a city", "Budget"/"Days"/"Time"); the sr-only label keeps it named for a screen
+reader. One component, one set of icons and placeholders for both forms.
+
+**Level and Grade collapse once chosen.** `components/TaxonomySelector.tsx`'s two
+`size={4}` listboxes now collapse to the chosen value with a **Change** button
+(and a **Done** to close without changing); picking a value auto-collapses.
+Default is collapsed (a level and grade auto-pick on mount), so "What is needed
+taught?" opens compact instead of two four-row listboxes — the win is largest at
+360px. Selecting a new level resets and re-collapses the grade beneath it.

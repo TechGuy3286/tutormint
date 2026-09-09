@@ -5,11 +5,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Loader2, Info, ShieldCheck, Phone } from 'lucide-react'
 import TaxonomySelector from '@/components/TaxonomySelector'
+import WhereHowWhen from '@/components/forms/WhereHowWhen'
 import { useToast } from '@/components/ui/Toast'
 import { isLevelLeaf, resolveMasterIds } from '@/lib/taxonomy'
-import { CITIES, CITY_AREAS, TEACHING_MODES } from '@/lib/locations'
-import { BUDGET_BANDS, bandFor, bandRange } from '@/lib/feeBands'
-import { teachingMode } from '@/lib/display'
+import { CITY_AREAS } from '@/lib/locations'
+import { bandFor, bandRange } from '@/lib/feeBands'
 
 // Post a tuition on the team-operated TutorMint account (owner, 9 Sep 2026).
 //
@@ -24,10 +24,6 @@ import { teachingMode } from '@/lib/display'
 const FIELD =
   'w-full min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-tm-navy outline-none focus:border-tm-red'
 const LABEL = 'text-[11px] font-bold uppercase tracking-wide text-gray-500'
-const SR_ONLY = 'sr-only'
-
-const DAY_OPTIONS = ['Weekdays', 'Weekends', 'Every day'] as const
-const TIME_OPTIONS = ['Mornings', 'Afternoons', 'Evenings'] as const
 
 const ORIGINS = [
   { value: '', label: 'Not specified' },
@@ -209,84 +205,24 @@ export default function AdminJobForm() {
         </Step>
 
         <Step n={2} title="Where, how and when">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <label className="space-y-1">
-              <span className={SR_ONLY}>City</span>
-              <select
-                value={v.city}
-                onChange={(e) => setV((p) => ({ ...p, city: e.target.value, area: '' }))}
-                className={FIELD}
-              >
-                <option value="">Choose a city</option>
-                {CITIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className={SR_ONLY}>Area</span>
-              <select
-                value={v.area}
-                onChange={(e) => set('area', e.target.value)}
-                disabled={areas.length === 0}
-                className={FIELD}
-              >
-                <option value="">Any area</option>
-                {areas.map((a) => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className={SR_ONLY}>Mode</span>
-              <select
-                value={v.teachingMode}
-                onChange={(e) => set('teachingMode', e.target.value)}
-                className={FIELD}
-              >
-                <option value="">Any</option>
-                {TEACHING_MODES.map((m) => (
-                  <option key={m} value={m}>{teachingMode(m)}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <label className="space-y-1">
-              <span className={SR_ONLY}>Monthly budget</span>
-              <select
-                value={band}
-                onChange={(e) => {
-                  const r = bandRange(e.target.value)
-                  setV((p) => ({ ...p, budgetMin: r.min, budgetMax: r.max }))
-                }}
-                className={FIELD}
-              >
-                {BUDGET_BANDS.map((b) => (
-                  <option key={b.value} value={b.value}>{b.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className={SR_ONLY}>Days</span>
-              <select value={days} onChange={(e) => setDays(e.target.value)} className={FIELD}>
-                <option value="">Any days</option>
-                {DAY_OPTIONS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className={SR_ONLY}>Times</span>
-              <select value={times} onChange={(e) => setTimes(e.target.value)} className={FIELD}>
-                <option value="">Any time</option>
-                {TIME_OPTIONS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <WhereHowWhen
+            city={v.city}
+            area={v.area}
+            mode={v.teachingMode}
+            band={band}
+            days={days}
+            times={times}
+            areas={areas}
+            onCity={(x) => setV((p) => ({ ...p, city: x, area: '' }))}
+            onArea={(x) => set('area', x)}
+            onMode={(x) => set('teachingMode', x)}
+            onBand={(x) => {
+              const r = bandRange(x)
+              setV((p) => ({ ...p, budgetMin: r.min, budgetMax: r.max }))
+            }}
+            onDays={setDays}
+            onTimes={setTimes}
+          />
         </Step>
 
         <Step n={3} title="The advert" last>
