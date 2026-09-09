@@ -4051,3 +4051,20 @@ surfaces the provider's real error on failure. The refresh-token→access-token
 exchange happens in `googleapis` at runtime (implicit on the first API call) and
 can only be confirmed by a real upload on the live site; the config resolution
 and the shape fix are code-verified.
+
+## New brand favicon (9 Sep 2026)
+
+The icon set was regenerated from `assets/favicon-source.png` — the two-figure TM
+monogram in the brand palette, no wordmark — replacing the set previously derived
+from the square logo. Same five paths: `app/favicon.ico` (16/32/48, RGBA — the
+ICO decoder rejects RGB), `app/icon.png` (512), `app/apple-icon.png` (180), and
+`public/icons/icon-192.png` + `icon-512.png` behind the existing `app/manifest.ts`.
+
+Two source properties drove the generation, both checked against a magnified
+render before shipping: the source has a **transparent background and a dark
+mark** (mean luminance ~72/255), so a transparent icon's core (the navy "TM")
+disappears on a dark browser tab / iOS — every size is therefore flattened onto
+**solid white**, visible on light and dark chrome alike. And the monogram is
+already **edge-to-edge** (~1% margin), so a tighter crop for the 16px entry buys
+nothing; `contain` fills the square without clipping and the mark stays legible
+at 16px. The throwaway generator was deleted, as before.
