@@ -51,7 +51,8 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 - `user_activity_log` — the member timeline (see that section). `admin_audit_log` — every admin mutation. `user_blocks`, `penalties_log`, `profile_views`, `academy_affiliations`, `tutor_slots` — kept and wired per their tasks.
 - `advertisements` + `ad_events` — see the advertisements spec. `app_settings` — support contact, pay details, `{{COMPANY_REG_NO}}`, `{{COMPANY_NTN}}`.
 - `admin_messages` (migration 58) — the official TutorMint Team ↔ member channel: `id`, `member_id`, `direction ('out'|'in')`, `admin_id` (who sent an 'out'; never shown to the member), `template_key`, `body`, `read_at`, `created_at`. A DEDICATED store, deliberately NOT `threads`, so the "no chat-browsing screen" line holds by construction. Read at `/admin/inbox` and, for the member, in the role inbox's pinned Team row (Part 5). RLS: `member_id = auth.uid() or is_admin()`; every write is a server path.
-- `admin_message_templates` (migration 58) — owner/manager-editable templates seeded with cnic_unclear, address_untraceable, job_under_review, video_rerecord, profile_completion_nudge, payment_received, payment_approved, and (migration 64) the three abandoned-signup outreach templates signup_email_unconfirmed, signup_mobile_unverified, signup_profile_unfinished: `key`, `title`, `subject`, `body` (`{name}`/`{job_title}`/`{reason}` placeholders). Admin-read RLS.
+- `admin_message_templates` (migration 58) — owner/manager-editable templates seeded with cnic_unclear, address_untraceable, job_under_review, video_rerecord, profile_completion_nudge, payment_received, payment_approved, and (migration 64) the three abandoned-signup outreach templates signup_email_unconfirmed, signup_mobile_unverified, signup_profile_unfinished, and (migration 65) seeded_tuition_live (a `{tuition_url}` placeholder joins `{name}`): `key`, `title`, `subject`, `body` (`{name}`/`{job_title}`/`{reason}`/`{tuition_url}` placeholders). Admin-read RLS.
+- `job_contacts` (migration 65) — the real parent's name and mobile for a seeded (admin-posted) tuition, keyed 1:1 by `job_id` (cascade): `contact_name`, `contact_phone`, `created_by`, `created_at`. A DEDICATED table, NOT columns on `jobs`, because `jobs` has a public row-read policy and RLS cannot hide a column — so a contact on the jobs row would be one `select('*')` away from a public, indexed page. Admin-read RLS (`is_admin()`), service-role writes only (createTeamJob); no anon/member read. Rendered only for a signed-in tutor on the job page and on `/admin/jobs/[id]`, both via the service role.
 - `signup_blocklist` (migration 58) — a banned account's `mobile` (normalised MSISDN) and `cnic_hash` (sha256 of the digits, NEVER the CNIC in the clear), plus `reason`, `source_user_id`, `created_by`. Checked at signup and at claim; admin-read RLS, service-role writes.
 - `taxonomy_categories` / `taxonomy_levels` / `taxonomy_subjects` / `taxonomy_master` — keep as is (used by `lib/taxonomy.ts`), plus an admin-editable alias table for Roman-Urdu spellings.
 
@@ -3866,3 +3867,86 @@ same number lives in three shapes), and (c) decide the legitimate-sharing cases
 unique constraint would wrongly reject. Recommendation left with the owner: a
 soft check (warn/flag on collision) over a hard DB constraint, since there is no
 existing violation to force the issue and a constraint would reject real families.
+
+## Admin-posted tuitions can carry a real parent's contact (owner, 9 Sep 2026)
+
+Owner decision, recorded before implementing. To fill the marketplace before there
+is supply on both sides, the owner posts real tuitions gathered through support
+and outreach, and tutors contact those parents directly rather than applying.
+
+- An admin-posted tuition can carry the REAL parent's name and contact number.
+  The admin enters them on `/admin/jobs/new`; they are stored **with the job, not
+  on a profile** — these people have no account. (As built: a dedicated 1:1
+  `job_contacts` table keyed by `job_id`, NOT columns on the anon-readable `jobs`
+  row — see the reasoning in the As-built section: it is the only way to guarantee
+  the number can never leak through the public jobs feed.)
+- Where contact details are present, the job page shows them **openly to any
+  signed-in tutor** — no plan gate, no application flow required. Deliberate for
+  launch, to get real tuitions moving; it will tighten later.
+- The job still carries "Posted by TutorMint" and the team account remains the
+  owner, so applications and messaging keep working for tutors who prefer them.
+- Contact details are **never** shown to another parent, **never** indexed,
+  **never** in structured data, an OG image, or a sitemap entry. (Enforced by
+  construction: the contact lives in a locked, admin-read-only table read only via
+  the service role, and is rendered only for a signed-in tutor — an anonymous
+  crawler's render omits it entirely.)
+- Every such post is audit-logged with the admin who created it and the origin
+  already on the form.
+- After posting, the admin can send that parent a WhatsApp message with a link to
+  their tuition, inviting them to register to post their own next time — template-
+  driven, audit-logged, timelined. The message promises no tutor, no outcome, no
+  timeframe, and mentions no price.
+
+### As built — tinted Your-things tiles + seeded tuitions with parent contact (9 Sep 2026)
+
+Migration 65 (additive: the `job_contacts` table + the `seeded_tuition_live`
+template; backup taken first, applied live).
+
+**Tinted Your-things tiles.** `components/dashboard/YourThings.tsx` gives each
+tile one of five light tints — navy, deep green, red, gold, mint — so the grid
+reads as distinct at a glance instead of one grey block. Restrained by
+construction: the CARD is a pale tint, the icon chip is a plain white disc, and
+only the number and icon carry the family ink; the label is gray-700 over the
+tint. The tone is deterministic per concept (keyed on the icon, so both
+dashboards match and adjacent tiles differ); a highlighted tile always goes red.
+The fifth tint needed a new token — `--color-tm-tint-mint` (#D5F5E3) in
+globals.css, mirrored in `lib/brand.ts` — because the palette had only four
+tints; the mint tone uses navy ink (its tint is the most saturated). Eleven new
+pairs in `scripts/contrast-check.ts` (five ink-on-tint values, five gray-700
+labels, the white note pill), all AA/AAA — check:contrast is 100 pairs.
+
+**Seeded tuitions can carry a real parent's contact.** An admin posting on
+`/admin/jobs/new` may add the real parent's name and mobile (optional). Stored in
+the locked `job_contacts` table (see Canonical tables for WHY not on `jobs`),
+normalised through `lib/phone.ts` so the links are clean; a number that will not
+normalise is rejected rather than stored. `createTeamJob` writes it via the
+service role and records `hasContact` on the `job.post` audit row.
+
+- **Kept out of all public metadata, by construction.** The contact never
+  touches the anon-readable jobs feed — it lives in a service-role-only table and
+  is read only via `lib/jobContact.ts` (`loadJobContact`). On the public tuition
+  page it is rendered ONLY in the signed-in-tutor branch, so a guest, a parent
+  and a crawler never receive it: it is absent from the HTML they get, and it is
+  never in `generateMetadata`, the JobPosting JSON-LD, the OG image or the
+  sitemap (none of which read it). Shown openly to any signed-in tutor with a
+  Call (tel:) and WhatsApp (wa.me) button and no plan gate; Apply still works
+  through the team account for tutors who prefer it.
+- **Notify the parent (item 3).** `/admin/jobs/[id]` shows the seeded contact to
+  admins with a "Message parent (WhatsApp)" button → `POST /api/admin/jobs/[id]/notify`
+  → `messageSeededParent` builds a wa.me link from the `seeded_tuition_live`
+  template (filling `{name}` and `{tuition_url}`), audit-logs `job.contact_message`
+  and timelines `seeded_contact_messaged` on the team account (the only member in
+  the loop — the seeded parent has no account), and returns the link for the
+  admin to send. The message promises no tutor, no outcome, no timeframe, and no
+  price.
+
+**What a tutor sees, seeded vs ordinary (item 4).** The posting form now records
+who the tuition belongs to via `contact_name`, so a seeded job is no longer
+anonymous under the team account. Side by side:
+
+| | Ordinary parent-posted job | Seeded (admin-posted) job |
+|---|---|---|
+| Poster shown | the parent's first name + avatar + their plan badges, linking to `/parent/[id]` | **"Posted by TutorMint"** navy pill + shield; the "Posted by" card reads "TutorMint", no person's name and no badges |
+| Contact number | hidden — a Featured-plan power; a free/Verified parent's number is never on the page | **shown openly** to any signed-in tutor: the real parent's name + a Call and WhatsApp button, no plan gate |
+| To engage | Apply (quota-checked) or message in-app; hiring needs a Featured parent | contact the parent directly, OR Apply through the team account — both work |
+| The real parent's name | is the account name | is on `job_contacts` (tutor-visible on the page, admin-visible on `/admin/jobs/[id]`), never in the public "Posted by" card, metadata or sitemap |

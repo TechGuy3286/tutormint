@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { tuitionPath } from '@/lib/slugs'
 import { notFound } from 'next/navigation'
-import { ExternalLink, Flag, MapPin, Wallet, Clock, GraduationCap } from 'lucide-react'
+import { ExternalLink, Flag, MapPin, Wallet, Clock, GraduationCap, Phone } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import TimeAgo from '@/components/TimeAgo'
@@ -11,8 +11,10 @@ import { badgesForPlan } from '@/lib/entitlements'
 import { budgetLabel } from '@/lib/feeBands'
 import { applicationStatus, jobStatus, teachingMode } from '@/lib/display'
 import { formatDate } from '@/lib/datetime'
+import { formatPkMobile, normalisePkMobile } from '@/lib/phone'
 
 import JobActions from './JobActions'
+import NotifyContact from './NotifyContact'
 
 // One tuition, as staff.
 //
@@ -106,6 +108,17 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
 
   const canAct = roleSatisfies(actor.adminRole, SCREEN_ACCESS.jobsMutate)
   const hired = (apps ?? []).find((a) => a.tutor_id === job.hired_tutor_id)
+
+  // Seeded-tuition contact (job_contacts): the real parent behind an
+  // admin-posted job. Read here with the same service-role client; this is the
+  // one screen besides the tutor-facing job page that ever sees it.
+  const { data: contactRow } = await admin
+    .from('job_contacts')
+    .select('contact_name, contact_phone')
+    .eq('job_id', job.id)
+    .maybeSingle()
+  const contactName = ((contactRow?.contact_name as string | null) ?? '').trim() || null
+  const contactMsisdn = normalisePkMobile((contactRow?.contact_phone as string | null) ?? null)
 
   return (
     <div className="space-y-4">
@@ -249,6 +262,30 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
           <p className="text-xs text-gray-500">That parent account no longer exists.</p>
         )}
       </section>
+
+      {/* ----------------------------------------- seeded parent contact */}
+      {(contactName || contactMsisdn) && (
+        <section className="space-y-3 rounded-2xl border border-tm-green-deep/30 bg-tm-tint-green p-4 sm:p-5">
+          <h2 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-tm-green-deep">
+            <Phone aria-hidden size={12} />
+            Real parent contact (seeded tuition)
+          </h2>
+          <p className="text-[11px] leading-relaxed text-slate-700">
+            This tuition carries a real parent’s contact, shown openly to signed-in tutors on the
+            job page. It is never shown to another parent, never indexed, and never in the sitemap
+            or structured data.
+          </p>
+          <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            {contactName && (
+              <dd className="font-black text-tm-navy">{contactName}</dd>
+            )}
+            {contactMsisdn && (
+              <dd className="font-mono text-slate-700">{formatPkMobile(contactMsisdn)}</dd>
+            )}
+          </dl>
+          {contactMsisdn && <NotifyContact jobId={job.id as string} />}
+        </section>
+      )}
 
       {/* ----------------------------------------------------- applicants */}
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">

@@ -3,7 +3,7 @@
 import { submitSignal } from '@/lib/submit'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Loader2, Info, ShieldCheck } from 'lucide-react'
+import { Sparkles, Loader2, Info, ShieldCheck, Phone } from 'lucide-react'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import { useToast } from '@/components/ui/Toast'
 import { isLevelLeaf, resolveMasterIds } from '@/lib/taxonomy'
@@ -49,6 +49,8 @@ type V = {
   title: string
   description: string
   origin: string
+  contactName: string
+  contactPhone: string
 }
 
 const EMPTY: V = {
@@ -64,6 +66,8 @@ const EMPTY: V = {
   title: '',
   description: '',
   origin: '',
+  contactName: '',
+  contactPhone: '',
 }
 
 export default function AdminJobForm() {
@@ -155,6 +159,8 @@ export default function AdminJobForm() {
           schedule: v.schedule,
           description: v.description,
           origin: v.origin || null,
+          contactName: v.contactName || null,
+          contactPhone: v.contactPhone || null,
         }),
       })
       const json = (await res.json().catch(() => ({}))) as { id?: string; error?: string }
@@ -337,6 +343,40 @@ export default function AdminJobForm() {
               ))}
             </select>
           </label>
+
+          {/* The real parent's contact (optional). For a seeded tuition whose
+              parent has no account: shown OPENLY to signed-in tutors on the job
+              page so they can reach the parent directly. Never shown to another
+              parent, never indexed, never in the sitemap or structured data. */}
+          <div className="space-y-3 rounded-xl border border-tm-green-deep/25 bg-tm-tint-green p-3">
+            <p className="flex items-start gap-2 text-[11px] leading-relaxed text-slate-700">
+              <Phone size={13} className="mt-px shrink-0 text-tm-green-deep" aria-hidden />
+              <span>
+                <strong>Parent contact (optional).</strong> If you enter these, tutors can contact
+                the parent directly from the job page — no application needed. Shown only to
+                signed-in tutors; never to other parents, and never indexed.
+              </span>
+            </p>
+            <label className="block space-y-1">
+              <span className={LABEL}>Parent name</span>
+              <input
+                value={v.contactName}
+                onChange={(e) => set('contactName', e.target.value)}
+                placeholder="e.g. Mrs. Khan"
+                className={FIELD}
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className={LABEL}>Contact number</span>
+              <input
+                value={v.contactPhone}
+                onChange={(e) => set('contactPhone', e.target.value)}
+                placeholder="0300 1234567"
+                inputMode="tel"
+                className={FIELD}
+              />
+            </label>
+          </div>
         </Step>
       </div>
 

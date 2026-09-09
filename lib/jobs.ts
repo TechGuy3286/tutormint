@@ -28,6 +28,7 @@ import { tuitionPath } from '@/lib/slugs'
 import { deliverEmail } from '@/lib/notify'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { teamParentId } from '@/lib/teamAccount'
+import { normalisePkMobile } from '@/lib/phone'
 import type { AdminRole } from '@/lib/adminAuth'
 
 export type JobInput = {
@@ -56,6 +57,14 @@ export type JobInput = {
   schedule: string | null
   description: string | null
   childId: string | null
+  /**
+   * Team (admin-posted) tuitions only: the REAL parent's name and mobile, for a
+   * seeded job whose parent has no account. Stored in the locked `job_contacts`
+   * table (NOT on the jobs row), shown openly to signed-in tutors, never to a
+   * parent, a crawler, or any public metadata. Ignored on a normal parent post.
+   */
+  contactName?: string | null
+  contactPhone?: string | null
 }
 
 type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate }
@@ -316,6 +325,40 @@ export async function createTeamJob(
     return { ok: false, status: 400, error: linkError.message }
   }
 
+  // The real parent's contact, when the admin supplied one. Stored in the locked
+  // job_contacts table (never on the anon-readable job), normalised so the
+  // tel:/wa.me links are clean. A phone that will not normalise is rejected here
+  // rather than stored as something no link can dial.
+  const contactName = (input.contactName ?? '').trim() || null
+  const rawPhone = (input.contactPhone ?? '').trim()
+  let contactPhone: string | null = null
+  if (rawPhone) {
+    contactPhone = normalisePkMobile(rawPhone)
+    if (!contactPhone) {
+      await admin.from('job_subjects').delete().eq('job_id', job.id)
+      await admin.from('jobs').delete().eq('id', job.id)
+      return {
+        ok: false,
+        status: 400,
+        error: 'Enter a valid Pakistani mobile number for the parent contact, or leave it blank.',
+      }
+    }
+  }
+  const hasContact = !!(contactName || contactPhone)
+  if (hasContact) {
+    const { error: contactError } = await admin.from('job_contacts').insert({
+      job_id: job.id,
+      contact_name: contactName,
+      contact_phone: contactPhone,
+      created_by: actor.id,
+    })
+    if (contactError) {
+      await admin.from('job_subjects').delete().eq('job_id', job.id)
+      await admin.from('jobs').delete().eq('id', job.id)
+      return { ok: false, status: 400, error: contactError.message }
+    }
+  }
+
   // On the team account's own timeline, so a team post appears there like any
   // other posted job — flagged as admin-posted with the origin and acting admin.
   await logActivity({
@@ -335,7 +378,7 @@ export async function createTeamJob(
     action: 'job.post',
     targetType: 'job',
     targetId: job.id as string,
-    detail: { jobTxId, city: input.city, title: input.title.trim(), masterIds: input.masterIds, origin },
+    detail: { jobTxId, city: input.city, title: input.title.trim(), masterIds: input.masterIds, origin, hasContact },
   })
 
   await notifyMatchingTutors(job.id as string, (job.public_slug as string) ?? null, input)

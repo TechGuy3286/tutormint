@@ -33,6 +33,10 @@ const TeamJobBody = z.object({
   schedule: z.string().max(500).nullish(),
   description: z.string().max(5000, 'Keep the description under 5000 characters.').nullish(),
   origin: z.enum(['support', 'referral', 'external']).nullish(),
+  // The real parent's contact for a seeded tuition (optional). Validated and
+  // normalised in createTeamJob; stored in the locked job_contacts table.
+  contactName: z.string().max(120).nullish(),
+  contactPhone: z.string().max(40).nullish(),
 })
 
 function parseInput(body: z.infer<typeof TeamJobBody>): JobInput {
@@ -54,6 +58,8 @@ function parseInput(body: z.infer<typeof TeamJobBody>): JobInput {
     schedule: str(body.schedule),
     description: str(body.description),
     childId: null,
+    contactName: str(body.contactName),
+    contactPhone: str(body.contactPhone),
   }
 }
 

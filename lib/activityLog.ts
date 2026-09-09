@@ -26,6 +26,7 @@ export type ActivityEvent =
   | 'verification_submitted'
   | 'verification_decision_received'
   | 'job_posted'
+  | 'seeded_contact_messaged'
   | 'job_edited'
   | 'job_closed'
   | 'application_submitted'

@@ -191,6 +191,24 @@ const PAIRS: Pair[] = [
   // The homepage hero pill, authorised 2 Sep 2026.
   { fg: 'navy', bg: 'tintGreen', where: 'homepage hero pill' },
 
+  // "Your things" dashboard tiles (components/dashboard/YourThings.tsx). Each
+  // tile is washed in one of five light tints; the number/icon carry that
+  // family's ink and the label is gray-700 over the tint. The mint tone uses
+  // navy ink (its tint is more saturated than the others, and green-deep would
+  // be marginal on it). The five ink-on-tint number pairs; the five gray-700
+  // label pairs.
+  { fg: 'navy', bg: 'tintNavy', where: 'your-things tile value, navy tone' },
+  { fg: 'greenDeep', bg: 'tintGreen', where: 'your-things tile value, green tone' },
+  { fg: 'red', bg: 'tintRed', where: 'your-things tile value, red tone' },
+  { fg: 'goldInk', bg: 'tintGold', where: 'your-things tile value, gold tone' },
+  { fg: 'navy', bg: 'tintMint', where: 'your-things tile value, mint tone' },
+  { fg: 'gray700', bg: 'tintNavy', where: 'your-things tile label, navy tone' },
+  { fg: 'gray700', bg: 'tintGreen', where: 'your-things tile label, green tone' },
+  { fg: 'gray700', bg: 'tintRed', where: 'your-things tile label, red tone' },
+  { fg: 'gray700', bg: 'tintGold', where: 'your-things tile label, gold tone' },
+  { fg: 'gray700', bg: 'tintMint', where: 'your-things tile label, mint tone' },
+  { fg: 'gray700', bg: 'white', where: 'your-things tile note pill' },
+
   // The four initials-avatar pairs (lib/brand.ts AVATAR_TINTS). Named here
   // rather than left to the identical pairs above, because the avatar is the
   // one place a tint carries text at a small size on every list on the site,

@@ -43,6 +43,7 @@ export const BRAND = {
   tintNavy: '#E8EAF5',
   tintGreen: '#EEFBEE',
   tintGold: '#FEF6E6',
+  tintMint: '#D5F5E3',
   bg: '#F8FAFC',
   white: '#FFFFFF',
 } as const
@@ -64,6 +65,7 @@ export const BRAND_TOKENS: Record<keyof typeof BRAND, string> = {
   tintNavy: '--color-tm-tint-navy',
   tintGreen: '--color-tm-tint-green',
   tintGold: '--color-tm-tint-gold',
+  tintMint: '--color-tm-tint-mint',
   bg: '--color-tm-bg',
   white: '',
 }

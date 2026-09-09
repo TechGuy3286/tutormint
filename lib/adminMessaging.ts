@@ -7,6 +7,8 @@ import { logActivity } from '@/lib/activityLog'
 import { deliverEmail } from '@/lib/notify'
 import { normalisePkMobile, isSyntheticEmail } from '@/lib/phone'
 import { whatsappHref } from '@/lib/support'
+import { absoluteUrl } from '@/lib/siteUrl'
+import { citySegment } from '@/lib/slugs'
 import type { AdminRole } from '@/lib/adminAuth'
 
 // The official TutorMint Team ↔ member channel (owner, Sunday 6 Sep).
@@ -305,6 +307,90 @@ export async function sendAdminMessage(params: {
     targetType: 'profile',
     targetId: params.memberId,
     meta: { templateKey: params.templateKey ?? null, channel },
+  })
+
+  return { ok: true, waHref }
+}
+
+// Fallback if the template row is missing (a fresh env before migration 65).
+// No promise of a tutor, an outcome or a timeframe; no price.
+const SEEDED_LIVE_FALLBACK =
+  'Hi {name}, your tuition is now live on TutorMint and verified tutors browsing the site can see it here: {tuition_url}. If you would like to post and manage your own tuitions next time, you can create a free account at tutormint.org.'
+
+/**
+ * WhatsApp a seeded tuition's real parent that their post is live, with a link
+ * to it (owner). The parent has NO account, so this is a WhatsApp-only send to
+ * the number stored in job_contacts — it builds the wa.me link the admin clicks
+ * to deliver it, and records the action in the audit log and on the team
+ * account's timeline (the only member in the loop). It refuses if the job has no
+ * stored contact number. The message never promises a tutor, an outcome or a
+ * timeframe, and mentions no price.
+ */
+export async function messageSeededParent(
+  jobId: string,
+  actor: { id: string; adminRole: AdminRole; email: string | null },
+): Promise<{ ok: true; waHref: string } | { ok: false; status: number; error: string }> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
+  const { data: job } = await admin
+    .from('jobs')
+    .select('id, parent_id, public_slug, city, title')
+    .eq('id', jobId)
+    .maybeSingle()
+  if (!job) return { ok: false, status: 404, error: 'Tuition not found.' }
+
+  const { data: contact } = await admin
+    .from('job_contacts')
+    .select('contact_name, contact_phone')
+    .eq('job_id', jobId)
+    .maybeSingle()
+
+  const msisdn = normalisePkMobile((contact?.contact_phone as string | null) ?? null)
+  if (!msisdn) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'This tuition has no parent contact number on file, so there is no WhatsApp to send to.',
+    }
+  }
+
+  const name = ((contact?.contact_name as string | null) ?? '').trim() || 'there'
+  const tuitionUrl = job.public_slug
+    ? absoluteUrl(`/tuitions/${citySegment(job.city as string | null)}/${job.public_slug as string}`)
+    : absoluteUrl('/browse/tuitions')
+
+  const { data: template } = await admin
+    .from('admin_message_templates')
+    .select('body')
+    .eq('key', 'seeded_tuition_live')
+    .maybeSingle()
+
+  const body = ((template?.body as string | null) ?? SEEDED_LIVE_FALLBACK)
+    .replaceAll('{name}', name)
+    .replaceAll('{tuition_url}', tuitionUrl)
+
+  const waHref = whatsappHref(msisdn, body)
+  if (!waHref) return { ok: false, status: 400, error: 'Could not build the WhatsApp link.' }
+
+  await logAdminAction({
+    actorId: actor.id,
+    actorRole: actor.adminRole,
+    actorEmail: actor.email,
+    action: 'job.contact_message',
+    targetType: 'job',
+    targetId: jobId,
+    detail: { templateKey: 'seeded_tuition_live', channel: 'whatsapp' },
+  })
+
+  // Timeline lands on the team account (the job's owner), the only member in the
+  // loop — the recipient is a seeded parent with no account of their own.
+  await logActivity({
+    userId: job.parent_id as string,
+    event: 'seeded_contact_messaged',
+    targetType: 'job',
+    targetId: jobId,
+    meta: { channel: 'whatsapp', byAdmin: actor.id },
   })
 
   return { ok: true, waHref }

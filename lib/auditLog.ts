@@ -53,6 +53,7 @@ export type AuditAction =
   // Admin posts a tuition on the team-operated parent account (owner, 9 Sep).
   // Audited with the acting admin and, where known, the job's origin.
   | 'job.post'
+  | 'job.contact_message'
   // T9.3 blog CMS. Saves are recorded as post_revisions (a fuller record than
   // one audit line); the consequential state changes are audited here.
   | 'blog.publish'
