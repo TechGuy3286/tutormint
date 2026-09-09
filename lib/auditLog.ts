@@ -25,6 +25,7 @@ export type AuditAction =
   | 'payment.reject'
   | 'settings.update'
   | 'staff.create'
+  | 'staff.invite_resend'
   | 'staff.role_change'
   | 'staff.suspend'
   | 'staff.reactivate'

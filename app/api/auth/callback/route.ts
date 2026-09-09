@@ -15,23 +15,44 @@ import { homeForRole, type Role } from '@/lib/authRoutes'
 // ACTION REQUIRED: update YOUTUBE_REDIRECT_URI and the Authorised redirect URI
 // in the Google Cloud console to the new path before using that flow again.
 
+// The email OTP types verifyOtp accepts on a link. Kept as a small set rather
+// than importing the SDK union, so an unexpected `type` on the URL falls through
+// to the safe error rather than being trusted.
+const OTP_TYPES = ['invite', 'recovery', 'signup', 'magiclink', 'email', 'email_change'] as const
+type LinkOtpType = (typeof OTP_TYPES)[number]
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
   const code = searchParams.get('code')
-  // An EXPLICIT, same-origin next only (password-reset sends one). A signup
-  // confirmation link carries none, so this is null there and the role decides.
+  // A token_hash + type is how an ADMIN-ISSUED link (a staff invite, a recovery
+  // resend) is verified. Those links are generated server-side, so the
+  // recipient's browser holds no PKCE code_verifier and exchangeCodeForSession
+  // cannot work — verifyOtp does, because it verifies the hashed token directly.
+  // A browser-initiated flow (email signup, self-service password reset) carries
+  // a `code` and takes the exchange path below.
+  const tokenHash = searchParams.get('token_hash')
+  const rawType = searchParams.get('type')
+  const otpType = OTP_TYPES.includes(rawType as LinkOtpType) ? (rawType as LinkOtpType) : null
+  // An EXPLICIT, same-origin next only (password-reset and the staff invite send
+  // one). A signup confirmation link carries none, so this is null there and the
+  // role decides.
   const explicitNext = searchParams.get('next')
   const safeExplicit =
     explicitNext && explicitNext.startsWith('/') && !explicitNext.startsWith('//')
       ? explicitNext
       : null
 
-  if (!code) {
+  if (!tokenHash && !code) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`)
   }
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.exchangeCodeForSession(code)
+  const { error } =
+    tokenHash && otpType
+      ? await supabase.auth.verifyOtp({ type: otpType, token_hash: tokenHash })
+      : code
+        ? await supabase.auth.exchangeCodeForSession(code)
+        : { error: { message: 'invalid_link' } as { message: string } }
 
   if (error) {
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)

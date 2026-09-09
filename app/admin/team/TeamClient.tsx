@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, KeyRound, Mail, ShieldAlert, Undo2 } from 'lucide-react'
+import { Copy, KeyRound, Mail, Send, ShieldAlert, Undo2 } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -27,6 +27,9 @@ export type StaffRow = {
   suspended: boolean
   suspensionReason: string | null
   mustChangePassword: boolean
+  /** Has ever signed in (auth.users.last_sign_in_at). A must-change account that
+   *  HAS signed in clicked its link but never finished — a broken invite. */
+  hasSignedIn: boolean
   createdAt: string
   isMe: boolean
 }
@@ -38,6 +41,23 @@ const ROLES = [
   { code: 'support', label: 'Support', blurb: 'Reports, blocks, penalties, members' },
 ] as const
 
+// The invite link's lifetime — Supabase's default. Past it, the original link is
+// dead, so a pending invite older than this is shown as expired (resend it).
+const INVITE_TTL_MS = 24 * 60 * 60 * 1000
+
+// Three states, so an unopened invite is told apart from a stale/broken one.
+// 'accepted' — they set their own password (the flag cleared).
+// 'invited'  — sent, never opened, and the link is still within its lifetime.
+// 'expired'  — needs reissuing: EITHER the link was clicked and consumed but
+//              never completed (they have signed in yet must-change is still
+//              true — a single-use token now spent), OR its lifetime has passed.
+function inviteState(s: StaffRow): 'accepted' | 'invited' | 'expired' {
+  if (!s.mustChangePassword) return 'accepted'
+  if (s.hasSignedIn) return 'expired' // consumed but not completed → link is spent
+  const age = Date.now() - Date.parse(s.createdAt)
+  return Number.isFinite(age) && age > INVITE_TTL_MS ? 'expired' : 'invited'
+}
+
 export default function TeamClient({ staff }: { staff: StaffRow[] }) {
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
@@ -48,6 +68,8 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
     email: string
     invited: boolean
     temporaryPassword: string | null
+    inviteLink: string | null
+    resent?: boolean
   } | null>(null)
   const [suspendingId, setSuspendingId] = useState<string | null>(null)
   const [reason, setReason] = useState('')
@@ -58,14 +80,16 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
     setBusy(id)
     setError(null)
     try {
-      const { ok, data: json } = await adminFetch<{ error?: string; invited?: boolean; temporaryPassword?: string | null }>(
-        '/api/admin/team',
-        {
+      const { ok, data: json } = await adminFetch<{
+        error?: string
+        invited?: boolean
+        temporaryPassword?: string | null
+        inviteLink?: string | null
+      }>('/api/admin/team', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        },
-      )
+      })
       if (!ok) throw new Error(json.error ?? 'That did not work.')
       router.refresh()
       return json
@@ -102,9 +126,23 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
       email: form.email,
       invited: !!json.invited,
       temporaryPassword: json.temporaryPassword ?? null,
+      inviteLink: json.inviteLink ?? null,
     })
     setCreating(false)
     setForm({ fullName: '', email: '', adminRole: 'support' })
+  }
+
+  const resend = async (s: StaffRow) => {
+    const json = await call({ action: 'resend', userId: s.id }, s.id)
+    if (!json) return
+    if (json.invited) toast.success(`A fresh invite is on its way to ${s.email}.`)
+    setNewAccount({
+      email: s.email,
+      invited: !!json.invited,
+      temporaryPassword: null,
+      inviteLink: json.inviteLink ?? null,
+      resent: true,
+    })
   }
 
   return (
@@ -127,13 +165,41 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
         <section className="space-y-2 rounded-2xl border-2 border-tm-green-deep bg-white p-4">
           <p className="flex items-center gap-2 text-sm font-black text-tm-green-deep">
             {newAccount.invited ? <Mail size={16} /> : <KeyRound size={16} />}
-            {newAccount.invited ? 'Invite sent' : 'Account created'}
+            {newAccount.invited
+              ? newAccount.resent
+                ? 'Invite resent'
+                : 'Invite sent'
+              : newAccount.resent
+                ? 'New invite link'
+                : 'Account created'}
           </p>
           {newAccount.invited ? (
             <p className="text-xs leading-relaxed text-slate-700">
-              An invitation email is on its way to <strong>{newAccount.email}</strong>. They set
-              their own password from the link.
+              An invitation email is on its way to <strong>{newAccount.email}</strong>. They click
+              the link, choose a password, and land in the admin panel with their role.
             </p>
+          ) : newAccount.inviteLink ? (
+            <>
+              <p className="text-xs leading-relaxed text-slate-700">
+                The invite email could not be sent, so pass this one-time link to{' '}
+                <strong>{newAccount.email}</strong> yourself. It takes them straight to a
+                choose-your-password screen. It is shown once, is not stored anywhere, and can only
+                be used once.
+              </p>
+              <div className="flex items-center gap-2 rounded-xl bg-tm-bg p-3">
+                <code className="min-w-0 flex-1 break-all font-mono text-[11px] font-bold text-tm-navy">
+                  {newAccount.inviteLink}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(newAccount.inviteLink ?? '')}
+                  aria-label="Copy invite link"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-gray-200"
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+            </>
           ) : (
             <>
               <p className="text-xs leading-relaxed text-slate-700">
@@ -248,7 +314,9 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
 
       {/* -------------------------------------------------------- roster --- */}
       <ul className="space-y-3">
-        {staff.map((s) => (
+        {staff.map((s) => {
+          const state = s.adminRole === 'owner' ? 'accepted' : inviteState(s)
+          return (
           <li
             key={s.id}
             className={`space-y-3 rounded-2xl border bg-white p-4 ${
@@ -264,9 +332,14 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                 <p className="truncate text-[11px] text-gray-500">{s.email}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                {s.mustChangePassword && (
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                    not signed in yet
+                {state === 'invited' && (
+                  <span className="rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
+                    invited
+                  </span>
+                )}
+                {state === 'expired' && (
+                  <span className="rounded-full bg-tm-tint-red px-2 py-0.5 text-[10px] font-bold text-tm-red">
+                    invite expired
                   </span>
                 )}
                 <span
@@ -312,6 +385,22 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                     ))}
                   </select>
                 </label>
+
+                {state !== 'accepted' && (
+                  <button
+                    type="button"
+                    disabled={busy === s.id}
+                    onClick={() => resend(s)}
+                    className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-tm-navy/30 px-4 text-xs font-bold text-tm-navy hover:bg-tm-tint-navy disabled:opacity-40"
+                  >
+                    <Send aria-hidden size={13} />
+                    {busy === s.id
+                      ? 'Sending…'
+                      : state === 'expired'
+                        ? 'Resend invite (the old link expired)'
+                        : 'Resend invite'}
+                  </button>
+                )}
 
                 {suspendingId === s.id ? (
                   <div className="space-y-2">
@@ -373,7 +462,8 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
               </>
             )}
           </li>
-        ))}
+          )
+        })}
       </ul>
     </div>
   )

@@ -31,6 +31,17 @@ export default async function AdminTeamPage() {
     .not('admin_role', 'is', null)
     .order('admin_role')
 
+  // Whether each staff member has EVER signed in — lives on auth.users, not
+  // profiles, and read through the Auth admin API. It is what tells an unopened
+  // invite (never signed in) apart from a BROKEN one (the link was clicked and
+  // consumed, but they never finished setting a password — must_change is still
+  // true). Small staff list, so one page suffices.
+  const signedIn = new Set<string>()
+  const { data: authList } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 })
+  for (const u of authList?.users ?? []) {
+    if (u.last_sign_in_at) signedIn.add(u.id)
+  }
+
   const rows: StaffRow[] = (staff ?? []).map((s) => ({
     id: s.id as string,
     name: (s.full_name as string) ?? '—',
@@ -39,6 +50,7 @@ export default async function AdminTeamPage() {
     suspended: !!s.is_suspended,
     suspensionReason: (s.suspension_reason as string) ?? null,
     mustChangePassword: !!s.must_change_password,
+    hasSignedIn: signedIn.has(s.id as string),
     createdAt: s.created_at as string,
     isMe: (s.id as string) === actor.id,
   }))

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createStaff, changeStaffRole } from '@/lib/staff'
+import { createStaff, changeStaffRole, resendStaffInvite } from '@/lib/staff'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -22,7 +22,7 @@ import { requireFreshAuth } from '@/lib/reauth'
 // recoverable only with a SQL session.
 
 const TeamBody = z.object({
-  action: z.enum(['create', 'role', 'suspend', 'reactivate'], { message: 'Unknown action.' }),
+  action: z.enum(['create', 'role', 'suspend', 'reactivate', 'resend'], { message: 'Unknown action.' }),
   userId: uuid.optional(),
   email: z.string().email('Enter a valid email address.').max(320).optional(),
   fullName: z.string().max(200).optional(),
@@ -66,6 +66,24 @@ export async function POST(request: Request) {
       // Shown to the owner once and never stored. Absent when the invite email
       // went out, because then there is no password to pass on.
       temporaryPassword: result.temporaryPassword ?? null,
+      // The one-time invite link, ONLY when the email could not be sent, so the
+      // owner can pass it on. Absent when the email delivered.
+      inviteLink: result.inviteLink ?? null,
+    })
+  }
+
+  // ------------------------------------------------------------- resend ---
+  if (body.action === 'resend') {
+    const result = await resendStaffInvite({
+      userId: body.userId ?? '',
+      actor,
+      origin: new URL(request.url).origin,
+    })
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+    return NextResponse.json({
+      success: true,
+      invited: result.invited,
+      inviteLink: result.inviteLink ?? null,
     })
   }
 

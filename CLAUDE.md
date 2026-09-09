@@ -3950,3 +3950,71 @@ anonymous under the team account. Side by side:
 | Contact number | hidden — a Featured-plan power; a free/Verified parent's number is never on the page | **shown openly** to any signed-in tutor: the real parent's name + a Call and WhatsApp button, no plan gate |
 | To engage | Apply (quota-checked) or message in-app; hiring needs a Featured parent | contact the parent directly, OR Apply through the team account — both work |
 | The real parent's name | is the account name | is on `job_contacts` (tutor-visible on the page, admin-visible on `/admin/jobs/[id]`), never in the public "Posted by" card, metadata or sitemap |
+
+## Staff invite set-password flow — fixed (9 Sep 2026)
+
+The first real staff invite (a manager) arrived, but the link dropped the person
+on `/login` with no way to set a password. No migration.
+
+**Root cause.** `lib/staff.ts` used `inviteUserByEmail(email, { redirectTo:
+'/login' })`. That did two wrong things: it sent **Supabase's default** invite
+email, and its link consumed the one-time token and redirected to a **bare
+`/login` form** — there was no set-password step wired into the redirect, and
+neither `/api/auth/callback` nor `proxy.ts` inserted one. The only thing that
+ever forced the password change was `must_change_password` being caught by the
+login POST handler, which only fires if the person types credentials — which a
+freshly invited member does not have.
+
+**The fix — the flow now matches the promise:**
+- `createStaff` uses `admin.auth.admin.generateLink({ type: 'invite' })` (creates
+  the user, sends NO email) and sends TutorMint's OWN email (`staff_invite`
+  template, house style, essential) with a link to
+  `/api/auth/callback?token_hash=…&type=invite&next=/account/password?next=/admin`.
+- `/api/auth/callback` gained a `token_hash` + `type` branch that verifies with
+  `supabase.auth.verifyOtp(...)` instead of `exchangeCodeForSession`. This is
+  required for an ADMIN-ISSUED link: it is generated server-side, so the
+  recipient's browser holds no PKCE code_verifier and the code exchange cannot
+  work; verifyOtp verifies the hashed token directly and sets the session. The
+  `code` path (browser-initiated email signup + self-service reset) is unchanged.
+- The link therefore lands the invitee, signed in, on `/account/password` (whose
+  copy is now staff-aware — "Welcome to the TutorMint team … set a password to
+  finish setting up your <role> account"), they choose a password, and go
+  straight to `/admin` with their role. A toast confirms; no silent transition.
+- `welcomed_at` is stamped at staff creation so the confirm callback does not
+  also send the member "welcome" email to an admin.
+
+**Resend (item 4).** `/admin/team` has a Resend invite button per pending/expired
+staff → `resendStaffInvite` mints a FRESH one-time link via `generateLink({ type:
+'recovery' })` (the account exists) and re-sends the house email. Audit action
+`staff.invite_resend`.
+
+**Invite state on /admin/team (item 5).** Replaces the single "not signed in yet"
+badge with three states derived from `must_change_password` + `auth.users.
+last_sign_in_at`: **accepted** (password set, flag cleared), **invited** (sent,
+never opened, link still within its 24h life), **invite expired** (needs
+reissuing — either the link's life passed OR it was clicked and consumed but
+never completed, i.e. signed-in yet must-change still true). This is what tells
+an unopened invite apart from a broken one.
+
+**Email (item 6).** The invite is now the app's own `staff_invite` template
+(TutorMint wordmark, house chrome), not the Supabase default, and it says what to
+expect before the click (one-time link → choose a password → admin panel).
+
+**If the email can't be sent** (no Resend), `createStaff`/`resendStaffInvite`
+return the one-time invite LINK to the owner to pass on — replacing the old
+temp-password fallback with something that still lands on the set-password
+screen. The temp-password path remains only if link generation itself is
+unavailable.
+
+**Rai Mohsin Raza (item 7).** His account exists: `role=admin`,
+`admin_role=manager`, `must_change_password=true`, and `auth.users` shows both
+`email_confirmed_at` and `last_sign_in_at` set — his invite link was **already
+clicked and its single-use token consumed**, but he never reached a set-password
+screen (the old `/login` redirect). So his ORIGINAL link is dead; the code fix
+cannot revive a spent token. He now shows as **"invite expired"** on
+`/admin/team`, and the owner clicks **Resend invite** — that mints a fresh
+recovery link, emails it in the house template, and on click takes him to the
+set-password screen and then `/admin` as manager. The account was NOT deleted.
+
+This supersedes the T7a note that `inviteUserByEmail` is tried first with a
+`/login` redirect and a temp-password fallback.

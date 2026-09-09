@@ -31,6 +31,7 @@ export type TemplateId =
   | 'plan_expired'
   | 'content_digest'
   | 'admin_message'
+  | 'staff_invite'
 
 export type RenderedEmail = {
   subject: string
@@ -144,9 +145,30 @@ export type TemplateInput =
   // An official message from the TutorMint Team, sent by an admin. Essential:
   // the admin chose to send it, and it is account/verification correspondence.
   | { id: 'admin_message'; body: string }
+  // A staff invite / resend. Essential (it is the only way in), and it carries an
+  // ABSOLUTE one-time link, so `link()` leaves it untouched.
+  | { id: 'staff_invite'; name: string; role: string; url: string }
 
 export function render(input: TemplateInput): RenderedEmail {
   switch (input.id) {
+    // ---------------------------------------------------------------------
+    case 'staff_invite': {
+      // Says what to expect BEFORE the click: one link, straight to a
+      // choose-your-password screen, then the admin panel. Essential — it is the
+      // only route in — so it ignores the opt-out.
+      return build(
+        `You have been invited to the TutorMint team`,
+        `You are invited as ${input.role}`,
+        [
+          `Hi ${input.name}, you have been added to the TutorMint team as a ${input.role}.`,
+          'Click the button below to set your own password. The link is one-time and takes you straight to a screen where you choose a password — then you land in the admin panel with your role.',
+          'If you were not expecting this, you can ignore this email and no account is activated.',
+        ],
+        true,
+        { label: 'Set your password', href: input.url },
+      )
+    }
+
     // ---------------------------------------------------------------------
     case 'welcome': {
       const next =
