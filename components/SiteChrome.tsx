@@ -1,8 +1,10 @@
 import Footer from '@/components/Footer'
 import Navbar from '@/components/Navbar'
-import PreviewBanner from '@/components/PreviewBanner'
 
-// The public site's chrome: header, preview strip, main, footer.
+// The public site's chrome: header, main, footer.
+//
+// The "launching soon" preview strip was removed on 9 Sep 2026 — the site
+// presents as live. See "Preview banner removed" in CLAUDE.md.
 //
 // WHY IT IS NOT IN THE ROOT LAYOUT ANY MORE. It was, and each of the three
 // pieces asked `headers().get('x-tm-pathname')` whether it was under /admin and
@@ -18,7 +20,7 @@ import PreviewBanner from '@/components/PreviewBanner'
 // own shell. Navigating between them enters and leaves a layout segment, which
 // is a thing the router does re-render — so the chrome appears and disappears
 // because the tree says so, not because a component guessed from a header.
-// Navbar, Footer and PreviewBanner no longer read the path at all.
+// Navbar and Footer no longer read the path at all.
 //
 // It is also used directly by app/not-found.tsx, which handles URLs that match
 // no route: that file renders inside the ROOT layout, outside every group, so
@@ -27,7 +29,6 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
   return (
     <>
       <Navbar />
-      <PreviewBanner />
       <main className="flex-1">{children}</main>
       <Footer />
     </>

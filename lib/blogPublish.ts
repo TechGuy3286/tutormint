@@ -2,7 +2,6 @@ import 'server-only'
 import { revalidatePath } from 'next/cache'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { PREVIEW_MODE } from '@/lib/preview'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { postPath } from '@/lib/blog'
 
@@ -30,9 +29,8 @@ export function revalidateBlog(slug?: string | null): void {
 }
 
 /**
- * Tell search engines a URL changed — ONLY when preview mode is off, because
- * while the site is noindex we are asking crawlers to stay away, and pinging
- * them would be the opposite signal.
+ * Tell search engines a URL changed. The public pages are indexed (indexing was
+ * decoupled from the old preview flag, which is now gone), so a publish pings.
  *
  * Google retired its sitemap-ping endpoint in 2023; submission is now through
  * Search Console (a dashboard/API step done at launch, T8b). What we can do
@@ -41,7 +39,7 @@ export function revalidateBlog(slug?: string | null): void {
  * an external ping did.
  */
 export async function notifySearchEngines(urls: string[]): Promise<void> {
-  if (PREVIEW_MODE || urls.length === 0) return
+  if (urls.length === 0) return
   const key = process.env.INDEXNOW_KEY
   if (!key) return
 

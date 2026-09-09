@@ -4,10 +4,10 @@ import type { MetadataRoute } from 'next'
 //
 // PUBLIC PAGES ARE CRAWLABLE, INDEXED NOW (owner, 8 Sep 2026). The browse pages,
 // tutor profiles, tuition pages, landing pages, blog and the marketing pages are
-// the platform's entire organic-search surface, and indexing is opened even
-// while the "launching soon" banner is still up — the banner (PreviewBanner) is
-// now decoupled from indexing. See "Index now, banner stays" in CLAUDE.md and
-// lib/preview.ts.
+// the platform's entire organic-search surface. Indexing was decoupled from the
+// old "launching soon" preview flag, and that flag and its banner were removed
+// on 9 Sep 2026 — the site presents as live. See "Index now, banner stays" and
+// "Preview banner removed" in CLAUDE.md.
 //
 // What stays disallowed is everything that is either private, or a crawl trap:
 //

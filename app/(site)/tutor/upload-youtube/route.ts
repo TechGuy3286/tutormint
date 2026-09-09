@@ -101,11 +101,18 @@ export async function POST(req: NextRequest) {
     const { uploadVideoToDrafts } = await import('@/lib/youtube')
     const result = await uploadVideoToDrafts({ filePath: tempFilePath, title, description })
 
-    const videoId =
-      (result as { id?: string; data?: { id?: string } })?.id ??
-      (result as { data?: { id?: string } })?.data?.id ??
-      null
+    // uploadVideoToDrafts returns { success, videoId } (or { success:false,
+    // error }) — it does NOT throw. Read those fields: the previous code looked
+    // for result.id / result.data.id, which this shape never has, so EVERY
+    // successful upload fell through to the 502 below and nothing was recorded.
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error ?? 'Video upload failed at YouTube. Nothing was recorded.', submitted: false },
+        { status: 502 },
+      )
+    }
 
+    const videoId = result.videoId ?? null
     if (!videoId) {
       return NextResponse.json(
         { error: 'YouTube did not return a video id. Nothing was recorded.', submitted: false },

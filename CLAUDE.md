@@ -4018,3 +4018,36 @@ set-password screen and then `/admin` as manager. The account was NOT deleted.
 
 This supersedes the T7a note that `inviteUserByEmail` is tried first with a
 `/login` redirect and a temp-password fallback.
+
+## Preview banner removed — the site presents as live (9 Sep 2026)
+
+**Supersedes "Preview mode — comes OFF before launch (3 Sep 2026)" and the
+preview clause of the T9.1 landing note.** Indexing was already decoupled from
+the flag ("Index now, banner stays", 8 Sep); this removes the "launching soon"
+banner and the flag entirely. No migration.
+
+- `components/PreviewBanner.tsx` and `lib/preview.ts` are **deleted**; the
+  `<PreviewBanner/>` render and import are gone from `components/SiteChrome.tsx`.
+  Nothing on the public site tells visitors it is in preview — it presents as live.
+- **Swept for other preview keys, not just the banner** (the earlier tuition
+  noindex bug came from a stale `PREVIEW_MODE` branch). The ONLY other
+  behavioural use was `lib/blogPublish.ts` `notifySearchEngines()`, gated
+  `if (PREVIEW_MODE || …) return` — it skipped the IndexNow ping "while noindex".
+  The site is indexed now, so the `PREVIEW_MODE` condition is removed (the ping
+  fires; still IndexNow-only, still `INDEXNOW_KEY`-gated, still best-effort). No
+  other code keyed off preview: `app/layout.tsx`, `app/robots.ts`, `app/sitemap.ts`
+  and `lib/seo.ts` were already decoupled and read it nowhere.
+- `NEXT_PUBLIC_PREVIEW_MODE` is no longer read anywhere; removed from
+  `.env.example`. The owner can unset it in Vercel. The `robots.ts` header comment
+  was updated (it referenced the deleted files).
+
+**Video upload return-shape bug fixed (with YOUTUBE_* now set).** With all four
+`YOUTUBE_*` set in Vercel the 503 (`missingEnv`) branch no longer fires — but the
+route then read `result.id ?? result.data?.id` while `uploadVideoToDrafts`
+returns `{ success, videoId }`, so `videoId` was always `null` and EVERY
+successful upload fell through to a 502 "YouTube did not return a video id",
+recording nothing. The route now reads `result.success` / `result.videoId` and
+surfaces the provider's real error on failure. The refresh-token→access-token
+exchange happens in `googleapis` at runtime (implicit on the first API call) and
+can only be confirmed by a real upload on the live site; the config resolution
+and the shape fix are code-verified.
