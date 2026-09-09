@@ -768,8 +768,8 @@ async function notifyMatchingTutors(
     const tutorIds = [...new Set((matches ?? []).map((m) => m.tutor_id as string))]
     if (tutorIds.length === 0) return
 
-    // Job Type aligns both sides (lib/matchChip.ts): a job only matches tutors
-    // whose own Job Type equals the job's. The stored column is teaching_mode.
+    // Job Type aligns both sides (lib/matchChip.ts): a job matches tutors
+    // whose OWN set of Job Types CONTAINS the job's. Stored as job_types[].
     const jobTypeVal = input.teachingMode || 'home'
 
     // tutor_directory, not tutor_profiles: only tutors the platform is actually
@@ -780,7 +780,7 @@ async function notifyMatchingTutors(
       .select('id')
       .in('id', tutorIds)
       .eq('city', input.city)
-      .eq('teaching_mode', jobTypeVal)
+      .contains('job_types', [jobTypeVal])
       .limit(50)
     const sameCityIds = new Set((sameCityRows ?? []).map((r) => r.id as string))
 
@@ -796,7 +796,7 @@ async function notifyMatchingTutors(
         .select('id')
         .in('id', tutorIds)
         .neq('city', input.city) // null-city tutors are excluded by <> ; correct — we cannot claim a city match we cannot see
-        .eq('teaching_mode', 'online')
+        .contains('job_types', ['online'])
         .limit(30)
       crossCityIds = (crossRows ?? [])
         .map((r) => r.id as string)

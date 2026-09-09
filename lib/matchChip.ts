@@ -26,25 +26,28 @@ export function isOnlineType(jobType: string | null | undefined): boolean {
 /**
  * How a tuition relates to a tutor.
  *
- *  - exclude   : the Job Types differ (a home job is not for an online tutor),
- *                OR a home/school job in a different city.
- *  - online    : same (online) Job Type, different city → matched, show the chip
- *                that explains the distance.
- *  - same_city : same Job Type and same city, or either city unknown (we cannot
- *                claim a mismatch we cannot see, so it is included with no chip).
+ * A tutor now offers a SET of Job Types (owner, 10 Sep 2026), so the alignment
+ * is CONTAINMENT: the job matches when the tutor's set includes the job's type.
  *
- * A null tutorType is treated as "no constraint" rather than excluding
- * everything — a tutor mid-setup with no Job Type yet still sees matches.
+ *  - exclude   : the tutor does not offer this Job Type, OR a home/school job in
+ *                a different city.
+ *  - online    : the tutor offers online and the (online) job is in a different
+ *                city → matched, show the chip that explains the distance.
+ *  - same_city : offered and same city, or either city unknown (we cannot claim
+ *                a mismatch we cannot see, so it is included with no chip).
+ *
+ * Empty/undefined tutorTypes is "no constraint" rather than excluding everything
+ * — a tutor mid-setup with no Job Type yet still sees matches.
  */
 export function matchVisibility(
   jobType: string | null | undefined,
   jobCity: string | null | undefined,
-  tutorType: string | null | undefined,
+  tutorTypes: readonly string[] | null | undefined,
   tutorCity: string | null | undefined,
 ): MatchVisibility {
   const jt = norm(jobType)
-  const tt = norm(tutorType)
-  if (tt && jt && tt !== jt) return 'exclude'
+  const tt = (tutorTypes ?? []).map(norm).filter(Boolean)
+  if (tt.length > 0 && jt && !tt.includes(jt)) return 'exclude'
 
   const jc = norm(jobCity)
   const tc = norm(tutorCity)
@@ -55,14 +58,14 @@ export function matchVisibility(
 
 /**
  * The chip predicate for surfaces that show every job regardless (the browse
- * board): the chip appears when a signed-in online tutor is viewing a
+ * board): the chip appears when a signed-in tutor who offers online is viewing a
  * cross-city online job they could still take. It never HIDES a job.
  */
 export function showsOnlineChip(
   jobType: string | null | undefined,
   jobCity: string | null | undefined,
-  tutorType: string | null | undefined,
+  tutorTypes: readonly string[] | null | undefined,
   tutorCity: string | null | undefined,
 ): boolean {
-  return matchVisibility(jobType, jobCity, tutorType, tutorCity) === 'online'
+  return matchVisibility(jobType, jobCity, tutorTypes, tutorCity) === 'online'
 }

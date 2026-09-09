@@ -275,7 +275,7 @@ export type WeekJob = {
 export async function jobsThisWeek(
   userId: string,
   city: string | null,
-  jobType: string | null = null,
+  jobTypes: readonly string[] | null = null,
 ): Promise<WeekJob[]> {
   const db = createAdminClient() ?? (await createClient())
 
@@ -309,7 +309,7 @@ export async function jobsThisWeek(
   }[]
   // Drop in-person jobs in another city — not a match — then take the strip's 5.
   const rows = allRows
-    .filter((r) => matchVisibility(r.teaching_mode, r.city, jobType, city) !== 'exclude')
+    .filter((r) => matchVisibility(r.teaching_mode, r.city, jobTypes, city) !== 'exclude')
     .slice(0, 5)
   if (rows.length === 0) return []
 
@@ -360,7 +360,7 @@ export async function jobsThisWeek(
   return rows.map((r) => {
     const masterId = sharedMasterByJob.get(r.id)
     const subject = masterId !== undefined ? labelByMaster.get(masterId) : null
-    const visibility = matchVisibility(r.teaching_mode, r.city, jobType, city)
+    const visibility = matchVisibility(r.teaching_mode, r.city, jobTypes, city)
     const onlineSuitable = visibility === 'online'
     const where = visibility === 'same_city' ? (city ? 'same city' : null) : 'online possible'
     const matchReason = subject

@@ -65,7 +65,7 @@ export default async function TutorDashboardPage() {
   const [{ data: tutorProfile }, completion, ent] = await Promise.all([
     supabase
       .from('tutor_profiles')
-      .select('slug, city, area, teaching_mode, verification_status, video_status, video_attempts')
+      .select('slug, city, area, teaching_mode, job_types, verification_status, video_status, video_attempts')
       .eq('id', userId)
       .maybeSingle(),
     computeCompletion(userId),
@@ -140,7 +140,7 @@ export default async function TutorDashboardPage() {
   // tutor already has what these surfaces argue for, and showing somebody a
   // pitch for what they have bought is noise.
   const [position, weekJobs] = free
-    ? await Promise.all([tutorPosition(userId), jobsThisWeek(userId, tutorProfile?.city ?? null, tutorProfile?.teaching_mode ?? null)])
+    ? await Promise.all([tutorPosition(userId), jobsThisWeek(userId, tutorProfile?.city ?? null, (tutorProfile?.job_types as string[] | null) ?? null)])
     : [null, []]
 
   const liveApps = (apps ?? []).filter((a) => !a.withdrawn_at)

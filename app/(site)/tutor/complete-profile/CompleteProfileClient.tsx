@@ -61,6 +61,7 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
     full_name: '', gender: '', city: '', area: '',
     avatar_url: '', headline: '', bio: '',
     experience_years: '', hourly_rate_pkr: '', teaching_mode: '',
+    job_types: [] as string[],
     cnic_number: '', degreesText: '',
   })
 
@@ -104,7 +105,7 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
 
     const [{ data: p }, { data: tp }, { data: ts }, { data: dl }] = await Promise.all([
       supabase.from('profiles').select('full_name, city, cnic_number, cnic_image_path, phone_number, phone_verified_at, profile_completion').eq('id', user.id).maybeSingle(),
-      supabase.from('tutor_profiles').select('gender, area, avatar_url, headline, bio, experience_years, hourly_rate_pkr, teaching_mode, degrees, video_youtube_id, video_status, video_attempts').eq('id', user.id).maybeSingle(),
+      supabase.from('tutor_profiles').select('gender, area, avatar_url, headline, bio, experience_years, hourly_rate_pkr, teaching_mode, job_types, degrees, video_youtube_id, video_status, video_attempts').eq('id', user.id).maybeSingle(),
       supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
       supabase.from('user_documents').select('id, kind, label').eq('user_id', user.id).order('created_at', { ascending: false }),
     ])
@@ -120,6 +121,7 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
       experience_years: tp?.experience_years != null ? String(tp.experience_years) : '',
       hourly_rate_pkr: tp?.hourly_rate_pkr != null ? String(tp.hourly_rate_pkr) : '',
       teaching_mode: tp?.teaching_mode ?? '',
+      job_types: ((tp?.job_types as string[] | null) ?? (tp?.teaching_mode ? [tp.teaching_mode as string] : [])),
       cnic_number: p?.cnic_number ?? '',
       degreesText: (tp?.degrees ?? []).join('\n'),
     })
@@ -157,7 +159,8 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
           headline: form.headline, bio: form.bio,
           experience_years: Number(form.experience_years) || null,
           hourly_rate_pkr: Number(form.hourly_rate_pkr) || null,
-          teaching_mode: form.teaching_mode,
+          teaching_mode: form.job_types[0] ?? null,
+          job_types: form.job_types,
           degrees: form.degreesText.split('\n').map((s) => s.trim()).filter(Boolean),
           video_status: videoStatus,
         },
@@ -192,7 +195,7 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
       ok = await saveStep({ subjectMasterIds: ids })
       if (ok) setSavedSubjectLabels(await labelsForMasterIds(ids))
     }
-    if (step === 4) ok = await saveStep({ tutorProfile: { experience_years: Number(form.experience_years) || null, hourly_rate_pkr: Number(form.hourly_rate_pkr) || null, teaching_mode: form.teaching_mode } })
+    if (step === 4) ok = await saveStep({ tutorProfile: { experience_years: Number(form.experience_years) || null, hourly_rate_pkr: Number(form.hourly_rate_pkr) || null, teaching_mode: form.job_types[0] ?? null, job_types: form.job_types } })
     if (step === 5) ok = await saveStep({ profile: { cnic_number: form.cnic_number }, tutorProfile: { degrees: form.degreesText.split('\n').map((s) => s.trim()).filter(Boolean) } })
     if (ok && step < STEPS.length) setStep((s) => s + 1)
   }
@@ -368,15 +371,42 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
               <Field id="experience_years" label="Years of experience" type="number" value={form.experience_years} onChange={(v) => set('experience_years', v)} />
               <Field id="hourly_rate_pkr" label="Expected monthly fee (PKR)" type="number" value={form.hourly_rate_pkr} onChange={(v) => set('hourly_rate_pkr', v)} />
               <div className="space-y-1" id="teaching_mode">
-                <label htmlFor="mode-select" className="text-xs font-bold text-tm-navy">Job Type</label>
-                <select id="mode-select" value={form.teaching_mode} onChange={(e) => set('teaching_mode', e.target.value)} className={inputCls}>
-                  <option value="">Select…</option>
-                  {/* Canonical values, labelled through lib/display so the
-                      words here cannot drift from the words on a card. */}
-                  {JOB_TYPES.map((m) => (
-                    <option key={m} value={m}>{jobType(m)}</option>
-                  ))}
-                </select>
+                <label className="text-xs font-bold text-tm-navy">Job Type</label>
+                <p className="text-[11px] text-gray-500">
+                  Any combination — one, two or all three. Choose at least one.
+                </p>
+                {/* Multiple choice — a tutor can offer any combination. Labelled
+                    through lib/display so the words cannot drift from a card. */}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {JOB_TYPES.map((m) => {
+                    const on = form.job_types.includes(m)
+                    return (
+                      <label
+                        key={m}
+                        className={`flex min-h-[44px] cursor-pointer items-center gap-3 rounded-xl border p-3 text-xs font-bold transition-colors ${
+                          on
+                            ? 'border-tm-green-deep/30 bg-tm-tint-green text-tm-green-deep'
+                            : 'border-gray-200 bg-tm-bg text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          onChange={() =>
+                            setForm((f) => ({
+                              ...f,
+                              job_types: on
+                                ? f.job_types.filter((x) => x !== m)
+                                : [...f.job_types, m],
+                            }))
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-tm-green-deep focus:ring-tm-green-deep"
+                        />
+                        <span>{jobType(m)}</span>
+                      </label>
+                    )
+                  })}
+                </div>
               </div>
             </>
           )}

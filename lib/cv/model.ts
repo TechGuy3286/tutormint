@@ -13,7 +13,7 @@
 //     a CNIC or a selfie can never reach a CV.
 
 import { isOurStorageUrl } from '@/lib/avatarUrl'
-import { levelLabel, jobType } from '@/lib/display'
+import { levelLabel, jobType, jobTypesLabel } from '@/lib/display'
 
 export type CvSubjectGroup = { level: string; subjects: string[] }
 
@@ -30,7 +30,10 @@ export type CvRaw = {
   subjectGroups: CvSubjectGroup[]
   degrees: string[]
   experienceYears: number | null
+  /** Legacy single Job Type (primary), kept as a fallback. */
   teachingMode: string | null
+  /** The tutor's full set of Job Types — what the CV actually shows. */
+  jobTypes: string[] | null
   languages: string[]
   phone: string | null
   whatsapp: string | null
@@ -116,7 +119,7 @@ export function toCvModel(raw: CvRaw, opts: CvOptions): CvModel {
     degrees,
     experienceYears: raw.experienceYears && raw.experienceYears > 0 ? raw.experienceYears : null,
     location,
-    teachingMode: jobType(raw.teachingMode),
+    teachingMode: jobTypesLabel(raw.jobTypes) ?? jobType(raw.teachingMode),
     languages,
     contact,
     profileUrl: raw.profileUrl,

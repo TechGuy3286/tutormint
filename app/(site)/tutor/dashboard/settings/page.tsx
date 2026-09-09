@@ -49,7 +49,7 @@ export default function TutorSettingsPage() {
     whatsapp_number: "",
     city: "",
     areaName: "",
-    teachingMode: '' as string,
+    jobTypes: [] as string[],
     profileImage: "",
     videoIntroUrl: ""
   });
@@ -135,7 +135,9 @@ export default function TutorSettingsPage() {
           whatsapp_number: data.whatsapp_number || "",
           city: data.city || "",
           areaName: data.area || "",
-          teachingMode: parseMode(data.teaching_mode) ?? '',
+          jobTypes: ((data.job_types as string[] | null) ?? []).length > 0
+            ? (data.job_types as string[])
+            : (parseMode(data.teaching_mode) ? [parseMode(data.teaching_mode)!] : []),
           profileImage: data.avatar_url || formData.profileImage,
           videoIntroUrl: data.video_intro_url || ""
         });
@@ -366,7 +368,8 @@ export default function TutorSettingsPage() {
         area: formData.areaName,
         // One Job Type value (home | online | school), or null when unset. The
         // radio group below is single-choice, so there is no list to reduce.
-        teaching_mode: formData.teachingMode || null,
+        teaching_mode: formData.jobTypes[0] ?? null,
+        job_types: formData.jobTypes,
         specialty_subjects: combinedSubjectsString,
         specialty_list: specialtyList,
         availability_list: availabilityList,
@@ -556,13 +559,13 @@ export default function TutorSettingsPage() {
           <div className="space-y-2">
             <p className="text-xs font-bold text-tm-navy">Job Type</p>
             <p className="text-[11px] text-gray-500">
-              The one kind of work you want. A tutor set to School Job is shown school
+              Any combination — one, two or all three. A tutor who offers School Job is shown school
               tuitions; the others are shown home or online tuitions.
             </p>
-            {/* Single choice — the three Job Types are mutually exclusive. */}
+            {/* Multiple choice — a tutor can offer any combination. */}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {JOB_TYPES.map((mode) => {
-                const isChecked = formData.teachingMode === mode;
+                const isChecked = formData.jobTypes.includes(mode);
                 return (
                   <label
                     key={mode}
@@ -573,11 +576,17 @@ export default function TutorSettingsPage() {
                     }`}
                   >
                     <input
-                      type="radio"
-                      name="teachingMode"
+                      type="checkbox"
                       checked={isChecked}
-                      onChange={() => setFormData({ ...formData, teachingMode: mode })}
-                      className="h-4 w-4 border-gray-300 text-tm-green-deep focus:ring-tm-green-deep"
+                      onChange={() =>
+                        setFormData({
+                          ...formData,
+                          jobTypes: isChecked
+                            ? formData.jobTypes.filter((m) => m !== mode)
+                            : [...formData.jobTypes, mode],
+                        })
+                      }
+                      className="h-4 w-4 rounded border-gray-300 text-tm-green-deep focus:ring-tm-green-deep"
                     />
                     <span>{jobType(mode)}</span>
                   </label>

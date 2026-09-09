@@ -7,9 +7,8 @@ import { useToast } from '@/components/ui/Toast'
 import { useState } from 'react'
 import Link from 'next/link'
 import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, Mail, Star, Eye } from 'lucide-react'
-import JobTypeChip from '@/components/JobTypeChip'
+import JobTypesChip from '@/components/JobTypesChip'
 import CardActions, { type CardAction } from '@/components/CardActions'
-import { jobType } from '@/lib/display'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
@@ -42,6 +41,7 @@ export type TutorCardData = {
   city: string | null
   area: string | null
   teaching_mode: string | null
+  job_types: string[] | null
   hourly_rate_pkr: number | null
   experience_years: number | null
   rating_avg: number | string | null
@@ -334,9 +334,7 @@ export default function TutorCard({
             {/* Teaching mode, made prominent. It was only ever the Area line's
                 fallback below, so a tutor with an area never showed it at all;
                 now it is its own chip, always visible when set. */}
-            {jobType(tutor.teaching_mode) && (
-              <JobTypeChip mode={tutor.teaching_mode} />
-            )}
+            <JobTypesChip types={tutor.job_types} />
 
             <div className="space-y-1.5 pt-0.5">
               {/* Every mention of a thing links to the thing: each subject to

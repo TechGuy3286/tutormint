@@ -237,7 +237,7 @@ export async function tutorCardBySlug(slug: string): Promise<TutorCardData | nul
   const { data } = await supabase
     .from('tutor_directory')
     .select(
-      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, hourly_rate_pkr, experience_years, rating_avg, rating_count',
+      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, job_types, hourly_rate_pkr, experience_years, rating_avg, rating_count',
     )
     .eq('slug', slug)
     .maybeSingle()
@@ -297,7 +297,7 @@ export async function tutorCardsByIds(ids: string[]): Promise<TutorCardData[]> {
   const { data } = await supabase
     .from('tutor_directory')
     .select(
-      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, hourly_rate_pkr, experience_years, rating_avg, rating_count',
+      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, job_types, hourly_rate_pkr, experience_years, rating_avg, rating_count',
     )
     .in('id', ids)
   const rows = (data ?? []) as Record<string, unknown>[]

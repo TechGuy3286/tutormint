@@ -25,7 +25,7 @@ type Body = {
 const PROFILE_FIELDS = new Set(['full_name', 'city', 'province', 'address', 'cnic_number', 'whatsapp'])
 const TUTOR_FIELDS = new Set([
   'gender', 'area', 'avatar_url', 'headline', 'bio',
-  'experience_years', 'hourly_rate_pkr', 'teaching_mode', 'online_platforms', 'degrees',
+  'experience_years', 'hourly_rate_pkr', 'teaching_mode', 'job_types', 'online_platforms', 'degrees',
 ])
 
 function pick(src: Record<string, unknown> | undefined, allowed: Set<string>) {

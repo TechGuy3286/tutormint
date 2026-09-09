@@ -63,7 +63,7 @@ export async function buildCvRaw(userId: string): Promise<CvRaw> {
       .maybeSingle(),
     supabase
       .from('tutor_profiles')
-      .select('slug, headline, bio, area, experience_years, teaching_mode, degrees, phone_number, whatsapp_number')
+      .select('slug, headline, bio, area, experience_years, teaching_mode, job_types, degrees, phone_number, whatsapp_number')
       .eq('id', userId)
       .maybeSingle(),
     supabase.from('tutor_subjects').select('master_id').eq('tutor_id', userId),
@@ -85,6 +85,7 @@ export async function buildCvRaw(userId: string): Promise<CvRaw> {
     degrees: ((tp?.degrees as string[] | null) ?? []).filter(Boolean),
     experienceYears: (tp?.experience_years as number | null) ?? null,
     teachingMode: (tp?.teaching_mode as string | null) ?? null,
+    jobTypes: (tp?.job_types as string[] | null) ?? null,
     languages: [], // No languages column on the profile; omitted from the CV.
     phone: (profile?.phone_number as string | null) || (tp?.phone_number as string | null) || null,
     whatsapp: (profile?.whatsapp as string | null) || (tp?.whatsapp_number as string | null) || null,

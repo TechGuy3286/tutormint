@@ -65,6 +65,20 @@ export function jobType(raw: string | null | undefined): string | null {
 }
 
 /**
+ * A tutor's SET of Job Types, as one clean line (owner, 10 Sep 2026).
+ *
+ * A tutor may offer any combination of the three. One type reads as its full
+ * label ("Home Tuition"); several join with " · " so a tutor offering all three
+ * reads cleanly rather than as a cramped list. Total, and tolerant of the
+ * retired single values via jobType().
+ */
+export function jobTypesLabel(types: readonly string[] | null | undefined): string | null {
+  const list = (types ?? []).map((t) => jobType(t)).filter(Boolean) as string[]
+  if (list.length === 0) return null
+  return list.join(' · ')
+}
+
+/**
  * A demo request's location — a different concept from Job Type. A demo happens
  * once, in one place: in person or online. `demo_requests.mode` still holds
  * 'in_person' | 'online', untouched by the Job Type change.

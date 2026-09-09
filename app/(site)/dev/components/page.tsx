@@ -31,6 +31,7 @@ const base: Omit<TutorCardData, 'id' | 'full_name' | 'plan_code' | 'slug'> = {
   city: 'Lahore',
   area: 'DHA Phase 5',
   teaching_mode: 'home',
+  job_types: ['home', 'online'],
   hourly_rate_pkr: 25000,
   experience_years: 8,
   rating_avg: 4.8,

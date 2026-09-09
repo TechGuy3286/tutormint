@@ -49,6 +49,7 @@ function raw(over: Partial<CvRaw> = {}): CvRaw {
     degrees: ['BSc Physics — LUMS'],
     experienceYears: 5,
     teachingMode: 'both',
+    jobTypes: ['home'],
     languages: [],
     phone: '03001234567',
     whatsapp: '03001234567',

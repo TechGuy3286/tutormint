@@ -195,7 +195,7 @@ export async function loadTutorQueue({
     let q = admin
       .from('tutor_profiles')
       .select(
-        'id, full_name, email, headline, city, area, avatar_url, gender, bio, experience_years, hourly_rate_pkr, teaching_mode, video_youtube_id, video_status, video_visibility, video_attempts, verification_status, rating_avg, rating_count, degrees, created_at',
+        'id, full_name, email, headline, city, area, avatar_url, gender, bio, experience_years, hourly_rate_pkr, teaching_mode, job_types, video_youtube_id, video_status, video_visibility, video_attempts, verification_status, rating_avg, rating_count, degrees, created_at',
         { count: 'exact' },
       )
     if (filter === 'pending') q = q.eq('video_status', 'uploaded')
@@ -262,6 +262,7 @@ export async function loadTutorQueue({
         experience_years: (t.experience_years as number) ?? null,
         hourly_rate_pkr: (t.hourly_rate_pkr as number) ?? null,
         teaching_mode: (t.teaching_mode as string) ?? null,
+        job_types: (t.job_types as string[] | null) ?? null,
         degrees: ((t.degrees as string[]) ?? []) as string[],
         video_youtube_id: (t.video_youtube_id as string) ?? null,
         video_status: (t.video_status as string) ?? null,

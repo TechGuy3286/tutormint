@@ -40,7 +40,7 @@ export async function computeCompletion(userId: string): Promise<Completion | nu
     const { data: tutorProfile } = await supabase
       .from('tutor_profiles')
       .select(
-        'gender, area, avatar_url, headline, bio, experience_years, hourly_rate_pkr, teaching_mode, degrees, video_youtube_id, video_status',
+        'gender, area, avatar_url, headline, bio, experience_years, hourly_rate_pkr, teaching_mode, job_types, degrees, video_youtube_id, video_status',
       )
       .eq('id', userId)
       .maybeSingle()

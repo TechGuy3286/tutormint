@@ -7,7 +7,7 @@ import StatusChip from '@/components/admin/StatusChip'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatDate } from '@/lib/datetime'
-import { jobType, verificationStatus } from '@/lib/display'
+import { jobType, jobTypesLabel, verificationStatus } from '@/lib/display'
 import SlugField from './SlugField'
 
 // One tutor, as staff.
@@ -41,7 +41,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
     admin
       .from('tutor_profiles')
       .select(
-        'id, slug, full_name, headline, city, area, teaching_mode, verification_status, video_status, rating_avg, rating_count, imported, claimed_at, created_at',
+        'id, slug, full_name, headline, city, area, teaching_mode, job_types, verification_status, video_status, rating_avg, rating_count, imported, claimed_at, created_at',
       )
       .eq('id', id)
       .maybeSingle(),
@@ -107,8 +107,8 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
           </div>
           <p className="text-[11px] text-gray-500">
             {[tutor.area, tutor.city].filter(Boolean).join(', ') || 'No location set'}
-            {jobType(tutor.teaching_mode as string)
-              ? ` · ${jobType(tutor.teaching_mode as string)}`
+            {jobTypesLabel(tutor.job_types as string[] | null)
+              ? ` · ${jobTypesLabel(tutor.job_types as string[] | null)}`
               : ''}
             {' · '}
             Joined {formatDate(tutor.created_at as string)}

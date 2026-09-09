@@ -17,8 +17,8 @@ import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import ReportButton from '@/components/ReportButton'
 import ProfileActions from './ProfileActions'
 import { formatDate } from '@/lib/datetime'
-import { levelLabel, jobType } from '@/lib/display'
-import JobTypeChip from '@/components/JobTypeChip'
+import { levelLabel } from '@/lib/display'
+import JobTypesChip from '@/components/JobTypesChip'
 import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorJsonLd } from '@/lib/seo'
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
@@ -49,6 +49,7 @@ type PublicTutor = {
   city: string | null
   area: string | null
   teaching_mode: string | null
+  job_types: string[] | null
   online_platforms: string[] | null
   gender: string | null
   hourly_rate_pkr: number | null
@@ -517,9 +518,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               {/* Teaching mode, made prominent — it was a "· In person or
                   online" tail on the city line below, easy to miss. Now its own
                   chip, the same one the cards use. */}
-              {jobType(tutor.teaching_mode) && (
-                <JobTypeChip mode={tutor.teaching_mode} className="mt-0.5" />
-              )}
+              <JobTypesChip types={tutor.job_types} className="mt-0.5" />
 
               <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-2">
                 <p className="flex items-center gap-2 text-xs">

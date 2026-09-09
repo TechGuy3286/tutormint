@@ -80,7 +80,7 @@ export default function JobCard({
   showApply = false,
   applied = false,
   viewerCity = null,
-  viewerJobType = null,
+  viewerJobTypes = null,
   saveable = false,
   initiallySaved = false,
   onSavedChange,
@@ -98,9 +98,9 @@ export default function JobCard({
    * Null for guests and parents — no chip, the board still shows every job.
    */
   viewerCity?: string | null
-  /** The viewing tutor's own Job Type — used with viewerCity to decide the
+  /** The viewing tutor's own Job Types — used with viewerCity to decide the
    *  "Suitable for online" chip. Null for guests and parents. */
-  viewerJobType?: string | null
+  viewerJobTypes?: readonly string[] | null
   /** A signed-in tutor may save (heart) the tuition. Free, no plan. */
   saveable?: boolean
   /** This tutor has already saved it. */
@@ -308,7 +308,7 @@ export default function JobCard({
             {jobType(job.teaching_mode) && (
               <p className="flex flex-wrap items-center gap-2 text-xs text-slate-700">
                 <JobTypeChip mode={job.teaching_mode} />
-                {showsOnlineChip(job.teaching_mode, job.city, viewerJobType, viewerCity) && (
+                {showsOnlineChip(job.teaching_mode, job.city, viewerJobTypes, viewerCity) && (
                   <OnlineSuitableChip />
                 )}
               </p>

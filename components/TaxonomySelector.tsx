@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Layers, GraduationCap, X } from 'lucide-react'
 import { fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
 import Select from '@/components/forms/Select'
@@ -30,6 +30,30 @@ export default function TaxonomySelector({
   const [loading, setLoading] = useState<boolean>(true);
 
   const [subjectSearch, setSubjectSearch] = useState<string>("");
+
+  // Once the person leaves the subjects section for the next one (the city
+  // field, below this component), the grid collapses to its red-chip summary and
+  // reopens on a click — the same shape level and grade already have.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [subjectsCollapsed, setSubjectsCollapsed] = useState<boolean>(false);
+
+  // The trigger is FOCUS LEAVING the selector, not a raw blur. relatedTarget is
+  // where focus went: null when someone clicks a scrollbar or empty space (do
+  // nothing), inside this component when they tab between its own controls (do
+  // nothing), and an element OUTSIDE it when they move on to the next field
+  // (collapse). Only collapse when there is a selection to summarise.
+  const handleRootBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    const next = e.relatedTarget as Node | null;
+    if (next && rootRef.current && !rootRef.current.contains(next) && selectedSubjects.length > 0) {
+      setSubjectsCollapsed(true);
+    }
+  };
+
+  // Whenever the selection empties — the grade changed, or the last chip was
+  // removed — reopen the grid. A collapsed grid with no chips is a dead end.
+  useEffect(() => {
+    if (selectedSubjects.length === 0) setSubjectsCollapsed(false);
+  }, [selectedSubjects.length]);
 
   useEffect(() => {
     async function loadTree() {
@@ -71,7 +95,7 @@ export default function TaxonomySelector({
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={rootRef} onBlur={handleRootBlur} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
         {/* Level — a custom select matching the "Where, how and when" fields. */}
@@ -122,8 +146,17 @@ export default function TaxonomySelector({
       <div className="space-y-2">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
           <label className="text-xs font-bold text-tm-navy block">Subjects</label>
+          {subjectsCollapsed ? (
+            <button
+              type="button"
+              onClick={() => setSubjectsCollapsed(false)}
+              className="inline-flex min-h-[44px] items-center text-[11px] font-extrabold text-tm-red hover:underline cursor-pointer"
+            >
+              Change
+            </button>
+          ) : (
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <input 
+            <input
               type="text"
               placeholder="Search subjects..."
               value={subjectSearch}
@@ -146,6 +179,7 @@ export default function TaxonomySelector({
               </button>
             )}
           </div>
+          )}
         </div>
 
         {/* Selected-subject chips, in brand red so they stand out above the
@@ -177,11 +211,12 @@ export default function TaxonomySelector({
           </div>
         )}
 
-        {/* Never silently empty. A blank bordered box is indistinguishable
-            from a broken one, and it is what this control did for every
-            parent whose grade had gone out of sync -- see the effect above.
-            Each empty case says which one it is and what to do next. */}
-        {filteredSubjects.length === 0 ? (
+        {/* The grid is hidden once collapsed — the red chips above are the
+            summary, and Change reopens it. Never silently empty otherwise: a
+            blank bordered box is indistinguishable from a broken one, so each
+            empty case says which one it is and what to do next. */}
+        {!subjectsCollapsed &&
+          (filteredSubjects.length === 0 ? (
           <p className="rounded-xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-gray-500">
             {availableSubjects.length === 0
               ? selectedGrade
@@ -211,7 +246,7 @@ export default function TaxonomySelector({
             </label>
           ))}
         </div>
-        )}
+        ))}
       </div>
       )}
     </div>

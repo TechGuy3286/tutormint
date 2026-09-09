@@ -63,6 +63,7 @@ export type TutorCompletionInput = {
     experience_years?: number | null
     hourly_rate_pkr?: number | null
     teaching_mode?: string | null
+    job_types?: string[] | null
     degrees?: string[] | null
     video_youtube_id?: string | null
     video_status?: string | null
@@ -103,7 +104,7 @@ export function calculateTutorCompletion(input: TutorCompletionInput): Completio
     { key: 'subjects', label: 'At least one subject', done: (input.subjectCount ?? 0) > 0, step: 3, anchor: 'subjects' },
     { key: 'experience', label: 'Years of experience', done: has(t.experience_years), step: 4, anchor: 'experience_years' },
     { key: 'fee', label: 'Expected fee', done: has(t.hourly_rate_pkr), step: 4, anchor: 'hourly_rate_pkr' },
-    { key: 'mode', label: 'Teaching mode', done: has(t.teaching_mode), step: 4, anchor: 'teaching_mode' },
+    { key: 'mode', label: 'Job Type', done: (t.job_types?.length ?? 0) > 0, step: 4, anchor: 'teaching_mode' },
     {
       key: 'degrees',
       label: 'Degrees listed with a certificate image',

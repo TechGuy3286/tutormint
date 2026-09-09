@@ -19,7 +19,7 @@ export default function MoreJobs({
   showApply,
   adEvery,
   viewerCity = null,
-  viewerJobType = null,
+  viewerJobTypes = null,
   saveable = false,
   savedIds = [],
 }: {
@@ -31,7 +31,7 @@ export default function MoreJobs({
   showApply: boolean
   adEvery: number
   viewerCity?: string | null
-  viewerJobType?: string | null
+  viewerJobTypes?: readonly string[] | null
   saveable?: boolean
   savedIds?: string[]
 }) {
@@ -58,7 +58,7 @@ export default function MoreJobs({
             const position = serverCount + i + 1
             return (
               <div key={j.id} className="space-y-4">
-                <JobCard job={j} signedIn={signedIn} showApply={showApply} applied={!!j.applied} viewerCity={viewerCity} viewerJobType={viewerJobType} saveable={saveable} initiallySaved={saved.has(j.id)} />
+                <JobCard job={j} signedIn={signedIn} showApply={showApply} applied={!!j.applied} viewerCity={viewerCity} viewerJobTypes={viewerJobTypes} saveable={saveable} initiallySaved={saved.has(j.id)} />
                 {position % adEvery === 0 && (
                   <InlineAd audience="tutors" index={Math.floor(position / adEvery)} />
                 )}

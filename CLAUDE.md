@@ -4303,3 +4303,64 @@ page keeps the footer line. It reads `usePathname()` (a client hook) rather than
 a header, because the (site) layout the Footer sits in is not re-rendered on a
 client navigation and a header-based path read would go stale — the bug
 SiteChrome documents.
+
+## A tutor offers MULTIPLE Job Types (owner, 10 Sep 2026) — DECISION
+
+Revises "Job Type replaces teaching mode" (10 Sep), where a tutor held a single
+Job Type. Under precedence rule 10 this wins on the tutor side; the job side is
+unchanged.
+
+- **A tutor selects any combination** of Home Tuition, Online Tuition and School
+  Job — one, two or all three (checkboxes, not a radio). At least one is required
+  (the completion checklist's Job Type item now needs a non-empty set).
+- **A job still keeps exactly one Job Type** — a family wants a home or an online
+  tutor, a school posts a school job. That side did not change.
+- **Matching is CONTAINMENT, not equality:** a job is shown to a tutor when the
+  tutor's set includes the job's type. Geography is unchanged — online is
+  city-agnostic, home and school are same-city.
+- **Existing tutors kept what they had** as a single-item set; nothing was lost.
+
+### As built (migration 69 — schema change, backup first, applied live)
+
+**Storage: a new array column `tutor_profiles.job_types text[]`**, mirroring the
+table's existing text[] columns (class_levels, degrees, online_platforms) — not
+a join table, because the value set is a fixed three, every read is one row, and
+containment is one `= any()`. `CHECK (job_types <@ {home,online,school})`.
+`teaching_mode` is KEPT as the PRIMARY mirror (job_types[0]), written on save, so
+the two public views and every untyped `.select('teaching_mode')` keep working
+and only the multi-aware surfaces read the array.
+
+**The real, careful part:** the array had to reach the two public directory views
+and both SECURITY DEFINER functions, since the browse filter ranks in SQL. So the
+migration recreates all four — `tutor_directory` / `tutor_visible_profiles` gain
+a trailing `job_types` (create-or-replace, non-breaking for the dependent
+`landing_combinations`); `rank_tutors` (drop+recreate — its RETURNS changed) now
+filters by containment (`p_teaching_mode = any(job_types)`) and computes the
+online location bonus from the array; `tutor_public_page` (drop+recreate) returns
+`job_types`. EXECUTE was re-granted to anon/authenticated/service_role and
+re-REVOKEd from PUBLIC to match the originals exactly. Verified after apply:
+value distribution migrated 1:1, both views resolve, `rank_tutors('home')`
+filters, `tutor_public_page` returns the array, grants identical, rls:audit
+179/179.
+
+**Every tutor-side surface reads the set:** the profile chip and the tutor card
+use a new `components/JobTypesChip` (one type → the single labelled chip; two or
+three → ONE chip reading "Home · Online · School", so all three read cleanly, not
+as three cramped chips); browse cards/filter through `rank_tutors`+the view;
+settings and complete-profile are multi-checkbox; the CV via `jobTypesLabel`; the
+admin tutor detail; the completion checklist. Matching (`matchVisibility`,
+`jobsThisWeek`, `notifyMatchingTutors`) takes the tutor's array and does
+containment; `viewerJobTypes` is threaded through the browse and tutor-jobs
+lists. `demo_requests.mode` is untouched (a demo's location, a separate concept).
+
+## Subjects grid collapses when the person moves on (owner, 10 Sep 2026)
+
+Once focus leaves the subjects section for the next field, the grid collapses to
+its red-chip summary and a **Change** button reopens it — the same shape level
+and grade have. **The trigger is focus LEAVING the selector, not a raw blur:**
+`TaxonomySelector`'s root `onBlur` reads `relatedTarget` — null (a scrollbar
+click or empty space) does nothing, an element inside the selector (tabbing
+between its own controls) does nothing, and only an element OUTSIDE it (the city
+field is the next focusable thing below the component) collapses it, and only
+when there is a selection to summarise. Emptying the selection (changing the
+grade, or removing the last chip) reopens the grid so it is never a dead end.

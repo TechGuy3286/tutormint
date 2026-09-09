@@ -179,7 +179,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
   let isTutor = false
   let viewerCity: string | null = null
-  let viewerJobType: string | null = null
+  let viewerJobTypes: readonly string[] | null = null
   let viewerRole: string | null = null
   let viewerPlan: string | null = null
   let appliedIds = new Set<string>()
@@ -196,11 +196,11 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     if (isTutor) {
       const { data: tp } = await supabase
         .from('tutor_profiles')
-        .select('city, teaching_mode')
+        .select('city, teaching_mode, job_types')
         .eq('id', user.id)
         .maybeSingle()
       viewerCity = (tp?.city as string | null) ?? null
-      viewerJobType = (tp?.teaching_mode as string | null) ?? null
+      viewerJobTypes = (tp?.job_types as string[] | null) ?? null
     }
 
     if (isTutor && jobs.length > 0) {
@@ -325,7 +325,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
                   showApply={showApply}
                   applied={appliedIds.has(job.id)}
                   viewerCity={viewerCity}
-                  viewerJobType={viewerJobType}
+                  viewerJobTypes={viewerJobTypes}
                   saveable={isTutor}
                   initiallySaved={savedIds.has(job.id)}
                 />
@@ -354,7 +354,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             showApply={showApply}
             adEvery={AD_EVERY}
             viewerCity={viewerCity}
-            viewerJobType={viewerJobType}
+            viewerJobTypes={viewerJobTypes}
             saveable={isTutor}
             savedIds={Array.from(savedIds)}
           />
