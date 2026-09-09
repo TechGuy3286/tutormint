@@ -4282,3 +4282,24 @@ academy-comparison prose (CLAUDE.md "conversion rules"), not the retired slogan,
 and was left. The one place the slogan appears twice on a page is the homepage —
 its locked, partner-approved hero already carries it and so does the footer; that
 predates this pass and the hero is locked, so it was not touched.
+
+## Selected-subject chips, homepage footer tagline (10 Sep 2026)
+
+**Chips.** `TaxonomySelector` shows the ticked subjects as a `flex-wrap` row of
+brand-red (`bg-tm-red`, white text — a registered contrast pair) chips directly
+above the subjects grid, each with an × that removes it. The chip row and the
+grid checkboxes both read and write the one `selectedSubjects` array, so they
+stay in sync in both directions with no extra state; unticking a box drops its
+chip and clicking a chip's × unticks the box. The row does not render at all when
+nothing is selected (no empty container), and it wraps cleanly above the
+`max-h-48` scrollable grid at 360px. Live in all three consumers — the parent job
+form, the admin job form, and tutor complete-profile.
+
+**Homepage footer tagline suppressed.** The footer's "…No fee. No commission. No
+middleman." line is now a small client component, `components/FooterTagline`,
+that renders on every page EXCEPT `/`. The locked homepage hero already carries
+the slogan, so this keeps "commission" to once per page there while every other
+page keeps the footer line. It reads `usePathname()` (a client hook) rather than
+a header, because the (site) layout the Footer sits in is not re-rendered on a
+client navigation and a header-based path read would go stale — the bug
+SiteChrome documents.

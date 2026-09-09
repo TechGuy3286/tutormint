@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { Layers, GraduationCap } from 'lucide-react'
+import { Layers, GraduationCap, X } from 'lucide-react'
 import { fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
 import Select from '@/components/forms/Select'
 
@@ -147,6 +147,35 @@ export default function TaxonomySelector({
             )}
           </div>
         </div>
+
+        {/* Selected-subject chips, in brand red so they stand out above the
+            list. Each × removes that subject; because the grid checkbox and
+            this chip both read/write the one `selectedSubjects` array, the two
+            stay in sync in both directions. Nothing renders when nothing is
+            selected — no empty container. flex-wrap so a long selection wraps
+            cleanly at 360px above the (scrollable) grid. */}
+        {selectedSubjects.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {selectedSubjects.map((sub: string) => (
+              <span
+                key={sub}
+                className="inline-flex items-center gap-1 rounded-full bg-tm-red py-1 pl-2.5 pr-1 text-[11px] font-semibold text-white"
+              >
+                <span className="max-w-[10rem] truncate">{sub}</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedSubjects(selectedSubjects.filter((s: string) => s !== sub))
+                  }
+                  aria-label={`Remove ${sub}`}
+                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-white/25 cursor-pointer"
+                >
+                  <X size={12} aria-hidden />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Never silently empty. A blank bordered box is indistinguishable
             from a broken one, and it is what this control did for every
