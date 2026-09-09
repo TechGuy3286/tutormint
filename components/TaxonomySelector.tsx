@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Layers, GraduationCap, X } from 'lucide-react'
 import { fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
 import Select from '@/components/forms/Select'
+import { onOutsidePointerDown } from '@/lib/outsidePointer'
 
 interface TaxonomySelectorProps {
   selectedLevel: string;
@@ -31,23 +32,26 @@ export default function TaxonomySelector({
 
   const [subjectSearch, setSubjectSearch] = useState<string>("");
 
-  // Once the person leaves the subjects section for the next one (the city
-  // field, below this component), the grid collapses to its red-chip summary and
-  // reopens on a click — the same shape level and grade already have.
+  // Once the person interacts with anything OUTSIDE the selector — the city
+  // field below it, most often — the grid collapses to its red-chip summary and
+  // reopens on a click, the same shape level and grade already have.
   const rootRef = useRef<HTMLDivElement>(null);
   const [subjectsCollapsed, setSubjectsCollapsed] = useState<boolean>(false);
 
-  // The trigger is FOCUS LEAVING the selector, not a raw blur. relatedTarget is
-  // where focus went: null when someone clicks a scrollbar or empty space (do
-  // nothing), inside this component when they tab between its own controls (do
-  // nothing), and an element OUTSIDE it when they move on to the next field
-  // (collapse). Only collapse when there is a selection to summarise.
-  const handleRootBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    const next = e.relatedTarget as Node | null;
-    if (next && rootRef.current && !rootRef.current.contains(next) && selectedSubjects.length > 0) {
-      setSubjectsCollapsed(true);
-    }
-  };
+  // A DOCUMENT-LEVEL pointerdown, not onBlur/relatedTarget. Clicking a native
+  // <select> (the city field) does not reliably set relatedTarget, so a
+  // focus-based "did focus leave me" check never fired for a mouse user — the
+  // bug this replaces. A pointerdown whose target is outside rootRef fires every
+  // time; a press inside it (a subject checkbox, the grid's own scrollbar, the
+  // Change button) is ignored because root.contains(target) is true. Listening
+  // only while there is a selection means selecting the FIRST subject cannot
+  // collapse the grid, and there is nothing to collapse to before then.
+  useEffect(() => {
+    if (subjectsCollapsed || selectedSubjects.length === 0) return;
+    return onOutsidePointerDown(document, () => rootRef.current, () =>
+      setSubjectsCollapsed(true),
+    );
+  }, [subjectsCollapsed, selectedSubjects.length]);
 
   // Whenever the selection empties — the grade changed, or the last chip was
   // removed — reopen the grid. A collapsed grid with no chips is a dead end.
@@ -95,7 +99,7 @@ export default function TaxonomySelector({
   }
 
   return (
-    <div ref={rootRef} onBlur={handleRootBlur} className="space-y-4">
+    <div ref={rootRef} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
         {/* Level — a custom select matching the "Where, how and when" fields. */}

@@ -4364,3 +4364,31 @@ between its own controls) does nothing, and only an element OUTSIDE it (the city
 field is the next focusable thing below the component) collapses it, and only
 when there is a selection to summarise. Emptying the selection (changing the
 grade, or removing the last chip) reopens the grid so it is never a dead end.
+
+## Subjects-grid collapse trigger, fixed (owner, 10 Sep 2026)
+
+The previous pass used the selector root's `onBlur` + `relatedTarget` to detect
+"focus left the section", and reported it checked — but it does NOT work: mouse
+users, and clicking a native `<select>` (the city field) does not reliably set
+`relatedTarget` across browsers, so focus leaving by mouse never registered and
+the grid stayed expanded. Corrected to the reliable shape the owner specified: a
+DOCUMENT-level `pointerdown` listener that collapses when the press target is
+outside the selector root (`lib/outsidePointer.ts`, `onOutsidePointerDown`),
+attached only while at least one subject is chosen. A press inside the root — a
+subject checkbox, the grid's own scrollbar, the Change button — is ignored via
+`root.contains(target)`; selecting the first subject cannot collapse (there is
+nothing to collapse to yet); emptying the selection or Change reopens it.
+
+Level and Grade were CHECKED, not assumed: their custom `Select`
+(`components/forms/Select.tsx`) already closes its popover on a document
+`mousedown` + `contains` — the same reliable click-outside pattern, never
+`relatedTarget` — so they did not share the flaw and were left.
+
+**How this was verified, honestly.** This environment has no browser and no
+jsdom, so I did NOT click City and watch the grid collapse. The document is
+injected into `onOutsidePointerDown` so the mechanism is unit-tested in node
+(`npm run test:outsidepointer`, 6 assertions): it subscribes to `pointerdown`
+(not focus/blur), collapses on an outside target, ignores an inside target, a
+null target and a missing root, and unsubscribes. That proves our code uses the
+reliable pattern correctly; it cannot prove the browser dispatches pointerdown on
+a real click — that is a browser guarantee, and the reason the pattern is chosen.

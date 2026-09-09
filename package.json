@@ -29,7 +29,8 @@
     "test:seedcast": "tsx --test scripts/test-seedcast.ts",
     "test:messaging": "tsx --test scripts/test-messaging.ts",
     "test:social": "tsx --test scripts/test-social.ts",
-    "test:covers": "tsx --test scripts/test-covers.ts"
+    "test:covers": "tsx --test scripts/test-covers.ts",
+    "test:outsidepointer": "tsx --test scripts/test-outside-pointer.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
