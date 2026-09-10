@@ -1,5 +1,8 @@
 /**
- * scripts/sendpk-probe.ts  —  npm run sendpk:probe -- --to=<msisdn> [--send]
+ * scripts/sendpk-probe.ts
+ *   npm run sendpk:probe                              read-only (steps 1–3)
+ *   npm run sendpk:probe -- --to=<msisdn> --send      the paid steps (4–7)
+ *   npm run sendpk:probe -- --delivery=<id>           poll delivery for one id
  *
  * A ONE-OFF DISCOVERY PROBE of the SendPK provider (https://sendpk.com/api.php,
  * contract read 10 Sep 2026). It is NOT wired into anything: lib/sms is
@@ -42,6 +45,15 @@ const EP = {
 
 // SendPK error codes, from the contract — printed beside a bare-code body so the
 // reader does not have to look them up.
+//
+// RECORD FOR THE ADAPTER (do NOT switch on this list): the published table is
+// WRONG. It stops at 9 and says an invalid recipient is code 7, but a dead
+// number was observed returning "12 : Please Type A Valid Pakistani Mobile
+// Number" — a code not in the table at all, with trailing text. So the code
+// space is open-ended and text-bearing; any adapter must treat "not a success
+// body" as failure rather than enumerate a fixed set. bareCode() below reads
+// whatever leading number appears, documented or not, so the probe never hides
+// an undocumented code.
 const CODES: Record<string, string> = {
   '1': 'invalid/expired key or disabled account',
   '2': 'empty key',
@@ -51,6 +63,21 @@ const CODES: Record<string, string> = {
   '7': 'INVALID RECIPIENT',
   '8': 'insufficient credit',
   '9': 'rejected',
+}
+
+/**
+ * The leading numeric code of a body, documented or not: "7", "1: API…",
+ * "12 : Please Type…" all yield the number. Null when the body does not start
+ * with one (e.g. an "OK ID:…" success or a JSON object).
+ */
+function bareCode(body: string): string | null {
+  return body.trim().match(/^(\d+)\s*(?::|$)/)?.[1] ?? null
+}
+
+/** "code 12 = INVALID RECIPIENT" / "code 12 (undocumented)" for the summary. */
+function codeNote(code: string | null): string {
+  if (!code) return ''
+  return CODES[code] ? ` (code ${code} = ${CODES[code]})` : ` (code ${code}, undocumented)`
 }
 
 function loadEnv(): Record<string, string> {
@@ -114,8 +141,8 @@ async function call(label: string, endpoint: string, params: Record<string, stri
   console.log(redact(body))
   console.log('--- END BODY ---')
 
-  const code = body.trim().match(/^(\d)\s*$/)?.[1]
-  if (code && CODES[code]) console.log(`(bare code ${code} = ${CODES[code]})`)
+  const code = bareCode(body)
+  if (code) console.log(`(bare code ${code}${CODES[code] ? ` = ${CODES[code]}` : ' — NOT in the documented table'})`)
 
   return { status: res.status, statusText: res.statusText, body }
 }
@@ -173,8 +200,12 @@ function fillVars(variables: string[], code: string): Record<string, string> {
   return out
 }
 
+// The docs' example is "OK ID:29346" (numeric), but the live send returns a
+// UUID: "OK ID:b89edfca-705d-41f2-afbd-518762c6a884". Match to the first
+// whitespace, not to digits — else a real send with a UUID id looked like "no
+// ID" and step 6 was wrongly skipped with "step 5 returned no send ID".
 function extractSendId(body: string): string | null {
-  return body.match(/OK\s*ID:?\s*(\d+)/i)?.[1] ?? null
+  return body.trim().match(/^OK\s+ID:\s*(\S+)/i)?.[1] ?? null
 }
 
 function num(body: string): number | null {
@@ -182,9 +213,46 @@ function num(body: string): number | null {
   return m ? Number(m[0]) : null
 }
 
+// Balance body is "| Package# 1: 60.00 PKR (2026-10-10) |" — num() grabbed the
+// "1" out of "Package# 1" and reported the balance as 1. Sum the PKR figures
+// instead (one per package line), which is the real remaining credit.
+function parseBalance(body: string): number | null {
+  const figs = [...body.matchAll(/(\d+(?:\.\d+)?)\s*PKR/gi)].map((m) => Number(m[1]))
+  if (figs.length) return figs.reduce((a, b) => a + b, 0)
+  return num(body) // fallback: a provider that returns a plain number
+}
+
 function arg(name: string): string | undefined {
   const hit = process.argv.slice(2).find((a) => a.startsWith(`--${name}=`))
   return hit?.slice(name.length + 3)
+}
+
+/**
+ * Poll delivery.php at 5s / 15s / 30s / 60s for one message id, printing each
+ * raw body. Returns the summary line: did the status change, and how long to a
+ * terminal-looking one. Shared by step 6 and the standalone --delivery flag.
+ */
+async function pollDelivery(key: string, id: string, label: string): Promise<string> {
+  const schedule = [5, 15, 30, 60] // absolute seconds after send
+  let elapsed = 0
+  const seen: string[] = []
+  let finalAt = ''
+  for (const at of schedule) {
+    await sleep((at - elapsed) * 1000)
+    elapsed = at
+    const d = await call(`${label} @ ${at}s (id=${id})`, EP.delivery, { api_key: key, id })
+    const status = redact(d.body).trim()
+    seen.push(`${at}s: ${JSON.stringify(status)}`)
+    // A terminal-looking word marks when it settled.
+    if (!finalAt && /deliver|failed|rejected|expired|undeliver/i.test(status)) finalAt = `${at}s`
+  }
+  const changed = new Set(seen.map((x) => x.split(': ')[1])).size > 1
+  console.log(`\nDelivery status across polls: ${changed ? 'CHANGED' : 'did NOT change'}`)
+  for (const line of seen) console.log('  ' + line)
+  return (
+    (changed ? 'status changed over time' : 'status did NOT change (opaque — possibly not a real report)') +
+    (finalAt ? `; terminal-looking by ${finalAt}` : '; no terminal status seen within 60s')
+  )
 }
 
 async function main() {
@@ -192,6 +260,18 @@ async function main() {
   const key = (env.SENDPK_API_KEY ?? '').trim()
   if (!key) die('SENDPK_API_KEY is not set in .env.local or the environment. Nothing was done.')
   REAL_KEY = key
+
+  // --delivery=<id>: poll delivery.php alone against an existing message id, no
+  // send, no cost. For following up an id captured in an earlier --send run.
+  const deliveryId = arg('delivery')
+  if (deliveryId) {
+    console.log('SendPK probe — DELIVERY POLL ONLY')
+    console.log('  api_key:', last4(key), '(last 4 only)')
+    console.log('  id:     ', deliveryId, '(polling 5s / 15s / 30s / 60s; nothing is sent)')
+    const line = await pollDelivery(key, deliveryId, 'delivery report')
+    console.log(`\n  → ${line}\n`)
+    return
+  }
 
   const send = process.argv.slice(2).includes('--send')
   const rawTo = arg('to')
@@ -238,9 +318,10 @@ async function main() {
 
   // ── 2. Balance ─────────────────────────────────────────────────────────
   const b = await call('STEP 2  balance (before)', EP.balance, { api_key: key })
-  const balanceBefore = num(b.body)
+  const balanceBefore = parseBalance(b.body)
   console.log(
-    '\nNote: ~60 PKR is PROBE-sized, not launch-sized — enough for a handful of test sends, not a live OTP flow.',
+    '\nNote: ~60 PKR is PROBE-sized, not launch-sized — at the observed ~4.80 PKR/message that is ' +
+      'about a dozen sends, enough to probe with, nowhere near a live OTP flow.',
   )
   obs['balance before'] = balanceBefore === null ? `unparsed (${JSON.stringify(b.body.trim())})` : String(balanceBefore)
 
@@ -274,21 +355,20 @@ async function main() {
     message,
   })
   const invId = extractSendId(inv.body)
-  const invCode = inv.body.trim().match(/^(\d)\s*$/)?.[1] ?? null
+  const invCode = bareCode(inv.body)
   if (invId) {
     console.log(
-      `\n⚠️  LOUD WARNING: the invalid/dead number ${dead} returned OK ID:${invId}, NOT code 7. ` +
+      `\n⚠️  LOUD WARNING: the invalid/dead number ${dead} returned OK ID:${invId}, NOT a reject code. ` +
         `SendPK is FIRE-AND-FORGET like SMSPoint — it accepts a number it cannot deliver to, so an ` +
         `OK from the send API does NOT mean the code was delivered. This is the exact SMSPoint failure.`,
     )
     obs['invalid number'] = `FALSELY ACCEPTED (OK ID:${invId}) — fire-and-forget, cannot be trusted for OTP`
   } else {
     console.log(
-      `\nInvalid number ${dead} was rejected` +
-        (invCode ? ` with code ${invCode}${CODES[invCode] ? ` = ${CODES[invCode]}` : ''}` : '') +
+      `\nInvalid number ${dead} was rejected${codeNote(invCode)}` +
         ' — the send API validates the recipient (better than SMSPoint).',
     )
-    obs['invalid number'] = `rejected${invCode ? ` (code ${invCode}${CODES[invCode] ? ` = ${CODES[invCode]}` : ''})` : ''}`
+    obs['invalid number'] = `rejected${codeNote(invCode)}`
   }
 
   // ── 5. Real send (paid) ────────────────────────────────────────────────
@@ -303,35 +383,14 @@ async function main() {
     message: realMsg,
   })
   const sendId = extractSendId(s.body)
-  const sendCode = s.body.trim().match(/^(\d)\s*$/)?.[1] ?? null
+  const sendCode = bareCode(s.body)
   obs['real send'] = sendId
     ? `OK ID:${sendId} (sender param "${sender}")`
-    : `NO ID${sendCode ? ` (code ${sendCode}${CODES[sendCode] ? ` = ${CODES[sendCode]}` : ''})` : ` — raw: ${JSON.stringify(s.body.trim())}`}`
+    : `NO ID${sendCode ? codeNote(sendCode) : ` — raw: ${JSON.stringify(s.body.trim())}`}`
 
   // ── 6. Delivery poll (paid, no cost) ───────────────────────────────────
   if (sendId) {
-    const schedule = [5, 15, 30, 60] // absolute seconds after send
-    let elapsed = 0
-    const seen: string[] = []
-    let finalAt = ''
-    for (const at of schedule) {
-      await sleep((at - elapsed) * 1000)
-      elapsed = at
-      const d = await call(`STEP 6  delivery report @ ${at}s (id=${sendId})`, EP.delivery, {
-        api_key: key,
-        id: sendId,
-      })
-      const status = redact(d.body).trim()
-      seen.push(`${at}s: ${JSON.stringify(status)}`)
-      // A terminal-looking word marks when it settled.
-      if (!finalAt && /deliver|failed|rejected|expired|undeliver/i.test(status)) finalAt = `${at}s`
-    }
-    const changed = new Set(seen.map((x) => x.split(': ')[1])).size > 1
-    console.log(`\nDelivery status across polls: ${changed ? 'CHANGED' : 'did NOT change'}`)
-    for (const line of seen) console.log('  ' + line)
-    obs['delivery report'] =
-      (changed ? 'status changed over time' : 'status did NOT change (opaque — possibly not a real report)') +
-      (finalAt ? `; terminal-looking by ${finalAt}` : '; no terminal status seen within 60s')
+    obs['delivery report'] = await pollDelivery(key, sendId, 'STEP 6  delivery report')
   } else {
     obs['delivery report'] = 'not tested — step 5 returned no send ID'
   }
@@ -353,7 +412,7 @@ async function main() {
 
   // Balance after, to measure cost rather than guess it.
   const b2 = await call('BALANCE (after the sends)', EP.balance, { api_key: key })
-  const balanceAfter = num(b2.body)
+  const balanceAfter = parseBalance(b2.body)
   obs['balance after'] = balanceAfter === null ? `unparsed (${JSON.stringify(b2.body.trim())})` : String(balanceAfter)
   if (balanceBefore !== null && balanceAfter !== null) {
     obs['cost observed'] = `${(balanceBefore - balanceAfter).toFixed(2)} PKR across the sends made this run`
