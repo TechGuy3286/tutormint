@@ -9,16 +9,13 @@ import { useToast } from '@/components/ui/Toast'
 
 // Apply, from the "matching you this week" strip on a free tutor's dashboard.
 //
-// For a LISTED free tutor the button is real and the refusal is the upgrade
-// sheet -- which is the whole point of the strip: their only block is the plan,
-// and pressing this IS reaching for it, so the price appears on their own tap.
+// For a LISTED tutor the button is real and the refusal is the upgrade sheet.
 //
-// For an UNLISTED tutor the block is COMPLETION, not a plan. Applying could not
-// reach anyone, and pitching a price (even the completion gate's "Buy anyway")
-// is the wrong thing to put in front of someone whose profile is not finished.
-// So instead of an Apply button they get a plain, honest "Finish profile to
-// apply" link — the surface says why, with no upgrade and no price (owner,
-// 9 Sep 2026).
+// A free tutor is NOT listed — since 10 Sep 2026 listing needs a plan, not 100%
+// completion (owner) — so the block is the PLAN, which is exactly what the
+// 199 funnel is steering them toward. Instead of an Apply button they get a
+// plain "Get listed to apply" link into packages, so the plan appears on their
+// own tap (this is a signed-in dashboard, where the price is allowed to show).
 
 export default function ApplyFromStrip({ jobId, listed }: { jobId: string; listed: boolean }) {
   const upgradeSheet = useUpgradeSheet()
@@ -29,10 +26,10 @@ export default function ApplyFromStrip({ jobId, listed }: { jobId: string; liste
   if (!listed) {
     return (
       <Link
-        href="/tutor/complete-profile"
+        href="/tutor/packages?plan=verified"
         className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-tm-red hover:underline"
       >
-        Finish profile to apply
+        Get listed to apply
         <ArrowRight aria-hidden size={12} />
       </Link>
     )

@@ -17,6 +17,7 @@
 // not a member action, and `subscriptions` is deliberately not member-writable.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isTutorListable } from '@/lib/payments/listable'
 import { logActivity } from '@/lib/activityLog'
 import { logAdminAction } from '@/lib/auditLog'
 import { notify } from '@/lib/notifications'
@@ -150,19 +151,17 @@ export async function activatePayment(params: {
     .eq('user_id', userId)
     .in('status', ['active', 'paused'])
 
-  // THE MONTH STARTS AT GO-LIVE. A tutor who buys while not yet listed (under
-  // 100%, or verification not yet passed) gets an activated-but-PAUSED
-  // subscription: paid for, but the 30 days do not begin until they appear in
-  // the directory. lib/payments/goLive.ts flips it to active on that day. A
-  // parent, or a tutor already listed, activates immediately as before.
+  // THE MONTH STARTS AT GO-LIVE. A tutor who buys while not yet LISTABLE
+  // (verification not yet passed, or mobile not verified) gets an
+  // activated-but-PAUSED subscription: paid for, but the 30 days do not begin
+  // until they qualify. lib/payments/goLive.ts flips it to active on that day. A
+  // tutor who is already listable activates immediately. Since 10 Sep listing
+  // requires an active plan, we ask the PRECONDITION (listing minus the plan) —
+  // asking tutor_directory would deadlock, as the plan being created is exactly
+  // what it waits on.
   let paused = false
   if (audience === 'tutor') {
-    const { data: listedRow } = await admin
-      .from('tutor_directory')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle()
-    paused = !listedRow
+    paused = !(await isTutorListable(userId))
   }
   // A bridge-locked account pauses regardless of audience or listing.
   if (bridgeLocked) paused = true
@@ -220,7 +219,7 @@ export async function activatePayment(params: {
     body: paused
       ? bridgeLocked
         ? `Your ${plan.name} plan is paid for. It starts the day you verify your mobile number with a real code — until then it is on hold, so no time is used. There are no refunds.`
-        : `Your ${plan.name} plan is paid for. Your month starts the day you go live — finish your profile to 100% and it begins automatically. There are no refunds.`
+        : `Your ${plan.name} plan is paid for. Your month starts the day you go live — verify your identity and mobile number and it begins automatically. There are no refunds.`
       : `Your ${plan.name} plan runs until ${formatDate(expiresAt)}. There are no refunds.`,
     href: audience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard',
   })

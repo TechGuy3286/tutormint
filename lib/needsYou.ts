@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { planLabel } from '@/lib/display'
 import type { Entitlements } from '@/lib/entitlements'
 import { tuitionPath } from '@/lib/slugs'
+import { cityJobsMatchingNothing } from '@/lib/funnel'
 
 // What is BLOCKED ON THIS PERSON, and nothing else.
 //
@@ -311,12 +312,18 @@ export async function tutorNeeds({
   verificationStatus,
   videoStatus,
   videoAttempts,
+  city,
+  hasDegree,
 }: {
   userId: string
   ent: Entitlements
   verificationStatus: string | null
   videoStatus: string | null
   videoAttempts: number
+  /** The tutor's city, for the "N tuitions match nothing" prompt. */
+  city: string | null
+  /** Whether a degree is on file, for the Verified-badge prompt. */
+  hasDegree: boolean
 }): Promise<NeedRow[]> {
   const rows: NeedRow[] = []
   const supabase = await createClient()
@@ -417,6 +424,59 @@ export async function tutorNeeds({
 
   const lapsed = await lapsedPlanRow(userId, ent, '/tutor/packages?plan=verified')
   if (lapsed) rows.push(lapsed)
+
+  // Quantified, NON-BLOCKING prompts (owner rule 5, 10 Sep 2026). These replace
+  // the old blocking "finish your profile first" modal on Apply: applying now
+  // proceeds, and instead the dashboard states the real cost of an unfinished
+  // profile using data we already have. Each shows only when its number is real
+  // — a zero count shows nothing, and no number is invented.
+  const pct = ent.profileCompletion ?? 0
+
+  // No subjects → invisible to every subject search. The count is the open
+  // tuitions in their city that match nothing on their profile.
+  const { data: subjRows } = await supabase
+    .from('tutor_subjects')
+    .select('master_id')
+    .eq('tutor_id', userId)
+    .limit(1)
+  if ((subjRows ?? []).length === 0) {
+    const n = await cityJobsMatchingNothing(userId, city)
+    if (n > 0) {
+      rows.push({
+        id: 'no-subjects',
+        title: `${n} ${city} tuition${n === 1 ? '' : 's'} match nothing on your profile`,
+        why: 'You have no subjects on your profile, so parents searching for a subject cannot find you. Adding them is what puts you in those results.',
+        action: { label: 'Add your subjects', href: '/tutor/complete-profile?step=4' },
+        tone: 'warn',
+      })
+    }
+  }
+
+  // Listed but under 100% → searchable on-site, held out of Google until 100%.
+  // Only for a LISTED tutor: the claim "you are searchable, just not on Google"
+  // is only true once they are actually listed.
+  if (ent.listed && pct < 100) {
+    rows.push({
+      id: 'not-on-google',
+      title: 'Your profile is not on Google yet',
+      why: 'You are listed and parents can find you on TutorMint now. Your profile appears in Google search once it reaches 100%.',
+      action: { label: 'Finish your profile', href: '/tutor/complete-profile' },
+      tone: 'warn',
+    })
+  }
+
+  // A paid tutor without a reviewed degree: listed and applying, but no Verified
+  // badge until a degree is checked (owner rule 2). Only worth saying to someone
+  // who holds a plan — the badge is what their plan is meant to earn them.
+  if (!hasDegree && (ent.plan || ent.planPaused)) {
+    rows.push({
+      id: 'no-degree',
+      title: 'Add a degree to earn your Verified badge',
+      why: 'Your Verified badge appears once a degree certificate has been reviewed. You are listed and applying without it, but the badge is what parents look for.',
+      action: { label: 'Add your degree', href: '/tutor/complete-profile?step=5' },
+      tone: 'warn',
+    })
+  }
 
   return rows
 }

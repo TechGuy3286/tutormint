@@ -22,6 +22,13 @@ import { hashCnic, blocklistHit } from '../lib/blocklistCore'
 import { normalisePkMobile } from '../lib/phone'
 import { crossesReviewThreshold } from '../lib/underReviewCore'
 import { computeEntitlements, type EntitlementInputs } from '../lib/entitlements'
+import {
+  tutorListed,
+  tutorListablePrecondition,
+  tutorProfileNoindex,
+  tutorSitemapEligible,
+  badgesForPlan,
+} from '../lib/planBadges'
 import { BANNED_LOGIN_MESSAGE } from '../lib/authMessages'
 import { needsPhoneGate } from '../lib/phoneGate'
 
@@ -233,14 +240,19 @@ const PLANS: EntitlementInputs['plans'] = [
 
 const baseTutor = {
   role: 'tutor', profile_completion: 100, cnic_verified_at: '2026-01-01', address_verified_at: null,
-  is_suspended: false, is_banned: false, phone_verified_via: 'otp',
+  phone_verified_at: '2026-01-01', is_suspended: false, is_banned: false, phone_verified_via: 'otp',
+}
+
+const baseTutorRow = {
+  verification_status: 'verified', imported: false, claimed_at: null,
+  under_review: false, degrees: ['BSc Mathematics'],
 }
 
 function inputs(over: Partial<EntitlementInputs>): EntitlementInputs {
   return {
     userId: 'u1',
     profile: baseTutor,
-    tutorRow: { verification_status: 'verified', imported: false, claimed_at: null },
+    tutorRow: { ...baseTutorRow },
     activeSubs: [],
     pausedPlanCode: null,
     plans: PLANS,
@@ -291,13 +303,56 @@ test('entitlements: a BRIDGE-verified account holds no plan and no badge, but st
   assert.equal(e.suspended, false)
 })
 
-test('entitlements: an OTP-verified Verified tutor gets the plan and the badge', () => {
+test('entitlements: an OTP-verified Verified tutor gets the plan, the badge and is listed', () => {
   const e = computeEntitlements(inputs({ activeSubs: [{ plan_code: 'verified', expires_at: future() }] }))
   assert.equal(e.plan, 'verified')
   assert.equal(e.canSeeViewerIdentity, true)
   assert.deepEqual(e.badges, ['Verified'])
+  assert.equal(e.listed, true)
   assert.equal(e.bridgeLocked, false)
   assert.equal(e.quota, 10)
+})
+
+// --- the new listing rule (owner, 10 Sep 2026): completion no longer lists ---
+
+test('entitlements: a PAID tutor UNDER 100% is LISTED and can apply', () => {
+  const e = computeEntitlements(
+    inputs({
+      profile: { ...baseTutor, profile_completion: 40 },
+      activeSubs: [{ plan_code: 'verified', expires_at: future() }],
+    }),
+  )
+  assert.equal(e.listed, true, 'completion no longer gates listing')
+  assert.equal(e.plan, 'verified', 'an active plan means a real apply quota')
+  assert.equal(e.profileCompletion, 40)
+})
+
+test('entitlements: a FREE tutor at 100% is NOT listed (a plan is required)', () => {
+  const e = computeEntitlements(inputs({ activeSubs: [] }))
+  assert.equal(e.listed, false)
+  assert.equal(e.plan, null)
+})
+
+test('entitlements: a tutor with a plan but NOT verified is NOT listed', () => {
+  const e = computeEntitlements(
+    inputs({
+      tutorRow: { ...baseTutorRow, verification_status: 'pending' },
+      activeSubs: [{ plan_code: 'verified', expires_at: future() }],
+    }),
+  )
+  assert.equal(e.listed, false, 'verification is required to be listed')
+  assert.equal(e.plan, 'verified', 'the plan still resolves; the Apply gate tells them to verify')
+})
+
+test('entitlements: a listed tutor with NO reviewed degree carries no Verified badge', () => {
+  const e = computeEntitlements(
+    inputs({
+      tutorRow: { ...baseTutorRow, degrees: [] },
+      activeSubs: [{ plan_code: 'verified', expires_at: future() }],
+    }),
+  )
+  assert.equal(e.listed, true, 'no degree does not delist — it only removes the badge')
+  assert.deepEqual(e.badges, [], 'the verified plan grants only Verified, which the missing degree drops')
 })
 
 test('entitlements: a verified parent gets the free parent_verified tier with no subscription', () => {
@@ -305,7 +360,7 @@ test('entitlements: a verified parent gets the free parent_verified tier with no
     inputs({
       profile: {
         role: 'parent', profile_completion: 100, cnic_verified_at: '2026-01-01', address_verified_at: '2026-01-01',
-        is_suspended: false, is_banned: false, phone_verified_via: 'otp',
+        phone_verified_at: '2026-01-01', is_suspended: false, is_banned: false, phone_verified_via: 'otp',
       },
       tutorRow: null,
       activeSubs: [],
@@ -314,6 +369,50 @@ test('entitlements: a verified parent gets the free parent_verified tier with no
   assert.equal(e.plan, 'parent_verified')
   assert.equal(e.canInitiateMessage, true)
   assert.equal(e.canHire, false)
+})
+
+// ------------------------------------------------------- listing helpers ---
+
+test('tutorListablePrecondition: verified + mobile + moderation-clear + claimed', () => {
+  const ok = {
+    phoneVerified: true, verificationStatus: 'verified', isSuspended: false,
+    isBanned: false, underReview: false, imported: false, claimedAt: null,
+  }
+  assert.equal(tutorListablePrecondition(ok), true)
+  assert.equal(tutorListablePrecondition({ ...ok, phoneVerified: false }), false)
+  assert.equal(tutorListablePrecondition({ ...ok, verificationStatus: 'pending' }), false)
+  assert.equal(tutorListablePrecondition({ ...ok, underReview: true }), false)
+  assert.equal(tutorListablePrecondition({ ...ok, imported: true, claimedAt: null }), false)
+  assert.equal(tutorListablePrecondition({ ...ok, imported: true, claimedAt: '2026-01-01' }), true)
+})
+
+test('tutorListed: requires an active paid plan on top of the precondition', () => {
+  const base = {
+    phoneVerified: true, verificationStatus: 'verified', isSuspended: false,
+    isBanned: false, underReview: false, imported: false, claimedAt: null,
+  }
+  assert.equal(tutorListed({ ...base, hasActivePaidPlan: true }), true)
+  assert.equal(tutorListed({ ...base, hasActivePaidPlan: false }), false, 'no plan, not listed')
+})
+
+test('tutorProfileNoindex: noindex below 100% or while under review', () => {
+  assert.equal(tutorProfileNoindex({ profileCompletion: 100 }), false)
+  assert.equal(tutorProfileNoindex({ profileCompletion: 40 }), true)
+  assert.equal(tutorProfileNoindex({ profileCompletion: 100, underReview: true }), true)
+})
+
+test('tutorSitemapEligible: listed AND 100% only', () => {
+  assert.equal(tutorSitemapEligible({ listed: true, profileCompletion: 100 }), true)
+  assert.equal(tutorSitemapEligible({ listed: true, profileCompletion: 40 }), false)
+  assert.equal(tutorSitemapEligible({ listed: false, profileCompletion: 100 }), false)
+})
+
+test('badgesForPlan: the Verified badge is degree-gated for tutors, not parents', () => {
+  assert.deepEqual(badgesForPlan('verified', true, true), ['Verified'])
+  assert.deepEqual(badgesForPlan('verified', true, false), [], 'no degree drops Verified')
+  assert.deepEqual(badgesForPlan('featured', true, false), ['Premium', 'Featured'], 'tier badges stay')
+  assert.deepEqual(badgesForPlan('parent_verified', true, false), ['Verified'], 'parents are not degree-gated')
+  assert.deepEqual(badgesForPlan('verified', false, true), [], 'unlisted shows nothing')
 })
 
 // ------------------------------------------------------- phone gate --------

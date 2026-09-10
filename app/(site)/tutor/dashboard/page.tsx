@@ -65,7 +65,7 @@ export default async function TutorDashboardPage() {
   const [{ data: tutorProfile }, completion, ent] = await Promise.all([
     supabase
       .from('tutor_profiles')
-      .select('slug, city, area, teaching_mode, job_types, verification_status, video_status, video_attempts')
+      .select('slug, city, area, teaching_mode, job_types, verification_status, video_status, video_attempts, degrees')
       .eq('id', userId)
       .maybeSingle(),
     computeCompletion(userId),
@@ -74,15 +74,17 @@ export default async function TutorDashboardPage() {
 
   const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
   // The authoritative listing fact, computed once in the entitlements layer
-  // (100% + verification not rejected/suspended + claimed). Using it here keeps
-  // "Listed tutor" and the badge on the same rule.
+  // (active paid plan + mobile verified + verification 'verified' + not
+  // suspended/banned/under-review + claimed if imported — owner, 10 Sep 2026).
+  // Completion no longer gates it. Using it here keeps "Listed tutor" and the
+  // badge on the same rule.
   const listed = ent.listed
   const free = !ent.plan && !ent.planPaused
 
-  // A tutor who has PAID but is not yet listed: their badge is waiting on 100%.
-  // A paid plan alone never draws a badge, so the identity block says where it
-  // went. Covers both a paused plan (bought under 100%) and an active plan on a
-  // delisted profile.
+  // A tutor who has PAID but is not yet listed: a paid plan alone never draws a
+  // badge, so the identity block says what is still missing. Since 10 Sep the
+  // blocker is no longer completion — it is verification/mobile (or a paused
+  // plan waiting on the same).
   const planForNotice = ent.pausedPlanName ?? ent.planName
   const planNotice = ent.bridgeLocked
     ? // The BRIDGE lock (owner, Part 5): the number was proved only by the
@@ -91,7 +93,7 @@ export default async function TutorDashboardPage() {
       // the SMS provider goes live.
       'Your number was verified with a temporary code. Your badge and plan unlock once you verify it with a real code — this happens automatically next time you sign in after SMS goes live.'
     : !listed && planForNotice
-      ? `${planForNotice} plan active · your badge appears when your profile reaches 100%.`
+      ? `${planForNotice} plan active · your badge appears once your identity and mobile number are verified.`
       : undefined
 
   const [
@@ -111,6 +113,8 @@ export default async function TutorDashboardPage() {
         verificationStatus: (tutorProfile?.verification_status as string) ?? null,
         videoStatus: (tutorProfile?.video_status as string) ?? null,
         videoAttempts: (tutorProfile?.video_attempts as number) ?? 0,
+        city: (tutorProfile?.city as string | null) ?? null,
+        hasDegree: ((tutorProfile?.degrees as string[] | null)?.length ?? 0) > 0,
       }),
       // profile_viewed is hidden here and only here: ViewsCard is directly
       // above this band and is the surface for it. See recentActivity().
@@ -279,7 +283,10 @@ export default async function TutorDashboardPage() {
               : { label: 'Edit your profile', href: '/tutor/dashboard/settings' }
           }
           extra={
-            listed && tutorProfile?.slug ? (
+            // Only a tutor who actually holds the Verified badge (listed AND a
+            // reviewed degree — owner rule 2) is offered the "share your verified
+            // badge" card; otherwise there is no badge to share.
+            ent.badges.includes('Verified') && tutorProfile?.slug ? (
               <ShareVerifiedBadge
                 profileUrl={absoluteUrl(`/tutor/${tutorProfile.slug}`)}
                 firstName={(session?.profile?.full_name ?? 'there').split(' ')[0]}
@@ -388,26 +395,23 @@ export default async function TutorDashboardPage() {
         <NeedsYou
           rows={needs}
           emptyHint="Your profile is live and parents can find you."
-          // An unlisted tutor must never be told they are clear. When there is no
-          // other blocking row, the honest state is that completion is what stands
-          // between them and being found — the checklist above is how to fix it.
+          // An unlisted tutor must never be told they are clear. Since 10 Sep the
+          // blocker is not completion — it is a membership and verification. A
+          // free tutor needs a plan; a paid one is waiting on identity/mobile.
           blockedEmpty={
             listed
               ? undefined
-              : {
-                  title:
-                    percent < 100
-                      ? `Your profile is ${percent}% complete, so you are not listed yet`
-                      : 'Your profile is not listed yet',
-                  hint:
-                    percent < 100
-                      ? 'Parents only see and hear from listed tutors. Finish the checklist above to reach 100% and get listed.'
-                      : 'Parents cannot find you until your profile is listed. Check your verification status in Settings.',
-                  action:
-                    percent < 100
-                      ? { label: 'Finish your profile', href: '/tutor/complete-profile' }
-                      : { label: 'Open Settings', href: '/tutor/dashboard/settings' },
-                }
+              : free
+                ? {
+                    title: 'You are not listed yet',
+                    hint: 'Parents only see and hear from listed tutors. A membership lists you and lets you apply — you do not have to finish your profile first.',
+                    action: { label: 'See memberships', href: '/tutor/packages?plan=verified' },
+                  }
+                : {
+                    title: 'You are not listed yet',
+                    hint: 'Your membership is active. You are listed as soon as your identity and mobile number are verified.',
+                    action: { label: 'Open Settings', href: '/tutor/dashboard/settings' },
+                  }
           }
         />
 

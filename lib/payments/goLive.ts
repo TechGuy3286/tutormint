@@ -2,13 +2,14 @@
 //
 // A tutor's plan month starts the day they GO LIVE, not the day they pay.
 //
-// When a tutor buys while under 100%, activatePayment() records the
+// When a tutor buys while not yet listable, activatePayment() records the
 // subscription as 'paused' with a NULL expires_at -- paid for, clock stopped.
-// This is the other half: the moment the tutor becomes listed (100% complete,
-// verification not rejected/suspended, claimed if imported), the paused plan
-// begins its full 30 days and turns on.
+// This is the other half: the moment the tutor meets the listing PRECONDITION
+// (mobile verified, verification 'verified', not suspended/banned/under-review,
+// claimed if imported — listing minus the plan, since 10 Sep 2026), the paused
+// plan begins its full 30 days and turns on, which is what makes them listed.
 //
-// Called from the two places listing status can change:
+// Called from the places listing status can change:
 //   * recomputeCompletion(), after it persists a new profile_completion.
 //   * the admin tutor-moderation route, after a verification decision.
 // Both are idempotent through this function: it only ever acts on a PAUSED
@@ -16,6 +17,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { applyPlanFlags } from '@/lib/payments/activate'
+import { isTutorListable } from '@/lib/payments/listable'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { formatDate } from '@/lib/datetime'
@@ -53,17 +55,14 @@ export async function activatePausedIfListed(userId: string): Promise<{ activate
     .maybeSingle()
   if ((prof?.phone_verified_via as string | null) === 'bridge') return { activated: false }
 
-  // The authoritative listing check applies to TUTORS only — "went live" means
-  // "appears in the directory". A parent is not listed anywhere, so a paused
-  // parent sub (which can only be a bridge-blocked purchase) activates once the
-  // bridge lock above has cleared.
+  // The authoritative listing check applies to TUTORS only. Since 10 Sep 2026
+  // listing requires an active plan, so "am I listed?" would deadlock here (the
+  // plan being started is what the directory waits on). Ask the PRECONDITION —
+  // listing minus the plan — which is exactly what starting this plan completes.
+  // A parent is not listed anywhere, so a paused parent sub (only ever a
+  // bridge-blocked purchase) activates once the bridge lock above has cleared.
   if (prof?.role === 'tutor') {
-    const { data: listedRow } = await admin
-      .from('tutor_directory')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle()
-    if (!listedRow) return { activated: false }
+    if (!(await isTutorListable(userId))) return { activated: false }
   }
 
   const planCode = paused.plan_code as string

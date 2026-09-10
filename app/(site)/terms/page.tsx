@@ -248,9 +248,10 @@ const SECTIONS: LegalSection[] = [
           a payment for something you did not buy, tell us and we will return it.
         </p>
         <p>
-          <strong>A tutor may pay before their profile is complete.</strong> The plan starts
-          immediately; the badge appears when the profile reaches 100% and verification passes.
-          Paying does not shorten, replace or guarantee verification.
+          <strong>A tutor may pay before their profile is complete.</strong> The plan starts the day
+          the tutor goes live — when their mobile number and identity are verified — and the badge
+          appears then, with a degree on file. Paying does not shorten, replace or guarantee
+          verification.
         </p>
       </>
     ),

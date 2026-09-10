@@ -380,3 +380,35 @@ export async function jobsThisWeek(
     }
   })
 }
+
+/**
+ * How many OPEN tuitions in the tutor's city match NOTHING on their profile —
+ * the honest, quantified nudge that replaces the "finish your profile" modal
+ * (owner rule 5, 10 Sep 2026). It is the same open-jobs query as the dashboard
+ * strip with the subject filter removed, then minus the jobs a subject they
+ * already teach would match. For a tutor with NO subjects, that is every open
+ * tuition in their city — "14 tuitions in Lahore match nothing on your profile."
+ *
+ * A real count from real rows: it is only ever SHOWN when it is greater than
+ * zero, so no prompt claims a number that is not there.
+ */
+export async function cityJobsMatchingNothing(userId: string, city: string | null): Promise<number> {
+  if (!city) return 0
+  const db = createAdminClient() ?? (await createClient())
+
+  const { data: jobs } = await db.from('jobs').select('id').eq('status', 'open').ilike('city', city)
+  const open = new Set((jobs ?? []).map((j) => j.id as string))
+  if (open.size === 0) return 0
+
+  const { data: subs } = await db.from('tutor_subjects').select('master_id').eq('tutor_id', userId)
+  const masterIds = (subs ?? []).map((s) => s.master_id as number)
+  if (masterIds.length > 0) {
+    const { data: matched } = await db
+      .from('job_subjects')
+      .select('job_id')
+      .in('master_id', masterIds)
+      .in('job_id', [...open])
+    for (const m of matched ?? []) open.delete(m.job_id as string)
+  }
+  return open.size
+}

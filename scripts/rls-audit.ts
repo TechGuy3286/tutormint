@@ -94,7 +94,8 @@ const UNSCOPED_WRITE_OK: Record<string, string> = {}
  */
 const VIEW_DEFINER_OK: Record<string, string> = {
   tutor_directory:
-    'the listing rule, in one place: complete + unsuspended + (not an unclaimed import). ' +
+    'the listing rule, in one place (owner, 10 Sep 2026): active paid plan + mobile verified + ' +
+    "verification 'verified' + unsuspended/unbanned + not under review + (not an unclaimed import). " +
     'Exposes public profile columns only — no phone, email, CNIC, address or document path.',
 }
 

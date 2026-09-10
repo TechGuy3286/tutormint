@@ -9,6 +9,7 @@ import { MapPin, Building2, Briefcase, Wallet, Lock, Phone, MessageCircle } from
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlements'
+import { tutorProfileNoindex } from '@/lib/planBadges'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import BadgeRow from '@/components/badges/BadgeRow'
@@ -101,12 +102,14 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   // personal data. A normal listed tutor uses their name and photo.
   if (flags.shareHidden) {
     const title = pageTitle('Verified tutors in Pakistan')
-    const description = pageDescription('Find verified, degree-checked tutors across Pakistan')
+    const description = pageDescription('Find verified tutors across Pakistan')
     return {
       title,
       description,
       alternates: { canonical: `/tutor/${tutor.slug}` },
-      ...(flags.underReview ? { robots: { index: false, follow: false } } : {}),
+      ...(tutorProfileNoindex({ profileCompletion: flags.profileCompletion, underReview: flags.underReview })
+        ? { robots: { index: false, follow: false } }
+        : {}),
       ...socialMeta({ title, description, path: `/tutor/${tutor.slug}`, type: 'profile' }),
     }
   }
@@ -125,9 +128,14 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     title,
     description,
     alternates: { canonical: `/tutor/${tutor.slug}` },
-    // Indexable by default; noindex only while under review. A resolved profile
-    // returns no robots key, so it is indexable again the moment the flag clears.
-    ...(flags.underReview ? { robots: { index: false, follow: false } } : {}),
+    // Indexable once 100% complete and not under review (owner rule 3, 10 Sep
+    // 2026): a listed tutor under 100% is fully searchable on-site but held out
+    // of Google until they finish. The noindex lifts automatically at 100%; no
+    // robots key is emitted otherwise, so it is indexable again the moment
+    // either condition clears.
+    ...(tutorProfileNoindex({ profileCompletion: flags.profileCompletion, underReview: flags.underReview })
+      ? { robots: { index: false, follow: false } }
+      : {}),
     // Their photo when they have one, the branded default otherwise. Complete
     // OG + Twitter, so the card is never a bare link. See socialMeta.
     ...socialMeta({
@@ -166,17 +174,20 @@ async function tutorUnderReview(tutorId: string): Promise<boolean> {
  */
 async function tutorMetaFlags(
   tutorId: string,
-): Promise<{ underReview: boolean; shareHidden: boolean }> {
+): Promise<{ underReview: boolean; shareHidden: boolean; profileCompletion: number }> {
   const admin = createAdminClient()
-  if (!admin) return { underReview: false, shareHidden: false }
-  const { data } = await admin
-    .from('tutor_profiles')
-    .select('under_review, imported, claimed_at')
-    .eq('id', tutorId)
-    .maybeSingle()
-  const underReview = !!data?.under_review
-  const unclaimed = !!data?.imported && !data?.claimed_at
-  return { underReview, shareHidden: underReview || unclaimed }
+  if (!admin) return { underReview: false, shareHidden: false, profileCompletion: 100 }
+  const [{ data: tp }, { data: prof }] = await Promise.all([
+    admin.from('tutor_profiles').select('under_review, imported, claimed_at').eq('id', tutorId).maybeSingle(),
+    admin.from('profiles').select('profile_completion').eq('id', tutorId).maybeSingle(),
+  ])
+  const underReview = !!tp?.under_review
+  const unclaimed = !!tp?.imported && !tp?.claimed_at
+  return {
+    underReview,
+    shareHidden: underReview || unclaimed,
+    profileCompletion: (prof?.profile_completion as number | null) ?? 0,
+  }
 }
 
 /**
@@ -415,7 +426,10 @@ export default async function TutorPublicProfile({ params }: { params: Params })
     saved = !!data
   }
 
-  const badges = badgesForPlan(tutor.plan_code, true)
+  // The Verified badge is degree-gated (owner rule 2): a listed tutor without a
+  // reviewed degree on file shows their plan-tier badges but not Verified.
+  const hasReviewedDegree = (tutor.degrees?.length ?? 0) > 0 || tutor.degree_documents.length > 0
+  const badges = badgesForPlan(tutor.plan_code, true, hasReviewedDegree)
   const rating = Number(tutor.rating_avg ?? 0)
   const reviews = tutor.rating_count ?? 0
 

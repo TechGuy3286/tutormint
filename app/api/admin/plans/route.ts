@@ -193,11 +193,12 @@ export async function POST(request: Request) {
   // changes what they can do, so it notifies in-app AND emails, using the same
   // template library as the other channels. No price (nothing was paid), no
   // promise of tuitions or income. `listed` decides whether a tutor's badge is
-  // already live or waits on 100%, so the copy is accurate either way.
+  // already live or waits on verification, so the copy is accurate either way.
   const ent = await getEntitlements(userId)
   const unlocks = planUnlocks(planCode)
-  // The "badge at 100%" caveat is a tutor-listing rule; a parent tier does not
-  // wait on completion, so parents always get the "live" wording.
+  // Since 10 Sep the tutor caveat is verification (identity + mobile), not
+  // completion — the grant makes the plan active, so ent.listed now reflects
+  // exactly whether they still need to verify. A parent tier never waits on it.
   const live = targetAudience === 'parent' ? true : ent.listed
   await notify({
     userId,
@@ -207,7 +208,7 @@ export async function POST(request: Request) {
       ? targetAudience === 'tutor'
         ? `Your ${plan.name} badge is now live on your profile. ${unlocks}`
         : unlocks
-      : `${unlocks} Your badge appears once your profile reaches 100%.`,
+      : `${unlocks} Your badge appears once your identity and mobile number are verified.`,
     href: targetAudience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard',
   })
   await deliverEmail(

@@ -54,11 +54,11 @@ const GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'How does verification work?',
-        a: 'Three things: complete your profile to 100%, record a short introduction video, and upload your degree certificates and CNIC. Our team reviews the video and documents by hand. You get an email with the decision, and if something needs changing, the reason is in that email.',
+        a: 'Record a short introduction video and upload your degree certificates and CNIC. Our team reviews the video and documents by hand. You get an email with the decision, and if something needs changing, the reason is in that email.',
       },
       {
         q: 'Why am I not showing up in search?',
-        a: 'Tutors appear in the directory once their profile reaches 100% completion and their account is in good standing. Your dashboard shows exactly what is still missing. A paid plan is not required to be listed — it affects your ranking and what you can do, not whether you exist.',
+        a: 'To be listed you need three things: an active membership, a verified mobile number, and our team’s approval of your identity. Your dashboard shows which one is still missing. Completion does not decide whether you are listed — a verified tutor with a membership is listed even below 100% — but a fuller profile ranks higher, and reaching 100% is what lets your page appear on Google.',
       },
       {
         q: 'My video was rejected. What now?',
@@ -70,7 +70,7 @@ const GROUPS: FaqGroup[] = [
       },
       {
         q: 'Can I pay before my profile is finished?',
-        a: 'Yes. We will take the payment and your plan starts immediately, but the badge only appears once your profile reaches 100% and verification passes. Nothing is lost in the meantime.',
+        a: 'Yes. We take the payment and your plan starts the day you go live — the day your identity and mobile number are verified. You are listed and can apply from then, even below 100%, and the badge appears once a degree is on file. Nothing is lost in the meantime.',
       },
     ],
   },

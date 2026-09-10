@@ -36,7 +36,7 @@ export default function ProfileCompletionWidget({
           <p className="text-xs font-black text-tm-green-deep">Your profile is 100% complete</p>
           <p className="text-[11px] text-tm-green-deep">
             {role === 'tutor'
-              ? 'You are listed in the tutor directory.'
+              ? 'Your profile can now appear in Google search.'
               : 'Your details are with our team for verification.'}
           </p>
         </div>
@@ -68,7 +68,7 @@ export default function ProfileCompletionWidget({
       <p className="text-[11px] text-gray-500">
         {done} of {items.length} done.{' '}
         {role === 'tutor'
-          ? 'You need 100% to appear in the tutor directory.'
+          ? 'Reach 100% so your profile can appear in Google search.'
           : /* NOT "you need 100% to post a job", which is what this said and
                is not true: createJob() gates on cnic_verified_at and
                address_verified_at alone. A parent at 66% with nine posted

@@ -4428,3 +4428,95 @@ itself.
 `/parent/login` and `/tutor/register` used `redirect()` (307); their own comments
 call them permanent legacy paths still linked from the homepage and /faq, so they
 now use `permanentRedirect()`.
+
+## Profile completion no longer gates listing (owner, 10 Sep 2026) — SUPERSEDES the completion-lists rule
+
+**The listing gate is now a PLAN, not 100% completion.** Under precedence rule 10
+this beats every earlier statement that ties listing to `profile_completion = 100`
+— the 31 Aug owner Q&A line "a tutor appears in /browse/tutors when
+profile_completion = 100% (regardless of plan)", the "A badge means LISTED"
+section's completion premise, `tutorListed()`, and the search-ranking
+"eligibility filter". Migration 70.
+
+**LISTED = an active paid tutor plan + mobile verified (`profiles.phone_verified_at`)
++ verification `'verified'` + not suspended/banned/under-review + claimed if
+imported.** Completion is not in the predicate at all. A paid, verified tutor at
+40% is listed, searchable, and can apply.
+
+- **"CNIC verified" for a tutor is `tutor_profiles.verification_status = 'verified'`**,
+  NOT `profiles.cnic_verified_at`. That column is a PARENT column and is null for
+  every tutor (confirmed on the live DB); the tutor's CNIC is checked as part of
+  the admin identity audit (video + CNIC + degree) that sets `verification_status`.
+  Using the literal column would have listed zero tutors.
+- **This is pay-to-be-listed.** A free or cancelled-plan tutor at 100% is no longer
+  listed — confirmed effect on apply: the live directory went from the old 100%
+  set to the three tutors holding an active paid plan (ali/sara/usman); the two
+  seed tutors on cancelled plans (hina, nadia) dropped. The owner chose this
+  explicitly over "verified lists, plan only gates apply/badge".
+- **`tutor_directory`** (browse / search / `rank_tutors` / sitemap) and
+  **`tutor_visible_profiles`** (may the URL render) carry the new rule; the latter
+  still renders an under-review tutor (amber notice) and an unclaimed import (claim
+  flow). `tutor_public_page` and `listed_tutor_slugs` inherit it. The TS mirror is
+  `lib/planBadges.ts` `tutorListed()` / `tutorListablePrecondition()`, consumed by
+  `computeEntitlements` (`ent.listed`) — SQL and TS share one rule.
+
+**Completion becomes a RANKING signal and an INDEXING gate, nothing else.**
+- **Ranking:** `rank_tutors` sorts `tier → completion → location → Bayesian rating
+  → daily rotation`. Completion sits just below plan tier (complete profiles rank
+  above incomplete at the same tier); the keyset cursor gained a matching
+  `completion` component so load-more paging stays stable.
+- **Indexing:** a listed tutor under 100% is `noindex` on their public profile and
+  withheld from the sitemap (`listed_tutor_slugs` keeps the `>= 100` filter;
+  `tutorProfileNoindex()` drives the page). At 100% both lift automatically — one
+  threshold, no second field list. Fully listed and applying throughout; only
+  Google is held back.
+
+**The Verified badge is degree-gated for tutors (unchanged in meaning, newly
+enforced).** A listed tutor without a reviewed degree on file (`tutor_profiles.degrees`
+non-empty) shows their plan-tier badges but NOT Verified — `badgesForPlan(plan,
+gate, hasReviewedDegree)`, threaded through the browse card (`rank_tutors` returns
+`has_degree`), the public profile, the dashboard (`ent`), and the verified share
+card. Premium/Featured are plan-tier and not degree-gated; parents are unaffected
+(their Verified is CNIC + address). Secondary badge surfaces (the inbox, the hired
+list, job-card parent badges) still gate on completion `>= 100`, which is
+conservative — a 100% tutor has a degree, so no false Verified appears; they only
+under-show badges for a sub-100% listed tutor.
+
+**The blocking Apply modal is gone (owner rule 5).** `applyToJob` no longer blocks
+on completion and `lib/gate.ts` no longer has the `tutor_complete_profile` gate or
+the under-100% "Finish profile first / Buy anyway" override. Applying still
+requires being listed: a no-plan tutor hits the quota gate → packages; a tutor who
+HOLDS a plan but is not yet verified/mobile gets a plain "your profile is still
+being verified" message (never an upgrade sheet). In its place the dashboard shows
+quantified, non-blocking prompts (`lib/needsYou.ts`), each shown only when its
+number is real: "N tuitions in <city> match nothing on your profile"
+(`cityJobsMatchingNothing`, the dashboard job query minus the subject filter),
+"Your profile is not on Google yet — it appears in search once it reaches 100%"
+(listed tutors under 100% only), and "Add a degree to earn your Verified badge"
+(paid tutors without one). The profile-view teaser (`ViewsCard`) already existed.
+
+**Go-live rewired.** Because listing now requires an active plan, `activatePayment`
+and `activatePausedIfListed` can no longer ask `tutor_directory` "are you listed?"
+to decide when a paused, paid plan starts its clock — the plan being started is
+what the directory waits on. They ask the PRECONDITION instead (`lib/payments/listable.ts`
+`isTutorListable` = listing minus the plan). Admin plan grants still create an
+active sub directly, so the owner's "grant a plan" tool lists a verified+mobile
+tutor immediately. BRIDGE_OTP and plan entitlements were not touched.
+
+**Copy sweep.** The blanket "Degree-Verified" claim about all tutors is retired
+(a paid tutor may be listed without a reviewed degree): the homepage `<title>` and
+hero, the WebSite JSON-LD description, and the tutor-page fallback description drop
+"degree" and keep "verified"; `/about`'s "every tutor uploads … degree
+certificates before the tutor is listed" is corrected to make the degree the
+badge's requirement, not a listing gate. Badge-scoped and process claims (the
+Verified-badge explainer, the verification process, an individual profile's own
+reviewed degree) are still true and were left.
+
+**As built.** Migration 70 (backup `public-20260910-225122.sql` taken first,
+applied live in one transaction). Verified after apply: directory 3, visible 5
+(3 listed + 2 unclaimed imports), sitemap 3, `rank_tutors` returns `completion`/
+`has_degree`, `tutor_public_page` resolves for a listed tutor and an unclaimed
+import, `rls:audit` 179/179. Gates: tsc 0 · build 0 · check:contrast 100 ·
+test:authtrust 31 (adds the paid-under-100 listed, free-100 not-listed, plan-but-
+unverified not-listed, no-degree no-Verified cases, and the pure listing/noindex/
+sitemap/badge helpers) · every other suite green.

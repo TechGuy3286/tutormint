@@ -152,7 +152,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How do I get Verified?',
-        a: 'Complete your profile to 100%, upload your introduction video and your degree certificates, and hold an active membership. An administrator reviews the video and the documents. The badge appears once all three are true — and you can pay before your profile is finished: the money is not wasted, the badge simply waits until you get there.',
+        a: 'Hold an active membership, verify your mobile number, and have an administrator approve your identity — your introduction video, CNIC and a degree certificate. The Verified badge appears once your identity is approved with a degree on file. You can pay before your profile is finished: the money is not wasted, and you are listed and can apply as soon as you are verified, even before the profile is 100% complete.',
         links: [
           { label: 'Complete your profile', href: '/tutor/complete-profile' },
           { label: 'Tutor memberships', href: '/tutor/packages' },
@@ -160,7 +160,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'Why is my profile not appearing in search?',
-        a: 'Almost always one of three things: your profile is not yet at 100%, your video has not been approved, or your membership has expired. Your dashboard names which one at the top of the page. Tutors below 100% are not listed at all — not ranked lower, not listed — because a half-finished profile is not something a parent can choose from.',
+        a: 'To be listed you need three things: an active membership, a verified mobile number, and an administrator’s approval of your identity. If one of those is missing you are not listed — your dashboard names which one at the top of the page. Completion does not decide listing: a paid, verified tutor is listed and can apply even below 100%. Completion decides your search RANKING (a fuller profile ranks higher) and whether Google can index your page (that needs 100%).',
         links: [
           { label: 'Your dashboard', href: '/tutor/dashboard' },
           { label: 'Complete your profile', href: '/tutor/complete-profile' },
@@ -348,7 +348,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Mera profile search mein kyun nahi aa raha?',
         lang: 'ur',
-        a: 'Tqreeban hamesha teen mein se ek wajah: profile abhi 100% nahi hua, video approve nahi hui, ya membership khatam ho gayi. Aap ka dashboard sab se ooper bata deta hai ke kaun si wajah hai. 100% se kam wale tutors bilkul list nahi hote — neeche rank nahi hote, list hi nahi hote — kyunke adhoora profile aisi cheez nahi jis mein se koi walid intikhab kar sake.',
+        a: 'List hone ke liye teen cheezein chahiye: active membership, verified mobile number, aur administrator se aap ki shanakht ki manzoori. In mein se koi ek kam ho to aap list nahi hote — dashboard sab se ooper bata deta hai ke kaun si. Profile ka 100% hona listing tay nahi karta: paid aur verified tutor 100% se kam par bhi list hota hai aur apply kar sakta hai. 100% sirf search RANKING behtar banata hai aur Google par page ke index hone ke liye zaroori hai.',
         links: [
           { label: 'Dashboard', href: '/tutor/dashboard' },
           { label: 'Profile mukammal karein', href: '/tutor/complete-profile' },

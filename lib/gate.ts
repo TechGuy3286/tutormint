@@ -72,7 +72,6 @@ export type Gate = {
 export type GateReason =
   | 'suspended'
   | 'blocked'
-  | 'tutor_complete_profile'
   | 'tutor_apply_no_plan'
   | 'tutor_apply_quota'
   | 'tutor_message'
@@ -88,7 +87,6 @@ export type GateReason =
 const REQUIRES: Record<GateReason, string | null> = {
   suspended: null,
   blocked: null,
-  tutor_complete_profile: null,
   parent_verify: null,
   tutor_apply_no_plan: 'verified',
   tutor_apply_quota: 'premium',
@@ -133,43 +131,20 @@ async function loadPlan(code: string): Promise<GatePlan | undefined> {
  * do the thing (a blocked pair, say) does not have to load entitlements again.
  */
 /**
- * The public builder: the base gate, plus the under-100% tutor treatment.
- *
- * A tutor who has not reached 100% is not listed, so buying now buys a plan
- * whose badge and clock wait for go-live (see lib/payments/goLive.ts). The
- * honest thing to lead with is the completion, not the price -- so any tutor
- * upgrade/quota/complete gate, when the tutor is under 100%, leads with "finish
- * first" and keeps buying as a secondary action. Never a hard block: the plan
- * card and "Buy anyway" stay.
+ * The public builder. Since 10 Sep 2026 completion no longer gates listing, so
+ * this is just the base gate — there is no under-100% "finish first" override
+ * any more (a paid tutor at 40% is listed and applying). Kept as the public
+ * entry point so callers do not depend on buildBaseGate directly.
  */
 export async function buildGate(
   reason: GateReason,
   ent?: Pick<Entitlements, 'audience' | 'plan' | 'quota' | 'profileCompletion'> | null,
 ): Promise<Gate> {
-  const gate = await buildBaseGate(reason, ent)
-
-  const pct = ent?.profileCompletion
-  const tutorUnder =
-    gate.audience === 'tutor' &&
-    typeof pct === 'number' &&
-    pct < 100 &&
-    (gate.kind === 'upgrade' || gate.kind === 'quota' || gate.kind === 'complete')
-
-  if (!tutorUnder) return gate
-
-  // Buy-anyway goes to the plan the gate was about; with no specific plan (the
-  // bare "finish your profile" gate) it lands on the Verified entry card.
-  const buyHref = gate.plan
-    ? packagesHref('tutor', gate.plan.code)
-    : packagesHref('tutor', 'verified')
-
-  return {
-    ...gate,
-    body: `Your profile is ${pct}% complete. Your badge and listing start the moment you reach 100%.`,
-    href: '/tutor/complete-profile',
-    ctaLabel: 'Finish profile first',
-    secondary: { label: 'Buy anyway', href: buyHref },
-  }
+  // Completion no longer gates listing (owner, 10 Sep 2026), so a gate no longer
+  // leads with "finish your profile first / buy anyway": a paid tutor at 40% is
+  // listed and applying, and the honest upsell is the plan itself. The base gate
+  // stands on its own.
+  return buildBaseGate(reason, ent)
 }
 
 async function buildBaseGate(
@@ -203,19 +178,6 @@ async function buildBaseGate(
         href: '/support',
         ctaLabel: 'Contact support',
         actionable: false,
-      }
-
-    case 'tutor_complete_profile':
-      return {
-        kind: 'complete',
-        title: 'Finish your profile first',
-        body:
-          'Parents only see tutors whose profile is 100% complete, so applying before that ' +
-          'would not reach anyone. It costs nothing to finish.',
-        audience: 'tutor',
-        href: '/tutor/complete-profile',
-        ctaLabel: 'Complete my profile',
-        actionable: true,
       }
 
     case 'parent_verify':

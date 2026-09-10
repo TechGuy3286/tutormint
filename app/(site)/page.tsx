@@ -26,7 +26,7 @@ import { getSupportContact } from '@/lib/support'
 import { jsonLdScript, organizationJsonLd, socialMeta, webSiteJsonLd } from '@/lib/seo'
 
 export async function generateMetadata(): Promise<Metadata> {
-  const title = "Hire Trusted, Degree-Verified Tutors & Teachers | TutorMint"
+  const title = "Hire Trusted, Verified Tutors & Teachers | TutorMint"
   const description =
     'Pakistan’s largest verified tutors and teachers network. No fee, no commission, no middleman — book a live demo and hire directly.'
 
@@ -76,7 +76,7 @@ export default async function HomePage() {
         {/* Headline. One <h1> for the page, with the line break the design
             uses on desktop and natural wrapping on a phone. */}
         <h1 className="tm-headline mt-2 text-3xl font-black leading-[1.15] text-tm-black sm:mt-3 sm:text-5xl md:text-6xl">
-          Trusted, Degree-Verified{' '}
+          Trusted, Verified{' '}
           <span className="whitespace-nowrap">
             Tutors/Teachers <span className="text-tm-red">FREE</span>
           </span>

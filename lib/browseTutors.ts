@@ -23,11 +23,17 @@ export type TutorFilters = {
   q: string
 }
 
-/** The sort key rank_tutors() orders by. Everything needed to say "after this row". */
-type TutorCursor = { t: number; l: number; s: number; h: string }
+/**
+ * The sort key rank_tutors() orders by. Everything needed to say "after this
+ * row". `c` (completion) sits just below tier in the sort, so it is part of the
+ * keyset cursor — without it, load-more would straddle the completion boundary.
+ */
+type TutorCursor = { t: number; c: number; l: number; s: number; h: string }
 
 export type RankedTutor = TutorCardData & {
   tier: number
+  completion: number
+  has_degree: boolean
   location_score: number
   score: number
   sort_hash: string
@@ -117,6 +123,7 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     p_after_loc: after?.l ?? null,
     p_after_score: after?.s ?? null,
     p_after_hash: after?.h ?? null,
+    p_after_completion: after?.c ?? null,
   })
 
   const tutors = await withSubjectLinks(supabase, (data ?? []) as RankedTutor[])
@@ -216,6 +223,7 @@ export function cursorFor(row: RankedTutor): string {
   // the boundary row compare unequal to itself and be served twice.
   return encodeCursor({
     t: row.tier,
+    c: row.completion,
     l: row.location_score,
     s: Math.round(Number(row.score) * 100) / 100,
     h: row.sort_hash,
@@ -237,7 +245,7 @@ export async function tutorCardBySlug(slug: string): Promise<TutorCardData | nul
   const { data } = await supabase
     .from('tutor_directory')
     .select(
-      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, job_types, hourly_rate_pkr, experience_years, rating_avg, rating_count',
+      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, job_types, hourly_rate_pkr, experience_years, rating_avg, rating_count, degrees',
     )
     .eq('slug', slug)
     .maybeSingle()
@@ -247,7 +255,9 @@ export async function tutorCardBySlug(slug: string): Promise<TutorCardData | nul
     ...(data as Record<string, unknown>),
     subject_labels: null,
     plan_code: null,
+    has_degree: ((data as { degrees?: string[] | null }).degrees?.length ?? 0) > 0,
     tier: 0,
+    completion: 0,
     location_score: 0,
     score: 0,
     sort_hash: '',
@@ -297,7 +307,7 @@ export async function tutorCardsByIds(ids: string[]): Promise<TutorCardData[]> {
   const { data } = await supabase
     .from('tutor_directory')
     .select(
-      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, job_types, hourly_rate_pkr, experience_years, rating_avg, rating_count',
+      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, job_types, hourly_rate_pkr, experience_years, rating_avg, rating_count, degrees',
     )
     .in('id', ids)
   const rows = (data ?? []) as Record<string, unknown>[]
@@ -309,7 +319,9 @@ export async function tutorCardsByIds(ids: string[]): Promise<TutorCardData[]> {
         ...d,
         subject_labels: null,
         plan_code: null,
+        has_degree: ((d as { degrees?: string[] | null }).degrees?.length ?? 0) > 0,
         tier: 0,
+        completion: 0,
         location_score: 0,
         score: 0,
         sort_hash: '',

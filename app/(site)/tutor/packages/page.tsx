@@ -74,10 +74,10 @@ export default async function TutorPackagesPage({
             Your plan decides how many jobs you can apply to, where you rank in search, and which
             badges parents see.
           </p>
-          {ent && !ent.profileComplete && (
+          {ent && ent.audience === 'tutor' && !ent.listed && (
             <p className="rounded-xl bg-tm-tint-gold p-3 text-[11px] leading-relaxed text-tm-gold-ink">
               Your month starts the day you go live. You can buy now, but the badge and the 30 days
-              both begin when your profile reaches 100% — nothing is lost, and nothing counts down
+              both begin once you are verified and listed — nothing is lost, and nothing counts down
               in the meantime.
             </p>
           )}

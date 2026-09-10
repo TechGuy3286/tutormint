@@ -45,7 +45,6 @@ const ALLOWED: GateReason[] = [
   'parent_contact',
   'parent_hire',
   'parent_verify',
-  'tutor_complete_profile',
 ]
 
 const Body = z.object({

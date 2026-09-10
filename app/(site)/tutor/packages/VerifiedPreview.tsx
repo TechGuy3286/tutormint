@@ -28,8 +28,8 @@ export default function VerifiedPreview({ name, city }: { name: string; city: st
       </div>
 
       <p className="text-[11px] leading-relaxed text-gray-500">
-        The badge appears once your profile reaches 100% and your video is approved. Parents filter
-        for it, and Verified tutors are listed above tutors without a plan.
+        The badge appears once your identity is verified and a degree is on file. Parents filter for
+        it, and Verified tutors are listed above tutors without a plan.
       </p>
     </section>
   )

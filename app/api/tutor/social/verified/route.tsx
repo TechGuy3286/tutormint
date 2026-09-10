@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
   const { data: tutor } = await admin
     .from('tutor_directory')
-    .select('id, slug, full_name, headline, city, area, rating_avg, rating_count, avatar_url, experience_years, teaching_mode')
+    .select('id, slug, full_name, headline, city, area, rating_avg, rating_count, avatar_url, experience_years, teaching_mode, degrees')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -58,7 +58,14 @@ export async function GET(request: Request) {
 
   return renderSocialBanner({
     tutor: tutor as unknown as BannerTutor,
-    badges: badgesForPlan((sub?.plan_code as string) ?? null, true),
+    // Degree-gated: a listed tutor without a reviewed degree has no Verified
+    // badge to share (owner rule 2). The dashboard only offers this card to a
+    // tutor who holds the badge, so this is belt-and-braces.
+    badges: badgesForPlan(
+      (sub?.plan_code as string) ?? null,
+      true,
+      ((tutor.degrees as string[] | null)?.length ?? 0) > 0,
+    ),
     subjects,
     format,
     template: 'success',

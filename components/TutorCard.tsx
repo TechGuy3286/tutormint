@@ -55,6 +55,13 @@ export type TutorCardData = {
    */
   subject_links?: { label: string; masterId: number; href?: string }[]
   plan_code: string | null
+  /**
+   * Whether a reviewed degree is on file. The Verified badge is degree-gated for
+   * tutors (owner, 10 Sep 2026): a paid, listed tutor without one is shown, but
+   * carries no Verified badge. Optional; absent means "assume yes" so surfaces
+   * that do not carry the signal are unchanged.
+   */
+  has_degree?: boolean
 }
 
 export type CardViewer = {
@@ -171,7 +178,7 @@ export default function TutorCard({
   const toast = useToast()
 
   const profileHref = tutor.slug ? `/tutor/${tutor.slug}` : '#'
-  const badges = badgesForPlan(tutor.plan_code, true)
+  const badges = badgesForPlan(tutor.plan_code, true, tutor.has_degree ?? true)
   const rating = Number(tutor.rating_avg ?? 0)
   const reviews = tutor.rating_count ?? 0
 

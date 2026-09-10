@@ -81,10 +81,11 @@ export type Entitlements = {
   listed: boolean
   /**
    * The member has PAID for a plan whose 30 days have not started, because a
-   * tutor bought while under 100%. It grants no powers and no badge yet; the
-   * clock and the badge both begin on the day they go live. `plan` stays null
-   * while paused -- gated routes must not treat a paused plan as active -- but
-   * the dashboard shows "<plan> plan active · your badge appears at 100%".
+   * tutor bought while not yet listable (identity/mobile not verified). It grants
+   * no powers and no badge yet; the clock and the badge both begin on the day
+   * they go live. `plan` stays null while paused -- gated routes must not treat a
+   * paused plan as active -- but the dashboard shows "<plan> plan active · your
+   * badge appears once your identity and mobile number are verified".
    */
   planPaused: boolean
   pausedPlanName: string | null
@@ -194,11 +195,18 @@ export type EntitlementInputs = {
     profile_completion: number | null
     cnic_verified_at: string | null
     address_verified_at: string | null
+    phone_verified_at: string | null
     is_suspended: boolean | null
     is_banned: boolean | null
     phone_verified_via: string | null
   } | null
-  tutorRow: { verification_status: string | null; imported: boolean | null; claimed_at: string | null } | null
+  tutorRow: {
+    verification_status: string | null
+    imported: boolean | null
+    claimed_at: string | null
+    under_review: boolean | null
+    degrees: string[] | null
+  } | null
   /** Active AND unexpired subscription rows — the caller filters status/expiry. */
   activeSubs: { plan_code: string; expires_at: string | null }[]
   /** The most-recent paused subscription's plan code, or null. */
@@ -225,17 +233,34 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   const profileCompletion = profile.profile_completion ?? 0
   const profileComplete = profileCompletion >= 100
 
-  // `listed` is what a tutor's badge clears — the tutor_directory rule in TS.
+  // Does the tutor hold an ACTIVE paid plan? (Any active, unexpired sub whose
+  // plan is a tutor plan. The caller has already filtered activeSubs to
+  // status='active' AND expires_at > now().)
+  const tutorPlanCodes = new Set(input.plans.filter((p) => p.audience === 'tutor').map((p) => p.code))
+  const hasActivePaidPlan = input.activeSubs.some((s) => tutorPlanCodes.has(s.plan_code))
+
+  // `listed` is the tutor_directory rule in TS (owner, 10 Sep 2026): an active
+  // paid plan + the listable precondition (mobile verified, verification
+  // 'verified', not suspended/banned/under-review, claimed if imported).
+  // Completion no longer gates it.
   const listed =
     role === 'tutor'
       ? tutorListed({
-          profileComplete,
+          hasActivePaidPlan,
+          phoneVerified: !!profile.phone_verified_at,
           verificationStatus: tutorRow?.verification_status,
           isSuspended: profile.is_suspended,
+          isBanned: profile.is_banned,
+          underReview: tutorRow?.under_review,
           imported: tutorRow?.imported,
           claimedAt: tutorRow?.claimed_at,
         })
       : false
+
+  // The Verified badge, for a tutor, additionally needs a reviewed degree
+  // (owner rule 2). A tutor's declared degrees are the signal; parents are
+  // unaffected (their Verified is CNIC + address).
+  const hasReviewedDegree = (tutorRow?.degrees?.length ?? 0) > 0
 
   // BAN short-circuits everything. The login route already refuses a banned
   // account with no session; this is the backstop for a session that was live
@@ -320,8 +345,12 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
     canSeeViewerIdentity: !!p.can_see_viewer_identity,
     searchRank: p.search_rank ?? 0,
     // A tutor's badge clears `listed`; a parent has no listing, so completion is
-    // their gate.
-    badges: badgesForPlan(p.code, audience === 'tutor' ? listed : profileComplete),
+    // their gate. The Verified badge is additionally degree-gated for tutors.
+    badges: badgesForPlan(
+      p.code,
+      audience === 'tutor' ? listed : profileComplete,
+      audience === 'tutor' ? hasReviewedDegree : true,
+    ),
     tagLabel: (audience === 'tutor' ? listed : profileComplete) ? p.tag_label : null,
     profileComplete,
     profileCompletion,
@@ -342,7 +371,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
 
   const { data: profile } = await db
     .from('profiles')
-    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended, is_banned, phone_verified_via')
+    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, is_banned, phone_verified_via')
     .eq('id', userId)
     .maybeSingle()
 
@@ -355,7 +384,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
   // is a couple of small reads on rare accounts and keeps the decision pure.
   const [tutorRes, subsRes, planRes, pausedRes, counterRes] = await Promise.all([
     role === 'tutor'
-      ? db.from('tutor_profiles').select('verification_status, imported, claimed_at').eq('id', userId).maybeSingle()
+      ? db.from('tutor_profiles').select('verification_status, imported, claimed_at, under_review, degrees').eq('id', userId).maybeSingle()
       : Promise.resolve({ data: null }),
     db
       .from('subscriptions')
@@ -391,6 +420,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
       profile_completion: (profile.profile_completion as number | null) ?? null,
       cnic_verified_at: (profile.cnic_verified_at as string | null) ?? null,
       address_verified_at: (profile.address_verified_at as string | null) ?? null,
+      phone_verified_at: (profile.phone_verified_at as string | null) ?? null,
       is_suspended: (profile.is_suspended as boolean | null) ?? null,
       is_banned: (profile.is_banned as boolean | null) ?? null,
       phone_verified_via: (profile.phone_verified_via as string | null) ?? null,

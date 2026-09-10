@@ -21,9 +21,9 @@ import type { BadgeName } from '@/lib/planBadges'
 //
 // THE RING IS THE COMPLETION, and only below 100%. A ring around a finished
 // profile is decoration that trains people to ignore rings; a ring around an
-// unfinished one is the single most consequential number on a tutor's
-// dashboard, because under 100% they are not listed at all. At 100% it goes
-// away and the badges are what remain.
+// unfinished one is a number a tutor should see — since 10 Sep completion no
+// longer gates listing, but it drives ranking and whether the page reaches
+// Google. At 100% it goes away and the badges are what remain.
 
 export default function IdentityBlock({
   name,
@@ -64,8 +64,9 @@ export default function IdentityBlock({
   extra?: React.ReactNode
   /**
    * Shown when a tutor has PAID but is not yet listed: "Verified plan active ·
-   * your badge appears when your profile reaches 100%." A paid plan alone never
-   * draws a badge, so this explains where the badge went. Built by the caller.
+   * your badge appears once your identity and mobile number are verified." A paid
+   * plan alone never draws a badge, so this explains where the badge went. Built
+   * by the caller.
    */
   planNotice?: string
 }) {

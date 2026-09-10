@@ -186,8 +186,9 @@ export default function PackagesTable({
         {audience === 'tutor' && (
           <p>
             <strong className="text-tm-navy">Your month starts the day you go live.</strong> If you
-            buy before your profile is 100%, the plan is paid for but paused — the badge and the 30
-            days both begin the day you become listed, so nothing counts down while you finish.
+            buy before your identity and mobile number are verified, the plan is paid for but
+            paused — the badge and the 30 days both begin the day you become listed, so nothing
+            counts down while you get there.
           </p>
         )}
         <p>

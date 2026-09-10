@@ -90,9 +90,10 @@ export default async function AboutPage() {
         <div className="space-y-2">
           <h2 className="text-base font-black text-tm-navy">What verification means here</h2>
           <p>
-            Every tutor uploads an introduction video and their degree certificates. The video goes
-            to our own channel as a private video and an administrator reviews it, along with the
-            documents, before the tutor is listed.{' '}
+            Every tutor uploads an introduction video, which goes to our own channel as a private
+            video for an administrator to review — along with their CNIC — before they are listed.
+            Tutors upload their degree certificates too, and a tutor carries the Verified badge only
+            once a degree has been checked.{' '}
             <Link href="/parent/verify" className="font-bold text-tm-red hover:underline">
               Parents verify their CNIC and a home address
             </Link>{' '}

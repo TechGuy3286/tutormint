@@ -196,7 +196,7 @@ export function webSiteJsonLd() {
     '@id': `${SITE_URL}/#website`,
     url: SITE_URL,
     name: BRAND,
-    description: pageDescription('Find verified, degree-checked tutors across Pakistan'),
+    description: pageDescription('Find verified tutors across Pakistan'),
     inLanguage: 'en-PK',
     publisher: { '@id': `${SITE_URL}/#organization` },
     potentialAction: {

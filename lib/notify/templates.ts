@@ -173,7 +173,7 @@ export function render(input: TemplateInput): RenderedEmail {
     case 'welcome': {
       const next =
         input.role === 'tutor'
-          ? 'Complete your profile to 100% and record your verification video — tutors only appear in search once their profile is complete.'
+          ? 'Complete your profile and record your verification video. Once you are verified and hold a membership, parents can find you in search — and finishing your profile is what puts you on Google.'
           : 'Verify your CNIC and address, then you can post a tuition and message tutors directly.'
       const cta =
         input.role === 'tutor'
@@ -206,7 +206,7 @@ export function render(input: TemplateInput): RenderedEmail {
           `Your ${what} is approved`,
           [
             `We have reviewed your ${what} and it has been approved.`,
-            'Your Verified badge appears as soon as your profile reaches 100%.',
+            'Your Verified badge appears on your profile once everything it needs has been checked — your dashboard shows anything still outstanding.',
           ],
           true,
           { label: 'Open your dashboard', href: '/' },
@@ -328,7 +328,7 @@ export function render(input: TemplateInput): RenderedEmail {
           input.unlocks,
           input.listed
             ? ''
-            : 'Your badge appears on your profile as soon as it reaches 100%.',
+            : 'Your badge appears on your profile as soon as your identity and mobile number are verified.',
         ].filter(Boolean),
         true,
         { label: 'Open your dashboard', href: '/' },

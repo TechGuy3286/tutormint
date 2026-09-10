@@ -74,26 +74,24 @@ export async function applyToJob(params: {
 
   const admin = createAdminClient()
 
-  // 1. Listed?
-  if (admin) {
-    const { data: listed } = await admin
-      .from('tutor_directory')
-      .select('id')
-      .eq('id', params.tutorId)
-      .maybeSingle()
-
-    if (!listed) {
-      return {
-        ok: false,
-        status: 403,
-        error:
-          'Complete your profile to 100% before applying — parents only see tutors who are listed.',
-        upgrade: '/tutor/complete-profile',
-        gate: await buildGate('tutor_complete_profile', ent),
-      }
+  // 1. Verified and reachable? Completion NO LONGER blocks applying (owner,
+  //    10 Sep 2026) — a paid tutor at 40% may apply. Applying still requires
+  //    being listed: a plan (enforced by the quota check below, which sends a
+  //    no-plan tutor to packages) AND a verified identity + mobile. A tutor who
+  //    HOLDS a plan but is not yet listed (verification or mobile pending, or
+  //    under review) is told plainly — never an upgrade sheet, never a "finish
+  //    your profile" wall.
+  if (ent.plan && !ent.listed) {
+    return {
+      ok: false,
+      status: 403,
+      error:
+        'Your profile is still being verified. You can apply once your identity and mobile number are verified.',
     }
+  }
 
-    // 2. Blocked either way?
+  // 2. Blocked either way?
+  if (admin) {
     const { data: blocked } = await admin.rpc('is_blocked_pair', {
       a: params.tutorId,
       b: job.parent_id as string,
