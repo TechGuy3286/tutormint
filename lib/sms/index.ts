@@ -33,6 +33,7 @@
 // tutormint.org it reads 'production' and nothing below changes.
 
 import type { SmsProvider, SmsResult } from './provider'
+import { sendpkProvider } from './sendpk'
 import { smspointProvider } from './smspoint'
 import { twilioProvider } from './twilio'
 import { consoleProvider } from './console'
@@ -53,13 +54,19 @@ const unconfigured: SmsProvider = {
 }
 
 export function getSmsProvider(): SmsProvider {
-  // SMS Point is the live provider (Part 7 stage 2), delivering the code on
-  // WhatsApp. Twilio stays as the documented alternative. A configured real
-  // provider is used in dev too, exactly as twilio was — but the DEV_DEFAULT_OTP
-  // bypass short-circuits sendOtp BEFORE the provider, so a dev with the bypass
-  // set never spends a real message. With neither real provider configured, the
-  // console adapter prints in development, and production falls to `unconfigured`
-  // — a stated failure, never a silent success.
+  // Order is preference: SendPK first, then SMS Point, then Twilio, then the
+  // console adapter in development, then a stated failure in production. Each is
+  // selected only when fully configured (isConfigured() checks its own env), so a
+  // half-configured provider is skipped rather than reaching a member. A
+  // configured real provider is used in dev too — but the DEV_DEFAULT_OTP bypass
+  // short-circuits sendOtp BEFORE the provider, so a dev with the bypass set never
+  // spends a real message. With none configured, the console adapter prints in
+  // development and production falls to `unconfigured` — never a silent success.
+  //
+  // SENDPK_SENDER is ADVISORY on this account: both "8584" and "TutorMint" route
+  // through the same short code, 8062050, so the sender param does not decide the
+  // on-device sender name — the SendPK account's approved routing does.
+  if (sendpkProvider.isConfigured()) return sendpkProvider
   if (smspointProvider.isConfigured()) return smspointProvider
   if (twilioProvider.isConfigured()) return twilioProvider
   if (!isProduction()) return consoleProvider

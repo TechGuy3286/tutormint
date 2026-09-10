@@ -19,6 +19,7 @@
     "provision:team": "tsx scripts/provision-team-parent.ts",
     "sms:probe": "tsx scripts/sms-probe.ts",
     "sendpk:probe": "tsx scripts/sendpk-probe.ts",
+    "test:sendpk": "tsx --test scripts/test-sendpk.ts",
     "check:contrast": "tsx scripts/contrast-check.ts",
     "test:jobcopy": "tsx --test scripts/test-jobcopy.ts",
     "test:grouping": "tsx --test scripts/test-grouping.ts",

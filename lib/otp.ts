@@ -236,6 +236,9 @@ export async function sendOtp(opts: {
     channel: 'provider',
     provider: provider.name,
     ok: sent.ok,
+    // The provider's message id (SendPK's UUID) when it returned one, so a
+    // delivered send is traceable to the provider's own record from this line.
+    id: sent.ok ? sent.id ?? undefined : undefined,
     error: sent.ok ? undefined : sent.error,
   })
 
@@ -274,6 +277,7 @@ function reportSend(o: {
   channel: SmsSendChannel
   provider?: string
   ok: boolean
+  id?: string
   error?: string
 }): void {
   const line = [
@@ -283,6 +287,7 @@ function reportSend(o: {
     `channel=${o.channel}`,
     o.provider ? `provider=${o.provider}` : '',
     `ok=${o.ok}`,
+    o.id ? `id=${o.id}` : '',
     !o.ok && o.error ? `error=${JSON.stringify(o.error)}` : '',
   ]
     .filter(Boolean)
