@@ -18,6 +18,7 @@
     "demo:underreview": "tsx scripts/demo-under-review.ts",
     "provision:team": "tsx scripts/provision-team-parent.ts",
     "sms:probe": "tsx scripts/sms-probe.ts",
+    "sendpk:probe": "tsx scripts/sendpk-probe.ts",
     "check:contrast": "tsx scripts/contrast-check.ts",
     "test:jobcopy": "tsx --test scripts/test-jobcopy.ts",
     "test:grouping": "tsx --test scripts/test-grouping.ts",
