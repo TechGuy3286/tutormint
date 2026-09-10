@@ -205,12 +205,13 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       parent_can_hire: f?.canHire ?? false,
       posted_by_team: f?.team ?? false,
       poster_is_seed: f?.isSeed ?? false,
+      gender_preference: (j.gender_preference as string | null) ?? null,
     }
   })
 }
 
 const JOB_COLUMNS =
-  'id, job_tx_id, public_slug, title, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, under_review, parent_id, status'
+  'id, job_tx_id, public_slug, title, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, under_review, parent_id, status, gender_preference'
 
 /**
  * Open jobs that match a tutor's subjects, their city first.

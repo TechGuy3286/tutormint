@@ -5,13 +5,15 @@
 // The gates on applying, all checked server-side and in this order so the
 // cheapest refusals happen first:
 //
-//   1. the tutor is LISTED (100% profile, not suspended) -- an unlisted tutor
-//      applying would put a profile in front of a parent that the directory
-//      has decided is not ready to be seen
+//   1. the tutor is LISTED (paid plan + verified, not suspended) -- an unlisted
+//      tutor applying would put a profile in front of a parent that the
+//      directory has decided is not ready to be seen
 //   2. the pair is not blocked
-//   3. the job is still open
-//   4. they have not already applied (a unique index backs this up)
-//   5. quota: 10 / 25 / 100 by plan
+//   3. the job's gender preference, if any, matches the tutor's gender (an
+//      unset tutor gender is never blocked; a plain message, not an upgrade)
+//   4. the job is still open
+//   5. they have not already applied (a unique index backs this up)
+//   6. quota: 10 / 25 / 100 by plan
 //
 // Quota is spent only after the row exists, and withdrawal never refunds it
 // (the owner's rule) -- the application still cost a slot, which is what stops
@@ -23,6 +25,7 @@ import { getEntitlements } from '@/lib/entitlements'
 import { checkQuota, consumeQuota } from '@/lib/quota'
 import { logActivity } from '@/lib/activityLog'
 import { buildGate, type Gate } from '@/lib/gate'
+import { genderApplyBlocked, genderPrefSentence } from '@/lib/genderPref'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 
@@ -37,7 +40,7 @@ export async function applyToJob(params: {
 
   const { data: job } = await supabase
     .from('jobs')
-    .select('id, parent_id, status, title, job_tx_id, under_review')
+    .select('id, parent_id, status, title, job_tx_id, under_review, gender_preference')
     .eq('id', params.jobId)
     .maybeSingle()
 
@@ -102,6 +105,26 @@ export async function applyToJob(params: {
         status: 403,
         error: 'You cannot apply to this job.',
         gate: await buildGate('blocked', ent),
+      }
+    }
+  }
+
+  // 3. Gender preference (owner, 11 Sep 2026). The job stays visible to everyone;
+  //    only Apply is gated, and to a MATCHING tutor. A tutor who has not set their
+  //    gender is never blocked (unset = no check, not a mismatch). NO gate — this
+  //    is a plain refusal with the preference sentence, not an upgrade sheet; the
+  //    UI offers similar tuitions so it is not a dead end.
+  if (admin && job.gender_preference) {
+    const { data: me } = await admin
+      .from('tutor_profiles')
+      .select('gender')
+      .eq('id', params.tutorId)
+      .maybeSingle()
+    if (genderApplyBlocked(job.gender_preference as string, me?.gender as string | null)) {
+      return {
+        ok: false,
+        status: 403,
+        error: genderPrefSentence(job.gender_preference as string) ?? 'This tuition has a tutor gender preference you do not match.',
       }
     }
   }

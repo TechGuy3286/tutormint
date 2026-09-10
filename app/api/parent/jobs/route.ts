@@ -33,6 +33,8 @@ const JobBody = z.object({
   description: z.string().max(5000, 'Keep the description under 5000 characters.').nullish(),
   childId: uuid.nullish(),
   jobId: z.string().max(64).nullish(),
+  // Optional preferred tutor gender (migration 72). Never required.
+  genderPreference: z.enum(['male', 'female', 'trans']).nullish(),
 })
 
 function parseInput(body: z.infer<typeof JobBody>): JobInput {
@@ -54,6 +56,7 @@ function parseInput(body: z.infer<typeof JobBody>): JobInput {
     schedule: str(body.schedule),
     description: str(body.description),
     childId: str(body.childId),
+    genderPreference: body.genderPreference ?? null,
   }
 }
 

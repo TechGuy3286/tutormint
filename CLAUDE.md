@@ -4555,3 +4555,44 @@ import, `rls:audit` 179/179. Gates: tsc 0 · build 0 · check:contrast 100 ·
 test:authtrust 31 (adds the paid-under-100 listed, free-100 not-listed, plan-but-
 unverified not-listed, no-degree no-Verified cases, and the pure listing/noindex/
 sitemap/badge helpers) · every other suite green.
+
+## One shared post-a-tuition form + optional gender preference (owner, 11 Sep 2026)
+
+**One form, two callers.** `/admin/jobs/new` and the parent's post-a-tuition page
+were near-duplicate client forms that had already drifted (two step titles, two
+"composed" notes, two submit labels). They are now one implementation,
+`components/forms/PostTuitionForm.tsx` (the parent version is the reference — its
+layout and copy win). The two files that remain (`post-job/JobForm.tsx`,
+`admin/jobs/new/AdminJobForm.tsx`) are thin adapters that pass only what differs
+as PROPS, never a forked form:
+- parent-only: `children` (the "For which child?" selector), `mode`/`initial`
+  (edit + masterId reverse-lookup), `useDraft` (the sign-in draft round-trip), and
+  a GATED `onSubmit` (postGated → upgrade sheet, PATCH/POST to `/api/parent/jobs`);
+- admin-only: `teamBanner` ("Posted by TutorMint"), `adminExtras` (the ORIGIN
+  select + the parent-contact block → `job_contacts`), and a plain `onSubmit`
+  POST to `/api/admin/jobs/create`.
+Everything else — the taxonomy cascade, "Write this for me", where/how/when, the
+gender field, title and description — is shared. `test:posttuition` server-renders
+both variants and diffs the field labels: the shared fields appear in both, the
+child selector only in the parent, and the banner/origin/contact only in admin.
+
+**Optional tutor-gender preference on a tuition** (migration 72 —
+`jobs.gender_preference` text, CHECK male/female/trans or NULL). No preference is
+the default and behaves exactly as before.
+- **The job stays visible to everyone.** The preference is shown plainly on the
+  card and the detail page ("Parent is looking for a female tutor."). Matching,
+  ranking and notifications are UNCHANGED — only Apply is gated.
+- **Apply is gated to a matching tutor, server-side** (`lib/applications.ts`,
+  before the quota check): a tutor whose `tutor_profiles.gender` differs is
+  refused with that sentence — a PLAIN message, no upgrade sheet. On the detail
+  page the refusal offers similar tuitions (the closed-tuition pattern), so it is
+  never a dead end. The card's Apply surfaces the same server message.
+- **An unset tutor gender is never blocked** (unset = no check, not a mismatch),
+  and it uses the existing profile gender — no second gender field.
+- The rule is one pure function, `lib/genderPref.ts` `genderApplyBlocked`, shared
+  by the API, the card, the detail page and the tests. `GENDER_PREFS` drives the
+  form select (No preference / Male / Female / Trans). Editing a job preserves its
+  preference (the edit page reads `gender_preference` into `initial`).
+- Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 179/179 ·
+  test:posttuition 10 (male-blocked, female-ok, unset-any, no-pref-unaffected,
+  trans, plus the shared-form render diff) · every other suite green.

@@ -8,7 +8,8 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
 import { useState } from 'react'
-import { Building2, Clock, FileText, GraduationCap, Heart, MapPin, ShieldCheck, Wallet, Send } from 'lucide-react'
+import { Building2, Clock, FileText, GraduationCap, Heart, MapPin, ShieldCheck, Wallet, Send, UserRound } from 'lucide-react'
+import { genderPrefSentence } from '@/lib/genderPref'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import BadgeRow from '@/components/badges/BadgeRow'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
@@ -77,6 +78,12 @@ export type JobCardData = {
    * they stay visible and browsable on-site. Optional; absent means "not seed".
    */
   poster_is_seed?: boolean
+  /**
+   * Optional preferred tutor gender ('male'|'female'|'trans', null = none). The
+   * job stays visible to all; this only shows the preference sentence and gates
+   * the Apply action for a mismatched tutor (server-enforced). Optional.
+   */
+  gender_preference?: string | null
 }
 
 export default function JobCard({
@@ -332,6 +339,16 @@ export default function JobCard({
 
           {job.description && (
             <p className="line-clamp-2 text-xs leading-relaxed text-slate-700">{job.description}</p>
+          )}
+
+          {/* The tutor-gender preference, shown plainly (owner, 11 Sep 2026). The
+              job is still visible to everyone; a non-matching tutor is only
+              stopped at Apply, with this same sentence as the reason. */}
+          {genderPrefSentence(job.gender_preference) && (
+            <p className="flex items-center gap-2 rounded-lg bg-tm-tint-navy px-2.5 py-1.5 text-[11px] font-semibold text-tm-navy">
+              <UserRound size={13} className="shrink-0" aria-hidden />
+              {genderPrefSentence(job.gender_preference)}
+            </p>
           )}
 
           {/* Tutor-side steering: say plainly who can finish a hire. A team

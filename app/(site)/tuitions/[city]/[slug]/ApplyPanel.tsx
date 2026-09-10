@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Search } from 'lucide-react'
 
 import AuthGateModal from '@/components/AuthGateModal'
 import { postGated } from '@/lib/gatedFetch'
@@ -24,6 +25,8 @@ export default function ApplyPanel({
   signedIn,
   applied,
   underReview = false,
+  genderBlockedNotice = null,
+  city = null,
 }: {
   jobId: string
   title: string
@@ -31,6 +34,15 @@ export default function ApplyPanel({
   applied: boolean
   /** Paused while a report is checked — Apply is disabled with a plain message. */
   underReview?: boolean
+  /**
+   * Set when the viewer is a tutor whose gender does not match this tuition's
+   * preference: the sentence to show instead of the Apply button. The server
+   * enforces the same rule (a disabled button is not a rule); this is the UI
+   * side of it, with a way onward so it is never a dead end.
+   */
+  genderBlockedNotice?: string | null
+  /** The job's city, to point "find similar tuitions" at the right board. */
+  city?: string | null
 }) {
   const upgradeSheet = useUpgradeSheet()
   const [gateOpen, setGateOpen] = useState(false)
@@ -42,6 +54,29 @@ export default function ApplyPanel({
       <p className="rounded-xl bg-tm-tint-gold p-3 text-xs font-bold text-tm-gold-ink">
         This job is under review and is not accepting applications right now.
       </p>
+    )
+  }
+
+  // Gender preference mismatch. Not a plan problem and not a dead end: the plain
+  // reason, then similar tuitions — the same pattern a closed tuition uses.
+  if (genderBlockedNotice) {
+    const browseHref = city
+      ? `/browse/tuitions?city=${encodeURIComponent(city)}`
+      : '/browse/tuitions'
+    return (
+      <div className="space-y-2">
+        <p className="rounded-xl bg-tm-tint-navy p-3 text-xs font-semibold text-tm-navy">
+          {genderBlockedNotice} You cannot apply to this one, but plenty of other tuitions are open
+          to you.
+        </p>
+        <Link
+          href={browseHref}
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-slate-700"
+        >
+          <Search aria-hidden size={14} />
+          Find similar tuitions{city ? ` in ${city}` : ''}
+        </Link>
+      </div>
     )
   }
 

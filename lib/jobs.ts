@@ -25,6 +25,7 @@ import { logActivity } from '@/lib/activityLog'
 import { logAdminAction } from '@/lib/auditLog'
 import { notify, notifyMany } from '@/lib/notifications'
 import { tuitionPath } from '@/lib/slugs'
+import { normaliseGenderPref } from '@/lib/genderPref'
 import { deliverEmail } from '@/lib/notify'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { teamParentId } from '@/lib/teamAccount'
@@ -57,6 +58,12 @@ export type JobInput = {
   schedule: string | null
   description: string | null
   childId: string | null
+  /**
+   * Optional preferred tutor gender ('male'|'female'|'trans'), NULL = no
+   * preference (migration 72). Stored on the jobs row; shown plainly and gates
+   * only the Apply action. Never required.
+   */
+  genderPreference?: string | null
   /**
    * Team (admin-posted) tuitions only: the REAL parent's name and mobile, for a
    * seeded job whose parent has no account. Stored in the locked `job_contacts`
@@ -179,6 +186,7 @@ export async function createJob(
       budget_pkr: bandFigure(input),
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
+      gender_preference: normaliseGenderPref(input.genderPreference),
       description: input.description,
       child_id: input.childId,
       status: 'open',
@@ -301,6 +309,7 @@ export async function createTeamJob(
       budget_pkr: bandFigure(input),
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
+      gender_preference: normaliseGenderPref(input.genderPreference),
       description: input.description,
       child_id: null,
       status: 'open',
@@ -428,6 +437,7 @@ export async function updateJob(
       budget_pkr: bandFigure(input),
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
+      gender_preference: normaliseGenderPref(input.genderPreference),
       description: input.description,
       child_id: input.childId,
       subjects: labels,

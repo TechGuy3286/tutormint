@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, permanentRedirect } from 'next/navigation'
-import { Briefcase, CalendarDays, Clock, GraduationCap, MapPin, MessageCircle, Phone, ShieldCheck, Wallet } from 'lucide-react'
+import { Briefcase, CalendarDays, Clock, GraduationCap, MapPin, MessageCircle, Phone, ShieldCheck, Wallet, UserRound } from 'lucide-react'
+import { genderPrefSentence, genderApplyBlocked } from '@/lib/genderPref'
 
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
@@ -186,20 +187,28 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
   let isTutor = false
   let applied = false
+  let tutorGender: string | null = null
 
   if (user) {
     const ent = await getEntitlements(user.id)
     isTutor = ent.audience === 'tutor'
     if (isTutor) {
-      const { data: mine } = await supabase
-        .from('applications')
-        .select('id')
-        .eq('tutor_id', user.id)
-        .eq('job_id', job.id)
-        .maybeSingle()
+      const [{ data: mine }, { data: me }] = await Promise.all([
+        supabase.from('applications').select('id').eq('tutor_id', user.id).eq('job_id', job.id).maybeSingle(),
+        supabase.from('tutor_profiles').select('gender').eq('id', user.id).maybeSingle(),
+      ])
       applied = !!mine
+      tutorGender = (me?.gender as string | null) ?? null
     }
   }
+
+  // The gender-preference sentence, shown plainly to everyone. And, for a
+  // signed-in tutor whose gender does not match, the Apply-blocking reason —
+  // the SAME server rule (genderApplyBlocked), so the button and the API agree.
+  // An unset tutor gender never blocks (owner, 11 Sep 2026).
+  const genderSentence = genderPrefSentence(job.gender_preference)
+  const genderBlockedNotice =
+    isTutor && genderApplyBlocked(job.gender_preference, tutorGender) ? genderSentence : null
 
   // A seeded team tuition can carry the real parent's contact. It is shown
   // OPENLY to a signed-in TUTOR — no plan gate — so a tutor can reach the parent
@@ -360,6 +369,13 @@ export default async function TuitionPage({ params }: { params: Params }) {
           )}
         </dl>
 
+        {genderSentence && (
+          <p className="flex items-center gap-2 rounded-xl bg-tm-tint-navy p-3 text-xs font-semibold text-tm-navy">
+            <UserRound aria-hidden size={14} className="shrink-0" />
+            {genderSentence}
+          </p>
+        )}
+
         {job.description && (
           <div className="space-y-1">
             <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
@@ -379,6 +395,8 @@ export default async function TuitionPage({ params }: { params: Params }) {
               signedIn={!!user}
               applied={applied}
               underReview={!!job.under_review}
+              genderBlockedNotice={genderBlockedNotice}
+              city={job.city}
             />
           </div>
         )}
