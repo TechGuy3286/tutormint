@@ -42,9 +42,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // content is not an organic-search target, so the sitemap must not advertise a
     // URL the crawler is told not to fetch. /tutor/packages and /parent/packages
     // are reachable by a member's own click but are price/conversion pages, not
-    // organic content, so they are excluded from the sitemap too (they stay
-    // crawlable — no robots block — just not submitted). /login and
-    // /forgot-password were never listed. See robots-vs-sitemap reconciliation.
+    // organic content, so they are excluded here — but the exclusion alone is
+    // NOT the control: Footer.tsx links both sitewide and /about links them in
+    // prose, so a crawler reaches them anyway. Each page carries its own
+    // `robots: { index: false, follow: true }` (10 Sep 2026); they stay
+    // crawlable, just never indexed. /login and /forgot-password were never
+    // listed. See robots-vs-sitemap reconciliation.
     { url: `${BASE}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
     { url: `${BASE}/blog`, lastModified: now, changeFrequency: 'daily', priority: 0.6 },
     { url: `${BASE}/faq`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },

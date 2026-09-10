@@ -4392,3 +4392,39 @@ injected into `onOutsidePointerDown` so the mechanism is unit-tested in node
 null target and a missing root, and unsubscribes. That proves our code uses the
 reliable pattern correctly; it cannot prove the browser dispatches pointerdown on
 a real click — that is a browser guarantee, and the reason the pattern is chosen.
+
+## Launch polish — masking shape test, packages noindex + auth gate, 308 stubs (10 Sep 2026)
+
+Four small fixes. No migration.
+
+**Masking is a SHAPE test, not a length test.** `lib/masking.ts`'s
+`LONG_DIGIT_RUN` (10+ digits with the separator class) matched every hyphenated
+fee range ("15000-20000"), space-separated price list ("2000 2500 3000") and run
+of years ("2019 2020 2021") — the most common numbers in a parent-tutor thread —
+so the reader saw a mask + upgrade chip that read as the other side smuggling a
+number. Replaced with a CANDIDATE run whose WHOLE cleaned form (separators
+stripped) must match a Pakistani mobile `^(?:00|\+)?(?:92)?0?3\d{9}$` or a CNIC
+`^\d{13}$` (13 digits, grouped 5-7-1) to mask; anchored, so a range never
+matches. The structural `PATTERNS` are kept unchanged — they still fire on a
+mobile embedded in a longer sentence (a number wedged between two prices is
+caught even though the whole run is not a phone number). `npm run test:masking`
+(18 assertions) covers every shape in the owner's MASKED list and every NOT case.
+
+**Both packages pages carry `robots: { index: false, follow: true }`.** The
+sitemap already excluded `/tutor/packages` and `/parent/packages`, but
+`Footer.tsx` links both sitewide and `/about` links them in prose, so a crawler
+reaches them regardless — the exclusion alone was never the control. They stay
+crawlable (no robots.txt block) and reachable by a member's click, just never
+indexed. The sitemap comment now says so.
+
+**Both packages pages redirect a signed-out visitor to `/login?next=<path>`.**
+`getViewerEntitlements()` returns null for anon traffic and `VerifiedPreview`
+fell back to "Your name", so a stranger saw a mock of their own tutor card. Both
+paths are in `PHONE_GATED` in `proxy.ts`, but that block is guarded by `if (user
+&& …)`, so anonymous traffic passed through — the page now checks the session
+itself.
+
+**The three legacy redirect stubs are permanent (308).** `/tutor/login`,
+`/parent/login` and `/tutor/register` used `redirect()` (307); their own comments
+call them permanent legacy paths still linked from the homepage and /faq, so they
+now use `permanentRedirect()`.

@@ -1,6 +1,6 @@
 // lib/masking.ts
 //
-// Phone-number masking in message bodies.
+// Phone-number (and CNIC) masking in message bodies.
 //
 // The rule from CLAUDE.md: "message bodies are scanned server-side for phone
 // number patterns; when either participant lacks contact rights, matched
@@ -19,22 +19,25 @@
 //
 // This is a deterrent against casual contact-swapping, not a guarantee. Anyone
 // determined can spell a number out in words, and no regular expression will
-// catch that. It is deliberately tuned to Pakistani mobile formats and to
-// avoid destroying ordinary text -- a false positive that redacts "I can do
-// 2000 per month" is worse than a miss.
+// catch that. It is deliberately tuned to Pakistani mobile / CNIC formats and,
+// above all, to avoid destroying ordinary text -- a false positive that redacts
+// "My budget is 15000-20000" is worse than a miss.
+//
+// TWO WAYS A NUMBER IS CAUGHT, and the difference is what stopped fee ranges
+// from masking:
+//
+//   * PATTERNS are STRUCTURAL — a 923xx / 03xx mobile with the right prefix and
+//     length. They still fire on a mobile embedded in a longer sentence, so a
+//     number wedged between prices is caught even though the whole run is not a
+//     phone number.
+//   * A CANDIDATE run (digits + the usual separators) is masked only when its
+//     SHAPE, once separators are stripped, IS a Pakistani mobile or a CNIC. This
+//     replaced a bare "10+ digits in a row" test, which matched every hyphenated
+//     fee range ("15000-20000"), space-separated price list ("2000 2500 3000")
+//     and run of years ("2019 2020 2021") — the most common things typed in a
+//     parent-tutor thread. The shape test is anchored to the WHOLE cleaned run,
+//     so a range never matches: 1500020000 does not start 3, is not 13 digits.
 
-/**
- * Pakistani mobile numbers, in the shapes people actually type them:
- *
- *   03001234567      03 00 123 45 67      0300-1234567
- *   +923001234567    +92 300 1234567      92 300 123 4567
- *   00923001234567
- *
- * The separator class allows spaces, dashes, dots and thin punctuation between
- * any two digits, which is how a number gets typed when someone is trying not
- * to be spotted. A run must still resolve to a plausible 10-11 digit national
- * number, so years, prices and CNIC fragments are left alone.
- */
 const SEP = '[\\s.\\-_()]*'
 
 const PATTERNS: RegExp[] = [
@@ -44,8 +47,23 @@ const PATTERNS: RegExp[] = [
   new RegExp(`0${SEP}3(?:${SEP}\\d){9}`, 'g'),
 ]
 
-/** A run of 9+ bare digits is a number however it was framed. */
-const LONG_DIGIT_RUN = new RegExp(`\\d(?:${SEP}\\d){8,}`, 'g')
+/**
+ * A maximal run of digits with the usual separators (and an optional leading +
+ * or 00), to be shape-tested rather than length-tested. Ends on a digit so no
+ * trailing separator is swallowed into the masked span.
+ */
+const CANDIDATE = /\+?\d(?:[\s.\-_()]*\d)*/g
+
+/**
+ * The candidate's shape once separators are stripped. Mask only these:
+ *
+ *   MOBILE — a Pakistani mobile in any prefix form: bare 3001234567,
+ *            0-prefixed 03001234567, or +92 / 92 / 0092 country forms.
+ *   CNIC   — the 13-digit national identity number (grouped 5-7-1 when written
+ *            out, e.g. 35202-1234567-8), so one pasted into a thread is masked.
+ */
+const MOBILE_SHAPE = /^(?:00|\+)?(?:92)?0?3\d{9}$/
+const CNIC_SHAPE = /^\d{13}$/
 
 export const MASK = '•••••••'
 
@@ -69,18 +87,27 @@ export function maskPhoneNumbers(input: string | null | undefined): MaskResult {
   type Span = { start: number; end: number }
   const spans: Span[] = []
 
-  for (const re of [...PATTERNS, LONG_DIGIT_RUN]) {
+  // Structural mobile patterns: their own shape is the gate, so any match is a
+  // number — including one embedded in a longer sentence.
+  for (const re of PATTERNS) {
     re.lastIndex = 0
     let m: RegExpExecArray | null
     while ((m = re.exec(text)) !== null) {
-      const digits = m[0].replace(/\D/g, '')
-      // 10 digits covers "3001234567" written without the leading zero;
-      // 15 is the E.164 ceiling. Anything outside that is not a phone number.
-      if (digits.length >= 10 && digits.length <= 15) {
-        spans.push({ start: m.index, end: m.index + m[0].length })
-      }
+      spans.push({ start: m.index, end: m.index + m[0].length })
       if (m.index === re.lastIndex) re.lastIndex++ // zero-width guard
     }
+  }
+
+  // Candidate runs: masked only when the WHOLE cleaned run is a mobile or a
+  // CNIC. Separators are stripped; the + is kept because MOBILE_SHAPE allows it.
+  CANDIDATE.lastIndex = 0
+  let c: RegExpExecArray | null
+  while ((c = CANDIDATE.exec(text)) !== null) {
+    const cleaned = c[0].replace(/[\s.\-_()]/g, '')
+    if (MOBILE_SHAPE.test(cleaned) || CNIC_SHAPE.test(cleaned)) {
+      spans.push({ start: c.index, end: c.index + c[0].length })
+    }
+    if (c.index === CANDIDATE.lastIndex) CANDIDATE.lastIndex++ // zero-width guard
   }
 
   if (spans.length === 0) return { text, masked: false }

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
@@ -22,6 +23,10 @@ export const metadata: Metadata = {
   title: 'Tutor packages | TutorMint',
   description:
     'Verified, Premium and Featured plans for tutors on TutorMint: application quotas, search ranking, badges and parent contact access.',
+  // A price/conversion page reached by a member's own click, not organic
+  // content. Crawlable (links from the footer, /about and /faq must not 404 to a
+  // crawler) but never indexed — the sitemap exclusion alone did not stop that.
+  robots: { index: false, follow: true },
 }
 
 export default async function TutorPackagesPage({
@@ -32,6 +37,14 @@ export default async function TutorPackagesPage({
   const { plan: highlight } = await searchParams
 
   const supabase = await createClient()
+  // Signed-out visitors have no card to preview — VerifiedPreview would render a
+  // 'Your name' mock of a stranger's own tutor card. Send them to sign in first
+  // and return here after. PHONE_GATED in proxy.ts only covers signed-in users.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login?next=/tutor/packages')
+
   const { data } = await supabase
     .from('plans')
     .select(
