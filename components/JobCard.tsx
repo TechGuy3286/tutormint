@@ -71,6 +71,12 @@ export type JobCardData = {
    * "Posted by TutorMint" marker so a tutor can always tell.
    */
   posted_by_team?: boolean
+  /**
+   * The posting parent is a seed/fixture account (profiles.is_seed). Used only
+   * to keep fixture tuitions out of Google (noindex + no JobPosting JSON-LD);
+   * they stay visible and browsable on-site. Optional; absent means "not seed".
+   */
+  poster_is_seed?: boolean
 }
 
 export default function JobCard({

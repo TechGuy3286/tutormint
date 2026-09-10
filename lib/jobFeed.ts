@@ -36,6 +36,8 @@ type ParentFacts = {
   canHire: boolean
   /** This job's parent is the team-operated TutorMint account (migration 63). */
   team: boolean
+  /** This job's parent is a seed/fixture account (profiles.is_seed, migration 71). */
+  isSeed: boolean
 }
 
 async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
@@ -48,7 +50,7 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
   const [{ data: profiles }, { data: subs }, { data: plans }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, full_name, avatar_url, profile_completion, cnic_verified_at, address_verified_at, is_team_account')
+      .select('id, full_name, avatar_url, profile_completion, cnic_verified_at, address_verified_at, is_team_account, is_seed')
       .in('id', ids),
     admin
       .from('subscriptions')
@@ -92,6 +94,7 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
       badges: team ? [] : badgesForPlan(code, (p.profile_completion ?? 0) >= 100),
       canHire: !!(code && planByCode.get(code)?.can_hire),
       team,
+      isSeed: !!(p.is_seed as boolean | null),
     })
   }
 
@@ -201,6 +204,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       parent_badges: f?.badges ?? [],
       parent_can_hire: f?.canHire ?? false,
       posted_by_team: f?.team ?? false,
+      poster_is_seed: f?.isSeed ?? false,
     }
   })
 }

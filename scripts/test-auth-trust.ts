@@ -29,6 +29,7 @@ import {
   tutorSitemapEligible,
   badgesForPlan,
 } from '../lib/planBadges'
+import { isFixtureTuition } from '../lib/fixtures'
 import { BANNED_LOGIN_MESSAGE } from '../lib/authMessages'
 import { needsPhoneGate } from '../lib/phoneGate'
 
@@ -395,16 +396,33 @@ test('tutorListed: requires an active paid plan on top of the precondition', () 
   assert.equal(tutorListed({ ...base, hasActivePaidPlan: false }), false, 'no plan, not listed')
 })
 
-test('tutorProfileNoindex: noindex below 100% or while under review', () => {
-  assert.equal(tutorProfileNoindex({ profileCompletion: 100 }), false)
+test('tutorProfileNoindex: noindex below 100%, under review, OR a seed tutor', () => {
+  assert.equal(tutorProfileNoindex({ profileCompletion: 100 }), false, 'a real tutor at 100% is indexable')
   assert.equal(tutorProfileNoindex({ profileCompletion: 40 }), true)
   assert.equal(tutorProfileNoindex({ profileCompletion: 100, underReview: true }), true)
+  // Seed wins: a fixture tutor at 100% is STILL noindex.
+  assert.equal(tutorProfileNoindex({ profileCompletion: 100, isSeed: true }), true)
 })
 
-test('tutorSitemapEligible: listed AND 100% only', () => {
-  assert.equal(tutorSitemapEligible({ listed: true, profileCompletion: 100 }), true)
+test('tutorSitemapEligible: listed AND 100% AND not a seed tutor', () => {
+  assert.equal(tutorSitemapEligible({ listed: true, profileCompletion: 100 }), true, 'a real listed 100% tutor is in the sitemap')
   assert.equal(tutorSitemapEligible({ listed: true, profileCompletion: 40 }), false)
   assert.equal(tutorSitemapEligible({ listed: false, profileCompletion: 100 }), false)
+  // A seed tutor at 100% is absent from the sitemap.
+  assert.equal(tutorSitemapEligible({ listed: true, profileCompletion: 100, isSeed: true }), false)
+})
+
+test('isFixtureTuition: seed parent / JOB-TRK / SEED-JOB are fixtures; a team post never is', () => {
+  // A real, non-seed parent's ordinary post is indexable.
+  assert.equal(isFixtureTuition({ jobTxId: 'JOB-TX-ABC123', parentIsSeed: false }), false)
+  // The three fixture signals.
+  assert.equal(isFixtureTuition({ jobTxId: 'JOB-TX-XYZ', parentIsSeed: true }), true, 'seed parent')
+  assert.equal(isFixtureTuition({ jobTxId: 'JOB-TRK-000042', parentIsSeed: false }), true, 'bulk import')
+  assert.equal(isFixtureTuition({ jobTxId: 'SEED-JOB-7', parentIsSeed: false }), true, 'seeded sample')
+  // A genuine team post overrides every fixture signal and stays indexable.
+  assert.equal(isFixtureTuition({ jobTxId: 'SEED-JOB-7', parentIsSeed: true, postedByTeam: true }), false)
+  // A missing id is not, by itself, a fixture.
+  assert.equal(isFixtureTuition({ jobTxId: null, parentIsSeed: false }), false)
 })
 
 test('badgesForPlan: the Verified badge is degree-gated for tutors, not parents', () => {

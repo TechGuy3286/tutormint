@@ -4512,6 +4512,41 @@ badge's requirement, not a listing gate. Badge-scoped and process claims (the
 Verified-badge explainer, the verification process, an individual profile's own
 reviewed degree) are still true and were left.
 
+## Seed fixtures are noindexed, not delisted (owner, 10 Sep 2026)
+
+The seed cast and the fixture tuitions render on-site but must stay OUT of Google:
+an indexed fixture tutor competes with a real tutor for their own name, and an
+indexed fixture tuition (which carries JobPosting structured data) can surface in
+Google's jobs listings as a real vacancy. This is search-engine-only — nothing is
+delisted, deleted, or banner-flagged. Migration 71.
+
+- **Identity is a stored fact: `profiles.is_seed`** (migration 71), backfilled
+  from the `@tutormint.dev` seed email domain — every account on it is a fixture
+  and nothing else uses it (15 rows: 7 seed tutors + 8 seed parents). Chosen over
+  a slug list (goes stale) and over reading the email at each call site (one
+  indexed fact, four surfaces, admin-flippable for a future fixture on another
+  domain).
+- **Seed tutor profile:** `robots noindex` regardless of completion —
+  `tutorProfileNoindex()` gained an `isSeed` arg and **seed wins** over the
+  migration-70 completion rule (a seed tutor at 100% is still noindex).
+- **Tutor sitemap:** `listed_tutor_slugs()` excludes seed tutors (now
+  `>= 100 AND NOT is_seed`). All three currently-listed tutors are seed, so the
+  tutor sitemap is empty until a real paid tutor is listed.
+- **Fixture tuitions:** `isFixtureTuition()` (`lib/fixtures.ts`, pure, mirrored by
+  the SQL) — a tuition is a fixture when NOT a team post AND (parent `is_seed`, OR
+  `job_tx_id` starts `JOB-TRK` [bulk import] or `SEED-JOB`). A fixture tuition is
+  `noindex`, out of the sitemap, and emits **no JobPosting JSON-LD**. The genuine
+  team posts (`is_team_account`, `jobs@tutormint.org` — 7 of them) stay fully
+  indexable.
+- **Tuition sitemap:** new `indexable_job_slugs()` SECURITY DEFINER function
+  encapsulates the fixture rule — `jobs` is public-read but `profiles` is not, so
+  the sitemap (publishable key) cannot itself tell a fixture from a real post.
+  `app/sitemap.ts` calls it instead of a direct `jobs` select.
+- Verified after apply: is_seed 15, tutor sitemap 0, tuition sitemap 7 (all team
+  posts), `rls:audit` 179/179. Tests: `test:authtrust` covers a seed tutor at 100%
+  being noindex + out of the sitemap, a real tutor at 100% indexable + present, and
+  the fixture-tuition rule (no JobPosting).
+
 **As built.** Migration 70 (backup `public-20260910-225122.sql` taken first,
 applied live in one transaction). Verified after apply: directory 3, visible 5
 (3 listed + 2 unclaimed imports), sitemap 3, `rank_tutors` returns `completion`/

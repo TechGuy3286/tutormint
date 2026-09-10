@@ -13,6 +13,7 @@ import { budgetLabel } from '@/lib/feeBands'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { jobByPublicSlug } from '@/lib/jobFeed'
+import { isFixtureTuition } from '@/lib/fixtures'
 import { citySegment } from '@/lib/slugs'
 import { formatDate } from '@/lib/datetime'
 import { jobType } from '@/lib/display'
@@ -113,6 +114,17 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       : `${job.title}${where} — apply free`,
   )
 
+  // A FIXTURE tuition (seed parent / JOB-TRK bulk import / SEED-JOB) is noindex
+  // regardless of anything else (owner, 10 Sep 2026) — it stays visible and
+  // browsable on-site but is kept out of Google, matching its exclusion from the
+  // sitemap and the suppressed JobPosting JSON-LD in the body. A genuine team
+  // post is never a fixture and stays indexable.
+  const fixture = isFixtureTuition({
+    jobTxId: job.job_tx_id,
+    parentIsSeed: job.poster_is_seed,
+    postedByTeam: job.posted_by_team,
+  })
+
   return {
     title,
     description,
@@ -127,11 +139,11 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       path: `/tuitions/${citySegment(job.city)}/${job.public_slug}`,
       type: 'article',
     }),
-    // No robots key on an OPEN tuition: indexing is decoupled from preview mode
-    // (owner, 8 Sep 2026) and this page is listed in the sitemap, so it must be
-    // indexable to match. The closed/missing case above sets its own noindex,
-    // and an under-review job stays visible with a sticker (it is not delisted),
-    // so there is nothing to suppress here.
+    // A real open tuition carries no robots key (indexable, matching the
+    // sitemap); a fixture is noindex. The closed/missing case above sets its own
+    // noindex, and an under-review job stays visible with a sticker (not
+    // delisted), so those need nothing here.
+    ...(fixture ? { robots: { index: false, follow: true } } : {}),
   }
 }
 
@@ -207,30 +219,42 @@ export default async function TuitionPage({ params }: { params: Params }) {
   const budget = budgetLabel(job.budget_min_pkr, job.budget_max_pkr, job.budget_pkr)
   const mode = jobType(job.teaching_mode)
 
+  // A fixture tuition emits NO JobPosting structured data (owner, 10 Sep 2026):
+  // JobPosting markup on an indexed fixture can surface in Google's jobs listings
+  // as a real vacancy. The page still renders in full on-site; only the machine-
+  // readable job claim is withheld. A genuine team post keeps its markup.
+  const fixture = isFixtureTuition({
+    jobTxId: job.job_tx_id,
+    parentIsSeed: job.poster_is_seed,
+    postedByTeam: job.posted_by_team,
+  })
+
   return (
     <main className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={jsonLdScript(
-          jobPostingJsonLd({
-            url,
-            title: job.title,
-            description:
-              job.description?.trim() ||
-              `${job.title}${job.city ? ` in ${job.city}` : ''}. ${
-                job.posted_by_team
-                  ? 'Posted by the TutorMint team.'
-                  : 'Posted by a verified parent on TutorMint.'
-              }`,
-            datePosted: job.created_at,
-            city: job.city,
-            area: job.area,
-            subjects: job.subjects ?? [],
-            budgetMin: job.budget_min_pkr ?? job.budget_pkr ?? null,
-            budgetMax: job.budget_max_pkr ?? null,
-          }),
-        )}
-      />
+      {!fixture && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={jsonLdScript(
+            jobPostingJsonLd({
+              url,
+              title: job.title,
+              description:
+                job.description?.trim() ||
+                `${job.title}${job.city ? ` in ${job.city}` : ''}. ${
+                  job.posted_by_team
+                    ? 'Posted by the TutorMint team.'
+                    : 'Posted by a verified parent on TutorMint.'
+                }`,
+              datePosted: job.created_at,
+              city: job.city,
+              area: job.area,
+              subjects: job.subjects ?? [],
+              budgetMin: job.budget_min_pkr ?? job.budget_pkr ?? null,
+              budgetMax: job.budget_max_pkr ?? null,
+            }),
+          )}
+        />
+      )}
 
       <Breadcrumbs
         items={[

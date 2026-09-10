@@ -107,7 +107,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       title,
       description,
       alternates: { canonical: `/tutor/${tutor.slug}` },
-      ...(tutorProfileNoindex({ profileCompletion: flags.profileCompletion, underReview: flags.underReview })
+      ...(tutorProfileNoindex({ profileCompletion: flags.profileCompletion, underReview: flags.underReview, isSeed: flags.isSeed })
         ? { robots: { index: false, follow: false } }
         : {}),
       ...socialMeta({ title, description, path: `/tutor/${tutor.slug}`, type: 'profile' }),
@@ -133,7 +133,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     // of Google until they finish. The noindex lifts automatically at 100%; no
     // robots key is emitted otherwise, so it is indexable again the moment
     // either condition clears.
-    ...(tutorProfileNoindex({ profileCompletion: flags.profileCompletion, underReview: flags.underReview })
+    ...(tutorProfileNoindex({ profileCompletion: flags.profileCompletion, underReview: flags.underReview, isSeed: flags.isSeed })
       ? { robots: { index: false, follow: false } }
       : {}),
     // Their photo when they have one, the branded default otherwise. Complete
@@ -174,12 +174,12 @@ async function tutorUnderReview(tutorId: string): Promise<boolean> {
  */
 async function tutorMetaFlags(
   tutorId: string,
-): Promise<{ underReview: boolean; shareHidden: boolean; profileCompletion: number }> {
+): Promise<{ underReview: boolean; shareHidden: boolean; profileCompletion: number; isSeed: boolean }> {
   const admin = createAdminClient()
-  if (!admin) return { underReview: false, shareHidden: false, profileCompletion: 100 }
+  if (!admin) return { underReview: false, shareHidden: false, profileCompletion: 100, isSeed: false }
   const [{ data: tp }, { data: prof }] = await Promise.all([
     admin.from('tutor_profiles').select('under_review, imported, claimed_at').eq('id', tutorId).maybeSingle(),
-    admin.from('profiles').select('profile_completion').eq('id', tutorId).maybeSingle(),
+    admin.from('profiles').select('profile_completion, is_seed').eq('id', tutorId).maybeSingle(),
   ])
   const underReview = !!tp?.under_review
   const unclaimed = !!tp?.imported && !tp?.claimed_at
@@ -187,6 +187,8 @@ async function tutorMetaFlags(
     underReview,
     shareHidden: underReview || unclaimed,
     profileCompletion: (prof?.profile_completion as number | null) ?? 0,
+    // A fixture tutor is noindex regardless of completion (owner, 10 Sep 2026).
+    isSeed: !!(prof?.is_seed as boolean | null),
   }
 }
 

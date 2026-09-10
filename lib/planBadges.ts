@@ -110,25 +110,34 @@ export function tutorListed(
  * A listed tutor's public profile is NOINDEX below 100% completion (owner rule
  * 3): fully listed, searchable and applying, but held out of Google until the
  * profile is finished. At 100% the noindex lifts automatically — one threshold,
- * no second list of fields. Under review is always noindex (Part 6). Pure, so
- * the profile page and its test read one decision.
+ * no second list of fields. Under review is always noindex (Part 6).
+ *
+ * SEED WINS (owner, 10 Sep 2026): a fixture tutor (profiles.is_seed) is noindex
+ * regardless of completion — a seed cast member at 100% must never reach Google.
+ * They stay visible and searchable on-site; this only holds back search engines.
+ * Pure, so the profile page and its test read one decision.
  */
 export function tutorProfileNoindex(input: {
   profileCompletion: number | null | undefined
   underReview?: boolean | null
+  isSeed?: boolean | null
 }): boolean {
+  if (input.isSeed) return true
   if (input.underReview) return true
   return (input.profileCompletion ?? 0) < 100
 }
 
 /**
- * A listed tutor appears in the SITEMAP only at 100% (mirrors the noindex rule
- * and listed_tutor_slugs). Listed-but-incomplete tutors are on-site searchable
- * yet withheld from the sitemap so the two indexing signals never disagree.
+ * A listed tutor appears in the SITEMAP only at 100% AND when not a fixture
+ * (mirrors listed_tutor_slugs). Listed-but-incomplete tutors are on-site
+ * searchable yet withheld from the sitemap so the two indexing signals never
+ * disagree; a seed tutor is withheld regardless of completion (owner, 10 Sep).
  */
 export function tutorSitemapEligible(input: {
   listed: boolean
   profileCompletion: number | null | undefined
+  isSeed?: boolean | null
 }): boolean {
+  if (input.isSeed) return false
   return input.listed && (input.profileCompletion ?? 0) >= 100
 }

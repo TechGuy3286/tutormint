@@ -63,13 +63,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const supabase = createPublicClient()
 
+    // Both reads go through SECURITY DEFINER functions that already encode what
+    // may be listed. listed_tutor_slugs() = listed + 100% + NOT a seed account;
+    // indexable_job_slugs() = open, with a real public_slug, and NOT a fixture
+    // (seed parent / JOB-TRK bulk import / SEED-JOB) unless it is a genuine team
+    // post. `jobs` is public-read but `profiles` is not, so the fixture rule
+    // could not be applied by a plain join on the publishable key here anyway —
+    // the function does it with definer rights. (Migrations 70/71.)
     const [{ data: tutors }, { data: jobs }] = await Promise.all([
       supabase.rpc('listed_tutor_slugs'),
-      supabase
-        .from('jobs')
-        .select('public_slug, city, created_at')
-        .eq('status', 'open')
-        .not('public_slug', 'is', null),
+      supabase.rpc('indexable_job_slugs'),
     ])
 
     const tutorPages: MetadataRoute.Sitemap = (
