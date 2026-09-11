@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
-import { CITIES, JOB_TYPES } from '@/lib/locations'
+import { JOB_TYPES } from '@/lib/locations'
+import { useCityAreas } from '@/lib/cityAreas'
 import { jobType } from '@/lib/display'
 import Typeahead from '@/components/search/Typeahead'
 import { BUDGET_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
@@ -34,6 +35,12 @@ const FIELD =
 export default function JobFilterBar({ values }: { values: JobFilterValues }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+
+  // Curated cities from the DB (migration 73) — one source. A select, not a
+  // free-text field: the filter narrows results; free-text entry is on the post
+  // and profile forms.
+  const { map } = useCityAreas()
+  const cities = map.cities
 
   const [categories, setCategories] = useState<string[]>([])
   const [levels, setLevels] = useState<string[]>([])
@@ -158,7 +165,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
           <span className="sr-only">City</span>
           <select className={FIELD} value={values.city} onChange={(e) => apply({ city: e.target.value })}>
             <option value="">Any city</option>
-            {CITIES.map((c) => (
+            {cities.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>

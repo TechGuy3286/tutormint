@@ -58,6 +58,8 @@ const PUBLIC_READ: Record<string, string> = {
   taxonomy_levels: 'subject taxonomy',
   taxonomy_subjects: 'subject taxonomy',
   taxonomy_master: 'subject taxonomy: the allowed (category, level, subject) set',
+  location_cities: 'curated city list, rendered in every city/area picker (migration 73)',
+  location_areas: 'curated area list, dependent on its city (migration 73)',
 
   // The public browse and profile surface.
   tutor_directory: 'the listing view -- already filtered to complete, unsuspended, claimed tutors',

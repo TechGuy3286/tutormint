@@ -55,6 +55,7 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 - `job_contacts` (migration 65) — the real parent's name and mobile for a seeded (admin-posted) tuition, keyed 1:1 by `job_id` (cascade): `contact_name`, `contact_phone`, `created_by`, `created_at`. A DEDICATED table, NOT columns on `jobs`, because `jobs` has a public row-read policy and RLS cannot hide a column — so a contact on the jobs row would be one `select('*')` away from a public, indexed page. Admin-read RLS (`is_admin()`), service-role writes only (createTeamJob); no anon/member read. Rendered only for a signed-in tutor on the job page and on `/admin/jobs/[id]`, both via the service role.
 - `signup_blocklist` (migration 58) — a banned account's `mobile` (normalised MSISDN) and `cnic_hash` (sha256 of the digits, NEVER the CNIC in the clear), plus `reason`, `source_user_id`, `created_by`. Checked at signup and at claim; admin-read RLS, service-role writes.
 - `taxonomy_categories` / `taxonomy_levels` / `taxonomy_subjects` / `taxonomy_master` — keep as is (used by `lib/taxonomy.ts`), plus an admin-editable alias table for Roman-Urdu spellings.
+- `location_cities` (migration 73) — `id`, `name unique`, `sort_order int default 100` (Lahore/Karachi/Islamabad/Rawalpindi pinned 1–4, rest 100 → `order by sort_order, name`). `location_areas` (migration 73) — `id`, `city_id -> location_cities`, `name`, `unique(city_id, name)` (area is dependent on its city; `order by name`). The owner's 23-city / 249-area dataset, stored VERBATIM. Reference data: world-readable, admin-writable (the taxonomy pattern). Read via `lib/cityAreas.ts` (client, cached) or `lib/locationsAdmin.ts` (admin). `jobs.city|area`, `profiles.city|area`, `tutor_profiles.city|area` stay PLAIN STRINGS — a value not in these tables is free text, preserved as-is and surfaced by `unmappedLocations()` for review; promoting one is an insert here.
 
 Views: `tutor_directory` ("is this tutor listed?" — browse, `rank_tutors()`, sitemap all read it) and `tutor_visible_profiles` ("may this URL render?" — adds unclaimed imports, granted to nobody, reached only via the SECURITY DEFINER `tutor_public_page()`).
 
@@ -4596,3 +4597,53 @@ the default and behaves exactly as before.
 - Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 179/179 ·
   test:posttuition 10 (male-blocked, female-ok, unset-any, no-pref-unaffected,
   trans, plus the shared-form render diff) · every other suite green.
+
+## Cities and areas are data, not a hardcoded array (owner, 11 Sep 2026)
+
+The city/area lists moved out of `lib/locations.ts` into the database (migration
+73), the same shape the academic taxonomy uses — adding a city or area is now an
+INSERT, not a code change and a redeploy.
+
+- **Two tables** (see Canonical tables): `location_cities` (23, `sort_order`
+  pins the big four then alphabetical) and `location_areas` (249, dependent on
+  its city, sorted by name). Seeded VERBATIM from the owner's dataset — nothing
+  added, corrected or "improved" ("PECHS", "Gulshan-e-Iqbal", "Federal B Area",
+  "6th Road" as given). Reference data: world-readable, admin-writable.
+- **One source, read two ways.** `lib/cityAreasCore.ts` is the pure core
+  (ordering, area-dependent-on-city, the curated/free-text test);
+  `lib/cityAreas.ts` `useCityAreas()` fetches the whole set once through the
+  browser client and caches it (like `lib/taxonomy.ts`); `lib/locationsAdmin.ts`
+  reads it server-side. `lib/locations.ts` keeps ONLY `JOB_TYPES` / `GENDERS` /
+  `parseMode` and no client/Supabase import (the server imports `parseMode`).
+- **Free-text fallback, everywhere a locality is ENTERED.** 23 cities do not
+  cover Pakistan, so `components/forms/LocationInput.tsx` (and datalist inputs on
+  the tutor/parent settings and complete-profile screens) suggest the curated
+  names but ACCEPT free text — a member whose locality is not listed types their
+  own and it round-trips as a plain string, never blocked. Browse filters stay
+  selects (they narrow results and write the URL) but source their options from
+  the same tables. Used by the shared `PostTuitionForm` (parent + admin job
+  forms), tutor complete-profile and settings, parent settings, both browse
+  filter bars, and the admin blog city field — one source, no second list.
+- **Columns stay strings; nothing existing becomes invisible.** `jobs.city|area`
+  / `profiles.city|area` / `tutor_profiles.city|area` are unchanged plain text
+  (ranking still compares with `lower()`), so every current value resolves
+  exactly as before. A value not in the curated tables is FREE TEXT by
+  construction; `unmappedLocations()` (and `/admin/seo/locations`, owner/manager,
+  read-only) lists them live for review — computed from the real columns so it
+  can never miss a write path or drift; promoting one is an insert into the
+  curated table, after which it drops off the list. Nothing is discarded.
+- **Migration report (existing rows that did not map — all preserved as free
+  text):** area "DHA" under Lahore (7) and Karachi (1) — the dataset has "DHA
+  Lahore" / "DHA Karachi"; area "DHA Phase 5" under Lahore (3) — the DHA
+  phase-level entries the owner flagged as omitted; city "Nankana Sahib" (1) —
+  not among the 23. "LAHORE" resolves case-insensitively to Lahore.
+- **Not built, reported (owner's note):** the dataset caps Lahore and Karachi at
+  20 areas each and omits DHA phase-level entries; that gap was left as-is, not
+  filled.
+- **cityFromSegment / cityFromSlug dropped their `CITIES` dependency** — every
+  curated city round-trips through slug → title-case, so the landing/slug helpers
+  stay pure string transforms with no table read.
+
+Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 185/185 · test:locations
+6 (city sort; every city → its own areas; unknown city → empty; case-insensitive
+resolve; curated vs free-text; free-text round trip) · every other suite green.

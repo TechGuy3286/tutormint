@@ -4,6 +4,8 @@ import FileUpload from '@/components/FileUpload';
 import PasswordInput from '@/components/ui/PasswordInput'
 import { submitForm } from '@/lib/submit'
 import { JOB_TYPES, parseMode } from '@/lib/locations'
+import { useCityAreas } from '@/lib/cityAreas'
+import { areasForCity } from '@/lib/cityAreasCore'
 import { jobType } from '@/lib/display'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -22,6 +24,9 @@ import { useRouter } from "next/navigation";
 export default function TutorSettingsPage() {
   const supabase = createClient();
   const router = useRouter();
+  // Curated cities/areas from the DB (migration 73) as datalist suggestions;
+  // City/Area still accept free text so a tutor is never blocked on locality.
+  const { map: cityMap } = useCityAreas();
   const [tutorEmail, setTutorEmail] = useState("");
   const [userId, setUserId] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -537,23 +542,37 @@ export default function TutorSettingsPage() {
               <span className="sr-only">City</span>
               <input
                 type="text"
+                list="tutor-city-options"
+                autoComplete="off"
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                 placeholder="City"
                 className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
                 required
               />
+              <datalist id="tutor-city-options">
+                {cityMap.cities.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
             </label>
             <label className="block space-y-1">
               <span className="sr-only">Area</span>
               <input
                 type="text"
+                list="tutor-area-options"
+                autoComplete="off"
                 value={formData.areaName}
                 onChange={(e) => setFormData({ ...formData, areaName: e.target.value })}
                 placeholder="Area"
                 className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
                 required
               />
+              <datalist id="tutor-area-options">
+                {areasForCity(cityMap, formData.city).map((a) => (
+                  <option key={a} value={a} />
+                ))}
+              </datalist>
             </label>
           </div>
           <div className="space-y-2">

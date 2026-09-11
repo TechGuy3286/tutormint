@@ -34,7 +34,8 @@
     "test:covers": "tsx --test scripts/test-covers.ts",
     "test:outsidepointer": "tsx --test scripts/test-outside-pointer.ts",
     "test:masking": "tsx --test scripts/test-masking.ts",
-    "test:posttuition": "tsx --test scripts/test-posttuition.ts"
+    "test:posttuition": "tsx --test scripts/test-posttuition.ts",
+    "test:locations": "tsx --test scripts/test-locations.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

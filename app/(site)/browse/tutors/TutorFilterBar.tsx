@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
-import { CITIES, CITY_AREAS, JOB_TYPES, GENDERS } from '@/lib/locations'
+import { JOB_TYPES, GENDERS } from '@/lib/locations'
+import { useCityAreas } from '@/lib/cityAreas'
+import { areasForCity } from '@/lib/cityAreasCore'
 import { jobType } from '@/lib/display'
 import Typeahead from '@/components/search/Typeahead'
 import { FEE_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
@@ -73,7 +75,11 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
     fetchSubjectsForGrade(category, level).then(setSubjects).catch(() => setSubjects([]))
   }, [category, level])
 
-  const areas = useMemo(() => (values.city ? (CITY_AREAS[values.city] ?? []) : []), [values.city])
+  // Cities/areas from the DB (migration 73), one source. The filter stays a
+  // select (it writes the URL on change) — free-text entry lives on the post
+  // and profile forms, not here.
+  const { map } = useCityAreas()
+  const areas = useMemo(() => areasForCity(map, values.city), [map, values.city])
 
   const activeCount = [
     values.subject,
@@ -202,7 +208,7 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
             onChange={(e) => apply({ city: e.target.value, area: null })}
           >
             <option value="">Any city</option>
-            {CITIES.map((c) => (
+            {map.cities.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>

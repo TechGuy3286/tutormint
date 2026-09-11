@@ -20,8 +20,6 @@
 // it tells a parent nothing. Collisions are broken with a hash of the row's
 // own uuid instead, which carries no information about the person.
 
-import { CITIES } from '@/lib/locations'
-
 /** Mirrors public.tm_slugify(): lowercase, non-alphanumerics to hyphens. */
 export function slugify(text: string | null | undefined): string {
   return (text ?? '')
@@ -54,17 +52,16 @@ export function citySegment(city: string | null | undefined): string {
  * nothing else — by the time it renders, the row it would have asked about has
  * already been established not to be readable.
  *
- * A known city wins, so "islamabad" filters on exactly the string jobs.city
- * holds. Anything else is title-cased, which is right for the cities that are
- * one or more plain words and is at worst a filter that matches nothing — the
- * page offers the unfiltered board beside it either way.
+ * Title-cased, without a database read — every one of the 23 curated cities is
+ * a run of plain words that round-trips through slug → title-case ("wah-cantt" →
+ * "Wah Cantt", "dera-ghazi-khan" → "Dera Ghazi Khan"), and a browse filter that
+ * matches nothing is harmless — the page offers the unfiltered board beside it.
+ * The city list is DATA now (migration 73), so this stays a pure string helper
+ * rather than reading the table on a not-found path.
  */
 export function cityFromSegment(segment: string | null | undefined): string | null {
   const seg = (segment ?? '').trim()
   if (!seg || seg === 'pakistan') return null
-
-  const known = CITIES.find((c) => citySegment(c) === seg)
-  if (known) return known
 
   return seg
     .split('-')

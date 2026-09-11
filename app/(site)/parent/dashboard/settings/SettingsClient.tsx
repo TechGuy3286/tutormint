@@ -8,7 +8,8 @@ import { useEffect, useState } from 'react'
 
 import Avatar from '@/components/Avatar'
 import FileUpload from '@/components/FileUpload'
-import { CITIES, CITY_AREAS } from '@/lib/locations'
+import { useCityAreas } from '@/lib/cityAreas'
+import { areasForCity } from '@/lib/cityAreasCore'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { looksLikeEmail } from '@/lib/phone'
@@ -105,7 +106,11 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
   // guards against.
   const phoneChanged = phone.replace(/\D/g, '') !== initial.phone.replace(/\D/g, '')
 
-  const areas = city && CITY_AREAS[city] ? CITY_AREAS[city] : []
+  // Curated cities/areas from the DB (migration 73). City and Area accept free
+  // text (a datalist) so a parent whose locality is not one of the 23 cities is
+  // never blocked — the typed value round-trips as a plain string.
+  const { map } = useCityAreas()
+  const areas = areasForCity(map, city)
 
   const save = async () => {
     setSaving(true)
@@ -234,37 +239,38 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1">
             <span className={LABEL}>City</span>
-            <select
+            <input
+              list="parent-city-options"
               value={city}
               onChange={(e) => {
                 setCity(e.target.value)
                 setArea('')
               }}
+              placeholder="Choose or type your city"
+              autoComplete="off"
               className={FIELD}
-            >
-              <option value="">Choose a city</option>
-              {CITIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
+            />
+            <datalist id="parent-city-options">
+              {map.cities.map((c) => (
+                <option key={c} value={c} />
               ))}
-            </select>
+            </datalist>
           </label>
           <label className="block space-y-1">
             <span className={LABEL}>Area</span>
-            <select
+            <input
+              list="parent-area-options"
               value={area}
               onChange={(e) => setArea(e.target.value)}
-              disabled={areas.length === 0}
+              placeholder="Choose or type your area"
+              autoComplete="off"
               className={FIELD}
-            >
-              <option value="">{areas.length === 0 ? 'Choose a city first' : 'Choose an area'}</option>
+            />
+            <datalist id="parent-area-options">
               {areas.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
+                <option key={a} value={a} />
               ))}
-            </select>
+            </datalist>
           </label>
         </div>
 

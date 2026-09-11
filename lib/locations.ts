@@ -1,51 +1,11 @@
 // lib/locations.ts
 //
-// The city and area lists the browse filters offer. Lifted out of the old
-// client-only browse page so the server page, the filter bar and (later) job
-// posting all offer the same options and store the same spellings -- ranking
-// compares city and area with lower(), and "DHA Phase 5" vs "dha phase 5" is
-// survivable, but "Islamabad" vs "Isb" is not.
-//
-// Free text is still accepted for `area` in the URL: a tutor may live in a
-// neighbourhood nobody listed, and area only ranks, it never filters.
-
-export const CITIES = [
-  'Lahore',
-  'Karachi',
-  'Islamabad',
-  'Rawalpindi',
-  'Faisalabad',
-  'Multan',
-  'Peshawar',
-  'Quetta',
-  'Sialkot',
-  'Gujranwala',
-] as const
-
-export const CITY_AREAS: Record<string, string[]> = {
-  Lahore: [
-    'Gulberg',
-    'DHA Phase 5',
-    'DHA',
-    'Bahria Town',
-    'Model Town',
-    'Johar Town',
-    'Wapda Town',
-    'Faisal Town',
-    'Cantt',
-    'Garden Town',
-    'Shadman',
-  ],
-  Karachi: ['Clifton', 'PECHS', 'Gulshan-e-Iqbal', 'Defence', 'North Nazimabad', 'Korangi'],
-  Islamabad: ['F-6', 'F-7', 'F-8', 'G-8', 'G-9', 'H-8', 'Blue Area', 'I-8'],
-  Rawalpindi: ['Saddar', 'Satellite Town', 'Bahria Town Rawalpindi', 'Chaklala'],
-  Faisalabad: ["People's Colony", 'D-Ground', 'Madina Town', 'Sargodha Road'],
-  Multan: ['Gulgasht Colony', 'Bosan Road', 'Shah Rukn-e-Alam', 'Mumtazabad'],
-  Peshawar: ['University Town', 'Hayatabad', 'Saddar', 'Dabgari Gardens'],
-  Quetta: ['Jinnah Town', 'Model Town', 'Shahbaz Town', 'Satellite Town'],
-  Sialkot: ['Model Town', 'Paris Road', 'Cantt', 'Defence Road'],
-  Gujranwala: ['Model Town', 'Peoples Colony', 'Satellite Town', 'Civil Lines'],
-}
+// The Job Type and gender VALUE sets. The city/area lists moved to the database
+// (migration 73) — they are DATA now, not a hardcoded array: read them through
+// lib/cityAreas.ts (client) or lib/locationsAdmin.ts (server/admin review).
+// Adding a city or area is an INSERT, not a code change. This file keeps only
+// the small fixed enumerations that are genuinely code (Job Type, gender), and
+// stays free of any Supabase/React import so the server can import parseMode.
 
 /**
  * The canonical Job Type values, and the only ones the database accepts

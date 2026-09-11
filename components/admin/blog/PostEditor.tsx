@@ -7,7 +7,7 @@ import { AlertCircle, AlertTriangle, CheckCircle2, Eye, Image as ImageIcon, Ligh
 import FileUpload from '@/components/FileUpload'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
-import { CITIES } from '@/lib/locations'
+import { useCityAreas } from '@/lib/cityAreas'
 import { fetchAllSubjects } from '@/lib/taxonomy'
 import type { EditorSuggestion } from '@/lib/contentQueue/feed'
 import {
@@ -96,6 +96,9 @@ export default function PostEditor({
   suggestionId?: string | null
 }) {
   const router = useRouter()
+  // Curated cities from the DB (migration 73) as datalist suggestions — one
+  // source. The field stays free-text (a blog post may target any city).
+  const cityOptions = useCityAreas().map.cities
 
   const [post, setPost] = useState<EditorPost>(initial)
   // The linked suggestion is state, not a fixed prop: picking one from the panel
@@ -1076,7 +1079,7 @@ export default function PostEditor({
                   className={input}
                 />
                 <datalist id="post-city-list">
-                  {CITIES.map((c) => (
+                  {cityOptions.map((c) => (
                     <option key={c} value={c} />
                   ))}
                 </datalist>

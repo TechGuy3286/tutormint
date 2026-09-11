@@ -7,7 +7,6 @@ import { submitSignal } from '@/lib/submit'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import WhereHowWhen from '@/components/forms/WhereHowWhen'
 import { isLevelLeaf, resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
-import { CITY_AREAS } from '@/lib/locations'
 import { GENDER_PREFS } from '@/lib/genderPref'
 import { bandFor, bandRange } from '@/lib/feeBands'
 import { takeDraft, saveDraft } from '@/components/AuthGateModal'
@@ -186,7 +185,6 @@ export default function PostTuitionForm({
   const set = <K extends keyof PostTuitionValues>(k: K, value: PostTuitionValues[K]) =>
     setV((prev) => ({ ...prev, [k]: value }))
 
-  const areas = v.city ? (CITY_AREAS[v.city] ?? []) : []
   const band = useMemo(() => bandFor(v.budgetMin, v.budgetMax), [v.budgetMin, v.budgetMax])
   const hasSelection = !!(v.category && v.level && (levelLeaf || v.subjects.length > 0))
 
@@ -337,7 +335,6 @@ export default function PostTuitionForm({
             band={band}
             days={days}
             times={times}
-            areas={areas}
             onCity={(x) => setV((p) => ({ ...p, city: x, area: '' }))}
             onArea={(x) => set('area', x)}
             onMode={(x) => set('teachingMode', x)}

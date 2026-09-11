@@ -15,6 +15,8 @@ import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import { resolveMasterIds, isLevelLeaf, labelsForMasterIds } from '@/lib/taxonomy'
 import { calculateTutorCompletion } from '@/lib/profileChecklist'
 import { JOB_TYPES } from '@/lib/locations'
+import { useCityAreas } from '@/lib/cityAreas'
+import { areasForCity } from '@/lib/cityAreasCore'
 import { jobType } from '@/lib/display'
 
 // Mobile-first, resumable, saves per step. Every step writes through
@@ -52,6 +54,9 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  // Curated cities/areas from the DB (migration 73) as datalist suggestions;
+  // City/Area still accept free text so a tutor is never blocked on locality.
+  const { map: cityMap } = useCityAreas()
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [percent, setPercent] = useState(0)
@@ -317,8 +322,8 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
                   <option value="other">Prefer not to say</option>
                 </select>
               </div>
-              <Field id="city" label="City" value={form.city} onChange={(v) => set('city', v)} />
-              <Field id="area" label="Area" value={form.area} onChange={(v) => set('area', v)} placeholder="DHA Phase 5" />
+              <Field id="city" label="City" value={form.city} onChange={(v) => set('city', v)} options={cityMap.cities} placeholder="Choose or type your city" />
+              <Field id="area" label="Area" value={form.area} onChange={(v) => set('area', v)} options={areasForCity(cityMap, form.city)} placeholder="Choose or type your area" />
             </>
           )}
 
@@ -588,13 +593,31 @@ const btnNavy =
 const btnRed =
   'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl disabled:opacity-40 transition-colors'
 
-function Field({ id, label, value, onChange, type = 'text', placeholder }: {
+function Field({ id, label, value, onChange, type = 'text', placeholder, options }: {
   id: string; label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string
+  /** Curated suggestions (a datalist). Free text outside the list is still accepted. */
+  options?: string[]
 }) {
   return (
     <div className="space-y-1" id={id}>
       <label htmlFor={`${id}-input`} className="text-xs font-bold text-tm-navy">{label}</label>
-      <input id={`${id}-input`} type={type} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={inputCls} />
+      <input
+        id={`${id}-input`}
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className={inputCls}
+        list={options ? `${id}-options` : undefined}
+        autoComplete={options ? 'off' : undefined}
+      />
+      {options && (
+        <datalist id={`${id}-options`}>
+          {options.map((o) => (
+            <option key={o} value={o} />
+          ))}
+        </datalist>
+      )}
     </div>
   )
 }

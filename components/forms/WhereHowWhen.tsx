@@ -3,9 +3,12 @@
 import type { ReactNode } from 'react'
 import { Building2, MapPin, Briefcase, Wallet, Calendar, Clock } from 'lucide-react'
 
-import { CITIES, JOB_TYPES } from '@/lib/locations'
+import { JOB_TYPES } from '@/lib/locations'
 import { BUDGET_BANDS } from '@/lib/feeBands'
 import { jobType } from '@/lib/display'
+import LocationInput from '@/components/forms/LocationInput'
+import { useCityAreas } from '@/lib/cityAreas'
+import { areasForCity } from '@/lib/cityAreasCore'
 
 // The "Where, how and when" row of the job form — the six selects for city,
 // area, Job Type, budget, days and times.
@@ -67,7 +70,6 @@ export default function WhereHowWhen({
   band,
   days,
   times,
-  areas,
   onCity,
   onArea,
   onMode,
@@ -82,8 +84,6 @@ export default function WhereHowWhen({
   band: string
   days: string
   times: string
-  /** Areas for the chosen city; empty disables the Area select. */
-  areas: string[]
   onCity: (v: string) => void
   onArea: (v: string) => void
   onMode: (v: string) => void
@@ -91,32 +91,34 @@ export default function WhereHowWhen({
   onDays: (v: string) => void
   onTimes: (v: string) => void
 }) {
+  // The curated lists, from the DB (migration 73), fetched once and cached.
+  // City and Area are datalist inputs: they suggest the curated names but accept
+  // free text, so a locality outside the 23 cities is typed, not blocked.
+  const { map } = useCityAreas()
+  const areas = areasForCity(map, city)
+
   return (
     <>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <IconSelect icon={<Building2 size={15} />} label="City" value={city} onChange={onCity}>
-          <option value="">City</option>
-          {CITIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </IconSelect>
+        <LocationInput
+          id="whw-city"
+          label="City"
+          icon={<Building2 size={15} />}
+          value={city}
+          onChange={onCity}
+          options={map.cities}
+          placeholder="City"
+        />
 
-        <IconSelect
-          icon={<MapPin size={15} />}
+        <LocationInput
+          id="whw-area"
           label="Area"
+          icon={<MapPin size={15} />}
           value={area}
           onChange={onArea}
-          disabled={areas.length === 0}
-        >
-          <option value="">Area</option>
-          {areas.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </IconSelect>
+          options={areas}
+          placeholder="Area"
+        />
 
         <IconSelect
           icon={<Briefcase size={15} />}

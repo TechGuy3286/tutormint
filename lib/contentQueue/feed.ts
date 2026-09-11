@@ -7,8 +7,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { subjectMetaByMaster, citySegment } from '@/lib/landing'
-import { CITIES } from '@/lib/locations'
+import { subjectMetaByMaster } from '@/lib/landing'
 import type { Audience, Language, SuggestionCard, SuggestionSource, PriorityComponents } from './core'
 
 export type Suggestion = {
@@ -72,8 +71,8 @@ export async function listSuggestions(): Promise<{ content: Suggestion[]; recrui
 export type EditorSuggestion = Suggestion & { city: string | null; subject: string | null }
 
 function cityFromSlug(slug: string): string {
-  const match = CITIES.find((c) => citySegment(c) === slug)
-  if (match) return match
+  // Title-case the slug. The city list is DATA now (migration 73); every curated
+  // city round-trips through slug → title-case, so no table read is needed here.
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())
 }
 
