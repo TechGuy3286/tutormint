@@ -17,6 +17,7 @@ import { calculateTutorCompletion } from '@/lib/profileChecklist'
 import { JOB_TYPES } from '@/lib/locations'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
+import { OTP_SMS_SENDER } from '@/lib/otpChannel'
 import { jobType } from '@/lib/display'
 
 // Mobile-first, resumable, saves per step. Every step writes through
@@ -235,7 +236,7 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
     const json = await res.json()
     if (!res.ok) { setErr(json.error ?? 'Could not send code.'); if (json.retryAfterSeconds) setCooldown(json.retryAfterSeconds); return }
     setOtpSent(true); setCooldown(60)
-    setOtpMsg(json.devBypassActive ? 'Development mode: use the DEV_DEFAULT_OTP code.' : 'Code sent on WhatsApp.')
+    setOtpMsg(json.devBypassActive ? 'Development mode: use the DEV_DEFAULT_OTP code.' : `Code sent by SMS from ${OTP_SMS_SENDER}.`)
   }
 
   async function verifyOtp() {
@@ -452,8 +453,9 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
               ) : (
                 <>
                   <p className="text-[11px] leading-relaxed text-gray-500">
-                    Verify a mobile number so parents can reach you. We send a 6-digit code on{' '}
-                    <span className="font-bold text-tm-green-deep">WhatsApp</span>.
+                    Verify a mobile number so parents can reach you. We send a 6-digit code by{' '}
+                    <span className="font-bold text-tm-green-deep">SMS</span> from{' '}
+                    <span className="font-bold text-tm-navy">{OTP_SMS_SENDER}</span>.
                   </p>
                   <Field id="phone_number" label="Mobile number" value={phone} onChange={setPhone} placeholder="03214567890" />
                   <button onClick={sendOtp} disabled={cooldown > 0 || !phone} className={btnNavy}>
@@ -477,7 +479,7 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
                       configured. */}
                   {(support.waHref || support.email) && (
                     <div className="space-y-2 rounded-2xl border border-gray-200 bg-tm-bg p-4">
-                      <p className="text-xs font-bold text-tm-navy">No WhatsApp on this number, or code not arriving?</p>
+                      <p className="text-xs font-bold text-tm-navy">Code not arriving?</p>
                       <p className="text-[11px] leading-relaxed text-gray-500">
                         Message us and we&rsquo;ll verify your number for you — you won&rsquo;t be stuck here.
                       </p>

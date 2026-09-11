@@ -42,7 +42,7 @@ export default async function VerifyEmailPage({
           </p>
           <p className="text-[11px] leading-relaxed text-gray-500">
             The link can take a few minutes to arrive. Check your spam folder if you don’t see it.
-            You can also sign up with a mobile number instead — that confirms with a code on WhatsApp.
+            You can also sign up with a mobile number instead — that confirms with a code by SMS.
           </p>
           {address && <ResendEmail address={address} />}
           <div className="flex flex-col gap-2">

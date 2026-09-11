@@ -8,7 +8,7 @@ import { sendOtp, verifyOtp } from '@/lib/otp'
 import { activatePausedIfListed } from '@/lib/payments/goLive'
 import { normalisePkMobile } from '@/lib/phone'
 
-// Phone / WhatsApp OTP for the SIGNED-IN account.
+// Phone / SMS OTP for the SIGNED-IN account.
 //
 //   POST { action: 'send',   phone }
 //   POST { action: 'verify', phone, code }

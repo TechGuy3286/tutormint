@@ -7,6 +7,7 @@ import { homeForRole, nextForRole, type Role } from '@/lib/authRoutes'
 import { formatPkMobile } from '@/lib/phone'
 import { getSupportContact, whatsappHref } from '@/lib/support'
 import { needsPhoneGate } from '@/lib/phoneGate'
+import { OTP_SMS_SENDER } from '@/lib/otpChannel'
 import VerifyPhoneForm from './VerifyPhoneForm'
 
 // The gate screen.
@@ -67,12 +68,14 @@ export default async function VerifyPhonePage({
   // profile; the optional chain keeps the compiler happy without a bare `!`.
   const mobile = (profile?.phone_number as string) || ''
 
-  // The fallback (owner, Part 6). Until a real SMS provider exists, a member who
-  // cannot receive a code has no route forward — /verify-phone would be a dead
-  // end. The same pattern /support uses: WhatsApp + email from app_settings with
-  // env fallbacks, never hardcoded, and a channel with nothing configured is not
-  // offered. No invented delivery time. This block comes out when the provider
-  // lands (there will be a working code path then).
+  // The fallback (owner, Part 6). The code is delivered by SMS (SendPK, short
+  // code 8062050), but delivery is fire-and-forget — an SMS can still fail to
+  // arrive and the system cannot tell — so a member who never receives one needs
+  // a route forward or /verify-phone is a dead end. The same pattern /support
+  // uses: WhatsApp + email from app_settings with env fallbacks, never
+  // hardcoded, and a channel with nothing configured is not offered. The support
+  // WhatsApp button below is how a member reaches a human — unrelated to how the
+  // code itself is delivered. No invented delivery time.
   const support = await getSupportContact()
   const waHref = whatsappHref(
     support.whatsapp,
@@ -88,10 +91,11 @@ export default async function VerifyPhonePage({
           <span className="inline-block rounded-2xl bg-tm-tint-green p-3 text-3xl">📱</span>
           <h1 className="text-xl font-black text-tm-navy">Your account is created — verify your number</h1>
           <p className="text-xs leading-relaxed text-gray-500">
-            We sent a 6-digit code on{' '}
-            <span className="font-bold text-tm-green-deep">WhatsApp</span> to{' '}
-            <span className="font-bold text-tm-navy">{formatPkMobile(mobile)}</span>. Enter it to
-            verify your number and reach your dashboard — you can’t continue until you do.
+            We sent a 6-digit code by{' '}
+            <span className="font-bold text-tm-green-deep">SMS</span> to{' '}
+            <span className="font-bold text-tm-navy">{formatPkMobile(mobile)}</span>. It arrives from{' '}
+            <span className="font-bold text-tm-navy">{OTP_SMS_SENDER}</span> — that short code is us.
+            Enter it to verify your number and reach your dashboard — you can’t continue until you do.
           </p>
         </div>
 
@@ -104,9 +108,9 @@ export default async function VerifyPhonePage({
             a wa.me/ or mailto: with nothing behind it is worse than no button. */}
         {(waHref || support.email) && (
           <div className="space-y-2 rounded-2xl border border-gray-200 bg-tm-bg p-4">
-            <p className="text-xs font-bold text-tm-navy">No WhatsApp on this number?</p>
+            <p className="text-xs font-bold text-tm-navy">Code not arriving?</p>
             <p className="text-[11px] leading-relaxed text-gray-500">
-              If the code hasn&rsquo;t arrived on WhatsApp, message us and we&rsquo;ll verify you.
+              If the SMS hasn&rsquo;t arrived, message us and we&rsquo;ll verify you.
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               {waHref && (

@@ -21,7 +21,7 @@ const FALLBACK: Record<SignupStage, string> = {
   email_unconfirmed:
     'Hi {name}, thanks for signing up to TutorMint. Your account is not active yet — please confirm your email address using the link we sent you (check spam too). If it did not arrive, reply and we will help you get in.',
   mobile_unverified:
-    'Hi {name}, thanks for signing up to TutorMint. To finish, enter the verification code we sent to your mobile on WhatsApp. If you did not receive one, reply and our team will verify your number for you.',
+    'Hi {name}, thanks for signing up to TutorMint. To finish, enter the verification code we sent to your mobile by SMS. If you did not receive one, reply and our team will verify your number for you.',
   profile_unfinished:
     'Hi {name}, you are almost set up on TutorMint — your profile just is not finished. Completing it lets parents find you, or lets you start hiring. It takes a few minutes from your dashboard. Reply if you would like a hand.',
 }
