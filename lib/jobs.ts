@@ -31,12 +31,28 @@ import { revalidateLanding } from '@/lib/landingRevalidate'
 import { teamParentId } from '@/lib/teamAccount'
 import { buildJobContact } from '@/lib/jobContactCore'
 import { matchVisibility, isOnlineType } from '@/lib/matchChip'
+import { collapseLevels } from '@/lib/levelDisplay'
 import type { AdminRole } from '@/lib/adminAuth'
+
+// Level is multi-select now (migration 79): jobs.class_levels is the array, and
+// jobs.class_level (+ the legacy `grade` mirror) hold the collapsed display run.
+function levelArr(input: { classLevels?: string[] | null; classLevel: string | null }): string[] {
+  if (input.classLevels && input.classLevels.length > 0) return input.classLevels
+  return input.classLevel ? [input.classLevel] : []
+}
+function levelDisplay(input: { classLevels?: string[] | null; classLevel: string | null }): string {
+  return collapseLevels(levelArr(input)) || input.classLevel || ''
+}
 
 export type JobInput = {
   title: string
   masterIds: number[]
+  /** Legacy single level (a collapsed display string). Kept for callers that
+   *  send one; classLevels is the multi-select source of truth (migration 79). */
   classLevel: string | null
+  /** The selected levels (migration 79). Stored as jobs.class_levels; the
+   *  collapsed run is written to class_level for display. */
+  classLevels?: string[]
   city: string | null
   area: string | null
   /**
@@ -184,7 +200,8 @@ export async function createJob(
       job_tx_id: jobTxId,
       parent_id: parentId,
       title: input.title.trim(),
-      class_level: input.classLevel,
+      class_levels: levelArr(input),
+      class_level: levelDisplay(input),
       city: input.city,
       area: input.area ?? '',
       teaching_mode: input.teachingMode || 'Home Tutor',
@@ -200,7 +217,7 @@ export async function createJob(
       subjects: labels,
       // Legacy NOT NULL columns, mirrored until T8 removes them.
       subject: labels.join(', ') || 'Tuition',
-      grade: input.classLevel ?? '',
+      grade: levelDisplay(input),
       budget: bandFigure(input) === null ? '' : String(bandFigure(input)),
       timings: input.schedule ?? '',
     })
@@ -320,7 +337,8 @@ export async function createTeamJob(
       job_tx_id: jobTxId,
       parent_id: teamId,
       title: input.title.trim(),
-      class_level: input.classLevel,
+      class_levels: levelArr(input),
+      class_level: levelDisplay(input),
       city: input.city,
       area: input.area ?? '',
       teaching_mode: input.teachingMode || 'Home Tutor',
@@ -334,7 +352,7 @@ export async function createTeamJob(
       is_featured: !!ent.tagLabel,
       subjects: labels,
       subject: labels.join(', ') || 'Tuition',
-      grade: input.classLevel ?? '',
+      grade: levelDisplay(input),
       budget: bandFigure(input) === null ? '' : String(bandFigure(input)),
       timings: input.schedule ?? '',
     })
@@ -431,7 +449,8 @@ export async function updateJob(
     .from('jobs')
     .update({
       title: input.title.trim(),
-      class_level: input.classLevel,
+      class_levels: levelArr(input),
+      class_level: levelDisplay(input),
       city: input.city,
       area: input.area ?? '',
       teaching_mode: input.teachingMode || 'Home Tutor',
@@ -443,7 +462,7 @@ export async function updateJob(
       child_id: input.childId,
       subjects: labels,
       subject: labels.join(', ') || 'Tuition',
-      grade: input.classLevel ?? '',
+      grade: levelDisplay(input),
       budget: bandFigure(input) === null ? '' : String(bandFigure(input)),
       timings: input.schedule ?? '',
     })

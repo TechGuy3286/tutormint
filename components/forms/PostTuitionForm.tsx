@@ -8,6 +8,7 @@ import TaxonomySelector from '@/components/TaxonomySelector'
 import WhereHowWhen from '@/components/forms/WhereHowWhen'
 import { useJobTitles } from '@/lib/jobTitles'
 import { isLevelLeaf, resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
+import { collapseLevels } from '@/lib/levelDisplay'
 import { GENDER_PREFS } from '@/lib/genderPref'
 import { bandFor, bandRange } from '@/lib/feeBands'
 import { takeDraft, saveDraft } from '@/components/AuthGateModal'
@@ -34,7 +35,8 @@ export type PostTuitionValues = {
   masterIds?: number[]
   title: string
   category: string
-  level: string
+  /** The selected grade/level names — MULTI-SELECT now (migration 79). */
+  levels: string[]
   subjects: string[]
   classLevel: string
   city: string
@@ -64,6 +66,8 @@ export type PostTuitionPayload = {
   title: string
   masterIds: number[]
   classLevel: string
+  /** The selected levels (migration 79). Stored as jobs.class_levels. */
+  classLevels: string[]
   city: string
   area: string
   teachingMode: string
@@ -87,7 +91,7 @@ export type PostTuitionResult = { ok: true } | { ok: false; error?: string; gate
 const EMPTY: PostTuitionValues = {
   title: '',
   category: '',
-  level: '',
+  levels: [],
   subjects: [],
   classLevel: '',
   city: '',
@@ -171,7 +175,7 @@ export default function PostTuitionForm({
     selectionForMasterIds(ids)
       .then((sel) => {
         if (cancelled) return
-        setV((prev) => ({ ...prev, category: sel.category, level: sel.level, subjects: sel.subjects }))
+        setV((prev) => ({ ...prev, category: sel.category, levels: sel.levels, subjects: sel.subjects }))
         setReady(true)
       })
       .catch(() => !cancelled && setReady(true))
@@ -182,12 +186,15 @@ export default function PostTuitionForm({
   }, [mode])
 
   useEffect(() => {
-    if (!v.category || !v.level) {
+    if (!v.category || v.levels.length === 0) {
       setLevelLeaf(false)
       return
     }
-    isLevelLeaf(v.category, v.level).then(setLevelLeaf).catch(() => setLevelLeaf(false))
-  }, [v.category, v.level])
+    // Within a category the levels are all-leaf or all-subject, so the first
+    // selected level decides. A leaf category (Test Prep, Sports, Holy Quran) is
+    // chosen with no subjects.
+    isLevelLeaf(v.category, v.levels[0]).then(setLevelLeaf).catch(() => setLevelLeaf(false))
+  }, [v.category, v.levels])
 
   // The two schedule choices are one stored string, synced one way only.
   useEffect(() => {
@@ -202,7 +209,7 @@ export default function PostTuitionForm({
   const { titles: jobTitles } = useJobTitles()
 
   const band = useMemo(() => bandFor(v.budgetMin, v.budgetMax), [v.budgetMin, v.budgetMax])
-  const hasSelection = !!(v.category && v.level && (levelLeaf || v.subjects.length > 0))
+  const hasSelection = !!(v.category && v.levels.length > 0 && (levelLeaf || v.subjects.length > 0))
 
   // ------------------------------------------------------------ generate ---
   const write = async () => {
@@ -210,14 +217,14 @@ export default function PostTuitionForm({
     setError(null)
     setWroteItOurselves(false)
     try {
-      const masterIds = await resolveMasterIds(v.category, v.level, levelLeaf ? [] : v.subjects)
+      const masterIds = await resolveMasterIds(v.category, v.levels, levelLeaf ? [] : v.subjects)
       const res = await fetch('/api/parent/jobs/generate', {
         signal: submitSignal(),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           masterIds,
-          level: v.level,
+          level: collapseLevels(v.levels),
           city: v.city,
           area: v.area,
           teachingMode: v.teachingMode,
@@ -245,7 +252,7 @@ export default function PostTuitionForm({
     setBusy(true)
     setError(null)
     try {
-      const masterIds = await resolveMasterIds(v.category, v.level, levelLeaf ? [] : v.subjects)
+      const masterIds = await resolveMasterIds(v.category, v.levels, levelLeaf ? [] : v.subjects)
       if (masterIds.length === 0) {
         throw new Error('Choose a level, a grade and at least one subject.')
       }
@@ -254,7 +261,8 @@ export default function PostTuitionForm({
         jobId: v.jobId,
         title: v.title,
         masterIds,
-        classLevel: v.level || v.classLevel,
+        classLevels: v.levels,
+        classLevel: collapseLevels(v.levels) || v.classLevel,
         city: v.city,
         area: v.area,
         teachingMode: v.teachingMode,
@@ -335,17 +343,17 @@ export default function PostTuitionForm({
           ) : (
             <TaxonomySelector
               selectedLevel={v.category}
-              setSelectedLevel={(x) => setV((p) => ({ ...p, category: x, level: '', subjects: [] }))}
-              selectedGrade={v.level}
-              setSelectedGrade={(x) => setV((p) => ({ ...p, level: x, subjects: [] }))}
+              setSelectedLevel={(x) => setV((p) => ({ ...p, category: x, levels: [], subjects: [] }))}
+              selectedGrades={v.levels}
+              setSelectedGrades={(x) => set('levels', x)}
               selectedSubjects={v.subjects}
               setSelectedSubjects={(x) => set('subjects', x)}
               allowSelectAll={false}
             />
           )}
-          {levelLeaf && (
+          {levelLeaf && v.levels.length > 0 && (
             <p className="rounded-xl bg-tm-bg p-3 text-[11px] text-gray-500">
-              {v.level} is chosen on its own — there is no subject list beneath it.
+              {v.levels.join(', ')} {v.levels.length === 1 ? 'is' : 'are'} chosen on their own — no subject list beneath.
             </p>
           )}
 

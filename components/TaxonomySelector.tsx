@@ -1,16 +1,17 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { Layers, GraduationCap, X } from 'lucide-react'
-import { fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
+import { Layers, X } from 'lucide-react'
+import { fetchTaxonomyTree, fetchLegacyLevelNames, TaxonomyNode } from '@/lib/taxonomy'
 import Select from '@/components/forms/Select'
 import { onOutsidePointerDown } from '@/lib/outsidePointer'
 
 interface TaxonomySelectorProps {
   selectedLevel: string;
   setSelectedLevel: (level: string) => void;
-  selectedGrade: string;
-  setSelectedGrade: (grade: string) => void;
+  /** MULTI-SELECT grade/level (migration 79). A job or tutor picks any number. */
+  selectedGrades: string[];
+  setSelectedGrades: (grades: string[]) => void;
   selectedSubjects: string[];
   setSelectedSubjects: (subjects: string[]) => void;
   /** "Select all" bulk toggle. Off for post-a-tuition — nobody posts one
@@ -21,31 +22,24 @@ interface TaxonomySelectorProps {
 export default function TaxonomySelector({
   selectedLevel,
   setSelectedLevel,
-  selectedGrade,
-  setSelectedGrade,
+  selectedGrades,
+  setSelectedGrades,
   selectedSubjects,
   setSelectedSubjects,
   allowSelectAll = true,
 }: TaxonomySelectorProps) {
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyNode>({});
+  const [legacyLevels, setLegacyLevels] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState<boolean>(true);
 
+  const [gradeSearch, setGradeSearch] = useState<string>("");
   const [subjectSearch, setSubjectSearch] = useState<string>("");
 
-  // Once the person interacts with anything OUTSIDE the selector — the city
-  // field below it, most often — the grid collapses to its red-chip summary and
-  // reopens on a click, the same shape level and grade already have.
+  // Once the person interacts OUTSIDE the selector, the subjects grid collapses
+  // to its red-chip summary and reopens on a click (same as before the split).
   const rootRef = useRef<HTMLDivElement>(null);
   const [subjectsCollapsed, setSubjectsCollapsed] = useState<boolean>(false);
 
-  // A DOCUMENT-LEVEL pointerdown, not onBlur/relatedTarget. Clicking a native
-  // <select> (the city field) does not reliably set relatedTarget, so a
-  // focus-based "did focus leave me" check never fired for a mouse user — the
-  // bug this replaces. A pointerdown whose target is outside rootRef fires every
-  // time; a press inside it (a subject checkbox, the grid's own scrollbar, the
-  // Change button) is ignored because root.contains(target) is true. Listening
-  // only while there is a selection means selecting the FIRST subject cannot
-  // collapse the grid, and there is nothing to collapse to before then.
   useEffect(() => {
     if (subjectsCollapsed || selectedSubjects.length === 0) return;
     return onOutsidePointerDown(document, () => rootRef.current, () =>
@@ -53,46 +47,67 @@ export default function TaxonomySelector({
     );
   }, [subjectsCollapsed, selectedSubjects.length]);
 
-  // Whenever the selection empties — the grade changed, or the last chip was
-  // removed — reopen the grid. A collapsed grid with no chips is a dead end.
   useEffect(() => {
     if (selectedSubjects.length === 0) setSubjectsCollapsed(false);
   }, [selectedSubjects.length]);
 
   useEffect(() => {
     async function loadTree() {
-      const tree = await fetchTaxonomyTree();
+      const [tree, legacy] = await Promise.all([fetchTaxonomyTree(), fetchLegacyLevelNames()]);
       setTaxonomyTree(tree);
+      setLegacyLevels(legacy);
       setLoading(false);
-      // NO auto-selection (owner, 10 Sep 2026). The form opens with the level
-      // and grade empty so the person actually chooses, and the subjects grid
-      // stays hidden until they have. An edit flow still pre-fills both from the
-      // saved job via its parent (selectionForMasterIds), which is a real value,
-      // not a default.
+      // NO auto-selection (owner, 10 Sep 2026): the form opens empty so the
+      // person chooses. An edit flow pre-fills from selectionForMasterIds.
     }
     loadTree();
   }, []);
 
   const levelsList = useMemo(() => Object.keys(taxonomyTree), [taxonomyTree]);
 
+  // The grades for the chosen category. A split-away LEGACY level (migration 79)
+  // is hidden — UNLESS it is already selected (an existing row being edited), so
+  // the person sees their current pick and can keep or re-pick it.
   const gradesList = useMemo(() => {
     if (!selectedLevel || !taxonomyTree[selectedLevel]) return [];
-    return Object.keys(taxonomyTree[selectedLevel]);
-  }, [taxonomyTree, selectedLevel]);
+    return Object.keys(taxonomyTree[selectedLevel]).filter(
+      (g) => !legacyLevels.has(g) || selectedGrades.includes(g),
+    );
+  }, [taxonomyTree, selectedLevel, legacyLevels, selectedGrades]);
 
+  const gradesFiltered = useMemo(
+    () => gradesList.filter((g) => g.toLowerCase().includes(gradeSearch.toLowerCase())),
+    [gradesList, gradeSearch],
+  );
+
+  // Subjects available across EVERY selected grade (deduped, sorted).
   const availableSubjects = useMemo(() => {
-    if (!selectedLevel || !selectedGrade || !taxonomyTree[selectedLevel]?.[selectedGrade]) return [];
-    return taxonomyTree[selectedLevel][selectedGrade];
-  }, [taxonomyTree, selectedLevel, selectedGrade]);
+    if (!selectedLevel || selectedGrades.length === 0) return [] as string[];
+    const set = new Set<string>();
+    for (const g of selectedGrades) {
+      for (const s of taxonomyTree[selectedLevel]?.[g] ?? []) set.add(s);
+    }
+    return Array.from(set).sort();
+  }, [taxonomyTree, selectedLevel, selectedGrades]);
 
-  // The grade is no longer auto-picked. Changing the level resets the grade to
-  // empty (the Level select's onChange below), so a stale grade cannot persist,
-  // and the custom Select shows its placeholder until the person chooses — the
-  // old `<select size={4}>` divergence that forced an auto-pick is gone with it.
+  // Once the tree is loaded, drop any selected subject no longer offered by the
+  // chosen grades (a grade was unticked). Guarded so it never fires while the
+  // tree is still loading — that would wipe an edit pre-fill.
+  useEffect(() => {
+    if (loading || selectedGrades.length === 0) return;
+    const keep = selectedSubjects.filter((s) => availableSubjects.includes(s));
+    if (keep.length !== selectedSubjects.length) setSelectedSubjects(keep);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableSubjects, loading]);
 
   const filteredSubjects = useMemo(() => {
     return availableSubjects.filter((sub: string) => sub.toLowerCase().includes(subjectSearch.toLowerCase()));
   }, [availableSubjects, subjectSearch]);
+
+  const toggleGrade = (g: string) => {
+    if (selectedGrades.includes(g)) setSelectedGrades(selectedGrades.filter((x) => x !== g));
+    else setSelectedGrades([...selectedGrades, g]);
+  };
 
   if (loading) {
     return <div className="text-xs text-gray-500 py-4">Loading taxonomy structure...</div>;
@@ -100,49 +115,89 @@ export default function TaxonomySelector({
 
   return (
     <div ref={rootRef} className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-        {/* Level — a custom select matching the "Where, how and when" fields. */}
-        <div className="space-y-1">
-          <label className="text-xs font-bold text-tm-navy block">Level</label>
-          <Select
-            ariaLabel="Level"
-            icon={<Layers size={15} aria-hidden />}
-            value={selectedLevel}
-            onChange={(v) => {
-              setSelectedLevel(v);
-              setSelectedGrade('');
-              setSelectedSubjects([]);
-            }}
-            options={levelsList.map((l) => ({ value: l, label: l }))}
-            placeholder="Choose a level"
-            searchable
-          />
-        </div>
-
-        {/* Grade — same control; the grade auto-picks when the level changes. */}
-        <div className="space-y-1">
-          <label className="text-xs font-bold text-tm-navy block">Grade or specialisation</label>
-          <Select
-            ariaLabel="Grade or specialisation"
-            icon={<GraduationCap size={15} aria-hidden />}
-            value={selectedGrade}
-            onChange={(v) => {
-              setSelectedGrade(v);
-              setSelectedSubjects([]);
-            }}
-            options={gradesList.map((g) => ({ value: g, label: g }))}
-            placeholder="Choose a grade"
-            searchable
-            disabled={gradesList.length === 0}
-          />
-        </div>
-
+      {/* Level (category) — a custom single-select, as before. */}
+      <div className="space-y-1">
+        <label className="text-xs font-bold text-tm-navy block">Level</label>
+        <Select
+          ariaLabel="Level"
+          icon={<Layers size={15} aria-hidden />}
+          value={selectedLevel}
+          onChange={(v) => {
+            setSelectedLevel(v);
+            setSelectedGrades([]);
+            setSelectedSubjects([]);
+          }}
+          options={levelsList.map((l) => ({ value: l, label: l }))}
+          placeholder="Choose a level"
+          searchable
+        />
       </div>
 
-      {/* Subjects — hidden until a level AND grade are chosen (owner, 10 Sep
-          2026). No empty box: one short line stands where the grid will be. */}
-      {(!selectedLevel || !selectedGrade) ? (
+      {/* Grade or specialisation — MULTI-SELECT now (owner, 11 Sep 2026). Search
+          + checkbox grid + chips, the same shape as subjects, so the larger
+          split set stays searchable and reads cleanly at 360px. */}
+      {selectedLevel && (
+        <div className="space-y-2">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <label className="text-xs font-bold text-tm-navy block">Grade or specialisation</label>
+            {gradesList.length > 6 && (
+              <input
+                type="text"
+                placeholder="Search grades..."
+                value={gradeSearch}
+                onChange={(e) => setGradeSearch(e.target.value)}
+                className="min-h-[44px] p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none w-full sm:w-48 text-slate-700"
+              />
+            )}
+          </div>
+
+          {selectedGrades.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedGrades.map((g) => (
+                <span
+                  key={g}
+                  className="inline-flex items-center gap-1 rounded-full bg-tm-red py-1 pl-2.5 pr-1 text-[11px] font-semibold text-white"
+                >
+                  <span className="max-w-[12rem] truncate">{g}</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleGrade(g)}
+                    aria-label={`Remove ${g}`}
+                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-white/25 cursor-pointer"
+                  >
+                    <X size={12} aria-hidden />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {gradesFiltered.length === 0 ? (
+            <p className="rounded-xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-gray-500">
+              {gradesList.length === 0
+                ? 'This level has no grades to choose.'
+                : `No grades match “${gradeSearch.trim()}” — try another spelling.`}
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-3 bg-white rounded-xl border border-gray-200">
+              {gradesFiltered.map((g) => (
+                <label key={g} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer hover:text-black">
+                  <input
+                    type="checkbox"
+                    checked={selectedGrades.includes(g)}
+                    onChange={() => toggleGrade(g)}
+                    className="rounded border-gray-300 text-tm-red focus:ring-0"
+                  />
+                  <span className="truncate">{g}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Subjects — hidden until a level AND at least one grade are chosen. */}
+      {(!selectedLevel || selectedGrades.length === 0) ? (
         <p className="rounded-xl border border-dashed border-gray-200 bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
           Choose a level and grade above, and the subjects will appear here.
         </p>
@@ -167,7 +222,7 @@ export default function TaxonomySelector({
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubjectSearch(e.target.value)}
               className="min-h-[44px] p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none flex-1 sm:w-48 text-slate-700"
             />
-            {allowSelectAll && (
+            {allowSelectAll && availableSubjects.length > 0 && (
               <button
                 type="button"
                 onClick={() => {
@@ -186,12 +241,6 @@ export default function TaxonomySelector({
           )}
         </div>
 
-        {/* Selected-subject chips, in brand red so they stand out above the
-            list. Each × removes that subject; because the grid checkbox and
-            this chip both read/write the one `selectedSubjects` array, the two
-            stay in sync in both directions. Nothing renders when nothing is
-            selected — no empty container. flex-wrap so a long selection wraps
-            cleanly at 360px above the (scrollable) grid. */}
         {selectedSubjects.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {selectedSubjects.map((sub: string) => (
@@ -215,26 +264,20 @@ export default function TaxonomySelector({
           </div>
         )}
 
-        {/* The grid is hidden once collapsed — the red chips above are the
-            summary, and Change reopens it. Never silently empty otherwise: a
-            blank bordered box is indistinguishable from a broken one, so each
-            empty case says which one it is and what to do next. */}
         {!subjectsCollapsed &&
           (filteredSubjects.length === 0 ? (
           <p className="rounded-xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-gray-500">
             {availableSubjects.length === 0
-              ? selectedGrade
-                ? `${selectedGrade} has no subject list — it is chosen on its own.`
-                : 'Choose a level and grade above to see their subjects.'
+              ? 'These grades have no subject list — they are chosen on their own.'
               : subjectSearch.trim()
-                ? `No subjects match “${subjectSearch.trim()}”${selectedGrade ? ` at ${selectedGrade}` : ''} — try another spelling or grade.`
+                ? `No subjects match “${subjectSearch.trim()}” — try another spelling or grade.`
                 : 'No subjects to show.'}
           </p>
         ) : (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-3 bg-white rounded-xl border border-gray-200">
           {filteredSubjects.map((sub: string) => (
             <label key={sub} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer hover:text-black">
-              <input 
+              <input
                 type="checkbox"
                 checked={selectedSubjects.includes(sub)}
                 onChange={() => {

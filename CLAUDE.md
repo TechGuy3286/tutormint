@@ -40,7 +40,7 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 - `subscriptions` — `id`, `user_id`, `plan_code`, `starts_at`, `expires_at`, `status ('active'|'expired'|'cancelled')`, `payment_id`, `reminded_at`
 - `payments` — `id`, `user_id`, `plan_code`, `amount_pkr`, `provider`, `provider_ref` (idempotency key, unique per `(provider, provider_ref)`), `method ('jazzcash'|'easypaisa'|'bank'|'assanpay')`, `reference`, `screenshot_path` (private bucket `payment-proofs`), `status ('pending'|'approved'|'rejected')`, `reviewed_by`, `reviewed_at`, `created_at`
 - `usage_counters` — `user_id`, `period (YYYY-MM, UTC calendar month)`, `jobs_applied int`, `jobs_posted int`, `messages_initiated int`, unique(user_id, period)
-- `jobs` — `id`, `job_tx_id` (keep existing human id), `parent_id`, `child_id nullable`, `title`, `class_level`, `city`, `area`, `teaching_mode`, `budget_pkr`, `description`, `status ('open'|'closed'|'hired')`, `hired_tutor_id`, `is_featured bool` (cache of the parent's plan via `applyPlanFlags()`), `under_review bool default false` + `review_reason` (migration 58 — a reported tuition; stays visible with an amber sticker, Apply paused), `created_at`
+- `jobs` — `id`, `job_tx_id` (keep existing human id), `parent_id`, `child_id nullable`, `title`, `class_level` (a collapsed display string, e.g. "Grade 1–5"), `class_levels text[]` (migration 79 — the multi-select levels; `class_level`/`grade` mirror the collapsed run), `city`, `area`, `teaching_mode`, `budget_pkr`, `description`, `status ('open'|'closed'|'hired')`, `hired_tutor_id`, `is_featured bool` (cache of the parent's plan via `applyPlanFlags()`), `under_review bool default false` + `review_reason` (migration 58 — a reported tuition; stays visible with an amber sticker, Apply paused), `created_at`
 - `applications` — `id`, `job_id`, `tutor_id`, `message`, `status ('applied'|'shortlisted'|'hired'|'rejected')`, `created_at`, unique(job_id, tutor_id)
 - `threads` — `id`, `job_id nullable`, `participant_a`, `participant_b`, `initiated_by`; `messages` — `id`, `thread_id`, `sender_id`, `body` (stored raw; rendered masked when either side lacks contact rights), `created_at`
 - `children` — `id`, `parent_id`, `name`, `class_level` (a parent dashboard supports multiple children; a job may reference one)
@@ -55,7 +55,7 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 - `admin_message_templates` (migration 58) — owner/manager-editable templates seeded with cnic_unclear, address_untraceable, job_under_review, video_rerecord, profile_completion_nudge, payment_received, payment_approved, and (migration 64) the three abandoned-signup outreach templates signup_email_unconfirmed, signup_mobile_unverified, signup_profile_unfinished, and (migration 65) seeded_tuition_live (a `{tuition_url}` placeholder joins `{name}`): `key`, `title`, `subject`, `body` (`{name}`/`{job_title}`/`{reason}`/`{tuition_url}` placeholders). Admin-read RLS.
 - `job_contacts` (migration 65, extended migration 76) — the real poster's contact for a seeded (admin-posted) tuition, keyed 1:1 by `job_id` (cascade): `contact_name`, `contact_phone`, `contact_whatsapp`, `contact_email`, `contact_address`, `contact_social` (migration 76), `created_by`, `created_at`. All optional; only what was filled is stored. A DEDICATED table, NOT columns on `jobs`, because `jobs` has a public row-read policy and RLS cannot hide a column — so a contact on the jobs row would be one `select('*')` away from a public, indexed page. Admin-read RLS (`is_admin()`), service-role writes only (createTeamJob); no anon/member read. Normalised/validated by `buildJobContact()` (`lib/jobContactCore.ts`) before write — phone and WhatsApp to canonical MSISDN, email shape-checked, address/social free text — and read via `loadJobContact()`. Rendered only for a signed-in tutor on the job page and on `/admin/jobs/[id]`, both via the service role; never in metadata, JSON-LD, OG or the sitemap.
 - `signup_blocklist` (migration 58) — a banned account's `mobile` (normalised MSISDN) and `cnic_hash` (sha256 of the digits, NEVER the CNIC in the clear), plus `reason`, `source_user_id`, `created_by`. Checked at signup and at claim; admin-read RLS, service-role writes.
-- `taxonomy_categories` / `taxonomy_levels` / `taxonomy_subjects` / `taxonomy_master` — keep as is (used by `lib/taxonomy.ts`), plus an admin-editable alias table for Roman-Urdu spellings.
+- `taxonomy_categories` / `taxonomy_levels` / `taxonomy_subjects` / `taxonomy_master` — used by `lib/taxonomy.ts`, plus an admin-editable alias table for Roman-Urdu spellings. `taxonomy_levels.legacy boolean` (migration 79): the 12 lumped levels ("Grade 1 to 5", "AS & A Levels" …) were split into granular ones (Grade 1…5, AS Level / A Level), every subject fanned out to each split level; the lumped rows are kept `legacy=true` — hidden from the pickers but still VALID on existing rows (a job/tutor whose master_ids point at one renders and matches, and is re-picked on next edit). `lib/taxonomy.ts` hides legacy from the grade picker except when it is the pre-selected level of a row being edited. Level is a MULTI-select now; matching is unchanged (master_id intersection, which realises level containment because subjects fan out per level).
 - `location_cities` (migration 73) — `id`, `name unique`, `sort_order int default 100` (Lahore/Karachi/Islamabad/Rawalpindi pinned 1–4, rest 100 → `order by sort_order, name`). `location_areas` (migration 73) — `id`, `city_id -> location_cities`, `name`, `unique(city_id, name)` (area is dependent on its city; `order by name`). The owner's 23-city / 249-area dataset, stored VERBATIM. Reference data: world-readable, admin-writable (the taxonomy pattern). Read via `lib/cityAreas.ts` (client, cached) or `lib/locationsAdmin.ts` (admin). `jobs.city|area`, `profiles.city|area`, `tutor_profiles.city|area` stay PLAIN STRINGS — a value not in these tables is free text, preserved as-is and surfaced by `unmappedLocations()` for review; promoting one is an insert here.
 - `job_titles` (migration 77) — `id`, `name unique`, `sort_order int`. The Job Type value set: the owner's 19 job titles ("Home Tutor", "Online Tutor", "O Levels Teacher", … "Principal") in a fixed order, stored VERBATIM. Reference data: world-readable, admin-writable (the location_cities pattern) — adding a title is an INSERT. Read via `lib/jobTitles.ts` (client, cached) or `lib/jobTitlesServer.ts` (server). `jobs.teaching_mode` (a job's single title) and `tutor_profiles.job_types text[]` (a tutor's multi-select) hold the TITLE TEXT itself — the stored value IS the label, so display is identity. `teaching_mode` KEEPS its name (the deferred rename still stands) and stays the mirror of `job_types[0]`. There is NO CHECK constraint on the value columns (a fixed-array CHECK would contradict "adding a title is an insert") — the UI offers only titles from the table, exactly as cities are offered. The one title the "online is city-agnostic" rule pivots on is `'Online Tutor'` (`lib/jobTitlesCore.ts` `ONLINE_JOB_TITLE`, the same literal in `rank_tutors`).
 
@@ -4838,3 +4838,47 @@ database row in a browser tab and a Google Jobs result. So:
 
 Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 · test:jobtitles
 11 · test:posttuition 10 · test:cv 14 · test:social 7 · every other suite green.
+
+## Split the 12 lumped taxonomy levels; Level becomes multi-select (owner, 11 Sep 2026)
+
+Twelve `taxonomy_levels` lumped several stages into one row ("Grade 1 to 5"), so
+a parent could not say "Grade 4". Migration 79 splits each into its granular
+levels (the owner's exact list — not added to, renamed or reordered) and makes
+the grade step a MULTI-select. Every already-granular level (Test Preparations 64,
+Sports & Games, Holy Quran, IGCSE Core, O Levels) is untouched.
+
+- **Split + fan-out.** 36 new levels; every SUBJECT master on a lumped level is
+  copied to each split level (mechanical — Grade 1…5 each inherit the full "Grade
+  1 to 5" subject list; verified 57 = 57 for Grade 4). The 12 lumped rows are kept
+  `legacy=true`, hidden from the pickers but valid on existing rows. `sort_order`
+  100+ slots the splits after any already-granular level in the category (only
+  IGCSE has one).
+- **Level multi-select.** `TaxonomySelector`'s grade step is now a searchable
+  checkbox grid with chips (mirrors subjects), on the job form AND the tutor
+  profile. `lib/taxonomy.ts`: `resolveMasterIds(category, levels|level, subjects)`
+  fans across levels; `selectionForMasterIds` returns a `levels[]`;
+  `fetchGradesForLevel` excludes legacy; `fetchLegacyLevelNames()` lets the picker
+  show a pre-selected legacy level (edit) as a checked, re-pickable option.
+- **jobs.class_levels text[]** is the explicit multi-level store (parallel to
+  `tutor_profiles.class_levels`); `class_level` (+ the legacy `grade` mirror) hold
+  the COLLAPSED run written by `lib/jobs.ts`. The card-title Level segment is
+  collapsed by `lib/levelDisplay.ts` `collapseLevels` — a contiguous same-suffix
+  grade run reads "Grade 1–5", not "Grade 1 | Grade 2 | …". The stored human title
+  still drives the page `<title>` and JobPosting (preferHumanTitle).
+- **MATCHING is unchanged, and that is the answer to "is it awkward".** Matching
+  is entirely master_id based (`job_subjects` ∩ `tutor_subjects`), and because
+  subjects fan out per split level, master_id intersection ALREADY realises level
+  containment (a Grade 1–3 Physics job matches a Grade 2 Physics tutor). A
+  separate level-array containment would double-filter with the master matching,
+  so none was added; `tutor_profiles.class_levels` was never a matching input and
+  the tutor's levels stay stored via master_ids (now multi-level).
+- **Nothing invisible, nothing guessed** (migration item 3). A job/tutor on a
+  lumped level keeps its lumped master_ids (legacy), renders and matches, and is
+  re-picked on next edit — NOT auto-migrated. **41 jobs and 8 tutor profiles sit
+  on legacy levels today.**
+
+Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 · test:levels 8
+(the contiguous-run collapse) · test:posttuition 10 · every other suite green.
+The split (subjects resolving under each new level, legacy hidden but valid, only
+the 12 flagged — Test Prep 64 untouched) is verified live in psql; no browser was
+driven for the multi-select UI (its logic rests on the pure tests + the build).

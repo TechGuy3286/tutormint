@@ -29,6 +29,7 @@ export default function AdminJobForm() {
         title: payload.title,
         masterIds: payload.masterIds,
         classLevel: payload.classLevel,
+        classLevels: payload.classLevels,
         city: payload.city,
         area: payload.area,
         teachingMode: payload.teachingMode,

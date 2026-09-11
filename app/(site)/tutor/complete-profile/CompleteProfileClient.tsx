@@ -73,7 +73,8 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
 
   // Subjects
   const [category, setCategory] = useState('')
-  const [level, setLevel] = useState('')
+  // Level/grade is a MULTI-select now (migration 79).
+  const [levels, setLevels] = useState<string[]>([])
   const [subjects, setSubjects] = useState<string[]>([])
   const [savedSubjectLabels, setSavedSubjectLabels] = useState<string[]>([])
   const [levelLeaf, setLevelLeaf] = useState(false)
@@ -147,9 +148,9 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
   useEffect(() => { load() }, [load])
 
   useEffect(() => {
-    if (!category || !level) { setLevelLeaf(false); return }
-    isLevelLeaf(category, level).then(setLevelLeaf)
-  }, [category, level])
+    if (!category || levels.length === 0) { setLevelLeaf(false); return }
+    isLevelLeaf(category, levels[0]).then(setLevelLeaf)
+  }, [category, levels])
 
   // Live preview of the percentage while typing; the server value wins on save.
   const localCompletion = useMemo(
@@ -196,7 +197,7 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
     if (step === 1) ok = await saveStep({ profile: { full_name: form.full_name, city: form.city }, tutorProfile: { gender: form.gender, area: form.area } })
     if (step === 2) ok = await saveStep({ tutorProfile: { avatar_url: form.avatar_url, headline: form.headline, bio: form.bio } })
     if (step === 3) {
-      const ids = await resolveMasterIds(category, level, levelLeaf ? [] : subjects)
+      const ids = await resolveMasterIds(category, levels, levelLeaf ? [] : subjects)
       if (ids.length === 0) { setErr('Pick at least one subject (or a level such as IELTS Preparation).'); return }
       ok = await saveStep({ subjectMasterIds: ids })
       if (ok) setSavedSubjectLabels(await labelsForMasterIds(ids))
@@ -361,12 +362,12 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
               )}
               <TaxonomySelector
                 selectedLevel={category} setSelectedLevel={setCategory}
-                selectedGrade={level} setSelectedGrade={setLevel}
+                selectedGrades={levels} setSelectedGrades={setLevels}
                 selectedSubjects={subjects} setSelectedSubjects={setSubjects}
               />
-              {levelLeaf && (
+              {levelLeaf && levels.length > 0 && (
                 <p className="text-[11px] font-bold text-tm-green-deep bg-tm-tint-green border border-tm-green-deep/30 rounded-xl p-2.5">
-                  “{level}” is selectable on its own — no subject needed. Press Save &amp; continue.
+                  “{levels.join(', ')}” selectable on their own — no subject needed. Press Save &amp; continue.
                 </p>
               )}
             </div>

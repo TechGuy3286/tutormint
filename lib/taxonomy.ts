@@ -19,7 +19,16 @@ import { createClient } from '@/lib/supabase/client'
 
 export type TaxonomyNode = Record<string, Record<string, string[]>>
 
-type Row = { id: number; category: string; level: string; subject: string | null; isLevelLeaf: boolean }
+type Row = {
+  id: number
+  category: string
+  level: string
+  subject: string | null
+  isLevelLeaf: boolean
+  /** A lumped level split in migration 79 — valid on existing rows, hidden from
+   *  the pickers unless it is the pre-selected level of a job/profile being edited. */
+  legacy: boolean
+}
 
 let cache: { rows: Row[]; tree: TaxonomyNode } | null = null
 let inFlight: Promise<{ rows: Row[]; tree: TaxonomyNode }> | null = null
@@ -38,7 +47,7 @@ async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode }> {
 
     const [categories, levels, subjects, master] = await Promise.all([
       supabase.from('taxonomy_categories').select('slug, name, sort_order'),
-      supabase.from('taxonomy_levels').select('slug, category_slug, name, sort_order'),
+      supabase.from('taxonomy_levels').select('slug, category_slug, name, sort_order, legacy'),
       supabase.from('taxonomy_subjects').select('slug, name'),
       supabase.from('taxonomy_master').select('id, category_slug, level_slug, subject_slug, leaf_type'),
     ])
@@ -58,9 +67,11 @@ async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode }> {
 
     const levelName = new Map<string, string>()
     const levelOrder = new Map<string, number>()
+    const levelLegacy = new Map<string, boolean>()
     for (const l of levels.data ?? []) {
       levelName.set(l.slug, l.name)
       levelOrder.set(l.slug, l.sort_order ?? 0)
+      levelLegacy.set(l.slug, !!l.legacy)
     }
 
     const subjectName = new Map<string, string>()
@@ -89,6 +100,7 @@ async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode }> {
         // Preparations, Sports & Games, Holy Quran). leaf_type is reliable
         // since 12_taxonomy_leaf_type.sql; subject_slug IS NULL is equivalent.
         isLevelLeaf: m.leaf_type === 'level' || m.subject_slug === null,
+        legacy: levelLegacy.get(m.level_slug) ?? false,
       })
     }
 
@@ -123,10 +135,18 @@ export async function fetchLevels(): Promise<string[]> {
   return Array.from(new Set(rows.map((r) => r.category)))
 }
 
-/** Second tier: level names ("Level 2") within one category. */
+/** Second tier: level names ("Level 2") within one category — NON-legacy only,
+ *  so a split-away lumped level never appears in a fresh pick (migration 79). */
 export async function fetchGradesForLevel(level1: string): Promise<string[]> {
   const { rows } = await load()
-  return Array.from(new Set(rows.filter((r) => r.category === level1).map((r) => r.level)))
+  return Array.from(new Set(rows.filter((r) => r.category === level1 && !r.legacy).map((r) => r.level)))
+}
+
+/** The set of legacy level NAMES (migration 79). The multi-select grade picker
+ *  hides these except when one is the pre-selected level of a row being edited. */
+export async function fetchLegacyLevelNames(): Promise<Set<string>> {
+  const { rows } = await load()
+  return new Set(rows.filter((r) => r.legacy).map((r) => r.level))
 }
 
 /** Third tier: subject names ("Level 3") for one category + level. */
@@ -156,18 +176,26 @@ export async function fetchAllSubjects(): Promise<string[]> {
  */
 export async function resolveMasterIds(
   category: string,
-  level: string,
+  levels: string | string[],
   subjects: string[],
 ): Promise<number[]> {
   const { rows } = await load()
-  const inLevel = rows.filter((r) => r.category === category && r.level === level)
-
-  if (subjects.length === 0) {
-    const leaf = inLevel.find((r) => r.isLevelLeaf)
-    return leaf ? [leaf.id] : []
+  // Level is a MULTI-select now (migration 79). Accept one level or an array,
+  // and resolve subjects × EVERY selected level: a job spanning Grade 1–3 in
+  // Physics resolves to the Grade 1/2/3 Physics master ids, so master_id
+  // intersection alone realises level containment.
+  const levelList = Array.isArray(levels) ? levels : levels ? [levels] : []
+  const ids: number[] = []
+  for (const level of levelList) {
+    const inLevel = rows.filter((r) => r.category === category && r.level === level)
+    if (subjects.length === 0) {
+      const leaf = inLevel.find((r) => r.isLevelLeaf)
+      if (leaf) ids.push(leaf.id)
+    } else {
+      for (const r of inLevel) if (r.subject && subjects.includes(r.subject)) ids.push(r.id)
+    }
   }
-
-  return inLevel.filter((r) => r.subject && subjects.includes(r.subject)).map((r) => r.id)
+  return Array.from(new Set(ids))
 }
 
 /** True when this level is selectable on its own, with no subject beneath it. */
@@ -193,15 +221,16 @@ export async function labelsForMasterIds(ids: number[]): Promise<string[]> {
  * whatever was on screen.
  *
  * A job's subjects all come from one pass through the cascade, so they share a
- * category and level; the first row decides those and the rest contribute
- * subjects. Ids from more than one level (only reachable by editing the URL or
- * by a future multi-level picker) collapse to the first level's, which is the
- * honest thing to show for a single-cascade form.
+ * category; the first row decides it. Level is multi-select now (migration 79),
+ * so this returns EVERY distinct level across the ids (a job on Grade 1–3 comes
+ * back with all three checked) and the union of their subjects. An existing row
+ * on a lumped/legacy level comes back with that legacy level, which the picker
+ * shows as a checked, re-pickable option.
  */
 export async function selectionForMasterIds(
   ids: number[],
-): Promise<{ category: string; level: string; subjects: string[]; isLevelLeaf: boolean }> {
-  const empty = { category: '', level: '', subjects: [], isLevelLeaf: false }
+): Promise<{ category: string; levels: string[]; subjects: string[]; isLevelLeaf: boolean }> {
+  const empty = { category: '', levels: [] as string[], subjects: [] as string[], isLevelLeaf: false }
   if (ids.length === 0) return empty
 
   const { rows } = await load()
@@ -209,13 +238,13 @@ export async function selectionForMasterIds(
   const mine = rows.filter((r) => set.has(r.id))
   if (mine.length === 0) return empty
 
-  const { category, level } = mine[0]
-  const inLevel = mine.filter((r) => r.category === category && r.level === level)
+  const category = mine[0].category
+  const inCat = mine.filter((r) => r.category === category)
 
   return {
     category,
-    level,
-    subjects: inLevel.map((r) => r.subject).filter(Boolean) as string[],
-    isLevelLeaf: inLevel.some((r) => r.isLevelLeaf),
+    levels: Array.from(new Set(inCat.map((r) => r.level))),
+    subjects: Array.from(new Set(inCat.map((r) => r.subject).filter(Boolean))) as string[],
+    isLevelLeaf: inCat.some((r) => r.isLevelLeaf),
   }
 }

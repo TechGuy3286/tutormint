@@ -27,6 +27,7 @@ import { jobType } from '@/lib/display'
 import { budgetLabel } from '@/lib/feeBands'
 import { genderPrefWord } from '@/lib/genderPref'
 import { jobDisplayTitle } from '@/lib/jobDisplayTitle'
+import { collapseLevels } from '@/lib/levelDisplay'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
@@ -185,11 +186,17 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
     // structured data, so it is built here once. The stored jobs.title is no
     // longer the display title (search still matches the stored column).
     const subjects = subjectsByJob.get(j.id as string) ?? (j.subjects as string[] | null) ?? null
+    // Level is multi-select now (migration 79): collapse the array to a readable
+    // run ("Grade 1–5"), falling back to the legacy single string for pre-79 rows.
+    const levelArr = (j.class_levels as string[] | null) ?? null
+    const levelDisplay = levelArr && levelArr.length > 0
+      ? collapseLevels(levelArr)
+      : (j.class_level as string) ?? null
     const composedTitle = jobDisplayTitle({
       jobType: jobType(j.teaching_mode as string | null),
       gender: genderPrefWord(j.gender_preference as string | null),
       subject: (subjects ?? []).join(', ') || null,
-      level: (j.class_level as string) ?? null,
+      level: levelDisplay,
       area: (j.area as string) ?? null,
       city,
       budget: budgetLabel(
@@ -215,7 +222,9 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
         ...l,
         href: linker.tutorSubjectHref(l.masterId, city),
       })),
-      class_level: (j.class_level as string) ?? null,
+      // The collapsed level run, shown on the card body line and used above in
+      // the composed title. Same source (class_levels) so the two never differ.
+      class_level: levelDisplay,
       city: (j.city as string) ?? null,
       area: (j.area as string) ?? null,
       teaching_mode: (j.teaching_mode as string) ?? null,
@@ -239,7 +248,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
 }
 
 const JOB_COLUMNS =
-  'id, job_tx_id, public_slug, title, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, under_review, parent_id, status, gender_preference'
+  'id, job_tx_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, under_review, parent_id, status, gender_preference'
 
 /**
  * Open jobs that match a tutor's subjects, their city first.
