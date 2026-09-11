@@ -40,6 +40,10 @@ export default function AdminJobForm() {
         origin: payload.origin,
         contactName: payload.contactName,
         contactPhone: payload.contactPhone,
+        contactWhatsapp: payload.contactWhatsapp,
+        contactEmail: payload.contactEmail,
+        contactAddress: payload.contactAddress,
+        contactSocial: payload.contactSocial,
       }),
     })
     const json = (await res.json().catch(() => ({}))) as { id?: string; error?: string }

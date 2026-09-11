@@ -130,7 +130,14 @@ test('shared form: the parent-only child selector is parent-only', () => {
 test('shared form: the admin-only extras are admin-only', () => {
   const admin = renderAdmin()
   const parent = renderParent()
-  for (const label of ['Posted by TutorMint', 'Origin (for the audit trail)', 'Parent contact']) {
+  for (const label of [
+    'Posted by TutorMint',
+    'Origin (for the audit trail)',
+    'Poster contact',
+    // The four extra contact fields are admin-only too.
+    'WhatsApp number',
+    'Social handle',
+  ]) {
     assert.ok(admin.includes(label), `admin form missing admin-only extra: ${label}`)
     assert.ok(!parent.includes(label), `parent form wrongly shows admin-only extra: ${label}`)
   }

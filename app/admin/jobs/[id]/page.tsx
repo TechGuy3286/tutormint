@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { tuitionPath } from '@/lib/slugs'
 import { notFound } from 'next/navigation'
-import { ExternalLink, Flag, MapPin, Wallet, Clock, GraduationCap, Phone } from 'lucide-react'
+import { ExternalLink, Flag, MapPin, Wallet, Clock, GraduationCap, Phone, Mail, Globe } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import TimeAgo from '@/components/TimeAgo'
@@ -12,6 +12,7 @@ import { budgetLabel } from '@/lib/feeBands'
 import { applicationStatus, jobStatus, jobType } from '@/lib/display'
 import { formatDate } from '@/lib/datetime'
 import { formatPkMobile, normalisePkMobile } from '@/lib/phone'
+import { normaliseStoredContact } from '@/lib/jobContactCore'
 
 import JobActions from './JobActions'
 import NotifyContact from './NotifyContact'
@@ -114,11 +115,13 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
   // one screen besides the tutor-facing job page that ever sees it.
   const { data: contactRow } = await admin
     .from('job_contacts')
-    .select('contact_name, contact_phone')
+    .select('contact_name, contact_phone, contact_whatsapp, contact_email, contact_address, contact_social')
     .eq('job_id', job.id)
     .maybeSingle()
-  const contactName = ((contactRow?.contact_name as string | null) ?? '').trim() || null
-  const contactMsisdn = normalisePkMobile((contactRow?.contact_phone as string | null) ?? null)
+  const contact = normaliseStoredContact(contactRow as Parameters<typeof normaliseStoredContact>[0])
+  const contactName = contact?.contact_name ?? null
+  const contactMsisdn = normalisePkMobile(contact?.contact_phone ?? null)
+  const contactWaMsisdn = normalisePkMobile(contact?.contact_whatsapp ?? null)
 
   return (
     <div className="space-y-4">
@@ -264,23 +267,53 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
       </section>
 
       {/* ----------------------------------------- seeded parent contact */}
-      {(contactName || contactMsisdn) && (
+      {contact && (
         <section className="space-y-3 rounded-2xl border border-tm-green-deep/30 bg-tm-tint-green p-4 sm:p-5">
           <h2 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-tm-green-deep">
             <Phone aria-hidden size={12} />
             Real parent contact (seeded tuition)
           </h2>
           <p className="text-[11px] leading-relaxed text-slate-700">
-            This tuition carries a real parent’s contact, shown openly to signed-in tutors on the
+            This tuition carries a real poster’s contact, shown openly to signed-in tutors on the
             job page. It is never shown to another parent, never indexed, and never in the sitemap
             or structured data.
           </p>
-          <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <dl className="space-y-1 text-xs">
             {contactName && (
-              <dd className="font-black text-tm-navy">{contactName}</dd>
+              <div className="flex items-center gap-2">
+                <dt className="sr-only">Name</dt>
+                <dd className="font-black text-tm-navy">{contactName}</dd>
+              </div>
             )}
             {contactMsisdn && (
-              <dd className="font-mono text-slate-700">{formatPkMobile(contactMsisdn)}</dd>
+              <div className="flex items-center gap-2">
+                <Phone aria-hidden size={13} className="shrink-0 text-tm-green-deep" />
+                <dd className="font-mono text-slate-700">{formatPkMobile(contactMsisdn)}</dd>
+              </div>
+            )}
+            {contactWaMsisdn && (
+              <div className="flex items-center gap-2">
+                <Phone aria-hidden size={13} className="shrink-0 text-tm-green-deep" />
+                <dd className="font-mono text-slate-700">{formatPkMobile(contactWaMsisdn)} (WhatsApp)</dd>
+              </div>
+            )}
+            {contact.contact_email && (
+              <div className="flex items-center gap-2">
+                <Mail aria-hidden size={13} className="shrink-0 text-tm-green-deep" />
+                <dd className="text-slate-700">{contact.contact_email}</dd>
+              </div>
+            )}
+            {contact.contact_address && (
+              <div className="flex items-start gap-2">
+                <MapPin aria-hidden size={13} className="mt-0.5 shrink-0 text-tm-green-deep" />
+                <dd className="text-slate-700">{contact.contact_address}</dd>
+              </div>
+            )}
+            {contact.contact_social && (
+              <div className="flex items-start gap-2">
+                <Globe aria-hidden size={13} className="mt-0.5 shrink-0 text-tm-green-deep" />
+                <dd className="break-all text-slate-700">{contact.contact_social}</dd>
+              </div>
             )}
           </dl>
           {contactMsisdn && <NotifyContact jobId={job.id as string} />}

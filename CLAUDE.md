@@ -53,7 +53,7 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 - `advertisements` + `ad_events` — see the advertisements spec. `app_settings` — support contact, pay details, `{{COMPANY_REG_NO}}`, `{{COMPANY_NTN}}`.
 - `admin_messages` (migration 58) — the official TutorMint Team ↔ member channel: `id`, `member_id`, `direction ('out'|'in')`, `admin_id` (who sent an 'out'; never shown to the member), `template_key`, `body`, `read_at`, `created_at`. A DEDICATED store, deliberately NOT `threads`, so the "no chat-browsing screen" line holds by construction. Read at `/admin/inbox` and, for the member, in the role inbox's pinned Team row (Part 5). RLS: `member_id = auth.uid() or is_admin()`; every write is a server path.
 - `admin_message_templates` (migration 58) — owner/manager-editable templates seeded with cnic_unclear, address_untraceable, job_under_review, video_rerecord, profile_completion_nudge, payment_received, payment_approved, and (migration 64) the three abandoned-signup outreach templates signup_email_unconfirmed, signup_mobile_unverified, signup_profile_unfinished, and (migration 65) seeded_tuition_live (a `{tuition_url}` placeholder joins `{name}`): `key`, `title`, `subject`, `body` (`{name}`/`{job_title}`/`{reason}`/`{tuition_url}` placeholders). Admin-read RLS.
-- `job_contacts` (migration 65) — the real parent's name and mobile for a seeded (admin-posted) tuition, keyed 1:1 by `job_id` (cascade): `contact_name`, `contact_phone`, `created_by`, `created_at`. A DEDICATED table, NOT columns on `jobs`, because `jobs` has a public row-read policy and RLS cannot hide a column — so a contact on the jobs row would be one `select('*')` away from a public, indexed page. Admin-read RLS (`is_admin()`), service-role writes only (createTeamJob); no anon/member read. Rendered only for a signed-in tutor on the job page and on `/admin/jobs/[id]`, both via the service role.
+- `job_contacts` (migration 65, extended migration 76) — the real poster's contact for a seeded (admin-posted) tuition, keyed 1:1 by `job_id` (cascade): `contact_name`, `contact_phone`, `contact_whatsapp`, `contact_email`, `contact_address`, `contact_social` (migration 76), `created_by`, `created_at`. All optional; only what was filled is stored. A DEDICATED table, NOT columns on `jobs`, because `jobs` has a public row-read policy and RLS cannot hide a column — so a contact on the jobs row would be one `select('*')` away from a public, indexed page. Admin-read RLS (`is_admin()`), service-role writes only (createTeamJob); no anon/member read. Normalised/validated by `buildJobContact()` (`lib/jobContactCore.ts`) before write — phone and WhatsApp to canonical MSISDN, email shape-checked, address/social free text — and read via `loadJobContact()`. Rendered only for a signed-in tutor on the job page and on `/admin/jobs/[id]`, both via the service role; never in metadata, JSON-LD, OG or the sitemap.
 - `signup_blocklist` (migration 58) — a banned account's `mobile` (normalised MSISDN) and `cnic_hash` (sha256 of the digits, NEVER the CNIC in the clear), plus `reason`, `source_user_id`, `created_by`. Checked at signup and at claim; admin-read RLS, service-role writes.
 - `taxonomy_categories` / `taxonomy_levels` / `taxonomy_subjects` / `taxonomy_master` — keep as is (used by `lib/taxonomy.ts`), plus an admin-editable alias table for Roman-Urdu spellings.
 - `location_cities` (migration 73) — `id`, `name unique`, `sort_order int default 100` (Lahore/Karachi/Islamabad/Rawalpindi pinned 1–4, rest 100 → `order by sort_order, name`). `location_areas` (migration 73) — `id`, `city_id -> location_cities`, `name`, `unique(city_id, name)` (area is dependent on its city; `order by name`). The owner's 23-city / 249-area dataset, stored VERBATIM. Reference data: world-readable, admin-writable (the taxonomy pattern). Read via `lib/cityAreas.ts` (client, cached) or `lib/locationsAdmin.ts` (admin). `jobs.city|area`, `profiles.city|area`, `tutor_profiles.city|area` stay PLAIN STRINGS — a value not in these tables is free text, preserved as-is and surfaced by `unmappedLocations()` for review; promoting one is an insert here.
@@ -4712,3 +4712,41 @@ day) is replaced. Migration 75.
 
 Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 187/187 · test:authtrust
 35 · test:delivery 22 · every other suite green.
+
+## More contact fields on admin-posted tuitions (owner, 11 Sep 2026)
+
+Admin copies tuitions from public hiring ads (school/academy Facebook posts,
+WhatsApp statuses), where the poster's details are the institution's own, openly
+published — not a private household's. The admin-only contact block on
+`/admin/jobs/new` now records four more optional fields beside name and phone:
+**WhatsApp number, Email, Address, Social handle**. Migration 76.
+
+- **All of them live in `job_contacts`, never on the jobs row** — the same reason
+  name and phone already do (migration 65): `jobs` has a public row-read policy
+  and RLS cannot hide a column, so anything on the jobs row is one `select('*')`
+  from a public, indexed page. `buildJobContact()` (`lib/jobContactCore.ts`, pure)
+  normalises and validates before the service-role write: phone and WhatsApp
+  through `normalisePkMobile` to canonical MSISDN, email shape-checked
+  (`looksLikeEmail`), address and social free text (no invented format). An
+  invalid phone/WhatsApp/email is a clean 400 named by field, before anything is
+  created; empty fields are stored as null.
+- **Visibility is unchanged** — shown to signed-in tutors only, no plan gate, via
+  the service-role `loadJobContact()`, rendered ONLY in the tutor branch of the
+  job page (Call + WhatsApp buttons as before; email a `mailto:`; a social handle
+  that is a URL is linked, else plain text; address plain text). Never to a guest,
+  a parent or a crawler; never in metadata, JSON-LD, OG or the sitemap. `/admin/jobs/[id]`
+  shows the full block to admins. **Only filled fields render** — a job with an
+  email and no address shows no empty row and no stray label.
+- **The parent-facing post form is untouched** — the block is gated behind
+  `adminExtras` on the shared `PostTuitionForm`; a parent posting their own
+  tuition has their contact on their account.
+- Tests (`test:jobcontacts`, 6): the six fields round-trip through the
+  `job_contacts` record shape; a partial block yields only the filled fields; an
+  empty block is not a contact; invalid phone/WhatsApp/email are rejected by
+  field; and the `JobPosting` JSON-LD builder cannot carry any contact field (it
+  takes only job fields). `test:posttuition` updated: the four new fields are
+  admin-only.
+
+Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 187/187 (job_contacts
+anon-read denied, admin-read policy) · test:jobcontacts 6 · test:posttuition 10 ·
+every other suite green.

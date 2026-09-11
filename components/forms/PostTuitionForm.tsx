@@ -51,6 +51,10 @@ export type PostTuitionValues = {
   origin: string
   contactName: string
   contactPhone: string
+  contactWhatsapp: string
+  contactEmail: string
+  contactAddress: string
+  contactSocial: string
 }
 
 /** What a wrapper's onSubmit receives — the resolved, ready-to-send fields. */
@@ -71,6 +75,10 @@ export type PostTuitionPayload = {
   origin: string | null
   contactName: string | null
   contactPhone: string | null
+  contactWhatsapp: string | null
+  contactEmail: string | null
+  contactAddress: string | null
+  contactSocial: string | null
 }
 
 export type PostTuitionResult = { ok: true } | { ok: false; error?: string; gated?: boolean }
@@ -93,6 +101,10 @@ const EMPTY: PostTuitionValues = {
   origin: '',
   contactName: '',
   contactPhone: '',
+  contactWhatsapp: '',
+  contactEmail: '',
+  contactAddress: '',
+  contactSocial: '',
 }
 
 const FIELD =
@@ -251,6 +263,10 @@ export default function PostTuitionForm({
         origin: v.origin || null,
         contactName: v.contactName || null,
         contactPhone: v.contactPhone || null,
+        contactWhatsapp: v.contactWhatsapp || null,
+        contactEmail: v.contactEmail || null,
+        contactAddress: v.contactAddress || null,
+        contactSocial: v.contactSocial || null,
       })
 
       if (!r.ok) {
@@ -440,25 +456,29 @@ export default function PostTuitionForm({
                 </select>
               </label>
 
-              {/* The real parent's contact (optional). For a seeded tuition whose
-                  parent has no account: shown OPENLY to signed-in tutors on the
-                  job page so they can reach the parent directly. Never to another
-                  parent, never indexed, never in the sitemap or structured data. */}
+              {/* The real poster's contact (all optional). For a seeded tuition
+                  copied from a public hiring ad (school/academy): the details are
+                  the institution's own, openly published. Shown OPENLY to
+                  signed-in tutors on the job page so they can reach the poster
+                  directly. Never to another parent, never indexed, never in the
+                  sitemap or structured data. All of it is stored in job_contacts,
+                  never on the jobs row. */}
               <div className="space-y-3 rounded-xl border border-tm-green-deep/25 bg-tm-tint-green p-3">
                 <p className="flex items-start gap-2 text-[11px] leading-relaxed text-slate-700">
                   <Phone size={13} className="mt-px shrink-0 text-tm-green-deep" aria-hidden />
                   <span>
-                    <strong>Parent contact (optional).</strong> If you enter these, tutors can
-                    contact the parent directly from the job page — no application needed. Shown only
-                    to signed-in tutors; never to other parents, and never indexed.
+                    <strong>Poster contact (optional).</strong> Enter any of these and tutors can
+                    contact the poster directly from the job page — no application needed. Shown only
+                    to signed-in tutors; never to other parents, and never indexed. Leave blank what
+                    you do not have.
                   </span>
                 </p>
                 <label className="block space-y-1">
-                  <span className={LABEL}>Parent name</span>
+                  <span className={LABEL}>Name</span>
                   <input
                     value={v.contactName}
                     onChange={(e) => set('contactName', e.target.value)}
-                    placeholder="e.g. Mrs. Khan"
+                    placeholder="e.g. Mrs. Khan, or Bright Future Academy"
                     className={FIELD}
                   />
                 </label>
@@ -469,6 +489,44 @@ export default function PostTuitionForm({
                     onChange={(e) => set('contactPhone', e.target.value)}
                     placeholder="0300 1234567"
                     inputMode="tel"
+                    className={FIELD}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className={LABEL}>WhatsApp number</span>
+                  <input
+                    value={v.contactWhatsapp}
+                    onChange={(e) => set('contactWhatsapp', e.target.value)}
+                    placeholder="0300 1234567"
+                    inputMode="tel"
+                    className={FIELD}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className={LABEL}>Email</span>
+                  <input
+                    value={v.contactEmail}
+                    onChange={(e) => set('contactEmail', e.target.value)}
+                    placeholder="name@example.com"
+                    inputMode="email"
+                    className={FIELD}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className={LABEL}>Address</span>
+                  <input
+                    value={v.contactAddress}
+                    onChange={(e) => set('contactAddress', e.target.value)}
+                    placeholder="e.g. Block 5, Gulshan-e-Iqbal, Karachi"
+                    className={FIELD}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className={LABEL}>Social handle</span>
+                  <input
+                    value={v.contactSocial}
+                    onChange={(e) => set('contactSocial', e.target.value)}
+                    placeholder="e.g. facebook.com/… or @handle"
                     className={FIELD}
                   />
                 </label>

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, permanentRedirect } from 'next/navigation'
-import { Briefcase, CalendarDays, Clock, GraduationCap, MapPin, MessageCircle, Phone, ShieldCheck, Wallet, UserRound } from 'lucide-react'
+import { Briefcase, CalendarDays, Clock, GraduationCap, Globe, Mail, MapPin, MessageCircle, Phone, ShieldCheck, Wallet, UserRound } from 'lucide-react'
 import { genderPrefSentence, genderApplyBlocked } from '@/lib/genderPref'
 
 import Avatar from '@/components/Avatar'
@@ -216,10 +216,24 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // this tutor branch: an anonymous crawler, a guest and a parent never receive
   // it, so it is never indexed and never in the metadata, JSON-LD, OG or sitemap.
   const contact = isTutor && job.posted_by_team ? await loadJobContact(job.id) : null
-  const contactMsisdn = contact?.phone ? normalisePkMobile(contact.phone) : null
-  const contactWa = contactMsisdn
-    ? whatsappHref(contactMsisdn, 'Assalam o Alaikum, I saw your tuition on TutorMint and would like to discuss it.')
+  // Phone and WhatsApp are stored already-normalised (MSISDN), but re-normalise
+  // defensively before building tel:/wa.me links.
+  const contactMsisdn = contact?.contact_phone ? normalisePkMobile(contact.contact_phone) : null
+  const contactWaMsisdn = contact?.contact_whatsapp ? normalisePkMobile(contact.contact_whatsapp) : null
+  const contactWa = contactWaMsisdn
+    ? whatsappHref(contactWaMsisdn, 'Assalam o Alaikum, I saw your tuition on TutorMint and would like to discuss it.')
     : null
+  const contactSocialHref =
+    contact?.contact_social && /^https?:\/\//i.test(contact.contact_social) ? contact.contact_social : null
+  const hasAnyContact = !!(
+    contact &&
+    (contact.contact_name ||
+      contactMsisdn ||
+      contactWa ||
+      contact.contact_email ||
+      contact.contact_address ||
+      contact.contact_social)
+  )
 
   // Guests see Apply -- pressing it is what opens the sign-in modal. A parent
   // browsing the board has no use for it.
@@ -405,22 +419,27 @@ export default async function TuitionPage({ params }: { params: Params }) {
       {/* A seeded team tuition's real-parent contact — tutors only, no gate.
           Rendered only in the signed-in-tutor branch above, so it never reaches
           a guest, a parent or a crawler. */}
-      {contact && (contact.name || contactMsisdn) && (
+      {hasAnyContact && contact && (
         <section className="space-y-3 rounded-2xl border border-tm-green-deep/30 bg-tm-tint-green p-4 sm:p-5">
           <h2 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-tm-green-deep">
             <Phone aria-hidden size={13} />
             Contact this parent directly
           </h2>
-          {contact.name && <p className="text-sm font-black text-tm-navy">{contact.name}</p>}
-          {contactMsisdn && (
+          {contact.contact_name && <p className="text-sm font-black text-tm-navy">{contact.contact_name}</p>}
+
+          {/* Call + WhatsApp buttons. Each renders only if its number is present
+              — a job with an email and no numbers shows no button row. */}
+          {(contactMsisdn || contactWa) && (
             <div className="flex flex-wrap gap-2">
-              <a
-                href={`tel:+${contactMsisdn}`}
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep-hover"
-              >
-                <Phone aria-hidden size={14} />
-                Call {formatPkMobile(contactMsisdn)}
-              </a>
+              {contactMsisdn && (
+                <a
+                  href={`tel:+${contactMsisdn}`}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep-hover"
+                >
+                  <Phone aria-hidden size={14} />
+                  Call {formatPkMobile(contactMsisdn)}
+                </a>
+              )}
               {contactWa && (
                 <a
                   href={contactWa}
@@ -429,11 +448,50 @@ export default async function TuitionPage({ params }: { params: Params }) {
                   className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-tm-green-deep bg-white px-4 text-xs font-bold text-tm-green-deep transition-colors hover:bg-tm-tint-green"
                 >
                   <MessageCircle aria-hidden size={14} />
-                  WhatsApp
+                  WhatsApp{contactWaMsisdn ? ` ${formatPkMobile(contactWaMsisdn)}` : ''}
                 </a>
               )}
             </div>
           )}
+
+          {/* Email, address, social — each a row only when filled; no empty rows
+              and no stray labels. */}
+          {(contact.contact_email || contact.contact_address || contact.contact_social) && (
+            <dl className="space-y-1.5 text-xs text-slate-700">
+              {contact.contact_email && (
+                <div className="flex items-start gap-2">
+                  <Mail aria-hidden size={14} className="mt-0.5 shrink-0 text-tm-green-deep" />
+                  <a href={`mailto:${contact.contact_email}`} className="font-semibold text-tm-navy underline">
+                    {contact.contact_email}
+                  </a>
+                </div>
+              )}
+              {contact.contact_address && (
+                <div className="flex items-start gap-2">
+                  <MapPin aria-hidden size={14} className="mt-0.5 shrink-0 text-tm-green-deep" />
+                  <span className="font-semibold text-tm-navy">{contact.contact_address}</span>
+                </div>
+              )}
+              {contact.contact_social && (
+                <div className="flex items-start gap-2">
+                  <Globe aria-hidden size={14} className="mt-0.5 shrink-0 text-tm-green-deep" />
+                  {contactSocialHref ? (
+                    <a
+                      href={contactSocialHref}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="font-semibold text-tm-navy underline break-all"
+                    >
+                      {contact.contact_social}
+                    </a>
+                  ) : (
+                    <span className="font-semibold text-tm-navy break-all">{contact.contact_social}</span>
+                  )}
+                </div>
+              )}
+            </dl>
+          )}
+
           <p className="text-[11px] leading-relaxed text-slate-700">
             Posted by TutorMint — you can contact the parent directly, no application needed. You
             can still apply through TutorMint if you prefer.

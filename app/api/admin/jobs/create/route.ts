@@ -35,10 +35,15 @@ const TeamJobBody = z.object({
   origin: z.enum(['support', 'referral', 'external']).nullish(),
   // Optional preferred tutor gender (migration 72). Never required.
   genderPreference: z.enum(['male', 'female', 'trans']).nullish(),
-  // The real parent's contact for a seeded tuition (optional). Validated and
-  // normalised in createTeamJob; stored in the locked job_contacts table.
+  // The real poster's contact for a seeded tuition (all optional). Validated and
+  // normalised in createTeamJob; stored in the locked job_contacts table, never
+  // on the jobs row. Address and social are free text.
   contactName: z.string().max(120).nullish(),
   contactPhone: z.string().max(40).nullish(),
+  contactWhatsapp: z.string().max(40).nullish(),
+  contactEmail: z.string().max(200).nullish(),
+  contactAddress: z.string().max(300).nullish(),
+  contactSocial: z.string().max(200).nullish(),
 })
 
 function parseInput(body: z.infer<typeof TeamJobBody>): JobInput {
@@ -63,6 +68,10 @@ function parseInput(body: z.infer<typeof TeamJobBody>): JobInput {
     genderPreference: body.genderPreference ?? null,
     contactName: str(body.contactName),
     contactPhone: str(body.contactPhone),
+    contactWhatsapp: str(body.contactWhatsapp),
+    contactEmail: str(body.contactEmail),
+    contactAddress: str(body.contactAddress),
+    contactSocial: str(body.contactSocial),
   }
 }
 

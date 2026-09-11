@@ -29,7 +29,7 @@ import { normaliseGenderPref } from '@/lib/genderPref'
 import { deliverEmail } from '@/lib/notify'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { teamParentId } from '@/lib/teamAccount'
-import { normalisePkMobile } from '@/lib/phone'
+import { buildJobContact } from '@/lib/jobContactCore'
 import type { AdminRole } from '@/lib/adminAuth'
 
 export type JobInput = {
@@ -65,13 +65,18 @@ export type JobInput = {
    */
   genderPreference?: string | null
   /**
-   * Team (admin-posted) tuitions only: the REAL parent's name and mobile, for a
-   * seeded job whose parent has no account. Stored in the locked `job_contacts`
-   * table (NOT on the jobs row), shown openly to signed-in tutors, never to a
-   * parent, a crawler, or any public metadata. Ignored on a normal parent post.
+   * Team (admin-posted) tuitions only: the REAL poster's contact, for a seeded
+   * job copied from a public hiring ad (school/academy). All of these are stored
+   * in the locked `job_contacts` table (NOT on the anon-readable jobs row), shown
+   * openly to signed-in tutors, never to a parent, a crawler, or any public
+   * metadata. Ignored on a normal parent post.
    */
   contactName?: string | null
   contactPhone?: string | null
+  contactWhatsapp?: string | null
+  contactEmail?: string | null
+  contactAddress?: string | null
+  contactSocial?: string | null
 }
 
 type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate }
@@ -276,6 +281,19 @@ export async function createTeamJob(
   const problem = validate(input)
   if (problem) return { ok: false, status: 400, error: problem }
 
+  // Validate the contact block BEFORE creating anything, so a bad phone / email
+  // is a clean 400 rather than a create-then-delete. Normalisation (MSISDN,
+  // email shape) happens here; only what was filled survives.
+  const contact = buildJobContact({
+    name: input.contactName,
+    phone: input.contactPhone,
+    whatsapp: input.contactWhatsapp,
+    email: input.contactEmail,
+    address: input.contactAddress,
+    social: input.contactSocial,
+  })
+  if (!contact.ok) return { ok: false, status: 400, error: contact.error }
+
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
 
@@ -334,31 +352,14 @@ export async function createTeamJob(
     return { ok: false, status: 400, error: linkError.message }
   }
 
-  // The real parent's contact, when the admin supplied one. Stored in the locked
-  // job_contacts table (never on the anon-readable job), normalised so the
-  // tel:/wa.me links are clean. A phone that will not normalise is rejected here
-  // rather than stored as something no link can dial.
-  const contactName = (input.contactName ?? '').trim() || null
-  const rawPhone = (input.contactPhone ?? '').trim()
-  let contactPhone: string | null = null
-  if (rawPhone) {
-    contactPhone = normalisePkMobile(rawPhone)
-    if (!contactPhone) {
-      await admin.from('job_subjects').delete().eq('job_id', job.id)
-      await admin.from('jobs').delete().eq('id', job.id)
-      return {
-        ok: false,
-        status: 400,
-        error: 'Enter a valid Pakistani mobile number for the parent contact, or leave it blank.',
-      }
-    }
-  }
-  const hasContact = !!(contactName || contactPhone)
+  // The real poster's contact, when the admin supplied any. Stored in the locked
+  // job_contacts table (never on the anon-readable job); already normalised and
+  // validated above. Only what was filled is written.
+  const hasContact = contact.hasContact
   if (hasContact) {
     const { error: contactError } = await admin.from('job_contacts').insert({
       job_id: job.id,
-      contact_name: contactName,
-      contact_phone: contactPhone,
+      ...contact.record,
       created_by: actor.id,
     })
     if (contactError) {
