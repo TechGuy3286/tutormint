@@ -23,6 +23,10 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { jobType } from '@/lib/display'
+import { budgetLabel } from '@/lib/feeBands'
+import { genderPrefWord } from '@/lib/genderPref'
+import { jobDisplayTitle } from '@/lib/jobDisplayTitle'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
@@ -174,15 +178,35 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
   return rawJobs.map((j) => {
     const f = facts.get(j.parent_id as string)
     const city = (j.city as string) ?? null
+    // The display title, one composed string (owner, 11 Sep 2026):
+    //   Job Title | Gender | Subject | Level | Area | City | Budget
+    // Missing optional segments (and their separators) are dropped. This one
+    // string is the card title, the tuition page <title> and the JobPosting
+    // structured data, so it is built here once. The stored jobs.title is no
+    // longer the display title (search still matches the stored column).
+    const subjects = subjectsByJob.get(j.id as string) ?? (j.subjects as string[] | null) ?? null
+    const composedTitle = jobDisplayTitle({
+      jobType: jobType(j.teaching_mode as string | null),
+      gender: genderPrefWord(j.gender_preference as string | null),
+      subject: (subjects ?? []).join(', ') || null,
+      level: (j.class_level as string) ?? null,
+      area: (j.area as string) ?? null,
+      city,
+      budget: budgetLabel(
+        (j.budget_min_pkr as number) ?? null,
+        (j.budget_max_pkr as number) ?? null,
+        (j.budget_pkr as number) ?? null,
+      ),
+    })
     return {
       id: j.id as string,
       job_tx_id: (j.job_tx_id as string) ?? null,
       public_slug: (j.public_slug as string) ?? null,
       status: (j.status as string) ?? 'open',
-      title: (j.title as string) ?? 'Tuition required',
+      title: composedTitle || (j.title as string) || 'Tuition required',
       // Fall back to the legacy text column for jobs posted before the join
       // table existed, so old posts still show what they are for.
-      subjects: subjectsByJob.get(j.id as string) ?? (j.subjects as string[] | null) ?? null,
+      subjects,
       subject_links: (linksByJob.get(j.id as string) ?? []).map((l) => ({
         ...l,
         href: linker.tutorSubjectHref(l.masterId, city),
@@ -336,15 +360,10 @@ export async function browseJobs(
     if (matchingIds) q = q.in('id', matchingIds)
     if (filters.city) q = q.ilike('city', filters.city)
     if (filters.mode) {
-      // 'both' satisfies a search for either mode, the same way it does for
-      // tutors -- a parent open to either should see both kinds of job.
-      //
-      // Equality, not ilike: migration 35 made this column one spelling with a
-      // CHECK constraint behind it, so there is no longer a case difference to
-      // paper over. The `ilike` was hiding the real defect -- fifty-one rows
-      // held NULL and matched neither branch, so narrowing to a mode dropped
-      // seven eighths of the board with nothing saying so.
-      q = q.or(`teaching_mode.eq.${filters.mode},teaching_mode.eq.both`)
+      // A job carries exactly one Job Type title (migration 77), stored
+      // verbatim, so this is a plain equality on the title the filter passed.
+      // ('both' is retired — there is no longer a value that means "either".)
+      q = q.eq('teaching_mode', filters.mode)
     }
     if (filters.budgetMin !== null) q = q.gte('budget_pkr', filters.budgetMin)
     if (filters.budgetMax !== null) q = q.lte('budget_pkr', filters.budgetMax)

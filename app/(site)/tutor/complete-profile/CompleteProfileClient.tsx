@@ -14,11 +14,10 @@ import TaxonomySelector from '@/components/TaxonomySelector'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import { resolveMasterIds, isLevelLeaf, labelsForMasterIds } from '@/lib/taxonomy'
 import { calculateTutorCompletion } from '@/lib/profileChecklist'
-import { JOB_TYPES } from '@/lib/locations'
+import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import { OTP_SMS_SENDER } from '@/lib/otpChannel'
-import { jobType } from '@/lib/display'
 
 // Mobile-first, resumable, saves per step. Every step writes through
 // /api/profile/save (or a dedicated upload route), which recomputes
@@ -58,6 +57,7 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
   // Curated cities/areas from the DB (migration 73) as datalist suggestions;
   // City/Area still accept free text so a tutor is never blocked on locality.
   const { map: cityMap } = useCityAreas()
+  const { titles: jobTitles } = useJobTitles()
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [percent, setPercent] = useState(0)
@@ -379,16 +379,16 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
               <div className="space-y-1" id="teaching_mode">
                 <label className="text-xs font-bold text-tm-navy">Job Type</label>
                 <p className="text-[11px] text-gray-500">
-                  Any combination — one, two or all three. Choose at least one.
+                  Choose every title that fits. At least one.
                 </p>
-                {/* Multiple choice — a tutor can offer any combination. Labelled
-                    through lib/display so the words cannot drift from a card. */}
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  {JOB_TYPES.map((m) => {
-                    const on = form.job_types.includes(m)
+                {/* Multiple choice from the 19 titles (migration 77). The stored
+                    value IS the title text. */}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {jobTitles.map((title) => {
+                    const on = form.job_types.includes(title)
                     return (
                       <label
-                        key={m}
+                        key={title}
                         className={`flex min-h-[44px] cursor-pointer items-center gap-3 rounded-xl border p-3 text-xs font-bold transition-colors ${
                           on
                             ? 'border-tm-green-deep/30 bg-tm-tint-green text-tm-green-deep'
@@ -402,13 +402,13 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
                             setForm((f) => ({
                               ...f,
                               job_types: on
-                                ? f.job_types.filter((x) => x !== m)
-                                : [...f.job_types, m],
+                                ? f.job_types.filter((x) => x !== title)
+                                : [...f.job_types, title],
                             }))
                           }
                           className="h-4 w-4 rounded border-gray-300 text-tm-green-deep focus:ring-tm-green-deep"
                         />
-                        <span>{jobType(m)}</span>
+                        <span>{title}</span>
                       </label>
                     )
                   })}

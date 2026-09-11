@@ -1,29 +1,24 @@
-import { Home, Wifi, School } from 'lucide-react'
+import { Home, Wifi, Briefcase } from 'lucide-react'
 import { jobType } from '@/lib/display'
+import { isOnlineTitle } from '@/lib/jobTitlesCore'
 
-// A tutor's (or a tuition's) Job Type — Home Tuition, Online Tuition or School
-// Job — as one consistent chip.
+// A tutor's (or a tuition's) Job Type — one of the 19 job titles (migration 77) —
+// as one consistent chip.
 //
-// Job Type used to be buried: on the card it was only the Area line's fallback
-// (invisible whenever a tutor had an area), on the profile a small tail on the
-// city line. This is the single treatment used on every display surface (card,
-// profile), so the icon and the words never drift; browse and search filters
-// use the SAME vocabulary through the same `jobType()` helper. Presentational,
-// no hooks, so a server component can render it.
-
-const ICON = {
-  home: Home,
-  online: Wifi,
-  school: School,
-} as const
-
-/** Resolve the stored value to its icon, tolerating the retired spellings the
- *  display helper also accepts (in_person / both / physical → home). */
+// This is the single treatment used on every display surface (card, profile), so
+// the icon and the words never drift; browse and search filters use the SAME
+// vocabulary through the same `jobType()` helper. Presentational, no hooks, so a
+// server component can render it.
+//
+// With 19 titles a per-title icon is more noise than signal, so the icon marks
+// the one distinction that changes behaviour: "Online Tutor" (city-agnostic) gets
+// the wifi mark, "Home Tutor" the house, and every other title a neutral
+// briefcase.
 function iconFor(mode: string | null | undefined) {
-  const k = (mode ?? '').toLowerCase()
-  if (k === 'online' || k === 'remote') return ICON.online
-  if (k === 'school' || k === 'school_job') return ICON.school
-  return ICON.home // home, and every retired in-person / both spelling
+  const k = (mode ?? '').trim().toLowerCase()
+  if (isOnlineTitle(mode) || k === 'online' || k === 'remote') return Wifi
+  if (k === 'home tutor' || k === 'home' || k === 'in_person' || k === 'both' || k === 'physical') return Home
+  return Briefcase
 }
 
 export default function JobTypeChip({

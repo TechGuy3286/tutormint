@@ -136,8 +136,9 @@ test('the photo is an avatar or nothing — identity-docs and foreign URLs are r
 
 test('job type is spelled out, headline is top subject · city', () => {
   const m = toCvModel(raw(), { includeContact: true })
-  // 'both' migrated to Home Tuition (owner, 10 Sep 2026 — no "both").
-  assert.equal(m.teachingMode, 'Home Tuition')
+  // teaching_mode holds a Job Type title now (migration 77); legacy 'both' still
+  // maps to 'Home Tutor' through the display helper.
+  assert.equal(m.teachingMode, 'Home Tutor')
   assert.equal(m.headline, 'Physics · Lahore')
 })
 
@@ -204,7 +205,7 @@ test('cvSections omits empty sections and carries the exact labels', () => {
   const keys = cvSections(model).map((s) => s.key)
   assert.deepEqual(keys, ['subjects', 'teaching']) // about/education/languages/contact all gone
   const teaching = cvSections(model).find((s) => s.key === 'teaching')!
-  assert.deepEqual(teaching.lines.map((l) => l.text), ['DHA Phase 5, Lahore', 'Home Tuition'])
+  assert.deepEqual(teaching.lines.map((l) => l.text), ['DHA Phase 5, Lahore', 'Home Tutor'])
   assert.deepEqual(
     teaching.lines.map((l) => l.icon),
     ['pin', 'monitor'],

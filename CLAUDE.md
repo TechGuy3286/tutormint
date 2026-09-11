@@ -57,6 +57,7 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 - `signup_blocklist` (migration 58) — a banned account's `mobile` (normalised MSISDN) and `cnic_hash` (sha256 of the digits, NEVER the CNIC in the clear), plus `reason`, `source_user_id`, `created_by`. Checked at signup and at claim; admin-read RLS, service-role writes.
 - `taxonomy_categories` / `taxonomy_levels` / `taxonomy_subjects` / `taxonomy_master` — keep as is (used by `lib/taxonomy.ts`), plus an admin-editable alias table for Roman-Urdu spellings.
 - `location_cities` (migration 73) — `id`, `name unique`, `sort_order int default 100` (Lahore/Karachi/Islamabad/Rawalpindi pinned 1–4, rest 100 → `order by sort_order, name`). `location_areas` (migration 73) — `id`, `city_id -> location_cities`, `name`, `unique(city_id, name)` (area is dependent on its city; `order by name`). The owner's 23-city / 249-area dataset, stored VERBATIM. Reference data: world-readable, admin-writable (the taxonomy pattern). Read via `lib/cityAreas.ts` (client, cached) or `lib/locationsAdmin.ts` (admin). `jobs.city|area`, `profiles.city|area`, `tutor_profiles.city|area` stay PLAIN STRINGS — a value not in these tables is free text, preserved as-is and surfaced by `unmappedLocations()` for review; promoting one is an insert here.
+- `job_titles` (migration 77) — `id`, `name unique`, `sort_order int`. The Job Type value set: the owner's 19 job titles ("Home Tutor", "Online Tutor", "O Levels Teacher", … "Principal") in a fixed order, stored VERBATIM. Reference data: world-readable, admin-writable (the location_cities pattern) — adding a title is an INSERT. Read via `lib/jobTitles.ts` (client, cached) or `lib/jobTitlesServer.ts` (server). `jobs.teaching_mode` (a job's single title) and `tutor_profiles.job_types text[]` (a tutor's multi-select) hold the TITLE TEXT itself — the stored value IS the label, so display is identity. `teaching_mode` KEEPS its name (the deferred rename still stands) and stays the mirror of `job_types[0]`. There is NO CHECK constraint on the value columns (a fixed-array CHECK would contradict "adding a title is an insert") — the UI offers only titles from the table, exactly as cities are offered. The one title the "online is city-agnostic" rule pivots on is `'Online Tutor'` (`lib/jobTitlesCore.ts` `ONLINE_JOB_TITLE`, the same literal in `rank_tutors`).
 
 Views: `tutor_directory` ("is this tutor listed?" — browse, `rank_tutors()`, sitemap all read it) and `tutor_visible_profiles` ("may this URL render?" — adds unclaimed imports, granted to nobody, reached only via the SECURITY DEFINER `tutor_public_page()`).
 
@@ -4750,3 +4751,62 @@ published — not a private household's. The admin-only contact block on
 Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 187/187 (job_contacts
 anon-read denied, admin-read policy) · test:jobcontacts 6 · test:posttuition 10 ·
 every other suite green.
+
+## Job Type becomes 19 job titles, field 1, composed job-card title (owner, 11 Sep 2026)
+
+The three-value Job Type (home / online / school) is replaced by 19 job titles,
+stored as DATA in `job_titles` (migration 77, the location_cities pattern —
+adding a title is an INSERT). The 19, in the owner's fixed order: Home Tutor,
+Online Tutor, Early Years Teacher, Primary Teacher, Middle School Teacher, High
+School Teacher, O Levels Teacher, A Levels Teacher, IB PYP Teacher, IB MYP
+Teacher, IB Diploma Teacher, College Lecturer, Visiting Teacher, Sports Teacher,
+Music Teacher, STEM Teacher, Robotics Teacher, Vice Principal, Principal.
+
+- **Stored VERBATIM as the label** (like a city), so `jobs.teaching_mode` and
+  `tutor_profiles.job_types[]` hold the title text and display is identity. No
+  CHECK on the value columns (dropped) — the closed set is enforced by the UI
+  offering only table rows, exactly as cities are. `teaching_mode` keeps its name
+  and stays the mirror of `job_types[0]`. `lib/jobTitlesCore.ts` (pure) +
+  `lib/jobTitles.ts` (client hook) + `lib/jobTitlesServer.ts` (server) are the one
+  source; `jobType()` returns the stored label verbatim (no title-casing, so "IB
+  PYP Teacher" survives), mapping only the RETIRED short codes for old `?mode=`
+  links.
+- **POSITION.** Job Type is field 1 of the shared `PostTuitionForm` (a
+  single-select from the 19), before "What do you need taught?" — same on the
+  admin variant. It moved out of `WhereHowWhen` (now five selects).
+- **TUTOR PROFILE.** Multi-select from all 19 into `tutor_profiles.job_types`;
+  matching stays containment (a job shows to a tutor whose set includes its
+  title), one rule in `lib/matchChip.ts`.
+- **EMPTY SELECTION = no filter** (owner item 4). An empty `job_types` is "no
+  TYPE constraint", so the tutor sees every job — the browse board shows all open
+  jobs regardless, and the curated surfaces (jobsThisWeek, the matched-job notify
+  fan-out) go through `matchVisibility`, which treats an empty set as included
+  (the LOCATION rule still applies: a home job in another city is still not a
+  match). The ONE place empty = excluded is `rank_tutors` — but that is the
+  OPPOSITE direction (a parent FILTERING tutors by a title), where a tutor who
+  offers nothing correctly should not appear; that is not "he sees all jobs" and
+  is left as-is.
+- **ONLINE IS CITY-AGNOSTIC** re-pointed from the value 'online' to the title
+  'Online Tutor' (`ONLINE_JOB_TITLE`), in `matchChip`, the notify fan-out, and the
+  `rank_tutors` location bonus (recreated from its exact live definition with that
+  one literal changed). Home and school titles stay same-city.
+- **JOB CARD TITLE** is composed (`lib/jobDisplayTitle.ts`, pure) in
+  `lib/jobFeed.ts` `decorate`: `Job Title | Gender | Subject | Level | Area | City
+  | Budget`, dropping every missing optional segment and its separator (no stray
+  pipes). This one string is the card title, the tuition page `<title>` and the
+  JobPosting structured data (the `${where}` appends that would double the city
+  were removed). The stored `jobs.title` is no longer the display title — search
+  (`browseJobs` `filters.q`) still matches the stored column.
+- **MIGRATION.** `Home Tuition`→`Home Tutor` (60 jobs, 16 tutors), `Online
+  Tuition`→`Online Tutor` (2 jobs, 1 tutor). `School Job` LEFT RAW and reported —
+  2 jobs still carry `teaching_mode='school'` (`JOB-TX-5MCHM5U` "Early Years
+  Teacher Required" · Roots International; `JOB-TX-M6MXVCD` "…English Language
+  Teacher…" · Beacon House), 0 tutors — the owner picks which of the 17 school
+  titles each meant; nothing was guessed. `teaching_mode` still mirrors
+  `job_types[0]` (unchanged write logic).
+
+Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 (job_titles
+world-read, admin-write) · test:jobtitles 8 (order, verbatim round-trip of all 19,
+online pivot, containment, empty-array = no filter, composed-title omission,
+legacy parseMode) · test:posttuition 10 · test:cv 14 · test:social 7 · every
+other suite green.

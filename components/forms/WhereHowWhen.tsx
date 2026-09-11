@@ -1,22 +1,21 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Building2, MapPin, Briefcase, Wallet, Calendar, Clock } from 'lucide-react'
+import { Building2, MapPin, Wallet, Calendar, Clock } from 'lucide-react'
 
-import { JOB_TYPES } from '@/lib/locations'
 import { BUDGET_BANDS } from '@/lib/feeBands'
-import { jobType } from '@/lib/display'
 import LocationInput from '@/components/forms/LocationInput'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 
-// The "Where, how and when" row of the job form — the six selects for city,
-// area, Job Type, budget, days and times.
+// The "Where, how and when" row of the job form — the five selects for city,
+// area, budget, days and times. (Job Type moved to its own field at the top of
+// the form, owner 11 Sep 2026.)
 //
 // SHARED by the parent post-a-tuition form AND the admin team-post form, so the
 // two cannot drift: an icon or a placeholder changed here changes in both. Each
-// select carries a recognising icon (location, job type, money, calendar, clock)
-// and a short placeholder that is the field's own noun — "City", not "Choose a
+// select carries a recognising icon (location, money, calendar, clock) and a
+// short placeholder that is the field's own noun — "City", not "Choose a
 // city" — since a visible sr-only label already names it for a screen reader.
 
 export const DAY_OPTIONS = ['Weekdays', 'Weekends', 'Every day'] as const
@@ -66,27 +65,23 @@ function IconSelect({
 export default function WhereHowWhen({
   city,
   area,
-  mode,
   band,
   days,
   times,
   onCity,
   onArea,
-  onMode,
   onBand,
   onDays,
   onTimes,
 }: {
   city: string
   area: string
-  mode: string
   /** The budget BAND value (feeBands), not the min/max — the parent converts. */
   band: string
   days: string
   times: string
   onCity: (v: string) => void
   onArea: (v: string) => void
-  onMode: (v: string) => void
   onBand: (v: string) => void
   onDays: (v: string) => void
   onTimes: (v: string) => void
@@ -120,22 +115,6 @@ export default function WhereHowWhen({
           placeholder="Area"
         />
 
-        <IconSelect
-          icon={<Briefcase size={15} />}
-          label="Job Type"
-          value={mode}
-          onChange={onMode}
-        >
-          <option value="">Job Type</option>
-          {JOB_TYPES.map((m) => (
-            <option key={m} value={m}>
-              {jobType(m)}
-            </option>
-          ))}
-        </IconSelect>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <IconSelect icon={<Wallet size={15} />} label="Monthly budget" value={band} onChange={onBand}>
           {BUDGET_BANDS.map((b) => (
             <option key={b.value} value={b.value}>

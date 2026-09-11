@@ -9,6 +9,7 @@ import MoreLandingJobs from '@/components/landing/MoreLandingJobs'
 import TutorFilterBar from '@/app/(site)/browse/tutors/TutorFilterBar'
 import JobFilterBar from '@/app/(site)/browse/tuitions/JobFilterBar'
 import { rankedTutors } from '@/lib/browseTutors'
+import { isOnlineTitle } from '@/lib/jobTitlesCore'
 import { browseJobs } from '@/lib/jobFeed'
 import { tutorPath, tuitionPath } from '@/lib/slugs'
 import { absoluteUrl } from '@/lib/siteUrl'
@@ -45,18 +46,22 @@ function distinct(values: (string | null | undefined)[], max = 4): string[] {
 }
 
 /**
- * The clean mode phrases present, for the intro. `both` is a tutor who does
- * either, so it contributes both "online" and "in person" — rendering it as
- * its own word ("either") next to "in person" reads as a third, redundant mode.
+ * The clean mode phrases present, for the intro sentence. Job Type is a set of
+ * 19 titles now (migration 77); only two map to a lesson "mode" word — "Online
+ * Tutor" → online, "Home Tutor" → in person. The specialist teacher/school
+ * titles carry no online/in-person meaning and contribute no word. Legacy short
+ * codes ('both'/'online'/'in_person') are still folded in for any un-migrated row.
  */
 function modeWords(raw: (string | null | undefined)[]): string[] {
   const s = new Set<string>()
   for (const m of raw) {
-    if (m === 'both') {
+    const k = (m ?? '').trim().toLowerCase()
+    if (isOnlineTitle(m) || k === 'online' || k === 'remote') s.add('online')
+    else if (k === 'home tutor' || k === 'home' || k === 'in_person' || k === 'physical') s.add('in person')
+    else if (k === 'both') {
       s.add('online')
       s.add('in person')
-    } else if (m === 'online') s.add('online')
-    else if (m === 'in_person') s.add('in person')
+    }
   }
   return [...s]
 }

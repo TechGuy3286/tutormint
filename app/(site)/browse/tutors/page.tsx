@@ -1,6 +1,7 @@
 import { Globe, Plus } from 'lucide-react'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { parseMode } from '@/lib/locations'
+import { isOnlineTitle } from '@/lib/jobTitlesCore'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
@@ -333,11 +334,9 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
                   Search all of {city || 'the city'}
                 </Link>
               )}
-              {/* Canonical spelling. This read 'Online' until migration 35 renamed
-                  the values, at which point the condition was always true and
-                  the chip offered to include online tutors to somebody who had
-                  already filtered to exactly that. */}
-              {mode !== 'online' && (
+              {/* Don't offer "include online tutors" to somebody who has already
+                  filtered to exactly that. `mode` is a title now (migration 77). */}
+              {!isOnlineTitle(mode) && (
                 <Link
                   href={widen({ mode: undefined, area: undefined })}
                   className="gap-1.5 flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"

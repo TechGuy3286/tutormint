@@ -37,6 +37,13 @@ function titleCase(raw: string): string {
  * Tuition (the value they migrated to), so a browser tab open across the deploy
  * still renders sensibly.
  */
+// Job Type is now a set of 19 job titles stored VERBATIM (migration 77), so the
+// stored value IS the display label — this returns it as-is. The only mapping
+// left is for the RETIRED short codes ('home'/'online'/'school' and their older
+// spellings) that may still arrive from an old ?mode= link or a pre-77 row:
+// 'home' → 'Home Tutor', 'online' → 'Online Tutor', 'school' → 'School Job' (the
+// 2 unmapped legacy rows). A real title is returned verbatim — NOT title-cased,
+// so "IB PYP Teacher" / "STEM Teacher" / "O Levels Teacher" keep their casing.
 export function jobType(raw: string | null | undefined): string | null {
   if (!raw) return null
   switch (raw.trim().toLowerCase()) {
@@ -51,16 +58,16 @@ export function jobType(raw: string | null | undefined): string | null {
     case 'both':
     case 'either':
     case 'any':
-      return 'Home Tuition'
+      return 'Home Tutor'
     case 'online':
     case 'online_tuition':
     case 'remote':
-      return 'Online Tuition'
+      return 'Online Tutor'
     case 'school':
     case 'school_job':
       return 'School Job'
     default:
-      return titleCase(raw)
+      return raw.trim()
   }
 }
 

@@ -3,14 +3,17 @@
 // Whether a tuition matches a tutor, in one place so the dashboard strip, the
 // matching-job notification and the browse card all decide it the same way.
 //
-// JOB TYPE ALIGNS THE TWO SIDES (owner, 10 Sep 2026). The three Job Types are
-// mutually exclusive — home / online / school — so a job matches a tutor only
-// when their Job Types are the same. Beyond that, location:
-//   * online : city-agnostic — an online tutor takes online jobs anywhere.
-//   * home / school : location-bound — same city, because a home visit or a
+// JOB TYPE ALIGNS THE TWO SIDES (owner, 10–11 Sep 2026). Job Type is now a set
+// of 19 job titles (migration 77), stored verbatim; a job carries one, a tutor
+// offers a set. A job matches a tutor when the tutor's set CONTAINS the job's
+// title. Beyond that, location:
+//   * "Online Tutor" : city-agnostic — an online tutor takes online jobs anywhere.
+//   * every other title : location-bound — same city, because a home visit or a
 //     school post happens in a place.
 // The stored column is still `teaching_mode` (see the CLAUDE.md decision); its
-// values are 'home' | 'online' | 'school'.
+// values are now the title text, e.g. 'Home Tutor' | 'Online Tutor' | 'O Levels Teacher'.
+
+import { ONLINE_JOB_TITLE, isOnlineTitle } from '@/lib/jobTitlesCore'
 
 export type MatchVisibility = 'same_city' | 'online' | 'exclude'
 
@@ -18,10 +21,13 @@ function norm(s: string | null | undefined): string {
   return (s ?? '').trim().toLowerCase()
 }
 
-/** Whether a Job Type is the city-agnostic online one. */
+/** Whether a Job Type is the city-agnostic online title ("Online Tutor"). Kept
+ *  under this name for the callers that already import it. */
 export function isOnlineType(jobType: string | null | undefined): boolean {
-  return norm(jobType) === 'online'
+  return isOnlineTitle(jobType)
 }
+
+export { ONLINE_JOB_TITLE }
 
 /**
  * How a tuition relates to a tutor.
@@ -53,7 +59,7 @@ export function matchVisibility(
   const tc = norm(tutorCity)
   if (!jc || !tc || jc === tc) return 'same_city'
 
-  return jt === 'online' ? 'online' : 'exclude'
+  return isOnlineTitle(jobType) ? 'online' : 'exclude'
 }
 
 /**

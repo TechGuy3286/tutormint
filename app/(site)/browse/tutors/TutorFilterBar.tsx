@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SlidersHorizontal, X } from 'lucide-react'
-import { JOB_TYPES, GENDERS } from '@/lib/locations'
+import { GENDERS } from '@/lib/locations'
+import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
-import { jobType } from '@/lib/display'
 import Typeahead from '@/components/search/Typeahead'
 import { FEE_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
 import {
@@ -79,6 +79,7 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
   // select (it writes the URL on change) — free-text entry lives on the post
   // and profile forms, not here.
   const { map } = useCityAreas()
+  const { titles: jobTitles } = useJobTitles()
   const areas = useMemo(() => areasForCity(map, values.city), [map, values.city])
 
   const activeCount = [
@@ -237,9 +238,9 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           <span className="sr-only">Job Type</span>
           <select className={FIELD} value={values.mode} onChange={(e) => apply({ mode: e.target.value })}>
             <option value="">Any Job Type</option>
-            {JOB_TYPES.map((m) => (
-              <option key={m} value={m}>
-                {jobType(m)}
+            {jobTitles.map((t) => (
+              <option key={t} value={t}>
+                {t}
               </option>
             ))}
           </select>
@@ -326,7 +327,7 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           )}
           {values.city && <Chip label={values.city} onClear={() => apply({ city: null, area: null })} />}
           {values.area && <Chip label={values.area} onClear={() => apply({ area: null })} />}
-          {values.mode && <Chip label={jobType(values.mode) ?? values.mode} onClear={() => apply({ mode: null })} />}
+          {values.mode && <Chip label={values.mode} onClear={() => apply({ mode: null })} />}
           {values.gender && <Chip label={values.gender} onClear={() => apply({ gender: null })} />}
           {(values.feeMin || values.feeMax) && (
             <Chip

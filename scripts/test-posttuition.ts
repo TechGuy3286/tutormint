@@ -99,6 +99,9 @@ function renderAdmin(): string {
 
 // The fields both forms MUST render identically — the shared implementation.
 const SHARED_LABELS = [
+  // Job Type is field 1 now (owner, 11 Sep 2026), shared by both variants.
+  'What kind of tutor or teacher do you need?',
+  'Job Type',
   'What do you need taught?',
   'Where, how and when',
   'Preferred tutor gender (optional)',

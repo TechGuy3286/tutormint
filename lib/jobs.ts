@@ -30,6 +30,7 @@ import { deliverEmail } from '@/lib/notify'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { teamParentId } from '@/lib/teamAccount'
 import { buildJobContact } from '@/lib/jobContactCore'
+import { matchVisibility, isOnlineType } from '@/lib/matchChip'
 import type { AdminRole } from '@/lib/adminAuth'
 
 export type JobInput = {
@@ -39,11 +40,10 @@ export type JobInput = {
   city: string | null
   area: string | null
   /**
-   * '' or null means the parent left the Mode select on "Any", which is
-   * 'both' -- coerced at both write sites rather than stored as NULL. NULL is
-   * exactly what made fifty-one jobs invisible to the mode filter before
-   * migration 35, and the column is NOT NULL now, so an explicit null would
-   * fail the insert rather than quietly reproduce the bug.
+   * The job's single Job Type title (migration 77), stored verbatim in the
+   * `teaching_mode` column (kept its name). '' or null means the parent left the
+   * select empty and is coerced to 'Home Tutor' at both write sites — the column
+   * is NOT NULL, so an explicit null would fail the insert.
    */
   teachingMode: string | null
   budgetPkr: number | null
@@ -187,7 +187,7 @@ export async function createJob(
       class_level: input.classLevel,
       city: input.city,
       area: input.area ?? '',
-      teaching_mode: input.teachingMode || 'home',
+      teaching_mode: input.teachingMode || 'Home Tutor',
       budget_pkr: bandFigure(input),
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
@@ -323,7 +323,7 @@ export async function createTeamJob(
       class_level: input.classLevel,
       city: input.city,
       area: input.area ?? '',
-      teaching_mode: input.teachingMode || 'home',
+      teaching_mode: input.teachingMode || 'Home Tutor',
       budget_pkr: bandFigure(input),
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
@@ -434,7 +434,7 @@ export async function updateJob(
       class_level: input.classLevel,
       city: input.city,
       area: input.area ?? '',
-      teaching_mode: input.teachingMode || 'home',
+      teaching_mode: input.teachingMode || 'Home Tutor',
       budget_pkr: bandFigure(input),
       budget_min_pkr: input.budgetMin ?? null,
       budget_max_pkr: input.budgetMax ?? null,
@@ -779,39 +779,45 @@ async function notifyMatchingTutors(
     const tutorIds = [...new Set((matches ?? []).map((m) => m.tutor_id as string))]
     if (tutorIds.length === 0) return
 
-    // Job Type aligns both sides (lib/matchChip.ts): a job matches tutors
-    // whose OWN set of Job Types CONTAINS the job's. Stored as job_types[].
-    const jobTypeVal = input.teachingMode || 'home'
+    // Job Type aligns both sides (lib/matchChip.ts): a job matches tutors whose
+    // OWN set of Job Types CONTAINS the job's title. Stored as job_types[], the
+    // title text (migration 77). An EMPTY tutor set is "no filter" — they are a
+    // candidate for any job (owner item 4) — so the buckets are decided in JS by
+    // matchVisibility rather than by a `.contains()` that would drop empties.
+    const jobTypeVal = input.teachingMode || 'Home Tutor'
 
     // tutor_directory, not tutor_profiles: only tutors the platform is actually
     // showing to parents. Telling a suspended or unlisted tutor about work they
-    // cannot be found for is noise. Same city AND the same Job Type.
-    const { data: sameCityRows } = await admin
+    // cannot be found for is noise. Fetch the subject-matched candidates (already
+    // a bounded set) with their job_types + city, then bucket by matchVisibility.
+    const { data: candidates } = await admin
       .from('tutor_directory')
-      .select('id')
+      .select('id, city, job_types')
       .in('id', tutorIds)
-      .eq('city', input.city)
-      .contains('job_types', [jobTypeVal])
-      .limit(50)
-    const sameCityIds = new Set((sameCityRows ?? []).map((r) => r.id as string))
+      .limit(200)
+    const cands = (candidates ?? []) as { id: string; city: string | null; job_types: string[] | null }[]
+
+    // Same city (or unknown city) AND the tutor offers this title or offers none.
+    const sameCityIds = new Set(
+      cands
+        .filter((c) => c.city === input.city)
+        .filter((c) => matchVisibility(jobTypeVal, input.city, c.job_types, input.city) !== 'exclude')
+        .map((c) => c.id)
+        .slice(0, 50),
+    )
 
     // Cross-city tutors are a match ONLY for an ONLINE job, and only online
-    // tutors (city-agnostic). They are flagged so the card carries a "Suitable
-    // for online" chip. A home or school post never fans out beyond its own
-    // city. Capped hard — a popular subject taught online must not turn one post
-    // into a nationwide mailing.
+    // tutors (city-agnostic — matchVisibility returns 'online'). An empty-set
+    // tutor is included as "no filter". A home/school post never fans out beyond
+    // its own city. Capped hard — a popular subject taught online must not turn
+    // one post into a nationwide mailing.
     let crossCityIds: string[] = []
-    if (jobTypeVal === 'online') {
-      const { data: crossRows } = await admin
-        .from('tutor_directory')
-        .select('id')
-        .in('id', tutorIds)
-        .neq('city', input.city) // null-city tutors are excluded by <> ; correct — we cannot claim a city match we cannot see
-        .contains('job_types', ['online'])
-        .limit(30)
-      crossCityIds = (crossRows ?? [])
-        .map((r) => r.id as string)
+    if (isOnlineType(jobTypeVal)) {
+      crossCityIds = cands
+        .filter((c) => matchVisibility(jobTypeVal, input.city, c.job_types, c.city) === 'online')
+        .map((c) => c.id)
         .filter((id) => !sameCityIds.has(id))
+        .slice(0, 30)
     }
 
     const subjectName = await subjectLabelFor(admin, input.masterIds[0])

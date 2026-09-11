@@ -6,6 +6,7 @@ import { Sparkles, Loader2, Info, ShieldCheck, Phone, UserRound } from 'lucide-r
 import { submitSignal } from '@/lib/submit'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import WhereHowWhen from '@/components/forms/WhereHowWhen'
+import { useJobTitles } from '@/lib/jobTitles'
 import { isLevelLeaf, resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
 import { GENDER_PREFS } from '@/lib/genderPref'
 import { bandFor, bandRange } from '@/lib/feeBands'
@@ -197,6 +198,9 @@ export default function PostTuitionForm({
   const set = <K extends keyof PostTuitionValues>(k: K, value: PostTuitionValues[K]) =>
     setV((prev) => ({ ...prev, [k]: value }))
 
+  // The 19 job titles, from the DB (migration 77) — the Job Type field's options.
+  const { titles: jobTitles } = useJobTitles()
+
   const band = useMemo(() => bandFor(v.budgetMin, v.budgetMax), [v.budgetMin, v.budgetMax])
   const hasSelection = !!(v.category && v.level && (levelLeaf || v.subjects.length > 0))
 
@@ -301,8 +305,29 @@ export default function PostTuitionForm({
       {/* ONE card. The steps below are dividers inside it, not boxes of their
           own: this is a single short task and it should look like one. */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-        {/* ---------------------------------------------------- 1. subject */}
-        <Step n={1} title="What do you need taught?">
+        {/* ---------------------------------------------------- 1. job type */}
+        {/* Job Type is the first thing chosen (owner, 11 Sep 2026): the 19 titles
+            come from the DB, single-select on a job. */}
+        <Step n={1} title="What kind of tutor or teacher do you need?">
+          <label className="block space-y-1">
+            <span className={LABEL}>Job Type</span>
+            <select
+              value={v.teachingMode}
+              onChange={(e) => set('teachingMode', e.target.value)}
+              className={FIELD}
+            >
+              <option value="">Choose a job type</option>
+              {jobTitles.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
+        </Step>
+
+        {/* ---------------------------------------------------- 2. subject */}
+        <Step n={2} title="What do you need taught?">
           {!ready ? (
             <p className="rounded-xl bg-tm-bg p-3 text-[11px] text-gray-500">
               Loading the subjects on this job…
@@ -340,20 +365,18 @@ export default function PostTuitionForm({
           )}
         </Step>
 
-        {/* ------------------------------------------------ 2. where & when */}
-        <Step n={2} title="Where, how and when">
+        {/* ------------------------------------------------ 3. where & when */}
+        <Step n={3} title="Where, how and when">
           {/* The same five budget bands as /browse/tuitions, so what a parent
               picks here is exactly what a tutor filters by there. */}
           <WhereHowWhen
             city={v.city}
             area={v.area}
-            mode={v.teachingMode}
             band={band}
             days={days}
             times={times}
             onCity={(x) => setV((p) => ({ ...p, city: x, area: '' }))}
             onArea={(x) => set('area', x)}
-            onMode={(x) => set('teachingMode', x)}
             onBand={(x) => {
               const r = bandRange(x)
               setV((p) => ({ ...p, budgetMin: r.min, budgetMax: r.max }))
@@ -389,8 +412,8 @@ export default function PostTuitionForm({
           )}
         </Step>
 
-        {/* --------------------------------------------------- 3. the words */}
-        <Step n={3} title="Your advert" last>
+        {/* --------------------------------------------------- 4. the words */}
+        <Step n={4} title="Your advert" last>
           <div className="flex flex-col gap-2 rounded-xl bg-tm-bg p-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[11px] leading-relaxed text-slate-700">
               {hasSelection

@@ -30,6 +30,7 @@
 
 import { jobType } from '@/lib/display'
 import { feeChipLabel } from '@/lib/feeBands'
+import { isOnlineTitle } from '@/lib/jobTitlesCore'
 
 export type JobSelection = {
   /** Taxonomy level name, e.g. "O Levels". Resolved server-side from ids. */
@@ -38,7 +39,7 @@ export type JobSelection = {
   subjects: string[]
   city: string | null
   area: string | null
-  /** Canonical Job Type: 'home' | 'online' | 'school'. */
+  /** The job's Job Type title (migration 77), e.g. "Home Tutor" / "O Levels Teacher". */
   mode: string | null
   budgetMin: number | null
   budgetMax: number | null
@@ -84,9 +85,11 @@ export function budgetPhrase(sel: JobSelection): string {
 export function modePhrase(sel: JobSelection): string {
   const m = jobType(sel.mode)
   if (!m) return ''
-  if (m === 'Online') return 'online'
-  if (m === 'In person') return 'in person'
-  return 'either in person or online'
+  if (isOnlineTitle(m)) return 'online'
+  if (m === 'Home Tutor') return 'in person'
+  // A specific teacher / school title (e.g. "O Levels Teacher") carries its own
+  // meaning; there is no in-person/online phrase to add for it.
+  return ''
 }
 
 // ------------------------------------------------------------- composed ----

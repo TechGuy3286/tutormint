@@ -3,10 +3,9 @@
 import FileUpload from '@/components/FileUpload';
 import PasswordInput from '@/components/ui/PasswordInput'
 import { submitForm } from '@/lib/submit'
-import { JOB_TYPES, parseMode } from '@/lib/locations'
+import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
-import { jobType } from '@/lib/display'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
@@ -27,6 +26,7 @@ export default function TutorSettingsPage() {
   // Curated cities/areas from the DB (migration 73) as datalist suggestions;
   // City/Area still accept free text so a tutor is never blocked on locality.
   const { map: cityMap } = useCityAreas();
+  const { titles: jobTitles } = useJobTitles();
   const [tutorEmail, setTutorEmail] = useState("");
   const [userId, setUserId] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -140,9 +140,9 @@ export default function TutorSettingsPage() {
           whatsapp_number: data.whatsapp_number || "",
           city: data.city || "",
           areaName: data.area || "",
-          jobTypes: ((data.job_types as string[] | null) ?? []).length > 0
-            ? (data.job_types as string[])
-            : (parseMode(data.teaching_mode) ? [parseMode(data.teaching_mode)!] : []),
+          // job_types holds the title text (migration 77). It is the source of
+          // truth; teaching_mode is its mirror (job_types[0]).
+          jobTypes: (data.job_types as string[] | null) ?? [],
           profileImage: data.avatar_url || formData.profileImage,
           videoIntroUrl: data.video_intro_url || ""
         });
@@ -578,16 +578,16 @@ export default function TutorSettingsPage() {
           <div className="space-y-2">
             <p className="text-xs font-bold text-tm-navy">Job Type</p>
             <p className="text-[11px] text-gray-500">
-              Any combination — one, two or all three. A tutor who offers School Job is shown school
-              tuitions; the others are shown home or online tuitions.
+              Choose every title that fits — you are shown tuitions matching any of them.
             </p>
-            {/* Multiple choice — a tutor can offer any combination. */}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {JOB_TYPES.map((mode) => {
-                const isChecked = formData.jobTypes.includes(mode);
+            {/* Multiple choice — a tutor can offer any combination of the 19
+                titles (migration 77). The stored value IS the title text. */}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {jobTitles.map((title) => {
+                const isChecked = formData.jobTypes.includes(title);
                 return (
                   <label
-                    key={mode}
+                    key={title}
                     className={`flex min-h-[44px] cursor-pointer items-center gap-3 rounded-xl border p-3 text-xs font-bold transition-colors ${
                       isChecked
                         ? 'border-tm-green-deep/30 bg-tm-tint-green text-tm-green-deep'
@@ -601,13 +601,13 @@ export default function TutorSettingsPage() {
                         setFormData({
                           ...formData,
                           jobTypes: isChecked
-                            ? formData.jobTypes.filter((m) => m !== mode)
-                            : [...formData.jobTypes, mode],
+                            ? formData.jobTypes.filter((m) => m !== title)
+                            : [...formData.jobTypes, title],
                         })
                       }
                       className="h-4 w-4 rounded border-gray-300 text-tm-green-deep focus:ring-tm-green-deep"
                     />
-                    <span>{jobType(mode)}</span>
+                    <span>{title}</span>
                   </label>
                 );
               })}

@@ -36,7 +36,8 @@
     "test:masking": "tsx --test scripts/test-masking.ts",
     "test:posttuition": "tsx --test scripts/test-posttuition.ts",
     "test:locations": "tsx --test scripts/test-locations.ts",
-    "test:jobcontacts": "tsx --test scripts/test-jobcontacts.ts"
+    "test:jobcontacts": "tsx --test scripts/test-jobcontacts.ts",
+    "test:jobtitles": "tsx --test scripts/test-jobtitles.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

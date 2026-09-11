@@ -107,12 +107,14 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     return { title: pageTitle('Tuition closed'), robots: { index: false, follow: true } }
   }
 
-  const where = job.city ? ` in ${job.area ? `${job.area}, ` : ''}${job.city}` : ''
-  const title = pageTitle(`${job.title}${where}`)
+  // job.title is now the composed display title (Job Type | Gender | Subject |
+  // Level | Area | City | Budget), so it already carries the place — appending
+  // " in <city>" again would double it.
+  const title = pageTitle(job.title)
   const description = pageDescription(
     job.description?.trim()
       ? job.description.trim().slice(0, 150)
-      : `${job.title}${where} — apply free`,
+      : `${job.title} — apply free`,
   )
 
   // A FIXTURE tuition (seed parent / JOB-TRK bulk import / SEED-JOB) is noindex
@@ -263,7 +265,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
               title: job.title,
               description:
                 job.description?.trim() ||
-                `${job.title}${job.city ? ` in ${job.city}` : ''}. ${
+                `${job.title}. ${
                   job.posted_by_team
                     ? 'Posted by the TutorMint team.'
                     : 'Posted by a verified parent on TutorMint.'
