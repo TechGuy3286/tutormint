@@ -4810,3 +4810,31 @@ world-read, admin-write) · test:jobtitles 8 (order, verbatim round-trip of all 
 online pivot, containment, empty-array = no filter, composed-title omission,
 legacy parseMode) · test:posttuition 10 · test:cv 14 · test:social 7 · every
 other suite green.
+
+## Composed title on the card, human headline on the page (owner, 11 Sep 2026)
+
+Refines the section above: the composed `Job Title | Gender | Subject | Level |
+Area | City | Budget` string is right for the compact CARD but reads as a
+database row in a browser tab and a Google Jobs result. So:
+
+- **The CARD keeps the composed string** — `JobCard` renders `job.title`, still
+  the composed field list from `decorate`. Unchanged.
+- **The PAGE surfaces use the stored human headline** — the tuition page
+  `<title>`, its `<h1>`, breadcrumb and `ApplyPanel`, and the JobPosting JSON-LD
+  now use `jobs.title` (the headline the form's "Write this for me" produces and
+  the admin edits), via `preferHumanTitle(stored, composed)`. `decorate` carries
+  the raw stored headline as `JobCardData.headline` alongside the composed
+  `title`; `preferHumanTitle` falls back to the composed string only when the
+  stored title is empty. **0 of 64 jobs currently have an empty stored title**,
+  so the fallback is defensive today.
+- The form's Title field and the "Write this for me" generator are untouched —
+  they were producing the right thing all along.
+- **The two School Job tuitions are set** (migration 78, from their own ad
+  headlines, not a guess): `JOB-TX-5MCHM5U` "Early Years Teacher Required" (Roots
+  International) → `teaching_mode = 'Early Years Teacher'`; `JOB-TX-M6MXVCD`
+  "…English Language Teacher | Grade 4" (Beacon House) → `'Primary Teacher'`
+  (Grade 4 is primary). Jobs carry only `teaching_mode`; `job_types[]` is a
+  tutor-profiles column. No `teaching_mode='school'` rows remain.
+
+Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 · test:jobtitles
+11 · test:posttuition 10 · test:cv 14 · test:social 7 · every other suite green.

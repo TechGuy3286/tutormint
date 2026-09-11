@@ -20,6 +20,7 @@ import { formatDate } from '@/lib/datetime'
 import { jobType } from '@/lib/display'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, socialMeta } from '@/lib/seo'
+import { preferHumanTitle } from '@/lib/jobDisplayTitle'
 import { isSubjectSlug, resolveLanding } from '@/lib/landing'
 import { loadJobContact } from '@/lib/jobContact'
 import { normalisePkMobile, formatPkMobile } from '@/lib/phone'
@@ -107,14 +108,16 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     return { title: pageTitle('Tuition closed'), robots: { index: false, follow: true } }
   }
 
-  // job.title is now the composed display title (Job Type | Gender | Subject |
-  // Level | Area | City | Budget), so it already carries the place — appending
-  // " in <city>" again would double it.
-  const title = pageTitle(job.title)
+  // The PAGE <title> and JobPosting JSON-LD use the stored human headline the
+  // parent/admin wrote — a pipe-joined field list reads as a database row in a
+  // browser tab and a Google Jobs result. Falls back to the composed string only
+  // when there is no stored title (owner, 11 Sep 2026). The CARD keeps composed.
+  const pageHeadline = preferHumanTitle(job.headline, job.title)
+  const title = pageTitle(pageHeadline)
   const description = pageDescription(
     job.description?.trim()
       ? job.description.trim().slice(0, 150)
-      : `${job.title} — apply free`,
+      : `${pageHeadline} — apply free`,
   )
 
   // A FIXTURE tuition (seed parent / JOB-TRK bulk import / SEED-JOB) is noindex
@@ -172,6 +175,11 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // structured data, for a tuition that has been filled. A parent's own view
   // of their closed tuition is on their dashboard, where it can be reopened.
   if (!job || job.status !== 'open') notFound()
+
+  // The page's title/heading is the stored human headline (composed only as a
+  // fallback) — the composed field list belongs on the card, not on the page or
+  // in a JobPosting result. The card component (JobCard) is unaffected.
+  const pageHeadline = preferHumanTitle(job.headline, job.title)
 
   // The slug is the identity; the city segment is a label. A stale one is
   // corrected rather than 404'd, so a link shared before the parent fixed
@@ -262,10 +270,10 @@ export default async function TuitionPage({ params }: { params: Params }) {
           dangerouslySetInnerHTML={jsonLdScript(
             jobPostingJsonLd({
               url,
-              title: job.title,
+              title: pageHeadline,
               description:
                 job.description?.trim() ||
-                `${job.title}. ${
+                `${pageHeadline}. ${
                   job.posted_by_team
                     ? 'Posted by the TutorMint team.'
                     : 'Posted by a verified parent on TutorMint.'
@@ -292,7 +300,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
                 },
               ]
             : []),
-          { label: job.title },
+          { label: pageHeadline },
         ]}
       />
 
@@ -314,7 +322,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
         )}
 
         <header className="space-y-2 pr-16 sm:pr-20">
-          <h1 className="text-xl font-black leading-snug text-tm-navy sm:text-2xl">{job.title}</h1>
+          <h1 className="text-xl font-black leading-snug text-tm-navy sm:text-2xl">{pageHeadline}</h1>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
             <Clock size={12} aria-hidden className="shrink-0" />
             <TimeAgo iso={job.created_at} />
@@ -407,7 +415,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
           <div className="border-t border-gray-100 pt-4">
             <ApplyPanel
               jobId={job.id}
-              title={job.title}
+              title={pageHeadline}
               signedIn={!!user}
               applied={applied}
               underReview={!!job.under_review}

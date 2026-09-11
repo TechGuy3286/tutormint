@@ -203,7 +203,11 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       job_tx_id: (j.job_tx_id as string) ?? null,
       public_slug: (j.public_slug as string) ?? null,
       status: (j.status as string) ?? 'open',
+      // CARD title: the composed field list.
       title: composedTitle || (j.title as string) || 'Tuition required',
+      // PAGE title: the stored human headline (or null → page falls back to the
+      // composed string via preferHumanTitle).
+      headline: (j.title as string | null)?.trim() || null,
       // Fall back to the legacy text column for jobs posted before the join
       // table existed, so old posts still show what they are for.
       subjects,

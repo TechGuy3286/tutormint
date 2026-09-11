@@ -14,7 +14,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { sortJobTitles, isOnlineTitle, keepKnownTitles, ONLINE_JOB_TITLE } from '../lib/jobTitlesCore'
-import { jobDisplayTitle } from '../lib/jobDisplayTitle'
+import { jobDisplayTitle, preferHumanTitle } from '../lib/jobDisplayTitle'
 import { parseMode } from '../lib/locations'
 import { matchVisibility } from '../lib/matchChip'
 import { jobType } from '../lib/display'
@@ -107,6 +107,40 @@ test('the composed card title omits missing optional segments cleanly', () => {
   assert.equal(jobDisplayTitle({ jobType: 'Principal', gender: '', budget: null }), 'Principal')
   // Nothing at all → empty string.
   assert.equal(jobDisplayTitle({}), '')
+})
+
+test('page surfaces use the stored human headline, card uses composed (owner, 11 Sep)', () => {
+  // The SAME job: the card shows the composed field list; the page <title> and
+  // JobPosting show the human-written headline the form produced.
+  const composed = jobDisplayTitle({
+    jobType: 'Primary Teacher', gender: 'Female', subject: 'Mathematics', level: 'Grade 3',
+    area: 'Gulberg', city: 'Lahore', budget: 'Rs 20,000',
+  })
+  const stored = 'Primary Maths teacher needed in Gulberg, Grade 3'
+  // Card keeps the composed string.
+  assert.match(composed, /^Primary Teacher \| Female \| Mathematics \| Grade 3 \| Gulberg \| Lahore \| Rs 20,000$/)
+  // Page prefers the stored headline over the composed row.
+  assert.equal(preferHumanTitle(stored, composed), stored)
+})
+
+test('an empty stored title falls back to the composed string on the page', () => {
+  const composed = 'Home Tutor | Physics | Lahore'
+  assert.equal(preferHumanTitle('', composed), composed)
+  assert.equal(preferHumanTitle('   ', composed), composed)
+  assert.equal(preferHumanTitle(null, composed), composed)
+  assert.equal(preferHumanTitle(undefined, composed), composed)
+  // A real stored title (with surrounding space) is trimmed and preferred.
+  assert.equal(preferHumanTitle('  Early Years Teacher Required  ', composed), 'Early Years Teacher Required')
+})
+
+test('the two corrected school jobs match tutors who selected those titles', () => {
+  // JOB-TX-5MCHM5U -> Early Years Teacher, JOB-TX-M6MXVCD -> Primary Teacher.
+  assert.equal(matchVisibility('Early Years Teacher', 'Lahore', ['Early Years Teacher'], 'Lahore'), 'same_city')
+  assert.equal(matchVisibility('Primary Teacher', 'Lahore', ['Primary Teacher', 'Home Tutor'], 'Lahore'), 'same_city')
+  // A tutor who did not select the title is not matched.
+  assert.equal(matchVisibility('Early Years Teacher', 'Lahore', ['Home Tutor'], 'Lahore'), 'exclude')
+  // Both are location-bound (not online), so a different city excludes.
+  assert.equal(matchVisibility('Primary Teacher', 'Lahore', ['Primary Teacher'], 'Karachi'), 'exclude')
 })
 
 test('parseMode maps legacy codes to titles and passes real titles through', () => {

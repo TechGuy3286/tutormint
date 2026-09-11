@@ -41,7 +41,15 @@ export type JobCardData = {
   /** The public tuition page's address. Set once at posting, never changes. */
   public_slug: string | null
   status: string
+  /** The CARD title — the composed "Job Title | Gender | Subject | …" string. */
   title: string
+  /**
+   * The stored human-written / AI-generated headline (jobs.title). Used by the
+   * PAGE surfaces (the tuition page <title>, its heading, JobPosting JSON-LD),
+   * which read as a database row if given the composed string. Absent/null when
+   * the job has no stored title, in which case those surfaces fall back to `title`.
+   */
+  headline?: string | null
   subjects: string[] | null
   /**
    * The same subjects with their taxonomy_master ids, so each chip links to

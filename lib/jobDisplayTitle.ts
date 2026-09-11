@@ -45,3 +45,19 @@ export function jobDisplayTitle(parts: JobTitleParts): string {
     .filter(Boolean)
     .join(' | ')
 }
+
+/**
+ * Which title a PAGE surface (the tuition page <title>, its heading, the
+ * JobPosting structured data) shows: the human-written / AI-generated headline
+ * the parent or admin actually wrote (`stored`), falling back to the composed
+ * field list only when there is no stored title. The pipe-joined composed string
+ * is right for the compact CARD but reads as a database row in a page title or a
+ * Google Jobs result, so the human headline wins there (owner, 11 Sep 2026).
+ */
+export function preferHumanTitle(
+  stored: string | null | undefined,
+  composed: string,
+): string {
+  const s = (stored ?? '').trim()
+  return s || composed
+}
