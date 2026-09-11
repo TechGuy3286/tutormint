@@ -241,45 +241,17 @@ test('getSmsProvider: prefers SMS Point when its env is set', async () => {
   assert.equal(getSmsProvider().name, 'smspoint')
 })
 
-// ---------------------------------------------------- per-number send caps ---
+// ------------------------------------------------ one SMS per number (rule) ---
+// The per-number cooldown/hour/day caps were replaced by "one live code per
+// number" (owner, 11 Sep 2026). The pure decision (codeStillLive /
+// pendingSendDecision) is tested in test-auth-trust; here we only assert the
+// rule's shape survives — a live code is reused, an expired one is not.
 
-test('sendCapDecision: the per-number DAILY cap holds', async () => {
-  const { sendCapDecision, MAX_SENDS_PER_DAY } = await import('../lib/otp')
+test('codeStillLive: the one-live-code rule that governs a resend', async () => {
+  const { codeStillLive } = await import('../lib/pendingSignupCore')
   const now = Date.now()
-  // MAX_SENDS_PER_DAY sends, each in its own hour so the hourly cap is not what
-  // trips — the daily ceiling is.
-  const atCap = Array.from({ length: MAX_SENDS_PER_DAY }, (_, i) => now - (i + 2) * 60 * 60 * 1000)
-  const v = sendCapDecision(atCap, now)
-  assert.equal(v.ok, false)
-  if (!v.ok) assert.equal(v.reason, 'day')
-
-  // One fewer, all spread across separate hours and well past the cooldown → ok.
-  const v2 = sendCapDecision(atCap.slice(1), now)
-  assert.equal(v2.ok, true)
-})
-
-test('sendCapDecision: the hourly burst cap binds within the daily budget', async () => {
-  const { sendCapDecision, MAX_SENDS_PER_HOUR } = await import('../lib/otp')
-  const now = Date.now()
-  // MAX_SENDS_PER_HOUR sends all inside the last hour (spaced past the cooldown).
-  const inHour = Array.from({ length: MAX_SENDS_PER_HOUR }, (_, i) => now - (i * 6 + 6) * 60 * 1000)
-  const v = sendCapDecision(inHour, now)
-  assert.equal(v.ok, false)
-  if (!v.ok) assert.equal(v.reason, 'hour')
-})
-
-test('sendCapDecision: the 5-minute cooldown carries a countdown', async () => {
-  const { sendCapDecision } = await import('../lib/otp')
-  const now = Date.now()
-  // One recent send, two minutes ago → still cooling down, with seconds left.
-  const v = sendCapDecision([now - 2 * 60 * 1000], now)
-  assert.equal(v.ok, false)
-  if (!v.ok) {
-    assert.equal(v.reason, 'cooldown')
-    assert.ok((v.retryAfterSeconds ?? 0) > 0)
-  }
-  // A send six minutes ago is past the 5-minute cooldown → ok.
-  assert.equal(sendCapDecision([now - 6 * 60 * 1000], now).ok, true)
+  assert.equal(codeStillLive(now + 60_000, now), true) // outstanding → reuse, no SMS
+  assert.equal(codeStillLive(now - 1, now), false) //     expired → a new SMS may go
 })
 
 // ----------------------------------------------------------- otp safety ---

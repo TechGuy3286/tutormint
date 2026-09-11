@@ -8,22 +8,25 @@ import SubmitEscape from '@/components/SubmitEscape'
 import { formatPkMobile } from '@/lib/phone'
 import { useToast } from '@/components/ui/Toast'
 
-// The code entry itself.
+// The code entry itself — the AUTHENTICATED gate (a legacy mobile-first account,
+// or a bridge-verified one re-verifying once the real provider lands). The
+// pre-auth signup flow uses PendingVerifyForm; this is only reached with a
+// session.
 //
-// Three things a person stuck on this screen might need, all reachable without
-// leaving it: enter the code, ask for another one, or correct the number they
-// typed at signup. Without the third, a single mistyped digit at signup is
-// unrecoverable — the code goes to a stranger's handset and this page can
-// never be passed.
+// Three things a person here might need, all reachable without leaving the page:
+// enter the code, ask for one (the account may arrive with none — bridge
+// re-verify sends nothing until asked), or correct the number they typed.
+//
+// ONE SMS PER NUMBER (owner, 11 Sep 2026). There is no server-side resend
+// cooldown any more: pressing Send when a live code already exists sends nothing
+// and says "already sent". So the button is available immediately (a re-verify
+// has no code yet), with only a short client debounce after a send to stop a
+// double-tap.
 //
 // On success it routes straight to the dashboard. Never to /login: the member
-// has been signed in since the moment the account was created, and bouncing
-// them to a sign-in form would ask them to prove something they just proved.
-
-// Five minutes (owner, Sunday 6 Sep). The button shows a live mm:ss countdown
-// and re-enables itself when it reaches zero; the server enforces the same
-// window (lib/otp RESEND_COOLDOWN_MS), so this is presentation of a real limit.
-const RESEND_COOLDOWN_SECONDS = 5 * 60
+// has a session, and bouncing them to sign-in would ask them to prove something
+// they just proved.
+const RESEND_DEBOUNCE_SECONDS = 60
 
 function mmss(total: number): string {
   const m = Math.floor(total / 60)
@@ -42,14 +45,15 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
   const [locked, setLocked] = useState(false)
   const [stuckHref, setStuckHref] = useState<string | null>(null)
 
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS)
+  const [cooldown, setCooldown] = useState(0)
   const [changing, setChanging] = useState(false)
   const [newMobile, setNewMobile] = useState('')
   const [currentMobile, setCurrentMobile] = useState(mobile)
 
-  // A code was sent when the account was created, so the countdown starts on
-  // arrival rather than at zero — otherwise the first thing the screen offers
-  // is a second message nobody needs.
+  // Starts at zero: the account may have no live code (a bridge re-verify sends
+  // none until asked), so Send must be available immediately. The debounce is
+  // set only AFTER a send, to stop a double-tap — the server enforces one SMS
+  // per number regardless.
   useEffect(() => {
     if (cooldown <= 0) return
     const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
@@ -109,16 +113,16 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
     const data = await res.json().catch(() => ({}))
 
     if (!res.ok) {
-      setError(data.error ?? 'Could not send a new code.')
-      if (typeof data.retryAfterSeconds === 'number') setCooldown(data.retryAfterSeconds)
+      setError(data.error ?? 'Could not send a code.')
     } else {
       setLocked(false)
-      setCode('')
-      setCooldown(RESEND_COOLDOWN_SECONDS)
+      setCooldown(RESEND_DEBOUNCE_SECONDS)
       setNotice(
         data.devBypassActive
           ? 'Development mode: use the configured test code.'
-          : 'A new code is on its way.',
+          : data.alreadySent
+            ? 'We already sent a code to this number. Please use it.'
+            : 'A new code is on its way.',
       )
     }
     setBusy(false)
@@ -148,11 +152,13 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
     setNewMobile('')
     setCode('')
     setLocked(false)
-    setCooldown(RESEND_COOLDOWN_SECONDS)
+    setCooldown(RESEND_DEBOUNCE_SECONDS)
     setNotice(
       data.codeSent === false
-        ? 'Number updated, but the code could not be sent. Try Resend in a moment.'
-        : `Code sent to ${formatPkMobile(data.mobile)}.`,
+        ? 'Number updated, but the code could not be sent. Try again in a moment.'
+        : data.alreadySent
+          ? `We already sent a code to ${formatPkMobile(data.mobile)}. Please use it.`
+          : `Code sent to ${formatPkMobile(data.mobile)}.`,
     )
     setBusy(false)
   }

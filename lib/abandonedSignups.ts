@@ -5,23 +5,27 @@ import { isSyntheticEmail } from '@/lib/phone'
 
 // Abandoned signups — accounts that started but never crossed the line.
 //
-// Three stages a signup gets stuck at, each with a different next step:
+// Two stages a signup gets stuck at, each with a different next step:
 //   'email_unconfirmed'  — signed up with an EMAIL, never clicked the link
 //                          (auth.users.email_confirmed_at is null).
-//   'mobile_unverified'  — signed up with a MOBILE, never entered the OTP
-//                          (phone_gate_required && !phone_verified_at).
 //   'profile_unfinished' — verified, but profile_completion never reached 100.
+//
+// The 'mobile_unverified' stage is GONE (owner, 11 Sep 2026). A mobile signup no
+// longer creates an account until the code verifies — the draft lives in
+// pending_signups and is discarded if it never verifies — so there is no
+// unverified-mobile account row left to nudge, and a category that is always
+// empty is worse than none.
 //
 // email_confirmed_at is not a profiles column — it lives on auth.users and is
 // readable only through the Auth admin API (same as lib/adminOrphans). So this
 // enumerates auth users once and joins the profiles rows to classify.
 //
-// The CHANNEL is the one the member gave: a mobile signup is reached on
-// WhatsApp, an email signup by email. Never the other way round — a synthetic
+// The CHANNEL is the one the member gave: a (verified) mobile signup is reached
+// on WhatsApp, an email signup by email. Never the other way round — a synthetic
 // <msisdn>@users.tutormint.org address accepts no mail, and an email-only member
 // has no mobile to WhatsApp.
 
-export type SignupStage = 'email_unconfirmed' | 'mobile_unverified' | 'profile_unfinished'
+export type SignupStage = 'email_unconfirmed' | 'profile_unfinished'
 export type OutreachChannel = 'email' | 'whatsapp'
 
 export type AbandonedSignup = {
@@ -40,7 +44,6 @@ export type AbandonedSignup = {
 
 const STAGE_TEMPLATE: Record<SignupStage, string> = {
   email_unconfirmed: 'signup_email_unconfirmed',
-  mobile_unverified: 'signup_mobile_unverified',
   profile_unfinished: 'signup_profile_unfinished',
 }
 
@@ -114,13 +117,14 @@ export async function loadAbandonedSignups(): Promise<{ rows: AbandonedSignup[];
       const createdAt = u.created_at ?? ''
 
       let stage: SignupStage | null = null
-      if (mobileSignup && !p.phone_verified_at) {
-        stage = 'mobile_unverified'
-      } else if (!mobileSignup && !emailConfirmed) {
+      if (!mobileSignup && !emailConfirmed) {
         stage = 'email_unconfirmed'
       } else if ((p.phone_verified_at || emailConfirmed) && completion < 100) {
         stage = 'profile_unfinished'
       }
+      // A legacy unverified-mobile account (mobileSignup && !phone_verified_at)
+      // now falls through to null — no such account is created any more, and the
+      // stale legacy ones are not surfaced (owner, 11 Sep 2026).
       if (!stage) continue // fully onboarded, or nothing to nudge
 
       // Channel is the one they gave. Refuse a row we could not actually reach:
@@ -160,6 +164,5 @@ export async function loadAbandonedSignups(): Promise<{ rows: AbandonedSignup[];
 
 export const STAGE_LABEL: Record<SignupStage, string> = {
   email_unconfirmed: 'Email not confirmed',
-  mobile_unverified: 'Mobile not verified',
   profile_unfinished: 'Profile unfinished',
 }

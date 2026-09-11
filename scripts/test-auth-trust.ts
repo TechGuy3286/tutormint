@@ -16,7 +16,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { bridgeStatus, bridgeOtpCode, bridgeBanner, needsBridgeReverify } from '../lib/sms'
-import { otpMatch, resendWaitSeconds, RESEND_COOLDOWN_MS } from '../lib/otp'
+import { otpMatch } from '../lib/otp'
+import {
+  codeStillLive,
+  pendingSendDecision,
+  classifyPendingVerify,
+  PENDING_MAX_ATTEMPTS,
+} from '../lib/pendingSignupCore'
 import { applySessionPersistence, persistOffFrom } from '../lib/sessionCookies'
 import { hashCnic, blocklistHit } from '../lib/blocklistCore'
 import { normalisePkMobile } from '../lib/phone'
@@ -139,20 +145,58 @@ test('otpMatch: the dev bypass wins a tie, so a bridge value never masquerades',
   assert.equal(otpMatch('654321', null, '654321'), 'bridge')
 })
 
-// ------------------------------------------------------- resend countdown ---
+// -------------------------------------------- one SMS per number, no persist ---
+// The pure core of "nothing persisted until verified" (owner, 11 Sep 2026): a
+// live code for a number is reused (no second SMS), an expired one frees the
+// number for a fresh send, and the code entry is classified without a DB.
 
-test('resendWaitSeconds: a 5-minute countdown that reaches zero', () => {
-  assert.equal(RESEND_COOLDOWN_MS, 5 * 60 * 1000)
+test('codeStillLive: live within the window, dead past it', () => {
   const now = 1_000_000_000_000
-  // Just sent: the full five minutes remain.
-  assert.equal(resendWaitSeconds(now, now), 300)
-  // Two minutes in: three remain.
-  assert.equal(resendWaitSeconds(now - 2 * 60_000, now), 180)
-  // One second short of the cooldown: still waiting.
-  assert.equal(resendWaitSeconds(now - (RESEND_COOLDOWN_MS - 1000), now), 1)
-  // Past the cooldown: re-enabled.
-  assert.equal(resendWaitSeconds(now - RESEND_COOLDOWN_MS, now), 0)
-  assert.equal(resendWaitSeconds(now - 10 * 60_000, now), 0)
+  assert.equal(codeStillLive(now + 1, now), true)
+  assert.equal(codeStillLive(now + 5 * 60 * 1000, now), true)
+  assert.equal(codeStillLive(now, now), false)
+  assert.equal(codeStillLive(now - 1, now), false)
+})
+
+test('pendingSendDecision: a live code is reused (no second SMS)', () => {
+  const now = 1_000_000_000_000
+  // A second attempt while a code is still outstanding sends nothing.
+  assert.deepEqual(pendingSendDecision({ expiresAtMs: now + 4 * 60 * 1000 }, now), { action: 'reuse' })
+})
+
+test('pendingSendDecision: an expired row frees the number for one new SMS', () => {
+  const now = 1_000_000_000_000
+  // Expired outstanding code → the next attempt sends exactly one new message.
+  assert.deepEqual(pendingSendDecision({ expiresAtMs: now - 1 }, now), { action: 'send' })
+  // No row at all → send.
+  assert.deepEqual(pendingSendDecision(null, now), { action: 'send' })
+})
+
+test('classifyPendingVerify: match creates, wrong counts down, cap and expiry burn', () => {
+  const now = 1_000_000_000_000
+  const live = now + 5 * 60 * 1000
+
+  // Correct code within the window → ok (the caller then creates the account).
+  assert.deepEqual(classifyPendingVerify({ matched: true, expiresAtMs: live, attempts: 0, nowMs: now }), {
+    state: 'ok',
+  })
+
+  // Wrong code → attempts left decreases toward the cap.
+  assert.deepEqual(classifyPendingVerify({ matched: false, expiresAtMs: live, attempts: 0, nowMs: now }), {
+    state: 'wrong',
+    attemptsLeft: PENDING_MAX_ATTEMPTS - 1,
+  })
+
+  // At the attempt cap → locked (burned; start over).
+  assert.deepEqual(
+    classifyPendingVerify({ matched: false, expiresAtMs: live, attempts: PENDING_MAX_ATTEMPTS, nowMs: now }),
+    { state: 'locked' },
+  )
+
+  // Past expiry, even a correct code → expired (the number is free again).
+  assert.deepEqual(classifyPendingVerify({ matched: true, expiresAtMs: now - 1, attempts: 0, nowMs: now }), {
+    state: 'expired',
+  })
 })
 
 // ----------------------------------------------------------- remember me ---

@@ -74,7 +74,7 @@ export async function POST(request: Request) {
 
     if (!result.ok) {
       return NextResponse.json(
-        { error: result.error, detail: result.detail, retryAfterSeconds: result.retryAfterSeconds },
+        { error: result.error, detail: result.detail },
         { status: result.status },
       )
     }
@@ -82,9 +82,14 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       devBypassActive: result.devBypassActive,
+      // One SMS per number: when a live code already exists none is sent, and we
+      // say so plainly rather than pretending a new message went out.
+      alreadySent: result.alreadySent,
       message: result.devBypassActive
         ? 'Development mode: use the configured DEV_DEFAULT_OTP code.'
-        : 'Verification code sent.',
+        : result.alreadySent
+          ? 'We already sent a code to this number. Please use it.'
+          : 'Verification code sent.',
     })
   }
 

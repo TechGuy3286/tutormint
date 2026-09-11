@@ -48,6 +48,7 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 - `demo_requests` — `id`, `parent_id`, `tutor_id`, `mode ('online'|'in_person')`, `scheduled_at`, `status`, `created_at`; `demo_feedback` — the rating that follows one, joined by `demo_feedback.demo_request_id`. **Both are canonical**; neither was retired.
 - `reviews` — `id`, `tutor_id`, `parent_id`, `rating`, `comment`, `created_at`
 - `phone_otps` — `phone`, `purpose ('verify'|'reset')`, `code`, `expires_at`, `consumed_at`, `attempts`
+- `pending_signups` (migration 75) — the draft of an UNVERIFIED mobile signup, held until the code verifies so NOTHING is persisted (no auth user, no `profiles` row, no synthetic `<msisdn>@users.tutormint.org`) for a signup that never completes: `token` (pk, also in the httpOnly `tm_pending_signup` cookie), `role`, `full_name`, `mobile`, `password_hash` (BCRYPT, never plaintext — the account is created with GoTrue admin `password_hash`), `code`, `utm`, `attempts`, `created_at`, `expires_at` (`created_at + 10 min`). Service-role only: RLS on with NO policies (the `phone_otps` pattern). Read/written via `lib/pendingSignup.ts`; the account is created from this row by `verifyPendingSignup()` on `/api/auth/register/verify`, and the session is minted with a magic-link token so no plaintext is needed. The duplicate-mobile check at signup reads real `profiles`, never this table.
 - `user_activity_log` — the member timeline (see that section). `admin_audit_log` — every admin mutation. `user_blocks`, `penalties_log`, `profile_views`, `academy_affiliations`, `tutor_slots` — kept and wired per their tasks.
 - `advertisements` + `ad_events` — see the advertisements spec. `app_settings` — support contact, pay details, `{{COMPANY_REG_NO}}`, `{{COMPANY_NTN}}`.
 - `admin_messages` (migration 58) — the official TutorMint Team ↔ member channel: `id`, `member_id`, `direction ('out'|'in')`, `admin_id` (who sent an 'out'; never shown to the member), `template_key`, `body`, `read_at`, `created_at`. A DEDICATED store, deliberately NOT `threads`, so the "no chat-browsing screen" line holds by construction. Read at `/admin/inbox` and, for the member, in the role inbox's pinned Team row (Part 5). RLS: `member_id = auth.uid() or is_admin()`; every write is a server path.
@@ -4647,3 +4648,67 @@ INSERT, not a code change and a redeploy.
 Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 185/185 · test:locations
 6 (city sort; every city → its own areas; unknown city → empty; case-insensitive
 resolve; curated vs free-text; free-text round trip) · every other suite green.
+
+## One OTP per number, nothing persisted until verified (owner, 11 Sep 2026)
+
+At 4.80 PKR a message, resends are real money, so the old flow (create the
+account first, hold it at /verify-phone, resend every 5 min / 5 an hour / 6 a
+day) is replaced. Migration 75.
+
+- **A mobile signup persists NOTHING until the code verifies.** `/api/auth/register`
+  (mobile branch) creates no auth user, no `profiles` row and no synthetic
+  `<msisdn>@users.tutormint.org` — it stores the draft (name, role, BCRYPT-hashed
+  password, mobile, utm) in a short-lived `pending_signups` row keyed by an
+  httpOnly `tm_pending_signup` cookie, and sends exactly ONE SMS. The account is
+  created only when the code is entered, by `verifyPendingSignup()` on
+  **`/api/auth/register/verify`**. Until then the number is free and
+  re-registering is allowed. The email branch and the confirmation-link flow are
+  UNCHANGED (that account is still created unconfirmed at register).
+- **The password is never stored in the clear.** It is bcrypt-hashed at register
+  (`lib/pendingSignup.ts`, `bcryptjs`) and the account is created with GoTrue's
+  admin `password_hash`; the session is then minted with a magic-link token
+  (`generateLink({type:'magiclink'})` → `verifyOtp({token_hash})`, the staff-invite
+  mechanism), so the plaintext is needed nowhere after the register form. All
+  three — createUser(password_hash), signInWithPassword against the hash, and the
+  magic-link session — were verified against the live project (create + delete).
+- **ONE SMS PER NUMBER PER ATTEMPT, no resend button.** A live code (unconsumed,
+  unexpired) for a number means one is outstanding: a second attempt sends
+  nothing and says *"We already sent a code to this number. Please use it."* The
+  per-number cooldown/hour/day caps are GONE — the 10-minute code TTL IS the
+  resend interval: when it lapses the row is dead (every read filters on
+  `expires_at`), the number is free, and starting over sends one new SMS. This
+  rule is shared: `sendOtp` (signed-in verification, `phone_otps`) and
+  `startPendingSignup` (pre-auth, `pending_signups`) both apply it, and
+  `deliverCode()` in `lib/otp.ts` is the one dev-bypass/bridge/provider dispatch.
+  The per-IP caps (`otp_send`, `otp_verify`, `register`) still stop one actor
+  burning the balance across many numbers.
+- **The fallback is EMAIL, not a resend.** `/verify-phone` (pending mode) offers
+  *"Sign up with your email instead"* — a free path that already works — plus the
+  note that a mobile can be added and verified later from Settings, and is only
+  required to be LISTED in search. The human WhatsApp/email support fallback
+  stays alongside it (a code can still fail to arrive).
+- **/verify-phone serves two modes.** PRE-AUTH pending signup (reads the cookie,
+  no session; `PendingVerifyForm`, no resend, email fallback, "start over" on an
+  expired/locked code) and the AUTHENTICATED gate (a legacy mobile-first account,
+  or a bridge account re-verifying once the provider lands; `VerifyPhoneForm`,
+  now with no client cooldown-on-load so a code can be requested immediately and
+  the one-SMS rule surfaced as "already sent").
+- **The pure decisions are unit-tested** (`lib/pendingSignupCore.ts`,
+  `test:authtrust`): `codeStillLive`, `pendingSendDecision` (a live code is
+  reused / an expired one frees the number), `classifyPendingVerify` (match →
+  create, wrong → count down, cap → locked, expiry → start over). The DB
+  integration (insert/verify/create-once, the per-IP cap) rests on those cores
+  plus the live create/login/magic-link check and code review — no browser was
+  driven.
+- **Consequences handled.** `/admin/signups` loses its "mobile never verified"
+  category (`lib/abandonedSignups.ts` — those rows no longer exist); email-not-
+  confirmed and verified-but-under-100% are unchanged. Draft preservation across
+  signup still works (the final redirect honours `next`; sessionStorage survives
+  the client navigations). Mobile-verify-from-settings (an email account adding a
+  number, via `/api/auth/otp` / `/api/auth/phone`) follows the same one-SMS rule.
+  Expired pending rows are swept on the daily cron (`expirePendingSignups()`),
+  and are dead by time regardless. `pending_signups` is on rls-audit's
+  NO_POLICY_OK (service-role only).
+
+Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 187/187 · test:authtrust
+35 · test:delivery 22 · every other suite green.

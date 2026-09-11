@@ -25,93 +25,105 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSmsProvider, devOtpCode, bridgeOtpCode } from '@/lib/sms'
+import { codeStillLive } from '@/lib/pendingSignupCore'
 
 export type OtpPurpose = 'verify' | 'reset'
 
 export const CODE_TTL_MS = 10 * 60 * 1000
 export const MAX_ATTEMPTS = 5
-// Five minutes (owner, Sunday 6 Sep): Resend sits behind a visible countdown
-// and auto-reactivates. The 10-minute code TTL outlives one cooldown, so a
-// member always has a live code while they wait to resend.
-export const RESEND_COOLDOWN_MS = 5 * 60 * 1000
-export const MAX_SENDS_PER_HOUR = 5
-// Per-number DAILY cap (Part 7 stage 2). Every send costs Re 1 from a prepaid
-// balance the provider gives no way to check, and delivery is undetectable — so
-// an uncapped resend is someone else's bill and a silent outage when the credit
-// runs dry. Set one ABOVE the hourly burst cap so both bind independently: the
-// hourly cap (5) limits a burst within any hour, the daily cap (6) is the day's
-// cost ceiling — Rs 6 per number per day, worst case. Six is generous for a real
-// member (the 5-minute cooldown and 10-minute code TTL mean a genuine verify
-// needs one or two, rarely more); it exists to stop deliberate resend-abuse and
-// balance-drain. A member who somehow exhausts it is never stuck: the
-// WhatsApp/email support fallback is ALWAYS visible on /verify-phone and the
-// completion Mobile step, not hidden behind a failure the system cannot detect.
-export const MAX_SENDS_PER_DAY = 6
 
-export type SendCapVerdict =
-  | { ok: true }
-  | { ok: false; reason: 'day' | 'hour' | 'cooldown'; retryAfterSeconds?: number }
-
-/**
- * Decide whether another code may be sent to a number, from the timestamps of
- * its recent sends. PURE (no I/O), so the caps are unit-testable with a fixed
- * `now`: sendOtp does the one query and hands the timestamps here.
- *
- * Order: the daily cost ceiling first, then the hourly burst guard, then the
- * short resend cooldown (the only one that carries a countdown, for the UI).
- */
-export function sendCapDecision(
-  priorSendsMs: number[],
-  nowMs: number,
-  cooldownMs: number = RESEND_COOLDOWN_MS,
-): SendCapVerdict {
-  const dayCount = priorSendsMs.filter((t) => t > nowMs - 24 * 60 * 60 * 1000).length
-  if (dayCount >= MAX_SENDS_PER_DAY) return { ok: false, reason: 'day' }
-
-  const hourCount = priorSendsMs.filter((t) => t > nowMs - 60 * 60 * 1000).length
-  if (hourCount >= MAX_SENDS_PER_HOUR) return { ok: false, reason: 'hour' }
-
-  if (priorSendsMs.length > 0) {
-    const wait = resendWaitSeconds(Math.max(...priorSendsMs), nowMs, cooldownMs)
-    if (wait > 0) return { ok: false, reason: 'cooldown', retryAfterSeconds: wait }
-  }
-  return { ok: true }
-}
+// ONE SMS PER NUMBER PER ATTEMPT (owner, 11 Sep 2026). At 4.80 PKR a message,
+// resends are real money, so the per-number cooldown / hourly / daily caps are
+// gone and replaced by a single rule: while a code is still LIVE for a number
+// (unconsumed and unexpired), a second send is suppressed and the member is
+// told to use the one they already have. The 10-minute code TTL IS the resend
+// interval — when it lapses the number is free and one new SMS may go. The
+// per-IP cap (otp_send / register buckets) still stops one actor burning the
+// balance across many numbers; that lives in the routes, not here.
 
 // Which path actually handled a send, made EXPLICIT so a do-nothing send can
 // never masquerade as a real one (owner). Before, the bridge branch returned a
-// bare `{ ok: true }` identical to a provider send — that is how last night's
-// signup produced a code row, no WhatsApp, and no error anywhere.
+// bare `{ ok: true }` identical to a provider send — that is how a signup once
+// produced a code row, no delivery, and no error anywhere.
 //   'provider'   — handed to the SMS provider (accepted ≠ delivered; fire-and-forget)
 //   'bridge'     — BRIDGE_OTP active and no provider: NOTHING dispatched; the
 //                  member uses the owner-distributed code
 //   'dev-bypass' — DEV_DEFAULT_OTP (non-production): nothing dispatched
-export type SmsSendChannel = 'provider' | 'bridge' | 'dev-bypass'
+//   'existing'   — a live code already exists: NOTHING dispatched, use that one
+export type SmsSendChannel = 'provider' | 'bridge' | 'dev-bypass' | 'existing'
 
 export type SendResult =
-  | { ok: true; channel: SmsSendChannel; devBypassActive: boolean; provider?: string }
+  // alreadySent:true means channel==='existing' — a live code was found and no
+  // new message went out. Otherwise a fresh code was dispatched on `channel`.
+  | { ok: true; channel: SmsSendChannel; devBypassActive: boolean; provider?: string; alreadySent: boolean }
   // A failed send (provider rejected it) AND the "no provider and no bridge"
   // case both land here — the latter is the `unconfigured` provider returning
   // ok:false, distinguishable in the logs by provider=none.
-  | { ok: false; status: number; error: string; detail?: string; retryAfterSeconds?: number }
+  | { ok: false; status: number; error: string; detail?: string }
 
 export type VerifyResult =
   | { ok: true; userId: string | null; devBypass: boolean; bridged: boolean }
   | { ok: false; status: number; error: string; attemptsLeft?: number; locked?: boolean }
 
+export type DeliverResult =
+  | { ok: true; channel: 'provider' | 'bridge' | 'dev-bypass'; devBypassActive: boolean; provider?: string }
+  | { ok: false; status: number; error: string; detail?: string }
+
 /**
- * Seconds a member must still wait before Resend re-enables — 0 when the
- * cooldown has passed. Pure, so the 5-minute countdown is unit-testable with a
- * fixed `now`: the resend button and this share one number.
+ * Dispatch a code to a number — the dev-bypass / bridge / provider decision in
+ * ONE place, shared by sendOtp (signed-in verification, phone_otps) and
+ * lib/pendingSignup.ts (pre-auth signup, pending_signups). The caller has
+ * already persisted the code in its own store; this only sends it.
+ *
+ *   - dev bypass active  → send nothing (the bypass code verifies regardless)
+ *   - bridge active AND no provider configured → send nothing (owner distributes
+ *     the shared code); marked channel:'bridge', never a bare success
+ *   - otherwise → hand it to the SMS provider (accepted ≠ delivered)
  */
-export function resendWaitSeconds(
-  lastSentAtMs: number,
-  nowMs: number,
-  cooldownMs: number = RESEND_COOLDOWN_MS,
-): number {
-  const since = nowMs - lastSentAtMs
-  if (since >= cooldownMs) return 0
-  return Math.ceil((cooldownMs - since) / 1000)
+export async function deliverCode(
+  phone: string,
+  code: string,
+  purpose: OtpPurpose,
+): Promise<DeliverResult> {
+  // Dev bypass: nothing to deliver, and no bill run up.
+  if (devOtpCode()) {
+    reportSend({ purpose, phone, channel: 'dev-bypass', ok: true })
+    return { ok: true, channel: 'dev-bypass', devBypassActive: true }
+  }
+
+  const provider = getSmsProvider()
+
+  // Bridge is live only WHILE there is no real provider. Nothing is sent; the
+  // member enters the owner-distributed bridge code.
+  if (bridgeOtpCode() && !provider.isConfigured()) {
+    reportSend({ purpose, phone, channel: 'bridge', ok: true })
+    return { ok: true, channel: 'bridge', devBypassActive: false }
+  }
+
+  const sent = await provider.send(
+    phone,
+    `Your TutorMint verification code is ${code}. It expires in 10 minutes.`,
+  )
+
+  reportSend({
+    purpose,
+    phone,
+    channel: 'provider',
+    provider: provider.name,
+    ok: sent.ok,
+    id: sent.ok ? sent.id ?? undefined : undefined,
+    error: sent.ok ? undefined : sent.error,
+  })
+
+  if (!sent.ok) {
+    return {
+      ok: false,
+      status: 502,
+      error: 'Could not send the verification code right now.',
+      detail: sent.error,
+    }
+  }
+  return { ok: true, channel: 'provider', devBypassActive: false, provider: provider.name }
 }
 
 /**
@@ -154,31 +166,25 @@ export async function sendOtp(opts: {
 
   const now = Date.now()
 
-  // Per-number budget: a daily cost ceiling, an hourly burst guard, and the
-  // 5-minute resend cooldown — all decided by sendCapDecision from one 24h read.
-  // The route also rate-limits per IP: the per-number caps stop a single number
-  // being spammed (and cap what one number can cost), the per-IP cap stops a
-  // script walking a LIST of numbers, and only the second is a different money
-  // threat. Every send here is a real Re 1 with no delivery receipt.
-  const { data: recent } = await admin
+  // ONE SMS PER NUMBER: is there already a LIVE code (unconsumed, unexpired) for
+  // this number and purpose? If so, send nothing and tell the caller to use it.
+  // This is the per-number money guard, replacing the old cooldown/hour/day
+  // caps; the per-IP cap on the route stops a script walking a list of numbers.
+  const { data: existing } = await admin
     .from('phone_otps')
-    .select('created_at')
+    .select('expires_at')
     .eq('phone', opts.phone)
     .eq('purpose', opts.purpose)
-    .gte('created_at', new Date(now - 24 * 60 * 60 * 1000).toISOString())
+    .is('consumed_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  const verdict = sendCapDecision(
-    (recent ?? []).map((r) => new Date(r.created_at as string).getTime()),
-    now,
-  )
-  if (!verdict.ok) {
-    const error =
-      verdict.reason === 'day'
-        ? 'You have requested the most codes we allow for this number today. Try again tomorrow, or message support to verify your number.'
-        : verdict.reason === 'hour'
-          ? 'Too many codes requested for this number. Try again in an hour.'
-          : `Please wait ${verdict.retryAfterSeconds}s before requesting another code.`
-    return { ok: false, status: 429, error, retryAfterSeconds: verdict.retryAfterSeconds }
+  if (existing && codeStillLive(new Date(existing.expires_at as string).getTime(), now)) {
+    reportSend({ purpose: opts.purpose, phone: opts.phone, channel: 'existing', ok: true })
+    // devBypassActive still surfaced so a dev environment shows the test-code
+    // hint even when a live code is being reused.
+    return { ok: true, channel: 'existing', devBypassActive: !!devOtpCode(), alreadySent: true }
   }
 
   const code = String(Math.floor(100000 + Math.random() * 900000))
@@ -196,63 +202,16 @@ export async function sendOtp(opts: {
     return { ok: false, status: 500, error: insertError.message }
   }
 
-  // With the dev bypass active there is nothing to deliver: the bypass code
-  // verifies regardless, so no SMS is attempted and no bill is run up.
-  if (devOtpCode()) {
-    reportSend({ purpose: opts.purpose, phone: opts.phone, channel: 'dev-bypass', ok: true })
-    return { ok: true, channel: 'dev-bypass', devBypassActive: true }
+  const delivered = await deliverCode(opts.phone, code, opts.purpose)
+  if (!delivered.ok) return delivered
+
+  return {
+    ok: true,
+    channel: delivered.channel,
+    devBypassActive: delivered.devBypassActive,
+    provider: delivered.provider,
+    alreadySent: false,
   }
-
-  const provider = getSmsProvider()
-
-  // The bridge is live only WHILE there is no real provider (it exists to fill
-  // exactly that gap). So when a bridge code is set and no provider is
-  // configured, there is nothing to send — the member enters the bridge code
-  // the owner gave them. If a real provider IS configured, fall through and
-  // send the real SMS; the bridge code still verifies as a backstop.
-  //
-  // This is the do-nothing path the owner flagged: it returns ok:true but marks
-  // channel:'bridge' (never a bare success) AND logs that no message went out,
-  // so a bridge-active-no-provider deployment is VISIBLE in the runtime logs
-  // rather than looking identical to a delivered code.
-  if (bridgeOtpCode() && !provider.isConfigured()) {
-    reportSend({ purpose: opts.purpose, phone: opts.phone, channel: 'bridge', ok: true })
-    return { ok: true, channel: 'bridge', devBypassActive: false }
-  }
-
-  const sent = await provider.send(
-    opts.phone,
-    `Your TutorMint verification code is ${code}. It expires in 10 minutes.`,
-  )
-
-  // Log every provider outcome — success (accepted, NOT confirmed delivered) and
-  // failure alike. provider=none is the "no provider and no bridge" case (the
-  // unconfigured provider returning ok:false); provider=smspoint ok=false is a
-  // real rejection. Either way it is now a line in the log, where before there
-  // was silence. The error text is the provider's own (carries no number/code).
-  reportSend({
-    purpose: opts.purpose,
-    phone: opts.phone,
-    channel: 'provider',
-    provider: provider.name,
-    ok: sent.ok,
-    // The provider's message id (SendPK's UUID) when it returned one, so a
-    // delivered send is traceable to the provider's own record from this line.
-    id: sent.ok ? sent.id ?? undefined : undefined,
-    error: sent.ok ? undefined : sent.error,
-  })
-
-  if (!sent.ok) {
-    // Never claim success when nothing was sent.
-    return {
-      ok: false,
-      status: 502,
-      error: 'Could not send the verification code right now.',
-      detail: sent.error,
-    }
-  }
-
-  return { ok: true, channel: 'provider', devBypassActive: false, provider: provider.name }
 }
 
 /**

@@ -112,6 +112,10 @@ const NO_POLICY_OK: Record<string, string> = {
   _t1_unmigrated_rows: 'T1 migration receipt',
   _t2_remapped_subjects: 'T2 migration receipt',
   phone_otps: 'OTP codes: written and consumed by the server only, never read by a client',
+  pending_signups:
+    'unverified mobile signup drafts (migration 75): a bcrypt password hash and a live code, ' +
+    'written and read by the server only. No client key may touch it — the account is created ' +
+    'from this row when the code verifies.',
   ad_events: 'impressions and clicks: server-written, admin-read via the service role',
   tutor_rank_snapshots:
     'where each tutor stood the last time the position widget ran, one row each. ' +

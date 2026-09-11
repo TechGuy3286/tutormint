@@ -91,19 +91,20 @@ export default function RegisterForm({ next }: { next?: string }) {
       return
     }
 
-    // The server tells us where to go: /verify-phone for the mobile path (the
-    // account is signed in and a code is on its way), /verify-email for the
-    // email path (an unconfirmed account, a link on its way). Only the mobile
-    // path carries `next` forward — the email path breaks the session until the
-    // link is clicked, so there is nothing to hand back yet.
+    // The server tells us where to go: /verify-phone for the mobile path (NO
+    // account yet — a pending draft and one SMS; entering the code creates the
+    // account), /verify-email for the email path (an unconfirmed account, a link
+    // on its way). Only the mobile path carries `next` forward — the email path
+    // breaks the session until the link is clicked, so there is nothing to hand
+    // back yet.
     const target = data?.next === '/verify-phone' && next
       ? `/verify-phone?next=${encodeURIComponent(next)}`
       : (data?.next ?? '/verify-phone')
 
-    // The account exists at this point. If the navigation does not take, the
-    // member must not be left watching a spinner on a form they have already
-    // successfully submitted -- pressing it again would only tell them the
-    // number is taken, by themselves.
+    // The request succeeded — a pending draft (mobile) or an unconfirmed account
+    // (email) now exists. If the navigation does not take, the member must not be
+    // left watching a spinner on a form they have already submitted; re-pressing
+    // would only start a second attempt. The SubmitEscape link carries them on.
     armEscape(() => {
       setLoading(false)
       setStuckHref(target)

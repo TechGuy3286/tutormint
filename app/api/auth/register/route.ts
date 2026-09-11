@@ -6,37 +6,29 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile, syntheticEmail, looksLikeEmail } from '@/lib/phone'
 import { parseBody, z } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
-import { sendOtp } from '@/lib/otp'
 import { bridgeStatus } from '@/lib/sms'
 import { checkBlocklist } from '@/lib/blocklist'
-import { homeForRole } from '@/lib/authRoutes'
 import { ensureProfile } from '@/lib/ensureProfile'
+import { startPendingSignup, PENDING_COOKIE } from '@/lib/pendingSignup'
+import { CODE_TTL_MS } from '@/lib/otp'
 
-// Mobile-first signup.
+// Signup.
 //
-// The account is created HERE rather than in the browser, for three reasons
-// the client cannot satisfy:
+// EMAIL PATH: the account is created here (unconfirmed, no session) and Supabase
+// sends a confirmation link — see that branch below.
 //
-//   1. An account with no email address needs the synthetic one derived from
-//      the number (<msisdn>@users.tutormint.org) — the same derivation the
-//      bulk import and /api/auth/login use, from the same lib/phone function.
-//      If the three ever disagreed by a dash, the member could never sign in
-//      and nothing would say why.
+// MOBILE PATH (owner, 11 Sep 2026): NOTHING is persisted until the code
+// verifies. This route creates no auth user and no profiles row — it stores the
+// draft in a short-lived pending_signups row (bcrypt-hashed password) keyed by a
+// token in an httpOnly cookie, and sends exactly ONE SMS. The account is created
+// only when the code is entered (/api/auth/register/verify). Until then the
+// number is free and re-registering is allowed. This lives on the server, not
+// the browser, because the synthetic-email derivation, the duplicate check
+// across all profiles, and the SMS send all need the service role.
 //
-//   2. The duplicate-mobile check reads profiles across all rows, which the
-//      anon key cannot and must not be able to do.
-//
-//   3. The account is created with the email already confirmed. Every account
-//      made here has a mobile, and the mobile is what gets verified — so the
-//      confirmation email is not just unnecessary, for a synthetic address it
-//      would be a message posted to a domain that accepts no mail. Supabase's
-//      "Confirm email" setting is project-wide and cannot make that
-//      distinction, so the admin API makes it instead.
-//
-// The member is signed in immediately and a code is sent to their mobile.
-// Until profiles.phone_verified_at is set, proxy.ts holds them on
-// /verify-phone. See supabase/migrations/29 for why the gate needs its own
-// flag rather than reading phone_verified_at alone.
+// ONE SMS PER NUMBER PER ATTEMPT: if a live code is already outstanding for the
+// number this returns alreadySent and sends no second message. The 10-minute
+// code TTL is the resend interval.
 
 const RegisterBody = z.object({
   role: z.enum(['tutor', 'parent'], { message: 'Choose whether you are a tutor or a parent.' }),
@@ -206,8 +198,10 @@ export async function POST(request: Request) {
   // the alternative is a form that appears to work and produces no account,
   // and it is the disclosure every signup form makes.
   //
-  // phone_number has been free text since T3, so the check covers the three
-  // shapes it is stored in — the same three /api/auth/login resolves.
+  // This reads REAL profiles only, never pending_signups: a draft awaiting
+  // verification must not make the number look taken. phone_number has been
+  // free text since T3, so the check covers the three shapes it is stored in —
+  // the same three /api/auth/login resolves.
   const national = `0${mobile.slice(2)}`
   const { data: existingPhone } = await admin
     .from('profiles')
@@ -240,81 +234,42 @@ export async function POST(request: Request) {
     )
   }
 
-  // -------------------------------------------------------------- create ---
-  // email_confirm: true — a synthetic address accepts no mail, and the mobile
-  // is what gets verified. The role is written by ensureProfile below (the
-  // metadata is kept on the user too, for the record and for a restored
-  // trigger); the profile is no longer created by a trigger.
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email: authEmail,
-    password: body.password,
-    email_confirm: true,
-    user_metadata: { role: body.role, full_name: body.fullName },
-  })
-
-  if (createError || !created?.user) {
-    const msg = (createError?.message ?? '').toLowerCase()
-    if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
-      return NextResponse.json(
-        { error: 'An account with those details already exists. Try signing in instead.' },
-        { status: 409 },
-      )
-    }
-    return NextResponse.json(
-      { error: createError?.message ?? 'Could not create the account.' },
-      { status: 400 },
-    )
-  }
-
-  const userId = created.user.id
-
-  // Write the profile (+ tutor_profiles) with the SELECTED role. This was the
-  // trigger's job and used to be a bare `.update()` here that never set role;
-  // with the trigger gone that update wrote to a row that did not exist. See
-  // ensureProfile.
-  const made = await ensureProfile(admin, {
-    userId,
+  // ---------------------------------------------------- pending signup ---
+  // No account is created here. The draft (with a bcrypt-hashed password) goes
+  // into a short-lived pending_signups row, ONE SMS is sent, and the account is
+  // created only when the code verifies. A live code for the number reuses it
+  // and sends nothing.
+  const started = await startPendingSignup({
     role: body.role,
     fullName: body.fullName,
-    email: authEmail,
-    phoneNumber: mobile,
-    phoneGateRequired: true,
+    mobile,
+    password: body.password,
     utm: hasUtm(utm) ? utm : undefined,
   })
 
-  if (!made.ok) {
-    await admin.auth.admin.deleteUser(userId)
-    return NextResponse.json(
-      { error: 'Could not finish creating the account. Please try again.' },
-      { status: 500 },
-    )
+  if (!started.ok) {
+    return NextResponse.json({ error: started.error, detail: started.detail }, { status: started.status })
   }
 
-  // ------------------------------------------------------------- sign in ---
-  const supabase = await createClient()
-  const { error: signInError } = await supabase.auth.signInWithPassword({
-    email: authEmail,
-    password: body.password,
+  // The token identifies the draft on /verify-phone. httpOnly and short-lived —
+  // it expires with the code, so a dead cookie cannot resurrect a stale draft.
+  const jar = await cookies()
+  jar.set(PENDING_COOKIE, started.token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: Math.floor(CODE_TTL_MS / 1000),
   })
-
-  if (signInError) {
-    return NextResponse.json(
-      { success: true, signedIn: false, next: '/login', role: body.role },
-      { status: 200 },
-    )
-  }
-
-  // ----------------------------------------------------------- first code ---
-  const sent = await sendOtp({ phone: mobile, purpose: 'verify', userId })
 
   return NextResponse.json({
     success: true,
-    signedIn: true,
+    signedIn: false,
     role: body.role,
     next: '/verify-phone',
-    home: homeForRole(body.role),
-    codeSent: sent.ok,
-    devBypassActive: sent.ok ? sent.devBypassActive : false,
-    codeError: sent.ok ? undefined : sent.error,
+    // No account exists yet — the client routes to /verify-phone to enter the
+    // code, and the account is created there.
+    alreadySent: started.alreadySent,
+    devBypassActive: started.alreadySent ? false : started.devBypassActive,
   })
 }

@@ -72,7 +72,12 @@ export async function POST(request: Request) {
     if (!resent.ok) {
       return NextResponse.json({ error: resent.error }, { status: resent.status })
     }
-    return NextResponse.json({ success: true, mobile: msisdn, devBypassActive: resent.devBypassActive })
+    return NextResponse.json({
+      success: true,
+      mobile: msisdn,
+      alreadySent: resent.alreadySent,
+      devBypassActive: resent.devBypassActive,
+    })
   }
 
   const national = `0${msisdn.slice(2)}`
@@ -138,6 +143,7 @@ export async function POST(request: Request) {
     success: true,
     mobile: msisdn,
     codeSent: true,
+    alreadySent: sent.alreadySent,
     devBypassActive: sent.devBypassActive,
   })
 }

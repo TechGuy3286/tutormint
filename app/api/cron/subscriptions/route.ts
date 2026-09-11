@@ -5,6 +5,7 @@ import { publishDuePosts } from '@/lib/blogPublish'
 import { rebuildContentQueue } from '@/lib/contentQueue/build'
 import { deliverContentDigest } from '@/lib/contentQueue/digest'
 import { runConversionSweep } from '@/lib/conversionSweep'
+import { expirePendingSignups } from '@/lib/pendingSignup'
 
 // Daily subscription sweep: remind at T-3, expire at zero.
 //
@@ -64,6 +65,11 @@ async function handle(request: Request) {
     (e) => ({ teasersSent: 0, quotaNudgesSent: 0, errors: [String(e)] }),
   )
 
+  // Expired pending-signup drafts (migration 75). Rows are dead the moment their
+  // 10-minute expiry passes — every read filters on it — so this is cleanup, not
+  // correctness; wrapped so a sweep error cannot fail the billing sweep.
+  const pending = await expirePendingSignups().catch((e) => ({ deleted: 0, error: String(e) }))
+
   // Errors are reported, not swallowed: a sweep that silently half-ran is how
   // a member keeps a plan they stopped paying for.
   const errors = [
@@ -81,6 +87,7 @@ async function handle(request: Request) {
       queue,
       digest,
       conversion,
+      pending,
     },
     { status },
   )
