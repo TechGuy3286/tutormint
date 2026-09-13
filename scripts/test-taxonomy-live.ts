@@ -81,4 +81,37 @@ test('the picker sees all 13 live categories and 29 grades (live, paginated past
     assert.ok(legacyCats.has(orphan), `${orphan} should still resolve for legacy rows`)
     assert.ok(!categories.includes(orphan), `${orphan} must not appear in the picker`)
   }
+
+  // A legacy selection still RENDERS by id (job cards / saved-subject chips):
+  // rows carries retired masters with resolvable level+subject names.
+  const legacyWithSubject = rows.find((r) => r.legacy && r.subject)
+  assert.ok(legacyWithSubject, 'expected at least one retired master with a subject to still render')
+  assert.ok(
+    `${legacyWithSubject!.level} — ${legacyWithSubject!.subject}`.trim().length > 3,
+    'a retired selection must render a non-empty label',
+  )
+})
+
+test('the browse filters/typeahead never offer a retired subject (live RPCs)', { skip: !url || !key ? 'no anon key configured' : false }, async () => {
+  const sb = createClient(url!, key!)
+  const tables = await fetchTaxonomyTables(sb)
+  assert.ok(tables, 'taxonomy fetch failed')
+  const { rows } = buildTaxonomy(tables!)
+  const legacyById = new Map(rows.map((r) => [r.id, r.legacy]))
+
+  // search_suggest backs the browse typeahead (filter by subject with no level).
+  const sug = await sb.rpc('search_suggest', { p_query: 'physics', p_limit: 10 })
+  assert.ok(!sug.error, `search_suggest: ${sug.error?.message}`)
+  const sugSubjects = (sug.data ?? []).filter((r: { grp: string }) => r.grp === 'subject')
+  assert.ok(sugSubjects.length > 0, 'expected some subject suggestions for "physics"')
+  for (const s of sugSubjects) {
+    assert.equal(legacyById.get(Number(s.ref)), false, `suggested a retired subject: ${s.label} (${s.ref})`)
+  }
+
+  // popular_subjects backs the empty-query popular list.
+  const pop = await sb.rpc('popular_subjects', { p_limit: 12 })
+  assert.ok(!pop.error, `popular_subjects: ${pop.error?.message}`)
+  for (const p of pop.data ?? []) {
+    assert.equal(legacyById.get(Number(p.ref)), false, `popular listed a retired subject: ${p.label} (${p.ref})`)
+  }
 })

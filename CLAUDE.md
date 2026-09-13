@@ -4987,3 +4987,50 @@ migration, NO data change.
 Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 · test:taxonomy 6
 · test:taxonomy:live 1 (13 cats / 29 grades, live) · test:levels 9 · every other
 suite green.
+
+## The corrected taxonomy cascade on every entry surface (owner, 13 Sep 2026)
+
+Every surface where a MEMBER enters their taxonomy now renders the one shared
+`TaxonomySelector` (Level → Grades multi-select chips → Subjects), so all resolve
+the same 13 categories / 29 grades from migration 80. Migration 81 (two function
+recreations, no table/data change).
+
+- **Tutor dashboard settings — converted.** It held a FREE-TEXT "specialty"
+  picker (`{subject, level-of-proficiency}` typed strings joined into a
+  `specialty_subjects` column) — never the taxonomy (rule 12), and it could not
+  edit the tutor's real `tutor_subjects` at all. Replaced with `TaxonomySelector`
+  writing `tutor_subjects` via `/api/profile/save` `{subjectMasterIds}`, the SAME
+  path complete-profile uses. Saved subjects (incl. retired-taxonomy picks) show
+  as green chips via `labelsForMasterIds` (by id, so they still render); the
+  cascade REPLACES them on Save only when it resolves a fresh pick — an untouched
+  cascade preserves them, so nobody's selection is silently cleared. The free-text
+  `specialty_subjects`/`specialty_list` writes are gone (columns left in place,
+  unread).
+- **Already used it (no change):** tutor complete-profile Subjects step and the
+  shared `PostTuitionForm` (parent + admin job posts). **Parent settings** enters
+  no taxonomy (verified — nothing to convert); a child's `class_level` is a
+  free-text grade, not the subject cascade, and is out of scope. The admin blog
+  editor's subject datalist reads `fetchAllSubjects` (already non-legacy).
+- **Browse filter bars — repointed, shape unchanged.** `/browse/tutors` and
+  `/browse/tuitions` keep their exact controls (a searcher can still filter by
+  subject via the typeahead without choosing a level). Their cascade selects
+  already read `lib/taxonomy` (non-legacy since migration 80). The one remaining
+  leak was the **typeahead + popular list**: `search_suggest()` and
+  `popular_subjects()` scanned `taxonomy_master` with no legacy filter, so a
+  retired subject could still be suggested. Migration 81 recreates both from their
+  live definitions with a single added filter — the master's level must be
+  non-legacy (`search_suggest`'s `tax_best` joins the level and drops legacy;
+  `popular_subjects` gains `and not l.legacy`). Verified live: `physics`
+  suggestions 0 legacy, popular 0 legacy, and the retired "Grade 1 to 5" lump no
+  longer appears.
+- **Tests.** `test:taxonomy` gained a source-scan (all three entry surfaces
+  import + render `TaxonomySelector`; tutor settings holds no bespoke free-text
+  subject copy). `test:taxonomy:live` gained: a retired selection still renders by
+  id, and the browse RPCs (`search_suggest`, `popular_subjects`) never return a
+  legacy master. The shared component means "same 13/29 on every surface" holds by
+  construction (all read the one paginated `load()`).
+
+Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 · test:taxonomy 7
+· test:taxonomy:live 2 · test:posttuition 10 · every other suite green. The
+member UIs rest on the shared component + the pure/live tests + the build; no
+browser was driven.

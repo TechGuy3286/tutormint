@@ -12,6 +12,8 @@ import Avatar from '@/components/Avatar'
 import Link from 'next/link'
 import { X, Plus, Save, FileText, ArrowRight } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
+import TaxonomySelector from '@/components/TaxonomySelector'
+import { resolveMasterIds, labelsForMasterIds } from '@/lib/taxonomy'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
 import QuickRepliesEditor from '@/components/tutor/QuickRepliesEditor'
 import type { Identity } from '@/lib/identity'
@@ -82,9 +84,14 @@ export default function TutorSettingsPage() {
   // tutors that is the most damaging possible thing to invent.
   //
   // Empty defaults, and every list is set unconditionally from the row.
-  const [specialtyList, setSpecialtyList] = useState<{ subject: string; level: string }[]>([]);
-  const [newSubjInput, setNewSubjInput] = useState("");
-  const [newLevelInput, setNewLevelInput] = useState("Basic");
+  // Taxonomy subjects — the tutor_subjects join, the SAME cascade the
+  // complete-profile step and the post form use (Level -> Grades -> Subjects).
+  // Replaces the old free-text "specialty" list, which was never the taxonomy
+  // (rule 12) and could not edit the tutor's real subjects at all.
+  const [category, setCategory] = useState("");
+  const [levels, setLevels] = useState<string[]>([]);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [savedSubjectLabels, setSavedSubjectLabels] = useState<string[]>([]);
 
   // Availability & Timings
   const [availabilityList, setAvailabilityList] = useState<{ day: string; timeSlot: string }[]>([]);
@@ -161,13 +168,14 @@ export default function TutorSettingsPage() {
         // Set UNCONDITIONALLY. The `length > 0` guards these had were the
         // mechanism of the bug above: an empty row left the sample content in
         // place, and the next Save wrote it as the tutor's own.
-        setSpecialtyList(
-          Array.isArray(data.specialty_list)
-            ? data.specialty_list
-            : data.specialty_subjects
-              ? [{ subject: data.specialty_subjects, level: "Expert" }]
-              : [],
-        );
+        // The tutor's real taxonomy subjects (tutor_subjects join), shown as
+        // saved chips. A retired-taxonomy pick still renders here (labels are
+        // resolved by id, not from the pickers); the cascade below re-picks
+        // from the current dataset.
+        const { data: subjRows } = await supabase
+          .from('tutor_subjects').select('master_id').eq('tutor_id', user.id);
+        const savedIds = (subjRows ?? []).map((r) => r.master_id as number);
+        setSavedSubjectLabels(savedIds.length ? await labelsForMasterIds(savedIds) : []);
         setAvailabilityList(Array.isArray(data.availability_list) ? data.availability_list : []);
         // degrees is stored as text[] on some rows (a bare string per degree)
         // and object[] on others. Coerce a string entry to the object shape so
@@ -307,12 +315,6 @@ export default function TutorSettingsPage() {
   const uploadCredential = async (file: File): Promise<string> =>
     (await uploadFileToCloud(file)) ?? "";
 
-  const addSpecialtySubject = () => {
-    if (!newSubjInput.trim()) return;
-    setSpecialtyList([...specialtyList, { subject: newSubjInput.trim(), level: newLevelInput }]);
-    setNewSubjInput("");
-  };
-
   const addAvailabilitySlot = () => {
     if (!newTimeInput.trim()) return;
     setAvailabilityList([...availabilityList, { day: newDayInput, timeSlot: newTimeInput.trim() }]);
@@ -361,8 +363,6 @@ export default function TutorSettingsPage() {
 
     setUploading(true);
     try {
-      const combinedSubjectsString = specialtyList.map(s => `${s.subject} (${s.level})`).join(", ");
-
       const payload = {
         id: userId,
         full_name: formData.fullName,
@@ -375,8 +375,6 @@ export default function TutorSettingsPage() {
         // radio group below is single-choice, so there is no list to reduce.
         teaching_mode: formData.jobTypes[0] ?? null,
         job_types: formData.jobTypes,
-        specialty_subjects: combinedSubjectsString,
-        specialty_list: specialtyList,
         availability_list: availabilityList,
         avatar_url: formData.profileImage,
         // selfie_url is NOT written any more. The selfie is a private
@@ -399,6 +397,26 @@ export default function TutorSettingsPage() {
         .upsert(payload);
 
       if (error) throw error;
+
+      // Taxonomy subjects: write ONLY when the cascade resolves a fresh pick, so
+      // a tutor who did not touch it keeps their saved subjects (a retired-
+      // taxonomy selection is never silently cleared). /api/profile/save
+      // replaces tutor_subjects and logs the change, the same path complete-
+      // profile uses.
+      const subjectIds = await resolveMasterIds(category, levels, subjects);
+      if (subjectIds.length > 0) {
+        const r = await fetch('/api/profile/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subjectMasterIds: subjectIds }),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(j.error || 'Could not save your subjects.');
+        }
+        setSavedSubjectLabels(await labelsForMasterIds(subjectIds));
+        setCategory(''); setLevels([]); setSubjects([]);
+      }
 
       setSuccessMsg("✨ Settings saved successfully!");
       setTimeout(() => setSuccessMsg(""), 4000);
@@ -616,69 +634,36 @@ export default function TutorSettingsPage() {
         </Card>
 
         {/* --------------------------------------------------------- subjects */}
-        <Card title="Subjects you specialise in">
-          {specialtyList.length > 0 && (
-            <ul className="space-y-2">
-              {specialtyList.map((item, idx) => (
-                <li
-                  key={idx}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
-                >
-                  <span className="font-bold text-tm-navy">{item.subject}</span>
-                  <span className="rounded-lg border border-tm-green-deep/30 bg-tm-tint-green px-2.5 py-1 font-bold text-tm-green-deep">
-                    {item.level}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSpecialtyList(specialtyList.filter((_, i) => i !== idx))}
-                    aria-label={`Remove ${item.subject}`}
-                    className="ml-auto inline-flex min-h-[36px] items-center gap-1 font-bold text-tm-red"
+        <Card title="Subjects you teach">
+          {/* Currently saved (green chips). A pick on the retired taxonomy still
+              renders here; pick again in the cascade below to move onto the new
+              dataset. Leaving the cascade untouched keeps these on Save. */}
+          {savedSubjectLabels.length > 0 && (
+            <div className="mb-3 space-y-1.5">
+              <p className="text-[11px] font-bold text-gray-500">Saved on your profile</p>
+              <div className="flex flex-wrap gap-1.5">
+                {savedSubjectLabels.map((s) => (
+                  <span
+                    key={s}
+                    className="rounded-lg border border-tm-green-deep/30 bg-tm-tint-green px-2.5 py-1 text-[11px] font-bold text-tm-green-deep"
                   >
-                    <X aria-hidden size={13} /> Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {/* Input full width, the level radios on their own line, the button
-              right-aligned — a wrapping layout so nothing collides at any width
-              (the old sm:grid-cols-3 forced the button over the "Advance"
-              radio between ~640 and 768px). */}
-          <div className="space-y-3">
-            <label className="block">
-              <span className="sr-only">Subject</span>
-              <input
-                type="text"
-                value={newSubjInput}
-                onChange={(e) => setNewSubjInput(e.target.value)}
-                placeholder="Subject, e.g. Chemistry"
-                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-              />
-            </label>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-tm-navy">
-                {['Basic', 'Expert', 'Advance'].map((lvl) => (
-                  <label key={lvl} className="flex cursor-pointer items-center gap-1.5">
-                    <input
-                      type="radio"
-                      name="expertiseLevel"
-                      value={lvl}
-                      checked={newLevelInput === lvl}
-                      onChange={(e) => setNewLevelInput(e.target.value)}
-                    />
-                    {lvl}
-                  </label>
+                    {s}
+                  </span>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={addSpecialtySubject}
-                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
-              >
-                <Plus aria-hidden size={14} /> Add subject
-              </button>
+              <p className="text-[11px] text-gray-500">
+                Choose below and Save to replace them — leave it untouched to keep them.
+              </p>
             </div>
-          </div>
+          )}
+          <TaxonomySelector
+            selectedLevel={category}
+            setSelectedLevel={setCategory}
+            selectedGrades={levels}
+            setSelectedGrades={setLevels}
+            selectedSubjects={subjects}
+            setSelectedSubjects={setSubjects}
+          />
         </Card>
 
         {/* ----------------------------------------------------- availability */}
