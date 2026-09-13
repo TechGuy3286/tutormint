@@ -16,115 +16,27 @@
 // the page.
 
 import { createClient } from '@/lib/supabase/client'
+import { buildTaxonomy, fetchTaxonomyTables, type TaxonomyNode, type TaxonomyRow as Row } from '@/lib/taxonomyBuild'
 
-export type TaxonomyNode = Record<string, Record<string, string[]>>
-
-type Row = {
-  id: number
-  category: string
-  level: string
-  subject: string | null
-  isLevelLeaf: boolean
-  /** A retired level. Migration 80 replaced the whole taxonomy with the owner's
-   *  corrected dataset and flagged every prior level legacy: still VALID on
-   *  existing job/tutor rows (they render by id and match by master-id
-   *  intersection), but hidden from every picker — the tree and the pickers are
-   *  built from non-legacy rows only, so a retired grade never appears and can
-   *  never collide by name with a live one. Reachable only by id, for rendering
-   *  saved labels. */
-  legacy: boolean
-}
+export type { TaxonomyNode }
 
 let cache: { rows: Row[]; tree: TaxonomyNode } | null = null
 let inFlight: Promise<{ rows: Row[]; tree: TaxonomyNode }> | null = null
 
 /**
- * Load the four taxonomy tables and resolve master's slugs to display names.
- * Joined client-side rather than through PostgREST embedding: the tables are
- * tiny, and this avoids depending on embed alias naming.
+ * Load the four taxonomy tables (paginated past the PostgREST max-rows cap —
+ * taxonomy_master is 4,500+ rows) and resolve master's slugs to display names.
+ * The fetch + the pure derivation live in lib/taxonomyBuild.ts so the live test
+ * exercises the same code. Cached for the page's lifetime.
  */
 async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode }> {
   if (cache) return cache
   if (inFlight) return inFlight
 
   inFlight = (async () => {
-    const supabase = createClient()
-
-    const [categories, levels, subjects, master] = await Promise.all([
-      supabase.from('taxonomy_categories').select('slug, name, sort_order'),
-      supabase.from('taxonomy_levels').select('slug, category_slug, name, sort_order, legacy'),
-      supabase.from('taxonomy_subjects').select('slug, name'),
-      supabase.from('taxonomy_master').select('id, category_slug, level_slug, subject_slug, leaf_type'),
-    ])
-
-    const failed = [categories, levels, subjects, master].find((r) => r.error)
-    if (failed?.error) {
-      console.error('Error fetching taxonomy:', failed.error)
-      return { rows: [], tree: {} }
-    }
-
-    const categoryName = new Map<string, string>()
-    const categoryOrder = new Map<string, number>()
-    for (const c of categories.data ?? []) {
-      categoryName.set(c.slug, c.name)
-      categoryOrder.set(c.slug, c.sort_order ?? 0)
-    }
-
-    const levelName = new Map<string, string>()
-    const levelOrder = new Map<string, number>()
-    const levelLegacy = new Map<string, boolean>()
-    for (const l of levels.data ?? []) {
-      levelName.set(l.slug, l.name)
-      levelOrder.set(l.slug, l.sort_order ?? 0)
-      levelLegacy.set(l.slug, !!l.legacy)
-    }
-
-    const subjectName = new Map<string, string>()
-    for (const s of subjects.data ?? []) subjectName.set(s.slug, s.name)
-
-    // Keep master in the taxonomy's own sort order, not alphabetical, so the
-    // dropdowns read Pre-Primary -> Primary -> Middle -> ... as authored.
-    const ordered = [...(master.data ?? [])].sort((a, b) => {
-      const c = (categoryOrder.get(a.category_slug) ?? 0) - (categoryOrder.get(b.category_slug) ?? 0)
-      if (c !== 0) return c
-      return (levelOrder.get(a.level_slug) ?? 0) - (levelOrder.get(b.level_slug) ?? 0)
-    })
-
-    const rows: Row[] = []
-    for (const m of ordered) {
-      const category = categoryName.get(m.category_slug)
-      const level = levelName.get(m.level_slug)
-      if (!category || !level) continue
-      // subject_slug is null for the 120 level-only rows in the seed.
-      rows.push({
-        id: m.id,
-        category,
-        level,
-        subject: m.subject_slug ? subjectName.get(m.subject_slug) ?? null : null,
-        // Level-leaf: the level itself is the selectable item (Test
-        // Preparations, Sports & Games, Holy Quran). leaf_type is reliable
-        // since 12_taxonomy_leaf_type.sql; subject_slug IS NULL is equivalent.
-        isLevelLeaf: m.leaf_type === 'level' || m.subject_slug === null,
-        legacy: levelLegacy.get(m.level_slug) ?? false,
-      })
-    }
-
-    // The tree — every picker's source — is built from NON-LEGACY rows only.
-    // The tree keys by display NAME, so a retired grade sharing a name with a
-    // live one (old "Grade 1" vs the new "Grade 1") would otherwise merge their
-    // subject lists; excluding legacy here keeps each grade's subjects exactly
-    // the current dataset's and nothing from a retired grade.
-    const tree: TaxonomyNode = {}
-    for (const r of rows) {
-      if (r.legacy) continue
-      if (!tree[r.category]) tree[r.category] = {}
-      if (!tree[r.category][r.level]) tree[r.category][r.level] = []
-      if (r.subject && !tree[r.category][r.level].includes(r.subject)) {
-        tree[r.category][r.level].push(r.subject)
-      }
-    }
-
-    cache = { rows, tree }
+    const tables = await fetchTaxonomyTables(createClient())
+    if (!tables) return { rows: [], tree: {} } // do NOT cache a failed fetch
+    cache = buildTaxonomy(tables)
     return cache
   })()
 

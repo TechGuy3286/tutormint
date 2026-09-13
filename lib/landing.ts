@@ -18,6 +18,7 @@
 
 import { unstable_cache } from 'next/cache'
 import { createPublicClient } from '@/lib/supabase/public'
+import { fetchTaxonomyTables } from '@/lib/taxonomyBuild'
 import { citySegment, cityFromSegment, slugify } from '@/lib/slugs'
 
 export type LandingKind = 'tutors' | 'tuitions'
@@ -71,17 +72,17 @@ type SubjectIndex = {
 const loadSubjectIndex = unstable_cache(
   async (): Promise<{ rows: SubjectMeta[] }> => {
     const db = createPublicClient()
-    const [master, levels, subjects] = await Promise.all([
-      db.from('taxonomy_master').select('id, level_slug, subject_slug'),
-      db.from('taxonomy_levels').select('slug, name'),
-      db.from('taxonomy_subjects').select('slug, name'),
-    ])
-    const levelName = new Map((levels.data ?? []).map((l) => [l.slug as string, l.name as string]))
-    const subjectName = new Map((subjects.data ?? []).map((s) => [s.slug as string, s.name as string]))
+    // Paginated (fetchTaxonomyTables): taxonomy_master is 4,500+ rows and a bare
+    // select is capped at 1000 per PostgREST response, which truncated this
+    // master→subject-slug index so a listed row on a higher master id resolved
+    // to no landing link.
+    const tables = await fetchTaxonomyTables(db)
+    const levelName = new Map((tables?.levels ?? []).map((l) => [l.slug, l.name]))
+    const subjectName = new Map((tables?.subjects ?? []).map((s) => [s.slug, s.name]))
 
     const rows: SubjectMeta[] = []
     const seen = new Set<string>()
-    for (const m of master.data ?? []) {
+    for (const m of tables?.master ?? []) {
       const level = levelName.get(m.level_slug as string)
       if (!level) continue
       const subject = m.subject_slug ? subjectName.get(m.subject_slug as string) ?? null : null

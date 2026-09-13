@@ -18,6 +18,7 @@
 // them.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchTaxonomyTables } from '@/lib/taxonomyBuild'
 import { normalisePkMobile, syntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { ensureProfile } from '@/lib/ensureProfile'
@@ -158,13 +159,14 @@ export async function validateRows(rows: ImportRow[]): Promise<RowVerdict[]> {
   // be resolved through taxonomy_subjects and taxonomy_levels. Loading all
   // three once and joining in memory is cheaper and far easier to read than a
   // query per cell, and the tables are small and static.
-  const [{ data: masterRows }, { data: subjectRows }, { data: levelRows }] = admin
-    ? await Promise.all([
-        admin.from('taxonomy_master').select('id, category_slug, level_slug, subject_slug, leaf_type').limit(2000),
-        admin.from('taxonomy_subjects').select('slug, name').limit(2000),
-        admin.from('taxonomy_levels').select('slug, name').limit(2000),
-      ])
-    : [{ data: null }, { data: null }, { data: null }]
+  // Paginated: taxonomy_master is 4,500+ rows and a plain select (or .limit(N))
+  // is capped at 1000 per PostgREST response, which truncated the lookup to an
+  // arbitrary slice — mostly the retired taxonomy — so current-taxonomy subjects
+  // would not resolve. fetchTaxonomyTables pages past the cap.
+  const tables = admin ? await fetchTaxonomyTables(admin) : null
+  const masterRows = tables?.master ?? null
+  const subjectRows = tables?.subjects ?? null
+  const levelRows = tables?.levels ?? null
 
   type Master = {
     id: number

@@ -4938,3 +4938,52 @@ Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 · test:taxon
 cascade UI rests on the pure tests + the build; the data (per-grade triples,
 retired rows still rendering/matching) is verified live in psql. No browser was
 driven.
+
+## The taxonomy picker showed only one category — the 1000-row cap (owner, 13 Sep 2026)
+
+After migration 80 the Level dropdown showed only "Primary" while 13 categories
+have active (non-legacy) levels. **Root cause: the PostgREST max-rows cap (1000).**
+`taxonomy_master` is now 4,588 rows (1,475 live + the retired taxonomy kept valid
+for existing jobs); `lib/taxonomy.ts` `load()` did a plain `.select()` with no
+paging, so Supabase returned an arbitrary 1,000-row slice and the tree — built
+from whichever non-legacy rows landed in it — collapsed to one category. Latent
+since migration 79 pushed master past 1,000; migration 80 made it visible. NO
+migration, NO data change.
+
+- **The fix is pagination.** `lib/taxonomyBuild.ts` (new, pure of the browser
+  client) holds `fetchTaxonomyTables(client)` — pages every taxonomy table with a
+  stable `order` + `.range()` until a short page, defeating the cap — and
+  `buildTaxonomy(tables)`, the tree/rows derivation. `lib/taxonomy.ts` `load()`
+  now calls both; a failed fetch is NOT cached. `TaxonomyNode`/`TaxonomyRow` moved
+  there (re-exported from `lib/taxonomy.ts`, so callers are unchanged). A client
+  `limit` cannot beat max-rows — only paged `range` can.
+- **Same bug fixed in two more full-table readers the growth exposed:**
+  `lib/import.ts` `validateRows` (its `.limit(2000)` was still capped at 1000, so
+  bulk-import subject/level resolution saw a truncated, mostly-retired master set)
+  and `lib/landing.ts` `loadSubjectIndex` (its bare full-master select truncated
+  the master→subject-slug index, so a listed row on a higher master id resolved to
+  no landing link). Both now call `fetchTaxonomyTables`. Every OTHER taxonomy read
+  is bounded by `.in('slug'|'id', …)` on a row's own few masters — well under the
+  cap, left as-is.
+- **Live test.** `scripts/test-taxonomy-live.ts` (`npm run test:taxonomy:live`,
+  skips without an anon key) fetches the real DB through the same code and asserts
+  the picker sees **13 categories and 29 grades**, that master paginated to
+  >1,000 rows, and that the retired duplicate categories resolve for legacy rows
+  yet never appear in the picker — so a cap regression cannot pass silently.
+- **The three orphaned duplicate categories are LEFT, not removed.** Migration 80
+  inserted "Pre - Primary / Pre - School", "Matriculation / Secondary" and
+  "Teaching of Holy Quran" as fresh rows (the CSV names differ from the old
+  "Pre-Primary / Pre-School" / "Matriculation" / "Holy Quran"), leaving those
+  three old category rows with 0 active levels. They do NOT leak into the picker
+  (the tree is non-legacy only, and they have no non-legacy level). They are KEPT
+  because: (a) `taxonomy_levels.category_slug` is an FK to them and their retired
+  levels are still there; (b) existing jobs/tutors point at master rows under
+  those categories, and `buildTaxonomy` drops any master whose category name can't
+  resolve — deleting the category would break `labelsForMasterIds` rendering for
+  those legacy rows. Deleting them buys nothing (3 tiny hidden rows) and would
+  violate the "existing rows still render" guarantee. Retire, don't delete —
+  consistent with migration 80.
+
+Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 · test:taxonomy 6
+· test:taxonomy:live 1 (13 cats / 29 grades, live) · test:levels 9 · every other
+suite green.
