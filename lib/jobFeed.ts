@@ -24,7 +24,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { jobType } from '@/lib/display'
-import { budgetLabel } from '@/lib/feeBands'
 import { genderPrefWord } from '@/lib/genderPref'
 import { jobDisplayTitle } from '@/lib/jobDisplayTitle'
 import { collapseLevels } from '@/lib/levelDisplay'
@@ -179,31 +178,32 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
   return rawJobs.map((j) => {
     const f = facts.get(j.parent_id as string)
     const city = (j.city as string) ?? null
-    // The display title, one composed string (owner, 11 Sep 2026):
-    //   Job Title | Gender | Subject | Level | Area | City | Budget
-    // Missing optional segments (and their separators) are dropped. This one
-    // string is the card title, the tuition page <title> and the JobPosting
-    // structured data, so it is built here once. The stored jobs.title is no
-    // longer the display title (search still matches the stored column).
+    // The display title, one composed phrase (owner, 13 Sep 2026):
+    //   [Gender] [Job Title] for [Level] in [Area], [City]
+    // Missing optional segments (and their prepositions) are dropped. Subjects
+    // and budget are DELIBERATELY not in the title — both are already on the card
+    // (chips, own row) and were what made the old pipe row unreadable. This one
+    // string is the card title and the page/JobPosting fallback (built once
+    // here). The stored jobs.title is the page headline (search matches it too).
     const subjects = subjectsByJob.get(j.id as string) ?? (j.subjects as string[] | null) ?? null
     // Level is multi-select now (migration 79): collapse the array to a readable
     // run ("Grade 1–5"), falling back to the legacy single string for pre-79 rows.
     const levelArr = (j.class_levels as string[] | null) ?? null
+    // Body line: comma-joined. Title: natural "and" list, so the phrase reads as
+    // prose ("Grade 2 and Grade 5") — same source, so the two never disagree on
+    // WHICH levels, only on the connective.
     const levelDisplay = levelArr && levelArr.length > 0
       ? collapseLevels(levelArr)
+      : (j.class_level as string) ?? null
+    const levelPhrase = levelArr && levelArr.length > 0
+      ? collapseLevels(levelArr, { conjunction: true })
       : (j.class_level as string) ?? null
     const composedTitle = jobDisplayTitle({
       jobType: jobType(j.teaching_mode as string | null),
       gender: genderPrefWord(j.gender_preference as string | null),
-      subject: (subjects ?? []).join(', ') || null,
-      level: levelDisplay,
+      level: levelPhrase,
       area: (j.area as string) ?? null,
       city,
-      budget: budgetLabel(
-        (j.budget_min_pkr as number) ?? null,
-        (j.budget_max_pkr as number) ?? null,
-        (j.budget_pkr as number) ?? null,
-      ),
     })
     return {
       id: j.id as string,

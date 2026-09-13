@@ -75,3 +75,19 @@ test('empty / blank input is an empty string', () => {
   // A legacy lumped level (single string) round-trips unchanged.
   assert.equal(collapseLevels(['Grade 1 to 5']), 'Grade 1 to 5')
 })
+
+test('conjunction mode joins the last two with " and " for the card-title phrase', () => {
+  // Two non-contiguous grades read as prose in the title, comma in the body.
+  assert.equal(collapseLevels(['Grade 2', 'Grade 5'], { conjunction: true }), 'Grade 2 and Grade 5')
+  assert.equal(collapseLevels(['Grade 2', 'Grade 5']), 'Grade 2, Grade 5')
+  // A collapsed range plus two more: comma-separate the earlier ones, "and" the last.
+  assert.equal(
+    collapseLevels(['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 8', 'O Levels'], { conjunction: true }),
+    `Grade 1${DASH}5, Grade 8 and O Levels`,
+  )
+  // A single collapsed run is one part — no dangling "and".
+  assert.equal(collapseLevels(['Grade 1', 'Grade 2', 'Grade 3'], { conjunction: true }), `Grade 1${DASH}3`)
+  // A single grade and empty are unaffected by the flag.
+  assert.equal(collapseLevels(['Grade 4'], { conjunction: true }), 'Grade 4')
+  assert.equal(collapseLevels([], { conjunction: true }), '')
+})

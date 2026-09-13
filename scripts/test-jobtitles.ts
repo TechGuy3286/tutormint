@@ -89,42 +89,66 @@ test('an empty tutor array is "no filter" — every same-city job is a match (it
   assert.equal(matchVisibility('Online Tutor', 'Lahore', [], 'Karachi'), 'online')
 })
 
-test('the composed card title omits missing optional segments cleanly', () => {
-  // All present: the full Job Title | Gender | Subject | Level | Area | City | Budget.
+test('the composed card title reads as a natural phrase (owner, 13 Sep)', () => {
+  // The full example from the PR, composed exactly:
+  //   [Gender] [Job Title] for [Level] in [Area], [City]
   assert.equal(
     jobDisplayTitle({
-      jobType: 'O Levels Teacher', gender: 'Female', subject: 'Physics', level: 'O Levels',
-      area: 'Gulberg', city: 'Lahore', budget: 'Rs 15,000–20,000',
+      jobType: 'Home Tutor', gender: 'female', level: 'Grade 1–5',
+      area: 'Johar Town', city: 'Lahore',
     }),
-    'O Levels Teacher | Female | Physics | O Levels | Gulberg | Lahore | Rs 15,000–20,000',
+    'Female Home Tutor for Grade 1–5 in Johar Town, Lahore',
   )
-  // Gender and budget missing → no stray pipes, no empty segments.
+  // Gender is capitalised as an adjective even when handed in lowercase, and
+  // omitted entirely for No preference — never lowercase mid-sentence.
   assert.equal(
-    jobDisplayTitle({ jobType: 'Home Tutor', subject: 'Maths', level: 'Grade 8', area: 'DHA', city: 'Karachi' }),
-    'Home Tutor | Maths | Grade 8 | DHA | Karachi',
+    jobDisplayTitle({ jobType: 'Home Tutor', gender: null, level: 'Grade 8', area: 'DHA', city: 'Karachi' }),
+    'Home Tutor for Grade 8 in DHA, Karachi',
   )
-  // Just the job type (everything else blank/missing).
-  assert.equal(jobDisplayTitle({ jobType: 'Principal', gender: '', budget: null }), 'Principal')
+  // No area → "in <City>" with no stray comma.
+  assert.equal(
+    jobDisplayTitle({ jobType: 'O Levels Teacher', gender: 'male', level: 'O Levels', city: 'Lahore' }),
+    'Male O Levels Teacher for O Levels in Lahore',
+  )
+  // Non-contiguous levels read naturally (the caller passes the "and" list).
+  assert.equal(
+    jobDisplayTitle({ jobType: 'Home Tutor', level: 'Grade 2 and Grade 5', city: 'Lahore' }),
+    'Home Tutor for Grade 2 and Grade 5 in Lahore',
+  )
+  // Only a title and a city → no stray "for", no dangling preposition.
+  assert.equal(jobDisplayTitle({ jobType: 'Home Tutor', city: 'Lahore' }), 'Home Tutor in Lahore')
   // Nothing at all → empty string.
   assert.equal(jobDisplayTitle({}), '')
 })
 
-test('page surfaces use the stored human headline, card uses composed (owner, 11 Sep)', () => {
-  // The SAME job: the card shows the composed field list; the page <title> and
+test('the composed title never carries subjects or a budget', () => {
+  // The type no longer accepts them, but even a stray value must not surface:
+  // the phrase is built only from gender/title/level/area/city.
+  const title = jobDisplayTitle({
+    jobType: 'Home Tutor', gender: 'female', level: 'Grade 1–5',
+    area: 'Johar Town', city: 'Lahore',
+  })
+  for (const banned of ['English', 'Mathematics', 'Urdu', 'Rs', '20,000', '|']) {
+    assert.ok(!title.includes(banned), `title leaked "${banned}": ${title}`)
+  }
+})
+
+test('page surfaces use the stored human headline, card uses the composed phrase (owner, 11 Sep)', () => {
+  // The SAME job: the card shows the composed phrase; the page <title> and
   // JobPosting show the human-written headline the form produced.
   const composed = jobDisplayTitle({
-    jobType: 'Primary Teacher', gender: 'Female', subject: 'Mathematics', level: 'Grade 3',
-    area: 'Gulberg', city: 'Lahore', budget: 'Rs 20,000',
+    jobType: 'Primary Teacher', gender: 'female', level: 'Grade 3',
+    area: 'Gulberg', city: 'Lahore',
   })
   const stored = 'Primary Maths teacher needed in Gulberg, Grade 3'
-  // Card keeps the composed string.
-  assert.match(composed, /^Primary Teacher \| Female \| Mathematics \| Grade 3 \| Gulberg \| Lahore \| Rs 20,000$/)
-  // Page prefers the stored headline over the composed row.
+  // Card keeps the composed phrase.
+  assert.equal(composed, 'Female Primary Teacher for Grade 3 in Gulberg, Lahore')
+  // Page prefers the stored headline over the composed phrase.
   assert.equal(preferHumanTitle(stored, composed), stored)
 })
 
-test('an empty stored title falls back to the composed string on the page', () => {
-  const composed = 'Home Tutor | Physics | Lahore'
+test('an empty stored title falls back to the composed phrase on the page', () => {
+  const composed = 'Home Tutor in Lahore'
   assert.equal(preferHumanTitle('', composed), composed)
   assert.equal(preferHumanTitle('   ', composed), composed)
   assert.equal(preferHumanTitle(null, composed), composed)

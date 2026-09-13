@@ -16,10 +16,18 @@ function parseGrade(level: string): { n: number; suffix: string } | null {
 /**
  * Collapse a level array to a display string: a contiguous run of same-suffix
  * grades (Grade 1, Grade 2, … in order, each one more than the last) becomes
- * "Grade first–last<suffix>"; everything else is kept as written. The rest are
- * joined with ", " in input order. An en-dash separates the range.
+ * "Grade first–last<suffix>"; everything else is kept as written. An en-dash
+ * separates the range.
+ *
+ * The remaining parts are joined for the body line with ", " in input order
+ * (the default). Pass `{ conjunction: true }` for the natural-phrase card title,
+ * which joins the last two with " and " ("Grade 2 and Grade 5", "Grade 1–5,
+ * Grade 8 and O Levels") so the level reads as prose rather than a list.
  */
-export function collapseLevels(levels: (string | null | undefined)[]): string {
+export function collapseLevels(
+  levels: (string | null | undefined)[],
+  opts?: { conjunction?: boolean },
+): string {
   const list = (levels ?? []).map((l) => (l ?? '').trim()).filter(Boolean)
   const parts: string[] = []
   let i = 0
@@ -45,6 +53,9 @@ export function collapseLevels(levels: (string | null | undefined)[]): string {
       parts.push(list[i])
     }
     i = j + 1
+  }
+  if (opts?.conjunction && parts.length > 1) {
+    return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
   }
   return parts.join(', ')
 }

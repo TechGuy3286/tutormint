@@ -5034,3 +5034,41 @@ Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 · test:taxon
 · test:taxonomy:live 2 · test:posttuition 10 · every other suite green. The
 member UIs rest on the shared component + the pure/live tests + the build; no
 browser was driven.
+
+## The job card title reads as a phrase, not a pipe row (owner, 13 Sep 2026)
+
+The composed card title was `Job Title | Gender | Subject | Level | Area | City |
+Budget` — two lines of pipes where every segment already appears elsewhere on the
+same card (subjects as chips, level/location/budget as their own rows, gender as
+its own labelled line). It repeated the card and added nothing. Replaced with a
+natural phrase: **`[Gender] [Job Title] for [Level] in [Area], [City]`** →
+"Female Home Tutor for Grade 1–5 in Johar Town, Lahore". No migration.
+
+- **One pure function**, `jobDisplayTitle` in `lib/jobDisplayTitle.ts`, rewritten.
+  Every segment is optional and drops its preposition with it, so nothing reads
+  "for in" or trails a comma — a title-and-city-only job is "Home Tutor in
+  Lahore". Gender is capitalised as a leading adjective even when handed in
+  lowercase (the caller passes `genderPrefWord` = "female") and is omitted
+  entirely for No preference — never lowercase mid-sentence. Job Title is verbatim
+  from the 19. **Subjects and budget were REMOVED from the type and the caller** —
+  both are already on the card and the seven-spelled-out subjects were the whole
+  problem.
+- **Level reads as prose.** `collapseLevels` (`lib/levelDisplay.ts`) gained an
+  optional `{ conjunction: true }` that joins the last two parts with " and "
+  ("Grade 2 and Grade 5"; "Grade 1–5, Grade 8 and O Levels"). The contiguous-run
+  collapse ("Grade 1–5") is unchanged. `decorate` (`lib/jobFeed.ts`) uses the
+  conjunction form for the TITLE and the default comma form for the `class_level`
+  BODY row — same source (`class_levels`), so they never disagree on which levels,
+  only on the connective. The body row, chips and every other card row are
+  untouched.
+- **The page/JobPosting split stays.** The tuition page `<title>`, its `<h1>`,
+  breadcrumb and the JobPosting JSON-LD still use the stored human headline via
+  `preferHumanTitle(job.headline, job.title)` — that is correct and was not
+  changed. The composed phrase is only the fallback when there is no stored title
+  (0 of 64 jobs today), and it reads better there too.
+
+Gates: tsc 0 · build 0 · test:jobtitles 12 (the full example composes exactly;
+no-preference omits gender; no area → "in Lahore"; non-contiguous levels read
+naturally; title-and-city only → no stray prepositions; subjects and budget never
+appear) · test:levels 10 (adds the conjunction-mode list) · test:posttuition 10 ·
+test:cv 14 · test:social 7 · every other suite green.
