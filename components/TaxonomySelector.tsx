@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Layers, X } from 'lucide-react'
-import { fetchTaxonomyTree, fetchLegacyLevelNames, TaxonomyNode } from '@/lib/taxonomy'
+import { fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
 import Select from '@/components/forms/Select'
 import { onOutsidePointerDown } from '@/lib/outsidePointer'
 
@@ -29,7 +29,6 @@ export default function TaxonomySelector({
   allowSelectAll = true,
 }: TaxonomySelectorProps) {
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyNode>({});
-  const [legacyLevels, setLegacyLevels] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState<boolean>(true);
 
   const [gradeSearch, setGradeSearch] = useState<string>("");
@@ -53,9 +52,8 @@ export default function TaxonomySelector({
 
   useEffect(() => {
     async function loadTree() {
-      const [tree, legacy] = await Promise.all([fetchTaxonomyTree(), fetchLegacyLevelNames()]);
+      const tree = await fetchTaxonomyTree();
       setTaxonomyTree(tree);
-      setLegacyLevels(legacy);
       setLoading(false);
       // NO auto-selection (owner, 10 Sep 2026): the form opens empty so the
       // person chooses. An edit flow pre-fills from selectionForMasterIds.
@@ -65,15 +63,13 @@ export default function TaxonomySelector({
 
   const levelsList = useMemo(() => Object.keys(taxonomyTree), [taxonomyTree]);
 
-  // The grades for the chosen category. A split-away LEGACY level (migration 79)
-  // is hidden — UNLESS it is already selected (an existing row being edited), so
-  // the person sees their current pick and can keep or re-pick it.
+  // The grades for the chosen category. The tree carries only the CURRENT
+  // (non-legacy) taxonomy — migration 80 hides retired grades from it at the
+  // source — so every key here is a live pick; no legacy filtering is needed.
   const gradesList = useMemo(() => {
     if (!selectedLevel || !taxonomyTree[selectedLevel]) return [];
-    return Object.keys(taxonomyTree[selectedLevel]).filter(
-      (g) => !legacyLevels.has(g) || selectedGrades.includes(g),
-    );
-  }, [taxonomyTree, selectedLevel, legacyLevels, selectedGrades]);
+    return Object.keys(taxonomyTree[selectedLevel]);
+  }, [taxonomyTree, selectedLevel]);
 
   const gradesFiltered = useMemo(
     () => gradesList.filter((g) => g.toLowerCase().includes(gradeSearch.toLowerCase())),

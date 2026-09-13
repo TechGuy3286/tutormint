@@ -27,6 +27,20 @@ test('a same-suffix grade run collapses with its suffix (Arts / Science)', () =>
   assert.equal(collapseLevels(['Grade 9 Science', 'Grade 10 Science']), `Grade 9${DASH}10 Science`)
 })
 
+test("the 2026 dataset's real grade names collapse (Grade 9 - Arts, Grade 6 to 8)", () => {
+  // Migration 80's Matriculation grades carry a " - Arts"/" - Science" suffix.
+  assert.equal(collapseLevels(['Grade 9 - Arts', 'Grade 10 - Arts']), `Grade 9${DASH}10 - Arts`)
+  assert.equal(
+    collapseLevels(['Grade 6', 'Grade 7', 'Grade 8']),
+    `Grade 6${DASH}8`,
+  )
+  // Arts and Science are different suffixes → two runs, not one.
+  assert.equal(
+    collapseLevels(['Grade 9 - Arts', 'Grade 10 - Arts', 'Grade 9 - Science', 'Grade 10 - Science']),
+    `Grade 9${DASH}10 - Arts, Grade 9${DASH}10 - Science`,
+  )
+})
+
 test('a single grade is left as written', () => {
   assert.equal(collapseLevels(['Grade 4']), 'Grade 4')
 })

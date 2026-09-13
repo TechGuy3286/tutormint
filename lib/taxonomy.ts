@@ -25,8 +25,13 @@ type Row = {
   level: string
   subject: string | null
   isLevelLeaf: boolean
-  /** A lumped level split in migration 79 — valid on existing rows, hidden from
-   *  the pickers unless it is the pre-selected level of a job/profile being edited. */
+  /** A retired level. Migration 80 replaced the whole taxonomy with the owner's
+   *  corrected dataset and flagged every prior level legacy: still VALID on
+   *  existing job/tutor rows (they render by id and match by master-id
+   *  intersection), but hidden from every picker — the tree and the pickers are
+   *  built from non-legacy rows only, so a retired grade never appears and can
+   *  never collide by name with a live one. Reachable only by id, for rendering
+   *  saved labels. */
   legacy: boolean
 }
 
@@ -104,8 +109,14 @@ async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode }> {
       })
     }
 
+    // The tree — every picker's source — is built from NON-LEGACY rows only.
+    // The tree keys by display NAME, so a retired grade sharing a name with a
+    // live one (old "Grade 1" vs the new "Grade 1") would otherwise merge their
+    // subject lists; excluding legacy here keeps each grade's subjects exactly
+    // the current dataset's and nothing from a retired grade.
     const tree: TaxonomyNode = {}
     for (const r of rows) {
+      if (r.legacy) continue
       if (!tree[r.category]) tree[r.category] = {}
       if (!tree[r.category][r.level]) tree[r.category][r.level] = []
       if (r.subject && !tree[r.category][r.level].includes(r.subject)) {
@@ -129,10 +140,11 @@ export async function fetchTaxonomyTree(): Promise<TaxonomyNode> {
   return (await load()).tree
 }
 
-/** Top tier: category names ("Level 1"), in the taxonomy's own order. */
+/** Top tier: category names ("Level 1"), in the taxonomy's own order. Non-legacy
+ *  only, so a category whose grades were all retired (migration 80) drops out. */
 export async function fetchLevels(): Promise<string[]> {
   const { rows } = await load()
-  return Array.from(new Set(rows.map((r) => r.category)))
+  return Array.from(new Set(rows.filter((r) => !r.legacy).map((r) => r.category)))
 }
 
 /** Second tier: level names ("Level 2") within one category — NON-legacy only,
@@ -142,29 +154,23 @@ export async function fetchGradesForLevel(level1: string): Promise<string[]> {
   return Array.from(new Set(rows.filter((r) => r.category === level1 && !r.legacy).map((r) => r.level)))
 }
 
-/** The set of legacy level NAMES (migration 79). The multi-select grade picker
- *  hides these except when one is the pre-selected level of a row being edited. */
-export async function fetchLegacyLevelNames(): Promise<Set<string>> {
-  const { rows } = await load()
-  return new Set(rows.filter((r) => r.legacy).map((r) => r.level))
-}
-
-/** Third tier: subject names ("Level 3") for one category + level. */
+/** Third tier: subject names ("Level 3") for one category + level. Non-legacy
+ *  only — a fresh pick sees exactly the current dataset's subjects. */
 export async function fetchSubjectsForGrade(level1: string, level2: string): Promise<string[]> {
   const { rows } = await load()
   return Array.from(
     new Set(
       rows
-        .filter((r) => r.category === level1 && r.level === level2 && r.subject)
+        .filter((r) => !r.legacy && r.category === level1 && r.level === level2 && r.subject)
         .map((r) => r.subject as string),
     ),
   ).sort()
 }
 
-/** Every subject name in the taxonomy. */
+/** Every subject name in the CURRENT taxonomy (non-legacy). */
 export async function fetchAllSubjects(): Promise<string[]> {
   const { rows } = await load()
-  return Array.from(new Set(rows.filter((r) => r.subject).map((r) => r.subject as string))).sort()
+  return Array.from(new Set(rows.filter((r) => !r.legacy && r.subject).map((r) => r.subject as string))).sort()
 }
 
 /**
@@ -187,7 +193,10 @@ export async function resolveMasterIds(
   const levelList = Array.isArray(levels) ? levels : levels ? [levels] : []
   const ids: number[] = []
   for (const level of levelList) {
-    const inLevel = rows.filter((r) => r.category === category && r.level === level)
+    // Non-legacy only: a fresh pick resolves to CURRENT master ids. Were legacy
+    // rows included, a live grade name that a retired grade also carries (old
+    // "Grade 1") would drag its retired master ids into every new post.
+    const inLevel = rows.filter((r) => !r.legacy && r.category === category && r.level === level)
     if (subjects.length === 0) {
       const leaf = inLevel.find((r) => r.isLevelLeaf)
       if (leaf) ids.push(leaf.id)
@@ -198,13 +207,19 @@ export async function resolveMasterIds(
   return Array.from(new Set(ids))
 }
 
-/** True when this level is selectable on its own, with no subject beneath it. */
+/** True when this level is selectable on its own, with no subject beneath it.
+ *  Non-legacy only. The current dataset (migration 80) has NO level-leaves — Test
+ *  Preparations, Sports & Games and Holy Quran are now one grade with many
+ *  subjects — so this is false for every live pick; it stays for the retired
+ *  leaves, which are never offered. */
 export async function isLevelLeaf(category: string, level: string): Promise<boolean> {
   const { rows } = await load()
-  return rows.some((r) => r.category === category && r.level === level && r.isLevelLeaf)
+  return rows.some((r) => !r.legacy && r.category === category && r.level === level && r.isLevelLeaf)
 }
 
-/** Display labels for a set of master ids, for showing what is already saved. */
+/** Display labels for a set of master ids, for showing what is already saved.
+ *  Reads ALL rows by id (legacy included), so a job/tutor on the retired
+ *  taxonomy still renders its saved subjects until it is re-picked. */
 export async function labelsForMasterIds(ids: number[]): Promise<string[]> {
   const { rows } = await load()
   const set = new Set(ids)
@@ -221,11 +236,15 @@ export async function labelsForMasterIds(ids: number[]): Promise<string[]> {
  * whatever was on screen.
  *
  * A job's subjects all come from one pass through the cascade, so they share a
- * category; the first row decides it. Level is multi-select now (migration 79),
- * so this returns EVERY distinct level across the ids (a job on Grade 1–3 comes
- * back with all three checked) and the union of their subjects. An existing row
- * on a lumped/legacy level comes back with that legacy level, which the picker
- * shows as a checked, re-pickable option.
+ * category; the first row decides it. Level is multi-select, so this returns
+ * EVERY distinct level across the ids (a job on Grade 1–3 comes back with all
+ * three checked) and the union of their subjects.
+ *
+ * NON-LEGACY only (migration 80): a row on the retired taxonomy comes back EMPTY,
+ * so the edit form's taxonomy step opens clean rather than pre-filled with a
+ * retired category/grade that no longer exists in the pickers. The card still
+ * renders its saved labels (labelsForMasterIds, by id) and still matches; the
+ * person re-picks from the current dataset on their next edit.
  */
 export async function selectionForMasterIds(
   ids: number[],
@@ -235,7 +254,7 @@ export async function selectionForMasterIds(
 
   const { rows } = await load()
   const set = new Set(ids)
-  const mine = rows.filter((r) => set.has(r.id))
+  const mine = rows.filter((r) => set.has(r.id) && !r.legacy)
   if (mine.length === 0) return empty
 
   const category = mine[0].category

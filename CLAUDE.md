@@ -55,7 +55,7 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 - `admin_message_templates` (migration 58) — owner/manager-editable templates seeded with cnic_unclear, address_untraceable, job_under_review, video_rerecord, profile_completion_nudge, payment_received, payment_approved, and (migration 64) the three abandoned-signup outreach templates signup_email_unconfirmed, signup_mobile_unverified, signup_profile_unfinished, and (migration 65) seeded_tuition_live (a `{tuition_url}` placeholder joins `{name}`): `key`, `title`, `subject`, `body` (`{name}`/`{job_title}`/`{reason}`/`{tuition_url}` placeholders). Admin-read RLS.
 - `job_contacts` (migration 65, extended migration 76) — the real poster's contact for a seeded (admin-posted) tuition, keyed 1:1 by `job_id` (cascade): `contact_name`, `contact_phone`, `contact_whatsapp`, `contact_email`, `contact_address`, `contact_social` (migration 76), `created_by`, `created_at`. All optional; only what was filled is stored. A DEDICATED table, NOT columns on `jobs`, because `jobs` has a public row-read policy and RLS cannot hide a column — so a contact on the jobs row would be one `select('*')` away from a public, indexed page. Admin-read RLS (`is_admin()`), service-role writes only (createTeamJob); no anon/member read. Normalised/validated by `buildJobContact()` (`lib/jobContactCore.ts`) before write — phone and WhatsApp to canonical MSISDN, email shape-checked, address/social free text — and read via `loadJobContact()`. Rendered only for a signed-in tutor on the job page and on `/admin/jobs/[id]`, both via the service role; never in metadata, JSON-LD, OG or the sitemap.
 - `signup_blocklist` (migration 58) — a banned account's `mobile` (normalised MSISDN) and `cnic_hash` (sha256 of the digits, NEVER the CNIC in the clear), plus `reason`, `source_user_id`, `created_by`. Checked at signup and at claim; admin-read RLS, service-role writes.
-- `taxonomy_categories` / `taxonomy_levels` / `taxonomy_subjects` / `taxonomy_master` — used by `lib/taxonomy.ts`, plus an admin-editable alias table for Roman-Urdu spellings. `taxonomy_levels.legacy boolean` (migration 79): the 12 lumped levels ("Grade 1 to 5", "AS & A Levels" …) were split into granular ones (Grade 1…5, AS Level / A Level), every subject fanned out to each split level; the lumped rows are kept `legacy=true` — hidden from the pickers but still VALID on existing rows (a job/tutor whose master_ids point at one renders and matches, and is re-picked on next edit). `lib/taxonomy.ts` hides legacy from the grade picker except when it is the pre-selected level of a row being edited. Level is a MULTI-select now; matching is unchanged (master_id intersection, which realises level containment because subjects fan out per level).
+- `taxonomy_categories` / `taxonomy_levels` / `taxonomy_subjects` / `taxonomy_master` — used by `lib/taxonomy.ts`, plus an admin-editable alias table for Roman-Urdu spellings. **Migration 80 replaced the whole taxonomy with the owner's corrected dataset (`supabase/seed/taxonomy-2026.csv`: 13 categories · 29 grades · 480 subjects · 1,475 combinations, loaded VERBATIM), superseding migration 79.** The prior taxonomy was miscategorised and its subjects were fanned mechanically across levels; the new dataset is per-grade. `taxonomy_levels.legacy boolean`: **every level minted before migration 80 is `legacy=true`** — still VALID on existing `job_subjects`/`tutor_subjects` (they render by id via `labelsForMasterIds` and match by master-id intersection), but hidden from every picker and re-picked on next edit. `lib/taxonomy.ts` builds the TREE and every picker (`fetchLevels`, `fetchGradesForLevel`, `fetchSubjectsForGrade`, `fetchAllSubjects`, `isLevelLeaf`, `resolveMasterIds`, `selectionForMasterIds`) from **non-legacy rows only** — the tree keys by display name, so this is what stops a retired grade colliding by name with a live one; `labelsForMasterIds` alone reads all rows (by id) so retired rows still render. Level is MULTI-select; matching is unchanged. There are NO level-leaves in the new dataset (Test Preparations / Sports & Games / Holy Quran are each one grade with many subjects). The generator is `scripts/build-taxonomy-2026.ts` (reproducible; commit the CSV, the SQL and the generator together).
 - `location_cities` (migration 73) — `id`, `name unique`, `sort_order int default 100` (Lahore/Karachi/Islamabad/Rawalpindi pinned 1–4, rest 100 → `order by sort_order, name`). `location_areas` (migration 73) — `id`, `city_id -> location_cities`, `name`, `unique(city_id, name)` (area is dependent on its city; `order by name`). The owner's 23-city / 249-area dataset, stored VERBATIM. Reference data: world-readable, admin-writable (the taxonomy pattern). Read via `lib/cityAreas.ts` (client, cached) or `lib/locationsAdmin.ts` (admin). `jobs.city|area`, `profiles.city|area`, `tutor_profiles.city|area` stay PLAIN STRINGS — a value not in these tables is free text, preserved as-is and surfaced by `unmappedLocations()` for review; promoting one is an insert here.
 - `job_titles` (migration 77) — `id`, `name unique`, `sort_order int`. The Job Type value set: the owner's 19 job titles ("Home Tutor", "Online Tutor", "O Levels Teacher", … "Principal") in a fixed order, stored VERBATIM. Reference data: world-readable, admin-writable (the location_cities pattern) — adding a title is an INSERT. Read via `lib/jobTitles.ts` (client, cached) or `lib/jobTitlesServer.ts` (server). `jobs.teaching_mode` (a job's single title) and `tutor_profiles.job_types text[]` (a tutor's multi-select) hold the TITLE TEXT itself — the stored value IS the label, so display is identity. `teaching_mode` KEEPS its name (the deferred rename still stands) and stays the mirror of `job_types[0]`. There is NO CHECK constraint on the value columns (a fixed-array CHECK would contradict "adding a title is an insert") — the UI offers only titles from the table, exactly as cities are offered. The one title the "online is city-agnostic" rule pivots on is `'Online Tutor'` (`lib/jobTitlesCore.ts` `ONLINE_JOB_TITLE`, the same literal in `rank_tutors`).
 
@@ -4882,3 +4882,59 @@ Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 · test:level
 The split (subjects resolving under each new level, legacy hidden but valid, only
 the 12 flagged — Test Prep 64 untouched) is verified live in psql; no browser was
 driven for the multi-select UI (its logic rests on the pure tests + the build).
+
+## Replace the taxonomy with the owner's corrected dataset (owner, 12 Sep 2026)
+
+The live taxonomy was wrong two ways: levels were miscategorised, and migration
+79 had fanned subjects mechanically across split levels (Grade 1 and Grade 5
+carried identical lists). `supabase/seed/taxonomy-2026.csv` is the owner's
+authoritative, per-grade dataset and is loaded VERBATIM — nothing renamed,
+reordered, merged or split. **Supersedes migration 79.** Migration 80.
+
+- **Counts, exact:** 13 categories · 29 grades · 480 subjects · 1,475
+  combinations. (The PR prose said BS = 132; the file pairs BS "Semester 1 - 8"
+  with **124** subjects and the file is authoritative — loaded verbatim.) The
+  live non-legacy triples are byte-identical to the CSV (0 missing, 0 extra),
+  verified in psql.
+- **Generated, reproducible.** `lib/taxonomySeed.ts` parses the CSV (quoted
+  comma fields, verbatim names); `scripts/build-taxonomy-2026.ts` emits
+  `supabase/migrations/80_taxonomy_2026.sql`; `scripts/test-taxonomy.ts`
+  (`npm run test:taxonomy`, 6 assertions) asserts the counts and that each grade
+  carries exactly its CSV subjects and nothing from another grade. The CSV, the
+  SQL and the generator are committed together.
+- **The retire-and-replace mechanism.** The migration flags **every prior
+  `taxonomy_level` legacy** (scoped `where slug not like 'x80g-%'` so a re-run
+  can't retire the new rows), then inserts the new taxonomy under collision-proof
+  `x80…` slugs: categories reused by EXACT name (10 of 13; the 3 with no
+  name-match — "Pre - Primary / Pre - School", "Matriculation / Secondary",
+  "Teaching of Holy Quran" — inserted fresh, the old "Pre-Primary / Pre-School" /
+  "Matriculation" / "Holy Quran" rows fall out of the pickers once their grades
+  are all legacy, so categories need no legacy flag), subjects reused by EXACT
+  name (363 of 480; 117 new — reuse keeps a subject's search aliases), grades and
+  master always fresh. No master row is deleted, so existing ids stay valid.
+- **The name-collision trap, and the fix.** `lib/taxonomy.ts`'s tree keys by
+  display NAME, and a retired "Grade 1" would otherwise merge its subjects with
+  the new "Grade 1". So the tree and EVERY picker are built from non-legacy rows
+  only (`resolveMasterIds` too — else a fresh pick would drag retired master ids
+  into every new post via a shared grade name). Only `labelsForMasterIds` reads
+  all rows (by id), so a retired row still renders its saved labels.
+  `selectionForMasterIds` returns non-legacy only, so a retired job's edit form
+  opens the taxonomy step CLEAN (re-pick) rather than pre-filled with a category
+  that no longer exists. `TaxonomySelector` dropped its legacy-grade handling
+  (the tree is already non-legacy). `fetchLegacyLevelNames` was removed (no
+  callers).
+- **Nothing invisible, nothing guessed** (migration item 5). **50 jobs and 11
+  tutor profiles** sit entirely on legacy today; they render, they match, and
+  they are re-picked on next edit. An edit that leaves the (now-retired) taxonomy
+  step untouched fails the existing "choose at least one subject" validation on
+  save — the honest consequence of retiring the whole taxonomy — so the person
+  re-picks then; the card keeps working until they do.
+- **Follow-up (reported):** the 117 newly-inserted subjects carry no Roman-Urdu
+  search aliases yet (`taxonomy_aliases` are admin-editable and attach by subject
+  slug); the 363 reused subjects keep theirs. Substring search works regardless.
+
+Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 · test:taxonomy 6
+· test:levels 9 · test:posttuition 10 · every other suite green. The multi-select
+cascade UI rests on the pure tests + the build; the data (per-grade triples,
+retired rows still rendering/matching) is verified live in psql. No browser was
+driven.
