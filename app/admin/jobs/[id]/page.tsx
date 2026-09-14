@@ -50,7 +50,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
   const { data: job } = await admin
     .from('jobs')
     .select(
-      'id, job_tx_id, public_slug, parent_id, title, description, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, status, is_featured, hired_tutor_id, created_at, closed_at',
+      'id, job_tx_id, ref_id, public_slug, parent_id, title, description, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, status, is_featured, hired_tutor_id, created_at, closed_at',
     )
     .eq(isUuid ? 'id' : 'job_tx_id', id)
     .maybeSingle()
@@ -127,6 +127,11 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
     <div className="space-y-4">
       <header className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
+          {job.ref_id && (
+            <span className="rounded-md bg-tm-tint-navy px-2 py-0.5 text-xs font-black tabular-nums text-tm-navy">
+              {job.ref_id as string}
+            </span>
+          )}
           <h2 className="text-xl font-black text-tm-navy">{job.title as string}</h2>
           {job.is_featured && (
             <span className="rounded-full bg-tm-gold px-2 py-0.5 text-[10px] font-black text-tm-navy">

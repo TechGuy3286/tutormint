@@ -44,7 +44,7 @@ const E = (k: string) => `seed+${k}@tutormint.dev`
 
 /**
  * The nine named cast members. Accounts NOT listed here (the admin staff
- * seed+manager/verifier/finance/support, and the fixtures seed+incomplete-bilal
+ * seed+manager/operations/support, and the fixtures seed+incomplete-bilal
  * and seed+verified-kamran) are deliberately left alone by the reset — they are
  * not part of the named plan/badge cast and have their own reasons to exist.
  */

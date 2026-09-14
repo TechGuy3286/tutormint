@@ -274,7 +274,7 @@ export async function setApplicationStatus(params: {
 
   const { data: job } = await supabase
     .from('jobs')
-    .select('id, parent_id, title, job_tx_id')
+    .select('id, parent_id, title, job_tx_id, ref_id')
     .eq('id', application.job_id as string)
     .maybeSingle()
 
@@ -310,6 +310,7 @@ export async function setApplicationStatus(params: {
         name: (tutor?.full_name as string) ?? 'there',
         outcome: 'shortlisted',
         jobTitle: job.title as string,
+        ref: (job.ref_id as string) ?? null,
         href: '/tutor/dashboard/applications',
       },
     )

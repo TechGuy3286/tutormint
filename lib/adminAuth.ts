@@ -3,19 +3,20 @@
 // Admin permission checks for server components and route handlers.
 //
 // The matrix (CLAUDE.md "Admin team hierarchy"):
-//   owner    everything, plus staff management (the Team screen is T7)
-//   manager  everything except Team management
-//   verifier tutor moderation queue + parent verification queue only
-//   finance  payments, subscriptions and quota views (read-only here in T3.5)
-//   support  reports, blocks, penalties, demos -- none of the T3.5 screens
+//   owner       everything, plus staff management (the Team screen)
+//   manager     everything except Team management
+//   operations  posting tuitions, verifying tutors and parents, day-to-day work
+//               (was Verifier + posting tuitions; owner, 14 Sep 2026)
+//   support     reports, blocks, penalties, demos, the member/tuition worklists
 //
-// 'owner' satisfies every check, so callers list the specific roles that also
-// qualify and never have to remember to add owner.
+// The Finance role was deleted (owner, 14 Sep 2026): payments and plans are now
+// manager-only. 'owner' satisfies every check, so callers list the specific
+// roles that also qualify and never have to remember to add owner.
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-export type AdminRole = 'owner' | 'manager' | 'verifier' | 'finance' | 'support'
+export type AdminRole = 'owner' | 'manager' | 'operations' | 'support'
 
 export type AdminActor = {
   id: string
@@ -88,17 +89,15 @@ export async function checkAdminRole(
 
 /** Which of the T3.5 screens a role may open. Drives the nav and the guards. */
 export const SCREEN_ACCESS = {
-  tutors: ['manager', 'verifier'] as AdminRole[],
-  parents: ['manager', 'verifier'] as AdminRole[],
-  // finance sees the plans screen read-only; only owner/manager may mutate.
-  plans: ['manager', 'finance'] as AdminRole[],
+  tutors: ['manager', 'operations'] as AdminRole[],
+  parents: ['manager', 'operations'] as AdminRole[],
+  // Finance is gone (owner, 14 Sep 2026): plans and payments are manager-only.
+  // Handing out plans and confirming money are the two things that must stay
+  // with the manager rung, not day-to-day operations.
+  plans: ['manager'] as AdminRole[],
   plansMutate: ['manager'] as AdminRole[],
-  // T6. Money is finance's job, so unlike the plans screen finance may both
-  // read and act here. verifier and support get neither -- a verifier who
-  // could approve a payment would be able to hand out plans, which is exactly
-  // the separation the roles exist to create.
-  payments: ['manager', 'finance'] as AdminRole[],
-  paymentsMutate: ['manager', 'finance'] as AdminRole[],
+  payments: ['manager'] as AdminRole[],
+  paymentsMutate: ['manager'] as AdminRole[],
   // T7a.
   //
   // `team` is an empty list on purpose, not an oversight: roleSatisfies()
@@ -112,13 +111,17 @@ export const SCREEN_ACCESS = {
   // "why can nobody see my job", which cannot be done without looking at the
   // job. MUTATE stops at manager -- closing or removing somebody's tuition
   // destroys the applications attached to it and is not a first-line action.
-  jobs: ['manager', 'support'] as AdminRole[],
+  // Operations posts tuitions and works the board day-to-day, so it reads the
+  // list too (owner, 14 Sep 2026). MUTATE stays manager-only — closing or
+  // removing a tuition destroys the applications attached to it.
+  jobs: ['manager', 'support', 'operations'] as AdminRole[],
   jobsMutate: ['manager'] as AdminRole[],
   // Posting a tuition on the team-operated account (owner, 9 Sep 2026). Manager
-  // + support, the same eyes that read the board: a team post is non-destructive
-  // and often support-originated (a referral, an external request), unlike
+  // + support + operations (posting tuitions is Operations' defining new power),
+  // the same eyes that read the board: a team post is non-destructive and often
+  // support/operations-originated (a referral, an external request), unlike
   // closing/removing a tuition, which stays manager-only.
-  jobsPost: ['manager', 'support'] as AdminRole[],
+  jobsPost: ['manager', 'support', 'operations'] as AdminRole[],
   users: ['manager', 'support'] as AdminRole[],
   // Orphaned accounts — auth users with no profiles row. A system-health view
   // that exists because a dropped trigger hid 24 real signups for three days

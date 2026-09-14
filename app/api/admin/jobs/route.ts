@@ -29,6 +29,7 @@ export async function GET(request: Request) {
       city: get('city'),
       subject: get('subject'),
       featured: get('featured'),
+      postedBy: get('postedBy'),
     },
     limit: PAGE_SIZE,
     cursor: get('cursor') || null,

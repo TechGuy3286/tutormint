@@ -566,7 +566,7 @@ export async function hireApplicant(
 
   const { data: job } = await supabase
     .from('jobs')
-    .select('id, parent_id, status, title, job_tx_id')
+    .select('id, parent_id, status, title, job_tx_id, ref_id')
     .eq('id', application.job_id as string)
     .maybeSingle()
 
@@ -691,6 +691,7 @@ export async function hireApplicant(
         name: (tutor?.full_name as string) ?? 'there',
         outcome: 'hired',
         jobTitle: job.title as string,
+        ref: (job.ref_id as string) ?? null,
         href: '/tutor/dashboard/applications',
       },
     )

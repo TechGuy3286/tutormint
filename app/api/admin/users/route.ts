@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { memberPage } from '@/lib/memberFeed'
+import { isTipKey, resolveTipMemberIds } from '@/lib/adminTips'
 
 // Load-more for /admin/users.
 //
@@ -21,8 +22,12 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const get = (k: string) => (url.searchParams.get(k) ?? '').trim()
 
+  // Resolve the same tip id set the first window used, so paging stays within it.
+  const tip = get('tip')
+  const ids = tip && isTipKey(tip) ? await resolveTipMemberIds(tip) : null
+
   const { rows, nextCursor } = await memberPage({
-    filters: { q: get('q'), role: get('role') || 'all', status: get('status') || 'all' },
+    filters: { q: get('q'), role: get('role') || 'all', status: get('status') || 'all', ids },
     limit: PAGE_SIZE,
     cursor: get('cursor') || null,
   })

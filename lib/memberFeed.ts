@@ -33,7 +33,14 @@ export type MemberRow = {
   createdAt: string
 }
 
-export type MemberFilters = { q: string; role: string; status: string }
+export type MemberFilters = {
+  q: string
+  role: string
+  status: string
+  /** An id allowlist (a conversion tip resolves to a set of member ids). null =
+   *  no restriction; an empty array = nobody, and the query returns no rows. */
+  ids?: string[] | null
+}
 
 type MemberCursor = { c: string; i: string }
 
@@ -47,14 +54,18 @@ export async function memberPage({
   limit: number
   offset?: number
   cursor?: string | null
-}): Promise<{ rows: MemberRow[]; nextCursor: string | null }> {
+}): Promise<{ rows: MemberRow[]; nextCursor: string | null; count: number }> {
   const admin = createAdminClient()
-  if (!admin) return { rows: [], nextCursor: null }
+  if (!admin) return { rows: [], nextCursor: null, count: 0 }
 
+  // count:'exact' gives the total matching the filters, independent of limit —
+  // the first window (no cursor) uses it for the "N members" line. On a
+  // cursored load-more the count reflects only the tail, which no caller reads.
   let query = admin
     .from('profiles')
     .select(
       'id, full_name, email, phone_number, whatsapp, city, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended, is_banned, phone_verified_via, created_at',
+      { count: 'exact' },
     )
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
@@ -87,6 +98,13 @@ export async function memberPage({
 
   if (filters.status === 'suspended') query = query.eq('is_suspended', true)
 
+  // A conversion-tip id allowlist. An empty array means the tip matched nobody,
+  // so short-circuit to an empty page rather than an unfiltered one.
+  if (filters.ids) {
+    if (filters.ids.length === 0) return { rows: [], nextCursor: null, count: 0 }
+    query = query.in('id', filters.ids)
+  }
+
   const after = decodeCursor<MemberCursor>(cursor)
   if (after) {
     query = query.or(
@@ -96,7 +114,7 @@ export async function memberPage({
     query = query.range(offset, offset + limit - 1)
   }
 
-  const { data: profiles } = await query
+  const { data: profiles, count } = await query
   const ids = (profiles ?? []).map((p) => p.id as string)
   const none = ['00000000-0000-0000-0000-000000000000']
 
@@ -146,13 +164,13 @@ export async function memberPage({
 
   return {
     rows,
-    // A short window is the end. There is no cheap exact count for a filtered
-    // profiles query, and counting on every request to decide whether to draw
-    // one button is not worth a second full scan.
     nextCursor:
       rows.length < limit || !last
         ? null
         : encodeCursor({ c: last.createdAt, i: last.id } satisfies MemberCursor),
+    // The total matching the filters (from count:'exact'), for the "N members"
+    // line. Accurate on the first window (no cursor), which is where it is read.
+    count: count ?? rows.length,
   }
 }
 

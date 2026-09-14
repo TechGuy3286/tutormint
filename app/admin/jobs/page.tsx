@@ -27,17 +27,20 @@ const PAGE_SIZE = 40
 export default async function AdminJobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; city?: string; subject?: string; featured?: string }>
+  searchParams: Promise<{ q?: string; status?: string; city?: string; subject?: string; featured?: string; postedBy?: string }>
 }) {
   await requireAdminRole(...SCREEN_ACCESS.jobs)
 
   const sp = await searchParams
+  // Two tabs, always one active (3.8): parent-posted (the default) or team-posted.
+  const postedBy = sp.postedBy === 'admin' ? 'admin' : 'parent'
   const filters: AdminJobFilters = {
     q: sp.q ?? '',
     status: sp.status ?? '',
     city: sp.city ?? '',
     subject: sp.subject ?? '',
     featured: sp.featured ?? '',
+    postedBy,
   }
 
   const [{ rows, nextCursor, total }, facets] = await Promise.all([
@@ -48,14 +51,22 @@ export default async function AdminJobsPage({
   const params: Record<string, string> = {}
   for (const [k, v] of Object.entries(filters)) if (v) params[k] = v
 
-  const filtered = Object.keys(params).length > 0
+  // A tab link that keeps the current search/status/city filters.
+  const tabHref = (tab: 'parent' | 'admin') => {
+    const p = new URLSearchParams()
+    for (const [k, v] of Object.entries(filters)) if (v && k !== 'postedBy') p.set(k, v)
+    p.set('postedBy', tab)
+    return `/admin/jobs?${p.toString()}`
+  }
+  const narrowed = ['q', 'status', 'city', 'subject', 'featured'].some((k) => params[k])
 
   return (
     <div className="space-y-4">
       <header className="flex items-start justify-between gap-3">
         <p className="text-xs text-gray-500">
           {total} {total === 1 ? 'tuition' : 'tuitions'}
-          {filtered ? ' matching these filters' : ' posted on TutorMint'}.
+          {postedBy === 'admin' ? ' posted by TutorMint' : ' posted by parents'}
+          {narrowed ? ' matching these filters' : ''}.
         </p>
         {/* jobs read and jobsPost are the same roles (manager + support), so
             everyone who reaches this screen may post a team tuition. */}
@@ -68,13 +79,30 @@ export default async function AdminJobsPage({
         </Link>
       </header>
 
+      {/* Posted by parents / Posted by admin (3.8). */}
+      <div className="flex gap-1 rounded-xl border border-gray-200 bg-white p-1">
+        {(['parent', 'admin'] as const).map((tab) => (
+          <Link
+            key={tab}
+            href={tabHref(tab)}
+            className={`flex-1 rounded-lg px-3 py-2 text-center text-xs font-bold transition-colors ${
+              postedBy === tab ? 'bg-tm-navy text-white' : 'text-tm-navy hover:bg-tm-tint-navy'
+            }`}
+          >
+            {tab === 'parent' ? 'Posted by parents' : 'Posted by admin'}
+          </Link>
+        ))}
+      </div>
+
       <JobFilters values={filters} cities={facets.cities} subjects={facets.subjects} />
 
       {rows.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
-          {filtered
+          {narrowed
             ? 'No tuitions match those filters. Clear one and try again.'
-            : 'No tuitions have been posted yet.'}
+            : postedBy === 'admin'
+              ? 'No tuitions have been posted by TutorMint yet.'
+              : 'No tuitions have been posted by parents yet.'}
         </p>
       ) : (
         <>

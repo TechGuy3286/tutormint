@@ -212,12 +212,11 @@ const PARENTS: ParentSpec[] = [
 // and never created here. These exist so the permission matrix can actually be
 // tested: "verifier is refused on /admin/payments" is only evidence if there is
 // a verifier to refuse. They carry no data of their own.
-type StaffSpec = { name: string; fullName: string; adminRole: 'manager' | 'verifier' | 'finance' | 'support' }
+type StaffSpec = { name: string; fullName: string; adminRole: 'manager' | 'operations' | 'support' }
 
 const STAFF: StaffSpec[] = [
   { name: 'manager', fullName: 'Manager Admin', adminRole: 'manager' },
-  { name: 'verifier', fullName: 'Verifier Admin', adminRole: 'verifier' },
-  { name: 'finance', fullName: 'Finance Admin', adminRole: 'finance' },
+  { name: 'operations', fullName: 'Operations Admin', adminRole: 'operations' },
   { name: 'support', fullName: 'Support Admin', adminRole: 'support' },
 ]
 

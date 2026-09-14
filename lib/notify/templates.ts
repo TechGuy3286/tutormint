@@ -125,6 +125,9 @@ export type TemplateInput =
       name: string
       outcome: 'shortlisted' | 'hired'
       jobTitle: string
+      /** The job's human reference (TM-1001), shown so the tutor can quote it.
+       *  Optional — omitted for a job with no ref (defensive; all have one). */
+      ref?: string | null
       href: string
     }
   | { id: 'message_digest'; name: string; count: number; from: string[] }
@@ -234,16 +237,19 @@ export function render(input: TemplateInput): RenderedEmail {
     // ---------------------------------------------------------------------
     case 'application_progress': {
       const hired = input.outcome === 'hired'
+      // The reference is what the tutor quotes back over the phone or in a
+      // message, so it rides the line that names the job.
+      const jobLabel = input.ref ? `"${input.jobTitle}" (Ref ${input.ref})` : `"${input.jobTitle}"`
       return build(
         hired ? `You have been hired — ${input.jobTitle}` : `You have been shortlisted — ${input.jobTitle}`,
         hired ? 'You have been hired' : 'You have been shortlisted',
         hired
           ? [
-              `The parent who posted "${input.jobTitle}" has hired you.`,
+              `The parent who posted ${jobLabel} has hired you.`,
               'Open the conversation to agree times and the first lesson.',
             ]
           : [
-              `The parent who posted "${input.jobTitle}" has shortlisted your application.`,
+              `The parent who posted ${jobLabel} has shortlisted your application.`,
               'They may message you next. Replying quickly makes a real difference.',
             ],
         // Essential: this is the outcome of something they applied for.

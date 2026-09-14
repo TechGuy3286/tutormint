@@ -16,10 +16,13 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
+import { teamParentId } from '@/lib/teamAccount'
 
 export type AdminJobRow = {
   id: string
   jobTxId: string | null
+  /** The human reference (TM-1001), shown in the row (migration 82). */
+  refId: string | null
   title: string
   status: string
   isFeatured: boolean
@@ -30,6 +33,9 @@ export type AdminJobRow = {
   createdAt: string
   parentId: string | null
   parentName: string
+  /** Posted on the team-operated TutorMint account (is_team_account) rather
+   *  than by a real parent — splits the two admin tabs. */
+  postedByTeam: boolean
   applicantCount: number
   hiredTutorId: string | null
 }
@@ -40,6 +46,8 @@ export type AdminJobFilters = {
   city: string
   subject: string
   featured: string
+  /** '' = both tabs, 'parent' = parent-posted, 'admin' = team-posted (3.8). */
+  postedBy: string
 }
 
 export const NO_JOB_FILTERS: AdminJobFilters = {
@@ -48,6 +56,7 @@ export const NO_JOB_FILTERS: AdminJobFilters = {
   city: '',
   subject: '',
   featured: '',
+  postedBy: '',
 }
 
 type JobCursor = { c: string; i: string }
@@ -81,11 +90,15 @@ export async function adminJobPage({
     if (matchingIds.length === 0) return { rows: [], nextCursor: null, total: 0 }
   }
 
+  // The one team-operated account splits the two tabs (3.8) and marks each row.
+  // Resolved once (null when the team account is not provisioned).
+  const teamId = await teamParentId()
+
   const build = () => {
     let q = admin
       .from('jobs')
       .select(
-        'id, job_tx_id, title, status, is_featured, city, area, class_level, subjects, created_at, parent_id, hired_tutor_id',
+        'id, job_tx_id, ref_id, title, status, is_featured, city, area, class_level, subjects, created_at, parent_id, hired_tutor_id',
         { count: 'exact' },
       )
     if (matchingIds) q = q.in('id', matchingIds)
@@ -93,11 +106,17 @@ export async function adminJobPage({
     if (filters.city) q = q.ilike('city', filters.city)
     if (filters.featured === 'yes') q = q.eq('is_featured', true)
     if (filters.featured === 'no') q = q.eq('is_featured', false)
+    // Tabs: admin = the team account's jobs; parent = everyone else's. When the
+    // team account is not provisioned, teamId is null: the admin tab shows
+    // nothing (correct — there are no team posts) and the parent tab shows all.
+    if (filters.postedBy === 'admin') q = teamId ? q.eq('parent_id', teamId) : q.eq('id', '00000000-0000-0000-0000-000000000000')
+    if (filters.postedBy === 'parent' && teamId) q = q.neq('parent_id', teamId)
     if (filters.q) {
       const term = filters.q.replace(/[,()]/g, ' ').trim()
-      // The reference is what an admin pastes from a support message, so it
-      // has to match as readily as the title does.
-      if (term) q = q.or(`title.ilike.%${term}%,job_tx_id.ilike.%${term}%`)
+      // The reference and the internal id are what an admin pastes from a
+      // support message, so both must match as readily as the title. ref_id
+      // matches with or without the "TM-" prefix (ilike %1005% and %TM-1005%).
+      if (term) q = q.or(`title.ilike.%${term}%,job_tx_id.ilike.%${term}%,ref_id.ilike.%${term}%`)
     }
     return q
   }
@@ -145,6 +164,7 @@ export async function adminJobPage({
     rows: page.map((j) => ({
       id: j.id as string,
       jobTxId: (j.job_tx_id as string) ?? null,
+      refId: (j.ref_id as string) ?? null,
       title: (j.title as string) ?? 'Tuition',
       status: (j.status as string) ?? 'open',
       isFeatured: !!j.is_featured,
@@ -155,6 +175,7 @@ export async function adminJobPage({
       createdAt: j.created_at as string,
       parentId: (j.parent_id as string) ?? null,
       parentName: parentName.get(j.parent_id as string) ?? '—',
+      postedByTeam: teamId != null && (j.parent_id as string) === teamId,
       applicantCount: applicants.get(j.id as string) ?? 0,
       hiredTutorId: (j.hired_tutor_id as string) ?? null,
     })),

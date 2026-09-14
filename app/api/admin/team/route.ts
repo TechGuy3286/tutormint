@@ -22,11 +22,11 @@ import { requireFreshAuth } from '@/lib/reauth'
 // recoverable only with a SQL session.
 
 const TeamBody = z.object({
-  action: z.enum(['create', 'role', 'suspend', 'reactivate', 'resend'], { message: 'Unknown action.' }),
+  action: z.enum(['create', 'role', 'remove', 'resend'], { message: 'Unknown action.' }),
   userId: uuid.optional(),
   email: z.string().email('Enter a valid email address.').max(320).optional(),
   fullName: z.string().max(200).optional(),
-  adminRole: z.enum(['owner', 'manager', 'verifier', 'finance', 'support']).optional(),
+  adminRole: z.enum(['owner', 'manager', 'operations', 'support']).optional(),
   reason: z.string().max(1000).optional(),
 })
 
@@ -98,8 +98,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   }
 
-  // ------------------------------------------------- suspend / reactivate ---
-  if (body.action === 'suspend' || body.action === 'reactivate') {
+  // ------------------------------------------------------------- remove ---
+  // Removing a staff member REVOKES the staff role and returns them to an
+  // ordinary member (owner, 14 Sep 2026), so they leave the Team list. There is
+  // no suspended state and no Reactivate here — re-adding is done through "Add a
+  // staff member". The underlying member account is NOT deleted.
+  if (body.action === 'remove') {
     const admin = createAdminClient()
     if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
 
@@ -107,13 +111,7 @@ export async function POST(request: Request) {
     const reason = (body.reason ?? '').trim()
 
     if (userId === actor.id) {
-      return NextResponse.json(
-        { error: 'You cannot suspend your own account.' },
-        { status: 400 },
-      )
-    }
-    if (body.action === 'suspend' && reason.length < 5) {
-      return NextResponse.json({ error: 'Give a reason for the record.' }, { status: 400 })
+      return NextResponse.json({ error: 'You cannot remove your own staff access.' }, { status: 400 })
     }
 
     const { data: target } = await admin
@@ -126,20 +124,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'That is not a staff account.' }, { status: 404 })
     }
     if (target.admin_role === 'owner') {
-      return NextResponse.json(
-        { error: 'The owner account cannot be suspended.' },
-        { status: 403 },
-      )
+      return NextResponse.json({ error: 'The owner account cannot be removed.' }, { status: 403 })
     }
 
-    const suspending = body.action === 'suspend'
+    // Revoke the role; return to an ordinary member. Not suspended — an ex-staff
+    // member keeps ordinary access. role must be a member role for admin_role to
+    // be null under the profiles CHECK constraint.
     const { error } = await admin
       .from('profiles')
       .update({
-        is_suspended: suspending,
-        suspension_reason: suspending ? reason : null,
-        suspended_at: suspending ? new Date().toISOString() : null,
-        suspended_by: suspending ? actor.id : null,
+        admin_role: null,
+        role: 'parent',
+        is_suspended: false,
+        suspension_reason: null,
+        suspended_at: null,
+        suspended_by: null,
       })
       .eq('id', userId)
 
@@ -149,7 +148,7 @@ export async function POST(request: Request) {
       actorId: actor.id,
       actorRole: actor.adminRole,
       actorEmail: actor.email,
-      action: suspending ? 'staff.suspend' : 'staff.reactivate',
+      action: 'staff.remove',
       targetType: 'profile',
       targetId: userId,
       detail: { email: target.email, adminRole: target.admin_role, reason: reason || null },
@@ -157,7 +156,7 @@ export async function POST(request: Request) {
 
     await logActivity({
       userId,
-      event: suspending ? 'staff_suspended' : 'staff_reactivated',
+      event: 'staff_removed',
       targetType: 'profile',
       targetId: userId,
       meta: { reason: reason || null },

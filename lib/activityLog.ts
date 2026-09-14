@@ -72,6 +72,9 @@ export type ActivityEvent =
   | 'staff_role_changed'
   | 'staff_suspended'
   | 'staff_reactivated'
+  // Suspending a staff member now revokes the role and returns them to an
+  // ordinary member (owner, 14 Sep 2026); the older two are kept for history.
+  | 'staff_removed'
   | 'video_visibility_changed'
   // T7b — imported accounts and the claim flow.
   | 'imported'

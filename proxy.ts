@@ -26,7 +26,7 @@ import { needsPhoneGate } from '@/lib/phoneGate'
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
 // return screen). Every page under it reads the signed-in member's own
 // payment row, so an anonymous hit has nothing to show and belongs at /login.
-const PROTECTED = ['/tutor/dashboard', '/parent/dashboard', '/admin', '/pay']
+const PROTECTED = ['/tutor/dashboard', '/tutor/onboarding', '/parent/dashboard', '/admin', '/pay']
 
 // The areas the phone gate covers: everything a signed-in member does with the
 // product. Listed one path at a time rather than as '/tutor' and '/parent'
@@ -36,6 +36,7 @@ const PROTECTED = ['/tutor/dashboard', '/parent/dashboard', '/admin', '/pay']
 // flow, and they must be able to reach it.
 const PHONE_GATED = [
   '/tutor/dashboard',
+  '/tutor/onboarding',
   '/tutor/complete-profile',
   '/tutor/upload-youtube',
   '/tutor/packages',

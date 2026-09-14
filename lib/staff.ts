@@ -27,7 +27,7 @@ import type { AdminRole } from '@/lib/adminAuth'
 import type { Actor } from '@/lib/moderation'
 
 /** Roles the owner may hand out. 'owner' is absent deliberately. */
-export const ASSIGNABLE_ROLES: AdminRole[] = ['manager', 'verifier', 'finance', 'support']
+export const ASSIGNABLE_ROLES: AdminRole[] = ['manager', 'operations', 'support']
 
 export type StaffResult =
   | {

@@ -8,9 +8,9 @@ import PaymentQueue from './PaymentQueue'
 
 // Payments: the manual-transfer queue and the subscription ledger.
 //
-// owner / manager / finance. A verifier or support admin is bounced by
-// requireAdminRole here and by checkAdminRole in the decide route, so the
-// separation holds whether they use the screen or curl.
+// owner / manager only (Finance was removed, 14 Sep 2026). An operations or
+// support admin is bounced by requireAdminRole here and by checkAdminRole in
+// the decide route, so the separation holds whether they use the screen or curl.
 //
 // Both lists page independently through lib/adminQueues.ts, which is also what
 // the load-more route calls -- one definition of the query, so the first

@@ -38,6 +38,9 @@ import type { BadgeName } from '@/lib/planBadges'
 export type JobCardData = {
   id: string
   job_tx_id: string | null
+  /** The human-readable reference (TM-1001), shown so a tutor can quote it over
+   *  the phone. Generated server-side, never editable (migration 82). */
+  ref_id?: string | null
   /** The public tuition page's address. Set once at posting, never changes. */
   public_slug: string | null
   status: string
@@ -262,6 +265,12 @@ export default function JobCard({
               )}
               <Clock size={12} className="shrink-0" />
               <TimeAgo iso={job.created_at} />
+              {job.ref_id && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-semibold tabular-nums text-slate-700">{job.ref_id}</span>
+                </>
+              )}
               {job.parent_name && (
                 <>
                   <span aria-hidden="true">·</span>

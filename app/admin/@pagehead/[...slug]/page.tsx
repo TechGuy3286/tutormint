@@ -37,8 +37,8 @@ async function dynamicLabel(slug: string[]): Promise<string | null> {
     return null
   }
 
-  // A finance admin who types a job URL is bounced by the page's own guard;
-  // the trail must not leak the title on the way past.
+  // An admin without access who types a job URL is bounced by the page's own
+  // guard; the trail must not leak the title on the way past.
   const actor = await getAdminActor()
   if (!actor || !roleSatisfies(actor.adminRole, LABEL_SCREEN[section])) return null
 

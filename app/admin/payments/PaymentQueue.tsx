@@ -133,9 +133,14 @@ export default function PaymentQueue({
       {/* ------------------------------------------------------- queue --- */}
       <section className="space-y-3">
         <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-black text-tm-navy">
-            Payments {paymentsTotal > 0 ? `(${paymentsTotal})` : ''}
-          </h2>
+          <div className="space-y-0.5">
+            <h2 className="text-sm font-black text-tm-navy">
+              Payments {paymentsTotal > 0 ? `(${paymentsTotal})` : ''}
+            </h2>
+            <p className="text-[11px] text-gray-500">
+              Bank transfers wait here for Approve or Reject. Gateway payments activate on their own.
+            </p>
+          </div>
           {/* Searches the payer's name or email, or a reference off the receipt. */}
           <QueueSearch
             basePath="/admin/payments"
@@ -196,7 +201,16 @@ export default function PaymentQueue({
                   </a>
                 )}
 
-                {p.status === 'pending' &&
+                {/* Gateway payments (AssanPay / simulator) confirm on the
+                    webhook — there is nothing for a human to approve. Only
+                    bank-transfer / manual payments carry Approve & Reject. */}
+                {p.status === 'pending' && p.provider !== 'manual' && (
+                  <p className="rounded-xl bg-tm-tint-navy px-3 py-2 text-[11px] font-semibold text-tm-navy">
+                    Gateway payment — activates automatically when the gateway confirms. No approval needed.
+                  </p>
+                )}
+
+                {p.status === 'pending' && p.provider === 'manual' &&
                   (rejecting === p.id ? (
                     <div className="space-y-2">
                       <input

@@ -40,7 +40,8 @@
     "test:jobtitles": "tsx --test scripts/test-jobtitles.ts",
     "test:levels": "tsx --test scripts/test-levels.ts",
     "test:taxonomy": "tsx --test scripts/test-taxonomy.ts",
-    "test:taxonomy:live": "tsx --test scripts/test-taxonomy-live.ts"
+    "test:taxonomy:live": "tsx --test scripts/test-taxonomy-live.ts",
+    "test:onboarding": "tsx --test scripts/test-onboarding.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

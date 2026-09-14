@@ -63,8 +63,9 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Members',
     items: [
       { href: '/admin/users', label: 'Members', icon: 'contact', screen: 'users' },
+      // Orphaned accounts folded into Abandoned signups as a second section
+      // (owner, 14 Sep 2026) — /admin/orphans now redirects there.
       { href: '/admin/signups', label: 'Abandoned signups', icon: 'userPlus', screen: 'signups' },
-      { href: '/admin/orphans', label: 'Orphaned accounts', icon: 'userX', screen: 'orphans' },
       { href: '/admin/team', label: 'Team', icon: 'key', screen: 'team' },
     ],
   },

@@ -208,6 +208,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
     return {
       id: j.id as string,
       job_tx_id: (j.job_tx_id as string) ?? null,
+      ref_id: (j.ref_id as string) ?? null,
       public_slug: (j.public_slug as string) ?? null,
       status: (j.status as string) ?? 'open',
       // CARD title: the composed field list.
@@ -248,7 +249,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
 }
 
 const JOB_COLUMNS =
-  'id, job_tx_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, under_review, parent_id, status, gender_preference'
+  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, under_review, parent_id, status, gender_preference'
 
 /**
  * Open jobs that match a tutor's subjects, their city first.

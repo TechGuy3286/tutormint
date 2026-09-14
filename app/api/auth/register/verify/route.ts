@@ -79,7 +79,12 @@ export async function POST(request: Request) {
     }
   }
 
-  const dest = nextForRole(parsed.data.next, result.role) ?? homeForRole(result.role)
+  // A tutor with no explicit destination lands in the tap-only onboarding flow
+  // (owner, 14 Sep 2026) — the screen that turns a Meta-ad signup into a listed
+  // tutor — not the dashboard. An explicit `next` (e.g. an apply draft) still
+  // wins. Parents and admins go to their role home as before.
+  const fallback = result.role === 'tutor' ? '/tutor/onboarding' : homeForRole(result.role)
+  const dest = nextForRole(parsed.data.next, result.role) ?? fallback
 
   // If the session could not be minted, the account is still real — the member
   // signs in with the password they set. Never a dead end.

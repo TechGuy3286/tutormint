@@ -329,6 +329,12 @@ export default async function TuitionPage({ params }: { params: Params }) {
             <span aria-hidden>·</span>
             <CalendarDays size={12} aria-hidden className="shrink-0" />
             Posted {formatDate(job.created_at)}
+            {job.ref_id && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="font-semibold tabular-nums text-slate-700">Ref {job.ref_id}</span>
+              </>
+            )}
           </p>
         </header>
 

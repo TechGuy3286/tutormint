@@ -23,7 +23,7 @@ export type StaffRow = {
   id: string
   name: string
   email: string
-  adminRole: 'owner' | 'manager' | 'verifier' | 'finance' | 'support'
+  adminRole: 'owner' | 'manager' | 'operations' | 'support'
   suspended: boolean
   suspensionReason: string | null
   mustChangePassword: boolean
@@ -36,8 +36,7 @@ export type StaffRow = {
 
 const ROLES = [
   { code: 'manager', label: 'Manager', blurb: 'Everything except this screen' },
-  { code: 'verifier', label: 'Verifier', blurb: 'Tutor and parent verification queues' },
-  { code: 'finance', label: 'Finance', blurb: 'Payments, subscriptions, quota usage' },
+  { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, verifying tutors and parents, day-to-day work' },
   { code: 'support', label: 'Support', blurb: 'Reports, blocks, penalties, members' },
 ] as const
 
@@ -80,7 +79,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
     setBusy(id)
     setError(null)
     try {
-      const { ok, data: json } = await adminFetch<{
+      const { ok, status, data: json } = await adminFetch<{
         error?: string
         invited?: boolean
         temporaryPassword?: string | null
@@ -90,7 +89,13 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      if (!ok) throw new Error(json.error ?? 'That did not work.')
+      if (!ok) {
+        // Surface the ACTUAL status and message, never a generic sign-in prompt:
+        // a staff mutation that failed with a 500 or a 403 should say so, so the
+        // owner can tell "you cannot do this" from "the server broke".
+        const detail = json.error ?? 'That did not work.'
+        throw new Error(status ? `${detail} (HTTP ${status})` : detail)
+      }
       router.refresh()
       return json
     } catch (e) {
@@ -317,12 +322,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
         {staff.map((s) => {
           const state = s.adminRole === 'owner' ? 'accepted' : inviteState(s)
           return (
-          <li
-            key={s.id}
-            className={`space-y-3 rounded-2xl border bg-white p-4 ${
-              s.suspended ? 'border-tm-gold/30' : 'border-gray-200'
-            }`}
-          >
+          <li key={s.id} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate text-sm font-black text-tm-navy">
@@ -344,28 +344,20 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                 )}
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-                    s.suspended
-                      ? 'bg-tm-tint-gold text-tm-gold-ink'
-                      : s.adminRole === 'owner'
-                        ? 'bg-tm-black text-white'
-                        : 'bg-tm-tint-green text-tm-green-deep'
+                    s.adminRole === 'owner'
+                      ? 'bg-tm-black text-white'
+                      : 'bg-tm-tint-green text-tm-green-deep'
                   }`}
                 >
-                  {s.suspended ? 'suspended' : s.adminRole}
+                  {s.adminRole}
                 </span>
               </div>
             </div>
 
-            {s.suspended && s.suspensionReason && (
-              <p className="rounded-xl bg-tm-tint-gold p-2 text-[11px] text-tm-gold-ink">
-                {s.suspensionReason}
-              </p>
-            )}
-
             {s.adminRole === 'owner' ? (
               <p className="flex items-start gap-2 rounded-xl bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
                 <ShieldAlert size={14} className="mt-px shrink-0" />
-                The owner cannot be demoted or suspended, including by themselves. Transferring
+                The owner cannot be demoted or removed, including by themselves. Transferring
                 ownership is a database operation, on purpose.
               </p>
             ) : (
@@ -407,23 +399,23 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                     <input
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      placeholder="Reason for the record"
+                      placeholder="Reason for the record (optional)"
                       aria-label="Reason"
                       className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs font-semibold"
                     />
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        disabled={reason.trim().length < 5 || busy === s.id}
+                        disabled={busy === s.id}
                         onClick={async () => {
-                          const json = await call({ action: 'suspend', userId: s.id, reason }, s.id)
-                          if (json) toast.success(`${s.name}'s access suspended.`)
+                          const json = await call({ action: 'remove', userId: s.id, reason }, s.id)
+                          if (json) toast.success(`${s.name} removed from the team.`)
                           setSuspendingId(null)
                           setReason('')
                         }}
                         className="min-h-[44px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white disabled:bg-gray-300"
                       >
-                        Suspend access
+                        Remove from team
                       </button>
                       <button
                         type="button"
@@ -436,19 +428,13 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                         Cancel
                       </button>
                     </div>
+                    {/* Removing revokes the staff role and returns them to an
+                        ordinary member — they leave this list. Re-adding is done
+                        through "Add a staff member". The account is not deleted. */}
+                    <p className="text-[11px] text-gray-500">
+                      This revokes their staff role and returns them to an ordinary member.
+                    </p>
                   </div>
-                ) : s.suspended ? (
-                  <button
-                    type="button"
-                    disabled={busy === s.id}
-                    onClick={async () => {
-                      const json = await call({ action: 'reactivate', userId: s.id }, s.id)
-                      if (json) toast.success(`${s.name}'s access reactivated.`)
-                    }}
-                    className="min-h-[44px] w-full rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white"
-                  >
-                    Reactivate
-                  </button>
                 ) : (
                   <button
                     type="button"
@@ -456,7 +442,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                     onClick={() => setSuspendingId(s.id)}
                     className="min-h-[44px] w-full rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700 disabled:opacity-40"
                   >
-                    {s.isMe ? 'You cannot suspend yourself' : 'Suspend access'}
+                    {s.isMe ? 'You cannot remove yourself' : 'Remove from team'}
                   </button>
                 )}
               </>

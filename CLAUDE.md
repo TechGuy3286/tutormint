@@ -5072,3 +5072,94 @@ no-preference omits gender; no area → "in Lahore"; non-contiguous levels read
 naturally; title-and-city only → no stray prepositions; subjects and budget never
 appear) · test:levels 10 (adds the conjunction-mode list) · test:posttuition 10 ·
 test:cv 14 · test:social 7 · every other suite green.
+
+## Job reference IDs, tutor onboarding flow, admin dashboard rework (owner, 14 Sep 2026)
+
+Three pieces in one PR. Migrations 82 (job ref), 83 (admin roles). Gates at close:
+tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 · test:onboarding 6 ·
+test:jobtitles 12 · test:levels 10 · test:posttuition 10 · every other suite green.
+
+### Part 1 — Job reference IDs (migration 82)
+
+Every job now carries `jobs.ref_id` (TM-1001, TM-1002, …) — short enough to read
+over a phone, distinct from the opaque internal `job_tx_id`. Generated
+SERVER-SIDE and never editable: a column DEFAULT driven by a sequence
+(`job_ref_seq`), so EVERY insert path (createJob, createTeamJob, anything added
+later) gets one and no request body can set it. All 64 existing jobs backfilled
+in `created_at` order from TM-1001; the sequence advanced past the max so new
+jobs continue the run (next TM-1065). NOT NULL + unique. Displayed on the job
+card meta row, the public tuition page header, the admin tuition list row (navy
+chip) + detail header, and the application_progress email. Admin search matches
+`ref_id` with or without the TM- prefix.
+
+### Part 2 — Tutor onboarding flow
+
+A new tap-only, bilingual funnel at `/tutor/onboarding` — the screen that turns a
+Meta-ad signup into a real profile (every production tutor had 0 subjects). New
+tutors are routed here after they verify: `register/verify` sends a tutor with no
+explicit `next` to `/tutor/onboarding`; the path is in proxy PROTECTED +
+PHONE_GATED. The full editor at `/tutor/complete-profile` is untouched.
+
+- Nothing typed, nothing read: every answer is a chip/tile tap; the only keyboard
+  is the optional Other/More search on city/area/subjects. Labels are two or three
+  words, English over Urdu (`lib/onboarding/copy.ts` `L`), one question per
+  screen, progress dots, a back arrow, 360px-first.
+- The counter (`lib/openJobCounts.ts`, POST `/api/onboarding/counts`): a fixed
+  header showing the live count of open tuitions, re-queried and re-animated after
+  each answer — national then in-city then in-area then matching-you. The FLOOR
+  RULE holds: a scope that narrows below 3 never shows a lonely small number or a
+  bare zero — it always appends the next-broader fallback. The count is of ALL
+  open jobs, never seed/team-filtered.
+- Steps, in order: City, Area (chips ordered by open-job demand, Other opens
+  search, single-select) · Subjects (taxonomy_subjects, demand-ordered, MULTI,
+  More full search) · Level (non-legacy taxonomy_levels, MULTI) · Gender (two
+  tiles) · Experience (bands, lower bound to experience_years) · Fee (the real
+  demand bands from lib/feeBands, representative value to hourly_rate_pkr) · Photo
+  (capture=environment, camera-first + smaller gallery) · Selfie (capture=user,
+  no gallery). No Skip until the subjects step is passed.
+- Tagline + bio COMPOSED from the tutor's own taps (never empty fields), shown in
+  a card with Looks good / Edit. composeHeadline/composeBio (pure,
+  test:onboarding) invent nothing and pick one of five bio patterns
+  deterministically by hashing the tutor id so SEO pages do not all read the same.
+- Submit (POST `/api/tutor/onboarding`) writes city to profiles; area/gender/
+  experience/fee/headline/bio to tutor_profiles; resolves chosen subjects x levels
+  to taxonomy_master ids (falls back to subject-at-any-level when a level is
+  skipped) and rewrites tutor_subjects; recomputes completion; lands the tutor on
+  the tuition list matching their answers.
+- Profile photo component: FileUpload already collapses to the filename row when a
+  file exists and never shows a dropzone above an uploaded photo — verified
+  already-fixed, not changed.
+
+### Part 3 — Admin dashboard
+
+- 3.1 Overview is money: removed the queue tiles and the Needs attention block.
+  Tiles: Revenue this month, Monthly re-subscribed (bought this month via purchase
+  AND held an earlier subscription; admin grants excluded), Tutors, Parents, Open
+  tuitions (all open, not seed/team-filtered). Then a Tips block (`lib/adminTips.ts`)
+  of real clickable worklists (0 shown, never faked): Unpaid tutors, Listed but
+  unpaid, Signed up never filled, Never verified (expired pending_signups).
+- 3.2 Members: the filter chips are one single-select group now (role and status
+  were independent, so Everyone + Suspended-only both stuck), and a real total
+  count with singular/plural.
+- 3.3 Orphaned accounts folded into Abandoned signups as a second section; nav
+  item gone, `/admin/orphans` redirects; orphans get a Create-missing-profile
+  button (POST `/api/admin/orphans/create`, via ensureProfile, audit-logged, a
+  role never invented).
+- 3.4 Roles: Finance DELETED (payments/plans manager-only); Verifier RENAMED to
+  Operations (= Verifier's screens + posting tuitions). Migration 83 reassigned
+  live rows and swapped the admin_role CHECK.
+- 3.5 Staff: removed Ali Bhai (waystosky@gmail.com) — role revoked, account kept.
+  Suspension is now Remove from team (revoke role, back to ordinary member; no
+  suspended cards, no Reactivate). Staff mutation failures surface the real status
+  + message.
+- 3.6 Payments: Approve/Reject only for provider=manual; a pending gateway payment
+  shows activates-automatically and no buttons.
+- 3.7 Plans: a short explainer (grant when activation failed, revoke an error;
+  grants are admin_grant, excluded from revenue/re-subscription).
+- 3.8 Tuitions split into two tabs — Posted by parents / Posted by admin (by the
+  team account); both rows show the TM- reference.
+- 3.9 Landing pages / Locations: unchanged.
+
+No browser was driven — the tap flow rests on the pure test:onboarding +
+check:contrast + the passing build; the migrations, backfill, role reassignment
+and Ali-Bhai removal are verified live in psql.

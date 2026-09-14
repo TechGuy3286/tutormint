@@ -2,9 +2,9 @@ import { requireAdminRole, roleSatisfies, getAdminActor, SCREEN_ACCESS } from '@
 import { createAdminClient } from '@/lib/supabase/admin'
 import PlanGrantClient, { type PlanRow, type AccountRow } from './PlanGrantClient'
 
-// Plans screen. finance may OPEN this (read-only); only owner + manager may
-// mutate. canMutate below drives the UI, and /api/admin/plans re-checks the
-// narrower permission independently.
+// Plans screen. Owner + manager only (Finance was removed, 14 Sep 2026).
+// canMutate drives the UI, and /api/admin/plans re-checks the permission
+// independently.
 
 export const dynamic = 'force-dynamic'
 
@@ -42,5 +42,21 @@ export default async function AdminPlansPage() {
     }
   })
 
-  return <PlanGrantClient plans={(plans ?? []) as PlanRow[]} accounts={rows} canMutate={canMutate} />
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-gray-200 bg-tm-tint-navy/40 p-4 text-xs leading-relaxed text-slate-700">
+        <p className="font-black text-tm-navy">What this screen is for</p>
+        <p className="mt-1">
+          Grant a plan when a payment succeeded but activation failed, or revoke one granted in error.
+          Members normally get their plan automatically — gateway payments activate on confirmation, and
+          bank transfers activate when a manager approves them on Payments.
+        </p>
+        <p className="mt-1">
+          Plans granted here are recorded as <span className="font-bold">admin&nbsp;grant</span> and are
+          excluded from revenue and re-subscription numbers.
+        </p>
+      </div>
+      <PlanGrantClient plans={(plans ?? []) as PlanRow[]} accounts={rows} canMutate={canMutate} />
+    </div>
+  )
 }
