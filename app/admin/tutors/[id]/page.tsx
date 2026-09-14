@@ -17,9 +17,9 @@ import SlugField from './SlugField'
 // /admin/users/[id] and is not duplicated here; there is a link to it, and to
 // the moderation queue where the video and documents are decided.
 //
-// READ is the tutors screen (manager + verifier), so a verifier working the
+// READ is the tutors screen (admin + operations), so operations working the
 // queue can open a tutor from it and see what is being reviewed. EDITING the
-// address is manager-only, and the route re-checks that regardless of what
+// address is admin-only, and the route re-checks that regardless of what
 // rendered -- a role must not be able to do through the API what the UI hides.
 
 export const dynamic = 'force-dynamic'

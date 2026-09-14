@@ -44,7 +44,7 @@ export default function ReportQueue({
   reports: QueueReport[]
   blocks: BlockRow[]
   filter: string
-  /** Owner/manager may ban from the queue; support sees no Ban button. */
+  /** Owner/admin may ban from the queue; operations sees no Ban button. */
   canBan: boolean
   reportsCursor: string | null
   reportsTotal: number
@@ -322,8 +322,8 @@ export default function ReportQueue({
                         >
                           {r.reportedSuspended ? 'Unsuspend' : 'Suspend'}
                         </button>
-                        {/* Ban: a verifier working the queue does not have to
-                            leave it, but only owner/manager see this (the route
+                        {/* Ban: operations working the queue does not have to
+                            leave it, but only owner/admin see this (the route
                             enforces it too). Distinct from Suspend — permanent,
                             typed confirmation. */}
                         {canBan && !r.reportedBanned && (

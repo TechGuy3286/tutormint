@@ -22,6 +22,11 @@ export default async function TutorOnboardingPage() {
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
   if (profile?.role !== 'tutor') redirect('/')
 
+  // Loop guard: a tutor who has finished or dismissed onboarding is never held
+  // here again — they go to their dashboard (they can still edit via settings).
+  const { data: tp } = await supabase.from('tutor_profiles').select('onboarded_at').eq('id', user.id).maybeSingle()
+  if (tp?.onboarded_at) redirect('/tutor/dashboard')
+
   const facets = await onboardingFacets()
   // Without the service role the counter and demand ordering cannot be built;
   // fall back to the full editor rather than a broken tap flow.

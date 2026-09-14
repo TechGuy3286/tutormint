@@ -32,6 +32,8 @@ type Body = {
   headline?: string | null
   bio?: string | null
   avatarUrl?: string | null
+  /** The tutor chose "I'll do this later" — record it and land on the dashboard. */
+  dismiss?: boolean
 }
 
 export async function POST(request: Request) {
@@ -47,6 +49,15 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as Body
+
+  // Dismiss: the tutor chose "I'll do this later". Record that they went through
+  // the flow so the sign-in gate never sends them back, and land on the
+  // dashboard. Nothing else is written.
+  if (body.dismiss) {
+    await supabase.from('tutor_profiles').update({ onboarded_at: new Date().toISOString() }).eq('id', user.id)
+    return NextResponse.json({ ok: true, next: '/tutor/dashboard' })
+  }
+
   const subjectSlugs = (body.subjectSlugs ?? []).filter((s) => typeof s === 'string').slice(0, 50)
   const levelSlugs = (body.levelSlugs ?? []).filter((s) => typeof s === 'string').slice(0, 50)
   const gender = body.gender === 'male' || body.gender === 'female' ? body.gender : null
@@ -56,19 +67,22 @@ export async function POST(request: Request) {
   }
 
   // ---- resolve subjects × levels to taxonomy_master ids ----
-  const { data: masterRows } = await supabase
-    .from('taxonomy_master')
-    .select('id, level_slug')
-    .in('subject_slug', subjectSlugs)
-  const all = masterRows ?? []
-  let chosen = all
+  // If Level was SKIPPED, write NOTHING (owner, 14 Sep 2026). Subjects are
+  // stored as (subject × level) master ids, so with no level there is no honest
+  // row to write — the old "subject at every level" fallback made the platform
+  // claim a tutor teaches pre-primary to university, and surfaced them in
+  // level-filtered searches they cannot serve. They are prompted for a level
+  // later rather than guessed on their behalf. When levels ARE chosen, the
+  // subjects × levels cross-product stands as-is.
+  let masterIds: number[] = []
   if (levelSlugs.length > 0) {
-    const inLevel = all.filter((m) => levelSlugs.includes(m.level_slug as string))
-    // Fall back to subject-at-any-level if the chosen levels do not intersect
-    // (a subject the tutor tapped that is not offered at their chosen levels).
-    if (inLevel.length > 0) chosen = inLevel
+    const { data: masterRows } = await supabase
+      .from('taxonomy_master')
+      .select('id')
+      .in('subject_slug', subjectSlugs)
+      .in('level_slug', levelSlugs)
+    masterIds = Array.from(new Set((masterRows ?? []).map((m) => m.id as number))).slice(0, MAX_MASTERS)
   }
-  const masterIds = Array.from(new Set(chosen.map((m) => m.id as number))).slice(0, MAX_MASTERS)
 
   // ---- write profiles.city ----
   if (typeof body.city === 'string') {
@@ -107,6 +121,9 @@ export async function POST(request: Request) {
       meta: { count: masterIds.length, via: 'onboarding' },
     })
   }
+
+  // Mark onboarding done so the sign-in gate never sends them back (no loop).
+  await supabase.from('tutor_profiles').update({ onboarded_at: new Date().toISOString() }).eq('id', user.id)
 
   await ensureTutorSlug(user.id)
   await recomputeCompletion(user.id)

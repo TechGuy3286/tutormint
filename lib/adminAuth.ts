@@ -2,21 +2,21 @@
 //
 // Admin permission checks for server components and route handlers.
 //
-// The matrix (CLAUDE.md "Admin team hierarchy"):
-//   owner       everything, plus staff management (the Team screen)
-//   manager     everything except Team management
-//   operations  posting tuitions, verifying tutors and parents, day-to-day work
-//               (was Verifier + posting tuitions; owner, 14 Sep 2026)
-//   support     reports, blocks, penalties, demos, the member/tuition worklists
+// The role tree (owner, 14 Sep 2026) — exactly three roles:
+//   owner       everything, plus staff management (the Team screen). Cannot be
+//               demoted or suspended; transfer of ownership is a DB operation.
+//   admin       full access EVERYWHERE except the Team screen.
+//   operations  office staff: posting tuitions, verifying tutors and parents,
+//               assisting, marketing, SEO. Absorbed the deleted Support role.
 //
-// The Finance role was deleted (owner, 14 Sep 2026): payments and plans are now
-// manager-only. 'owner' satisfies every check, so callers list the specific
-// roles that also qualify and never have to remember to add owner.
+// 'manager' was renamed to 'admin' and 'support' + 'finance' were deleted
+// (migrations 83, 84). 'owner' satisfies every check, so callers list the
+// specific roles that also qualify and never have to remember to add owner.
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-export type AdminRole = 'owner' | 'manager' | 'operations' | 'support'
+export type AdminRole = 'owner' | 'admin' | 'operations'
 
 export type AdminActor = {
   id: string
@@ -87,91 +87,59 @@ export async function checkAdminRole(
   return { ok: true, actor }
 }
 
-/** Which of the T3.5 screens a role may open. Drives the nav and the guards. */
+/**
+ * Which screen each role may open. Drives the nav and the guards.
+ *
+ * The tree (owner, 14 Sep 2026): 'admin' has FULL ACCESS EVERYWHERE EXCEPT the
+ * Team screen — so every entry below except `team` includes 'admin'.
+ * 'operations' is office staff (posting tuitions, verifying, assisting,
+ * marketing, SEO) and holds the day-to-day subset. `team` is `[]`, which
+ * roleSatisfies() admits ONLY for the owner — so an Admin cannot open Team, add
+ * staff, change a role or remove anyone, enforced here, not just in the nav.
+ */
 export const SCREEN_ACCESS = {
-  tutors: ['manager', 'operations'] as AdminRole[],
-  parents: ['manager', 'operations'] as AdminRole[],
-  // Finance is gone (owner, 14 Sep 2026): plans and payments are manager-only.
-  // Handing out plans and confirming money are the two things that must stay
-  // with the manager rung, not day-to-day operations.
-  plans: ['manager'] as AdminRole[],
-  plansMutate: ['manager'] as AdminRole[],
-  payments: ['manager'] as AdminRole[],
-  paymentsMutate: ['manager'] as AdminRole[],
-  // T7a.
-  //
-  // `team` is an empty list on purpose, not an oversight: roleSatisfies()
-  // always admits the owner, so [] reads as "owner only" without a magic
-  // string. Staff management is the one thing a manager does not get.
+  // Verifying tutors and parents — operations' core work.
+  tutors: ['admin', 'operations'] as AdminRole[],
+  parents: ['admin', 'operations'] as AdminRole[],
+  // Money — admin (and owner) only, never operations.
+  plans: ['admin'] as AdminRole[],
+  plansMutate: ['admin'] as AdminRole[],
+  payments: ['admin'] as AdminRole[],
+  paymentsMutate: ['admin'] as AdminRole[],
+  // Staff management is the ONE thing an Admin does not get. `[]` +
+  // roleSatisfies() = owner only, with no magic string.
   team: [] as AdminRole[],
-  reports: ['manager', 'support'] as AdminRole[],
-  // The official Team ↔ member inbox (Part 4). owner / manager / support.
-  inbox: ['manager', 'support'] as AdminRole[],
-  // The tuition board, as staff. READ is manager + support: support answers
-  // "why can nobody see my job", which cannot be done without looking at the
-  // job. MUTATE stops at manager -- closing or removing somebody's tuition
-  // destroys the applications attached to it and is not a first-line action.
-  // Operations posts tuitions and works the board day-to-day, so it reads the
-  // list too (owner, 14 Sep 2026). MUTATE stays manager-only — closing or
-  // removing a tuition destroys the applications attached to it.
-  jobs: ['manager', 'support', 'operations'] as AdminRole[],
-  jobsMutate: ['manager'] as AdminRole[],
-  // Posting a tuition on the team-operated account (owner, 9 Sep 2026). Manager
-  // + support + operations (posting tuitions is Operations' defining new power),
-  // the same eyes that read the board: a team post is non-destructive and often
-  // support/operations-originated (a referral, an external request), unlike
-  // closing/removing a tuition, which stays manager-only.
-  jobsPost: ['manager', 'support', 'operations'] as AdminRole[],
-  users: ['manager', 'support'] as AdminRole[],
-  // Orphaned accounts — auth users with no profiles row. A system-health view
-  // that exists because a dropped trigger hid 24 real signups for three days
-  // (see migration 59). Manager + support, the same eyes that work the member
-  // directory, since an orphan is a member who cannot be seen anywhere else.
-  orphans: ['manager', 'support'] as AdminRole[],
-  // Abandoned signups — accounts that registered but never verified, or verified
-  // but never finished a profile. An outreach worklist; manager + support, the
-  // same eyes that work the member directory and the Team inbox they send from.
-  signups: ['manager', 'support'] as AdminRole[],
-  // Exporting the member directory to CSV carries mobile numbers off the
-  // platform, so it is owner + manager only — one rung above the read-only
-  // directory (which support can see) — and every export is audit-logged.
-  usersExport: ['manager'] as AdminRole[],
-  audit: ['manager'] as AdminRole[],
-  // T9.1 — the landing-page monitor. Read-only: which city × subject pages are
-  // live, and which sit one tutor short of opening. Owner + manager, a growth
-  // view like the other T7b tools.
-  seo: ['manager'] as AdminRole[],
-  // Publishing a tutor's video to the world is a bigger decision than
-  // approving it for review, so it stops at manager rather than verifier.
-  videoVisibility: ['manager'] as AdminRole[],
-  // Moving a tutor's public URL. A verifier decides whether a video and a set
-  // of certificates are acceptable; changing the address a search engine has
-  // indexed and the tutor has pasted into WhatsApp is a different decision and
-  // stops at manager. Tutors cannot change it at all -- there is no self-serve
-  // field -- because an address a member can move at will is one that moves
-  // whenever somebody dislikes a review, and each move costs the profile the
-  // ranking the old URL had earned.
-  tutorSlug: ['manager'] as AdminRole[],
-  // T7b — the growth tools. All owner + manager: each of them either spends
-  // the platform's reputation (ads, social posts published as us) or creates
-  // accounts and deletes them, which is not a queue-worker's job.
-  ads: ['manager'] as AdminRole[],
-  social: ['manager'] as AdminRole[],
-  import: ['manager'] as AdminRole[],
-  // Deleting accounts is owner-only: it is the one admin action with no undo.
-  cleanup: [] as AdminRole[],
-  // T9.3 — the blog CMS. READ + draft editing is manager + support (support
-  // drafts, owner/manager publish). PUBLISH, unpublish, schedule and delete
-  // stop at manager: putting the platform's editorial voice on a public page is
-  // not a first-line action, the same reasoning as the other Growth tools.
-  blog: ['manager', 'support'] as AdminRole[],
-  blogPublish: ['manager'] as AdminRole[],
-  // Part 3 — the content queue. Manager + support: support can act on a
-  // suggestion (snooze, dismiss, draft) the same way they can draft a post.
-  blogQueue: ['manager', 'support'] as AdminRole[],
-  // Part 2 — AI drafting. Owner and manager only, NOT support: generation
-  // spends money and is the model speaking in our editorial voice, so it sits
-  // with publish rather than with drafting. (roleSatisfies always admits the
-  // owner, so ['manager'] is owner + manager.)
-  blogGenerate: ['manager'] as AdminRole[],
+  // Assisting — reports, the Team inbox, the member directory and its worklists.
+  reports: ['admin', 'operations'] as AdminRole[],
+  inbox: ['admin', 'operations'] as AdminRole[],
+  // The tuition board. Operations posts and works it day-to-day; MUTATE
+  // (closing/removing a tuition, which destroys its applications) stays admin.
+  jobs: ['admin', 'operations'] as AdminRole[],
+  jobsMutate: ['admin'] as AdminRole[],
+  jobsPost: ['admin', 'operations'] as AdminRole[],
+  users: ['admin', 'operations'] as AdminRole[],
+  orphans: ['admin', 'operations'] as AdminRole[],
+  signups: ['admin', 'operations'] as AdminRole[],
+  // Exporting the directory carries mobile numbers off the platform — admin
+  // only, and audit-logged.
+  usersExport: ['admin'] as AdminRole[],
+  audit: ['admin'] as AdminRole[],
+  // SEO — operations' work (landing pages, locations).
+  seo: ['admin', 'operations'] as AdminRole[],
+  // Publishing a tutor's video / moving a public URL are irreversible SEO
+  // decisions — admin only, above the verifying operations does.
+  videoVisibility: ['admin'] as AdminRole[],
+  tutorSlug: ['admin'] as AdminRole[],
+  // Marketing — ads, social posts and bulk onboarding are operations' work.
+  ads: ['admin', 'operations'] as AdminRole[],
+  social: ['admin', 'operations'] as AdminRole[],
+  import: ['admin', 'operations'] as AdminRole[],
+  // Deleting accounts is irreversible, but an Admin has full access everywhere
+  // but Team, so it is admin (and owner), not owner-only.
+  cleanup: ['admin'] as AdminRole[],
+  // The blog CMS — SEO/marketing content, operations' work end to end.
+  blog: ['admin', 'operations'] as AdminRole[],
+  blogPublish: ['admin', 'operations'] as AdminRole[],
+  blogQueue: ['admin', 'operations'] as AdminRole[],
+  blogGenerate: ['admin', 'operations'] as AdminRole[],
 }

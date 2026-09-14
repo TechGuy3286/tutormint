@@ -24,7 +24,7 @@ export default async function AdminReportsPage({
   const actor = await requireAdminRole(...SCREEN_ACCESS.reports)
   // Ban from the queue is owner/manager only (the route enforces it too); a
   // support admin working the queue never sees the button.
-  const canBan = roleSatisfies(actor.adminRole, ['manager'])
+  const canBan = roleSatisfies(actor.adminRole, ['admin'])
   const { filter = 'open' } = await searchParams
 
   const admin = createAdminClient()

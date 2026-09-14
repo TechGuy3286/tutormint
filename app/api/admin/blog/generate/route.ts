@@ -118,5 +118,7 @@ export async function POST(request: Request) {
     reason: draft.reason ?? null,
     availableModels,
     untraced: draft.untraced,
+    words: draft.words ?? null,
+    short: draft.short ?? false,
   })
 }

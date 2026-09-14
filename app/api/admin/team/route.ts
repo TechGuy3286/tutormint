@@ -26,7 +26,7 @@ const TeamBody = z.object({
   userId: uuid.optional(),
   email: z.string().email('Enter a valid email address.').max(320).optional(),
   fullName: z.string().max(200).optional(),
-  adminRole: z.enum(['owner', 'manager', 'operations', 'support']).optional(),
+  adminRole: z.enum(['owner', 'admin', 'operations']).optional(),
   reason: z.string().max(1000).optional(),
 })
 

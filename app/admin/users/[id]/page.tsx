@@ -255,7 +255,7 @@ export default async function AdminMemberPage({
         name={profile.full_name as string}
         suspended={!!profile.is_suspended}
         banned={!!profile.is_banned}
-        canBan={roleSatisfies(actor.adminRole, ['manager'])}
+        canBan={roleSatisfies(actor.adminRole, ['admin'])}
         canUnban={roleSatisfies(actor.adminRole, [])}
         isSelf={id === actor.id}
         isStaff={profile.role === 'admin'}

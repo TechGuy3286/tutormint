@@ -12,8 +12,14 @@ import { renderSocialBanner, type BannerTutor } from './render'
 //
 // Everything except one headline line comes from the live profile, on purpose:
 // the point of generating these is that what we publish about a tutor matches
-// what the site says about them. The picker reads tutor_directory, which
-// already excludes suspended tutors and unclaimed imports.
+// what the site says about them.
+//
+// It renders any REAL tutor — is_seed and is_fixture are refused ALWAYS, with no
+// override, because a fixture carries badges it never earned and these images go
+// to Facebook and Instagram (owner, 14 Sep 2026). An unlisted real tutor still
+// renders (so the team can preview), but with NO badges — an unlisted tutor has
+// earned none — and Verified is shown only with a real reviewed degree. Missing
+// fields render blank; the picker names them so nobody is surprised.
 //
 // The picture itself is ./render.tsx; the QR (same qrcode helper the CV uses)
 // and the resolved subjects are built here and handed in.
@@ -43,32 +49,65 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
   if (!admin) return new Response('Server not configured.', { status: 503 })
 
-  const { data: tutor } = await admin
-    .from('tutor_directory')
-    .select('id, slug, full_name, headline, city, area, rating_avg, rating_count, avatar_url, experience_years, teaching_mode')
+  // The real profile — works for a listed OR an unlisted tutor.
+  const { data: tp } = await admin
+    .from('tutor_profiles')
+    .select('id, slug, full_name, headline, city, area, rating_avg, rating_count, avatar_url, experience_years, teaching_mode, degrees')
     .eq('slug', slug)
     .maybeSingle()
 
-  if (!tutor) return new Response('Tutor not found or not listed.', { status: 404 })
+  if (!tp) return new Response('Tutor not found.', { status: 404 })
 
-  const [{ data: sub }, subjects] = await Promise.all([
+  // Fixtures are NEVER promoted — no override.
+  const { data: p } = await admin
+    .from('profiles')
+    .select('full_name, is_seed, is_fixture')
+    .eq('id', tp.id as string)
+    .maybeSingle()
+  if (p?.is_seed || p?.is_fixture) {
+    return new Response('Fixture accounts are never promoted.', { status: 403 })
+  }
+
+  // Listed decides whether ANY badge shows (an unlisted tutor has earned none);
+  // Verified additionally needs a real reviewed degree. Both are real facts, not
+  // a hardcoded true.
+  const [{ data: listedRow }, { data: sub }, subjects] = await Promise.all([
+    admin.from('tutor_directory').select('id').eq('slug', slug).maybeSingle(),
     admin
       .from('subscriptions')
       .select('plan_code')
-      .eq('user_id', tutor.id as string)
+      .eq('user_id', tp.id as string)
       .eq('status', 'active')
       .gt('expires_at', new Date().toISOString())
       .limit(1)
       .maybeSingle(),
-    resolveSubjectLabels(admin, tutor.id as string, 3),
+    resolveSubjectLabels(admin, tp.id as string, 3),
   ])
 
-  const profileUrl = absoluteUrl(`/tutor/${tutor.slug as string}`)
+  const listed = !!listedRow
+  const hasReviewedDegree = Array.isArray(tp.degrees) && (tp.degrees as unknown[]).length > 0
+
+  const tutor = {
+    id: tp.id,
+    slug: tp.slug,
+    full_name: (tp.full_name as string) || (p?.full_name as string) || 'Tutor',
+    headline: tp.headline,
+    city: tp.city,
+    area: tp.area,
+    rating_avg: tp.rating_avg,
+    rating_count: tp.rating_count,
+    avatar_url: tp.avatar_url,
+    experience_years: tp.experience_years,
+    teaching_mode: tp.teaching_mode,
+  }
+
+  const profileUrl = absoluteUrl(`/tutor/${tp.slug as string}`)
   const qrDataUri = await cvQrDataUri(profileUrl)
 
   return renderSocialBanner({
     tutor: tutor as unknown as BannerTutor,
-    badges: badgesForPlan((sub?.plan_code as string) ?? null, true),
+    // Real badges only: gate = listed, degree = real. An unlisted tutor gets [].
+    badges: badgesForPlan((sub?.plan_code as string) ?? null, listed, hasReviewedDegree),
     subjects,
     format,
     template,

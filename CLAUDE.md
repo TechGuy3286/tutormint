@@ -5163,3 +5163,103 @@ PHONE_GATED. The full editor at `/tutor/complete-profile` is untouched.
 No browser was driven — the tap flow rests on the pure test:onboarding +
 check:contrast + the passing build; the migrations, backfill, role reassignment
 and Ali-Bhai removal are verified live in psql.
+
+## Role tree, tutor routing into onboarding, level default, monthly fee, social posts, blog (owner, 14 Sep 2026)
+
+Follow-up to d80526a. Migrations 84 (role tree), 85 (onboarding flag + level
+backfill). Gates: tsc 0 · build 0 · check:contrast 100 · rls:audit 190/190 ·
+test:onboarding 6 · test:blog 38 · every other suite green.
+
+### Part 1 — role tree (migration 84)
+
+Exactly three roles: **owner** (unchanged, DB-only transfer), **admin** (renamed
+from `manager` — full access EVERYWHERE except the Team screen), **operations**
+(office staff: posting tuitions, verifying, assisting, marketing, SEO — absorbed
+the deleted Support role). `AdminRole` is now `'owner' | 'admin' | 'operations'`;
+the `profiles.admin_role` CHECK is `{owner, admin, operations}`. Migration 84
+renamed manager→admin, folded support→operations (no live support account
+remained), and removed `seed+finance@tutormint.dev` from the team (staff role
+revoked, member account kept — its profiles email did match; the auth metadata
+name was "Finance Admin"). SCREEN_ACCESS rewritten so every screen except `team`
+includes `admin`; operations holds the office subset (tutors, parents, jobs,
+jobsPost, reports, inbox, users, orphans, signups, seo, ads, social, import,
+blog/queue/publish/generate) but NOT money (plans, payments), irreversible ops
+(jobsMutate, cleanup, videoVisibility, tutorSlug), audit or CSV export.
+**Team stays `[]` (owner-only), enforced server-side** — an Admin gets 403 on the
+team route, so cannot add staff, change a role, or promote another Admin. Labels
+updated (Team ROLES list, dropdowns, badges); ASSIGNABLE_ROLES = [admin,
+operations]; seed-dev staff = [admin, operations]; the stale "verifier" comments
+in ReportQueue / TutorModerationClient / tutors/[id] cleaned up.
+
+### Part 2 — routing tutors into onboarding (migration 85: onboarded_at)
+
+`lib/onboardingGate.ts` `needsOnboarding(userId)` is the ONE predicate: a tutor
+with `tutor_profiles.onboarded_at` null AND (no `tutor_subjects` rows OR no city)
+is routed into onboarding. The tutor **dashboard page** redirects on it (the
+universal catch for every sign-in path); the **email-confirmation callback**
+routes an email-signup tutor there directly; the **onboarding page** redirects
+out once `onboarded_at` is set (loop guard). Onboarding finish AND an "I'll do
+this later" dismiss both stamp `onboarded_at`, so nobody is trapped. The
+dashboard checklist (`ProfileCompletionWidget` `showKeys`) now lists only the
+three things onboarding does NOT collect — **degree certificate, introduction
+video, CNIC** — the typing-heavy tagline/about/subjects rows are gone; the
+percent and count still reflect all items.
+
+### Part 3 — level default (migration 85 backfill)
+
+Skipping the Level step now writes **NO** tutor_subjects rows (subjects are
+stored as subject×level master ids; with no level there is no honest row), so a
+tutor never appears in level-filtered searches they did not choose — they are
+prompted for a level later. The subjects×levels cross-product stands when levels
+ARE chosen. Backfill removed the old "subject at every level" skip-path rows,
+identified by a (tutor, subject) fanned across 6+ levels. **Reported: 0 rows
+removed** — the live table was 24 rows / 11 tutors and the worst (tutor, subject)
+spanned only 2 levels, so no skip-path artifact existed (the onboarding flow had
+not been used with a skipped level in production). Before = after = 24 rows / 11
+tutors.
+
+### Part 4 — monthly fee labels
+
+Every visible render of `hourly_rate_pkr` already read monthly ("/ month" on the
+card and profile, "Expected monthly fee" on the form) — no "per hour"/"/hr"
+label existed in the UI. The one imprecision, the tutor JSON-LD Offer presenting
+the monthly figure as a bare `price`, is now an explicit `UnitPriceSpecification`
+with `unitText: 'MONTH'` so a rich result cannot read it as per-session. Column
+not renamed (as instructed).
+
+### Part 5 — social posts
+
+The generator lists **every real tutor** — `is_seed` and `is_fixture` excluded
+always, in the query, no override (fixtures carried unearned Verified/Premium/
+Featured badges and these cards go to Facebook/Instagram). Each picker row shows
+**Listed** or **Not listed · blank: <fields>** (the card fields that would render
+empty) and the **real earned badges** only. The image route now sources the real
+profile (renders an unlisted tutor too, for preview), refuses seed/fixture (403),
+and computes badges with the real gate (`listed`) and real degree — not the old
+hardcoded `true`, so an unlisted tutor shows no badge and Verified needs a real
+reviewed degree.
+
+### Part 6 — blog
+
+- **6.1** After publish, the full absolute URL `https://www.tutormint.org/blog/<slug>`
+  shows with a Copy button — in the editor (a green Live-URL bar) and in the post
+  list (a clickable link + Copy).
+- **6.2** Admin URLs are clickable, new-tab: blog post URLs (list + editor),
+  landing pages (already), the tuition public page from `/admin/jobs/[id]` (now
+  `target=_blank`), tutor public profile (already).
+- **6.3** `BLOG_MIN_WORDS` = 1200 (max 1800). The prompt demands 5–7 distinct H2
+  sections, each answering a specific question a Pakistani parent/tutor would
+  type, with concrete specifics, length from coverage not padding, and to ask for
+  more notes rather than invent material. The editor shows a **live word count**
+  and warns under 1200; a short claude draft comes back flagged (`short`) with a
+  "add more fact notes" message rather than padded. Figure-tracing is unchanged
+  (still enforced).
+- **6.4** Publish is blocked while the AI **scaffold** remains in the body —
+  `scaffoldViolations()` (pure, `test:blog`) detects the composed-draft
+  instruction lines ("Edit it into shape before publishing", "Explain the steps
+  in order…", "Add the key points here"), and `canPublish()` names the offending
+  line. Enforced server-side on both publish and schedule.
+
+No browser was driven — the flows rest on the pure tests + check:contrast + the
+build; the migrations, the role reassignment, the seed-finance removal and the
+0-row level backfill are verified live in psql.

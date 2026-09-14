@@ -153,6 +153,8 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
               public_slug: job.public_slug as string,
               city: job.city as string | null,
             })}
+            target="_blank"
+            rel="noreferrer"
             className="inline-flex min-h-[32px] items-center gap-1 text-[11px] font-bold text-tm-red hover:underline"
           >
             Open the public page

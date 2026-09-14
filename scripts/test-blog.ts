@@ -19,10 +19,12 @@ import { article, withArticle } from '../lib/article'
 import {
   composeBlogDraft,
   figureGate,
+  scaffoldViolations,
   unsupportedFigures,
   withBrandTail,
   type BlogBrief,
 } from '../lib/ai/blogBrief'
+import { canPublish } from '../lib/blog'
 
 function html(md: string): string {
   return parseMarkdown(md)
@@ -283,4 +285,58 @@ test('the calendar suggests nothing far from any event', () => {
   // Deep in a quiet stretch: nothing within six weeks.
   const cands = calendarCandidates(new Date('2026-10-12T00:00:00Z'))
   assert.equal(cands.length, 0)
+})
+
+// --- the publish scaffold guard (owner, 14 Sep 2026) -----------------------
+
+test('scaffoldViolations flags the composed-draft instruction lines', () => {
+  const brief: BlogBrief = {
+    title: 'O Level Physics tutors in Lahore',
+    clusterLabel: 'Cost & hiring',
+    audience: 'parents',
+    language: 'en',
+    notes: 'Fees are Rs 8000 a month',
+    landingLinks: [],
+  }
+  const draft = composeBlogDraft(brief)
+  const hits = scaffoldViolations(draft.body)
+  // The composed draft ships scaffold; the guard must catch it.
+  assert.ok(hits.length > 0, 'the composed draft carries scaffold the guard must catch')
+  assert.ok(
+    hits.some((l) => l.toLowerCase().includes('edit it into shape before publishing')),
+    'names the shape-before-publishing line',
+  )
+})
+
+test('a clean human body has no scaffold violations', () => {
+  const body = '## How much does a tutor cost?\n\nIn Lahore, most O Level Physics tutors charge a monthly fee. Here is how hiring works, step by step.'
+  assert.deepEqual(scaffoldViolations(body), [])
+})
+
+test('canPublish blocks a body still carrying scaffold, and names the line', () => {
+  const withScaffold = canPublish({
+    title: 'A guide',
+    slug: 'a-guide',
+    body: 'Intro.\n\n_We put this together from your notes. Edit it into shape before publishing._\n\n## Real section\n\nReal content.',
+    coverPath: null,
+    coverAlt: null,
+    editedByHuman: true,
+    reviewed: true,
+  })
+  assert.equal(withScaffold.ok, false, 'scaffold blocks publish')
+  assert.ok(
+    withScaffold.reasons.some((r) => r.toLowerCase().includes('scaffold')),
+    'a reason names the scaffold line',
+  )
+
+  const clean = canPublish({
+    title: 'A guide',
+    slug: 'a-guide',
+    body: '## Real section\n\nReal, human-written content with nothing to remove.',
+    coverPath: null,
+    coverAlt: null,
+    editedByHuman: true,
+    reviewed: true,
+  })
+  assert.equal(clean.ok, true, 'a clean, reviewed post publishes')
 })

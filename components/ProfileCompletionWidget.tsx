@@ -16,13 +16,20 @@ export default function ProfileCompletionWidget({
   items,
   role = 'tutor',
   compact = false,
+  showKeys,
 }: {
   percent: number
   items: ChecklistItem[]
   role?: 'tutor' | 'parent'
   compact?: boolean
+  /** When set, only these item keys are listed as actionable rows. The percent
+   *  and the "done of N" count still reflect ALL items — this only trims which
+   *  rows are shown (owner, 14 Sep 2026: the tutor dashboard checklist shows
+   *  just the certificate, video and CNIC; onboarding collects the rest). */
+  showKeys?: string[]
 }) {
   const missing = items.filter((i) => !i.done)
+  const rows = showKeys ? missing.filter((i) => showKeys.includes(i.key)) : missing
   const done = items.length - missing.length
   const href = role === 'tutor' ? '/tutor/complete-profile' : '/parent/verify'
 
@@ -77,9 +84,9 @@ export default function ProfileCompletionWidget({
             'A fuller profile helps tutors trust your posts.'}
       </p>
 
-      {!compact && (
+      {!compact && rows.length > 0 && (
         <ul className="space-y-1.5 pt-1">
-          {missing.slice(0, 6).map((item) => (
+          {rows.slice(0, 6).map((item) => (
             <li key={item.key}>
               <Link
                 href={`${href}?step=${item.step}#${item.anchor}`}
@@ -93,8 +100,8 @@ export default function ProfileCompletionWidget({
               </Link>
             </li>
           ))}
-          {missing.length > 6 && (
-            <li className="text-[11px] text-gray-500 px-3">+{missing.length - 6} more</li>
+          {rows.length > 6 && (
+            <li className="text-[11px] text-gray-500 px-3">+{rows.length - 6} more</li>
           )}
         </ul>
       )}

@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { deliverEmail } from '@/lib/notify'
 import { logActivity } from '@/lib/activityLog'
 import { homeForRole, type Role } from '@/lib/authRoutes'
+import { needsOnboarding } from '@/lib/onboardingGate'
 
 // Supabase email-confirmation callback.
 //
@@ -84,6 +85,13 @@ export async function GET(request: NextRequest) {
       dest = homeForRole(role)
     } catch {
       dest = '/'
+    }
+    // Email-path tutor signups land in onboarding too (owner, 14 Sep 2026) —
+    // the same predicate the dashboard gate uses, so a materially-empty tutor
+    // is not dropped on the old checklist. One hop instead of dashboard→gate.
+    if (role === 'tutor') {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user && (await needsOnboarding(user.id))) dest = '/tutor/onboarding'
     }
   }
 

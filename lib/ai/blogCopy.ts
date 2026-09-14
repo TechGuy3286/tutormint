@@ -60,11 +60,13 @@ function brandBrief(brief: BlogBrief): string {
     'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
     'Voice: plain, warm, specific to Pakistan. No corporate filler, no "in today\'s fast-paced world", no hype.',
     'Structure:',
-    `- ${BLOG_MIN_WORDS}-${BLOG_MAX_WORDS} words.`,
-    '- Answer the reader\'s question in the FIRST paragraph. Do not warm up.',
-    '- Use ## H2 section headings (Markdown). Short paragraphs.',
+    `- ${BLOG_MIN_WORDS}-${BLOG_MAX_WORDS} words, and the length must come from COVERING MORE GROUND, never from padding. Generalities repeated at length are worse than a short post — for the reader and for Google.`,
+    '- Write 5 to 7 DISTINCT ## H2 sections. Each section answers ONE specific question a Pakistani parent or tutor would actually type into Google (for example: "How much does an O Level Physics tutor cost in Lahore?", "How does TutorMint verify a tutor?", "What does the Verified badge mean?", "How do I hire a tutor step by step?"). Make each section concrete: how a flow actually works, what a badge actually means, what to do step by step.',
+    '- Answer the reader\'s main question in the FIRST paragraph. Do not warm up.',
+    '- Short paragraphs.',
     '- Include ONE comparison table using Markdown pipe syntax where it genuinely helps (costs, options, boards). Skip it if it does not.',
     '- Include a "## Frequently asked questions" section with 3-4 questions as ### sub-headings.',
+    '- If the facts below are too thin to fill this length HONESTLY, write a shorter, accurate post rather than inventing material — do NOT pad with generalities to reach a word count.',
     cta,
     'Internal links: you MAY link to these landing pages where relevant, using their exact paths. Do not invent any other internal link:',
     links,
@@ -107,9 +109,10 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
   const result = await complete({
     system: brandBrief(brief),
     prompt: factsBlock(brief),
-    // 1600 words of Markdown plus two SEO fields: generously above the ceiling
-    // so a good draft is never cut mid-sentence into an unparseable reply.
-    maxTokens: 4000,
+    // 1800 words of Markdown plus a table and two SEO fields: generously above
+    // the ceiling so a good long-form draft is never cut mid-sentence into an
+    // unparseable reply.
+    maxTokens: 5200,
     // A long-form draft takes far longer than a job advert. 55s stays under the
     // route's 60s platform budget, so our own timeout fires first with a clean
     // "timed out" and a composed fallback, rather than a platform 504.
@@ -164,5 +167,7 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
     return { ...fallback, note: 'figures', reason: `the draft included unbacked figures (${untraced.join(', ')})` }
   }
 
-  return { body, seoTitle, seoDescription, source: 'claude', untraced }
+  // A draft under the minimum is handed back as-is (never padded), flagged so
+  // the editor asks for more fact notes rather than the model inventing filler.
+  return { body, seoTitle, seoDescription, source: 'claude', untraced, words, short: words < BLOG_MIN_WORDS }
 }

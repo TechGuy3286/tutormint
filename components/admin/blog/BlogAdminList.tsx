@@ -5,7 +5,9 @@ import Link from 'next/link'
 import { Eye, MousePointerClick } from 'lucide-react'
 
 import TimeAgo from '@/components/TimeAgo'
-import { POST_CLUSTERS, clusterLabel, statusLabel, type PostStatus } from '@/lib/blog'
+import { useToast } from '@/components/ui/Toast'
+import { POST_CLUSTERS, clusterLabel, postPath, statusLabel, type PostStatus } from '@/lib/blog'
+import { SITE_URL } from '@/lib/siteUrl'
 import type { AdminPostRow } from '@/lib/blogFeed'
 
 // The admin blog list: filters (status, cluster, title search) and infinite
@@ -44,6 +46,16 @@ export default function BlogAdminList({
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(false)
   const firstRender = useRef(true)
+  const toast = useToast()
+
+  const copyUrl = async (url: string) => {
+    try {
+      await navigator.clipboard?.writeText(url)
+      toast.success('URL copied.')
+    } catch {
+      toast.error('Could not copy the URL.')
+    }
+  }
 
   const fetchPage = useCallback(
     async (reset: boolean) => {
@@ -133,7 +145,29 @@ export default function BlogAdminList({
                     <Link href={`/admin/blog/${p.id}`} className="font-bold text-tm-navy hover:underline">
                       {p.title}
                     </Link>
-                    <span className="block truncate text-[10px] text-gray-500">/{p.slug}</span>
+                    {/* Published: the full live URL, clickable (new tab) and
+                        copyable for Search Console. Otherwise the slug path. */}
+                    {p.status === 'published' ? (
+                      <span className="mt-0.5 flex items-center gap-1.5">
+                        <a
+                          href={`${SITE_URL}${postPath(p.slug)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="truncate text-[10px] font-semibold text-tm-red hover:underline"
+                        >
+                          {`${SITE_URL}${postPath(p.slug)}`}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => copyUrl(`${SITE_URL}${postPath(p.slug)}`)}
+                          className="shrink-0 rounded border border-gray-200 px-1.5 text-[9px] font-bold text-tm-navy hover:border-tm-navy"
+                        >
+                          Copy
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="block truncate text-[10px] text-gray-500">/{p.slug}</span>
+                    )}
                   </td>
                   <td className="p-3">
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLES[p.status]}`}>

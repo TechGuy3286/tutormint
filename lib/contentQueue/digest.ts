@@ -51,7 +51,7 @@ export async function deliverContentDigest(now = new Date(), force = false): Pro
     .from('profiles')
     .select('id')
     .eq('role', 'admin')
-    .in('admin_role', ['owner', 'manager'])
+    .in('admin_role', ['owner', 'admin', 'operations'])
     .limit(50)
 
   let recipients = 0

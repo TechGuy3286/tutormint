@@ -39,7 +39,7 @@ export default function TutorModerationClient({
   tutors: QueueTutor[]
   filter: string
   search: string
-  /** Only owner/manager may publish a video; a verifier sees the state, not the control. */
+  /** Only owner/admin may publish a video; operations sees the state, not the control. */
   canSetVisibility: boolean
   initialCursor: string | null
   total: number
@@ -316,7 +316,7 @@ export default function TutorModerationClient({
                 </a>
 
                 {/* Publishing is a separate decision from approving, and a
-                    separate permission. A verifier who may approve a video
+                    separate permission. Operations, who may approve a video
                     still cannot put it in front of the public. */}
                 {canSetVisibility && (
                   open.videoStatus === 'approved' ? (

@@ -61,7 +61,7 @@ export default async function AdminInboxPage({
       selectedName={selectedName}
       selectedHasMobile={selectedHasMobile}
       conversation={conversation}
-      canEditTemplates={roleSatisfies(actor.adminRole, ['manager'])}
+      canEditTemplates={roleSatisfies(actor.adminRole, ['admin'])}
     />
   )
 }

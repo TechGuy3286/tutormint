@@ -17,8 +17,12 @@
 //
 // WHAT "trace" MEANS, and its deliberate narrowness, is at unsupportedFigures().
 
-export const BLOG_MIN_WORDS = 700
-export const BLOG_MAX_WORDS = 1600
+// Length target (owner, 14 Sep 2026): a real post is 1200+ words, from covering
+// MORE GROUND (5-7 distinct questions answered with specifics) — never padding.
+// The editor warns below the minimum; the model is told to ask for more notes
+// rather than invent material to reach it.
+export const BLOG_MIN_WORDS = 1200
+export const BLOG_MAX_WORDS = 1800
 
 /** The brand line every generated meta description ends with. */
 export const SEO_BRAND_TAIL = 'No fee, no commission, no middleman.'
@@ -40,6 +44,11 @@ export type BlogDraft = {
   seoDescription: string
   /** 'claude' when the model wrote it, 'composed' when this file did. */
   source: 'claude' | 'composed'
+  /** The body's word count, for the editor's length warning. */
+  words?: number
+  /** True when a claude draft came back under BLOG_MIN_WORDS — the editor asks
+   *  for more fact notes rather than letting the model pad. */
+  short?: boolean
   /** Set when a generation was attempted and did not produce usable text. */
   note?: string
   /** The verbatim failure reason (status + body) when a call failed. Admin-only. */
@@ -193,6 +202,49 @@ function wordCount(s: string): number {
 }
 
 export { wordCount }
+
+// ------------------------------------------------------- scaffold guard ----
+//
+// A post went live carrying the composed draft's SCAFFOLD — the line telling
+// the editor to shape it before publishing, and the "explain the steps here"
+// placeholder — because the human ticked Reviewed without deleting them (owner,
+// 14 Sep 2026). Publish is now blocked while any scaffold phrase remains, and
+// the offending line is named so it is obvious what to remove.
+//
+// These are the exact instruction lines composeBlogDraft() emits as a starting
+// point; real prose never contains them, so matching the phrase is safe.
+export const SCAFFOLD_PHRASES: string[] = [
+  'we put this together from your notes',
+  'edit it into shape before publishing',
+  'explain the steps in order',
+  'keep it specific to pakistan and to the reader in front of you',
+  'add the key points here',
+  'add the key points',
+]
+
+/**
+ * The lines of `body` that still contain a scaffold phrase, trimmed and unique.
+ * Empty when the body is clean. Publish is blocked while this is non-empty.
+ */
+export function scaffoldViolations(body: string): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const rawLine of String(body ?? '').split('\n')) {
+    const line = rawLine.trim()
+    if (!line) continue
+    const hay = line.toLowerCase()
+    if (SCAFFOLD_PHRASES.some((p) => hay.includes(p))) {
+      // Strip Markdown emphasis/heading marks so the named line reads cleanly.
+      const clean = line.replace(/^[#>\s_*-]+/, '').replace(/[_*]+$/, '').trim()
+      const key = clean.toLowerCase()
+      if (!seen.has(key)) {
+        seen.add(key)
+        out.push(clean)
+      }
+    }
+  }
+  return out
+}
 
 /**
  * The plain draft, built from the manager's notes and nothing else.

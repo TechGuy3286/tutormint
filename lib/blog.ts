@@ -10,6 +10,8 @@
 // lib/blogPublish.ts, which are server-only. Keep this file importable from the
 // browser.
 
+import { scaffoldViolations } from '@/lib/ai/blogBrief'
+
 export type PostStatus = 'draft' | 'reviewed' | 'scheduled' | 'published' | 'unpublished'
 export type PostAudience = 'parents' | 'tutors' | 'both'
 export type PostLanguage = 'en' | 'ur'
@@ -107,6 +109,13 @@ export function canPublish(p: PublishGateInput): { ok: boolean; reasons: string[
   // screen reader and a broken-image fallback read.
   if (p.coverPath && !(p.coverAlt ?? '').trim()) {
     reasons.push('Add alt text for the cover image.')
+  }
+  // Never publish the AI scaffold. A composed draft ships with instruction
+  // lines ("Edit it into shape before publishing", "Explain the steps in
+  // order…") as a starting point; one went live once. Block publish while any
+  // remain, and name the offending line so it is obvious what to delete.
+  for (const line of scaffoldViolations(p.body)) {
+    reasons.push(`Remove the draft scaffold line: “${line}”`)
   }
   return { ok: reasons.length === 0, reasons }
 }

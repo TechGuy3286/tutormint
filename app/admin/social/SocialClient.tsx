@@ -21,6 +21,12 @@ export type PickerTutor = {
   ratingCount: number
   experienceYears: number | null
   teachingMode: string | null
+  /** Whether the tutor is currently listed (in tutor_directory). */
+  listed: boolean
+  /** Card fields that would render blank (named for the poster). */
+  missing: string[]
+  /** The REAL earned badges — an unlisted tutor has none. */
+  badges: ('Verified' | 'Premium' | 'Featured')[]
 }
 
 const TEMPLATES = [
@@ -144,7 +150,7 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
     return (
       <div className="space-y-3">
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
-          No listed tutors to post about yet.
+          No real tutors to post about yet.
         </p>
       </div>
     )
@@ -154,8 +160,9 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
     <div className="space-y-5">
       <header className="space-y-1">
         <p className="text-xs leading-relaxed text-gray-500">
-          Everything but the headline comes from the tutor&rsquo;s live profile. Only listed tutors
-          appear here — suspended accounts and unclaimed imports are not promoted.
+          Everything but the headline comes from the tutor&rsquo;s live profile. Every real tutor
+          appears here; seed and fixture accounts never do. Badges are the real earned set — an
+          unlisted tutor shows none, and &ldquo;Not listed&rdquo; names the fields that will render blank.
         </p>
       </header>
 
@@ -181,11 +188,25 @@ export default function SocialClient({ tutors }: { tutors: PickerTutor[] }) {
                       }`}
                     >
                       <span className="min-w-0">
-                        <span className="block truncate text-xs font-bold text-tm-navy">{t.name}</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate text-xs font-bold text-tm-navy">{t.name}</span>
+                          {t.badges.map((b) => (
+                            <span key={b} className="shrink-0 rounded-full bg-tm-tint-green px-1.5 text-[9px] font-black text-tm-green-deep">
+                              {b}
+                            </span>
+                          ))}
+                        </span>
                         <span className="block truncate text-[10px] text-gray-500">
                           {[t.area, t.city].filter(Boolean).join(', ') || 'Pakistan'}
                           {t.subjects.length > 0 ? ` · ${t.subjects.slice(0, 2).join(', ')}` : ''}
                         </span>
+                        {t.listed ? (
+                          <span className="block text-[9px] font-bold text-tm-green-deep">Listed</span>
+                        ) : (
+                          <span className="block text-[9px] font-semibold text-tm-gold-ink">
+                            Not listed{t.missing.length > 0 ? ` · blank: ${t.missing.join(', ')}` : ''}
+                          </span>
+                        )}
                       </span>
                       {slug === t.slug && <span className="shrink-0 text-[10px] font-bold text-tm-navy">Selected</span>}
                     </button>

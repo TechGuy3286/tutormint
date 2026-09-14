@@ -28,7 +28,9 @@ import ViewsCard from '@/components/dashboard/ViewsCard'
 import IdentityStatusLine from '@/components/identity/IdentityStatusLine'
 import { loadIdentity } from '@/lib/identity'
 import { viewSummary } from '@/lib/profileViews'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { needsOnboarding } from '@/lib/onboardingGate'
 
 import ApplyFromStrip from './ApplyFromStrip'
 
@@ -60,6 +62,13 @@ export const dynamic = 'force-dynamic'
 export default async function TutorDashboardPage() {
   const session = await getSessionUser()
   const userId = session!.user.id
+
+  // The universal onboarding gate (owner, 14 Sep 2026): a materially-empty tutor
+  // who has not been through / dismissed onboarding is sent into it here, so
+  // EVERY sign-in path (login, email confirmation, direct visit) routes the same
+  // way from one predicate. onboarded_at breaks the loop.
+  if (await needsOnboarding(userId)) redirect('/tutor/onboarding')
+
   const supabase = await createClient()
 
   const [{ data: tutorProfile }, completion, ent] = await Promise.all([
@@ -312,8 +321,17 @@ export default async function TutorDashboardPage() {
           <IdentityStatusLine state={identityLineState} settingsHref="/tutor/dashboard/settings" />
         )}
 
+        {/* The dashboard checklist shows only what onboarding does NOT collect:
+            the degree certificate, the introduction video and the CNIC. The
+            typing-heavy tagline/about/subjects rows were the screen onboarding
+            replaced (owner, 14 Sep 2026). */}
         {completion && percent < 100 && (
-          <ProfileCompletionWidget percent={percent} items={completion.items} role="tutor" />
+          <ProfileCompletionWidget
+            percent={percent}
+            items={completion.items}
+            role="tutor"
+            showKeys={['degrees', 'cnic', 'video']}
+          />
         )}
 
         {/* ------------------------------------------- the 199 funnel ---

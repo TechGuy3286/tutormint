@@ -262,9 +262,18 @@ export function tutorJsonLd(t: {
       ? {
           offers: {
             '@type': 'Offer',
-            price: t.hourlyRatePkr,
             priceCurrency: 'PKR',
             availability: 'https://schema.org/InStock',
+            // The stored figure is a MONTHLY fee (the column is named
+            // hourly_rate_pkr for legacy reasons only — owner, 14 Sep 2026). A
+            // bare `price` reads as per-session in a rich result and understates
+            // it by an order of magnitude, so it is a per-month unit price.
+            priceSpecification: {
+              '@type': 'UnitPriceSpecification',
+              price: t.hourlyRatePkr,
+              priceCurrency: 'PKR',
+              unitText: 'MONTH',
+            },
           },
         }
       : {}),

@@ -49,7 +49,7 @@ export async function PUT(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.inbox)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
   // Editing the shared library is owner/manager, not support.
-  if (!roleSatisfies(gate.actor.adminRole, ['manager'])) {
+  if (!roleSatisfies(gate.actor.adminRole, ['admin'])) {
     return NextResponse.json({ error: 'Only an owner or manager can edit templates.' }, { status: 403 })
   }
 

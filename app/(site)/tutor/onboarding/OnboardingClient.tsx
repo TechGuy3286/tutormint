@@ -238,6 +238,23 @@ export default function OnboardingClient({ facets, seed }: { facets: OnboardingF
     }
   }
 
+  // Dismiss: "I'll do this later". Records onboarded_at so the sign-in gate does
+  // not send them straight back, and goes to the dashboard.
+  async function dismiss() {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/tutor/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dismiss: true }),
+      })
+      const json = await res.json().catch(() => ({}))
+      router.push(json.next ?? '/tutor/dashboard')
+    } catch {
+      router.push('/tutor/dashboard')
+    }
+  }
+
   // ------------------------------------------------------------- finish ---
   async function finish() {
     setBusy(true)
@@ -300,7 +317,15 @@ export default function OnboardingClient({ facets, seed }: { facets: OnboardingF
               </p>
             )}
           </div>
-          <div className="w-10 shrink-0" aria-hidden />
+          <button
+            type="button"
+            onClick={dismiss}
+            disabled={busy}
+            className="w-10 shrink-0 text-[10px] font-bold leading-tight text-gray-500 disabled:opacity-40"
+          >
+            Later
+            <span className="block text-[9px] font-normal" lang="ur" dir="rtl">بعد میں</span>
+          </button>
         </div>
         {/* progress dots */}
         <div className="mt-3 flex justify-center gap-1.5">

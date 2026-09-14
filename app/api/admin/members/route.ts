@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
   // Ban is owner/manager; unban is owner only. (roleSatisfies always admits the
   // owner; an empty list is owner-only.)
-  if (action === 'ban' && !roleSatisfies(actor.adminRole, ['manager'])) {
+  if (action === 'ban' && !roleSatisfies(actor.adminRole, ['admin'])) {
     return NextResponse.json({ error: 'Only an owner or manager can ban an account.' }, { status: 403 })
   }
   if (action === 'unban' && !roleSatisfies(actor.adminRole, [])) {

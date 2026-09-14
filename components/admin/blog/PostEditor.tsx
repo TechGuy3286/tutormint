@@ -25,7 +25,7 @@ import {
   type PostLanguage,
   type PostStatus,
 } from '@/lib/blog'
-import { figureGate, type ConfirmedFigure } from '@/lib/ai/blogBrief'
+import { figureGate, wordCount, BLOG_MIN_WORDS, type ConfirmedFigure } from '@/lib/ai/blogBrief'
 import { parseMarkdown } from '@/lib/markdown'
 import { slugify } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
@@ -188,6 +188,10 @@ export default function PostEditor({
   }
 
   const preview = useMemo(() => parseMarkdown(post.body), [post.body])
+  // Live word count — a real post is 1200+ words (owner, 14 Sep 2026). Warned,
+  // not blocked: a shorter accurate post beats a padded one.
+  const words = useMemo(() => wordCount(post.body), [post.body])
+  const tooShort = post.body.trim().length > 0 && words < BLOG_MIN_WORDS
 
   // The figure gate, computed live from the current (unsaved) body — the same
   // rule the server enforces on save. Active only when there are notes; then
@@ -282,9 +286,11 @@ export default function PostEditor({
       setDirty(true)
       if (data.source === 'claude') {
         setGenNote(
-          data.untraced?.length
-            ? `Draft ready — but ${data.untraced.length} figure(s) are not in your notes. Check the highlighted list before reviewing.`
-            : 'Draft ready. Read it through, edit, then tick Reviewed.',
+          data.short
+            ? `Draft is ${data.words} words — under the ${BLOG_MIN_WORDS}-word target. Add more fact notes so it can cover more ground; padding it would read worse, not better.`
+            : data.untraced?.length
+              ? `Draft ready — but ${data.untraced.length} figure(s) are not in your notes. Check the highlighted list before reviewing.`
+              : 'Draft ready. Read it through, edit, then tick Reviewed.',
         )
       } else if (data.note === 'figures') {
         // The model added figures with no notes to back them; we used the
@@ -691,6 +697,31 @@ export default function PostEditor({
         </div>
       </div>
 
+      {/* The live URL, ready to paste into Google Search Console (owner, 14 Sep
+          2026). Shown once the post is published, with a copy button. */}
+      {post.status === 'published' && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3">
+          <span className="shrink-0 text-[11px] font-black uppercase tracking-wide text-tm-green-deep">Live URL</span>
+          <code className="min-w-0 flex-1 break-all text-xs font-semibold text-tm-navy">
+            {`${SITE_URL}${postPath(post.slug)}`}
+          </code>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard?.writeText(`${SITE_URL}${postPath(post.slug)}`)
+                toast.success('URL copied.')
+              } catch {
+                toast.error('Could not copy the URL.')
+              }
+            }}
+            className="inline-flex min-h-[36px] shrink-0 items-center rounded-lg border border-tm-green-deep/40 bg-white px-3 text-[11px] font-bold text-tm-green-deep"
+          >
+            Copy
+          </button>
+        </div>
+      )}
+
       {error && (
         <p role="alert" className="flex items-start gap-1.5 rounded-xl bg-tm-tint-red p-3 text-xs font-semibold text-tm-red-hover">
           <AlertCircle aria-hidden size={14} className="mt-px shrink-0" /> {error}
@@ -883,6 +914,13 @@ export default function PostEditor({
               />
             )}
             <p className="text-[11px] text-gray-500">
+              <span className={tooShort ? 'font-bold text-tm-gold-ink' : 'font-semibold text-tm-green-deep'}>
+                {words} word{words === 1 ? '' : 's'}
+              </span>
+              {tooShort && (
+                <span className="text-tm-gold-ink"> · under the {BLOG_MIN_WORDS}-word target — cover more ground (add fact notes so it can go deeper, don’t pad)</span>
+              )}
+              {' · '}
               {preview.readingTime} min read · Embed a live card with <code className="rounded bg-tm-tint-navy px-1">{'{{tutor:slug}}'}</code> or{' '}
               <code className="rounded bg-tm-tint-navy px-1">{'{{job:public-slug}}'}</code> on its own line.
             </p>

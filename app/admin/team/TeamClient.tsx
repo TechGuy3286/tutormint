@@ -23,7 +23,7 @@ export type StaffRow = {
   id: string
   name: string
   email: string
-  adminRole: 'owner' | 'manager' | 'operations' | 'support'
+  adminRole: 'owner' | 'admin' | 'operations'
   suspended: boolean
   suspensionReason: string | null
   mustChangePassword: boolean
@@ -35,9 +35,8 @@ export type StaffRow = {
 }
 
 const ROLES = [
-  { code: 'manager', label: 'Manager', blurb: 'Everything except this screen' },
-  { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, verifying tutors and parents, day-to-day work' },
-  { code: 'support', label: 'Support', blurb: 'Reports, blocks, penalties, members' },
+  { code: 'admin', label: 'Admin', blurb: 'Full access everywhere except this screen' },
+  { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, verifying, assisting, marketing, SEO' },
 ] as const
 
 // The invite link's lifetime — Supabase's default. Past it, the original link is
@@ -62,7 +61,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState({ fullName: '', email: '', adminRole: 'support' })
+  const [form, setForm] = useState({ fullName: '', email: '', adminRole: 'operations' })
   const [newAccount, setNewAccount] = useState<{
     email: string
     invited: boolean
@@ -109,7 +108,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
   }
 
   // The role select fires immediately, so it confirms first — a mis-click on a
-  // dropdown must not silently hand someone finance or take it away.
+  // dropdown must not silently hand someone a role or take it away.
   const changeRole = async (s: StaffRow, adminRole: string) => {
     if (adminRole === s.adminRole) return
     const ok = await confirm({
@@ -134,7 +133,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
       inviteLink: json.inviteLink ?? null,
     })
     setCreating(false)
-    setForm({ fullName: '', email: '', adminRole: 'support' })
+    setForm({ fullName: '', email: '', adminRole: 'operations' })
   }
 
   const resend = async (s: StaffRow) => {
