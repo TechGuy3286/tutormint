@@ -5,6 +5,7 @@ import { publicAdUrl } from '@/lib/ads'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { describeUtm } from '@/lib/utm'
 import { calculateTutorCompletion } from '@/lib/profileChecklist'
+import { directoryBlockers, type ListingBlocker } from '@/lib/tutorListingStatus'
 import type { AdminRole } from '@/lib/adminAuth'
 import { SCREEN_ACCESS } from '@/lib/adminAuth'
 
@@ -174,6 +175,10 @@ export type QueueTutorRow = {
   cnicNumber: string | null
   phone: string | null
   documents: { id: string; kind: 'cnic' | 'degree'; label: string | null }[]
+  /** Is this tutor returned by tutor_directory (migration 87)? */
+  listed: boolean
+  /** Every reason they are not, in the view's order. Empty when listed. */
+  blockers: ListingBlocker[]
 }
 
 export async function loadTutorQueue({
@@ -195,7 +200,7 @@ export async function loadTutorQueue({
     let q = admin
       .from('tutor_profiles')
       .select(
-        'id, full_name, email, headline, city, area, avatar_url, gender, bio, experience_years, hourly_rate_pkr, teaching_mode, job_types, video_youtube_id, video_status, video_visibility, video_attempts, verification_status, rating_avg, rating_count, degrees, created_at',
+        'id, full_name, email, headline, city, area, avatar_url, gender, bio, experience_years, hourly_rate_pkr, teaching_mode, job_types, video_youtube_id, video_status, video_visibility, video_attempts, verification_status, rating_avg, rating_count, degrees, created_at, verified_fee_paid_at, under_review, imported, claimed_at',
         { count: 'exact' },
       )
     if (filter === 'pending') q = q.eq('video_status', 'uploaded')
@@ -219,7 +224,7 @@ export async function loadTutorQueue({
   const [{ data: profiles }, { data: docs }, { data: subjectRows }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, full_name, city, profile_completion, cnic_number, cnic_image_path, phone_number, phone_verified_at')
+      .select('id, full_name, city, profile_completion, cnic_number, cnic_image_path, phone_number, phone_verified_at, is_seed, is_team_account, is_suspended, is_banned')
       .in('id', ids.length ? ids : [NO_MATCH]),
     admin
       .from('user_documents')
@@ -270,6 +275,22 @@ export async function loadTutorQueue({
       subjectCount: subjectCount.get(t.id as string) ?? 0,
       degreeDocCount: myDocs.filter((d) => d.kind === 'degree').length,
     })
+    // The public-directory rule (migration 87), computed from the same facts as
+    // the view so Operations sees WHY a tutor is invisible without a SQL client.
+    const blockers = directoryBlockers({
+      feePaid: !!(t.verified_fee_paid_at as string | null),
+      phoneVerified: !!(p?.phone_verified_at as string | null),
+      hasSubjects: (subjectCount.get(t.id as string) ?? 0) > 0,
+      city: (t.city as string | null) ?? null,
+      isSuspended: (p?.is_suspended as boolean | null) ?? null,
+      isBanned: (p?.is_banned as boolean | null) ?? null,
+      underReview: (t.under_review as boolean | null) ?? null,
+      verificationStatus: (t.verification_status as string | null) ?? null,
+      imported: (t.imported as boolean | null) ?? null,
+      claimedAt: (t.claimed_at as string | null) ?? null,
+      isSeed: (p?.is_seed as boolean | null) ?? null,
+      isTeamAccount: (p?.is_team_account as boolean | null) ?? null,
+    })
     return {
       id: t.id as string,
       fullName: t.full_name as string,
@@ -296,6 +317,8 @@ export async function loadTutorQueue({
           kind: d.kind as 'cnic' | 'degree',
           label: (d.label as string) ?? null,
         })),
+      listed: blockers.length === 0,
+      blockers,
     }
   })
 

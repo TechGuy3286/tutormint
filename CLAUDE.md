@@ -80,7 +80,7 @@ Hired/closed status lives in `jobs.status` + `jobs.hired_tutor_id` — never loc
 - **Basic gets ZERO contact views** — the contact row shows it exists but is not readable, with upgrade as the way through, no counter.
 - **100 / 150 are real server-enforced caps displayed as "Unlimited".** Admin sees the real numbers.
 - **Viewer identity / contact / WhatsApp are Premium+ powers** (Basic NO). `plans.can_see_viewer_identity` and `can_view_contact`/`can_whatsapp` are true on premium+featured only; `REQUIRES.tutor_viewer_identity` and `.tutor_contact` in `lib/gate.ts` read `'premium'`. This supersedes the migration-43/57 "viewer identity is a Verified power" decision — there is no longer a `verified` PLAN.
-- **LISTING = the one-time fee, not a plan and not completion** (`tutor_directory`/`tutor_visible_profiles` and `tutorListed()`): `verified_fee_paid_at` set + mobile verified + verification not suspended/rejected + not suspended/banned/under-review + claimed if imported. Completion decides RANKING and INDEXING only. `computeEntitlements` synthesises the free `basic` plan from the fee (the free-parent pattern); Premium/Featured come from an active subscription.
+- **LISTING = the one-time fee + real, non-fixture content** (`tutor_directory`/`tutor_visible_profiles`; migration 87): `verified_fee_paid_at` set + mobile verified + verification not suspended/rejected + not suspended/banned/under-review + claimed if imported + **NOT a fixture (`is_seed`/`is_team_account`) + at least one `tutor_subjects` row + a non-blank `city`**. Completion decides RANKING and INDEXING only. `computeEntitlements`/`tutorListed()` know only the fee-and-precondition half; the authoritative directory rule (with the subjects/city/fixture gates) is `lib/tutorListingStatus.ts` `directoryBlockers()`, mirrored 1:1 by the view SQL and read by the dashboard (`lib/directoryStatus.ts`) and the admin tutor list. `computeEntitlements` synthesises the free `basic` plan from the fee (the free-parent pattern); Premium/Featured come from an active subscription.
 - Prices appear only on the packages page + the upgrade/verify sheet — never before signup, on a public page, or as a banner.
 - The Verified badge is additionally degree-gated for tutors (a reviewed degree on file); Premium/Featured are plan-tier and not degree-gated.
 
@@ -5423,3 +5423,67 @@ receipt template (and registered `plan_granted`/`account_banned` in `TemplateId`
   `reset-seed-cast.ts` was NOT run against production here.
 - The email restyle is code-verified (structure, palette, meta, footer) but the
   rendered result was not sent through Resend to an inbox.
+
+## Public directory listing bar — not-fixture, has-subject, has-city (owner, 15 Sep 2026) — migration 87
+
+Migration 86 keyed public listing on the one-time fee alone, which let SEED
+fixtures (badges they never earned) and empty profiles (0% complete, no city and
+NO subjects, so unsearchable) into `tutor_directory`. Migration 87 adds three
+gates to BOTH public views, identically:
+
+- **not a fixture** — `COALESCE(p.is_seed,false)=false AND COALESCE(p.is_team_account,false)=false`.
+  `profiles` has NO `is_fixture` column (that is a tuition-only concept,
+  `lib/fixtures.ts`); the tutor-side fixture signals are `is_seed` (migration 71)
+  and the one team account (`is_team_account`, migration 63). Reported to the
+  owner: the PR named `p.is_fixture`, which does not exist — `is_seed` + team is
+  the faithful equivalent.
+- **at least one subject** — `EXISTS (SELECT 1 FROM tutor_subjects ts WHERE ts.tutor_id = tp.id)`.
+- **a city** — `tp.city IS NOT NULL AND btrim(tp.city) <> ''`.
+
+Purely additive — every migration-86 condition is kept, columns/order unchanged.
+The two views share these three gates and the suspended/banned/verification
+conditions IDENTICALLY; they differ ONLY where they always have — `tutor_directory`
+excludes under-review tutors and requires the fee (a flat AND), while
+`tutor_visible_profiles` renders under-review tutors (amber notice, Part 5) and
+keeps its unclaimed-import branch (`imported AND claimed_at IS NULL`) so a claim
+link resolves (owner chose to KEEP this branch, 15 Sep). The three gates apply to
+that import branch too.
+
+**Effect (verified live after apply):** directory 2→1, visible 4→3. Bilal Ahmad
+(real, fee-paid, subject+city) stays listed; **Javeria Fayaz** (fee paid but no
+subjects and no city) is now correctly excluded — the "real 0% profile" the PR
+flagged; the two unclaimed imports (Junaid Khan, Sana Riaz) still render in
+visible via the import branch (both pass the three gates). Seed rows now carry the
+`fixture` blocker, so they stay out **even if their fee flag is restored** — the
+owner's hand-null stopgap is no longer load-bearing. Counts do NOT match by design
+(visible = directory + the 2 gate-passing unclaimed imports).
+
+**The TS mirror + "why not listed".** `lib/tutorListingStatus.ts` (pure,
+unit-tested in `test:authtrust`) is `directoryBlockers(facts)` → the reasons in
+the view's own order (`banned`, `suspended`, `under_review`, `verification_rejected`,
+`fixture`, `fee_unpaid`, `phone_unverified`, `unclaimed_import`, `no_subjects`,
+`no_city`); empty = listed. It must stay in lockstep with 87's SQL.
+`lib/directoryStatus.ts` `loadDirectoryStatus(userId)` fetches the facts for one
+tutor. The **tutor dashboard** reads it (not `ent.listed`, which is only the
+fee-and-precondition half) for "Listed tutor / Not listed yet", the "View your
+public profile" link (only when actually in the directory — else it 404s), the
+header badge, and the "Share your verified badge" card; and shows
+`NotListedNotice` — the fee-paid-but-not-listed tutor's fixable reasons
+(subjects → complete-profile, city → complete-profile, mobile → verify-phone),
+each one tap from its screen, visibility only, no promise of tuitions. The **admin
+tutor list** (`loadTutorQueue`) computes the same blockers in a batch (one
+subjects-count query, facts already loaded) and shows "Listed in search" or
+"Not listed · <reasons>" per row.
+
+Gates: tsc 0 · next build 0 · check:contrast 100 · rls:audit 190/190 ·
+test:authtrust 41 · every other suite green.
+
+**Not verified / stated plainly:** no browser was driven — the dashboard and admin
+surfaces rest on the pure `directoryBlockers` unit tests + the build; the view
+change, counts, and per-tutor in/out listing are verified live in psql. The seed
+rows keep the owner's hand-nulled `verified_fee_paid_at` (the `fixture` gate now
+makes that moot; restoring the fee flag would not relist them). `ent.listed` /
+`tutorListed()` are intentionally NOT extended with the subjects/city/fixture
+gates — they answer "can apply / fee+precondition", a related but distinct
+question from "in the public directory"; the dashboard reads the directory rule
+for anything that claims the tutor is live.

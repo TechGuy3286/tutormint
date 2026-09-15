@@ -14,6 +14,7 @@ import { submitJson, submitSignal } from '@/lib/submit'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { QueueTutorRow } from '@/lib/adminQueues'
+import { BLOCKER_LABEL } from '@/lib/tutorListingStatus'
 
 // The row shape is defined once, beside the query that builds it. A type-only
 // import is erased at compile time, so nothing from that server-only module
@@ -209,6 +210,15 @@ export default function TutorModerationClient({
                       : ''}{' '}
                     · {t.videoAttempts}/{MAX_ATTEMPTS} video
                   </p>
+                  {/* Public-directory status (migration 87): why a tutor is or is
+                      not visible in browse/search, without a SQL client. */}
+                  {t.listed ? (
+                    <p className="mt-0.5 text-[10px] font-bold text-tm-green-deep">Listed in search</p>
+                  ) : (
+                    <p className="mt-0.5 truncate text-[10px] font-bold text-tm-gold-ink">
+                      Not listed · {t.blockers.map((b) => BLOCKER_LABEL[b]).join(', ')}
+                    </p>
+                  )}
                 </div>
                 <StatusPill status={t.verificationStatus} videoStatus={t.videoStatus} />
               </button>

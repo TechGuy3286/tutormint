@@ -24,6 +24,8 @@ import { matchingJobsForTutor } from '@/lib/jobFeed'
 import { unreadMessageCount } from '@/lib/messaging'
 import { tutorNeeds } from '@/lib/needsYou'
 import IdentityBlock from '@/components/dashboard/IdentityBlock'
+import NotListedNotice from '@/components/dashboard/NotListedNotice'
+import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import ViewsCard from '@/components/dashboard/ViewsCard'
 import IdentityStatusLine from '@/components/identity/IdentityStatusLine'
 import { loadIdentity } from '@/lib/identity'
@@ -71,7 +73,7 @@ export default async function TutorDashboardPage() {
 
   const supabase = await createClient()
 
-  const [{ data: tutorProfile }, completion, ent] = await Promise.all([
+  const [{ data: tutorProfile }, completion, ent, directory] = await Promise.all([
     supabase
       .from('tutor_profiles')
       .select('slug, city, area, teaching_mode, job_types, verification_status, video_status, video_attempts, degrees')
@@ -79,7 +81,16 @@ export default async function TutorDashboardPage() {
       .maybeSingle(),
     computeCompletion(userId),
     getEntitlements(userId),
+    // The AUTHORITATIVE public-directory fact (migration 87): fee + mobile +
+    // verification + a subject + a city + not a fixture. Read from the same rule
+    // that governs the directory, never from the fee flag — so "Listed" / "View
+    // your public profile" cannot claim a tutor is live when he is not.
+    loadDirectoryStatus(userId),
   ])
+  // Whether the tutor's profile is actually returned by tutor_directory, and the
+  // reasons it is not (for the not-listed notice below).
+  const directoryListed = directory.listed
+  const feePaid = !directory.blockers.includes('fee_unpaid')
 
   const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
   // The authoritative listing fact, computed once in the entitlements layer
@@ -170,7 +181,7 @@ export default async function TutorDashboardPage() {
   // "unknown" -- a tutor who has not filled it in does not need telling on
   // every visit, and the completion link above says so already.
   const identityLine = [
-    listed ? 'Listed tutor' : 'Not listed yet',
+    directoryListed ? 'Listed tutor' : 'Not listed yet',
     (tutorProfile?.city as string | null) || session?.profile?.city || null,
   ]
     .filter(Boolean)
@@ -274,7 +285,9 @@ export default async function TutorDashboardPage() {
         <IdentityBlock
           name={session?.profile?.full_name ?? 'Your profile'}
           avatarUrl={session?.profile?.avatar_url ?? null}
-          badges={ent.badges}
+          // A badge is a "you are live" claim, so it shows only when the tutor is
+          // actually in the directory (migration 87), not on the fee flag alone.
+          badges={directoryListed ? ent.badges : []}
           line={identityLine}
           planNotice={planNotice}
           completion={percent}
@@ -287,18 +300,18 @@ export default async function TutorDashboardPage() {
           // the header shows only the ring (a glance) — no duplicated prompt.
           showCompletionLink={false}
           editHref={
-            // Only link to the public profile when the tutor is actually LISTED
-            // — an unlisted tutor's /tutor/<slug> 404s (owner, 15 Sep 2026), so a
-            // slug alone is not enough. Otherwise send them to edit their profile.
-            listed && tutorProfile?.slug
+            // Only link to the public profile when the tutor is actually in the
+            // directory — an unlisted tutor's /tutor/<slug> 404s, and a slug alone
+            // is not enough (migration 87). Otherwise send them to edit.
+            directoryListed && tutorProfile?.slug
               ? { label: 'View your public profile', href: `/tutor/${tutorProfile.slug}` }
               : { label: 'Edit your profile', href: '/tutor/dashboard/settings' }
           }
           extra={
-            // Only a tutor who actually holds the Verified badge (listed AND a
-            // reviewed degree — owner rule 2) is offered the "share your verified
-            // badge" card; otherwise there is no badge to share.
-            ent.badges.includes('Verified') && tutorProfile?.slug ? (
+            // The "share your verified badge" card only when the tutor is actually
+            // listed AND holds the Verified badge — sharing a page that is not in
+            // the directory would tell him he is live when he is not.
+            directoryListed && ent.badges.includes('Verified') && tutorProfile?.slug ? (
               <ShareVerifiedBadge
                 profileUrl={absoluteUrl(`/tutor/${tutorProfile.slug}`)}
                 firstName={(session?.profile?.full_name ?? 'there').split(' ')[0]}
@@ -306,6 +319,12 @@ export default async function TutorDashboardPage() {
             ) : undefined
           }
         />
+
+        {/* Fee paid but still not in the directory: name exactly what is missing,
+            each a tap from the screen that fixes it. Visibility only — no promise
+            of tuitions. Not shown once listed, nor before the fee is paid (the
+            packages/verify surfaces own that step). */}
+        {feePaid && !directoryListed && <NotListedNotice blockers={directory.blockers} />}
 
         {/* Status and what-to-do-next, at the TOP, near the name and badges
             (owner, 9 Sep — refines the 5 Sep "teaser first" order). The identity
@@ -416,22 +435,24 @@ export default async function TutorDashboardPage() {
         <NeedsYou
           rows={needs}
           emptyHint="Your profile is live and parents can find you."
-          // An unlisted tutor must never be told they are clear. Since 10 Sep the
-          // blocker is not completion — it is a membership and verification. A
-          // free tutor needs a plan; a paid one is waiting on identity/mobile.
+          // An unlisted tutor must never be told they are clear. This keys on the
+          // real directory fact (migration 87): an unverified tutor's way in is
+          // the one-time fee; a fee-paid tutor who is still out is missing a
+          // subject or a city (spelled out in the notice above), so this points at
+          // the profile editor rather than repeating each item.
           blockedEmpty={
-            listed
+            directoryListed
               ? undefined
-              : free
+              : !feePaid
                 ? {
                     title: 'You are not listed yet',
-                    hint: 'Parents only see and hear from listed tutors. A membership lists you and lets you apply — you do not have to finish your profile first.',
-                    action: { label: 'See memberships', href: '/tutor/packages?plan=verified' },
+                    hint: 'Parents only see verified tutors. The one-time Rs 199 verification lists you in search.',
+                    action: { label: 'Get verified', href: '/tutor/verify' },
                   }
                 : {
                     title: 'You are not listed yet',
-                    hint: 'Your membership is active. You are listed as soon as your identity and mobile number are verified.',
-                    action: { label: 'Open Settings', href: '/tutor/dashboard/settings' },
+                    hint: 'Add the details shown above — a subject and a city — and you appear in search.',
+                    action: { label: 'Finish your profile', href: '/tutor/complete-profile' },
                   }
           }
         />

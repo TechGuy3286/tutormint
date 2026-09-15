@@ -36,6 +36,7 @@ import {
   badgesForPlan,
 } from '../lib/planBadges'
 import { isFixtureTuition } from '../lib/fixtures'
+import { directoryBlockers, isDirectoryListed, tutorFixFor } from '../lib/tutorListingStatus'
 import { BANNED_LOGIN_MESSAGE } from '../lib/authMessages'
 import { needsPhoneGate } from '../lib/phoneGate'
 
@@ -466,6 +467,48 @@ test('isFixtureTuition: seed parent / JOB-TRK / SEED-JOB are fixtures; a team po
   assert.equal(isFixtureTuition({ jobTxId: 'SEED-JOB-7', parentIsSeed: true, postedByTeam: true }), false)
   // A missing id is not, by itself, a fixture.
   assert.equal(isFixtureTuition({ jobTxId: null, parentIsSeed: false }), false)
+})
+
+// ------------------------------------------ directory listing bar (mig 87) ---
+
+const listedFacts = {
+  feePaid: true, phoneVerified: true, hasSubjects: true, city: 'Lahore',
+  isSuspended: false, isBanned: false, underReview: false, verificationStatus: 'verified',
+  imported: false, claimedAt: null, isSeed: false, isTeamAccount: false,
+}
+
+test('directoryBlockers: a real fee-paid tutor with a subject and a city is listed', () => {
+  assert.deepEqual(directoryBlockers(listedFacts), [])
+  assert.equal(isDirectoryListed(listedFacts), true)
+})
+
+test('directoryBlockers: the three new gates each block on their own', () => {
+  assert.deepEqual(directoryBlockers({ ...listedFacts, isSeed: true }), ['fixture'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, isTeamAccount: true }), ['fixture'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, hasSubjects: false }), ['no_subjects'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, city: '' }), ['no_city'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, city: '   ' }), ['no_city'], 'whitespace-only city is no city')
+})
+
+test('directoryBlockers: fee and mobile are still required (migration 86 gates kept)', () => {
+  assert.deepEqual(directoryBlockers({ ...listedFacts, feePaid: false }), ['fee_unpaid'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, phoneVerified: false }), ['phone_unverified'])
+})
+
+test('directoryBlockers: an unclaimed import is blocked from the directory, in view order', () => {
+  // An import with subjects+city+fee but not claimed: only the import gate fires.
+  const imp = { ...listedFacts, imported: true, claimedAt: null }
+  assert.deepEqual(directoryBlockers(imp), ['unclaimed_import'])
+})
+
+test('tutorFixFor: only the tutor-fixable blockers offer a screen', () => {
+  assert.equal(tutorFixFor('no_subjects')?.href, '/tutor/complete-profile')
+  assert.equal(tutorFixFor('no_city')?.href, '/tutor/complete-profile')
+  assert.equal(tutorFixFor('fee_unpaid')?.href, '/tutor/verify')
+  assert.equal(tutorFixFor('phone_unverified')?.href, '/verify-phone')
+  assert.equal(tutorFixFor('suspended'), null)
+  assert.equal(tutorFixFor('fixture'), null)
+  assert.equal(tutorFixFor('unclaimed_import'), null)
 })
 
 test('badgesForPlan: the Verified badge is degree-gated for tutors, not parents', () => {
