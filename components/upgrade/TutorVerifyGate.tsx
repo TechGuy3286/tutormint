@@ -2,28 +2,28 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Camera, Check, Loader2 } from 'lucide-react'
+import { Camera, Loader2 } from 'lucide-react'
 
-import type { Gate } from '@/lib/gate'
 import { compressImage } from '@/lib/imageCompress'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
 
-// The Rs 199 one-time verification gate an UNVERIFIED tutor meets when they tap
-// Apply (owner, Part 4, 15 Sep 2026). It replaces the old plain upgrade popup:
+// The verification gate an UNVERIFIED tutor meets when they tap Apply (owner,
+// 15 Sep 2026). Deliberately minimal — a tutor on a phone does not read paragraphs:
 //
-//   * bilingual heading + body (supplied by lib/gate.ts, consistent with
-//     onboarding),
-//   * CNIC FRONT and BACK uploaded inline — two separate camera opens
-//     (capture=environment), each showing a small preview thumbnail once taken so
-//     he can retake,
-//   * the images save to his profile automatically (POST /api/documents/upload,
-//     kind 'cnic' — the private identity-docs bucket; never re-uploaded elsewhere,
-//     never shown publicly),
-//   * one primary "Verify" button that starts checkout for the one-time fee.
+//   * one line ("Upload your CNIC, front and back."),
+//   * CNIC FRONT and BACK inline — two camera opens (capture=environment), each
+//     filling with the actual photo once taken, tappable to retake (no tick, no
+//     filename),
+//   * one small privacy line, the one permitted claim, and two buttons.
 //
-// The ONLY outcome language allowed is the exact encouraging line "Verified
-// tutors are shown to parents first." — no promise of being hired.
+// The images save to the tutor's profile automatically (POST /api/documents/upload,
+// kind 'cnic' — the private identity-docs bucket; never re-uploaded elsewhere,
+// never shown publicly). "Verify" routes to the payment page and does nothing
+// else — NO price here, and NO claim that verifying wins tuitions, applications,
+// replies or income. The ONLY permitted outcome language is the exact line
+// "Verified tutors are shown to parents first." (visibility, which survives a
+// tutor who pays and is not hired — there are no refunds).
 
 type Side = 'front' | 'back'
 
@@ -57,6 +57,8 @@ function CnicTile({
         aria-label={`${done ? 'Retake' : 'Take a photo of'} the ${side} of your CNIC`}
       >
         {preview ? (
+          // The actual photo fills the box — the confirmation is the photo, so
+          // there is no tick overlay (owner, 15 Sep). Tap it to retake.
           // eslint-disable-next-line @next/next/no-img-element
           <img src={preview} alt={`${label} preview`} className="h-full w-full object-cover" />
         ) : (
@@ -67,16 +69,9 @@ function CnicTile({
             <Loader2 size={20} className="animate-spin text-white" aria-hidden />
           </span>
         )}
-        {done && !busy && (
-          <span className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-tm-green-deep">
-            <Check size={12} className="text-white" aria-hidden />
-          </span>
-        )}
       </button>
       <span className="flex flex-col items-center leading-tight">
-        <span className="text-[11px] font-bold text-tm-navy">
-          {done ? 'Tap to retake' : label}
-        </span>
+        <span className="text-[11px] font-bold text-tm-navy">{label}</span>
         <span className="text-[10px] text-gray-500" lang="ur" dir="rtl">
           {urdu}
         </span>
@@ -96,7 +91,7 @@ function CnicTile({
   )
 }
 
-export default function TutorVerifyGate({ gate, onClose }: { gate: Gate; onClose: () => void }) {
+export default function TutorVerifyGate({ onClose }: { onClose: () => void }) {
   const router = useRouter()
   const [preview, setPreview] = useState<{ front: string | null; back: string | null }>({
     front: null,
@@ -171,70 +166,49 @@ export default function TutorVerifyGate({ gate, onClose }: { gate: Gate; onClose
     router.push(target)
   }
 
-  // gate.body is bilingual, English then Urdu, separated by a blank line.
-  const paras = gate.body.split('\n\n').filter((p) => p.trim().length > 0)
-
   return (
     <div className="mt-3 space-y-4">
-      {paras.map((p, i) => (
-        <p
-          key={i}
-          className="text-xs leading-relaxed text-slate-700"
-          {...(i > 0 ? { lang: 'ur', dir: 'rtl' as const } : {})}
-        >
-          {p}
-        </p>
-      ))}
+      {/* One line — what to do. Nothing about what verification is, or the fee. */}
+      <p className="flex flex-col leading-tight">
+        <span className="text-xs font-semibold text-slate-700">Upload your CNIC, front and back.</span>
+        <span className="text-[11px] text-gray-500" lang="ur" dir="rtl">
+          اپنا شناختی کارڈ اپلوڈ کریں — سامنے اور پیچھے
+        </span>
+      </p>
 
-      {/* CNIC front + back. Two camera opens; a thumbnail once taken so he can
-          retake. Saved privately to his profile automatically. */}
-      <div>
-        <p className="mb-2 flex flex-col leading-tight">
-          <span className="text-xs font-black text-tm-navy">Upload your CNIC</span>
-          <span className="text-[10px] text-gray-500" lang="ur" dir="rtl">
-            اپنا شناختی کارڈ اپلوڈ کریں
-          </span>
-        </p>
-        <div className="flex gap-3">
-          <CnicTile
-            side="front"
-            label="Front"
-            urdu="سامنے کا رخ"
-            done={!!preview.front}
-            preview={preview.front}
-            busy={uploading === 'front'}
-            onFile={uploadSide}
-          />
-          <CnicTile
-            side="back"
-            label="Back"
-            urdu="پچھلا رخ"
-            done={!!preview.back}
-            preview={preview.back}
-            busy={uploading === 'back'}
-            onFile={uploadSide}
-          />
-        </div>
-        <p className="mt-2 text-[10px] leading-relaxed text-gray-500">
-          Your CNIC is private — only our verification team can see it. It never appears on your
-          public profile.
-        </p>
+      {/* Front + back, side by side. Each fills with the real photo once taken. */}
+      <div className="flex gap-3">
+        <CnicTile
+          side="front"
+          label="Front"
+          urdu="سامنے کا رخ"
+          done={!!preview.front}
+          preview={preview.front}
+          busy={uploading === 'front'}
+          onFile={uploadSide}
+        />
+        <CnicTile
+          side="back"
+          label="Back"
+          urdu="پچھلا رخ"
+          done={!!preview.back}
+          preview={preview.back}
+          busy={uploading === 'back'}
+          onFile={uploadSide}
+        />
       </div>
 
-      {gate.plan && (
-        <div className="rounded-2xl border border-tm-navy/15 bg-tm-tint-navy p-3">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="text-sm font-black text-tm-navy">Verification fee</p>
-            <p className="text-sm font-black text-tm-red">
-              Rs {gate.plan.pricePkr.toLocaleString('en-PK')}
-              <span className="text-[11px] font-bold text-slate-700"> · one-time</span>
-            </p>
-          </div>
-          <p className="mt-1 text-[11px] font-semibold text-tm-navy">
-            Paid once. No renewal, no monthly charge. Non-refundable.
-          </p>
-        </div>
-      )}
+      <p className="text-[10px] leading-relaxed text-gray-500">
+        Only our verification team sees it. Never on your profile.
+      </p>
+
+      {/* The one permitted claim — visibility, never an outcome promise. */}
+      <p className="flex flex-col gap-0.5 rounded-xl bg-tm-tint-green p-3 leading-tight text-tm-green-deep">
+        <span className="text-xs font-bold">Verified tutors are shown to parents first.</span>
+        <span className="text-[11px] font-semibold" lang="ur" dir="rtl">
+          تصدیق شدہ ٹیوٹرز والدین کو پہلے دکھائے جاتے ہیں
+        </span>
+      </p>
 
       {error && (
         <div role="alert" className="space-y-2">
@@ -260,11 +234,6 @@ export default function TutorVerifyGate({ gate, onClose }: { gate: Gate; onClose
           Not now
         </button>
       </div>
-      {!both && (
-        <p className="text-center text-[10px] text-gray-500">
-          Add both sides of your CNIC to continue.
-        </p>
-      )}
     </div>
   )
 }

@@ -35,7 +35,7 @@ export default async function TutorVerifyPage() {
         <Breadcrumbs items={[{ label: 'Tutor dashboard', href: '/tutor/dashboard' }, { label: 'Get verified' }]} />
         <div className="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6">
           <h1 className="text-base font-black leading-tight text-tm-navy">{gate.title}</h1>
-          <VerifyClient gate={gate} />
+          <VerifyClient />
         </div>
       </div>
     </main>

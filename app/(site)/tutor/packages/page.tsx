@@ -79,22 +79,24 @@ export default async function TutorPackagesPage({
           </p>
         </header>
 
-        {/* The one-time verification fee — the way onto the platform. It is NOT
-            a plan and NOT monthly; a tutor pays it once to become verified and
-            listed, then chooses a package (Basic is free). Shown here only,
-            never before signup or on a public page. */}
+        {/* The way onto the platform, for a tutor who is not verified yet.
+            The price is NOT here — it is on the payment page, one tap past
+            Verify (owner, 15 Sep 2026). Just the step and the one permitted
+            visibility claim. */}
         {ent && ent.audience === 'tutor' && !ent.plan && (
           <section className="space-y-2 rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-4 text-xs leading-relaxed sm:p-5">
-            <p className="text-base font-black text-tm-navy">
-              One-time verification — Rs. 199
-            </p>
+            <p className="text-base font-black text-tm-navy">Get verified to be found</p>
             <p className="text-tm-navy">
-              Pay it once to become a verified tutor and appear in search. There is no renewal and
-              no monthly charge for it — it is a single payment, and <strong>verified tutors are
-              shown to parents first</strong>. After that you are on the free Basic plan; Premium
-              and Featured below add more.
+              Upload your CNIC to become a verified tutor and appear in search. Verified tutors are
+              shown to parents first. After that you are on the free Basic plan; Premium and Featured
+              below add more.
             </p>
-            <p className="text-[11px] text-gray-500">The verification fee is non-refundable.</p>
+            <Link
+              href="/tutor/verify"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-6 text-xs font-bold text-white hover:bg-tm-red-hover"
+            >
+              Verify
+            </Link>
           </section>
         )}
 
@@ -128,10 +130,9 @@ export default async function TutorPackagesPage({
               will ask for their money back and be told no. */}
           <p className="text-slate-700">
             <strong className="text-tm-navy">You are already paying to be found.</strong> A boosted
-            post in one city costs more in a week than the one-time Rs 199 verification fee, and it
-            stops the day you stop paying. Rs 199, paid once, puts you in front of parents who are
-            already searching for your subject in your area — no website, no ad account, no daily
-            budget.
+            post in one city costs more in a week than getting verified once, and it stops the day
+            you stop paying. Getting verified puts you in front of parents who are already searching
+            for your subject in your area — no website, no ad account, no daily budget.
           </p>
           <p className="text-slate-700">
             <strong className="text-tm-navy">An academy keeps half your first month.</strong> On a
@@ -139,8 +140,8 @@ export default async function TutorPackagesPage({
             a share of every month after. TutorMint takes 0% of what you earn, forever.
           </p>
           <p className="text-gray-500">
-            Being listed is what a membership buys. Whether a parent picks you depends on your
-            profile, your reply and your experience. Memberships are not refundable.
+            Being verified is what gets you listed. Whether a parent picks you depends on your
+            profile, your reply and your experience.
           </p>
         </section>
 

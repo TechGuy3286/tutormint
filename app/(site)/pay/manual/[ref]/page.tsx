@@ -44,6 +44,11 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
   const instructions = await manualInstructions()
   const methods = availableMethods(instructions)
   const packagesHref = plan?.audience === 'tutor' ? '/tutor/packages' : '/parent/packages'
+  // The one-time verification fee (plan_code 'verified') is not a 30-day plan.
+  // Its price and the "one-time · non-refundable" line live HERE, on the payment
+  // page — moved off the apply-gate popup and the packages page (owner, 15 Sep).
+  const isFee = (payment.plan_code as string) === 'verified'
+  const amount = `Rs. ${(payment.amount_pkr as number).toLocaleString('en-PK')}`
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8">
@@ -51,10 +56,20 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
         <Breadcrumbs items={[{ label: 'Packages', href: packagesHref }, { label: 'Bank or wallet transfer' }]} />
         <header className="space-y-1">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Complete your transfer</h1>
-          <p className="text-xs text-gray-500">
-            {plan?.name ?? payment.plan_code} plan · Rs.{' '}
-            {(payment.amount_pkr as number).toLocaleString('en-PK')} for 30 days
-          </p>
+          {isFee ? (
+            <>
+              <p className="text-xs text-gray-500">Profile verification · {amount} · one-time</p>
+              {/* Above the fold on a 360px phone: the one-time / non-refundable
+                  fact, stated before the tutor pays. */}
+              <p className="text-xs font-bold text-tm-navy">
+                This is a one-time fee. It is non-refundable.
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-gray-500">
+              {plan?.name ?? payment.plan_code} plan · {amount} for 30 days
+            </p>
+          )}
         </header>
 
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">

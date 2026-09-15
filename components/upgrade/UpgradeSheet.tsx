@@ -113,7 +113,7 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
         </div>
 
         {tutorVerify ? (
-          <TutorVerifyGate gate={gate} onClose={onClose} />
+          <TutorVerifyGate onClose={onClose} />
         ) : (
           <>
         <p className="mt-3 text-xs leading-relaxed text-slate-700">{gate.body}</p>

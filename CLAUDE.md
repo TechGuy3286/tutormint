@@ -5487,3 +5487,46 @@ makes that moot; restoring the fee flag would not relist them). `ent.listed` /
 gates — they answer "can apply / fee+precondition", a related but distinct
 question from "in the public directory"; the dashboard reads the directory rule
 for anything that claims the tutor is live.
+
+## Apply-gate popup slimmed; fee price moves to the payment page (owner, 15 Sep 2026)
+
+Refines the "Part 4 — apply gate" as-built. No migration, no DB write — copy and
+layout only.
+
+- **No price in the apply-gate popup or on the packages page.** The Rs 199 fee
+  card is removed from `TutorVerifyGate` and the "One-time verification — Rs. 199"
+  banner from `/tutor/packages` (replaced by a price-free "Get verified" prompt +
+  Verify button); the Basic card's link is "Get verified" (was "· Rs. 199"); the
+  packages framing copy no longer names the fee amount. Plan-card prices
+  (Premium/Featured) stay — the packages page is where PLAN prices live; only the
+  FEE price moved.
+- **The fee price + the one-time/non-refundable line now live on the payment
+  page** (`/pay/manual/[ref]`), which is fee-aware: for `plan_code='verified'` the
+  header reads "Profile verification · Rs. N · one-time" (not "…plan … for 30
+  days") and carries "This is a one-time fee. It is non-refundable." in the header
+  — above the fold on a 360px phone, before the tutor pays.
+- **The popup is minimal**: heading (bilingual, from `gate.title`), one line
+  ("Upload your CNIC, front and back." + Urdu), the two CNIC boxes, one small
+  privacy line ("Only our verification team sees it. Never on your profile."), the
+  one permitted claim ("Verified tutors are shown to parents first." + Urdu), and
+  Not now · Verify. The long bilingual paragraphs, the fee card and the
+  "add both sides" helper are gone. `TutorVerifyGate` no longer takes a `gate`
+  prop (all copy is fixed; checkout is `planCode:'verified'`).
+- **CNIC boxes**: unchanged capture/compress; the box now fills with the actual
+  photo and the green ✓ tick overlay is removed (the photo is the confirmation —
+  "not a tick, not a filename"). Both sides POST to the SAME `/api/documents/upload`
+  (`kind='cnic'`) that the settings identity card (`lib/identity.ts`) and the admin
+  verification queue read (`user_documents` kind='cnic' + `profiles.cnic_image_path`,
+  private identity-docs bucket, served only via the owner/admin-gated preview
+  route) — so a CNIC uploaded here appears in settings and the staff queue and
+  nowhere else, and is never re-requested.
+- **No outcome promise anywhere** — popup, packages prompt, payment page: the
+  only claim is visibility.
+
+Gates: tsc 0 · next build 0 · check:contrast 100. No browser was driven — the
+popup/packages/payment surfaces rest on the build; the CNIC storage path is
+code-verified (same route + `user_documents`/`cnic_image_path` the settings card
+and admin queue already read). A live payment gateway (AssanPay) is not enabled,
+so `/pay/manual/[ref]` IS the payment page today; if a gateway is turned on, the
+one-time/non-refundable line would need a pre-redirect interstitial (out of scope,
+noted).

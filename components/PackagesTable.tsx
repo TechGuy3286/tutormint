@@ -154,7 +154,7 @@ export default function PackagesTable({
                     className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                   >
                     <ShieldCheck aria-hidden size={14} />
-                    {audience === 'tutor' ? 'Get verified · Rs. 199' : 'Verify to unlock'}
+                    {audience === 'tutor' ? 'Get verified' : 'Verify to unlock'}
                   </Link>
                 ) : null
               ) : (
