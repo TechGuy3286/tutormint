@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
@@ -108,7 +109,15 @@ export async function POST(request: Request) {
     )
   }
 
-  await supabase
+  // phone_verified_at is the ONE field every reader keys "mobile verified" on —
+  // directoryBlockers, the dashboard, the flow, completion and entitlements all
+  // read it (owner PR7 §2.1). Write it, and CONFIRM the write landed: the update
+  // used to be fire-and-forget, so a failed write (RLS, a bad column) would still
+  // let the flow say "Number verified." while the field stayed null — the exact
+  // "verified on phone, dashboard still says verify" split. `.select()` echoes the
+  // row back, so a null here means the verification did NOT persist and we say so
+  // rather than reporting a success that did not happen.
+  const { data: saved, error: updErr } = await supabase
     .from('profiles')
     .update({
       phone_number: phone,
@@ -120,6 +129,16 @@ export async function POST(request: Request) {
       phone_verified_via: result.bridged ? 'bridge' : 'otp',
     })
     .eq('id', user.id)
+    .select('phone_verified_at')
+    .maybeSingle()
+
+  if (updErr || !saved?.phone_verified_at) {
+    console.error(`[otp] verify: profile write did not persist for ${user.id}: ${updErr?.message ?? 'no row returned'}`)
+    return NextResponse.json(
+      { error: 'Your code was correct, but we could not save it. Please try again.' },
+      { status: 500 },
+    )
+  }
 
   await recomputeCompletion(user.id)
 
@@ -138,6 +157,13 @@ export async function POST(request: Request) {
     targetType: 'profile',
     targetId: user.id,
   })
+
+  // Belt-and-braces cache invalidation (owner PR7 §2.3). The tutor dashboard is
+  // already force-dynamic and reads phone_verified_at fresh through the service
+  // role, so this changes nothing today — but if the dashboard's data is ever
+  // cached, a verify must clear it so it never keeps saying "verify your mobile".
+  revalidatePath('/tutor/dashboard')
+  revalidatePath('/tutor/complete-profile')
 
   return NextResponse.json({
     success: true,

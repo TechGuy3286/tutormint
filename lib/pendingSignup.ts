@@ -273,8 +273,10 @@ export async function verifyPendingSignup(opts: {
 
   // The number is already proved — mark it verified now, so the account is
   // never held at the phone gate. 'bridge' when the shared code verified it, so
-  // it can be made to re-verify when the real provider lands.
-  await admin
+  // it can be made to re-verify when the real provider lands. phone_verified_at
+  // is the ONE field every reader keys on (owner PR7 §2.1); confirm the write
+  // landed so a mobile-signup account is never created appearing unverified.
+  const { data: saved, error: updErr } = await admin
     .from('profiles')
     .update({
       phone_verified_at: new Date().toISOString(),
@@ -283,6 +285,17 @@ export async function verifyPendingSignup(opts: {
       phone_gate_required: false,
     })
     .eq('id', userId)
+    .select('phone_verified_at')
+    .maybeSingle()
+  if (updErr || !saved?.phone_verified_at) {
+    await admin.auth.admin.deleteUser(userId)
+    return {
+      ok: false,
+      status: 500,
+      error: 'Could not finish creating the account. Please try again.',
+      reason: 'server',
+    }
+  }
 
   // The draft is consumed — remove it (and any older rows for this number).
   await admin.from('pending_signups').delete().eq('mobile', mobile)
