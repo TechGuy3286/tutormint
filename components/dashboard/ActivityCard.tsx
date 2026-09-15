@@ -1,26 +1,23 @@
-import { CreditCard, MessageSquare, ShieldAlert, Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronRight, CreditCard, MessageSquare, ShieldAlert, Sparkles } from 'lucide-react'
 
-import StatTile, { type TileTone } from '@/components/dashboard/StatTile'
 import { familyFor, groupedLabel, type Family } from '@/lib/activityFamily'
 import { isPlanEnding, type FeedGroup } from '@/lib/feedGrouping'
 import { formatDateTime } from '@/lib/datetime'
 import TimeAgo from '@/components/TimeAgo'
 
-// One square tile in the ACTIVITY grid.
+// One row in the ACTIVITY list (owner PR2 §4.3).
 //
-// The band this replaced was a wide row — icon left, text right — that read
-// like a log file. Every event now wears the same square category tile the
-// "Your things" grid uses (components/dashboard/StatTile): a coloured icon
-// centred at the top, the event centred beneath it, the time under that. The
-// colour is a scanning aid and never carries meaning the words do not.
+// The band this replaced was a grid of square tiles that read as decoration. A
+// row now says, in one scannable line, what happened and when — the exact thing
+// (the text comes from dashboardFeed, which names the CNIC/degree/selfie rather
+// than "a document") and a chevron into it.
 //
 // GROUPING IS KEPT, NEVER LOSSY. Four plan changes on one day collapse into
 // "Your plan changed 4 times" — the count is `items.length`, so the number in
-// the sentence and the rows behind it cannot disagree. The tile links to the
-// itemised timeline (/account/notifications) rather than to any one of the run:
-// a run of four matched jobs has four different tuitions behind it, and a single
-// destination would silently pick the newest. A card that stands for ONE thing
-// links straight to that thing.
+// the sentence and the rows behind it cannot disagree. A grouped run links to
+// the itemised timeline (/account/notifications) rather than to any one of the
+// run; a card that stands for ONE thing links straight to that thing.
 
 const ICONS = {
   message: MessageSquare,
@@ -29,14 +26,13 @@ const ICONS = {
   shield: ShieldAlert,
 } as const
 
-// The four activity families map onto four of the five tile tones. These are
-// the same brand pairs the old discs used (lib/activityFamily FAMILY_STYLE),
-// so nothing about the colour scanning-aid changed — only the card shape.
-const FAMILY_TONE: Record<Family, TileTone> = {
-  messages: 'navy',
-  money: 'gold',
-  progress: 'green',
-  moderation: 'red',
+// Each family's icon disc, using an existing registered tint/ink contrast pair
+// (scanning aid only — the words carry the meaning).
+const FAMILY_CHIP: Record<Family, string> = {
+  messages: 'bg-tm-tint-navy text-tm-navy',
+  money: 'bg-tm-tint-gold text-tm-gold-ink',
+  progress: 'bg-tm-tint-green text-tm-green-deep',
+  moderation: 'bg-tm-tint-red text-tm-red',
 }
 
 export default function ActivityCard({ group }: { group: FeedGroup }) {
@@ -47,9 +43,6 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
     ]
   ]
 
-  // A band-wide messages card stands for several conversations at once and
-  // points at the inbox; a plan ending is one fact reported up to three ways
-  // (expiry, revoke, cancel) and keeps its single written destination.
   const collapsedMessages = !!group.collapsedAcrossDays
   const planEnd = isPlanEnding(group.type)
   const grouped = group.count > 1 && !collapsedMessages && !planEnd
@@ -64,31 +57,36 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
       ? groupedLabel(group.type, group.count, group.head.text)
       : group.head.text
 
-  // A grouped run has several destinations behind it, so it goes to the
-  // itemised timeline rather than to the newest row. Everything else links to
-  // its own written href, falling back to the timeline when it names none.
+  // A grouped run has several destinations behind it, so it goes to the itemised
+  // timeline; everything else links to its own written href, falling back to the
+  // timeline when it names none.
   const href = grouped ? '/account/notifications' : (group.href ?? '/account/notifications')
 
-  // A plan that has ended or is about to is the one thing here with a
-  // consequence attached to ignoring it — it takes the red highlight.
-  const urgent = planEnd || group.type === 'plan_expiring'
-
-  const note = (
-    <span title={formatDateTime(group.head.at)}>
-      {collapsedMessages && group.count > 1 ? 'latest ' : ''}
-      <TimeAgo iso={group.head.at} />
-    </span>
-  )
-
   return (
-    <StatTile
-      href={href}
-      tone={FAMILY_TONE[family]}
-      highlight={urgent}
-      unread={group.unread}
-      icon={<Icon aria-hidden size={22} />}
-      label={title}
-      note={note}
-    />
+    <li>
+      <Link
+        href={href}
+        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50"
+      >
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${FAMILY_CHIP[family]}`}
+        >
+          <Icon aria-hidden size={16} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-xs font-bold text-tm-navy">{title}</span>
+            {group.unread && (
+              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-tm-red" />
+            )}
+          </span>
+          <span className="block text-[10px] text-gray-500" title={formatDateTime(group.head.at)}>
+            {collapsedMessages && group.count > 1 ? 'latest ' : ''}
+            <TimeAgo iso={group.head.at} />
+          </span>
+        </span>
+        <ChevronRight aria-hidden size={15} className="shrink-0 text-gray-500" />
+      </Link>
+    </li>
   )
 }

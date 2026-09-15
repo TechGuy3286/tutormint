@@ -1,4 +1,4 @@
-import { List } from 'lucide-react'
+import { List, ShieldCheck } from 'lucide-react'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { parseMode } from '@/lib/locations'
 import type { Metadata } from 'next'
@@ -182,6 +182,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   let viewerJobTypes: readonly string[] | null = null
   let viewerRole: string | null = null
   let viewerPlan: string | null = null
+  let tutorUnverified = false
   let appliedIds = new Set<string>()
   let savedIds = new Set<string>()
 
@@ -190,6 +191,9 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     isTutor = ent.audience === 'tutor'
     viewerRole = ent.role
     viewerPlan = ent.plan
+    // An unverified tutor has paid no fee, so holds no plan (Basic is synthesised
+    // from the fee). Only this viewer sees the verify prompt (owner PR2 §1.3).
+    tutorUnverified = isTutor && !ent.plan
 
     // Job Type + city, to align matches and decide the "Suitable for online"
     // chip on a cross-city online job.
@@ -298,6 +302,26 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
               : `${total} open tuition${total === 1 ? '' : 's'} · free to browse, no account needed`}
           </p>
         </header>
+
+        {/* The verify prompt — shown ONLY to a logged-in tutor who has not paid
+            the one-time fee (owner PR2 §1.3). Not an ad row and not the ad slot:
+            a targeted, price-free prompt hidden from guests, parents, admins and
+            verified tutors. Replaces the stale "Get found" strip, which was never
+            in the codebase or the advertisements table. */}
+        {tutorUnverified && (
+          <section className="flex flex-col gap-2 rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs font-semibold text-tm-navy">
+              Get verified. Verified tutors are shown to parents first.
+            </p>
+            <Link
+              href="/tutor/verify"
+              className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
+            >
+              <ShieldCheck aria-hidden size={14} />
+              Verify
+            </Link>
+          </section>
+        )}
 
         <JobFilterBar values={filterValues} />
 

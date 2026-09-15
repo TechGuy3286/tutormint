@@ -104,6 +104,20 @@ const LABEL: Record<string, string> = {
  * falls back to the flat wording rather than printing "null plan activated".
  */
 function labelFor(event: string, meta: Record<string, unknown> | null): string {
+  // Name the exact document, not "a document" (owner PR2 §4.3). The upload route
+  // logs meta.kind ('cnic' | 'degree' | 'selfie').
+  if (event === 'document_uploaded') {
+    switch ((meta?.kind as string | null) ?? null) {
+      case 'cnic':
+        return 'You uploaded your CNIC'
+      case 'degree':
+        return 'You uploaded a degree certificate'
+      case 'selfie':
+        return 'You uploaded your verification selfie'
+      default:
+        return 'You uploaded a document'
+    }
+  }
   const flat = LABEL[event] ?? event
   const plan = planLabel((meta?.planCode as string | null) ?? null)
   if (!plan) return flat
@@ -167,10 +181,14 @@ function hrefFor(
     case 'unsuspended':
     case 'warned':
       return '/support'
+    case 'document_uploaded':
+      // Links to where the document lives — tutor identity is in Settings, a
+      // parent's CNIC/address in the verify screen (owner PR2 §4.3).
+      return isTutor ? '/tutor/dashboard/settings' : '/parent/verify'
     default:
-      // shortlist_added/removed, document_uploaded, profile_claimed,
-      // email_confirmed: real events with nowhere specific to go. There is no
-      // shortlists screen, so linking one would be a guess.
+      // shortlist_added/removed, profile_claimed, email_confirmed: real events
+      // with nowhere specific to go. There is no shortlists screen, so linking
+      // one would be a guess.
       return null
   }
 }

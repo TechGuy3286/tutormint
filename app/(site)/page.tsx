@@ -85,6 +85,12 @@ export default async function HomePage() {
         <p className="mt-3 text-sm font-bold italic text-tm-red sm:mt-4 sm:text-base">
           No Fee &bull; No Commission &bull; No Middleman &bull; Live Demo
         </p>
+        {/* The same line in Urdu, directly below the English (owner PR2 §6):
+            right-to-left, one step smaller, the system Urdu font via lang="ur".
+            The English line above is unchanged. */}
+        <p lang="ur" dir="rtl" className="mt-1 text-xs font-bold text-tm-red sm:text-sm">
+          کوئی فیس نہیں &bull; کوئی کمیشن نہیں &bull; کوئی مڈل مین نہیں &bull; لائیو ڈیمو
+        </p>
 
         {/* The two calls to action. Stacked below 640px, side by side above --
             the one responsive change the lock permits. */}

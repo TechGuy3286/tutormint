@@ -182,7 +182,13 @@ export default async function TutorDashboardPage() {
   // every visit, and the completion link above says so already.
   const identityLine = [
     directoryListed ? 'Listed tutor' : 'Not listed yet',
-    (tutorProfile?.city as string | null) || session?.profile?.city || null,
+    // City reads the SAME field the listing check uses — tutor_profiles.city
+    // (the tutor_directory `tp.city` condition, and what loadDirectoryStatus /
+    // matching read). NOT profiles.city: a value stored there but not on
+    // tutor_profiles made the header claim "Lahore" while the not-listed card
+    // said "add your city" (owner PR2 §2). The header shows a city only when the
+    // listing field is filled.
+    (tutorProfile?.city as string | null) || null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -332,34 +338,20 @@ export default async function TutorDashboardPage() {
             Visibility only — no promise of tuitions. */}
         {!directoryListed && <NotListedNotice blockers={directory.blockers} />}
 
-        {/* Status and what-to-do-next, at the TOP, near the name and badges
-            (owner, 9 Sep — refines the 5 Sep "teaser first" order). The identity
-            status line first, then the ONE completion surface: the checklist of
-            what is done and what is not, each incomplete item a direct link. No
-            second completion prompt anywhere — the header ring is a glance only,
-            and Needs you no longer carries a completion row.
-
-            The 'none' (Not submitted) state is deliberately NOT shown here: it
-            would duplicate the checklist's "CNIC number and image" item — same
-            requirement, two voices, two destinations (Settings vs the exact
-            step). The checklist owns "submit your CNIC" with the right link. The
-            line shows only what the checklist does NOT: the admin-review outcome
-            (Verified / Pending review / Not accepted). */}
-        {identityLineState !== 'none' && (
-          <IdentityStatusLine state={identityLineState} settingsHref="/tutor/dashboard/settings" />
+        {/* Completion card, directly under the not-listed card: header →
+            not-listed → completion → everything else (owner PR2 §4.2). It lists
+            EVERY missing item — the percentage counts all items, so the list must
+            too; a 3-item subset beside "10 of 15 done" was the bug (owner PR2
+            §4.1). */}
+        {completion && percent < 100 && (
+          <ProfileCompletionWidget percent={percent} items={completion.items} role="tutor" />
         )}
 
-        {/* The dashboard checklist shows only what onboarding does NOT collect:
-            the degree certificate, the introduction video and the CNIC. The
-            typing-heavy tagline/about/subjects rows were the screen onboarding
-            replaced (owner, 14 Sep 2026). */}
-        {completion && percent < 100 && (
-          <ProfileCompletionWidget
-            percent={percent}
-            items={completion.items}
-            role="tutor"
-            showKeys={['degrees', 'cnic', 'video']}
-          />
+        {/* The admin-review outcome (Verified / Pending review / Not accepted).
+            The 'none' (Not submitted) state is deliberately NOT shown here — it
+            would duplicate the checklist's "CNIC number and image" item. */}
+        {identityLineState !== 'none' && (
+          <IdentityStatusLine state={identityLineState} settingsHref="/tutor/dashboard/settings" />
         )}
 
         {/* ------------------------------------------- the 199 funnel ---

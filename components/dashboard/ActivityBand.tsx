@@ -7,11 +7,10 @@ import { groupFeed, type FeedItem } from '@/lib/feedGrouping'
 
 // The second band: what has happened, newest first.
 //
-// A GRID OF SQUARE TILES, not a list of lines. The previous version was a wide
-// bordered row — icon left, text right — that read like a log file, a thing
-// people skip. Every event now wears the same square category tile the "Your
-// things" grid uses (components/dashboard/StatTile): two to a row on a phone,
-// three on a tablet, four on a laptop.
+// A COMPACT LIST, not a grid of square tiles (owner PR2 §4.3). The square-tile
+// grid read as decoration; a scannable list of lines — icon, what happened, when
+// — is what a member actually reads down. Each row names the exact thing ("You
+// uploaded your CNIC", not "a document") and links to it (see dashboardFeed).
 //
 // Every row is a real row from `notifications` or `user_activity_log`. Nothing
 // here is synthesised from state -- "your profile is 60% complete" is a fact
@@ -63,7 +62,7 @@ export default function ActivityBand({
       {groups.length === 0 ? (
         <EmptyState icon={<Activity aria-hidden size={18} />} title={emptyHint} action={emptyAction} />
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white">
           {groups.map((g) => (
             <ActivityCard key={g.key} group={g} />
           ))}

@@ -13,6 +13,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { notify } from '@/lib/notifications'
 import { matchVisibility } from '@/lib/matchChip'
+import { jobDisplayTitle } from '@/lib/jobDisplayTitle'
+import { jobType } from '@/lib/display'
+import { genderPrefWord } from '@/lib/genderPref'
+import { collapseLevels } from '@/lib/levelDisplay'
 
 export type Position = {
   /** 1-based rank among listed tutors for this subject and city. */
@@ -296,7 +300,9 @@ export async function jobsThisWeek(
   // before the rule could drop good matches for excluded ones.
   const { data } = await db
     .from('jobs')
-    .select('id, job_tx_id, title, city, area, created_at, teaching_mode')
+    // gender_preference + class_levels/class_level so the strip title is the SAME
+    // composed phrase the browse card shows (owner PR2 §4.5) — see decorate().
+    .select('id, job_tx_id, title, city, area, created_at, teaching_mode, gender_preference, class_levels, class_level')
     .in('id', jobIds)
     .eq('status', 'open')
     .gte('created_at', weekAgo)
@@ -306,6 +312,7 @@ export async function jobsThisWeek(
   const allRows = (data ?? []) as {
     id: string; job_tx_id: string | null; title: string; city: string | null
     area: string | null; created_at: string; teaching_mode: string | null
+    gender_preference: string | null; class_levels: string[] | null; class_level: string | null
   }[]
   // Drop in-person jobs in another city — not a match — then take the strip's 5.
   const rows = allRows
@@ -368,10 +375,25 @@ export async function jobsThisWeek(
       : where
         ? `Matched · ${where}`
         : 'Matched to your subjects'
+    // The SAME composed title the browse card shows (owner PR2 §4.5): the strip
+    // read raw jobs.title (the stored headline) while the tuitions list shows the
+    // composed "[Gender] [Job Title] for [Level] in [Area], [City]" phrase, so the
+    // one job read two different titles. Both compose it the same way now.
+    const levelPhrase =
+      r.class_levels && r.class_levels.length > 0
+        ? collapseLevels(r.class_levels, { conjunction: true })
+        : r.class_level
+    const composedTitle = jobDisplayTitle({
+      jobType: jobType(r.teaching_mode),
+      gender: genderPrefWord(r.gender_preference),
+      level: levelPhrase,
+      area: r.area,
+      city: r.city,
+    })
     return {
       id: r.id,
       job_tx_id: r.job_tx_id,
-      title: r.title,
+      title: composedTitle || r.title,
       city: r.city,
       area: r.area,
       created_at: r.created_at,

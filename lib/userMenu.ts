@@ -62,8 +62,9 @@ const TUTOR: MenuItem[] = [
   { label: 'Open tuitions', href: '/tutor/dashboard/jobs', icon: 'jobs' },
   { label: 'Messages', href: '/tutor/dashboard/messages', icon: 'messages' },
   { label: 'Demo requests', href: '/tutor/dashboard/demos', icon: 'demos' },
-  { label: 'Notifications', href: '/account/notifications', icon: 'bell' },
-  { label: 'Browse tuitions', href: '/browse/tuitions', icon: 'browse' },
+  // "Notifications" removed from the menu (owner PR2 §5.2) — the header bell is
+  // the notifications surface. "Browse tuitions" removed (§5.1) — "Open tuitions"
+  // above already points at the tuitions board.
   { label: 'Packages', href: '/tutor/packages', icon: 'package' },
   { label: 'Settings', href: '/tutor/dashboard/settings', icon: 'settings', separated: true },
 ]
