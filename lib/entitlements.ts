@@ -25,7 +25,8 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { badgesForPlan, isFeaturedPlan, tutorListed, type BadgeName } from '@/lib/planBadges'
+import { badgesForPlan, isFeaturedPlan, type BadgeName } from '@/lib/planBadges'
+import { directoryBlockers, type ListingBlocker } from '@/lib/tutorListingStatus'
 
 // The pure plan -> badge mapping lives in lib/planBadges.ts so client
 // components can import it without pulling next/headers into the browser
@@ -73,12 +74,20 @@ export type Entitlements = {
   /** The raw percentage, for a gate that says "your profile is 93% complete". */
   profileCompletion: number
   /**
-   * Tutor is LISTED — 100% complete, not suspended, verification not
-   * rejected/suspended, and claimed if imported. This, not profileComplete, is
-   * what a badge clears: a paid plan alone never draws one. Always true-ish for
-   * parents (they are not listed anywhere; kept `false` and unused for them).
+   * Tutor is LISTED — the FULL `tutor_directory` rule (migration 87): fee paid,
+   * mobile verified, not suspended/banned/under-review, verification not
+   * rejected/suspended, claimed if imported, NOT a fixture, at least one subject
+   * AND a city. This is the ONE rule apply / start-conversation / demo-accept
+   * all gate on (owner PR3 §1) — a tutor with no subject or city can no longer
+   * apply while invisible. It is what a badge clears too. False for parents.
    */
   listed: boolean
+  /**
+   * Every reason this tutor is NOT in tutor_directory, in the view's order (empty
+   * when listed). Drives the "what is missing" apply gate (fee, mobile, subject,
+   * city — each with its fix). Empty for parents.
+   */
+  listingBlockers: ListingBlocker[]
   /**
    * The member has PAID for a plan whose 30 days have not started, because a
    * tutor bought while not yet listable (identity/mobile not verified). It grants
@@ -132,6 +141,7 @@ const NOTHING = (userId: string): Entitlements => ({
   profileComplete: false,
   profileCompletion: 0,
   listed: false,
+  listingBlockers: [],
   planPaused: false,
   pausedPlanName: null,
   suspended: false,
@@ -199,6 +209,9 @@ export type EntitlementInputs = {
     is_suspended: boolean | null
     is_banned: boolean | null
     phone_verified_via: string | null
+    /** Fixture flags — a seed or the team account is never listed (migration 87). */
+    is_seed: boolean | null
+    is_team_account: boolean | null
   } | null
   tutorRow: {
     verification_status: string | null
@@ -208,7 +221,11 @@ export type EntitlementInputs = {
     degrees: string[] | null
     /** The one-time Rs 199 verification fee timestamp — what lists a tutor. */
     verified_fee_paid_at: string | null
+    /** The listing city (tutor_directory keys on this, not profiles.city). */
+    city: string | null
   } | null
+  /** Whether the tutor has at least one tutor_subjects row (listing requires it). */
+  hasSubjects: boolean
   /** Active AND unexpired subscription rows — the caller filters status/expiry. */
   activeSubs: { plan_code: string; expires_at: string | null }[]
   /** The most-recent paused subscription's plan code, or null. */
@@ -240,23 +257,30 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   // Basic tier; Premium/Featured are upgrades that add powers.
   const feePaid = !!tutorRow?.verified_fee_paid_at
 
-  // `listed` is the tutor_directory rule in TS: the fee recorded + the listable
-  // precondition (mobile verified, verification not suspended/rejected, not
-  // suspended/banned/under-review, claimed if imported). Completion no longer
-  // gates it.
-  const listed =
+  // `listed` is the FULL tutor_directory rule (migration 87) in TS — via the ONE
+  // pure `directoryBlockers`, mirrored by the view SQL and used by the dashboard
+  // and the admin list. It adds the subjects / city / not-fixture gates the old
+  // `tutorListed()` lacked, so apply / start-conversation / demo-accept (which
+  // all read `ent.listed`) can no longer be done by a tutor who is invisible in
+  // search (owner PR3 §1). Completion is NOT part of it (ranking/indexing only).
+  const listingBlockers: ListingBlocker[] =
     role === 'tutor'
-      ? tutorListed({
+      ? directoryBlockers({
           feePaid,
           phoneVerified: !!profile.phone_verified_at,
-          verificationStatus: tutorRow?.verification_status,
+          hasSubjects: input.hasSubjects,
+          city: tutorRow?.city ?? null,
           isSuspended: profile.is_suspended,
           isBanned: profile.is_banned,
           underReview: tutorRow?.under_review,
+          verificationStatus: tutorRow?.verification_status,
           imported: tutorRow?.imported,
           claimedAt: tutorRow?.claimed_at,
+          isSeed: profile.is_seed,
+          isTeamAccount: profile.is_team_account,
         })
-      : false
+      : []
+  const listed = role === 'tutor' ? listingBlockers.length === 0 : false
 
   // The Verified badge, for a tutor, additionally needs a reviewed degree
   // (owner rule 2). A tutor's declared degrees are the signal; parents are
@@ -287,7 +311,7 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   // active. `listed` is kept (the lock removes plan/badge, not the listing).
   const phoneVerifiedVia = (profile.phone_verified_via as string | null) ?? null
   if (phoneVerifiedVia === 'bridge') {
-    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, listed, phoneVerifiedVia, bridgeLocked: true }
+    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, listed, listingBlockers, phoneVerifiedVia, bridgeLocked: true }
   }
 
   const plans = new Map<string, PlanRow>()
@@ -328,7 +352,7 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   }
 
   if (!best) {
-    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, listed, planPaused, pausedPlanName, phoneVerifiedVia }
+    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, listed, listingBlockers, planPaused, pausedPlanName, phoneVerifiedVia }
   }
 
   const p = best.plan
@@ -364,6 +388,7 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
     profileComplete,
     profileCompletion,
     listed,
+    listingBlockers,
     planPaused: false,
     pausedPlanName: null,
     suspended: false,
@@ -380,7 +405,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
 
   const { data: profile } = await db
     .from('profiles')
-    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, is_banned, phone_verified_via')
+    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, is_banned, phone_verified_via, is_seed, is_team_account')
     .eq('id', userId)
     .maybeSingle()
 
@@ -391,10 +416,14 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
   // Fetch the rest in parallel, then let the pure function decide. The locked
   // paths (banned/suspended/bridge) do not read subs, but fetching them anyway
   // is a couple of small reads on rare accounts and keeps the decision pure.
-  const [tutorRes, subsRes, planRes, pausedRes, counterRes] = await Promise.all([
+  const [tutorRes, subjRes, subsRes, planRes, pausedRes, counterRes] = await Promise.all([
     role === 'tutor'
-      ? db.from('tutor_profiles').select('verification_status, imported, claimed_at, under_review, degrees, verified_fee_paid_at').eq('id', userId).maybeSingle()
+      ? db.from('tutor_profiles').select('verification_status, imported, claimed_at, under_review, degrees, verified_fee_paid_at, city').eq('id', userId).maybeSingle()
       : Promise.resolve({ data: null }),
+    // At least one subject? The listing rule requires it (migration 87).
+    role === 'tutor'
+      ? db.from('tutor_subjects').select('tutor_id').eq('tutor_id', userId).limit(1)
+      : Promise.resolve({ data: [] as { tutor_id: string }[] }),
     db
       .from('subscriptions')
       .select('plan_code, expires_at, status')
@@ -433,8 +462,11 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
       is_suspended: (profile.is_suspended as boolean | null) ?? null,
       is_banned: (profile.is_banned as boolean | null) ?? null,
       phone_verified_via: (profile.phone_verified_via as string | null) ?? null,
+      is_seed: (profile.is_seed as boolean | null) ?? null,
+      is_team_account: (profile.is_team_account as boolean | null) ?? null,
     },
     tutorRow: (tutorRes.data as EntitlementInputs['tutorRow']) ?? null,
+    hasSubjects: ((subjRes.data ?? []) as unknown[]).length > 0,
     activeSubs: ((subsRes.data ?? []) as { plan_code: string; expires_at: string | null }[]).map((s) => ({
       plan_code: s.plan_code,
       expires_at: s.expires_at ?? null,

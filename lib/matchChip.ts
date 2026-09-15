@@ -35,12 +35,19 @@ export { ONLINE_JOB_TITLE }
  * A tutor now offers a SET of Job Types (owner, 10 Sep 2026), so the alignment
  * is CONTAINMENT: the job matches when the tutor's set includes the job's type.
  *
- *  - exclude   : the tutor does not offer this Job Type, OR a home/school job in
- *                a different city.
- *  - online    : the tutor offers online and the (online) job is in a different
- *                city → matched, show the chip that explains the distance.
- *  - same_city : offered and same city, or either city unknown (we cannot claim
- *                a mismatch we cannot see, so it is included with no chip).
+ *  - exclude   : the tutor does not offer this Job Type; a home/school job in a
+ *                different city; OR ANY in-person job when the tutor has no city.
+ *  - online    : an online (city-agnostic) job the tutor offers, when the two
+ *                cities differ or the tutor has no city → matched, with the chip.
+ *  - same_city : offered and same city, or the JOB's city is unknown (we cannot
+ *                claim a mismatch we cannot see), included with no chip.
+ *
+ * NO TUTOR CITY (owner PR3 §2): a tutor with no `tutor_profiles.city` sees NO
+ * in-person tuitions as matching — only online tuitions match (on subject). A
+ * home/school job cannot be placed without knowing where the tutor is, so it is
+ * excluded rather than shown as a match. (The full /browse/tuitions list is
+ * unaffected — it shows every job regardless; matchVisibility only drives the
+ * curated match surfaces and the "suitable for online" chip.)
  *
  * Empty/undefined tutorTypes is "no constraint" rather than excluding everything
  * — a tutor mid-setup with no Job Type yet still sees matches.
@@ -57,9 +64,14 @@ export function matchVisibility(
 
   const jc = norm(jobCity)
   const tc = norm(tutorCity)
-  if (!jc || !tc || jc === tc) return 'same_city'
+  const online = isOnlineTitle(jobType)
 
-  return isOnlineTitle(jobType) ? 'online' : 'exclude'
+  // No tutor city → in-person excluded, online only.
+  if (!tc) return online ? 'online' : 'exclude'
+
+  if (!jc || jc === tc) return 'same_city'
+
+  return online ? 'online' : 'exclude'
 }
 
 /**

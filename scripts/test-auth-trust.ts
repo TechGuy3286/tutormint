@@ -301,13 +301,15 @@ const PLANS: EntitlementInputs['plans'] = [
 const baseTutor = {
   role: 'tutor', profile_completion: 100, cnic_verified_at: '2026-01-01', address_verified_at: null,
   phone_verified_at: '2026-01-01', is_suspended: false, is_banned: false, phone_verified_via: 'otp',
+  is_seed: false, is_team_account: false,
 }
 
-// Fee paid, verification not rejected/suspended, degree on file — the baseline
-// of a listed Basic tutor.
+// Fee paid, verification not rejected/suspended, degree on file, a city — the
+// baseline of a listed Basic tutor. `hasSubjects` (an input flag) defaults true.
 const baseTutorRow = {
   verification_status: 'verified', imported: false, claimed_at: null,
   under_review: false, degrees: ['BSc Mathematics'], verified_fee_paid_at: '2026-01-01',
+  city: 'Lahore',
 }
 
 function inputs(over: Partial<EntitlementInputs>): EntitlementInputs {
@@ -315,6 +317,7 @@ function inputs(over: Partial<EntitlementInputs>): EntitlementInputs {
     userId: 'u1',
     profile: baseTutor,
     tutorRow: { ...baseTutorRow },
+    hasSubjects: true,
     activeSubs: [],
     pausedPlanCode: null,
     plans: PLANS,
@@ -397,12 +400,34 @@ test('entitlements: a listed tutor with NO reviewed degree carries no Verified b
   assert.deepEqual(e.badges, [], 'Basic grants only Verified, which the missing degree drops')
 })
 
+// --- the ONE listing rule now used for apply/message/demo (owner PR3 §1) ---
+
+test('entitlements: a fee-paid tutor with NO subjects is NOT listed (cannot apply)', () => {
+  const e = computeEntitlements(inputs({ hasSubjects: false }))
+  assert.equal(e.listed, false, 'a tutor with no subjects is invisible in search and cannot apply')
+  assert.equal(e.plan, 'basic', 'they still hold Basic — the fee is paid')
+  assert.ok(e.listingBlockers.includes('no_subjects'))
+})
+
+test('entitlements: a fee-paid tutor with NO city is NOT listed (cannot apply)', () => {
+  const e = computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, city: null } }))
+  assert.equal(e.listed, false)
+  assert.ok(e.listingBlockers.includes('no_city'))
+})
+
+test('entitlements: a listed tutor has no listing blockers', () => {
+  const e = computeEntitlements(inputs({}))
+  assert.equal(e.listed, true)
+  assert.deepEqual(e.listingBlockers, [])
+})
+
 test('entitlements: a verified parent gets the free parent_verified tier with no subscription', () => {
   const e = computeEntitlements(
     inputs({
       profile: {
         role: 'parent', profile_completion: 100, cnic_verified_at: '2026-01-01', address_verified_at: '2026-01-01',
         phone_verified_at: '2026-01-01', is_suspended: false, is_banned: false, phone_verified_via: 'otp',
+        is_seed: false, is_team_account: false,
       },
       tutorRow: null,
       activeSubs: [],

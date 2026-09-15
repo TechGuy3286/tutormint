@@ -80,13 +80,20 @@ test('an empty tutor array is "no filter" — every same-city job is a match (it
   // tutor's city is included rather than "matches nothing".
   for (const t of THE_19) {
     assert.equal(matchVisibility(t, 'Lahore', [], 'Lahore'), 'same_city', `empty set wrongly excluded "${t}"`)
-    // Unknown tutor city → we cannot claim a mismatch, so included.
-    assert.equal(matchVisibility(t, 'Lahore', [], null), 'same_city')
   }
   // The LOCATION rule still applies to an empty set: a home job in another city
   // is genuinely not a match; an online job in another city is.
   assert.equal(matchVisibility('Home Tutor', 'Lahore', [], 'Karachi'), 'exclude')
   assert.equal(matchVisibility('Online Tutor', 'Lahore', [], 'Karachi'), 'online')
+})
+
+test('a tutor with NO city sees only online tuitions as matching (owner PR3 §2)', () => {
+  // No tutor city → an in-person tuition is not a match; an online one still is.
+  assert.equal(matchVisibility('Home Tutor', 'Lahore', ['Home Tutor'], null), 'exclude')
+  assert.equal(matchVisibility('Primary Teacher', 'Lahore', [], null), 'exclude')
+  assert.equal(matchVisibility('Online Tutor', 'Lahore', ['Online Tutor'], null), 'online')
+  // Empty tutor set is still "no type filter", but the no-city location rule holds.
+  assert.equal(matchVisibility('Online Tutor', 'Lahore', [], null), 'online')
 })
 
 test('the composed card title reads as a natural phrase (owner, 13 Sep)', () => {

@@ -153,7 +153,7 @@ export default async function TutorDashboardPage() {
       }),
       viewSummary(userId, ent.canSeeViewerIdentity, 20),
       loadIdentity(userId),
-      matchingJobsForTutor(userId, tutorProfile?.city ?? null),
+      matchingJobsForTutor(userId, tutorProfile?.city ?? null, (tutorProfile?.job_types as string[] | null) ?? null),
       unreadMessageCount(userId),
       supabase.from('applications').select('id, job_id, status, withdrawn_at').eq('tutor_id', userId),
       supabase.from('demo_requests').select('id, status').eq('tutor_id', userId),
@@ -393,11 +393,21 @@ export default async function TutorDashboardPage() {
           <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
             <h2 className="text-xs font-black text-tm-navy">Jobs matching you this week</h2>
             {weekJobs.length === 0 ? (
-              <EmptyState
-                icon={<TrendingUp aria-hidden size={18} />}
-                title="No new tuitions matched your subjects this week. Keep your subjects and city set so parents find you — new tuitions are posted daily."
-                action={{ label: 'See all open tuitions', href: '/tutor/dashboard/jobs' }}
-              />
+              !tutorProfile?.city ? (
+                // No city → in-person tuitions are not matched (owner PR3 §2.2):
+                // point straight at the city field rather than "keep your city set".
+                <EmptyState
+                  icon={<TrendingUp aria-hidden size={18} />}
+                  title="Add your city to see tuitions near you."
+                  action={{ label: 'Add your city', href: '/tutor/dashboard/settings' }}
+                />
+              ) : (
+                <EmptyState
+                  icon={<TrendingUp aria-hidden size={18} />}
+                  title="No new tuitions matched your subjects this week. Keep your subjects and city set so parents find you — new tuitions are posted daily."
+                  action={{ label: 'See all open tuitions', href: '/tutor/dashboard/jobs' }}
+                />
+              )
             ) : (
             <ul className="divide-y divide-gray-100">
               {weekJobs.slice(0, 3).map((j) => (

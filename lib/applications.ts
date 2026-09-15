@@ -24,7 +24,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { checkQuota, consumeQuota } from '@/lib/quota'
 import { logActivity } from '@/lib/activityLog'
-import { buildGate, type Gate } from '@/lib/gate'
+import { buildGate, buildListingGate, type Gate } from '@/lib/gate'
+import { feeOnlyBlocker, listingSummary } from '@/lib/tutorListingStatus'
 import { genderApplyBlocked, genderPrefSentence } from '@/lib/genderPref'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
@@ -77,19 +78,22 @@ export async function applyToJob(params: {
 
   const admin = createAdminClient()
 
-  // 1. Verified and reachable? Completion NO LONGER blocks applying (owner,
-  //    10 Sep 2026) — a paid tutor at 40% may apply. Applying still requires
-  //    being listed: a plan (enforced by the quota check below, which sends a
-  //    no-plan tutor to packages) AND a verified identity + mobile. A tutor who
-  //    HOLDS a plan but is not yet listed (verification or mobile pending, or
-  //    under review) is told plainly — never an upgrade sheet, never a "finish
-  //    your profile" wall.
-  if (ent.plan && !ent.listed) {
+  // 1. LISTED? The ONE rule apply / start-conversation / demo-accept all gate on
+  //    (owner PR3 §1): the full tutor_directory rule via ent.listed — fee paid +
+  //    mobile verified + at least one subject + a city + not a fixture. A tutor
+  //    who is not in the directory cannot apply, even fee-paid: applying would put
+  //    a profile in front of a parent that search itself will not show. The gate
+  //    names exactly what is missing, each with its fix (§1.3); if ONLY the fee is
+  //    missing it is the existing CNIC + verify modal, otherwise the checklist.
+  //    Completion is NOT part of this — a paid, listed tutor at 40% still applies.
+  if (ent.audience === 'tutor' && !ent.listed) {
     return {
       ok: false,
       status: 403,
-      error:
-        'Your profile is still being verified. You can apply once your identity and mobile number are verified.',
+      error: listingSummary(ent.listingBlockers),
+      gate: feeOnlyBlocker(ent.listingBlockers)
+        ? await buildGate('tutor_verify', ent)
+        : buildListingGate(ent.listingBlockers),
     }
   }
 

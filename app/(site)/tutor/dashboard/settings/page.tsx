@@ -361,6 +361,13 @@ export default function TutorSettingsPage() {
       return;
     }
 
+    // Area cannot be saved without a city (owner PR3 §3.3): the listing keys on
+    // the city, and an area with no city places nobody.
+    if (formData.areaName.trim() && !formData.city.trim()) {
+      alert('Add your city before saving — an area needs a city.');
+      return;
+    }
+
     setUploading(true);
     try {
       const payload = {
@@ -573,6 +580,13 @@ export default function TutorSettingsPage() {
                   <option key={c} value={c} />
                 ))}
               </datalist>
+              {/* Listing requires a city (owner PR3 §3.3). A plain red note when
+                  it is empty — it is what makes a tutor invisible in search. */}
+              {!formData.city.trim() && (
+                <p className="text-[11px] font-bold text-tm-red">
+                  Add your city — you are not shown to parents without it.
+                </p>
+              )}
             </label>
             <label className="block space-y-1">
               <span className="sr-only">Area</span>
@@ -734,12 +748,17 @@ export default function TutorSettingsPage() {
         </Card>
 
         {/* ------------------------------------------------------------ video */}
-        <Card title="Introduction video" hint="Upload a short video showing how you teach. It is reviewed before it appears on your profile.">
+        <Card title="Introduction video" hint="Upload a short clip (up to 4 MB) showing how you teach. It is reviewed before it appears on your profile.">
+          {/* The upload posts to /tutor/upload-youtube, a Vercel serverless route,
+              whose request body is capped at ~4.5 MB — so the old "200 MB" was a
+              limit the platform cannot honour (a >4.5 MB video 413s before the
+              handler runs). The honest limit is shown until the upload is moved to
+              a direct/resumable path off the serverless body (owner PR3 §3.9). */}
           <FileUpload
             label="Introduction video"
             accept="video/*"
-            acceptLabel="MP4 or MOV"
-            maxBytes={200 * 1024 * 1024}
+            acceptLabel="MP4 or MOV, up to 4 MB"
+            maxBytes={4 * 1024 * 1024}
             busy={uploadingVideo}
             onFile={handlePortfolioVideoUpload}
           />
@@ -785,8 +804,10 @@ export default function TutorSettingsPage() {
         </Card>
 
         {/* -------------------------------------------------- quick replies */}
-        {/* Self-contained: saves to its own route, not the profile form. */}
-        <Card title="Quick replies" hint="One-tap openers for your Messages composer.">
+        {/* Self-contained: saves to its own route, not the profile form. No Card
+            hint here — QuickRepliesEditor already carries the one description
+            (owner PR3 §3.7: it appeared twice). */}
+        <Card title="Quick replies">
           <QuickRepliesEditor />
         </Card>
 

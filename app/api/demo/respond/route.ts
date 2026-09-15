@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getEntitlements } from '@/lib/entitlements'
+import { listingSummary } from '@/lib/tutorListingStatus'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -85,6 +87,15 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json({ success: true, status: 'declined' })
+  }
+
+  // ACCEPTING requires being LISTED — the one rule apply / start-conversation /
+  // demo-accept all share (owner PR3 §1): an invisible tutor should not take a
+  // booking. Declining is never gated (handled above). Reply-only messaging is
+  // unaffected (§1.2). No modal here — the dashboard shows this plain reason.
+  const ent = await getEntitlements(user.id)
+  if (!ent.listed) {
+    return NextResponse.json({ error: listingSummary(ent.listingBlockers) }, { status: 403 })
   }
 
   const proposed = body.proposedTime ? new Date(body.proposedTime) : null

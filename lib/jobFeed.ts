@@ -24,6 +24,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { jobType } from '@/lib/display'
+import { matchVisibility } from '@/lib/matchChip'
 import { genderPrefWord } from '@/lib/genderPref'
 import { jobDisplayTitle } from '@/lib/jobDisplayTitle'
 import { collapseLevels } from '@/lib/levelDisplay'
@@ -261,6 +262,7 @@ const JOB_COLUMNS =
 export async function matchingJobsForTutor(
   tutorId: string,
   city: string | null,
+  jobTypes: readonly string[] | null = null,
   limit = 5,
 ): Promise<JobCardData[]> {
   const supabase = await createClient()
@@ -289,12 +291,20 @@ export async function matchingJobsForTutor(
     query = query.ilike('city', city)
   }
 
+  // Over-fetch so the visibility filter below cannot leave a short window.
   const { data } = await query
     .order('is_featured', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(limit)
+    .limit(limit * 6)
 
-  return decorate((data ?? []) as Record<string, unknown>[])
+  // Respect the tutor's city + Job Type the same way the strip does (owner PR3
+  // §2): a tutor with NO city sees only online tuitions as matching; a cross-city
+  // in-person job is not a match and is dropped. The full board (browseJobs /
+  // /tutor/dashboard/jobs) is unaffected — it shows every job.
+  const decorated = await decorate((data ?? []) as Record<string, unknown>[])
+  return decorated
+    .filter((j) => matchVisibility(j.teaching_mode, j.city, jobTypes, city) !== 'exclude')
+    .slice(0, limit)
 }
 
 // openJobs() lived here: one un-paged query capped at 50 rows, feeding

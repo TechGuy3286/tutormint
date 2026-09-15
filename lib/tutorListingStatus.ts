@@ -101,3 +101,30 @@ export function tutorFixFor(b: ListingBlocker): { label: string; href: string } 
       return null
   }
 }
+
+/** The blockers the tutor can fix himself, each with the screen that fixes it —
+ *  the list the apply gate names (owner PR3 §1.3). Non-fixable account states
+ *  (suspended/banned/under-review/rejected/fixture/unclaimed) drop out. */
+export function listingFixes(blockers: ListingBlocker[]): { label: string; href: string }[] {
+  return blockers.map(tutorFixFor).filter((f): f is { label: string; href: string } => f !== null)
+}
+
+/** True when the ONLY thing keeping this tutor unlisted is the one-time fee — in
+ *  which case the apply gate shows the existing CNIC + verify modal rather than a
+ *  list (owner PR3 §1.3). */
+export function feeOnlyBlocker(blockers: ListingBlocker[]): boolean {
+  const fixes = listingFixes(blockers)
+  return fixes.length === 1 && fixes[0].href === '/tutor/verify'
+}
+
+/** A plain, non-scolding sentence naming what is missing — for a surface that
+ *  cannot render the modal (e.g. the demo-accept API's error). Visibility only. */
+export function listingSummary(blockers: ListingBlocker[]): string {
+  const items = listingFixes(blockers).map((f) => f.label.toLowerCase())
+  if (items.length === 0) return 'Your profile is not shown to parents yet.'
+  const list =
+    items.length === 1
+      ? items[0]
+      : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+  return `You are not shown to parents in search yet — ${list} first.`
+}

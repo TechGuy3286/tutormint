@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { X, Lock, ShieldAlert, BadgeCheck } from 'lucide-react'
+import { X, Lock, ShieldAlert, BadgeCheck, ArrowRight } from 'lucide-react'
 import type { Gate } from '@/lib/gate'
 import TutorVerifyGate from '@/components/upgrade/TutorVerifyGate'
 
@@ -67,8 +67,11 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
   }, [onClose])
 
   const suspended = gate.kind === 'suspended'
-  // A tutor 'verify' gate is the bespoke Rs 199 CNIC + fee flow, not a plan card.
-  const tutorVerify = gate.kind === 'verify' && gate.audience === 'tutor'
+  // A tutor 'verify' gate is the bespoke CNIC + fee flow, not a plan card — BUT
+  // only when the fee is the one thing missing. A not-listed gate that carries a
+  // `missing` checklist (subject/city/mobile, ± fee) renders that list instead
+  // (owner PR3 §1.3), never the CNIC modal.
+  const tutorVerify = gate.kind === 'verify' && gate.audience === 'tutor' && !gate.missing
   const Icon = suspended ? ShieldAlert : tutorVerify ? BadgeCheck : gate.plan ? BadgeCheck : Lock
 
   return (
@@ -117,6 +120,26 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
         ) : (
           <>
         <p className="mt-3 text-xs leading-relaxed text-slate-700">{gate.body}</p>
+
+        {/* The "what is missing to be listed" checklist (owner PR3 §1.3): each
+            fixable blocker with the screen that fixes it. Rendered instead of a
+            single CTA; no price. */}
+        {gate.missing && gate.missing.length > 0 && (
+          <ul className="mt-4 space-y-2">
+            {gate.missing.map((m) => (
+              <li key={m.href + m.label}>
+                <Link
+                  href={m.href}
+                  onClick={onClose}
+                  className="flex min-h-[44px] items-center justify-between gap-2 rounded-xl border border-gray-200 bg-tm-bg px-3 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+                >
+                  {m.label}
+                  <ArrowRight aria-hidden size={15} className="shrink-0 text-tm-navy" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {/* The plan card. Absent entirely when no purchase is involved, which
             is what keeps a suspension notice from reading as a sales page. */}

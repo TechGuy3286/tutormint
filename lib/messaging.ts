@@ -26,7 +26,8 @@ import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { logActivity } from '@/lib/activityLog'
 import { consumeQuota } from '@/lib/quota'
 import { upgradeHref } from '@/lib/upgradePath'
-import { buildGate, type Gate } from '@/lib/gate'
+import { buildGate, buildListingGate, type Gate } from '@/lib/gate'
+import { feeOnlyBlocker, listingSummary } from '@/lib/tutorListingStatus'
 import { notify } from '@/lib/notifications'
 import { deliverMessageDigest } from '@/lib/notify'
 import { previewText } from '@/lib/messagingRules'
@@ -108,6 +109,20 @@ export async function canStartThread(
   }
 
   if (ent.audience === 'tutor') {
+    // STARTING a conversation requires being LISTED — the same one rule as apply
+    // (owner PR3 §1). Replying to a parent who wrote first is NOT gated here (it
+    // goes through the existing thread, never canStartThread) and stays open to
+    // any non-suspended tutor (§1.2). The gate names what is missing (§1.3).
+    if (!ent.listed) {
+      return {
+        ok: false,
+        status: 403,
+        error: listingSummary(ent.listingBlockers),
+        gate: feeOnlyBlocker(ent.listingBlockers)
+          ? await buildGate('tutor_verify', ent)
+          : buildListingGate(ent.listingBlockers),
+      }
+    }
     if (!ent.canInitiateMessage) {
       return {
         ok: false,

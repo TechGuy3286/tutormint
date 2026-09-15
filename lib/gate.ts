@@ -21,6 +21,29 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import type { Entitlements } from '@/lib/entitlements'
 import { packagesHref, type Audience } from '@/lib/upgradePath'
+import { listingFixes, type ListingBlocker } from '@/lib/tutorListingStatus'
+
+/**
+ * The "you are not listed, here is exactly what is missing" gate (owner PR3
+ * §1.3): a list of the fixable blockers (mobile, subject, city — and the fee if
+ * that is among them), each linking to its fix. PURE and price-free. The caller
+ * uses it only when MORE than the fee is missing; a fee-only tutor gets the
+ * existing CNIC verify modal (buildGate('tutor_verify')) instead.
+ */
+export function buildListingGate(blockers: ListingBlocker[]): Gate {
+  const missing = listingFixes(blockers)
+  return {
+    kind: 'verify',
+    title: 'You are not shown to parents yet',
+    body: 'Add these and you appear in search. Verified tutors are shown to parents first.',
+    audience: 'tutor',
+    href: missing[0]?.href ?? '/tutor/complete-profile',
+    ctaLabel: 'Fix these',
+    // The list carries the links; there is no single CTA to press.
+    actionable: false,
+    missing,
+  }
+}
 
 /**
  * Why an action was refused.
@@ -67,6 +90,13 @@ export type Gate = {
    * buying is never hard-blocked but finishing is the steered path.
    */
   secondary?: { label: string; href: string }
+  /**
+   * The "what is missing to be listed" checklist (owner PR3 §1.3): each fixable
+   * blocker (fee, mobile, subject, city) with the screen that fixes it. When set,
+   * the sheet renders this list instead of a single CTA. Present only on the
+   * not-listed apply/message gate; a fee-only case uses the CNIC verify modal.
+   */
+  missing?: { label: string; href: string }[]
 }
 
 export type GateReason =
