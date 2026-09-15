@@ -2,7 +2,7 @@
 
 import { ArrowRight, Plus } from 'lucide-react'
 import Link from 'next/link'
-import type { ChecklistItem } from '@/lib/profileChecklist'
+import { checklistHref, type ChecklistItem } from '@/lib/profileChecklist'
 
 // Completion widget. Reads its numbers from lib/profileChecklist.ts via the
 // server, rather than recomputing them with its own rules -- the old version
@@ -89,7 +89,10 @@ export default function ProfileCompletionWidget({
           {rows.slice(0, 6).map((item) => (
             <li key={item.key}>
               <Link
-                href={`${href}?step=${item.step}#${item.anchor}`}
+                // Opens the EXACT step of the tap-tap flow for a tutor (PR 4
+                // §1.6); parents keep the step-tab verify flow. One helper, so a
+                // "+ Add" row and the completion percentage never disagree.
+                href={checklistHref(role, item)}
                 className="flex items-center justify-between gap-3 min-h-[44px] px-3 py-2 rounded-xl bg-tm-bg hover:bg-gray-100 border border-gray-100 transition-colors"
               >
                 <span className="text-xs font-medium text-slate-700">{item.label}</span>
