@@ -17,6 +17,7 @@ export default function ProfileCompletionWidget({
   role = 'tutor',
   compact = false,
   showKeys,
+  hideKeys,
 }: {
   percent: number
   items: ChecklistItem[]
@@ -27,9 +28,14 @@ export default function ProfileCompletionWidget({
    *  rows are shown (owner, 14 Sep 2026: the tutor dashboard checklist shows
    *  just the certificate, video and CNIC; onboarding collects the rest). */
   showKeys?: string[]
+  /** Keys NOT to list as rows — the count still reflects ALL items. Used so the
+   *  listing blockers already shown in the not-listed card are not repeated in
+   *  the completion list (owner PR5a §3.2). Applied after `showKeys`. */
+  hideKeys?: string[]
 }) {
   const missing = items.filter((i) => !i.done)
-  const rows = showKeys ? missing.filter((i) => showKeys.includes(i.key)) : missing
+  let rows = showKeys ? missing.filter((i) => showKeys.includes(i.key)) : missing
+  if (hideKeys) rows = rows.filter((i) => !hideKeys.includes(i.key))
   const done = items.length - missing.length
   const href = role === 'tutor' ? '/tutor/complete-profile' : '/parent/verify'
 

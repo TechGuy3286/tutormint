@@ -80,6 +80,11 @@ export type TutorCompletionInput = {
   subjectCount?: number
   /** Count of user_documents rows with kind='degree'. */
   degreeDocCount?: number
+  /** Whether the one-time verification fee is paid (tutor_profiles
+   *  .verified_fee_paid_at). The 16th flow step (owner PR5a §3.1) — paying it is
+   *  the member's own action, so it counts toward completion like every other
+   *  step. */
+  feePaid?: boolean
 }
 
 export type ParentCompletionInput = {
@@ -94,14 +99,20 @@ export type ParentCompletionInput = {
 }
 
 /**
- * Tutor completion. 15 equally weighted items; the percentage floors so a
- * finished profile is exactly 100 and nothing else ever is.
+ * Tutor completion. 16 equally weighted items — the SAME step list as the tap
+ * flow (lib/tutorFlow, owner PR5a §3.1), so the count, the percentage and the
+ * flow can never disagree. The percentage floors so a finished profile is
+ * exactly 100 and nothing else ever is.
  */
 export function calculateTutorCompletion(input: TutorCompletionInput): Completion {
   const p = input.profile ?? {}
   const t = input.tutorProfile ?? {}
 
   const items: ChecklistItem[] = [
+    // The one-time verification fee — the flow's 'verify' step. A blocker (it is
+    // in the not-listed card), so the dashboard widget hides it from the LIST,
+    // but it still counts toward "X of 16 done".
+    { key: 'verify', label: 'Verification fee paid', done: !!input.feePaid, step: 6, anchor: 'verify' },
     { key: 'name', label: 'Your full name', done: has(p.full_name), step: 1, anchor: 'full_name' },
     { key: 'gender', label: 'Gender', done: has(t.gender), step: 1, anchor: 'gender' },
     { key: 'city', label: 'City', done: has(p.city), step: 1, anchor: 'city' },

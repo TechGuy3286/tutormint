@@ -252,27 +252,24 @@ export default async function TutorDashboardPage() {
     },
     {
       key: 'plan',
-      // Before the one-time fee is paid a tutor is "Not verified", not on a
-      // plan; after it they are on Basic (or Premium/Featured). Never "No active
-      // plan", which reads as a subscription that has expired.
-      label: ent.planName
+      // The VALUE is the plan name, never "—" (owner PR5a §3.6): "Not verified"
+      // before the one-time fee, then "Basic" / "Premium" / "Featured". The label
+      // is "Plan" and the note carries the quota, so the tile reads plan-first.
+      label: 'Plan',
+      count: null,
+      display: ent.planName
         ? ent.planName
         : ent.pausedPlanName
-          ? `${ent.pausedPlanName} plan`
+          ? ent.pausedPlanName
           : feePaid
             ? 'Basic'
             : 'Not verified',
       // "Unlimited" plans say Unlimited — never the real 100-cap counted down
       // (that "99 applies left" was the bug). Numbered plans count down honestly.
-      count: ent.plan && !isUnlimitedDisplay(ent.displayedQuota) ? ent.quotaLeft : null,
-      display:
-        ent.plan && isUnlimitedDisplay(ent.displayedQuota)
-          ? (ent.displayedQuota ?? 'Unlimited')
-          : undefined,
       note: ent.plan
         ? isUnlimitedDisplay(ent.displayedQuota)
-          ? 'applications'
-          : 'applies left'
+          ? 'Unlimited applications'
+          : `${ent.quotaLeft} applies left`
         : ent.planPaused
           ? 'starts at 100%'
           : undefined,
@@ -336,7 +333,17 @@ export default async function TutorDashboardPage() {
             listing requirements, not "parents only see verified tutors". Shown to
             every not-listed tutor, including one who has not paid the fee yet.
             Visibility only — no promise of tuitions. */}
-        {!directoryListed && <NotListedNotice blockers={directory.blockers} />}
+        {!directoryListed && (
+          <NotListedNotice
+            blockers={directory.blockers}
+            // CNIC sub-state so the verify row reads "Add your CNIC" vs "Pay the
+            // one-time verification fee", and a submitted CNIC shows the
+            // "CNIC being checked" status here (replacing the separate Pending
+            // review card — owner PR5a §1.7, §3.7). identity.state is the CNIC
+            // review state, not the tutor verification override above.
+            cnic={{ hasImage: identity.front != null, state: identity.state }}
+          />
+        )}
 
         {/* Completion card, directly under the not-listed card: header →
             not-listed → completion → everything else (owner PR2 §4.2). It lists
@@ -344,13 +351,23 @@ export default async function TutorDashboardPage() {
             too; a 3-item subset beside "10 of 15 done" was the bug (owner PR2
             §4.1). */}
         {completion && percent < 100 && (
-          <ProfileCompletionWidget percent={percent} items={completion.items} role="tutor" />
+          // "X of 16 done" (all 16 flow steps count) — but the four listing
+          // blockers already named in the not-listed card above are hidden from
+          // this list so they are not shown twice (owner PR5a §3.1, §3.2).
+          <ProfileCompletionWidget
+            percent={percent}
+            items={completion.items}
+            role="tutor"
+            hideKeys={['verify', 'city', 'subjects', 'phone']}
+          />
         )}
 
-        {/* The admin-review outcome (Verified / Pending review / Not accepted).
-            The 'none' (Not submitted) state is deliberately NOT shown here — it
-            would duplicate the checklist's "CNIC number and image" item. */}
-        {identityLineState !== 'none' && (
+        {/* The admin-review outcome. The 'none' (Not submitted) state is not
+            shown (it would duplicate the checklist's CNIC item); 'submitted'
+            (Pending review) is not shown either — "CNIC being checked" now lives
+            on the not-listed card (owner PR5a §3.7). Only 'approved' / 'rejected'
+            render here. */}
+        {identityLineState !== 'none' && identityLineState !== 'submitted' && (
           <IdentityStatusLine state={identityLineState} settingsHref="/tutor/dashboard/settings" />
         )}
 
@@ -404,7 +421,10 @@ export default async function TutorDashboardPage() {
               ) : (
                 <EmptyState
                   icon={<TrendingUp aria-hidden size={18} />}
-                  title="No new tuitions matched your subjects this week. Keep your subjects and city set so parents find you — new tuitions are posted daily."
+                  title={
+                    'No new tuitions match your subjects and city this week.' +
+                    (directoryListed ? '' : ' You can browse all tuitions meanwhile.')
+                  }
                   action={{ label: 'See all open tuitions', href: '/tutor/dashboard/jobs' }}
                 />
               )
@@ -440,25 +460,16 @@ export default async function TutorDashboardPage() {
           </section>
         )}
 
+        {/* The separate "You are not listed yet" NEEDS YOU card is removed (owner
+            PR5a §3.3) — the not-listed card at the top already carries the
+            itemised steps, so this band shows only genuine pending work, and its
+            empty state never claims a not-listed profile is "live". */}
         <NeedsYou
           rows={needs}
-          emptyHint="Your profile is live and parents can find you."
-          // An unlisted tutor must never be told they are clear. This keys on the
-          // real directory fact (migration 87): an unverified tutor's way in is
-          // the one-time fee; a fee-paid tutor who is still out is missing a
-          // subject or a city (spelled out in the notice above), so this points at
-          // the profile editor rather than repeating each item.
-          blockedEmpty={
+          emptyHint={
             directoryListed
-              ? undefined
-              : {
-                  // The itemised requirements (fee, mobile, subject, city), each
-                  // with its own fix link, are in the "not in search results"
-                  // notice at the top of the page. Here we only avoid the false
-                  // "your profile is live" line — no price, no vague claim.
-                  title: 'You are not listed yet',
-                  hint: 'The steps to appear in search are listed at the top of this page.',
-                }
+              ? 'Your profile is live and parents can find you.'
+              : 'When something needs your attention, it will show here.'
           }
         />
 

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { getSupportContact, whatsappHref } from '@/lib/support'
 import { onboardingFacets } from '@/lib/openJobCounts'
+import { smsDeliverable } from '@/lib/sms'
 import { createClient } from '@/lib/supabase/server'
 import CompleteProfileFlow from '@/components/tutor/CompleteProfileFlow'
 
@@ -14,12 +15,21 @@ import CompleteProfileFlow from '@/components/tutor/CompleteProfileFlow'
 
 export const dynamic = 'force-dynamic'
 
-export default async function CompleteProfilePage() {
+export default async function CompleteProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ step?: string }>
+}) {
+  // Preserve the full path + query in `next` so a logged-out deep link like
+  // ?step=city survives the sign-in round trip (owner PR5a §1.6).
+  const { step } = await searchParams
+  const self = `/tutor/complete-profile${step ? `?step=${encodeURIComponent(step)}` : ''}`
+
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/tutor/complete-profile')
+  if (!user) redirect(`/login?next=${encodeURIComponent(self)}`)
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
   if (profile?.role !== 'tutor') redirect('/')
@@ -33,5 +43,12 @@ export default async function CompleteProfilePage() {
   // city/area/job-title lists inside the flow, not a broken screen.
   const facets = await onboardingFacets()
 
-  return <CompleteProfileFlow facets={facets} support={{ waHref, email: support.email }} seed={user.id} />
+  return (
+    <CompleteProfileFlow
+      facets={facets}
+      support={{ waHref, email: support.email }}
+      seed={user.id}
+      smsAvailable={smsDeliverable()}
+    />
+  )
 }

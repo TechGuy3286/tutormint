@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSupportContact, whatsappHref } from '@/lib/support'
 import { onboardingFacets } from '@/lib/openJobCounts'
+import { smsDeliverable } from '@/lib/sms'
 import CompleteProfileFlow from '@/components/tutor/CompleteProfileFlow'
 
 // The tutor onboarding flow. ONE flow for every tutor now (PR 4 §1): this route
@@ -34,5 +35,12 @@ export default async function TutorOnboardingPage() {
   )
   const facets = await onboardingFacets()
 
-  return <CompleteProfileFlow facets={facets} support={{ waHref, email: support.email }} seed={user.id} />
+  return (
+    <CompleteProfileFlow
+      facets={facets}
+      support={{ waHref, email: support.email }}
+      seed={user.id}
+      smsAvailable={smsDeliverable()}
+    />
+  )
 }

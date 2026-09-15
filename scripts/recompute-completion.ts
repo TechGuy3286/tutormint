@@ -75,7 +75,7 @@ async function main() {
     if (profile.role === 'tutor') {
       const { data: tp } = await admin
         .from('tutor_profiles')
-        .select('gender, area, avatar_url, headline, bio, experience_years, hourly_rate_pkr, teaching_mode, degrees, video_youtube_id, video_status')
+        .select('gender, area, avatar_url, headline, bio, experience_years, hourly_rate_pkr, teaching_mode, job_types, degrees, video_youtube_id, video_status, verified_fee_paid_at')
         .eq('id', id)
         .maybeSingle()
       const { count: subjectCount } = await admin
@@ -92,6 +92,7 @@ async function main() {
         tutorProfile: tp,
         subjectCount: subjectCount ?? 0,
         degreeDocCount: degreeDocCount ?? 0,
+        feePaid: !!(tp as { verified_fee_paid_at?: string | null } | null)?.verified_fee_paid_at,
       }).percent
     } else {
       percent = calculateParentCompletion({ profile }).percent

@@ -235,10 +235,13 @@ test('smspoint: a failure error carries neither the number nor the code', async 
   }
 })
 
-test('getSmsProvider: prefers SMS Point when its env is set', async () => {
+test('getSmsProvider: SMS Point is OUT of the OTP chain — codes go by SMS, never WhatsApp (PR5a §2)', async () => {
+  // SMS Point delivers the code over WhatsApp; OTP is SMS-only now, so even with
+  // SMSPOINT_* fully set it is never selected. The provider module itself still
+  // works (the unit tests above) — it is simply not in getSmsProvider()'s chain.
   setSmspointEnv()
   const { getSmsProvider } = await import('../lib/sms/index')
-  assert.equal(getSmsProvider().name, 'smspoint')
+  assert.notEqual(getSmsProvider().name, 'smspoint')
 })
 
 // ------------------------------------------------ one SMS per number (rule) ---

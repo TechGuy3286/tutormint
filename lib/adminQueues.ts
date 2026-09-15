@@ -277,6 +277,7 @@ export async function loadTutorQueue({
       },
       subjectCount: subjectCount.get(t.id as string) ?? 0,
       degreeDocCount: myDocs.filter((d) => d.kind === 'degree').length,
+      feePaid: !!(t.verified_fee_paid_at as string | null),
     })
     // The public-directory rule (migration 87), computed from the same facts as
     // the view so Operations sees WHY a tutor is invisible without a SQL client.

@@ -64,6 +64,7 @@ export const BLOCKER_STEPS: ReadonlySet<FlowStepKey> = new Set([
  *  so the dashboard card and every "what's missing" link open the exact step
  *  (§1.6). "mode" is the Job Type step; "phone" is the mobile step. */
 export const COMPLETION_KEY_TO_STEP: Record<string, FlowStepKey> = {
+  verify: 'verify',
   name: 'name',
   gender: 'gender',
   city: 'city',
