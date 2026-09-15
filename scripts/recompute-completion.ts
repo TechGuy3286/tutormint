@@ -42,14 +42,17 @@ function loadEnv(): Record<string, string> {
 async function main() {
   const env = loadEnv()
   const apply = process.argv.includes('--apply')
-  const ids = process.argv.slice(2).filter((a) => !a.startsWith('--'))
-  if (ids.length === 0) die('Pass one or more user ids.')
+  // --all-tutors recomputes EVERY tutor (owner PR5b §3.1: profile_completion is
+  // derived; recompute all so the 16-step number matches the dashboard).
+  const allTutors = process.argv.includes('--all-tutors')
+  let ids = process.argv.slice(2).filter((a) => !a.startsWith('--'))
+  if (ids.length === 0 && !allTutors) die('Pass one or more user ids, or --all-tutors.')
 
   await guardWrites({
     scriptName: 'recompute-completion -- recalc profiles.profile_completion',
     env,
     action: apply
-      ? 'Recomputes and PERSISTS profile_completion for the named users.'
+      ? `Recomputes and PERSISTS profile_completion for ${allTutors ? 'EVERY tutor' : 'the named users'}.`
       : 'Dry run only: reports old and new percentages, writes nothing.',
     dryRun: !apply,
   })
@@ -60,6 +63,14 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
+  if (allTutors) {
+    const { data, error } = await admin.from('profiles').select('id').eq('role', 'tutor')
+    if (error) die(`could not list tutors: ${error.message}`)
+    ids = (data ?? []).map((r) => r.id as string)
+    console.log(`--all-tutors: ${ids.length} tutor(s)\n`)
+  }
+
+  let changed = 0
   for (const id of ids) {
     const { data: profile } = await admin
       .from('profiles')
@@ -99,6 +110,7 @@ async function main() {
     }
 
     const old = profile.profile_completion
+    if (old !== percent) changed++
     console.log(`${profile.full_name ?? id}: ${old} -> ${percent}${old === percent ? ' (unchanged)' : ' (CHANGED)'}`)
 
     if (apply && old !== percent) {
@@ -106,6 +118,8 @@ async function main() {
       if (error) die(`update failed for ${id}: ${error.message}`)
     }
   }
+
+  console.log(`\n${changed} of ${ids.length} ${apply ? 'updated' : 'would change'}.`)
 }
 
 main().catch((e) => die(String(e?.stack || e)))

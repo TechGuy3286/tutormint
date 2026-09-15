@@ -5,6 +5,7 @@ import RevenueChart from '@/components/admin/charts/RevenueChart'
 import SignupsChart from '@/components/admin/charts/SignupsChart'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadOverview } from '@/lib/adminOverview'
+import { smsProviderLabel } from '@/lib/sms'
 
 // The admin landing: how much the platform is earning, and who to nudge onto a
 // plan (owner, 14 Sep 2026). The queue tiles and the "Needs attention" block
@@ -39,12 +40,26 @@ export default async function AdminHome() {
   // that cannot open the member directory is not shown them.
   const seesMembers = may('users')
   const seesMoney = may('payments')
+  // The SMS/OTP delivery provider (owner PR5b §1.1) — owner and admin only, and
+  // only ever the provider NAME, never a credential. `['admin']` admits owner too.
+  const seesDelivery = roleSatisfies(actor.adminRole, ['admin'])
+  const smsProvider = seesDelivery ? smsProviderLabel() : null
 
   return (
     <div className="space-y-6">
-      <p className="text-xs text-gray-500">
-        Signed in as {actor.email} · role <strong>{actor.adminRole}</strong>
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-gray-500">
+          Signed in as {actor.email} · role <strong>{actor.adminRole}</strong>
+        </p>
+        {smsProvider && (
+          <p className="text-xs text-gray-500">
+            Delivery:{' '}
+            <strong className={smsProvider === 'unconfigured' ? 'text-tm-red' : 'text-tm-navy'}>
+              {smsProvider}
+            </strong>
+          </p>
+        )}
+      </div>
 
       {tiles.length === 0 ? (
         <div className="space-y-1 rounded-2xl border border-gray-200 bg-white p-6 text-center">

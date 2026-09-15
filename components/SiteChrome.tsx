@@ -54,7 +54,13 @@ export default async function SiteChrome({ children }: { children: React.ReactNo
       <main className="flex-1">{children}</main>
       <Footer />
       {isMember && (
-        <MessagesDock role={dockRole} basePath={basePath} initialUnread={dockUnread} supportHref={supportHref} />
+        <>
+          {/* Bottom padding equal to the collapsed dock bar's height, desktop
+              only, so the fixed bar never sits over the footer's last links
+              (owner PR5b §2.3). */}
+          <div aria-hidden className="hidden h-12 lg:block" />
+          <MessagesDock role={dockRole} basePath={basePath} initialUnread={dockUnread} supportHref={supportHref} />
+        </>
       )}
       <SupportWhatsApp href={supportHref} signedIn={!!session} />
     </>

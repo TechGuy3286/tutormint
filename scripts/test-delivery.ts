@@ -141,107 +141,15 @@ test('twilio: reports itself unconfigured when credentials are missing', async (
   process.env.TWILIO_ACCOUNT_SID = saved
 })
 
-// -------------------------------------------------------------- smspoint ---
+// ---------------------------------------------- OTP is SMS-only (PR5a/5b §2) ---
+// SMS Point delivered OTP over WhatsApp; it was removed from getSmsProvider()'s
+// chain (PR5a) and its module deleted (PR5b §5.1). The chain is SMS-only —
+// SendPK / Twilio / console / unconfigured — so no WhatsApp provider can be
+// selected. In a bare test env with no provider configured, `console` is chosen.
 
-const SMSPOINT_KEYS = ['SMSPOINT_USERNAME', 'SMSPOINT_PASSWORD', 'SMSPOINT_CLIENTID', 'SMSPOINT_MASK']
-
-/** A text/plain response, the way SMS Point actually answers. */
-function mockFetchText(status: number, body: string): { calls: Captured[]; restore: () => void } {
-  const calls: Captured[] = []
-  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
-    calls.push({ url: String(url), init: init ?? {} })
-    return new Response(body, { status, headers: { 'Content-Type': 'text/plain' } })
-  }) as typeof fetch
-  return { calls, restore: () => { globalThis.fetch = realFetch } }
-}
-
-function setSmspointEnv() {
-  process.env.SMSPOINT_USERNAME = 'user1'
-  process.env.SMSPOINT_PASSWORD = 'pass1'
-  process.env.SMSPOINT_CLIENTID = 'client1'
-  process.env.SMSPOINT_MASK = 'TutorMint'
-}
-
-test('smspoint: builds the send URL from env with no hardcoded values', async () => {
-  setSmspointEnv()
-  const { smspointProvider, SMSPOINT_ENDPOINT } = await import('../lib/sms/smspoint')
-  const m = mockFetchText(200, 'Sent Successfully')
-  try {
-    // Typed with a leading zero and spaces — must survive into the canonical
-    // 92… msisdn on the way out.
-    const r = await smspointProvider.send(
-      '0300 1234567',
-      'Your TutorMint verification code is 123456. It expires in 10 minutes.',
-    )
-    assert.equal(r.ok, true)
-    assert.equal(m.calls.length, 1)
-
-    const u = new URL(m.calls[0].url)
-    // The endpoint comes from the module, not a literal re-typed in the test.
-    assert.equal(u.origin + u.pathname, SMSPOINT_ENDPOINT)
-    assert.equal(u.searchParams.get('username'), 'user1')
-    assert.equal(u.searchParams.get('password'), 'pass1')
-    assert.equal(u.searchParams.get('clientid'), 'client1')
-    assert.equal(u.searchParams.get('mask'), 'TutorMint')
-    assert.equal(u.searchParams.get('Language'), 'English')
-    // 0300… → 923001234567.
-    assert.equal(u.searchParams.get('to'), '923001234567')
-    assert.match(u.searchParams.get('msg') ?? '', /123456/)
-  } finally {
-    m.restore()
-  }
-})
-
-test('smspoint: missing env fails closed — unconfigured, and send() never touches the network', async () => {
-  for (const k of SMSPOINT_KEYS) delete process.env[k]
-  const { smspointProvider } = await import('../lib/sms/smspoint')
-  assert.equal(smspointProvider.isConfigured(), false)
-
-  const m = mockFetchText(200, 'Sent Successfully')
-  try {
-    const r = await smspointProvider.send('03001234567', 'Your code is 123456')
-    assert.equal(r.ok, false)
-    assert.equal(m.calls.length, 0) // nothing sent — no silent success, no bill
-  } finally {
-    m.restore()
-  }
-})
-
-test('smspoint: 200 "Sent Successfully" is accepted; anything else fails closed', async () => {
-  const { smspointAccepted } = await import('../lib/sms/smspoint')
-  assert.equal(smspointAccepted(200, 'Sent Successfully'), true)
-  assert.equal(smspointAccepted(200, 'sent successfully'), true)
-  assert.equal(smspointAccepted(200, 'Invalid username or password'), false) // detectable auth failure
-  assert.equal(smspointAccepted(401, 'Unauthorized'), false)
-  assert.equal(smspointAccepted(500, 'Sent Successfully'), false) // non-2xx
-})
-
-test('smspoint: a failure error carries neither the number nor the code', async () => {
-  setSmspointEnv()
-  const { smspointProvider } = await import('../lib/sms/smspoint')
-  const m = mockFetchText(200, 'Invalid credentials')
-  try {
-    const r = await smspointProvider.send(
-      '03211234567',
-      'Your TutorMint verification code is 987654. It expires in 10 minutes.',
-    )
-    assert.equal(r.ok, false)
-    if (!r.ok) {
-      assert.doesNotMatch(r.error, /987654/) // the code
-      assert.doesNotMatch(r.error, /3211234567/) // the number (any shape)
-    }
-  } finally {
-    m.restore()
-  }
-})
-
-test('getSmsProvider: SMS Point is OUT of the OTP chain — codes go by SMS, never WhatsApp (PR5a §2)', async () => {
-  // SMS Point delivers the code over WhatsApp; OTP is SMS-only now, so even with
-  // SMSPOINT_* fully set it is never selected. The provider module itself still
-  // works (the unit tests above) — it is simply not in getSmsProvider()'s chain.
-  setSmspointEnv()
+test('getSmsProvider: only ever selects an SMS provider, never a WhatsApp one', async () => {
   const { getSmsProvider } = await import('../lib/sms/index')
-  assert.notEqual(getSmsProvider().name, 'smspoint')
+  assert.ok(['sendpk', 'twilio', 'console', 'none'].includes(getSmsProvider().name))
 })
 
 // ------------------------------------------------ one SMS per number (rule) ---

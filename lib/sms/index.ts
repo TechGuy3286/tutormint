@@ -89,6 +89,26 @@ export function smsDeliverable(): boolean {
 }
 
 /**
+ * The human name of the provider getSmsProvider() selects in THIS environment
+ * (owner PR5b §1.1) — the NAME only, never a key or value. For the admin
+ * "Delivery" status line and the boot log.
+ */
+export function smsProviderLabel(): string {
+  switch (getSmsProvider().name) {
+    case 'sendpk':
+      return 'SendPK'
+    case 'twilio':
+      return 'Twilio'
+    case 'console':
+      return 'console (development)'
+    case 'none':
+      return 'unconfigured'
+    default:
+      return getSmsProvider().name
+  }
+}
+
+/**
  * Whether a signed-in account must re-verify its number with a REAL code.
  *
  * The BRIDGE_OTP stopgap proves a number with a shared code; when the real

@@ -140,21 +140,27 @@ export default function MessagesDock({
   }
 
   return (
-    <div className="fixed bottom-0 right-6 z-40 hidden w-[380px] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gray-200 bg-white shadow-2xl lg:flex" style={{ height: '520px' }}>
-      {/* header + tabs */}
+    // Messages keeps a fixed height and scrolls inside; Support sizes to its
+    // content so the panel is not tall and half-empty (owner PR5b §2.1).
+    <div
+      className="fixed bottom-0 right-6 z-40 hidden w-[380px] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gray-200 bg-white shadow-2xl lg:flex"
+      style={tab === 'messages' ? { height: '520px' } : undefined}
+    >
+      {/* header + tabs. Active tab: navy fill, white text; inactive plain. Both
+          the same height, so switching does not shift the layout (§2.2). */}
       <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2">
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setTab('messages')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-black ${tab === 'messages' ? 'bg-tm-tint-navy text-tm-navy' : 'text-gray-500'}`}
+            className={`rounded-lg px-3 py-1.5 text-xs font-black ${tab === 'messages' ? 'bg-tm-navy text-white' : 'text-gray-500 hover:text-tm-navy'}`}
           >
             Messages
           </button>
           <button
             type="button"
             onClick={() => setTab('support')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-black ${tab === 'support' ? 'bg-tm-tint-navy text-tm-navy' : 'text-gray-500'}`}
+            className={`rounded-lg px-3 py-1.5 text-xs font-black ${tab === 'support' ? 'bg-tm-navy text-white' : 'text-gray-500 hover:text-tm-navy'}`}
           >
             Support
           </button>
@@ -217,7 +223,9 @@ export default function MessagesDock({
           </div>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col justify-center gap-4 p-6 text-center">
+        // No flex-1 / fixed height here — the Support panel is only as tall as
+        // this content (§2.1).
+        <div className="flex flex-col gap-4 p-6 text-center">
           <MessageCircle size={28} className="mx-auto text-tm-green-deep" aria-hidden />
           <div className="space-y-1">
             <p className="text-sm font-black text-tm-navy">Need help?</p>

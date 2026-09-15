@@ -15,7 +15,7 @@ export async function register() {
   // asserting on secrets it was never given.
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
 
-  const { assertOtpSafety } = await import('@/lib/sms')
+  const { assertOtpSafety, smsProviderLabel } = await import('@/lib/sms')
   const { isDeployed, describeEnv } = await import('@/lib/env')
 
   // Throws if DEV_DEFAULT_OTP is set on the LIVE SITE. A preview deployment is
@@ -29,6 +29,10 @@ export async function register() {
   if (!isDeployed()) return
 
   console.info(`[startup] ${describeEnv()}`)
+
+  // The selected SMS/OTP provider, by NAME only (owner PR5b §1.2) — so the
+  // delivery path is stated in the boot log and can be read back after a deploy.
+  console.info(`[startup] SMS delivery provider: ${smsProviderLabel()}`)
 
   // Everything below is a warning, not a refusal: each one degrades a feature
   // rather than opening a hole, and refusing to boot the whole site because

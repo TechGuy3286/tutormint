@@ -17,6 +17,7 @@
 //
 // Bodies are stored verbatim and masked on the way out -- see lib/masking.ts.
 
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { tuitionPath } from '@/lib/slugs'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -531,7 +532,11 @@ export async function markThreadRead(userId: string, threadId: string): Promise<
  * dashboard, always. Same rows as the header bell counts, for the same reason
  * the list's dots use them: one source cannot disagree with itself.
  */
-export async function unreadMessageCount(userId: string): Promise<number> {
+// ONE QUERY PER REQUEST (owner PR5b §2.4). The header icon (Navbar), the desktop
+// dock (SiteChrome) and the dashboard "Messages" tile all read this in the same
+// render pass; React cache() dedupes them to a single unread computation per
+// (userId, request) so the three surfaces agree and cost one query, not three.
+export const unreadMessageCount = cache(async (userId: string): Promise<number> => {
   const supabase = await createClient()
   const { count } = await supabase
     .from('notifications')
@@ -548,7 +553,7 @@ export async function unreadMessageCount(userId: string): Promise<number> {
   // from the admin_messages store, the pinned Team row's own source of truth.
   const team = await teamUnreadCount(userId)
   return (count ?? 0) + team
-}
+})
 
 /** How many conversations this member has. For the dashboard count only. */
 export async function threadCount(userId: string): Promise<number> {
