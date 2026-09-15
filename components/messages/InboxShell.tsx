@@ -111,17 +111,35 @@ export default async function InboxShell({
 
       {role === 'tutor' && !ent.canInitiateMessage && (
         <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[11px] leading-relaxed text-slate-700">
-            Your plan lets you reply to any parent who writes to you, and apply for jobs. Premium
-            lets you start a conversation yourself.
-          </p>
-          <Link
-            href="/tutor/packages?plan=premium"
-            className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
-          >
-            <Zap aria-hidden size={14} />
-            See Premium
-          </Link>
+          {ent.listed ? (
+            <>
+              <p className="text-[11px] leading-relaxed text-slate-700">
+                You can reply to any parent who writes to you, and apply to tuitions. Premium lets you
+                start a conversation yourself.
+              </p>
+              <Link
+                href="/tutor/packages?plan=premium"
+                className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+              >
+                <Zap aria-hidden size={14} />
+                See Premium
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="text-[11px] leading-relaxed text-slate-700">
+                You can reply to any parent who writes to you. To apply to tuitions, get verified — then
+                you are shown to parents in search.
+              </p>
+              <Link
+                href="/tutor/verify"
+                className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+              >
+                <ShieldCheck aria-hidden size={14} />
+                Get verified
+              </Link>
+            </>
+          )}
         </div>
       )}
 
@@ -183,15 +201,22 @@ export default async function InboxShell({
               role === 'tutor'
                 ? ent.canInitiateMessage
                   ? 'Message a parent from one of their job posts, or wait for one to write to you.'
-                  : 'Parents who are interested will write to you here. Keep applying for jobs that match.'
+                  : ent.listed
+                    ? 'Parents who message you first will appear here. You can also apply to tuitions that match your subjects.'
+                    : 'Parents who message you first will appear here. Get verified so you can apply to tuitions and be shown to parents in search.'
                 : 'Message any tutor from their profile, or from the applicants on one of your jobs.'
             }
             emptyActions={
               role === 'tutor'
-                ? [
-                    { label: 'Find tuitions to apply for', href: '/browse/tuitions' },
-                    { label: 'Check your profile is complete', href: '/tutor/complete-profile' },
-                  ]
+                ? ent.listed
+                  ? [
+                      { label: 'Find tuitions to apply for', href: '/browse/tuitions' },
+                      { label: 'Check your profile is complete', href: '/tutor/complete-profile' },
+                    ]
+                  : [
+                      { label: 'Get verified', href: '/tutor/verify' },
+                      { label: 'Complete your profile', href: '/tutor/complete-profile' },
+                    ]
                 : [
                     { label: 'Find a tutor', href: '/browse/tutors' },
                     { label: 'Post a tuition', href: '/parent/dashboard/post-job' },

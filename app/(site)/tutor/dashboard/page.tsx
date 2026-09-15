@@ -246,11 +246,16 @@ export default async function TutorDashboardPage() {
     },
     {
       key: 'plan',
+      // Before the one-time fee is paid a tutor is "Not verified", not on a
+      // plan; after it they are on Basic (or Premium/Featured). Never "No active
+      // plan", which reads as a subscription that has expired.
       label: ent.planName
-        ? `${ent.planName} plan`
+        ? ent.planName
         : ent.pausedPlanName
           ? `${ent.pausedPlanName} plan`
-          : 'No active plan',
+          : feePaid
+            ? 'Basic'
+            : 'Not verified',
       // "Unlimited" plans say Unlimited — never the real 100-cap counted down
       // (that "99 applies left" was the bug). Numbered plans count down honestly.
       count: ent.plan && !isUnlimitedDisplay(ent.displayedQuota) ? ent.quotaLeft : null,
@@ -320,11 +325,12 @@ export default async function TutorDashboardPage() {
           }
         />
 
-        {/* Fee paid but still not in the directory: name exactly what is missing,
-            each a tap from the screen that fixes it. Visibility only — no promise
-            of tuitions. Not shown once listed, nor before the fee is paid (the
-            packages/verify surfaces own that step). */}
-        {feePaid && !directoryListed && <NotListedNotice blockers={directory.blockers} />}
+        {/* Not in the directory: name exactly what is missing (fee, mobile,
+            subject, city), each a tap from the screen that fixes it — the real
+            listing requirements, not "parents only see verified tutors". Shown to
+            every not-listed tutor, including one who has not paid the fee yet.
+            Visibility only — no promise of tuitions. */}
+        {!directoryListed && <NotListedNotice blockers={directory.blockers} />}
 
         {/* Status and what-to-do-next, at the TOP, near the name and badges
             (owner, 9 Sep — refines the 5 Sep "teaser first" order). The identity
@@ -362,7 +368,7 @@ export default async function TutorDashboardPage() {
             5 Sep 2026, superseding the earlier "Needs you first" band order).
             The free-only position and matching-jobs cards are its funnel
             siblings and stay grouped with it. */}
-        <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} />
+        <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} listed={directoryListed} />
 
         {free && position && (
           // id, so the rank_dropped notification's button has somewhere to
@@ -443,17 +449,14 @@ export default async function TutorDashboardPage() {
           blockedEmpty={
             directoryListed
               ? undefined
-              : !feePaid
-                ? {
-                    title: 'You are not listed yet',
-                    hint: 'Parents only see verified tutors. The one-time Rs 199 verification lists you in search.',
-                    action: { label: 'Get verified', href: '/tutor/verify' },
-                  }
-                : {
-                    title: 'You are not listed yet',
-                    hint: 'Add the details shown above — a subject and a city — and you appear in search.',
-                    action: { label: 'Finish your profile', href: '/tutor/complete-profile' },
-                  }
+              : {
+                  // The itemised requirements (fee, mobile, subject, city), each
+                  // with its own fix link, are in the "not in search results"
+                  // notice at the top of the page. Here we only avoid the false
+                  // "your profile is live" line — no price, no vague claim.
+                  title: 'You are not listed yet',
+                  hint: 'The steps to appear in search are listed at the top of this page.',
+                }
           }
         />
 

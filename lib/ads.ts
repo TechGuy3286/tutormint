@@ -109,6 +109,11 @@ export function houseAd(audience: AdAudience, index = 0): HouseAd {
  * never their own plan or a lower one.
  */
 export function houseUpsellAd(audience: UpsellAudience, plan: string | null): HouseAd | null {
+  // A tutor who has not paid the one-time verification fee (no plan) is not
+  // pitched a paid plan here — verifying comes first, and it is surfaced on the
+  // dashboard, not as a banner (owner PR: hide the Premium upsell until the fee
+  // is paid). Parents with no plan are still offered free verification.
+  if (audience === 'tutor' && !plan) return null
   const held = planRank(audience, plan)
   const pool = HOUSE_ADS[audience === 'tutor' ? 'tutors' : 'parents']
   const above = pool

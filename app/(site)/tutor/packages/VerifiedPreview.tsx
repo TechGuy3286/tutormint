@@ -28,8 +28,8 @@ export default function VerifiedPreview({ name, city }: { name: string; city: st
       </div>
 
       <p className="text-[11px] leading-relaxed text-gray-500">
-        The badge appears once your identity is verified and a degree is on file. Parents filter for
-        it, and Verified tutors are listed above tutors without a plan.
+        The Verified badge shows once you are a verified tutor with a degree on file. Verified tutors
+        are shown to parents first.
       </p>
     </section>
   )
@@ -53,7 +53,7 @@ function Card({ name, city, verified }: { name: string; city: string | null; ver
             {verified && <VerifiedBadge size="sm" />}
           </span>
           <span className="block truncate text-[11px] text-gray-500">
-            {city ?? 'Your city'} · {verified ? 'Listed above free tutors' : 'Listed below Verified tutors'}
+            {city ?? 'Your city'} · {verified ? 'Shown to parents in search' : 'Not shown to parents yet'}
           </span>
         </span>
       </div>

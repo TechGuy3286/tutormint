@@ -289,7 +289,7 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
             </div>
             <span className="text-sm font-black text-tm-navy shrink-0">{shown}%</span>
           </div>
-          <p className="text-[11px] text-gray-500">Reach 100% so your profile can appear in Google search and rank higher.</p>
+          <p className="text-[11px] text-gray-500">A complete profile ranks you higher when parents search.</p>
         </header>
 
         {/* Step rail: scrolls horizontally on narrow screens */}

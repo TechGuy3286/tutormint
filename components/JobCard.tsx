@@ -196,7 +196,12 @@ export default function JobCard({
   return (
     <>
       <article className="relative rounded-2xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md sm:p-6">
-        {job.is_featured && (
+        {/* The Featured tag and the "can complete a hire" line below both derive
+            from the parent's CURRENT Featured status (parent_can_hire), not the
+            stale jobs.is_featured cache — otherwise a job stayed tagged Featured
+            after the parent's plan lapsed while the line read "cannot complete a
+            hire yet". A team post carries the "Posted by TutorMint" pill instead. */}
+        {!job.posted_by_team && job.parent_can_hire && (
           <FeaturedTag
             className={`absolute top-3 sm:top-4 ${saveable ? 'right-14 sm:right-16' : 'right-3 sm:right-4'}`}
           />

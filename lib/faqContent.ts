@@ -58,7 +58,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'An academy takes half the first month’s fee. What do you take?',
-        a: 'Nothing from the fee. A home-tuition academy in Lahore or Karachi typically keeps 50% of the first month, so on a Rs 20,000 tuition that is Rs 10,000 gone before the first class, and many keep a share every month after that. On TutorMint the Featured membership is Rs 999 a month and you keep every rupee of what you pay the tutor. If you never buy a membership you can still browse, message tutors and post jobs once you are verified.',
+        a: 'Nothing from the fee. A home-tuition academy in Lahore or Karachi typically keeps 50% of the first month, so on a Rs 20,000 tuition that is Rs 10,000 gone before the first class, and many keep a share every month after that. On TutorMint you keep every rupee of what you pay the tutor. If you never buy a membership you can still browse, message tutors and post jobs once you are verified.',
         links: [
           { label: 'Parent memberships', href: '/parent/packages' },
           { label: 'Browse tutors', href: '/browse/tutors' },
@@ -90,7 +90,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'Why can I message tutors but not hire until I am Featured?',
-        a: 'Messaging, browsing, viewing full profiles, requesting a demo and posting up to five jobs a month are all free once your CNIC and address are approved. Featured (Rs 999 a month) adds three things: the tutor’s phone and WhatsApp, marking an applicant as hired, and priority placement for your jobs. Hiring is the paid step because it is the point at which the platform has actually done its job.',
+        a: 'Messaging, browsing, viewing full profiles, requesting a demo and posting up to five jobs a month are all free once your CNIC and address are approved. Featured adds three things: the tutor’s phone and WhatsApp, marking an applicant as hired, and priority placement for your jobs. Hiring is the paid step because it is the point at which the platform has actually done its job.',
         links: [
           { label: 'Parent memberships', href: '/parent/packages' },
           { label: 'Verify your account', href: '/parent/verify' },
@@ -128,8 +128,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
     blurb: 'Getting seen, and what a membership buys.',
     items: [
       {
-        q: 'What do I get for the Rs 199 verification fee?',
-        a: 'Rs 199 is a one-time fee — you pay it once, there is no renewal and no monthly charge for it. It makes you a verified tutor, listed in search with a Verified badge, on the free Basic plan: you can apply to ten tuitions a month and message parents. That puts your profile in front of parents who are already searching for your subject in your area — that is what is being sold. It is not a guarantee of work: whether a parent chooses you depends on your profile, your reply and your experience, and no honest platform can promise otherwise. Premium and Featured are optional monthly plans that add unlimited applications, parent contact details and higher placement.',
+        q: 'What do I get for getting verified?',
+        a: 'Getting verified is a one-time step — you do it once, there is no renewal and no monthly charge for it. It makes you a verified tutor, listed in search with a Verified badge, on the free Basic plan: you can apply to ten tuitions a month and message parents. That puts your profile in front of parents who are already searching for your subject in your area — that is what is being sold. It is not a guarantee of work: whether a parent chooses you depends on your profile, your reply and your experience, and no honest platform can promise otherwise. Premium and Featured are optional monthly plans that add unlimited applications, parent contact details and higher placement.',
         links: [
           { label: 'Tutor memberships', href: '/tutor/packages' },
           { label: 'Open tuitions', href: '/browse/tuitions' },
@@ -137,7 +137,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How is this different from running my own Meta ads?',
-        a: 'An ad has to find someone who might want a tutor. A parent on TutorMint is already looking for one, has already chosen the subject and the area, and in many cases has already posted the job. You also need no website, no landing page, no ad account and no daily budget — a boosted post in one Pakistani city costs more in a week than the one-time Rs 199 verification fee, and it stops the moment you stop paying. Your profile keeps working once you are verified.',
+        a: 'An ad has to find someone who might want a tutor. A parent on TutorMint is already looking for one, has already chosen the subject and the area, and in many cases has already posted the job. You also need no website, no landing page, no ad account and no daily budget — a boosted post in one Pakistani city costs more in a week than getting verified once, and it stops the moment you stop paying. Your profile keeps working once you are verified.',
         links: [
           { label: 'Tutor memberships', href: '/tutor/packages' },
           { label: 'Open tuitions', href: '/browse/tuitions' },
@@ -294,7 +294,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Academy pehle mahine ki aadhi fee le leti hai. Aap kitna lete hain?',
         lang: 'ur',
-        a: 'Fee mein se kuch nahi. Lahore ya Karachi ki home-tuition academy aam taur par pehle mahine ka 50% rakhti hai — Rs 20,000 ki tuition par Rs 10,000 pehli class se pehle hi chala jata hai, aur kai baar har mahine bhi hissa jata hai. TutorMint par Featured membership Rs 999 mahana hai aur tutor ko di gayi har rupee aap ki apni hai. Membership na bhi lein, tab bhi verification ke baad browse kar sakte hain, tutors ko message bhej sakte hain aur tuition post kar sakte hain.',
+        a: 'Fee mein se kuch nahi. Lahore ya Karachi ki home-tuition academy aam taur par pehle mahine ka 50% rakhti hai — Rs 20,000 ki tuition par Rs 10,000 pehli class se pehle hi chala jata hai, aur kai baar har mahine bhi hissa jata hai. TutorMint par tutor ko di gayi har rupee aap ki apni hai. Membership na bhi lein, tab bhi verification ke baad browse kar sakte hain, tutors ko message bhej sakte hain aur tuition post kar sakte hain.',
         links: [
           { label: 'Parent membership', href: '/parent/packages' },
           { label: 'Tutors dekhein', href: '/browse/tutors' },
@@ -321,7 +321,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Message to kar sakta hoon, hire kyun nahi?',
         lang: 'ur',
-        a: 'Browse karna, poora profile dekhna, message bhejna, demo maangna aur mahine mein paanch tuitions post karna — CNIC aur address approve hone ke baad yeh sab muft hai. Featured (Rs 999 mahana) teen cheezein deta hai: tutor ka number aur WhatsApp, kisi applicant ko hired mark karna, aur aap ki tuitions ko ooper dikhana. Hire karna paid qadam is liye hai ke wahi wo lamha hai jab platform ne apna kaam kar diya hota hai.',
+        a: 'Browse karna, poora profile dekhna, message bhejna, demo maangna aur mahine mein paanch tuitions post karna — CNIC aur address approve hone ke baad yeh sab muft hai. Featured teen cheezein deta hai: tutor ka number aur WhatsApp, kisi applicant ko hired mark karna, aur aap ki tuitions ko ooper dikhana. Hire karna paid qadam is liye hai ke wahi wo lamha hai jab platform ne apna kaam kar diya hota hai.',
         links: [
           { label: 'Parent membership', href: '/parent/packages' },
           { label: 'Account verify karein', href: '/parent/verify' },
@@ -337,9 +337,9 @@ export const FAQ_GROUPS: FaqGroup[] = [
         ],
       },
       {
-        q: 'Rs 199 mein tutor ko kya milta hai?',
+        q: 'Verified hone se tutor ko kya milta hai?',
         lang: 'ur',
-        a: 'Rs 199 ek baar ki fees hai — aap ise sirf ek dafa dete hain, na koi renewal, na koi mahana charge. Is se aap verified tutor ban jate hain, search mein Verified badge ke sath list hote hain, muft Basic plan par: aap mahine mein das tuitions par apply kar sakte hain aur walidain ko message kar sakte hain. Isse aap ka profile un walidain ke saamne aata hai jo pehle se aap ke subject aur ilaqay mein tutor dhoond rahe hain — yehi cheez bechi ja rahi hai. Yeh kaam milne ki zamanat nahi hai: kaun chuna jayega yeh aap ke profile, aap ke jawab aur tajurbe par hai. Premium aur Featured ikhtiyari mahana plans hain jo unlimited applications, walidain ki contact details aur behtar placement dete hain.',
+        a: 'Verification ek baar ka kaam hai — aap ise sirf ek dafa karte hain, na koi renewal, na koi mahana charge. Is se aap verified tutor ban jate hain, search mein Verified badge ke sath list hote hain, muft Basic plan par: aap mahine mein das tuitions par apply kar sakte hain aur walidain ko message kar sakte hain. Isse aap ka profile un walidain ke saamne aata hai jo pehle se aap ke subject aur ilaqay mein tutor dhoond rahe hain — yehi cheez bechi ja rahi hai. Yeh kaam milne ki zamanat nahi hai: kaun chuna jayega yeh aap ke profile, aap ke jawab aur tajurbe par hai. Premium aur Featured ikhtiyari mahana plans hain jo unlimited applications, walidain ki contact details aur behtar placement dete hain.',
         links: [
           { label: 'Tutor membership', href: '/tutor/packages' },
           { label: 'Khuli tuitions', href: '/browse/tuitions' },

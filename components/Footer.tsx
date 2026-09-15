@@ -2,8 +2,8 @@
 // design/reference/homepage.png.
 //
 // It is rendered by SiteChrome, so this is the footer on every public page:
-// brand column, four link columns, social row, and the "Verified Secure
-// Platform" line. /admin has its own shell and never renders this.
+// brand column, four link columns, and the social row. /admin has its own
+// shell and never renders this.
 //
 // TWO BODIES, one for phones and one for md+ (CLAUDE.md "Mobile footer",
 // 5 Sep 2026). Below 768px the footer was a full screen — fourteen 44px links
@@ -179,10 +179,6 @@ export default async function Footer() {
                       Help &amp; Support
                     </Link>
                   </li>
-                  <li className="flex min-h-[44px] items-center gap-2 text-sm font-semibold text-tm-mint md:min-h-[28px]">
-                    <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-tm-mint" />
-                    Verified Secure Platform
-                  </li>
                 </ul>
               </div>
             </div>
@@ -304,10 +300,6 @@ function MobileSupport({ support }: { support: { email: string | null } }) {
           >
             Help &amp; Support
           </Link>
-        </li>
-        <li className="flex min-h-[44px] items-center gap-2 text-sm font-semibold text-tm-mint">
-          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-tm-mint" />
-          Verified Secure Platform
         </li>
       </ul>
     </details>

@@ -22,14 +22,12 @@ import { usePathname } from 'next/navigation'
 export default function BuyButton({
   planCode,
   planName,
-  pricePkr,
   signedIn,
   upgrading,
   emphasis,
 }: {
   planCode: string
   planName: string
-  pricePkr: number
   signedIn: boolean
   upgrading: boolean
   emphasis?: boolean
@@ -108,9 +106,6 @@ export default function BuyButton({
           {stuck && <SubmitEscape href={stuck} />}
         </div>
       )}
-      <p className="text-center text-[10px] text-gray-500">
-        Rs. {pricePkr.toLocaleString('en-PK')} for 30 days · no refunds
-      </p>
     </div>
   )
 }

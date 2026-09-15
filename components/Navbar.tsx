@@ -128,7 +128,7 @@ export default async function Navbar() {
   const empty =
     role === 'tutor'
       ? {
-          hint: 'Complete your profile to start appearing in searches — notifications arrive when parents apply, message or book a demo.',
+          hint: 'Notifications arrive when parents apply to your tuitions, message you or book a demo.',
           action: { label: 'Complete your profile', href: '/tutor/complete-profile' },
         }
       : role === 'admin'

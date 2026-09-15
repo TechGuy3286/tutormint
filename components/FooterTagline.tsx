@@ -20,7 +20,7 @@ export default function FooterTagline() {
   if (pathname === '/') return null
   return (
     <p className="mt-2 max-w-xs text-xs leading-snug text-slate-400">
-      Pakistan&rsquo;s Largest 100% Verified Tutors Network. No fee. No commission. No middleman.
+      No fee. No commission. No middleman.
     </p>
   )
 }

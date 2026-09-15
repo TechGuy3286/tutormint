@@ -162,7 +162,7 @@ function EmptyState({ role, group }: { role: string | null; group: NotificationG
   const copy =
     role === 'tutor'
       ? {
-          hint: 'Complete your profile to start appearing in searches. Notifications arrive when parents apply, message you or book a demo.',
+          hint: 'Notifications arrive when parents apply to your tuitions, message you or book a demo.',
           primary: { label: 'Complete your profile', href: '/tutor/complete-profile' },
           secondary: { label: 'Find tuitions', href: '/browse/tuitions' },
         }

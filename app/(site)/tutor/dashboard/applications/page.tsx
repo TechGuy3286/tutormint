@@ -85,8 +85,7 @@ export default async function TutorApplicationsPage() {
           <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-6 text-center">
             <p className="text-xs font-bold text-tm-navy">You have not applied for a tuition yet</p>
             <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">
-              Open tuitions matching your subjects are listed for you. Applying is what puts you in
-              front of a parent.
+              Open tuitions matching your subjects are listed for you.
             </p>
             <Link
               href="/tutor/dashboard/jobs"

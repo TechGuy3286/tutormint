@@ -32,10 +32,15 @@ import type { ViewSummary } from '@/lib/profileViews'
 export default function ViewsCard({
   summary,
   identityGranted,
+  listed = true,
 }: {
   summary: ViewSummary
   /** plans.can_see_viewer_identity — Premium and above (owner, 15 Sep 2026). */
   identityGranted: boolean
+  /** Whether this tutor is actually in the public directory. When false, views
+   *  cannot arrive yet, so the empty copy says listing comes first — never that
+   *  a fuller profile means more searches (owner PR). */
+  listed?: boolean
 }) {
   const { total, thisWeek, latest, faces } = summary
 
@@ -48,8 +53,9 @@ export default function ViewsCard({
 
       {total === 0 ? (
         <p className="text-[11px] leading-relaxed text-gray-500">
-          No profile views yet. Views appear here as parents find you in search — the more complete
-          your profile, the more searches you appear in.
+          {listed
+            ? 'No profile views yet. Views appear here as parents find you in search.'
+            : 'No profile views yet. Once you are listed in search, views from parents will appear here.'}
         </p>
       ) : (
         <>

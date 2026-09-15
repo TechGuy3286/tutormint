@@ -20,10 +20,10 @@ import SubmitEscape from '@/components/SubmitEscape'
 // The images save to the tutor's profile automatically (POST /api/documents/upload,
 // kind 'cnic' — the private identity-docs bucket; never re-uploaded elsewhere,
 // never shown publicly). "Verify" routes to the payment page and does nothing
-// else — NO price here, and NO claim that verifying wins tuitions, applications,
-// replies or income. The ONLY permitted outcome language is the exact line
-// "Verified tutors are shown to parents first." (visibility, which survives a
-// tutor who pays and is not hired — there are no refunds).
+// else — NO price here. The green box states the capability verifying unlocks —
+// applying to tuitions and jobs (owner PR); it is a capability, not an outcome,
+// so it never claims verifying wins replies, students or income. Visibility
+// ("shown to parents first") is stated on the packages page and the gate title.
 
 type Side = 'front' | 'back'
 
@@ -202,11 +202,12 @@ export default function TutorVerifyGate({ onClose }: { onClose: () => void }) {
         Only our verification team sees it. Never on your profile.
       </p>
 
-      {/* The one permitted claim — visibility, never an outcome promise. */}
+      {/* The apply-gate green box (owner PR): the capability verifying unlocks —
+          applying. Not an outcome promise (no replies, students or income). */}
       <p className="flex flex-col gap-0.5 rounded-xl bg-tm-tint-green p-3 leading-tight text-tm-green-deep">
-        <span className="text-xs font-bold">Verified tutors are shown to parents first.</span>
+        <span className="text-xs font-bold">Once verified, you can apply to tuitions and jobs.</span>
         <span className="text-[11px] font-semibold" lang="ur" dir="rtl">
-          تصدیق شدہ ٹیوٹرز والدین کو پہلے دکھائے جاتے ہیں
+          تصدیق کے بعد آپ ٹیوشنز اور جابز کے لیے اپلائی کر سکتے ہیں۔
         </span>
       </p>
 

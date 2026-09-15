@@ -111,21 +111,42 @@ export default function PackagesTable({
               <BadgeRow badges={(p.badges ?? []) as BadgeName[]} size="sm" showLabel />
 
               <ul className="flex-1 space-y-1.5 text-xs">
-                <li className="font-semibold text-tm-navy">
-                  {p.displayed_quota ?? '0'} {quotaNoun} per month
-                </li>
-                <li className="font-semibold text-tm-navy">{rankWords(audience, p.search_rank)}</li>
-                <Feature on={p.can_view_contact}>
-                  See {audience === 'tutor' ? 'parent' : 'tutor'} phone and WhatsApp
-                </Feature>
-                <Feature on={p.can_whatsapp}>WhatsApp with one tap</Feature>
-                <Feature on={p.can_initiate_message}>
-                  Start a conversation (everyone can always reply)
-                </Feature>
-                {audience === 'tutor' && (
-                  <Feature on={p.can_see_viewer_identity}>See who viewed your profile</Feature>
+                {audience === 'tutor' && free ? (
+                  // The tutor Basic (free) card: the plan a tutor is on after the
+                  // one-time verification fee, spelled out exactly. The two "per
+                  // month" figures are the plan's own displayed quota (a query),
+                  // never a hardcoded number.
+                  <>
+                    <Feature on>Browse tuitions</Feature>
+                    <Feature on>Apply — {p.displayed_quota ?? p.monthly_quota} per month</Feature>
+                    <Feature on>Reply to a parent who writes first</Feature>
+                    <Feature on={false}>Start a conversation</Feature>
+                    <Feature on={false}>See parent contact / WhatsApp</Feature>
+                    <Feature on>Download CV</Feature>
+                    <Feature on={false}>See who viewed your profile</Feature>
+                    <Feature on>
+                      Incoming hiring &amp; demo requests — {p.displayed_quota ?? p.monthly_quota} per month
+                    </Feature>
+                    <Feature on={false}>Top of search</Feature>
+                    <Feature on={false}>Matched tuitions to email / WhatsApp</Feature>
+                  </>
+                ) : (
+                  <>
+                    <li className="font-semibold text-tm-navy">
+                      {p.displayed_quota ?? '0'} {quotaNoun} per month
+                    </li>
+                    <li className="font-semibold text-tm-navy">{rankWords(audience, p.search_rank)}</li>
+                    <Feature on={p.can_view_contact}>
+                      See {audience === 'tutor' ? 'parent' : 'tutor'} phone and WhatsApp
+                    </Feature>
+                    <Feature on={p.can_whatsapp}>WhatsApp with one tap</Feature>
+                    <Feature on={p.can_initiate_message}>Start a conversation</Feature>
+                    {audience === 'tutor' && (
+                      <Feature on={p.can_see_viewer_identity}>See who viewed your profile</Feature>
+                    )}
+                    {audience === 'parent' && <Feature on={p.can_hire}>Complete a hire</Feature>}
+                  </>
                 )}
-                {audience === 'parent' && <Feature on={p.can_hire}>Complete a hire</Feature>}
               </ul>
 
               {mine ? (
@@ -161,7 +182,6 @@ export default function PackagesTable({
                 <BuyButton
                   planCode={p.code}
                   planName={p.name}
-                  pricePkr={p.price_pkr}
                   signedIn={signedIn}
                   upgrading={!!currentPlan}
                   emphasis={spotlit}
@@ -173,6 +193,14 @@ export default function PackagesTable({
       </div>
 
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed">
+        {/* These terms are about the paid MONTHLY plans, not the one-time
+            verification fee — scoped by this heading so a tutor does not read
+            "no refunds / 30 days" as applying to getting verified. */}
+        <p className="text-xs font-black text-tm-navy">
+          {audience === 'tutor'
+            ? 'About the Premium and Featured monthly plans'
+            : 'About the Featured plan'}
+        </p>
         <p>
           <strong className="text-tm-navy">Changing plan.</strong> Buying a different plan
           replaces the one you are on and runs a fresh 30 days from the moment it activates. There
@@ -188,9 +216,9 @@ export default function PackagesTable({
         {audience === 'tutor' && (
           <p>
             <strong className="text-tm-navy">Your month starts the day you go live.</strong> If you
-            buy before your identity and mobile number are verified, the plan is paid for but
-            paused — the badge and the 30 days both begin the day you become listed, so nothing
-            counts down while you get there.
+            buy Premium or Featured before your identity and mobile number are verified, the plan is
+            paid for but paused — the 30 days begin the day you become listed, so nothing counts down
+            while you get there.
           </p>
         )}
         <p>

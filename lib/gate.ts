@@ -208,9 +208,9 @@ async function buildBaseGate(
         kind: 'verify',
         title: 'Get verified to apply · اپلائی کرنے کے لیے تصدیق کروائیں',
         body:
-          'Upload your CNIC (front and back) and pay the one-time Rs 199 verification fee to become ' +
-          'a verified tutor. Verified tutors are shown to parents first.\n\n' +
-          'اپنا شناختی کارڈ (سامنے اور پیچھے) اپلوڈ کریں اور ایک بار کی 199 روپے تصدیقی فیس ادا کریں۔ ' +
+          'Upload your CNIC (front and back) to become a verified tutor. Verified tutors are shown ' +
+          'to parents first.\n\n' +
+          'اپنا شناختی کارڈ (سامنے اور پیچھے) اپلوڈ کریں تاکہ آپ تصدیق شدہ ٹیوٹر بن جائیں۔ ' +
           'تصدیق شدہ ٹیوٹرز والدین کو سب سے پہلے دکھائے جاتے ہیں۔',
         audience: 'tutor',
         plan,
@@ -255,8 +255,8 @@ async function buildBaseGate(
         title: 'Get verified to download your CV',
         body:
           'Your CV is built from your profile and yours to preview any time. Downloading the ' +
-          'print-ready PDF needs a verified profile — upload your CNIC and pay the one-time ' +
-          'Rs 199 verification fee. Verified tutors are shown to parents first.',
+          'print-ready PDF needs a verified profile — upload your CNIC to get verified. ' +
+          'Verified tutors are shown to parents first.',
         audience: 'tutor',
         plan,
         href: '/tutor/verify',
