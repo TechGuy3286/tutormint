@@ -96,6 +96,34 @@ export const MAX_VIDEO_BYTES = 200 * 1024 * 1024
  * video stays a draft pending review. Returns { ok, uploadUrl } or a stated
  * failure — never throws.
  */
+// The user-facing message for a failed session (owner PR6 §1.5). The technical
+// detail (status, reason, body) stays in the server log only — never the "(400)".
+const GENERIC_SESSION_ERROR =
+  "The video couldn't be uploaded. Please try again, or choose a different video."
+
+// YouTube reasons that mean the UPLOAD ACCOUNT itself is capped or throttled —
+// NOT the tutor's video. Retrying or picking another file cannot fix these
+// (owner PR6 §1.1: production hit `uploadLimitExceeded`), so the route treats
+// them as "temporarily unavailable" rather than telling the tutor to try again.
+const ACCOUNT_LIMIT_REASONS = new Set([
+  'uploadLimitExceeded',
+  'quotaExceeded',
+  'dailyLimitExceeded',
+  'rateLimitExceeded',
+  'userRateLimitExceeded',
+])
+
+/** Pull YouTube's machine reason out of an error body, or '' — for the log and
+ *  the account-limit decision. Never throws. */
+function youtubeErrorReason(body: string): string {
+  try {
+    const j = JSON.parse(body) as { error?: { errors?: Array<{ reason?: string }> } }
+    return j.error?.errors?.[0]?.reason ?? ''
+  } catch {
+    return ''
+  }
+}
+
 export async function createResumableUploadSession({
   title,
   description,
@@ -106,13 +134,16 @@ export async function createResumableUploadSession({
   description: string
   contentType: string
   contentLength: number
-}): Promise<{ ok: true; uploadUrl: string } | { ok: false; error: string }> {
+}): Promise<
+  | { ok: true; uploadUrl: string }
+  | { ok: false; error: string; reason?: string; accountLimit?: boolean }
+> {
   if (!youtubeConfigured()) {
     return { ok: false, error: 'YouTube API credentials are not set.' }
   }
   try {
     const { token } = await oauth2Client.getAccessToken()
-    if (!token) return { ok: false, error: 'Could not authenticate with YouTube.' }
+    if (!token) return { ok: false, error: GENERIC_SESSION_ERROR }
 
     const res = await fetch(
       'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
@@ -122,8 +153,10 @@ export async function createResumableUploadSession({
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json; charset=UTF-8',
           // The eventual media, declared up front so Google sizes the session.
-          'X-Upload-Content-Type': contentType || 'video/*',
-          'X-Upload-Content-Length': String(contentLength),
+          // The route guarantees a video/* or octet-stream type (owner PR6 §1.3).
+          'X-Upload-Content-Type': contentType || 'application/octet-stream',
+          // Integer bytes only.
+          'X-Upload-Content-Length': String(Math.trunc(contentLength)),
         },
         body: JSON.stringify({
           snippet: {
@@ -138,16 +171,30 @@ export async function createResumableUploadSession({
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
-      console.error('YouTube resumable session error:', res.status, detail.slice(0, 300))
-      return { ok: false, error: `YouTube refused the upload session (${res.status}).` }
+      const reason = youtubeErrorReason(detail)
+      // Log the FULL body + reason on every non-2xx (owner PR6 §1.2). It is
+      // YouTube's own error JSON — no tokens (the bearer is only a request
+      // header, never echoed) and no personal data (the title carries no name).
+      console.error(
+        `[video] YouTube resumable session refused: status=${res.status} reason=${reason || 'unknown'} body=${detail.slice(0, 1000)}`,
+      )
+      return {
+        ok: false,
+        error: GENERIC_SESSION_ERROR,
+        reason,
+        accountLimit: ACCOUNT_LIMIT_REASONS.has(reason),
+      }
     }
     const uploadUrl = res.headers.get('location')
-    if (!uploadUrl) return { ok: false, error: 'YouTube did not return an upload URL.' }
+    if (!uploadUrl) {
+      console.error('[video] YouTube resumable session returned no Location header.')
+      return { ok: false, error: GENERIC_SESSION_ERROR }
+    }
     return { ok: true, uploadUrl }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Could not start the upload.'
-    console.error('YouTube resumable session exception:', message)
-    return { ok: false, error: message }
+    const message = error instanceof Error ? error.message : 'unknown'
+    console.error('[video] YouTube resumable session exception:', message)
+    return { ok: false, error: GENERIC_SESSION_ERROR }
   }
 }
 

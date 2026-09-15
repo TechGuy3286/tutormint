@@ -1,24 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 
 import CnicCameraField from '@/components/tutor/CnicCameraField'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
+import type { IdentityState } from '@/lib/identity'
 
 // The verification gate an UNVERIFIED tutor meets when they tap Apply (owner,
-// 15 Sep 2026). Deliberately minimal — a tutor on a phone does not read paragraphs:
+// 15 Sep 2026). Deliberately minimal — a tutor on a phone does not read paragraphs.
 //
-//   * one line ("Upload your CNIC, front and back."),
-//   * CNIC FRONT and BACK inline — the SHARED CnicCameraField (PR 3b §2.1), the
-//     same capture the Settings identity card uses: camera opens directly, the
-//     tile fills with the photo, tap to retake, compressed under 1 MB,
-//   * one small privacy line, the one permitted claim, and two buttons.
+// It reads the CNIC review state first (owner PR6 §2): a tutor who has ALREADY
+// submitted (or had approved) their CNIC is never shown the camera tiles again —
+// they go straight to the payment step. The tiles appear only when there is no
+// CNIC on file yet, or a submission was rejected (then with the reason).
+//
+//   * CNIC not submitted / rejected → FRONT and BACK camera tiles (the shared
+//     CnicCameraField), then Verify (enabled once both are taken),
+//   * CNIC submitted / approved → a status line and a single Verify button
+//     straight to the payment page,
+//   * "Verify" routes to the payment page and does nothing else — NO price here.
 //
 // The images save to the tutor's profile automatically (kind 'cnic' — the private
 // identity-docs bucket; never re-uploaded elsewhere, never shown publicly).
-// "Verify" routes to the payment page and does nothing else — NO price here.
 
 type Side = 'front' | 'back'
 
@@ -28,6 +34,23 @@ export default function TutorVerifyGate({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   const [stuck, setStuck] = useState<string | null>(null)
+  // The CNIC review state, loaded before anything renders, so a submitted card
+  // is never asked for again (§2.1). null = still loading.
+  const [cnicState, setCnicState] = useState<IdentityState | null>(null)
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null)
+
+  useEffect(() => {
+    let live = true
+    fetch('/api/identity', { headers: { accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!live) return
+        setCnicState(((j?.identity?.state as IdentityState) ?? 'none'))
+        setRejectionReason((j?.identity?.rejectionReason as string | null) ?? null)
+      })
+      .catch(() => { if (live) setCnicState('none') })
+    return () => { live = false }
+  }, [])
 
   const both = done.front && done.back
 
@@ -64,8 +87,80 @@ export default function TutorVerifyGate({ onClose }: { onClose: () => void }) {
     router.push(target)
   }
 
+  if (cnicState === null) {
+    return (
+      <div className="mt-3 grid place-items-center py-6">
+        <Loader2 aria-hidden size={22} className="animate-spin text-gray-500" />
+      </div>
+    )
+  }
+
+  // A submitted or approved CNIC is NEVER asked for again (§2.1/§2.3): show its
+  // status and a single button straight to the payment step.
+  const hasCnic = cnicState === 'submitted' || cnicState === 'approved'
+
+  const buttons = (
+    <>
+      {error && (
+        <div role="alert" className="space-y-2">
+          <p className="text-[11px] font-bold text-tm-red">{error}</p>
+          {stuck && <SubmitEscape href={stuck} />}
+        </div>
+      )}
+      <div className="flex flex-col gap-2 sm:flex-row-reverse">
+        <button
+          type="button"
+          onClick={() => void verify()}
+          disabled={starting || (!hasCnic && !both)}
+          className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-60"
+        >
+          {starting ? 'Starting…' : 'Verify'}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+        >
+          Not now
+        </button>
+      </div>
+    </>
+  )
+
+  if (hasCnic) {
+    const approved = cnicState === 'approved'
+    return (
+      <div className="mt-3 space-y-4">
+        <div className="flex flex-col gap-0.5 rounded-xl bg-tm-tint-green p-3 leading-tight text-tm-green-deep">
+          <span className="text-xs font-bold">
+            {approved ? 'CNIC approved' : 'CNIC being checked'}
+          </span>
+          <span className="text-[11px] font-semibold" lang="ur" dir="rtl">
+            {approved ? 'شناختی کارڈ منظور ہو گیا' : 'شناختی کارڈ کی جانچ ہو رہی ہے'}
+          </span>
+        </div>
+        <p className="flex flex-col leading-tight">
+          <span className="text-xs font-semibold text-slate-700">
+            Continue to become a verified tutor.
+          </span>
+          <span className="text-[11px] text-gray-500" lang="ur" dir="rtl">
+            تصدیق شدہ ٹیوٹر بننے کے لیے آگے بڑھیں۔
+          </span>
+        </p>
+        {buttons}
+      </div>
+    )
+  }
+
+  // No CNIC yet, or a rejected one — show the camera tiles (with the reason when
+  // rejected, §2.4).
   return (
     <div className="mt-3 space-y-4">
+      {cnicState === 'rejected' && rejectionReason && (
+        <p className="rounded-xl bg-tm-tint-red p-3 text-[11px] font-semibold leading-relaxed text-tm-red">
+          Your CNIC was not accepted: {rejectionReason}
+        </p>
+      )}
       {/* One line — what to do. Nothing about what verification is, or the fee. */}
       <p className="flex flex-col leading-tight">
         <span className="text-xs font-semibold text-slate-700">Upload your CNIC, front and back.</span>
@@ -105,30 +200,7 @@ export default function TutorVerifyGate({ onClose }: { onClose: () => void }) {
         </span>
       </p>
 
-      {error && (
-        <div role="alert" className="space-y-2">
-          <p className="text-[11px] font-bold text-tm-red">{error}</p>
-          {stuck && <SubmitEscape href={stuck} />}
-        </div>
-      )}
-
-      <div className="flex flex-col gap-2 sm:flex-row-reverse">
-        <button
-          type="button"
-          onClick={() => void verify()}
-          disabled={!both || starting}
-          className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-60"
-        >
-          {starting ? 'Starting…' : 'Verify'}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
-        >
-          Not now
-        </button>
-      </div>
+      {buttons}
     </div>
   )
 }

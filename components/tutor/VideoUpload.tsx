@@ -27,6 +27,20 @@ import { useRef, useState } from 'react'
 const MAX_BYTES = 200 * 1024 * 1024
 const MB = 1024 * 1024
 
+// Accepted formats (owner PR6 §1.6): MP4, MOV, 3GP, WEBM. Android Chrome often
+// reports file.type = "" or an odd subtype, so a file is accepted when its type
+// is video/* OR its extension is one of these — the server infers the real
+// content type either way.
+const ACCEPTED_EXT = ['mp4', 'm4v', 'mov', '3gp', '3gpp', 'webm']
+const ACCEPT_ATTR = 'video/mp4,video/quicktime,video/3gpp,video/webm,.mp4,.m4v,.mov,.3gp,.3gpp,.webm'
+const FORMATS_LABEL = 'MP4, MOV, 3GP or WEBM'
+
+function isAcceptedVideo(file: File): boolean {
+  if (file.type && file.type.startsWith('video/')) return true
+  const ext = file.name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
+  return !!ext && ACCEPTED_EXT.includes(ext)
+}
+
 function prettyBytes(n: number): string {
   if (n < 1024) return `${n} B`
   if (n < MB) return `${Math.round(n / 1024)} KB`
@@ -95,8 +109,8 @@ export default function VideoUpload({
   function pick(file: File | null | undefined) {
     if (!file) return
     setError(null)
-    if (!file.type.startsWith('video/')) {
-      setError('Choose a video file (MP4 or MOV).')
+    if (!isAcceptedVideo(file)) {
+      setError(`Choose a video file (${FORMATS_LABEL}).`)
       return
     }
     if (file.size > MAX_BYTES) {
@@ -174,7 +188,7 @@ export default function VideoUpload({
       <input
         ref={inputRef}
         type="file"
-        accept="video/*"
+        accept={ACCEPT_ATTR}
         className="sr-only"
         disabled={busy}
         onChange={(e) => pick(e.target.files?.[0])}
@@ -195,7 +209,7 @@ export default function VideoUpload({
         >
           <UploadCloud aria-hidden size={22} className="text-gray-500" />
           <span className="text-xs font-bold text-tm-navy">Introduction video</span>
-          <span className="text-[11px] text-gray-500">Tap to choose · MP4 or MOV, up to 200 MB</span>
+          <span className="text-[11px] text-gray-500">Tap to choose · {FORMATS_LABEL}, up to 200 MB</span>
         </button>
       )}
 

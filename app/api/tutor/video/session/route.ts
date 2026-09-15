@@ -22,10 +22,30 @@ export const runtime = 'nodejs' // googleapis needs the Node runtime
 const MAX_ATTEMPTS = 3
 
 const Body = z.object({
-  contentType: z.string().trim().max(100).optional().default('video/mp4'),
+  contentType: z.string().trim().max(100).optional().default(''),
   size: z.number().int().positive(),
   fileName: z.string().trim().max(200).optional().default(''),
 })
+
+// The X-Upload-Content-Type sent to YouTube (owner PR6 §1.3). Android Chrome
+// often gives file.type = "" or an odd subtype, so: use the client's type when
+// it is video/*, otherwise infer from the file extension, otherwise fall back to
+// application/octet-stream — never reject the upload for a missing type.
+const EXT_TO_MIME: Record<string, string> = {
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  mov: 'video/quicktime',
+  qt: 'video/quicktime',
+  '3gp': 'video/3gpp',
+  '3gpp': 'video/3gpp',
+  webm: 'video/webm',
+}
+
+function resolveContentType(clientType: string, fileName: string): string {
+  if (clientType && clientType.startsWith('video/')) return clientType
+  const ext = fileName.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
+  return (ext && EXT_TO_MIME[ext]) || 'application/octet-stream'
+}
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -35,7 +55,7 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
 
-  const { data: me } = await supabase.from('profiles').select('role, full_name').eq('id', user.id).maybeSingle()
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
   if (me?.role !== 'tutor') {
     return NextResponse.json({ error: 'Only tutors can upload an introduction video.' }, { status: 403 })
   }
@@ -65,9 +85,6 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
   const body = parsed.data
 
-  if (!body.contentType.startsWith('video/')) {
-    return NextResponse.json({ error: 'Choose a video file (MP4 or MOV).' }, { status: 400 })
-  }
   if (body.size > MAX_VIDEO_BYTES) {
     return NextResponse.json(
       { error: `That video is too large. The limit is ${Math.round(MAX_VIDEO_BYTES / (1024 * 1024))} MB.` },
@@ -76,12 +93,24 @@ export async function POST(request: Request) {
   }
 
   const session = await createResumableUploadSession({
-    title: `TutorMint intro — ${(me?.full_name as string) || user.id}`,
+    // No member name or other personal data in the title (owner PR6 §1.3) —
+    // just a short slice of the tutor id.
+    title: `TutorMint intro — ${user.id.slice(0, 8)}`,
     description: 'TutorMint tutor introduction video (private, pending review).',
-    contentType: body.contentType,
+    contentType: resolveContentType(body.contentType, body.fileName),
     contentLength: body.size,
   })
   if (!session.ok) {
+    // An account-level cap (uploadLimitExceeded / quota / rate) is not the
+    // tutor's video and cannot be fixed by retrying — treat it as temporarily
+    // unavailable so the tutor is not told to "choose a different video" in a
+    // loop (owner PR6 §1.1/§1.5). Every other failure gets the generic message.
+    if (session.accountLimit) {
+      return NextResponse.json(
+        { error: 'Video upload is temporarily unavailable. Please try again later.', unavailable: true },
+        { status: 503 },
+      )
+    }
     return NextResponse.json({ error: session.error }, { status: 502 })
   }
 
