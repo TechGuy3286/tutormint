@@ -60,7 +60,9 @@ const TUTOR: MenuItem[] = [
   // screen at all until now. Two entries, each going where it says.
   { label: 'My applications', href: '/tutor/dashboard/applications', icon: 'applications' },
   { label: 'Open tuitions', href: '/tutor/dashboard/jobs', icon: 'jobs' },
-  { label: 'Messages', href: '/tutor/dashboard/messages', icon: 'messages' },
+  // "Messages" removed from the menu (PR 4 §3.2): the phone header chat icon and
+  // the desktop dock both cover it, and each reaches the full inbox — a third
+  // door to the same page is one too many.
   { label: 'Demo requests', href: '/tutor/dashboard/demos', icon: 'demos' },
   // "Notifications" removed from the menu (owner PR2 §5.2) — the header bell is
   // the notifications surface. "Browse tuitions" removed (§5.1) — "Open tuitions"
@@ -75,7 +77,8 @@ const PARENT: MenuItem[] = [
   // Was "My Jobs" pointing back at /parent/dashboard, because the list was
   // rendered inline there. It has its own page now.
   { label: 'My tuitions', href: '/parent/dashboard/jobs', icon: 'jobs' },
-  { label: 'Messages', href: '/parent/dashboard/messages', icon: 'messages' },
+  // "Messages" removed from the menu (PR 4 §3.2) — the phone header chat icon and
+  // the desktop dock both cover it.
   { label: 'Demo classes', href: '/parent/dashboard/demos', icon: 'demos' },
   { label: 'Hired tutors', href: '/parent/dashboard/hired-tutors', icon: 'hired' },
   { label: 'My children', href: '/parent/dashboard/children', icon: 'profile' },

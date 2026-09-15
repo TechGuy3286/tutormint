@@ -1,14 +1,14 @@
 import { redirect } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/server'
+import { getSupportContact, whatsappHref } from '@/lib/support'
 import { onboardingFacets } from '@/lib/openJobCounts'
-import OnboardingClient from './OnboardingClient'
+import CompleteProfileFlow from '@/components/tutor/CompleteProfileFlow'
 
-// The tutor onboarding flow — the screen that decides whether a signup becomes a
-// listed tutor. Tap-only, bilingual, one question per screen, with a live count
-// of open tuitions. New tutors are routed here after they verify (see the
-// register/verify route); the flow ends on the tuition list matching their
-// answers, not a dashboard.
+// The tutor onboarding flow. ONE flow for every tutor now (PR 4 §1): this route
+// (where new tutors land after verifying) and /tutor/complete-profile render the
+// same gap-based CompleteProfileFlow. A brand-new tutor's gaps are everything, so
+// they flow through all steps from city; an existing tutor sees only her gaps.
 
 export const dynamic = 'force-dynamic'
 
@@ -27,10 +27,12 @@ export default async function TutorOnboardingPage() {
   const { data: tp } = await supabase.from('tutor_profiles').select('onboarded_at').eq('id', user.id).maybeSingle()
   if (tp?.onboarded_at) redirect('/tutor/dashboard')
 
+  const support = await getSupportContact()
+  const waHref = whatsappHref(
+    support.whatsapp,
+    "Assalam-o-Alaikum, I can't verify my mobile number on TutorMint. Please help.",
+  )
   const facets = await onboardingFacets()
-  // Without the service role the counter and demand ordering cannot be built;
-  // fall back to the full editor rather than a broken tap flow.
-  if (!facets) redirect('/tutor/complete-profile')
 
-  return <OnboardingClient facets={facets} seed={user.id} />
+  return <CompleteProfileFlow facets={facets} support={{ waHref, email: support.email }} seed={user.id} />
 }

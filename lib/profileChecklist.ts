@@ -10,6 +10,8 @@
 // separate axis (verification_status / verification_state) and gates badges
 // and listings, not the percentage.
 
+import { COMPLETION_KEY_TO_STEP } from '@/lib/tutorFlow'
+
 export type ChecklistItem = {
   key: string
   label: string
@@ -27,14 +29,20 @@ export type Completion = {
 }
 
 /**
- * The deep link that fixes one checklist item — the step of the completion flow
- * plus the anchor within it. One definition, so the dashboard card, the Needs
- * you strip and the admin list all point at the same place; the percentage and
- * the links can never disagree because both come from the same items.
+ * The deep link that fixes one checklist item. One definition, so the dashboard
+ * card, the Needs you strip and the admin list all point at the same place.
+ *
+ * For a TUTOR this opens the exact step of the tap-tap flow (PR 4 §1.6):
+ * /tutor/complete-profile?step=<flow key>. The completion item key maps to the
+ * flow step via COMPLETION_KEY_TO_STEP (lib/tutorFlow), unit-tested to cover
+ * every item so a link never dead-ends. Parents keep the step-tab verify flow.
  */
 export function checklistHref(role: 'tutor' | 'parent', item: ChecklistItem): string {
-  const base = role === 'tutor' ? '/tutor/complete-profile' : '/parent/verify'
-  return `${base}?step=${item.step}#${item.anchor}`
+  if (role === 'tutor') {
+    const step = COMPLETION_KEY_TO_STEP[item.key] ?? 'city'
+    return `/tutor/complete-profile?step=${step}`
+  }
+  return `/parent/verify?step=${item.step}#${item.anchor}`
 }
 
 const has = (v: unknown): boolean => {

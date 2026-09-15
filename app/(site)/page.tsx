@@ -20,7 +20,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Search, ClipboardList } from 'lucide-react'
-import WhatsAppBubble from '@/components/WhatsAppBubble'
 import { getCompany } from '@/lib/company'
 import { getSupportContact } from '@/lib/support'
 import { jsonLdScript, organizationJsonLd, socialMeta, webSiteJsonLd } from '@/lib/seo'
@@ -109,8 +108,6 @@ export default async function HomePage() {
           />
         </div>
       </section>
-
-      <WhatsAppBubble />
     </div>
   )
 }

@@ -527,10 +527,11 @@ test('directoryBlockers: an unclaimed import is blocked from the directory, in v
 })
 
 test('tutorFixFor: only the tutor-fixable blockers offer a screen', () => {
-  assert.equal(tutorFixFor('no_subjects')?.href, '/tutor/complete-profile')
-  assert.equal(tutorFixFor('no_city')?.href, '/tutor/complete-profile')
-  assert.equal(tutorFixFor('fee_unpaid')?.href, '/tutor/verify')
-  assert.equal(tutorFixFor('phone_unverified')?.href, '/verify-phone')
+  // PR 4 §1.6: each opens the exact step of the tap-tap flow.
+  assert.equal(tutorFixFor('no_subjects')?.href, '/tutor/complete-profile?step=subjects')
+  assert.equal(tutorFixFor('no_city')?.href, '/tutor/complete-profile?step=city')
+  assert.equal(tutorFixFor('fee_unpaid')?.href, '/tutor/complete-profile?step=verify')
+  assert.equal(tutorFixFor('phone_unverified')?.href, '/tutor/complete-profile?step=mobile')
   assert.equal(tutorFixFor('suspended'), null)
   assert.equal(tutorFixFor('fixture'), null)
   assert.equal(tutorFixFor('unclaimed_import'), null)

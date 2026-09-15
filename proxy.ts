@@ -38,7 +38,6 @@ const PHONE_GATED = [
   '/tutor/dashboard',
   '/tutor/onboarding',
   '/tutor/complete-profile',
-  '/tutor/upload-youtube',
   '/tutor/packages',
   '/parent/dashboard',
   '/parent/packages',

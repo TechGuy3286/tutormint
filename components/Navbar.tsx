@@ -3,10 +3,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 
 import NotificationBell from '@/components/notifications/NotificationBell'
+import HeaderMessages from '@/components/messages/HeaderMessages'
 import UserMenu from '@/components/UserMenu'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { getSessionUser } from '@/lib/auth'
 import { unreadCount } from '@/lib/notificationFeed'
+import { unreadMessageCount } from '@/lib/messaging'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { menuForRole, type AdminEntry } from '@/lib/userMenu'
 
@@ -114,12 +116,15 @@ export default async function Navbar() {
     }
   }
 
-  const [unread, adminScreens] = await Promise.all([
+  const isMember = role === 'tutor' || role === 'parent'
+  const [unread, adminScreens, messagesUnread] = await Promise.all([
     unreadCount(),
     role === 'admin' ? adminScreensFor() : Promise.resolve([]),
+    isMember ? unreadMessageCount(session.user.id) : Promise.resolve(0),
   ])
 
   const items = menuForRole({ role, publicProfileSlug: slug, tutorNeedsVerify, adminScreens })
+  const messagesHref = role === 'tutor' ? '/tutor/dashboard/messages' : '/parent/dashboard/messages'
 
   // What to say when the panel is empty. A tutor's next useful step is being
   // findable; a parent's is finding somebody; an admin's is the queue they
@@ -143,6 +148,8 @@ export default async function Navbar() {
 
   return (
     <Shell>
+      {/* Phone-only chat icon beside the bell (§3); desktop uses the dock. */}
+      {isMember && <HeaderMessages href={messagesHref} initialUnread={messagesUnread} />}
       <NotificationBell
         userId={session.user.id}
         initialUnread={unread}

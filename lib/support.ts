@@ -21,6 +21,14 @@ const KEYS = {
   hours: 'support.hours',
 } as const
 
+// The ONE support WhatsApp number (PR 4 §4): the owner's business line,
+// 0321 5872222 → wa.me/923215872222. Kept as a single named constant so the
+// floating button / dock always render the right number even if the env var and
+// the app_settings row are both unset. app_settings and SUPPORT_WHATSAPP still
+// OVERRIDE it (the owner changes the number without a deploy), so this is the
+// documented fallback, not a hardcode scattered across pages.
+export const SUPPORT_WHATSAPP_FALLBACK = '923215872222'
+
 export type SupportContact = {
   /** Bare MSISDN, e.g. 923001234567 — used to build the wa.me link. */
   whatsapp: string | null
@@ -49,7 +57,9 @@ export async function getSupportContact(): Promise<SupportContact> {
     (stored.get(key) ?? null) || (env?.trim() || null)
 
   return {
-    whatsapp: normaliseWhatsapp(pick(KEYS.whatsapp, process.env.SUPPORT_WHATSAPP)),
+    // app_settings → env → the one constant, so the number is never missing.
+    whatsapp:
+      normaliseWhatsapp(pick(KEYS.whatsapp, process.env.SUPPORT_WHATSAPP)) ?? SUPPORT_WHATSAPP_FALLBACK,
     email: pick(KEYS.email, process.env.SUPPORT_EMAIL),
     hours: pick(KEYS.hours, process.env.SUPPORT_HOURS),
   }
@@ -88,7 +98,7 @@ export function whatsappHref(msisdn: string | null, prefill?: string): string | 
  */
 export function supportContactFromEnv(): SupportContact {
   return {
-    whatsapp: normaliseWhatsapp(process.env.SUPPORT_WHATSAPP?.trim() || null),
+    whatsapp: normaliseWhatsapp(process.env.SUPPORT_WHATSAPP?.trim() || null) ?? SUPPORT_WHATSAPP_FALLBACK,
     email: process.env.SUPPORT_EMAIL?.trim() || null,
     hours: process.env.SUPPORT_HOURS?.trim() || null,
   }

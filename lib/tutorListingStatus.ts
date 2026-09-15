@@ -88,15 +88,17 @@ export const BLOCKER_LABEL: Record<ListingBlocker, string> = {
  * account states surfaced elsewhere, so they return null here.
  */
 export function tutorFixFor(b: ListingBlocker): { label: string; href: string } | null {
+  // Each opens the EXACT step of the tap-tap flow (PR 4 §1.6), so a "not shown in
+  // search" row lands the tutor on the one thing to fix, not a long form.
   switch (b) {
     case 'fee_unpaid':
-      return { label: 'Get verified', href: '/tutor/verify' }
+      return { label: 'Get verified', href: '/tutor/complete-profile?step=verify' }
     case 'phone_unverified':
-      return { label: 'Verify your mobile number', href: '/verify-phone' }
+      return { label: 'Verify your mobile number', href: '/tutor/complete-profile?step=mobile' }
     case 'no_subjects':
-      return { label: 'Add the subjects you teach', href: '/tutor/complete-profile' }
+      return { label: 'Add the subjects you teach', href: '/tutor/complete-profile?step=subjects' }
     case 'no_city':
-      return { label: 'Add your city', href: '/tutor/complete-profile' }
+      return { label: 'Add your city', href: '/tutor/complete-profile?step=city' }
     default:
       return null
   }
@@ -111,10 +113,11 @@ export function listingFixes(blockers: ListingBlocker[]): { label: string; href:
 
 /** True when the ONLY thing keeping this tutor unlisted is the one-time fee — in
  *  which case the apply gate shows the existing CNIC + verify modal rather than a
- *  list (owner PR3 §1.3). */
+ *  list (owner PR3 §1.3). Keyed on the blocker itself, not a link, so the flow
+ *  can re-point the fix href (PR 4 §1.6) without changing this decision. */
 export function feeOnlyBlocker(blockers: ListingBlocker[]): boolean {
-  const fixes = listingFixes(blockers)
-  return fixes.length === 1 && fixes[0].href === '/tutor/verify'
+  const fixable = blockers.filter((b) => tutorFixFor(b) !== null)
+  return fixable.length === 1 && fixable[0] === 'fee_unpaid'
 }
 
 /** A plain, non-scolding sentence naming what is missing — for a surface that

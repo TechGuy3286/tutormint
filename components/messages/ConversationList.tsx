@@ -28,6 +28,7 @@ export default function ConversationList({
   activeId,
   emptyHint,
   emptyActions = [],
+  onSelect,
 }: {
   initial: ThreadRow[]
   initialCursor: string | null
@@ -36,6 +37,9 @@ export default function ConversationList({
   activeId: string | null
   emptyHint: string
   emptyActions?: { label: string; href: string }[]
+  /** When set (the desktop dock, §2), a row OPENS the conversation in place
+   *  instead of navigating — same list, no duplicate logic. */
+  onSelect?: (threadId: string) => void
 }) {
   const [query, setQuery] = useState('')
   const [found, setFound] = useState<{ items: ThreadRow[]; cursor: string | null } | null>(null)
@@ -115,6 +119,7 @@ export default function ConversationList({
             basePath={basePath}
             activeId={activeId}
             scrollRoot={paneRef}
+            onSelect={onSelect}
           />
         </div>
       )}
@@ -129,6 +134,7 @@ function Rows({
   basePath,
   activeId,
   scrollRoot,
+  onSelect,
 }: {
   initial: ThreadRow[]
   initialCursor: string | null
@@ -136,6 +142,7 @@ function Rows({
   basePath: string
   activeId: string | null
   scrollRoot: React.RefObject<HTMLDivElement | null>
+  onSelect?: (threadId: string) => void
 }) {
   const { items, state, done, loadMore, sentinel } = useInfinite<ThreadRow>({
     endpoint: '/api/messages/threads',
@@ -152,23 +159,17 @@ function Rows({
   return (
     <>
       <ul className="divide-y divide-gray-100">
-        {all.map((t) => (
-          <li key={t.id}>
-            <Link
-              href={`${basePath}/${t.id}`}
-              aria-current={t.id === activeId ? 'true' : undefined}
-              // Selection is a navy bar plus the page ground, NOT a tint
-              // fill: tm-tint-navy darkens the row enough that the timestamp
-              // (gray-500, 4.03:1) and the job title (tm-green-deep, 4.21:1)
-              // both fall under AA on it. check:contrast caught both. The
-              // transparent border on unselected rows keeps the text from
-              // shifting 4px sideways as the selection moves.
-              className={`flex min-h-[72px] items-center gap-3 border-l-4 px-3 py-3 transition-colors ${
-                t.id === activeId
-                  ? 'border-tm-navy bg-tm-bg'
-                  : 'border-transparent hover:bg-gray-50'
-              }`}
-            >
+        {all.map((t) => {
+          // Selection is a navy bar plus the page ground, NOT a tint fill:
+          // tm-tint-navy darkens the row enough that the timestamp (gray-500,
+          // 4.03:1) and the job title (tm-green-deep, 4.21:1) both fall under AA
+          // on it. The transparent border on unselected rows keeps the text from
+          // shifting 4px sideways as the selection moves.
+          const rowClass = `flex min-h-[72px] items-center gap-3 border-l-4 px-3 py-3 transition-colors ${
+            t.id === activeId ? 'border-tm-navy bg-tm-bg' : 'border-transparent hover:bg-gray-50'
+          }`
+          const inner = (
+            <>
               <Avatar
                 name={t.otherName}
                 src={t.otherAvatar}
@@ -210,9 +211,31 @@ function Rows({
                   {t.unread > 9 ? '9+' : t.unread}
                 </span>
               )}
-            </Link>
-          </li>
-        ))}
+            </>
+          )
+          return (
+            <li key={t.id}>
+              {onSelect ? (
+                <button
+                  type="button"
+                  onClick={() => onSelect(t.id)}
+                  aria-current={t.id === activeId ? 'true' : undefined}
+                  className={`w-full text-left ${rowClass}`}
+                >
+                  {inner}
+                </button>
+              ) : (
+                <Link
+                  href={`${basePath}/${t.id}`}
+                  aria-current={t.id === activeId ? 'true' : undefined}
+                  className={rowClass}
+                >
+                  {inner}
+                </Link>
+              )}
+            </li>
+          )
+        })}
       </ul>
 
       <div ref={sentinel} aria-hidden className="h-px" />
