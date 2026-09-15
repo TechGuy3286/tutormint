@@ -54,6 +54,9 @@ export type ActivityEvent =
   | 'reported_by'
   | 'payment_submitted'
   | 'payment_rejected'
+  // The one-time Rs 199 verification fee — recorded DISTINCTLY from a plan
+  // purchase so revenue counts it but the re-subscription metric never does.
+  | 'verification_fee_paid'
   | 'plan_purchased'
   | 'plan_expiring'
   | 'plan_granted'

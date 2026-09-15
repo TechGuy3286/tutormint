@@ -27,8 +27,11 @@ export type TemplateId =
   | 'application_progress'
   | 'message_digest'
   | 'plan_activated'
+  | 'plan_granted'
   | 'plan_expiring'
   | 'plan_expired'
+  | 'account_banned'
+  | 'verification_fee_paid'
   | 'content_digest'
   | 'admin_message'
   | 'staff_invite'
@@ -47,36 +50,75 @@ function link(path: string): string {
   return path.startsWith('http') ? path : `${SITE_URL}${path}`
 }
 
+// The brand palette — the ONLY colours any email uses (owner, Part 7). No slate,
+// no #0F172A, no #d60008. `FONT` is the one system stack, repeated inline because
+// email clients strip <style>.
+const RED = '#C20202'
+const NAVY = '#151E6B'
+const MINT_TINT = '#EEFBEE'
+const INK = '#0A0A0A'
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif"
+
 /**
- * Wrap a plain-text body in the house HTML. Inline styles only: Gmail strips
- * <style> blocks, and a stylesheet an inbox ignores is a layout that breaks
- * for the majority of readers.
+ * Wrap a plain-text body in the house HTML.
+ *
+ * TABLES + INLINE STYLES ONLY — no flexbox, no grid, no <style> block and no
+ * external CSS: Gmail strips stylesheets, and Outlook ignores modern layout. A
+ * `<meta name="color-scheme" content="light">` plus `bgcolor` on the coloured
+ * cells is what stops Gmail's dark mode repainting the button and the ground.
+ * The button is a full-width tap target. The wordmark is TEXT (no image), so no
+ * blocked-image placeholder and nothing to fetch. Palette only (see above).
  */
 function shell(heading: string, paragraphs: string[], cta?: { label: string; href: string }): string {
   const body = paragraphs
     .map(
       (p) =>
-        `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#334155;">${escapeHtml(p)}</p>`,
+        `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:${INK};font-family:${FONT};">${escapeHtml(p)}</p>`,
     )
     .join('')
 
+  // Full-width button as its own table so the coloured cell carries bgcolor —
+  // Gmail dark mode leaves a bgcolor cell alone but would recolour a styled <a>.
   const button = cta
-    ? `<p style="margin:22px 0 0;"><a href="${escapeHtml(link(cta.href))}" style="display:inline-block;background:#C20202;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:12px;">${escapeHtml(cta.label)}</a></p>`
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;">
+        <tr><td bgcolor="${RED}" style="border-radius:12px;" align="center">
+          <a href="${escapeHtml(link(cta.href))}" style="display:block;padding:14px 22px;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">${escapeHtml(cta.label)}</a>
+        </td></tr>
+      </table>`
     : ''
 
-  return `<div style="background:#F8FAFC;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
-  <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;padding:28px 24px;">
-    <p style="margin:0 0 20px;font-size:20px;font-weight:900;color:#151E6B;">Tutor<span style="color:#C20202;">Mint</span></p>
-    <h1 style="margin:0 0 16px;font-size:18px;font-weight:800;color:#151E6B;line-height:1.35;">${escapeHtml(heading)}</h1>
-    ${body}
-    ${button}
-  </div>
-  <p style="max-width:520px;margin:16px auto 0;font-size:11px;line-height:1.6;color:#94a3b8;text-align:center;">
-    TutorMint · <a href="${escapeHtml(SITE_URL)}" style="color:#94a3b8;">tutormint.org</a><br />
-    You can change which emails you receive at
-    <a href="${escapeHtml(link('/account/notifications/settings'))}" style="color:#94a3b8;">Notification settings</a>.
-  </p>
-</div>`
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<meta name="supported-color-schemes" content="light" />
+<title>${escapeHtml(heading)}</title>
+</head>
+<body style="margin:0;padding:0;background:${MINT_TINT};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${MINT_TINT}" style="background:${MINT_TINT};">
+  <tr><td align="center" style="padding:24px 12px;">
+    <table role="presentation" width="520" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;">
+      <tr><td bgcolor="#ffffff" style="background:#ffffff;border-radius:20px;padding:28px 24px;">
+        <p style="margin:0 0 20px;font-family:${FONT};font-size:20px;font-weight:900;color:${NAVY};">Tutor<span style="color:${RED};">Mint</span></p>
+        <h1 style="margin:0 0 16px;font-family:${FONT};font-size:18px;font-weight:800;color:${NAVY};line-height:1.35;">${escapeHtml(heading)}</h1>
+        ${body}
+        ${button}
+      </td></tr>
+      <tr><td style="padding:16px 12px 0;">
+        <p style="margin:0;font-family:${FONT};font-size:11px;line-height:1.6;color:${NAVY};text-align:center;">
+          <a href="${escapeHtml(SITE_URL)}" style="color:${NAVY};text-decoration:none;font-weight:700;">tutormint.org</a><br />
+          You can change which emails you receive at
+          <a href="${escapeHtml(link('/account/notifications/settings'))}" style="color:${RED};">Notification settings</a>.<br />
+          <span style="color:${NAVY};">© 2026 Tutor Mint (Private) Limited</span>
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`
 }
 
 function escapeHtml(s: string): string {
@@ -90,7 +132,13 @@ function escapeHtml(s: string): string {
 function plain(heading: string, paragraphs: string[], cta?: { label: string; href: string }): string {
   const parts = [heading, '', ...paragraphs]
   if (cta) parts.push('', `${cta.label}: ${link(cta.href)}`)
-  parts.push('', '—', 'TutorMint · tutormint.org', `Notification settings: ${link('/account/notifications/settings')}`)
+  parts.push(
+    '',
+    '—',
+    'TutorMint · tutormint.org',
+    `Notification settings: ${link('/account/notifications/settings')}`,
+    '© 2026 Tutor Mint (Private) Limited',
+  )
   return parts.join('\n')
 }
 
@@ -132,6 +180,10 @@ export type TemplateInput =
     }
   | { id: 'message_digest'; name: string; count: number; from: string[] }
   | { id: 'plan_activated'; name: string; planName: string; expiresAt: string; amountPkr: number }
+  // The one-time Rs 199 verification fee receipt. A receipt, so essential; it
+  // states visibility only — never a promise of being hired — and the no-refund
+  // rule. No expiry: the fee is one-time, not a subscription.
+  | { id: 'verification_fee_paid'; name: string; amountPkr: number }
   // An admin grant, not a purchase — so no amount and no refund line. Warm, and
   // it names what the plan unlocks without promising tuitions, income or a price.
   | { id: 'plan_granted'; name: string; planName: string; unlocks: string; listed: boolean }
@@ -277,6 +329,20 @@ export function render(input: TemplateInput): RenderedEmail {
         { label: 'Open your messages', href: '/messages' },
       )
     }
+
+    // ---------------------------------------------------------------------
+    case 'verification_fee_paid':
+      return build(
+        'You are verified on TutorMint',
+        `You are verified, ${input.name}`,
+        [
+          `Payment of Rs. ${input.amountPkr.toLocaleString('en-PK')} received. Your one-time verification fee is paid and your profile is now shown to parents.`,
+          'Complete your profile to appear higher in search. Verified tutors are shown to parents first.',
+          'The verification fee is one-time and non-refundable, as set out in our Terms.',
+        ],
+        true, // a receipt
+        { label: 'Open your dashboard', href: '/tutor/dashboard' },
+      )
 
     // ---------------------------------------------------------------------
     case 'plan_activated':

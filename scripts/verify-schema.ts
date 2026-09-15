@@ -97,7 +97,7 @@ const EXPECTED_TABLES: Record<string, string[]> = {
   ad_events: ['id', 'ad_id', 'kind', 'slot', 'viewer_role', 'occurred_at'],
 }
 
-const EXPECTED_PLANS = ['verified', 'premium', 'featured', 'parent_verified', 'parent_featured']
+const EXPECTED_PLANS = ['verified', 'basic', 'premium', 'featured', 'parent_verified', 'parent_featured']
 
 const EXPECTED_TAXONOMY: Record<string, number> = {
   taxonomy_categories: 13,

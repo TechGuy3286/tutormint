@@ -238,9 +238,9 @@ test('WhatsApp-only and null contact', () => {
 
 // --------------------------------------------------------------- the gate ---
 
-test('a free tutor cannot download; Verified and above can', () => {
+test('an unverified tutor (no plan) cannot download; every plan tier can', () => {
   assert.equal(canDownloadCv({ audience: 'tutor', plan: null, suspended: false }), false)
-  assert.equal(canDownloadCv({ audience: 'tutor', plan: 'verified', suspended: false }), true)
+  assert.equal(canDownloadCv({ audience: 'tutor', plan: 'basic', suspended: false }), true)
   assert.equal(canDownloadCv({ audience: 'tutor', plan: 'premium', suspended: false }), true)
   assert.equal(canDownloadCv({ audience: 'tutor', plan: 'featured', suspended: false }), true)
 })

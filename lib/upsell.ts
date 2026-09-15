@@ -15,8 +15,12 @@ import type { PlanCode } from '@/lib/entitlements'
 
 export type UpsellAudience = 'tutor' | 'parent'
 
+// Tutor ladder low → high: Basic (free, the tier a tutor is on after the
+// one-time Rs 199 fee) → Premium → Featured. Basic is not itself sold — an
+// UNVERIFIED tutor's way forward is the Verify (fee) gate, handled in
+// lib/gate.ts — but it is rung 1 so nextUpsell offers a Basic tutor Premium.
 const LADDER: Record<UpsellAudience, PlanCode[]> = {
-  tutor: ['verified', 'premium', 'featured'],
+  tutor: ['basic', 'premium', 'featured'],
   parent: ['parent_verified', 'parent_featured'],
 }
 

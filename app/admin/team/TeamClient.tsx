@@ -74,6 +74,82 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
   const toast = useToast()
   const confirm = useConfirm()
 
+  // Grant a role to an EXISTING member (search + grant).
+  type Candidate = {
+    id: string
+    fullName: string | null
+    email: string | null
+    role: string | null
+    listedTutor: boolean
+    emptyTutor: boolean
+  }
+  const [grantOpen, setGrantOpen] = useState(false)
+  const [grantQuery, setGrantQuery] = useState('')
+  const [grantResults, setGrantResults] = useState<Candidate[]>([])
+  const [grantSearching, setGrantSearching] = useState(false)
+  const [grantRole, setGrantRole] = useState('operations')
+
+  const searchGrant = async (q: string) => {
+    setGrantQuery(q)
+    if (q.trim().length < 2) {
+      setGrantResults([])
+      return
+    }
+    setGrantSearching(true)
+    try {
+      const res = await fetch(`/api/admin/team?q=${encodeURIComponent(q.trim())}`)
+      const json = (await res.json().catch(() => ({}))) as { candidates?: Candidate[] }
+      setGrantResults(res.ok ? (json.candidates ?? []) : [])
+    } catch {
+      setGrantResults([])
+    } finally {
+      setGrantSearching(false)
+    }
+  }
+
+  const grant = async (c: Candidate, confirmListedTutor = false) => {
+    setBusy(c.id)
+    setError(null)
+    try {
+      const { ok, status, data: json } = await adminFetch<{
+        error?: string
+        needsConfirm?: boolean
+        warning?: string
+        droppedTutor?: boolean
+      }>('/api/admin/team', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'grant', userId: c.id, adminRole: grantRole, confirmListedTutor }),
+      })
+      // A listed tutor: the server asks for the dual-identity confirmation.
+      if (status === 409 && json.needsConfirm) {
+        const proceed = await confirm({
+          title: 'Grant a listed tutor staff access?',
+          body: json.warning ?? 'This member has a public tutor profile.',
+          confirmLabel: 'Grant anyway',
+          destructive: false,
+        })
+        if (proceed) await grant(c, true)
+        return
+      }
+      if (!ok) throw new Error(json.error ? `${json.error}${status ? ` (HTTP ${status})` : ''}` : 'That did not work.')
+      toast.success(
+        `${c.fullName ?? c.email ?? 'That member'} is now ${grantRole}.` +
+          (json.droppedTutor ? ' Their empty tutor profile was removed.' : ''),
+      )
+      setGrantOpen(false)
+      setGrantQuery('')
+      setGrantResults([])
+      router.refresh()
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'That did not work.'
+      setError(message)
+      toast.error(message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const call = async (payload: Record<string, unknown>, id: string) => {
     setBusy(id)
     setError(null)
@@ -313,6 +389,110 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
           className="min-h-[44px] w-full rounded-xl bg-tm-black px-4 text-xs font-bold text-white sm:w-auto sm:px-6"
         >
           Add a staff member
+        </button>
+      )}
+
+      {/* ------------------------------------- grant to an existing member --- */}
+      {grantOpen ? (
+        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-black text-tm-navy">Grant a role to an existing member</h2>
+              <p className="text-[11px] text-gray-500">
+                Search a tutor or parent by name or email and give them Admin or Operations. They
+                keep their existing login.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setGrantOpen(false)
+                setGrantQuery('')
+                setGrantResults([])
+              }}
+              className="shrink-0 text-[11px] font-bold text-slate-700"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <fieldset className="flex flex-wrap gap-2">
+            <legend className="mb-1 text-[11px] font-bold text-gray-500">Role to grant</legend>
+            {ROLES.map((r) => (
+              <label
+                key={r.code}
+                className={`flex min-h-[40px] cursor-pointer items-center gap-2 rounded-xl border px-3 text-xs font-bold ${
+                  grantRole === r.code ? 'border-tm-navy bg-tm-bg text-tm-navy' : 'border-gray-200 text-slate-700'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="grantRole"
+                  value={r.code}
+                  checked={grantRole === r.code}
+                  onChange={() => setGrantRole(r.code)}
+                />
+                {r.label}
+              </label>
+            ))}
+          </fieldset>
+
+          <input
+            value={grantQuery}
+            onChange={(e) => void searchGrant(e.target.value)}
+            placeholder="Search by name or email"
+            aria-label="Search members"
+            className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs font-semibold"
+          />
+
+          {grantQuery.trim().length >= 2 && (
+            <ul className="space-y-2">
+              {grantSearching && <li className="text-[11px] text-gray-500">Searching…</li>}
+              {!grantSearching && grantResults.length === 0 && (
+                <li className="text-[11px] text-gray-500">No members match “{grantQuery.trim()}”.</li>
+              )}
+              {grantResults.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-black text-tm-navy">
+                      {c.fullName ?? c.email ?? 'Member'}
+                      <span className="ml-2 text-[10px] font-bold text-gray-500">{c.role}</span>
+                    </p>
+                    <p className="truncate text-[11px] text-gray-500">{c.email}</p>
+                    {c.listedTutor && (
+                      <p className="mt-0.5 text-[10px] font-bold text-tm-gold-ink">
+                        Listed tutor — keeps their public profile
+                      </p>
+                    )}
+                    {c.emptyTutor && (
+                      <p className="mt-0.5 text-[10px] font-bold text-gray-500">
+                        Empty tutor account — the tutor role is dropped
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={busy === c.id}
+                    onClick={() => void grant(c)}
+                    className="min-h-[40px] shrink-0 rounded-xl bg-tm-black px-4 text-xs font-bold text-white disabled:opacity-50"
+                  >
+                    {busy === c.id ? 'Granting…' : `Grant ${grantRole}`}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setGrantOpen(true)}
+          className="min-h-[44px] w-full rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700 sm:w-auto sm:px-6"
+        >
+          Grant a role to an existing member
         </button>
       )}
 

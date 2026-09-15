@@ -34,7 +34,7 @@ export { badgesForPlan, isFeaturedPlan }
 export type { BadgeName }
 
 export type PlanCode =
-  | 'verified'
+  | 'basic'
   | 'premium'
   | 'featured'
   | 'parent_verified'
@@ -206,6 +206,8 @@ export type EntitlementInputs = {
     claimed_at: string | null
     under_review: boolean | null
     degrees: string[] | null
+    /** The one-time Rs 199 verification fee timestamp — what lists a tutor. */
+    verified_fee_paid_at: string | null
   } | null
   /** Active AND unexpired subscription rows — the caller filters status/expiry. */
   activeSubs: { plan_code: string; expires_at: string | null }[]
@@ -233,20 +235,19 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   const profileCompletion = profile.profile_completion ?? 0
   const profileComplete = profileCompletion >= 100
 
-  // Does the tutor hold an ACTIVE paid plan? (Any active, unexpired sub whose
-  // plan is a tutor plan. The caller has already filtered activeSubs to
-  // status='active' AND expires_at > now().)
-  const tutorPlanCodes = new Set(input.plans.filter((p) => p.audience === 'tutor').map((p) => p.code))
-  const hasActivePaidPlan = input.activeSubs.some((s) => tutorPlanCodes.has(s.plan_code))
+  // The one-time Rs 199 verification fee is what lists a tutor (owner, 15 Sep
+  // 2026) — not an active paid plan. After the fee the tutor is on the free
+  // Basic tier; Premium/Featured are upgrades that add powers.
+  const feePaid = !!tutorRow?.verified_fee_paid_at
 
-  // `listed` is the tutor_directory rule in TS (owner, 10 Sep 2026): an active
-  // paid plan + the listable precondition (mobile verified, verification
-  // 'verified', not suspended/banned/under-review, claimed if imported).
-  // Completion no longer gates it.
+  // `listed` is the tutor_directory rule in TS: the fee recorded + the listable
+  // precondition (mobile verified, verification not suspended/rejected, not
+  // suspended/banned/under-review, claimed if imported). Completion no longer
+  // gates it.
   const listed =
     role === 'tutor'
       ? tutorListed({
-          hasActivePaidPlan,
+          feePaid,
           phoneVerified: !!profile.phone_verified_at,
           verificationStatus: tutorRow?.verification_status,
           isSuspended: profile.is_suspended,
@@ -307,6 +308,14 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   if (!best && audience === 'parent' && profile.cnic_verified_at && profile.address_verified_at) {
     const free = plans.get('parent_verified')
     if (free) best = { plan: free, expiresAt: null }
+  }
+
+  // The free tier a tutor is on once the one-time fee is paid — synthesised the
+  // same way as the free parent, since a Basic tutor holds no subscription row.
+  // A Premium/Featured sub (found above) always wins over this.
+  if (!best && audience === 'tutor' && feePaid) {
+    const basic = plans.get('basic')
+    if (basic) best = { plan: basic, expiresAt: null }
   }
 
   // A PAUSED plan: paid for, but the clock has not started. It confers nothing;
@@ -384,7 +393,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
   // is a couple of small reads on rare accounts and keeps the decision pure.
   const [tutorRes, subsRes, planRes, pausedRes, counterRes] = await Promise.all([
     role === 'tutor'
-      ? db.from('tutor_profiles').select('verification_status, imported, claimed_at, under_review, degrees').eq('id', userId).maybeSingle()
+      ? db.from('tutor_profiles').select('verification_status, imported, claimed_at, under_review, degrees, verified_fee_paid_at').eq('id', userId).maybeSingle()
       : Promise.resolve({ data: null }),
     db
       .from('subscriptions')

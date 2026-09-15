@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createStaff, changeStaffRole, resendStaffInvite } from '@/lib/staff'
+import { createStaff, changeStaffRole, resendStaffInvite, grantStaffToExisting, searchGrantCandidates } from '@/lib/staff'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -22,13 +22,26 @@ import { requireFreshAuth } from '@/lib/reauth'
 // recoverable only with a SQL session.
 
 const TeamBody = z.object({
-  action: z.enum(['create', 'role', 'remove', 'resend'], { message: 'Unknown action.' }),
+  action: z.enum(['create', 'role', 'remove', 'resend', 'grant'], { message: 'Unknown action.' }),
   userId: uuid.optional(),
   email: z.string().email('Enter a valid email address.').max(320).optional(),
   fullName: z.string().max(200).optional(),
   adminRole: z.enum(['owner', 'admin', 'operations']).optional(),
   reason: z.string().max(1000).optional(),
+  /** grant: the owner has acknowledged the dual-identity warning for a listed tutor. */
+  confirmListedTutor: z.boolean().optional(),
 })
+
+// Owner-only search for an existing member to grant a role to. A read, so it is
+// NOT behind requireFreshAuth (a password prompt per keystroke is absurd); the
+// owner gate still applies.
+export async function GET(request: Request) {
+  const gate = await checkAdminRole(...SCREEN_ACCESS.team)
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
+  const q = new URL(request.url).searchParams.get('q') ?? ''
+  const candidates = await searchGrantCandidates(q)
+  return NextResponse.json({ candidates })
+}
 
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.team)
@@ -85,6 +98,26 @@ export async function POST(request: Request) {
       invited: result.invited,
       inviteLink: result.inviteLink ?? null,
     })
+  }
+
+  // -------------------------------------------------------------- grant ---
+  // Grant a staff role to an EXISTING member (no new account, no invite). A
+  // listed tutor needs the dual-identity warning confirmed first — the route
+  // returns needsConfirm and the client re-submits with confirmListedTutor.
+  if (body.action === 'grant') {
+    const result = await grantStaffToExisting({
+      userId: body.userId ?? '',
+      adminRole: body.adminRole as AdminRole,
+      confirmListedTutor: body.confirmListedTutor,
+      actor,
+    })
+    if (!result.ok) {
+      if ('needsConfirm' in result) {
+        return NextResponse.json({ needsConfirm: true, warning: result.warning }, { status: 409 })
+      }
+      return NextResponse.json({ error: result.error }, { status: result.status })
+    }
+    return NextResponse.json({ success: true, droppedTutor: result.droppedTutor })
   }
 
   // --------------------------------------------------------- change role ---

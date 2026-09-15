@@ -61,18 +61,19 @@ export const SEED_CAST: CastMember[] = [
   },
   {
     key: 'verified-usman', email: E('verified-usman'), role: 'tutor',
-    plan: 'verified', verification: 'verified', completion: 100,
-    intent: 'Verified tutor, listed — Verified badge only.',
+    plan: 'basic', verification: 'verified', completion: 100,
+    intent: 'Basic tutor (one-time fee paid), listed — Verified badge only.',
   },
   {
     key: 'free-nadia', email: E('free-nadia'), role: 'tutor',
-    plan: null, verification: 'verified', completion: 100,
-    intent: 'Free tutor at 100%, listed, NO plan — no badge.',
+    plan: 'basic', verification: 'verified', completion: 100,
+    intent: 'Basic tutor (fee paid) at 100%, listed — Verified badge, no paid upgrade.',
   },
   {
+    // The one tutor who has NOT paid the one-time fee: not listed, no badge.
     key: 'free-hina', email: E('free-hina'), role: 'tutor',
-    plan: null, verification: 'verified',
-    intent: 'Free tutor, NO plan.',
+    plan: null, verification: 'pending',
+    intent: 'Tutor who has NOT paid the verification fee — not listed, no badge.',
   },
   {
     key: 'suspended-omar', email: E('suspended-omar'), role: 'tutor',

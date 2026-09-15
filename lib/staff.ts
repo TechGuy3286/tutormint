@@ -277,6 +277,182 @@ export async function resendStaffInvite(params: {
   return { ok: true, invited: sent.ok, inviteLink: sent.ok ? undefined : inviteUrl }
 }
 
+/** A member who could be granted a staff role — for the Team search box. */
+export type GrantCandidate = {
+  id: string
+  fullName: string | null
+  email: string | null
+  role: string | null
+  /** A LISTED tutor (public profile renders) — granting is warned. */
+  listedTutor: boolean
+  /** An empty, never-completed tutor account — granting drops the tutor role. */
+  emptyTutor: boolean
+}
+
+/**
+ * Search existing members by name or email, to grant one a staff role. Excludes
+ * accounts that are already staff (they use changeStaffRole) and, being an
+ * owner-only screen, reads through the service role.
+ */
+export async function searchGrantCandidates(query: string): Promise<GrantCandidate[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const q = query.trim()
+  if (q.length < 2) return []
+
+  const like = `%${q.replace(/[%_]/g, (m) => `\\${m}`)}%`
+  const { data: profs } = await admin
+    .from('profiles')
+    .select('id, full_name, email, role')
+    .neq('role', 'admin')
+    .or(`full_name.ilike.${like},email.ilike.${like}`)
+    .limit(10)
+  const rows = profs ?? []
+  if (rows.length === 0) return []
+
+  const ids = rows.map((p) => p.id as string)
+  const [{ data: listedRows }, { data: subjectRows }, { data: tpRows }] = await Promise.all([
+    admin.from('tutor_visible_profiles').select('id').in('id', ids),
+    admin.from('tutor_subjects').select('tutor_id').in('tutor_id', ids),
+    admin.from('tutor_profiles').select('id, city, verified_fee_paid_at').in('id', ids),
+  ])
+  const listed = new Set((listedRows ?? []).map((r) => r.id as string))
+  const hasSubjects = new Set((subjectRows ?? []).map((r) => r.tutor_id as string))
+  const tp = new Map((tpRows ?? []).map((r) => [r.id as string, r]))
+
+  return rows.map((p) => {
+    const id = p.id as string
+    const isTutor = p.role === 'tutor'
+    const row = tp.get(id)
+    // Empty = a tutor who never engaged: not listed, no fee, no subjects, no city.
+    const emptyTutor =
+      isTutor &&
+      !listed.has(id) &&
+      !hasSubjects.has(id) &&
+      !(row?.city as string | null) &&
+      !(row?.verified_fee_paid_at as string | null)
+    return {
+      id,
+      fullName: (p.full_name as string | null) ?? null,
+      email: (p.email as string | null) ?? null,
+      role: (p.role as string | null) ?? null,
+      listedTutor: isTutor && listed.has(id),
+      emptyTutor,
+    }
+  })
+}
+
+export type GrantResult =
+  | { ok: true; droppedTutor: boolean }
+  // A listed tutor: the owner must confirm the dual-identity trade before it runs.
+  | { ok: false; needsConfirm: true; warning: string }
+  | { ok: false; status: number; error: string }
+
+/**
+ * Grant an EXISTING member a staff role (owner only, enforced by the caller).
+ *
+ * This is deliberately separate from createStaff: no new account, no invite, no
+ * temporary password — the person already has a login, and afterwards it also
+ * reaches the admin panel.
+ *
+ *  * A LISTED tutor keeps their public tutor profile AND gains staff access on
+ *    one login — a real dual identity, so the owner must confirm it first
+ *    (`confirmListedTutor`).
+ *  * An EMPTY, never-completed tutor account has the tutor role dropped and its
+ *    empty tutor_profiles row removed, so it does not linger as a half-tutor.
+ */
+export async function grantStaffToExisting(params: {
+  userId: string
+  adminRole: AdminRole
+  confirmListedTutor?: boolean
+  actor: Actor
+}): Promise<GrantResult> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
+  if (!ASSIGNABLE_ROLES.includes(params.adminRole)) {
+    return { ok: false, status: 400, error: 'Choose a role. There is only one owner.' }
+  }
+
+  const { data: target } = await admin
+    .from('profiles')
+    .select('id, role, admin_role, email, full_name')
+    .eq('id', params.userId)
+    .maybeSingle()
+  if (!target) return { ok: false, status: 404, error: 'That member was not found.' }
+  if (target.role === 'admin') {
+    return { ok: false, status: 409, error: 'That account is already a staff account — change its role instead.' }
+  }
+
+  const isTutor = target.role === 'tutor'
+  let listedTutor = false
+  let emptyTutor = false
+  if (isTutor) {
+    const [{ data: vis }, { data: subs }, { data: tp }] = await Promise.all([
+      admin.from('tutor_visible_profiles').select('id').eq('id', params.userId).maybeSingle(),
+      admin.from('tutor_subjects').select('tutor_id').eq('tutor_id', params.userId).limit(1),
+      admin.from('tutor_profiles').select('city, verified_fee_paid_at').eq('id', params.userId).maybeSingle(),
+    ])
+    listedTutor = !!vis
+    emptyTutor =
+      !vis && (subs ?? []).length === 0 && !(tp?.city as string | null) && !(tp?.verified_fee_paid_at as string | null)
+  }
+
+  if (listedTutor && !params.confirmListedTutor) {
+    return {
+      ok: false,
+      needsConfirm: true,
+      warning:
+        `${target.full_name ?? 'This member'} is a listed tutor. Granting a staff role gives ` +
+        'them the admin panel on the same login while their public tutor profile stays live — ' +
+        'one person holding both a tutor identity and staff access. Confirm to grant it.',
+    }
+  }
+
+  // Grant. role becomes 'admin' (the layouts and SCREEN_ACCESS gate on it) and
+  // admin_role carries the level. The password is unchanged — they already have
+  // one — so no invite and no forced reset.
+  const { error: upErr } = await admin
+    .from('profiles')
+    .update({ role: 'admin', admin_role: params.adminRole })
+    .eq('id', params.userId)
+  if (upErr) return { ok: false, status: 400, error: upErr.message }
+
+  // An empty tutor account should not linger as a half-tutor: drop the empty
+  // tutor_profiles row. A listed/real tutor KEEPS theirs (the public profile).
+  let droppedTutor = false
+  if (emptyTutor) {
+    await admin.from('tutor_profiles').delete().eq('id', params.userId)
+    droppedTutor = true
+  }
+
+  await logAdminAction({
+    actorId: params.actor.id,
+    actorRole: params.actor.adminRole,
+    actorEmail: params.actor.email,
+    action: 'staff.grant_existing',
+    targetType: 'profile',
+    targetId: params.userId,
+    detail: {
+      email: target.email,
+      fromRole: target.role,
+      toAdminRole: params.adminRole,
+      wasListedTutor: listedTutor,
+      droppedEmptyTutor: droppedTutor,
+    },
+  })
+
+  await logActivity({
+    userId: params.userId,
+    event: 'staff_created',
+    targetType: 'profile',
+    targetId: params.userId,
+    meta: { adminRole: params.adminRole, grantedToExisting: true, droppedTutor },
+  })
+
+  return { ok: true, droppedTutor }
+}
+
 export async function changeStaffRole(params: {
   userId: string
   adminRole: AdminRole

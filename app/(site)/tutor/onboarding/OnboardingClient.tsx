@@ -6,6 +6,7 @@ import { ArrowLeft, Camera, ImageIcon, Check, Search, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { submitSignal, UPLOAD_TIMEOUT_MS } from '@/lib/submit'
+import { compressImage } from '@/lib/imageCompress'
 import type { OnboardingFacets, Facet, SubjectFacet, FeeFacet } from '@/lib/openJobCounts'
 import {
   L,
@@ -88,6 +89,9 @@ export default function OnboardingClient({ facets, seed }: { facets: OnboardingF
   const [fee, setFee] = useState<FeeFacet | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [selfieDone, setSelfieDone] = useState(false)
+  // A local object-URL preview of the selfie, so the tile shows the actual photo
+  // (the selfie lives in the private identity-docs bucket and has no public URL).
+  const [selfiePreview, setSelfiePreview] = useState<string | null>(null)
 
   const [counts, setCounts] = useState<Counts>({ national: facets.national, city: null, area: null, subjects: null, level: null })
   const [busy, setBusy] = useState(false)
@@ -140,10 +144,22 @@ export default function OnboardingClient({ facets, seed }: { facets: OnboardingF
     const national: Bi = { en: L.acrossPakistan.en, ur: L.acrossPakistan.ur }
 
     const nat = { n: counts.national, bi: national }
-    const withFloor = (primary: { n: number; bi: Bi }, chain: { n: number | null; bi: Bi }[]) => {
-      if (primary.n >= 3) return { primary }
-      const fb = chain.find((c) => c.n != null) as { n: number; bi: Bi } | undefined
-      return fb ? { primary, fallback: fb } : { primary }
+    // THE FLOOR RULE (owner, 15 Sep 2026). The headline is NEVER 0 and never a
+    // lonely small number. When the narrow scope the tutor just chose matches
+    // fewer than 3, the headline becomes the nearest BROADER count that is
+    // healthy (>= 3, else the broadest known — national), and the narrow match
+    // drops to a secondary detail — shown only when it is itself positive, so a
+    // "· 0 matching you" taunt can never appear beneath the headline.
+    const withFloor = (
+      narrow: { n: number; bi: Bi },
+      chain: { n: number | null; bi: Bi }[],
+    ): { primary: { n: number; bi: Bi }; fallback?: { n: number; bi: Bi } } => {
+      if (narrow.n >= 3) return { primary: narrow }
+      const broader =
+        (chain.find((c) => c.n != null && c.n >= 3) as { n: number; bi: Bi } | undefined) ??
+        ([...chain].reverse().find((c) => c.n != null) as { n: number; bi: Bi } | undefined)
+      if (!broader) return { primary: narrow }
+      return narrow.n > 0 ? { primary: broader, fallback: narrow } : { primary: broader }
     }
 
     if (levelSlugs.length > 0 && counts.level != null) {
@@ -208,8 +224,11 @@ export default function OnboardingClient({ facets, seed }: { facets: OnboardingF
   async function uploadPhoto(file: File) {
     setBusy(true)
     try {
-      const path = `${seed}/${Date.now()}-${file.name.replace(/[^\w.-]/g, '_')}`
-      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+      // Compress on-device first (a 4–8 MB camera photo → a well-under-1 MB JPEG)
+      // — kinder to a phone data plan, and it keeps the avatars bucket tidy.
+      const img = await compressImage(file)
+      const path = `${seed}/${Date.now()}-${img.name.replace(/[^\w.-]/g, '_')}`
+      const { error } = await supabase.storage.from('avatars').upload(path, img, { upsert: true })
       if (error) throw new Error(error.message)
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
       setAvatarUrl(data.publicUrl)
@@ -223,12 +242,30 @@ export default function OnboardingClient({ facets, seed }: { facets: OnboardingF
   async function uploadSelfie(file: File) {
     setBusy(true)
     try {
+      // The selfie POSTs through the Next/Vercel API route, whose request body is
+      // capped near 4.5 MB — an Android camera photo (4–8 MB) exceeds it and the
+      // platform returns a 413 that surfaced as the opaque "Upload failed." Two
+      // fixes: compress on-device so the body is small, and surface the real
+      // status when it still fails.
+      const img = await compressImage(file)
       const fd = new FormData()
       fd.append('kind', 'selfie')
-      fd.append('file', file)
+      fd.append('file', img)
       const res = await fetch('/api/documents/upload', { method: 'POST', body: fd, signal: submitSignal(UPLOAD_TIMEOUT_MS) })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json.error ?? 'Upload failed.')
+      if (!res.ok) {
+        const detail =
+          json.error ??
+          (res.status === 413
+            ? 'The photo was too large to upload. Please try again.'
+            : `Upload failed (${res.status}).`)
+        throw new Error(detail)
+      }
+      // Show the actual selfie in the tile via a local object URL.
+      setSelfiePreview((old) => {
+        if (old) URL.revokeObjectURL(old)
+        return URL.createObjectURL(img)
+      })
       setSelfieDone(true)
       toast.success('Selfie added.')
     } catch (e) {
@@ -461,10 +498,10 @@ export default function OnboardingClient({ facets, seed }: { facets: OnboardingF
         )}
 
         {step === 'photo' && (
-          <PhotoStep onFile={uploadPhoto} done={!!avatarUrl} busy={busy} allowGallery />
+          <PhotoStep onFile={uploadPhoto} done={!!avatarUrl} busy={busy} allowGallery previewUrl={avatarUrl} />
         )}
         {step === 'selfie' && (
-          <PhotoStep onFile={uploadSelfie} done={selfieDone} busy={busy} allowGallery={false} front />
+          <PhotoStep onFile={uploadSelfie} done={selfieDone} busy={busy} allowGallery={false} front previewUrl={selfiePreview} />
         )}
 
         {step === 'review' && (
@@ -683,19 +720,31 @@ function PhotoStep({
   busy,
   allowGallery,
   front = false,
+  previewUrl = null,
 }: {
   onFile: (f: File) => void
   done: boolean
   busy: boolean
   allowGallery: boolean
   front?: boolean
+  /** The actual image to show in the tile once taken — a real preview, not a tick. */
+  previewUrl?: string | null
 }) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
   return (
     <div className="flex flex-col items-center gap-3">
-      <div className={`grid h-40 w-40 place-items-center rounded-2xl border-2 ${done ? 'border-tm-green-deep bg-tm-tint-green' : 'border-dashed border-gray-300 bg-white'}`}>
-        {done ? <Check size={44} className="text-tm-green-deep" /> : <Camera size={44} className="text-gray-500" />}
+      {/* Once a photo is taken the tile shows the ACTUAL photo filling it, not a
+          green tick — the tutor sees exactly what they captured and can retake. */}
+      <div className={`relative grid h-40 w-40 place-items-center overflow-hidden rounded-2xl border-2 ${done && previewUrl ? 'border-tm-green-deep' : done ? 'border-tm-green-deep bg-tm-tint-green' : 'border-dashed border-gray-300 bg-white'}`}>
+        {done && previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={previewUrl} alt="Your photo" className="h-full w-full object-cover" />
+        ) : done ? (
+          <Check size={44} className="text-tm-green-deep" />
+        ) : (
+          <Camera size={44} className="text-gray-500" />
+        )}
       </div>
 
       {/* One tap opens the camera directly. capture=environment (photo) /

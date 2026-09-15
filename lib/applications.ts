@@ -5,15 +5,15 @@
 // The gates on applying, all checked server-side and in this order so the
 // cheapest refusals happen first:
 //
-//   1. the tutor is LISTED (paid plan + verified, not suspended) -- an unlisted
-//      tutor applying would put a profile in front of a parent that the
+//   1. the tutor is LISTED (one-time fee paid + verified, not suspended) -- an
+//      unlisted tutor applying would put a profile in front of a parent that the
 //      directory has decided is not ready to be seen
 //   2. the pair is not blocked
 //   3. the job's gender preference, if any, matches the tutor's gender (an
 //      unset tutor gender is never blocked; a plain message, not an upgrade)
 //   4. the job is still open
 //   5. they have not already applied (a unique index backs this up)
-//   6. quota: 10 / 25 / 100 by plan
+//   6. quota: Basic 10/month; Premium and Featured "Unlimited" (100 / 150 real cap)
 //
 // Quota is spent only after the row exists, and withdrawal never refunds it
 // (the owner's rule) -- the application still cost a slot, which is what stops
@@ -154,7 +154,10 @@ export async function applyToJob(params: {
     return {
       ...quota,
       gate: await buildGate(
-        quota.reason === 'no_plan' ? 'tutor_apply_no_plan' : 'tutor_apply_quota',
+        // No plan at all = not yet verified: the way forward is the one-time
+        // Rs 199 fee (the Verify gate), not a paid-plan upsell. A Basic tutor
+        // over their monthly allowance is the Premium upsell.
+        quota.reason === 'no_plan' ? 'tutor_verify' : 'tutor_apply_quota',
         ent,
       ),
     }

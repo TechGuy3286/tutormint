@@ -128,8 +128,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
     blurb: 'Getting seen, and what a membership buys.',
     items: [
       {
-        q: 'What do I actually get for Rs 199 a month?',
-        a: 'You get listed in search with a Verified badge, and you can apply to ten tuitions a month. That puts your profile in front of parents who are already searching for your subject in your area — that is what is being sold. It is not a guarantee of work: whether a parent chooses you depends on your profile, your reply and your experience, and no honest platform can promise otherwise.',
+        q: 'What do I get for the Rs 199 verification fee?',
+        a: 'Rs 199 is a one-time fee — you pay it once, there is no renewal and no monthly charge for it. It makes you a verified tutor, listed in search with a Verified badge, on the free Basic plan: you can apply to ten tuitions a month and message parents. That puts your profile in front of parents who are already searching for your subject in your area — that is what is being sold. It is not a guarantee of work: whether a parent chooses you depends on your profile, your reply and your experience, and no honest platform can promise otherwise. Premium and Featured are optional monthly plans that add unlimited applications, parent contact details and higher placement.',
         links: [
           { label: 'Tutor memberships', href: '/tutor/packages' },
           { label: 'Open tuitions', href: '/browse/tuitions' },
@@ -137,7 +137,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How is this different from running my own Meta ads?',
-        a: 'An ad has to find someone who might want a tutor. A parent on TutorMint is already looking for one, has already chosen the subject and the area, and in many cases has already posted the job. You also need no website, no landing page, no ad account and no daily budget — a boosted post in one Pakistani city costs more in a week than Rs 199 does in a month, and it stops the moment you stop paying. Your profile keeps working while your membership runs.',
+        a: 'An ad has to find someone who might want a tutor. A parent on TutorMint is already looking for one, has already chosen the subject and the area, and in many cases has already posted the job. You also need no website, no landing page, no ad account and no daily budget — a boosted post in one Pakistani city costs more in a week than the one-time Rs 199 verification fee, and it stops the moment you stop paying. Your profile keeps working once you are verified.',
         links: [
           { label: 'Tutor memberships', href: '/tutor/packages' },
           { label: 'Open tuitions', href: '/browse/tuitions' },
@@ -339,7 +339,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Rs 199 mein tutor ko kya milta hai?',
         lang: 'ur',
-        a: 'Aap search mein Verified badge ke sath list hote hain, aur mahine mein das tuitions par apply kar sakte hain. Isse aap ka profile un walidain ke saamne aata hai jo pehle se aap ke subject aur ilaqay mein tutor dhoond rahe hain — yehi cheez bechi ja rahi hai. Yeh kaam milne ki zamanat nahi hai: kaun chuna jayega yeh aap ke profile, aap ke jawab aur tajurbe par hai, aur koi bhi imaandar platform is se ziyada wada nahi kar sakta.',
+        a: 'Rs 199 ek baar ki fees hai — aap ise sirf ek dafa dete hain, na koi renewal, na koi mahana charge. Is se aap verified tutor ban jate hain, search mein Verified badge ke sath list hote hain, muft Basic plan par: aap mahine mein das tuitions par apply kar sakte hain aur walidain ko message kar sakte hain. Isse aap ka profile un walidain ke saamne aata hai jo pehle se aap ke subject aur ilaqay mein tutor dhoond rahe hain — yehi cheez bechi ja rahi hai. Yeh kaam milne ki zamanat nahi hai: kaun chuna jayega yeh aap ke profile, aap ke jawab aur tajurbe par hai. Premium aur Featured ikhtiyari mahana plans hain jo unlimited applications, walidain ki contact details aur behtar placement dete hain.',
         links: [
           { label: 'Tutor membership', href: '/tutor/packages' },
           { label: 'Khuli tuitions', href: '/browse/tuitions' },

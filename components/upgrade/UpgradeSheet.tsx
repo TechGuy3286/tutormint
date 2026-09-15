@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { X, Lock, ShieldAlert, BadgeCheck } from 'lucide-react'
 import type { Gate } from '@/lib/gate'
+import TutorVerifyGate from '@/components/upgrade/TutorVerifyGate'
 
 // The one answer to "you cannot do that yet".
 //
@@ -66,7 +67,9 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
   }, [onClose])
 
   const suspended = gate.kind === 'suspended'
-  const Icon = suspended ? ShieldAlert : gate.plan ? BadgeCheck : Lock
+  // A tutor 'verify' gate is the bespoke Rs 199 CNIC + fee flow, not a plan card.
+  const tutorVerify = gate.kind === 'verify' && gate.audience === 'tutor'
+  const Icon = suspended ? ShieldAlert : tutorVerify ? BadgeCheck : gate.plan ? BadgeCheck : Lock
 
   return (
     <div
@@ -109,6 +112,10 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
           </button>
         </div>
 
+        {tutorVerify ? (
+          <TutorVerifyGate gate={gate} onClose={onClose} />
+        ) : (
+          <>
         <p className="mt-3 text-xs leading-relaxed text-slate-700">{gate.body}</p>
 
         {/* The plan card. Absent entirely when no purchase is involved, which
@@ -198,6 +205,8 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
             </Link>
             .
           </p>
+        )}
+          </>
         )}
       </div>
     </div>

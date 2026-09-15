@@ -146,12 +146,14 @@ test('a figure that appears in neither notes nor title is flagged', () => {
 })
 
 test('a title figure is allowed WHEN there are notes (the manager asserted it)', () => {
-  assert.deepEqual(unsupportedFigures('Great for Grade 10 students.', NOTES, 'Grade 10 physics guide'), [])
+  // A non-grade figure, so this isolates the title allowance rather than the
+  // grade-level exemption below.
+  assert.deepEqual(unsupportedFigures('Great for the top 7 students.', NOTES, 'Top 7 study methods'), [])
 })
 
 test('with no notes, a non-year title figure is NOT credited (part-4 title-only rule)', () => {
   // The title-only generation path must be figure-free; only a year survives.
-  assert.deepEqual(unsupportedFigures('Great for Grade 10 students.', '', 'Grade 10 physics guide'), ['10'])
+  assert.deepEqual(unsupportedFigures('Great for the top 7 students.', '', 'Top 7 study methods'), ['7'])
 })
 
 test('a year is never flagged, notes or not', () => {
@@ -222,9 +224,11 @@ test('a statistic smuggled into a landing link label is still flagged', () => {
   assert.deepEqual(unsupportedFigures(body, 'notes', 'A guide', [], landing), ['83'])
 })
 
-test('a digit in a link to an unknown path is not exempt', () => {
-  const body = 'Read the [Grade 10 guide](/tutors/lahore/made-up) about grade 10.'
-  assert.deepEqual(unsupportedFigures(body, 'notes', 'A guide', [], []), ['10'])
+test('a digit in a link LABEL to an unknown path is not exempt', () => {
+  // The landing exemption only credits a known landing path; a stat in the
+  // label is still scanned (the (target) is stripped as a path, the [label] is not).
+  const body = 'Read the [our 92% pass guide](/tutors/lahore/made-up) about the 92% rate.'
+  assert.deepEqual(unsupportedFigures(body, 'notes', 'A guide', [], []), ['92'])
 })
 
 // ------------------------------------- ordered-list markers are not stats ---
@@ -237,6 +241,43 @@ test('ordered-list enumerators are not flagged as figures', () => {
 test('a statistic inside ordered-list text is still flagged', () => {
   const body = '1. Fees can reach 25000 rupees a month'
   assert.deepEqual(unsupportedFigures(body, 'notes', 'A guide'), ['25000'])
+})
+
+// --------------------------------- URL / slug / grade-level exemptions ------
+
+test('digits inside a slug-like token are not flagged', () => {
+  const body = 'Browse our grade-1-to-5-mathematics page for options.'
+  assert.deepEqual(unsupportedFigures(body, 'notes with no numbers', 'A guide'), [])
+})
+
+test('digits inside an http/https URL are not flagged', () => {
+  const body = 'See https://tutormint.org/tuitions/lahore/grade-6-to-8 for details.'
+  assert.deepEqual(unsupportedFigures(body, 'notes with no numbers', 'A guide'), [])
+})
+
+test('digits inside a markdown link target are not flagged', () => {
+  const body = 'Read our [subject guide](/tuitions/karachi/grade-9-10-chemistry) today.'
+  assert.deepEqual(unsupportedFigures(body, 'notes with no numbers', 'A guide'), [])
+})
+
+test('a grade level is not a statistic', () => {
+  assert.deepEqual(unsupportedFigures('Best for Grade 4 students.', 'notes', 'A guide'), [])
+  assert.deepEqual(unsupportedFigures('Covers the Grade 1 to 5 syllabus.', 'notes', 'A guide'), [])
+  assert.deepEqual(unsupportedFigures('Suitable for Grades 6 to 8.', 'notes', 'A guide'), [])
+  assert.deepEqual(unsupportedFigures('Aimed at Grades 6-8 pupils.', 'notes', 'A guide'), [])
+})
+
+test('real statistics are still flagged despite the URL/slug/grade exemptions', () => {
+  // The guard must not be weakened: a percentage, a count of people, and money
+  // in prose are all still caught.
+  assert.deepEqual(unsupportedFigures('About 85% of students passed.', 'notes', 'A guide'), ['85'])
+  assert.deepEqual(unsupportedFigures('We serve 12,000 parents.', 'notes', 'A guide'), ['12,000'])
+  assert.deepEqual(unsupportedFigures('Fees are Rs 5000 a month.', 'notes', 'A guide'), ['5000'])
+})
+
+test('a pure-number range is not mistaken for a slug and its digits are checked', () => {
+  // "8000-15000" has no letter, so the slug strip leaves it for the scan.
+  assert.deepEqual(unsupportedFigures('Fees run 8000-15000 a month.', 'notes', 'A guide'), ['8000', '15000'])
 })
 
 // ------------------------------------------------ content queue (9.4) core --

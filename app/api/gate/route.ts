@@ -79,10 +79,10 @@ export async function POST(request: Request) {
     (reason === 'tutor_contact' && ent.canViewContact) ||
     (reason === 'parent_hire' && ent.canHire) ||
     (reason === 'tutor_message' && ent.canInitiateMessage) ||
-    // A Verified+ tutor already owns the CV download; do not sell it back.
-    (reason === 'cv_download' &&
-      ent.audience === 'tutor' &&
-      planRank('tutor', ent.plan) >= planRank('tutor', 'verified'))
+    // CV download is free to every tutor tier (Basic included), so any tutor who
+    // has paid the one-time fee (i.e. holds a plan) already owns it; the gate is
+    // only for an unverified, no-plan tutor.
+    (reason === 'cv_download' && ent.audience === 'tutor' && !!ent.plan)
   ) {
     return NextResponse.json({ gate: null })
   }

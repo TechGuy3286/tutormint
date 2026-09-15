@@ -44,7 +44,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       alreadyActive: result.alreadyActive,
-      expiresAt: result.alreadyActive ? null : result.expiresAt,
+      // The one-time verification fee has no expiry; only a plan does.
+      expiresAt: result.alreadyActive || result.feeRecorded ? null : result.expiresAt,
     })
   }
 

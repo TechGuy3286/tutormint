@@ -117,6 +117,10 @@ export type NotificationKind =
   | 'admin_message'
   | 'under_review'
   | 'under_review_cleared'
+  // The one-time Rs 199 verification fee was paid — a tutor is now verified and
+  // listed on Basic. Distinct from plan_activated (a subscription). No migration:
+  // notifications.kind is text with no CHECK constraint.
+  | 'verification_fee_paid'
 
 export async function notify(params: {
   userId: string

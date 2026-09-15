@@ -84,7 +84,11 @@ async function main() {
       .select('id, plan_code, status, expires_at')
       .eq('user_id', id)
 
-    const wanted = m.plan
+    // Only Premium/Featured are subscriptions. Basic is the free tier a tutor is
+    // on once the one-time fee is recorded (no sub — synthesised, like the free
+    // parent), and null is unverified. So the sub logic wants a sub ONLY for a
+    // paid tier; the fee flag (below) is what puts a Basic tutor on Basic.
+    const wanted = m.plan === 'premium' || m.plan === 'featured' ? m.plan : null
     const activeOrPaused = (subs ?? []).filter((s) => s.status === 'active' || s.status === 'paused')
     const correctActive = activeOrPaused.filter(
       (s) => s.status === 'active' && s.plan_code === wanted,
@@ -161,6 +165,27 @@ async function main() {
         changes.push(`${m.key}: is_featured ${tp2?.is_featured} -> ${wantFeatured}`)
         if (apply) {
           await admin.from('tutor_profiles').update({ is_featured: wantFeatured }).eq('id', id)
+        }
+      }
+
+      // The one-time verification fee (owner, 15 Sep 2026) is what lists a tutor
+      // and puts them on Basic. A cast member with any plan (basic/premium/
+      // featured) has paid it; a null-plan tutor has not. Reconcile the flag so
+      // the cast's listed/not-listed intent holds. Idempotent (only moves on a
+      // boolean change, so a re-run does not re-stamp the date).
+      const { data: tp3 } = await admin
+        .from('tutor_profiles')
+        .select('verified_fee_paid_at')
+        .eq('id', id)
+        .maybeSingle()
+      const wantFee = m.plan !== null
+      if (!!tp3?.verified_fee_paid_at !== wantFee) {
+        changes.push(`${m.key}: verified_fee_paid_at ${!!tp3?.verified_fee_paid_at} -> ${wantFee}`)
+        if (apply) {
+          await admin
+            .from('tutor_profiles')
+            .update({ verified_fee_paid_at: wantFee ? new Date().toISOString() : null })
+            .eq('id', id)
         }
       }
 

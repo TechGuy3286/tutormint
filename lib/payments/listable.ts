@@ -1,19 +1,18 @@
 // lib/payments/listable.ts
 //
-// "Would this tutor be listed if their plan were running?" — the listing rule
-// MINUS the plan.
+// "Is this tutor LISTED?" — used by the payment go-live path to decide when a
+// paused, paid Premium/Featured plan should start its clock.
 //
-// Since 10 Sep 2026 a tutor is listed only with an ACTIVE paid plan, so the
-// payment path can no longer ask tutor_directory "are you listed?" to decide
-// when a paused, paid plan should start its clock: the plan being activated is
-// the very thing the directory is waiting on, so the answer would always be no
-// and the clock would never start. The right question is the PRECONDITION —
-// mobile verified, verification 'verified', not suspended/banned/under-review,
-// claimed if imported — which lib/planBadges.ts owns as a pure function. When it
-// holds, activating the paused plan is exactly what makes the tutor listed.
+// Under the one-time-fee model (owner, 15 Sep 2026) a tutor is listed once the
+// Rs 199 verification fee is recorded and the precondition holds (mobile
+// verified, verification not suspended/rejected, not suspended/banned/under
+// review, claimed if imported). That is exactly tutorListed(). A tutor who buys
+// Premium is normally already listed (they paid the fee first), so the plan
+// activates immediately; a Premium bought before the fee pauses until the fee
+// lands, and activatePayment's fee branch then starts it.
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { tutorListablePrecondition } from '@/lib/planBadges'
+import { tutorListed } from '@/lib/planBadges'
 
 export async function isTutorListable(userId: string): Promise<boolean> {
   const admin = createAdminClient()
@@ -23,13 +22,14 @@ export async function isTutorListable(userId: string): Promise<boolean> {
     admin.from('profiles').select('phone_verified_at, is_suspended, is_banned').eq('id', userId).maybeSingle(),
     admin
       .from('tutor_profiles')
-      .select('verification_status, under_review, imported, claimed_at')
+      .select('verification_status, under_review, imported, claimed_at, verified_fee_paid_at')
       .eq('id', userId)
       .maybeSingle(),
   ])
   if (!prof || !tp) return false
 
-  return tutorListablePrecondition({
+  return tutorListed({
+    feePaid: !!tp.verified_fee_paid_at,
     phoneVerified: !!prof.phone_verified_at,
     verificationStatus: tp.verification_status as string | null,
     isSuspended: prof.is_suspended as boolean | null,

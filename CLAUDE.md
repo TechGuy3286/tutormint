@@ -34,9 +34,9 @@ Brand colours are defined once, in `app/globals.css`, and used only through Tail
 `tutor_profiles` is canonical for tutors. The ten pre-rebuild tables (`tutors`, `parents`, `parent_profiles`, `parent_jobs`, `tuitions`, `tutor_applications`, `tuition_applications`, `job_messages`, `tutor_activities`, and the old `profiles` shape) were **renamed to `legacy_*` in T8a, not dropped** — a forgotten caller must break visibly and the rows must remain findable.
 
 - `profiles` — `id (= auth.users.id)`, `role`, `admin_role ('owner'|'manager'|'verifier'|'finance'|'support', null unless role='admin')`, `full_name`, `email`, `phone`, `whatsapp`, `phone_verified_at`, `phone_gate_required bool default false`, `phone_verified_via ('otp'|'bridge'|null)` (migration 58 — how the number was proved; 'bridge' = the BRIDGE_OTP stopgap, no plan/badge until re-verified), `city`, `province`, `address`, `cnic_number`, `cnic_image_path` (private bucket `identity-docs`), `cnic_verified_at`, `address_verified_at`, `avatar_url`, `profile_completion int`, `is_suspended bool`, `is_banned bool default false` + `banned_at` + `banned_reason` + `banned_by` (migration 58 — a PERMANENT status distinct from suspend), `email_opt_out bool`, `welcomed_at`, `last_message_digest_at`, `must_change_password bool`, `is_team_account bool default false` (migration 63 — the one team-operated TutorMint parent account that admin-posted jobs belong to; public surfaces render the TutorMint identity for it), `created_at`
-- `tutor_profiles` — `id (= profiles.id)`, `slug unique`, `headline`, `bio`, `class_levels text[]`, `degrees text[]`, `teaching_mode`, `online_platforms text[]`, `area`, `hourly_rate_pkr`, `experience_years`, `video_youtube_id`, `video_status ('none'|'uploaded'|'approved'|'rejected')`, `video_submissions int` (3-strike cap), `verification_status ('pending'|'verified'|'rejected'|'suspended')`, `under_review bool default false` + `review_reason` (migration 58 — a reported profile; delisted from `tutor_directory` but still renders via `tutor_visible_profiles`), `is_featured bool`, `imported bool default false`, `claimed_at timestamptz`, `rating_avg`, `rating_count`
+- `tutor_profiles` — `id (= profiles.id)`, `slug unique`, `headline`, `bio`, `class_levels text[]`, `degrees text[]`, `teaching_mode`, `online_platforms text[]`, `area`, `hourly_rate_pkr`, `experience_years`, `video_youtube_id`, `video_status ('none'|'uploaded'|'approved'|'rejected')`, `video_submissions int` (3-strike cap), `verification_status ('pending'|'verified'|'rejected'|'suspended')`, `verified_fee_paid_at timestamptz` (migration 86 — the ONE-TIME Rs 199 verification fee; set = the tutor is listed on the free Basic tier; NULL = unverified, not listed), `under_review bool default false` + `review_reason` (migration 58 — a reported profile; delisted from `tutor_directory` but still renders via `tutor_visible_profiles`), `is_featured bool`, `imported bool default false`, `claimed_at timestamptz`, `rating_avg`, `rating_count`
 - **Subjects are join tables, not arrays.** `tutor_subjects(tutor_id, master_id)` and `job_subjects(job_id, master_id)` reference `taxonomy_master.id`. `tutor_profiles.subjects text[]` and `jobs.subjects text[]` are retired — any remaining column is legacy and must not be read.
-- `plans` — seed rows (see matrix). `code`, `audience ('tutor'|'parent')`, `name`, `price_pkr`, `duration_days = 30`, `monthly_quota`, `displayed_quota text`, `can_view_contact`, `can_whatsapp`, `can_initiate_message`, `can_hire`, `search_rank int`, `badges text[]`, `tag_label`
+- `plans` — seed rows (see matrix). `code`, `audience ('tutor'|'parent')`, `name`, `price_pkr`, `duration_days = 30`, `monthly_quota`, `displayed_quota text`, `can_view_contact`, `can_whatsapp`, `can_initiate_message`, `can_hire`, `can_see_viewer_identity`, `search_rank int`, `badges text[]`, `tag_label`, `active boolean default true` (migration 86 — false hides a row from the purchasable tiers; the old tutor `verified` row is kept `active=false` as the one-time-fee marker that `payments.plan_code`/`subscriptions.plan_code` FKs still need). Tutor rows: `basic` (free), `premium` (499), `featured` (999); `verified` (199, active=false) is the fee, not a plan a tutor holds.
 - `subscriptions` — `id`, `user_id`, `plan_code`, `starts_at`, `expires_at`, `status ('active'|'expired'|'cancelled')`, `payment_id`, `reminded_at`
 - `payments` — `id`, `user_id`, `plan_code`, `amount_pkr`, `provider`, `provider_ref` (idempotency key, unique per `(provider, provider_ref)`), `method ('jazzcash'|'easypaisa'|'bank'|'assanpay')`, `reference`, `screenshot_path` (private bucket `payment-proofs`), `status ('pending'|'approved'|'rejected')`, `reviewed_by`, `reviewed_at`, `created_at`
 - `usage_counters` — `user_id`, `period (YYYY-MM, UTC calendar month)`, `jobs_applied int`, `jobs_posted int`, `messages_initiated int`, unique(user_id, period)
@@ -65,17 +65,24 @@ Hired/closed status lives in `jobs.status` + `jobs.hired_tutor_id` — never loc
 
 ## Entitlements matrix (the product spec — implement exactly)
 
-### Tutor plans
+### Tutor plans — ONE-TIME FEE + THREE PLANS (owner, 15 Sep 2026; migration 86). SUPERSEDES every earlier tutor-plan table and the "viewer identity is a Verified power" note below.
 
-| Plan | PKR/mo | Badges shown | Apply quota (real / displayed) | See who viewed your profile | View parent contact & WhatsApp | Send WhatsApp | Initiate in-app message | Search rank |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| verified | 199 | Verified | 10 / "10" | **yes** | no | no | no — can only reply to messages received and apply via job application | 1 (low) |
-| premium | 499 | Verified + Premium | 25 / "25" | yes | no | yes | yes, any parent | 2 |
-| featured | 999 | Verified + Premium + Featured (yellow tiny "Featured" tag on card) | 100 / "Unlimited" | yes | yes | yes | yes | 3 (top) |
+**Rs 199 is a ONE-TIME PROFILE VERIFICATION FEE, not a plan, tier or subscription.** No expiry, no renewal, never "/month". Every tutor pays it once to become verified and listed; there is no downgrade-on-expiry and no "expiring this week" for it. It is recorded DISTINCTLY from plan purchases (`tutor_profiles.verified_fee_paid_at` + a `payments` row with `plan_code='verified'` that creates NO subscription), so it counts as revenue but never as a renewal/re-subscription. After the fee the tutor is on the free **Basic** plan; **Premium** and **Featured** are optional monthly upgrades.
 
-- **Viewer identity is a Verified power (owner, 4 Sep 2026; migration 43).** It was premium-and-above until then, which meant the profile-view teaser — the tutor dashboard's primary upsell surface and the whole point of the 199 funnel — had to sell Rs 499. `plans.can_see_viewer_identity` is now true on verified, premium and featured, and `REQUIRES.tutor_viewer_identity` in `lib/gate.ts` reads `'verified'`. **Premium's reasons to upgrade are the three it still owns alone: 25 applications against 10, WhatsApp to parents, and search priority.** The column moved before the button did, because a gate must never offer a plan whose row does not carry the power.
-- Profile completion (100%) is mandatory before any badge shows or any paid plan activates. A tutor may pay first; the badge appears when completion hits 100% and admin verification passes.
-- Unverified / incomplete tutors are **not listed** in `/browse/tutors`.
+| Plan | PKR | Badges | Apply quota (real / displayed) | In-app message parent | View parent contact/email | Direct WhatsApp | See who viewed | Top-ranked | Matched → WhatsApp | Matched → email | Incoming hiring/demo cap | Search rank |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| (fee) verified | 199 one-time | — (marks fee paid) | — | — | — | — | — | — | — | — | — | — |
+| basic | free | Verified | 10 / "10" | yes | **no** | **no** | **no** | no | no | no | 10/month (enforced on the PARENT's send path) | 1 (low) |
+| premium | 499/mo | Verified + Premium | 100 / "Unlimited" | yes | yes | yes | yes | no | no | yes | Unlimited | 2 |
+| featured | 999/mo | Verified + Premium + Featured (gold "Featured" tag) | 150 / "Unlimited" | yes | yes | yes | yes | **yes** | **yes** | yes | Unlimited | 3 (top) |
+
+- **CV download: all three plans (Basic included) — free.** Only an unverified (no-fee) tutor is gated (the Verify gate).
+- **Basic gets ZERO contact views** — the contact row shows it exists but is not readable, with upgrade as the way through, no counter.
+- **100 / 150 are real server-enforced caps displayed as "Unlimited".** Admin sees the real numbers.
+- **Viewer identity / contact / WhatsApp are Premium+ powers** (Basic NO). `plans.can_see_viewer_identity` and `can_view_contact`/`can_whatsapp` are true on premium+featured only; `REQUIRES.tutor_viewer_identity` and `.tutor_contact` in `lib/gate.ts` read `'premium'`. This supersedes the migration-43/57 "viewer identity is a Verified power" decision — there is no longer a `verified` PLAN.
+- **LISTING = the one-time fee, not a plan and not completion** (`tutor_directory`/`tutor_visible_profiles` and `tutorListed()`): `verified_fee_paid_at` set + mobile verified + verification not suspended/rejected + not suspended/banned/under-review + claimed if imported. Completion decides RANKING and INDEXING only. `computeEntitlements` synthesises the free `basic` plan from the fee (the free-parent pattern); Premium/Featured come from an active subscription.
+- Prices appear only on the packages page + the upgrade/verify sheet — never before signup, on a public page, or as a banner.
+- The Verified badge is additionally degree-gated for tutors (a reviewed degree on file); Premium/Featured are plan-tier and not degree-gated.
 
 ### Parent plans
 
@@ -5263,3 +5270,156 @@ reviewed degree.
 No browser was driven — the flows rest on the pure tests + check:contrast + the
 build; the migrations, the role reassignment, the seed-finance removal and the
 0-row level backfill are verified live in psql.
+
+## Rs 199 one-time verification fee, three tutor packages, onboarding fixes, apply-gate CNIC + Verify, team grant-to-existing (owner, 15 Sep 2026)
+
+Follow-up to 9daafe1. Migration 86 (backup taken first, applied live). Gates at
+close: tsc 0 · next build 0 · check:contrast 100 · rls:audit 190/190 ·
+test:authtrust 36 · test:cv 14 · test:blog 44 · test:social 7 · test:messaging 8 ·
+test:seedcast 4 · test:delivery 22 · every other suite green.
+
+### Part 1 + 2 — the fee and the packages (migration 86)
+
+The tutor-plan model is rebuilt. See the **Entitlements matrix › Tutor plans**
+section above (this PR rewrote it) for the spec; what shipped:
+
+- **Migration 86** adds `plans.active boolean default true` and
+  `tutor_profiles.verified_fee_paid_at timestamptz`; keeps the old `verified`
+  row as the fee marker (`active=false` — `payments`/`subscriptions` FKs need
+  it, so it cannot be deleted); inserts the free `basic` tier; updates `premium`
+  (100/"Unlimited", contact+WhatsApp+viewer TRUE, rank 2) and `featured`
+  (150/"Unlimited", rank 3); backfills `verified_fee_paid_at=now()` for every
+  `verification_status='verified'` tutor and anyone who held the old 199 sub;
+  cancels active/paused `verified` subs; and CREATE-OR-REPLACEs
+  `tutor_directory`/`tutor_visible_profiles` swapping the active-paid-plan EXISTS
+  for `verified_fee_paid_at is not null` (verification `<> suspended/rejected`).
+  `rank_tutors` needs no change — it reads `tutor_directory` and tiers by active
+  subscription, so a free Basic tutor (no sub) is tier 0, below Premium/Featured.
+  Verified after apply: directory 3→7, plans correct, 0 live `verified` subs.
+- **`lib/planBadges.ts`** — `tutorListed({feePaid, ...precondition})` (was
+  `hasActivePaidPlan`); the precondition no longer requires `verification='verified'`,
+  only excludes suspended/rejected (the fee is what verifies). `TUTOR_PLANS`
+  gains `basic`; `badgesForPlan` maps `basic`/`verified` to Verified.
+- **`lib/entitlements.ts`** — `PlanCode` swaps `verified` for `basic`; `tutorRow`
+  carries `verified_fee_paid_at`; `computeEntitlements` synthesises the free
+  `basic` plan from the fee (the free-parent pattern), Premium/Featured from a
+  sub; `listed` reads the fee.
+- **`lib/gate.ts`** — `tutor_apply_no_plan` becomes **`tutor_verify`** (kind
+  `'verify'`, bilingual body, the exact line "Verified tutors are shown to
+  parents first.", href `/tutor/verify`, the Rs 199 fee row for its price).
+  `tutor_contact` and `tutor_viewer_identity` become `'premium'`. `cv_download`
+  becomes the verify flow (CV is free to all plans; only an unverified tutor is
+  gated). `applyToJob`'s no-plan branch now builds `tutor_verify`.
+- **`lib/payments/activate.ts`** — a `plan_code='verified'` payment is the fee:
+  stamps `verified_fee_paid_at`, creates NO subscription, logs the distinct
+  `verification_fee_paid` event (not `plan_purchased`), and starts any paused
+  Premium/Featured plan. `isTutorListable` (go-live) now requires the fee.
+- **`lib/upsell.ts`** ladder `['basic','premium','featured']`;
+  **`lib/upgradePath.ts`** default upgrade to `premium`; **`lib/cv/access.ts`**
+  any plan (basic+) downloads; **`lib/conversionSweep.ts`** + **`ViewsCard`** the
+  weekly teaser sells Premium (`plan=premium`), reaching Basic/no-plan tutors;
+  **`lib/display.ts`** `planLabel` adds `basic`; **`PackagesTable`** / tutor
+  packages page filter `active=true`, show the one-time-fee banner, "Get verified
+  · Rs 199" on the Basic card; **`api/gate`** + **`api/admin/plans`** updated
+  (granting `verified`/`basic` comps the fee with no sub; a granted Premium/Featured
+  stamps the fee so the tutor lists); FAQ copy corrected (199 is one-time,
+  never "/month").
+- **adminOverview** unchanged and correct: the fee creates no subscription, so it
+  is auto-excluded from the re-subscription metric while its payment counts in
+  revenue.
+
+### Part 3 — onboarding defects (real, observed on device)
+
+- **3.1 tiles show the ACTUAL photo, not a green tick.** `OnboardingClient`'s
+  `PhotoStep` gained `previewUrl`; the profile-photo tile shows the uploaded
+  avatar, the selfie tile a local object-URL preview. The apply-gate CNIC tiles
+  (Part 4) show the captured image too.
+- **3.2 selfie upload — FINDING, then fix.** Confirmed from data, not guessed:
+  the `avatars` and `identity-docs` buckets have NO `file_size_limit` and NO
+  `allowed_mime_types`, and the `identity_docs_owner_write` RLS policy is correct
+  — so storage size/MIME/RLS is NOT the cause. identity-docs' largest object is
+  2.87 MB while `avatars` holds a 5.18 MB object: files above ~4.5 MB never
+  reached identity-docs. The selfie/CNIC POST through the Next/Vercel API route
+  (`/api/documents/upload`), whose serverless request-body cap (~4.5 MB) a raw
+  Android camera photo (4-8 MB) exceeds, so a platform 413 is returned BEFORE the
+  route runs, surfacing as the opaque "Upload failed." The avatar path uploads
+  browser to Supabase directly (no route), which is why a 5.18 MB avatar
+  succeeded. Fix: `lib/imageCompress.ts` `compressImage` is wired into the
+  onboarding photo + selfie AND the apply-gate CNIC uploads (resize to 1600px max
+  edge, re-encode JPEG); and the real status is surfaced (a 413 now says the photo
+  was too large).
+- **3.3 counter floor rule.** `OnboardingClient`'s `withFloor` was keeping the
+  narrow (0/small) count as the headline. Now: when the narrow scope matches
+  under 3, the headline becomes the nearest broader count that is at least 3 (else
+  the broadest known — national), and the narrow match drops to a secondary detail
+  shown ONLY when positive — so a "0 matching you" headline or a "· 0 matching
+  you" taunt can never appear.
+- **3.4 "View your public profile" 404.** The Navbar read the slug off
+  `tutor_profiles` regardless of visibility, so a just-onboarded (unlisted) tutor
+  got a dead link. It now reads `tutor_visible_profiles` (what the public page
+  renders); when not visible and the fee is unpaid the menu offers "Get verified"
+  to `/tutor/verify` instead. The dashboard's "View your public profile" link is
+  gated on `ent.listed`.
+
+### Part 4 — the apply gate: CNIC + Verify
+
+An unverified tutor tapping Apply now meets the Rs 199 CNIC-verify flow, not the
+old upgrade popup. `components/upgrade/TutorVerifyGate.tsx` (rendered by
+`UpgradeSheet` for a tutor `kind:'verify'` gate, and standalone at `/tutor/verify`):
+bilingual heading/body; CNIC FRONT and BACK inline, two camera opens
+(`accept="image/*" capture="environment"`), each a preview thumbnail once taken
+so he can retake; images compressed and saved to the private identity-docs bucket
+via `/api/documents/upload` (kind `cnic`, sets `cnic_image_path` — never
+re-uploaded elsewhere, never public); one primary "Verify" button (enabled once
+both sides are in) that starts checkout for the fee; the exact line "Verified
+tutors are shown to parents first." and no other outcome language.
+
+### Part 5 — grant a role to an EXISTING member
+
+`lib/staff.ts` `searchGrantCandidates` (name/email) + `grantStaffToExisting`; a
+GET search and a `grant` action on `/api/admin/team` (owner-only; search is not
+behind requireFreshAuth, the grant is); the Team screen gained a "Grant a role to
+an existing member" search + role picker. A LISTED tutor triggers a
+dual-identity confirmation before granting (they keep the public profile AND get
+the admin panel on one login); an EMPTY never-completed tutor account has the
+tutor role dropped and its empty `tutor_profiles` row removed. Every grant is
+audit-logged (`staff.grant_existing`) and timelined.
+
+### Part 6 — blog figure detector false positives
+
+`lib/ai/blogBrief.ts` `unsupportedFigures` now strips, before the digit scan:
+markdown link targets (keeping the label), bare http/https URLs, slug-like
+hyphen-joined tokens that contain a letter (`grade-1-to-5-mathematics`; a pure
+number range like `8000-15000` is left for the scan), and "Grade N"/"Grades N to
+N". Real statistics (percentages, counts of people, money) are still flagged;
+`test:blog` covers each exemption and the still-flagged cases (44 assertions).
+
+### Part 7 — Resend transactional email templates
+
+`lib/notify/templates.ts` `shell()` rebuilt as a full `<!doctype html>` document
+(the HTML is sent verbatim to Resend): tables + inline styles only, palette-only
+(#C20202, #151E6B, #9AE899, #EEFBEE, #0A0A0A — no slate, no #0F172A, no #d60008),
+`<meta name="color-scheme" content="light">` + `bgcolor` on the button/ground
+cells so Gmail dark mode does not recolour, a full-width tap-target button, and
+the footer copyright "(c) 2026 Tutor Mint (Private) Limited" (the two-word legal
+form). The wordmark is TEXT (no image), so no logo.png dependency —
+`https://tutormint.org/logo.png` was verified to serve `image/png` (apex 308 to
+www 200) regardless. No literal double-asterisk markdown in any template;
+`/forgot-password` exists (and is a Supabase auth template's concern, not these —
+the Supabase auth templates were NOT touched). Added the `verification_fee_paid`
+receipt template (and registered `plan_granted`/`account_banned` in `TemplateId`).
+
+### Not verified / left as-is (stated plainly)
+
+- **No browser was driven** — the tap flows, the apply-gate modal, the packages
+  UI and the email rendering rest on tsc + next build + the pure unit suites +
+  check:contrast; the migration, the plan rows, the view row counts and the
+  selfie-upload finding are verified live in psql / storage queries.
+- **`scripts/seed-dev.ts`** still seeds a tutor with `plan:'verified'` and would
+  create a now-meaningless `verified` subscription if run — it is dev-only,
+  guarded from production, compiles, and was NOT run in this PR. `seedCast.ts` /
+  `reset-seed-cast.ts` WERE updated to the fee model (Basic = fee, no sub;
+  verified-usman becomes Basic; a not-fee-paid tutor added), but
+  `reset-seed-cast.ts` was NOT run against production here.
+- The email restyle is code-verified (structure, palette, meta, footer) but the
+  rendered result was not sent through Resend to an inbox.

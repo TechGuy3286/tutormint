@@ -270,11 +270,25 @@ test('crossesReviewThreshold: one verified reporter, or two of anyone', () => {
 
 // --------------------------------------------------------- entitlements ----
 
+// The one-time-fee model (owner, 15 Sep 2026): the Rs 199 fee lists a tutor on
+// the free Basic tier (synthesised, no subscription — like the free parent);
+// Premium/Featured are paid subs that add powers. 'verified' is no longer a plan
+// a tutor holds, so it is not in this active-plan set.
 const PLANS: EntitlementInputs['plans'] = [
   {
-    code: 'verified', audience: 'tutor', name: 'Verified', monthly_quota: 10, displayed_quota: '10',
-    can_view_contact: false, can_whatsapp: false, can_initiate_message: false, can_hire: false,
-    can_see_viewer_identity: true, search_rank: 1, badges: ['Verified'], tag_label: null,
+    code: 'basic', audience: 'tutor', name: 'Basic', monthly_quota: 10, displayed_quota: '10',
+    can_view_contact: false, can_whatsapp: false, can_initiate_message: true, can_hire: false,
+    can_see_viewer_identity: false, search_rank: 1, badges: ['Verified'], tag_label: null,
+  },
+  {
+    code: 'premium', audience: 'tutor', name: 'Premium', monthly_quota: 100, displayed_quota: 'Unlimited',
+    can_view_contact: true, can_whatsapp: true, can_initiate_message: true, can_hire: false,
+    can_see_viewer_identity: true, search_rank: 2, badges: ['Verified', 'Premium'], tag_label: null,
+  },
+  {
+    code: 'featured', audience: 'tutor', name: 'Featured', monthly_quota: 150, displayed_quota: 'Unlimited',
+    can_view_contact: true, can_whatsapp: true, can_initiate_message: true, can_hire: false,
+    can_see_viewer_identity: true, search_rank: 3, badges: ['Verified', 'Premium', 'Featured'], tag_label: 'Featured',
   },
   {
     code: 'parent_verified', audience: 'parent', name: 'Verified parent', monthly_quota: 5, displayed_quota: '5',
@@ -288,9 +302,11 @@ const baseTutor = {
   phone_verified_at: '2026-01-01', is_suspended: false, is_banned: false, phone_verified_via: 'otp',
 }
 
+// Fee paid, verification not rejected/suspended, degree on file — the baseline
+// of a listed Basic tutor.
 const baseTutorRow = {
   verification_status: 'verified', imported: false, claimed_at: null,
-  under_review: false, degrees: ['BSc Mathematics'],
+  under_review: false, degrees: ['BSc Mathematics'], verified_fee_paid_at: '2026-01-01',
 }
 
 function inputs(over: Partial<EntitlementInputs>): EntitlementInputs {
@@ -307,12 +323,7 @@ function inputs(over: Partial<EntitlementInputs>): EntitlementInputs {
 }
 
 test('entitlements: a BANNED account gets nothing (banned + suspended, no plan, no badge)', () => {
-  const e = computeEntitlements(
-    inputs({
-      profile: { ...baseTutor, is_banned: true },
-      activeSubs: [{ plan_code: 'verified', expires_at: future() }],
-    }),
-  )
+  const e = computeEntitlements(inputs({ profile: { ...baseTutor, is_banned: true } }))
   assert.equal(e.banned, true)
   assert.equal(e.suspended, true)
   assert.equal(e.plan, null)
@@ -321,12 +332,7 @@ test('entitlements: a BANNED account gets nothing (banned + suspended, no plan, 
 })
 
 test('entitlements: a SUSPENDED account gets nothing but is not banned', () => {
-  const e = computeEntitlements(
-    inputs({
-      profile: { ...baseTutor, is_suspended: true },
-      activeSubs: [{ plan_code: 'verified', expires_at: future() }],
-    }),
-  )
+  const e = computeEntitlements(inputs({ profile: { ...baseTutor, is_suspended: true } }))
   assert.equal(e.suspended, true)
   assert.equal(e.banned, false)
   assert.equal(e.plan, null)
@@ -334,70 +340,60 @@ test('entitlements: a SUSPENDED account gets nothing but is not banned', () => {
 })
 
 test('entitlements: a BRIDGE-verified account holds no plan and no badge, but stays listed', () => {
-  const e = computeEntitlements(
-    inputs({
-      profile: { ...baseTutor, phone_verified_via: 'bridge' },
-      activeSubs: [{ plan_code: 'verified', expires_at: future() }],
-    }),
-  )
+  const e = computeEntitlements(inputs({ profile: { ...baseTutor, phone_verified_via: 'bridge' } }))
   assert.equal(e.bridgeLocked, true)
-  assert.equal(e.plan, null, 'an active plan row confers nothing while bridge-locked')
+  assert.equal(e.plan, null, 'the fee-based Basic tier confers nothing while bridge-locked')
   assert.deepEqual(e.badges, [])
   assert.equal(e.canSeeViewerIdentity, false)
   assert.equal(e.listed, true, 'the lock removes the plan/badge, not the listing')
   assert.equal(e.suspended, false)
 })
 
-test('entitlements: an OTP-verified Verified tutor gets the plan, the badge and is listed', () => {
-  const e = computeEntitlements(inputs({ activeSubs: [{ plan_code: 'verified', expires_at: future() }] }))
-  assert.equal(e.plan, 'verified')
-  assert.equal(e.canSeeViewerIdentity, true)
+test('entitlements: a fee-paid tutor is on Basic — Verified badge, listed, 10 applies, NO viewer identity', () => {
+  const e = computeEntitlements(inputs({}))
+  assert.equal(e.plan, 'basic')
+  assert.equal(e.canSeeViewerIdentity, false, 'seeing who viewed you is Premium+, not Basic')
+  assert.equal(e.canInitiateMessage, true, 'all tutor tiers can message a parent')
   assert.deepEqual(e.badges, ['Verified'])
   assert.equal(e.listed, true)
   assert.equal(e.bridgeLocked, false)
   assert.equal(e.quota, 10)
 })
 
-// --- the new listing rule (owner, 10 Sep 2026): completion no longer lists ---
+test('entitlements: a Premium tutor sees who viewed, gets contact, and an Unlimited-display cap', () => {
+  const e = computeEntitlements(inputs({ activeSubs: [{ plan_code: 'premium', expires_at: future() }] }))
+  assert.equal(e.plan, 'premium', 'a paid sub wins over the synthesised Basic tier')
+  assert.equal(e.canSeeViewerIdentity, true)
+  assert.equal(e.canViewContact, true)
+  assert.equal(e.displayedQuota, 'Unlimited')
+  assert.equal(e.quota, 100, 'the real cap behind Unlimited is enforced')
+  assert.deepEqual(e.badges, ['Verified', 'Premium'])
+})
 
-test('entitlements: a PAID tutor UNDER 100% is LISTED and can apply', () => {
-  const e = computeEntitlements(
-    inputs({
-      profile: { ...baseTutor, profile_completion: 40 },
-      activeSubs: [{ plan_code: 'verified', expires_at: future() }],
-    }),
-  )
+// --- the one-time-fee listing rule (owner, 15 Sep 2026) ---
+
+test('entitlements: a fee-paid tutor UNDER 100% is LISTED and on Basic', () => {
+  const e = computeEntitlements(inputs({ profile: { ...baseTutor, profile_completion: 40 } }))
   assert.equal(e.listed, true, 'completion no longer gates listing')
-  assert.equal(e.plan, 'verified', 'an active plan means a real apply quota')
+  assert.equal(e.plan, 'basic', 'the fee alone puts them on Basic')
   assert.equal(e.profileCompletion, 40)
 })
 
-test('entitlements: a FREE tutor at 100% is NOT listed (a plan is required)', () => {
-  const e = computeEntitlements(inputs({ activeSubs: [] }))
+test('entitlements: a tutor who has NOT paid the fee is NOT listed and has no plan', () => {
+  const e = computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, verified_fee_paid_at: null } }))
   assert.equal(e.listed, false)
   assert.equal(e.plan, null)
 })
 
-test('entitlements: a tutor with a plan but NOT verified is NOT listed', () => {
-  const e = computeEntitlements(
-    inputs({
-      tutorRow: { ...baseTutorRow, verification_status: 'pending' },
-      activeSubs: [{ plan_code: 'verified', expires_at: future() }],
-    }),
-  )
-  assert.equal(e.listed, false, 'verification is required to be listed')
-  assert.equal(e.plan, 'verified', 'the plan still resolves; the Apply gate tells them to verify')
+test('entitlements: a fee-paid tutor whose verification is REJECTED is NOT listed', () => {
+  const e = computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, verification_status: 'rejected' } }))
+  assert.equal(e.listed, false, 'a rejected verification delists even with the fee paid')
 })
 
 test('entitlements: a listed tutor with NO reviewed degree carries no Verified badge', () => {
-  const e = computeEntitlements(
-    inputs({
-      tutorRow: { ...baseTutorRow, degrees: [] },
-      activeSubs: [{ plan_code: 'verified', expires_at: future() }],
-    }),
-  )
+  const e = computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, degrees: [] } }))
   assert.equal(e.listed, true, 'no degree does not delist — it only removes the badge')
-  assert.deepEqual(e.badges, [], 'the verified plan grants only Verified, which the missing degree drops')
+  assert.deepEqual(e.badges, [], 'Basic grants only Verified, which the missing degree drops')
 })
 
 test('entitlements: a verified parent gets the free parent_verified tier with no subscription', () => {
@@ -418,26 +414,29 @@ test('entitlements: a verified parent gets the free parent_verified tier with no
 
 // ------------------------------------------------------- listing helpers ---
 
-test('tutorListablePrecondition: verified + mobile + moderation-clear + claimed', () => {
+test('tutorListablePrecondition: mobile + moderation-clear + claimed; pending is fine, only rejected/suspended block', () => {
   const ok = {
     phoneVerified: true, verificationStatus: 'verified', isSuspended: false,
     isBanned: false, underReview: false, imported: false, claimedAt: null,
   }
   assert.equal(tutorListablePrecondition(ok), true)
   assert.equal(tutorListablePrecondition({ ...ok, phoneVerified: false }), false)
-  assert.equal(tutorListablePrecondition({ ...ok, verificationStatus: 'pending' }), false)
+  // Under the fee model the fee is what verifies; a still-pending status does NOT block.
+  assert.equal(tutorListablePrecondition({ ...ok, verificationStatus: 'pending' }), true)
+  assert.equal(tutorListablePrecondition({ ...ok, verificationStatus: 'rejected' }), false)
+  assert.equal(tutorListablePrecondition({ ...ok, verificationStatus: 'suspended' }), false)
   assert.equal(tutorListablePrecondition({ ...ok, underReview: true }), false)
   assert.equal(tutorListablePrecondition({ ...ok, imported: true, claimedAt: null }), false)
   assert.equal(tutorListablePrecondition({ ...ok, imported: true, claimedAt: '2026-01-01' }), true)
 })
 
-test('tutorListed: requires an active paid plan on top of the precondition', () => {
+test('tutorListed: requires the one-time fee on top of the precondition', () => {
   const base = {
     phoneVerified: true, verificationStatus: 'verified', isSuspended: false,
     isBanned: false, underReview: false, imported: false, claimedAt: null,
   }
-  assert.equal(tutorListed({ ...base, hasActivePaidPlan: true }), true)
-  assert.equal(tutorListed({ ...base, hasActivePaidPlan: false }), false, 'no plan, not listed')
+  assert.equal(tutorListed({ ...base, feePaid: true }), true)
+  assert.equal(tutorListed({ ...base, feePaid: false }), false, 'no fee, not listed')
 })
 
 test('tutorProfileNoindex: noindex below 100%, under review, OR a seed tutor', () => {
@@ -470,11 +469,11 @@ test('isFixtureTuition: seed parent / JOB-TRK / SEED-JOB are fixtures; a team po
 })
 
 test('badgesForPlan: the Verified badge is degree-gated for tutors, not parents', () => {
-  assert.deepEqual(badgesForPlan('verified', true, true), ['Verified'])
-  assert.deepEqual(badgesForPlan('verified', true, false), [], 'no degree drops Verified')
+  assert.deepEqual(badgesForPlan('basic', true, true), ['Verified'])
+  assert.deepEqual(badgesForPlan('basic', true, false), [], 'no degree drops Verified')
   assert.deepEqual(badgesForPlan('featured', true, false), ['Premium', 'Featured'], 'tier badges stay')
   assert.deepEqual(badgesForPlan('parent_verified', true, false), ['Verified'], 'parents are not degree-gated')
-  assert.deepEqual(badgesForPlan('verified', false, true), [], 'unlisted shows nothing')
+  assert.deepEqual(badgesForPlan('basic', false, true), [], 'unlisted shows nothing')
 })
 
 // ------------------------------------------------------- phone gate --------

@@ -99,10 +99,13 @@ const PARENT: MenuItem[] = [
 export function menuForRole({
   role,
   publicProfileSlug = null,
+  tutorNeedsVerify = false,
   adminScreens = [],
 }: {
   role: Role | null
   publicProfileSlug?: string | null
+  /** Tutor not yet visible and fee unpaid — offer the verify step, not a dead link. */
+  tutorNeedsVerify?: boolean
   adminScreens?: AdminEntry[]
 }): MenuItem[] {
   if (role === 'admin') {
@@ -125,6 +128,15 @@ export function menuForRole({
       items.splice(4, 0, {
         label: 'My Profile',
         href: `/tutor/${publicProfileSlug}`,
+        icon: 'profile',
+      })
+    } else if (tutorNeedsVerify) {
+      // Not visible yet and the fee is unpaid: never a dead public-profile link
+      // (owner, 15 Sep 2026). Say what is missing — the way to a public profile
+      // is the one-time verification fee.
+      items.splice(4, 0, {
+        label: 'Get verified',
+        href: '/tutor/verify',
         icon: 'profile',
       })
     }

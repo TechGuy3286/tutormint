@@ -97,9 +97,10 @@ const UNSCOPED_WRITE_OK: Record<string, string> = {}
  */
 const VIEW_DEFINER_OK: Record<string, string> = {
   tutor_directory:
-    'the listing rule, in one place (owner, 10 Sep 2026): active paid plan + mobile verified + ' +
-    "verification 'verified' + unsuspended/unbanned + not under review + (not an unclaimed import). " +
-    'Exposes public profile columns only — no phone, email, CNIC, address or document path.',
+    'the listing rule, in one place (owner, 15 Sep 2026): the one-time Rs 199 verification fee ' +
+    '(verified_fee_paid_at) + mobile verified + verification not suspended/rejected + ' +
+    'unsuspended/unbanned + not under review + (not an unclaimed import). Exposes public profile ' +
+    'columns only — no phone, email, CNIC, address or document path.',
 }
 
 /**

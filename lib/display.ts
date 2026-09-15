@@ -217,6 +217,9 @@ export function statusLabel(raw: string | null | undefined): string {
 export function planLabel(code: string | null | undefined): string | null {
   if (!code) return null
   const known: Record<string, string> = {
+    basic: 'Basic',
+    // 'verified' survives only as the one-time fee marker on a payment row; a
+    // tutor never holds it as a plan. Kept so a fee payment reads "Verified".
     verified: 'Verified',
     premium: 'Premium',
     featured: 'Featured',

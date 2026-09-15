@@ -107,6 +107,18 @@ function isYear(bare: string): boolean {
  * not the author's free-text link text, so a stat smuggled into a link label
  * ("[83% pass](/tutors/lahore/o-levels-physics)") is still flagged — 83 is not
  * in that page's title. Only links whose path is a known live landing count.
+ *
+ * SKIPPED, because their digits are never statistics (the runs are stripped
+ * before the scan, so they cannot be flagged):
+ *   - A grade level: "Grade 4", "Grade 1 to 5", "Grades 6-8" — a level, not a
+ *     count. Case-insensitive, with an optional "to N"/"-N" upper bound.
+ *   - The digits inside a URL or a slug: an http(s) link, a markdown link
+ *     TARGET (the (path), never the [label]), and a bare slug token like
+ *     "grade-1-to-5-mathematics" — a path segment, not prose.
+ *   - An ordered-list enumerator ("1.", "2.") at the start of a line.
+ * These are SHAPES, not figures. Each strip is narrow — a grade word before a
+ * number, a hyphen-joined token, a link — so a bare "85%" or "12,000 students"
+ * in prose is untouched and still flagged.
  */
 const LINK_RE = /\[[^\]]+\]\(([^)\s]+)\)/g
 
@@ -139,11 +151,29 @@ export function unsupportedFigures(
     }
   }
 
-  // An ordered-list enumerator ("1.", "2.") is not a statistic. Strip the
-  // leading marker before scanning so a numbered list does not block review —
-  // numbers inside the list text are still scanned. Same OL shape the Markdown
-  // renderer recognises.
-  const scanned = body.replace(/^[ \t]*\d+\.[ \t]+/gm, '')
+  // Strip the shapes whose digits are never statistics before scanning, so a
+  // grade level or a path cannot block review. Each strip is a NARROW shape,
+  // not a blanket "ignore numbers near words" — a real figure in prose survives.
+  const scanned = body
+    // A markdown link TARGET is a path, not prose: drop the (target) and keep
+    // the [label], so a stat smuggled into the label ("[an 83% pass](…)") is
+    // still scanned. Same link shape as LINK_RE above.
+    .replace(/(\[[^\]]+\])\([^)\s]+\)/g, '$1')
+    // A bare http/https URL is a link, never a statistic.
+    .replace(/https?:\/\/\S+/g, '')
+    // A bare slug-like token — word chars joined by hyphens, e.g.
+    // "grade-1-to-5-mathematics" — is a path segment, not prose. Strip it only
+    // when it carries a letter, so a pure-number range ("8000-15000") is left
+    // for the scan and its digits are still checked.
+    .replace(/[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+/g, (tok) => (/[A-Za-z]/.test(tok) ? '' : tok))
+    // A grade level ("Grade 4", "Grade 1 to 5", "Grades 6-8") is a level, not a
+    // statistic — case-insensitive, with an optional "to N"/"-N" upper bound.
+    .replace(/\bgrades?\s+\d+(?:\s*(?:to|[-–—])\s*\d+)?/gi, '')
+    // An ordered-list enumerator ("1.", "2.") is not a statistic. Strip the
+    // leading marker before scanning so a numbered list does not block review —
+    // numbers inside the list text are still scanned. Same OL shape the Markdown
+    // renderer recognises.
+    .replace(/^[ \t]*\d+\.[ \t]+/gm, '')
 
   const found: string[] = []
   for (const m of scanned.matchAll(/\d[\d,]*/g)) {

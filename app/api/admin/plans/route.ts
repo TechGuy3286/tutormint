@@ -15,11 +15,12 @@ import { requireFreshAuth } from '@/lib/reauth'
 function planUnlocks(planCode: string): string {
   switch (planCode) {
     case 'verified':
-      return 'You can now see who has viewed your profile and apply to tuitions.'
+    case 'basic':
+      return 'You are now verified — listed in search with the Verified badge, and you can apply to tuitions and message parents.'
     case 'premium':
-      return 'You can now message parents on WhatsApp, apply to more tuitions and appear above Verified tutors in search.'
+      return 'You can now see who viewed your profile, view parent contact details, message parents on WhatsApp, and apply without a monthly limit.'
     case 'featured':
-      return 'You can now see parent contact details, sit at the top of search and apply without a monthly limit.'
+      return 'You now sit at the top of search, view parent contact details, and apply without a monthly limit.'
     case 'parent_featured':
       return 'You can now hire tutors, see their contact details and WhatsApp, and post tuitions without a monthly limit.'
     default:
@@ -151,6 +152,38 @@ export async function POST(request: Request) {
     )
   }
 
+  // The one-time verification fee and the free Basic tier are NOT subscriptions
+  // (owner, 15 Sep 2026). Granting 'verified' (the fee marker) or 'basic' comps
+  // the verification: stamp the fee flag, create no subscription, and the tutor
+  // is listed on Basic.
+  if (planCode === 'verified' || planCode === 'basic') {
+    await admin
+      .from('tutor_profiles')
+      .update({ verified_fee_paid_at: new Date().toISOString() })
+      .eq('id', userId)
+    await logAdminAction({
+      actorId: gate.actor.id, actorRole: gate.actor.adminRole, actorEmail: gate.actor.email,
+      action: 'plan.grant', targetType: 'profile', targetId: userId,
+      detail: { planCode, fee: true, note },
+    })
+    await logActivity({
+      userId, event: 'verification_fee_paid', targetType: 'profile', targetId: userId,
+      meta: { planCode, note, source: 'admin_grant' },
+    })
+    await notify({
+      userId,
+      kind: 'verification_fee_paid',
+      title: 'You are verified',
+      body: 'Your profile is now shown to parents. Complete your profile to appear higher in search.',
+      href: '/tutor/dashboard',
+    })
+    await deliverEmail(
+      { userId },
+      { id: 'verification_fee_paid', name: (target.full_name as string) ?? 'there', amountPkr: 0 },
+    )
+    return NextResponse.json({ success: true, action, planCode, fee: true })
+  }
+
   // One active subscription at a time: supersede any current one.
   await admin.from('subscriptions').update({ status: 'cancelled' }).eq('user_id', userId).eq('status', 'active')
 
@@ -177,6 +210,17 @@ export async function POST(request: Request) {
   // Same flag handling a purchase gets, so a granted plan and a bought plan
   // leave the account in identical state.
   await applyPlanFlags(userId, planCode)
+
+  // A granted paid tutor plan (Premium/Featured) comps the one-time fee too —
+  // listing requires the fee, so without this the tutor would hold Premium
+  // powers yet stay unlisted. Stamp it if not already set.
+  if (targetAudience === 'tutor') {
+    await admin
+      .from('tutor_profiles')
+      .update({ verified_fee_paid_at: new Date().toISOString() })
+      .eq('id', userId)
+      .is('verified_fee_paid_at', null)
+  }
 
   await logAdminAction({
     actorId: gate.actor.id, actorRole: gate.actor.adminRole,

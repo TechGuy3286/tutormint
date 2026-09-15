@@ -9,13 +9,13 @@ import 'server-only'
 //
 // 1. The WEEKLY VIEW TEASER. `profile_viewed` already fires per view (throttled
 //    to one a day, no upsell — see app/(site)/tutor/[slug]/page.tsx). This is a
-//    different message: a weekly roll-up that DOES carry the Verified CTA —
-//    "N parents viewed your profile this week — see who with Verified" — capped
+//    different message: a weekly roll-up that DOES carry the Premium CTA —
+//    "N parents viewed your profile this week — see who with Premium" — capped
 //    at one a week, and never sent on a zero-view week (a "0 parents viewed you"
-//    nudge sells nothing and reads as a taunt). Viewer identity unlocks at
-//    Verified (199) and above (migration 57), so this goes ONLY to free/no-plan
-//    tutors — the ones who cannot already see who viewed them — and its CTA is
-//    plan=verified, the primary 199-funnel conversion.
+//    nudge sells nothing and reads as a taunt). Viewer identity is a Premium
+//    power now (owner, 15 Sep 2026: Basic NO, Premium/Featured Yes), so this
+//    goes to Basic and no-plan tutors — the ones who cannot already see who
+//    viewed them — and its CTA is plan=premium.
 //
 // 2. The QUOTA NUDGE at 80% of the month's allowance, once a period. It fires
 //    only for a plan whose displayed allowance is a real number: a plan that
@@ -86,17 +86,18 @@ async function deliverViewTeasers(admin: Admin): Promise<{ sent: number; errors:
       const ent = await getEntitlements(tutorId)
       if (ent.suspended) continue
       if (ent.audience !== 'tutor') continue
-      // Verified, Premium and Featured all see the viewer's name now (migration
-      // 57); the upsell would be noise for them. So this reaches only free/no-plan
-      // tutors, and the offer is always Verified (the 199-funnel entry plan).
+      // "See who viewed you" is a Premium power now (owner, 15 Sep 2026: Basic
+      // NO, Premium/Featured Yes). Premium and Featured already see the viewer's
+      // name, so the upsell would be noise for them; this reaches Basic and
+      // no-plan tutors, and the offer is Premium.
       if (ent.canSeeViewerIdentity) continue
 
       await notify({
         userId: tutorId,
         kind: 'viewer_weekly_teaser',
         title: `${n} ${n === 1 ? 'parent' : 'parents'} viewed your profile this week`,
-        body: 'Verified reveals who they are — see every viewer’s name.',
-        href: '/tutor/packages?plan=verified',
+        body: 'Premium reveals who they are — see every viewer’s name.',
+        href: '/tutor/packages?plan=premium',
       })
       sent++
     } catch (e) {

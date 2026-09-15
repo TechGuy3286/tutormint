@@ -287,7 +287,10 @@ export default async function TutorDashboardPage() {
           // the header shows only the ring (a glance) — no duplicated prompt.
           showCompletionLink={false}
           editHref={
-            tutorProfile?.slug
+            // Only link to the public profile when the tutor is actually LISTED
+            // — an unlisted tutor's /tutor/<slug> 404s (owner, 15 Sep 2026), so a
+            // slug alone is not enough. Otherwise send them to edit their profile.
+            listed && tutorProfile?.slug
               ? { label: 'View your public profile', href: `/tutor/${tutorProfile.slug}` }
               : { label: 'Edit your profile', href: '/tutor/dashboard/settings' }
           }

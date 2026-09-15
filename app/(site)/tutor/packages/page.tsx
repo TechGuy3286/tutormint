@@ -51,6 +51,9 @@ export default async function TutorPackagesPage({
       'code, name, price_pkr, monthly_quota, displayed_quota, can_view_contact, can_whatsapp, can_initiate_message, can_hire, can_see_viewer_identity, search_rank, badges, tag_label',
     )
     .eq('audience', 'tutor')
+    // active only — the old 'verified' row survives as the one-time fee marker
+    // (active=false) and is never a purchasable card.
+    .eq('active', true)
     .order('price_pkr')
 
   const ent = await getViewerEntitlements()
@@ -74,14 +77,26 @@ export default async function TutorPackagesPage({
             Your plan decides how many jobs you can apply to, where you rank in search, and which
             badges parents see.
           </p>
-          {ent && ent.audience === 'tutor' && !ent.listed && (
-            <p className="rounded-xl bg-tm-tint-gold p-3 text-[11px] leading-relaxed text-tm-gold-ink">
-              Your month starts the day you go live. You can buy now, but the badge and the 30 days
-              both begin once you are verified and listed — nothing is lost, and nothing counts down
-              in the meantime.
-            </p>
-          )}
         </header>
+
+        {/* The one-time verification fee — the way onto the platform. It is NOT
+            a plan and NOT monthly; a tutor pays it once to become verified and
+            listed, then chooses a package (Basic is free). Shown here only,
+            never before signup or on a public page. */}
+        {ent && ent.audience === 'tutor' && !ent.plan && (
+          <section className="space-y-2 rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-4 text-xs leading-relaxed sm:p-5">
+            <p className="text-base font-black text-tm-navy">
+              One-time verification — Rs. 199
+            </p>
+            <p className="text-tm-navy">
+              Pay it once to become a verified tutor and appear in search. There is no renewal and
+              no monthly charge for it — it is a single payment, and <strong>verified tutors are
+              shown to parents first</strong>. After that you are on the free Basic plan; Premium
+              and Featured below add more.
+            </p>
+            <p className="text-[11px] text-gray-500">The verification fee is non-refundable.</p>
+          </section>
+        )}
 
         {/* The tutor's own card, with and without the tick.
             
@@ -113,15 +128,15 @@ export default async function TutorPackagesPage({
               will ask for their money back and be told no. */}
           <p className="text-slate-700">
             <strong className="text-tm-navy">You are already paying to be found.</strong> A boosted
-            post in one city costs more in a week than Rs 199 does in a month, and it stops the day
-            you stop paying. Rs 199 puts you in front of parents who are already searching for your
-            subject in your area — no website, no ad account, no daily budget.
+            post in one city costs more in a week than the one-time Rs 199 verification fee, and it
+            stops the day you stop paying. Rs 199, paid once, puts you in front of parents who are
+            already searching for your subject in your area — no website, no ad account, no daily
+            budget.
           </p>
           <p className="text-slate-700">
             <strong className="text-tm-navy">An academy keeps half your first month.</strong> On a
             Rs 20,000 tuition that is Rs 10,000 out of your first month, every time, and many keep
-            a share of every month after. TutorMint takes 0% of what you earn, forever — the
-            membership is the whole price.
+            a share of every month after. TutorMint takes 0% of what you earn, forever.
           </p>
           <p className="text-gray-500">
             Being listed is what a membership buys. Whether a parent picks you depends on your
@@ -138,7 +153,9 @@ export default async function TutorPackagesPage({
           quotaNoun="job applications"
           instantActivation={provider.id !== 'manual'}
           signedIn={!!ent}
-          verified
+          // A tutor on any plan (fee paid) needs no "get verified" CTA on the
+          // free Basic card; an unverified tutor (no plan) does.
+          verified={!!ent?.plan}
         />
 
         {/* Where to read more, and what the words mean. A packages page that

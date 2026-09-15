@@ -72,7 +72,7 @@ export type Gate = {
 export type GateReason =
   | 'suspended'
   | 'blocked'
-  | 'tutor_apply_no_plan'
+  | 'tutor_verify'
   | 'tutor_apply_quota'
   | 'tutor_message'
   | 'tutor_contact'
@@ -88,20 +88,25 @@ const REQUIRES: Record<GateReason, string | null> = {
   suspended: null,
   blocked: null,
   parent_verify: null,
-  tutor_apply_no_plan: 'verified',
+  // The one-time Rs 199 verification fee (owner, 15 Sep 2026). The old 'verified'
+  // plan code is now the fee marker — loadPlan('verified') returns the Rs 199
+  // price for the sheet. This is a VERIFY gate (kind 'verify'), not a plan
+  // upsell: an unverified tutor's way onto the platform is the fee, after which
+  // they are on the free Basic tier.
+  tutor_verify: 'verified',
+  // A Basic tutor over their 10/month applications → Premium (Unlimited).
   tutor_apply_quota: 'premium',
   tutor_message: 'premium',
-  tutor_contact: 'featured',
-  // VERIFIED (199) and above (owner, 8 Sep 2026; migration 57 sets
-  // can_see_viewer_identity = true on verified again, restoring the migration-43
-  // decision). Seeing the parent's NAME is the primary 199-funnel reward, so the
-  // profile-view teaser sells Verified, not Premium. Only free/no-plan tutors get
-  // the anonymised teaser and this upsell. Same rule as always -- a button never
-  // sells a power its plan does not carry -- so the row (migration 57) moved
-  // before this label. This supersedes the migration-56 flip to 'premium'.
-  tutor_viewer_identity: 'verified',
-  // Downloading the print-ready CV built from the profile. Verified (199) and
-  // above; the preview is free to everyone, only the download is gated.
+  // Seeing a parent's contact/WhatsApp is a Premium power (Basic NO,
+  // Premium/Featured Yes — owner, 15 Sep 2026).
+  tutor_contact: 'premium',
+  // "See who viewed you" is a Premium power now (Basic NO, Premium/Featured Yes
+  // — owner, 15 Sep 2026). Basic/no-plan tutors get the anonymised teaser and
+  // this upsell; it sells Premium, the tier whose row carries the power.
+  tutor_viewer_identity: 'premium',
+  // CV download is free to all three tutor tiers (Basic included). This gate is
+  // only reached by an UNVERIFIED tutor with no plan; loadPlan resolves the
+  // Rs 199 fee row so the sheet leads with verification, not a paid plan.
   cv_download: 'verified',
   parent_hire: 'parent_featured',
   parent_contact: 'parent_featured',
@@ -193,15 +198,24 @@ async function buildBaseGate(
         actionable: true,
       }
 
-    case 'tutor_apply_no_plan':
+    case 'tutor_verify':
+      // The Rs 199 one-time verification fee gate (owner, 15 Sep 2026). Bilingual
+      // heading and body, consistent with onboarding. The client renders the
+      // inline CNIC-upload modal for a tutor 'verify' gate; the exact
+      // outcome line below is the ONLY outcome language allowed here — visibility,
+      // never a promise of being hired.
       return {
-        kind: 'upgrade',
-        title: 'Applying needs an active plan',
-        body: `Verified tutors can apply to ${plan?.displayedQuota ?? 'a set number of'} jobs a month and carry the Verified badge on every card and search result.`,
+        kind: 'verify',
+        title: 'Get verified to apply · اپلائی کرنے کے لیے تصدیق کروائیں',
+        body:
+          'Upload your CNIC (front and back) and pay the one-time Rs 199 verification fee to become ' +
+          'a verified tutor. Verified tutors are shown to parents first.\n\n' +
+          'اپنا شناختی کارڈ (سامنے اور پیچھے) اپلوڈ کریں اور ایک بار کی 199 روپے تصدیقی فیس ادا کریں۔ ' +
+          'تصدیق شدہ ٹیوٹرز والدین کو سب سے پہلے دکھائے جاتے ہیں۔',
         audience: 'tutor',
         plan,
-        href: packagesHref('tutor', required),
-        ctaLabel: 'See the Verified plan',
+        href: '/tutor/verify',
+        ctaLabel: 'Verify',
         actionable: true,
       }
 
@@ -222,29 +236,31 @@ async function buildBaseGate(
         kind: 'upgrade',
         title: 'See who is looking at you',
         body:
-          'Verified shows the name and photo of every parent who opens your profile, alongside ' +
+          'Premium shows the name and photo of every parent who opens your profile, alongside ' +
           'the subject and area they searched for — so you know who is looking before you spend ' +
-          'an application. Verified also lists you in search and gives you the badge parents look ' +
-          'for.',
+          'an application. Premium also lets you view parent contact details and message them on ' +
+          'WhatsApp.',
         audience: 'tutor',
         plan,
         href: packagesHref('tutor', required),
-        ctaLabel: 'See Verified',
+        ctaLabel: 'See Premium',
         actionable: true,
       }
 
     case 'cv_download':
+      // CV download is free to every tutor tier (Basic included). This is only
+      // reached by an unverified tutor with no plan, so it leads with the fee.
       return {
-        kind: 'upgrade',
-        title: 'Download your CV with Verified',
+        kind: 'verify',
+        title: 'Get verified to download your CV',
         body:
-          'Your CV is built from your profile and yours to preview any time. Verified unlocks the ' +
-          'print-ready PDF — with your verified badge — to send to parents and print at any shop. ' +
-          'It also puts you above free tutors in search.',
+          'Your CV is built from your profile and yours to preview any time. Downloading the ' +
+          'print-ready PDF needs a verified profile — upload your CNIC and pay the one-time ' +
+          'Rs 199 verification fee. Verified tutors are shown to parents first.',
         audience: 'tutor',
         plan,
-        href: packagesHref('tutor', required),
-        ctaLabel: 'See Verified',
+        href: '/tutor/verify',
+        ctaLabel: 'Verify',
         actionable: true,
       }
 
@@ -265,14 +281,14 @@ async function buildBaseGate(
     case 'tutor_contact':
       return {
         kind: 'upgrade',
-        title: 'Contact details need Featured',
+        title: 'Contact details need Premium',
         body:
-          "Featured tutors see a parent's phone and WhatsApp number and can message them there " +
-          'directly, and appear above every other tutor in search.',
+          "Premium tutors see a parent's phone and WhatsApp number and can message them there " +
+          'directly. Featured adds top placement above every other tutor in search.',
         audience: 'tutor',
         plan,
         href: packagesHref('tutor', required),
-        ctaLabel: 'See Featured',
+        ctaLabel: 'See Premium',
         actionable: true,
       }
 

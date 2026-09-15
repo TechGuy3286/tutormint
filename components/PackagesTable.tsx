@@ -142,17 +142,19 @@ export default function PackagesTable({
                 // below the one they hold.
                 null
               ) : free ? (
-                // The free (parent Verified) tier. "Verify to unlock" only when
-                // identity is actually not verified; a verified member sees
-                // nothing here (this card is either their own plan, handled
-                // above, or below them, handled above).
+                // The free tier (tutor Basic / parent Verified). Shows how to
+                // reach it only when the member is not verified yet; a verified
+                // member sees nothing here (this card is either their own plan or
+                // below them, both handled above). A tutor reaches Basic through
+                // the one-time Rs 199 verification fee, a parent through free
+                // CNIC + address verification.
                 !verified ? (
                   <Link
-                    href="/parent/verify"
+                    href={audience === 'tutor' ? '/tutor/verify' : '/parent/verify'}
                     className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                   >
                     <ShieldCheck aria-hidden size={14} />
-                    Verify to unlock
+                    {audience === 'tutor' ? 'Get verified · Rs. 199' : 'Verify to unlock'}
                   </Link>
                 ) : null
               ) : (
@@ -214,7 +216,7 @@ function rankWords(audience: 'tutor' | 'parent', rank: number): string {
     return rank >= 3 ? 'Your jobs shown first' : 'Standard job placement'
   }
   if (rank >= 3) return 'Top of search results'
-  if (rank === 2) return 'Ranked above Verified tutors'
+  if (rank === 2) return 'Ranked above Basic tutors'
   return 'Listed in search results'
 }
 

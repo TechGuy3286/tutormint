@@ -13,7 +13,7 @@
 
 export type BadgeName = 'Verified' | 'Premium' | 'Featured'
 
-const TUTOR_PLANS = new Set(['verified', 'premium', 'featured'])
+const TUTOR_PLANS = new Set(['basic', 'premium', 'featured'])
 
 /**
  * Which badges a plan grants.
@@ -40,6 +40,12 @@ export function badgesForPlan(
     case 'premium':
       base = ['Verified', 'Premium']
       break
+    // Basic is the free tier a tutor is on after paying the one-time Rs 199
+    // verification fee — it carries the Verified badge (they paid the fee, they
+    // are listed). The old 'verified' plan code survives only as the fee marker
+    // (a payment.plan_code), never a plan a tutor holds; kept here so a stray
+    // reference still resolves to the Verified badge.
+    case 'basic':
     case 'verified':
       base = ['Verified']
       break
@@ -64,14 +70,16 @@ export function isFeaturedPlan(plan: string | null | undefined): boolean {
 
 /**
  * The listing PRECONDITION — everything a tutor needs to be listable EXCEPT the
- * plan. Shared with the payment go-live path (lib/payments/*), which asks "would
- * this tutor be listed if their plan were running?" to decide when a paused,
- * paid plan should start its clock. Kept here, pure, so that question has one
- * answer used by go-live, activation and the entitlements layer alike.
+ * one-time fee. Shared with the payment go-live path (lib/payments/*), which asks
+ * "would this tutor be listed if their fee were recorded?" to decide when a
+ * paused, paid Premium/Featured plan should start its clock. Kept here, pure, so
+ * that question has one answer used by go-live, activation and the entitlements
+ * layer alike.
  *
- * "verified" is the tutor's identity approval (the admin's video + CNIC + degree
- * audit); profiles.cnic_verified_at is a PARENT column and is null for every
- * tutor, so verification_status IS a tutor's CNIC-verified fact.
+ * verification_status is the tutor's identity STATE (profiles.cnic_verified_at is
+ * a PARENT column and is null for every tutor). Under the one-time-fee model
+ * (owner, 15 Sep 2026) paying the fee is what verifies a tutor, so a still-pending
+ * status does NOT hold them out — only an explicit suspended/rejected does.
  */
 export function tutorListablePrecondition(input: {
   phoneVerified: boolean
@@ -83,7 +91,7 @@ export function tutorListablePrecondition(input: {
   claimedAt?: string | null
 }): boolean {
   if (!input.phoneVerified) return false
-  if (input.verificationStatus !== 'verified') return false
+  if (input.verificationStatus === 'suspended' || input.verificationStatus === 'rejected') return false
   if (input.isSuspended || input.isBanned) return false
   if (input.underReview) return false
   if (input.imported && !input.claimedAt) return false
@@ -94,16 +102,18 @@ export function tutorListablePrecondition(input: {
  * Is this tutor LISTED — the `tutor_directory` rule expressed in TypeScript so
  * every badge and dashboard surface shares one definition with the SQL view.
  *
- * NEW RULE (owner, 10 Sep 2026): profile completion NO LONGER gates listing. A
- * tutor is listed when they hold an ACTIVE PAID PLAN and meet the listable
- * precondition (mobile verified, verification 'verified', not suspended / banned
- * / under review, claimed if imported). A paid, verified tutor at 40% is listed
- * and can apply; completion only decides RANKING and INDEXING now, not listing.
+ * ONE-TIME FEE MODEL (owner, 15 Sep 2026): the Rs 199 verification fee, not an
+ * active paid plan, is what lists a tutor. A tutor is listed when the fee is
+ * recorded (`feePaid`) and the precondition holds (mobile verified, verification
+ * not suspended/rejected, not suspended/banned/under review, claimed if
+ * imported). After the fee they are on the free Basic tier; Premium/Featured are
+ * upgrades that add powers, never a listing requirement. Completion decides
+ * RANKING and INDEXING only, not listing.
  */
 export function tutorListed(
-  input: { hasActivePaidPlan: boolean } & Parameters<typeof tutorListablePrecondition>[0],
+  input: { feePaid: boolean } & Parameters<typeof tutorListablePrecondition>[0],
 ): boolean {
-  return input.hasActivePaidPlan && tutorListablePrecondition(input)
+  return input.feePaid && tutorListablePrecondition(input)
 }
 
 /**

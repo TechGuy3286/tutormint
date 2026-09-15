@@ -22,12 +22,12 @@ export function nextPlan(audience: Audience, currentPlan: string | null): string
       return 'featured' // already the top plan; highlight it as current
     case 'premium':
       return 'featured'
-    case 'verified':
+    case 'basic':
       return 'premium'
     default:
-      // No plan at all: Verified is the entry point and the one that gets
-      // them listed with a badge.
-      return 'verified'
+      // No plan at all: Premium is the first PAID upgrade to highlight. Getting
+      // listed at all is the one-time Rs 199 fee (the Verify gate), not a plan.
+      return 'premium'
   }
 }
 
