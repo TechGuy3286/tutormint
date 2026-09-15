@@ -3,6 +3,7 @@
 import { ShieldCheck, MessageCircle, Mail } from 'lucide-react'
 
 import FileUpload from '@/components/FileUpload'
+import VideoUpload from '@/components/tutor/VideoUpload'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { UPLOAD_TIMEOUT_MS, submitJson, submitSignal } from '@/lib/submit'
@@ -92,7 +93,6 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
   // Video
   const [videoAttempts, setVideoAttempts] = useState(0)
   const [videoStatus, setVideoStatus] = useState('none')
-  const [videoMsg, setVideoMsg] = useState('')
 
   useEffect(() => {
     const s = Number(searchParams.get('step'))
@@ -112,7 +112,7 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
 
     const [{ data: p }, { data: tp }, { data: ts }, { data: dl }] = await Promise.all([
       supabase.from('profiles').select('full_name, city, cnic_number, cnic_image_path, phone_number, phone_verified_at, profile_completion').eq('id', user.id).maybeSingle(),
-      supabase.from('tutor_profiles').select('gender, area, avatar_url, headline, bio, experience_years, hourly_rate_pkr, teaching_mode, job_types, degrees, video_youtube_id, video_status, video_attempts').eq('id', user.id).maybeSingle(),
+      supabase.from('tutor_profiles').select('city, gender, area, avatar_url, headline, bio, experience_years, hourly_rate_pkr, teaching_mode, job_types, degrees, video_youtube_id, video_status, video_attempts').eq('id', user.id).maybeSingle(),
       supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
       supabase.from('user_documents').select('id, kind, label').eq('user_id', user.id).order('created_at', { ascending: false }),
     ])
@@ -120,7 +120,9 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
     setForm({
       full_name: p?.full_name ?? '',
       gender: tp?.gender ?? '',
-      city: p?.city ?? '',
+      // One city field for tutors: tutor_profiles.city is canonical (the listing
+      // rule reads it); fall back to profiles.city only for a row not yet mirrored.
+      city: tp?.city ?? p?.city ?? '',
       area: tp?.area ?? '',
       avatar_url: tp?.avatar_url ?? '',
       headline: tp?.headline ?? '',
@@ -247,26 +249,6 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
     if (!res.ok) { setErr(json.error ?? 'Could not verify.'); return }
     setPhoneVerified(true); setOtpMsg('Mobile number verified.')
     await load()
-  }
-
-  async function uploadVideo(file: File) {
-    setVideoMsg(''); setErr(''); setSaving(true)
-    const fd = new FormData()
-    fd.append('video', file); fd.append('title', `TutorMint intro — ${form.full_name}`)
-    const res = await fetch('/tutor/upload-youtube', { signal: submitSignal(UPLOAD_TIMEOUT_MS), method: 'POST', body: fd })
-    const json = await res.json()
-    setSaving(false)
-    if (!res.ok) {
-      setVideoMsg(
-        json.unavailable
-          ? `Video upload is temporarily unavailable. The server is missing: ${(json.missingEnv ?? []).join(', ')}. Your submission was NOT recorded — please try again later.`
-          : (json.error ?? 'Upload failed.'),
-      )
-      return
-    }
-    setVideoStatus('uploaded'); setVideoAttempts(json.attempt)
-    if (typeof json.completion === 'number') setPercent(json.completion)
-    setVideoMsg(`Video submitted. ${json.attemptsLeft} submission(s) left.`)
   }
 
   if (loading) {
@@ -519,25 +501,14 @@ function CompleteProfileInner({ support }: { support: SupportInfo }) {
                 Record a short introduction. It is uploaded privately and reviewed by our team.
                 You have <strong>{Math.max(0, 3 - videoAttempts)}</strong> of 3 submissions left.
               </p>
-              {videoStatus !== 'none' && (
-                <p className="text-xs font-bold text-tm-green-deep bg-tm-tint-green border border-tm-green-deep/30 rounded-xl p-3">
-                  Video submitted — status: {videoStatus}
-                </p>
-              )}
-              {videoAttempts >= 3 ? (
-                <p className="text-xs font-bold text-tm-red bg-tm-tint-red border border-tm-red/30 rounded-xl p-3">
-                  You have used all 3 submissions. Please contact support@tutormint.org.
-                </p>
-              ) : (
-                <FileUpload
-                  label="Introduction video"
-                  accept="video/*"
-                  acceptLabel="MP4 or MOV"
-                  maxBytes={200 * 1024 * 1024}
-                  onFile={uploadVideo}
-                />
-              )}
-              {videoMsg && <p className="text-[11px] font-bold text-slate-700 bg-tm-bg border border-gray-200 rounded-xl p-3">{videoMsg}</p>}
+              {/* Direct upload straight to YouTube (PR 3b §4) — bypasses the
+                  serverless body cap, so a real 200 MB video uploads with a
+                  progress bar and a retry that keeps the file. */}
+              <VideoUpload
+                initialAttempts={videoAttempts}
+                initialStatus={videoStatus}
+                onSubmitted={() => void load()}
+              />
               {shown >= 100 && (
                 <button onClick={() => router.push('/tutor/dashboard')} className={btnRed}>Done — go to dashboard</button>
               )}

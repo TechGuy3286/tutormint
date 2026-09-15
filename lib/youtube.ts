@@ -80,6 +80,102 @@ export function youtubeConfigured(): boolean {
   )
 }
 
+/** The largest introduction video we accept (PR 3b §4.2). YouTube's own limit is
+ *  far higher; this is the sane browser-upload ceiling shown to the tutor. */
+export const MAX_VIDEO_BYTES = 200 * 1024 * 1024
+
+/**
+ * Create a RESUMABLE upload session on the official channel and return its
+ * session URL, so the BROWSER can PUT the video bytes straight to Google —
+ * bypassing the Vercel serverless request-body cap (~4.5 MB) that made a real
+ * introduction video impossible to upload (PR 3b §4.1). The server never sees
+ * the bytes; it only mints the session (holding the OAuth token) and, later,
+ * records the resulting video id.
+ *
+ * The session is created PRIVATE, exactly like the old direct insert, so the
+ * video stays a draft pending review. Returns { ok, uploadUrl } or a stated
+ * failure — never throws.
+ */
+export async function createResumableUploadSession({
+  title,
+  description,
+  contentType,
+  contentLength,
+}: {
+  title: string
+  description: string
+  contentType: string
+  contentLength: number
+}): Promise<{ ok: true; uploadUrl: string } | { ok: false; error: string }> {
+  if (!youtubeConfigured()) {
+    return { ok: false, error: 'YouTube API credentials are not set.' }
+  }
+  try {
+    const { token } = await oauth2Client.getAccessToken()
+    if (!token) return { ok: false, error: 'Could not authenticate with YouTube.' }
+
+    const res = await fetch(
+      'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json; charset=UTF-8',
+          // The eventual media, declared up front so Google sizes the session.
+          'X-Upload-Content-Type': contentType || 'video/*',
+          'X-Upload-Content-Length': String(contentLength),
+        },
+        body: JSON.stringify({
+          snippet: {
+            title: title || 'Tutor Introduction Video',
+            description: description || 'Uploaded via TutorMint for review.',
+            categoryId: '27', // Education
+          },
+          status: { privacyStatus: 'private', selfDeclaredMadeForKids: false },
+        }),
+      },
+    )
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      console.error('YouTube resumable session error:', res.status, detail.slice(0, 300))
+      return { ok: false, error: `YouTube refused the upload session (${res.status}).` }
+    }
+    const uploadUrl = res.headers.get('location')
+    if (!uploadUrl) return { ok: false, error: 'YouTube did not return an upload URL.' }
+    return { ok: true, uploadUrl }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not start the upload.'
+    console.error('YouTube resumable session exception:', message)
+    return { ok: false, error: message }
+  }
+}
+
+/**
+ * Confirm a client-reported video id is a PRIVATE upload on our own channel, so
+ * the record step cannot be spoofed with an arbitrary id. A private video is
+ * returned by videos.list only to the credentials that own it — you cannot list
+ * a private video you do not own by id — so "found AND private" proves it came
+ * through our resumable session. Returns { ok } or a stated failure.
+ */
+export async function verifyOwnUploadedVideo(
+  videoId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!youtubeConfigured()) return { ok: false, error: 'YouTube API credentials are not set.' }
+  try {
+    const res = await youtube.videos.list({ part: ['status'], id: [videoId] })
+    const item = res.data.items?.[0]
+    if (!item) return { ok: false, error: 'That video was not found on the channel.' }
+    if (item.status?.privacyStatus !== 'private') {
+      return { ok: false, error: 'That video is not a private upload on our channel.' }
+    }
+    return { ok: true }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not verify the video.'
+    return { ok: false, error: message }
+  }
+}
+
 export async function setVideoVisibility(
   videoId: string,
   privacyStatus: 'private' | 'unlisted' | 'public',

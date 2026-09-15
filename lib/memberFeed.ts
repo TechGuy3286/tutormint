@@ -119,7 +119,9 @@ export async function memberPage({
   const none = ['00000000-0000-0000-0000-000000000000']
 
   const [{ data: tutorRows }, { data: subs }, { data: plans }] = await Promise.all([
-    admin.from('tutor_profiles').select('id, slug').in('id', ids.length ? ids : none),
+    // `city` too: for a tutor the directory (and the CSV export, PR 3b §0.6) read
+    // tutor_profiles.city, not profiles.city.
+    admin.from('tutor_profiles').select('id, slug, city').in('id', ids.length ? ids : none),
     admin
       .from('subscriptions')
       .select('user_id, plan_code')
@@ -130,6 +132,7 @@ export async function memberPage({
   ])
 
   const slugById = new Map((tutorRows ?? []).map((t) => [t.id as string, t.slug as string]))
+  const tutorCityById = new Map((tutorRows ?? []).map((t) => [t.id as string, (t.city as string | null) ?? null]))
   const planByUser = new Map((subs ?? []).map((s) => [s.user_id as string, s.plan_code as string]))
   const planName = new Map((plans ?? []).map((p) => [p.code as string, p.name as string]))
 
@@ -147,7 +150,11 @@ export async function memberPage({
       email: (p.email as string) ?? '—',
       phone: (p.phone_number as string) || null,
       whatsapp: (p.whatsapp as string) || null,
-      city: (p.city as string) || null,
+      // A tutor's city is tutor_profiles.city; everyone else's is profiles.city.
+      city:
+        p.role === 'tutor'
+          ? (tutorCityById.get(p.id as string) || null)
+          : ((p.city as string) || null),
       role: p.role as string,
       slug: slugById.get(p.id as string) ?? null,
       completion: (p.profile_completion as number) ?? 0,

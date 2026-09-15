@@ -2,7 +2,6 @@
 
 import FileUpload from '@/components/FileUpload';
 import PasswordInput from '@/components/ui/PasswordInput'
-import { submitForm } from '@/lib/submit'
 import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
@@ -10,90 +9,60 @@ import { areasForCity } from '@/lib/cityAreasCore'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
 import Link from 'next/link'
-import { X, Plus, Save, FileText, ArrowRight } from 'lucide-react'
+import { X, Plus, Save, FileText, ArrowRight, BadgeCheck, ShieldAlert } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
-import TaxonomySelector from '@/components/TaxonomySelector'
-import { resolveMasterIds, labelsForMasterIds } from '@/lib/taxonomy'
+import SubjectPicker from '@/components/tutor/SubjectPicker'
+import VideoUpload from '@/components/tutor/VideoUpload'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
 import QuickRepliesEditor from '@/components/tutor/QuickRepliesEditor'
 import type { Identity } from '@/lib/identity'
 import { reportSilentFailure } from '@/lib/silentFailure'
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+
+// Tutor settings — ONE SAVE PER CARD (PR 3b §2.6). Each card owns its fields and
+// its own Save button, showing "Saved." or the error inline; there is no
+// page-wide Save. Change password keeps its own button. Photos, the identity
+// card, the video and quick replies persist on their own action (upload / submit
+// / save), so they carry no separate Save.
 
 export default function TutorSettingsPage() {
   const supabase = createClient();
   const router = useRouter();
-  // Curated cities/areas from the DB (migration 73) as datalist suggestions;
-  // City/Area still accept free text so a tutor is never blocked on locality.
   const { map: cityMap } = useCityAreas();
   const { titles: jobTitles } = useJobTitles();
   const [tutorEmail, setTutorEmail] = useState("");
   const [userId, setUserId] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [uploadingVideo, setUploadingVideo] = useState(false);
-  const [youtubeStatus, setYoutubeStatus] = useState("");
-  // The identity card's data. Over HTTP because this page is a client
-  // component; the two dashboards call loadIdentity() on the server.
   const [identity, setIdentity] = useState<Identity | null>(null);
 
-  // Change Password States
-  const [currentPassword, setCurrentPassword] = useState("");
+  // Read-only verified mobile (PR 3b §2.2), from profiles.
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
+
+  // Change Password
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordMsg, setPasswordMsg] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   const [formData, setFormData] = useState({
-    // Empty, not sample data. These carried a real member's name, mobile and
-    // area as defaults, which flashed on screen for every tutor before their
-    // own row loaded -- and CLAUDE.md rule 7 forbids mock data in a shipped
-    // page for exactly that reason.
     fullName: "",
-    phone_number: "",
-    whatsapp_number: "",
+    whatsapp: "",
     city: "",
     areaName: "",
     jobTypes: [] as string[],
     profileImage: "",
-    videoIntroUrl: ""
   });
-  // The selfie is a PRIVATE document (user_documents kind='selfie'), not a
-  // tutor_profiles column. This state holds only the authorising preview
-  // route, /api/documents/<id>/preview -- no storage URL ever reaches this
-  // page. selfie_url used to be written here with a public tutor-media URL;
-  // that writer is the defect migration 45 exists to close.
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState("");
 
-  // EMPTY DEFAULTS, and this is not tidying.
-  //
-  // These four lists were seeded with plausible sample content -- an MS
-  // Mathematics from LUMS, a Cambridge Certified Educator certificate, Physics
-  // at "Advance", Monday and Wednesday 4-7pm. The load below then only
-  // overwrote a list when the tutor's own row had one:
-  //
-  //     if (data.degrees && data.degrees.length > 0) setDegrees(data.degrees)
-  //
-  // so a tutor with no degrees kept the sample, and Save wrote it to their
-  // profile as a qualification they had never claimed. It has already
-  // happened: one live tutor carries "MS Mathematics — LUMS, Lahore (2021)"
-  // and two carry the Cambridge certificate, none of them entered by the
-  // person they are attributed to. On a platform that sells degree-verified
-  // tutors that is the most damaging possible thing to invent.
-  //
-  // Empty defaults, and every list is set unconditionally from the row.
-  // Taxonomy subjects — the tutor_subjects join, the SAME cascade the
-  // complete-profile step and the post form use (Level -> Grades -> Subjects).
-  // Replaces the old free-text "specialty" list, which was never the taxonomy
-  // (rule 12) and could not edit the tutor's real subjects at all.
-  const [category, setCategory] = useState("");
-  const [levels, setLevels] = useState<string[]>([]);
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [savedSubjectLabels, setSavedSubjectLabels] = useState<string[]>([]);
+  // Subjects are the tutor's taxonomy_master ids (SubjectPicker, PR 3b §2.4).
+  const [subjectIds, setSubjectIds] = useState<number[]>([]);
 
-  // Availability & Timings
+  // Job-type demand, so the chips order by how much work each title has (§2.3).
+  const [jobTypeDemand, setJobTypeDemand] = useState<Record<string, number>>({});
+
   const [availabilityList, setAvailabilityList] = useState<{ day: string; timeSlot: string }[]>([]);
   const [newDayInput, setNewDayInput] = useState("Monday");
   const [newTimeInput, setNewTimeInput] = useState("");
@@ -101,13 +70,14 @@ export default function TutorSettingsPage() {
   const [degrees, setDegrees] = useState<Credential[]>([]);
   const [certifications, setCertifications] = useState<Credential[]>([]);
 
+  const [videoAttempts, setVideoAttempts] = useState(0);
+  const [videoStatus, setVideoStatus] = useState("none");
+
   useEffect(() => {
     loadTutorProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The identity card's data. A failure here hides the card rather than
-  // breaking the page: the rest of the settings screen is still usable, and
-  // the card is also on the dashboard.
   useEffect(() => {
     let live = true;
     fetch('/api/identity', { headers: { accept: 'application/json' } })
@@ -116,6 +86,12 @@ export default function TutorSettingsPage() {
         if (live && j?.identity) setIdentity(j.identity as Identity);
       })
       .catch((e) => reportSilentFailure('TutorSettings.identity', e));
+    fetch('/api/tutor/demand', { headers: { accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (live && j?.jobTypeDemand) setJobTypeDemand(j.jobTypeDemand as Record<string, number>);
+      })
+      .catch(() => {});
     return () => {
       live = false;
     };
@@ -128,34 +104,29 @@ export default function TutorSettingsPage() {
         router.replace('/tutor/login');
         return;
       }
-
       setUserId(user.id);
       setTutorEmail(user.email || "");
 
-      const { data, error } = await supabase
-        .from('tutor_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+      const [{ data: prof }, { data: tp }, { data: subjRows }] = await Promise.all([
+        supabase.from('profiles').select('phone_number, phone_verified_at').eq('id', user.id).maybeSingle(),
+        supabase.from('tutor_profiles').select('*').eq('id', user.id).maybeSingle(),
+        supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
+      ]);
 
-      if (data) {
-        // One stored Job Type, normalised through parseMode so any legacy value
-        // (in_person / both / 'Physical') maps onto home / online / school.
+      setPhoneNumber((prof?.phone_number as string) || "");
+      setPhoneVerified(Boolean(prof?.phone_verified_at));
+
+      if (tp) {
         setFormData({
-          fullName: data.full_name || "",
-          phone_number: data.phone_number || "",
-          whatsapp_number: data.whatsapp_number || "",
-          city: data.city || "",
-          areaName: data.area || "",
-          // job_types holds the title text (migration 77). It is the source of
-          // truth; teaching_mode is its mirror (job_types[0]).
-          jobTypes: (data.job_types as string[] | null) ?? [],
-          profileImage: data.avatar_url || formData.profileImage,
-          videoIntroUrl: data.video_intro_url || ""
+          fullName: tp.full_name || "",
+          whatsapp: tp.whatsapp_number || "",
+          // One city field for tutors: tutor_profiles.city is canonical (PR 3b §0).
+          city: tp.city || "",
+          areaName: tp.area || "",
+          jobTypes: (tp.job_types as string[] | null) ?? [],
+          profileImage: tp.avatar_url || "",
         });
-        // Latest selfie document, if one exists. Owner-read RLS on
-        // user_documents makes this the member's own row only; the preview
-        // URL is the authorising route, not a storage path.
+
         const { data: selfieDoc } = await supabase
           .from('user_documents')
           .select('id')
@@ -165,21 +136,9 @@ export default function TutorSettingsPage() {
           .limit(1)
           .maybeSingle();
         if (selfieDoc) setSelfiePreviewUrl(`/api/documents/${selfieDoc.id}/preview`);
-        // Set UNCONDITIONALLY. The `length > 0` guards these had were the
-        // mechanism of the bug above: an empty row left the sample content in
-        // place, and the next Save wrote it as the tutor's own.
-        // The tutor's real taxonomy subjects (tutor_subjects join), shown as
-        // saved chips. A retired-taxonomy pick still renders here (labels are
-        // resolved by id, not from the pickers); the cascade below re-picks
-        // from the current dataset.
-        const { data: subjRows } = await supabase
-          .from('tutor_subjects').select('master_id').eq('tutor_id', user.id);
-        const savedIds = (subjRows ?? []).map((r) => r.master_id as number);
-        setSavedSubjectLabels(savedIds.length ? await labelsForMasterIds(savedIds) : []);
-        setAvailabilityList(Array.isArray(data.availability_list) ? data.availability_list : []);
-        // degrees is stored as text[] on some rows (a bare string per degree)
-        // and object[] on others. Coerce a string entry to the object shape so
-        // the row renders its title instead of an empty "()". Display only.
+
+        setAvailabilityList(Array.isArray(tp.availability_list) ? tp.availability_list : []);
+
         const asDegree = (d: unknown) =>
           typeof d === 'string'
             ? { title: d, institute: '', year: '', fileName: '', fileUrl: '' }
@@ -188,63 +147,48 @@ export default function TutorSettingsPage() {
           typeof c === 'string'
             ? { title: c, issuer: '', year: '', fileName: '', fileUrl: '' }
             : (c as { title: string; issuer: string; year: string; fileName: string; fileUrl: string });
-        setDegrees(Array.isArray(data.degrees) ? data.degrees.map(asDegree) : []);
-        setCertifications(Array.isArray(data.certifications) ? data.certifications.map(asCert) : []);
+        setDegrees(Array.isArray(tp.degrees) ? tp.degrees.map(asDegree) : []);
+        setCertifications(Array.isArray(tp.certifications) ? tp.certifications.map(asCert) : []);
+        setVideoAttempts((tp.video_attempts as number) ?? 0);
+        setVideoStatus((tp.video_status as string) ?? 'none');
       }
+
+      setSubjectIds((subjRows ?? []).map((r) => r.master_id as number));
     } catch (err) {
       console.error("Error loading tutor profile:", err);
     }
   };
 
+  // ------------------------------------------------------------- uploads ----
+  // A public-bucket photo, saved to the profile straight away (there is no
+  // page-wide save any more to persist it later).
   const uploadFileToCloud = async (file: File): Promise<string | null> => {
-    try {
-      if (!userId) {
-        alert("User ID not loaded yet. Please wait a moment and try again.");
-        return null;
-      }
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('tutor-media')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) {
-        console.error("Storage upload error:", uploadError.message);
-        alert(`Storage Upload Error: ${uploadError.message}`);
-        return null;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('tutor-media')
-        .getPublicUrl(filePath);
-
-      return publicUrl;
-    } catch (err: any) {
-      console.error("Error uploading file:", err);
-      alert(`Upload Exception: ${err.message || err}`);
-      return null;
-    }
+    if (!userId) return null;
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${userId}-${Date.now()}.${fileExt}`;
+    const { error } = await supabase.storage.from('tutor-media').upload(filePath, file, { upsert: true });
+    if (error) throw new Error(error.message);
+    const { data: { publicUrl } } = supabase.storage.from('tutor-media').getPublicUrl(filePath);
+    return publicUrl;
   };
 
   const handleProfileImageChange = async (file: File) => {
-
     setUploading(true);
-    const publicUrl = await uploadFileToCloud(file);
-    if (publicUrl) {
-      setFormData(prev => ({ ...prev, profileImage: publicUrl }));
+    try {
+      const publicUrl = await uploadFileToCloud(file);
+      if (publicUrl) {
+        setFormData((prev) => ({ ...prev, profileImage: publicUrl }));
+        const { error } = await supabase.from('tutor_profiles').update({ avatar_url: publicUrl }).eq('id', userId);
+        if (error) throw new Error(error.message);
+      }
+    } catch (e) {
+      throw e instanceof Error ? e : new Error('Upload failed.');
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   const handleSelfieCapture = async (file: File) => {
-    // NOT uploadFileToCloud. That helper targets the public tutor-media
-    // bucket, which is right for the avatar and the cover and was wrong for
-    // a verification photo of a person's face. The selfie goes through the
-    // same private flow as the CNIC: identity-docs bucket, EXIF stripped,
-    // served only through the authorising preview route to owner and admin.
     setUploading(true);
     try {
       const body = new FormData();
@@ -252,66 +196,13 @@ export default function TutorSettingsPage() {
       body.append('file', file);
       const res = await fetch('/api/documents/upload', { method: 'POST', body });
       const data = await res.json().catch(() => null);
-      if (res.ok && data?.previewUrl) {
-        setSelfiePreviewUrl(data.previewUrl);
-      } else {
-        alert(data?.error || 'That photo could not be uploaded. Try a JPG or PNG.');
-      }
-    } catch {
-      alert('That photo could not be uploaded. Check your connection and try again.');
+      if (res.ok && data?.previewUrl) setSelfiePreviewUrl(data.previewUrl);
+      else throw new Error(data?.error || 'That photo could not be uploaded. Try a JPG or PNG.');
     } finally {
       setUploading(false);
     }
   };
 
-  const handlePortfolioVideoUpload = async (file: File) => {
-
-    setUploadingVideo(true);
-    setYoutubeStatus("Uploading portfolio video directly to YouTube...");
-
-    const uploadData = new FormData();
-    uploadData.append("video", file);
-    uploadData.append("title", `${formData.fullName} Portfolio Video | TutorMint`);
-    uploadData.append("description", `Verified portfolio video submitted via TutorMint.`);
-
-    // /tutor/upload-youtube, NOT /api/tutor/upload-youtube. There is no route
-    // at the /api path and never was: app/api/tutor/ holds claim/ and jobs/
-    // only, so this POST answered 404 and video upload from this screen has
-    // been dead. The working handler is app/tutor/upload-youtube/route.ts,
-    // which is what /tutor/complete-profile has always posted to.
-    const res = await submitForm<{
-      success?: boolean
-      videoId?: string
-      attemptsLeft?: number
-      error?: string
-    }>("/tutor/upload-youtube", uploadData)
-
-    if (!res.ok || !res.data?.success) {
-      // The route's own message when it has one -- it explains a missing
-      // YouTube credential and a used-up third attempt in words a tutor can
-      // act on -- and submitForm's bounded failure when it does not.
-      setYoutubeStatus("Upload failed: " + (res.data?.error ?? res.error ?? "please try again."))
-      setUploadingVideo(false)
-      return
-    }
-
-    // The route returns `videoId`, not `videoUrl`; reading the wrong key here
-    // stored `undefined` on every successful upload.
-    setFormData(prev => ({
-      ...prev,
-      videoIntroUrl: res.data?.videoId ? `https://www.youtube.com/watch?v=${res.data.videoId}` : prev.videoIntroUrl,
-    }));
-    setYoutubeStatus(
-      typeof res.data.attemptsLeft === 'number'
-        ? `Video submitted for review. ${res.data.attemptsLeft} submission${res.data.attemptsLeft === 1 ? '' : 's'} left.`
-        : "Video submitted for review.",
-    )
-    setUploadingVideo(false)
-  };
-
-  // Degrees and certifications are edited through CredentialEditor now — one
-  // row per credential, inline add/edit, wrapping fields. The old add/push
-  // handlers and their draft state are gone with the two-row card.
   const uploadCredential = async (file: File): Promise<string> =>
     (await uploadFileToCloud(file)) ?? "";
 
@@ -321,133 +212,78 @@ export default function TutorSettingsPage() {
     setNewTimeInput("");
   };
 
+  // ---------------------------------------------------------- card saves ----
+  const postProfileSave = async (payload: Record<string, unknown>) => {
+    const res = await fetch('/api/profile/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j.error || 'Could not save.');
+    }
+  };
+
+  const tutorUpdate = async (patch: Record<string, unknown>) => {
+    const { error } = await supabase.from('tutor_profiles').update(patch).eq('id', userId);
+    if (error) throw new Error(error.message);
+  };
+
+  const saveDetails = () => tutorUpdate({ full_name: formData.fullName, whatsapp_number: formData.whatsapp });
+
+  const saveLocation = async () => {
+    // City is required wherever an area is collected (PR 3b §2.7): the listing
+    // keys on the city, and an area with no city places nobody.
+    if (!formData.city.trim()) {
+      throw new Error('Add your city — you are not shown to parents without it.');
+    }
+    await postProfileSave({ profile: { city: formData.city }, tutorProfile: { area: formData.areaName } });
+  };
+
+  const saveJobTypes = () =>
+    postProfileSave({ tutorProfile: { job_types: formData.jobTypes, teaching_mode: formData.jobTypes[0] ?? null } });
+
+  const saveSubjects = () => postProfileSave({ subjectMasterIds: subjectIds });
+
+  const saveAvailability = () => tutorUpdate({ availability_list: availabilityList });
+  const saveDegrees = () => tutorUpdate({ degrees });
+  const saveCertifications = () => tutorUpdate({ certifications });
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setPasswordMsg("❌ New passwords do not match.");
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPasswordMsg("❌ Password must be at least 6 characters.");
-      return;
-    }
-
+    if (newPassword !== confirmPassword) { setPasswordMsg("❌ New passwords do not match."); return; }
+    if (newPassword.length < 6) { setPasswordMsg("❌ Password must be at least 6 characters."); return; }
     setPasswordLoading(true);
     setPasswordMsg("");
-
     try {
-      // Re-authenticate or update password directly via Supabase Auth
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-
       setPasswordMsg("✅ Password updated successfully!");
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (err: any) {
-      setPasswordMsg("❌ Error: " + (err.message || "Failed to update password"));
+      setNewPassword(""); setConfirmPassword("");
+    } catch (err) {
+      setPasswordMsg("❌ Error: " + (err instanceof Error ? err.message : "Failed to update password"));
     } finally {
       setPasswordLoading(false);
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userId) {
-      alert("User session not found. Please log in.");
-      return;
-    }
-
-    // Area cannot be saved without a city (owner PR3 §3.3): the listing keys on
-    // the city, and an area with no city places nobody.
-    if (formData.areaName.trim() && !formData.city.trim()) {
-      alert('Add your city before saving — an area needs a city.');
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const payload = {
-        id: userId,
-        full_name: formData.fullName,
-        email: tutorEmail,
-        phone_number: formData.phone_number,
-        whatsapp_number: formData.whatsapp_number,
-        city: formData.city,
-        area: formData.areaName,
-        // One Job Type value (home | online | school), or null when unset. The
-        // radio group below is single-choice, so there is no list to reduce.
-        teaching_mode: formData.jobTypes[0] ?? null,
-        job_types: formData.jobTypes,
-        availability_list: availabilityList,
-        avatar_url: formData.profileImage,
-        // selfie_url is NOT written any more. The selfie is a private
-        // user_documents row (kind='selfie') since migration 45 -- the upload
-        // handler stores it; nothing about it belongs in this upsert.
-        // cnic_front_url / cnic_back_url are NOT written any more. They held
-        // PUBLIC tutor-media URLs -- a national identity card fetchable by
-        // anyone with the address -- and the identity card above stores both
-        // sides in the private identity-docs bucket instead. The columns are
-        // left in place rather than dropped so the two rows that already
-        // carry a value stay findable; nothing reads them.
-        video_intro_url: formData.videoIntroUrl,
-        degrees: degrees,
-        certifications: certifications,
-        updated_at: new Date().toISOString()
-      };
-
-      const { error } = await supabase
-        .from('tutor_profiles')
-        .upsert(payload);
-
-      if (error) throw error;
-
-      // Taxonomy subjects: write ONLY when the cascade resolves a fresh pick, so
-      // a tutor who did not touch it keeps their saved subjects (a retired-
-      // taxonomy selection is never silently cleared). /api/profile/save
-      // replaces tutor_subjects and logs the change, the same path complete-
-      // profile uses.
-      const subjectIds = await resolveMasterIds(category, levels, subjects);
-      if (subjectIds.length > 0) {
-        const r = await fetch('/api/profile/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subjectMasterIds: subjectIds }),
-        });
-        if (!r.ok) {
-          const j = await r.json().catch(() => ({}));
-          throw new Error(j.error || 'Could not save your subjects.');
-        }
-        setSavedSubjectLabels(await labelsForMasterIds(subjectIds));
-        setCategory(''); setLevels([]); setSubjects([]);
-      }
-
-      setSuccessMsg("✨ Settings saved successfully!");
-      setTimeout(() => setSuccessMsg(""), 4000);
-    } catch (err: any) {
-      console.error("Error saving profile:", err.message);
-      alert(`Error saving: ${err.message}`);
-    } finally {
-      setUploading(false);
-    }
-  };
+  const orderedTitles = useMemo(
+    () => [...jobTitles].sort((a, b) => (jobTypeDemand[b] ?? 0) - (jobTypeDemand[a] ?? 0)),
+    [jobTitles, jobTypeDemand],
+  );
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 space-y-5 px-4 py-6 font-sans text-slate-700 sm:px-6">
-      {/* Was a hand-rolled trail with no Home entry and no BreadcrumbList. */}
       <Breadcrumbs items={[{ label: 'Tutor dashboard', href: '/tutor/dashboard' }, { label: 'Settings' }]} />
 
       <header className="space-y-1">
         <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Settings</h1>
         <p className="text-xs text-gray-500">
-          Your profile, subjects, availability and documents — one card per thing.
+          Your profile, subjects, availability and documents — one card per thing, each saved on its own.
         </p>
       </header>
 
-      {/* Everything on this page also builds the tutor's CV. */}
       <Link
         href="/tutor/dashboard/cv"
         className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-tm-navy"
@@ -457,376 +293,300 @@ export default function TutorSettingsPage() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-black text-tm-navy">Your CV</p>
-          <p className="text-[11px] text-gray-500">
-            A print-ready CV, built from everything on this page.
-          </p>
+          <p className="text-[11px] text-gray-500">A print-ready CV, built from everything on this page.</p>
         </div>
         <ArrowRight aria-hidden size={16} className="shrink-0 text-tm-red" />
       </Link>
 
-      {uploading && (
-        <p className="rounded-xl border border-tm-navy/20 bg-tm-tint-navy p-3 text-xs font-bold text-tm-navy">
-          Uploading securely…
-        </p>
-      )}
-
-      <form onSubmit={handleSave} className="space-y-5">
-        {/* ---------------------------------------------------------- details */}
-        <Card title="Your details">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block space-y-1">
-              <span className="sr-only">Full name</span>
-              <input
-                type="text"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                placeholder="Full name"
-                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium focus:border-tm-navy focus:outline-none"
-                required
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="sr-only">Email (cannot be changed)</span>
-              <input
-                type="email"
-                value={tutorEmail}
-                disabled
-                aria-label="Email, cannot be changed"
-                className="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-100 p-3 text-xs font-medium text-gray-500"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="sr-only">Phone number</span>
-              <input
-                type="tel"
-                value={formData.phone_number}
-                onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                placeholder="Phone number"
-                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="sr-only">WhatsApp number</span>
-              <input
-                type="tel"
-                value={formData.whatsapp_number}
-                onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
-                placeholder="WhatsApp number"
-                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-              />
-            </label>
-          </div>
-        </Card>
-
-        {/* ----------------------------------------------------------- photos */}
-        <Card title="Your photos" hint="Your profile photo is what parents see. Your selfie is held for verification only and never shown.">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FileUpload
-              label="Profile photo"
-              acceptLabel="JPG or PNG"
-              shape="square"
-              changeLabel="Change photo"
-              busy={uploading}
-              onFile={handleProfileImageChange}
-              currentPreview={
-                <Avatar
-                  name={formData.fullName}
-                  src={formData.profileImage || null}
-                  decorative
-                  ring=""
-                  className="h-full w-full rounded-none text-2xl"
-                />
-              }
+      {/* ------------------------------------------------------------ details */}
+      <Card title="Your details">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="sr-only">Full name</span>
+            <input
+              type="text"
+              value={formData.fullName}
+              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              placeholder="Full name"
+              className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium focus:border-tm-navy focus:outline-none"
             />
-            <FileUpload
-              label="Selfie"
-              acceptLabel="JPG or PNG"
-              shape="square"
-              changeLabel="Retake"
-              busy={uploading}
-              allowRemove={false}
-              onFile={handleSelfieCapture}
-              currentPreview={
-                selfiePreviewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={selfiePreviewUrl}
-                    alt="Your verification selfie"
-                    className="h-full w-full object-cover"
-                  />
-                ) : undefined
-              }
+          </label>
+          <label className="block">
+            <span className="sr-only">Email (cannot be changed)</span>
+            <input
+              type="email"
+              value={tutorEmail}
+              disabled
+              aria-label="Email, cannot be changed"
+              className="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-100 p-3 text-xs font-medium text-gray-500"
             />
-          </div>
-        </Card>
+          </label>
+        </div>
 
-        {/* --------------------------------------------------------- location */}
-        <Card title="Where you teach">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block space-y-1">
-              <span className="sr-only">City</span>
-              <input
-                type="text"
-                list="tutor-city-options"
-                autoComplete="off"
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                placeholder="City"
-                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-                required
-              />
-              <datalist id="tutor-city-options">
-                {cityMap.cities.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-              {/* Listing requires a city (owner PR3 §3.3). A plain red note when
-                  it is empty — it is what makes a tutor invisible in search. */}
-              {!formData.city.trim() && (
-                <p className="text-[11px] font-bold text-tm-red">
-                  Add your city — you are not shown to parents without it.
-                </p>
-              )}
-            </label>
-            <label className="block space-y-1">
-              <span className="sr-only">Area</span>
-              <input
-                type="text"
-                list="tutor-area-options"
-                autoComplete="off"
-                value={formData.areaName}
-                onChange={(e) => setFormData({ ...formData, areaName: e.target.value })}
-                placeholder="Area"
-                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-                required
-              />
-              <datalist id="tutor-area-options">
-                {areasForCity(cityMap, formData.city).map((a) => (
-                  <option key={a} value={a} />
-                ))}
-              </datalist>
-            </label>
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs font-bold text-tm-navy">Job Type</p>
-            <p className="text-[11px] text-gray-500">
-              Choose every title that fits — you are shown tuitions matching any of them.
-            </p>
-            {/* Multiple choice — a tutor can offer any combination of the 19
-                titles (migration 77). The stored value IS the title text. */}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {jobTitles.map((title) => {
-                const isChecked = formData.jobTypes.includes(title);
-                return (
-                  <label
-                    key={title}
-                    className={`flex min-h-[44px] cursor-pointer items-center gap-3 rounded-xl border p-3 text-xs font-bold transition-colors ${
-                      isChecked
-                        ? 'border-tm-green-deep/30 bg-tm-tint-green text-tm-green-deep'
-                        : 'border-gray-200 bg-tm-bg text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() =>
-                        setFormData({
-                          ...formData,
-                          jobTypes: isChecked
-                            ? formData.jobTypes.filter((m) => m !== title)
-                            : [...formData.jobTypes, title],
-                        })
-                      }
-                      className="h-4 w-4 rounded border-gray-300 text-tm-green-deep focus:ring-tm-green-deep"
-                    />
-                    <span>{title}</span>
-                  </label>
-                );
-              })}
+        {/* Verified mobile — read-only (PR 3b §2.2). Only the owner sees it. */}
+        <div className="space-y-1">
+          <p className="text-[11px] font-bold text-tm-navy">Mobile number</p>
+          {phoneVerified ? (
+            <div className="flex items-center gap-2 rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
+              <BadgeCheck aria-hidden size={15} />
+              <span>{phoneNumber || 'Verified'}</span>
+              <span className="ml-auto text-[11px] font-black uppercase tracking-wider">Verified</span>
             </div>
-          </div>
-        </Card>
-
-        {/* --------------------------------------------------------- subjects */}
-        <Card title="Subjects you teach">
-          {/* Currently saved (green chips). A pick on the retired taxonomy still
-              renders here; pick again in the cascade below to move onto the new
-              dataset. Leaving the cascade untouched keeps these on Save. */}
-          {savedSubjectLabels.length > 0 && (
-            <div className="mb-3 space-y-1.5">
-              <p className="text-[11px] font-bold text-gray-500">Saved on your profile</p>
-              <div className="flex flex-wrap gap-1.5">
-                {savedSubjectLabels.map((s) => (
-                  <span
-                    key={s}
-                    className="rounded-lg border border-tm-green-deep/30 bg-tm-tint-green px-2.5 py-1 text-[11px] font-bold text-tm-green-deep"
-                  >
-                    {s}
-                  </span>
-                ))}
-              </div>
-              <p className="text-[11px] text-gray-500">
-                Choose below and Save to replace them — leave it untouched to keep them.
-              </p>
-            </div>
-          )}
-          <TaxonomySelector
-            selectedLevel={category}
-            setSelectedLevel={setCategory}
-            selectedGrades={levels}
-            setSelectedGrades={setLevels}
-            selectedSubjects={subjects}
-            setSelectedSubjects={setSubjects}
-          />
-        </Card>
-
-        {/* ----------------------------------------------------- availability */}
-        <Card title="When you are available">
-          {availabilityList.length > 0 && (
-            <ul className="space-y-2">
-              {availabilityList.map((slot, idx) => (
-                <li
-                  key={idx}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
-                >
-                  <span>
-                    <strong className="text-tm-navy">{slot.day}</strong>{' '}
-                    <span className="font-medium text-gray-500">{slot.timeSlot}</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setAvailabilityList(availabilityList.filter((_, i) => i !== idx))}
-                    aria-label={`Remove ${slot.day} ${slot.timeSlot}`}
-                    className="inline-flex min-h-[36px] items-center gap-1 font-bold text-tm-red"
-                  >
-                    <X aria-hidden size={13} /> Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {/* Two fields side by side, the button on its own line below — the
-              same wrapping rework as the subjects row, so the forced three-up
-              grid can no longer crowd the button at the sm breakpoint. */}
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="sr-only">Day</span>
-                <select
-                  value={newDayInput}
-                  onChange={(e) => setNewDayInput(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-                >
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="sr-only">Time slot</span>
-                <input
-                  type="text"
-                  value={newTimeInput}
-                  onChange={(e) => setNewTimeInput(e.target.value)}
-                  placeholder="Time, e.g. 4:00 PM – 7:00 PM"
-                  className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-                />
-              </label>
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={addAvailabilitySlot}
-                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
-              >
-                <Plus aria-hidden size={14} /> Add time
-              </button>
-            </div>
-          </div>
-        </Card>
-
-        {/* ------------------------------------------------------------ video */}
-        <Card title="Introduction video" hint="Upload a short clip (up to 4 MB) showing how you teach. It is reviewed before it appears on your profile.">
-          {/* The upload posts to /tutor/upload-youtube, a Vercel serverless route,
-              whose request body is capped at ~4.5 MB — so the old "200 MB" was a
-              limit the platform cannot honour (a >4.5 MB video 413s before the
-              handler runs). The honest limit is shown until the upload is moved to
-              a direct/resumable path off the serverless body (owner PR3 §3.9). */}
-          <FileUpload
-            label="Introduction video"
-            accept="video/*"
-            acceptLabel="MP4 or MOV, up to 4 MB"
-            maxBytes={4 * 1024 * 1024}
-            busy={uploadingVideo}
-            onFile={handlePortfolioVideoUpload}
-          />
-          {youtubeStatus && <p className="text-xs font-bold text-tm-green-deep">{youtubeStatus}</p>}
-          {formData.videoIntroUrl && (
-            <p className="text-[11px] font-semibold text-gray-500">Your introduction video is linked.</p>
-          )}
-        </Card>
-
-        {/* --------------------------------------------------------- identity */}
-        {/* Was "ANTI-DOWNLOAD PROTECTED DOCUMENTS", whose heading was the only
-            protection in it: both CNIC sides went to the PUBLIC tutor-media
-            bucket. It renders the shared IdentityCard now — private bucket,
-            watermarked previews, served only through an authorising route. */}
-        {identity && <IdentityCard identity={identity} role="tutor" />}
-
-        {/* ---------------------------------------------------------- degrees */}
-        <Card title="Degrees" hint="Your certificate images are private — watermarked previews only, never downloadable.">
-          <CredentialEditor
-            items={degrees}
-            onChange={setDegrees}
-            uploadFile={uploadCredential}
-            noun="degree"
-            titlePlaceholder="Degree (e.g. BSc Mathematics)"
-            field2Key="institute"
-            field2Placeholder="Institute"
-            addLabel="Add degree"
-          />
-        </Card>
-
-        {/* --------------------------------------------------- certifications */}
-        <Card title="Certifications" hint="Optional. Same private treatment as your degrees.">
-          <CredentialEditor
-            items={certifications}
-            onChange={setCertifications}
-            uploadFile={uploadCredential}
-            noun="certification"
-            titlePlaceholder="Certification"
-            field2Key="issuer"
-            field2Placeholder="Issuer"
-            addLabel="Add certification"
-          />
-        </Card>
-
-        {/* -------------------------------------------------- quick replies */}
-        {/* Self-contained: saves to its own route, not the profile form. No Card
-            hint here — QuickRepliesEditor already carries the one description
-            (owner PR3 §3.7: it appeared twice). */}
-        <Card title="Quick replies">
-          <QuickRepliesEditor />
-        </Card>
-
-        {/* ------------------------------------------------------------- save */}
-        <div className="flex flex-col items-center gap-3 sm:flex-row">
-          <button
-            type="submit"
-            disabled={uploading}
-            className="inline-flex min-h-[48px] w-full flex-1 items-center justify-center gap-2 rounded-xl bg-tm-red px-4 text-xs font-extrabold text-white hover:bg-tm-red-hover disabled:opacity-60"
-          >
-            <Save aria-hidden size={15} /> {uploading ? 'Saving…' : 'Save changes'}
-          </button>
-          {successMsg && (
-            <p className="shrink-0 rounded-xl border border-tm-green-deep/30 bg-tm-tint-green px-4 py-3 text-xs font-bold text-tm-green-deep">
-              {successMsg}
-            </p>
+          ) : (
+            <Link
+              href="/verify-phone"
+              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+            >
+              <ShieldAlert aria-hidden size={15} className="text-tm-red" />
+              <span>{phoneNumber ? `${phoneNumber} — not verified` : 'Verify your mobile number'}</span>
+              <ArrowRight aria-hidden size={14} className="ml-auto shrink-0 text-tm-red" />
+            </Link>
           )}
         </div>
-      </form>
+
+        <label className="block">
+          <span className="text-[11px] font-bold text-tm-navy">WhatsApp number</span>
+          <input
+            type="tel"
+            value={formData.whatsapp}
+            onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+            placeholder="WhatsApp number"
+            className="mt-1 w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+          />
+        </label>
+
+        <SaveBar onSave={saveDetails} />
+      </Card>
+
+      {/* ----------------------------------------------------------- photos */}
+      <Card title="Your photos" hint="Your profile photo is what parents see. Your selfie is held for verification only and never shown.">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FileUpload
+            label="Profile photo"
+            acceptLabel="JPG or PNG"
+            shape="square"
+            changeLabel="Change photo"
+            busy={uploading}
+            onFile={handleProfileImageChange}
+            currentPreview={
+              <Avatar
+                name={formData.fullName}
+                src={formData.profileImage || null}
+                decorative
+                ring=""
+                className="h-full w-full rounded-none text-2xl"
+              />
+            }
+          />
+          <FileUpload
+            label="Selfie"
+            acceptLabel="JPG or PNG"
+            shape="square"
+            changeLabel="Retake"
+            busy={uploading}
+            allowRemove={false}
+            onFile={handleSelfieCapture}
+            currentPreview={
+              selfiePreviewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={selfiePreviewUrl} alt="Your verification selfie" className="h-full w-full object-cover" />
+              ) : undefined
+            }
+          />
+        </div>
+      </Card>
+
+      {/* --------------------------------------------------------- location */}
+      <Card title="Where you teach">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <span className="sr-only">City</span>
+            <input
+              type="text"
+              list="tutor-city-options"
+              autoComplete="off"
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              placeholder="City"
+              className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+            />
+            <datalist id="tutor-city-options">
+              {cityMap.cities.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+            {!formData.city.trim() && (
+              <p className="text-[11px] font-bold text-tm-red">
+                Add your city — you are not shown to parents without it.
+              </p>
+            )}
+          </label>
+          <label className="block space-y-1">
+            <span className="sr-only">Area</span>
+            <input
+              type="text"
+              list="tutor-area-options"
+              autoComplete="off"
+              value={formData.areaName}
+              onChange={(e) => setFormData({ ...formData, areaName: e.target.value })}
+              placeholder="Area"
+              className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+            />
+            <datalist id="tutor-area-options">
+              {areasForCity(cityMap, formData.city).map((a) => (
+                <option key={a} value={a} />
+              ))}
+            </datalist>
+          </label>
+        </div>
+        <SaveBar onSave={saveLocation} />
+      </Card>
+
+      {/* --------------------------------------------------------- job type */}
+      <Card title="Job Type" hint="Choose every title that fits — you are shown tuitions matching any of them. The busiest first.">
+        <div className="flex flex-wrap gap-2">
+          {orderedTitles.map((title) => {
+            const on = formData.jobTypes.includes(title);
+            return (
+              <button
+                key={title}
+                type="button"
+                aria-pressed={on}
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    jobTypes: on
+                      ? formData.jobTypes.filter((m) => m !== title)
+                      : [...formData.jobTypes, title],
+                  })
+                }
+                className={`inline-flex min-h-[44px] items-center rounded-xl border px-4 text-xs font-bold transition-colors ${
+                  on
+                    ? 'border-tm-green-deep/30 bg-tm-tint-green text-tm-green-deep'
+                    : 'border-gray-200 bg-tm-bg text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {title}
+              </button>
+            );
+          })}
+        </div>
+        <SaveBar onSave={saveJobTypes} />
+      </Card>
+
+      {/* --------------------------------------------------------- subjects */}
+      <Card title="Subjects you teach" hint="Search or pick from the grades with the most tuitions. What you have saved is already selected.">
+        <SubjectPicker value={subjectIds} onChange={setSubjectIds} />
+        <SaveBar onSave={saveSubjects} />
+      </Card>
+
+      {/* ----------------------------------------------------- availability */}
+      <Card title="When you are available">
+        {availabilityList.length > 0 && (
+          <ul className="space-y-2">
+            {availabilityList.map((slot, idx) => (
+              <li
+                key={idx}
+                className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
+              >
+                <span>
+                  <strong className="text-tm-navy">{slot.day}</strong>{' '}
+                  <span className="font-medium text-gray-500">{slot.timeSlot}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAvailabilityList(availabilityList.filter((_, i) => i !== idx))}
+                  aria-label={`Remove ${slot.day} ${slot.timeSlot}`}
+                  className="inline-flex min-h-[36px] items-center gap-1 font-bold text-tm-red"
+                >
+                  <X aria-hidden size={13} /> Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="sr-only">Day</span>
+              <select
+                value={newDayInput}
+                onChange={(e) => setNewDayInput(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+              >
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="sr-only">Time slot</span>
+              <input
+                type="text"
+                value={newTimeInput}
+                onChange={(e) => setNewTimeInput(e.target.value)}
+                placeholder="Time, e.g. 4:00 PM – 7:00 PM"
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+              />
+            </label>
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={addAvailabilitySlot}
+              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+            >
+              <Plus aria-hidden size={14} /> Add time
+            </button>
+          </div>
+        </div>
+        <SaveBar onSave={saveAvailability} />
+      </Card>
+
+      {/* ------------------------------------------------------------ video */}
+      <Card title="Introduction video" hint="A short clip showing how you teach, up to 200 MB. It is reviewed before it appears on your profile.">
+        <VideoUpload initialAttempts={videoAttempts} initialStatus={videoStatus} onSubmitted={() => void loadTutorProfile()} />
+      </Card>
+
+      {/* --------------------------------------------------------- identity */}
+      {identity && <IdentityCard identity={identity} role="tutor" />}
+
+      {/* ---------------------------------------------------------- degrees */}
+      <Card title="Degrees" hint="Your certificate images are private — watermarked previews only, never downloadable.">
+        <CredentialEditor
+          items={degrees}
+          onChange={setDegrees}
+          uploadFile={uploadCredential}
+          noun="degree"
+          titlePlaceholder="Degree (e.g. BSc Mathematics)"
+          field2Key="institute"
+          field2Placeholder="Institute"
+          addLabel="Add degree"
+        />
+        <SaveBar onSave={saveDegrees} />
+      </Card>
+
+      {/* --------------------------------------------------- certifications */}
+      <Card title="Certifications" hint="Optional. Same private treatment as your degrees.">
+        <CredentialEditor
+          items={certifications}
+          onChange={setCertifications}
+          uploadFile={uploadCredential}
+          noun="certification"
+          titlePlaceholder="Certification"
+          field2Key="issuer"
+          field2Placeholder="Issuer"
+          addLabel="Add certification"
+        />
+        <SaveBar onSave={saveCertifications} />
+      </Card>
+
+      {/* -------------------------------------------------- quick replies */}
+      <Card title="Quick replies">
+        <QuickRepliesEditor />
+      </Card>
 
       {/* ------------------------------------------------------------ password */}
       <Card title="Change password" hint="Update your account password.">
@@ -877,15 +637,7 @@ export default function TutorSettingsPage() {
   );
 }
 
-function Card({
-  title,
-  hint,
-  children,
-}: {
-  title: string
-  hint?: string
-  children: React.ReactNode
-}) {
+function Card({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
       <div className="space-y-0.5">
@@ -894,5 +646,46 @@ function Card({
       </div>
       {children}
     </section>
+  );
+}
+
+// One Save button per card (PR 3b §2.6): saves that card only, shows "Saved." or
+// the error inline. onSave throws to signal a failure.
+function SaveBar({ onSave, label = 'Save' }: { onSave: () => Promise<void>; label?: string }) {
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [msg, setMsg] = useState('');
+  const run = async () => {
+    setState('saving');
+    setMsg('');
+    try {
+      await onSave();
+      setState('saved');
+      setTimeout(() => setState((s) => (s === 'saved' ? 'idle' : s)), 3000);
+    } catch (e) {
+      setState('error');
+      setMsg(e instanceof Error ? e.message : 'Could not save.');
+    }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-3 pt-1">
+      <button
+        type="button"
+        onClick={run}
+        disabled={state === 'saving'}
+        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-tm-red px-5 text-xs font-extrabold text-white transition-colors hover:bg-tm-red-hover disabled:opacity-60"
+      >
+        <Save aria-hidden size={14} /> {state === 'saving' ? 'Saving…' : label}
+      </button>
+      {state === 'saved' && (
+        <p className="rounded-xl border border-tm-green-deep/30 bg-tm-tint-green px-3 py-2 text-[11px] font-bold text-tm-green-deep">
+          Saved.
+        </p>
+      )}
+      {state === 'error' && (
+        <p role="alert" className="rounded-xl border border-tm-red/30 bg-tm-tint-red px-3 py-2 text-[11px] font-bold text-tm-red">
+          {msg}
+        </p>
+      )}
+    </div>
   );
 }

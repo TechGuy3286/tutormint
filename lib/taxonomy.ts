@@ -85,6 +85,39 @@ export async function fetchAllSubjects(): Promise<string[]> {
   return Array.from(new Set(rows.filter((r) => !r.legacy && r.subject).map((r) => r.subject as string))).sort()
 }
 
+/** One pickable subject×level combination — a NON-legacy taxonomy_master row with
+ *  its display names, for a flat, grouped-by-level picker (PR 3b §2.4). */
+export type SubjectMaster = {
+  id: number
+  category: string
+  level: string
+  subject: string | null
+  isLevelLeaf: boolean
+}
+
+/** Every pickable (non-legacy) subject×level combination, for the settings
+ *  subject picker: flat, so it can group by level and order by demand without a
+ *  level-first cascade gate. */
+export async function fetchNonLegacyMasters(): Promise<SubjectMaster[]> {
+  const { rows } = await load()
+  return rows
+    .filter((r) => !r.legacy)
+    .map((r) => ({ id: r.id, category: r.category, level: r.level, subject: r.subject, isLevelLeaf: r.isLevelLeaf }))
+}
+
+/** id -> display label for a set of master ids (legacy included, so a retired
+ *  saved subject still labels), keyed by id so a selected-chip row can name any
+ *  saved subject. */
+export async function labelsByMasterId(ids: number[]): Promise<Map<number, string>> {
+  const { rows } = await load()
+  const set = new Set(ids)
+  const out = new Map<number, string>()
+  for (const r of rows) {
+    if (set.has(r.id)) out.set(r.id, r.subject ? `${r.level} — ${r.subject}` : r.level)
+  }
+  return out
+}
+
 /**
  * Resolve display-name selections to taxonomy_master ids -- the only thing
  * tutor_subjects / job_subjects store.

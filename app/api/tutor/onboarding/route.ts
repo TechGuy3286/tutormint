@@ -84,13 +84,20 @@ export async function POST(request: Request) {
     masterIds = Array.from(new Set((masterRows ?? []).map((m) => m.id as number))).slice(0, MAX_MASTERS)
   }
 
-  // ---- write profiles.city ----
-  if (typeof body.city === 'string') {
-    await supabase.from('profiles').update({ city: body.city.trim() || null }).eq('id', user.id)
+  // ---- city: one field for tutors (PR 3b §0) ----
+  // The tutor's canonical city is tutor_profiles.city (what the directory reads);
+  // profiles.city is mirrored in the same write so the completion checklist and
+  // search stay in step. Both are set on the tutor_profiles / profiles updates
+  // below.
+  const cityWrite: string | null | undefined =
+    typeof body.city === 'string' ? body.city.trim() || null : undefined
+  if (cityWrite !== undefined) {
+    await supabase.from('profiles').update({ city: cityWrite }).eq('id', user.id)
   }
 
   // ---- write tutor_profiles ----
   const tutorPatch: Record<string, unknown> = {}
+  if (cityWrite !== undefined) tutorPatch.city = cityWrite
   if (typeof body.area === 'string') tutorPatch.area = body.area.trim() || null
   if (gender) tutorPatch.gender = gender
   if (typeof body.experienceYears === 'number') tutorPatch.experience_years = body.experienceYears

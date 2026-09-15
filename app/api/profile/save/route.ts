@@ -22,7 +22,13 @@ type Body = {
 }
 
 // Only these columns may be written from the client, per table.
-const PROFILE_FIELDS = new Set(['full_name', 'city', 'province', 'address', 'cnic_number', 'whatsapp'])
+//
+// `city` is NOT in this set on purpose: for a TUTOR the single city field is
+// tutor_profiles.city (the field the listing rule reads), mirrored into
+// profiles.city in the same save; for a PARENT it stays profiles.city. Both are
+// handled below by role, so a blanket profiles.city write here would send the
+// tutor's city to the wrong column — the exact split PR 3b closes.
+const PROFILE_FIELDS = new Set(['full_name', 'province', 'address', 'cnic_number', 'whatsapp'])
 const TUTOR_FIELDS = new Set([
   'gender', 'area', 'avatar_url', 'headline', 'bio',
   'experience_years', 'hourly_rate_pkr', 'teaching_mode', 'job_types', 'online_platforms', 'degrees',
@@ -59,7 +65,19 @@ export async function POST(request: Request) {
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
   const role = me?.role
 
+  // ONE CITY FIELD FOR TUTORS (PR 3b §0). `city` arrives under `profile.city`
+  // from every form. A blank string clears it (null); an absent key leaves it
+  // untouched. For a tutor it is written to tutor_profiles.city (what the
+  // directory keys on) and mirrored into profiles.city; for a parent it stays
+  // on profiles.city.
+  const cityProvided =
+    !!body.profile && Object.prototype.hasOwnProperty.call(body.profile, 'city')
+  const cityWrite: string | null | undefined = cityProvided
+    ? (typeof body.profile?.city === 'string' ? body.profile.city.trim() : '') || null
+    : undefined
+
   const profilePatch = pick(body.profile, PROFILE_FIELDS)
+  if (role !== 'tutor' && cityWrite !== undefined) profilePatch.city = cityWrite
   if (Object.keys(profilePatch).length > 0) {
     const { error } = await supabase.from('profiles').update(profilePatch).eq('id', user.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
@@ -67,6 +85,8 @@ export async function POST(request: Request) {
 
   if (role === 'tutor') {
     const tutorPatch = pick(body.tutorProfile, TUTOR_FIELDS)
+    // The tutor's canonical city lives on tutor_profiles.
+    if (cityWrite !== undefined) tutorPatch.city = cityWrite
 
     // The picture must be a file in one of our buckets. This route had no
     // check on avatar_url at all, which is how a 4MB base64 string ended up in
@@ -80,6 +100,14 @@ export async function POST(request: Request) {
 
     if (Object.keys(tutorPatch).length > 0) {
       const { error } = await supabase.from('tutor_profiles').update(tutorPatch).eq('id', user.id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    // Mirror the tutor's city into profiles.city in the SAME save (PR 3b §0.2),
+    // so the completion checklist and search (which read profiles.city) stay in
+    // step with the listing rule (which reads tutor_profiles.city).
+    if (cityWrite !== undefined) {
+      const { error } = await supabase.from('profiles').update({ city: cityWrite }).eq('id', user.id)
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
@@ -110,6 +138,7 @@ export async function POST(request: Request) {
   const completion = await recomputeCompletion(user.id)
 
   const changed = [...Object.keys(profilePatch)]
+  if (cityProvided) changed.push('city')
   if (Array.isArray(body.subjectMasterIds)) {
     await logActivity({
       userId: user.id, event: 'subjects_changed', targetType: 'tutor_profile', targetId: user.id,

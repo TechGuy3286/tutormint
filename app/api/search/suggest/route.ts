@@ -143,7 +143,21 @@ async function viewerCity(): Promise<string | null> {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return null
-    const { data } = await supabase.from('profiles').select('city').eq('id', user.id).maybeSingle()
+    const { data } = await supabase
+      .from('profiles')
+      .select('role, city')
+      .eq('id', user.id)
+      .maybeSingle()
+    // One city field for tutors: a tutor's city is tutor_profiles.city (PR 3b §0.6);
+    // everyone else's is profiles.city.
+    if ((data?.role as string | null) === 'tutor') {
+      const { data: tp } = await supabase
+        .from('tutor_profiles')
+        .select('city')
+        .eq('id', user.id)
+        .maybeSingle()
+      return (tp?.city as string | null) || null
+    }
     return (data?.city as string | null) || null
   } catch {
     return null

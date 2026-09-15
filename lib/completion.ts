@@ -86,12 +86,17 @@ export async function recomputeCompletion(userId: string): Promise<Completion | 
     .update({ profile_completion: completion.percent })
     .eq('id', userId)
 
-  // Reaching 100% is the usual way a tutor goes live, so this is the natural
-  // place to start a plan they bought while under it. Idempotent and cheap: it
-  // only does anything for a tutor who now appears in the directory AND holds a
-  // paused subscription. A dynamic import keeps the payments module out of the
-  // many write routes that call recomputeCompletion but never touch a plan.
-  if (completion.percent >= 100) {
+  // Start a paused plan the moment the tutor becomes LISTED. Since listing no
+  // longer requires 100% completion (migration 86/87 — the fee lists, completion
+  // only ranks/indexes), and the directory rule now includes having a subject and
+  // a city (PR 3b §1), a tutor can cross into the directory at any completion
+  // level — most often by adding the subject or city that was missing. So this
+  // runs on every recompute, not only at 100%. Idempotent and cheap: it does
+  // anything only for a tutor who is now in the directory AND holds a paused
+  // subscription (it checks the role and the paused row itself), so it is safe to
+  // call for anyone. A dynamic import keeps the payments module out of the many
+  // write routes that call recomputeCompletion but never touch a plan.
+  {
     const { activatePausedIfListed } = await import('@/lib/payments/goLive')
     await activatePausedIfListed(userId)
   }

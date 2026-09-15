@@ -253,7 +253,10 @@ export async function loadTutorQueue({
     const completion = calculateTutorCompletion({
       profile: {
         full_name: (p?.full_name as string) ?? (t.full_name as string) ?? null,
-        city: (p?.city as string) ?? null,
+        // One city field for tutors: read tutor_profiles.city (what the listing
+        // check on line ~284 uses), so the completion input and the directory
+        // rule agree on the same value (PR 3b §0.6).
+        city: (t.city as string | null) ?? (p?.city as string | null) ?? null,
         cnic_number: (p?.cnic_number as string) ?? null,
         cnic_image_path: (p?.cnic_image_path as string) ?? null,
         phone_verified_at: (p?.phone_verified_at as string) ?? null,

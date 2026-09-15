@@ -207,6 +207,49 @@ export async function onboardingFacets(): Promise<OnboardingFacets | null> {
   return { national, cities, areasByCity, subjects, levels, feeBands }
 }
 
+/**
+ * Open-job demand for the tutor SETTINGS pickers (PR 3b §2.3, §2.4):
+ *   - jobTypeDemand: teaching_mode (job title) -> count of open jobs, so the Job
+ *     Type chips can be ordered by how much work each title has waiting.
+ *   - subjectDemand: taxonomy_master id -> count of open jobs referencing it, so
+ *     the subject chips group by level and order by demand.
+ * Aggregate counts only, over ALL open jobs (never seed/team filtered) — the same
+ * "real work is real work whoever posted it" rule the onboarding counter uses.
+ */
+export async function tutorDemand(): Promise<{
+  jobTypeDemand: Record<string, number>
+  subjectDemand: Record<number, number>
+}> {
+  const admin = createAdminClient()
+  if (!admin) return { jobTypeDemand: {}, subjectDemand: {} }
+
+  const { data: jobs } = await admin
+    .from('jobs')
+    .select('id, teaching_mode')
+    .eq('status', 'open')
+    .limit(5000)
+  const jobList = jobs ?? []
+
+  const jobTypeDemand: Record<string, number> = {}
+  for (const j of jobList) {
+    const t = ((j.teaching_mode as string | null) ?? '').trim()
+    if (t) jobTypeDemand[t] = (jobTypeDemand[t] ?? 0) + 1
+  }
+
+  const ids = jobList.map((j) => j.id as string)
+  const subjectDemand: Record<number, number> = {}
+  for (let i = 0; i < ids.length; i += 500) {
+    const chunk = ids.slice(i, i + 500)
+    const { data: links } = await admin.from('job_subjects').select('master_id').in('job_id', chunk)
+    for (const l of links ?? []) {
+      const m = l.master_id as number
+      subjectDemand[m] = (subjectDemand[m] ?? 0) + 1
+    }
+  }
+
+  return { jobTypeDemand, subjectDemand }
+}
+
 export type CountFilters = {
   city?: string | null
   area?: string | null

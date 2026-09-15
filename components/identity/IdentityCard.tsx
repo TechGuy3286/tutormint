@@ -4,13 +4,13 @@ import { AlertCircle, BadgeCheck, Clock, IdCard, PencilLine, Send, Upload } from
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import FileUpload from '@/components/FileUpload'
+import CnicCameraField from '@/components/tutor/CnicCameraField'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import { useToast } from '@/components/ui/Toast'
 import { CNIC_FORMAT_HINT, formatCnic, isValidCnic, maskCnic } from '@/lib/cnic'
 import { formatDate } from '@/lib/datetime'
 import type { Identity } from '@/lib/identity'
-import { UPLOAD_TIMEOUT_MS, submitError, submitJson, submitSignal } from '@/lib/submit'
+import { submitJson } from '@/lib/submit'
 
 // The identity card. ONE component, both roles.
 //
@@ -100,47 +100,25 @@ export default function IdentityCard({ identity, role }: Props) {
   // submit" is a worse flow than replacing in place. So there is no remove
   // path here (and none in /api/identity): Replace is the only action.
 
-  async function upload(file: File, side: 'front' | 'back') {
+  // The number gates the images, and it is enforced here as well as in the
+  // submit route: uploading a national identity document is not something to let
+  // somebody do and then tell them it did not count. Returns false to abort the
+  // capture (CnicCameraField's beforeUpload contract).
+  async function ensureNumber(): Promise<boolean> {
     setError('')
-    // The number gates the images, and it is enforced here as well as in the
-    // submit route: uploading a national identity document is not something to
-    // let somebody do and then tell them it did not count.
     if (!isValidCnic(number)) {
       setError('Add your CNIC number first — it has to match the card in the photo.')
-      throw new Error('number required')
+      return false
     }
-    if (!numberSaved && !(await saveNumber())) throw new Error('number not saved')
+    if (!numberSaved && !(await saveNumber())) return false
+    return true
+  }
 
-    const fd = new FormData()
-    fd.append('kind', 'cnic')
-    fd.append('file', file)
-    fd.append('label', side)
-
-    // Not submitJson: FormData, and a phone on a slow connection legitimately
-    // needs longer than the ten-second default.
-    let json: { documentId?: string; error?: string } = {}
-    let ok = false
-    try {
-      const res = await fetch('/api/documents/upload', {
-        method: 'POST',
-        body: fd,
-        signal: submitSignal(UPLOAD_TIMEOUT_MS),
-      })
-      json = await res.json().catch(() => ({}))
-      ok = res.ok
-    } catch (e) {
-      json = { error: submitError(e, 'That upload did not go through.') }
-    }
-
-    if (!ok || !json.documentId) {
-      const message = json.error ?? 'That upload did not go through.'
-      setError(message)
-      throw new Error(message)
-    }
-
-    const doc = { id: json.documentId, side, uploadedAt: new Date().toISOString() }
+  function onUploaded(side: 'front' | 'back', documentId: string) {
+    const doc = { id: documentId, side, uploadedAt: new Date().toISOString() }
     if (side === 'back') setBack(doc)
     else setFront(doc)
+    setError('')
     setNotice(`${side === 'back' ? 'Back' : 'Front'} of your card uploaded.`)
     toast.success(`${side === 'back' ? 'Back' : 'Front'} of your card uploaded.`)
     router.refresh()
@@ -264,34 +242,36 @@ export default function IdentityCard({ identity, role }: Props) {
             <p className="text-[11px] text-gray-500">{CNIC_FORMAT_HINT}</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <FileUpload
+          {/* The SHARED CNIC capture (PR 3b §2.1) — same camera-first control as
+              the apply-gate modal: tap opens the camera, the tile fills with the
+              photo, tap to retake, compressed under 1 MB. */}
+          <div className="flex gap-3">
+            <CnicCameraField
+              side="front"
               label="Front CNIC"
-              acceptLabel="JPG or PNG"
-              hint="All four corners in frame, and the text readable."
               disabled={!isValidCnic(number)}
-              allowRemove={false}
-              onFile={(f) => upload(f, 'front')}
-              currentPreview={
-                front ? (
-                  <SecureDocumentPreview documentId={front.id} alt="Front CNIC" />
-                ) : undefined
+              beforeUpload={ensureNumber}
+              onUploaded={(id) => onUploaded('front', id)}
+              onError={(m) => setError(m)}
+              storedPreview={
+                front ? <SecureDocumentPreview documentId={front.id} alt="Front CNIC" /> : undefined
               }
             />
-            <FileUpload
+            <CnicCameraField
+              side="back"
               label="Back CNIC"
-              acceptLabel="JPG or PNG"
-              hint="The side with the address and the expiry date."
               disabled={!isValidCnic(number)}
-              allowRemove={false}
-              onFile={(f) => upload(f, 'back')}
-              currentPreview={
-                back ? (
-                  <SecureDocumentPreview documentId={back.id} alt="Back CNIC" />
-                ) : undefined
+              beforeUpload={ensureNumber}
+              onUploaded={(id) => onUploaded('back', id)}
+              onError={(m) => setError(m)}
+              storedPreview={
+                back ? <SecureDocumentPreview documentId={back.id} alt="Back CNIC" /> : undefined
               }
             />
           </div>
+          <p className="text-[11px] leading-relaxed text-gray-500">
+            Take a clear photo of each side — all four corners in frame and the text readable.
+          </p>
 
           <button
             type="button"
