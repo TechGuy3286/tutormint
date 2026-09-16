@@ -92,6 +92,22 @@ export function modePhrase(sel: JobSelection): string {
   return ''
 }
 
+/**
+ * The generated title, JOB TYPE FIRST (owner PR9 §3.1):
+ *   "Home Tutor for Art & Drawing, Pre Nursery / KG I in DHA, Lahore"
+ * = <Job Type> for <subjects>, <level> in <area>, <city>. Every segment is
+ * optional and drops its connector with it (no "for" with nothing after, no
+ * trailing "in"). Exported so the AI path and its verifier share one shape.
+ */
+export function buildJobTitle(sel: JobSelection, subject: string, place: string): string {
+  const who = jobType(sel.mode) || 'Tutor'
+  const forBit = [subject, sel.level].filter(Boolean).join(', ')
+  let title = who
+  if (forBit) title += ` for ${forBit}`
+  if (place) title += ` in ${place}`
+  return title
+}
+
 // ------------------------------------------------------------- composed ----
 
 /**
@@ -108,10 +124,7 @@ export function composeJobCopy(sel: JobSelection): JobCopy {
   const mode = modePhrase(sel)
   const budget = budgetPhrase(sel)
 
-  const titleBits = [subject || sel.level, sel.level && subject ? `(${sel.level})` : '', 'tutor needed']
-    .filter(Boolean)
-    .join(' ')
-  const title = place ? `${titleBits} in ${place}` : titleBits
+  const title = buildJobTitle(sel, subject, place)
 
   const lines: string[] = []
   lines.push(

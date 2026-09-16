@@ -45,15 +45,21 @@ export type NavItem = {
   screen?: AdminScreen
 }
 
-export type NavGroup = { title: string; items: NavItem[] }
+/** The group's identity colour (owner PR9 §6.1). A brand token name — the shell
+ *  maps it to the coloured bar, the active left border and the active tint. */
+export type NavColor = 'navy' | 'green' | 'red' | 'gold' | 'mint'
+
+export type NavGroup = { title: string; color: NavColor; items: NavItem[] }
 
 export const NAV_GROUPS: NavGroup[] = [
   {
     title: 'Overview',
+    color: 'navy', // #151E6B
     items: [{ href: '/admin', label: 'Overview', icon: 'gauge' }],
   },
   {
     title: 'Verification',
+    color: 'green', // #2E7D4F
     items: [
       { href: '/admin/tutors', label: 'Tutors', icon: 'graduation', screen: 'tutors' },
       { href: '/admin/parents', label: 'Parents', icon: 'users', screen: 'parents' },
@@ -61,6 +67,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: 'Members',
+    color: 'navy', // #151E6B
     items: [
       { href: '/admin/users', label: 'Members', icon: 'contact', screen: 'users' },
       // Orphaned accounts folded into Abandoned signups as a second section
@@ -71,6 +78,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: 'Marketplace',
+    color: 'red', // #C20202
     items: [
       { href: '/admin/jobs', label: 'Tuitions', icon: 'clipboard', screen: 'jobs' },
       { href: '/admin/jobs/new', label: 'Post a tuition', icon: 'filePlus', screen: 'jobs' },
@@ -80,6 +88,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: 'Trust',
+    color: 'gold', // #F59E0B
     items: [
       { href: '/admin/reports', label: 'Reports', icon: 'flag', screen: 'reports' },
       { href: '/admin/inbox', label: 'Team inbox', icon: 'mail', screen: 'inbox' },
@@ -88,6 +97,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: 'Growth',
+    color: 'mint', // #9AE899
     items: [
       { href: '/admin/ads', label: 'Advertisements', icon: 'megaphone', screen: 'ads' },
       { href: '/admin/social', label: 'Social posts', icon: 'camera', screen: 'social' },

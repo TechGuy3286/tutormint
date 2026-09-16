@@ -302,11 +302,16 @@ export default function PostTuitionForm({
   return (
     <div className="space-y-4">
       {teamBanner && (
+        // The text is ONE flex item (a single span), so the sentence stays one
+        // flowing line beside the icon — a bare text-plus-<strong> in a flex
+        // container split the sentence into columns (owner PR9 §4.1).
         <p className="flex items-start gap-2 rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-3 text-[11px] leading-relaxed text-tm-navy">
           <ShieldCheck size={14} className="mt-px shrink-0" aria-hidden />
-          This tuition is posted on the official TutorMint team account and is marked{' '}
-          <strong>&ldquo;Posted by TutorMint&rdquo;</strong> everywhere it appears. Applications,
-          messages and hiring run through the ordinary parent flow on that account.
+          <span>
+            This tuition is posted on the official TutorMint team account and is marked{' '}
+            <strong>&ldquo;Posted by TutorMint&rdquo;</strong> everywhere it appears. Applications,
+            messages and hiring run through the ordinary parent flow on that account.
+          </span>
         </p>
       )}
 

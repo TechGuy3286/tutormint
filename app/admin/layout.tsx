@@ -9,6 +9,29 @@ import NotificationBell from '@/components/notifications/NotificationBell'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { NAV_GROUPS, type NavGroup } from '@/lib/adminNav'
 import { unreadCount } from '@/lib/notificationFeed'
+import { createAdminClient } from '@/lib/supabase/admin'
+
+// Small sidebar count badges (owner PR9 §6.5): tutors with a CNIC pending review,
+// payments awaiting approval, and open reports. Cheap head-count reads; a zero
+// shows no badge (the shell omits it).
+async function navBadges(): Promise<Record<string, number>> {
+  const admin = createAdminClient()
+  if (!admin) return {}
+  const [tutors, payments, reports] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'tutor')
+      .eq('verification_state', 'submitted'),
+    admin.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+  ])
+  return {
+    '/admin/tutors': tutors.count ?? 0,
+    '/admin/payments': payments.count ?? 0,
+    '/admin/reports': reports.count ?? 0,
+  }
+}
 
 // Server gate for the whole /admin subtree, plus the shell.
 //
@@ -45,11 +68,12 @@ export default async function AdminLayout({
   })).filter((g) => g.items.length > 0)
 
   const jar = await cookies()
-  const unread = await unreadCount()
+  const [unread, badges] = await Promise.all([unreadCount(), navBadges()])
 
   return (
     <AdminShell
       groups={groups}
+      badges={badges}
       initialCollapsed={jar.get('tm_admin_nav')?.value === 'collapsed'}
       roleLabel={actor.adminRole}
       email={actor.email}

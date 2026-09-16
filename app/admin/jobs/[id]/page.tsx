@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { tuitionPath } from '@/lib/slugs'
 import { notFound } from 'next/navigation'
-import { ExternalLink, Flag, MapPin, Wallet, Clock, GraduationCap, Phone, Mail, Globe } from 'lucide-react'
+import { ExternalLink, Flag, MapPin, Wallet, Clock, GraduationCap, Phone, Mail, Globe, Pencil } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import TimeAgo from '@/components/TimeAgo'
@@ -65,7 +65,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
       .order('created_at', { ascending: false }),
     admin
       .from('profiles')
-      .select('id, full_name, email, avatar_url, city, cnic_verified_at, address_verified_at, is_suspended, profile_completion')
+      .select('id, full_name, email, avatar_url, city, cnic_verified_at, address_verified_at, is_suspended, is_team_account, profile_completion')
       .eq('id', job.parent_id as string)
       .maybeSingle(),
     admin
@@ -108,6 +108,10 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
   )
 
   const canAct = roleSatisfies(actor.adminRole, SCREEN_ACCESS.jobsMutate)
+  // Team-posted tuitions are editable (owner PR9 §2.1) by the roles that post
+  // them; a parent's own job is not (§2.3).
+  const isTeamPosted = !!parent?.is_team_account
+  const canEditTeam = isTeamPosted && roleSatisfies(actor.adminRole, SCREEN_ACCESS.jobsPost)
   const hired = (apps ?? []).find((a) => a.tutor_id === job.hired_tutor_id)
 
   // Seeded-tuition contact (job_contacts): the real parent behind an
@@ -161,6 +165,17 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
             <ExternalLink size={11} aria-hidden />
           </Link>
         ) : null}
+        {canEditTeam && (
+          <div>
+            <Link
+              href={`/admin/jobs/${job.id}/edit`}
+              className="mt-1 inline-flex min-h-[36px] items-center gap-1.5 rounded-xl bg-tm-navy px-3 text-xs font-bold text-white transition-colors hover:bg-tm-navy-hover"
+            >
+              <Pencil size={13} aria-hidden />
+              Edit tuition
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* ------------------------------------------------ the ad as posted */}

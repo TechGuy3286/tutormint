@@ -420,6 +420,137 @@ export async function createTeamJob(
   }
 }
 
+/**
+ * Edit a TEAM-posted tuition (owner PR9 §2). Admin edit of an admin-posted job:
+ * it saves to the SAME row, so the job id, TM reference, public_slug (URL) and
+ * every application are unchanged — public_slug is INSERT-only (migration 40), so
+ * changing the title never changes the address, and no redirect is needed. Only a
+ * team-posted job is editable this way (§2.3); a parent's own job is not. Every
+ * edit needs a reason and is logged to admin_audit_log with the changed fields.
+ */
+export async function updateTeamJob(
+  jobId: string,
+  input: JobInput,
+  actor: { id: string; adminRole: AdminRole; email: string | null },
+  reason: string,
+): Promise<{ ok: true; publicSlug: string | null } | Fail> {
+  const problem = validate(input)
+  if (problem) return { ok: false, status: 400, error: problem }
+  if (!reason || reason.trim().length < 3) {
+    return { ok: false, status: 400, error: 'Give a reason for this change — it is recorded.' }
+  }
+
+  const contact = buildJobContact({
+    name: input.contactName,
+    phone: input.contactPhone,
+    whatsapp: input.contactWhatsapp,
+    email: input.contactEmail,
+    address: input.contactAddress,
+    social: input.contactSocial,
+  })
+  if (!contact.ok) return { ok: false, status: 400, error: contact.error }
+
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
+  const teamId = await teamParentId()
+  const { data: existing } = await admin
+    .from('jobs')
+    .select(
+      'id, parent_id, status, public_slug, job_tx_id, ref_id, title, class_levels, city, area, teaching_mode, budget_min_pkr, budget_max_pkr, description, gender_preference, timings, subjects',
+    )
+    .eq('id', jobId)
+    .maybeSingle()
+
+  if (!existing) return { ok: false, status: 404, error: 'Tuition not found.' }
+  // §2.3: only team-posted tuitions are editable by admin here. A parent's own
+  // job is close/remove-only for admin.
+  if (!teamId || existing.parent_id !== teamId) {
+    return { ok: false, status: 403, error: 'Only team-posted tuitions can be edited here.' }
+  }
+
+  const labels = await subjectLabels(input.masterIds)
+  const next = {
+    title: input.title.trim(),
+    class_levels: levelArr(input),
+    class_level: levelDisplay(input),
+    city: input.city,
+    area: input.area ?? '',
+    teaching_mode: input.teachingMode || 'Home Tutor',
+    budget_pkr: bandFigure(input),
+    budget_min_pkr: input.budgetMin ?? null,
+    budget_max_pkr: input.budgetMax ?? null,
+    gender_preference: normaliseGenderPref(input.genderPreference),
+    description: input.description,
+    subjects: labels,
+    subject: labels.join(', ') || 'Tuition',
+    grade: levelDisplay(input),
+    budget: bandFigure(input) === null ? '' : String(bandFigure(input)),
+    timings: input.schedule ?? '',
+    // NOT touched: id, job_tx_id, ref_id, public_slug, parent_id, status,
+    // is_featured, applications.
+  }
+
+  // The changed fields, for the audit (§2.2). Compared in the reader's terms.
+  const changed: string[] = []
+  const diff = (k: string, a: unknown, b: unknown) => {
+    if (JSON.stringify(a ?? null) !== JSON.stringify(b ?? null)) changed.push(k)
+  }
+  diff('title', existing.title, next.title)
+  diff('grades', existing.class_levels, next.class_levels)
+  diff('city', existing.city, next.city)
+  diff('area', existing.area, next.area)
+  diff('jobType', existing.teaching_mode, next.teaching_mode)
+  diff('budget', [existing.budget_min_pkr, existing.budget_max_pkr], [next.budget_min_pkr, next.budget_max_pkr])
+  diff('genderPreference', existing.gender_preference, next.gender_preference)
+  diff('description', existing.description, next.description)
+  diff('schedule', existing.timings, next.timings)
+  diff('subjects', existing.subjects, next.subjects)
+
+  const { error } = await admin.from('jobs').update(next).eq('id', jobId)
+  if (error) return { ok: false, status: 400, error: error.message }
+
+  // Subjects replaced wholesale so a removed one really is removed.
+  await admin.from('job_subjects').delete().eq('job_id', jobId)
+  await admin
+    .from('job_subjects')
+    .insert(input.masterIds.map((master_id) => ({ job_id: jobId, master_id })))
+
+  // The seeded parent-contact block, edited or cleared.
+  if (contact.hasContact) {
+    await admin
+      .from('job_contacts')
+      .upsert({ job_id: jobId, ...contact.record, created_by: actor.id }, { onConflict: 'job_id' })
+    changed.push('contact')
+  } else {
+    const { data: had } = await admin.from('job_contacts').select('job_id').eq('job_id', jobId).maybeSingle()
+    if (had) {
+      await admin.from('job_contacts').delete().eq('job_id', jobId)
+      changed.push('contact')
+    }
+  }
+
+  await logActivity({
+    userId: teamId,
+    event: 'job_edited',
+    targetType: 'job',
+    targetId: jobId,
+    meta: { adminPosted: true, byAdmin: actor.id, changed },
+  })
+  await logAdminAction({
+    actorId: actor.id,
+    actorRole: actor.adminRole,
+    actorEmail: actor.email,
+    action: 'job.edit',
+    targetType: 'job',
+    targetId: jobId,
+    detail: { reason: reason.trim(), changed, jobTxId: existing.job_tx_id, refId: existing.ref_id },
+  })
+
+  revalidateLanding()
+  return { ok: true, publicSlug: (existing.public_slug as string) ?? null }
+}
+
 export async function updateJob(
   parentId: string,
   jobId: string,

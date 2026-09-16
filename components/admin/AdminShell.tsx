@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Camera,
+  ChevronDown,
+  ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   ClipboardList,
@@ -31,7 +33,7 @@ import {
   X,
 } from 'lucide-react'
 
-import type { NavGroup } from '@/lib/adminNav'
+import type { NavColor, NavGroup } from '@/lib/adminNav'
 
 // The admin shell: one sidebar, one header, one content column.
 //
@@ -78,6 +80,27 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
   userX: UserX,
 }
 
+// Per-group colour (owner PR9 §6.1). On the DARK sidebar the raw brand colours
+// (navy, red, green-deep) fail AA as text/icons, and the palette rule forbids
+// tm-gold/tm-red as text — so the group's colour is carried by NON-TEXT elements
+// only: the coloured bar beside the label, the active item's left border, and
+// its translucent tint. Label and icon TEXT stay a readable light colour, which
+// is what keeps check:contrast at 100 (§6.6).
+const GROUP_BAR: Record<NavColor, string> = {
+  navy: 'bg-tm-navy',
+  green: 'bg-tm-green-deep',
+  red: 'bg-tm-red',
+  gold: 'bg-tm-gold',
+  mint: 'bg-tm-mint',
+}
+const ACTIVE_ITEM: Record<NavColor, string> = {
+  navy: 'border-tm-navy bg-tm-navy/25',
+  green: 'border-tm-green-deep bg-tm-green-deep/25',
+  red: 'border-tm-red bg-tm-red/25',
+  gold: 'border-tm-gold bg-tm-gold/25',
+  mint: 'border-tm-mint bg-tm-mint/25',
+}
+
 const COOKIE = 'tm_admin_nav'
 
 function rememberCollapsed(collapsed: boolean) {
@@ -96,6 +119,7 @@ export default function AdminShell({
   roleLabel,
   email,
   banner,
+  badges,
   children,
 }: {
   groups: NavGroup[]
@@ -108,6 +132,8 @@ export default function AdminShell({
   email: string | null
   /** A full-width strip below the header (e.g. the BRIDGE_OTP banner). */
   banner?: React.ReactNode
+  /** Small count badges keyed by item href (owner PR9 §6.5). No badge when 0. */
+  badges?: Record<string, number>
   children: React.ReactNode
 }) {
   const pathname = usePathname() ?? '/admin'
@@ -115,6 +141,31 @@ export default function AdminShell({
   const [drawer, setDrawer] = useState(false)
   const drawerId = useId()
   const closeRef = useRef<HTMLButtonElement | null>(null)
+
+  // Per-group collapse, remembered per admin in localStorage (owner PR9 §6.4).
+  // Default is expanded (an absent/true entry = open); flicker is harmless since
+  // groups start open and only collapse after hydration.
+  const storeKey = `tm:adminNav:${email ?? 'admin'}`
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storeKey)
+      if (raw) setOpenGroups(JSON.parse(raw) as Record<string, boolean>)
+    } catch {
+      /* localStorage may be unavailable; groups stay open */
+    }
+  }, [storeKey])
+  const groupOpen = (title: string) => openGroups[title] !== false
+  const toggleGroup = (title: string) =>
+    setOpenGroups((prev) => {
+      const next = { ...prev, [title]: prev[title] === false }
+      try {
+        localStorage.setItem(storeKey, JSON.stringify(next))
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
 
   // A drawer that survives the navigation it triggered would cover the screen
   // it just opened.
@@ -139,52 +190,82 @@ export default function AdminShell({
     href === '/admin' ? pathname === '/admin' : pathname === href || pathname.startsWith(href + '/')
 
   const NavList = ({ compact }: { compact: boolean }) => (
-    <nav aria-label="Admin sections" className="flex-1 overflow-y-auto px-3 pb-6">
-      {groups.map((g) => (
-        <div key={g.title} className="mb-4">
-          <p
-            className={`px-2 pb-1 text-[10px] font-black uppercase tracking-widest text-gray-300 ${
-              compact ? 'sr-only' : ''
-            }`}
-          >
-            {g.title}
-          </p>
-          <ul className="space-y-0.5">
-            {g.items.map((item) => {
-              const Icon = ICONS[item.icon] ?? Gauge
-              const active = isActive(item.href)
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    aria-current={active ? 'page' : undefined}
-                    // The label is always in the DOM. Collapsed, it is sr-only
-                    // rather than removed, so the icons keep their names for a
-                    // screen reader and `title` gives a pointer user the same
-                    // thing on hover.
-                    title={compact ? item.label : undefined}
-                    className={`flex min-h-[44px] items-center gap-3 rounded-xl px-2.5 text-xs font-bold transition-colors ${
-                      active
-                        ? 'bg-white/12 text-white'
-                        : 'text-gray-300 hover:bg-white/8 hover:text-white'
-                    } ${compact ? 'justify-center' : ''}`}
-                  >
-                    <span
-                      aria-hidden
-                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg ${
-                        active ? 'text-tm-mint' : ''
-                      }`}
-                    >
-                      <Icon size={16} />
-                    </span>
-                    <span className={compact ? 'sr-only' : 'truncate'}>{item.label}</span>
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      ))}
+    <nav aria-label="Admin sections" className="flex-1 overflow-y-auto px-2 pb-6">
+      {groups.map((g, gi) => {
+        // Per-group collapse only in the expanded sidebar; a compact (icon-only)
+        // rail always shows its items (there is no header to collapse from).
+        const open = compact || groupOpen(g.title)
+        return (
+          // A thin divider between groups (§6.2).
+          <div key={g.title} className={gi > 0 ? 'mt-3 border-t border-white/10 pt-3' : ''}>
+            {compact ? (
+              <p className="sr-only">{g.title}</p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => toggleGroup(g.title)}
+                aria-expanded={open}
+                className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1 hover:bg-white/5"
+              >
+                {/* The small coloured bar carries the group's colour (§6.1). */}
+                <span aria-hidden className={`h-3.5 w-1 shrink-0 rounded-full ${GROUP_BAR[g.color]}`} />
+                <span className="flex-1 text-left text-[10px] font-black uppercase tracking-widest text-gray-200">
+                  {g.title}
+                </span>
+                {open ? (
+                  <ChevronDown aria-hidden size={13} className="text-gray-300" />
+                ) : (
+                  <ChevronRight aria-hidden size={13} className="text-gray-300" />
+                )}
+              </button>
+            )}
+
+            {open && (
+              <ul className="space-y-0.5">
+                {g.items.map((item) => {
+                  const Icon = ICONS[item.icon] ?? Gauge
+                  const active = isActive(item.href)
+                  const count = badges?.[item.href] ?? 0
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        aria-current={active ? 'page' : undefined}
+                        title={compact ? item.label : undefined}
+                        // border-l-4 always present (transparent when inactive) so
+                        // the active border never shifts the row. Active = the
+                        // group colour border + a light tint of it (§6.3); hover is
+                        // a lighter neutral wash, distinct from active.
+                        className={`relative flex min-h-[44px] items-center gap-3 rounded-xl border-l-4 px-2.5 text-xs font-bold transition-colors ${
+                          active
+                            ? `${ACTIVE_ITEM[g.color]} text-white`
+                            : 'border-transparent text-gray-300 hover:bg-white/8 hover:text-white'
+                        } ${compact ? 'justify-center' : ''}`}
+                      >
+                        <span aria-hidden className="grid h-6 w-6 shrink-0 place-items-center">
+                          <Icon size={16} />
+                        </span>
+                        <span className={compact ? 'sr-only' : 'flex-1 truncate'}>{item.label}</span>
+                        {count > 0 &&
+                          (compact ? (
+                            <span
+                              aria-hidden
+                              className="absolute right-1 top-1 h-2 w-2 rounded-full bg-tm-red"
+                            />
+                          ) : (
+                            <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-tm-red px-1.5 text-[10px] font-black text-white">
+                              {count > 99 ? '99+' : count}
+                            </span>
+                          ))}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )
+      })}
     </nav>
   )
 

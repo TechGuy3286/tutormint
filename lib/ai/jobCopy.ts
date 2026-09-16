@@ -39,7 +39,8 @@ const SYSTEM = [
   '- No corporate filler: no "passionate", no "dynamic", no "we are seeking a highly qualified individual".',
   '- No greeting, no sign-off, no emoji, no hashtags, no markdown.',
   `- The description must be between ${MIN_WORDS} and ${MAX_WORDS} words.`,
-  '- The title must be one line, under 90 characters, and say the subject and where.',
+  // Owner PR9 §3.1: the job type LEADS the title.
+  '- The title must be one line, under 90 characters, and start with the job type, then the subject(s), then the grade/level, then the area and city — e.g. "Home Tutor for Art & Drawing, Pre Nursery / KG I in DHA, Lahore". Use only the grades/levels in the facts.',
   'Reply as JSON only, exactly: {"title": "...", "description": "..."}',
 ].join('\n')
 
