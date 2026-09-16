@@ -40,11 +40,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This account's number is not verified." }, { status: 400 })
   }
 
-  const { error } = await admin
+  // Return the updated row so the client can confirm success ONLY when the
+  // number really is no longer verified (owner PR11 §2.3) — not on a bare
+  // `success: true` that could mask a write that did not take.
+  const { data: updated, error } = await admin
     .from('profiles')
     .update({ phone_verified_at: null, phone_verified: false, phone_verified_via: null })
     .eq('id', parsed.data.tutorId)
+    .select('id, phone_verified_at')
+    .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (!updated || updated.phone_verified_at !== null) {
+    return NextResponse.json(
+      { error: 'The clear did not take effect. Please try again.' },
+      { status: 500 },
+    )
+  }
 
   await recomputeCompletion(parsed.data.tutorId)
 
@@ -60,5 +71,8 @@ export async function POST(request: Request) {
     detail: { cleared: 'phone_verification' },
   })
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({
+    success: true,
+    cleared: { id: updated.id as string, phoneVerifiedAt: updated.phone_verified_at as string | null },
+  })
 }

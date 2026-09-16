@@ -14,7 +14,7 @@ import { submitJson, submitSignal } from '@/lib/submit'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { QueueTutorRow } from '@/lib/adminQueues'
-import { BLOCKER_LABEL } from '@/lib/tutorListingStatus'
+import { BLOCKER_LABEL, type ListingBlocker } from '@/lib/tutorListingStatus'
 
 // The row shape is defined once, beside the query that builds it. A type-only
 // import is erased at compile time, so nothing from that server-only module
@@ -28,6 +28,11 @@ const FILTERS = [
 ]
 
 const MAX_ATTEMPTS = 3
+
+// The last ten digits of a number, for matching the two accounts that share one
+// verified mobile without importing a server-only phone helper (a shared number
+// normalises to the same ten digits whatever variant each account stored).
+const last10 = (s: string | null | undefined) => (s ? s.replace(/\D/g, '').slice(-10) : '')
 
 export default function TutorModerationClient({
   tutors,
@@ -62,11 +67,24 @@ export default function TutorModerationClient({
     initialCursor,
     storageKey: `tm:more:admin-tutors:${filter}:${search}`,
   })
-  const all = [...tutors, ...more.items]
+  // Local, per-row patches applied on top of the server rows. After a mobile
+  // verification is cleared, the "Duplicate mobile" chip has to leave BOTH
+  // accounts at once — including one that is on a later (client-paged) page,
+  // which router.refresh() alone does not touch because it only re-renders the
+  // server-sent first window, not useInfinite's appended rows. Keyed by id, so a
+  // subsequent server refresh that re-sends the same row simply carries the same
+  // truth. (PR11 §2.2)
+  const [overrides, setOverrides] = useState<Record<string, Partial<QueueTutor>>>({})
+  const all = [...tutors, ...more.items].map((t) =>
+    overrides[t.id] ? { ...t, ...overrides[t.id] } : t,
+  )
   const [open, setOpen] = useState<QueueTutor | null>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  // A dedicated inline error for the clear-mobile action, shown beside its own
+  // button in the drawer (PR11 §2.1) rather than sharing the moderation `err`.
+  const [clearErr, setClearErr] = useState('')
   const [msg, setMsg] = useState('')
   // The full CNIC, once an owner/admin taps "Show" (logged). Reset on open.
   const [revealedCnic, setRevealedCnic] = useState<string | null>(null)
@@ -88,21 +106,68 @@ export default function TutorModerationClient({
 
   async function clearMobile() {
     if (!open) return
+    const target = open
     const okc = await confirm({
-      title: `Clear ${open.fullName ?? 'this tutor'}'s mobile verification?`,
+      title: `Clear ${target.fullName ?? 'this tutor'}'s mobile verification?`,
       body: 'This removes the verified status of their number from THIS account, so the same number can stay verified on the other account. The number is kept; they can re-verify later.',
       confirmLabel: 'Clear verification',
     })
     if (!okc) return
     setBusy(true)
-    const { ok, error } = await submitJson('/api/admin/tutors/clear-mobile', { tutorId: open.id })
+    setClearErr('')
+    const { ok, data, error } = await submitJson<{
+      cleared?: { id: string; phoneVerifiedAt: string | null }
+    }>('/api/admin/tutors/clear-mobile', { tutorId: target.id })
     setBusy(false)
-    if (!ok) {
-      toast.error(error ?? 'Could not clear the verification.')
+
+    // §2.3: confirm success ONLY when the server hands back the cleared row with
+    // the number no longer verified. Anything else is a failure the owner sees,
+    // inline and in a toast — never a silent no-op.
+    if (!ok || !data?.cleared || data.cleared.id !== target.id || data.cleared.phoneVerifiedAt !== null) {
+      const m = error ?? 'Could not clear the verification. Please try again.'
+      setClearErr(m)
+      toast.error(m)
       return
     }
-    toast.success('Mobile verification cleared.')
+
+    // §2.2: the number is no longer verified, so the "Duplicate mobile" chip
+    // must leave BOTH this account and the one it shared the number with. Patch
+    // every visible row carrying the same number (matched on the last ten
+    // digits, so number variants collide), and mark this account phone-unverified
+    // so its "Not listed" reasons now show "Mobile number not verified".
+    const num = last10(target.phone)
+    setOverrides((prev) => {
+      const next = { ...prev }
+      for (const r of all) {
+        if (r.id === target.id) {
+          const pv: ListingBlocker = 'phone_unverified'
+          const blockers = r.blockers.includes(pv) ? r.blockers : [...r.blockers, pv]
+          next[r.id] = {
+            ...(next[r.id] ?? {}),
+            duplicateMobile: false,
+            blockers,
+            listed: blockers.length === 0,
+            missing: r.missing.some((m) => m.key === 'phone')
+              ? r.missing
+              : [...r.missing, { key: 'phone', label: 'Mobile number verified' }],
+          }
+        } else if (num && last10(r.phone) === num) {
+          next[r.id] = { ...(next[r.id] ?? {}), duplicateMobile: false }
+        }
+      }
+      return next
+    })
+
+    toast.success('Verification cleared.')
     setOpen(null)
+    // Server authority for everything else (completion, listing), and a fresh
+    // reload: drop the cached paged rows so useInfinite does not restore stale
+    // ones, then re-render the server page.
+    try {
+      sessionStorage.removeItem(`tm:more:admin-tutors:${filter}:${search}`)
+    } catch {
+      /* private mode / quota — the overrides already fixed the visible chips */
+    }
     router.refresh()
   }
 
@@ -227,6 +292,7 @@ export default function TutorModerationClient({
                   setOpen(t)
                   setReason('')
                   setErr('')
+                  setClearErr('')
                   setRevealedCnic(null)
                 }}
                 className="w-full text-left bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 hover:border-tm-navy transition-colors flex items-center gap-3 min-h-[44px]"
@@ -353,6 +419,7 @@ export default function TutorModerationClient({
                     Only the owner can clear a number&rsquo;s verification.
                   </p>
                 )}
+                {clearErr && <p className="text-[11px] font-black text-tm-red">{clearErr}</p>}
               </div>
             )}
 
