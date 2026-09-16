@@ -152,7 +152,7 @@ export default function MessagesDock({
     // Messages keeps a fixed height and scrolls inside; Support sizes to its
     // content so the panel is not tall and half-empty (owner PR5b §2.1).
     <div
-      className="fixed bottom-0 right-6 z-40 hidden w-[380px] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gray-200 bg-white shadow-2xl lg:flex"
+      className="fixed bottom-0 right-6 z-40 hidden max-h-[calc(100dvh-1rem)] w-[380px] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-gray-200 bg-white shadow-2xl lg:flex"
       style={tab === 'messages' ? { height: '520px' } : undefined}
     >
       {/* header + tabs. Active tab: navy fill, white text; inactive plain. Both
