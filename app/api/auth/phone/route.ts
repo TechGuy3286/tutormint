@@ -6,6 +6,7 @@ import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, pkMobile } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { sendOtp } from '@/lib/otp'
+import { numberVerifiedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
 
 // Change the mobile number on an account that has not verified one yet.
 //
@@ -78,6 +79,13 @@ export async function POST(request: Request) {
       alreadySent: resent.alreadySent,
       devBypassActive: resent.devBypassActive,
     })
+  }
+
+  // One VERIFIED number per account (owner PR8 §1.2): if it is already verified
+  // on another account, do not send — with the specific message, no account
+  // named.
+  if (await numberVerifiedElsewhere(admin, msisdn, user.id)) {
+    return NextResponse.json({ error: NUMBER_TAKEN_MESSAGE }, { status: 409 })
   }
 
   const national = `0${msisdn.slice(2)}`

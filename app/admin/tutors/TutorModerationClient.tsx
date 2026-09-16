@@ -34,6 +34,8 @@ export default function TutorModerationClient({
   filter,
   search,
   canSetVisibility,
+  canRevealCnic,
+  canClearMobile,
   initialCursor,
   total,
 }: {
@@ -42,6 +44,10 @@ export default function TutorModerationClient({
   search: string
   /** Only owner/admin may publish a video; operations sees the state, not the control. */
   canSetVisibility: boolean
+  /** Owner + Admin may reveal a full CNIC number (logged). */
+  canRevealCnic: boolean
+  /** Owner only may clear a number's verification (§1.5). */
+  canClearMobile: boolean
   initialCursor: string | null
   total: number
 }) {
@@ -62,8 +68,43 @@ export default function TutorModerationClient({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
+  // The full CNIC, once an owner/admin taps "Show" (logged). Reset on open.
+  const [revealedCnic, setRevealedCnic] = useState<string | null>(null)
   const toast = useToast()
   const confirm = useConfirm()
+
+  async function revealCnic() {
+    if (!open) return
+    const { ok, data, error } = await submitJson<{ cnicNumber: string | null }>(
+      '/api/admin/tutors/cnic-reveal',
+      { tutorId: open.id },
+    )
+    if (!ok) {
+      toast.error(error ?? 'Could not reveal the number.')
+      return
+    }
+    setRevealedCnic(data?.cnicNumber ?? '—')
+  }
+
+  async function clearMobile() {
+    if (!open) return
+    const okc = await confirm({
+      title: `Clear ${open.fullName ?? 'this tutor'}'s mobile verification?`,
+      body: 'This removes the verified status of their number from THIS account, so the same number can stay verified on the other account. The number is kept; they can re-verify later.',
+      confirmLabel: 'Clear verification',
+    })
+    if (!okc) return
+    setBusy(true)
+    const { ok, error } = await submitJson('/api/admin/tutors/clear-mobile', { tutorId: open.id })
+    setBusy(false)
+    if (!ok) {
+      toast.error(error ?? 'Could not clear the verification.')
+      return
+    }
+    toast.success('Mobile verification cleared.')
+    setOpen(null)
+    router.refresh()
+  }
 
   async function setVisibility(visibility: 'private' | 'unlisted' | 'public') {
     if (!open) return
@@ -186,6 +227,7 @@ export default function TutorModerationClient({
                   setOpen(t)
                   setReason('')
                   setErr('')
+                  setRevealedCnic(null)
                 }}
                 className="w-full text-left bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 hover:border-tm-navy transition-colors flex items-center gap-3 min-h-[44px]"
               >
@@ -220,7 +262,17 @@ export default function TutorModerationClient({
                     </p>
                   )}
                 </div>
-                <StatusPill status={t.verificationStatus} videoStatus={t.videoStatus} />
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <CnicPill
+                    status={t.verificationStatus}
+                    hasCnic={!!t.cnicNumber || t.documents.some((d) => d.kind === 'cnic')}
+                  />
+                  {t.duplicateMobile && (
+                    <span className="inline-flex items-center rounded-full bg-tm-tint-red px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-tm-red">
+                      Duplicate mobile
+                    </span>
+                  )}
+                </div>
               </button>
             </li>
           ))}
@@ -276,8 +328,33 @@ export default function TutorModerationClient({
               <Info label="Video" value={`${open.videoStatus} (${open.videoAttempts}/${MAX_ATTEMPTS})`} />
               <Info label="Rating" value={`${open.ratingAvg} (${open.ratingCount})`} />
               <Info label="City / area" value={`${open.city ?? '—'} / ${open.area ?? '—'}`} />
-              <Info label="CNIC no." value={open.cnicNumber ?? '—'} />
+              <Info label="CNIC no." value={revealedCnic ?? open.cnicNumber ?? '—'} />
             </dl>
+
+            {/* One verified number per account (owner PR8 §1.5). When this
+                tutor's number is verified on another account, the owner can clear
+                it from THIS account so the number stays on the other. */}
+            {open.duplicateMobile && (
+              <div className="space-y-2 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3">
+                <p className="text-[11px] font-black text-tm-red">
+                  This mobile number is verified on more than one account.
+                </p>
+                {canClearMobile ? (
+                  <button
+                    type="button"
+                    onClick={() => void clearMobile()}
+                    disabled={busy}
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-50"
+                  >
+                    Clear this number&rsquo;s verification
+                  </button>
+                ) : (
+                  <p className="text-[11px] font-semibold text-tm-red">
+                    Only the owner can clear a number&rsquo;s verification.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Why this tutor is not at 100% — the same checklist the tutor sees,
                 so an admin can tell them exactly what is outstanding. A tutor is
@@ -359,37 +436,66 @@ export default function TutorModerationClient({
               </div>
             )}
 
-            {open.documents.length > 0 && (
-              <div className="space-y-2">
-                {/* THE NUMBER SITS WITH THE IMAGES. Checking a card is
-                    comparing the typed digits against the ones in the
-                    photograph, and the number was a chip several rows up while
-                    the images were here -- the one comparison this screen
-                    exists for was the one thing it did not put side by side.
-                    Full, not masked: masking it would make the check
-                    impossible, and only admins who may work this queue reach
-                    this screen. */}
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-[11px] font-bold text-tm-navy">
-                    Documents — watermarked previews, admin rights
-                  </p>
-                  <p className="font-mono text-xs font-black text-tm-navy">
-                    {open.cnicNumber ?? 'no CNIC number typed'}
-                  </p>
+            {open.documents.length > 0 && (() => {
+              // Latest front + latest back only; older uploads collapse under
+              // "Earlier uploads" (owner PR8 §3.2), so a re-uploaded side does
+              // not show the card twice.
+              const { latest, earlier } = dedupeDocs(open.documents)
+              return (
+                <div className="space-y-2">
+                  {/* THE NUMBER SITS WITH THE IMAGES — checking a card is comparing
+                      the typed digits against the photograph. Masked by default
+                      (owner PR8 §3.3); Owner/Admin reveal the full number with a
+                      logged "Show". Operations sees only the mask. */}
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-[11px] font-bold text-tm-navy">
+                      Documents — watermarked previews, admin rights
+                    </p>
+                    <span className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-black text-tm-navy">
+                        {revealedCnic ?? open.cnicNumber ?? 'no CNIC number typed'}
+                      </span>
+                      {canRevealCnic && !revealedCnic && open.cnicNumber && (
+                        <button
+                          type="button"
+                          onClick={() => void revealCnic()}
+                          className="rounded-lg border border-gray-200 px-2 py-1 text-[10px] font-bold text-tm-navy hover:border-tm-navy"
+                        >
+                          Show
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {latest.map((d) => (
+                      <div key={d.id} className="space-y-1">
+                        <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
+                          {docLabel(d)}
+                        </p>
+                        <SecureDocumentPreview documentId={d.id} alt={`${d.kind} preview`} />
+                      </div>
+                    ))}
+                  </div>
+                  {earlier.length > 0 && (
+                    <details className="rounded-xl border border-gray-200 bg-tm-bg p-2">
+                      <summary className="cursor-pointer text-[11px] font-bold text-gray-500">
+                        Earlier uploads ({earlier.length})
+                      </summary>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {earlier.map((d) => (
+                          <div key={d.id} className="space-y-1">
+                            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
+                              {docLabel(d)}
+                            </p>
+                            <SecureDocumentPreview documentId={d.id} alt={`${d.kind} preview`} />
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {open.documents.map((d) => (
-                    <div key={d.id} className="space-y-1">
-                      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
-                        {/* "cnic" alone was ambiguous once both sides exist. */}
-                        {d.kind === 'cnic' ? `CNIC ${d.label === 'back' ? 'back' : 'front'}` : d.kind}
-                      </p>
-                      <SecureDocumentPreview documentId={d.id} alt={`${d.kind} preview`} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )
+            })()}
 
             <div className="space-y-1 pt-1">
               <label htmlFor="reason" className="text-[11px] font-bold text-tm-navy">
@@ -440,6 +546,32 @@ export default function TutorModerationClient({
   )
 }
 
+type DocRow = QueueTutor['documents'][number]
+
+/** "CNIC front" / "CNIC back" / the raw kind for a degree. */
+function docLabel(d: DocRow): string {
+  return d.kind === 'cnic' ? `CNIC ${d.label === 'back' ? 'back' : 'front'}` : d.kind
+}
+
+/** Split documents into the latest per (kind, CNIC side) and the older ones
+ *  (owner PR8 §3.2). Degrees are keyed by id so each is kept. Newest first. */
+function dedupeDocs(docs: DocRow[]): { latest: DocRow[]; earlier: DocRow[] } {
+  const sorted = [...docs].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+  const latest: DocRow[] = []
+  const earlier: DocRow[] = []
+  const seen = new Set<string>()
+  for (const d of sorted) {
+    const key =
+      d.kind === 'cnic' ? `cnic:${d.label === 'back' ? 'back' : 'front'}` : `${d.kind}:${d.id}`
+    if (seen.has(key)) earlier.push(d)
+    else {
+      seen.add(key)
+      latest.push(d)
+    }
+  }
+  return { latest, earlier }
+}
+
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-tm-bg border border-gray-100 rounded-xl p-2">
@@ -449,10 +581,15 @@ function Info({ label, value }: { label: string; value: string }) {
   )
 }
 
-// One word, one tint, and the same rendering as every other admin list --
-// this used to be a bordered pill unique to this screen, so "pending" looked
-// different here from the payments queue two clicks away.
-function StatusPill({ status, videoStatus }: { status: string; videoStatus: string }) {
-  const waiting = status === 'pending' && videoStatus === 'uploaded'
-  return <StatusChip status={waiting ? 'submitted' : status} label={waiting ? 'Review' : undefined} />
+// The CNIC review status pill (owner PR8 §3.1). It used to render the tutor's
+// verification_status, so an approved-CNIC-but-fee-unpaid tutor showed "VERIFIED"
+// — which reads as fully listed when they are not. It now names the CNIC state
+// only; the listing status ("Listed in search" / "Not listed · …") stays on its
+// own line in the row.
+function CnicPill({ status, hasCnic }: { status: string; hasCnic: boolean }) {
+  if (status === 'suspended') return <StatusChip tone="bad" status="suspended" label="Suspended" />
+  if (status === 'verified') return <StatusChip tone="good" status="approved" label="CNIC approved" />
+  if (status === 'rejected') return <StatusChip tone="bad" status="rejected" label="CNIC rejected" />
+  if (hasCnic) return <StatusChip tone="pending" status="submitted" label="CNIC pending" />
+  return <StatusChip tone="neutral" status="none" label="No CNIC" />
 }

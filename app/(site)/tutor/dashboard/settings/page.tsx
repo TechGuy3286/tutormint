@@ -16,6 +16,7 @@ import VideoUpload from '@/components/tutor/VideoUpload'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
 import QuickRepliesEditor from '@/components/tutor/QuickRepliesEditor'
 import type { Identity } from '@/lib/identity'
+import { formatPkMobile } from '@/lib/phone'
 import { reportSilentFailure } from '@/lib/silentFailure'
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -329,7 +330,7 @@ export default function TutorSettingsPage() {
           {phoneVerified ? (
             <div className="flex items-center gap-2 rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
               <BadgeCheck aria-hidden size={15} />
-              <span>{phoneNumber || 'Verified'}</span>
+              <span>{phoneNumber ? formatPkMobile(phoneNumber) : 'Verified'}</span>
               <span className="ml-auto text-[11px] font-black uppercase tracking-wider">Verified</span>
             </div>
           ) : (
@@ -338,7 +339,7 @@ export default function TutorSettingsPage() {
               className="flex items-center gap-2 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
             >
               <ShieldAlert aria-hidden size={15} className="text-tm-red" />
-              <span>{phoneNumber ? `${phoneNumber} — not verified` : 'Verify your mobile number'}</span>
+              <span>{phoneNumber ? `${formatPkMobile(phoneNumber)} — not verified` : 'Verify your mobile number'}</span>
               <ArrowRight aria-hidden size={14} className="ml-auto shrink-0 text-tm-red" />
             </Link>
           )}

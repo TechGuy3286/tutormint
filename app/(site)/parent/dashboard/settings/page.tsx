@@ -6,7 +6,7 @@ import ChildrenManager, { type Child } from '@/app/(site)/parent/dashboard/Child
 import NotificationForm from '@/app/(site)/account/notifications/settings/NotificationForm'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { isSyntheticEmail } from '@/lib/phone'
+import { isSyntheticEmail, formatPkMobile } from '@/lib/phone'
 
 import SettingsClient, { type ParentSettings } from './SettingsClient'
 
@@ -60,7 +60,10 @@ export default async function ParentSettingsPage() {
     userId,
     fullName: (profile?.full_name as string) ?? '',
     avatarUrl: (profile?.avatar_url as string) ?? null,
-    phone: (profile?.phone_number as string) ?? '',
+    // Shown as 0321 1045245 (owner PR8 §4.1); storage stays 92XXXXXXXXXX and the
+    // server re-normalises on save. Change-detection compares national digits, so
+    // the display form does not trip a false "changed".
+    phone: formatPkMobile((profile?.phone_number as string) ?? ''),
     phoneVerified: !!profile?.phone_verified_at,
     email: realEmail,
     city: (profile?.city as string) ?? '',

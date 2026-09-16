@@ -51,7 +51,11 @@ export default async function SiteChrome({ children }: { children: React.ReactNo
   return (
     <>
       <Navbar />
-      <main className="flex-1">{children}</main>
+      {/* Extra bottom padding on phone for signed-in members, so the floating
+          WhatsApp button (fixed bottom-right, phone only) never sits over the
+          last of the page's content (owner PR8 §4.2). Desktop hides that button
+          for members, so no padding there. */}
+      <main className={`flex-1 ${isMember ? 'pb-28 lg:pb-0' : ''}`}>{children}</main>
       <Footer />
       {isMember && (
         <>

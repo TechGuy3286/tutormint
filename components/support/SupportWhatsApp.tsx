@@ -37,7 +37,10 @@ export default function SupportWhatsApp({ href, signedIn }: { href: string | nul
     const inFlow =
       pathname.startsWith('/tutor/onboarding') ||
       pathname.startsWith('/tutor/complete-profile') ||
-      pathname.startsWith('/tutor/verify')
+      pathname.startsWith('/tutor/verify') ||
+      // Settings has its own sticky Save / "Send for checking" buttons the
+      // floating button was overlapping (owner PR8 §4.2).
+      pathname.startsWith('/tutor/dashboard/settings')
     const inPay = pathname.startsWith('/pay')
     if (inInbox || inFlow || inPay) return null
   }

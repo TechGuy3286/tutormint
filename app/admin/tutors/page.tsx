@@ -37,6 +37,10 @@ export default async function AdminTutorsPage({
       filter={filter}
       search={search}
       canSetVisibility={roleSatisfies(actor.adminRole, SCREEN_ACCESS.videoVisibility)}
+      // Owner + Admin may reveal a full CNIC (logged); only the Owner may clear a
+      // number's verification (owner PR8 §1.5, §3.3).
+      canRevealCnic={roleSatisfies(actor.adminRole, ['admin'])}
+      canClearMobile={actor.adminRole === 'owner'}
       initialCursor={nextCursor}
       total={total}
     />

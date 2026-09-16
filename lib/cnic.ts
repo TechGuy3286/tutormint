@@ -48,5 +48,18 @@ export function maskCnic(input: string | null | undefined): string | null {
   return `${d.slice(0, 5)}-*****-${d.slice(12)}`
 }
 
+/**
+ * Heavily masked form for the admin queue (owner PR8 §3.3): XXXXX-XXXXXXX-4 —
+ * every digit hidden except the last (the check digit), so an admin sees the
+ * shape and confirms a number is on file without the full identity number
+ * sitting in the page. Owner/Admin reveal the full number with a logged "Show".
+ * Returns null for an absent/incomplete number.
+ */
+export function maskCnicHeavy(input: string | null | undefined): string | null {
+  const d = normaliseCnic(input)
+  if (d.length !== 13) return null
+  return `XXXXX-XXXXXXX-${d.slice(12)}`
+}
+
 /** The one message shown for a number that is not thirteen digits. */
 export const CNIC_FORMAT_HINT = 'Your CNIC is 13 digits, like 42101-1234567-1.'

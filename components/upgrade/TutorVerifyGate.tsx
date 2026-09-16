@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { Loader2, RefreshCw } from 'lucide-react'
 
 import CnicCameraField from '@/components/tutor/CnicCameraField'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
@@ -35,22 +35,33 @@ export default function TutorVerifyGate({ onClose }: { onClose: () => void }) {
   const [starting, setStarting] = useState(false)
   const [stuck, setStuck] = useState<string | null>(null)
   // The CNIC review state, loaded before anything renders, so a submitted card
-  // is never asked for again (§2.1). null = still loading.
+  // is never asked for again (§2.1). null = still loading; loadError = the read
+  // failed or timed out, so the step shows Retry rather than spinning forever
+  // (owner PR8 §2.1).
   const [cnicState, setCnicState] = useState<IdentityState | null>(null)
   const [rejectionReason, setRejectionReason] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState(false)
+
+  const loadIdentityState = useCallback(async () => {
+    setLoadError(false)
+    try {
+      // A hard timeout so a hung request can never leave the step on a spinner.
+      const res = await fetch('/api/identity', {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!res.ok) throw new Error(String(res.status))
+      const j = await res.json()
+      setCnicState((j?.identity?.state as IdentityState) ?? 'none')
+      setRejectionReason((j?.identity?.rejectionReason as string | null) ?? null)
+    } catch {
+      setLoadError(true)
+    }
+  }, [])
 
   useEffect(() => {
-    let live = true
-    fetch('/api/identity', { headers: { accept: 'application/json' } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!live) return
-        setCnicState(((j?.identity?.state as IdentityState) ?? 'none'))
-        setRejectionReason((j?.identity?.rejectionReason as string | null) ?? null)
-      })
-      .catch(() => { if (live) setCnicState('none') })
-    return () => { live = false }
-  }, [])
+    void loadIdentityState()
+  }, [loadIdentityState])
 
   const both = done.front && done.back
 
@@ -85,6 +96,23 @@ export default function TutorVerifyGate({ onClose }: { onClose: () => void }) {
       return
     }
     router.push(target)
+  }
+
+  if (loadError) {
+    return (
+      <div className="mt-3 space-y-3 py-2 text-center">
+        <p className="text-xs font-semibold text-slate-700">
+          We couldn&rsquo;t load this step. Please try again.
+        </p>
+        <button
+          type="button"
+          onClick={() => void loadIdentityState()}
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-navy px-4 text-xs font-bold text-white"
+        >
+          <RefreshCw aria-hidden size={14} /> Retry
+        </button>
+      </div>
+    )
   }
 
   if (cnicState === null) {

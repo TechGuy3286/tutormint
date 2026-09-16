@@ -8,6 +8,7 @@ import { CODE_TTL_MS, deliverCode, type DeliverResult } from '@/lib/otp'
 import { otpMatch } from '@/lib/otp'
 import { devOtpCode, bridgeOtpCode } from '@/lib/sms'
 import { syntheticEmail } from '@/lib/phone'
+import { numberVerifiedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
 import { checkBlocklist } from '@/lib/blocklist'
 import { ensureProfile } from '@/lib/ensureProfile'
 import { recomputeCompletion } from '@/lib/completion'
@@ -225,6 +226,13 @@ export async function verifyPendingSignup(opts: {
       error: 'We could not create an account with these details. If you think this is a mistake, please contact support.',
       reason: 'blocked',
     }
+  }
+
+  // One VERIFIED number per account (owner PR8 §1.1): if the number was verified
+  // on another account during the pending window, do not create a second one.
+  if (await numberVerifiedElsewhere(admin, mobile)) {
+    await admin.from('pending_signups').delete().eq('token', opts.token)
+    return { ok: false, status: 409, error: NUMBER_TAKEN_MESSAGE, reason: 'exists' }
   }
 
   const dup = await realAccountForMobile(admin, mobile, email)

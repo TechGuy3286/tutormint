@@ -86,8 +86,9 @@ export default async function HomePage() {
         </p>
         {/* The same line in Urdu, directly below the English (owner PR2 §6):
             right-to-left, one step smaller, the system Urdu font via lang="ur".
-            The English line above is unchanged. */}
-        <p lang="ur" dir="rtl" className="mt-1 text-xs font-bold text-tm-red sm:text-sm">
+            Colour tm-black (#0A0A0A) per owner PR8 §4.3; the English line above is
+            unchanged. */}
+        <p lang="ur" dir="rtl" className="mt-1 text-xs font-bold text-tm-black sm:text-sm">
           کوئی فیس نہیں &bull; کوئی کمیشن نہیں &bull; کوئی مڈل مین نہیں &bull; لائیو ڈیمو
         </p>
 

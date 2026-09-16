@@ -6,6 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { describeUtm } from '@/lib/utm'
 import { calculateTutorCompletion } from '@/lib/profileChecklist'
 import { directoryBlockers, type ListingBlocker } from '@/lib/tutorListingStatus'
+import { normalisePkMobile } from '@/lib/phone'
+import { maskCnicHeavy } from '@/lib/cnic'
 import type { AdminRole } from '@/lib/adminAuth'
 import { SCREEN_ACCESS } from '@/lib/adminAuth'
 
@@ -172,13 +174,18 @@ export type QueueTutorRow = {
   completion: number
   /** The incomplete checklist items — what is stopping this tutor being listed. */
   missing: { key: string; label: string }[]
+  /** Heavily masked (owner PR8 §3.3) — XXXXX-XXXXXXX-4. The full number is never
+   *  sent to the browser; owner/admin reveal it through a logged endpoint. */
   cnicNumber: string | null
   phone: string | null
-  documents: { id: string; kind: 'cnic' | 'degree'; label: string | null }[]
+  documents: { id: string; kind: 'cnic' | 'degree'; label: string | null; createdAt: string }[]
   /** Is this tutor returned by tutor_directory (migration 87)? */
   listed: boolean
   /** Every reason they are not, in the view's order. Empty when listed. */
   blockers: ListingBlocker[]
+  /** This tutor's verified mobile is verified on more than one account
+   *  (owner PR8 §1.5). The owner clears it from the losing account. */
+  duplicateMobile: boolean
 }
 
 export async function loadTutorQueue({
@@ -228,7 +235,7 @@ export async function loadTutorQueue({
       .in('id', ids.length ? ids : [NO_MATCH]),
     admin
       .from('user_documents')
-      .select('id, user_id, kind, label')
+      .select('id, user_id, kind, label, created_at')
       .in('user_id', ids.length ? ids : [NO_MATCH]),
     admin
       .from('tutor_subjects')
@@ -241,6 +248,17 @@ export async function loadTutorQueue({
   for (const s of subjectRows ?? []) {
     const id = s.tutor_id as string
     subjectCount.set(id, (subjectCount.get(id) ?? 0) + 1)
+  }
+
+  // Every mobile number verified on MORE than one account (owner PR8 §1.5), so a
+  // row can be flagged "Duplicate mobile" without a per-row query. Normalised to
+  // the canonical MSISDN so number variants collide.
+  const { data: allVerified } = await admin.from('profiles').select('phone_number, phone_verified_at')
+  const verifiedNumberCount = new Map<string, number>()
+  for (const r of allVerified ?? []) {
+    if (!r.phone_verified_at) continue
+    const n = normalisePkMobile(r.phone_number as string)
+    if (n) verifiedNumberCount.set(n, (verifiedNumberCount.get(n) ?? 0) + 1)
   }
 
   const rows: QueueTutorRow[] = page.map((t) => {
@@ -313,16 +331,21 @@ export async function loadTutorQueue({
       degrees: ((t.degrees as string[]) ?? []) as string[],
       completion: completion.percent,
       missing: completion.missing.map((m) => ({ key: m.key, label: m.label })),
-      cnicNumber: (p?.cnic_number as string) ?? null,
+      cnicNumber: maskCnicHeavy(p?.cnic_number as string | null),
       phone: (p?.phone_number as string) ?? null,
-      documents: myDocs
-        .map((d) => ({
-          id: d.id as string,
-          kind: d.kind as 'cnic' | 'degree',
-          label: (d.label as string) ?? null,
-        })),
+      documents: myDocs.map((d) => ({
+        id: d.id as string,
+        kind: d.kind as 'cnic' | 'degree',
+        label: (d.label as string) ?? null,
+        createdAt: (d.created_at as string) ?? '',
+      })),
       listed: blockers.length === 0,
       blockers,
+      duplicateMobile: (() => {
+        if (!p?.phone_verified_at) return false
+        const n = normalisePkMobile(p.phone_number as string)
+        return !!(n && (verifiedNumberCount.get(n) ?? 0) > 1)
+      })(),
     }
   })
 
