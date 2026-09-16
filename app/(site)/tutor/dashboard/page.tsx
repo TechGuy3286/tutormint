@@ -487,6 +487,7 @@ export default async function TutorDashboardPage() {
 
         <ActivityBand
           items={activity}
+          unreadMessages={unread}
           inboxHref="/tutor/dashboard/messages"
           emptyHint="Nothing has happened yet. Applications, parent replies and demo requests will appear here."
           emptyAction={{ label: 'See open tuitions', href: '/tutor/dashboard/jobs' }}

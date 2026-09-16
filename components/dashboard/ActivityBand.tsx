@@ -33,6 +33,7 @@ export default function ActivityBand({
   emptyHint,
   inboxHref,
   emptyAction,
+  unreadMessages,
 }: {
   items: FeedItem[]
   emptyHint: string
@@ -40,6 +41,13 @@ export default function ActivityBand({
   inboxHref: string
   /** The one thing to do when the timeline is empty. Role-specific. */
   emptyAction?: { label: string; href: string }
+  /**
+   * The authoritative unread-messages count (unreadMessageCount) the dashboard
+   * already computed for the Messages tile. Passed to the single all-messages
+   * card so the band's "N new messages" is the SAME number as the tile, the
+   * header icon and the dock (§3).
+   */
+  unreadMessages: number
 }) {
   const groups = groupFeed(items, { messages: 'all', inboxHref })
 
@@ -64,7 +72,7 @@ export default function ActivityBand({
       ) : (
         <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white">
           {groups.map((g) => (
-            <ActivityCard key={g.key} group={g} />
+            <ActivityCard key={g.key} group={g} unreadMessages={unreadMessages} />
           ))}
         </ul>
       )}

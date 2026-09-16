@@ -273,6 +273,7 @@ export default async function ParentDashboardPage() {
 
         <ActivityBand
           items={activity}
+          unreadMessages={unread}
           inboxHref="/parent/dashboard/messages"
           emptyHint="Nothing has happened yet. Applications, replies and demo answers will appear here as they arrive."
           emptyAction={{ label: 'Browse tutors', href: '/browse/tutors' }}

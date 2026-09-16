@@ -35,7 +35,21 @@ const FAMILY_CHIP: Record<Family, string> = {
   moderation: 'bg-tm-tint-red text-tm-red',
 }
 
-export default function ActivityCard({ group }: { group: FeedGroup }) {
+export default function ActivityCard({
+  group,
+  unreadMessages,
+}: {
+  group: FeedGroup
+  /**
+   * The authoritative unread-messages count (unreadMessageCount) for the
+   * dashboard's single all-messages card. When supplied, that card shows THIS
+   * number rather than a count of the message rows that happen to be in the
+   * feed window — so it says exactly what the Messages tile, the header icon
+   * and the dock badge say (§3). Absent on the notifications page, where the
+   * per-thread cards keep their own in-window counts.
+   */
+  unreadMessages?: number
+}) {
   const family = familyFor(group.type)
   const Icon = ICONS[
     ({ messages: 'message', money: 'money', progress: 'progress', moderation: 'shield' } as const)[
@@ -47,15 +61,28 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
   const planEnd = isPlanEnding(group.type)
   const grouped = group.count > 1 && !collapsedMessages && !planEnd
 
+  // The dashboard all-messages card speaks the ONE unread definition
+  // (unreadMessageCount): a run of read, sent and received rows must never read
+  // "3 new messages" beside a tile saying "2". With nothing unread it is just
+  // "Messages".
+  const authoritativeMessages = collapsedMessages && unreadMessages !== undefined
   // "N new messages" is right for waiting and wrong for already-read, and a
   // collapsed messages card is the one place a member sees a count of messages
   // they have already opened — so it words itself from the group's unread state.
   const isMessages = family === 'messages' && group.count > 1
-  const title = isMessages
-    ? `${group.count} ${group.unread ? 'new ' : ''}messages`
-    : group.count > 1 && !planEnd
-      ? groupedLabel(group.type, group.count, group.head.text)
-      : group.head.text
+  const title = authoritativeMessages
+    ? (unreadMessages as number) > 0
+      ? `${unreadMessages} new message${unreadMessages === 1 ? '' : 's'}`
+      : 'Messages'
+    : isMessages
+      ? `${group.count} ${group.unread ? 'new ' : ''}messages`
+      : group.count > 1 && !planEnd
+        ? groupedLabel(group.type, group.count, group.head.text)
+        : group.head.text
+
+  // The unread dot on the authoritative card follows the same count, so a card
+  // reading "Messages" (nothing unread) does not still wear the red dot.
+  const showUnread = authoritativeMessages ? (unreadMessages as number) > 0 : group.unread
 
   // A grouped run has several destinations behind it, so it goes to the itemised
   // timeline; everything else links to its own written href, falling back to the
@@ -76,7 +103,7 @@ export default function ActivityCard({ group }: { group: FeedGroup }) {
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className="truncate text-xs font-bold text-tm-navy">{title}</span>
-            {group.unread && (
+            {showUnread && (
               <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-tm-red" />
             )}
           </span>

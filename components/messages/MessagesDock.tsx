@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
+import Avatar from '@/components/Avatar'
 import ConversationList from '@/components/messages/ConversationList'
 import Conversation from '@/components/messages/Conversation'
 import type { ThreadRow } from '@/lib/messaging'
@@ -24,7 +25,15 @@ import type { GateReason } from '@/lib/gate'
 // (site) chrome, so it never shows in admin or for logged-out visitors.
 
 type ThreadData = {
-  header: { id: string; otherId: string; otherName: string; otherAvatar: string | null; jobTitle: string | null }
+  header: {
+    id: string
+    otherId: string
+    otherName: string
+    otherAvatar: string | null
+    otherRole: string | null
+    otherSlug: string | null
+    jobTitle: string | null
+  }
   items: unknown[]
   cursor: string | null
   canShareContact: boolean
@@ -171,35 +180,13 @@ export default function MessagesDock({
       </div>
 
       {tab === 'messages' ? (
-        <div className="flex min-h-0 flex-1 flex-col">
-          {selected && thread ? (
-            <>
-              <div className="flex items-center gap-2 border-b border-gray-200 px-2 py-2">
-                <button type="button" onClick={() => { setSelected(null); setThread(null) }} aria-label="Back to conversations" className="grid h-9 w-9 place-items-center rounded-lg text-tm-navy hover:bg-gray-100">
-                  <ArrowLeft size={16} aria-hidden />
-                </button>
-                <p className="truncate text-sm font-black text-tm-navy">{thread.header.otherName}</p>
-              </div>
-              <div className="min-h-0 flex-1">
-                <Conversation
-                  threadId={thread.header.id}
-                  otherId={thread.header.otherId}
-                  otherName={thread.header.otherName}
-                  otherAvatar={thread.header.otherAvatar}
-                  initial={thread.items as never}
-                  initialCursor={thread.cursor}
-                  canShareContact={thread.canShareContact}
-                  suspended={thread.suspended}
-                  selfName={thread.selfName}
-                  canAttach={thread.canAttach}
-                  contactReason={thread.contactReason}
-                  quickReplies={thread.quickReplies}
-                />
-              </div>
-            </>
-          ) : selected && threadLoading ? (
-            <div className="grid flex-1 place-items-center"><Loader2 className="animate-spin text-gray-500" aria-hidden /></div>
-          ) : listErr ? (
+        // The list stays MOUNTED and the open conversation is an overlay ON TOP
+        // of it, bounded by this panel (`relative` + the panel's overflow-hidden).
+        // Keeping the list mounted is what preserves its scroll position when the
+        // reader taps Back (§2.5) — no unmount, no restore to get wrong — and the
+        // absolute overlay guarantees nothing renders outside the panel (§2.6).
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {listErr ? (
             <div className="grid flex-1 place-items-center gap-2 p-6 text-center">
               <p className="text-xs font-bold text-tm-navy">Could not load your messages.</p>
               <button type="button" onClick={() => void loadList()} className="min-h-[40px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy hover:border-tm-navy">Try again</button>
@@ -209,18 +196,126 @@ export default function MessagesDock({
               initial={list.items}
               initialCursor={list.cursor}
               basePath={basePath}
-              activeId={null}
+              activeId={selected}
               onSelect={openThread}
               emptyHint={role === 'tutor' ? 'Parents who message you first appear here.' : 'Message any tutor from their profile.'}
             />
           ) : (
             <div className="grid flex-1 place-items-center"><Loader2 className="animate-spin text-gray-500" aria-hidden /></div>
           )}
-          <div className="border-t border-gray-200 p-2 text-center">
-            <Link href={basePath} className="inline-flex min-h-[40px] items-center justify-center gap-1.5 text-[11px] font-bold text-tm-navy hover:underline">
-              Open full inbox <ExternalLink size={12} aria-hidden />
-            </Link>
-          </div>
+
+          {/* The list's own "Open full inbox" (§2.4) — shown under the list, and
+              covered by the overlay while a conversation is open. */}
+          {!selected && (
+            <div className="border-t border-gray-200 p-2 text-center">
+              <Link href={basePath} className="inline-flex min-h-[40px] items-center justify-center gap-1.5 text-[11px] font-bold text-tm-navy hover:underline">
+                Open full inbox <ExternalLink size={12} aria-hidden />
+              </Link>
+            </div>
+          )}
+
+          {/* ---------------------------------------------- conversation view -- */}
+          {selected && (
+            <div className="absolute inset-0 z-10 flex flex-col bg-white">
+              {thread ? (
+                <>
+                  {/* Header: back to the list, the other person's avatar + name
+                      (name links to their public profile/card), and an icon that
+                      opens THIS conversation in the full inbox — never floating
+                      over the messages (§2.1, §2.4). */}
+                  <div className="flex items-center gap-2 border-b border-gray-200 px-2 py-2">
+                    <button
+                      type="button"
+                      onClick={() => { setSelected(null); setThread(null) }}
+                      aria-label="Back to conversations"
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-tm-navy hover:bg-gray-100"
+                    >
+                      <ArrowLeft size={16} aria-hidden />
+                    </button>
+                    <Avatar
+                      name={thread.header.otherName}
+                      src={thread.header.otherAvatar}
+                      seed={thread.header.otherId}
+                      className="h-8 w-8 shrink-0 text-[10px]"
+                      decorative
+                    />
+                    {(() => {
+                      const href =
+                        thread.header.otherRole === 'tutor' && thread.header.otherSlug
+                          ? `/tutor/${thread.header.otherSlug}`
+                          : thread.header.otherRole === 'parent'
+                            ? `/parent/${thread.header.otherId}`
+                            : null
+                      return href ? (
+                        <Link href={href} className="truncate text-sm font-black text-tm-navy hover:underline">
+                          {thread.header.otherName}
+                        </Link>
+                      ) : (
+                        <span className="truncate text-sm font-black text-tm-navy">{thread.header.otherName}</span>
+                      )
+                    })()}
+                    <div className="min-w-0 flex-1" />
+                    <Link
+                      href={`${basePath}/${thread.header.id}`}
+                      aria-label="Open this conversation in the full inbox"
+                      title="Open in full inbox"
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-tm-navy"
+                    >
+                      <ExternalLink size={15} aria-hidden />
+                    </Link>
+                  </div>
+                  {/* Conversation fills the rest and scrolls on its own, opening
+                      at the newest message; its composer stays pinned at the
+                      bottom (§2.2, §2.3). */}
+                  <Conversation
+                    threadId={thread.header.id}
+                    otherId={thread.header.otherId}
+                    otherName={thread.header.otherName}
+                    otherAvatar={thread.header.otherAvatar}
+                    initial={thread.items as never}
+                    initialCursor={thread.cursor}
+                    canShareContact={thread.canShareContact}
+                    suspended={thread.suspended}
+                    selfName={thread.selfName}
+                    canAttach={thread.canAttach}
+                    contactReason={thread.contactReason}
+                    quickReplies={thread.quickReplies}
+                  />
+                </>
+              ) : (
+                // Loading (or failed to load) a conversation: a back arrow is
+                // always available so the reader is never stuck.
+                <>
+                  <div className="flex items-center gap-2 border-b border-gray-200 px-2 py-2">
+                    <button
+                      type="button"
+                      onClick={() => { setSelected(null); setThread(null) }}
+                      aria-label="Back to conversations"
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-tm-navy hover:bg-gray-100"
+                    >
+                      <ArrowLeft size={16} aria-hidden />
+                    </button>
+                  </div>
+                  {threadLoading ? (
+                    <div className="grid flex-1 place-items-center">
+                      <Loader2 className="animate-spin text-gray-500" aria-hidden />
+                    </div>
+                  ) : (
+                    <div className="grid flex-1 place-items-center gap-2 p-6 text-center">
+                      <p className="text-xs font-bold text-tm-navy">Could not open this conversation.</p>
+                      <button
+                        type="button"
+                        onClick={() => void openThread(selected)}
+                        className="min-h-[40px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy hover:border-tm-navy"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         // No flex-1 / fixed height here — the Support panel is only as tall as
