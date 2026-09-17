@@ -31,7 +31,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronDown } from 'lucide-react'
 import FooterTagline from '@/components/FooterTagline'
-import { supportContactFromEnv } from '@/lib/support'
+import { supportContactFromEnv, formatSupportWhatsApp, whatsappHref } from '@/lib/support'
 import { getSessionUser } from '@/lib/auth'
 
 type SocialLink = { name: string; icon: string; href: string }
@@ -68,7 +68,7 @@ function linkColumns(signedIn: boolean): LinkColumn[] {
         { label: 'Find Tuitions', href: '/browse/tuitions' },
         ...auth,
         { label: 'Dashboard', href: '/tutor/dashboard' },
-        { label: 'Packages', href: '/packages?for=tutors' },
+        { label: 'Membership Plans', href: '/membership-plans?for=tutors' },
       ],
     },
     {
@@ -77,7 +77,7 @@ function linkColumns(signedIn: boolean): LinkColumn[] {
         { label: 'Find Tutors', href: '/browse/tutors' },
         ...auth,
         { label: 'Dashboard', href: '/parent/dashboard' },
-        { label: 'Packages', href: '/packages?for=parents' },
+        { label: 'Membership Plans', href: '/membership-plans?for=parents' },
       ],
     },
     {
@@ -160,6 +160,18 @@ export default async function Footer() {
                   <li className="flex min-h-[44px] items-center text-slate-400 md:min-h-[28px]">
                     Lahore, Pakistan
                   </li>
+                  {support.whatsapp && (
+                    <li>
+                      <a
+                        href={whatsappHref(support.whatsapp) ?? undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint md:min-h-[28px]"
+                      >
+                        WhatsApp {formatSupportWhatsApp(support.whatsapp)}
+                      </a>
+                    </li>
+                  )}
                   {support.email && (
                     <li>
                       <a
@@ -273,7 +285,7 @@ function MobileSections({ columns }: { columns: LinkColumn[] }) {
 }
 
 /** Support & contact as a mobile accordion, matching the link sections. */
-function MobileSupport({ support }: { support: { email: string | null } }) {
+function MobileSupport({ support }: { support: { whatsapp: string | null; email: string | null } }) {
   return (
     <details className="group">
       <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between text-xs font-bold uppercase tracking-wider text-tm-mint marker:content-['']">
@@ -282,6 +294,18 @@ function MobileSupport({ support }: { support: { email: string | null } }) {
       </summary>
       <ul className="pb-1 text-sm">
         <li className="flex min-h-[44px] items-center text-slate-400">Lahore, Pakistan</li>
+        {support.whatsapp && (
+          <li>
+            <a
+              href={whatsappHref(support.whatsapp) ?? undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-h-[44px] items-center text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint"
+            >
+              WhatsApp {formatSupportWhatsApp(support.whatsapp)}
+            </a>
+          </li>
+        )}
         {support.email && (
           <li>
             <a

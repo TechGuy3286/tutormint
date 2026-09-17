@@ -5,12 +5,20 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-import Breadcrumbs from '@/components/Breadcrumbs'
 import SubmitEscape from '@/components/SubmitEscape'
 import PasswordInput from '@/components/ui/PasswordInput'
 import { createClient } from '@/lib/supabase/client'
 import { homeForRole, nextForRole, type Role } from '@/lib/authRoutes'
 import { armEscape, STUCK_MESSAGE, submitError, submitJson } from '@/lib/submit'
+import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
+
+// The support WhatsApp link shown under the form (§3.4). The number is the one
+// constant from lib/support(Contacts); a client component cannot read the
+// app_settings/env override, and the constant is the number.
+const supportHref = whatsappHref(
+  SUPPORT_WHATSAPP_FALLBACK,
+  'Assalam-o-Alaikum, I need some help with TutorMint.',
+)
 
 // The sign-in form. /parent/login and /tutor/login redirect to this route, and
 // a member who already has a session never reaches it -- page.tsx sends them
@@ -124,9 +132,10 @@ export default function LoginForm({ next }: { next: string | null }) {
   }
 
   return (
+    // §3.1 no breadcrumb; §3.2 the card sits just below the header (top-aligned
+    // with a little padding), not vertically centred.
     <main className="flex min-h-screen flex-col bg-tm-bg p-4 text-slate-700 sm:p-6">
-      <Breadcrumbs items={[{ label: 'Sign in' }]} />
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-1 items-start justify-center pt-2 sm:pt-4">
         <div className="w-full max-w-md space-y-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl sm:p-8">
           <div className="space-y-2 text-center">
             <Link
@@ -244,6 +253,21 @@ export default function LoginForm({ next }: { next: string | null }) {
                 Create an account
               </Link>
             </p>
+            {/* §3.4: the floating WhatsApp button is hidden on this page; the
+                support number lives here instead. */}
+            {supportHref && (
+              <p className="text-[11px] text-gray-500">
+                Need help?{' '}
+                <a
+                  href={supportHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-tm-green-deep hover:underline"
+                >
+                  WhatsApp us
+                </a>
+              </p>
+            )}
           </div>
         </div>
       </div>

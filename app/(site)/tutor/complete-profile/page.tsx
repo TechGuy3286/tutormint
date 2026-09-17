@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 
-import { getSupportContact, whatsappHref } from '@/lib/support'
+import { getSupportContact, whatsappHref, formatSupportWhatsApp } from '@/lib/support'
 import { onboardingFacets } from '@/lib/openJobCounts'
 import { smsDeliverable } from '@/lib/sms'
 import { createClient } from '@/lib/supabase/server'
@@ -46,7 +46,11 @@ export default async function CompleteProfilePage({
   return (
     <CompleteProfileFlow
       facets={facets}
-      support={{ waHref, email: support.email }}
+      support={{
+        waHref,
+        waDisplay: support.whatsapp ? formatSupportWhatsApp(support.whatsapp) : null,
+        email: support.email,
+      }}
       seed={user.id}
       smsAvailable={smsDeliverable()}
     />

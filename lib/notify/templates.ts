@@ -384,7 +384,7 @@ export function render(input: TemplateInput): RenderedEmail {
           'Renewing before then means your position never moves.',
         ],
         true, // billing
-        { label: 'Keep my position', href: '/packages?for=tutors' },
+        { label: 'Keep my position', href: '/membership-plans?for=tutors' },
       )
 
     // ---------------------------------------------------------------------
@@ -398,7 +398,7 @@ export function render(input: TemplateInput): RenderedEmail {
           'Starting a plan again puts you back where you were.',
         ],
         true, // billing
-        { label: 'Get my position back', href: '/packages?for=tutors' },
+        { label: 'Get my position back', href: '/membership-plans?for=tutors' },
       )
 
     // ---------------------------------------------------------------------

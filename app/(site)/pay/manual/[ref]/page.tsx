@@ -43,7 +43,7 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
 
   const instructions = await manualInstructions()
   const methods = availableMethods(instructions)
-  const packagesHref = plan?.audience === 'tutor' ? '/packages?for=tutors' : '/packages?for=parents'
+  const packagesHref = plan?.audience === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents'
   // The one-time verification fee (plan_code 'verified') is not a 30-day plan.
   // Its price and the "one-time · non-refundable" line live HERE, on the payment
   // page — moved off the apply-gate popup and the packages page (owner, 15 Sep).
@@ -53,7 +53,7 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8">
       <div className="mx-auto max-w-lg space-y-4">
-        <Breadcrumbs items={[{ label: 'Packages', href: packagesHref }, { label: 'Bank or wallet transfer' }]} />
+        <Breadcrumbs items={[{ label: 'Membership Plans', href: packagesHref }, { label: 'Bank or wallet transfer' }]} />
         <header className="space-y-1">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Complete your transfer</h1>
           {isFee ? (

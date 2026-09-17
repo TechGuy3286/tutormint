@@ -72,11 +72,11 @@ export default async function AboutPage() {
             every month after it. On a Rs 20,000 tuition that is Rs 10,000 gone before the first
             class. TutorMint takes 0% — the fee a parent agrees with a tutor goes to the tutor, and
             we never handle it. Our only income is a monthly membership —{' '}
-            <Link href="/packages?for=tutors" className="font-bold text-tm-red hover:underline">
+            <Link href="/membership-plans?for=tutors" className="font-bold text-tm-red hover:underline">
               for tutors
             </Link>{' '}
             and{' '}
-            <Link href="/packages?for=parents" className="font-bold text-tm-red hover:underline">
+            <Link href="/membership-plans?for=parents" className="font-bold text-tm-red hover:underline">
               for parents
             </Link>{' '}
             — bought by people who choose to buy one. It is not refundable, which the{' '}

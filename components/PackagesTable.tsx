@@ -3,7 +3,7 @@ import { Check, ShieldCheck } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import type { BadgeName } from '@/lib/planBadges'
-import BuyButton from '@/components/packages/BuyButton'
+import BuyButton from '@/components/membership-plans/BuyButton'
 import { formatDate } from '@/lib/datetime'
 
 // The plan matrix, rendered from the `plans` table (owner PR12/§1.2).
@@ -153,15 +153,11 @@ export default function PackagesTable({
 
               <div className="space-y-1">
                 <h2 className="text-base font-black text-tm-navy">{p.name}</h2>
+                {/* §1.3: "Rs. 499*" / "Rs. 999*", no "/ month" on the card — the
+                    30-day term and non-refundable note are in the footnote below
+                    the cards. */}
                 <p className="text-2xl font-black text-tm-navy">
-                  {isFree ? (
-                    'Free'
-                  ) : (
-                    <>
-                      Rs. {p.price_pkr.toLocaleString('en-PK')}
-                      <span className="text-xs font-semibold text-gray-500"> / month</span>
-                    </>
-                  )}
+                  {isFree ? 'Free' : <>Rs. {p.price_pkr.toLocaleString('en-PK')}*</>}
                 </p>
                 {/* The free tutor card is the plan a tutor is on AFTER the
                     one-time verification fee — stated in words, no amount (the
@@ -225,6 +221,13 @@ export default function PackagesTable({
         })}
       </div>
 
+      {/* §1.4: the asterisk footnote, directly under the cards, per tab. */}
+      <p className="text-[11px] text-gray-500">
+        {audience === 'tutor'
+          ? '*Premium and Featured run for 30 days from the day you’re listed. Non-refundable.'
+          : '*Featured runs for 30 days from the day it activates. Non-refundable.'}
+      </p>
+
       {/* The monthly-plan terms — once per tab (owner PR13 §1.6). Scoped to the
           paid MONTHLY plans so a tutor never reads "no refunds / 30 days" as
           applying to the one-time verification fee. */}
@@ -237,8 +240,7 @@ export default function PackagesTable({
         <p>
           <strong className="text-tm-navy">Changing plan.</strong> Buying a different plan
           replaces the one you are on and runs a fresh 30 days from the moment it activates. There
-          is no proration and no partial credit for the days left on your old plan — we keep it
-          simple rather than clever.
+          is no proration and no partial credit for the days left on your old plan.
         </p>
         <p>
           <strong className="text-tm-navy">Activation.</strong>{' '}
@@ -248,10 +250,9 @@ export default function PackagesTable({
         </p>
         {audience === 'tutor' && (
           <p>
-            <strong className="text-tm-navy">Your month starts the day you go live.</strong> If you
-            buy Premium or Featured before your identity and mobile number are verified, the plan is
-            paid for but paused — the 30 days begin the day you become listed, so nothing counts down
-            while you get there.
+            <strong className="text-tm-navy">Your month starts the day you’re listed.</strong> If you
+            choose Premium or Featured before you’re listed, the 30 days start the day you’re listed —
+            after the verification fee, mobile, subjects and city are complete.
           </p>
         )}
         <p>

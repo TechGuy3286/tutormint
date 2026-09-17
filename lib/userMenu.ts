@@ -67,7 +67,7 @@ const TUTOR: MenuItem[] = [
   // "Notifications" removed from the menu (owner PR2 §5.2) — the header bell is
   // the notifications surface. "Browse tuitions" removed (§5.1) — "Open tuitions"
   // above already points at the tuitions board.
-  { label: 'Packages', href: '/packages?for=tutors', icon: 'package' },
+  { label: 'Membership Plans', href: '/membership-plans?for=tutors', icon: 'package' },
   { label: 'Settings', href: '/tutor/dashboard/settings', icon: 'settings', separated: true },
 ]
 
@@ -84,7 +84,7 @@ const PARENT: MenuItem[] = [
   { label: 'My children', href: '/parent/dashboard/children', icon: 'profile' },
   { label: 'Notifications', href: '/account/notifications', icon: 'bell' },
   { label: 'Browse tutors', href: '/browse/tutors', icon: 'browse' },
-  { label: 'Packages', href: '/packages?for=parents', icon: 'package' },
+  { label: 'Membership Plans', href: '/membership-plans?for=parents', icon: 'package' },
   // Was /parent/verify — the verification flow, which is a one-way
   // submission and not where somebody goes to fix a mistyped city.
   { label: 'Settings', href: '/parent/dashboard/settings', icon: 'settings', separated: true },

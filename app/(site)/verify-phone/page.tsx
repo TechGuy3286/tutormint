@@ -6,7 +6,7 @@ import { MessageCircle, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { homeForRole, nextForRole, type Role } from '@/lib/authRoutes'
 import { formatPkMobile } from '@/lib/phone'
-import { getSupportContact, whatsappHref } from '@/lib/support'
+import { getSupportContact, whatsappHref, formatSupportWhatsApp } from '@/lib/support'
 import { needsPhoneGate } from '@/lib/phoneGate'
 import { readPendingMobile, PENDING_COOKIE } from '@/lib/pendingSignup'
 import { OTP_SMS_SENDER } from '@/lib/otpChannel'
@@ -137,7 +137,7 @@ function Shell({
   title: string
   intro: React.ReactNode
   children: React.ReactNode
-  support: { email: string | null }
+  support: { whatsapp: string | null; email: string | null }
   waHref: string | null
 }) {
   return (
@@ -159,6 +159,13 @@ function Shell({
               <p className="text-[11px] leading-relaxed text-gray-500">
                 If the SMS hasn&rsquo;t arrived, message us and we&rsquo;ll verify you.
               </p>
+              {/* The support number in plain text, so it can be read or dialled
+                  directly (§4.3). The support number is public. */}
+              {support.whatsapp && (
+                <p className="text-[11px] font-bold text-tm-navy">
+                  WhatsApp {formatSupportWhatsApp(support.whatsapp)}
+                </p>
+              )}
               <div className="flex flex-col gap-2 sm:flex-row">
                 {waHref && (
                   <a

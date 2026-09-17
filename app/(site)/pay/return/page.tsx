@@ -38,7 +38,7 @@ export default async function PayReturnPage({
 
   const ent = await getEntitlements(userId)
   const home = ent.audience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard'
-  const packages = ent.audience === 'tutor' ? '/packages?for=tutors' : '/packages?for=parents'
+  const packages = ent.audience === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents'
 
   const status = (payment?.status as string) ?? 'unknown'
 
@@ -109,7 +109,7 @@ export default async function PayReturnPage({
             className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
           >
             <CreditCard aria-hidden size={14} />
-            Packages
+            Membership Plans
           </Link>
         </div>
       </div>

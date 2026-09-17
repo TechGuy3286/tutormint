@@ -423,7 +423,7 @@ export async function rejectPayment(params: {
     kind: 'payment_rejected',
     title: 'We could not confirm your payment',
     body: params.reason,
-    href: profile?.role === 'tutor' ? '/packages?for=tutors' : '/packages?for=parents',
+    href: profile?.role === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents',
   })
 
   if (params.actor) {

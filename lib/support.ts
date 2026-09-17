@@ -14,20 +14,31 @@
 // of thing that changes without anyone thinking to open a code editor.
 
 import { createClient } from '@/lib/supabase/server'
+import {
+  SUPPORT_WHATSAPP_FALLBACK,
+  SUPPORT_EMAIL_FALLBACK,
+  normaliseWhatsapp,
+  whatsappHref,
+} from '@/lib/supportContacts'
+
+// The constants and pure formatters live in lib/supportContacts (client-safe);
+// re-exported here so existing server imports (`from '@/lib/support'`) keep
+// working and the owner-overridable readers stay server-side.
+export {
+  SUPPORT_WHATSAPP_FALLBACK,
+  SUPPORT_EMAIL_FALLBACK,
+  SUPPORT_WHATSAPP_DISPLAY,
+  SUPPORT_PHONE_SCHEMA,
+  whatsappHref,
+  formatSupportWhatsApp,
+  formatSupportPhoneSchema,
+} from '@/lib/supportContacts'
 
 const KEYS = {
   whatsapp: 'support.whatsapp',
   email: 'support.email',
   hours: 'support.hours',
 } as const
-
-// The ONE support WhatsApp number (PR 4 §4): the owner's business line,
-// 0321 5872222 → wa.me/923215872222. Kept as a single named constant so the
-// floating button / dock always render the right number even if the env var and
-// the app_settings row are both unset. app_settings and SUPPORT_WHATSAPP still
-// OVERRIDE it (the owner changes the number without a deploy), so this is the
-// documented fallback, not a hardcode scattered across pages.
-export const SUPPORT_WHATSAPP_FALLBACK = '923215872222'
 
 export type SupportContact = {
   /** Bare MSISDN, e.g. 923001234567 — used to build the wa.me link. */
@@ -60,23 +71,9 @@ export async function getSupportContact(): Promise<SupportContact> {
     // app_settings → env → the one constant, so the number is never missing.
     whatsapp:
       normaliseWhatsapp(pick(KEYS.whatsapp, process.env.SUPPORT_WHATSAPP)) ?? SUPPORT_WHATSAPP_FALLBACK,
-    email: pick(KEYS.email, process.env.SUPPORT_EMAIL),
+    email: pick(KEYS.email, process.env.SUPPORT_EMAIL) ?? SUPPORT_EMAIL_FALLBACK,
     hours: pick(KEYS.hours, process.env.SUPPORT_HOURS),
   }
-}
-
-/** Strip everything a person might type around a number: +, spaces, dashes. */
-function normaliseWhatsapp(raw: string | null): string | null {
-  if (!raw) return null
-  const digits = raw.replace(/[^\d]/g, '')
-  return digits.length >= 10 ? digits : null
-}
-
-/** A wa.me link with the message pre-filled, or null when unconfigured. */
-export function whatsappHref(msisdn: string | null, prefill?: string): string | null {
-  if (!msisdn) return null
-  const q = prefill ? `?text=${encodeURIComponent(prefill)}` : ''
-  return `https://wa.me/${msisdn}${q}`
 }
 
 /**
@@ -99,7 +96,7 @@ export function whatsappHref(msisdn: string | null, prefill?: string): string | 
 export function supportContactFromEnv(): SupportContact {
   return {
     whatsapp: normaliseWhatsapp(process.env.SUPPORT_WHATSAPP?.trim() || null) ?? SUPPORT_WHATSAPP_FALLBACK,
-    email: process.env.SUPPORT_EMAIL?.trim() || null,
+    email: (process.env.SUPPORT_EMAIL?.trim() || null) ?? SUPPORT_EMAIL_FALLBACK,
     hours: process.env.SUPPORT_HOURS?.trim() || null,
   }
 }

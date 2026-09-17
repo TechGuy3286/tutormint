@@ -14,8 +14,8 @@ import TutorVerifyGate from '@/components/upgrade/TutorVerifyGate'
 // way to act on it -- and, on the buttons that were simply disabled, not even
 // the sentence.
 //
-// THIS IS THE ONLY PLACE A PRICE APPEARS outside /packages?for=tutors and
-// /packages?for=parents, and it is only ever rendered in response to an action the
+// THIS IS THE ONLY PLACE A PRICE APPEARS outside /membership-plans?for=tutors and
+// /membership-plans?for=parents, and it is only ever rendered in response to an action the
 // member took. It is never mounted speculatively, never rendered on a public
 // page at load, and carries no price until the server sends one in a 403.
 //

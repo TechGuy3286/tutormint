@@ -28,6 +28,9 @@ export default function SupportWhatsApp({ href, signedIn }: { href: string | nul
   if (!href) return null
   // Admin is outside the (site) chrome anyway; this is belt-and-braces.
   if (pathname.startsWith('/admin')) return null
+  // Auth pages carry their own "Need help? WhatsApp us" link under the form, so
+  // the floating button is hidden there (owner PR15 §3.4).
+  if (pathname === '/login' || pathname === '/register' || pathname === '/signup') return null
 
   if (signedIn) {
     const inInbox =

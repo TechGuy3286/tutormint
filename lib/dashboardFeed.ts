@@ -176,7 +176,7 @@ function hrefFor(
     case 'plan_expiring':
     case 'plan_expired':
     case 'plan_revoked':
-      return isTutor ? '/packages?for=tutors' : '/packages?for=parents'
+      return isTutor ? '/membership-plans?for=tutors' : '/membership-plans?for=parents'
     case 'suspended':
     case 'unsuspended':
     case 'warned':

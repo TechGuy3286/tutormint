@@ -5,8 +5,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getViewerEntitlements } from '@/lib/entitlements'
 import { getProvider } from '@/lib/payments'
 import PackagesTable, { type PlanRow } from '@/components/PackagesTable'
-import PackagesTabs from '@/components/packages/PackagesTabs'
-import VerifiedPreview from '@/components/packages/VerifiedPreview'
+import PackagesTabs from '@/components/membership-plans/PackagesTabs'
+import VerifiedPreview from '@/components/membership-plans/VerifiedPreview'
 import { hiresThisMonth } from '@/lib/funnel'
 
 // The ONE packages page (owner PR13 §1). A Tutors tab and a Parents tab, each
@@ -21,9 +21,9 @@ import { hiresThisMonth } from '@/lib/funnel'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Packages | TutorMint',
+  title: 'Membership Plans | TutorMint',
   description:
-    'Plans for tutors and parents on TutorMint — application and posting quotas, search ranking, badges and contact access.',
+    'Membership plans for tutors and parents on TutorMint — application and posting quotas, search ranking, badges and contact access.',
   robots: { index: false, follow: true },
 }
 
@@ -85,10 +85,8 @@ export default async function PackagesPage({
 
   const tutorPanel = (
     <div className="space-y-5">
-      <p className="text-xs text-gray-500">
-        Your plan decides how many jobs you can apply to, where you rank in search, and which badges
-        parents see.
-      </p>
+      {/* §1.5 tutor subtitle. */}
+      <p className="text-xs text-gray-500">More ways for parents to find you.</p>
 
       {/* The way onto the platform for a tutor who is not verified yet. The
           price is NOT here — it is on the payment page, one tap past Verify.
@@ -163,9 +161,9 @@ export default async function PackagesPage({
 
   const parentPanel = (
     <div className="space-y-5">
+      {/* §1.5 parent subtitle. */}
       <p className="text-xs text-gray-500">
-        Verified is free once your CNIC and address are approved. Featured adds tutor contact details
-        and the ability to complete a hire.
+        Verification is free. Featured lets you contact tutors directly and complete a hire.
       </p>
 
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed sm:p-5">
@@ -215,12 +213,11 @@ export default async function PackagesPage({
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-4xl space-y-5">
-        <Breadcrumbs items={[{ label: 'Packages' }]} />
+        <Breadcrumbs items={[{ label: 'Membership Plans' }]} />
         <header className="space-y-1">
-          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Packages</h1>
-          <p className="text-xs text-gray-500">
-            Choose the tab that fits you — the plans for tutors and for parents.
-          </p>
+          {/* §1.2: the title carries the asterisk the footnote under each tab
+              explains (30-day term, non-refundable). */}
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Membership Plans*</h1>
         </header>
 
         <PackagesTabs initialTab={initialTab} tutorPanel={tutorPanel} parentPanel={parentPanel} />

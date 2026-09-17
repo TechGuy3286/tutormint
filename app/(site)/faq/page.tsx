@@ -1,8 +1,9 @@
-import { GraduationCap, LifeBuoy, UserPlus } from 'lucide-react'
+import { GraduationCap, LifeBuoy, MessageCircle, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { FAQ_GROUPS, FAQ_ITEMS } from '@/lib/faqContent'
+import { getSupportContact, whatsappHref, formatSupportWhatsApp } from '@/lib/support'
 import { faqJsonLd, jsonLdScript, pageDescription, pageTitle } from '@/lib/seo'
 
 // The help page, rebuilt around the questions people actually ask.
@@ -28,7 +29,10 @@ export const metadata: Metadata = {
   alternates: { canonical: '/faq' },
 }
 
-export default function FAQPage() {
+export default async function FAQPage() {
+  const contact = await getSupportContact()
+  const wa = whatsappHref(contact.whatsapp, 'Hello TutorMint, I have a question about ')
+
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(faqJsonLd(FAQ_ITEMS))} />
@@ -116,7 +120,38 @@ export default function FAQPage() {
           </Link>{' '}
           say the same things in more detail, including the no-refund policy.
         </p>
+        {/* The support number and email in plain text — public, and quicker to
+            read than to open a link (§4.2). */}
+        {(contact.whatsapp || contact.email) && (
+          <p className="text-sm text-slate-700">
+            {contact.whatsapp && (
+              <>
+                WhatsApp{' '}
+                <a href={wa || undefined} className="font-bold text-tm-navy hover:underline">
+                  {formatSupportWhatsApp(contact.whatsapp)}
+                </a>
+              </>
+            )}
+            {contact.whatsapp && contact.email && <span className="text-gray-500"> · </span>}
+            {contact.email && (
+              <a href={`mailto:${contact.email}`} className="font-bold text-tm-navy hover:underline">
+                {contact.email}
+              </a>
+            )}
+          </p>
+        )}
         <div className="flex flex-col gap-2 sm:flex-row">
+          {wa && (
+            <a
+              href={wa}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-green-deep px-5 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep-hover"
+            >
+              <MessageCircle aria-hidden size={14} />
+              Message us on WhatsApp
+            </a>
+          )}
           <Link
             href="/support"
             className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-slate-700"

@@ -26,7 +26,7 @@ export default function ApplyFromStrip({ jobId, listed }: { jobId: string; liste
   if (!listed) {
     return (
       <Link
-        href="/packages?for=tutors&plan=verified"
+        href="/membership-plans?for=tutors&plan=verified"
         className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-tm-red hover:underline"
       >
         Get listed to apply

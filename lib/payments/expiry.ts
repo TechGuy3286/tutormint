@@ -116,7 +116,7 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
       kind: 'plan_expiring',
       title: `Your ${planName} plan ends in ${daysUntil(now, expiresAt)} days`,
       body: 'Renew to keep your badges, ranking and monthly allowance. There is no grace period.',
-      href: profile?.role === 'tutor' ? '/packages?for=tutors' : '/packages?for=parents',
+      href: profile?.role === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents',
     })
 
     await deliverExpiryReminder({
@@ -207,7 +207,7 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
       kind: 'plan_expired',
       title: `Your ${planName} plan has expired`,
       body: 'Everything is still in your dashboard — your chats, applications and posts are untouched. Renew whenever you are ready.',
-      href: profile?.role === 'tutor' ? '/packages?for=tutors' : '/packages?for=parents',
+      href: profile?.role === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents',
     })
 
     const mailed = await deliverEmail(

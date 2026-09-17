@@ -88,12 +88,12 @@ export function ctaFor(row: { kind: string; href: string | null }): Notification
  * ?plan hint survives. An absent href gets no guess.
  */
 function reactivateHref(href: string | null): string {
-  if (!href) return '/packages'
+  if (!href) return '/membership-plans'
   if (href.includes('/tutor/packages') || href.includes('for=tutors')) {
-    return '/packages?for=tutors&plan=premium'
+    return '/membership-plans?for=tutors&plan=premium'
   }
   if (href.includes('/parent/packages') || href.includes('for=parents')) {
-    return '/packages?for=parents&plan=parent_featured'
+    return '/membership-plans?for=parents&plan=parent_featured'
   }
   return href
 }

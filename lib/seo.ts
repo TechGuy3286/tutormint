@@ -18,6 +18,7 @@
 import type { Metadata } from 'next'
 import { SITE_URL, absoluteUrl } from '@/lib/siteUrl'
 import type { Company } from '@/lib/company'
+import { formatSupportPhoneSchema } from '@/lib/supportContacts'
 
 export const BRAND = 'TutorMint'
 export const SLOGAN = 'No fee, no commission, no middleman'
@@ -142,6 +143,8 @@ export function sameAs(): string[] {
  */
 export function organizationJsonLd(company: Company, phone: string | null) {
   const social = sameAs()
+  // The support number as +92-321-5872222 for structured data (owner PR15 §4.4).
+  const telephone = phone ? formatSupportPhoneSchema(phone) : null
 
   return {
     '@context': 'https://schema.org',
@@ -166,12 +169,12 @@ export function organizationJsonLd(company: Company, phone: string | null) {
       addressCountry: 'PK',
     },
     email: company.email,
-    ...(phone ? { telephone: `+${phone}` } : {}),
+    ...(telephone ? { telephone } : {}),
     contactPoint: {
       '@type': 'ContactPoint',
       contactType: 'customer support',
       email: company.email,
-      ...(phone ? { telephone: `+${phone}` } : {}),
+      ...(telephone ? { telephone } : {}),
       areaServed: 'PK',
       availableLanguage: ['en', 'ur'],
     },

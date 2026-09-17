@@ -97,7 +97,7 @@ async function deliverViewTeasers(admin: Admin): Promise<{ sent: number; errors:
         kind: 'viewer_weekly_teaser',
         title: `${n} ${n === 1 ? 'parent' : 'parents'} viewed your profile this week`,
         body: 'Premium reveals who they are — see every viewer’s name.',
-        href: '/packages?for=tutors&plan=premium',
+        href: '/membership-plans?for=tutors&plan=premium',
       })
       sent++
     } catch (e) {
@@ -151,7 +151,7 @@ async function deliverQuotaNudges(admin: Admin): Promise<{ sent: number; errors:
       if (!offered) continue // top of ladder (and those advertise Unlimited anyway)
 
       const noun = ent.audience === 'tutor' ? 'applications' : 'job posts'
-      const base = ent.audience === 'tutor' ? '/packages?for=tutors' : '/packages?for=parents'
+      const base = ent.audience === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents'
       await notify({
         userId,
         kind: 'quota_nudge',

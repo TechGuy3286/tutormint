@@ -3,7 +3,7 @@ import { pageTitle } from '@/lib/seo'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Mail, MessageCircle } from 'lucide-react'
-import { getSupportContact, whatsappHref } from '@/lib/support'
+import { getSupportContact, whatsappHref, formatSupportWhatsApp } from '@/lib/support'
 import FaqList, { type FaqGroup } from './FaqList'
 
 // Support, FAQ-first.
@@ -183,6 +183,27 @@ export default async function SupportPage() {
             </a>
           )}
         </section>
+      )}
+
+      {/* The number and email in plain text, so a member can read, copy or dial
+          them without opening a link (§4.2). The support number is public. */}
+      {(contact.whatsapp || contact.email) && (
+        <p className="text-xs text-slate-700">
+          {contact.whatsapp && (
+            <>
+              WhatsApp{' '}
+              <a href={wa || undefined} className="font-bold text-tm-navy hover:underline">
+                {formatSupportWhatsApp(contact.whatsapp)}
+              </a>
+            </>
+          )}
+          {contact.whatsapp && contact.email && <span className="text-gray-500"> · </span>}
+          {contact.email && (
+            <a href={`mailto:${contact.email}`} className="font-bold text-tm-navy hover:underline">
+              {contact.email}
+            </a>
+          )}
+        </p>
       )}
 
       {contact.hours && <p className="text-xs text-gray-500">{contact.hours}</p>}

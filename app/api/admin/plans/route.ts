@@ -119,7 +119,7 @@ export async function POST(request: Request) {
           target.role === 'tutor'
             ? 'Your badges are off and you now appear below Verified tutors in search. Nothing has been deleted.'
             : 'You can no longer complete a hire or see tutor contact details. Your tuitions stay open.',
-        href: target.role === 'tutor' ? '/packages?for=tutors' : '/packages?for=parents',
+        href: target.role === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents',
       })
     }
 

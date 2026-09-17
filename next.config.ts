@@ -107,11 +107,14 @@ const nextConfig: NextConfig = {
         destination: 'https://www.tutormint.org/:path*',
         permanent: true,
       },
-      // One packages page (owner PR13 §1.3). The old per-audience URLs redirect
-      // permanently to the right tab; any ?plan= from an upgrade prompt is
-      // carried through automatically (Next forwards query strings).
-      { source: '/tutor/packages', destination: '/packages?for=tutors', permanent: true },
-      { source: '/parent/packages', destination: '/packages?for=parents', permanent: true },
+      // Membership Plans (owner PR15 §1.1). The page moved to /membership-plans;
+      // /packages and the old per-audience URLs redirect permanently, keeping
+      // ?for= and any ?plan= (Next forwards query strings).
+      { source: '/packages', destination: '/membership-plans', permanent: true },
+      { source: '/tutor/packages', destination: '/membership-plans?for=tutors', permanent: true },
+      { source: '/parent/packages', destination: '/membership-plans?for=parents', permanent: true },
+      // /signup is the sign-up page (owner PR15 §3); the form lives at /register.
+      { source: '/signup', destination: '/register', permanent: true },
     ]
   },
 

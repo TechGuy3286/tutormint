@@ -1,12 +1,17 @@
 'use client'
 
-import Breadcrumbs from '@/components/Breadcrumbs'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
 import PasswordInput from '@/components/ui/PasswordInput'
+import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
+
+const supportHref = whatsappHref(
+  SUPPORT_WHATSAPP_FALLBACK,
+  'Assalam-o-Alaikum, I need some help with TutorMint.',
+)
 
 // The single registration page. /tutor/register is a server redirect here,
 // kept because tutor referral links (?ref=) carry that path.
@@ -120,9 +125,9 @@ export default function RegisterForm({ next }: { next?: string }) {
     }`
 
   return (
+    // §3.1 no breadcrumb; §3.2 the card sits just below the header.
     <main className="flex min-h-screen flex-col bg-tm-bg p-4 text-slate-700 sm:p-6">
-      <Breadcrumbs items={[{ label: 'Create an account' }]} />
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-1 items-start justify-center pt-2 sm:pt-4">
       <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-gray-200 space-y-6">
         <div className="text-center space-y-2">
           <Link
@@ -305,6 +310,20 @@ export default function RegisterForm({ next }: { next?: string }) {
             Sign in
           </Link>
         </p>
+        {/* §3.4: the floating WhatsApp button is hidden on this page. */}
+        {supportHref && (
+          <p className="text-center text-[11px] text-gray-500">
+            Need help?{' '}
+            <a
+              href={supportHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-tm-green-deep hover:underline"
+            >
+              WhatsApp us
+            </a>
+          </p>
+        )}
       </div>
       </div>
     </main>

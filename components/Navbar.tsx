@@ -1,6 +1,6 @@
-import { LogIn } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import AuthCTA from '@/components/AuthCTA'
 
 import NotificationBell from '@/components/notifications/NotificationBell'
 import HeaderMessages from '@/components/messages/HeaderMessages'
@@ -72,16 +72,11 @@ export default async function Navbar() {
   const session = await getSessionUser()
 
   if (!session) {
+    // The button hides on the auth pages themselves (§3.3) — a client decision,
+    // since this server-rendered header is not re-rendered on a (site) nav.
     return (
       <Shell>
-        <Link
-          prefetch={false}
-          href="/login"
-          className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl bg-tm-red px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
-        >
-          <LogIn aria-hidden size={14} />
-          Login
-        </Link>
+        <AuthCTA />
       </Shell>
     )
   }

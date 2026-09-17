@@ -211,7 +211,7 @@ export default async function ParentDashboardPage() {
           ? 'posts'
           : 'posts left'
         : undefined,
-      href: '/packages?for=parents',
+      href: '/membership-plans?for=parents',
       icon: 'plan',
     },
   ]

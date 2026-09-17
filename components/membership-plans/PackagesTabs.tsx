@@ -27,12 +27,12 @@ export default function PackagesTabs({
   const select = (next: Tab) => {
     setTab(next)
     // Keep the URL honest without a reload, so a copied link reopens this tab.
-    router.replace(`/packages?for=${next}`, { scroll: false })
+    router.replace(`/membership-plans?for=${next}`, { scroll: false })
   }
 
   return (
     <div className="space-y-5">
-      <div role="tablist" aria-label="Packages for" className="inline-flex rounded-xl border border-gray-200 bg-white p-1">
+      <div role="tablist" aria-label="Membership plans for" className="inline-flex rounded-xl border border-gray-200 bg-white p-1">
         {(['tutors', 'parents'] as Tab[]).map((t) => (
           <button
             key={t}

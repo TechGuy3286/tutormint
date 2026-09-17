@@ -84,7 +84,7 @@ const URDU: Record<FlowStepKey, string> = {
 
 type Props = {
   facets: OnboardingFacets | null
-  support: { waHref: string | null; email: string | null }
+  support: { waHref: string | null; waDisplay: string | null; email: string | null }
   seed: string
   /** Whether a code can actually be delivered (owner PR5a §2.5). False → the
    *  mobile step says "SMS codes are not available yet" instead of pretending. */
@@ -858,11 +858,16 @@ function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
   )
 }
 
-function SupportBox({ support, title }: { support: { waHref: string | null; email: string | null }; title: string }) {
+function SupportBox({ support, title }: { support: { waHref: string | null; waDisplay: string | null; email: string | null }; title: string }) {
   if (!support.waHref && !support.email) return null
   return (
     <div className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
       <p className="text-xs font-bold text-tm-navy">{title}</p>
+      {/* The support number in plain text — public, and quicker to read or dial
+          than to open a link (§4.3). */}
+      {support.waDisplay && (
+        <p className="text-[11px] font-bold text-tm-navy">WhatsApp {support.waDisplay}</p>
+      )}
       <div className="flex flex-col gap-2 sm:flex-row">
         {support.waHref && (
           <a href={support.waHref} target="_blank" rel="noopener noreferrer"
@@ -893,7 +898,7 @@ function MobileStep({
   smsAvailable,
   onVerified,
 }: {
-  support: { waHref: string | null; email: string | null }
+  support: { waHref: string | null; waDisplay: string | null; email: string | null }
   initialPhone: string
   smsAvailable: boolean
   onVerified: () => void
