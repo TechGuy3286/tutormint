@@ -7,7 +7,7 @@ import Link from 'next/link'
 
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
-import { compressImage } from '@/lib/imageCompress'
+import { compressImage, compressUnder1MB } from '@/lib/imageCompress'
 import { isValidCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
@@ -17,6 +17,7 @@ import type { OnboardingFacets } from '@/lib/openJobCounts'
 import SubjectPicker from '@/components/tutor/SubjectPicker'
 import VideoUpload from '@/components/tutor/VideoUpload'
 import CnicCameraField from '@/components/tutor/CnicCameraField'
+import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
 import TutorVerifyGate from '@/components/upgrade/TutorVerifyGate'
 import {
   FLOW_ORDER,
@@ -681,26 +682,28 @@ function PhotoStep({ seed, currentUrl, onUploaded }: { seed: string; currentUrl:
 
 function DegreeStep({ onSaved }: { onSaved: () => void }) {
   const toast = useToast()
-  const fileRef = useRef<HTMLInputElement>(null)
   const [title, setTitle] = useState('')
   const [busy, setBusy] = useState(false)
-  const [uploaded, setUploaded] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [preview, setPreview] = useState<string | null>(null)
+  const uploaded = !!preview
 
   async function uploadCert(file: File) {
-    setBusy(true)
+    setUploading(true)
     try {
-      const img = await compressImage(file)
+      // Compressed under 1 MB for BOTH the camera and the gallery path (§3).
+      const img = await compressUnder1MB(file)
       const fd = new FormData()
       fd.append('kind', 'degree'); fd.append('file', img); fd.append('label', title.trim() || 'Degree certificate')
       const res = await fetch('/api/documents/upload', { method: 'POST', body: fd })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(j.error ?? 'Upload failed.')
-      setUploaded(true)
+      setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
       toast.success('Certificate uploaded.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not upload.')
     } finally {
-      setBusy(false)
+      setUploading(false)
     }
   }
 
@@ -724,11 +727,24 @@ function DegreeStep({ onSaved }: { onSaved: () => void }) {
     <div className="space-y-4">
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Degree, e.g. BSc Physics — Punjab University"
         className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy" />
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadCert(f) }} />
-      <button type="button" disabled={busy} onClick={() => fileRef.current?.click()}
-        className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border-2 px-4 text-sm font-bold ${uploaded ? 'border-tm-green-deep text-tm-green-deep' : 'border-dashed border-gray-300 text-tm-navy'}`}>
-        <Camera size={18} aria-hidden /> {uploaded ? 'Certificate added — retake' : 'Photograph your certificate'}
-      </button>
+      {/* Camera OR gallery — the shared tile (§3). */}
+      <div className="mx-auto w-40">
+        <PhotoCaptureTile
+          facingMode="environment"
+          aspectClass="aspect-[1.4]"
+          label={uploaded ? 'Certificate added' : 'Certificate'}
+          ariaLabel="your degree certificate"
+          busy={uploading}
+          done={uploaded}
+          preview={
+            preview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={preview} alt="Certificate preview" className="h-full w-full object-cover" />
+            ) : null
+          }
+          onPick={(f) => void uploadCert(f)}
+        />
+      </div>
       <p className="text-[11px] text-gray-500">Only you and our verification team can see it. Previews are watermarked.</p>
       <button type="button" disabled={busy} onClick={() => void save()}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40">

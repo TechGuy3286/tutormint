@@ -7,6 +7,7 @@ import {
   CreditCard,
   FilePlus2,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   MessageSquare,
   Search,
@@ -47,6 +48,7 @@ const ICONS: Record<MenuIcon, typeof Bell> = {
   profile: UserRound,
   package: CreditCard,
   settings: Settings,
+  help: LifeBuoy,
   logout: LogOut,
   post: FilePlus2,
   jobs: Send,
@@ -60,11 +62,14 @@ export default function UserMenu({
   name,
   avatarUrl,
   userId,
+  dashboardHref,
   items,
 }: {
   name: string
   avatarUrl: string | null
   userId: string
+  /** Tapping the avatar or name opens this — the member's dashboard (§1.3). */
+  dashboardHref: string
   items: MenuItem[]
 }) {
   const router = useRouter()
@@ -115,25 +120,36 @@ export default function UserMenu({
 
   return (
     <div ref={wrap} className="relative">
-      <button
-        ref={trigger}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-200 bg-white px-2 py-1 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy sm:px-2.5"
-      >
-        <Avatar
-          name={name}
-          src={avatarUrl}
-          seed={userId}
-          decorative
-          ring="border border-gray-200"
-          className="h-8 w-8 text-[10px]"
-        />
-        <span className="hidden max-w-[10ch] truncate sm:inline">{firstName}</span>
-        <ChevronDown aria-hidden size={14} className="shrink-0 text-gray-500" />
-      </button>
+      {/* One pill, two regions: the avatar + name OPEN THE DASHBOARD (§1.3), and
+          the chevron opens this short account menu. */}
+      <div className="inline-flex items-center rounded-xl border border-gray-200 bg-white text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy">
+        <Link
+          href={dashboardHref}
+          aria-label="Open your dashboard"
+          className="flex min-h-[44px] items-center gap-2 rounded-l-xl py-1 pl-2 pr-1 sm:pl-2.5"
+        >
+          <Avatar
+            name={name}
+            src={avatarUrl}
+            seed={userId}
+            decorative
+            ring="border border-gray-200"
+            className="h-8 w-8 text-[10px]"
+          />
+          <span className="hidden max-w-[10ch] truncate sm:inline">{firstName}</span>
+        </Link>
+        <button
+          ref={trigger}
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-haspopup="menu"
+          aria-label="Account menu"
+          className="flex min-h-[44px] items-center rounded-r-xl py-1 pl-1 pr-2 sm:pr-2.5"
+        >
+          <ChevronDown aria-hidden size={14} className="shrink-0 text-gray-500" />
+        </button>
+      </div>
 
       {open && (
         <>

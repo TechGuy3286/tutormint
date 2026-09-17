@@ -244,7 +244,7 @@ async function buildBaseGate(
           'تصدیق شدہ ٹیوٹرز والدین کو سب سے پہلے دکھائے جاتے ہیں۔',
         audience: 'tutor',
         plan,
-        href: '/tutor/verify',
+        href: '/tutor/complete-profile?step=verify',
         ctaLabel: 'Verify',
         actionable: true,
       }
@@ -289,7 +289,7 @@ async function buildBaseGate(
           'Verified tutors are shown to parents first.',
         audience: 'tutor',
         plan,
-        href: '/tutor/verify',
+        href: '/tutor/complete-profile?step=verify',
         ctaLabel: 'Verify',
         actionable: true,
       }

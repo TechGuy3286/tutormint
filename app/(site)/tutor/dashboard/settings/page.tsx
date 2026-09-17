@@ -1,6 +1,8 @@
 "use client";
 
 import FileUpload from '@/components/FileUpload';
+import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile';
+import { compressUnder1MB } from '@/lib/imageCompress';
 import PasswordInput from '@/components/ui/PasswordInput'
 import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
@@ -72,6 +74,8 @@ export default function TutorSettingsPage() {
     profileImage: "",
   });
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState("");
+  const [selfieBusy, setSelfieBusy] = useState(false);
+  const [selfieError, setSelfieError] = useState("");
 
   // Subjects are the tutor's taxonomy_master ids (SubjectPicker, PR 3b §2.4).
   const [subjectIds, setSubjectIds] = useState<number[]>([]);
@@ -208,17 +212,23 @@ export default function TutorSettingsPage() {
   };
 
   const handleSelfieCapture = async (file: File) => {
-    setUploading(true);
+    setSelfieBusy(true);
+    setSelfieError("");
     try {
+      // Compressed under 1 MB for BOTH the camera and gallery path (PR22 §3), so a
+      // raw camera photo never trips the serverless body cap.
+      const img = await compressUnder1MB(file);
       const body = new FormData();
       body.append('kind', 'selfie');
-      body.append('file', file);
+      body.append('file', img);
       const res = await fetch('/api/documents/upload', { method: 'POST', body });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.previewUrl) setSelfiePreviewUrl(data.previewUrl);
       else throw new Error(data?.error || 'That photo could not be uploaded. Try a JPG or PNG.');
+    } catch (e) {
+      setSelfieError(e instanceof Error ? e.message : 'That photo could not be uploaded.');
     } finally {
-      setUploading(false);
+      setSelfieBusy(false);
     }
   };
 
@@ -420,21 +430,30 @@ export default function TutorSettingsPage() {
               />
             }
           />
-          <FileUpload
-            label="Selfie"
-            acceptLabel="JPG or PNG"
-            shape="square"
-            changeLabel="Retake"
-            busy={uploading}
-            allowRemove={false}
-            onFile={handleSelfieCapture}
-            currentPreview={
-              selfiePreviewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={selfiePreviewUrl} alt="Your verification selfie" className="h-full w-full object-cover" />
-              ) : undefined
-            }
-          />
+          {/* Selfie — the shared camera-or-gallery tile (PR22 §3): tap to Take a
+              photo (front camera) or Choose from gallery. */}
+          <div className="space-y-1.5">
+            <div className="w-40">
+              <PhotoCaptureTile
+                facingMode="user"
+                aspectClass="aspect-square"
+                label="Selfie"
+                ariaLabel="your verification selfie"
+                busy={selfieBusy}
+                done={!!selfiePreviewUrl}
+                preview={
+                  selfiePreviewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={selfiePreviewUrl} alt="Your verification selfie" className="h-full w-full object-cover" />
+                  ) : null
+                }
+                onPick={(f) => void handleSelfieCapture(f)}
+              />
+            </div>
+            {selfieError && (
+              <p role="alert" className="text-[11px] font-bold text-tm-red">{selfieError}</p>
+            )}
+          </div>
         </div>
       </Card>
 

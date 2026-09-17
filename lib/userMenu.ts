@@ -26,6 +26,7 @@ export type MenuIcon =
   | 'profile'
   | 'package'
   | 'settings'
+  | 'help'
   | 'logout'
   | 'post'
   | 'jobs'
@@ -45,71 +46,39 @@ export type MenuItem = {
 /** An admin screen the actor may actually open, resolved by the caller. */
 export type AdminEntry = { label: string; href: string }
 
-// Navigation lives HERE, and only here.
-//
-// Both dashboards used to end in full-width outlined buttons — "Messages",
-// "Browse tutors" — styled exactly like a form's Save and Cancel. They went
-// somewhere rather than doing something, so they belong in this list; the
-// dashboards keep only the buttons that act (Post a job, Apply, Verify now).
-// Every destination removed from a dashboard in that pass is reachable from
-// one of these two arrays.
+// The signed-in member's menu is DELIBERATELY SHORT (owner, PR22 §1): Settings,
+// Help & Support, and Logout — nothing else. Tapping the avatar or name opens the
+// dashboard (UserMenu links it), and every destination that used to live here —
+// applications, open tuitions, demo requests, membership plans, get verified,
+// hired tutors, children, notifications, browse — is reached from the dashboard
+// itself, the header bell, or the messages dock. A long dropdown of doors was a
+// second navigation competing with the dashboard; this is the account menu, not a
+// site map. Logout is rendered by UserMenu, not listed here.
 const TUTOR: MenuItem[] = [
-  { label: 'Dashboard', href: '/tutor/dashboard', icon: 'dashboard' },
-  // Was labelled "My Applications" and pointed at /tutor/dashboard/jobs, which
-  // is the OPEN TUITIONS board — not this tutor's applications, which had no
-  // screen at all until now. Two entries, each going where it says.
-  { label: 'My applications', href: '/tutor/dashboard/applications', icon: 'applications' },
-  { label: 'Open tuitions', href: '/tutor/dashboard/jobs', icon: 'jobs' },
-  // "Messages" removed from the menu (PR 4 §3.2): the phone header chat icon and
-  // the desktop dock both cover it, and each reaches the full inbox — a third
-  // door to the same page is one too many.
-  { label: 'Demo requests', href: '/tutor/dashboard/demos', icon: 'demos' },
-  // "Notifications" removed from the menu (owner PR2 §5.2) — the header bell is
-  // the notifications surface. "Browse tuitions" removed (§5.1) — "Open tuitions"
-  // above already points at the tuitions board.
-  { label: 'Membership Plans', href: '/membership-plans?for=tutors', icon: 'package' },
-  { label: 'Settings', href: '/tutor/dashboard/settings', icon: 'settings', separated: true },
+  { label: 'Settings', href: '/tutor/dashboard/settings', icon: 'settings' },
+  { label: 'Help & Support', href: '/support', icon: 'help' },
 ]
 
 const PARENT: MenuItem[] = [
-  { label: 'Dashboard', href: '/parent/dashboard', icon: 'dashboard' },
-  { label: 'Post a job', href: '/parent/dashboard/post-job', icon: 'post' },
-  // Was "My Jobs" pointing back at /parent/dashboard, because the list was
-  // rendered inline there. It has its own page now.
-  { label: 'My tuitions', href: '/parent/dashboard/jobs', icon: 'jobs' },
-  // "Messages" removed from the menu (PR 4 §3.2) — the phone header chat icon and
-  // the desktop dock both cover it.
-  { label: 'Demo classes', href: '/parent/dashboard/demos', icon: 'demos' },
-  { label: 'Hired tutors', href: '/parent/dashboard/hired-tutors', icon: 'hired' },
-  { label: 'My children', href: '/parent/dashboard/children', icon: 'profile' },
-  { label: 'Notifications', href: '/account/notifications', icon: 'bell' },
-  { label: 'Browse tutors', href: '/browse/tutors', icon: 'browse' },
-  { label: 'Membership Plans', href: '/membership-plans?for=parents', icon: 'package' },
-  // Was /parent/verify — the verification flow, which is a one-way
-  // submission and not where somebody goes to fix a mistyped city.
-  { label: 'Settings', href: '/parent/dashboard/settings', icon: 'settings', separated: true },
+  { label: 'Settings', href: '/parent/dashboard/settings', icon: 'settings' },
+  { label: 'Help & Support', href: '/support', icon: 'help' },
 ]
 
 /**
  * The menu for this member.
  *
- * `publicProfileSlug` adds the tutor's "My Profile (public view)" entry, and is
- * omitted when they have no slug yet — a menu item that 404s is worse than one
- * that is not there.
+ * Tutors and parents get the short account menu (Settings, Help & Support);
+ * Logout is added by the UI. Admins keep their screen list — the admin panel is
+ * where they work, not a member dashboard.
  *
  * `adminScreens` is already filtered by SCREEN_ACCESS by the caller, so a
  * verifier never sees Payments here even though the entry exists in the nav.
  */
 export function menuForRole({
   role,
-  publicProfileSlug = null,
-  tutorNeedsVerify = false,
   adminScreens = [],
 }: {
   role: Role | null
-  publicProfileSlug?: string | null
-  /** Tutor not yet visible and fee unpaid — offer the verify step, not a dead link. */
-  tutorNeedsVerify?: boolean
   adminScreens?: AdminEntry[]
 }): MenuItem[] {
   if (role === 'admin') {
@@ -120,41 +89,19 @@ export function menuForRole({
       // platform's, which is why they sit below the divider.
       { label: 'Notifications', href: '/account/notifications', icon: 'bell', separated: true },
       { label: 'Settings', href: '/account/notifications/settings', icon: 'settings' },
+      { label: 'Help & Support', href: '/support', icon: 'help' },
     ]
   }
 
-  if (role === 'tutor') {
-    const items = [...TUTOR]
-    if (publicProfileSlug) {
-      // Placed next to Messages rather than at the end: "how do parents see
-      // me" is a question tutors ask constantly, and burying it under Settings
-      // is how it stops being found.
-      items.splice(4, 0, {
-        label: 'My Profile',
-        href: `/tutor/${publicProfileSlug}`,
-        icon: 'profile',
-      })
-    } else if (tutorNeedsVerify) {
-      // Not visible yet and the fee is unpaid: never a dead public-profile link
-      // (owner, 15 Sep 2026). Say what is missing — the way to a public profile
-      // is the one-time verification fee.
-      items.splice(4, 0, {
-        label: 'Get verified',
-        href: '/tutor/verify',
-        icon: 'profile',
-      })
-    }
-    return items
-  }
+  if (role === 'tutor') return [...TUTOR]
 
-  if (role === 'parent' || role === 'academy') return PARENT
+  if (role === 'parent' || role === 'academy') return [...PARENT]
 
   // No silent parent default (owner, 9 Sep). A session with no role is a broken
-  // profile (the dropped-trigger orphan), not a parent — offering it the parent
-  // dashboard and "Post a job" is exactly how a tutor looked like a parent. Show
-  // only the account items every member has, whatever their role.
+  // profile (the dropped-trigger orphan), not a parent. Show only the account
+  // items every member has, whatever their role.
   return [
-    { label: 'Notifications', href: '/account/notifications', icon: 'bell' },
     { label: 'Settings', href: '/account/notifications/settings', icon: 'settings' },
+    { label: 'Help & Support', href: '/support', icon: 'help' },
   ]
 }

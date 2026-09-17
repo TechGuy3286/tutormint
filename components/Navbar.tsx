@@ -9,7 +9,6 @@ import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { getSessionUser } from '@/lib/auth'
 import { unreadCount } from '@/lib/notificationFeed'
 import { unreadMessageCount } from '@/lib/messaging'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { menuForRole, type AdminEntry } from '@/lib/userMenu'
 
 // The site header. A SERVER component, deliberately.
@@ -84,33 +83,6 @@ export default async function Navbar() {
   const role = session.profile?.role ?? null
   const name = session.profile?.full_name ?? session.user.email?.split('@')[0] ?? 'there'
 
-  // A tutor's own public profile is only worth linking to once the page
-  // actually RENDERS — i.e. the tutor is in tutor_visible_profiles (the view
-  // tutor_public_page reads). Reading the slug off tutor_profiles instead sent a
-  // just-onboarded, not-yet-verified tutor to /tutor/<slug>, which 404s because
-  // an unlisted profile is not visible. A member must never be sent from his own
-  // menu to a dead page (owner, 15 Sep 2026); when not visible we omit the link,
-  // and the menu offers the verify step instead.
-  let slug: string | null = null
-  let tutorNeedsVerify = false
-  if (role === 'tutor') {
-    const admin = createAdminClient()
-    const { data } = admin
-      ? await admin.from('tutor_visible_profiles').select('slug').eq('id', session.user.id).maybeSingle()
-      : { data: null }
-    slug = (data?.slug as string | null) ?? null
-    // Not yet visible AND has not paid the one-time fee: offer the verify step
-    // in place of a public-profile link, so the menu says what is missing.
-    if (!slug && admin) {
-      const { data: tp } = await admin
-        .from('tutor_profiles')
-        .select('verified_fee_paid_at')
-        .eq('id', session.user.id)
-        .maybeSingle()
-      tutorNeedsVerify = !tp?.verified_fee_paid_at
-    }
-  }
-
   const isMember = role === 'tutor' || role === 'parent'
   const [unread, adminScreens, messagesUnread] = await Promise.all([
     unreadCount(),
@@ -118,8 +90,12 @@ export default async function Navbar() {
     isMember ? unreadMessageCount(session.user.id) : Promise.resolve(0),
   ])
 
-  const items = menuForRole({ role, publicProfileSlug: slug, tutorNeedsVerify, adminScreens })
+  const items = menuForRole({ role, adminScreens })
   const messagesHref = role === 'tutor' ? '/tutor/dashboard/messages' : '/parent/dashboard/messages'
+  // Tapping the avatar or name opens the dashboard (owner, PR22 §1.3). Admins
+  // land on the admin panel — their "dashboard".
+  const dashboardHref =
+    role === 'tutor' ? '/tutor/dashboard' : role === 'parent' ? '/parent/dashboard' : '/admin'
 
   // What to say when the panel is empty. A tutor's next useful step is being
   // findable; a parent's is finding somebody; an admin's is the queue they
@@ -155,6 +131,7 @@ export default async function Navbar() {
         name={name}
         avatarUrl={session.profile?.avatar_url ?? null}
         userId={session.user.id}
+        dashboardHref={dashboardHref}
         items={items}
       />
     </Shell>

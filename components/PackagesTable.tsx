@@ -200,7 +200,7 @@ export default function PackagesTable({
                 // through free CNIC + address verification.
                 !verified ? (
                   <Link
-                    href={audience === 'tutor' ? '/tutor/verify' : '/parent/verify'}
+                    href={audience === 'tutor' ? '/tutor/complete-profile?step=verify' : '/parent/verify'}
                     className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                   >
                     <ShieldCheck aria-hidden size={14} />

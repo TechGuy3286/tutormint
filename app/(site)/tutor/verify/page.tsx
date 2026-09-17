@@ -1,43 +1,32 @@
 import { redirect } from 'next/navigation'
-import type { Metadata } from 'next'
 
-import Breadcrumbs from '@/components/Breadcrumbs'
 import { getViewerEntitlements } from '@/lib/entitlements'
-import { buildGate } from '@/lib/gate'
-import VerifyClient from './VerifyClient'
 
-// The one-time Rs 199 verification flow, as a page (owner, Part 4). Tutors reach
-// the same flow from the apply-gate sheet; this is the standalone route the
-// account menu, the packages "Get verified" button, and the gate href point to.
+// The one-time Rs 199 verification flow now lives INSIDE the completion flow, at
+// /tutor/complete-profile?step=verify (PR22 §2). This standalone route is kept so
+// old links, emails and bookmarks that point at /tutor/verify still work — it
+// redirects to the canonical verify step.
 //
-// A tutor who has already paid the fee (any plan) has nothing to do here → sent
-// to the dashboard. A signed-out visitor is sent to sign in first.
+// THE BUG THIS FIXES (owner, PR22 §2). The old page rendered the CNIC+Verify gate
+// but guarded it with `if (ent.plan) redirect('/tutor/dashboard')`. Under the fee
+// model (migration 86) `computeEntitlements` synthesises the free `basic` plan the
+// moment the one-time fee is paid, so `ent.plan` is non-null for every fee-paid
+// tutor — and the guard, written when `ent.plan` meant "holds a paid plan", now
+// bounced a tutor to the dashboard the instant the fee was paid. Every "Get
+// verified" link now points straight at the in-flow `?step=verify` (which has no
+// such guard); this route only forwards there. A tutor who is ALREADY verified
+// (the fee is paid — `ent.verified`) has nothing to do, so they go to the
+// dashboard; everyone else goes to the verify step.
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Get verified | TutorMint',
-  robots: { index: false, follow: true },
-}
+const STEP = '/tutor/complete-profile?step=verify'
 
 export default async function TutorVerifyPage() {
   const ent = await getViewerEntitlements()
-  if (!ent) redirect('/login?next=/tutor/verify')
+  if (!ent) redirect(`/login?next=${encodeURIComponent(STEP)}`)
   if (ent.audience !== 'tutor') redirect('/')
-  // Already verified/on a plan — the fee is paid, nothing to do.
-  if (ent.plan) redirect('/tutor/dashboard')
-
-  const gate = await buildGate('tutor_verify', ent)
-
-  return (
-    <main className="min-h-screen bg-tm-bg px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mx-auto max-w-md space-y-4">
-        <Breadcrumbs items={[{ label: 'Tutor dashboard', href: '/tutor/dashboard' }, { label: 'Get verified' }]} />
-        <div className="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6">
-          <h1 className="text-base font-black leading-tight text-tm-navy">{gate.title}</h1>
-          <VerifyClient />
-        </div>
-      </div>
-    </main>
-  )
+  // Verified means the one-time fee is paid — nothing to verify.
+  if (ent.verified) redirect('/tutor/dashboard')
+  redirect(STEP)
 }

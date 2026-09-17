@@ -1,35 +1,26 @@
 'use client'
 
-import { Camera, Loader2 } from 'lucide-react'
-import { useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
-import { compressImage } from '@/lib/imageCompress'
+import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
+import { compressUnder1MB } from '@/lib/imageCompress'
 
-// The ONE CNIC capture control (PR 3b §2.1), behind both the apply-gate modal
-// (TutorVerifyGate) and the Settings identity card — so the two cannot drift.
+// The ONE CNIC capture control (PR 3b §2.1, PR22 §3), behind the apply-gate /
+// verify flow (TutorVerifyGate), the onboarding CNIC step and the Settings
+// identity card — so the three cannot drift.
 //
-//   * the camera opens directly (accept="image/*" capture="environment"),
+//   * tapping the tile offers "Take a photo" (the camera opens) OR "Choose from
+//     gallery" (a plain picker) — the shared PhotoCaptureTile, because a bare
+//     `capture=` input forced the camera and blocked an existing photo (§3),
 //   * the tile fills with the photo once taken; tap it to retake (no tick, no
 //     filename — the photo is the confirmation),
 //   * the image is compressed UNDER 1 MB on-device before it is POSTed to
 //     /api/documents/upload (kind 'cnic' → the private identity-docs bucket),
-//     which clears the serverless body cap that turned a raw camera photo into an
-//     opaque "Upload failed".
+//     for BOTH the camera and the gallery path — which clears the serverless
+//     body cap that turned a raw camera photo into an opaque "Upload failed".
 //
 // It never enforces a CNIC-number-first rule itself: the identity card passes a
 // `beforeUpload` gate for that; the apply gate does not need one.
-
-/** Compress until under 1 MB (PR 3b §2.1), stepping quality down for a very large
- *  photo; falls back to the best effort rather than blocking the upload. */
-async function compressUnder1MB(file: File): Promise<File> {
-  let out = await compressImage(file, { maxEdge: 1400, quality: 0.8 })
-  let quality = 0.7
-  while (out.size > 1024 * 1024 && quality >= 0.4) {
-    out = await compressImage(file, { maxEdge: 1200, quality })
-    quality -= 0.15
-  }
-  return out
-}
 
 export default function CnicCameraField({
   side,
@@ -53,7 +44,6 @@ export default function CnicCameraField({
   onUploaded?: (documentId: string) => void
   onError?: (message: string) => void
 }) {
-  const ref = useRef<HTMLInputElement>(null)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -99,42 +89,17 @@ export default function CnicCameraField({
   const done = !!localPreview || storedPreview != null
 
   return (
-    <div className="flex flex-1 flex-col items-center gap-1.5">
-      <button
-        type="button"
-        disabled={busy || disabled}
-        onClick={() => ref.current?.click()}
-        className={`relative grid aspect-[1.6] w-full place-items-center overflow-hidden rounded-xl border-2 disabled:opacity-60 ${
-          done ? 'border-tm-green-deep' : 'border-dashed border-gray-300 bg-white'
-        }`}
-        aria-label={`${done ? 'Retake' : 'Take a photo of'} the ${side} of your CNIC`}
-      >
-        {shown ?? <Camera size={22} className="text-gray-500" aria-hidden />}
-        {busy && (
-          <span className="absolute inset-0 grid place-items-center bg-tm-black/40">
-            <Loader2 size={20} className="animate-spin text-white" aria-hidden />
-          </span>
-        )}
-      </button>
-      <span className="flex flex-col items-center leading-tight">
-        <span className="text-[11px] font-bold text-tm-navy">{label}</span>
-        {urdu && (
-          <span className="text-[10px] text-gray-500" lang="ur" dir="rtl">
-            {urdu}
-          </span>
-        )}
-      </span>
-      <input
-        ref={ref}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="sr-only"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) void handle(f)
-        }}
-      />
-    </div>
+    <PhotoCaptureTile
+      facingMode="environment"
+      aspectClass="aspect-[1.6]"
+      label={label}
+      urdu={urdu}
+      ariaLabel={`the ${side} of your CNIC`}
+      disabled={disabled}
+      busy={busy}
+      done={done}
+      preview={shown}
+      onPick={(f) => void handle(f)}
+    />
   )
 }

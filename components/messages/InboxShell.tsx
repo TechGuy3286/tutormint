@@ -132,7 +132,7 @@ export default async function InboxShell({
                 you are shown to parents in search.
               </p>
               <Link
-                href="/tutor/verify"
+                href="/tutor/complete-profile?step=verify"
                 className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
               >
                 <ShieldCheck aria-hidden size={14} />
@@ -214,7 +214,7 @@ export default async function InboxShell({
                       { label: 'Check your profile is complete', href: '/tutor/complete-profile' },
                     ]
                   : [
-                      { label: 'Get verified', href: '/tutor/verify' },
+                      { label: 'Get verified', href: '/tutor/complete-profile?step=verify' },
                       { label: 'Complete your profile', href: '/tutor/complete-profile' },
                     ]
                 : [

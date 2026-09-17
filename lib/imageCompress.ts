@@ -76,3 +76,21 @@ export async function compressImage(
   const base = file.name.replace(/\.[^.]+$/, '') || 'photo'
   return new File([blob], `${base}.jpg`, { type: 'image/jpeg', lastModified: Date.now() })
 }
+
+/**
+ * Compress `file` until it is under 1 MB (PR22 §3), stepping the quality and the
+ * max edge down for a very large photo. Used by every identity capture — the
+ * CNIC front/back, the selfie and the degree certificate — so a raw camera photo
+ * (4-8 MB) never trips the ~4.5 MB serverless body cap that turned an upload into
+ * an opaque "Upload failed". Falls back to the best effort rather than blocking:
+ * a slightly-large photo that still uploads beats a hard failure.
+ */
+export async function compressUnder1MB(file: File): Promise<File> {
+  let out = await compressImage(file, { maxEdge: 1400, quality: 0.8 })
+  let quality = 0.7
+  while (out.size > 1024 * 1024 && quality >= 0.4) {
+    out = await compressImage(file, { maxEdge: 1200, quality })
+    quality -= 0.15
+  }
+  return out
+}

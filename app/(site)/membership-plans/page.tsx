@@ -100,7 +100,7 @@ export default async function PackagesPage({
             below add more.
           </p>
           <Link
-            href="/tutor/verify"
+            href="/tutor/complete-profile?step=verify"
             className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-6 text-xs font-bold text-white hover:bg-tm-red-hover"
           >
             Verify

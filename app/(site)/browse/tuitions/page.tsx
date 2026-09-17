@@ -339,7 +339,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
               Get verified. Verified tutors are shown to parents first.
             </p>
             <Link
-              href="/tutor/verify"
+              href="/tutor/complete-profile?step=verify"
               className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
             >
               <ShieldCheck aria-hidden size={14} />
