@@ -14,8 +14,10 @@ import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 
 // The support WhatsApp link shown under the form (§3.4). The number is the one
 // constant from lib/support(Contacts); a client component cannot read the
-// app_settings/env override, and the constant is the number.
-const supportHref = whatsappHref(
+// app_settings/env override, and the constant is the number. Named distinctly
+// from the `supportHref` STATE below (the banned-account "Contact support"
+// link), so the always-on help link is never shadowed to null.
+const helpWhatsappHref = whatsappHref(
   SUPPORT_WHATSAPP_FALLBACK,
   'Assalam-o-Alaikum, I need some help with TutorMint.',
 )
@@ -254,12 +256,13 @@ export default function LoginForm({ next }: { next: string | null }) {
               </Link>
             </p>
             {/* §3.4: the floating WhatsApp button is hidden on this page; the
-                support number lives here instead. */}
-            {supportHref && (
+                support number lives here instead. Uses the module-level help
+                link, not the `supportHref` state (that is the ban path). */}
+            {helpWhatsappHref && (
               <p className="text-[11px] text-gray-500">
                 Need help?{' '}
                 <a
-                  href={supportHref}
+                  href={helpWhatsappHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-bold text-tm-green-deep hover:underline"
