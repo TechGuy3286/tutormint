@@ -74,7 +74,7 @@ export default async function TutorDashboardPage() {
   ]
 
   return (
-    <main className="min-h-screen bg-tm-bg px-4 pt-3 pb-28">
+    <main className="min-h-screen bg-tm-bg px-4 pt-3 pb-8">
       <div className="mx-auto w-full max-w-[480px] space-y-3">
         <Breadcrumbs items={[{ label: 'Tutor dashboard' }]} />
 

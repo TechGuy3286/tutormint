@@ -1,13 +1,15 @@
 import Footer from '@/components/Footer'
 import Navbar from '@/components/Navbar'
 import MessagesDock from '@/components/messages/MessagesDock'
-import SupportWhatsApp from '@/components/support/SupportWhatsApp'
 import { getSessionUser } from '@/lib/auth'
 import { unreadMessageCount } from '@/lib/messaging'
 import { supportContactFromEnv, whatsappHref } from '@/lib/support'
 
 // The public site's chrome: header, main, footer — plus (PR 4) the desktop
-// messages dock and the floating WhatsApp support button.
+// messages dock. The floating WhatsApp support button was removed (PR21 — it
+// overlapped content); the support number still appears in the footer, on
+// /support, the FAQ, the auth "Need help?" links, the SMS "Contact support"
+// line, the Messages dock's Support tab, and the Organization structured data.
 //
 // The "launching soon" preview strip was removed on 9 Sep 2026 — the site
 // presents as live. See "Preview banner removed" in CLAUDE.md.
@@ -51,22 +53,18 @@ export default async function SiteChrome({ children }: { children: React.ReactNo
   return (
     <>
       <Navbar />
-      {/* Extra bottom padding on phone for signed-in members, so the floating
-          WhatsApp button (fixed bottom-right, phone only) never sits over the
-          last of the page's content (owner PR8 §4.2). Desktop hides that button
-          for members, so no padding there. */}
-      <main className={`flex-1 ${isMember ? 'pb-28 lg:pb-0' : ''}`}>{children}</main>
+      <main className="flex-1">{children}</main>
       <Footer />
       {isMember && (
         <>
           {/* Bottom padding equal to the collapsed dock bar's height, desktop
               only, so the fixed bar never sits over the footer's last links
-              (owner PR5b §2.3). */}
+              (owner PR5b §2.3). The phone floating button that used to need its
+              own bottom padding is gone (PR21). */}
           <div aria-hidden className="hidden h-12 lg:block" />
           <MessagesDock role={dockRole} basePath={basePath} initialUnread={dockUnread} supportHref={supportHref} />
         </>
       )}
-      <SupportWhatsApp href={supportHref} signedIn={!!session} />
     </>
   )
 }
