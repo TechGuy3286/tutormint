@@ -42,5 +42,10 @@ export async function GET(request: Request) {
   }
   const seed = num(url.searchParams.get('seed'), 0)
 
-  return composeCoverResponse(input, seed)
+  // PR16 §6.5 — the editor preview must never be served a cached render, so each
+  // Shuffle shows the freshly composed cover (next/og defaults to an immutable
+  // cache otherwise).
+  const res = await composeCoverResponse(input, seed)
+  res.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate')
+  return res
 }

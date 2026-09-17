@@ -13,9 +13,10 @@ import {
   SEO_DESCRIPTION_MAX,
   type PublishGateInput,
 } from '@/lib/blog'
-import { slugTaken } from '@/lib/blogFeed'
+import { slugTaken, publishedSlugs } from '@/lib/blogFeed'
 import { revalidateBlog, notifySearchEngines } from '@/lib/blogPublish'
 import { figureGate } from '@/lib/ai/blogBrief'
+import { invalidInternalLinks } from '@/lib/ai/platformFacts'
 import { landingOptionsForEditor } from '@/lib/blogEditor'
 
 // Blog CMS mutations. Save + review is manager or support (support drafts);
@@ -145,6 +146,26 @@ export async function POST(request: Request) {
           {
             error: `These figures are not in your notes: ${g.untraced.join(', ')}. Edit each out, add it to your notes, or confirm it with a source before marking this Reviewed.`,
             untraced: g.untraced,
+          },
+          { status: 400 },
+        )
+      }
+
+      // PR16 §6.3 — every internal link in the body must resolve. The allowed set
+      // is the live landing pages and published posts, plus the always-valid
+      // static pages (handled inside invalidInternalLinks). A link to a page that
+      // does not exist blocks the review.
+      const posts = await publishedSlugs()
+      const allowed = [
+        ...landing.map((l) => `/${l.path}`),
+        ...posts.map((p) => `/blog/${p.slug}`),
+      ]
+      const badLinks = invalidInternalLinks(body.body, allowed)
+      if (badLinks.length > 0) {
+        return NextResponse.json(
+          {
+            error: `These internal links do not point to a real page: ${badLinks.join(', ')}. Remove them or link to a page that exists.`,
+            badLinks,
           },
           { status: 400 },
         )

@@ -1,6 +1,9 @@
+import Link from 'next/link'
 import Breadcrumbs from '@/components/Breadcrumbs'
+import { ShieldCheck } from 'lucide-react'
 
 import { getSessionUser } from '@/lib/auth'
+import { getEntitlements } from '@/lib/entitlements'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -20,6 +23,44 @@ export default async function TutorDemosPage() {
   const session = await getSessionUser()
   const userId = session!.user.id
   const supabase = await createClient()
+
+  // PR16 §2.3 — an unverified tutor may receive demo requests but cannot see the
+  // details until the fee is paid. Show a locked panel with a verify link, and a
+  // count of how many are waiting, rather than the parents' names and times.
+  const ent = await getEntitlements(userId)
+  if (ent.audience === 'tutor' && !ent.verified) {
+    const { count } = await supabase
+      .from('demo_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('tutor_id', userId)
+      .in('status', ['requested', 'accepted'])
+    return (
+      <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
+        <div className="mx-auto max-w-2xl space-y-4">
+          <Breadcrumbs
+            items={[{ label: 'Tutor dashboard', href: '/tutor/dashboard' }, { label: 'Demo requests' }]}
+          />
+          <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-6 text-center">
+            <span className="inline-flex rounded-2xl bg-tm-tint-green p-3 text-tm-green-deep">
+              <ShieldCheck aria-hidden size={22} />
+            </span>
+            <h1 className="text-lg font-black text-tm-navy">
+              {count ? `${count} demo request${count === 1 ? '' : 's'} waiting` : 'Demo requests'}
+            </h1>
+            <p className="text-sm leading-relaxed text-slate-700">
+              Parents can ask you for a free demo. Verify your account to see who asked and reply.
+            </p>
+            <Link
+              href="/tutor/complete-profile?step=verify"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white hover:bg-tm-red-hover"
+            >
+              Verify your account
+            </Link>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   const { data: demos } = await supabase
     .from('demo_requests')

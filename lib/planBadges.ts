@@ -128,12 +128,17 @@ export function tutorListed(
  * Pure, so the profile page and its test read one decision.
  */
 export function tutorProfileNoindex(input: {
+  /** The one-time verification fee is paid. PR16 §1.4: unverified → noindex. */
+  verified?: boolean | null
   profileCompletion: number | null | undefined
   underReview?: boolean | null
   isSeed?: boolean | null
 }): boolean {
   if (input.isSeed) return true
   if (input.underReview) return true
+  // PR16 §1.4 — unverified profiles are noindex (and out of the sitemap and
+  // structured data). Only a VERIFIED, complete profile is offered to a crawler.
+  if (!input.verified) return true
   return (input.profileCompletion ?? 0) < 100
 }
 
@@ -145,9 +150,12 @@ export function tutorProfileNoindex(input: {
  */
 export function tutorSitemapEligible(input: {
   listed: boolean
+  /** PR16 §1.4 — the sitemap lists only VERIFIED (fee-paid) tutors. */
+  verified?: boolean | null
   profileCompletion: number | null | undefined
   isSeed?: boolean | null
 }): boolean {
   if (input.isSeed) return false
+  if (!input.verified) return false
   return input.listed && (input.profileCompletion ?? 0) >= 100
 }

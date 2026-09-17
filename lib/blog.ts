@@ -11,6 +11,7 @@
 // browser.
 
 import { scaffoldViolations, promptLeakViolations } from '@/lib/ai/blogBrief'
+import { contradictionViolations } from '@/lib/ai/platformFacts'
 
 export type PostStatus = 'draft' | 'reviewed' | 'scheduled' | 'published' | 'unpublished'
 export type PostAudience = 'parents' | 'tutors' | 'both'
@@ -120,6 +121,11 @@ export function canPublish(p: PublishGateInput): { ok: boolean; reasons: string[
   // Never publish leaked model instructions or internal data (owner PR14 §1.3).
   for (const line of promptLeakViolations(p.body)) {
     reasons.push(`Remove this instruction/internal-data line: “${line}”`)
+  }
+  // PR16 §6.2 — a claim that contradicts the platform facts sheet blocks
+  // publishing until it is corrected.
+  for (const c of contradictionViolations(p.body)) {
+    reasons.push(`This line contradicts how TutorMint works (${c.why}): “${c.line}”`)
   }
   return { ok: reasons.length === 0, reasons }
 }

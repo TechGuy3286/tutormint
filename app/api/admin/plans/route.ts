@@ -240,10 +240,10 @@ export async function POST(request: Request) {
   // already live or waits on verification, so the copy is accurate either way.
   const ent = await getEntitlements(userId)
   const unlocks = planUnlocks(planCode)
-  // Since 10 Sep the tutor caveat is verification (identity + mobile), not
-  // completion — the grant makes the plan active, so ent.listed now reflects
-  // exactly whether they still need to verify. A parent tier never waits on it.
-  const live = targetAudience === 'parent' ? true : ent.listed
+  // A tutor's badge goes live with the one-time verification fee (PR16 §1.2), so
+  // `live` reads ent.verified — whether the granted plan's badge shows now or
+  // waits on verification. A parent tier never waits on it.
+  const live = targetAudience === 'parent' ? true : ent.verified
   await notify({
     userId,
     kind: 'plan_activated',

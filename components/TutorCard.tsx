@@ -62,6 +62,14 @@ export type TutorCardData = {
    * that do not carry the signal are unchanged.
    */
   has_degree?: boolean
+  /**
+   * PR16 §1.2/§1.3 — has this tutor paid the one-time verification fee? A verified
+   * tutor shows the Verified badge (and any plan badge); a visible-but-unverified
+   * tutor shows the neutral "Not verified" chip and no Verified badge. Optional;
+   * absent means "assume verified" so surfaces that do not carry the signal (and
+   * cards known to be verified) are unchanged.
+   */
+  verified?: boolean
 }
 
 export type CardViewer = {
@@ -178,7 +186,12 @@ export default function TutorCard({
   const toast = useToast()
 
   const profileHref = tutor.slug ? `/tutor/${tutor.slug}` : '#'
-  const badges = badgesForPlan(tutor.plan_code, true, tutor.has_degree ?? true)
+  // PR16 §1.2/§1.3 — badges turn on the verification fee. `verified` absent means
+  // "assume verified" (surfaces that pre-date the signal). A fee-paid Basic tutor
+  // has no subscription (plan_code null), so synthesise 'basic' for the badge.
+  const isVerified = tutor.verified ?? true
+  const effectivePlan = tutor.plan_code ?? (isVerified ? 'basic' : null)
+  const badges = isVerified ? badgesForPlan(effectivePlan, true, tutor.has_degree ?? true) : []
   const rating = Number(tutor.rating_avg ?? 0)
   const reviews = tutor.rating_count ?? 0
 
@@ -336,6 +349,14 @@ export default function TutorCard({
                   <BadgeRow badges={badges} size="md" showLabel />
                 </span>
               </>
+            )}
+
+            {/* PR16 §1.3 — a visible tutor who has not paid the verification fee
+                reads "Not verified" rather than showing no badge at all. */}
+            {!isVerified && (
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">
+                Not verified
+              </span>
             )}
 
             {/* Teaching mode, made prominent. It was only ever the Area line's

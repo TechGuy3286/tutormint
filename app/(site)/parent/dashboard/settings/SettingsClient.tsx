@@ -167,12 +167,17 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
     const json = await res.json()
     if (!res.ok) {
       setError(json.error ?? 'Could not send a code.')
-      if (json.retryAfterSeconds) setCooldown(json.retryAfterSeconds)
       return
     }
     setOtpSent(true)
-    setCooldown(5 * 60)
-    setOtpMsg(json.devBypassActive ? 'Development mode: use the DEV_DEFAULT_OTP code.' : 'Code sent.')
+    // PR16 §3 — one code, no resend/countdown. A second send returns alreadySent.
+    setOtpMsg(
+      json.devBypassActive
+        ? 'Development mode: use the DEV_DEFAULT_OTP code.'
+        : json.alreadySent
+          ? 'We already sent a code to this number. Please use it.'
+          : 'Code sent.',
+    )
   }
 
   const verifyCode = async () => {
@@ -337,14 +342,18 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
           </p>
         ) : (
           <div className="space-y-2">
-            <button
-              type="button"
-              onClick={sendCode}
-              disabled={cooldown > 0 || phone.replace(/\D/g, '').length < 10}
-              className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-tm-navy disabled:opacity-50 sm:w-auto"
-            >
-              {cooldown > 0 ? `Resend in ${mmss(cooldown)}` : otpSent ? 'Resend code' : 'Send code'}
-            </button>
+            {/* PR16 §3 — one code, no resend/countdown. Once sent, the field
+                below is how you finish; a lost or locked code goes to support. */}
+            {!otpSent && (
+              <button
+                type="button"
+                onClick={sendCode}
+                disabled={phone.replace(/\D/g, '').length < 10}
+                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-tm-navy disabled:opacity-50 sm:w-auto"
+              >
+                Send code
+              </button>
+            )}
             {otpSent && (
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input

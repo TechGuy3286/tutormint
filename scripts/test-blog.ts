@@ -381,3 +381,38 @@ test('canPublish blocks a body still carrying scaffold, and names the line', () 
   })
   assert.equal(clean.ok, true, 'a clean, reviewed post publishes')
 })
+
+// ── PR16 §6.2/§6.3 — platform-facts contradiction check and internal-link check ──
+import {
+  contradictionViolations,
+  invalidInternalLinks,
+  internalLinksIn,
+} from '../lib/ai/platformFacts'
+
+test('contradictionViolations flags the four false claims, allows the brand slogan', () => {
+  // The exact false claims the observed post made.
+  assert.ok(contradictionViolations('TutorMint is completely free to join.').length > 0)
+  assert.ok(contradictionViolations('We verify every tutor’s experience before listing.').length > 0)
+  assert.ok(contradictionViolations('Parents hear back quickly from tutors.').length > 0)
+  assert.ok(contradictionViolations('Verified tutors can message parents directly.').length > 0)
+  // The legitimate brand line and "no commission" are NOT flagged.
+  assert.deepEqual(contradictionViolations('No fee, no commission, no middleman.'), [])
+  assert.deepEqual(contradictionViolations('TutorMint takes no commission on what you earn.'), [])
+  // A normal factual sentence is clean.
+  assert.deepEqual(contradictionViolations('A verified tutor can reply to parents and apply to tuitions.'), [])
+})
+
+test('invalidInternalLinks flags links that do not exist, allows static + live pages', () => {
+  const allowed = ['/tutors/lahore/physics', '/blog/o-levels-guide']
+  const body = [
+    'See [pricing](/membership-plans) and [FAQ](/faq).',
+    'Find a [Physics tutor](/tutors/lahore/physics) or read our [guide](/blog/o-levels-guide).',
+    'This one is broken: [ghost](/tutors/nowhere/nothing).',
+  ].join('\n')
+  const bad = invalidInternalLinks(body, allowed)
+  assert.deepEqual(bad, ['/tutors/nowhere/nothing'])
+  // Static pages are always allowed even without being in the live set.
+  assert.deepEqual(invalidInternalLinks('[join](/register) [home](/)', []), [])
+  // internalLinksIn strips the fragment and trailing slash.
+  assert.deepEqual(internalLinksIn('[a](/faq#parents) [b](/blog/x/)'), ['/faq', '/blog/x'])
+})

@@ -97,10 +97,9 @@ test('stepDone matches the facts for each step', () => {
 })
 
 test('the "You\'re listed" verdict is exactly directoryBlockers empty', () => {
-  // Fee + mobile + subjects + city → listed even below 100% completion.
-  const listable: FlowFacts = { ...EMPTY, city: 'Lahore', subjectCount: 1, phoneVerified: true, feePaid: true, verificationStatus: 'pending' }
-  assert.equal(isListed(listable), true)
-  assert.ok(missingSteps(listable).every((k) => !BLOCKER_STEPS.has(k))) // no blocker steps left
+  // PR16 §1 — visibility is mobile + subjects + city + area + gender (NO fee).
+  const listable: FlowFacts = { ...EMPTY, city: 'Lahore', area: 'Gulberg', gender: 'female', subjectCount: 1, phoneVerified: true, feePaid: false, verificationStatus: 'pending' }
+  assert.equal(isListed(listable), true, 'visible without the fee (PR16 §1)')
   // A seed fixture is never listed, whatever else is filled.
   assert.equal(isListed({ ...FULL, isSeed: true }), false)
   // Missing a city un-lists.

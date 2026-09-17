@@ -29,7 +29,7 @@ import {
   type FlowFacts,
   type FlowStepKey,
 } from '@/lib/tutorFlow'
-import { directoryBlockers, listingFixItems, type CnicState } from '@/lib/tutorListingStatus'
+import { directoryBlockers, listingFixItems } from '@/lib/tutorListingStatus'
 
 // One tap-tap flow for every tutor (PR 4 §1). It replaces the long step-tab form
 // at /tutor/complete-profile and unifies with /tutor/onboarding. It computes what
@@ -479,7 +479,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
           <VideoUpload initialAttempts={0} initialStatus={facts.videoDone ? 'uploaded' : 'none'} onSubmitted={() => void advance()} />
         )}
 
-        {stepKey === 'final' && <FinalScreen facts={facts} cnicState={verificationState} onLeave={leave} />}
+        {stepKey === 'final' && <FinalScreen facts={facts} onLeave={leave} />}
       </main>
 
       {/* footer */}
@@ -886,12 +886,14 @@ function SupportBox({ support, title }: { support: { waHref: string | null; waDi
   )
 }
 
-// The mobile-verification step (owner PR5a §2). Codes go by SMS (never WhatsApp).
-// Prefilled with the signup number; 03XXXXXXXXX is accepted and the /api/auth/otp
-// route normalises it. After sending: the code field, a 60-second resend
-// countdown, and "Change number". The support fallback appears only AFTER the
-// first resend (§2.4). If no SMS provider is configured, it says so plainly
-// rather than pretending to send (§2.5).
+// The mobile-verification step. Codes go by SMS. Prefilled with the signup
+// number; 03XXXXXXXXX is accepted and /api/auth/otp normalises it.
+//
+// PR16 §3 — ONE CODE, NO RESEND, NO COUNTDOWN, NO SELF-SERVICE NUMBER CHANGE.
+// After Send, the code field + Verify + the support fallback (WhatsApp
+// 0321 5872222). Five wrong attempts lock the code and the server returns the
+// "contact support" message. To change the number, contact support (§3.2). If no
+// SMS provider is configured, it says so plainly rather than pretending to send.
 function MobileStep({
   support,
   initialPhone,
@@ -907,26 +909,17 @@ function MobileStep({
   const [phone, setPhone] = useState(initialPhone ?? '')
   const [otp, setOtp] = useState('')
   const [sent, setSent] = useState(false)
-  const [cooldown, setCooldown] = useState(0)
-  const [resends, setResends] = useState(0)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => { if (initialPhone) setPhone((p) => p || initialPhone) }, [initialPhone])
-
-  useEffect(() => {
-    if (cooldown <= 0) return
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
-    return () => clearTimeout(t)
-  }, [cooldown])
 
   async function send() {
     setBusy(true)
     try {
       const res = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', phone }) })
       const j = await res.json().catch(() => ({}))
-      if (!res.ok) { toast.error(j.error ?? 'Could not send the code.'); if (j.retryAfterSeconds) setCooldown(j.retryAfterSeconds); return }
-      if (sent) setResends((n) => n + 1)
-      setSent(true); setCooldown(60)
+      if (!res.ok) { toast.error(j.error ?? 'Could not send the code.'); return }
+      setSent(true)
       toast.success(j.alreadySent ? 'We already sent a code to this number. Please use it.' : 'Code sent by SMS.')
     } finally { setBusy(false) }
   }
@@ -940,11 +933,8 @@ function MobileStep({
       onVerified()
     } finally { setBusy(false) }
   }
-  function changeNumber() {
-    setSent(false); setOtp(''); setCooldown(0); setResends(0)
-  }
 
-  // §2.5 — nothing configured to deliver a code. Say so; do not pretend to send.
+  // Nothing configured to deliver a code. Say so; do not pretend to send.
   if (!smsAvailable) {
     return (
       <div className="space-y-4">
@@ -982,37 +972,26 @@ function MobileStep({
             className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-tm-red px-4 text-sm font-black text-white disabled:opacity-40">
             <ShieldCheck size={16} aria-hidden /> Verify
           </button>
-          <div className="flex items-center justify-between gap-2">
-            <button type="button" disabled={busy || cooldown > 0} onClick={() => void send()}
-              className="flex min-h-[44px] items-center px-1 text-xs font-bold text-tm-navy hover:underline disabled:text-gray-500 disabled:no-underline">
-              {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
-            </button>
-            <button type="button" onClick={changeNumber}
-              className="flex min-h-[44px] items-center px-1 text-xs font-bold text-tm-red hover:underline">
-              Change number
-            </button>
-          </div>
+          {/* PR16 §3 — no resend, no countdown, no self-service number change.
+              The support fallback is the way through if the code was lost or the
+              number was wrong. */}
+          <SupportBox support={support} title="No code, or wrong number?" />
         </>
       )}
-      {/* §2.4 — the support fallback only after the first resend, never up front. */}
-      {resends > 0 && <SupportBox support={support} title="Not getting the code?" />}
     </div>
   )
 }
 
 function FinalScreen({
   facts,
-  cnicState,
   onLeave,
 }: {
   facts: FlowFacts
-  cnicState: 'none' | 'submitted' | 'approved' | 'rejected'
   onLeave: (to: string) => void
 }) {
   const listed = isListed(facts)
   const blockers = directoryBlockers(toListingFacts(facts))
-  const cnic: CnicState = { hasImage: !!facts.cnicImagePath, state: cnicState }
-  const fixes = listingFixItems(blockers, cnic)
+  const fixes = listingFixItems(blockers)
   return (
     <div className="space-y-5 pt-6 text-center">
       {listed ? (

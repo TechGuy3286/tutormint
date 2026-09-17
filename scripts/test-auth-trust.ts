@@ -304,12 +304,13 @@ const baseTutor = {
   is_seed: false, is_team_account: false,
 }
 
-// Fee paid, verification not rejected/suspended, degree on file, a city — the
-// baseline of a listed Basic tutor. `hasSubjects` (an input flag) defaults true.
+// Fee paid, verification not rejected/suspended, degree on file, city+area+gender
+// set — the baseline of a verified, visible Basic tutor (PR16). `hasSubjects` (an
+// input flag) defaults true.
 const baseTutorRow = {
   verification_status: 'verified', imported: false, claimed_at: null,
   under_review: false, degrees: ['BSc Mathematics'], verified_fee_paid_at: '2026-01-01',
-  city: 'Lahore',
+  city: 'Lahore', area: 'Johar Town', gender: 'male',
 }
 
 function inputs(over: Partial<EntitlementInputs>): EntitlementInputs {
@@ -383,36 +384,41 @@ test('entitlements: a fee-paid tutor UNDER 100% is LISTED and on Basic', () => {
   assert.equal(e.profileCompletion, 40)
 })
 
-test('entitlements: a tutor who has NOT paid the fee is NOT listed and has no plan', () => {
+test('entitlements: a tutor who has NOT paid the fee is VISIBLE but NOT verified (PR16 §1)', () => {
   const e = computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, verified_fee_paid_at: null } }))
-  assert.equal(e.listed, false)
-  assert.equal(e.plan, null)
+  assert.equal(e.visible, true, 'the fee no longer gates visibility')
+  assert.equal(e.listed, true, 'listed is the visibility alias')
+  assert.equal(e.verified, false, 'no fee = not verified')
+  assert.equal(e.plan, null, 'no fee = no Basic plan')
+  assert.deepEqual(e.badges, [], 'an unverified tutor shows no badge')
 })
 
-test('entitlements: a fee-paid tutor whose verification is REJECTED is NOT listed', () => {
+test('entitlements: a fee-paid tutor whose verification is REJECTED is NOT visible', () => {
   const e = computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, verification_status: 'rejected' } }))
-  assert.equal(e.listed, false, 'a rejected verification delists even with the fee paid')
+  assert.equal(e.visible, false, 'a rejected verification delists')
 })
 
-test('entitlements: a listed tutor with NO reviewed degree carries no Verified badge', () => {
+test('entitlements: a verified tutor with NO reviewed degree carries no Verified badge', () => {
   const e = computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, degrees: [] } }))
-  assert.equal(e.listed, true, 'no degree does not delist — it only removes the badge')
+  assert.equal(e.visible, true, 'no degree does not delist — it only removes the badge')
+  assert.equal(e.verified, true, 'the fee is paid')
   assert.deepEqual(e.badges, [], 'Basic grants only Verified, which the missing degree drops')
 })
 
-// --- the ONE listing rule now used for apply/message/demo (owner PR3 §1) ---
+// --- visibility vs apply-rights (PR16 §1) ---
 
-test('entitlements: a fee-paid tutor with NO subjects is NOT listed (cannot apply)', () => {
+test('entitlements: a verified tutor with NO subjects is NOT visible', () => {
   const e = computeEntitlements(inputs({ hasSubjects: false }))
-  assert.equal(e.listed, false, 'a tutor with no subjects is invisible in search and cannot apply')
+  assert.equal(e.visible, false, 'a tutor with no subjects is invisible in search')
+  assert.equal(e.verified, true, 'the fee is paid, so they can still apply')
   assert.equal(e.plan, 'basic', 'they still hold Basic — the fee is paid')
-  assert.ok(e.listingBlockers.includes('no_subjects'))
+  assert.ok(e.visibilityBlockers.includes('no_subjects'))
 })
 
-test('entitlements: a fee-paid tutor with NO city is NOT listed (cannot apply)', () => {
-  const e = computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, city: null } }))
-  assert.equal(e.listed, false)
-  assert.ok(e.listingBlockers.includes('no_city'))
+test('entitlements: a verified tutor with NO city / area / gender is NOT visible', () => {
+  assert.ok(computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, city: null } })).visibilityBlockers.includes('no_city'))
+  assert.ok(computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, area: null } })).visibilityBlockers.includes('no_area'))
+  assert.ok(computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, gender: null } })).visibilityBlockers.includes('no_gender'))
 })
 
 test('entitlements: a listed tutor has no listing blockers', () => {
@@ -465,20 +471,22 @@ test('tutorListed: requires the one-time fee on top of the precondition', () => 
   assert.equal(tutorListed({ ...base, feePaid: false }), false, 'no fee, not listed')
 })
 
-test('tutorProfileNoindex: noindex below 100%, under review, OR a seed tutor', () => {
-  assert.equal(tutorProfileNoindex({ profileCompletion: 100 }), false, 'a real tutor at 100% is indexable')
-  assert.equal(tutorProfileNoindex({ profileCompletion: 40 }), true)
-  assert.equal(tutorProfileNoindex({ profileCompletion: 100, underReview: true }), true)
+test('tutorProfileNoindex: verified AND 100% indexes; unverified/under-review/seed noindex', () => {
+  assert.equal(tutorProfileNoindex({ verified: true, profileCompletion: 100 }), false, 'a verified tutor at 100% is indexable')
+  assert.equal(tutorProfileNoindex({ verified: false, profileCompletion: 100 }), true, 'unverified is noindex (PR16 §1.4)')
+  assert.equal(tutorProfileNoindex({ verified: true, profileCompletion: 40 }), true)
+  assert.equal(tutorProfileNoindex({ verified: true, profileCompletion: 100, underReview: true }), true)
   // Seed wins: a fixture tutor at 100% is STILL noindex.
-  assert.equal(tutorProfileNoindex({ profileCompletion: 100, isSeed: true }), true)
+  assert.equal(tutorProfileNoindex({ verified: true, profileCompletion: 100, isSeed: true }), true)
 })
 
-test('tutorSitemapEligible: listed AND 100% AND not a seed tutor', () => {
-  assert.equal(tutorSitemapEligible({ listed: true, profileCompletion: 100 }), true, 'a real listed 100% tutor is in the sitemap')
-  assert.equal(tutorSitemapEligible({ listed: true, profileCompletion: 40 }), false)
-  assert.equal(tutorSitemapEligible({ listed: false, profileCompletion: 100 }), false)
+test('tutorSitemapEligible: verified AND listed AND 100% AND not a seed tutor', () => {
+  assert.equal(tutorSitemapEligible({ listed: true, verified: true, profileCompletion: 100 }), true, 'a verified listed 100% tutor is in the sitemap')
+  assert.equal(tutorSitemapEligible({ listed: true, verified: false, profileCompletion: 100 }), false, 'unverified is out of the sitemap (PR16 §1.4)')
+  assert.equal(tutorSitemapEligible({ listed: true, verified: true, profileCompletion: 40 }), false)
+  assert.equal(tutorSitemapEligible({ listed: false, verified: true, profileCompletion: 100 }), false)
   // A seed tutor at 100% is absent from the sitemap.
-  assert.equal(tutorSitemapEligible({ listed: true, profileCompletion: 100, isSeed: true }), false)
+  assert.equal(tutorSitemapEligible({ listed: true, verified: true, profileCompletion: 100, isSeed: true }), false)
 })
 
 test('isFixtureTuition: seed parent / JOB-TRK / SEED-JOB are fixtures; a team post never is', () => {
@@ -496,41 +504,45 @@ test('isFixtureTuition: seed parent / JOB-TRK / SEED-JOB are fixtures; a team po
 
 // ------------------------------------------ directory listing bar (mig 87) ---
 
+// PR16 §1 — visibility facts: NO fee, plus area and gender.
 const listedFacts = {
-  feePaid: true, phoneVerified: true, hasSubjects: true, city: 'Lahore',
+  phoneVerified: true, hasSubjects: true, city: 'Lahore', area: 'Johar Town', gender: 'male',
   isSuspended: false, isBanned: false, underReview: false, verificationStatus: 'verified',
   imported: false, claimedAt: null, isSeed: false, isTeamAccount: false,
 }
 
-test('directoryBlockers: a real fee-paid tutor with a subject and a city is listed', () => {
+test('directoryBlockers: a mobile-verified tutor with subject/city/area/gender is visible (no fee needed)', () => {
   assert.deepEqual(directoryBlockers(listedFacts), [])
   assert.equal(isDirectoryListed(listedFacts), true)
 })
 
-test('directoryBlockers: the three new gates each block on their own', () => {
+test('directoryBlockers: each positive gate blocks on its own', () => {
   assert.deepEqual(directoryBlockers({ ...listedFacts, isSeed: true }), ['fixture'])
   assert.deepEqual(directoryBlockers({ ...listedFacts, isTeamAccount: true }), ['fixture'])
   assert.deepEqual(directoryBlockers({ ...listedFacts, hasSubjects: false }), ['no_subjects'])
   assert.deepEqual(directoryBlockers({ ...listedFacts, city: '' }), ['no_city'])
   assert.deepEqual(directoryBlockers({ ...listedFacts, city: '   ' }), ['no_city'], 'whitespace-only city is no city')
-})
-
-test('directoryBlockers: fee and mobile are still required (migration 86 gates kept)', () => {
-  assert.deepEqual(directoryBlockers({ ...listedFacts, feePaid: false }), ['fee_unpaid'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, area: '' }), ['no_area'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, gender: null }), ['no_gender'])
   assert.deepEqual(directoryBlockers({ ...listedFacts, phoneVerified: false }), ['phone_unverified'])
 })
 
+test('directoryBlockers: the fee is NOT a visibility gate (PR16 §1)', () => {
+  // A fee flag is not even part of ListingFacts any more; visibility ignores it.
+  assert.deepEqual(directoryBlockers(listedFacts), [], 'fee-unpaid tutor is still visible')
+})
+
 test('directoryBlockers: an unclaimed import is blocked from the directory, in view order', () => {
-  // An import with subjects+city+fee but not claimed: only the import gate fires.
   const imp = { ...listedFacts, imported: true, claimedAt: null }
   assert.deepEqual(directoryBlockers(imp), ['unclaimed_import'])
 })
 
-test('tutorFixFor: only the tutor-fixable blockers offer a screen', () => {
+test('tutorFixFor: only the tutor-fixable visibility blockers offer a screen', () => {
   // PR 4 §1.6: each opens the exact step of the tap-tap flow.
   assert.equal(tutorFixFor('no_subjects')?.href, '/tutor/complete-profile?step=subjects')
   assert.equal(tutorFixFor('no_city')?.href, '/tutor/complete-profile?step=city')
-  assert.equal(tutorFixFor('fee_unpaid')?.href, '/tutor/complete-profile?step=verify')
+  assert.equal(tutorFixFor('no_area')?.href, '/tutor/complete-profile?step=area')
+  assert.equal(tutorFixFor('no_gender')?.href, '/tutor/complete-profile?step=gender')
   assert.equal(tutorFixFor('phone_unverified')?.href, '/tutor/complete-profile?step=mobile')
   assert.equal(tutorFixFor('suspended'), null)
   assert.equal(tutorFixFor('fixture'), null)

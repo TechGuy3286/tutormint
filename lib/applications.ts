@@ -24,8 +24,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { checkQuota, consumeQuota } from '@/lib/quota'
 import { logActivity } from '@/lib/activityLog'
-import { buildGate, buildListingGate, type Gate } from '@/lib/gate'
-import { feeOnlyBlocker, listingSummary } from '@/lib/tutorListingStatus'
+import { buildGate, type Gate } from '@/lib/gate'
 import { genderApplyBlocked, genderPrefSentence } from '@/lib/genderPref'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
@@ -78,22 +77,16 @@ export async function applyToJob(params: {
 
   const admin = createAdminClient()
 
-  // 1. LISTED? The ONE rule apply / start-conversation / demo-accept all gate on
-  //    (owner PR3 §1): the full tutor_directory rule via ent.listed — fee paid +
-  //    mobile verified + at least one subject + a city + not a fixture. A tutor
-  //    who is not in the directory cannot apply, even fee-paid: applying would put
-  //    a profile in front of a parent that search itself will not show. The gate
-  //    names exactly what is missing, each with its fix (§1.3); if ONLY the fee is
-  //    missing it is the existing CNIC + verify modal, otherwise the checklist.
-  //    Completion is NOT part of this — a paid, listed tutor at 40% still applies.
-  if (ent.audience === 'tutor' && !ent.listed) {
+  // 1. VERIFIED? Applying is gated on the one-time verification fee (PR16 §1.2),
+  //    not on visibility — an unverified tutor is already visible in browse, but
+  //    cannot apply until they verify. The gate is the CNIC + verify modal; no
+  //    price wording (that lives on the payment page).
+  if (ent.audience === 'tutor' && !ent.verified) {
     return {
       ok: false,
       status: 403,
-      error: listingSummary(ent.listingBlockers),
-      gate: feeOnlyBlocker(ent.listingBlockers)
-        ? await buildGate('tutor_verify', ent)
-        : buildListingGate(ent.listingBlockers),
+      error: 'Verify your account to apply for tuitions.',
+      gate: await buildGate('tutor_verify', ent),
     }
   }
 

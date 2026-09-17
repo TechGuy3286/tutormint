@@ -6,6 +6,7 @@ import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 import { parseBody, z } from '@/lib/validate'
 import { clusterLabel, isClusterSlug } from '@/lib/blog'
 import { landingOptionsForEditor } from '@/lib/blogEditor'
+import { publishedSlugs } from '@/lib/blogFeed'
 import {
   generateBlogOutline,
   generateBlogSection,
@@ -63,14 +64,29 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
   const body = parsed.data
 
-  const landing = await landingOptionsForEditor()
+  // PR16 §6.3 — give the model the LIVE set of things it may link to: the live
+  // landing pages, /membership-plans and /faq, and recently published posts. Every
+  // path here exists, so the 3-5 internal links it places resolve (the save gate
+  // re-checks). Capped so the prompt stays bounded.
+  const [landing, posts] = await Promise.all([landingOptionsForEditor(), publishedSlugs()])
+  const linkOptions = [
+    ...landing.map((l) => ({ label: l.label, path: l.path })),
+    { label: 'Membership Plans (pricing)', path: 'membership-plans' },
+    { label: 'Questions and answers (FAQ)', path: 'faq' },
+    { label: 'Find tutors', path: 'browse/tutors' },
+    { label: 'Find tuitions (post a job)', path: 'browse/tuitions' },
+    ...posts.slice(0, 12).map((p) => ({
+      label: `Blog: ${p.slug.replace(/-/g, ' ')}`,
+      path: `blog/${p.slug}`,
+    })),
+  ]
   const brief: BlogBrief = {
     title: body.title,
     clusterLabel: clusterLabel(body.cluster),
     audience: body.audience,
     language: body.language,
     notes: body.notes,
-    landingLinks: landing.map((l) => ({ label: l.label, path: l.path })),
+    landingLinks: linkOptions,
   }
 
   // ------------------------------------------------------------- a section ---

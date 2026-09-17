@@ -1,17 +1,21 @@
 // lib/tutorListingStatus.ts
 //
-// "Is this tutor in the PUBLIC directory, and if not, why?" — the TypeScript
-// mirror of the tutor_directory view's WHERE clause (migration 87), expressed
-// once so the tutor dashboard and the admin tutor list read the same rule and
-// neither has to re-implement it.
+// "Is this tutor VISIBLE — in /browse/tutors with a public profile — and if not,
+// why?" The TypeScript mirror of the tutor_directory view's WHERE clause
+// (migration 94), expressed once so the dashboard, onboarding, the admin list and
+// the apply/message surfaces read the same rule and none re-implements it.
+//
+// PR16 §1 — THE FEE NO LONGER GATES VISIBILITY. A tutor is visible when: mobile
+// verified, city AND area set, at least one subject, gender set, not suspended,
+// not banned, not under review, verification not suspended/rejected, not a
+// seed/team fixture, and claimed if imported. The one-time fee separately controls
+// the Verified badge, ranking, applying, and reading/replying to parent messages
+// and demos (that is `ent.verified`, decided in lib/entitlements.ts — NOT here).
 //
 // PURE — no imports, so it is unit-tested and usable on the server or the client.
-// It must stay in lockstep with 87_directory_listing_bar.sql: every condition in
-// the view is a blocker here, in the same order, so `directoryBlockers(f).length
-// === 0` means exactly "this tutor is returned by tutor_directory".
-//
-// Never report a tutor as listed on the strength of the fee alone — the whole
-// point of migration 87 is that the fee is necessary but not sufficient.
+// Keep it in lockstep with 94_visibility_rule.sql: every condition in the view is
+// a blocker here, in the same order, so `directoryBlockers(f).length === 0` means
+// exactly "this tutor is returned by tutor_directory".
 
 export type ListingBlocker =
   | 'banned'
@@ -19,17 +23,19 @@ export type ListingBlocker =
   | 'under_review'
   | 'verification_rejected'
   | 'fixture'
-  | 'fee_unpaid'
   | 'phone_unverified'
   | 'unclaimed_import'
   | 'no_subjects'
   | 'no_city'
+  | 'no_area'
+  | 'no_gender'
 
 export type ListingFacts = {
-  feePaid: boolean
   phoneVerified: boolean
   hasSubjects: boolean
   city?: string | null
+  area?: string | null
+  gender?: string | null
   isSuspended?: boolean | null
   isBanned?: boolean | null
   underReview?: boolean | null
@@ -42,7 +48,8 @@ export type ListingFacts = {
 
 /**
  * Every reason this tutor is NOT in tutor_directory, in the view's own order.
- * An empty array means they are listed.
+ * An empty array means they are visible. The fee is deliberately absent — it no
+ * longer gates visibility (PR16 §1).
  */
 export function directoryBlockers(f: ListingFacts): ListingBlocker[] {
   const out: ListingBlocker[] = []
@@ -55,11 +62,12 @@ export function directoryBlockers(f: ListingFacts): ListingBlocker[] {
   // profiles has no is_fixture column — a fixture tutor is a seed account
   // (is_seed) or the one team-operated account (is_team_account).
   if (f.isSeed || f.isTeamAccount) out.push('fixture')
-  if (!f.feePaid) out.push('fee_unpaid')
   if (!f.phoneVerified) out.push('phone_unverified')
   if (f.imported && !f.claimedAt) out.push('unclaimed_import')
   if (!f.hasSubjects) out.push('no_subjects')
   if (!(f.city && f.city.trim())) out.push('no_city')
+  if (!(f.area && f.area.trim())) out.push('no_area')
+  if (!(f.gender && f.gender.trim())) out.push('no_gender')
   return out
 }
 
@@ -74,103 +82,64 @@ export const BLOCKER_LABEL: Record<ListingBlocker, string> = {
   under_review: 'Under review',
   verification_rejected: 'Verification rejected',
   fixture: 'Seed / fixture account',
-  fee_unpaid: 'Verification fee not paid',
   phone_unverified: 'Mobile number not verified',
   unclaimed_import: 'Imported profile not claimed',
   no_subjects: 'No subjects added',
   no_city: 'No city set',
+  no_area: 'No area set',
+  no_gender: 'No gender set',
 }
 
 /**
- * For the tutor's OWN dashboard: the blockers he can fix himself, each with the
- * screen that fixes it. The rest (suspended, banned, under review, rejected,
- * fixture, unclaimed import) are not "add this to get listed" nudges — they are
- * account states surfaced elsewhere, so they return null here.
+ * For the tutor's OWN dashboard/onboarding: the blockers he can fix himself, each
+ * with the screen that fixes it. The rest (suspended, banned, under review,
+ * rejected, fixture, unclaimed import) are account states surfaced elsewhere, so
+ * they return null here. Every fix opens the EXACT step of the tap-tap flow.
  */
 export function tutorFixFor(b: ListingBlocker): { label: string; href: string } | null {
-  // Each opens the EXACT step of the tap-tap flow (PR 4 §1.6), so a "not shown in
-  // search" row lands the tutor on the one thing to fix, not a long form. The
-  // labels name the ACTUAL missing thing (owner PR5a §1.7) — "Get verified" was
-  // ambiguous for a tutor whose CNIC was already submitted — and are used
-  // identically here, in the flow final screen and in the apply gate.
   switch (b) {
-    case 'fee_unpaid':
-      return { label: 'Pay the one-time verification fee', href: '/tutor/complete-profile?step=verify' }
     case 'phone_unverified':
       return { label: 'Verify your mobile number', href: '/tutor/complete-profile?step=mobile' }
     case 'no_subjects':
       return { label: 'Add your subjects', href: '/tutor/complete-profile?step=subjects' }
     case 'no_city':
       return { label: 'Add your city', href: '/tutor/complete-profile?step=city' }
+    case 'no_area':
+      return { label: 'Add your area', href: '/tutor/complete-profile?step=area' }
+    case 'no_gender':
+      return { label: 'Add your gender', href: '/tutor/complete-profile?step=gender' }
     default:
       return null
   }
 }
 
-// The CNIC's sub-state, threaded into the fix list so the "get verified" step
-// names what is actually next (owner PR5a §1.7). `state` mirrors the identity
-// card's IdentityState (profiles.verification_state), `hasImage` mirrors
-// cnic_image_path.
-export type CnicState = { hasImage: boolean; state: 'none' | 'submitted' | 'approved' | 'rejected' }
-
-/** One row of the "why you are not listed" list. `href` null + `status:true`
- *  marks an informational row with no action (e.g. "CNIC being checked"). */
+/** One row of the "why you are not visible" list. */
 export type FixItem = { key: string; label: string; href: string | null; status?: boolean }
 
 /**
- * The fixable blockers as rows, with the fee/verify blocker named by the CNIC
- * sub-state (owner PR5a §1.7). ONE list, so the dashboard not-listed card and
- * the flow final screen show identical labels:
- *   - fee unpaid, no CNIC image yet → "Add your CNIC"
- *   - fee unpaid, CNIC image present → "Pay the one-time verification fee"
- *   - CNIC sent for checking (state 'submitted') → a non-actionable
- *     "CNIC being checked" status row (in addition to any fee row).
- * Listing itself is still `directoryBlockers` alone (governing rule) — the CNIC
- * rows only re-word the fee blocker and surface its review status, they never
- * add a listing requirement.
+ * The fixable blockers as rows — ONE list, so the dashboard not-visible card and
+ * the onboarding final screen show identical labels. Visibility is the positive
+ * profile fields now (mobile, city, area, subjects, gender); the fee is not a
+ * visibility requirement, so it never appears here.
  */
-export function listingFixItems(blockers: ListingBlocker[], cnic?: CnicState): FixItem[] {
+export function listingFixItems(blockers: ListingBlocker[]): FixItem[] {
   const items: FixItem[] = []
   for (const b of blockers) {
-    if (b === 'fee_unpaid') {
-      if (cnic && !cnic.hasImage) {
-        items.push({ key: 'cnic', label: 'Add your CNIC', href: '/tutor/complete-profile?step=verify' })
-      } else {
-        items.push({
-          key: 'fee',
-          label: 'Pay the one-time verification fee',
-          href: '/tutor/complete-profile?step=verify',
-        })
-      }
-      continue
-    }
     const f = tutorFixFor(b)
     if (f) items.push({ key: b, label: f.label, href: f.href })
-  }
-  if (cnic && cnic.state === 'submitted') {
-    items.push({ key: 'cnic-checking', label: 'CNIC being checked', href: null, status: true })
   }
   return items
 }
 
 /** The blockers the tutor can fix himself, each with the screen that fixes it —
- *  the list the apply gate names (owner PR3 §1.3). Non-fixable account states
- *  (suspended/banned/under-review/rejected/fixture/unclaimed) drop out. */
+ *  the list a "you are not shown to parents yet" surface names. Non-fixable
+ *  account states drop out. */
 export function listingFixes(blockers: ListingBlocker[]): { label: string; href: string }[] {
   return blockers.map(tutorFixFor).filter((f): f is { label: string; href: string } => f !== null)
 }
 
-/** True when the ONLY thing keeping this tutor unlisted is the one-time fee — in
- *  which case the apply gate shows the existing CNIC + verify modal rather than a
- *  list (owner PR3 §1.3). Keyed on the blocker itself, not a link, so the flow
- *  can re-point the fix href (PR 4 §1.6) without changing this decision. */
-export function feeOnlyBlocker(blockers: ListingBlocker[]): boolean {
-  const fixable = blockers.filter((b) => tutorFixFor(b) !== null)
-  return fixable.length === 1 && fixable[0] === 'fee_unpaid'
-}
-
 /** A plain, non-scolding sentence naming what is missing — for a surface that
- *  cannot render the modal (e.g. the demo-accept API's error). Visibility only. */
+ *  cannot render a list (e.g. the demo-accept API's error). Visibility only. */
 export function listingSummary(blockers: ListingBlocker[]): string {
   const items = listingFixes(blockers).map((f) => f.label.toLowerCase())
   if (items.length === 0) return 'Your profile is not shown to parents yet.'

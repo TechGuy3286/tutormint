@@ -1,38 +1,24 @@
 'use client'
-import { MessageSquare } from 'lucide-react'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { STUCK_MESSAGE, armEscape, submitJson, submitSignal } from '@/lib/submit'
+import { STUCK_MESSAGE, armEscape, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
-import { formatPkMobile } from '@/lib/phone'
 import { useToast } from '@/components/ui/Toast'
 
-// The code entry itself — the AUTHENTICATED gate (a legacy mobile-first account,
-// or a bridge-verified one re-verifying once the real provider lands). The
-// pre-auth signup flow uses PendingVerifyForm; this is only reached with a
-// session.
+// The code entry — the AUTHENTICATED gate (a legacy mobile-first account, or a
+// bridge-verified one re-verifying once the real provider lands). The pre-auth
+// signup flow uses PendingVerifyForm; this is only reached with a session.
 //
-// Three things a person here might need, all reachable without leaving the page:
-// enter the code, ask for one (the account may arrive with none — bridge
-// re-verify sends nothing until asked), or correct the number they typed.
+// PR16 §3 — ONE CODE PER ACCOUNT, NO RESEND, NO COUNTDOWN, NO SELF-SERVICE NUMBER
+// CHANGE. The account already has its one code (sent at signup, or by the account
+// gate); there is no Resend button and no expiry. Five wrong attempts lock the
+// code, after which the server returns the "contact support" message — and the
+// page shell's support box (WhatsApp 0321 5872222) is how the member gets
+// verified. Changing the number goes through support too (§3.2), so the old
+// "Wrong number?" self-service form is gone.
 //
-// ONE SMS PER NUMBER (owner, 11 Sep 2026). There is no server-side resend
-// cooldown any more: pressing Send when a live code already exists sends nothing
-// and says "already sent". So the button is available immediately (a re-verify
-// has no code yet), with only a short client debounce after a send to stop a
-// double-tap.
-//
-// On success it routes straight to the dashboard. Never to /login: the member
-// has a session, and bouncing them to sign-in would ask them to prove something
-// they just proved.
-const RESEND_DEBOUNCE_SECONDS = 60
-
-function mmss(total: number): string {
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${String(s).padStart(2, '0')}`
-}
+// On success it routes straight to the dashboard, never to /login.
 
 export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home: string }) {
   const router = useRouter()
@@ -41,126 +27,36 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
   const [locked, setLocked] = useState(false)
   const [stuckHref, setStuckHref] = useState<string | null>(null)
-
-  const [cooldown, setCooldown] = useState(0)
-  const [changing, setChanging] = useState(false)
-  const [newMobile, setNewMobile] = useState('')
-  const [currentMobile, setCurrentMobile] = useState(mobile)
-
-  // Starts at zero: the account may have no live code (a bridge re-verify sends
-  // none until asked), so Send must be available immediately. The debounce is
-  // set only AFTER a send, to stop a double-tap — the server enforces one SMS
-  // per number regardless.
-  useEffect(() => {
-    if (cooldown <= 0) return
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
-    return () => clearTimeout(t)
-  }, [cooldown])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
     setError('')
-    setNotice('')
 
     const { ok, data, error: failed } = await submitJson<{ locked?: boolean }>(
       '/api/auth/otp',
-      { action: 'verify', phone: currentMobile, code },
+      { action: 'verify', phone: mobile, code },
     )
 
     if (!ok) {
       setError(failed ?? 'That code was not accepted.')
-      if (data?.locked) {
-        setLocked(true)
-        setCooldown(0) // they need a new code now, so do not make them wait
-      }
+      if (data?.locked) setLocked(true)
       setBusy(false)
       return
     }
 
     // No silent successes: confirm the number is verified before we navigate.
-    // The toast provider lives in the root layout, so it survives the push.
     toast.success('Number verified.')
 
-    // The number is verified whatever happens next, so a stalled navigation
-    // must not read as a failed verification -- the member would ask for
-    // another code they no longer need.
     armEscape(() => {
       setBusy(false)
       setStuckHref(home)
       setError(STUCK_MESSAGE)
     })
-    // router.refresh() first so the proxy re-reads the profile it is gating on
-    // before the dashboard is requested; without it the push can race the
-    // cookie-backed session and bounce straight back here.
     router.refresh()
     router.push(home)
-  }
-
-  async function resend() {
-    setBusy(true)
-    setError('')
-    setNotice('')
-
-    const res = await fetch('/api/auth/otp', { signal: submitSignal(),
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'send', phone: currentMobile }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok) {
-      setError(data.error ?? 'Could not send a code.')
-    } else {
-      setLocked(false)
-      setCooldown(RESEND_DEBOUNCE_SECONDS)
-      setNotice(
-        data.devBypassActive
-          ? 'Development mode: use the configured test code.'
-          : data.alreadySent
-            ? 'We already sent a code to this number. Please use it.'
-            : 'A new code is on its way.',
-      )
-    }
-    setBusy(false)
-  }
-
-  async function changeNumber(e: React.FormEvent) {
-    e.preventDefault()
-    setBusy(true)
-    setError('')
-    setNotice('')
-
-    const res = await fetch('/api/auth/phone', { signal: submitSignal(),
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mobile: newMobile }),
-    })
-    const data = await res.json().catch(() => ({}))
-
-    if (!res.ok) {
-      setError(data.error ?? 'Could not change the number.')
-      setBusy(false)
-      return
-    }
-
-    setCurrentMobile(data.mobile)
-    setChanging(false)
-    setNewMobile('')
-    setCode('')
-    setLocked(false)
-    setCooldown(RESEND_DEBOUNCE_SECONDS)
-    setNotice(
-      data.codeSent === false
-        ? 'Number updated, but the code could not be sent. Try again in a moment.'
-        : data.alreadySent
-          ? `We already sent a code to ${formatPkMobile(data.mobile)}. Please use it.`
-          : `Code sent to ${formatPkMobile(data.mobile)}.`,
-    )
-    setBusy(false)
   }
 
   return (
@@ -174,11 +70,6 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
           {stuckHref && <SubmitEscape href={stuckHref} />}
         </div>
       )}
-      {notice && (
-        <p className="rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-center text-xs font-bold text-tm-green-deep">
-          {notice}
-        </p>
-      )}
 
       <form onSubmit={submit} className="space-y-4">
         <div className="space-y-1">
@@ -191,8 +82,6 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
             onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             inputMode="numeric"
             autoComplete="one-time-code"
-            // autoFocus is right here and almost nowhere else: this screen has
-            // one field and the member arrived with a code already in hand.
             autoFocus
             placeholder="000000"
             className="w-full min-h-[52px] rounded-xl border border-gray-200 bg-tm-bg p-3 text-center text-2xl font-black tracking-[0.4em] text-tm-navy outline-none focus:border-tm-navy focus:bg-white"
@@ -208,53 +97,9 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
         </button>
       </form>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <button
-          type="button"
-          onClick={resend}
-          disabled={busy || cooldown > 0}
-          className="flex min-h-[44px] items-center justify-center rounded-xl px-3 text-xs font-bold text-tm-navy hover:underline disabled:text-gray-500 disabled:no-underline"
-        >
-          {cooldown > 0 ? `Resend code in ${mmss(cooldown)}` : 'Resend code'}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setChanging((v) => !v)}
-          className="flex min-h-[44px] items-center justify-center rounded-xl px-3 text-xs font-bold text-tm-red hover:underline"
-        >
-          {changing ? 'Keep this number' : 'Wrong number?'}
-        </button>
-      </div>
-
-      {changing && (
-        <form onSubmit={changeNumber} className="space-y-3 rounded-2xl border border-gray-200 bg-tm-bg p-4">
-          <label htmlFor="newMobile" className="text-xs font-bold text-tm-navy">
-            New mobile number
-          </label>
-          <input
-            id="newMobile"
-            value={newMobile}
-            onChange={(e) => setNewMobile(e.target.value)}
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="0300 1234567"
-            className="w-full min-h-[44px] rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy"
-          />
-          <p className="text-[11px] leading-relaxed text-gray-500">
-            If you signed up without an email address, this is also the number you sign in with —
-            it will be updated too.
-          </p>
-          <button
-            type="submit"
-            disabled={busy || !newMobile.trim()}
-            className="inline-flex items-center gap-1.5 w-full min-h-[44px] rounded-xl bg-tm-navy py-3 text-xs font-bold text-white transition-colors hover:bg-tm-navy-hover disabled:opacity-50"
-          >
-            <MessageSquare aria-hidden size={14} />
-            Send code to this number
-          </button>
-        </form>
-      )}
+      {/* No Resend and no "wrong number?" — one code per account, and number
+          changes go through support (PR16 §3). The support box in the page shell
+          below is the way through if the code was lost or is locked. */}
     </div>
   )
 }

@@ -111,7 +111,7 @@ export default async function InboxShell({
 
       {role === 'tutor' && !ent.canInitiateMessage && (
         <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-          {ent.listed ? (
+          {ent.verified ? (
             <>
               <p className="text-[11px] leading-relaxed text-slate-700">
                 You can reply to any parent who writes to you, and apply to tuitions. Premium lets you
@@ -201,14 +201,14 @@ export default async function InboxShell({
               role === 'tutor'
                 ? ent.canInitiateMessage
                   ? 'Message a parent from one of their job posts, or wait for one to write to you.'
-                  : ent.listed
+                  : ent.verified
                     ? 'Parents who message you first will appear here. You can also apply to tuitions that match your subjects.'
                     : 'Parents who message you first will appear here. Get verified so you can apply to tuitions and be shown to parents in search.'
                 : 'Message any tutor from their profile, or from the applicants on one of your jobs.'
             }
             emptyActions={
               role === 'tutor'
-                ? ent.listed
+                ? ent.verified
                   ? [
                       { label: 'Find tuitions to apply for', href: '/browse/tuitions' },
                       { label: 'Check your profile is complete', href: '/tutor/complete-profile' },

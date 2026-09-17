@@ -8,6 +8,7 @@ import { parseBody, z } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { bridgeStatus } from '@/lib/sms'
 import { checkBlocklist } from '@/lib/blocklist'
+import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
 import { ensureProfile } from '@/lib/ensureProfile'
 import { startPendingSignup, PENDING_COOKIE } from '@/lib/pendingSignup'
 import { CODE_TTL_MS } from '@/lib/otp'
@@ -199,22 +200,18 @@ export async function POST(request: Request) {
   // and it is the disclosure every signup form makes.
   //
   // This reads REAL profiles only, never pending_signups: a draft awaiting
-  // verification must not make the number look taken. phone_number has been
-  // free text since T3, so the check covers the three shapes it is stored in —
-  // the same three /api/auth/login resolves.
-  const national = `0${mobile.slice(2)}`
-  const { data: existingPhone } = await admin
-    .from('profiles')
-    .select('id')
-    .or(`phone_number.eq.${mobile},phone_number.eq.${national},phone_number.eq.+${mobile}`)
-    .limit(1)
-    .maybeSingle()
-
-  if (existingPhone) {
+  // verification must not make the number look taken.
+  //
+  // PR16 §4.2 — refuse a number SAVED on ANY other account, verified or not,
+  // BEFORE any code is sent, matching on the NORMALISED MSISDN across
+  // phone_number AND whatsapp. The old exact-string, three-shapes check missed a
+  // number stored under a different normalisation or only on whatsapp, and the
+  // email-signup path skipped it entirely — the duplicate-number bug.
+  if (await numberSavedElsewhere(admin, mobile)) {
     return NextResponse.json(
       {
-        error: 'An account already uses that mobile number.',
-        fields: { identifier: 'An account already uses that mobile number. Try signing in instead.' },
+        error: NUMBER_TAKEN_MESSAGE,
+        fields: { identifier: NUMBER_TAKEN_MESSAGE },
       },
       { status: 409 },
     )

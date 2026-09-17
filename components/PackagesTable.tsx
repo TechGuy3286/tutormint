@@ -224,7 +224,7 @@ export default function PackagesTable({
       {/* §1.4: the asterisk footnote, directly under the cards, per tab. */}
       <p className="text-[11px] text-gray-500">
         {audience === 'tutor'
-          ? '*Premium and Featured run for 30 days from the day you’re listed. Non-refundable.'
+          ? '*Premium and Featured run for 30 days from the day you’re verified and your profile is complete. Non-refundable.'
           : '*Featured runs for 30 days from the day it activates. Non-refundable.'}
       </p>
 
@@ -250,9 +250,9 @@ export default function PackagesTable({
         </p>
         {audience === 'tutor' && (
           <p>
-            <strong className="text-tm-navy">Your month starts the day you’re listed.</strong> If you
-            choose Premium or Featured before you’re listed, the 30 days start the day you’re listed —
-            after the verification fee, mobile, subjects and city are complete.
+            <strong className="text-tm-navy">Your month starts the day you’re verified.</strong> If you
+            choose Premium or Featured earlier, the 30 days start the day you’re verified and your
+            profile is complete (mobile, city, area, subjects, gender).
           </p>
         )}
         <p>

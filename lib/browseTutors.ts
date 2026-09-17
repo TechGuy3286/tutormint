@@ -144,7 +144,11 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     p_after_completion: after?.c ?? null,
   })
 
-  const tutors = await withSubjectLinks(supabase, (data ?? []) as RankedTutor[])
+  // PR16 §1.2 — rank_tutors folds the verification fee into `tier` (+10), so a
+  // card is verified iff tier >= 10. Set it here so the card shows the Verified
+  // badge or the "Not verified" chip correctly.
+  const raw = ((data ?? []) as RankedTutor[]).map((t) => ({ ...t, verified: (t.tier ?? 0) >= 10 }))
+  const tutors = await withSubjectLinks(supabase, raw)
   const total = tutors[0]?.total_count ?? 0
   const seen = (after ? 0 : offset) + tutors.length
 
@@ -263,7 +267,7 @@ export async function tutorCardBySlug(slug: string): Promise<TutorCardData | nul
   const { data } = await supabase
     .from('tutor_directory')
     .select(
-      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, job_types, hourly_rate_pkr, experience_years, rating_avg, rating_count, degrees',
+      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, job_types, hourly_rate_pkr, experience_years, rating_avg, rating_count, degrees, verified_fee_paid_at',
     )
     .eq('slug', slug)
     .maybeSingle()
@@ -306,6 +310,7 @@ export async function tutorCardBySlug(slug: string): Promise<TutorCardData | nul
     subject_labels: links.map((l) => l.label),
     subject_links: links,
     plan_code: planCode,
+    verified: !!((data as { verified_fee_paid_at?: string | null }).verified_fee_paid_at),
   }
 }
 
@@ -325,11 +330,14 @@ export async function tutorCardsByIds(ids: string[]): Promise<TutorCardData[]> {
   const { data } = await supabase
     .from('tutor_directory')
     .select(
-      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, job_types, hourly_rate_pkr, experience_years, rating_avg, rating_count, degrees',
+      'id, slug, full_name, headline, avatar_url, city, area, teaching_mode, job_types, hourly_rate_pkr, experience_years, rating_avg, rating_count, degrees, verified_fee_paid_at',
     )
     .in('id', ids)
   const rows = (data ?? []) as Record<string, unknown>[]
   if (rows.length === 0) return []
+  const feePaidBy = new Map<string, boolean>(
+    rows.map((d) => [d.id as string, !!(d.verified_fee_paid_at as string | null)]),
+  )
 
   const base: RankedTutor[] = rows.map(
     (d) =>
@@ -369,5 +377,6 @@ export async function tutorCardsByIds(ids: string[]): Promise<TutorCardData[]> {
     ...t,
     subject_labels: (t.subject_links ?? []).map((l) => l.label),
     plan_code: planByUser.get(t.id) ?? null,
+    verified: feePaidBy.get(t.id) ?? false,
   }))
 }

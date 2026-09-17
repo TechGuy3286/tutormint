@@ -17,6 +17,7 @@ import { parseMarkdown, plainText } from '@/lib/markdown'
 import { articleJsonLd, jsonLdScript, pageTitle, pageDescription } from '@/lib/seo'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { getCompany } from '@/lib/company'
+import { landingPathsForPost } from '@/lib/landing'
 
 // /blog/[slug] — one post, server-rendered.
 //
@@ -66,10 +67,22 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!post) notFound()
 
   const { segments, headings, readingTime } = parseMarkdown(post.body)
-  const [company, related] = await Promise.all([
+  const [company, related, matchedLanding] = await Promise.all([
     getCompany(),
-    relatedPosts({ cluster: post.cluster, excludeId: post.id, limit: 3 }),
+    // PR16 §6.4 — match on subject/city, then cluster; hidden when nothing matches.
+    relatedPosts({
+      cluster: post.cluster,
+      excludeId: post.id,
+      limit: 3,
+      city: post.city,
+      subject: post.subject,
+    }),
+    // PR16 §6.4 — "Browse listings" matches the post's city + subject.
+    landingPathsForPost(post.city, post.subject),
   ])
+  // The author's manual picks plus the auto city+subject matches, de-duplicated.
+  // RelatedLanding re-resolves against the live set and hides when none survive.
+  const landingPaths = [...new Set([...post.relatedLandingPages, ...matchedLanding])]
 
   const url = absoluteUrl(postPath(post.slug))
   const cover = post.coverPath ? publicBlogUrl(post.coverPath) : null
@@ -135,7 +148,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               above the body on mobile. */}
           <aside className="mb-4 space-y-4 lg:mb-0 lg:sticky lg:top-20 lg:self-start">
             <Toc headings={headings} />
-            <RelatedLanding paths={post.relatedLandingPages} />
+            <RelatedLanding paths={landingPaths} />
           </aside>
 
           <div className="min-w-0 space-y-6">

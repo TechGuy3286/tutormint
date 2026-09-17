@@ -179,10 +179,13 @@ export type QueueTutorRow = {
   cnicNumber: string | null
   phone: string | null
   documents: { id: string; kind: 'cnic' | 'degree'; label: string | null; createdAt: string }[]
-  /** Is this tutor returned by tutor_directory (migration 87)? */
+  /** Is this tutor returned by tutor_directory (visible in browse, migration 94)? */
   listed: boolean
-  /** Every reason they are not, in the view's order. Empty when listed. */
+  /** Every reason they are not, in the view's order. Empty when visible. */
   blockers: ListingBlocker[]
+  /** Has the one-time verification fee been paid? Verified tutors rank first, can
+   *  apply, and read parent messages; visible-but-unverified show "Not verified". */
+  verified: boolean
   /** This tutor's verified mobile is verified on more than one account
    *  (owner PR8 §1.5). The owner clears it from the losing account. */
   duplicateMobile: boolean
@@ -297,13 +300,16 @@ export async function loadTutorQueue({
       degreeDocCount: myDocs.filter((d) => d.kind === 'degree').length,
       feePaid: !!(t.verified_fee_paid_at as string | null),
     })
-    // The public-directory rule (migration 87), computed from the same facts as
+    // The public-directory rule (migration 94), computed from the same facts as
     // the view so Operations sees WHY a tutor is invisible without a SQL client.
+    // The fee is NO LONGER a visibility gate; it is surfaced separately as
+    // `verified` (PR16 §1).
     const blockers = directoryBlockers({
-      feePaid: !!(t.verified_fee_paid_at as string | null),
       phoneVerified: !!(p?.phone_verified_at as string | null),
       hasSubjects: (subjectCount.get(t.id as string) ?? 0) > 0,
       city: (t.city as string | null) ?? null,
+      area: (t.area as string | null) ?? null,
+      gender: (t.gender as string | null) ?? null,
       isSuspended: (p?.is_suspended as boolean | null) ?? null,
       isBanned: (p?.is_banned as boolean | null) ?? null,
       underReview: (t.under_review as boolean | null) ?? null,
@@ -341,6 +347,7 @@ export async function loadTutorQueue({
       })),
       listed: blockers.length === 0,
       blockers,
+      verified: !!(t.verified_fee_paid_at as string | null),
       duplicateMobile: (() => {
         if (!p?.phone_verified_at) return false
         const n = normalisePkMobile(p.phone_number as string)

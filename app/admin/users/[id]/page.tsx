@@ -47,7 +47,7 @@ export default async function AdminMemberPage({
   const { data: profile } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, phone_verified_via, created_at, utm_source, utm_medium, utm_campaign, utm_content',
+      'id, full_name, email, phone_number, whatsapp, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content',
     )
     .eq('id', id)
     .maybeSingle()
@@ -261,6 +261,9 @@ export default async function AdminMemberPage({
         isStaff={profile.role === 'admin'}
         isOwner={profile.admin_role === 'owner'}
         isTutor={isTutor}
+        canVerifyMobile={roleSatisfies(actor.adminRole, ['admin'])}
+        mobileVerified={!!profile.phone_verified_at}
+        hasMobile={!!profile.phone_number}
       />
 
       {/* ------------------------------------------------ linked objects --- */}

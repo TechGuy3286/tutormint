@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
+import { isUnverifiedTutor } from '@/lib/messaging'
 import { parseBody, z, uuid } from '@/lib/validate'
 
 // A parent asks a tutor for a free demo class.
@@ -97,12 +98,17 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
+  // PR16 §2.2 — an unverified tutor is told a parent requested a demo and to
+  // verify to see it; details stay hidden until the fee is paid (§2.3). No price.
+  const locked = await isUnverifiedTutor(tutorId)
   await notify({
     userId: tutorId,
     kind: 'demo_requested',
     title: 'New demo request',
-    body: 'A parent has asked you for a free demo class.',
-    href: '/tutor/dashboard/demos',
+    body: locked
+      ? 'A parent requested a demo. Verify your account to see it.'
+      : 'A parent has asked you for a free demo class.',
+    href: locked ? '/tutor/complete-profile?step=verify' : '/tutor/dashboard/demos',
   })
 
   await logActivity({

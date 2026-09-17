@@ -19,6 +19,7 @@
 // holding the line.
 
 import { complete, isConfigured, MODEL } from './anthropic'
+import { PLATFORM_FACTS_TEXT } from './platformFacts'
 import {
   BLOG_MAX_WORDS,
   BLOG_MIN_WORDS,
@@ -29,6 +30,11 @@ import {
   type BlogBrief,
   type BlogDraft,
 } from './blogBrief'
+
+// PR16 §6.3 — how the internal-link list is described to the model, shared by the
+// full-draft and sectioned prompts. It must place real links from the list only.
+const LINK_RULE =
+  'Internal links: place 3 to 5 relevant internal links in the body, using the EXACT paths from this list and no others. Never invent a link, and never link to a path not in this list:'
 
 export { composeBlogDraft, unsupportedFigures } from './blogBrief'
 export type { BlogBrief, BlogDraft } from './blogBrief'
@@ -71,6 +77,7 @@ function brandBrief(brief: BlogBrief): string {
 
   return [
     'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
+    PLATFORM_FACTS_TEXT,
     'Voice: plain, warm, specific to Pakistan. No corporate filler, no "in today\'s fast-paced world", no hype.',
     'Structure:',
     `- ${BLOG_MIN_WORDS}-${BLOG_MAX_WORDS} words, and the length must come from COVERING MORE GROUND, never from padding. Generalities repeated at length are worse than a short post — for the reader and for Google.`,
@@ -81,7 +88,7 @@ function brandBrief(brief: BlogBrief): string {
     '- Include a "## Frequently asked questions" section with 3-4 questions as ### sub-headings.',
     '- If the facts below are too thin to fill this length HONESTLY, write a shorter, accurate post rather than inventing material — do NOT pad with generalities to reach a word count.',
     cta,
-    'Internal links: you MAY link to these landing pages where relevant, using their exact paths. Do not invent any other internal link:',
+    LINK_RULE,
     links,
     figureRule,
     BANNED_WORD_RULE,
@@ -111,6 +118,7 @@ export type SectionResult = { ok: true; markdown: string } | { ok: false; reason
 function outlineSystem(brief: BlogBrief): string {
   return [
     'You plan a post for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
+    PLATFORM_FACTS_TEXT,
     'Produce an OUTLINE only — no prose.',
     '- 5 to 7 H2 section headings. Each answers ONE specific question a Pakistani parent or tutor would type into Google (fees, how to choose, how verification works, step by step, and so on). Make the LAST heading "Frequently asked questions".',
     'Also produce an SEO title (<= 60 characters) and a meta description (<= 155 characters) ending with "No fee, no commission, no middleman.".',
@@ -130,6 +138,7 @@ function sectionSystem(brief: BlogBrief, sections: string[], index: number): str
   const last = index === sections.length - 1
   return [
     'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
+    PLATFORM_FACTS_TEXT,
     'Voice: plain, warm, specific to Pakistan. No corporate filler, no hype.',
     `You are writing ONE section of a post titled "${brief.title}". The full outline is:`,
     sections.map((s, i) => `${i + 1}. ${s}`).join('\n'),
@@ -137,7 +146,7 @@ function sectionSystem(brief: BlogBrief, sections: string[], index: number): str
     last
       ? 'This is the last section — end with a short call to action (post a tuition / join TutorMint), no price.'
       : 'Do NOT add a call to action; this is not the last section.',
-    'Internal links you MAY use (exact paths only; invent no others):',
+    'Internal links you MAY use where relevant (exact paths only; invent no others; the whole post should carry 3-5 across its sections):',
     links,
     figureRuleFor(brief),
     BANNED_WORD_RULE,

@@ -174,13 +174,15 @@ export function nextMissingAfter(f: FlowFacts, from: FlowStepKey): FlowStepKey |
   return null
 }
 
-/** The facts the directory rule reads, projected out of the flow facts. */
+/** The facts the visibility rule reads, projected out of the flow facts. The fee
+ *  is no longer a visibility gate (PR16 §1), so it is not projected here. */
 export function toListingFacts(f: FlowFacts): ListingFacts {
   return {
-    feePaid: f.feePaid,
     phoneVerified: f.phoneVerified,
     hasSubjects: f.subjectCount > 0,
     city: f.city,
+    area: f.area,
+    gender: f.gender,
     isSuspended: f.isSuspended,
     isBanned: f.isBanned,
     underReview: f.underReview,
@@ -192,7 +194,7 @@ export function toListingFacts(f: FlowFacts): ListingFacts {
   }
 }
 
-/** The final screen's verdict: listed when directoryBlockers is empty (§1.7). */
+/** The final screen's verdict: VISIBLE when directoryBlockers is empty (PR16 §1). */
 export function isListed(f: FlowFacts): boolean {
   return directoryBlockers(toListingFacts(f)).length === 0
 }

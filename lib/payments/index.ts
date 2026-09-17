@@ -26,6 +26,19 @@ export function getProvider(): PaymentProvider {
 }
 
 /**
+ * Is a real payment gateway live? (PR16 §5.2)
+ *
+ * True only when the AssanPay gateway is configured. Until then the payment page
+ * shows "Payments open soon" with a support link and NO form, rather than the
+ * manual bank-transfer flow — the owner's decision while the gateway is being
+ * signed off. The simulator (non-production only) counts as live so local/preview
+ * testing still exercises the checkout path.
+ */
+export function paymentsGatewayLive(): boolean {
+  return getProvider().id !== 'manual'
+}
+
+/**
  * Verify a webhook against every provider that could have sent one.
  *
  * Each verifier returns null when the request is not its own, so an

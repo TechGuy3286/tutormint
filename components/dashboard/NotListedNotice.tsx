@@ -1,18 +1,13 @@
 import Link from 'next/link'
 import { AlertCircle, ArrowRight, Clock } from 'lucide-react'
 
-import { listingFixItems, type CnicState, type ListingBlocker } from '@/lib/tutorListingStatus'
+import { listingFixItems, type ListingBlocker } from '@/lib/tutorListingStatus'
 
 // Shown on the tutor dashboard when a tutor is NOT in the public directory
-// (owner, 15 Sep 2026). It names each thing that is still required and links to
-// the screen that collects it — so a tutor is never left at a silent dead end,
-// and is one tap from being found.
-//
-// The labels are CNIC-aware (owner PR5a §1.7): the verify step reads "Add your
-// CNIC" when no CNIC image is on file, "Pay the one-time verification fee" once
-// it is, and a non-actionable "CNIC being checked" status row appears while a
-// submitted CNIC is under review (this replaces the separate "Identity: Pending
-// review" card, PR5a §3.7).
+// (PR16 §1). It names each thing that is still required for VISIBILITY — mobile,
+// city, area, subjects, gender — and links to the screen that collects it, so a
+// tutor is never at a silent dead end and is one tap from being found. The fee is
+// NOT a visibility requirement (PR16 §1) and never appears here.
 //
 // Visibility only: no promise of tuitions, applications or hires. Reasons that a
 // tutor cannot fix himself (suspended, under review, fixture) produce no fix
@@ -20,12 +15,10 @@ import { listingFixItems, type CnicState, type ListingBlocker } from '@/lib/tuto
 
 export default function NotListedNotice({
   blockers,
-  cnic,
 }: {
   blockers: ListingBlocker[]
-  cnic?: CnicState
 }) {
-  const items = listingFixItems(blockers, cnic)
+  const items = listingFixItems(blockers)
   if (items.length === 0) return null
 
   return (

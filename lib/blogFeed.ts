@@ -202,22 +202,44 @@ export async function publishedSlugs(): Promise<{ slug: string; updatedAt: strin
   }))
 }
 
-/** Recent published posts in a cluster (or overall), for "related posts". */
+/**
+ * Related published posts for the "Related reading" section (PR16 §6.4).
+ *
+ * Matches on SUBJECT, then CITY, then the cluster — a post about the same subject
+ * or city is more related than one that merely shares a broad cluster. Candidates
+ * are any published post sharing the subject, city OR cluster; they are scored
+ * (subject +2, city +2, cluster +1) and the best `limit` are returned. When
+ * nothing shares any of them the list is empty and the caller hides the section.
+ */
 export async function relatedPosts(args: {
   cluster: string
   excludeId: string
   limit: number
+  city?: string | null
+  subject?: string | null
 }): Promise<BlogListItem[]> {
   const db = createPublicClient()
+  const filters = [`cluster.eq.${args.cluster}`]
+  if (args.city) filters.push(`city.eq.${args.city}`)
+  if (args.subject) filters.push(`subject.eq.${args.subject}`)
+
   const { data } = await db
     .from('posts')
-    .select(PUBLIC_CARD_COLS)
+    .select(`${PUBLIC_CARD_COLS}, city, subject`)
     .eq('status', 'published')
-    .eq('cluster', args.cluster)
     .neq('id', args.excludeId)
+    .or(filters.join(','))
     .order('published_at', { ascending: false })
-    .limit(args.limit)
-  return (data ?? []).map(toListItem)
+    .limit(Math.max(args.limit * 4, 12))
+
+  const scored = (data ?? []).map((r) => {
+    const sameSubject = !!args.subject && (r.subject as string) === args.subject
+    const sameCity = !!args.city && (r.city as string) === args.city
+    const sameCluster = (r.cluster as string) === args.cluster
+    return { r, score: (sameSubject ? 2 : 0) + (sameCity ? 2 : 0) + (sameCluster ? 1 : 0) }
+  })
+  scored.sort((a, b) => b.score - a.score)
+  return scored.slice(0, args.limit).map((s) => toListItem(s.r))
 }
 
 // ---------------------------------------------------------------- admin ----

@@ -173,6 +173,35 @@ export async function liveLandingPages(): Promise<LandingCombo[]> {
   return (await liveCombinationsAll()).filter((c) => c.count >= LANDING_THRESHOLD)
 }
 
+/**
+ * Live landing-page paths that match a blog post's city and subject (PR16 §6.4),
+ * for the "Browse listings" block. Matches on city name and subject name
+ * (case-insensitive), and only returns pages that actually exist (>= threshold),
+ * so the block hides itself when nothing matches. Returns tutors first, then
+ * tuitions, as site-relative paths ("/tutors/<city>/<subject>").
+ */
+export async function landingPathsForPost(
+  city: string | null | undefined,
+  subject: string | null | undefined,
+): Promise<string[]> {
+  const c = (city ?? '').trim().toLowerCase()
+  const s = (subject ?? '').trim().toLowerCase()
+  if (!c && !s) return []
+  const pages = await liveLandingPages()
+  const hits = pages.filter(
+    (p) =>
+      (!c || p.city.toLowerCase() === c) &&
+      (!s || p.subjectName.toLowerCase() === s),
+  )
+  // Both matched, or nothing (do not widen to city-only or subject-only, which
+  // would be a weaker "related").
+  const strong = c && s ? hits : []
+  const kindOrder = { tutors: 0, tuitions: 1 } as const
+  return strong
+    .sort((a, b) => kindOrder[a.kind] - kindOrder[b.kind])
+    .map((p) => `/${p.kind}/${p.citySlug}/${p.subjectSlug}`)
+}
+
 /** Does a landing page exist at this address? */
 export async function landingExists(
   kind: LandingKind,

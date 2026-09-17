@@ -1,5 +1,5 @@
 'use client'
-import { AlertTriangle, Ban, ClipboardList, CreditCard, RotateCcw, ShieldX, MessageSquare } from 'lucide-react'
+import { AlertTriangle, Ban, ClipboardList, CreditCard, RotateCcw, ShieldX, MessageSquare, PhoneCall } from 'lucide-react'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -30,6 +30,9 @@ export default function MemberActions({
   isStaff,
   isOwner,
   isTutor,
+  canVerifyMobile,
+  mobileVerified,
+  hasMobile,
 }: {
   userId: string
   name: string
@@ -41,6 +44,9 @@ export default function MemberActions({
   isStaff: boolean
   isOwner: boolean
   isTutor: boolean
+  canVerifyMobile: boolean
+  mobileVerified: boolean
+  hasMobile: boolean
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -75,7 +81,9 @@ export default function MemberActions({
               ? 'Account banned.'
               : action === 'unban'
                 ? 'Ban lifted. The member has been notified.'
-                : 'Suspended. The member has been notified.',
+                : action === 'verify-mobile'
+                  ? 'Mobile number verified manually.'
+                  : 'Suspended. The member has been notified.',
       )
       router.refresh()
     } catch (e) {
@@ -118,7 +126,9 @@ export default function MemberActions({
                   ? `Why is ${firstName} being banned? This is permanent.`
                   : open === 'unban'
                     ? `Why is ${firstName}'s ban being lifted?`
-                    : `Reason — ${firstName} is shown this`}
+                    : open === 'verify-mobile'
+                      ? `Why are you verifying ${firstName}'s number manually? (for the record)`
+                      : `Reason — ${firstName} is shown this`}
             </span>
             <input
               value={reason}
@@ -146,7 +156,7 @@ export default function MemberActions({
                 open === 'ban' ? 'bg-tm-red' : 'bg-tm-black'
               }`}
             >
-              {busy ? 'Working…' : `Confirm ${open}`}
+              {busy ? 'Working…' : open === 'verify-mobile' ? 'Verify number' : `Confirm ${open}`}
             </button>
             <button
               type="button"
@@ -201,6 +211,16 @@ export default function MemberActions({
                 >
                   <Ban aria-hidden size={13} />
                   Suspend
+                </button>
+              )}
+              {canVerifyMobile && hasMobile && !mobileVerified && (
+                <button
+                  type="button"
+                  onClick={() => setOpen('verify-mobile')}
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-navy px-4 text-xs font-bold text-white sm:col-span-2"
+                >
+                  <PhoneCall aria-hidden size={13} />
+                  Verify mobile manually
                 </button>
               )}
               {canBan && (

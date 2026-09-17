@@ -9,7 +9,7 @@ import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { sendOtp, verifyOtp } from '@/lib/otp'
 import { activatePausedIfListed } from '@/lib/payments/goLive'
 import { normalisePkMobile } from '@/lib/phone'
-import { numberVerifiedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
+import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
 
 // Phone / SMS OTP for the SIGNED-IN account.
 //
@@ -71,13 +71,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Enter a valid mobile number.' }, { status: 400 })
   }
 
-  // ONE VERIFIED NUMBER PER ACCOUNT (owner PR8 §1.2). Do not send a code to — or
-  // verify — a number already verified on ANOTHER account. Checked on both the
-  // send and the verify path (the verify check is the real enforcement; the send
-  // check saves an SMS and gives the reason up front). Never reveals which
-  // account holds it.
+  // ONE NUMBER PER ACCOUNT (PR16 §4.2). Do not send a code to — or verify — a
+  // number SAVED on ANOTHER account, verified or not, matched on the normalised
+  // MSISDN across phone_number and whatsapp. Checked on both send and verify, and
+  // before any SMS goes out. Never reveals which account holds it.
   const admin = createAdminClient()
-  if (admin && (await numberVerifiedElsewhere(admin, phone, user.id))) {
+  if (admin && (await numberSavedElsewhere(admin, phone, user.id))) {
     return NextResponse.json({ error: NUMBER_TAKEN_MESSAGE }, { status: 409 })
   }
 

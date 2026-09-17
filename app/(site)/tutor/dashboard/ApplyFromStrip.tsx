@@ -7,15 +7,12 @@ import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
 
-// Apply, from the "matching you this week" strip on a free tutor's dashboard.
+// Apply, from the "matching you this week" strip on a tutor's dashboard.
 //
-// For a LISTED tutor the button is real and the refusal is the upgrade sheet.
-//
-// A free tutor is NOT listed — since 10 Sep 2026 listing needs a plan, not 100%
-// completion (owner) — so the block is the PLAN, which is exactly what the
-// 199 funnel is steering them toward. Instead of an Apply button they get a
-// plain "Get listed to apply" link into packages, so the plan appears on their
-// own tap (this is a signed-in dashboard, where the price is allowed to show).
+// `listed` here means VERIFIED — the one-time fee is paid (PR16 §1.2). Applying
+// is gated on the fee, not on visibility, so an unverified tutor (who is already
+// visible in browse) gets a "Verify to apply" link into the verify step rather
+// than an Apply button. A verified tutor gets the real button.
 
 export default function ApplyFromStrip({ jobId, listed }: { jobId: string; listed: boolean }) {
   const upgradeSheet = useUpgradeSheet()
@@ -26,10 +23,10 @@ export default function ApplyFromStrip({ jobId, listed }: { jobId: string; liste
   if (!listed) {
     return (
       <Link
-        href="/membership-plans?for=tutors&plan=verified"
+        href="/tutor/complete-profile?step=verify"
         className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-tm-red hover:underline"
       >
-        Get listed to apply
+        Verify to apply
         <ArrowRight aria-hidden size={12} />
       </Link>
     )

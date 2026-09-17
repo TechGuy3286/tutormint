@@ -91,7 +91,9 @@ export default async function TutorDashboardPage() {
   // Whether the tutor's profile is actually returned by tutor_directory, and the
   // reasons it is not (for the not-listed notice below).
   const directoryListed = directory.listed
-  const feePaid = !directory.blockers.includes('fee_unpaid')
+  // Verified = the one-time fee is paid (PR16 §1.2). Visibility (directoryListed)
+  // no longer implies the fee.
+  const feePaid = ent.verified
 
   const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
   // The authoritative listing fact, computed once in the entitlements layer
@@ -99,7 +101,8 @@ export default async function TutorDashboardPage() {
   // suspended/banned/under-review + claimed if imported — owner, 10 Sep 2026).
   // Completion no longer gates it. Using it here keeps "Listed tutor" and the
   // badge on the same rule.
-  const listed = ent.listed
+  // Applying and the badge turn on the fee (PR16 §1.2), not visibility.
+  const listed = ent.verified
   const free = !ent.plan && !ent.planPaused
 
   // A tutor who has PAID but is not yet listed: a paid plan alone never draws a
@@ -182,7 +185,9 @@ export default async function TutorDashboardPage() {
   // "unknown" -- a tutor who has not filled it in does not need telling on
   // every visit, and the completion link above says so already.
   const identityLine = [
-    directoryListed ? 'Listed tutor' : 'Not listed yet',
+    // Visibility first, then the fee state (PR16 §1): a visible tutor who has not
+    // paid the fee appears in search but is "Not verified" until they do.
+    directoryListed ? (ent.verified ? 'Verified tutor' : 'Listed · not verified') : 'Not listed yet',
     // City reads the SAME field the listing check uses — tutor_profiles.city
     // (the tutor_directory `tp.city` condition, and what loadDirectoryStatus /
     // matching read). NOT profiles.city: a value stored there but not on
@@ -337,22 +342,11 @@ export default async function TutorDashboardPage() {
           <PublicPageStatus slug={tutorProfile.slug} listed={false} />
         )}
 
-        {/* Not in the directory: name exactly what is missing (fee, mobile,
-            subject, city), each a tap from the screen that fixes it — the real
-            listing requirements, not "parents only see verified tutors". Shown to
-            every not-listed tutor, including one who has not paid the fee yet.
-            Visibility only — no promise of tuitions. */}
-        {!directoryListed && (
-          <NotListedNotice
-            blockers={directory.blockers}
-            // CNIC sub-state so the verify row reads "Add your CNIC" vs "Pay the
-            // one-time verification fee", and a submitted CNIC shows the
-            // "CNIC being checked" status here (replacing the separate Pending
-            // review card — owner PR5a §1.7, §3.7). identity.state is the CNIC
-            // review state, not the tutor verification override above.
-            cnic={{ hasImage: identity.front != null, state: identity.state }}
-          />
-        )}
+        {/* Not visible in the directory: name exactly what is missing (mobile,
+            city, area, subjects, gender), each a tap from the screen that fixes
+            it. The fee is NOT a visibility requirement (PR16 §1). Visibility only —
+            no promise of tuitions. */}
+        {!directoryListed && <NotListedNotice blockers={directory.blockers} />}
 
         {/* Completion card, directly under the not-listed card: header →
             not-listed → completion → everything else (owner PR2 §4.2). It lists

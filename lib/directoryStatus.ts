@@ -24,17 +24,18 @@ export async function loadDirectoryStatus(userId: string): Promise<DirectoryStat
       .maybeSingle(),
     admin
       .from('tutor_profiles')
-      .select('verified_fee_paid_at, city, under_review, verification_status, imported, claimed_at')
+      .select('verified_fee_paid_at, city, area, gender, under_review, verification_status, imported, claimed_at')
       .eq('id', userId)
       .maybeSingle(),
     admin.from('tutor_subjects').select('tutor_id').eq('tutor_id', userId).limit(1),
   ])
 
   const blockers = directoryBlockers({
-    feePaid: !!tp?.verified_fee_paid_at,
     phoneVerified: !!prof?.phone_verified_at,
     hasSubjects: (subj ?? []).length > 0,
     city: (tp?.city as string | null) ?? null,
+    area: (tp?.area as string | null) ?? null,
+    gender: (tp?.gender as string | null) ?? null,
     isSuspended: prof?.is_suspended as boolean | null,
     isBanned: prof?.is_banned as boolean | null,
     underReview: tp?.under_review as boolean | null,

@@ -27,13 +27,39 @@ import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { logActivity } from '@/lib/activityLog'
 import { consumeQuota } from '@/lib/quota'
 import { upgradeHref } from '@/lib/upgradePath'
-import { buildGate, buildListingGate, type Gate } from '@/lib/gate'
-import { feeOnlyBlocker, listingSummary } from '@/lib/tutorListingStatus'
+import { buildGate, type Gate } from '@/lib/gate'
 import { notify } from '@/lib/notifications'
 import { deliverMessageDigest } from '@/lib/notify'
 import { previewText } from '@/lib/messagingRules'
 import { messageListTime } from '@/lib/datetime'
 import { teamUnreadCount } from '@/lib/adminMessaging'
+
+// PR16 §2.3 — an unverified tutor (fee unpaid) may RECEIVE parent messages and
+// demo requests but cannot read or reply to them until the fee is paid. This is
+// the server-side lock: the body/preview is hidden, enforced in every read path,
+// not merely hidden in the UI. `isUnverifiedTutor` answers it for one member; the
+// read paths blank out incoming content when the VIEWER is one.
+const LOCKED_BODY = 'Verify your account to read this message.'
+const LOCKED_PREVIEW = 'New message — verify to read'
+
+export async function isUnverifiedTutor(userId: string): Promise<boolean> {
+  const admin = createAdminClient()
+  if (!admin) return false
+  const { data: prof } = await admin.from('profiles').select('role').eq('id', userId).maybeSingle()
+  if (prof?.role !== 'tutor') return false
+  const { data: tp } = await admin
+    .from('tutor_profiles')
+    .select('verified_fee_paid_at')
+    .eq('id', userId)
+    .maybeSingle()
+  return !tp?.verified_fee_paid_at
+}
+
+/** Cached per request: is the VIEWER an unverified tutor whose incoming messages
+ *  must stay locked? */
+export const viewerMessagesLocked = cache(async (userId: string): Promise<boolean> => {
+  return isUnverifiedTutor(userId)
+})
 
 /** The message a reply quotes, resolved to a short (masked) snippet. */
 export type MessageReplyRef = { id: string; snippet: string; mine: boolean }
@@ -110,18 +136,16 @@ export async function canStartThread(
   }
 
   if (ent.audience === 'tutor') {
-    // STARTING a conversation requires being LISTED — the same one rule as apply
-    // (owner PR3 §1). Replying to a parent who wrote first is NOT gated here (it
-    // goes through the existing thread, never canStartThread) and stays open to
-    // any non-suspended tutor (§1.2). The gate names what is missing (§1.3).
-    if (!ent.listed) {
+    // STARTING a conversation requires the verification fee (PR16 §1.2) — the same
+    // gate as apply. Replying to a parent who wrote first ALSO needs the fee now
+    // (an unverified tutor cannot read or reply until they verify, §2.3) but that
+    // is enforced in sendMessage, not here. The gate is the CNIC + verify modal.
+    if (!ent.verified) {
       return {
         ok: false,
         status: 403,
-        error: listingSummary(ent.listingBlockers),
-        gate: feeOnlyBlocker(ent.listingBlockers)
-          ? await buildGate('tutor_verify', ent)
-          : buildListingGate(ent.listingBlockers),
+        error: 'Verify your account to message parents.',
+        gate: await buildGate('tutor_verify', ent),
       }
     }
     if (!ent.canInitiateMessage) {
@@ -282,12 +306,24 @@ export async function sendMessage(params: {
   if (admin) {
     const { data: sender } = await admin
       .from('profiles')
-      .select('is_suspended, full_name')
+      .select('is_suspended, full_name, role')
       .eq('id', me)
       .maybeSingle()
     senderName = (sender?.full_name as string) ?? 'a TutorMint member'
     if (sender?.is_suspended) {
       return { ok: false, status: 403, error: 'Your account is suspended. Contact support.' }
+    }
+    // PR16 §2.3 — an unverified tutor cannot reply until the fee is paid. (They
+    // also cannot read the message they would be replying to.)
+    if (sender?.role === 'tutor') {
+      const { data: tp } = await admin
+        .from('tutor_profiles')
+        .select('verified_fee_paid_at')
+        .eq('id', me)
+        .maybeSingle()
+      if (!tp?.verified_fee_paid_at) {
+        return { ok: false, status: 403, error: 'Verify your account to reply to parents.' }
+      }
     }
   }
 
@@ -329,13 +365,28 @@ export async function sendMessage(params: {
     targetId: thread.id as string,
   })
 
-  await notify({
-    userId: other,
-    kind: 'message_received',
-    title: 'New message',
-    body: 'You have a new message on TutorMint.',
-    href: `/messages/${thread.id}`,
-  })
+  // PR16 §2.2 — an UNVERIFIED tutor recipient is told a parent wrote, and to
+  // verify to read and reply; the body stays hidden until the fee is paid (§2.3,
+  // enforced in the read paths below). No price, no "pay" wording; tapping opens
+  // the verify step. Everyone else gets the normal notification with the thread.
+  const recipientLocked = await isUnverifiedTutor(other)
+  if (recipientLocked) {
+    await notify({
+      userId: other,
+      kind: 'message_received',
+      title: 'New message',
+      body: 'A parent sent you a message. Verify your account to read and reply.',
+      href: '/tutor/complete-profile?step=verify',
+    })
+  } else {
+    await notify({
+      userId: other,
+      kind: 'message_received',
+      title: 'New message',
+      body: 'You have a new message on TutorMint.',
+      href: `/messages/${thread.id}`,
+    })
+  }
 
   // The email digest, at most one an hour per person and never containing the
   // message itself. Two reasons for that: an inbox is not a place we control,
@@ -618,6 +669,9 @@ export async function threadPage({
   }
 
   const blocked = await blockedCounterparts(userId)
+  // PR16 §2.3 — a locked (unverified) tutor sees the conversation exists but not
+  // its latest line, in the list as well as the thread.
+  const locked = await viewerMessagesLocked(userId)
 
   let query = supabase
     .from('threads')
@@ -732,7 +786,9 @@ export async function threadPage({
     // fewer characters, and leaking a number through the list would make the
     // masking inside the conversation pointless. A bare attachment reads "Photo".
     const previewSource = previewText(newest?.body ?? '', newest?.hasAttachment ?? false)
-    const rendered = renderMessageBody(previewSource, share.get(otherId) ?? false)
+    const rendered = locked
+      ? { text: LOCKED_PREVIEW }
+      : renderMessageBody(previewSource, share.get(otherId) ?? false)
     const lastMessageAt = (t.last_message_at as string) ?? (t.created_at as string)
 
     return {
@@ -923,6 +979,10 @@ export async function messagePage({
   const window = hasMore ? all.slice(0, limit) : all
   if (window.length === 0) return { items: [], cursor: null }
 
+  // PR16 §2.3 — an unverified tutor viewing their own inbox sees that a parent
+  // wrote, but never the words, until the fee is paid. Enforced here, server-side.
+  const locked = await viewerMessagesLocked(userId)
+
   const oldest = window[window.length - 1]
   const next = hasMore
     ? encodeCursor({ c: oldest.created_at as string, i: oldest.id as string })
@@ -952,6 +1012,23 @@ export async function messagePage({
     .slice()
     .reverse()
     .map((m) => {
+      const mine = m.sender_id === userId
+      // A locked (unverified) tutor sees only that a message exists — never its
+      // words, its photo, or the message it quotes. Their own messages are never
+      // hidden (they cannot have sent any while locked).
+      if (locked && !mine) {
+        return {
+          id: m.id as string,
+          senderId: m.sender_id as string,
+          mine: false,
+          body: LOCKED_BODY,
+          masked: true,
+          createdAt: m.created_at as string,
+          readAt: (m.read_at as string | null) ?? null,
+          replyTo: null,
+          attachment: null,
+        }
+      }
       // Masked on the server. The digits are not sent to a reader who may not
       // have them, so there is nothing in the browser to un-hide.
       const rendered = renderMessageBody((m.body as string) ?? '', mayShare)
@@ -960,7 +1037,7 @@ export async function messagePage({
       return {
         id: m.id as string,
         senderId: m.sender_id as string,
-        mine: m.sender_id === userId,
+        mine,
         body: rendered.text,
         masked: rendered.masked,
         createdAt: m.created_at as string,

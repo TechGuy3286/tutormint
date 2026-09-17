@@ -107,10 +107,21 @@ export function clusterMotif(cluster: string): string {
   return CLUSTER_MOTIFS[cluster] ?? 'search'
 }
 
-export function personFor(audience: CoverInput['audience'], seed: string, variant: number): string {
-  if (audience === 'parents') return 'parent-child'
-  if (audience === 'tutors') return (hash(seed) + variant) % 2 === 0 ? 'teacher-female' : 'teacher-male'
-  return 'student'
+// PR16 §6.5 — the person ROTATES on every Shuffle, for EVERY audience, not just
+// tutors. Before, a parents/both post kept the same person across all shuffles,
+// so with an unset city/subject (a common case) the only thing that moved was the
+// accent motif and the palette — the trio read as "the same three covers". Each
+// audience now has a small pool the roll cycles through, keeping it deterministic
+// per seed while making each Shuffle visibly a different illustration.
+const PERSON_POOL: Record<string, string[]> = {
+  parents: ['parent-child', 'student'],
+  tutors: ['teacher-female', 'teacher-male', 'student'],
+  both: ['student', 'teacher-female', 'teacher-male', 'parent-child'],
+}
+
+export function personFor(audience: CoverInput['audience'], seed: string, roll: number): string {
+  const pool = PERSON_POOL[audience] ?? ['student']
+  return pool[(hash(seed) + roll) % pool.length]
 }
 
 const BACKGROUNDS: CoverBackground[] = ['white', 'mint', 'navy']

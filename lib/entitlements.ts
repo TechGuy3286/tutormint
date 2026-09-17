@@ -74,20 +74,32 @@ export type Entitlements = {
   /** The raw percentage, for a gate that says "your profile is 93% complete". */
   profileCompletion: number
   /**
-   * Tutor is LISTED — the FULL `tutor_directory` rule (migration 87): fee paid,
-   * mobile verified, not suspended/banned/under-review, verification not
-   * rejected/suspended, claimed if imported, NOT a fixture, at least one subject
-   * AND a city. This is the ONE rule apply / start-conversation / demo-accept
-   * all gate on (owner PR3 §1) — a tutor with no subject or city can no longer
-   * apply while invisible. It is what a badge clears too. False for parents.
+   * Tutor is VISIBLE — the `tutor_directory` rule (migration 94): mobile verified,
+   * city AND area set, at least one subject, gender set, not suspended/banned/
+   * under-review, verification not rejected/suspended, claimed if imported, NOT a
+   * fixture. The FEE is deliberately NOT part of this (PR16 §1) — an unverified
+   * tutor still appears in browse and has a public profile. `listed` is a
+   * backward-compatible alias of `visible`. False for parents.
    */
+  visible: boolean
   listed: boolean
   /**
-   * Every reason this tutor is NOT in tutor_directory, in the view's order (empty
-   * when listed). Drives the "what is missing" apply gate (fee, mobile, subject,
-   * city — each with its fix). Empty for parents.
+   * Every reason this tutor is NOT visible, in the view's order (empty when
+   * visible). Drives the dashboard "not shown in search" card and the onboarding
+   * final screen. Empty for parents.
    */
+  visibilityBlockers: ListingBlocker[]
   listingBlockers: ListingBlocker[]
+  /**
+   * VERIFIED — the one-time Rs 199 verification fee is paid (PR16 §1.2). This is
+   * what controls the Verified badge, ranking above unverified tutors, APPLYING,
+   * and reading/replying to parent messages and demo requests. Separate from
+   * `visible`: a visible tutor who has not paid the fee shows "Not verified", ranks
+   * below verified tutors, cannot apply, and cannot read parent messages until the
+   * fee is paid. False in the suspended/banned/bridge-locked paths. For a parent
+   * it mirrors "has a plan" (CNIC + address approved).
+   */
+  verified: boolean
   /**
    * The member has PAID for a plan whose 30 days have not started, because a
    * tutor bought while not yet listable (identity/mobile not verified). It grants
@@ -140,8 +152,11 @@ const NOTHING = (userId: string): Entitlements => ({
   tagLabel: null,
   profileComplete: false,
   profileCompletion: 0,
+  visible: false,
   listed: false,
+  visibilityBlockers: [],
   listingBlockers: [],
+  verified: false,
   planPaused: false,
   pausedPlanName: null,
   suspended: false,
@@ -219,10 +234,12 @@ export type EntitlementInputs = {
     claimed_at: string | null
     under_review: boolean | null
     degrees: string[] | null
-    /** The one-time Rs 199 verification fee timestamp — what lists a tutor. */
+    /** The one-time Rs 199 verification fee timestamp — what VERIFIES a tutor. */
     verified_fee_paid_at: string | null
-    /** The listing city (tutor_directory keys on this, not profiles.city). */
+    /** The listing city/area/gender (the views key on these, not profiles.city). */
     city: string | null
+    area: string | null
+    gender: string | null
   } | null
   /** Whether the tutor has at least one tutor_subjects row (listing requires it). */
   hasSubjects: boolean
@@ -252,24 +269,23 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   const profileCompletion = profile.profile_completion ?? 0
   const profileComplete = profileCompletion >= 100
 
-  // The one-time Rs 199 verification fee is what lists a tutor (owner, 15 Sep
-  // 2026) — not an active paid plan. After the fee the tutor is on the free
-  // Basic tier; Premium/Featured are upgrades that add powers.
+  // The one-time Rs 199 verification fee (PR16 §1.2). It VERIFIES a tutor —
+  // controlling the badge, ranking, applying and reading/replying to parent
+  // messages — but no longer controls VISIBILITY.
   const feePaid = !!tutorRow?.verified_fee_paid_at
 
-  // `listed` is the FULL tutor_directory rule (migration 87) in TS — via the ONE
-  // pure `directoryBlockers`, mirrored by the view SQL and used by the dashboard
-  // and the admin list. It adds the subjects / city / not-fixture gates the old
-  // `tutorListed()` lacked, so apply / start-conversation / demo-accept (which
-  // all read `ent.listed`) can no longer be done by a tutor who is invisible in
-  // search (owner PR3 §1). Completion is NOT part of it (ranking/indexing only).
-  const listingBlockers: ListingBlocker[] =
+  // `visible` is the tutor_directory rule (migration 94) in TS — via the ONE pure
+  // `directoryBlockers`, mirrored by the view SQL. The FEE is NOT part of it: an
+  // unverified tutor is visible in browse once mobile/city/area/subjects/gender
+  // are set. `listed` is a backward-compatible alias.
+  const visibilityBlockers: ListingBlocker[] =
     role === 'tutor'
       ? directoryBlockers({
-          feePaid,
           phoneVerified: !!profile.phone_verified_at,
           hasSubjects: input.hasSubjects,
           city: tutorRow?.city ?? null,
+          area: tutorRow?.area ?? null,
+          gender: tutorRow?.gender ?? null,
           isSuspended: profile.is_suspended,
           isBanned: profile.is_banned,
           underReview: tutorRow?.under_review,
@@ -280,7 +296,10 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
           isTeamAccount: profile.is_team_account,
         })
       : []
-  const listed = role === 'tutor' ? listingBlockers.length === 0 : false
+  const visible = role === 'tutor' ? visibilityBlockers.length === 0 : false
+  const listed = visible
+  // Apply / message / badge rights turn on the fee, not visibility.
+  const verified = role === 'tutor' ? feePaid : false
 
   // The Verified badge, for a tutor, additionally needs a reviewed degree
   // (owner rule 2). A tutor's declared degrees are the signal; parents are
@@ -311,7 +330,7 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   // active. `listed` is kept (the lock removes plan/badge, not the listing).
   const phoneVerifiedVia = (profile.phone_verified_via as string | null) ?? null
   if (phoneVerifiedVia === 'bridge') {
-    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, listed, listingBlockers, phoneVerifiedVia, bridgeLocked: true }
+    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, visible, listed, visibilityBlockers, listingBlockers: visibilityBlockers, phoneVerifiedVia, bridgeLocked: true }
   }
 
   const plans = new Map<string, PlanRow>()
@@ -352,7 +371,7 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   }
 
   if (!best) {
-    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, listed, listingBlockers, planPaused, pausedPlanName, phoneVerifiedVia }
+    return { ...NOTHING(userId), role, audience, profileComplete, profileCompletion, visible, listed, visibilityBlockers, listingBlockers: visibilityBlockers, verified, planPaused, pausedPlanName, phoneVerifiedVia }
   }
 
   const p = best.plan
@@ -377,18 +396,22 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
     canHire: !!p.can_hire,
     canSeeViewerIdentity: !!p.can_see_viewer_identity,
     searchRank: p.search_rank ?? 0,
-    // A tutor's badge clears `listed`; a parent has no listing, so completion is
-    // their gate. The Verified badge is additionally degree-gated for tutors.
+    // A tutor's badge clears `verified` (the fee, PR16 §1.2) — a visible but
+    // unverified tutor shows "Not verified", not a badge. A parent has no fee, so
+    // completion is their gate. Verified is additionally degree-gated for tutors.
     badges: badgesForPlan(
       p.code,
-      audience === 'tutor' ? listed : profileComplete,
+      audience === 'tutor' ? verified : profileComplete,
       audience === 'tutor' ? hasReviewedDegree : true,
     ),
-    tagLabel: (audience === 'tutor' ? listed : profileComplete) ? p.tag_label : null,
+    tagLabel: (audience === 'tutor' ? verified : profileComplete) ? p.tag_label : null,
     profileComplete,
     profileCompletion,
+    visible,
     listed,
-    listingBlockers,
+    visibilityBlockers,
+    listingBlockers: visibilityBlockers,
+    verified: audience === 'tutor' ? verified : true,
     planPaused: false,
     pausedPlanName: null,
     suspended: false,
@@ -418,7 +441,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
   // is a couple of small reads on rare accounts and keeps the decision pure.
   const [tutorRes, subjRes, subsRes, planRes, pausedRes, counterRes] = await Promise.all([
     role === 'tutor'
-      ? db.from('tutor_profiles').select('verification_status, imported, claimed_at, under_review, degrees, verified_fee_paid_at, city').eq('id', userId).maybeSingle()
+      ? db.from('tutor_profiles').select('verification_status, imported, claimed_at, under_review, degrees, verified_fee_paid_at, city, area, gender').eq('id', userId).maybeSingle()
       : Promise.resolve({ data: null }),
     // At least one subject? The listing rule requires it (migration 87).
     role === 'tutor'

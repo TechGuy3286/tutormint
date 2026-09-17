@@ -9,28 +9,45 @@
 //   * /api/auth/register   — send the first code the moment an account exists
 //   * /api/auth/reset/*    — password reset for somebody who is signed OUT
 //
-// The rules themselves are unchanged from T3: 10-minute expiry, single use,
-// five attempts then the code is burned, 60-second resend cooldown, five sends
-// per number per hour.
+// PR16 §3 — ONE CODE PER ACCOUNT, NO EXPIRY, NO RESEND. Each account gets one
+// code for its number and keeps it until it is used or the number changes: there
+// is no resend button, no countdown, and no expiry. The code is stored HASHED
+// (sha256) and tied to the account+number, so the plaintext is never at rest.
+// Five wrong attempts LOCK the code (the row is kept, not burned) and the member
+// is sent to support — a new code is never issued, so a locked number gets no
+// fresh SMS. Changing the number invalidates the code (the row is deleted); number
+// changes go through support.
 //
 // PURPOSE. A code carries the flow that issued it and is only ever accepted by
-// that same flow. Without it, "the newest unconsumed code for this phone" is
-// ambiguous the moment two flows are live: a password reset would consume a
-// pending verification code, and a code minted for one purpose would be
-// spendable in the other.
+// that same flow. Without it, "the code for this phone" is ambiguous the moment
+// two flows are live: a password reset would consume a pending verification code.
 //
 // EVERY read and write here goes through the service-role client. phone_otps
 // has RLS on with no policies, so it is unreachable with the anon key — which
 // is what stops the SMS step being skipped by simply reading the code back.
 
+import { createHash } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSmsProvider, devOtpCode, bridgeOtpCode } from '@/lib/sms'
-import { codeStillLive } from '@/lib/pendingSignupCore'
 
 export type OtpPurpose = 'verify' | 'reset'
 
-export const CODE_TTL_MS = 10 * 60 * 1000
+// No expiry (PR16 §3.1). expires_at is NOT NULL in the schema, so a far-future
+// value satisfies it while meaning "never expires". The code lives until it is
+// used (consumed_at) or locked (attempts >= MAX) or the number changes.
+export const CODE_TTL_MS = 100 * 365 * 24 * 60 * 60 * 1000
 export const MAX_ATTEMPTS = 5
+
+// Shown when a code is locked (PR16 §3.4). The forms pair it with the support
+// WhatsApp link (0321 5872222). A locked number is never re-sent a code.
+export const LOCKED_MESSAGE = 'Too many incorrect attempts. Contact support to verify your number.'
+
+/** sha256 hex of a code — what is stored and compared, so plaintext is never at
+ *  rest (PR16 §3.2). A 6-digit code is low-entropy, but the table is service-role
+ *  only (RLS on, no policies), so the hash is defence in depth, not the barrier. */
+export function hashOtp(code: string): string {
+  return createHash('sha256').update(code.trim()).digest('hex')
+}
 
 // ONE SMS PER NUMBER PER ATTEMPT (owner, 11 Sep 2026). At 4.80 PKR a message,
 // resends are real money, so the per-number cooldown / hourly / daily caps are
@@ -102,7 +119,7 @@ export async function deliverCode(
 
   const sent = await provider.send(
     phone,
-    `Your TutorMint verification code is ${code}. It expires in 10 minutes.`,
+    `Your TutorMint verification code is ${code}. Do not share it with anyone.`,
   )
 
   reportSend({
@@ -166,13 +183,13 @@ export async function sendOtp(opts: {
 
   const now = Date.now()
 
-  // ONE SMS PER NUMBER: is there already a LIVE code (unconsumed, unexpired) for
-  // this number and purpose? If so, send nothing and tell the caller to use it.
-  // This is the per-number money guard, replacing the old cooldown/hour/day
-  // caps; the per-IP cap on the route stops a script walking a list of numbers.
+  // ONE CODE PER ACCOUNT, NO RESEND (PR16 §3.1). If a code already exists for this
+  // number and purpose (unconsumed — whether still usable OR locked), send nothing
+  // and tell the caller to use the one they have. A locked code is deliberately
+  // NOT replaced: a fresh SMS is never issued, so a locked number goes to support.
   const { data: existing } = await admin
     .from('phone_otps')
-    .select('expires_at')
+    .select('id')
     .eq('phone', opts.phone)
     .eq('purpose', opts.purpose)
     .is('consumed_at', null)
@@ -180,7 +197,7 @@ export async function sendOtp(opts: {
     .limit(1)
     .maybeSingle()
 
-  if (existing && codeStillLive(new Date(existing.expires_at as string).getTime(), now)) {
+  if (existing) {
     reportSend({ purpose: opts.purpose, phone: opts.phone, channel: 'existing', ok: true })
     // devBypassActive still surfaced so a dev environment shows the test-code
     // hint even when a live code is being reused.
@@ -189,9 +206,10 @@ export async function sendOtp(opts: {
 
   const code = String(Math.floor(100000 + Math.random() * 900000))
 
+  // Stored HASHED (PR16 §3.2). expires_at is far-future = no expiry.
   const { error: insertError } = await admin.from('phone_otps').insert({
     phone: opts.phone,
-    code,
+    code: hashOtp(code),
     purpose: opts.purpose,
     user_id: opts.userId ?? null,
     expires_at: new Date(now + CODE_TTL_MS).toISOString(),
@@ -311,39 +329,35 @@ export async function verifyOtp(opts: {
   }
 
   if (!otp) {
-    return { ok: false, status: 400, error: 'No active code for this number. Request a new one.' }
+    return { ok: false, status: 400, error: 'No code for this number. Contact support to verify.' }
   }
 
-  if (new Date(otp.expires_at).getTime() < Date.now()) {
-    // Burn it, so an expired code cannot be retried.
-    await admin.from('phone_otps').update({ consumed_at: new Date().toISOString() }).eq('id', otp.id)
-    return { ok: false, status: 400, error: 'That code has expired. Request a new one.' }
-  }
-
+  // LOCKED (PR16 §3.3): five wrong attempts. The row is KEPT (not burned), so a
+  // new code is never issued and the member is sent to support (§3.4). No expiry
+  // check — codes do not expire now (§3.1).
   if ((otp.attempts ?? 0) >= MAX_ATTEMPTS) {
-    await admin.from('phone_otps').update({ consumed_at: new Date().toISOString() }).eq('id', otp.id)
     return {
       ok: false,
       status: 429,
-      error: 'Too many incorrect attempts. Request a new code.',
+      error: LOCKED_MESSAGE,
       locked: true,
       attemptsLeft: 0,
     }
   }
 
-  if (otp.code !== submitted) {
+  // Hash comparison (PR16 §3.2) — the plaintext is never stored.
+  if ((otp.code as string) !== hashOtp(submitted)) {
     const attempts = (otp.attempts ?? 0) + 1
     const locked = attempts >= MAX_ATTEMPTS
-    await admin
-      .from('phone_otps')
-      .update({ attempts, consumed_at: locked ? new Date().toISOString() : null })
-      .eq('id', otp.id)
+    // Locking KEEPS the row (consumed_at stays null): a locked code is not burned
+    // and is never replaced by a resend.
+    await admin.from('phone_otps').update({ attempts }).eq('id', otp.id)
 
     return {
       ok: false,
       status: locked ? 429 : 400,
       error: locked
-        ? 'Too many incorrect attempts. Request a new code.'
+        ? LOCKED_MESSAGE
         : `Incorrect code. ${MAX_ATTEMPTS - attempts} attempt(s) left.`,
       attemptsLeft: Math.max(0, MAX_ATTEMPTS - attempts),
       locked,

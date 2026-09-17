@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { warnMember, suspendMember, unsuspendMember, banMember, unbanMember } from '@/lib/moderation'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { logAdminAction } from '@/lib/auditLog'
+import { logActivity } from '@/lib/activityLog'
+import { activatePausedIfListed } from '@/lib/payments/goLive'
 import { parseBody, z, text, uuid } from '@/lib/validate'
 import { requireFreshAuth } from '@/lib/reauth'
 
@@ -13,8 +17,8 @@ import { requireFreshAuth } from '@/lib/reauth'
 
 const MemberActionBody = z.object({
   userId: uuid,
-  action: z.enum(['warn', 'suspend', 'unsuspend', 'ban', 'unban'], {
-    message: 'Choose warn, suspend, unsuspend, ban or unban.',
+  action: z.enum(['warn', 'suspend', 'unsuspend', 'ban', 'unban', 'verify-mobile'], {
+    message: 'Choose warn, suspend, unsuspend, ban, unban or verify-mobile.',
   }),
   reason: text({ min: 3, max: 1000, label: 'Reason' }),
 })
@@ -39,7 +43,7 @@ export async function POST(request: Request) {
   const reason = (body.reason ?? '').trim()
 
   if (!userId) return NextResponse.json({ error: 'Missing member.' }, { status: 400 })
-  if (!['warn', 'suspend', 'unsuspend', 'ban', 'unban'].includes(action)) {
+  if (!['warn', 'suspend', 'unsuspend', 'ban', 'unban', 'verify-mobile'].includes(action)) {
     return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
   }
   if (reason.length < 5) {
@@ -53,6 +57,63 @@ export async function POST(request: Request) {
   }
   if (action === 'unban' && !roleSatisfies(actor.adminRole, [])) {
     return NextResponse.json({ error: 'Only the owner can lift a ban.' }, { status: 403 })
+  }
+
+  // PR16 §3.5 — verify a member's mobile MANUALLY when the SMS could not reach
+  // them (or their code is locked). Owner/admin only, reason required, logged.
+  // Sets phone_verified_via='admin' so it is distinguishable from 'otp'/'bridge'
+  // in admin and the CSV, and starts any paused paid plan.
+  if (action === 'verify-mobile') {
+    if (!roleSatisfies(actor.adminRole, ['admin'])) {
+      return NextResponse.json({ error: 'Only an owner or admin can verify a number manually.' }, { status: 403 })
+    }
+    const admin = createAdminClient()
+    if (!admin) return NextResponse.json({ error: 'Temporarily unavailable.' }, { status: 503 })
+
+    const { data: prof } = await admin
+      .from('profiles')
+      .select('phone_number, phone_verified_at')
+      .eq('id', userId)
+      .maybeSingle()
+    if (!prof) return NextResponse.json({ error: 'Member not found.' }, { status: 404 })
+    if (!prof.phone_number) {
+      return NextResponse.json({ error: 'This account has no mobile number on file to verify.' }, { status: 400 })
+    }
+    if (prof.phone_verified_at) {
+      return NextResponse.json({ success: true, action, alreadyInState: true })
+    }
+
+    const { error: upErr } = await admin
+      .from('profiles')
+      .update({
+        phone_verified_at: new Date().toISOString(),
+        phone_verified: true,
+        phone_verified_via: 'admin',
+        phone_gate_required: false,
+      })
+      .eq('id', userId)
+    if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 })
+
+    // Any locked/outstanding code for this number is now moot — consume it.
+    await admin
+      .from('phone_otps')
+      .update({ consumed_at: new Date().toISOString() })
+      .eq('phone', prof.phone_number as string)
+      .is('consumed_at', null)
+
+    await activatePausedIfListed(userId)
+    await logAdminAction({
+      actorId: actor.id,
+      actorRole: actor.adminRole,
+      actorEmail: actor.email,
+      action: 'member.verify_mobile',
+      targetType: 'profile',
+      targetId: userId,
+      detail: { reason },
+    })
+    await logActivity({ userId, event: 'otp_verified', targetType: 'profile', targetId: userId, meta: { via: 'admin' } })
+
+    return NextResponse.json({ success: true, action })
   }
 
   const result =

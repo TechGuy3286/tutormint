@@ -4,11 +4,10 @@ import { randomBytes } from 'node:crypto'
 import { hash as bcryptHash } from 'bcryptjs'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { CODE_TTL_MS, deliverCode, type DeliverResult } from '@/lib/otp'
-import { otpMatch } from '@/lib/otp'
+import { deliverCode, hashOtp, otpMatch, type DeliverResult } from '@/lib/otp'
 import { devOtpCode, bridgeOtpCode } from '@/lib/sms'
 import { syntheticEmail } from '@/lib/phone'
-import { numberVerifiedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
+import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
 import { checkBlocklist } from '@/lib/blocklist'
 import { ensureProfile } from '@/lib/ensureProfile'
 import { recomputeCompletion } from '@/lib/completion'
@@ -38,6 +37,13 @@ import {
 
 /** The httpOnly cookie carrying the pending row's token. */
 export const PENDING_COOKIE = 'tm_pending_signup'
+
+// PR16 §3 — the pending draft (which holds a bcrypt password for an account that
+// does NOT exist yet) keeps a finite cleanup lifetime rather than the no-expiry
+// rule real accounts get: a stale draft with a password hash should not live
+// forever. Within it there is no resend button and one code; the code itself is
+// stored HASHED. 24 hours is generous enough that a normal signup never lapses.
+const PENDING_TTL_MS = 24 * 60 * 60 * 1000
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -100,10 +106,11 @@ export async function startPendingSignup(opts: {
     full_name: opts.fullName,
     mobile: opts.mobile,
     password_hash: passwordHash,
-    code,
+    // Stored HASHED (PR16 §3.2), like phone_otps.
+    code: hashOtp(code),
     utm: opts.utm ?? null,
     attempts: 0,
-    expires_at: new Date(now + CODE_TTL_MS).toISOString(),
+    expires_at: new Date(now + PENDING_TTL_MS).toISOString(),
   })
   if (insertError) {
     return { ok: false, status: 500, error: 'Could not start sign-up. Please try again.', detail: insertError.message }
@@ -173,7 +180,8 @@ export async function verifyPendingSignup(opts: {
 
   const submitted = opts.code.trim()
   const special = otpMatch(submitted, devOtpCode(), bridgeOtpCode())
-  const matched = submitted === (row.code as string) || special !== 'none'
+  // Hash comparison (PR16 §3.2) — the plaintext is never stored.
+  const matched = hashOtp(submitted) === (row.code as string) || special !== 'none'
   const bridged = special === 'bridge'
 
   const verdict = classifyPendingVerify({
@@ -228,9 +236,10 @@ export async function verifyPendingSignup(opts: {
     }
   }
 
-  // One VERIFIED number per account (owner PR8 §1.1): if the number was verified
-  // on another account during the pending window, do not create a second one.
-  if (await numberVerifiedElsewhere(admin, mobile)) {
+  // One number per account (PR16 §4.2): if the number became saved on another
+  // account during the pending window, do not create a second one. Defence in
+  // depth — the register route already blocks a saved number before this row.
+  if (await numberSavedElsewhere(admin, mobile)) {
     await admin.from('pending_signups').delete().eq('token', opts.token)
     return { ok: false, status: 409, error: NUMBER_TAKEN_MESSAGE, reason: 'exists' }
   }

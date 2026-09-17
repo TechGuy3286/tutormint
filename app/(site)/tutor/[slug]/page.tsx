@@ -267,7 +267,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       title,
       description,
       alternates: { canonical: `/tutor/${tutor.slug}` },
-      ...(tutorProfileNoindex({ profileCompletion: flags.profileCompletion, underReview: flags.underReview, isSeed: flags.isSeed })
+      ...(tutorProfileNoindex({ verified: flags.verified, profileCompletion: flags.profileCompletion, underReview: flags.underReview, isSeed: flags.isSeed })
         ? { robots: { index: false, follow: false } }
         : {}),
       ...socialMeta({ title, description, path: `/tutor/${tutor.slug}`, type: 'profile' }),
@@ -293,7 +293,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     // of Google until they finish. The noindex lifts automatically at 100%; no
     // robots key is emitted otherwise, so it is indexable again the moment
     // either condition clears.
-    ...(tutorProfileNoindex({ profileCompletion: flags.profileCompletion, underReview: flags.underReview, isSeed: flags.isSeed })
+    ...(tutorProfileNoindex({ verified: flags.verified, profileCompletion: flags.profileCompletion, underReview: flags.underReview, isSeed: flags.isSeed })
       ? { robots: { index: false, follow: false } }
       : {}),
     // Their photo when they have one, the branded default otherwise. Complete
@@ -334,11 +334,11 @@ async function tutorUnderReview(tutorId: string): Promise<boolean> {
  */
 async function tutorMetaFlags(
   tutorId: string,
-): Promise<{ underReview: boolean; shareHidden: boolean; profileCompletion: number; isSeed: boolean }> {
+): Promise<{ underReview: boolean; shareHidden: boolean; profileCompletion: number; isSeed: boolean; verified: boolean }> {
   const admin = createAdminClient()
-  if (!admin) return { underReview: false, shareHidden: false, profileCompletion: 100, isSeed: false }
+  if (!admin) return { underReview: false, shareHidden: false, profileCompletion: 100, isSeed: false, verified: true }
   const [{ data: tp }, { data: prof }] = await Promise.all([
-    admin.from('tutor_profiles').select('under_review, imported, claimed_at').eq('id', tutorId).maybeSingle(),
+    admin.from('tutor_profiles').select('under_review, imported, claimed_at, verified_fee_paid_at').eq('id', tutorId).maybeSingle(),
     admin.from('profiles').select('profile_completion, is_seed').eq('id', tutorId).maybeSingle(),
   ])
   const underReview = !!tp?.under_review
@@ -349,6 +349,8 @@ async function tutorMetaFlags(
     profileCompletion: (prof?.profile_completion as number | null) ?? 0,
     // A fixture tutor is noindex regardless of completion (owner, 10 Sep 2026).
     isSeed: !!(prof?.is_seed as boolean | null),
+    // PR16 §1.4 — the one-time verification fee. Unverified → noindex.
+    verified: !!(tp?.verified_fee_paid_at as string | null),
   }
 }
 
@@ -601,16 +603,38 @@ export default async function TutorPublicProfile({ params }: { params: Params })
     saved = !!data
   }
 
-  // The Verified badge is degree-gated (owner rule 2): a listed tutor without a
+  // PR16 §1.2/§1.3 — badges turn on the VERIFICATION FEE, not visibility. The
+  // public RPC returns plan_code from an active subscription only, so a fee-paid
+  // Basic tutor (no subscription) has a null plan_code; read the fee directly and
+  // synthesise 'basic' so their Verified badge shows. A visible-but-unverified
+  // tutor gets NO badge and the "Not verified" chip below.
+  let feePaid = false
+  {
+    const admin = createAdminClient()
+    if (admin) {
+      const { data: fp } = await admin
+        .from('tutor_profiles')
+        .select('verified_fee_paid_at')
+        .eq('id', tutor.id)
+        .maybeSingle()
+      feePaid = !!(fp?.verified_fee_paid_at as string | null)
+    }
+  }
+  const effectivePlan = tutor.plan_code ?? (feePaid ? 'basic' : null)
+
+  // The Verified badge is degree-gated (owner rule 2): a verified tutor without a
   // reviewed degree on file shows their plan-tier badges but not Verified. A
   // degree only counts when it has a readable title (owner PR14 §3.1).
   const degreeLines = degreeLabels(tutor.degrees)
   const hasReviewedDegree = degreeLines.length > 0 || tutor.degree_documents.length > 0
-  const wouldBeBadges = badgesForPlan(tutor.plan_code, true, hasReviewedDegree)
+  const wouldBeBadges = badgesForPlan(effectivePlan, feePaid, hasReviewedDegree)
   // §3.3: in the OWNER PREVIEW the tutor is not listed, so no badge is true yet
   // — the badge row is suppressed and the plan-derived ones are named as pending
-  // below instead. On the live (listed) page the badges are shown as normal.
+  // below instead. On the live page the badges are shown as normal.
   const badges = preview ? [] : wouldBeBadges
+  // "Not verified" chip: shown on a live (non-preview) profile for a visible tutor
+  // who has not paid the fee, so the true state reads on the card (PR16 §1.3).
+  const showNotVerified = !preview && !feePaid
   const rating = Number(tutor.rating_avg ?? 0)
   const reviews = tutor.rating_count ?? 0
 
@@ -642,24 +666,32 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   // without real reviews, no price without a rate, no area without one chosen.
   // An aggregateRating with a zero count is both a rich-result violation and a
   // claim about a tutor nobody has reviewed.
-  const profileSchema = tutorJsonLd({
-    slug: tutor.slug,
-    name: tutor.full_name,
-    headline: tutor.headline,
-    avatarUrl: tutor.avatar_url,
-    city: tutor.city,
-    area: tutor.area,
-    subjects: Array.from(
-      new Set(tutor.subjects.map((x) => x.subject ?? x.level).filter(Boolean) as string[]),
-    ),
-    hourlyRatePkr: tutor.hourly_rate_pkr,
-    ratingAvg: tutor.rating_avg === null ? null : Number(tutor.rating_avg),
-    ratingCount: tutor.rating_count,
-  })
+  // PR16 §1.4 — structured data is emitted only for a VERIFIED, non-preview
+  // profile. An unverified (or preview) profile is noindex, so a Person/Service
+  // schema would advertise to a crawler what the noindex is withholding.
+  const profileSchema =
+    feePaid && !preview
+      ? tutorJsonLd({
+          slug: tutor.slug,
+          name: tutor.full_name,
+          headline: tutor.headline,
+          avatarUrl: tutor.avatar_url,
+          city: tutor.city,
+          area: tutor.area,
+          subjects: Array.from(
+            new Set(tutor.subjects.map((x) => x.subject ?? x.level).filter(Boolean) as string[]),
+          ),
+          hourlyRatePkr: tutor.hourly_rate_pkr,
+          ratingAvg: tutor.rating_avg === null ? null : Number(tutor.rating_avg),
+          ratingCount: tutor.rating_count,
+        })
+      : null
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 pb-28 pt-6 text-slate-700 sm:px-6 sm:pb-8 lg:px-8">
-      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(profileSchema)} />
+      {profileSchema && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(profileSchema)} />
+      )}
       <div className="mx-auto max-w-3xl space-y-4">
         {/* The breadcrumb replaces the bespoke "← All tutors" link: two ways
             back to the same page is one more than anyone needs, and only one
@@ -712,6 +744,13 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                 <Link href="/faq#parents" className="inline-flex" aria-label="What the badges mean">
                   <BadgeRow badges={badges} size="md" showLabel />
                 </Link>
+              )}
+              {/* PR16 §1.3 — a visible tutor who has not paid the verification fee
+                  reads "Not verified", the true state, rather than an absent badge. */}
+              {showNotVerified && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-500">
+                  Not verified
+                </span>
               )}
               {/* §3.3: the preview names the badges that will become true once
                   the tutor is listed, rather than showing them as if earned. */}

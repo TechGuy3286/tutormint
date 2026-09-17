@@ -43,3 +43,31 @@ export async function numberVerifiedElsewhere(
   }
   return false
 }
+
+/**
+ * True when a DIFFERENT account already has this number saved — VERIFIED OR NOT
+ * (PR16 §4.2). This is the stronger rule that closes the duplicate-number bug:
+ * a number was accepted on a new account because the old checks only looked at
+ * exact-string matches on the mobile signup path, or only blocked when the OTHER
+ * account was already verified. This normalises `phone_number` AND `whatsapp`
+ * across every account and blocks BEFORE any code is sent, on every path a number
+ * can be entered (signup, OTP send, number change). It never reveals which
+ * account holds the number.
+ */
+export async function numberSavedElsewhere(
+  admin: Admin,
+  rawNumber: string,
+  exceptUserId?: string | null,
+): Promise<boolean> {
+  const target = normalisePkMobile(rawNumber)
+  if (!target) return false
+
+  const { data } = await admin.from('profiles').select('id, phone_number, whatsapp')
+
+  for (const p of data ?? []) {
+    if (exceptUserId && p.id === exceptUserId) continue
+    if (normalisePkMobile(p.phone_number as string) === target) return true
+    if (normalisePkMobile(p.whatsapp as string) === target) return true
+  }
+  return false
+}

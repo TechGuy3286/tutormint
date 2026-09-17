@@ -113,13 +113,17 @@ test('cluster maps to a second motif, else search', () => {
   assert.equal(clusterMotif('city-guides'), 'search')
 })
 
-test('person follows audience; teachers alternate deterministically', () => {
-  assert.equal(selectCover({ ...base, audience: 'parents' }, 0).personSlug, 'parent-child')
-  assert.equal(selectCover({ ...base, audience: 'both' }, 0).personSlug, 'student')
-  const t = selectCover({ ...base, audience: 'tutors' }, 0).personSlug
-  assert.ok(t === 'teacher-male' || t === 'teacher-female')
-  // The variant flips the teacher.
+test('person is audience-appropriate and rotates on every shuffle (PR16 §6.5)', () => {
+  // Every audience draws from its own pool; the person is always one of them.
+  assert.ok(['parent-child', 'student'].includes(personFor('parents', 'x', 0)))
+  assert.ok(['student', 'teacher-female', 'teacher-male', 'parent-child'].includes(personFor('both', 'x', 0)))
+  assert.ok(['teacher-female', 'teacher-male', 'student'].includes(personFor('tutors', 'x', 0)))
+  // The roll rotates the person deterministically — consecutive shuffles differ.
   assert.notEqual(personFor('tutors', 'x', 0), personFor('tutors', 'x', 1))
+  assert.notEqual(personFor('both', 'x', 0), personFor('both', 'x', 1))
+  assert.notEqual(personFor('parents', 'x', 0), personFor('parents', 'x', 1))
+  // Deterministic per (seed, roll).
+  assert.equal(personFor('both', 'x', 5), personFor('both', 'x', 5))
 })
 
 test('motifs are deduped; shuffle rotates the second motif to a new one (§2.1)', () => {

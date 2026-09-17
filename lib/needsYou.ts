@@ -452,14 +452,15 @@ export async function tutorNeeds({
     }
   }
 
-  // Listed but under 100% → searchable on-site, held out of Google until 100%.
-  // Only for a LISTED tutor: the claim "you are searchable, just not on Google"
-  // is only true once they are actually listed.
-  if (ent.listed && pct < 100) {
+  // Verified but under 100% → searchable on-site, held out of Google until 100%.
+  // Only for a VERIFIED tutor (PR16 §1.4): an unverified profile is noindex, so
+  // "you are searchable, just not on Google yet at 100%" is only true once the
+  // fee is paid.
+  if (ent.verified && pct < 100) {
     rows.push({
       id: 'not-on-google',
       title: 'Your profile is not on Google yet',
-      why: 'You are listed and parents can find you on TutorMint now. Your profile appears in Google search once it reaches 100%.',
+      why: 'Parents can find you on TutorMint now. Your profile appears in Google search once it reaches 100%.',
       action: { label: 'Finish your profile', href: '/tutor/complete-profile' },
       tone: 'warn',
     })
