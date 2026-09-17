@@ -53,6 +53,7 @@ export default function MemberActions({
   const [open, setOpen] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   const [confirmWord, setConfirmWord] = useState('')
+  const [newMobile, setNewMobile] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -65,13 +66,14 @@ export default function MemberActions({
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, action, reason }),
+          body: JSON.stringify({ userId, action, reason, newMobile }),
         },
       )
       if (!ok) throw new Error(json.error ?? 'That did not work.')
       setOpen(null)
       setReason('')
       setConfirmWord('')
+      setNewMobile('')
       toast.success(
         action === 'warn'
           ? 'Warning sent. The member has been notified.'
@@ -83,7 +85,9 @@ export default function MemberActions({
                 ? 'Ban lifted. The member has been notified.'
                 : action === 'verify-mobile'
                   ? 'Mobile number verified manually.'
-                  : 'Suspended. The member has been notified.',
+                  : action === 'change-mobile'
+                    ? 'Mobile number changed. The member will verify the new number.'
+                    : 'Suspended. The member has been notified.',
       )
       router.refresh()
     } catch (e) {
@@ -128,7 +132,9 @@ export default function MemberActions({
                     ? `Why is ${firstName}'s ban being lifted?`
                     : open === 'verify-mobile'
                       ? `Why are you verifying ${firstName}'s number manually? (for the record)`
-                      : `Reason — ${firstName} is shown this`}
+                      : open === 'change-mobile'
+                        ? `Why are you changing ${firstName}'s number? (for the record)`
+                        : `Reason — ${firstName} is shown this`}
             </span>
             <input
               value={reason}
@@ -147,16 +153,39 @@ export default function MemberActions({
               />
             </label>
           )}
+          {open === 'change-mobile' && (
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold text-gray-500">New mobile number</span>
+              <input
+                value={newMobile}
+                onChange={(e) => setNewMobile(e.target.value)}
+                inputMode="tel"
+                placeholder="0300 1234567"
+                className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs font-semibold"
+              />
+            </label>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              disabled={busy || reason.trim().length < 5 || banGate}
+              disabled={
+                busy ||
+                reason.trim().length < 5 ||
+                banGate ||
+                (open === 'change-mobile' && newMobile.replace(/\D/g, '').length < 10)
+              }
               onClick={() => act(open)}
               className={`min-h-[44px] rounded-xl px-4 text-xs font-bold text-white disabled:bg-gray-300 ${
                 open === 'ban' ? 'bg-tm-red' : 'bg-tm-black'
               }`}
             >
-              {busy ? 'Working…' : open === 'verify-mobile' ? 'Verify number' : `Confirm ${open}`}
+              {busy
+                ? 'Working…'
+                : open === 'verify-mobile'
+                  ? 'Verify number'
+                  : open === 'change-mobile'
+                    ? 'Change number'
+                    : `Confirm ${open}`}
             </button>
             <button
               type="button"
@@ -217,10 +246,20 @@ export default function MemberActions({
                 <button
                   type="button"
                   onClick={() => setOpen('verify-mobile')}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-navy px-4 text-xs font-bold text-white sm:col-span-2"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl bg-tm-navy px-4 text-xs font-bold text-white"
                 >
                   <PhoneCall aria-hidden size={13} />
                   Verify mobile manually
+                </button>
+              )}
+              {canVerifyMobile && (
+                <button
+                  type="button"
+                  onClick={() => setOpen('change-mobile')}
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy hover:border-tm-navy"
+                >
+                  <PhoneCall aria-hidden size={13} />
+                  Change mobile
                 </button>
               )}
               {canBan && (

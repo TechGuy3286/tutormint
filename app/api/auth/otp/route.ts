@@ -8,7 +8,7 @@ import { parseBody, z, pkMobile } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { sendOtp, verifyOtp } from '@/lib/otp'
 import { activatePausedIfListed } from '@/lib/payments/goLive'
-import { normalisePkMobile } from '@/lib/phone'
+import { normalisePkMobile, syntheticEmail, isSyntheticEmail } from '@/lib/phone'
 import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
 
 // Phone / SMS OTP for the SIGNED-IN account.
@@ -80,6 +80,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: NUMBER_TAKEN_MESSAGE }, { status: 409 })
   }
 
+  // PR17 §3.2 — once a number is VERIFIED it is read-only; a change goes through
+  // support. So a verified account may only ever act on its OWN current number
+  // (re-verification is not a thing here). Trying to send/verify a DIFFERENT
+  // number is refused with the support instruction. An unverified account may
+  // freely edit and verify (§3.1). Belt-and-braces behind the read-only UI.
+  if (admin) {
+    const { data: me } = await admin
+      .from('profiles')
+      .select('phone_number, phone_verified_at')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (me?.phone_verified_at && normalisePkMobile(me.phone_number as string) !== phone) {
+      return NextResponse.json(
+        { error: 'Your number is already verified. To change it, please contact support.' },
+        { status: 403 },
+      )
+    }
+  }
+
   // ---------------------------------------------------------------- send ---
   if (body.action === 'send') {
     const result = await sendOtp({ phone, purpose: 'verify', userId: user.id })
@@ -149,6 +168,22 @@ export async function POST(request: Request) {
       { error: 'Your code was correct, but we could not save it. Please try again.' },
       { status: 500 },
     )
+  }
+
+  // PR17 §3.1 — a mobile-first account signs in with an address derived from its
+  // number (<msisdn>@users.tutormint.org). If the number changed while unverified
+  // (edited in settings/onboarding), the login address must move with it, or the
+  // new number would not sign them in. Only for synthetic addresses; a real email
+  // the member chose is never touched.
+  if (admin && isSyntheticEmail(user.email ?? '')) {
+    const wanted = syntheticEmail(phone)
+    if (wanted !== user.email) {
+      const { error: emailErr } = await admin.auth.admin.updateUserById(user.id, {
+        email: wanted,
+        email_confirm: true,
+      })
+      if (!emailErr) await admin.from('profiles').update({ email: wanted }).eq('id', user.id)
+    }
   }
 
   await recomputeCompletion(user.id)

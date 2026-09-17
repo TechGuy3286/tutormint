@@ -16,7 +16,7 @@ import {
 import { slugTaken, publishedSlugs } from '@/lib/blogFeed'
 import { revalidateBlog, notifySearchEngines } from '@/lib/blogPublish'
 import { figureGate } from '@/lib/ai/blogBrief'
-import { invalidInternalLinks } from '@/lib/ai/platformFacts'
+import { invalidInternalLinks, linkRuleViolations } from '@/lib/ai/platformFacts'
 import { landingOptionsForEditor } from '@/lib/blogEditor'
 
 // Blog CMS mutations. Save + review is manager or support (support drafts);
@@ -282,11 +282,28 @@ export async function POST(request: Request) {
 
   const nowIso = new Date().toISOString()
 
+  // PR16 §6.3 / PR17 §4.3 — link EXISTENCE and link RULES block publishing (and
+  // scheduling). Computed once from the live set: the landing pages and OTHER
+  // published posts. Every internal link must resolve; the post must carry 3–5
+  // links, each target once, with one to a published blog post (if any exist),
+  // one to /membership-plans and one to /faq, and link text matching the page.
+  async function publishLinkProblems(): Promise<string[]> {
+    const [posts, landing] = await Promise.all([publishedSlugs(), landingOptionsForEditor()])
+    const otherPosts = posts.filter((p) => p.slug !== (post!.slug as string))
+    const allowed = [...landing.map((l) => `/${l.path}`), ...otherPosts.map((p) => `/blog/${p.slug}`)]
+    return [
+      ...invalidInternalLinks(gateInput.body, allowed).map((h) => `This internal link does not point to a real page: ${h}`),
+      ...linkRuleViolations(gateInput.body, { hasPublishedPosts: otherPosts.length > 0 }),
+    ]
+  }
+
   // ---------------------------------------------------------- publish ----
   if (body.action === 'publish') {
     const gateResult = canPublish(gateInput)
-    if (!gateResult.ok) {
-      return NextResponse.json({ error: gateResult.reasons[0], reasons: gateResult.reasons }, { status: 400 })
+    const linkProblems = await publishLinkProblems()
+    if (!gateResult.ok || linkProblems.length > 0) {
+      const reasons = [...gateResult.reasons, ...linkProblems]
+      return NextResponse.json({ error: reasons[0], reasons }, { status: 400 })
     }
     const { error } = await admin
       .from('posts')
@@ -326,8 +343,10 @@ export async function POST(request: Request) {
   // --------------------------------------------------------- schedule ----
   if (body.action === 'schedule') {
     const gateResult = canPublish(gateInput)
-    if (!gateResult.ok) {
-      return NextResponse.json({ error: gateResult.reasons[0], reasons: gateResult.reasons }, { status: 400 })
+    const linkProblems = await publishLinkProblems()
+    if (!gateResult.ok || linkProblems.length > 0) {
+      const reasons = [...gateResult.reasons, ...linkProblems]
+      return NextResponse.json({ error: reasons[0], reasons }, { status: 400 })
     }
     const when = new Date(body.publishAt)
     if (Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {

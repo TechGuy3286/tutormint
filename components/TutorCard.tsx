@@ -11,6 +11,7 @@ import JobTypesChip from '@/components/JobTypesChip'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
+import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import AuthGateModal, { type AuthIntent } from '@/components/AuthGateModal'
 import { badgesForPlan, isFeaturedPlan } from '@/lib/planBadges'
@@ -327,41 +328,21 @@ export default function TutorCard({
                 {tutor.full_name}
               </Link>
             </h3>
-            <Stars rating={rating} count={reviews} />
+            {/* PR17 §2 — the stars, "New tutor", the Verified/Premium/Featured
+                badges and the red "Not verified" badge all sit on ONE line. The
+                job-type chip stays on its own line below. */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Stars rating={rating} count={reviews} />
+              {badges.length > 0 && <BadgeRow badges={badges} size="sm" />}
+              {!isVerified && <NotVerifiedBadge />}
+            </div>
             {tutor.headline && (
               <p className="line-clamp-2 text-xs font-semibold text-tm-green-deep">{tutor.headline}</p>
             )}
           </div>
 
           <div className="col-span-2 space-y-2 sm:col-span-1 sm:col-start-2 sm:row-start-2">
-            {badges.length > 0 && (
-              <>
-                {/* Icons only on the narrowest screens, icon + label from sm.
-                    The visibility class goes on a WRAPPER, not on BadgeRow
-                    itself: BadgeRow's own `inline-flex` and a passed `hidden`
-                    are both display utilities, and which one wins depends on
-                    stylesheet order, not on the order they are written. Both
-                    rows rendered at 360px until this was wrapped. */}
-                <span className="block sm:hidden">
-                  <BadgeRow badges={badges} size="sm" />
-                </span>
-                <span className="hidden sm:block">
-                  <BadgeRow badges={badges} size="md" showLabel />
-                </span>
-              </>
-            )}
-
-            {/* PR16 §1.3 — a visible tutor who has not paid the verification fee
-                reads "Not verified" rather than showing no badge at all. */}
-            {!isVerified && (
-              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">
-                Not verified
-              </span>
-            )}
-
-            {/* Teaching mode, made prominent. It was only ever the Area line's
-                fallback below, so a tutor with an area never showed it at all;
-                now it is its own chip, always visible when set. */}
+            {/* Job type on its own line (§2.2). */}
             <JobTypesChip types={tutor.job_types} />
 
             <div className="space-y-1.5 pt-0.5">

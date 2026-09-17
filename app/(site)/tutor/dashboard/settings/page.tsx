@@ -18,7 +18,14 @@ import QuickRepliesEditor from '@/components/tutor/QuickRepliesEditor'
 import PublicPageStatus from '@/components/tutor/PublicPageStatus'
 import type { Identity } from '@/lib/identity'
 import { formatPkMobile } from '@/lib/phone'
+import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 import { reportSilentFailure } from '@/lib/silentFailure'
+
+// PR17 §3.2 — a verified number is changed through support (client-safe constant).
+const mobileSupportHref = whatsappHref(
+  SUPPORT_WHATSAPP_FALLBACK,
+  'Assalam-o-Alaikum, I need to change the mobile number on my TutorMint account.',
+)
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -339,22 +346,41 @@ export default function TutorSettingsPage() {
           </label>
         </div>
 
-        {/* Verified mobile — read-only (PR 3b §2.2). Only the owner sees it. */}
+        {/* PR17 §3 — a verified number is read-only and changed through support;
+            an unverified one is added/verified (and can be changed) in the
+            mobile step of the profile flow. */}
         <div className="space-y-1">
           <p className="text-[11px] font-bold text-tm-navy">Mobile number</p>
           {phoneVerified ? (
-            <div className="flex items-center gap-2 rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
-              <BadgeCheck aria-hidden size={15} />
-              <span>{phoneNumber ? formatPkMobile(phoneNumber) : 'Verified'}</span>
-              <span className="ml-auto text-[11px] font-black uppercase tracking-wider">Verified</span>
-            </div>
+            <>
+              <div className="flex items-center gap-2 rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
+                <BadgeCheck aria-hidden size={15} />
+                <span>{phoneNumber ? formatPkMobile(phoneNumber) : 'Verified'}</span>
+                <span className="ml-auto text-[11px] font-black uppercase tracking-wider">Verified</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-gray-500">
+                Need to change it?{' '}
+                {mobileSupportHref ? (
+                  <a
+                    href={mobileSupportHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-tm-green-deep hover:underline"
+                  >
+                    Contact support on WhatsApp
+                  </a>
+                ) : (
+                  'Contact support.'
+                )}
+              </p>
+            </>
           ) : (
             <Link
-              href="/verify-phone"
+              href="/tutor/complete-profile?step=mobile"
               className="flex items-center gap-2 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
             >
               <ShieldAlert aria-hidden size={15} className="text-tm-red" />
-              <span>{phoneNumber ? `${formatPkMobile(phoneNumber)} — not verified` : 'Verify your mobile number'}</span>
+              <span>{phoneNumber ? `${formatPkMobile(phoneNumber)} — not verified` : 'Add and verify your mobile number'}</span>
               <ArrowRight aria-hidden size={14} className="ml-auto shrink-0 text-tm-red" />
             </Link>
           )}

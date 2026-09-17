@@ -203,25 +203,27 @@ export async function publishedSlugs(): Promise<{ slug: string; updatedAt: strin
 }
 
 /**
- * Related published posts for the "Related reading" section (PR16 §6.4).
+ * Related published posts for the "Related reading" section (PR17 §4.4).
  *
- * Matches on SUBJECT, then CITY, then the cluster — a post about the same subject
- * or city is more related than one that merely shares a broad cluster. Candidates
- * are any published post sharing the subject, city OR cluster; they are scored
- * (subject +2, city +2, cluster +1) and the best `limit` are returned. When
- * nothing shares any of them the list is empty and the caller hides the section.
+ * SAME SUBJECT OR SAME CITY ONLY — a shared cluster is NOT enough. The post
+ * itself is excluded. When the post has no subject and no city, or nothing else
+ * shares them, the list is empty and the caller hides the section. A subject
+ * match ranks above a city-only match.
  */
 export async function relatedPosts(args: {
-  cluster: string
   excludeId: string
   limit: number
   city?: string | null
   subject?: string | null
 }): Promise<BlogListItem[]> {
+  const city = (args.city ?? '').trim()
+  const subject = (args.subject ?? '').trim()
+  if (!city && !subject) return []
+
   const db = createPublicClient()
-  const filters = [`cluster.eq.${args.cluster}`]
-  if (args.city) filters.push(`city.eq.${args.city}`)
-  if (args.subject) filters.push(`subject.eq.${args.subject}`)
+  const filters: string[] = []
+  if (city) filters.push(`city.eq.${city}`)
+  if (subject) filters.push(`subject.eq.${subject}`)
 
   const { data } = await db
     .from('posts')
@@ -232,12 +234,13 @@ export async function relatedPosts(args: {
     .order('published_at', { ascending: false })
     .limit(Math.max(args.limit * 4, 12))
 
-  const scored = (data ?? []).map((r) => {
-    const sameSubject = !!args.subject && (r.subject as string) === args.subject
-    const sameCity = !!args.city && (r.city as string) === args.city
-    const sameCluster = (r.cluster as string) === args.cluster
-    return { r, score: (sameSubject ? 2 : 0) + (sameCity ? 2 : 0) + (sameCluster ? 1 : 0) }
-  })
+  const scored = (data ?? [])
+    .map((r) => {
+      const sameSubject = !!subject && (r.subject as string) === subject
+      const sameCity = !!city && (r.city as string) === city
+      return { r, score: (sameSubject ? 2 : 0) + (sameCity ? 1 : 0) }
+    })
+    .filter((s) => s.score > 0)
   scored.sort((a, b) => b.score - a.score)
   return scored.slice(0, args.limit).map((s) => toListItem(s.r))
 }

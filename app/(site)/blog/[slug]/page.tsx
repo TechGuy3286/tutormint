@@ -69,9 +69,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const { segments, headings, readingTime } = parseMarkdown(post.body)
   const [company, related, matchedLanding] = await Promise.all([
     getCompany(),
-    // PR16 §6.4 — match on subject/city, then cluster; hidden when nothing matches.
+    // PR17 §4.4 — same subject or same city only; hidden when nothing matches.
     relatedPosts({
-      cluster: post.cluster,
       excludeId: post.id,
       limit: 3,
       city: post.city,

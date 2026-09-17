@@ -1,64 +1,43 @@
-import Breadcrumbs from '@/components/Breadcrumbs'
-import { Info, TrendingUp } from 'lucide-react'
+import { redirect } from 'next/navigation'
 
+import Breadcrumbs from '@/components/Breadcrumbs'
 import AdSlot from '@/components/ads/AdSlot'
-import OnlineSuitableChip from '@/components/OnlineSuitableChip'
-import EmptyState from '@/components/EmptyState'
-import ShareVerifiedBadge from '@/components/tutor/ShareVerifiedBadge'
-import PublicPageStatus from '@/components/tutor/PublicPageStatus'
 import CvCard from '@/components/tutor/CvCard'
-import { canDownloadCv } from '@/lib/cv/access'
-import { absoluteUrl } from '@/lib/siteUrl'
-import ActivityBand from '@/components/dashboard/ActivityBand'
-import NeedsYou from '@/components/dashboard/NeedsYou'
-import ProfileCompletionWidget from '@/components/ProfileCompletionWidget'
 import SavedJobsSection from '@/components/tutor/SavedJobsSection'
-import { savedJobsForTutor } from '@/lib/jobFeed'
-import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
+import ViewsCard from '@/components/dashboard/ViewsCard'
+import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
+import {
+  WhatToDoNextCard,
+  TuitionsForYouCard,
+  MessagesDemosCard,
+  MyApplicationsCard,
+  RecentActivityCard,
+} from '@/components/tutor/DashboardCards'
+
 import { getSessionUser } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/server'
 import { computeCompletion } from '@/lib/completion'
-import { checklistHref } from '@/lib/profileChecklist'
 import { recentActivity } from '@/lib/dashboardFeed'
-import { getEntitlements, isUnlimitedDisplay } from '@/lib/entitlements'
-import { jobsThisWeek, tutorPosition } from '@/lib/funnel'
-import { matchingJobsForTutor } from '@/lib/jobFeed'
+import { getEntitlements } from '@/lib/entitlements'
+import { jobsThisWeek } from '@/lib/funnel'
+import { savedJobsForTutor } from '@/lib/jobFeed'
 import { unreadMessageCount } from '@/lib/messaging'
 import { tutorNeeds } from '@/lib/needsYou'
-import IdentityBlock from '@/components/dashboard/IdentityBlock'
-import NotListedNotice from '@/components/dashboard/NotListedNotice'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
-import ViewsCard from '@/components/dashboard/ViewsCard'
-import IdentityStatusLine from '@/components/identity/IdentityStatusLine'
-import { loadIdentity } from '@/lib/identity'
+import { listingFixItems } from '@/lib/tutorListingStatus'
 import { viewSummary } from '@/lib/profileViews'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { canDownloadCv } from '@/lib/cv/access'
 import { needsOnboarding } from '@/lib/onboardingGate'
 
-import ApplyFromStrip from './ApplyFromStrip'
-
-// The tutor dashboard, in three bands.
+// The tutor dashboard — CARDS ONLY (PR17 §1).
 //
-//   1. NEEDS YOU   blocked on this tutor -- completion, a rejected video, a
-//                  shortlist waiting on a reply, an expiring plan
-//   2. ACTIVITY    real events, newest first
-//   3. YOUR THINGS counts that link out
-//
-// Between 1 and 2 sit the 199-funnel surfaces, and that placement is a
-// deliberate reconciliation of two rules rather than an oversight. CLAUDE.md's
-// conversion section says the profile-view teaser goes at the TOP of a free
-// tutor's dashboard; this brief says Needs you comes first and always renders,
-// even when empty. Both cannot be literally true. Needs you wins the top
-// because it is short, and because the item it usually holds for a free tutor
-// -- "your profile is 46% complete, nobody can find you" -- is the same
-// argument the funnel is making, only actionable. The teaser sits immediately
-// below, above everything else, which is as close to the letter of the
-// conversion rule as the two allow. Flagged for the owner rather than
-// silently resolved.
-//
-// The previous version rendered the "Who looked at you" card TWICE -- once in
-// the `free` branch and again in the `!free` branch, with identical markup
-// copied out. It is rendered once now, with the placement varying instead.
+// No loose text and no band headings. The FIRST card is who-you-are: photo,
+// name, city, status badges (the plan with its end date, or a red "Not verified"
+// badge when the one-time fee is unpaid), and the two links "Edit profile" /
+// "View your public page". Below it, a set of self-contained cards, each with its
+// own plain-English title, in a fixed order; a card that has nothing to show is
+// hidden (except "What to do next" when something is missing). One column on a
+// phone, two columns on desktop below the first card.
 
 export const dynamic = 'force-dynamic'
 
@@ -66,10 +45,8 @@ export default async function TutorDashboardPage() {
   const session = await getSessionUser()
   const userId = session!.user.id
 
-  // The universal onboarding gate (owner, 14 Sep 2026): a materially-empty tutor
-  // who has not been through / dismissed onboarding is sent into it here, so
-  // EVERY sign-in path (login, email confirmation, direct visit) routes the same
-  // way from one predicate. onboarded_at breaks the loop.
+  // The universal onboarding gate: a materially-empty tutor is sent into
+  // onboarding here, so every sign-in path routes the same way.
   if (await needsOnboarding(userId)) redirect('/tutor/onboarding')
 
   const supabase = await createClient()
@@ -77,75 +54,29 @@ export default async function TutorDashboardPage() {
   const [{ data: tutorProfile }, completion, ent, directory] = await Promise.all([
     supabase
       .from('tutor_profiles')
-      .select('slug, city, area, teaching_mode, job_types, verification_status, video_status, video_attempts, degrees')
+      .select('slug, city, job_types, verification_status, video_status, video_attempts, degrees')
       .eq('id', userId)
       .maybeSingle(),
     computeCompletion(userId),
     getEntitlements(userId),
-    // The AUTHORITATIVE public-directory fact (migration 87): fee + mobile +
-    // verification + a subject + a city + not a fixture. Read from the same rule
-    // that governs the directory, never from the fee flag — so "Listed" / "View
-    // your public profile" cannot claim a tutor is live when he is not.
     loadDirectoryStatus(userId),
   ])
-  // Whether the tutor's profile is actually returned by tutor_directory, and the
-  // reasons it is not (for the not-listed notice below).
+
   const directoryListed = directory.listed
-  // Verified = the one-time fee is paid (PR16 §1.2). Visibility (directoryListed)
-  // no longer implies the fee.
-  const feePaid = ent.verified
+  const city = (tutorProfile?.city as string | null) ?? null
+  const jobTypes = (tutorProfile?.job_types as string[] | null) ?? null
 
-  const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
-  // The authoritative listing fact, computed once in the entitlements layer
-  // (active paid plan + mobile verified + verification 'verified' + not
-  // suspended/banned/under-review + claimed if imported — owner, 10 Sep 2026).
-  // Completion no longer gates it. Using it here keeps "Listed tutor" and the
-  // badge on the same rule.
-  // Applying and the badge turn on the fee (PR16 §1.2), not visibility.
-  const listed = ent.verified
-  const free = !ent.plan && !ent.planPaused
-
-  // A tutor who has PAID but is not yet listed: a paid plan alone never draws a
-  // badge, so the identity block says what is still missing. Since 10 Sep the
-  // blocker is no longer completion — it is verification/mobile (or a paused
-  // plan waiting on the same).
-  const planForNotice = ent.pausedPlanName ?? ent.planName
-  const planNotice = ent.bridgeLocked
-    ? // The BRIDGE lock (owner, Part 5): the number was proved only by the
-      // temporary bridge code, so no plan or badge until it is re-verified with
-      // a real code. That happens once, automatically, on the next sign-in after
-      // the SMS provider goes live.
-      'Your number was verified with a temporary code. Your badge and plan become active once you verify it with a real code — this happens automatically next time you sign in after SMS goes live.'
-    : !listed && planForNotice
-      ? `${planForNotice} plan active · your badge appears once your identity and mobile number are verified.`
-      : undefined
-
-  const [
-    needs,
-    activity,
-    views,
-    identity,
-    matching,
-    unreadMessages,
-    { data: apps },
-    { data: demos },
-    savedJobs,
-  ] = await Promise.all([
+  const [needs, activity, views, weekJobs, unread, { data: apps }, { data: demos }, savedJobs] =
+    await Promise.all([
       tutorNeeds({
         userId,
         ent,
         verificationStatus: (tutorProfile?.verification_status as string) ?? null,
         videoStatus: (tutorProfile?.video_status as string) ?? null,
         videoAttempts: (tutorProfile?.video_attempts as number) ?? 0,
-        city: (tutorProfile?.city as string | null) ?? null,
+        city,
         hasDegree: ((tutorProfile?.degrees as string[] | null)?.length ?? 0) > 0,
       }),
-      // profile_viewed is hidden here and only here: ViewsCard is directly
-      // above this band and is the surface for it. See recentActivity().
-      // profile_viewed: the teaser above is that surface. The plan-ended kinds:
-      // suppressed while a plan is live, so a reactivated tutor is never shown a
-      // "plan ended · Reactivate" card beside their active plan (same rule as
-      // the Needs-you lapsedPlanRow).
       recentActivity({
         userId,
         role: 'tutor',
@@ -156,359 +87,75 @@ export default async function TutorDashboardPage() {
             : ['profile_viewed'],
       }),
       viewSummary(userId, ent.canSeeViewerIdentity, 20),
-      loadIdentity(userId),
-      matchingJobsForTutor(userId, tutorProfile?.city ?? null, (tutorProfile?.job_types as string[] | null) ?? null),
+      jobsThisWeek(userId, city, jobTypes),
       unreadMessageCount(userId),
-      supabase.from('applications').select('id, job_id, status, withdrawn_at').eq('tutor_id', userId),
+      supabase.from('applications').select('id, job_id, withdrawn_at').eq('tutor_id', userId),
       supabase.from('demo_requests').select('id, status').eq('tutor_id', userId),
       savedJobsForTutor(userId),
     ])
 
-  // The rest of the funnel is loaded only for a tutor with no plan: a paying
-  // tutor already has what these surfaces argue for, and showing somebody a
-  // pitch for what they have bought is noise.
-  const [position, weekJobs] = free
-    ? await Promise.all([tutorPosition(userId), jobsThisWeek(userId, tutorProfile?.city ?? null, (tutorProfile?.job_types as string[] | null) ?? null)])
-    : [null, []]
-
   const liveApps = (apps ?? []).filter((a) => !a.withdrawn_at)
   const appliedJobIds = liveApps.map((a) => a.job_id as string)
-  // Real rows, not a hard-coded false. See unreadMessageCount().
-  const unread = unreadMessages
-  const liveDemos = (demos ?? []).filter((d) =>
-    ['requested', 'accepted'].includes(d.status as string),
-  ).length
+  const liveDemos = (demos ?? []).filter((d) => ['requested', 'accepted'].includes(d.status as string)).length
 
-  // "Verified tutor - Lahore". `listed` is the fact that matters to a tutor
-  // and it is not the same as holding a badge: a complete, unsuspended profile
-  // is listed whatever the plan. The city is dropped rather than written as
-  // "unknown" -- a tutor who has not filled it in does not need telling on
-  // every visit, and the completion link above says so already.
-  const identityLine = [
-    // Visibility first, then the fee state (PR16 §1): a visible tutor who has not
-    // paid the fee appears in search but is "Not verified" until they do.
-    directoryListed ? (ent.verified ? 'Verified tutor' : 'Listed · not verified') : 'Not listed yet',
-    // City reads the SAME field the listing check uses — tutor_profiles.city
-    // (the tutor_directory `tp.city` condition, and what loadDirectoryStatus /
-    // matching read). NOT profiles.city: a value stored there but not on
-    // tutor_profiles made the header claim "Lahore" while the not-listed card
-    // said "add your city" (owner PR2 §2). The header shows a city only when the
-    // listing field is filled.
-    (tutorProfile?.city as string | null) || null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
+  const publicHref = directoryListed && tutorProfile?.slug ? `/tutor/${tutorProfile.slug}` : null
 
-  // The identity status line, for a tutor.
-  //
-  // loadIdentity reads the CNIC columns on `profiles` (cnic_verified_at /
-  // verification_state). For a tutor those are NOT the identity-approval fact:
-  // a tutor's identity is approved by the admin moderation decision, which lands
-  // on tutor_profiles.verification_status='verified' (video + CNIC + degree
-  // audit). So a verified tutor reads "Identity: Verified" here — regardless of
-  // whether the separate CNIC column was advanced, and regardless of image
-  // presence — which keeps the line from contradicting the Verified badge above
-  // it. This mirrors the parent dashboard, which overrides the same line from
-  // its own approval facts (cnic + address). Below 'verified', the CNIC-derived
-  // state stands.
-  const identityLineState =
-    tutorProfile?.verification_status === 'verified' ? 'approved' : identity.state
-
-  const things: ThingRow[] = [
-    {
-      key: 'applications',
-      label: 'My applications',
-      count: liveApps.length,
-      note: liveApps.length > 0 ? 'live' : undefined,
-      href: '/tutor/dashboard/applications',
-      icon: 'applications',
-    },
-    {
-      key: 'messages',
-      label: 'Messages',
-      count: unread,
-      note: 'unread',
-      href: '/tutor/dashboard/messages',
-      icon: 'messages',
-      highlight: unread > 0,
-    },
-    {
-      key: 'jobs',
-      label: 'Tuitions matching you',
-      count: matching.length,
-      href: '/tutor/dashboard/jobs',
-      icon: 'jobs',
-      highlight: matching.length > 0,
-    },
-    {
-      key: 'demos',
-      label: 'Demo requests',
-      count: liveDemos,
-      note: liveDemos > 0 ? 'live' : undefined,
-      href: '/tutor/dashboard/demos',
-      icon: 'demos',
-      highlight: liveDemos > 0,
-    },
-    {
-      key: 'views',
-      label: 'Profile views',
-      count: views.total,
-      href: tutorProfile?.slug ? `/tutor/${tutorProfile.slug}` : '/tutor/dashboard',
-      icon: 'views',
-    },
-    {
-      key: 'plan',
-      // The VALUE is the plan name, never "—" (owner PR5a §3.6): "Not verified"
-      // before the one-time fee, then "Basic" / "Premium" / "Featured". The label
-      // is "Plan" and the note carries the quota, so the tile reads plan-first.
-      label: 'Plan',
-      count: null,
-      display: ent.planName
-        ? ent.planName
-        : ent.pausedPlanName
-          ? ent.pausedPlanName
-          : feePaid
-            ? 'Basic'
-            : 'Not verified',
-      // "Unlimited" plans say Unlimited — never the real 100-cap counted down
-      // (that "99 applies left" was the bug). Numbered plans count down honestly.
-      note: ent.plan
-        ? isUnlimitedDisplay(ent.displayedQuota)
-          ? 'Unlimited applications'
-          : `${ent.quotaLeft} applies left`
-        : ent.planPaused
-          ? 'starts at 100%'
-          : undefined,
-      href: '/membership-plans?for=tutors',
-      icon: 'plan',
-    },
-  ]
+  // "What to do next": the visibility fixes (mobile, city, area, subjects,
+  // gender), then verify if the fee is unpaid, then any other actionable need
+  // (a rejected video, a missing degree, an expiring plan). De-duplicated by
+  // destination so the same tap is never listed twice.
+  const todoRaw: { key: string; label: string; href: string }[] = []
+  for (const f of listingFixItems(directory.blockers)) {
+    if (f.href) todoRaw.push({ key: f.key, label: f.label, href: f.href })
+  }
+  if (!ent.verified) {
+    todoRaw.push({ key: 'verify', label: 'Verify your account', href: '/tutor/complete-profile?step=verify' })
+  }
+  for (const n of needs) {
+    todoRaw.push({ key: n.id, label: n.title, href: n.action.href })
+  }
+  const seenHref = new Set<string>()
+  const todo = todoRaw.filter((t) => (seenHref.has(t.href) ? false : (seenHref.add(t.href), true)))
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mx-auto max-w-3xl space-y-5">
+      <div className="mx-auto max-w-4xl space-y-5">
         <Breadcrumbs items={[{ label: 'Tutor dashboard' }]} />
 
-        {/* Who this is, from the outside -- the same component the parent
-            dashboard uses. See IdentityBlock for why one and not two.
-
-            The "Share your verified badge" link sits here, in the header card,
-            beside "View your public profile" and only for a LISTED tutor. It is
-            an on-demand trigger: the share image (and its server render) happens
-            only when the dialog opens, never on dashboard load. */}
-        <IdentityBlock
+        {/* FIRST CARD (§1.2/§1.3): photo, name, city, status badges, plan + end
+            date (here only), and the two links. */}
+        <TutorHeaderCard
           name={session?.profile?.full_name ?? 'Your profile'}
           avatarUrl={session?.profile?.avatar_url ?? null}
-          // A badge is a "you are live" claim, so it shows only when the tutor is
-          // actually in the directory (migration 87), not on the fee flag alone.
+          city={city}
+          // A badge is a "you are live to parents" claim, so it shows only when
+          // the tutor is actually in the directory.
           badges={directoryListed ? ent.badges : []}
-          line={identityLine}
-          planNotice={planNotice}
+          verified={ent.verified}
+          planName={ent.planName ?? ent.pausedPlanName}
+          planExpiresAt={ent.expiresAt}
           completion={percent}
-          completionHref={
-            completion?.missing?.[0]
-              ? checklistHref('tutor', completion.missing[0])
-              : '/tutor/complete-profile'
-          }
-          // The completion PROMPT lives in the dedicated checklist below now, so
-          // the header shows only the ring (a glance) — no duplicated prompt.
-          showCompletionLink={false}
-          editHref={
-            // Only link to the public profile when the tutor is actually in the
-            // directory — an unlisted tutor's /tutor/<slug> 404s, and a slug alone
-            // is not enough (migration 87). Otherwise send them to edit.
-            directoryListed && tutorProfile?.slug
-              ? { label: 'View your public profile', href: `/tutor/${tutorProfile.slug}` }
-              : { label: 'Edit your profile', href: '/tutor/dashboard/settings' }
-          }
-          extra={
-            // The "share your verified badge" card only when the tutor is actually
-            // listed AND holds the Verified badge — sharing a page that is not in
-            // the directory would tell him he is live when he is not.
-            directoryListed && ent.badges.includes('Verified') && tutorProfile?.slug ? (
-              <ShareVerifiedBadge
-                profileUrl={absoluteUrl(`/tutor/${tutorProfile.slug}`)}
-                firstName={(session?.profile?.full_name ?? 'there').split(' ')[0]}
-              />
-            ) : undefined
-          }
+          settingsHref="/tutor/dashboard/settings"
+          publicHref={publicHref}
         />
 
-        {/* Not listed: the public page is not live to parents yet — say so and
-            offer the owner-only preview (§3.2). The header already carries "View
-            your public profile" for a LISTED tutor, so this shows only when not
-            listed. */}
-        {!directoryListed && tutorProfile?.slug && (
-          <PublicPageStatus slug={tutorProfile.slug} listed={false} />
-        )}
+        {/* The rest: one column on a phone, two on desktop. Each card hides
+            itself when it has nothing to show (§1.5). */}
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+          <WhatToDoNextCard items={todo} />
+          <TuitionsForYouCard jobs={weekJobs} canApply={ent.verified} />
+          <MessagesDemosCard unread={unread} demos={liveDemos} />
+          <MyApplicationsCard count={liveApps.length} />
+          {views.total > 0 && (
+            <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} listed={directoryListed} />
+          )}
+          <SavedJobsSection initial={savedJobs} viewerCity={city} appliedIds={appliedJobIds} />
+          <RecentActivityCard items={activity} unreadMessages={unread} />
+          <CvCard canDownload={canDownloadCv(ent)} />
+        </div>
 
-        {/* Not visible in the directory: name exactly what is missing (mobile,
-            city, area, subjects, gender), each a tap from the screen that fixes
-            it. The fee is NOT a visibility requirement (PR16 §1). Visibility only —
-            no promise of tuitions. */}
-        {!directoryListed && <NotListedNotice blockers={directory.blockers} />}
-
-        {/* Completion card, directly under the not-listed card: header →
-            not-listed → completion → everything else (owner PR2 §4.2). It lists
-            EVERY missing item — the percentage counts all items, so the list must
-            too; a 3-item subset beside "10 of 15 done" was the bug (owner PR2
-            §4.1). */}
-        {completion && percent < 100 && (
-          // "X of 16 done" (all 16 flow steps count) — but the four listing
-          // blockers already named in the not-listed card above are hidden from
-          // this list so they are not shown twice (owner PR5a §3.1, §3.2).
-          <ProfileCompletionWidget
-            percent={percent}
-            items={completion.items}
-            role="tutor"
-            hideKeys={['verify', 'city', 'subjects', 'phone']}
-          />
-        )}
-
-        {/* The admin-review outcome. The 'none' (Not submitted) state is not
-            shown (it would duplicate the checklist's CNIC item); 'submitted'
-            (Pending review) is not shown either — "CNIC being checked" now lives
-            on the not-listed card (owner PR5a §3.7). Only 'approved' / 'rejected'
-            render here. */}
-        {identityLineState !== 'none' && identityLineState !== 'submitted' && (
-          <IdentityStatusLine state={identityLineState} settingsHref="/tutor/dashboard/settings" />
-        )}
-
-        {/* ------------------------------------------- the 199 funnel ---
-            The "Who looked at you" teaser is the primary upsell surface and sits
-            immediately below the header — nothing is inserted above it (owner,
-            5 Sep 2026, superseding the earlier "Needs you first" band order).
-            The free-only position and matching-jobs cards are its funnel
-            siblings and stay grouped with it. */}
-        <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} listed={directoryListed} />
-
-        {free && position && (
-          // id, so the rank_dropped notification's button has somewhere to
-          // land: the fact is in the notification, the detail is here.
-          <section
-            id="position"
-            className="scroll-mt-24 space-y-1.5 rounded-2xl border border-gray-200 bg-white p-4"
-          >
-            <h2 className="flex items-center gap-2 text-xs font-black text-tm-navy">
-              <TrendingUp aria-hidden size={15} className="text-gray-500" />
-              Your position
-            </h2>
-            <p className="text-[11px] leading-relaxed text-slate-700">
-              You are <span className="font-black text-tm-navy">#{position.rank}</span> of{' '}
-              {position.total} for {position.subjectLabel}
-              {position.city ? ` in ${position.city}` : ''}.
-            </p>
-            {position.paidAbove > 0 && (
-              <p className="rounded-xl bg-tm-tint-gold p-2.5 text-[11px] font-bold leading-relaxed text-tm-gold-ink">
-                {position.paidAbove === 1
-                  ? 'One tutor above you is there because they are Verified.'
-                  : `${position.paidAbove} of the tutors above you are there because they are Verified.`}{' '}
-                Verified tutors appear above you.
-              </p>
-            )}
-          </section>
-        )}
-
-        {free && (
-          <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
-            <h2 className="text-xs font-black text-tm-navy">Jobs matching you this week</h2>
-            {weekJobs.length === 0 ? (
-              !tutorProfile?.city ? (
-                // No city → in-person tuitions are not matched (owner PR3 §2.2):
-                // point straight at the city field rather than "keep your city set".
-                <EmptyState
-                  icon={<TrendingUp aria-hidden size={18} />}
-                  title="Add your city to see tuitions near you."
-                  action={{ label: 'Add your city', href: '/tutor/dashboard/settings' }}
-                />
-              ) : (
-                <EmptyState
-                  icon={<TrendingUp aria-hidden size={18} />}
-                  title={
-                    'No new tuitions match your subjects and city this week.' +
-                    (directoryListed ? '' : ' You can browse all tuitions meanwhile.')
-                  }
-                  action={{ label: 'See all open tuitions', href: '/tutor/dashboard/jobs' }}
-                />
-              )
-            ) : (
-            <ul className="divide-y divide-gray-100">
-              {weekJobs.slice(0, 3).map((j) => (
-                <li key={j.id} className="flex items-center justify-between gap-3 py-2">
-                  <span className="min-w-0">
-                    <span className="block truncate text-[11px] font-bold text-tm-navy">
-                      {j.title}
-                    </span>
-                    <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
-                      <span className="truncate">
-                        {[j.area, j.city].filter(Boolean).join(', ') || 'Pakistan'}
-                      </span>
-                      {j.onlineSuitable && <OnlineSuitableChip />}
-                    </span>
-                    {/* Why this job is here, in one line. Matching is unchanged;
-                        this only names the shared subject and the location tie. */}
-                    <span className="block truncate text-[10px] font-semibold text-tm-green-deep">
-                      {j.matchReason}
-                    </span>
-                  </span>
-                  {/* A LISTED free tutor gets the real Apply button (the plan
-                      gate on their own tap). An UNLISTED tutor gets a plain
-                      "Finish profile to apply" link instead — the block is
-                      completion, not a plan, so no upgrade and no price. */}
-                  <ApplyFromStrip jobId={j.id} listed={listed} />
-                </li>
-              ))}
-            </ul>
-            )}
-          </section>
-        )}
-
-        {/* The separate "You are not listed yet" NEEDS YOU card is removed (owner
-            PR5a §3.3) — the not-listed card at the top already carries the
-            itemised steps, so this band shows only genuine pending work, and its
-            empty state never claims a not-listed profile is "live". */}
-        <NeedsYou
-          rows={needs}
-          emptyHint={
-            directoryListed
-              ? 'Your profile is live and parents can find you.'
-              : 'When something needs your attention, it will show here.'
-          }
-        />
-
-        {/* Your CV — the print-ready CV built from the profile. Preview is free
-            to every tutor; the download is Verified-gated (via the upsell). */}
-        <CvCard canDownload={canDownloadCv(ent)} />
-
-        {/* The tuitions this tutor saved — the mirror of the parents' shortlist.
-            Free, no plan; the heart on every job card feeds it. */}
-        <SavedJobsSection
-          initial={savedJobs}
-          viewerCity={(tutorProfile?.city as string | null) ?? null}
-          appliedIds={appliedJobIds}
-        />
-
-        <ActivityBand
-          items={activity}
-          unreadMessages={unread}
-          inboxHref="/tutor/dashboard/messages"
-          emptyHint="Nothing has happened yet. Applications, parent replies and demo requests will appear here."
-          emptyAction={{ label: 'See open tuitions', href: '/tutor/dashboard/jobs' }}
-        />
-
-        <YourThings rows={things} />
-
-        {/* The tutor-side steering CLAUDE.md asks to be persistent on this
-            page. One line, not a card: the full explanation sits with the job
-            cards on /tutor/dashboard/jobs, where it is being acted on. */}
-        <p className="flex items-start gap-2 text-[11px] leading-relaxed text-gray-500">
-          <Info aria-hidden size={13} className="mt-0.5 shrink-0" />
-          Only Featured parents can complete a hire. Every job card says which kind of parent posted
-          it, so you know before you spend an application.
-        </p>
-
-        {/* House and promo creatives only, per the revenue spec — tutors are
-            not sold to advertisers. */}
+        {/* House / promo creatives only (revenue spec) — a card, not loose text. */}
         <AdSlot slot="tutor-dashboard" audience="tutors" viewerRole="tutor" viewerPlan={ent.plan} />
       </div>
     </main>

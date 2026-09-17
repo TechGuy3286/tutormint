@@ -26,6 +26,7 @@ import {
   type PostStatus,
 } from '@/lib/blog'
 import { figureGate, promptLeakViolations, wordCount, BLOG_MIN_WORDS, type ConfirmedFigure } from '@/lib/ai/blogBrief'
+import { notesTopicMismatch } from '@/lib/ai/platformFacts'
 import { parseMarkdown } from '@/lib/markdown'
 import { slugify } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
@@ -211,6 +212,13 @@ export default function PostEditor({
     [post.body, post.sourceNotes, post.title, post.confirmedFigures, landingOptions],
   )
   const figureBlocked = figures.active && figures.untraced.length > 0
+
+  // PR17 §4.5 — a non-blocking warning when the fact notes name a subject/level
+  // different from this post's subject (notes left over from another post).
+  const notesWarning = useMemo(
+    () => notesTopicMismatch(post.sourceNotes, post.subject),
+    [post.sourceNotes, post.subject],
+  )
 
   const gate = canPublish({
     title: saved.current.title,
@@ -868,6 +876,13 @@ export default function PostEditor({
                   Add fact notes if you want figures in the post. With no notes, the draft is written with
                   no figures at all.
                 </p>
+                {/* PR17 §4.5 — warn (not block) when the notes look like they were
+                    left over from a different post's subject. */}
+                {notesWarning && (
+                  <p className="mt-1 rounded-lg bg-tm-tint-gold px-2.5 py-1.5 text-[11px] font-semibold text-tm-gold-ink">
+                    {notesWarning}
+                  </p>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <button

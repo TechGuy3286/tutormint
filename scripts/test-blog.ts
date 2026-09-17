@@ -416,3 +416,49 @@ test('invalidInternalLinks flags links that do not exist, allows static + live p
   // internalLinksIn strips the fragment and trailing slash.
   assert.deepEqual(internalLinksIn('[a](/faq#parents) [b](/blog/x/)'), ['/faq', '/blog/x'])
 })
+
+// ── PR17 §4.2/§4.3/§4.5 — extended contradiction, link rules, notes mismatch ──
+import {
+  contradictionViolations as cv17,
+  linkRuleViolations,
+  notesTopicMismatch,
+} from '../lib/ai/platformFacts'
+
+test('PR17 §4.2 contradiction: ranking/badge/all-checked/outcome claims flagged', () => {
+  assert.ok(cv17("TutorMint doesn't rank tutors by who pays more.").length > 0, 'ranking-not-paid')
+  assert.ok(cv17('A verified badge reflects actual checks, not a paid placement.').length > 0, 'badge-not-paid')
+  assert.ok(cv17("Before a tutor's profile goes live, TutorMint checks who they are.").length > 0, 'all-checked')
+  assert.ok(cv17('Post a job and start hearing from verified tutors directly.').length > 0, 'outcome')
+  // True statements are NOT flagged.
+  assert.deepEqual(cv17('Premium and Featured tutors rank higher in search.'), [])
+  assert.deepEqual(cv17('Unverified tutors can appear in search, marked Not verified.'), [])
+})
+
+test('PR17 §4.3 link rules', () => {
+  const good = [
+    'See our [membership plans](/membership-plans) and [questions and answers](/faq).',
+    'Read [our O Level guide](/blog/o-level-guide) and browse [Physics tutors](/browse/tutors).',
+  ].join('\n')
+  assert.deepEqual(linkRuleViolations(good, { hasPublishedPosts: true }), [], 'a well-formed post passes')
+
+  // Too few links.
+  assert.ok(linkRuleViolations('[faq](/faq)', { hasPublishedPosts: false }).some((s) => /3 to 5/.test(s)))
+
+  // Duplicate target.
+  const dup = '[a](/faq) [b](/faq) [c](/membership-plans) [d](/blog/x)'
+  assert.ok(linkRuleViolations(dup, { hasPublishedPosts: true }).some((s) => /only once/.test(s)))
+
+  // Wrong link text for a tuitions page.
+  const wrongText = '[tutors here](/browse/tuitions) [faq](/faq) [plans](/membership-plans) [post](/blog/x)'
+  assert.ok(linkRuleViolations(wrongText, { hasPublishedPosts: true }).some((s) => /open tuitions/.test(s)))
+
+  // Missing /faq.
+  const noFaq = '[plans](/membership-plans) [post](/blog/x) [tutors](/browse/tutors)'
+  assert.ok(linkRuleViolations(noFaq, { hasPublishedPosts: true }).some((s) => /\/faq/.test(s)))
+})
+
+test('PR17 §4.5 notes-topic mismatch warns on a foreign subject', () => {
+  assert.ok(notesTopicMismatch('O Level Physics fees in Lahore are Rs 8000', 'Mathematics'))
+  assert.equal(notesTopicMismatch('Grade 1-5 maths tips for parents', 'Mathematics'), null)
+  assert.equal(notesTopicMismatch('some notes', ''), null)
+})

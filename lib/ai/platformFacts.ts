@@ -24,18 +24,24 @@ export const PLATFORM_FACTS_TEXT = [
   '- TutorMint takes NO commission on what a tutor charges or a parent pays — "no commission, no middleman". This is NOT the same as "free": the verification fee and memberships are real charges. NEVER say TutorMint is free, charges nothing, has no fees, or is free to join.',
   '- No refunds on any payment.',
   '',
+  'RANKING AND BADGES (money DOES affect these — do not deny it):',
+  '- Premium and Featured tutors rank HIGHER in search than others; verified tutors rank above unverified ones. Payment DOES affect ranking. NEVER claim ranking ignores who pays, that TutorMint does not rank by payment, or that paying does not move a tutor up.',
+  '- The Verified badge comes WITH the one-time verification fee (paid) — it is not purely a reflection of unpaid checks. NEVER claim the badge is not tied to payment or is "not a paid placement".',
+  '',
   'WHAT IS CHECKED (verification):',
   '- Tutors are verified by identity documents (CNIC), a reviewed DEGREE certificate, and an introduction video reviewed by the team.',
   '- Parents are verified by CNIC and address.',
   '- EXPERIENCE, fees and subjects a tutor states are SELF-DECLARED and are NOT verified or reviewed. Never claim TutorMint checks, verifies or reviews a tutor’s experience.',
+  '- NOT every profile is checked before it is visible. UNVERIFIED tutors CAN appear in search (marked "Not verified"). NEVER claim TutorMint checks every tutor’s identity before their profile goes live, or that all visible tutors are verified.',
   '',
   'WHO CAN MESSAGE WHOM:',
   '- Any verified parent can message any tutor and request a free demo.',
-  '- A tutor can REPLY to parents and apply to tuitions once verified. Only a tutor on the Premium or Featured membership can START a conversation with a parent. A basic verified tutor cannot message parents first.',
+  '- A tutor can REPLY to parents and apply to tuitions once verified. Only a tutor on the Premium or Featured membership can START a conversation with a parent. A basic (verified) tutor cannot message parents first.',
+  '- Completing a HIRE needs a Featured PARENT. A verified (free) parent can message and request demos but cannot complete a hire.',
   '- Seeing a parent’s or tutor’s phone number is a paid power (Featured parent / Premium-or-higher tutor). Never claim ordinary verified tutors can contact parents directly.',
   '',
-  'OUTCOMES:',
-  '- TutorMint makes tutors visible to parents searching their subject and area. It does NOT promise tuitions, replies, income, or that anyone will "hear back quickly". Never promise or imply a fast reply, a guaranteed response, or a hire.',
+  'OUTCOMES (promise NONE of these):',
+  '- TutorMint makes tutors visible to parents searching their subject and area. It does NOT promise tuitions, replies, applications, income, hires, or that anyone will "hear back" or "hear from tutors directly". Never promise or imply a reply, a response, an application, a hire, or that a parent will start hearing from tutors.',
   '',
   'VISIBILITY:',
   '- A tutor appears in search once their mobile is verified and their city, area, subjects and gender are set. The Verified badge, ranking first, and applying require the one-time fee.',
@@ -78,6 +84,27 @@ const CONTRADICTIONS: FactRule[] = [
     // Claims ordinary/verified tutors can message/contact parents directly.
     test: /\b(verified tutors? can (directly )?(message|contact|call|reach)|tutors? can (directly )?contact parents|message parents directly)\b/i,
     why: 'Only Premium/Featured tutors can start a conversation with a parent; a basic verified tutor can only reply.',
+  },
+  {
+    // PR17 §4.2 — claims that ranking is NOT influenced by payment. Premium and
+    // Featured DO rank higher.
+    test: /\b((do(es)?\s?n'?t|does not|do not|never)\s+rank[^.]{0,40}\b(pay|paid|money|more)\b|rank(ing|ed)?[^.]{0,30}\b(is|are)?\s*(not|never)\b[^.]{0,20}\b(paid|pay|money)\b|not\s+(ranked|based on|about)[^.]{0,20}who pays|pay(ing)?\s+(more\s+)?(does not|doesn'?t|will not|won'?t)[^.]{0,20}\b(rank|move you|help you rank))/i,
+    why: 'Payment DOES affect ranking — Premium and Featured tutors rank higher, and verified tutors rank above unverified.',
+  },
+  {
+    // PR17 §4.2 — claims the Verified badge is NOT tied to payment.
+    test: /\b(verified )?badge\b[^.]{0,60}\b(not|never|isn'?t|is not)\b[^.]{0,30}\b(paid|pay for|purchase|bought|buy|money|paid placement)\b/i,
+    why: 'The Verified badge comes with the one-time verification fee — it is tied to a payment, not "checks only".',
+  },
+  {
+    // PR17 §4.2 — claims EVERY tutor is checked before their profile is visible.
+    test: /\b(before[^.]{0,50}\b(profile|tutor|they)[^.]{0,20}\b(goes?|going|is|become)\s+(live|visible|listed|public)[^.]{0,50}\b(check|verif|confirm)|(check|verif\w+|confirm\w*)[^.]{0,40}\bbefore[^.]{0,20}\b(profile|they|a tutor)[^.]{0,20}\b(goes?|going|is)\s+(live|visible|listed|public)|every (tutor|profile) is (checked|verified|vetted)|all (tutors|profiles) are (checked|verified|vetted) before)/i,
+    why: 'Not every profile is checked before it is visible — unverified tutors can appear in search, marked "Not verified".',
+  },
+  {
+    // PR17 §4.2 — outcome promises (hearing from tutors, guaranteed contact).
+    test: /\b((start|begin)\s+(hearing|to hear)\s+from[^.]{0,25}\btutors?\b|hear\s+(back\s+)?from[^.]{0,25}\btutors?\s+(directly|soon|quickly|fast)|you'?ll\s+(start\s+)?(hear|get)[^.]{0,25}\b(replies|responses|tutors|applications)\b)/i,
+    why: 'TutorMint promises visibility, not that a parent will hear from tutors or get replies.',
   },
 ]
 
@@ -122,4 +149,100 @@ export function invalidInternalLinks(body: string, allowed: string[]): string[] 
     ok.add(h)
   }
   return internalLinksIn(body).filter((h) => !ok.has(h))
+}
+
+// ─────────────────────────────────────────────────── link rules (§4.3) ──
+//
+// A post carries 3–5 internal links, each target at most once, with at least one
+// to a published blog post (when any exist), one to /membership-plans and one to
+// /faq, and the link TEXT must match the page type: a /tuitions page reads as
+// "open tuitions", a /browse/tutors page as "tutors". Enforced on publish.
+
+const LINK_TEXT_RE = /\[([^\]]+)\]\((\/[^)\s]+)\)/g
+
+type ParsedLink = { text: string; href: string }
+
+function parseLinks(body: string): ParsedLink[] {
+  const out: ParsedLink[] = []
+  for (const m of body.matchAll(LINK_TEXT_RE)) {
+    out.push({ text: m[1].trim(), href: (m[2].split('#')[0].replace(/\/$/, '') || '/') })
+  }
+  return out
+}
+
+// ─────────────────────────────────────── fact-notes topic warning (§4.5) ──
+//
+// Warn (not block) when the fact notes mention a SUBJECT or LEVEL that differs
+// from the post's own subject — the sign that notes from another post were left
+// behind (an O Level Physics note on a Grade 1–5 Maths post). Heuristic and
+// conservative; it only fires when the notes name a clearly different subject.
+
+const KNOWN_SUBJECTS = [
+  'physics', 'chemistry', 'biology', 'mathematics', 'maths', 'math', 'english',
+  'urdu', 'islamiat', 'computer', 'accounting', 'economics', 'statistics',
+  'history', 'geography', 'pak studies', 'science',
+]
+const KNOWN_LEVELS = ['o level', 'a level', 'o-level', 'a-level', 'matric', 'intermediate', 'inter', 'igcse']
+
+export function notesTopicMismatch(notes: string, subject: string | null | undefined): string | null {
+  const n = (notes ?? '').toLowerCase()
+  const s = (subject ?? '').trim().toLowerCase()
+  if (!n.trim() || !s) return null
+
+  // A subject the notes mention that is NOT the post's subject.
+  const foreignSubject = KNOWN_SUBJECTS.find((w) => n.includes(w) && !s.includes(w) && !subjectAlias(w, s))
+  if (foreignSubject) {
+    return `Your fact notes mention "${foreignSubject}", which is different from this post's subject ("${subject}"). Check the notes belong to this post.`
+  }
+  // A level the notes mention that is not in the post's subject or title context.
+  const foreignLevel = KNOWN_LEVELS.find((w) => n.includes(w) && !s.includes(w))
+  if (foreignLevel && KNOWN_LEVELS.some((w) => s.includes(w))) {
+    return `Your fact notes mention "${foreignLevel}", a different level from this post. Check the notes belong to this post.`
+  }
+  return null
+}
+
+/** Treat the maths spellings as one subject so "maths" ≠ foreign on a "Mathematics" post. */
+function subjectAlias(word: string, subject: string): boolean {
+  const maths = ['math', 'maths', 'mathematics']
+  if (maths.includes(word)) return maths.some((m) => subject.includes(m))
+  return false
+}
+
+export function linkRuleViolations(body: string, opts: { hasPublishedPosts: boolean }): string[] {
+  const links = parseLinks(body)
+  const v: string[] = []
+
+  // 3–5 links total.
+  if (links.length < 3) v.push(`Add more internal links — a post needs 3 to 5, this has ${links.length}.`)
+  if (links.length > 5) v.push(`Too many internal links — a post may have at most 5, this has ${links.length}.`)
+
+  // Each target at most once.
+  const counts = new Map<string, number>()
+  for (const l of links) counts.set(l.href, (counts.get(l.href) ?? 0) + 1)
+  for (const [href, n] of counts) {
+    if (n > 1) v.push(`Link the same page only once — "${href}" appears ${n} times.`)
+  }
+
+  const hrefs = new Set(links.map((l) => l.href))
+  if (opts.hasPublishedPosts && ![...hrefs].some((h) => h.startsWith('/blog/'))) {
+    v.push('Add one link to a published blog post.')
+  }
+  if (![...hrefs].some((h) => h === '/membership-plans')) v.push('Add one link to /membership-plans.')
+  if (![...hrefs].some((h) => h === '/faq')) v.push('Add one link to /faq.')
+
+  // Link text must match the page type.
+  for (const l of links) {
+    const isTuitions = l.href.startsWith('/tuitions/') || l.href === '/browse/tuitions'
+    const isTutors = l.href.startsWith('/tutors/') || l.href === '/browse/tutors'
+    const t = l.text.toLowerCase()
+    if (isTuitions && !/\b(tuition|open tuitions|job)\b/.test(t)) {
+      v.push(`Link text for a tuitions page should say "open tuitions" — "${l.text}" → ${l.href}`)
+    }
+    if (isTutors && !/\btutor/.test(t)) {
+      v.push(`Link text for a tutors page should say "tutors" — "${l.text}" → ${l.href}`)
+    }
+  }
+
+  return v
 }

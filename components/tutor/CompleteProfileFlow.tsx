@@ -972,10 +972,15 @@ function MobileStep({
             className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-tm-red px-4 text-sm font-black text-white disabled:opacity-40">
             <ShieldCheck size={16} aria-hidden /> Verify
           </button>
-          {/* PR16 §3 — no resend, no countdown, no self-service number change.
-              The support fallback is the way through if the code was lost or the
-              number was wrong. */}
-          <SupportBox support={support} title="No code, or wrong number?" />
+          {/* PR17 §3.1 — while the number is not yet verified the tutor can enter a
+              different one; sending to the new number cancels the old code. No
+              resend to the SAME number (one code, no countdown). */}
+          <button type="button" onClick={() => { setSent(false); setOtp('') }}
+            className="flex min-h-[44px] w-full items-center justify-center px-1 text-xs font-bold text-tm-navy hover:underline">
+            Use a different number
+          </button>
+          {/* The support fallback if the code was lost or the number is locked. */}
+          <SupportBox support={support} title="No code arriving?" />
         </>
       )}
     </div>

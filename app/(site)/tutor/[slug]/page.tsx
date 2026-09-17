@@ -14,6 +14,7 @@ import { tutorProfileNoindex } from '@/lib/planBadges'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import BadgeRow from '@/components/badges/BadgeRow'
+import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import ReportButton from '@/components/ReportButton'
@@ -737,21 +738,28 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               {tutor.headline && (
                 <p className="text-sm font-bold text-tm-green-deep">{tutor.headline}</p>
               )}
-              {/* A badge links to the FAQ entry that says what it means.
-                  "Verified" on a stranger's profile is a claim, and a claim a
-                  parent cannot check is worth very little. */}
-              {badges.length > 0 && (
-                <Link href="/faq#parents" className="inline-flex" aria-label="What the badges mean">
-                  <BadgeRow badges={badges} size="md" showLabel />
-                </Link>
-              )}
-              {/* PR16 §1.3 — a visible tutor who has not paid the verification fee
-                  reads "Not verified", the true state, rather than an absent badge. */}
-              {showNotVerified && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-500">
-                  Not verified
+              {/* PR17 §2 — the rating, the Verified/Premium/Featured badges and the
+                  red "Not verified" badge all sit on ONE line. A badge links to the
+                  FAQ entry that says what it means. The job-type chip is on its own
+                  line below. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="text-xs font-bold text-slate-700">
+                  {reviews > 0 ? (
+                    <>
+                      ★ {rating.toFixed(1)}{' '}
+                      <span className="font-normal text-gray-500">({reviews} reviews)</span>
+                    </>
+                  ) : (
+                    <span className="font-normal text-gray-500">New tutor · no reviews yet</span>
+                  )}
                 </span>
-              )}
+                {badges.length > 0 && (
+                  <Link href="/faq#parents" className="inline-flex" aria-label="What the badges mean">
+                    <BadgeRow badges={badges} size="md" showLabel />
+                  </Link>
+                )}
+                {showNotVerified && <NotVerifiedBadge />}
+              </div>
               {/* §3.3: the preview names the badges that will become true once
                   the tutor is listed, rather than showing them as if earned. */}
               {preview && wouldBeBadges.length > 0 && (
@@ -760,20 +768,6 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                 </p>
               )}
 
-              <p className="text-xs font-bold text-slate-700">
-                {reviews > 0 ? (
-                  <>
-                    ★ {rating.toFixed(1)}{' '}
-                    <span className="font-normal text-gray-500">({reviews} reviews)</span>
-                  </>
-                ) : (
-                  <span className="font-normal text-gray-500">No reviews yet</span>
-                )}
-              </p>
-
-              {/* Teaching mode, made prominent — it was a "· In person or
-                  online" tail on the city line below, easy to miss. Now its own
-                  chip, the same one the cards use. */}
               <JobTypesChip types={tutor.job_types} className="mt-0.5" />
 
               <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-2">

@@ -183,6 +183,21 @@ export async function sendOtp(opts: {
 
   const now = Date.now()
 
+  // ONE CODE PER ACCOUNT, ACROSS NUMBER CHANGES (PR17 §3.1). When a signed-in
+  // member changes the number they are verifying, the code for the OLD number is
+  // invalidated so a fresh one can go to the NEW number — otherwise the "one live
+  // code" rule below would keep reusing the stale code. Only for this user, and
+  // only their other-number codes of this purpose.
+  if (opts.userId) {
+    await admin
+      .from('phone_otps')
+      .update({ consumed_at: new Date().toISOString() })
+      .eq('user_id', opts.userId)
+      .eq('purpose', opts.purpose)
+      .neq('phone', opts.phone)
+      .is('consumed_at', null)
+  }
+
   // ONE CODE PER ACCOUNT, NO RESEND (PR16 §3.1). If a code already exists for this
   // number and purpose (unconsumed — whether still usable OR locked), send nothing
   // and tell the caller to use the one they have. A locked code is deliberately
