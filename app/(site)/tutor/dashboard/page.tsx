@@ -5,12 +5,11 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import CvCard from '@/components/tutor/CvCard'
 import SavedJobsSection from '@/components/tutor/SavedJobsSection'
 import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
-import { CountGrid, TuitionsForYouCard, type CountTile } from '@/components/tutor/DashboardCards'
+import { CountGrid, type CountTile } from '@/components/tutor/DashboardCards'
 
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { computeCompletion } from '@/lib/completion'
-import { checklistHref } from '@/lib/profileChecklist'
 import { getEntitlements } from '@/lib/entitlements'
 import { jobsThisWeek } from '@/lib/funnel'
 import { savedJobsForTutor } from '@/lib/jobFeed'
@@ -29,26 +28,6 @@ import { needsOnboarding } from '@/lib/onboardingGate'
 // keeps the floating WhatsApp button off the cards.
 
 export const dynamic = 'force-dynamic'
-
-// Plain, short, CAPITALISED "next step" wording per checklist item (§4.1).
-const NEXT_LABEL: Record<string, string> = {
-  verify: 'Get verified',
-  phone: 'Verify your mobile',
-  city: 'Add your city',
-  area: 'Add your area',
-  subjects: 'Add your subjects',
-  gender: 'Add your gender',
-  name: 'Add your name',
-  photo: 'Add your photo',
-  tagline: 'Add a tagline',
-  bio: 'Add your about-you',
-  experience: 'Add your experience',
-  fee: 'Add your fee',
-  mode: 'Add your job type',
-  degree: 'Add a degree',
-  cnic: 'Add your CNIC',
-  video: 'Add your video',
-}
 
 export default async function TutorDashboardPage() {
   const session = await getSessionUser()
@@ -85,12 +64,6 @@ export default async function TutorDashboardPage() {
   const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
   const publicHref = directoryListed && tutorProfile?.slug ? `/tutor/${tutorProfile.slug}` : null
 
-  // The first missing checklist item drives the profile card's completion line
-  // (§1.2 — this replaces the separate "What to do next" card).
-  const firstMissing = completion?.missing?.[0] ?? null
-  const nextStepLabel = firstMissing ? (NEXT_LABEL[firstMissing.key] ?? firstMissing.label) : null
-  const nextStepHref = firstMissing ? checklistHref('tutor', firstMissing) : '/tutor/complete-profile'
-
   const tiles: CountTile[] = [
     { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'green' },
     { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', href: '/tutor/dashboard/messages', tone: 'navy', highlight: unread > 0 },
@@ -105,7 +78,7 @@ export default async function TutorDashboardPage() {
       <div className="mx-auto w-full max-w-[480px] space-y-3">
         <Breadcrumbs items={[{ label: 'Tutor dashboard' }]} />
 
-        {/* 3.1 Profile card — everything about the tutor. */}
+        {/* 3.1 Profile card — minimal. */}
         <TutorHeaderCard
           name={session?.profile?.full_name ?? 'Your profile'}
           avatarUrl={session?.profile?.avatar_url ?? null}
@@ -113,24 +86,16 @@ export default async function TutorDashboardPage() {
           verified={ent.verified}
           planName={ent.planName}
           completion={percent}
-          nextStepLabel={nextStepLabel}
-          nextStepHref={nextStepHref}
-          viewsTotal={views.total}
-          canSeeViewers={ent.canSeeViewerIdentity}
-          settingsHref="/tutor/dashboard/settings"
           publicHref={publicHref}
         />
 
         {/* 3.2 Count tiles, two to a row. */}
         <CountGrid tiles={tiles} />
 
-        {/* 3.3 Tuitions for you. */}
-        <TuitionsForYouCard jobs={weekJobs} canApply={ent.verified} />
-
-        {/* 3.4 Your CV. */}
+        {/* 3.3 Your CV. */}
         <CvCard canDownload={canDownloadCv(ent)} />
 
-        {/* 3.5 Saved tuitions (hidden when empty; the count tile links here). */}
+        {/* 3.4 Saved tuitions (hidden when empty; the count tile links here). */}
         <div id="saved-tuitions" className="scroll-mt-3">
           <SavedJobsSection initial={savedJobs} viewerCity={city} appliedIds={appliedJobIds} />
         </div>
