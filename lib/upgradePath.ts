@@ -32,7 +32,7 @@ export function nextPlan(audience: Audience, currentPlan: string | null): string
 }
 
 export function packagesHref(audience: Audience, plan?: string | null): string {
-  const base = audience === 'tutor' ? '/tutor/packages' : '/parent/packages'
+  const base = audience === 'tutor' ? '/packages?for=tutors' : '/packages?for=parents'
   return plan ? `${base}?plan=${encodeURIComponent(plan)}` : base
 }
 

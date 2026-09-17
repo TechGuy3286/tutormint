@@ -6,6 +6,7 @@ import { rebuildContentQueue } from '@/lib/contentQueue/build'
 import { deliverContentDigest } from '@/lib/contentQueue/digest'
 import { runConversionSweep } from '@/lib/conversionSweep'
 import { expirePendingSignups } from '@/lib/pendingSignup'
+import { sweepAbandonedVideos } from '@/lib/videoCleanup'
 
 // Daily subscription sweep: remind at T-3, expire at zero.
 //
@@ -70,6 +71,14 @@ async function handle(request: Request) {
   // correctness; wrapped so a sweep error cannot fail the billing sweep.
   const pending = await expirePendingSignups().catch((e) => ({ deleted: 0, error: String(e) }))
 
+  // Abandoned YouTube introduction placeholders (owner PR13 §2.2): delete our
+  // "processing" intro videos older than 24h that no tutor record points at.
+  // Wrapped like the others; a YouTube error must not fail the billing sweep,
+  // and it no-ops cleanly when YOUTUBE_* is unset.
+  const videos = await sweepAbandonedVideos().catch(
+    (e) => ({ ok: false, scanned: 0, deleted: 0, failed: 0, error: String(e) }),
+  )
+
   // Errors are reported, not swallowed: a sweep that silently half-ran is how
   // a member keeps a plan they stopped paying for.
   const errors = [
@@ -88,6 +97,7 @@ async function handle(request: Request) {
       digest,
       conversion,
       pending,
+      videos,
     },
     { status },
   )

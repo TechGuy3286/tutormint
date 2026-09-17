@@ -158,27 +158,29 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   const q = one(sp.q)
   const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
 
-  // §4.1: a committed free-text query (a misspelling or a Roman-Urdu spelling)
-  // resolves to the subject the typeahead would suggest, and we filter by THAT
-  // subject rather than a literal title match that finds nothing. Only when no
-  // explicit subject is already chosen.
+  // §4.1/§3: a committed free-text query (a misspelling or a Roman-Urdu
+  // spelling) resolves to the subject the typeahead would suggest, ACROSS EVERY
+  // LEVEL of it (or to one level when the query names one), and we filter by
+  // those masters rather than a literal title match that finds nothing. Only
+  // when no explicit subject is already chosen.
   let resolvedLabel: string | null = null
-  let effectiveMasterId = subjectId
+  let resolvedMasterIds: number[] | null = null
   if (!subjectId && q) {
     const resolved = await resolveSubjectQuery(q, city || null)
     if (resolved) {
-      effectiveMasterId = resolved.masterId
+      resolvedMasterIds = resolved.masterIds
       resolvedLabel = resolved.label
     }
   }
 
   const filters: JobFilters = {
-    masterId: effectiveMasterId,
+    masterId: subjectId,
+    masterIds: resolvedMasterIds,
     city: city || null,
     mode: mode || null,
     budgetMin: intOrNull(budgetMin),
     budgetMax: intOrNull(budgetMax),
-    // When the query resolved to a subject, the literal title filter is dropped
+    // When the query resolved to subject(s), the literal title filter is dropped
     // (it would AND with the subject and empty the board again).
     q: resolvedLabel ? null : q || null,
   }

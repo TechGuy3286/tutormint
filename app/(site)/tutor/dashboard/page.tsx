@@ -274,7 +274,7 @@ export default async function TutorDashboardPage() {
         : ent.planPaused
           ? 'starts at 100%'
           : undefined,
-      href: '/tutor/packages',
+      href: '/packages?for=tutors',
       icon: 'plan',
     },
   ]

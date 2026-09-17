@@ -295,10 +295,10 @@ export async function parentNeeds({
     }
   }
 
-  const expiring = expiryRow(ent, '/parent/packages')
+  const expiring = expiryRow(ent, '/packages?for=parents')
   if (expiring) rows.push(expiring)
 
-  const lapsed = await lapsedPlanRow(userId, ent, '/parent/packages?plan=parent_featured')
+  const lapsed = await lapsedPlanRow(userId, ent, '/packages?for=parents&plan=parent_featured')
   if (lapsed) rows.push(lapsed)
 
   return rows
@@ -419,10 +419,10 @@ export async function tutorNeeds({
     })
   }
 
-  const expiring = expiryRow(ent, '/tutor/packages')
+  const expiring = expiryRow(ent, '/packages?for=tutors')
   if (expiring) rows.push(expiring)
 
-  const lapsed = await lapsedPlanRow(userId, ent, '/tutor/packages?plan=verified')
+  const lapsed = await lapsedPlanRow(userId, ent, '/packages?for=tutors&plan=verified')
   if (lapsed) rows.push(lapsed)
 
   // Quantified, NON-BLOCKING prompts (owner rule 5, 10 Sep 2026). These replace

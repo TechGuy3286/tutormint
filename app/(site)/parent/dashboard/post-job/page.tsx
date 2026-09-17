@@ -77,7 +77,7 @@ export default async function PostJobPage() {
               the start of next month, or Featured raises it.
             </p>
             <Link
-              href="/parent/packages?plan=parent_featured"
+              href="/packages?for=parents&plan=parent_featured"
               className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
             >
               <CreditCard aria-hidden size={14} />

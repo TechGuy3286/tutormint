@@ -3,6 +3,7 @@ import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { encodeCursor, decodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
+import { resolveSubjectQuery } from '@/lib/searchResolve'
 import type { TutorCardData } from '@/components/TutorCard'
 
 // The one place /browse/tutors is queried, shared by the page and the
@@ -106,15 +107,32 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
   const supabase = await createClient()
   const after = decodeCursor<TutorCursor>(cursor)
 
+  // A free-text query with no explicit subject resolves to subject master(s) —
+  // ACROSS EVERY LEVEL of the subject (owner PR13 §3) — and filters by them via
+  // p_master_ids, rather than being passed as p_query (a NAME match that finds
+  // no tutor for a subject typo like "hisab"). Done here so the page's first
+  // window and the load-more route (both call rankedTutors with the same `q`)
+  // resolve identically.
+  let masterIds: number[] | null = filters.masterId != null ? [filters.masterId] : null
+  let queryText = filters.q || null
+  if ((!masterIds || masterIds.length === 0) && filters.q) {
+    const resolved = await resolveSubjectQuery(filters.q, filters.city || null)
+    if (resolved) {
+      masterIds = resolved.masterIds
+      queryText = null
+    }
+  }
+
   const { data, error } = await supabase.rpc('rank_tutors', {
-    p_master_id: filters.masterId,
+    p_master_id: null,
+    p_master_ids: masterIds && masterIds.length > 0 ? masterIds : null,
     p_city: filters.city || null,
     p_area: filters.area || null,
     p_teaching_mode: filters.mode || null,
     p_gender: filters.gender || null,
     p_fee_min: intOrNull(filters.feeMin),
     p_fee_max: intOrNull(filters.feeMax),
-    p_query: filters.q || null,
+    p_query: queryText,
     p_limit: limit,
     // A cursor and an offset are two answers to the same question, so a
     // request carrying a cursor never also skips rows.

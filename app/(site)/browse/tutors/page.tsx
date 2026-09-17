@@ -183,18 +183,15 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   // changes underneath a reader. See supabase/migrations/32.
   const listFilters = tutorFiltersFrom((k) => one(sp[k]))
 
-  // §4.1/§4.4: a committed misspelled/Roman-Urdu query ("hisab" → Mathematics)
-  // resolves to the subject the typeahead would suggest, and filters by it —
-  // rank_tutors' p_query is a name match, so a subject typo otherwise found
-  // nobody. Only when no explicit subject is already chosen.
+  // §4.1/§4.4/§3: a committed misspelled/Roman-Urdu query ("hisab" → Mathematics)
+  // resolves to the subject the typeahead would suggest, across EVERY level, and
+  // filters by it — the resolution itself happens inside rankedTutors (so the
+  // first window and load-more agree); here we only compute the label for the
+  // "Showing results for …" line.
   let resolvedLabel: string | null = null
   if (!listFilters.masterId && listFilters.q) {
     const resolved = await resolveSubjectQuery(listFilters.q, city || null)
-    if (resolved) {
-      listFilters.masterId = resolved.masterId
-      listFilters.q = ''
-      resolvedLabel = resolved.label
-    }
+    if (resolved) resolvedLabel = resolved.label
   }
 
   const { tutors, total, nextCursor, error } = await rankedTutors({

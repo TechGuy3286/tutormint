@@ -1,5 +1,4 @@
 import { google } from 'googleapis';
-import fs from 'fs';
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.YOUTUBE_CLIENT_ID,
@@ -17,47 +16,12 @@ const youtube = google.youtube({
   auth: oauth2Client,
 });
 
-export async function uploadVideoToDrafts({
-  filePath,
-  title,
-  description,
-}: {
-  filePath: string;
-  title: string;
-  description: string;
-}) {
-  try {
-    const response = await youtube.videos.insert({
-      part: ['snippet', 'status'],
-      requestBody: {
-        snippet: {
-          title: title || 'Tutor Introduction Video',
-          description: description || 'Uploaded securely via TutorMint platform for review.',
-          categoryId: '27', // Education category ID
-        },
-        status: {
-          privacyStatus: 'private', // Keeps it hidden as a Draft in YouTube Studio!
-          selfDeclaredMadeForKids: false,
-        },
-      },
-      media: {
-        body: fs.createReadStream(filePath),
-      },
-    });
+// The prefix EVERY introduction placeholder carries (owner PR6 §1.3 / PR13 §2.3):
+// "TutorMint intro — <short id>", no member name. The cleanup uses it as a guard
+// so it only ever removes videos this platform created, never anything else on
+// the channel.
+export const INTRO_TITLE_PREFIX = 'TutorMint intro'
 
-    return {
-      success: true,
-      videoId: response.data.id,
-      videoUrl: `https://www.youtube.com/watch?v=${response.data.id}`,
-    };
-  } catch (error: any) {
-    console.error('YouTube Upload Error:', error.message);
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
-}
 /**
  * Change a tutor video's privacy on YouTube.
  *
@@ -253,5 +217,122 @@ export async function setVideoVisibility(
   } catch (error: any) {
     console.error('YouTube visibility error:', error.message);
     return { success: false, error: error.message };
+  }
+}
+
+/** Delete a video from the channel. Never throws — a failed delete is logged and
+ *  reported, so a cleanup pass carries on with the rest. */
+export async function deleteVideo(videoId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!youtubeConfigured()) return { ok: false, error: 'YouTube API credentials are not set.' }
+  try {
+    await youtube.videos.delete({ id: videoId })
+    return { ok: true }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown'
+    console.error(`[video] delete ${videoId} failed: ${message}`)
+    return { ok: false, error: message }
+  }
+}
+
+type ChannelVideo = {
+  id: string
+  title: string
+  uploadStatus: string | null
+  publishedAt: string | null
+}
+
+/**
+ * Every video on our own channel's uploads playlist, with the fields the cleanup
+ * needs. Pages through the playlist. Empty on any error (logged), so a cleanup
+ * failure never deletes on incomplete data.
+ */
+async function listChannelUploads(): Promise<ChannelVideo[]> {
+  const ch = await youtube.channels.list({ part: ['contentDetails'], mine: true })
+  const uploads = ch.data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
+  if (!uploads) return []
+
+  const ids: string[] = []
+  let pageToken: string | undefined
+  do {
+    const page = await youtube.playlistItems.list({
+      part: ['contentDetails'],
+      playlistId: uploads,
+      maxResults: 50,
+      pageToken,
+    })
+    for (const it of page.data.items ?? []) {
+      const id = it.contentDetails?.videoId
+      if (id) ids.push(id)
+    }
+    pageToken = page.data.nextPageToken ?? undefined
+  } while (pageToken)
+
+  const out: ChannelVideo[] = []
+  for (let i = 0; i < ids.length; i += 50) {
+    const batch = ids.slice(i, i + 50)
+    const res = await youtube.videos.list({ part: ['snippet', 'status'], id: batch })
+    for (const v of res.data.items ?? []) {
+      out.push({
+        id: v.id ?? '',
+        title: v.snippet?.title ?? '',
+        uploadStatus: v.status?.uploadStatus ?? null,
+        publishedAt: v.snippet?.publishedAt ?? null,
+      })
+    }
+  }
+  return out
+}
+
+/**
+ * Delete abandoned introduction placeholders (owner PR13 §2.2).
+ *
+ * A tutor's resumable upload that never completes leaves a "processing"
+ * placeholder on the channel ("Processing will begin shortly"). This removes
+ * every channel video that:
+ *   - carries OUR intro title prefix (so nothing else on the channel is touched);
+ *   - is NOT pointed at by any tutor record (`keepIds` — tutor_profiles.video_youtube_id);
+ *   - AND (for the daily sweep) is older than `olderThanHours`, so a legitimate
+ *     upload in progress right now is never caught.
+ *
+ * A recorded/approved video always has a matching tutor record, so it is kept
+ * whatever its YouTube status. Returns what it removed; never throws.
+ */
+export async function cleanupAbandonedVideos(params: {
+  keepIds: Set<string>
+  olderThanHours: number
+  /** Restrict to titles containing this (a tutor's id prefix) — for the
+   *  immediate per-tutor abandon; omitted for the channel-wide daily sweep. */
+  titleContains?: string
+}): Promise<{ ok: boolean; scanned: number; deleted: string[]; failed: string[]; error?: string }> {
+  if (!youtubeConfigured()) {
+    return { ok: false, scanned: 0, deleted: [], failed: [], error: 'YouTube API credentials are not set.' }
+  }
+  try {
+    const videos = await listChannelUploads()
+    const cutoff = Date.now() - params.olderThanHours * 3600_000
+    const deleted: string[] = []
+    const failed: string[] = []
+
+    for (const v of videos) {
+      if (!v.id) continue
+      // Only our own intro placeholders — never anything else on the channel.
+      if (!v.title.startsWith(INTRO_TITLE_PREFIX)) continue
+      // A tutor record points at it → it is a real, kept video.
+      if (params.keepIds.has(v.id)) continue
+      // Per-tutor abandon scoping.
+      if (params.titleContains && !v.title.includes(params.titleContains)) continue
+      // Age guard (0 for the immediate abandon).
+      const published = v.publishedAt ? Date.parse(v.publishedAt) : 0
+      if (params.olderThanHours > 0 && published && published > cutoff) continue
+
+      const res = await deleteVideo(v.id)
+      if (res.ok) deleted.push(v.id)
+      else failed.push(v.id)
+    }
+    return { ok: true, scanned: videos.length, deleted, failed }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown'
+    console.error('[video] cleanupAbandonedVideos failed:', message)
+    return { ok: false, scanned: 0, deleted: [], failed: [], error: message }
   }
 }

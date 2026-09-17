@@ -43,7 +43,7 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
 
   const instructions = await manualInstructions()
   const methods = availableMethods(instructions)
-  const packagesHref = plan?.audience === 'tutor' ? '/tutor/packages' : '/parent/packages'
+  const packagesHref = plan?.audience === 'tutor' ? '/packages?for=tutors' : '/packages?for=parents'
   // The one-time verification fee (plan_code 'verified') is not a 30-day plan.
   // Its price and the "one-time · non-refundable" line live HERE, on the payment
   // page — moved off the apply-gate popup and the packages page (owner, 15 Sep).

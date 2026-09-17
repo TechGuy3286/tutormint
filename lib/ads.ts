@@ -61,7 +61,7 @@ const HOUSE_ADS: Record<AdAudience, HouseAd[]> = {
       title: 'See tutor contact details instantly',
       body: 'Featured parents view phone and WhatsApp, message any tutor, and complete hires.',
       cta: 'See parent packages',
-      href: '/parent/packages?plan=parent_featured',
+      href: '/packages?for=parents&plan=parent_featured',
       plan: 'parent_featured',
     },
     {
@@ -81,7 +81,7 @@ const HOUSE_ADS: Record<AdAudience, HouseAd[]> = {
       title: 'Reach the top of every search',
       body: 'Featured tutors rank above Premium and Verified, and see who is looking for them.',
       cta: 'See tutor packages',
-      href: '/tutor/packages?plan=featured',
+      href: '/packages?for=tutors&plan=featured',
       plan: 'featured',
     },
     {
@@ -90,7 +90,7 @@ const HOUSE_ADS: Record<AdAudience, HouseAd[]> = {
       title: 'Message parents first',
       body: 'Premium lets you start the conversation instead of waiting to be found.',
       cta: 'See tutor packages',
-      href: '/tutor/packages?plan=premium',
+      href: '/packages?for=tutors&plan=premium',
       plan: 'premium',
     },
   ],

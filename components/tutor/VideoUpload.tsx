@@ -1,7 +1,7 @@
 'use client'
 
 import { AlertCircle, CheckCircle2, RefreshCw, UploadCloud, Video } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // Direct introduction-video upload (PR 3b §4).
 //
@@ -95,6 +95,11 @@ export default function VideoUpload({
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const fileRef = useRef<File | null>(null)
+  // The resumable session URL for the CURRENT file. A RETRY reuses it, so a
+  // failed attempt does not mint a second placeholder on the channel (owner PR13
+  // §2.1). Cleared when the upload completes (nothing to clean) or when a new
+  // file is picked (the old placeholder is abandoned first).
+  const sessionUrlRef = useRef<string | null>(null)
   const [attempts, setAttempts] = useState(initialAttempts)
   const [status, setStatus] = useState(initialStatus)
   const [phase, setPhase] = useState<Phase>('idle')
@@ -105,6 +110,34 @@ export default function VideoUpload({
   const left = Math.max(0, maxAttempts - attempts)
   const locked = attempts >= maxAttempts
   const busy = phase === 'preparing' || phase === 'uploading' || phase === 'recording'
+
+  // Best-effort: delete the placeholder our resumable session left on the
+  // channel when we give up on it (a new file, or the tab closing). The server
+  // only ever removes this tutor's own unrecorded intro placeholders (owner
+  // PR13 §2.2). keepalive so it survives a navigation.
+  function abandonSession() {
+    if (!sessionUrlRef.current) return
+    sessionUrlRef.current = null
+    try {
+      void fetch('/api/tutor/video/abandon', { method: 'POST', keepalive: true }).catch(() => {})
+    } catch {
+      /* nothing more to do */
+    }
+  }
+
+  // The daily sweep is the backstop; this cleans up promptly when the tab closes
+  // mid-upload.
+  useEffect(() => {
+    return () => {
+      if (sessionUrlRef.current) {
+        try {
+          navigator.sendBeacon?.('/api/tutor/video/abandon')
+        } catch {
+          /* best effort */
+        }
+      }
+    }
+  }, [])
 
   function pick(file: File | null | undefined) {
     if (!file) return
@@ -117,6 +150,9 @@ export default function VideoUpload({
       setError(`That video is ${prettyBytes(file.size)}. The limit is ${Math.round(MAX_BYTES / MB)} MB.`)
       return
     }
+    // A new file abandons any previous session's placeholder before minting a
+    // fresh one.
+    abandonSession()
     fileRef.current = file
     setPicked({ name: file.name, size: file.size })
     setPhase('idle')
@@ -124,29 +160,38 @@ export default function VideoUpload({
     void upload(file)
   }
 
-  async function upload(file: File) {
+  // `reuse` is set by RETRY: it re-sends to the SAME resumable session, so a
+  // failed attempt is not a new placeholder on the channel (owner PR13 §2.1).
+  async function upload(file: File, reuse = false) {
     setError(null)
     setProgress(0)
     setPhase('preparing')
     try {
-      // 1. Mint the session.
-      const sRes = await fetch('/api/tutor/video/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contentType: file.type || 'video/mp4', size: file.size, fileName: file.name }),
-      })
-      const sJson = await sRes.json().catch(() => ({}))
-      if (!sRes.ok || !sJson.uploadUrl) {
-        throw new Error(
-          sJson.unavailable
-            ? 'Video upload is temporarily unavailable — please try again later. Nothing was recorded.'
-            : (sJson.error ?? 'Could not start the upload.'),
-        )
+      // 1. The resumable session: reuse the existing one on retry, otherwise
+      //    mint it now — only when the file is about to be sent, never on
+      //    picker-open (owner PR13 §2.1).
+      let uploadUrl = reuse ? sessionUrlRef.current : null
+      if (!uploadUrl) {
+        const sRes = await fetch('/api/tutor/video/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contentType: file.type || 'video/mp4', size: file.size, fileName: file.name }),
+        })
+        const sJson = await sRes.json().catch(() => ({}))
+        if (!sRes.ok || !sJson.uploadUrl) {
+          throw new Error(
+            sJson.unavailable
+              ? 'Video upload is temporarily unavailable — please try again later. Nothing was recorded.'
+              : (sJson.error ?? 'Could not start the upload.'),
+          )
+        }
+        uploadUrl = sJson.uploadUrl as string
+        sessionUrlRef.current = uploadUrl
       }
 
       // 2. Upload the bytes straight to Google, with progress.
       setPhase('uploading')
-      const videoId = await putVideo(sJson.uploadUrl as string, file, setProgress)
+      const videoId = await putVideo(uploadUrl, file, setProgress)
 
       // 3. Record the result (verified server-side).
       setPhase('recording')
@@ -160,6 +205,9 @@ export default function VideoUpload({
         throw new Error(rJson.error ?? 'The video uploaded but could not be recorded. Please try again.')
       }
 
+      // Completed and recorded — the video now belongs to a tutor record, so
+      // there is no placeholder to clean.
+      sessionUrlRef.current = null
       setAttempts(rJson.attempt ?? attempts + 1)
       setStatus('uploaded')
       setPhase('done')
@@ -172,7 +220,7 @@ export default function VideoUpload({
 
   function retry() {
     const f = fileRef.current
-    if (f) void upload(f)
+    if (f) void upload(f, true)
   }
 
   if (locked) {

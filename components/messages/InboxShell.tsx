@@ -118,7 +118,7 @@ export default async function InboxShell({
                 start a conversation yourself.
               </p>
               <Link
-                href="/tutor/packages?plan=premium"
+                href="/packages?for=tutors&plan=premium"
                 className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
               >
                 <Zap aria-hidden size={14} />

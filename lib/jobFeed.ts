@@ -31,6 +31,7 @@ import { collapseLevels } from '@/lib/levelDisplay'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
+import { resolveSubjectQuery } from '@/lib/searchResolve'
 import { TEAM_DISPLAY_NAME } from '@/lib/teamAccount'
 import type { JobCardData } from '@/components/JobCard'
 
@@ -315,6 +316,10 @@ export async function matchingJobsForTutor(
 
 export type JobFilters = {
   masterId: number | null
+  /** A set of subject masters to match ANY of — how a resolved query filters
+   *  across every level of a subject (owner PR13 §3). When set it wins over
+   *  masterId; when both are null, a free-text `q` is resolved here. */
+  masterIds?: number[] | null
   city: string | null
   mode: string | null
   budgetMin: number | null
@@ -369,12 +374,27 @@ export async function browseJobs(
 ): Promise<{ jobs: JobCardData[]; total: number; nextCursor: string | null }> {
   const supabase = await createClient()
 
+  // The subject master(s) to filter by. An explicit ?subject= is one master; a
+  // resolved query is every level of the subject (owner PR13 §3). When neither
+  // is given but there is free text, resolve it HERE — so the page's first
+  // window and MoreJobs' later windows filter on the same set, and a
+  // misspelling ("hisab") lands on Mathematics rather than a literal title match.
+  let masterIds = filters.masterIds ?? (filters.masterId != null ? [filters.masterId] : null)
+  let literalQ = filters.q
+  if ((!masterIds || masterIds.length === 0) && filters.q) {
+    const resolved = await resolveSubjectQuery(filters.q, filters.city)
+    if (resolved) {
+      masterIds = resolved.masterIds
+      literalQ = null
+    }
+  }
+
   let matchingIds: string[] | null = null
-  if (filters.masterId) {
+  if (masterIds && masterIds.length > 0) {
     const { data: links } = await supabase
       .from('job_subjects')
       .select('job_id')
-      .eq('master_id', filters.masterId)
+      .in('master_id', masterIds)
     matchingIds = Array.from(new Set((links ?? []).map((l) => l.job_id as string)))
     if (matchingIds.length === 0) return { jobs: [], total: 0, nextCursor: null }
   }
@@ -391,7 +411,7 @@ export async function browseJobs(
     }
     if (filters.budgetMin !== null) q = q.gte('budget_pkr', filters.budgetMin)
     if (filters.budgetMax !== null) q = q.lte('budget_pkr', filters.budgetMax)
-    if (filters.q) q = q.ilike('title', `%${filters.q}%`)
+    if (literalQ) q = q.ilike('title', `%${literalQ}%`)
     return q
   }
 

@@ -40,7 +40,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // NOT listed here, deliberately (owner, 9 Sep 2026): /register is disallowed
     // in robots.ts and noindexed by its own layout — a signup page with no unique
     // content is not an organic-search target, so the sitemap must not advertise a
-    // URL the crawler is told not to fetch. /tutor/packages and /parent/packages
+    // URL the crawler is told not to fetch. /packages?for=tutors and /packages?for=parents
     // are reachable by a member's own click but are price/conversion pages, not
     // organic content, so they are excluded here — but the exclusion alone is
     // NOT the control: Footer.tsx links both sitewide and /about links them in

@@ -1,27 +1,25 @@
 import Link from 'next/link'
-import { Check, ShieldCheck, X } from 'lucide-react'
+import { Check, ShieldCheck } from 'lucide-react'
 import BadgeRow from '@/components/badges/BadgeRow'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import type { BadgeName } from '@/lib/planBadges'
 import BuyButton from '@/components/packages/BuyButton'
 import { formatDate } from '@/lib/datetime'
 
-// The plan matrix, rendered from the `plans` table.
+// The plan matrix, rendered from the `plans` table (owner PR12/§1.2).
 //
 // Prices, quotas and powers are read from the database rather than written
 // here, so what a member is shown and what lib/entitlements.ts actually grants
-// come from the same row and cannot drift. If the owner changes a plan in SQL,
-// this page changes with it.
+// come from the same row and cannot drift. Every card's per-plan facts — its
+// price, its quota, and which of the columns below it has — come from the plan
+// row; the only strings in this file are the LABELS that describe a column
+// (what "can_view_contact" means in words) and a tiny set of universal
+// free-tier truths the plans table has no column for (browse, reply, CV).
 //
-// Two things this component is careful about:
-//
-//   * The quota line shows the plan's own words -- "Unlimited" for the 100
-//     cap -- because that is what was sold. The real cap is not hidden from
-//     the member who hits it: lib/quota.ts tells them the actual number.
-//
-//   * Activation timing is never overstated. A gateway purchase is instant; a
-//     bank transfer is "usually within a few hours" and says so. CLAUDE.md is
-//     explicit that manual transfers must never be described as live.
+// THE DELTA MODEL (owner PR13 §1.4/§1.5). The free card lists its own features;
+// every paid card leads with "Everything in <free>, plus:" and lists ONLY what
+// it adds over the free tier — so no free feature ever reads as missing on a
+// paid card, and the additions are computed from the columns, never typed.
 
 export type PlanRow = {
   code: string
@@ -39,13 +37,46 @@ export type PlanRow = {
   tag_label: string | null
 }
 
+// A comparable feature. `level` is a magnitude read from the plan row (a boolean
+// as 0/1, a quota as its number, ranking as search_rank); a paid plan lists a
+// feature when its level exceeds the free plan's, and the free card lists every
+// feature whose level is above zero. `label` reads the plan's own value (so the
+// quota line says "10" on Basic and "Unlimited" on Premium — from the row).
+type Feature = { label: (p: PlanRow) => string; level: (p: PlanRow) => number }
+
+const quota = (p: PlanRow) => p.displayed_quota ?? String(p.monthly_quota)
+
+const TUTOR_FEATURES: Feature[] = [
+  { label: (p) => `Apply to ${quota(p)} tuitions a month`, level: (p) => p.monthly_quota },
+  { label: () => 'Start a conversation with any parent', level: (p) => (p.can_initiate_message ? 1 : 0) },
+  { label: () => 'See parent phone & WhatsApp', level: (p) => (p.can_view_contact ? 1 : 0) },
+  { label: () => 'WhatsApp parents with one tap', level: (p) => (p.can_whatsapp ? 1 : 0) },
+  { label: () => 'See who viewed your profile', level: (p) => (p.can_see_viewer_identity ? 1 : 0) },
+  { label: (p) => rankWords('tutor', p.search_rank), level: (p) => p.search_rank },
+  { label: (p) => `Incoming hiring & demo requests — ${quota(p)} a month`, level: (p) => p.monthly_quota },
+]
+
+const PARENT_FEATURES: Feature[] = [
+  { label: (p) => `Post ${quota(p)} tuitions a month`, level: (p) => p.monthly_quota },
+  { label: () => 'Message any tutor', level: (p) => (p.can_initiate_message ? 1 : 0) },
+  { label: () => 'See tutor phone & WhatsApp', level: (p) => (p.can_view_contact ? 1 : 0) },
+  { label: () => 'WhatsApp tutors with one tap', level: (p) => (p.can_whatsapp ? 1 : 0) },
+  { label: () => 'Complete a hire', level: (p) => (p.can_hire ? 1 : 0) },
+  { label: (p) => rankWords('parent', p.search_rank), level: (p) => p.search_rank },
+]
+
+// The free tier's universal truths — real, constant, and not represented by any
+// plans column, so they are described here rather than read. They appear on the
+// free card only; a paid card inherits them through "Everything in <free>, plus".
+const TUTOR_BASE = ['Reply to parents who message you', 'Download your CV, free']
+const PARENT_BASE = ['Browse tutors', 'Request a demo']
+
 export default function PackagesTable({
   plans,
   audience,
   currentPlan,
   expiresAt,
   highlight,
-  quotaNoun,
   instantActivation,
   signedIn,
   verified,
@@ -56,17 +87,16 @@ export default function PackagesTable({
   expiresAt: string | null
   /** From ?plan= — the card an upgrade prompt sent them here to look at. */
   highlight: string | null
-  quotaNoun: string
   /** True when a gateway is live; false while manual transfer is the path. */
   instantActivation: boolean
   signedIn: boolean
-  /** Identity verified. Only gates the parent free "Verify to unlock" tier. */
+  /** Identity verified. Only gates the free tier's "Get verified" CTA. */
   verified: boolean
 }) {
-  // The held plan's tier, by search_rank (higher = higher tier). Drives which
-  // cards read "Upgrade", which are the current plan, and which show nothing:
-  // there are no downgrade offers.
   const currentRank = plans.find((p) => p.code === currentPlan)?.search_rank ?? 0
+  const features = audience === 'tutor' ? TUTOR_FEATURES : PARENT_FEATURES
+  const baseTruths = audience === 'tutor' ? TUTOR_BASE : PARENT_BASE
+  const free = plans.find((p) => p.price_pkr === 0) ?? null
 
   return (
     <div className="space-y-4">
@@ -74,8 +104,17 @@ export default function PackagesTable({
         {plans.map((p) => {
           const mine = p.code === currentPlan
           const spotlit = !mine && p.code === highlight
-          const free = p.price_pkr === 0
+          const isFree = p.price_pkr === 0
           const lower = !mine && p.search_rank < currentRank
+
+          // The free card shows its own features; a paid card shows only the
+          // additions over the free tier (owner PR13 §1.4/§1.5).
+          const rows = isFree || !free
+            ? [
+                ...baseTruths,
+                ...features.filter((f) => f.level(p) > 0).map((f) => f.label(p)),
+              ]
+            : features.filter((f) => f.level(p) > f.level(free)).map((f) => f.label(p))
 
           return (
             <section
@@ -97,7 +136,7 @@ export default function PackagesTable({
               <div className="space-y-1">
                 <h2 className="text-base font-black text-tm-navy">{p.name}</h2>
                 <p className="text-2xl font-black text-tm-navy">
-                  {free ? (
+                  {isFree ? (
                     'Free'
                   ) : (
                     <>
@@ -106,69 +145,45 @@ export default function PackagesTable({
                     </>
                   )}
                 </p>
+                {/* The free tutor card is the plan a tutor is on AFTER the
+                    one-time verification fee — stated in words, no amount (the
+                    fee's price lives only on the payment page). */}
+                {isFree && audience === 'tutor' && (
+                  <p className="text-[11px] font-semibold text-gray-500">After the one-time verification fee</p>
+                )}
               </div>
 
               <BadgeRow badges={(p.badges ?? []) as BadgeName[]} size="sm" showLabel />
 
+              {!isFree && free && (
+                <p className="text-[11px] font-black text-tm-navy">Everything in {free.name}, plus:</p>
+              )}
+
               <ul className="flex-1 space-y-1.5 text-xs">
-                {audience === 'tutor' && free ? (
-                  // The tutor Basic (free) card: the plan a tutor is on after the
-                  // one-time verification fee, spelled out exactly. The two "per
-                  // month" figures are the plan's own displayed quota (a query),
-                  // never a hardcoded number.
-                  <>
-                    <Feature on>Browse tuitions</Feature>
-                    <Feature on>Apply — {p.displayed_quota ?? p.monthly_quota} per month</Feature>
-                    <Feature on>Reply to a parent who writes first</Feature>
-                    <Feature on={false}>Start a conversation</Feature>
-                    <Feature on={false}>See parent contact / WhatsApp</Feature>
-                    <Feature on>Download CV</Feature>
-                    <Feature on={false}>See who viewed your profile</Feature>
-                    <Feature on>
-                      Incoming hiring &amp; demo requests — {p.displayed_quota ?? p.monthly_quota} per month
-                    </Feature>
-                    <Feature on={false}>Top of search</Feature>
-                    <Feature on={false}>Matched tuitions to email / WhatsApp</Feature>
-                  </>
-                ) : (
-                  <>
-                    <li className="font-semibold text-tm-navy">
-                      {p.displayed_quota ?? '0'} {quotaNoun} per month
-                    </li>
-                    <li className="font-semibold text-tm-navy">{rankWords(audience, p.search_rank)}</li>
-                    <Feature on={p.can_view_contact}>
-                      See {audience === 'tutor' ? 'parent' : 'tutor'} phone and WhatsApp
-                    </Feature>
-                    <Feature on={p.can_whatsapp}>WhatsApp with one tap</Feature>
-                    <Feature on={p.can_initiate_message}>Start a conversation</Feature>
-                    {audience === 'tutor' && (
-                      <Feature on={p.can_see_viewer_identity}>See who viewed your profile</Feature>
-                    )}
-                    {audience === 'parent' && <Feature on={p.can_hire}>Complete a hire</Feature>}
-                  </>
-                )}
+                {rows.map((label, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-slate-700">
+                    <Check size={14} className="mt-px shrink-0 text-tm-green-deep" aria-hidden="true" />
+                    <span>{label}</span>
+                  </li>
+                ))}
               </ul>
 
               {mine ? (
-                <div className="space-y-1 rounded-xl bg-tm-green-deep/10 p-3 text-center">
-                  <p className="text-[11px] font-black text-tm-green-deep">Current plan</p>
-                  {expiresAt && (
-                    <p className="text-[10px] font-semibold text-tm-green-deep">
-                      Runs until {formatDate(expiresAt)}
-                    </p>
-                  )}
+                <div className="rounded-xl bg-tm-green-deep/10 p-3 text-center">
+                  <p className="text-[11px] font-black text-tm-green-deep">
+                    Current plan
+                    {expiresAt ? ` · runs until ${formatDate(expiresAt)}` : ''}
+                  </p>
                 </div>
               ) : lower ? (
                 // No downgrade offers: a member never sees a button for a tier
                 // below the one they hold.
                 null
-              ) : free ? (
-                // The free tier (tutor Basic / parent Verified). Shows how to
-                // reach it only when the member is not verified yet; a verified
-                // member sees nothing here (this card is either their own plan or
-                // below them, both handled above). A tutor reaches Basic through
-                // the one-time Rs 199 verification fee, a parent through free
-                // CNIC + address verification.
+              ) : isFree ? (
+                // The free tier. Show how to reach it only when the member is not
+                // verified yet; a verified member sees nothing here. A tutor
+                // reaches it through the one-time verification fee, a parent
+                // through free CNIC + address verification.
                 !verified ? (
                   <Link
                     href={audience === 'tutor' ? '/tutor/verify' : '/parent/verify'}
@@ -192,14 +207,14 @@ export default function PackagesTable({
         })}
       </div>
 
+      {/* The monthly-plan terms — once per tab (owner PR13 §1.6). Scoped to the
+          paid MONTHLY plans so a tutor never reads "no refunds / 30 days" as
+          applying to the one-time verification fee. */}
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed">
-        {/* These terms are about the paid MONTHLY plans, not the one-time
-            verification fee — scoped by this heading so a tutor does not read
-            "no refunds / 30 days" as applying to getting verified. */}
         <p className="text-xs font-black text-tm-navy">
           {audience === 'tutor'
-            ? 'About the Premium and Featured monthly plans'
-            : 'About the Featured plan'}
+            ? 'About the monthly plans (Premium and Featured)'
+            : 'About the monthly plan (Featured)'}
         </p>
         <p>
           <strong className="text-tm-navy">Changing plan.</strong> Buying a different plan
@@ -246,17 +261,4 @@ function rankWords(audience: 'tutor' | 'parent', rank: number): string {
   if (rank >= 3) return 'Top of search results'
   if (rank === 2) return 'Ranked above Basic tutors'
   return 'Listed in search results'
-}
-
-function Feature({ on, children }: { on: boolean; children: React.ReactNode }) {
-  return (
-    <li className={`flex items-start gap-1.5 ${on ? 'text-slate-700' : 'text-gray-300'}`}>
-      {on ? (
-        <Check size={14} className="mt-px shrink-0 text-tm-green-deep" aria-hidden="true" />
-      ) : (
-        <X size={14} className="mt-px shrink-0" aria-hidden="true" />
-      )}
-      <span className={on ? '' : 'line-through'}>{children}</span>
-    </li>
-  )
 }

@@ -107,6 +107,11 @@ const nextConfig: NextConfig = {
         destination: 'https://www.tutormint.org/:path*',
         permanent: true,
       },
+      // One packages page (owner PR13 §1.3). The old per-audience URLs redirect
+      // permanently to the right tab; any ?plan= from an upgrade prompt is
+      // carried through automatically (Next forwards query strings).
+      { source: '/tutor/packages', destination: '/packages?for=tutors', permanent: true },
+      { source: '/parent/packages', destination: '/packages?for=parents', permanent: true },
     ]
   },
 

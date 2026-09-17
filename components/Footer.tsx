@@ -68,7 +68,7 @@ function linkColumns(signedIn: boolean): LinkColumn[] {
         { label: 'Find Tuitions', href: '/browse/tuitions' },
         ...auth,
         { label: 'Dashboard', href: '/tutor/dashboard' },
-        { label: 'Packages', href: '/tutor/packages' },
+        { label: 'Packages', href: '/packages?for=tutors' },
       ],
     },
     {
@@ -77,7 +77,7 @@ function linkColumns(signedIn: boolean): LinkColumn[] {
         { label: 'Find Tutors', href: '/browse/tutors' },
         ...auth,
         { label: 'Dashboard', href: '/parent/dashboard' },
-        { label: 'Packages', href: '/parent/packages' },
+        { label: 'Packages', href: '/packages?for=parents' },
       ],
     },
     {

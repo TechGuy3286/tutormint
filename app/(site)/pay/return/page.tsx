@@ -38,7 +38,7 @@ export default async function PayReturnPage({
 
   const ent = await getEntitlements(userId)
   const home = ent.audience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard'
-  const packages = ent.audience === 'tutor' ? '/tutor/packages' : '/parent/packages'
+  const packages = ent.audience === 'tutor' ? '/packages?for=tutors' : '/packages?for=parents'
 
   const status = (payment?.status as string) ?? 'unknown'
 

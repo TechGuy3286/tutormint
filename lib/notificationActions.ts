@@ -78,18 +78,22 @@ export function ctaFor(row: { kind: string; href: string | null }): Notification
 }
 
 /**
- * Where "Reactivate" goes.
+ * Where "Reactivate" goes: the packages page, on the member's own tab and the
+ * card to open on.
  *
- * The row's own href is already the right packages page for the member's role
- * — lib/payments/expiry.ts writes /tutor/packages or /parent/packages — so the
- * only thing added here is which card to open on. Falling back to the tutor
- * page when there is no href would send a parent to the wrong shop, so an
- * absent href gets no plan hint rather than a guess.
+ * The row's stored href tells us the audience. It handles BOTH the current
+ * /packages?for=… URL and the old /tutor|parent/packages URLs still sitting on
+ * notifications written before the pages were unified (owner PR13 §1) — those
+ * old URLs also 308 to /packages, but resolving the audience here means the
+ * ?plan hint survives. An absent href gets no guess.
  */
 function reactivateHref(href: string | null): string {
-  if (!href) return '/tutor/packages'
-  if (href.includes('?')) return href
-  if (href.startsWith('/tutor/packages')) return '/tutor/packages?plan=verified'
-  if (href.startsWith('/parent/packages')) return '/parent/packages?plan=parent_featured'
+  if (!href) return '/packages'
+  if (href.includes('/tutor/packages') || href.includes('for=tutors')) {
+    return '/packages?for=tutors&plan=premium'
+  }
+  if (href.includes('/parent/packages') || href.includes('for=parents')) {
+    return '/packages?for=parents&plan=parent_featured'
+  }
   return href
 }
