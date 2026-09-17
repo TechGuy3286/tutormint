@@ -122,7 +122,13 @@ async function searchGapCandidates(admin: Admin, covered: Set<string>): Promise<
           `${tutors} listed tutor${tutors === 1 ? '' : 's'} match this right now.`,
         ],
         evidenceKey: { searches: n, tutors },
-        notes: `Parents in ${city} are searching for ${meta.name} tutors — about ${n} searches in the last 30 days, with ${tutors} tutors currently listed. Write a practical guide: typical monthly fees, how to choose a good tutor, in-person vs online. Do not present internal search counts as published statistics.`,
+        // §1.4: internal counts (searches, listed tutors) live in `evidence`
+        // above — they guide the manager's topic choice — and are NEVER put in
+        // `notes`, which is passed to the model as facts to publish. Instructions
+        // on how to write belong in the system prompt (§1.3), not here. So a
+        // topic suggestion carries no fact notes; the title is the topic and the
+        // manager adds any real facts.
+        notes: '',
       })
     }
 
@@ -176,7 +182,9 @@ async function coverageGapCandidates(admin: Admin, covered: Set<string>): Promis
         'No blog post links to this directory page yet.',
       ],
       evidenceKey: { tutors: p.count },
-      notes: `There are ${p.count} listed ${p.subjectName} tutors in ${p.city}, but no blog post links to that directory page. Write a guide for parents and link to it. Cover typical fees, how to choose, and exam boards where relevant.`,
+      // §1.4: the tutor count stays in `evidence`; `notes` carries no internal
+      // counts and no model instructions.
+      notes: '',
     })
   }
   return out

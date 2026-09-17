@@ -9,6 +9,7 @@ import { MapPin, Building2, Briefcase, Wallet, Lock, Phone, MessageCircle } from
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlements'
+import { degreeLabels } from '@/lib/degrees'
 import { tutorProfileNoindex } from '@/lib/planBadges'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
@@ -601,9 +602,15 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   }
 
   // The Verified badge is degree-gated (owner rule 2): a listed tutor without a
-  // reviewed degree on file shows their plan-tier badges but not Verified.
-  const hasReviewedDegree = (tutor.degrees?.length ?? 0) > 0 || tutor.degree_documents.length > 0
-  const badges = badgesForPlan(tutor.plan_code, true, hasReviewedDegree)
+  // reviewed degree on file shows their plan-tier badges but not Verified. A
+  // degree only counts when it has a readable title (owner PR14 §3.1).
+  const degreeLines = degreeLabels(tutor.degrees)
+  const hasReviewedDegree = degreeLines.length > 0 || tutor.degree_documents.length > 0
+  const wouldBeBadges = badgesForPlan(tutor.plan_code, true, hasReviewedDegree)
+  // §3.3: in the OWNER PREVIEW the tutor is not listed, so no badge is true yet
+  // — the badge row is suppressed and the plan-derived ones are named as pending
+  // below instead. On the live (listed) page the badges are shown as normal.
+  const badges = preview ? [] : wouldBeBadges
   const rating = Number(tutor.rating_avg ?? 0)
   const reviews = tutor.rating_count ?? 0
 
@@ -705,6 +712,13 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                 <Link href="/faq#parents" className="inline-flex" aria-label="What the badges mean">
                   <BadgeRow badges={badges} size="md" showLabel />
                 </Link>
+              )}
+              {/* §3.3: the preview names the badges that will become true once
+                  the tutor is listed, rather than showing them as if earned. */}
+              {preview && wouldBeBadges.length > 0 && (
+                <p className="text-[11px] font-bold text-tm-gold-ink">
+                  {wouldBeBadges.join(' · ')} — active once you&rsquo;re listed
+                </p>
               )}
 
               <p className="text-xs font-bold text-slate-700">
@@ -836,7 +850,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                 intent="message"
                 className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-tm-gold px-4 text-xs font-black text-tm-navy"
               >
-                Unlock with Featured
+                See with Featured
               </UpgradeTrigger>
             </div>
           )}
@@ -844,7 +858,10 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         )}
 
         {/* -------------------------------------------------------- video --- */}
-        {tutor.video_youtube_id && (
+        {/* §3.4: the embed shows only for an APPROVED video. video_youtube_id is
+            already approved-gated in both loaders; the status check is explicit
+            belt-and-braces so a non-approved video can never render. */}
+        {tutor.video_status === 'approved' && tutor.video_youtube_id && (
           <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
             <h2 className="pb-3 text-sm font-black text-tm-navy">Video introduction</h2>
             <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
@@ -860,7 +877,9 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         )}
 
         {/* ---------------------------------------------------------- bio --- */}
-        {tutor.bio && (
+        {/* §3.2: hide About when there is no bio, or when the bio just repeats
+            the headline (a duplicate block reads as a bug). */}
+        {tutor.bio && tutor.bio.trim() && tutor.bio.trim() !== (tutor.headline ?? '').trim() && (
           <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
             <h2 className="pb-2 text-sm font-black text-tm-navy">About</h2>
             <p className="whitespace-pre-line text-xs leading-relaxed">{tutor.bio}</p>
@@ -910,12 +929,14 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         </section>
 
         {/* ------------------------------------------------------ degrees --- */}
-        {(tutor.degrees?.length ?? 0) > 0 || tutor.degree_documents.length > 0 ? (
+        {/* §3.1: degrees render through degreeLabels, so a row stored as a JSON
+            string ({"title":"…"}) shows its title, not raw braces. */}
+        {degreeLines.length > 0 || tutor.degree_documents.length > 0 ? (
           <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
             <h2 className="pb-3 text-sm font-black text-tm-navy">Qualifications</h2>
             <ul className="space-y-1.5">
-              {(tutor.degrees ?? []).map((d) => (
-                <li key={d} className="text-xs font-semibold text-tm-navy">
+              {degreeLines.map((d, i) => (
+                <li key={i} className="text-xs font-semibold text-tm-navy">
                   {d}
                 </li>
               ))}

@@ -10,7 +10,7 @@
 // lib/blogPublish.ts, which are server-only. Keep this file importable from the
 // browser.
 
-import { scaffoldViolations } from '@/lib/ai/blogBrief'
+import { scaffoldViolations, promptLeakViolations } from '@/lib/ai/blogBrief'
 
 export type PostStatus = 'draft' | 'reviewed' | 'scheduled' | 'published' | 'unpublished'
 export type PostAudience = 'parents' | 'tutors' | 'both'
@@ -116,6 +116,10 @@ export function canPublish(p: PublishGateInput): { ok: boolean; reasons: string[
   // remain, and name the offending line so it is obvious what to delete.
   for (const line of scaffoldViolations(p.body)) {
     reasons.push(`Remove the draft scaffold line: “${line}”`)
+  }
+  // Never publish leaked model instructions or internal data (owner PR14 §1.3).
+  for (const line of promptLeakViolations(p.body)) {
+    reasons.push(`Remove this instruction/internal-data line: “${line}”`)
   }
   return { ok: reasons.length === 0, reasons }
 }

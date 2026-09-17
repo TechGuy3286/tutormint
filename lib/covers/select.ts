@@ -115,29 +115,50 @@ export function personFor(audience: CoverInput['audience'], seed: string, varian
 
 const BACKGROUNDS: CoverBackground[] = ['white', 'mint', 'navy']
 
-/** The deterministic cover selection for a post at a given seed (0,1,2 = the
- *  three grounds; 3,4,5 = a shuffled trio; and so on). */
+// The SECOND motif rotates through this pool on every Shuffle, so a shuffled
+// trio shows a genuinely different pairing rather than the same two motifs
+// re-ordered (owner PR14 §2.1). The cluster motif leads; then generic education
+// motifs, all present in the catalog. The subject motif is always excluded so a
+// cover never draws the same thing twice.
+const SECOND_MOTIF_POOL = ['search', 'grad-cap', 'star', 'chat', 'certificate', 'calendar', 'pin', 'book']
+
+/**
+ * The deterministic cover selection for a post at a given seed.
+ *
+ * The three previews of a trio are seeds base+0/+1/+2 — the same "roll" with the
+ * layout arrangement rotating 0/1/2 and the ground rotating under it. SHUFFLE
+ * advances the seed by three, i.e. to the next roll, and each roll re-rolls the
+ * ground rotation AND the second motif from the pool above — so every Shuffle is
+ * a visibly new trio (different illustration, layout and palette) that does not
+ * repeat the previous one (owner PR14 §2.1). Still fully deterministic per
+ * (input, seed), so a chosen cover re-composes byte-identically.
+ */
 export function selectCover(input: CoverInput, seed: number): CoverSelection {
   const n = Math.abs(Math.trunc(seed))
-  const s = n % 3 // position in the trio -> the layout arrangement
-  const variant = (Math.floor(n / 3) % 2) as 0 | 1
-  // Shuffle rotates the ground under every position, so the whole trio visibly
-  // changes on Shuffle even for a one-motif, parent-audience post. Seeds 0,1,2
-  // are white/mint/navy; the shuffled trio 3,4,5 is mint/navy/white.
-  const background = BACKGROUNDS[(s + variant) % 3]
+  const arrangement = (n % 3) as 0 | 1 | 2 // position in the trio -> the layout
+  const roll = Math.floor(n / 3) // which Shuffle
+  const variant = (roll % 2) as 0 | 1
+  // Ground rotates with BOTH the position and the roll, so the three previews
+  // differ from each other AND the whole palette moves on every Shuffle.
+  const background = BACKGROUNDS[(arrangement + roll) % 3]
+
   const sub = subjectMotif(input.subject)
   const clu = clusterMotif(input.cluster)
-  // One or two motifs — deduped so a cost-hiring post about Maths does not draw
-  // two of the same. Shuffle swaps their order.
-  const base = sub === clu ? [sub] : [sub, clu]
-  const motifs = variant && base.length > 1 ? [...base].reverse() : base
+  // The second motif changes every Shuffle. Pool = the cluster motif then the
+  // generic pool, deduped and with the subject motif removed.
+  const pool = [clu, ...SECOND_MOTIF_POOL].filter((m, i, a) => a.indexOf(m) === i && m !== sub)
+  const second = pool.length > 0 ? pool[roll % pool.length] : null
+  const base = second ? [sub, second] : [sub]
+  // Within a trio, the layout also flips the motif order, for extra variety.
+  const motifs = arrangement % 2 === 1 && base.length > 1 ? [...base].reverse() : base
+
   return {
     background,
-    arrangement: s as 0 | 1 | 2,
+    arrangement,
     variant,
     titleColor: background === 'navy' ? 'white' : 'navy',
     citySlug: citySilhouette(input.city),
-    personSlug: personFor(input.audience, input.slug || input.title || 'x', variant),
+    personSlug: personFor(input.audience, input.slug || input.title || 'x', roll),
     motifs,
   }
 }

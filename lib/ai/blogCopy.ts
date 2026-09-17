@@ -36,6 +36,23 @@ export type { BlogBrief, BlogDraft } from './blogBrief'
 /** The model, from the one place it is defined. Reported to the audit log. */
 export const BLOG_MODEL = MODEL
 
+// The banned marketing words (owner PR14 §4.5) — the model must never produce
+// them, in a full draft, an outline or a section.
+const BANNED_WORD_RULE =
+  'Never use the words "leverage", "unlock", "seamless" or "empower" (or variants).'
+
+// The rule that keeps the model's own instructions out of the body (owner PR14
+// §1.3): a leaked line like "Write a practical guide…" is what a failed draft
+// used to publish.
+const NO_META_RULE =
+  'Output ONLY finished post content for a reader. Never restate these instructions, never write a note to the editor, never mention search counts or how many tutors are listed.'
+
+function figureRuleFor(brief: BlogBrief): string {
+  return brief.notes.trim()
+    ? 'THE HARD RULE — NEVER INVENT STATISTICS. Use ONLY numbers, fees, percentages, dates, pass rates, counts and names that appear in the facts below. If you do not have a number, write "typically" or describe it in words. A made-up statistic on a blog is quoted back as fact — do not produce one.'
+    : 'THE HARD RULE — you were given NO facts. Write with NO figures AT ALL: no numbers, no percentages, no fees, no counts, no pass rates, no dates. Describe every magnitude in words ("typically", "most", "a few", "affordable"). A single invented figure fails the draft.'
+}
+
 function brandBrief(brief: BlogBrief): string {
   const noNotes = !brief.notes.trim()
   const links =
@@ -43,11 +60,7 @@ function brandBrief(brief: BlogBrief): string {
       ? brief.landingLinks.map((l) => `- ${l.label}: /${l.path}`).join('\n')
       : '(none available — do not invent internal links)'
 
-  // With no fact notes there is nothing to back a number, so the post must carry
-  // none. With notes, the standard rule applies (use only the numbers given).
-  const figureRule = noNotes
-    ? 'THE HARD RULE — you were given NO facts. Write with NO figures AT ALL: no numbers, no percentages, no fees, no counts, no pass rates, no dates. Describe every magnitude in words ("typically", "most", "a few", "affordable"). A single invented figure fails the draft.'
-    : 'THE HARD RULE — NEVER INVENT STATISTICS. Use ONLY numbers, fees, percentages, dates, pass rates, counts and names that appear in the facts below. If you do not have a number, write "typically" or describe it in words. A made-up statistic on a blog is quoted back as fact — do not produce one.'
+  const figureRule = figureRuleFor(brief)
 
   const cta =
     brief.audience === 'tutors'
@@ -71,12 +84,133 @@ function brandBrief(brief: BlogBrief): string {
     'Internal links: you MAY link to these landing pages where relevant, using their exact paths. Do not invent any other internal link:',
     links,
     figureRule,
+    BANNED_WORD_RULE,
+    NO_META_RULE,
     brief.language === 'ur'
       ? 'Write in Roman Urdu (Urdu written in the Latin alphabet), the way Pakistanis text — not formal Nastaliq Urdu, and not English.'
       : 'Write in clear English.',
     'Also produce an SEO title (<= 60 characters) and a meta description (<= 155 characters) ending with "No fee, no commission, no middleman.".',
     'Reply as JSON only, exactly: {"body": "...markdown...", "seoTitle": "...", "seoDescription": "..."}',
   ].join('\n')
+}
+
+// ---------------------------------------------------- sectioned generation ---
+//
+// A 1200-word post in one call took longer than the 55s the serverless budget
+// allows and timed out — the failure behind the 172-word garbage post (owner
+// PR14 §1.5). It is now generated in BOUNDED steps: an outline (one short call),
+// then each section (one short call each), orchestrated by the editor with a
+// progress bar. No single request writes 1200 words, so none can time out.
+
+export type OutlineResult =
+  | { ok: true; sections: string[]; seoTitle: string; seoDescription: string }
+  | { ok: false; reason: string }
+
+export type SectionResult = { ok: true; markdown: string } | { ok: false; reason: string }
+
+function outlineSystem(brief: BlogBrief): string {
+  return [
+    'You plan a post for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
+    'Produce an OUTLINE only — no prose.',
+    '- 5 to 7 H2 section headings. Each answers ONE specific question a Pakistani parent or tutor would type into Google (fees, how to choose, how verification works, step by step, and so on). Make the LAST heading "Frequently asked questions".',
+    'Also produce an SEO title (<= 60 characters) and a meta description (<= 155 characters) ending with "No fee, no commission, no middleman.".',
+    BANNED_WORD_RULE,
+    NO_META_RULE,
+    brief.language === 'ur' ? 'Headings in Roman Urdu (Latin script).' : 'Headings in clear English.',
+    'Reply as JSON only, exactly: {"sections": ["...", "..."], "seoTitle": "...", "seoDescription": "..."}',
+  ].join('\n')
+}
+
+function sectionSystem(brief: BlogBrief, sections: string[], index: number): string {
+  const heading = sections[index]
+  const links =
+    brief.landingLinks.length > 0
+      ? brief.landingLinks.map((l) => `- ${l.label}: /${l.path}`).join('\n')
+      : '(none available — do not invent internal links)'
+  const last = index === sections.length - 1
+  return [
+    'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
+    'Voice: plain, warm, specific to Pakistan. No corporate filler, no hype.',
+    `You are writing ONE section of a post titled "${brief.title}". The full outline is:`,
+    sections.map((s, i) => `${i + 1}. ${s}`).join('\n'),
+    `Write ONLY section ${index + 1}: "${heading}". Begin with the Markdown heading "## ${heading}"${heading.toLowerCase().includes('frequently asked') ? ' and give 3-4 questions as "### " sub-headings with short answers' : ''}. About 200-300 words. Short paragraphs. Do not repeat other sections and do not write any other heading.`,
+    last
+      ? 'This is the last section — end with a short call to action (post a tuition / join TutorMint), no price.'
+      : 'Do NOT add a call to action; this is not the last section.',
+    'Internal links you MAY use (exact paths only; invent no others):',
+    links,
+    figureRuleFor(brief),
+    BANNED_WORD_RULE,
+    NO_META_RULE,
+    brief.language === 'ur' ? 'Write in Roman Urdu (Latin script).' : 'Write in clear English.',
+    'Output the Markdown for THIS section only — no JSON, no preamble, no closing note.',
+  ].join('\n')
+}
+
+/** Step 1: the outline + SEO fields. One short call. */
+export async function generateBlogOutline(brief: BlogBrief): Promise<OutlineResult> {
+  if (!isConfigured()) return { ok: false, reason: 'ANTHROPIC_API_KEY is not set' }
+  if (!brief.title.trim()) return { ok: false, reason: 'no title' }
+
+  const result = await complete({
+    system: outlineSystem(brief),
+    prompt: factsBlock(brief),
+    maxTokens: 900,
+    timeoutMs: 30_000,
+  })
+  if (!result.ok) {
+    console.error('[blogCopy] outline failed:', result.reason)
+    return { ok: false, reason: result.reason }
+  }
+  try {
+    const raw = result.text
+    const start = raw.indexOf('{')
+    const end = raw.lastIndexOf('}')
+    if (start === -1 || end <= start) throw new Error('no JSON object')
+    const p = JSON.parse(raw.slice(start, end + 1)) as {
+      sections?: unknown
+      seoTitle?: unknown
+      seoDescription?: unknown
+    }
+    const sections = Array.isArray(p.sections)
+      ? p.sections.filter((x) => typeof x === 'string' && x.trim()).map((x) => String(x).trim())
+      : []
+    if (sections.length < 3) return { ok: false, reason: 'outline had too few sections' }
+    const seoTitle =
+      (typeof p.seoTitle === 'string' ? p.seoTitle.trim() : '').slice(0, 60) || brief.title.slice(0, 60)
+    const seoDescription = withBrandTail(
+      typeof p.seoDescription === 'string' && p.seoDescription.trim() ? p.seoDescription.trim() : brief.title,
+    )
+    return { ok: true, sections: sections.slice(0, 8), seoTitle, seoDescription }
+  } catch (e) {
+    console.error('[blogCopy] unparseable outline:', String(e))
+    return { ok: false, reason: `unparseable outline: ${String(e).slice(0, 120)}` }
+  }
+}
+
+/** Step 2..N: one section of the outline. One short call each. */
+export async function generateBlogSection(
+  brief: BlogBrief,
+  sections: string[],
+  index: number,
+): Promise<SectionResult> {
+  if (!isConfigured()) return { ok: false, reason: 'ANTHROPIC_API_KEY is not set' }
+  if (!Array.isArray(sections) || index < 0 || index >= sections.length) {
+    return { ok: false, reason: 'bad section index' }
+  }
+  const result = await complete({
+    system: sectionSystem(brief, sections, index),
+    prompt: factsBlock(brief),
+    maxTokens: 1400,
+    timeoutMs: 40_000,
+  })
+  if (!result.ok) {
+    console.error(`[blogCopy] section ${index} failed:`, result.reason)
+    return { ok: false, reason: result.reason }
+  }
+  const md = result.text.trim()
+  if (!md) return { ok: false, reason: 'section returned no text' }
+  return { ok: true, markdown: md }
 }
 
 function factsBlock(brief: BlogBrief): string {

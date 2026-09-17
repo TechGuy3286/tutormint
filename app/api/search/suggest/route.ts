@@ -118,7 +118,7 @@ export async function GET(request: Request) {
   }
 
   type Row = { grp: string; ref: string; label: string; sublabel: string; href: string }
-  const suggestions: Suggestion[] = ((data ?? []) as Row[]).map((r) => ({
+  const mapped: Suggestion[] = ((data ?? []) as Row[]).map((r) => ({
     group: r.grp as SuggestGroup,
     ref: r.ref,
     label: r.label,
@@ -126,7 +126,35 @@ export async function GET(request: Request) {
     href: r.href,
   }))
 
-  return NextResponse.json({ query: q, suggestions, popular: [] } satisfies SuggestResponse)
+  return NextResponse.json(
+    { query: q, suggestions: withAllLevels(mapped), popular: [] } satisfies SuggestResponse,
+  )
+}
+
+/**
+ * Prepend a "<subject> · all levels" entry for the resolved subject (owner PR14
+ * §5.1). search_suggest returns the subject's levels in taxonomy order; this
+ * puts the aggregate first (it filters across every level via ?q=), then those
+ * levels, then everything else. Only when the subject spans more than one level.
+ */
+function withAllLevels(suggestions: Suggestion[]): Suggestion[] {
+  const subjectRows = suggestions.filter((s) => s.group === 'subject')
+  if (subjectRows.length === 0) return suggestions
+  const topLabel = subjectRows[0].label
+  const topLevels = subjectRows.filter((s) => s.label === topLabel)
+  if (topLevels.length < 2) return suggestions
+
+  const allLevels: Suggestion = {
+    group: 'subject',
+    ref: `all:${topLabel}`,
+    label: topLabel,
+    sublabel: 'all levels',
+    // Filters across every level of the subject — the browse resolver expands
+    // the query to all master ids for it (owner PR13 §3).
+    href: `/browse/tutors?q=${encodeURIComponent(topLabel)}`,
+  }
+  const rest = suggestions.filter((s) => !(s.group === 'subject' && s.label === topLabel))
+  return [allLevels, ...topLevels, ...rest]
 }
 
 /**

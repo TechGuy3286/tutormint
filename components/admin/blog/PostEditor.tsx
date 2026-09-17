@@ -25,7 +25,7 @@ import {
   type PostLanguage,
   type PostStatus,
 } from '@/lib/blog'
-import { figureGate, wordCount, BLOG_MIN_WORDS, type ConfirmedFigure } from '@/lib/ai/blogBrief'
+import { figureGate, promptLeakViolations, wordCount, BLOG_MIN_WORDS, type ConfirmedFigure } from '@/lib/ai/blogBrief'
 import { parseMarkdown } from '@/lib/markdown'
 import { slugify } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
@@ -114,6 +114,10 @@ export default function PostEditor({
   const [scheduleAt, setScheduleAt] = useState('')
   const [generating, setGenerating] = useState(false)
   const [genNote, setGenNote] = useState<string | null>(null)
+  // Sectioned-generation progress (owner PR14 §1.5) and the failure state that
+  // shows "AI draft failed — nothing was written" with Retry (§1.2).
+  const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null)
+  const [genFailed, setGenFailed] = useState<string | null>(null)
   const toast = useToast()
   const confirm = useConfirm()
   // The in-progress "confirm with a source" input, keyed by figure.
@@ -191,7 +195,6 @@ export default function PostEditor({
   // Live word count — a real post is 1200+ words (owner, 14 Sep 2026). Warned,
   // not blocked: a shorter accurate post beats a padded one.
   const words = useMemo(() => wordCount(post.body), [post.body])
-  const tooShort = post.body.trim().length > 0 && words < BLOG_MIN_WORDS
 
   // The figure gate, computed live from the current (unsaved) body — the same
   // rule the server enforces on save. Active only when there are notes; then
@@ -247,8 +250,11 @@ export default function PostEditor({
     }
   }
 
-  // Generate a draft from the title + notes. Loads the body and SEO fields as
-  // ordinary editable text — it saves nothing and never ticks Reviewed.
+  // Generate a draft as a SECTIONED background job with progress (owner PR14
+  // §1.5): outline first, then each section, each a bounded request so a
+  // 1200-word post never hits a timeout. NOTHING is written to the body unless
+  // the whole job succeeds (§1.2) — on any failure the notes and title stay and
+  // the editor shows "AI draft failed — nothing was written." with Retry.
   async function generateDraft() {
     if (!post.title.trim()) {
       setError('Give the post a title first.')
@@ -258,57 +264,86 @@ export default function PostEditor({
     setError(null)
     setNotice(null)
     setGenNote(null)
+    setGenFailed(null)
+    setGenProgress({ current: 0, total: 0 })
+
+    const common = {
+      title: post.title,
+      cluster: post.cluster,
+      audience: post.audience,
+      language: post.language,
+      notes: post.sourceNotes,
+    }
+    const fail = (reason: string) => {
+      setGenFailed(reason)
+      setGenProgress(null)
+    }
+
     try {
-      const res = await fetch('/api/admin/blog/generate', {
+      // 1. Outline + SEO.
+      const oRes = await fetch('/api/admin/blog/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          title: post.title,
-          cluster: post.cluster,
-          audience: post.audience,
-          language: post.language,
-          notes: post.sourceNotes,
-        }),
+        body: JSON.stringify({ step: 'outline', ...common }),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error ?? 'Could not generate a draft.')
+      const oData = await oRes.json()
+      if (oRes.status === 429) {
+        setError(oData.error ?? 'Too many drafts — wait a moment and try again.')
+        setGenProgress(null)
         return
       }
+      if (!oRes.ok || !oData.ok || !Array.isArray(oData.sections) || oData.sections.length === 0) {
+        fail((oData.reason as string) || 'the model did not respond')
+        return
+      }
+      const sections: string[] = oData.sections
+      setGenProgress({ current: 0, total: sections.length })
+
+      // 2. Each section, in order. Assembled in memory — the body is only
+      //    written once every section has come back.
+      const parts: string[] = []
+      for (let i = 0; i < sections.length; i++) {
+        const sRes = await fetch('/api/admin/blog/generate', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ step: 'section', ...common, sections, index: i }),
+        })
+        const sData = await sRes.json()
+        if (!sRes.ok || !sData.ok || typeof sData.markdown !== 'string' || !sData.markdown.trim()) {
+          fail((sData.reason as string) || `section ${i + 1} did not come back`)
+          return
+        }
+        parts.push(sData.markdown.trim())
+        setGenProgress({ current: i + 1, total: sections.length })
+      }
+
+      const draftBody = parts.join('\n\n')
+
+      // §1.3: reject a draft that echoed instructions or internal data.
+      if (promptLeakViolations(draftBody).length > 0) {
+        fail('the draft echoed instructions or internal data — nothing was written')
+        return
+      }
+
+      // Success — write the body and SEO fields now.
+      const draftWords = wordCount(draftBody)
       setPost((p) => ({
         ...p,
-        body: data.body,
-        seoTitle: data.seoTitle || p.seoTitle,
-        seoDescription: data.seoDescription || p.seoDescription,
-        // A fresh draft supersedes prior confirmations — its figures are new.
+        body: draftBody,
+        seoTitle: oData.seoTitle || p.seoTitle,
+        seoDescription: oData.seoDescription || p.seoDescription,
         confirmedFigures: [],
       }))
       setDirty(true)
-      if (data.source === 'claude') {
-        setGenNote(
-          data.short
-            ? `Draft is ${data.words} words — under the ${BLOG_MIN_WORDS}-word target. Add more fact notes so it can cover more ground; padding it would read worse, not better.`
-            : data.untraced?.length
-              ? `Draft ready — but ${data.untraced.length} figure(s) are not in your notes. Check the highlighted list before reviewing.`
-              : 'Draft ready. Read it through, edit, then tick Reviewed.',
-        )
-      } else if (data.note === 'figures') {
-        // The model added figures with no notes to back them; we used the
-        // figure-free composed draft instead.
-        setGenNote(
-          'With no fact notes the post is written figure-free. The AI draft included figures, so we used a figure-free version instead — add fact notes if you want numbers.',
-        )
-      } else {
-        // The real reason, in plain words. `reason` is the verbatim API failure
-        // (status + body); we compose from the notes so the editor stays usable.
-        const why =
-          data.note === 'unconfigured'
-            ? 'no API key is configured'
-            : (data.reason as string | null) || 'the model did not respond'
-        setGenNote(`AI drafting is unavailable: ${why}. We composed this draft from your notes instead — edit it into shape.`)
-      }
+      setGenProgress(null)
+      // §1.6: the word-count note is shown ONLY after a successful generation.
+      setGenNote(
+        draftWords < BLOG_MIN_WORDS
+          ? `Draft is ${draftWords} words — ${BLOG_MIN_WORDS - draftWords} under the ${BLOG_MIN_WORDS}-word target. Add more fact notes so it can cover more ground; padding it would read worse, not better.`
+          : 'Draft ready. Read it through, edit, then tick Reviewed.',
+      )
     } catch {
-      setError('Network error while generating. Try again.')
+      fail('a network error interrupted the draft')
     } finally {
       setGenerating(false)
     }
@@ -842,13 +877,35 @@ export default function PostEditor({
                   className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-60"
                 >
                   <Sparkles aria-hidden size={13} />
-                  {generating ? 'Writing…' : 'Generate draft'}
+                  {generating
+                    ? genProgress && genProgress.total > 0
+                      ? `Writing section ${genProgress.current} of ${genProgress.total}…`
+                      : 'Planning…'
+                    : genFailed
+                      ? 'Retry'
+                      : 'Generate draft'}
                 </button>
                 <span className="text-[11px] text-gray-500">
-                  Every figure must trace to your notes. A few rupees per draft.
+                  Written in sections so a long post never times out. A few rupees per draft.
                 </span>
               </div>
-              {genNote && (
+              {/* §1.5: a live progress bar across the sections. */}
+              {generating && genProgress && genProgress.total > 0 && (
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                  <div
+                    className="h-full rounded-full bg-tm-navy transition-[width]"
+                    style={{ width: `${Math.round((genProgress.current / genProgress.total) * 100)}%` }}
+                  />
+                </div>
+              )}
+              {/* §1.2: a real failure writes nothing — say so, keep the notes. */}
+              {genFailed && !generating && (
+                <p className="flex items-start gap-1.5 rounded-xl bg-tm-tint-red p-2.5 text-[11px] font-semibold text-tm-red">
+                  <AlertCircle aria-hidden size={13} className="mt-px shrink-0" />
+                  AI draft failed — nothing was written. Your notes are kept. ({genFailed})
+                </p>
+              )}
+              {genNote && !genFailed && (
                 <p className="rounded-xl bg-tm-tint-navy p-2.5 text-[11px] font-semibold text-tm-navy">{genNote}</p>
               )}
             </div>
@@ -913,13 +970,14 @@ export default function PostEditor({
                 dir={post.language === 'ur' ? 'rtl' : undefined}
               />
             )}
+            {/* §1.6: the live line shows the word count only. Whether the draft
+                is UNDER TARGET is said once, after a successful generation, in
+                the generation note — never as a persistent warning on a
+                hand-written draft in progress. */}
             <p className="text-[11px] text-gray-500">
-              <span className={tooShort ? 'font-bold text-tm-gold-ink' : 'font-semibold text-tm-green-deep'}>
+              <span className="font-semibold text-tm-green-deep">
                 {words} word{words === 1 ? '' : 's'}
               </span>
-              {tooShort && (
-                <span className="text-tm-gold-ink"> · under the {BLOG_MIN_WORDS}-word target — cover more ground (add fact notes so it can go deeper, don’t pad)</span>
-              )}
               {' · '}
               {preview.readingTime} min read · Embed a live card with <code className="rounded bg-tm-tint-navy px-1">{'{{tutor:slug}}'}</code> or{' '}
               <code className="rounded bg-tm-tint-navy px-1">{'{{job:public-slug}}'}</code> on its own line.

@@ -112,7 +112,7 @@ export default async function TutorDashboardPage() {
       // temporary bridge code, so no plan or badge until it is re-verified with
       // a real code. That happens once, automatically, on the next sign-in after
       // the SMS provider goes live.
-      'Your number was verified with a temporary code. Your badge and plan unlock once you verify it with a real code — this happens automatically next time you sign in after SMS goes live.'
+      'Your number was verified with a temporary code. Your badge and plan become active once you verify it with a real code — this happens automatically next time you sign in after SMS goes live.'
     : !listed && planForNotice
       ? `${planForNotice} plan active · your badge appears once your identity and mobile number are verified.`
       : undefined

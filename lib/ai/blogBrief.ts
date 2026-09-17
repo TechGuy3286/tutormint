@@ -276,6 +276,50 @@ export function scaffoldViolations(body: string): string[] {
   return out
 }
 
+// Phrases that mean the model's OWN INSTRUCTIONS, or internal data, leaked into
+// the body (owner PR14 §1.3/§1.4). A failed 1200-word call once published the
+// system-prompt text and the search counts verbatim; a draft carrying any of
+// these is rejected before it reaches the editor, and publish is blocked if one
+// survives. These are instruction/telemetry phrases real prose never contains.
+export const PROMPT_LEAK_PHRASES: string[] = [
+  'write a practical guide',
+  'write a guide for parents',
+  'do not present internal',
+  'internal search counts',
+  'the hard rule',
+  'never invent statistics',
+  'reply as json',
+  'reply as json only',
+  'searches in the last 30 days',
+  'searches in the last',
+  'tutors currently listed',
+  'output only finished post content',
+]
+
+/**
+ * The lines of `body` that contain leaked prompt text or internal data. Empty
+ * when the body is clean. A draft is rejected on generation, and publish blocked,
+ * while this is non-empty. Same shape as scaffoldViolations().
+ */
+export function promptLeakViolations(body: string): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const rawLine of String(body ?? '').split('\n')) {
+    const line = rawLine.trim()
+    if (!line) continue
+    const hay = line.toLowerCase()
+    if (PROMPT_LEAK_PHRASES.some((p) => hay.includes(p))) {
+      const clean = line.replace(/^[#>\s_*-]+/, '').replace(/[_*]+$/, '').trim()
+      const key = clean.toLowerCase()
+      if (!seen.has(key)) {
+        seen.add(key)
+        out.push(clean)
+      }
+    }
+  }
+  return out
+}
+
 /**
  * The plain draft, built from the manager's notes and nothing else.
  *

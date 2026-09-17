@@ -122,14 +122,29 @@ test('person follows audience; teachers alternate deterministically', () => {
   assert.notEqual(personFor('tutors', 'x', 0), personFor('tutors', 'x', 1))
 })
 
-test('motifs are deduped and shuffle swaps their order', () => {
-  // cost-hiring + physics -> [physics, wallet]; the shuffled trio reverses it.
+test('motifs are deduped; shuffle rotates the second motif to a new one (§2.1)', () => {
+  // cost-hiring + physics -> subject motif 'physics' + cluster motif 'wallet'.
   assert.deepEqual(selectCover(base, 0).motifs, ['physics', 'wallet'])
-  assert.deepEqual(selectCover(base, 3).motifs, ['wallet', 'physics'])
-  // A cluster whose motif equals the subject motif collapses to one.
+  // The next Shuffle (roll 1) draws a DIFFERENT second motif from the pool, so
+  // the trio is genuinely new rather than the same two re-ordered.
+  const shuffled = selectCover(base, 3).motifs
+  assert.notDeepEqual(selectCover(base, 0).motifs, shuffled)
+  assert.equal(shuffled[0], 'physics') // subject motif stays
+  assert.notEqual(shuffled[1], 'wallet') // second motif changed
+  assert.ok(!shuffled.slice(1).includes('physics')) // subject motif never drawn twice
+  // A cluster whose motif equals the subject motif still yields two distinct.
   const same = selectCover({ ...base, cluster: 'subject-guides', subject: 'General search skills' }, 0)
-  // subject 'General search skills' -> book; cluster subject-guides -> search; two distinct.
   assert.equal(same.motifs.length, 2)
+})
+
+test('shuffle never repeats the previous trio (§2.1)', () => {
+  const trio = (roll: number) => [0, 1, 2].map((i) => JSON.stringify(selectCover(base, roll * 3 + i)))
+  const t0 = trio(0)
+  const t1 = trio(1)
+  const t2 = trio(2)
+  assert.notDeepEqual(t0, t1)
+  assert.notDeepEqual(t1, t2)
+  assert.notDeepEqual(t0, t2)
 })
 
 test('shuffle rotates the ground across the trio', () => {

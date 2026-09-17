@@ -120,12 +120,6 @@ export default async function PackagesPage({
           </p>
         )}
         <p className="text-slate-700">
-          <strong className="text-tm-navy">You are already paying to be found.</strong> A boosted
-          post in one city costs more in a week than getting verified once, and it stops the day you
-          stop paying. Getting verified puts you in front of parents who are already searching for
-          your subject in your area — no website, no ad account, no daily budget.
-        </p>
-        <p className="text-slate-700">
           <strong className="text-tm-navy">An academy keeps half your first month.</strong> On a Rs
           20,000 tuition that is Rs 10,000 out of your first month, every time, and many keep a
           share of every month after. TutorMint takes 0% of what you earn, forever.
@@ -178,8 +172,8 @@ export default async function PackagesPage({
         <p className="text-slate-700">
           <strong className="text-tm-navy">An academy takes half your first month&apos;s fee.</strong>{' '}
           On a Rs 20,000 tuition that is Rs 10,000 gone before the first class, and many keep a share
-          every month after. Featured is Rs 999 a month and you keep every rupee of what you pay the
-          tutor — we never touch the fee and never take a commission.
+          every month after. You keep every rupee of what you pay the tutor — we never touch the fee
+          and never take a commission.
         </p>
         <p className="text-gray-500">
           Browsing, messaging tutors, demo requests and five job posts a month stay free once your

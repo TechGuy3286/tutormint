@@ -45,30 +45,45 @@ export type PlanRow = {
 type Feature = { label: (p: PlanRow) => string; level: (p: PlanRow) => number }
 
 const quota = (p: PlanRow) => p.displayed_quota ?? String(p.monthly_quota)
+const isUnlimited = (p: PlanRow) => (p.displayed_quota ?? '').toLowerCase() === 'unlimited'
 
+// The DELTA features a paid card shows over the free tier. The quota line reads
+// "Unlimited applications / tuition posts" when the plan is unlimited (owner
+// PR14 §4.2), and the number from the row otherwise.
 const TUTOR_FEATURES: Feature[] = [
-  { label: (p) => `Apply to ${quota(p)} tuitions a month`, level: (p) => p.monthly_quota },
-  { label: () => 'Start a conversation with any parent', level: (p) => (p.can_initiate_message ? 1 : 0) },
+  { label: (p) => (isUnlimited(p) ? 'Unlimited applications' : `Apply — ${quota(p)} a month`), level: (p) => p.monthly_quota },
   { label: () => 'See parent phone & WhatsApp', level: (p) => (p.can_view_contact ? 1 : 0) },
   { label: () => 'WhatsApp parents with one tap', level: (p) => (p.can_whatsapp ? 1 : 0) },
   { label: () => 'See who viewed your profile', level: (p) => (p.can_see_viewer_identity ? 1 : 0) },
   { label: (p) => rankWords('tutor', p.search_rank), level: (p) => p.search_rank },
-  { label: (p) => `Incoming hiring & demo requests — ${quota(p)} a month`, level: (p) => p.monthly_quota },
+  { label: (p) => (isUnlimited(p) ? 'Unlimited hiring & demo requests' : `Incoming hiring & demo requests — ${quota(p)} a month`), level: (p) => p.monthly_quota },
 ]
 
 const PARENT_FEATURES: Feature[] = [
-  { label: (p) => `Post ${quota(p)} tuitions a month`, level: (p) => p.monthly_quota },
+  { label: (p) => (isUnlimited(p) ? 'Unlimited tuition posts' : `Post ${quota(p)} tuitions a month`), level: (p) => p.monthly_quota },
   { label: () => 'Message any tutor', level: (p) => (p.can_initiate_message ? 1 : 0) },
   { label: () => 'See tutor phone & WhatsApp', level: (p) => (p.can_view_contact ? 1 : 0) },
   { label: () => 'WhatsApp tutors with one tap', level: (p) => (p.can_whatsapp ? 1 : 0) },
   { label: () => 'Complete a hire', level: (p) => (p.can_hire ? 1 : 0) },
-  { label: (p) => rankWords('parent', p.search_rank), level: (p) => p.search_rank },
+  // §4.4: "Standard job placement" is removed — the ranking line appears ONLY
+  // when the plan actually ranks jobs first (Featured), never on the free tier.
+  { label: () => 'Your jobs shown first', level: (p) => (p.search_rank >= 3 ? 3 : 0) },
 ]
 
-// The free tier's universal truths — real, constant, and not represented by any
-// plans column, so they are described here rather than read. They appear on the
-// free card only; a paid card inherits them through "Everything in <free>, plus".
-const TUTOR_BASE = ['Reply to parents who message you', 'Download your CV, free']
+// The tutor free (Basic) card is a FIXED list (owner PR14 §4.1) — no "Start a
+// conversation", no "Listed in search results". The two "a month" figures are
+// the plan's own displayed quota (from the row), never a hard-coded number.
+function tutorFreeRows(p: PlanRow): string[] {
+  return [
+    'Browse tuitions',
+    `Apply — ${quota(p)} a month`,
+    'Reply to parents who message you',
+    'Download your CV',
+    `Incoming hiring & demo requests — ${quota(p)} a month`,
+  ]
+}
+
+// The parent free tier's universal truths — constant, not in any plans column.
 const PARENT_BASE = ['Browse tutors', 'Request a demo']
 
 export default function PackagesTable({
@@ -95,7 +110,6 @@ export default function PackagesTable({
 }) {
   const currentRank = plans.find((p) => p.code === currentPlan)?.search_rank ?? 0
   const features = audience === 'tutor' ? TUTOR_FEATURES : PARENT_FEATURES
-  const baseTruths = audience === 'tutor' ? TUTOR_BASE : PARENT_BASE
   const free = plans.find((p) => p.price_pkr === 0) ?? null
 
   return (
@@ -108,13 +122,17 @@ export default function PackagesTable({
           const lower = !mine && p.search_rank < currentRank
 
           // The free card shows its own features; a paid card shows only the
-          // additions over the free tier (owner PR13 §1.4/§1.5).
-          const rows = isFree || !free
-            ? [
-                ...baseTruths,
-                ...features.filter((f) => f.level(p) > 0).map((f) => f.label(p)),
-              ]
-            : features.filter((f) => f.level(p) > f.level(free)).map((f) => f.label(p))
+          // additions over the free tier (owner PR13 §1.4/§1.5). The tutor free
+          // card is the exact fixed list (owner PR14 §4.1).
+          const rows =
+            isFree && audience === 'tutor'
+              ? tutorFreeRows(p)
+              : isFree || !free
+                ? [
+                    ...PARENT_BASE,
+                    ...features.filter((f) => f.level(p) > 0).map((f) => f.label(p)),
+                  ]
+                : features.filter((f) => f.level(p) > f.level(free)).map((f) => f.label(p))
 
           return (
             <section
@@ -190,7 +208,7 @@ export default function PackagesTable({
                     className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                   >
                     <ShieldCheck aria-hidden size={14} />
-                    {audience === 'tutor' ? 'Get verified' : 'Verify to unlock'}
+                    {audience === 'tutor' ? 'Get verified' : 'Verify your CNIC (free)'}
                   </Link>
                 ) : null
               ) : (
