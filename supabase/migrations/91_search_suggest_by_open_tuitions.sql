@@ -1,0 +1,211 @@
+-- 91_search_suggest_by_open_tuitions.sql (owner PR12 §4.3)
+--
+-- Subject suggestions in the typeahead are now ordered by OPEN TUITION COUNT —
+-- the subjects with tuitions a tutor could actually apply to surface first —
+-- then by match score, then the curriculum's own sequence (stable between
+-- keystrokes). This is a CREATE OR REPLACE of search_suggest with ONE change:
+-- an `open_counts` CTE (open jobs per taxonomy_master id, via job_subjects) is
+-- LEFT JOINed into the `subjects` CTE and drives its ORDER BY. Every other CTE,
+-- the signature, the grants and SECURITY DEFINER are byte-identical to
+-- migration 81. The non-legacy filter (tax_best) is preserved.
+--
+-- Same function reached by /browse/tutors and /browse/tuitions, so the ordering
+-- is the same on both (owner PR12 §4.4).
+
+CREATE OR REPLACE FUNCTION public.search_suggest(p_query text, p_city text DEFAULT NULL::text, p_limit integer DEFAULT 5)
+ RETURNS TABLE(grp text, ref text, label text, sublabel text, href text, score real)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'extensions'
+AS $function$
+declare
+  v_t text := lower(btrim(p_query));
+  v_n integer := greatest(1, least(coalesce(p_limit, 5), 10));
+begin
+return query
+with
+ sub_hits as (
+  select s.slug, (case
+      when lower(s.name) like v_t || '%' then 1.0
+      when lower(s.name) like '%' || v_t || '%' then 0.6
+      else similarity(lower(s.name), v_t)
+    end)::real as sc
+  from taxonomy_subjects s
+  where s.name ilike '%' || v_t || '%'
+     or similarity(lower(s.name), v_t) > 0.3
+),
+lvl_hits as (
+  select l.slug, (case
+      when lower(l.name) like v_t || '%' then 1.0
+      when lower(l.name) like '%' || v_t || '%' then 0.6
+      else similarity(lower(l.name), v_t)
+    end)::real as sc
+  from taxonomy_levels l
+  where l.name ilike '%' || v_t || '%'
+     or similarity(lower(l.name), v_t) > 0.3
+),
+cat_hits as (
+  select c.slug, (case
+      when lower(c.name) like v_t || '%' then 1.0
+      when lower(c.name) like '%' || v_t || '%' then 0.6
+      else similarity(lower(c.name), v_t)
+    end)::real as sc
+  from taxonomy_categories c
+  where c.name ilike '%' || v_t || '%'
+     or similarity(lower(c.name), v_t) > 0.3
+),
+alias_hits as (
+  select a.kind, a.slug, (case
+      when lower(a.alias) like v_t || '%' then 1.0
+      when lower(a.alias) like '%' || v_t || '%' then 0.6
+      else similarity(lower(a.alias), v_t)
+    end)::real as sc
+  from taxonomy_aliases a
+  where a.alias ilike '%' || v_t || '%'
+     or similarity(lower(a.alias), v_t) > 0.3
+),
+tax_hits as (
+  select m.id, sh.sc from taxonomy_master m join sub_hits   sh on sh.slug = m.subject_slug
+  union all
+  select m.id, lh.sc from taxonomy_master m join lvl_hits   lh on lh.slug = m.level_slug
+  union all
+  select m.id, ch.sc from taxonomy_master m join cat_hits   ch on ch.slug = m.category_slug
+  union all
+  select m.id, ah.sc from taxonomy_master m join alias_hits ah
+    on (ah.kind = 'subject'  and ah.slug = m.subject_slug)
+    or (ah.kind = 'level'    and ah.slug = m.level_slug)
+    or (ah.kind = 'category' and ah.slug = m.category_slug)
+),
+tax_best as (
+  select th.id, max(th.sc) as sc from tax_hits th
+   join taxonomy_master m_nl on m_nl.id = th.id
+   join taxonomy_levels l_nl on l_nl.slug = m_nl.level_slug
+   where not l_nl.legacy
+   group by th.id
+),
+-- Open tuitions per taxonomy_master id (owner PR12 §4.3). Drives the subject
+-- suggestion ordering below so subjects with tuitions to apply to come first.
+open_counts as (
+  select js.master_id, count(*)::int as n
+  from job_subjects js
+  join jobs j on j.id = js.job_id and j.status = 'open'
+  group by js.master_id
+),
+tax_scored as (
+  select
+    m.id,
+    m.leaf_type,
+    case when m.leaf_type = 'level' then l.name else s.name end as primary_name,
+    l.name as level_name,
+    c.name as category_name,
+    c.sort_order as cat_order,
+    l.sort_order as lvl_order,
+    tb.sc
+  from tax_best tb
+  join taxonomy_master     m on m.id = tb.id
+  join taxonomy_categories c on c.slug = m.category_slug
+  join taxonomy_levels     l on l.slug = m.level_slug
+  left join taxonomy_subjects s on s.slug = m.subject_slug
+),
+subjects as (
+  select
+    'subject'::text as grp,
+    ts.id::text     as ref,
+    ts.primary_name as label,
+    case when ts.leaf_type = 'level'
+         then ts.category_name
+         else ts.level_name || ' - ' || ts.category_name end as sublabel,
+    '/browse/tutors?subject=' || ts.id::text as href,
+    ts.sc as score
+  from tax_scored ts
+  left join open_counts oc on oc.master_id = ts.id
+  where ts.sc > 0.3
+  -- Ordered by OPEN TUITION COUNT first (owner PR12 §4.3), then match score,
+  -- then the curriculum's own sequence so the list is stable between keystrokes.
+  order by coalesce(oc.n, 0) desc, ts.sc desc, ts.cat_order, ts.lvl_order, ts.primary_name
+  limit v_n
+),
+places as (
+  select distinct city as name, null::text as parent
+    from tutor_directory where city is not null and city <> ''
+  union
+  select distinct area, city
+    from tutor_directory where area is not null and area <> ''
+  union
+  select distinct city, null::text
+    from jobs where status = 'open' and city is not null and city <> ''
+),
+locations as (
+  select
+    'location'::text as grp,
+    p.name as ref,
+    p.name as label,
+    coalesce(p.parent, 'City') as sublabel,
+    case when p.parent is null
+         then '/browse/tutors?city=' || p.name
+         else '/browse/tutors?city=' || p.parent || '&area=' || p.name end as href,
+    (case
+      when lower(p.name) like v_t || '%' then 1.0
+      when lower(p.name) like '%' || v_t || '%' then 0.6
+      else similarity(lower(p.name), v_t)
+    end)::real as score
+  from places p
+  where p.name ilike '%' || v_t || '%'
+     or similarity(lower(p.name), v_t) > 0.3
+  order by score desc, length(p.name), p.name
+  limit v_n
+),
+tutors as (
+  select
+    'tutor'::text as grp,
+    d.slug as ref,
+    d.full_name as label,
+    coalesce(nullif(d.headline, ''), nullif(d.city, ''), 'Verified tutor') as sublabel,
+    '/tutor/' || d.slug as href,
+    (case
+      when lower(d.full_name) like v_t || '%' then 1.0
+      when lower(d.full_name) like '%' || v_t || '%' then 0.7
+      when lower(coalesce(d.headline, '')) like '%' || v_t || '%' then 0.5
+      else similarity(lower(d.full_name), v_t)
+    end)::real as sc
+  from tutor_directory d
+  where d.slug is not null
+    and (
+      d.full_name ilike '%' || v_t || '%'
+      or d.headline ilike '%' || v_t || '%'
+      or similarity(lower(d.full_name), v_t) > 0.3
+    )
+  order by sc desc, d.is_featured desc nulls last, d.rating_avg desc nulls last
+  limit v_n
+),
+jobs_hits as (
+  select
+    'job'::text as grp,
+    j.id::text as ref,
+    j.title as label,
+    coalesce(nullif(j.city, ''), 'Tuition job') as sublabel,
+    '/browse/tuitions?job=' || j.id::text as href,
+    (case
+      when lower(j.title) like v_t || '%' then 1.0
+      when lower(j.title) like '%' || v_t || '%' then 0.7
+      else similarity(lower(j.title), v_t)
+    end)::real as sc
+  from jobs j
+  where j.status = 'open' and j.title is not null and j.title <> ''
+    and (
+      j.title ilike '%' || v_t || '%'
+      or similarity(lower(j.title), v_t) > 0.3
+    )
+  order by sc desc, j.is_featured desc nulls last, j.created_at desc
+  limit v_n
+)
+select sj.grp, sj.ref, sj.label, sj.sublabel, sj.href, sj.score from subjects sj
+union all
+select lo.grp, lo.ref, lo.label, lo.sublabel, lo.href, lo.score from locations lo
+union all
+select tu.grp, tu.ref, tu.label, tu.sublabel, tu.href, tu.sc from tutors tu where tu.sc > 0.3
+union all
+select jb.grp, jb.ref, jb.label, jb.sublabel, jb.href, jb.sc from jobs_hits jb where jb.sc > 0.3;
+end;
+$function$
+;

@@ -15,6 +15,7 @@ import SubjectPicker from '@/components/tutor/SubjectPicker'
 import VideoUpload from '@/components/tutor/VideoUpload'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
 import QuickRepliesEditor from '@/components/tutor/QuickRepliesEditor'
+import PublicPageStatus from '@/components/tutor/PublicPageStatus'
 import type { Identity } from '@/lib/identity'
 import { formatPkMobile } from '@/lib/phone'
 import { reportSilentFailure } from '@/lib/silentFailure'
@@ -41,6 +42,13 @@ export default function TutorSettingsPage() {
   // Read-only verified mobile (PR 3b §2.2), from profiles.
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
+
+  // The tutor's public page (owner PR12 §3): their slug, and whether they are
+  // LISTED — read from tutor_directory (the view returns the row only when the
+  // tutor is in the public directory), so "View your public profile" vs the
+  // not-live preview matches exactly what parents can see.
+  const [publicSlug, setPublicSlug] = useState("");
+  const [publicListed, setPublicListed] = useState(false);
 
   // Change Password
   const [newPassword, setNewPassword] = useState("");
@@ -108,14 +116,17 @@ export default function TutorSettingsPage() {
       setUserId(user.id);
       setTutorEmail(user.email || "");
 
-      const [{ data: prof }, { data: tp }, { data: subjRows }] = await Promise.all([
+      const [{ data: prof }, { data: tp }, { data: subjRows }, { data: dir }] = await Promise.all([
         supabase.from('profiles').select('phone_number, phone_verified_at').eq('id', user.id).maybeSingle(),
         supabase.from('tutor_profiles').select('*').eq('id', user.id).maybeSingle(),
         supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
+        supabase.from('tutor_directory').select('id').eq('id', user.id).maybeSingle(),
       ]);
 
       setPhoneNumber((prof?.phone_number as string) || "");
       setPhoneVerified(Boolean(prof?.phone_verified_at));
+      setPublicSlug((tp?.slug as string) || "");
+      setPublicListed(Boolean(dir));
 
       if (tp) {
         setFormData({
@@ -284,6 +295,10 @@ export default function TutorSettingsPage() {
           Your profile, subjects, availability and documents — one card per thing, each saved on its own.
         </p>
       </header>
+
+      {/* The tutor's public page (§3.1/§3.2): "View your public profile" when
+          listed, or the not-live preview when not. */}
+      {publicSlug && <PublicPageStatus slug={publicSlug} listed={publicListed} />}
 
       <Link
         href="/tutor/dashboard/cv"

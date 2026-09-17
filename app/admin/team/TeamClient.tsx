@@ -199,8 +199,56 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
   }
 
   const create = async () => {
-    const json = await call({ action: 'create', ...form }, 'new')
-    if (!json) return
+    setBusy('new')
+    setError(null)
+    const { ok, status, data: json } = await adminFetch<{
+      error?: string
+      existing?: { userId: string; role: string; isStaff: boolean } | null
+      invited?: boolean
+      temporaryPassword?: string | null
+      inviteLink?: string | null
+    }>('/api/admin/team', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create', ...form }),
+    })
+    setBusy(null)
+
+    if (!ok) {
+      // §1.2: an email that already has an account is not a dead end. A staff
+      // account → resend their invite (which is what they need when it shows
+      // "invite expired"); a tutor/parent → open the grant panel prefilled with
+      // them, so the owner grants a role instead of trying to create a second.
+      if (status === 409 && json.existing) {
+        const ex = json.existing
+        const who = form.email
+        if (ex.isStaff) {
+          const row = staff.find((s) => s.id === ex.userId)
+          setCreating(false)
+          if (row) {
+            toast.success(`${who} is already staff — sending a fresh invite.`)
+            await resend(row)
+          } else {
+            setError(`${who} is already a staff account. Find them in the list below and choose “Resend invite”.`)
+            toast.error('That email is already a staff account.')
+          }
+        } else {
+          setCreating(false)
+          setGrantOpen(true)
+          setGrantQuery(who)
+          void searchGrant(who)
+          toast.error(`${who} already has a ${ex.role} account — grant them a role below.`)
+        }
+        return
+      }
+      const detail = json.error ?? 'That did not work.'
+      const message = status ? `${detail} (HTTP ${status})` : detail
+      setError(message)
+      toast.error(message)
+      return
+    }
+
+    router.refresh()
     toast.success('Staff account created.')
     setNewAccount({
       email: form.email,

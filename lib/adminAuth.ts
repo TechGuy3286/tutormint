@@ -134,9 +134,13 @@ export const SCREEN_ACCESS = {
   ads: ['admin', 'operations'] as AdminRole[],
   social: ['admin', 'operations'] as AdminRole[],
   import: ['admin', 'operations'] as AdminRole[],
-  // Deleting accounts is irreversible, but an Admin has full access everywhere
-  // but Team, so it is admin (and owner), not owner-only.
-  cleanup: ['admin'] as AdminRole[],
+  // Permanent junk-account deletion is the one admin action with NO undo, so it
+  // is OWNER ONLY (owner PR12 §2.4, restoring the T7b rule — this supersedes the
+  // 14 Sep note that made it admin). `[]` + roleSatisfies() = owner and nobody
+  // else, the same pattern as `team`; the cleanup route and the /admin/users
+  // "suspicious" filter both read this key, so an Admin gets neither the UI nor
+  // the DELETE.
+  cleanup: [] as AdminRole[],
   // The blog CMS — SEO/marketing content, operations' work end to end.
   blog: ['admin', 'operations'] as AdminRole[],
   blogPublish: ['admin', 'operations'] as AdminRole[],

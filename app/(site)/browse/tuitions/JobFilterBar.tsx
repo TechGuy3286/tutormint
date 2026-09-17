@@ -211,7 +211,12 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
           ariaLabel="Search tuitions"
           city={values.city || undefined}
           groups={['subject', 'location', 'job']}
-          onQueryChange={(next) => apply({ q: next }, { replace: true })}
+          // §4.2: DO NOT apply on every keystroke — that re-rendered the board
+          // with the half-typed literal query and flashed "no tuitions match".
+          // The results (and the count) change only when the query is COMMITTED
+          // (Enter, a suggestion, or "Show all results"); the panel updates live
+          // on its own.
+          onQueryChange={() => {}}
           onCommit={(next) => apply({ q: next })}
         />
         <button

@@ -210,12 +210,23 @@ export function render(input: TemplateInput): RenderedEmail {
     case 'staff_invite': {
       // Says what to expect BEFORE the click: one link, straight to a
       // choose-your-password screen, then the admin panel. Essential — it is the
-      // only route in — so it ignores the opt-out.
+      // only route in — so it ignores the opt-out. Greets the RECIPIENT
+      // (input.name is the invitee's name, passed by createStaff/resendStaffInvite),
+      // never the owner who sent it. "as ${role}" was "as a operations"/"as a
+      // admin" — both ungrammatical — so the role is a readable label with the
+      // right article (owner PR12 §2.3).
+      const roleName =
+        input.role.toLowerCase() === 'admin'
+          ? 'Admin'
+          : input.role.toLowerCase() === 'operations'
+            ? 'Operations team member'
+            : input.role
+      const asRole = /^[aeiou]/i.test(roleName) ? `an ${roleName}` : `a ${roleName}`
       return build(
         `You have been invited to the TutorMint team`,
-        `You are invited as ${input.role}`,
+        `You're invited to the TutorMint team`,
         [
-          `Hi ${input.name}, you have been added to the TutorMint team as a ${input.role}.`,
+          `Hi ${input.name}, you have been added to the TutorMint team as ${asRole}.`,
           'Click the button below to set your own password. The link is one-time and takes you straight to a screen where you choose a password — then you land in the admin panel with your role.',
           'If you were not expecting this, you can ignore this email and no account is activated.',
         ],

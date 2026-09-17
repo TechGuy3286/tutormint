@@ -70,7 +70,11 @@ export async function POST(request: Request) {
       actor,
       origin: new URL(request.url).origin,
     })
-    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+    if (!result.ok)
+      return NextResponse.json(
+        { error: result.error, existing: 'existing' in result ? result.existing : null },
+        { status: result.status },
+      )
 
     return NextResponse.json({
       success: true,

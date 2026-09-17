@@ -15,6 +15,7 @@ import AdSlot from '@/components/ads/AdSlot'
 import TutorFilterBar, { type FilterValues } from './TutorFilterBar'
 import MoreTutors from './MoreTutors'
 import { rankedTutors, tutorFiltersFrom, tutorFiltersToParams } from '@/lib/browseTutors'
+import { resolveSubjectQuery } from '@/lib/searchResolve'
 
 // /browse/tutors -- a server component, on purpose.
 //
@@ -181,6 +182,21 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   // cursor, because offset paging repeats and skips rows as the directory
   // changes underneath a reader. See supabase/migrations/32.
   const listFilters = tutorFiltersFrom((k) => one(sp[k]))
+
+  // §4.1/§4.4: a committed misspelled/Roman-Urdu query ("hisab" → Mathematics)
+  // resolves to the subject the typeahead would suggest, and filters by it —
+  // rank_tutors' p_query is a name match, so a subject typo otherwise found
+  // nobody. Only when no explicit subject is already chosen.
+  let resolvedLabel: string | null = null
+  if (!listFilters.masterId && listFilters.q) {
+    const resolved = await resolveSubjectQuery(listFilters.q, city || null)
+    if (resolved) {
+      listFilters.masterId = resolved.masterId
+      listFilters.q = ''
+      resolvedLabel = resolved.label
+    }
+  }
+
   const { tutors, total, nextCursor, error } = await rankedTutors({
     filters: listFilters,
     limit: PAGE_SIZE,
@@ -294,6 +310,12 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
               ? 'No tutors match these filters yet.'
               : `${total} tutor${total === 1 ? '' : 's'} · free to browse, no account needed`}
           </p>
+          {/* §4.1: when a misspelled/Roman-Urdu query resolved to a subject. */}
+          {resolvedLabel && (
+            <p className="text-xs font-bold text-tm-navy">
+              Showing results for &ldquo;{resolvedLabel}&rdquo;
+            </p>
+          )}
         </header>
 
         <TutorFilterBar values={filters} />

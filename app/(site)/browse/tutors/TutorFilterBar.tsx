@@ -300,7 +300,10 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           // Live: every debounced change rewrites the URL and the server
           // re-renders the ranked grid underneath. replace(), not push(), so
           // refining a search does not fill the back button with keystrokes.
-          onQueryChange={(next) => apply({ q: next }, { replace: true })}
+          // §4.2: apply the query only on COMMIT (Enter / suggestion / "Show
+          // all results"), never on every keystroke — the per-keystroke apply
+          // flashed "no tutors match" with the half-typed literal query.
+          onQueryChange={() => {}}
           onCommit={(next) => apply({ q: next })}
         />
         <button

@@ -75,6 +75,165 @@ async function loadTutor(slug: string): Promise<PublicTutor | null> {
   return row ?? null
 }
 
+/**
+ * The OWNER's own preview of their public page (owner PR12 §3.2).
+ *
+ * A not-listed tutor is absent from tutor_visible_profiles, so tutor_public_page
+ * returns nothing and the public route 404s — but the tutor still needs to see
+ * how their page will look. This mirrors tutor_public_page's exact output from
+ * the base tables, via the service role, for ONE user id: the caller's own. The
+ * page only shows it when the returned slug matches the requested one, so a user
+ * can only ever preview THEIR OWN profile. Same public column allowlist — no
+ * contact fields — and it is never indexed (the route 404s for anyone else).
+ */
+async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
+  const admin = createAdminClient()
+  if (!admin) return null
+
+  const { data: tp } = await admin
+    .from('tutor_profiles')
+    .select(
+      'id, slug, full_name, headline, bio, avatar_url, city, area, teaching_mode, job_types, online_platforms, gender, hourly_rate_pkr, experience_years, degrees, video_youtube_id, video_status, rating_avg, rating_count, created_at',
+    )
+    .eq('id', userId)
+    .maybeSingle()
+  if (!tp || !tp.slug) return null
+
+  // Active tutor plan, highest search rank (for the badges). Separate reads
+  // rather than a nested join, so the shapes stay obvious.
+  let planCode: string | null = null
+  const { data: subs } = await admin
+    .from('subscriptions')
+    .select('plan_code')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .gt('expires_at', new Date().toISOString())
+  const planCodes = [...new Set((subs ?? []).map((s) => s.plan_code as string))]
+  if (planCodes.length > 0) {
+    const { data: plans } = await admin
+      .from('plans')
+      .select('code, search_rank, audience')
+      .in('code', planCodes)
+      .eq('audience', 'tutor')
+    let best = -1
+    for (const p of plans ?? []) {
+      const rank = (p.search_rank as number) ?? 0
+      if (rank > best) {
+        best = rank
+        planCode = p.code as string
+      }
+    }
+  }
+
+  // Subjects → {master_id, category, level, subject}, resolved from taxonomy and
+  // ordered exactly as tutor_public_page orders them.
+  let subjects: PublicTutor['subjects'] = []
+  const { data: subjRows } = await admin.from('tutor_subjects').select('master_id').eq('tutor_id', userId)
+  const masterIds = (subjRows ?? []).map((r) => r.master_id as number)
+  if (masterIds.length > 0) {
+    const { data: masters } = await admin
+      .from('taxonomy_master')
+      .select('id, category_slug, level_slug, subject_slug')
+      .in('id', masterIds)
+    const catSlugs = [...new Set((masters ?? []).map((m) => m.category_slug as string))]
+    const lvlSlugs = [...new Set((masters ?? []).map((m) => m.level_slug as string))]
+    const subSlugs = [...new Set((masters ?? []).map((m) => m.subject_slug as string).filter(Boolean))]
+    const [{ data: cats }, { data: lvls }, subjectsTax] = await Promise.all([
+      admin.from('taxonomy_categories').select('slug, name, sort_order').in('slug', catSlugs.length ? catSlugs : ['x']),
+      admin.from('taxonomy_levels').select('slug, name, sort_order').in('slug', lvlSlugs.length ? lvlSlugs : ['x']),
+      subSlugs.length
+        ? admin.from('taxonomy_subjects').select('slug, name').in('slug', subSlugs)
+        : Promise.resolve({ data: [] as { slug: string; name: string }[] }),
+    ])
+    const catBy = new Map((cats ?? []).map((c) => [c.slug as string, c]))
+    const lvlBy = new Map((lvls ?? []).map((l) => [l.slug as string, l]))
+    const subBy = new Map((subjectsTax.data ?? []).map((s) => [s.slug as string, s.name as string]))
+    subjects = (masters ?? [])
+      .map((m) => {
+        const cat = catBy.get(m.category_slug as string)
+        const lvl = lvlBy.get(m.level_slug as string)
+        return {
+          master_id: m.id as number,
+          category: (cat?.name as string) ?? '',
+          level: (lvl?.name as string) ?? '',
+          subject: m.subject_slug ? (subBy.get(m.subject_slug as string) ?? null) : null,
+          _cs: (cat?.sort_order as number) ?? 0,
+          _ls: (lvl?.sort_order as number) ?? 0,
+        }
+      })
+      .sort((a, b) => a._cs - b._cs || a._ls - b._ls || (a.subject ?? '').localeCompare(b.subject ?? ''))
+      .map(({ master_id, category, level, subject }) => ({ master_id, category, level, subject }))
+  }
+
+  const { data: slotRows } = await admin
+    .from('tutor_slots')
+    .select('id, slot_text, is_booked, created_at')
+    .eq('tutor_id', userId)
+    .order('created_at')
+  const slots = (slotRows ?? []).map((s) => ({
+    id: s.id as string,
+    text: (s.slot_text as string) ?? '',
+    booked: !!s.is_booked,
+  }))
+
+  const { data: reviewRows } = await admin
+    .from('reviews')
+    .select('id, rating, comment, created_at, parent_id')
+    .eq('tutor_id', userId)
+    .order('created_at', { ascending: false })
+  const parentIds = [...new Set((reviewRows ?? []).map((r) => r.parent_id as string).filter(Boolean))]
+  const { data: parents } = parentIds.length
+    ? await admin.from('profiles').select('id, full_name').in('id', parentIds)
+    : { data: [] as { id: string; full_name: string | null }[] }
+  const parentName = new Map((parents ?? []).map((p) => [p.id as string, (p.full_name as string) ?? 'A parent']))
+  const reviews = (reviewRows ?? []).map((r) => ({
+    id: r.id as string,
+    rating: r.rating as number,
+    comment: (r.comment as string) ?? null,
+    created_at: r.created_at as string,
+    reviewer: (parentName.get(r.parent_id as string) ?? 'A parent').split(' ')[0] || 'A parent',
+  }))
+
+  const { data: docRows } = await admin
+    .from('user_documents')
+    .select('id, label, preview_path, created_at')
+    .eq('user_id', userId)
+    .eq('kind', 'degree')
+    .order('created_at')
+  const degree_documents = (docRows ?? [])
+    .filter((d) => d.preview_path)
+    .map((d) => ({ id: d.id as string, label: (d.label as string) ?? null }))
+
+  return {
+    id: tp.id as string,
+    slug: tp.slug as string,
+    full_name: (tp.full_name as string) || 'Your profile',
+    headline: (tp.headline as string) ?? null,
+    bio: (tp.bio as string) ?? null,
+    avatar_url: (tp.avatar_url as string) ?? null,
+    city: (tp.city as string) ?? null,
+    area: (tp.area as string) ?? null,
+    teaching_mode: (tp.teaching_mode as string) ?? null,
+    job_types: (tp.job_types as string[] | null) ?? null,
+    online_platforms: (tp.online_platforms as string[] | null) ?? null,
+    gender: (tp.gender as string) ?? null,
+    hourly_rate_pkr: (tp.hourly_rate_pkr as number) ?? null,
+    experience_years: (tp.experience_years as number) ?? null,
+    degrees: (tp.degrees as string[] | null) ?? null,
+    // Same rule as tutor_public_page: only an APPROVED video is shown.
+    video_youtube_id: tp.video_status === 'approved' ? ((tp.video_youtube_id as string) ?? null) : null,
+    video_status: (tp.video_status as string) ?? null,
+    rating_avg: (tp.rating_avg as number | string | null) ?? null,
+    rating_count: (tp.rating_count as number) ?? null,
+    created_at: (tp.created_at as string) ?? new Date().toISOString(),
+    plan_code: planCode,
+    subjects,
+    slots,
+    reviews,
+    degree_documents,
+  }
+}
+
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params
   const tutor = await loadTutor(slug)
@@ -338,7 +497,25 @@ async function notifyProfileViewed(params: {
 
 export default async function TutorPublicProfile({ params }: { params: Params }) {
   const { slug } = await params
-  const tutor = await loadTutor(slug)
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  let tutor = await loadTutor(slug)
+
+  // Owner preview (§3.2): when the public page would 404 because the tutor is
+  // not yet in the public views, render it for the tutor THEMSELVES — but only
+  // when the slug is their own, so nobody can preview another tutor's page.
+  let preview = false
+  if (!tutor && user) {
+    const own = await loadTutorPreview(user.id)
+    if (own && own.slug === slug) {
+      tutor = own
+      preview = true
+    }
+  }
+
   // An address that used to work still does.
   //
   // 308, which is what the App Router emits: permanentRedirect() and
@@ -360,11 +537,6 @@ export default async function TutorPublicProfile({ params }: { params: Params })
     if (moved && moved !== slug) permanentRedirect(`/tutor/${moved}`)
     notFound()
   }
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
   const ent = user ? await getEntitlements(user.id) : null
   const canViewContact = !!ent?.canViewContact
@@ -488,6 +660,21 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         <Breadcrumbs
           items={[{ label: 'Find tutors', href: '/browse/tutors' }, { label: tutor.full_name }]}
         />
+
+        {/* Owner preview (§3.2): this page is not live to parents yet — the tutor
+            is seeing their own profile as it will look once listed. */}
+        {preview && (
+          <section
+            role="status"
+            className="rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-3 text-tm-gold-ink sm:p-4"
+          >
+            <p className="text-xs font-black">Preview — not visible to parents</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed">
+              This is how your public page will look once you&rsquo;re listed. Right now only you can
+              see it. Finish the steps on your dashboard to go live.
+            </p>
+          </section>
+        )}
 
         {/* ------------------------------------------------------- header --- */}
         <section className="relative rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">

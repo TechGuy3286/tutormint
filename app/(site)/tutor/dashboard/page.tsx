@@ -5,6 +5,7 @@ import AdSlot from '@/components/ads/AdSlot'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
 import EmptyState from '@/components/EmptyState'
 import ShareVerifiedBadge from '@/components/tutor/ShareVerifiedBadge'
+import PublicPageStatus from '@/components/tutor/PublicPageStatus'
 import CvCard from '@/components/tutor/CvCard'
 import { canDownloadCv } from '@/lib/cv/access'
 import { absoluteUrl } from '@/lib/siteUrl'
@@ -327,6 +328,14 @@ export default async function TutorDashboardPage() {
             ) : undefined
           }
         />
+
+        {/* Not listed: the public page is not live to parents yet — say so and
+            offer the owner-only preview (§3.2). The header already carries "View
+            your public profile" for a LISTED tutor, so this shows only when not
+            listed. */}
+        {!directoryListed && tutorProfile?.slug && (
+          <PublicPageStatus slug={tutorProfile.slug} listed={false} />
+        )}
 
         {/* Not in the directory: name exactly what is missing (fee, mobile,
             subject, city), each a tap from the screen that fixes it — the real

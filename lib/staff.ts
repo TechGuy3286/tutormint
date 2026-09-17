@@ -41,7 +41,15 @@ export type StaffResult =
        *  could not be sent, so they can pass it on themselves. */
       inviteLink?: string
     }
-  | { ok: false; status: number; error: string }
+  | {
+      ok: false
+      status: number
+      error: string
+      /** When the email already has an account, so the Team screen can route the
+       *  owner to Resend invite (a staff account) or Grant role (a member)
+       *  instead of a dead end (owner PR12 §1.2). */
+      existing?: { userId: string; role: string; isStaff: boolean }
+    }
 
 // Where an accepted invite lands: the set-password screen, then straight into
 // the admin panel. Threaded through /api/auth/callback's same-origin `next`.
@@ -99,10 +107,14 @@ export async function createStaff(params: {
     .eq('email', email)
     .maybeSingle()
   if (existing) {
+    const isStaff = existing.role === 'admin'
     return {
       ok: false,
       status: 409,
-      error: `That email already has a ${existing.role} account on TutorMint.`,
+      error: isStaff
+        ? 'That email is already a staff account — resend their invite instead.'
+        : `That email already has a ${existing.role} account — grant them a role instead.`,
+      existing: { userId: existing.id as string, role: existing.role as string, isStaff },
     }
   }
 

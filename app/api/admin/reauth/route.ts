@@ -52,9 +52,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'That password is not right.' }, { status: 401 })
   }
 
-  // Sign the throwaway session straight back out. It was never written to a
-  // cookie, but leaving a valid refresh token alive for no reason is untidy.
-  await probe.auth.signOut()
+  // Discard the throwaway session — LOCAL scope only. signOut()'s default scope
+  // is 'global', which revokes EVERY refresh token for this user on the server,
+  // including the admin's own cookie session: the password confirmation would
+  // then destroy the very session it was protecting, and the getUser() check
+  // below (or the next token refresh) would fail with "Please sign in again."
+  // 'local' just drops the probe's in-memory tokens (there is no cookie to
+  // clear, persistSession is off); the throwaway refresh token expires on its
+  // own. This is the Team-screen 401 (owner PR12 §1.1).
+  await probe.auth.signOut({ scope: 'local' })
 
   await stampReauth(actor.id)
 

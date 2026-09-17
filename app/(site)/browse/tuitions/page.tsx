@@ -11,6 +11,7 @@ import { logSearchPerformed } from '@/lib/activityLog'
 import { logAnonSearch } from '@/lib/anonSearch'
 import { ANON_COOKIE, isAnonId } from '@/lib/anonSession'
 import { browseJobs, type JobFilters } from '@/lib/jobFeed'
+import { resolveSubjectQuery } from '@/lib/searchResolve'
 import JobCard from '@/components/JobCard'
 import AdSlot from '@/components/ads/AdSlot'
 import JobFilterBar, { type JobFilterValues } from './JobFilterBar'
@@ -157,13 +158,29 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   const q = one(sp.q)
   const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
 
+  // §4.1: a committed free-text query (a misspelling or a Roman-Urdu spelling)
+  // resolves to the subject the typeahead would suggest, and we filter by THAT
+  // subject rather than a literal title match that finds nothing. Only when no
+  // explicit subject is already chosen.
+  let resolvedLabel: string | null = null
+  let effectiveMasterId = subjectId
+  if (!subjectId && q) {
+    const resolved = await resolveSubjectQuery(q, city || null)
+    if (resolved) {
+      effectiveMasterId = resolved.masterId
+      resolvedLabel = resolved.label
+    }
+  }
+
   const filters: JobFilters = {
-    masterId: subjectId,
+    masterId: effectiveMasterId,
     city: city || null,
     mode: mode || null,
     budgetMin: intOrNull(budgetMin),
     budgetMax: intOrNull(budgetMax),
-    q: q || null,
+    // When the query resolved to a subject, the literal title filter is dropped
+    // (it would AND with the subject and empty the board again).
+    q: resolvedLabel ? null : q || null,
   }
 
   // The first window is server-rendered — this page is an organic-search
@@ -301,6 +318,12 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
               ? 'No open tuitions match these filters yet.'
               : `${total} open tuition${total === 1 ? '' : 's'} · free to browse, no account needed`}
           </p>
+          {/* §4.1: when a misspelled/Roman-Urdu query resolved to a subject. */}
+          {resolvedLabel && (
+            <p className="text-xs font-bold text-tm-navy">
+              Showing results for &ldquo;{resolvedLabel}&rdquo;
+            </p>
+          )}
         </header>
 
         {/* The verify prompt — shown ONLY to a logged-in tutor who has not paid
