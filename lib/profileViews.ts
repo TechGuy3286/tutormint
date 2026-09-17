@@ -63,12 +63,20 @@ export async function viewTeasers(
   const admin = createAdminClient()
   if (!admin) return { teasers: [], total: 0 }
 
+  // PR18 §3.1 — count and name only PARENT viewers. A tutor, a staff account or
+  // the tutor himself viewing the page is not a parent finding him in search, and
+  // an anonymous (not-signed-in) view names no known parent — none of those are
+  // the "parents who viewed you" signal this surface is about. So the view row's
+  // recorded viewer_role must be parent/academy, and the viewer is never the
+  // tutor himself.
   const { data: rows, count } = await admin
     .from('profile_views')
     .select('id, viewer_id, viewer_role, search_subject, search_area, search_city, created_at', {
       count: 'exact',
     })
     .eq('tutor_id', tutorId)
+    .in('viewer_role', ['parent', 'academy'])
+    .neq('viewer_id', tutorId)
     .order('created_at', { ascending: false })
     .limit(limit)
 
@@ -198,10 +206,13 @@ export async function viewSummary(
   const admin = createAdminClient()
   if (admin) {
     const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
+    // PR18 §3.1 — same parent-only rule as the total.
     const { count } = await admin
       .from('profile_views')
       .select('id', { count: 'exact', head: true })
       .eq('tutor_id', tutorId)
+      .in('viewer_role', ['parent', 'academy'])
+      .neq('viewer_id', tutorId)
       .gte('created_at', since)
     thisWeek = count ?? 0
   }

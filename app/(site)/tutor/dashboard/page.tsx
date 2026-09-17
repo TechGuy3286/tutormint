@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { Send, MessageSquare, Video, Briefcase, Eye, Heart } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import AdSlot from '@/components/ads/AdSlot'
@@ -8,55 +9,66 @@ import ViewsCard from '@/components/dashboard/ViewsCard'
 import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
 import {
   WhatToDoNextCard,
+  CountGrid,
   TuitionsForYouCard,
-  MessagesDemosCard,
-  MyApplicationsCard,
   RecentActivityCard,
+  NotesCard,
+  type CountTile,
 } from '@/components/tutor/DashboardCards'
 
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { computeCompletion } from '@/lib/completion'
+import { checklistHref } from '@/lib/profileChecklist'
 import { recentActivity } from '@/lib/dashboardFeed'
 import { getEntitlements } from '@/lib/entitlements'
 import { jobsThisWeek } from '@/lib/funnel'
 import { savedJobsForTutor } from '@/lib/jobFeed'
 import { unreadMessageCount } from '@/lib/messaging'
-import { tutorNeeds } from '@/lib/needsYou'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
-import { listingFixItems } from '@/lib/tutorListingStatus'
 import { viewSummary } from '@/lib/profileViews'
 import { canDownloadCv } from '@/lib/cv/access'
 import { needsOnboarding } from '@/lib/onboardingGate'
 
-// The tutor dashboard — CARDS ONLY (PR17 §1).
+// The tutor dashboard — CARDS ONLY, phone-first (PR18).
 //
-// No loose text and no band headings. The FIRST card is who-you-are: photo,
-// name, city, status badges (the plan with its end date, or a red "Not verified"
-// badge when the one-time fee is unpaid), and the two links "Edit profile" /
-// "View your public page". Below it, a set of self-contained cards, each with its
-// own plain-English title, in a fixed order; a card that has nothing to show is
-// hidden (except "What to do next" when something is missing). One column on a
-// phone, two columns on desktop below the first card.
+// One phone layout at every width: a single narrow centred column (~480px), no
+// desktop grid. Every heading, note and info line lives inside a card. The
+// breadcrumb sits tight under the header; the page has bottom padding so the
+// floating WhatsApp button never covers a card.
 
 export const dynamic = 'force-dynamic'
+
+// Plain, short "next step" wording for each checklist item, keyed on its key.
+const NEXT_LABEL: Record<string, string> = {
+  verify: 'get verified',
+  phone: 'verify your mobile',
+  city: 'add your city',
+  area: 'add your area',
+  subjects: 'add your subjects',
+  gender: 'add your gender',
+  name: 'add your name',
+  photo: 'add your photo',
+  tagline: 'add a tagline',
+  bio: 'add your about-you',
+  experience: 'add your experience',
+  fee: 'add your fee',
+  mode: 'add your job type',
+  degree: 'add a degree',
+  cnic: 'add your CNIC',
+  video: 'add your video',
+}
 
 export default async function TutorDashboardPage() {
   const session = await getSessionUser()
   const userId = session!.user.id
 
-  // The universal onboarding gate: a materially-empty tutor is sent into
-  // onboarding here, so every sign-in path routes the same way.
   if (await needsOnboarding(userId)) redirect('/tutor/onboarding')
 
   const supabase = await createClient()
 
   const [{ data: tutorProfile }, completion, ent, directory] = await Promise.all([
-    supabase
-      .from('tutor_profiles')
-      .select('slug, city, job_types, verification_status, video_status, video_attempts, degrees')
-      .eq('id', userId)
-      .maybeSingle(),
+    supabase.from('tutor_profiles').select('slug, city, job_types').eq('id', userId).maybeSingle(),
     computeCompletion(userId),
     getEntitlements(userId),
     loadDirectoryStatus(userId),
@@ -66,17 +78,8 @@ export default async function TutorDashboardPage() {
   const city = (tutorProfile?.city as string | null) ?? null
   const jobTypes = (tutorProfile?.job_types as string[] | null) ?? null
 
-  const [needs, activity, views, weekJobs, unread, { data: apps }, { data: demos }, savedJobs] =
+  const [activity, views, weekJobs, unread, { data: apps }, { data: demos }, savedJobs] =
     await Promise.all([
-      tutorNeeds({
-        userId,
-        ent,
-        verificationStatus: (tutorProfile?.verification_status as string) ?? null,
-        videoStatus: (tutorProfile?.video_status as string) ?? null,
-        videoAttempts: (tutorProfile?.video_attempts as number) ?? 0,
-        city,
-        hasDegree: ((tutorProfile?.degrees as string[] | null)?.length ?? 0) > 0,
-      }),
       recentActivity({
         userId,
         role: 'tutor',
@@ -101,61 +104,73 @@ export default async function TutorDashboardPage() {
   const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
   const publicHref = directoryListed && tutorProfile?.slug ? `/tutor/${tutorProfile.slug}` : null
 
-  // "What to do next": the visibility fixes (mobile, city, area, subjects,
-  // gender), then verify if the fee is unpaid, then any other actionable need
-  // (a rejected video, a missing degree, an expiring plan). De-duplicated by
-  // destination so the same tap is never listed twice.
-  const todoRaw: { key: string; label: string; href: string }[] = []
-  for (const f of listingFixItems(directory.blockers)) {
-    if (f.href) todoRaw.push({ key: f.key, label: f.label, href: f.href })
-  }
-  if (!ent.verified) {
-    todoRaw.push({ key: 'verify', label: 'Verify your account', href: '/tutor/complete-profile?step=verify' })
-  }
-  for (const n of needs) {
-    todoRaw.push({ key: n.id, label: n.title, href: n.action.href })
-  }
-  const seenHref = new Set<string>()
-  const todo = todoRaw.filter((t) => (seenHref.has(t.href) ? false : (seenHref.add(t.href), true)))
+  // §2.1(2) — the real to-dos, from the completion checklist (verify, mobile,
+  // city, subjects, gender, degree, CNIC, video…). Not news.
+  const todo = (completion?.missing ?? []).map((it) => ({
+    key: it.key,
+    label: NEXT_LABEL[it.key] ?? it.label,
+    href: checklistHref('tutor', it),
+  }))
+
+  const tiles: CountTile[] = [
+    { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'green' },
+    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', href: '/tutor/dashboard/messages', tone: 'navy', highlight: unread > 0 },
+    { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo requests', href: '/tutor/dashboard/demos', tone: 'red', highlight: liveDemos > 0 },
+    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: weekJobs.length, label: 'Tuitions for you', href: '/tutor/dashboard/jobs', tone: 'gold' },
+    { key: 'views', icon: <Eye aria-hidden size={22} />, value: views.total, label: 'Profile views', href: '#who-looked', tone: 'mint' },
+    { key: 'saved', icon: <Heart aria-hidden size={22} />, value: savedJobs.length, label: 'Saved tuitions', href: '#saved-tuitions', tone: 'mint' },
+  ]
 
   return (
-    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mx-auto max-w-4xl space-y-5">
+    <main className="min-h-screen bg-tm-bg px-4 pt-3 pb-28">
+      <div className="mx-auto w-full max-w-[480px] space-y-3">
         <Breadcrumbs items={[{ label: 'Tutor dashboard' }]} />
 
-        {/* FIRST CARD (§1.2/§1.3): photo, name, city, status badges, plan + end
-            date (here only), and the two links. */}
+        {/* 1. Name card. */}
         <TutorHeaderCard
           name={session?.profile?.full_name ?? 'Your profile'}
           avatarUrl={session?.profile?.avatar_url ?? null}
           city={city}
-          // A badge is a "you are live to parents" claim, so it shows only when
-          // the tutor is actually in the directory.
-          badges={directoryListed ? ent.badges : []}
           verified={ent.verified}
-          planName={ent.planName ?? ent.pausedPlanName}
+          planName={ent.planName}
           planExpiresAt={ent.expiresAt}
+          pausedPlanName={ent.pausedPlanName}
           completion={percent}
+          nextStepLabel={todo[0]?.label ?? null}
+          nextStepHref={todo[0]?.href ?? '/tutor/complete-profile'}
           settingsHref="/tutor/dashboard/settings"
           publicHref={publicHref}
         />
 
-        {/* The rest: one column on a phone, two on desktop. Each card hides
-            itself when it has nothing to show (§1.5). */}
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
-          <WhatToDoNextCard items={todo} />
-          <TuitionsForYouCard jobs={weekJobs} canApply={ent.verified} />
-          <MessagesDemosCard unread={unread} demos={liveDemos} />
-          <MyApplicationsCard count={liveApps.length} />
-          {views.total > 0 && (
-            <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} listed={directoryListed} />
-          )}
-          <SavedJobsSection initial={savedJobs} viewerCity={city} appliedIds={appliedJobIds} />
-          <RecentActivityCard items={activity} unreadMessages={unread} />
-          <CvCard canDownload={canDownloadCv(ent)} />
+        {/* 2. What to do next. */}
+        <WhatToDoNextCard items={todo} />
+
+        {/* 3. Count tiles, two to a row. */}
+        <CountGrid tiles={tiles} />
+
+        {/* 4. Tuitions for you. */}
+        <TuitionsForYouCard jobs={weekJobs} canApply={ent.verified} />
+
+        {/* 5. Who looked at you. */}
+        <div id="who-looked" className="scroll-mt-3">
+          <ViewsCard summary={views} identityGranted={ent.canSeeViewerIdentity} listed={directoryListed} />
         </div>
 
-        {/* House / promo creatives only (revenue spec) — a card, not loose text. */}
+        {/* 6. Your CV. */}
+        <CvCard canDownload={canDownloadCv(ent)} />
+
+        {/* 7. Recent activity (last 5, news included). */}
+        <RecentActivityCard items={activity} unreadMessages={unread} />
+
+        {/* Saved tuitions (the count tile above links here). */}
+        <div id="saved-tuitions" className="scroll-mt-3">
+          <SavedJobsSection initial={savedJobs} viewerCity={city} appliedIds={appliedJobIds} />
+        </div>
+
+        {/* 8. Notes. */}
+        <NotesCard />
+
+        {/* House / promo creatives only — a card, not loose text. */}
         <AdSlot slot="tutor-dashboard" audience="tutors" viewerRole="tutor" viewerPlan={ent.plan} />
       </div>
     </main>
