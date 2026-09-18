@@ -14,13 +14,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
-import { PAUSE_AFTER_DAYS } from '@/lib/tuitionStatus'
+import { PAUSE_AFTER_DAYS, isPauseDue } from '@/lib/tuitionStatus'
 
 export { PAUSE_AFTER_DAYS }
-
-function cutoffIso(now = Date.now()): string {
-  return new Date(now - PAUSE_AFTER_DAYS * 24 * 3600 * 1000).toISOString()
-}
 
 /**
  * The daily sweep. Pauses every open tuition — parent- or team-posted — whose
@@ -32,16 +28,17 @@ export async function pauseStaleTuitions(): Promise<{ paused: number; ids: strin
   const admin = createAdminClient()
   if (!admin) return { paused: 0, ids: [] }
 
-  const cutoff = cutoffIso()
   const { data: open } = await admin
     .from('jobs')
     .select('id, parent_id, title, created_at, resumed_at')
     .eq('status', 'open')
 
   const now = new Date().toISOString()
-  // Clock base is the last resume, else the post date.
-  const due = (open ?? []).filter(
-    (j) => (((j.resumed_at as string | null) ?? (j.created_at as string)) < cutoff),
+  // Clock base is the last resume, else the post date — and the due test is the
+  // SAME isPauseDue the poster's "pauses in N days" display reads (PR29 §B), so
+  // the sweep and the countdown cannot drift.
+  const due = (open ?? []).filter((j) =>
+    isPauseDue((j.resumed_at as string | null) ?? (j.created_at as string)),
   )
 
   const ids: string[] = []

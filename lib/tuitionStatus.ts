@@ -16,14 +16,35 @@
 /** A tuition auto-pauses this many days after it is posted or last resumed. */
 export const PAUSE_AFTER_DAYS = 15
 
+const DAY_MS = 86_400_000
+
 /**
- * Days until an OPEN tuition auto-pauses, from its clock base
- * (coalesce(resumed_at, created_at)). Derived at read time — no stored column.
- * Never negative; 0 means it is due on the next sweep.
+ * The instant an OPEN tuition auto-pauses: its clock base
+ * (coalesce(resumed_at, created_at)) + 15 days. This is the ONE expression the
+ * sweep (isPauseDue) and the display (pauseCountdownLabel) both derive from, so
+ * "pauses in N days" and "what the sweep writes" can never drift (PR29 §B).
  */
-export function daysUntilPause(clockBaseIso: string, now = Date.now()): number {
-  const due = new Date(clockBaseIso).getTime() + PAUSE_AFTER_DAYS * 86_400_000
-  return Math.max(0, Math.ceil((due - now) / 86_400_000))
+export function pauseDueAtMs(clockBaseIso: string): number {
+  return new Date(clockBaseIso).getTime() + PAUSE_AFTER_DAYS * DAY_MS
+}
+
+/** True once the 15-day clock has run out — exactly what the sweep pauses on. */
+export function isPauseDue(clockBaseIso: string, now = Date.now()): boolean {
+  return pauseDueAtMs(clockBaseIso) <= now
+}
+
+/**
+ * The countdown shown to the poster on an OPEN tuition. Derived at read time
+ * from the same clock the sweep uses. NEVER renders 0 or a negative number
+ * (PR29 §B): under a day left — and the past-due-but-not-yet-swept window (cron
+ * runs 03:00, so a tuition can be past due yet still open and taking
+ * applications) — reads "pauses today"; otherwise "pauses in N days".
+ */
+export function pauseCountdownLabel(clockBaseIso: string, now = Date.now()): string {
+  const remaining = pauseDueAtMs(clockBaseIso) - now
+  if (remaining < DAY_MS) return 'pauses today'
+  const n = Math.floor(remaining / DAY_MS)
+  return `pauses in ${n} day${n === 1 ? '' : 's'}`
 }
 
 export type TuitionBanner = { tone: 'gold' | 'navy' | 'green'; text: string }

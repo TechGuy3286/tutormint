@@ -5581,3 +5581,46 @@ carries JobPosting data. That is a dead end and a bad de-listing signal.
   state rules, the banner copy, the never-negative clock, that `jobByPublicSlug`
   has no status branch (identical anon columns for open and paused), and that the
   sitemap RPC still filters open only.
+
+### As built — the pause cycle was exercised end-to-end (PR29, 18 Sep 2026)
+
+The 15-day auto-pause had never actually run in production (0 rows were due), so
+PR29 proved it on a throwaway team-owned tuition and fixed the read/write clock
+mismatch.
+
+**Cycle exercised (temporary team tuition, TM-1098, then deleted).** A team-owned
+open tuition was created (a zero-tutor subject, so `notifyMatchingTutors` pinged
+nobody) and its clock base backdated 20 days by id. `pauseStaleTuitions()`, run in
+the production environment via the daily cron, paused **exactly that one row and
+nothing else** (`{paused:1, ids:[…]}`) and sent the `tuition_paused` email to the
+poster address **jobs@tutormint.org**. Verified live: `status='paused'` +
+`paused_at` set; the public URL 200 with the "not accepting applications right
+now" banner, `noindex` present, no JobPosting JSON-LD, and the "Similar open
+tuitions" section; the slug absent from `indexable_job_slugs()` and from the
+served `/sitemap.xml`. A second sweep was a no-op on that row. Resume reversed
+every signal (status open, `resumed_at` set, noindex gone, JobPosting emitted,
+slug back in the RPC). The temporary tuition was then **deleted**.
+`indexable_job_slugs()` reflects a change immediately; the served `/sitemap.xml`
+is ISR `revalidate = 3600`, so it lags by up to ~1 hour. Apply/message/demo
+refusal for a non-open job is server-side (`applyToJob` checks `status='open'`)
+and asserted by the guard, not re-proven by an authenticated POST (no browser).
+The HTTP `createTeamJob` and `/api/parent/jobs/resume` routes themselves were not
+driven (they call `cookies()` / need a session, impossible browserless); the row
+was created and resumed with the service-role client in the identical shape and
+state transition, and those routes are unchanged and covered by their own PRs.
+
+**Clock mismatch fixed (PR29 §B).** The sweep and the poster's "pauses in N days"
+now derive from ONE expression, `pauseDueAtMs(base) = coalesce(resumed_at,
+created_at) + 15 days` (`lib/tuitionStatus.ts`): the sweep pauses on `isPauseDue`,
+the display reads `pauseCountdownLabel`, both built on `pauseDueAtMs`. The label
+never renders 0 or a negative — under a day left, and the past-due-but-not-yet-
+swept window (cron runs 03:00 bom1), read **"pauses today"**, and the tuition
+still takes applications until the sweep actually pauses it. `daysUntilPause` (the
+old numeric helper that could return 0) is gone.
+
+**First-batch count (PR29 §C, live SQL, 18 Sep 2026).** Open tuitions by days
+since the clock base: 47 in 0–7 days, 1 in 8–14, none at 15+. Because the clock
+starts at `created_at`, the oldest cross the line together: **3 open tuitions**
+become due within a day of each other, the first batch, on **~2026-09-24** (the
+earliest base is 2026-09-09). They were NOT paused in this PR — the daily cron
+will pause them on/after that date.

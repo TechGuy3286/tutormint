@@ -6,7 +6,7 @@ import EmptyState from '@/components/EmptyState'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { daysUntilPause } from '@/lib/tuitionStatus'
+import { pauseCountdownLabel } from '@/lib/tuitionStatus'
 
 // The parent's tuitions, in full.
 //
@@ -112,13 +112,9 @@ export default async function ParentJobsPage() {
                       <span className="block text-[11px] text-gray-500">
                         {(j.city as string) ?? '—'} ·{' '}
                         {j.status === 'open'
-                          ? `${n} interested tutor${n === 1 ? '' : 's'} · pauses in ${daysUntilPause(
+                          ? `${n} interested tutor${n === 1 ? '' : 's'} · ${pauseCountdownLabel(
                               (j.resumed_at as string | null) ?? (j.created_at as string),
-                            )} day${
-                              daysUntilPause((j.resumed_at as string | null) ?? (j.created_at as string)) === 1
-                                ? ''
-                                : 's'
-                            }`
+                            )}`
                           : j.status === 'hired'
                             ? 'Hired'
                             : j.status === 'paused'

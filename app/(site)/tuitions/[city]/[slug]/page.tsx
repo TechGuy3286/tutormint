@@ -14,7 +14,7 @@ import { budgetLabel } from '@/lib/feeBands'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { jobByPublicSlug, similarOpenTuitions } from '@/lib/jobFeed'
-import { tuitionPublicState, daysUntilPause } from '@/lib/tuitionStatus'
+import { tuitionPublicState, pauseCountdownLabel } from '@/lib/tuitionStatus'
 import { isFixtureTuition } from '@/lib/fixtures'
 import JobCard from '@/components/JobCard'
 import ResumeInline from './ResumeInline'
@@ -221,7 +221,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // §7 — the poster (and admin) see when their OPEN tuition will auto-pause,
   // derived at read time from coalesce(resumed_at, created_at) + 15 days. The
   // poster reads their own row, so no service role is needed.
-  let pausesInDays: number | null = null
+  let pauseLabel: string | null = null
   if ((isPoster || isAdmin) && state.isOpen) {
     const { data: clock } = await supabase
       .from('jobs')
@@ -230,7 +230,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
       .maybeSingle()
     const base =
       (clock?.resumed_at as string | null) ?? (clock?.created_at as string | null) ?? job.created_at
-    pausesInDays = daysUntilPause(base)
+    pauseLabel = pauseCountdownLabel(base)
   }
 
   // A non-open tuition is never a dead end (§3): offer similar OPEN tuitions,
@@ -369,12 +369,15 @@ export default async function TuitionPage({ params }: { params: Params }) {
           </div>
         )}
 
-        {/* §7 — the poster/admin see when an OPEN tuition will auto-pause. */}
-        {pausesInDays !== null && state.isOpen && (
+        {/* §7 — the poster/admin see when an OPEN tuition will auto-pause. The
+            label never shows 0 or a negative (PR29 §B): "pauses today" covers the
+            last day and the past-due-but-unswept window; it still takes
+            applications until the sweep actually pauses it. */}
+        {pauseLabel && state.isOpen && (
           <p className="rounded-xl bg-tm-bg p-3 text-[11px] font-semibold text-gray-500">
-            {pausesInDays === 0
-              ? 'This tuition pauses today unless you resume it. Paused tuitions are hidden from tutors until resumed.'
-              : `Pauses in ${pausesInDays} day${pausesInDays === 1 ? '' : 's'} — after that, resume it to keep it visible to tutors.`}
+            {pauseLabel === 'pauses today'
+              ? 'Pauses today unless you resume it — after that it is hidden from tutors until you resume it.'
+              : `This tuition ${pauseLabel} — after that, resume it to keep it visible to tutors.`}
           </p>
         )}
 

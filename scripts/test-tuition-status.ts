@@ -22,7 +22,13 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-import { tuitionPublicState, daysUntilPause, PAUSE_AFTER_DAYS } from '../lib/tuitionStatus'
+import {
+  tuitionPublicState,
+  pauseCountdownLabel,
+  isPauseDue,
+  pauseDueAtMs,
+  PAUSE_AFTER_DAYS,
+} from '../lib/tuitionStatus'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
@@ -64,15 +70,47 @@ test('an unknown / missing status defaults to open (a real row still renders 200
   assert.equal(tuitionPublicState(undefined).isOpen, true)
 })
 
-test('daysUntilPause counts down from the clock base + 15 and never goes negative', () => {
+test('PART B — pauseCountdownLabel never shows 0 or a negative, and counts down', () => {
   const now = Date.parse('2026-01-20T00:00:00Z')
-  // posted 5 days ago → pauses in 10
-  assert.equal(daysUntilPause('2026-01-15T00:00:00Z', now), 10)
-  // posted 15 days ago → due now (0), not negative
-  assert.equal(daysUntilPause('2026-01-05T00:00:00Z', now), 0)
-  // posted 20 days ago → still clamped at 0
-  assert.equal(daysUntilPause('2025-12-31T00:00:00Z', now), 0)
+  const at = (iso: string) => pauseCountdownLabel(iso, now)
+  assert.equal(at('2026-01-15T00:00:00Z'), 'pauses in 10 days') // base 5d ago → 10 days left
+  assert.equal(at('2026-01-06T12:00:00Z'), 'pauses in 1 day')   // 1.5 days left → floor 1, singular
+  // Under a day left, exactly due, and past due (unswept) all read "pauses today"
+  assert.equal(at('2026-01-05T12:00:00Z'), 'pauses today')      // 0.5 day left
+  assert.equal(at('2026-01-05T00:00:00Z'), 'pauses today')      // exactly due
+  assert.equal(at('2025-12-31T00:00:00Z'), 'pauses today')      // past due
+  // The strict guard: it never emits a "0" or a minus sign.
+  for (const iso of ['2026-01-15T00:00:00Z', '2026-01-05T12:00:00Z', '2026-01-05T00:00:00Z', '2025-12-31T00:00:00Z']) {
+    const label = at(iso)
+    assert.doesNotMatch(label, /\b0\b/, `no zero in "${label}"`)
+    assert.doesNotMatch(label, /-/, `no negative in "${label}"`)
+  }
   assert.equal(PAUSE_AFTER_DAYS, 15)
+})
+
+test('PART B — a past-due-but-unswept OPEN tuition reads "pauses today" and still accepts applications', () => {
+  const now = Date.parse('2026-01-20T00:00:00Z')
+  const base = '2026-01-01T00:00:00Z' // 19 days in — past the 15-day line
+  assert.equal(isPauseDue(base, now), true, 'the sweep would pause it on its next run')
+  assert.equal(pauseCountdownLabel(base, now), 'pauses today', 'never "paused", never a negative')
+  // It is still status="open" until the sweep runs, so it still takes applications.
+  assert.equal(tuitionPublicState('open').acceptsApplications, true)
+})
+
+test('PART B — the sweep and the display share ONE expression (pauseDueAtMs)', () => {
+  // Value check: isPauseDue is exactly "pauseDueAtMs <= now".
+  const base = '2026-01-01T00:00:00Z'
+  const due = pauseDueAtMs(base)
+  assert.equal(isPauseDue(base, due - 1), false)
+  assert.equal(isPauseDue(base, due), true)
+  // Source check: the sweep imports isPauseDue from tuitionStatus, and both
+  // isPauseDue and pauseCountdownLabel derive from pauseDueAtMs — one expression.
+  const status = readFileSync(join(root, 'lib/tuitionStatus.ts'), 'utf8')
+  assert.ok(/export function isPauseDue[\s\S]*?pauseDueAtMs/.test(status), 'isPauseDue uses pauseDueAtMs')
+  assert.ok(/export function pauseCountdownLabel[\s\S]*?pauseDueAtMs/.test(status), 'the display uses pauseDueAtMs')
+  const sweep = readFileSync(join(root, 'lib/tuitionPause.ts'), 'utf8')
+  assert.ok(/isPauseDue/.test(sweep), 'the sweep reads isPauseDue (not its own cutoff)')
+  assert.ok(!/cutoffIso/.test(sweep), 'the sweep no longer has a second cutoff implementation')
 })
 
 test('anon column set is identical for every status: jobByPublicSlug has no status branch', () => {
