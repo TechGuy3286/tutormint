@@ -115,7 +115,21 @@ export type OutlineResult =
 
 export type SectionResult = { ok: true; markdown: string } | { ok: false; reason: string }
 
-function outlineSystem(brief: BlogBrief): string {
+// `terse` is the SHORTER prompt used for the one retry after the model returns
+// no text (§1.2). It drops the long platform-facts sheet so the request is much
+// smaller — a bloated prompt is the likeliest reason a model spends its budget
+// without emitting prose — while keeping the JSON shape and the no-meta rule.
+function outlineSystem(brief: BlogBrief, terse = false): string {
+  if (terse) {
+    return [
+      'Plan a TutorMint blog post outline. No prose.',
+      '- 5 to 7 short H2 section headings, each a specific question a Pakistani parent or tutor would search. Make the LAST heading "Frequently asked questions".',
+      'Also an SEO title (<= 60 chars) and a meta description (<= 155 chars) ending with "No fee, no commission, no middleman.".',
+      NO_META_RULE,
+      brief.language === 'ur' ? 'Headings in Roman Urdu (Latin script).' : 'Headings in clear English.',
+      'Reply as JSON only: {"sections": ["...", "..."], "seoTitle": "...", "seoDescription": "..."}',
+    ].join('\n')
+  }
   return [
     'You plan a post for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
     PLATFORM_FACTS_TEXT,
@@ -129,7 +143,29 @@ function outlineSystem(brief: BlogBrief): string {
   ].join('\n')
 }
 
-function sectionSystem(brief: BlogBrief, sections: string[], index: number): string {
+function sectionSystem(brief: BlogBrief, sections: string[], index: number, terse = false): string {
+  // The one shorter retry (§1.2): drop the facts sheet, the full-outline echo and
+  // the internal-link block, and ask for a shorter section. The hard "invent no
+  // statistics" rule and the no-meta rule STAY — the retry may be smaller but it
+  // must not be less safe.
+  if (terse) {
+    const heading = sections[index]
+    return [
+      'You write ONE section for the TutorMint blog. Plain, warm, specific to Pakistan. No hype.',
+      `Write ONLY the section "## ${heading}"${heading.toLowerCase().includes('frequently asked') ? ' with 3-4 "### " question sub-headings and short answers' : ''}. About 120-180 words. Short paragraphs. Do not write any other heading.`,
+      index === sections.length - 1
+        ? 'End with a short call to action (post a tuition / join TutorMint), no price.'
+        : 'Do NOT add a call to action.',
+      figureRuleFor(brief),
+      NO_META_RULE,
+      brief.language === 'ur' ? 'Write in Roman Urdu (Latin script).' : 'Write in clear English.',
+      'Output the Markdown for THIS section only — no JSON, no preamble, no closing note.',
+    ].join('\n')
+  }
+  return sectionSystemFull(brief, sections, index)
+}
+
+function sectionSystemFull(brief: BlogBrief, sections: string[], index: number): string {
   const heading = sections[index]
   const links =
     brief.landingLinks.length > 0
@@ -161,12 +197,24 @@ export async function generateBlogOutline(brief: BlogBrief): Promise<OutlineResu
   if (!isConfigured()) return { ok: false, reason: 'ANTHROPIC_API_KEY is not set' }
   if (!brief.title.trim()) return { ok: false, reason: 'no title' }
 
-  const result = await complete({
+  let result = await complete({
     system: outlineSystem(brief),
     prompt: factsBlock(brief),
     maxTokens: 900,
     timeoutMs: 30_000,
   })
+  // §1.2 — if the model returned no text, retry ONCE with a shorter prompt
+  // before giving up. Only for the no-text case; a timeout or a 4xx is a
+  // different failure a shorter prompt would not fix.
+  if (!result.ok && returnedNoText(result.reason)) {
+    console.warn('[blogCopy] outline returned no text — retrying with a shorter prompt')
+    result = await complete({
+      system: outlineSystem(brief, true),
+      prompt: factsBlock(brief),
+      maxTokens: 900,
+      timeoutMs: 30_000,
+    })
+  }
   if (!result.ok) {
     console.error('[blogCopy] outline failed:', result.reason)
     return { ok: false, reason: result.reason }
@@ -207,12 +255,23 @@ export async function generateBlogSection(
   if (!Array.isArray(sections) || index < 0 || index >= sections.length) {
     return { ok: false, reason: 'bad section index' }
   }
-  const result = await complete({
+  let result = await complete({
     system: sectionSystem(brief, sections, index),
     prompt: factsBlock(brief),
     maxTokens: 1400,
     timeoutMs: 40_000,
   })
+  // §1.2 — retry ONCE with a shorter section prompt when the model returns no
+  // text, before failing. The retry keeps the invent-no-statistics rule.
+  if (!result.ok && returnedNoText(result.reason)) {
+    console.warn(`[blogCopy] section ${index} returned no text — retrying with a shorter prompt`)
+    result = await complete({
+      system: sectionSystem(brief, sections, index, true),
+      prompt: factsBlock(brief),
+      maxTokens: 1400,
+      timeoutMs: 40_000,
+    })
+  }
   if (!result.ok) {
     console.error(`[blogCopy] section ${index} failed:`, result.reason)
     return { ok: false, reason: result.reason }
@@ -220,6 +279,13 @@ export async function generateBlogSection(
   const md = result.text.trim()
   if (!md) return { ok: false, reason: 'section returned no text' }
   return { ok: true, markdown: md }
+}
+
+/** True when a completion failed specifically because the API returned a 200
+ *  with no text block — the case a shorter retry can fix (§1.2). The prefix is
+ *  the stable string lib/ai/anthropic.ts returns. */
+function returnedNoText(reason: string): boolean {
+  return reason.includes('returned no text')
 }
 
 function factsBlock(brief: BlogBrief): string {

@@ -103,15 +103,31 @@ export async function complete({
 
     const json = (await res.json()) as {
       content?: { type: string; text?: string }[]
+      stop_reason?: string | null
     }
 
-    const text = (json.content ?? [])
+    const blocks = json.content ?? []
+    const text = blocks
       .filter((b) => b.type === 'text')
       .map((b) => b.text ?? '')
       .join('')
       .trim()
 
-    if (!text) return { ok: false, reason: 'anthropic returned no text' }
+    if (!text) {
+      // A 200 with no usable text — the case that used to read only "returned no
+      // text" and told us nothing. Capture the SHAPE so the real cause is
+      // visible: a `stop_reason` of "max_tokens" means it was cut off before any
+      // prose, "refusal" means the model declined (a refusal block is not a text
+      // block, so it lands here), and the block-type list shows what came back
+      // instead. Shape only — never the prompt, the reply text or the key.
+      const shape = `stop_reason=${json.stop_reason ?? 'unknown'} blocks=[${blocks
+        .map((b) => b.type)
+        .join(',')}]`
+      console.warn(`[anthropic] 200 with no text — ${shape}`)
+      // The prefix "returned no text" is stable: callers detect it to retry once
+      // with a shorter prompt (lib/ai/blogCopy.ts).
+      return { ok: false, reason: `anthropic returned no text (${shape})` }
+    }
     return { ok: true, text }
   } catch (e) {
     const aborted = e instanceof Error && e.name === 'AbortError'

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AlertCircle, AlertTriangle, CheckCircle2, Eye, Image as ImageIcon, Lightbulb, Lock, Pencil, Shuffle, Sparkles, X } from 'lucide-react'
 
 import FileUpload from '@/components/FileUpload'
+import { compressImage } from '@/lib/imageCompress'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useCityAreas } from '@/lib/cityAreas'
@@ -213,11 +214,12 @@ export default function PostEditor({
   )
   const figureBlocked = figures.active && figures.untraced.length > 0
 
-  // PR17 §4.5 — a non-blocking warning when the fact notes name a subject/level
-  // different from this post's subject (notes left over from another post).
+  // PR17 §4.5 / PR28 §2.3 — a non-blocking warning when the fact notes name a
+  // subject, level OR city different from this post's own (notes left over from
+  // another post).
   const notesWarning = useMemo(
-    () => notesTopicMismatch(post.sourceNotes, post.subject),
-    [post.sourceNotes, post.subject],
+    () => notesTopicMismatch(post.sourceNotes, post.subject, post.city),
+    [post.sourceNotes, post.subject, post.city],
   )
 
   const gate = canPublish({
@@ -866,8 +868,14 @@ export default function PostEditor({
                   value={post.sourceNotes}
                   onChange={(e) => set('sourceNotes', e.target.value)}
                   rows={4}
+                  // PR28 §2.1/§2.2 — a GENERIC placeholder. The old one was a
+                  // concrete O Level / Lahore / DHA / Gulberg example, which on a
+                  // new (empty) post read as real notes left over from an earlier
+                  // post — and drew no mismatch warning, because the notes were in
+                  // fact empty. This describes the shape of a note, naming no
+                  // subject or city, so it can never be mistaken for content.
                   placeholder={
-                    'O Level Physics fees in Lahore are typically Rs 8,000–15,000 a month\nMost parents want in-person tutoring in DHA and Gulberg\nExam boards: Cambridge and Edexcel'
+                    'One fact per line — a local fee range, a board or exam name, a common area, a short detail.\nLeave this empty and the draft is written with no figures at all.'
                   }
                   className={`${input} text-xs`}
                   dir={post.language === 'ur' ? 'rtl' : undefined}
@@ -1280,10 +1288,18 @@ export default function PostEditor({
               label="Cover image"
               acceptLabel="JPG or PNG"
               onFile={async (file) => {
+                // PR28 §3 — compress in the BROWSER before the upload leaves the
+                // phone. The route runs on Node/Vercel, whose request body is
+                // capped around 4.5 MB, so a raw camera photo used to be rejected
+                // at the edge with a 413 that surfaced as an opaque "Upload
+                // failed." Resizing to a cover's own dimensions brings any picked
+                // image well under the cap (the same fix onboarding/CNIC uses),
+                // so "up to 5 MB" is now a limit the route can actually accept.
+                const image = await compressImage(file, { maxEdge: 1600, quality: 0.82 })
                 const fd = new FormData()
-                fd.append('file', file)
+                fd.append('file', image)
                 const res = await fetch('/api/admin/blog/cover', { method: 'POST', body: fd })
-                const data = await res.json()
+                const data = await res.json().catch(() => ({}))
                 if (!res.ok) throw new Error(data.error ?? 'Upload failed.')
                 setPost((p) => ({ ...p, coverPath: data.path, coverSquarePath: null }))
                 setDirty(true)

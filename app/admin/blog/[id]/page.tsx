@@ -16,6 +16,8 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
 
   return (
     <PostEditor
+      // Keyed by post id: editor state never carries between two posts (PR28 §2.2).
+      key={id}
       initial={toEditorPost(row)}
       landingOptions={landingOptions}
       canPublishCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogPublish)}

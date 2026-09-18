@@ -15,7 +15,13 @@ import { publicBlogUrl } from '@/lib/blog'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const MAX_BYTES = 5 * 1024 * 1024
+// 4 MB, deliberately UNDER the ~4.5 MB Vercel serverless request-body cap: a
+// body larger than that is rejected by the platform with a 413 before this
+// handler ever runs, so a 5 MB limit here was a promise the route could not
+// keep. The editor compresses every cover in the browser first (well under
+// this), so a real cover never approaches it; this bound only turns a stray
+// oversized upload into a clear JSON error instead of an opaque platform 413.
+const MAX_BYTES = 4 * 1024 * 1024
 
 export async function POST(request: Request) {
   const gate = await checkAdminRole(...SCREEN_ACCESS.blog)
@@ -36,7 +42,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Choose an image.' }, { status: 400 })
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: 'That image is larger than 5 MB.' }, { status: 400 })
+    return NextResponse.json(
+      { error: `That image is larger than ${Math.round(MAX_BYTES / (1024 * 1024))} MB.` },
+      { status: 400 },
+    )
   }
   if (!file.type.startsWith('image/')) {
     return NextResponse.json({ error: 'The cover must be an image.' }, { status: 400 })

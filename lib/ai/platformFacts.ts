@@ -183,21 +183,50 @@ const KNOWN_SUBJECTS = [
   'history', 'geography', 'pak studies', 'science',
 ]
 const KNOWN_LEVELS = ['o level', 'a level', 'o-level', 'a-level', 'matric', 'intermediate', 'inter', 'igcse']
+// The major cities, so a note like "…in Lahore" left over on an Islamabad post
+// is caught. Distinctive names, so a substring match is safe here.
+const KNOWN_CITIES = [
+  'lahore', 'karachi', 'islamabad', 'rawalpindi', 'faisalabad', 'multan',
+  'peshawar', 'quetta', 'gujranwala', 'sialkot', 'hyderabad', 'bahawalpur',
+  'sargodha', 'abbottabad',
+]
 
-export function notesTopicMismatch(notes: string, subject: string | null | undefined): string | null {
+/**
+ * Warn (not block) when the fact notes name a SUBJECT, LEVEL or CITY different
+ * from this post's own — the sign notes from another post were left behind (§2.3).
+ * Heuristic and conservative: it only fires on a clearly different, recognised
+ * subject/level/city, and only when there is something on the post to compare to.
+ */
+export function notesTopicMismatch(
+  notes: string,
+  subject: string | null | undefined,
+  city?: string | null | undefined,
+): string | null {
   const n = (notes ?? '').toLowerCase()
-  const s = (subject ?? '').trim().toLowerCase()
-  if (!n.trim() || !s) return null
+  if (!n.trim()) return null
 
-  // A subject the notes mention that is NOT the post's subject.
-  const foreignSubject = KNOWN_SUBJECTS.find((w) => n.includes(w) && !s.includes(w) && !subjectAlias(w, s))
-  if (foreignSubject) {
-    return `Your fact notes mention "${foreignSubject}", which is different from this post's subject ("${subject}"). Check the notes belong to this post.`
+  const s = (subject ?? '').trim().toLowerCase()
+  if (s) {
+    // A subject the notes mention that is NOT the post's subject.
+    const foreignSubject = KNOWN_SUBJECTS.find((w) => n.includes(w) && !s.includes(w) && !subjectAlias(w, s))
+    if (foreignSubject) {
+      return `Your fact notes mention "${foreignSubject}", which is different from this post's subject ("${subject}"). Check the notes belong to this post.`
+    }
+    // A level the notes mention that is not in the post's subject or title context.
+    const foreignLevel = KNOWN_LEVELS.find((w) => n.includes(w) && !s.includes(w))
+    if (foreignLevel && KNOWN_LEVELS.some((w) => s.includes(w))) {
+      return `Your fact notes mention "${foreignLevel}", a different level from this post. Check the notes belong to this post.`
+    }
   }
-  // A level the notes mention that is not in the post's subject or title context.
-  const foreignLevel = KNOWN_LEVELS.find((w) => n.includes(w) && !s.includes(w))
-  if (foreignLevel && KNOWN_LEVELS.some((w) => s.includes(w))) {
-    return `Your fact notes mention "${foreignLevel}", a different level from this post. Check the notes belong to this post.`
+
+  const c = (city ?? '').trim().toLowerCase()
+  if (c) {
+    // A city the notes mention that is NOT the post's city.
+    const foreignCity = KNOWN_CITIES.find((w) => n.includes(w) && !c.includes(w))
+    if (foreignCity) {
+      const shown = foreignCity.charAt(0).toUpperCase() + foreignCity.slice(1)
+      return `Your fact notes mention "${shown}", a different city from this post ("${city}"). Check the notes belong to this post.`
+    }
   }
   return null
 }

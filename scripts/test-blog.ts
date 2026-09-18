@@ -462,3 +462,15 @@ test('PR17 §4.5 notes-topic mismatch warns on a foreign subject', () => {
   assert.equal(notesTopicMismatch('Grade 1-5 maths tips for parents', 'Mathematics'), null)
   assert.equal(notesTopicMismatch('some notes', ''), null)
 })
+
+test('PR28 §2.3 notes-topic mismatch warns on a foreign city', () => {
+  // The observed case: an Islamabad post whose notes are about Lahore.
+  const w = notesTopicMismatch('Fees in Lahore run high; parents in DHA prefer in-person', '', 'Islamabad')
+  assert.ok(w && /Lahore/.test(w), 'a Lahore note on an Islamabad post is flagged')
+  // Same city → no warning.
+  assert.equal(notesTopicMismatch('Fees in Islamabad are typical', '', 'Islamabad'), null)
+  // No post city to compare against → no city warning.
+  assert.equal(notesTopicMismatch('Fees in Lahore are high', 'Physics', ''), null)
+  // Empty notes → nothing, even with a city.
+  assert.equal(notesTopicMismatch('', 'Physics', 'Islamabad'), null)
+})

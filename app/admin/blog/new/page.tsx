@@ -48,6 +48,10 @@ export default async function NewPostPage({
 
   return (
     <PostEditor
+      // Keyed so React remounts (and re-reads `initial`) on any post → post
+      // navigation — a new post never inherits an earlier post's editor state,
+      // including its fact notes (PR28 §2.2).
+      key="new"
       initial={initial}
       landingOptions={landingOptions}
       suggestions={suggestions}
