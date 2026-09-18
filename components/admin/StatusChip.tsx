@@ -60,6 +60,12 @@ export function statusTone(value: string | null | undefined): ChipTone {
     case 'closed':
     case 'resolved':
     case 'actioned':
+    // A paused tuition is off and not accepting applications, like closed — an
+    // "inactive" state the admin reads from the badge (PR30) and can resume. The
+    // navy `info` tone is a registered contrast pair; gold stays the Featured
+    // tag's, so paused is not gold. Distinguished from closed by its word (and
+    // the status filter), never by colour alone.
+    case 'paused':
       return 'info'
     default:
       return 'neutral'

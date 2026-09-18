@@ -9,7 +9,8 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { badgesForPlan } from '@/lib/entitlements'
 import { budgetLabel } from '@/lib/feeBands'
-import { applicationStatus, jobStatus, jobType } from '@/lib/display'
+import { applicationStatus, jobType } from '@/lib/display'
+import StatusChip from '@/components/admin/StatusChip'
 import { formatDate } from '@/lib/datetime'
 import { formatPkMobile, normalisePkMobile } from '@/lib/phone'
 import { normaliseStoredContact } from '@/lib/jobContactCore'
@@ -142,9 +143,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
               Featured
             </span>
           )}
-          <span className="rounded-full bg-tm-bg px-2 py-0.5 text-[10px] font-black text-slate-700">
-            {jobStatus(job.status as string)}
-          </span>
+          <StatusChip status={job.status as string} />
         </div>
         <p className="font-mono text-[11px] text-gray-500">{(job.job_tx_id as string) ?? job.id}</p>
         {/* The public address, so "why can nobody see my job" can be answered

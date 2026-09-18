@@ -123,6 +123,27 @@ test('anon column set is identical for every status: jobByPublicSlug has no stat
   assert.ok(!/\.eq\('status'/.test(body), 'does NOT filter by status — same columns for open and paused')
 })
 
+test('PR30 — a pause notifies the POSTER only: one notification, one email, zero admin-directed', () => {
+  const sweep = readFileSync(join(root, 'lib/tuitionPause.ts'), 'utf8')
+  // Exactly one notify() and one deliverEmail() in the sweep, both keyed to the
+  // poster (parent_id) — not the acting admin, not a staff fan-out.
+  assert.equal((sweep.match(/\bnotify\(/g) ?? []).length, 1, 'one in-app notification')
+  assert.equal((sweep.match(/deliverEmail\(/g) ?? []).length, 1, 'one email')
+  assert.ok(/notify\(\{\s*userId:\s*j\.parent_id/.test(sweep), 'the notification goes to the poster')
+  assert.ok(/deliverEmail\(\{\s*userId:\s*j\.parent_id/.test(sweep), 'the email goes to the poster')
+  assert.ok(!/notifyMany|is_admin|adminMessage/.test(sweep), 'no admin-directed notification fires')
+  // A team-posted tuition (poster = the team account) is emailed like any other
+  // poster — never suppressed as "an admin email".
+  assert.ok(!/is_team_account/.test(sweep), 'the team account is not suppressed as poster')
+})
+
+test('PR30 — the admin pause notifies the poster and keeps the audit row, not the acting admin', () => {
+  const route = readFileSync(join(root, 'app/api/admin/jobs/action/route.ts'), 'utf8')
+  assert.ok(/logAdminAction\(/.test(route), 'admin_audit_log row is written (the record, kept)')
+  assert.ok(/notify\(\{[\s\S]*?userId:\s*job\.parent_id/.test(route), 'the member notification goes to the poster')
+  assert.ok(!/userId:\s*gate\.actor/.test(route), 'the acting admin is never notified')
+})
+
 test('the sitemap RPC still lists open tuitions only (SQL is unchanged)', () => {
   const src = readFileSync(join(root, 'supabase/migrations/71_seed_noindex.sql'), 'utf8')
   const fn = src.slice(src.indexOf('indexable_job_slugs'))

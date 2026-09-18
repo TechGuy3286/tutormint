@@ -5624,3 +5624,34 @@ starts at `created_at`, the oldest cross the line together: **3 open tuitions**
 become due within a day of each other, the first batch, on **~2026-09-24** (the
 earliest base is 2026-09-09). They were NOT paused in this PR — the daily cron
 will pause them on/after that date.
+
+### As built — pause notifies the poster only; admin reads status from a badge (PR30, 18 Sep 2026)
+
+Owner decision: **admin staff get NO notification when a tuition pauses.** Admin
+learns it from the visible status badge wherever a tuition is shown, and acts
+from there.
+
+- **Nothing to remove.** A pause already notified only the POSTER: the cron
+  sweep (`pauseStaleTuitions`) and the manual admin pause
+  (`/api/admin/jobs/action` action `pause`) each `notify({ userId: parent_id })`
+  + (sweep) `deliverEmail` the `tuition_paused` template to the poster, and write
+  `admin_audit_log`. No admin-directed notification, digest or staff email fired
+  on pause today, so there was none to strip. The audit row stays — it is a
+  record, not a notification.
+- **The poster's notification and email are unchanged**, including for a
+  team-posted tuition: the poster there is the team account
+  (jobs@tutormint.org), a real mailbox worked by whoever handles that tuition's
+  applications — proven receiving it live in PR29 — and it is NOT suppressed as
+  "an admin email".
+- **Admin reads status from the shared badge.** The `/admin/jobs` list already
+  rendered `components/admin/StatusChip`; the `/admin/jobs/[id]` detail used a
+  bespoke grey pill and now uses `StatusChip` too, so every state (open / paused
+  / closed / hired) shows the real status on both. `statusTone` maps `paused →
+  'info'` (navy `tint-navy`/`navy`, a registered contrast pair) — an "inactive"
+  state like closed, distinguished by its word and the status filter, never by
+  colour alone. Gold stays the Featured tag's; the paused chip is not gold.
+- **The admin jobs list status filter gained a "Paused" option**, so staff can
+  pull every paused tuition in one view (the list already filters `.eq('status',
+  …)` generically).
+- **No migration** — this is display + notification-routing only; jobs.status
+  already carries 'paused' (migration 96) with no CHECK to change.
