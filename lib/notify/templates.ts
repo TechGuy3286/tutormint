@@ -35,6 +35,7 @@ export type TemplateId =
   | 'content_digest'
   | 'admin_message'
   | 'staff_invite'
+  | 'tuition_paused'
 
 export type RenderedEmail = {
   subject: string
@@ -203,6 +204,7 @@ export type TemplateInput =
   // A staff invite / resend. Essential (it is the only way in), and it carries an
   // ABSOLUTE one-time link, so `link()` leaves it untouched.
   | { id: 'staff_invite'; name: string; role: string; url: string }
+  | { id: 'tuition_paused'; title: string }
 
 export function render(input: TemplateInput): RenderedEmail {
   switch (input.id) {
@@ -399,6 +401,19 @@ export function render(input: TemplateInput): RenderedEmail {
         ],
         true, // billing
         { label: 'Get my position back', href: '/membership-plans?for=tutors' },
+      )
+
+    // ---------------------------------------------------------------------
+    case 'tuition_paused':
+      return build(
+        'Your tuition is paused',
+        'Your tuition is paused',
+        [
+          `Your tuition “${input.title}” has been paused automatically, 15 days after it was posted. Tutors can no longer see it in search or apply to it.`,
+          'Nothing is lost — its applications, conversations and page all stay in your dashboard. Resume it to show it to tutors again for another 15 days.',
+        ],
+        true, // loss of visibility, like plan_expired — delivered regardless of opt-out
+        { label: 'Resume your tuition', href: '/parent/dashboard/jobs' },
       )
 
     // ---------------------------------------------------------------------

@@ -121,6 +121,10 @@ export type NotificationKind =
   // listed on Basic. Distinct from plan_activated (a subscription). No migration:
   // notifications.kind is text with no CHECK constraint.
   | 'verification_fee_paid'
+  // PR27 §3 — a tuition auto-paused after 15 days, or resumed. notifications.kind
+  // is text with no CHECK constraint.
+  | 'tuition_paused'
+  | 'tuition_resumed'
 
 export async function notify(params: {
   userId: string

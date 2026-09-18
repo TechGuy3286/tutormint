@@ -5,6 +5,7 @@ import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Play } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -29,6 +30,47 @@ export default function JobActions({
   const toast = useToast()
   const confirm = useConfirm()
   const [busy, setBusy] = useState(false)
+
+  // Paused (PR27 §3.3): tutors cannot see it or apply until the poster resumes,
+  // which sets a fresh 15 days. Everything about it is kept.
+  if (status === 'paused') {
+    const resume = async () => {
+      setBusy(true)
+      try {
+        const res = await fetch('/api/parent/jobs/resume', {
+          signal: submitSignal(),
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error ?? 'Could not resume the tuition.')
+        toast.success('Resumed. Tutors can see and apply to it again.')
+        router.refresh()
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Could not resume the tuition.')
+      } finally {
+        setBusy(false)
+      }
+    }
+    return (
+      <div className="space-y-2">
+        <p className="rounded-xl bg-tm-tint-gold p-3 text-[11px] font-semibold text-tm-gold-ink">
+          Paused — resume to show it to tutors again. Nothing is lost; its interested tutors and
+          conversations are all kept.
+        </p>
+        <button
+          type="button"
+          onClick={resume}
+          disabled={busy}
+          className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:opacity-60 sm:w-auto"
+        >
+          <Play aria-hidden size={14} className="fill-white" />
+          {busy ? 'Resuming…' : 'Resume'}
+        </button>
+      </div>
+    )
+  }
 
   if (status !== 'open') {
     return (

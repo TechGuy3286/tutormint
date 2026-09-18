@@ -21,21 +21,26 @@ export type CardAction = {
   onClick?: () => void
   disabled?: boolean
   ariaPressed?: boolean
+  /** Desktop-only hover tooltip (PR27 §2), e.g. "Send a message to this tutor". */
+  tooltip?: string
 }
 
+// px-2 / gap-1 so a two-word label ("Demo lesson") fits without truncating at
+// 360px even inside a nested card (PR27 §1.2). The label never truncates — it
+// wins the space; the icon is the thing that would drop first if it had to.
 const BTN =
-  'inline-flex min-h-[44px] w-full min-w-0 items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-bold transition-colors disabled:opacity-60'
+  'relative inline-flex min-h-[44px] w-full min-w-0 items-center justify-center gap-1 rounded-xl px-2 text-xs font-bold transition-colors disabled:opacity-60'
 
 function ActionButton({ a }: { a: CardAction }) {
   const content = (
     <>
       {a.icon}
-      <span className="truncate">{a.label}</span>
+      <span className="whitespace-nowrap">{a.label}</span>
     </>
   )
   if (a.href) {
     return (
-      <Link prefetch={false} href={a.href} className={`${BTN} ${a.className}`}>
+      <Link prefetch={false} href={a.href} data-tip={a.tooltip} className={`${BTN} ${a.className}`}>
         {content}
       </Link>
     )
@@ -46,6 +51,7 @@ function ActionButton({ a }: { a: CardAction }) {
       onClick={a.onClick}
       disabled={a.disabled}
       aria-pressed={a.ariaPressed}
+      data-tip={a.tooltip}
       className={`${BTN} ${a.className}`}
     >
       {content}

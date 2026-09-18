@@ -65,12 +65,12 @@ export default async function TutorDashboardPage() {
   const publicHref = directoryListed && tutorProfile?.slug ? `/tutor/${tutorProfile.slug}` : null
 
   const tiles: CountTile[] = [
-    { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'green' },
-    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', href: '/tutor/dashboard/messages', tone: 'navy', highlight: unread > 0 },
-    { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo requests', href: '/tutor/dashboard/demos', tone: 'red', highlight: liveDemos > 0 },
-    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: weekJobs.length, label: 'Tuitions for you', href: '/tutor/dashboard/jobs', tone: 'gold' },
-    { key: 'views', icon: <Eye aria-hidden size={22} />, value: views.total, label: 'Profile views', href: '/tutor/dashboard/views', tone: 'mint' },
-    { key: 'saved', icon: <Heart aria-hidden size={22} />, value: savedJobs.length, label: 'Saved tuitions', href: '#saved-tuitions', tone: 'mint' },
+    { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'green', tip: 'Tuitions you have applied to' },
+    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', href: '/tutor/dashboard/messages', tone: 'navy', highlight: unread > 0, tip: 'Your conversations with parents' },
+    { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo requests', href: '/tutor/dashboard/demos', tone: 'red', highlight: liveDemos > 0, tip: 'Demo lessons parents have asked you for' },
+    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: weekJobs.length, label: 'Tuitions for you', href: '/tutor/dashboard/jobs', tone: 'gold', tip: 'Open tuitions that match your profile' },
+    { key: 'views', icon: <Eye aria-hidden size={22} />, value: views.total, label: 'Profile views', href: '/tutor/dashboard/views', tone: 'mint', tip: 'Parents who viewed your profile' },
+    { key: 'saved', icon: <Heart aria-hidden size={22} />, value: savedJobs.length, label: 'Saved tuitions', href: '#saved-tuitions', tone: 'mint', tip: 'Tuitions you saved to look at later' },
   ]
 
   return (

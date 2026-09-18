@@ -36,7 +36,7 @@ export default function JobActions({
   const toast = useToast()
   const confirm = useConfirm()
 
-  const act = async (action: 'close' | 'unfeature' | 'remove') => {
+  const act = async (action: 'close' | 'unfeature' | 'remove' | 'pause' | 'resume') => {
     if (action === 'remove') {
       const ok = await confirm({
         title: 'Remove this tuition from the board?',
@@ -61,7 +61,11 @@ export default function JobActions({
           ? 'Closed. The parent has been notified.'
           : action === 'unfeature'
             ? 'Featured tag removed. The parent has been notified.'
-            : 'Removed from the board. The parent has been notified.'
+            : action === 'pause'
+              ? 'Paused. The poster has been notified.'
+              : action === 'resume'
+                ? 'Resumed. It is live again and the poster has been notified.'
+                : 'Removed from the board. The parent has been notified.'
       setDone(message)
       toast.success(message)
       setReason('')
@@ -80,7 +84,7 @@ export default function JobActions({
     className,
     disabled,
   }: {
-    action: 'close' | 'unfeature' | 'remove'
+    action: 'close' | 'unfeature' | 'remove' | 'pause' | 'resume'
     label: string
     className: string
     disabled?: boolean
@@ -129,6 +133,21 @@ export default function JobActions({
           disabled={status !== 'open'}
           className="border border-gray-200 text-tm-navy hover:border-tm-navy"
         />
+        {/* Pause / resume (PR27 §3.4). The reason box above is logged with it. */}
+        {status === 'paused' ? (
+          <Button
+            action="resume"
+            label="Resume"
+            className="bg-tm-red text-white hover:bg-tm-red-hover"
+          />
+        ) : (
+          <Button
+            action="pause"
+            label={status === 'open' ? 'Pause this tuition' : 'Cannot pause'}
+            disabled={status !== 'open'}
+            className="border border-gray-200 text-tm-navy hover:border-tm-navy"
+          />
+        )}
         <Button
           action="unfeature"
           label={isFeatured ? 'Remove Featured tag' : 'Not featured'}

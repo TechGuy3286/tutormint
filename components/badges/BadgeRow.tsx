@@ -11,6 +11,14 @@ import type { BadgeSize } from './BadgeBase'
 
 const ORDER: BadgeName[] = ['Verified', 'Premium', 'Featured']
 
+// Desktop-only hover meaning for each badge (PR27 §2). The badge glyph already
+// carries a label option; this adds the plain-English "what it means".
+const TIP: Record<BadgeName, string> = {
+  Verified: 'Verified tutor — identity and documents checked',
+  Premium: 'Premium tutor',
+  Featured: 'Featured tutor — shown at the top of search',
+}
+
 export default function BadgeRow({
   badges,
   size = 'sm',
@@ -27,15 +35,17 @@ export default function BadgeRow({
 
   return (
     <span className={`inline-flex flex-wrap items-center gap-x-3 gap-y-1 ${className}`}>
-      {granted.map((b) =>
-        b === 'Verified' ? (
-          <VerifiedBadge key={b} size={size} showLabel={showLabel} />
-        ) : b === 'Premium' ? (
-          <PremiumBadge key={b} size={size} showLabel={showLabel} />
-        ) : (
-          <FeaturedBadge key={b} size={size} showLabel={showLabel} />
-        ),
-      )}
+      {granted.map((b) => (
+        <span key={b} className="relative inline-flex" data-tip={TIP[b]}>
+          {b === 'Verified' ? (
+            <VerifiedBadge size={size} showLabel={showLabel} />
+          ) : b === 'Premium' ? (
+            <PremiumBadge size={size} showLabel={showLabel} />
+          ) : (
+            <FeaturedBadge size={size} showLabel={showLabel} />
+          )}
+        </span>
+      ))}
     </span>
   )
 }

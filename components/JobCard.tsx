@@ -396,6 +396,7 @@ export default function JobCard({
                     icon: <FileText aria-hidden size={14} />,
                     className: 'border border-gray-200 bg-tm-bg text-slate-700 hover:bg-gray-100',
                     href: detailHref,
+                    tooltip: 'See the full tuition details',
                   },
                   ...(showApply
                     ? [
@@ -410,6 +411,7 @@ export default function JobCard({
                           // and does nothing (the server refuses regardless).
                           onClick: underReview ? () => {} : apply,
                           disabled: underReview || state !== 'idle',
+                          tooltip: underReview ? 'This tuition is under review' : 'Apply to this tuition',
                         } as CardAction,
                       ]
                     : []),

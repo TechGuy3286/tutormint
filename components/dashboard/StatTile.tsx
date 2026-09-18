@@ -38,6 +38,7 @@ export default function StatTile({
   value,
   label,
   note,
+  tip,
   unread = false,
   highlight = false,
 }: {
@@ -52,6 +53,8 @@ export default function StatTile({
   label: string
   /** A quieter line under the label — a qualifier ("open") or a timestamp. */
   note?: ReactNode
+  /** Desktop-only hover tooltip (PR27 §2), e.g. "Tutors interested in your tuitions". */
+  tip?: string
   /** Draws the red unread dot in the top-right corner. */
   unread?: boolean
   /** Something with a consequence (a plan ending, a genuinely new thing): the
@@ -64,6 +67,7 @@ export default function StatTile({
       <Link
         prefetch={prefetch}
         href={href}
+        data-tip={tip}
         className={`relative flex h-full min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-2xl border bg-white p-4 text-center transition-shadow hover:shadow-md ${
           highlight
             ? 'border-tm-red shadow-[0_2px_14px_-6px_var(--color-tm-red)]'

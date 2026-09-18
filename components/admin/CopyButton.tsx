@@ -33,7 +33,7 @@ export default function CopyButton({
           .catch(() => {})
       }}
       aria-label={done ? `Copied ${label}` : `Copy ${label}`}
-      title={done ? 'Copied' : `Copy ${label}`}
+      data-tip={done ? 'Copied' : `Copy ${label}`}
       className={`relative z-10 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:border-tm-navy hover:text-tm-navy ${className}`}
     >
       {done ? (

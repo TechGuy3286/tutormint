@@ -342,6 +342,7 @@ export default function TutorCard({
             onClick={onRemove}
             disabled={removeBusy}
             aria-label={`Remove ${tutor.full_name} from your shortlist`}
+            data-tip="Remove from shortlist"
             className="absolute right-2 top-2 z-20 grid h-9 w-9 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:border-tm-red hover:text-tm-red disabled:opacity-60"
           >
             <X aria-hidden size={16} />
@@ -480,6 +481,7 @@ export default function TutorCard({
                     icon: <Eye size={14} aria-hidden />,
                     className: 'bg-tm-black text-white hover:bg-tm-navy',
                     href: profileHref,
+                    tooltip: `View ${tutor.full_name.split(' ')[0]}’s profile`,
                   },
                   ...(showMessage
                     ? [
@@ -490,6 +492,7 @@ export default function TutorCard({
                           className: 'bg-tm-green-deep text-white hover:bg-tm-green-deep-hover',
                           onClick: onMessage,
                           disabled: busy,
+                          tooltip: 'Send a message to this tutor',
                         } as CardAction,
                       ]
                     : []),
@@ -502,6 +505,7 @@ export default function TutorCard({
                     className: 'bg-tm-red text-white hover:bg-tm-red-hover',
                     onClick: requestDemo,
                     disabled: busy,
+                    tooltip: 'Ask for a demo lesson',
                   },
                   ...(hideShortlist
                     ? []
@@ -514,6 +518,7 @@ export default function TutorCard({
                           onClick: toggleShortlist,
                           disabled: busy,
                           ariaPressed: saved,
+                          tooltip: saved ? 'Remove from your shortlist' : 'Save to your shortlist',
                         } as CardAction,
                       ]),
                   // Hire, inside the grid (§1.2). Red, never gold (§1.4). A tutor
@@ -533,9 +538,11 @@ export default function TutorCard({
                               key: 'hire',
                               label: 'Hire',
                               icon: <Handshake size={14} aria-hidden />,
-                              className: 'bg-tm-red text-white hover:bg-tm-red-hover',
+                              // Navy (§1.1). Gold stays reserved for Featured.
+                              className: 'bg-tm-navy text-white hover:bg-tm-navy-hover',
                               onClick: onHire,
                               disabled: busy,
+                              tooltip: 'Hire this tutor',
                             } as CardAction),
                       ]
                     : []),

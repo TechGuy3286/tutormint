@@ -33,8 +33,8 @@ export const dynamic = 'force-dynamic'
 
 const ActionBody = z.object({
   jobId: uuid,
-  action: z.enum(['close', 'unfeature', 'remove'], {
-    message: 'Choose close, unfeature or remove.',
+  action: z.enum(['close', 'unfeature', 'remove', 'pause', 'resume'], {
+    message: 'Choose close, unfeature, remove, pause or resume.',
   }),
   reason: text({ min: 0, max: 500, label: 'Reason' }).nullish(),
 })
@@ -74,8 +74,12 @@ export async function POST(request: Request) {
   const patch: Record<string, unknown> = {}
   let title = ''
   let body = ''
-  let kind: 'job_closed_by_admin' | 'job_unfeatured_by_admin' | 'job_removed_by_admin' =
-    'job_closed_by_admin'
+  let kind:
+    | 'job_closed_by_admin'
+    | 'job_unfeatured_by_admin'
+    | 'job_removed_by_admin'
+    | 'tuition_paused'
+    | 'tuition_resumed' = 'job_closed_by_admin'
 
   if (action === 'close') {
     if (job.status !== 'open') {
@@ -107,6 +111,31 @@ export async function POST(request: Request) {
     body = `“${job.title}” has been removed from the board. Reason: ${reason}`
   }
 
+  // PR27 §3.4 — admin can pause/resume any (team-posted) tuition, with a reason,
+  // logged below.
+  if (action === 'pause') {
+    if (job.status !== 'open') {
+      return NextResponse.json({ error: 'That tuition is not open.' }, { status: 400 })
+    }
+    patch.status = 'paused'
+    patch.paused_at = new Date().toISOString()
+    kind = 'tuition_paused'
+    title = 'Your tuition is paused'
+    body = `“${job.title}” has been paused by TutorMint.${reason ? ` Reason: ${reason}` : ''}`
+  }
+
+  if (action === 'resume') {
+    if (job.status !== 'paused') {
+      return NextResponse.json({ error: 'That tuition is not paused.' }, { status: 400 })
+    }
+    patch.status = 'open'
+    patch.resumed_at = new Date().toISOString()
+    patch.paused_at = null
+    kind = 'tuition_resumed'
+    title = 'Your tuition is live again'
+    body = `“${job.title}” is live again and tutors can apply.${reason ? ` Reason: ${reason}` : ''}`
+  }
+
   const { error } = await admin.from('jobs').update(patch).eq('id', jobId)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
@@ -114,7 +143,7 @@ export async function POST(request: Request) {
     actorId: gate.actor.id,
     actorRole: gate.actor.adminRole,
     actorEmail: gate.actor.email,
-    action: `job.${action}` as 'job.close' | 'job.unfeature' | 'job.remove',
+    action: `job.${action}` as 'job.close' | 'job.unfeature' | 'job.remove' | 'job.pause' | 'job.resume',
     targetType: 'job',
     targetId: jobId,
     detail: {

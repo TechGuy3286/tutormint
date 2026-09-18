@@ -114,7 +114,9 @@ export default async function ParentJobsPage() {
                           ? `${n} interested tutor${n === 1 ? '' : 's'}`
                           : j.status === 'hired'
                             ? 'Hired'
-                            : 'Closed'}
+                            : j.status === 'paused'
+                              ? 'Paused'
+                              : 'Closed'}
                       </span>
                     </span>
                     {j.is_featured ? <FeaturedTag /> : null}

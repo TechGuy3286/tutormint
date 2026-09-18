@@ -678,6 +678,40 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
  * parent_featured only. This is the single most valuable thing Featured buys,
  * so the check is here, in the code path, and the UI merely reflects it.
  */
+/**
+ * Resume a paused tuition (PR27 §3.3). Poster-owned; sets a fresh 15-day clock
+ * (resumed_at = now) and clears the pause. A no-op on a tuition that is not
+ * paused, so a double tap does nothing.
+ */
+export async function resumeJob(parentId: string, jobId: string): Promise<{ ok: true } | Fail> {
+  const supabase = await createClient()
+
+  const { data: job } = await supabase
+    .from('jobs')
+    .select('id, parent_id, status')
+    .eq('id', jobId)
+    .maybeSingle()
+
+  if (!job || job.parent_id !== parentId) {
+    return { ok: false, status: 404, error: 'Tuition not found.' }
+  }
+  if (job.status !== 'paused') return { ok: true }
+
+  const { error } = await supabase
+    .from('jobs')
+    .update({ status: 'open', resumed_at: new Date().toISOString(), paused_at: null })
+    .eq('id', jobId)
+    .eq('status', 'paused')
+
+  if (error) return { ok: false, status: 400, error: error.message }
+
+  // Resuming can re-open a landing page (push a city×subject count back over the
+  // threshold), so refresh the landing cache.
+  revalidateLanding()
+
+  return { ok: true }
+}
+
 export async function hireApplicant(
   parentId: string,
   applicationId: string,

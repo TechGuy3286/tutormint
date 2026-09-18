@@ -99,12 +99,12 @@ export default async function ParentDashboardPage() {
     // "Posted tuitions" counts every tuition she has posted — open, closed and
     // hired (PR25 §6) — not just the open ones, which read 0 for a parent whose
     // tuitions have all been filled or closed.
-    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: allJobs.length, label: 'Posted tuitions', href: '/parent/dashboard/jobs', tone: 'green' },
-    { key: 'applicants', icon: <Users aria-hidden size={22} />, value: applicants, label: 'Interested tutors', href: '/parent/dashboard/jobs', tone: 'navy' },
-    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', href: '/parent/dashboard/messages', tone: 'navy', highlight: unread > 0 },
-    { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo lessons', href: '/parent/dashboard/demos', tone: 'red', highlight: liveDemos > 0 },
-    { key: 'hired', icon: <UserCheck aria-hidden size={22} />, value: hired.size, label: 'Hired tutors', href: '/parent/dashboard/hired-tutors', tone: 'gold' },
-    { key: 'shortlisted', icon: <Heart aria-hidden size={22} />, value: shortlistCards.length, label: 'Shortlisted tutors', href: '#shortlisted-tutors', tone: 'mint' },
+    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: allJobs.length, label: 'Posted tuitions', href: '/parent/dashboard/jobs', tone: 'green', tip: 'Every tuition you have posted' },
+    { key: 'applicants', icon: <Users aria-hidden size={22} />, value: applicants, label: 'Interested tutors', href: '/parent/dashboard/jobs', tone: 'navy', tip: 'Tutors interested in your open tuitions' },
+    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', href: '/parent/dashboard/messages', tone: 'navy', highlight: unread > 0, tip: 'Your conversations with tutors' },
+    { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo lessons', href: '/parent/dashboard/demos', tone: 'red', highlight: liveDemos > 0, tip: 'Demo lessons you have asked for' },
+    { key: 'hired', icon: <UserCheck aria-hidden size={22} />, value: hired.size, label: 'Hired tutors', href: '/parent/dashboard/hired-tutors', tone: 'gold', tip: 'Tutors you have hired' },
+    { key: 'shortlisted', icon: <Heart aria-hidden size={22} />, value: shortlistCards.length, label: 'Shortlisted tutors', href: '#shortlisted-tutors', tone: 'mint', tip: 'Tutors you saved to look at later' },
   ]
 
   return (

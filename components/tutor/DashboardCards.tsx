@@ -13,6 +13,8 @@ export type CountTile = {
   href: string
   tone: 'navy' | 'green' | 'red' | 'gold' | 'mint'
   highlight?: boolean
+  /** Desktop-only hover tooltip (PR27 §2). */
+  tip?: string
 }
 
 export function CountGrid({ tiles }: { tiles: CountTile[] }) {
@@ -28,6 +30,7 @@ export function CountGrid({ tiles }: { tiles: CountTile[] }) {
           icon={t.icon}
           value={t.value}
           label={t.label}
+          tip={t.tip}
         />
       ))}
     </ul>
