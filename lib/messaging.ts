@@ -4,10 +4,10 @@
 //
 // Who may START a conversation (the rest is reply-only):
 //
-//   * any verified parent, with any tutor, with or without a job attached
-//     (the FINAL parent model supersedes the original matrix here -- messaging
-//     is what a free verified parent gets; contact details and hiring are what
-//     Featured adds)
+//   * any signed-in parent, verified or not, with any tutor, with or without a
+//     job attached (PR25 §4.1: messaging, demos and shortlisting no longer need
+//     CNIC verification; verification gates POSTING a tuition, and contact
+//     details and hiring are what Featured adds)
 //   * a tutor on premium or featured
 //   * a verified-plan or free tutor may reply but never open a thread
 //
@@ -123,15 +123,10 @@ export async function canStartThread(
   }
 
   if (ent.audience === 'parent') {
-    if (!ent.plan) {
-      return {
-        ok: false,
-        status: 403,
-        error: 'Verify your CNIC and address before messaging tutors.',
-        upgrade: '/parent/verify',
-        gate: await buildGate('parent_verify', ent),
-      }
-    }
+    // PR25 §4.1 — any signed-in parent, verified or not, may start a conversation
+    // with a tutor. The CNIC-verification gate that used to sit here is removed;
+    // verification is required only for POSTING a tuition, and Featured only for
+    // completing a hire and seeing contact details. (Suspension is handled above.)
     return { ok: true }
   }
 

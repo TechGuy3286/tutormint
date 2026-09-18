@@ -102,10 +102,12 @@ export default function ChildrenManager({ children }: { children: Child[] }) {
             >
               <span className="flex min-w-0 items-center gap-2">
                 <GraduationCap size={14} className="shrink-0 text-gray-500" />
-                <span className="truncate text-xs font-bold text-tm-navy">{c.name}</span>
-                {c.class_level && (
-                  <span className="shrink-0 text-[11px] text-gray-500">{c.class_level}</span>
-                )}
+                {/* "Anas — Matric": name and class on one line with an em-dash
+                    (PR25 §5), the class in full as stored. */}
+                <span className="truncate text-xs font-bold text-tm-navy">
+                  {c.name}
+                  {c.class_level ? <span className="font-normal text-gray-500"> — {c.class_level}</span> : ''}
+                </span>
               </span>
               <button
                 type="button"

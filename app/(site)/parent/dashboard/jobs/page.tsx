@@ -16,7 +16,7 @@ import { createClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'My tuitions | TutorMint',
+  title: 'Posted tuitions | TutorMint',
   robots: { index: false, follow: false },
 }
 
@@ -56,12 +56,12 @@ export default async function ParentJobsPage() {
     <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-2xl space-y-4">
         <Breadcrumbs
-          items={[{ label: 'Parent dashboard', href: '/parent/dashboard' }, { label: 'My tuitions' }]}
+          items={[{ label: 'Parent dashboard', href: '/parent/dashboard' }, { label: 'Posted tuitions' }]}
         />
 
         <header className="flex flex-wrap items-center justify-between gap-2">
           <div className="space-y-1">
-            <h1 className="text-xl font-black text-tm-navy sm:text-2xl">My tuitions</h1>
+            <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Posted tuitions</h1>
             <p className="text-xs text-gray-500">
               {(jobs ?? []).length === 0
                 ? 'Nothing posted yet'
@@ -75,7 +75,7 @@ export default async function ParentJobsPage() {
               className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
             >
               <Plus aria-hidden size={14} />
-              Post a job
+              Post a tuition
             </Link>
           )}
         </header>
@@ -86,7 +86,7 @@ export default async function ParentJobsPage() {
             title={
               verified
                 ? 'You have not posted a tuition yet. Post what you need and tutors will apply.'
-                : 'You have not posted a tuition yet. Once your CNIC and address are approved you can post a job.'
+                : 'You have not posted a tuition yet. Once your CNIC and address are approved you can post a tuition.'
             }
             action={
               verified
@@ -111,7 +111,7 @@ export default async function ParentJobsPage() {
                       <span className="block text-[11px] text-gray-500">
                         {(j.city as string) ?? '—'} ·{' '}
                         {j.status === 'open'
-                          ? `${n} applicant${n === 1 ? '' : 's'}`
+                          ? `${n} interested tutor${n === 1 ? '' : 's'}`
                           : j.status === 'hired'
                             ? 'Hired'
                             : 'Closed'}

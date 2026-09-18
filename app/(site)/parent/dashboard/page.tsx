@@ -96,10 +96,13 @@ export default async function ParentDashboardPage() {
   }))
 
   const tiles: CountTile[] = [
-    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: openJobs.length, label: 'My tuitions', href: '/parent/dashboard/jobs', tone: 'green' },
-    { key: 'applicants', icon: <Users aria-hidden size={22} />, value: applicants, label: 'Applicants', href: '/parent/dashboard/jobs', tone: 'navy' },
+    // "Posted tuitions" counts every tuition she has posted — open, closed and
+    // hired (PR25 §6) — not just the open ones, which read 0 for a parent whose
+    // tuitions have all been filled or closed.
+    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: allJobs.length, label: 'Posted tuitions', href: '/parent/dashboard/jobs', tone: 'green' },
+    { key: 'applicants', icon: <Users aria-hidden size={22} />, value: applicants, label: 'Interested tutors', href: '/parent/dashboard/jobs', tone: 'navy' },
     { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', href: '/parent/dashboard/messages', tone: 'navy', highlight: unread > 0 },
-    { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo requests', href: '/parent/dashboard/demos', tone: 'red', highlight: liveDemos > 0 },
+    { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo lessons', href: '/parent/dashboard/demos', tone: 'red', highlight: liveDemos > 0 },
     { key: 'hired', icon: <UserCheck aria-hidden size={22} />, value: hired.size, label: 'Hired tutors', href: '/parent/dashboard/hired-tutors', tone: 'gold' },
     { key: 'shortlisted', icon: <Heart aria-hidden size={22} />, value: shortlistCards.length, label: 'Shortlisted tutors', href: '#shortlisted-tutors', tone: 'mint' },
   ]
@@ -122,12 +125,11 @@ export default async function ParentDashboardPage() {
         {/* 2. Count tiles, two to a row. */}
         <CountGrid tiles={tiles} />
 
-        {/* 3.1 Post a tuition — the one primary action. Shown once verified; an
-            unverified parent's action is "Get verified" in the card above, and
-            /parent/dashboard/post-job bounces an unverified parent back here. */}
-        {verified && (
-          <Link
-            href="/parent/dashboard/post-job"
+        {/* 3.1 Post a tuition — the one primary action, shown to EVERY parent
+            (PR25 §4.3). An unverified parent who taps it lands on the
+            verification step (post-job redirects there), not back here. */}
+        <Link
+          href="/parent/dashboard/post-job"
             className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-tm-navy"
           >
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-tm-tint-red text-tm-red">
@@ -141,8 +143,7 @@ export default async function ParentDashboardPage() {
               Post
               <ArrowRight aria-hidden size={13} />
             </span>
-          </Link>
-        )}
+        </Link>
 
         {/* 3.2 My children — hidden when empty. */}
         {childRows.length > 0 && <ChildrenCard items={childRows} />}
@@ -150,7 +151,7 @@ export default async function ParentDashboardPage() {
         {/* 3.3 Shortlisted tutors — hidden when empty; the tile links here. */}
         {shortlistCards.length > 0 && (
           <div id="shortlisted-tutors" className="scroll-mt-3">
-            <ShortlistSection initial={shortlistCards} viewer={shortlistViewer} />
+            <ShortlistSection initial={shortlistCards} viewer={shortlistViewer} hiredIds={[...hired]} />
           </div>
         )}
       </div>

@@ -7,12 +7,11 @@ import { notify } from '@/lib/notifications'
 import { isUnverifiedTutor } from '@/lib/messaging'
 import { parseBody, z, uuid } from '@/lib/validate'
 
-// A parent asks a tutor for a free demo class.
+// A parent asks a tutor for a free demo lesson.
 //
-// Gate: the parent must be verified (CNIC + address approved). That is what
-// lib/entitlements.ts returns a plan for -- an unverified parent has no plan
-// at all and gets a 403 telling them to finish verification, not a generic
-// refusal. Hiding the button is not the control; this check is.
+// Gate (PR25 §4.1): any signed-in PARENT may request a demo, verified or not.
+// The old CNIC-verification gate is gone — verification gates POSTING a tuition,
+// not messaging/demos/shortlisting. Only a suspended account is refused here.
 //
 // One demo per parent-tutor pair (the owner's rule), so a repeat request on a
 // live pair is refused rather than quietly duplicated. A cancelled or declined
@@ -56,12 +55,13 @@ export async function POST(request: Request) {
   if (ent.audience !== 'parent') {
     return NextResponse.json({ error: 'Only parent accounts can request a demo.' }, { status: 403 })
   }
-  if (!ent.plan) {
+  // PR25 §4.1 — any signed-in parent, verified or not, may request a demo. The
+  // CNIC-verification gate that used to sit here is removed; verification is
+  // required only for POSTING a tuition, and Featured only for completing a hire
+  // and seeing contact details. Suspension still closes everything.
+  if (ent.suspended) {
     return NextResponse.json(
-      {
-        error: 'Verify your CNIC and address before requesting a demo.',
-        action: 'verify',
-      },
+      { error: 'Your account is suspended, so you cannot request a demo. Contact support.' },
       { status: 403 },
     )
   }

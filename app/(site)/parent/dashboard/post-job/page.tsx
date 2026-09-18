@@ -41,8 +41,12 @@ export default async function PostJobPage() {
 
   const verified = !!profile?.cnic_verified_at && !!profile?.address_verified_at
 
+  // PR25 §4.3 — an unverified parent who reaches here (e.g. tapped the dashboard
+  // "Post a tuition" card) goes to the VERIFICATION step, not silently back to
+  // the dashboard. Posting still requires CNIC + address; this just makes the
+  // next step obvious instead of a dead bounce.
   if (!verified) {
-    redirect('/parent/dashboard')
+    redirect('/parent/verify')
   }
 
   const outOfQuota = !ent.plan || ent.quotaLeft <= 0

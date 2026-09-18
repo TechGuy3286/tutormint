@@ -604,6 +604,21 @@ export default async function TutorPublicProfile({ params }: { params: Params })
     saved = !!data
   }
 
+  // Has THIS parent already hired this tutor on any of their tuitions (§2.3)?
+  // A parent can read their own jobs, so the member client is enough.
+  const isParent = ent?.audience === 'parent'
+  let hiredByViewer = false
+  if (isParent && user) {
+    const { data } = await supabase
+      .from('jobs')
+      .select('id')
+      .eq('parent_id', user.id)
+      .eq('hired_tutor_id', tutor.id)
+      .limit(1)
+      .maybeSingle()
+    hiredByViewer = !!data
+  }
+
   // PR16 §1.2/§1.3 — badges turn on the VERIFICATION FEE, not visibility. The
   // public RPC returns plan_code from an active subscription only, so a fee-paid
   // Basic tutor (no subscription) has a null plan_code; read the fee directly and
@@ -1081,6 +1096,8 @@ export default async function TutorPublicProfile({ params }: { params: Params })
           isSelf={isSelf}
           initiallySaved={saved}
           canMessage={!ent || ent.audience !== 'tutor'}
+          isParent={isParent}
+          hired={hiredByViewer}
         />
       )}
     </main>

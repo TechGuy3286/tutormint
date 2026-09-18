@@ -33,7 +33,7 @@ const COPY: Record<AuthIntent, { title: string; body: string; cta: string }> = {
   },
   demo: {
     title: 'Sign in to request a demo',
-    body: 'Demo classes are free. Sign in so the tutor knows who is asking.',
+    body: 'Demo lessons are free. Sign in so the tutor knows who is asking.',
     cta: 'Sign in and request',
   },
   shortlist: {

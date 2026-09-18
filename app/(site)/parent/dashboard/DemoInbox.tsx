@@ -77,7 +77,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
   if (demos.length === 0) {
     return (
       <section className="space-y-2">
-        {role === 'parent' && <h2 className="text-sm font-black text-tm-navy">Demo classes</h2>}
+        {role === 'parent' && <h2 className="text-sm font-black text-tm-navy">Demo lessons</h2>}
         <EmptyState
           icon={<CalendarCheck aria-hidden size={18} />}
           title={

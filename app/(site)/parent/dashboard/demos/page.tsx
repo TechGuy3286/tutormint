@@ -16,7 +16,7 @@ import DemoInbox, { type DemoRow } from '../DemoInbox'
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'Demo classes | TutorMint',
+  title: 'Demo lessons | TutorMint',
   robots: { index: false, follow: false },
 }
 
@@ -72,11 +72,11 @@ export default async function ParentDemosPage() {
         <Breadcrumbs
           items={[
             { label: 'Parent dashboard', href: '/parent/dashboard' },
-            { label: 'Demo classes' },
+            { label: 'Demo lessons' },
           ]}
         />
         <header className="space-y-1">
-          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Demo classes</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Demo lessons</h1>
           <p className="text-xs text-gray-500">
             One free demo per tutor. You agree the time with them directly.
           </p>

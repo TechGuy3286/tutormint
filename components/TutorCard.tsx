@@ -414,10 +414,10 @@ export default function TutorCard({
                 Without it the overlay swallows Shortlist, Demo and Send
                 Message, and all four buttons would silently become "open the
                 profile" — the exact failure this pattern is known for. */}
-            {/* One non-wrapping row at every width. View Profile and (for a
-                parent/guest) Send Message stay visible; Demo and Shortlist fold
-                into More when there are four actions. A tutor viewer has three
-                (no Send Message) and sees them all. */}
+            {/* Four visible actions, no hidden menu (PR25 §3): View Profile,
+                Message, Demo, Shortlist as a 2×2 grid — two rows of two on a
+                phone, the same grid centred on desktop. A tutor viewer has three
+                (no Message). */}
             <CardActions
               actions={
                 [

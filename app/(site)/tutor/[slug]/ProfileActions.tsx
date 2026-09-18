@@ -6,6 +6,7 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useState } from 'react'
 import { Heart, Play, Mail } from 'lucide-react'
 import AuthGateModal, { type AuthIntent } from '@/components/AuthGateModal'
+import HireButton from '@/components/parent/HireButton'
 
 // The transactional actions on a public profile.
 //
@@ -27,6 +28,8 @@ export default function ProfileActions({
   isSelf,
   initiallySaved,
   canMessage,
+  isParent = false,
+  hired = false,
 }: {
   tutorId: string
   tutorName: string
@@ -35,6 +38,10 @@ export default function ProfileActions({
   initiallySaved: boolean
   /** False for a tutor viewing another tutor: they have nothing to say here. */
   canMessage: boolean
+  /** The viewer is a signed-in parent — they get the Hire button (§2.1). */
+  isParent?: boolean
+  /** This parent has already hired this tutor — the button shows "Hired" (§2.3). */
+  hired?: boolean
 }) {
   const upgradeSheet = useUpgradeSheet()
   const [saved, setSaved] = useState(initiallySaved)
@@ -126,7 +133,7 @@ export default function ProfileActions({
         {notice && (
           <p className="pb-2 text-center text-[11px] font-semibold text-slate-700">{notice}</p>
         )}
-        <div className="mx-auto flex max-w-3xl gap-2">
+        <div className="mx-auto flex max-w-3xl flex-wrap gap-2">
           <button
             type="button"
             onClick={toggleShortlist}
@@ -157,6 +164,9 @@ export default function ProfileActions({
               Message
             </button>
           )}
+          {/* Hire, for a signed-in parent (§2.1). Non-Featured → the Featured
+              upgrade sheet; Featured → the existing hire flow. */}
+          {isParent && <HireButton hired={hired} className="flex-1 min-w-0" />}
         </div>
       </div>
 

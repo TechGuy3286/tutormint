@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Heart, X } from 'lucide-react'
 
 import TutorCard, { type TutorCardData, type CardViewer } from '@/components/TutorCard'
+import HireButton from '@/components/parent/HireButton'
 import EmptyState from '@/components/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -20,9 +21,12 @@ import { submitSignal } from '@/lib/submit'
 export default function ShortlistSection({
   initial,
   viewer,
+  hiredIds = [],
 }: {
   initial: TutorCardData[]
   viewer: CardViewer
+  /** Tutors this parent has already hired — their card shows "Hired" (§2.3). */
+  hiredIds?: string[]
 }) {
   const [tutors, setTutors] = useState(initial)
   const [busy, setBusy] = useState<string | null>(null)
@@ -78,7 +82,8 @@ export default function ShortlistSection({
                 showMessage={viewer.role !== 'tutor'}
                 hideShortlist
               />
-              <div className="flex justify-end">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <HireButton hired={hiredIds.includes(t.id)} />
                 <button
                   type="button"
                   onClick={() => void remove(t)}

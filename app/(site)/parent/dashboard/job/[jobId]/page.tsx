@@ -119,7 +119,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
         <Breadcrumbs
           items={[
             { label: 'Parent dashboard', href: '/parent/dashboard' },
-            { label: 'My tuitions', href: '/parent/dashboard/jobs' },
+            { label: 'Posted tuitions', href: '/parent/dashboard/jobs' },
             { label: job.title },
           ]}
         />
@@ -213,7 +213,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
 
         <section className="space-y-3">
           <h2 className="text-sm font-black text-tm-navy">
-            Applicants ({live}
+            Interested tutors ({live}
             {withdrawn > 0 ? `, ${withdrawn} withdrawn` : ''})
           </h2>
           <ApplicantList

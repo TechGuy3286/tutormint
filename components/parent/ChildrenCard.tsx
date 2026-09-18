@@ -29,14 +29,13 @@ export default function ChildrenCard({ items }: { items: ChildRow[] }) {
 
       <ul className="space-y-1.5">
         {items.map((c) => (
-          <li
-            key={c.id}
-            className="flex items-center justify-between gap-2 rounded-xl bg-tm-bg px-3 py-2"
-          >
-            <span className="truncate text-xs font-bold text-tm-navy">{c.name || 'Child'}</span>
-            {c.classLevel && (
-              <span className="shrink-0 text-[11px] font-semibold text-gray-500">{c.classLevel}</span>
-            )}
+          <li key={c.id} className="rounded-xl bg-tm-bg px-3 py-2">
+            {/* "Anas — Matric": name and class on one line, em-dash between them,
+                the class in full as stored (PR25 §5). */}
+            <span className="text-xs font-bold text-tm-navy">
+              {c.name || 'Child'}
+              {c.classLevel ? <span className="font-semibold text-gray-500"> — {c.classLevel}</span> : ''}
+            </span>
           </li>
         ))}
       </ul>
