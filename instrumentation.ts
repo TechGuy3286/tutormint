@@ -32,16 +32,27 @@ export async function register() {
 
   // The selected SMS/OTP provider, by NAME only (owner PR5b §1.2) — so the
   // delivery path is stated in the boot log and can be read back after a deploy.
-  console.info(`[startup] SMS delivery provider: ${smsProviderLabel()}`)
+  const smsProvider = smsProviderLabel()
+  console.info(`[startup] SMS provider: ${smsProvider}`)
+
+  // Warn about SMS ONLY when NO provider at all is configured — never name a
+  // specific unconfigured fallback (owner PR28 §2.2/§2.3). "TWILIO_ACCOUNT_SID
+  // is not set" was logged on every request even though SendPK is the live
+  // provider and codes deliver fine: a wrong, noisy line. getSmsProvider()
+  // picks whatever IS configured (SendPK, then Twilio), so the only real fault
+  // is when it falls through to 'unconfigured'.
+  if (smsProvider === 'unconfigured') {
+    console.warn('[startup] no SMS provider is configured — phone OTP codes cannot be delivered')
+  }
 
   // Everything below is a warning, not a refusal: each one degrades a feature
-  // rather than opening a hole, and refusing to boot the whole site because
-  // nobody has bought an SMS bundle yet would be the wrong trade.
+  // rather than opening a hole. These have no alternative provider — a missing
+  // one is genuinely a degraded feature, so it is named. (An unconfigured SMS
+  // FALLBACK is not, per above.)
   const optional: [string, string][] = [
     ['SUPABASE_SERVICE_ROLE_KEY', 'admin screens, activation and moderation cannot write'],
     ['RESEND_API_KEY', 'no email will be sent'],
     ['CRON_SECRET', 'the subscription sweep endpoint is unprotected'],
-    ['TWILIO_ACCOUNT_SID', 'phone OTP codes cannot be delivered'],
   ]
 
   const missing = optional.filter(([k]) => !process.env[k])
