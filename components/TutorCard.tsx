@@ -6,7 +6,8 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
 import { useState } from 'react'
 import Link from 'next/link'
-import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, Mail, Star, Eye } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, Mail, Star, Eye, Handshake, BadgeCheck, X } from 'lucide-react'
 import JobTypesChip from '@/components/JobTypesChip'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import Avatar from '@/components/Avatar'
@@ -164,6 +165,10 @@ export default function TutorCard({
   initiallySaved = false,
   showMessage = false,
   hideShortlist = false,
+  showHire = false,
+  hired = false,
+  onRemove,
+  removeBusy = false,
 }: {
   tutor: TutorCardData
   viewer?: CardViewer
@@ -172,12 +177,19 @@ export default function TutorCard({
   showMessage?: boolean
   /**
    * Omit the Shortlist toggle. Used on the parent's own "Shortlisted tutors"
-   * section, where removal is an explicit "Remove from shortlist" with a
-   * confirm — so an in-card toggle that silently un-saves would be a second,
-   * confusing path.
+   * section, where removal is the top-right X (below) — so an in-card toggle
+   * that silently un-saves would be a second, confusing path.
    */
   hideShortlist?: boolean
+  /** Add a Hire action to the button grid (parent's shortlist card, PR26 §1.2). */
+  showHire?: boolean
+  /** This parent has already hired this tutor — Hire reads "Hired" (§1). */
+  hired?: boolean
+  /** When set, a small X at the top-right removes the card (parent shortlist, §1.3). */
+  onRemove?: () => void
+  removeBusy?: boolean
 }) {
+  const router = useRouter()
   const [saved, setSaved] = useState(initiallySaved)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
@@ -288,11 +300,52 @@ export default function TutorCard({
     setBusy(false)
   }
 
+  // Hire (parent shortlist card, §1.2). Non-Featured → the parent_hire upgrade
+  // sheet (price on the sheet, fetched on the tap). Featured → the existing
+  // per-application hire flow (Posted tuitions); no jobless direct hire exists.
+  const onHire = async () => {
+    setBusy(true)
+    setNotice(null)
+    try {
+      const res = await fetch('/api/gate', {
+        signal: submitSignal(),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'parent_hire' }),
+      })
+      const json = (await res.json().catch(() => ({}))) as { gate?: import('@/lib/gate').Gate | null }
+      if (json.gate && upgradeSheet?.showGate) {
+        upgradeSheet.showGate(json.gate)
+        return
+      }
+      toast.success('Open a posted tuition to hire a tutor from its interested tutors.')
+      router.push('/parent/dashboard/jobs')
+    } catch {
+      toast.error('Could not open hire. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <>
       <article className="relative rounded-2xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md sm:p-6">
         {isFeaturedPlan(tutor.plan_code) && (
-          <FeaturedTag className="absolute right-3 top-3 sm:right-4 sm:top-4" />
+          // Shifts left of the remove X on a shortlist card so the two never overlap.
+          <FeaturedTag
+            className={`absolute top-3 sm:top-4 ${onRemove ? 'right-12 sm:right-14' : 'right-3 sm:right-4'}`}
+          />
+        )}
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={removeBusy}
+            aria-label={`Remove ${tutor.full_name} from your shortlist`}
+            className="absolute right-2 top-2 z-20 grid h-9 w-9 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:border-tm-red hover:text-tm-red disabled:opacity-60"
+          >
+            <X aria-hidden size={16} />
+          </button>
         )}
 
         <div className="grid grid-cols-[72px_1fr] items-start gap-x-4 gap-y-4 sm:grid-cols-[140px_1fr] sm:gap-x-6">
@@ -442,7 +495,9 @@ export default function TutorCard({
                     : []),
                   {
                     key: 'demo',
-                    label: 'Demo',
+                    // A parent reads "Demo lesson" (matches the dashboard tile,
+                    // §2.1); a guest or tutor keeps the short "Demo".
+                    label: viewer.role === 'parent' ? 'Demo lesson' : 'Demo',
                     icon: <Play size={14} aria-hidden />,
                     className: 'bg-tm-red text-white hover:bg-tm-red-hover',
                     onClick: requestDemo,
@@ -461,6 +516,29 @@ export default function TutorCard({
                           ariaPressed: saved,
                         } as CardAction,
                       ]),
+                  // Hire, inside the grid (§1.2). Red, never gold (§1.4). A tutor
+                  // already hired reads "Hired".
+                  ...(showHire
+                    ? [
+                        hired
+                          ? ({
+                              key: 'hire',
+                              label: 'Hired',
+                              icon: <BadgeCheck size={14} aria-hidden />,
+                              className: 'bg-tm-tint-green text-tm-green-deep',
+                              onClick: () => {},
+                              disabled: true,
+                            } as CardAction)
+                          : ({
+                              key: 'hire',
+                              label: 'Hire',
+                              icon: <Handshake size={14} aria-hidden />,
+                              className: 'bg-tm-red text-white hover:bg-tm-red-hover',
+                              onClick: onHire,
+                              disabled: busy,
+                            } as CardAction),
+                      ]
+                    : []),
                 ] as CardAction[]
               }
             />

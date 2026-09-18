@@ -151,7 +151,9 @@ export default function ProfileActions({
             className={`${btn} bg-tm-red text-white hover:bg-tm-red-hover`}
           >
             <Play size={14} className="fill-white" />
-            Request demo
+            {/* A signed-in parent reads "Demo lesson" (matches the tile, §2.1);
+                a guest keeps "Request demo". */}
+            {isParent ? 'Demo lesson' : 'Request demo'}
           </button>
           {canMessage && (
             <button

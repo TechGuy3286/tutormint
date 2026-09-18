@@ -6,11 +6,18 @@ import SocialClient, { type PickerTutor } from './SocialClient'
 
 // The social post generator. owner / admin / operations.
 //
-// It lists every REAL tutor — is_seed and is_fixture are excluded ALWAYS, with
-// no override (owner, 14 Sep 2026). The old version read tutor_directory, whose
-// only members were fixtures carrying Verified/Premium/Featured badges they
-// never earned — and these cards are published to Facebook and Instagram. A
-// fixture must never be promoted as a real verified tutor.
+// It lists every REAL tutor — seed AND team accounts are excluded ALWAYS, with
+// no override (owner, 14 Sep 2026; PR26 §3). Each tutor's LISTED flag is the
+// current visibility rule (directoryBlockers, via tutor_directory), and Verified
+// needs a real reviewed degree — so a fixture is never promoted as a real
+// verified tutor.
+//
+// PR26 §3 FIX: this query filtered profiles on `.eq('is_fixture', false)`, but
+// `profiles` has NO is_fixture column (it is a tuition-only concept — migration
+// 87). PostgREST erred on the unknown column, the query returned nothing, and
+// the page showed "No real tutors to post about yet" even though real tutors are
+// listed in Browse. Fixed by excluding seed AND the team account through the
+// columns that exist (is_seed, is_team_account).
 //
 // For each tutor the picker shows whether they are LISTED and, when not, which
 // card fields are missing (what will render blank). Badges are the REAL earned
@@ -30,14 +37,16 @@ export default async function AdminSocialPage() {
     )
   }
 
-  // Real tutors only. Seed/fixture excluded here, in the query, so nothing
-  // downstream can re-include them.
+  // Real tutors only. Seed and team accounts excluded here, in the query, so
+  // nothing downstream can re-include them. (`is_fixture` does not exist on
+  // profiles — see the header note; the tutor-side fixture signals are is_seed
+  // and the one is_team_account.)
   const { data: profiles } = await admin
     .from('profiles')
-    .select('id, full_name, city, is_seed, is_fixture')
+    .select('id, full_name, city')
     .eq('role', 'tutor')
     .eq('is_seed', false)
-    .eq('is_fixture', false)
+    .eq('is_team_account', false)
     .order('full_name')
     .limit(300)
 

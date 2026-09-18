@@ -78,7 +78,7 @@ export default function HireButton({
       type="button"
       onClick={onClick}
       disabled={busy}
-      className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-gold px-4 text-xs font-bold text-tm-navy disabled:opacity-60 ${className}`}
+      className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-60 ${className}`}
     >
       <Handshake aria-hidden size={14} />
       Hire
