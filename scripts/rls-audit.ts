@@ -64,7 +64,7 @@ const PUBLIC_READ: Record<string, string> = {
 
   // The public browse and profile surface.
   tutor_directory: 'the listing view -- already filtered to complete, unsuspended, claimed tutors',
-  jobs: 'open tuitions on /browse/tuitions; RLS restricts the rows to open jobs',
+  jobs: 'tuitions on /browse/tuitions and the tuition detail page; anon may read a tuition in any status (PR28 — a paused/closed/hired page renders 200 + noindex rather than 404), and the jobs row carries no contact/personal data (that lives in admin-only job_contacts)',
   job_subjects: 'which subjects a job wants, for the job cards',
   tutor_subjects: 'which subjects a tutor teaches, for the tutor cards',
   reviews: 'ratings shown on public tutor profiles',

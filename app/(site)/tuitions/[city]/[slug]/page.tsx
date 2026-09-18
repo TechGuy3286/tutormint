@@ -13,8 +13,11 @@ import ReportButton from '@/components/ReportButton'
 import { budgetLabel } from '@/lib/feeBands'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
-import { jobByPublicSlug } from '@/lib/jobFeed'
+import { jobByPublicSlug, similarOpenTuitions } from '@/lib/jobFeed'
+import { tuitionPublicState, daysUntilPause } from '@/lib/tuitionStatus'
 import { isFixtureTuition } from '@/lib/fixtures'
+import JobCard from '@/components/JobCard'
+import ResumeInline from './ResumeInline'
 import { citySegment } from '@/lib/slugs'
 import { formatDate } from '@/lib/datetime'
 import { jobType } from '@/lib/display'
@@ -99,13 +102,11 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
   const job = await jobByPublicSlug(slug)
 
-  // `job.status !== 'open'` for the same reason the body checks it: an admin
-  // and the job's own parent can read a closed row, and a title carrying the
-  // tuition's own headline on a page answering 404 is a page arguing with its
-  // status code. Next injects noindex on a 404 by itself; `follow` keeps the
-  // links onward to the city's open board worth something.
-  if (!job || job.status !== 'open') {
-    return { title: pageTitle('Tuition closed'), robots: { index: false, follow: true } }
+  // Only a slug that does not exist is a 404 (PR28). The body renders 200 for a
+  // paused/closed/hired tuition; here we give the missing case a generic noindex
+  // title. `follow` keeps the onward links worth something.
+  if (!job) {
+    return { title: pageTitle('Tuition'), robots: { index: false, follow: true } }
   }
 
   // The PAGE <title> and JobPosting JSON-LD use the stored human headline the
@@ -120,16 +121,19 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       : `${pageHeadline} — apply free`,
   )
 
+  const state = tuitionPublicState(job.status)
+
   // A FIXTURE tuition (seed parent / JOB-TRK bulk import / SEED-JOB) is noindex
-  // regardless of anything else (owner, 10 Sep 2026) — it stays visible and
-  // browsable on-site but is kept out of Google, matching its exclusion from the
-  // sitemap and the suppressed JobPosting JSON-LD in the body. A genuine team
-  // post is never a fixture and stays indexable.
+  // regardless (owner, 10 Sep 2026). And a paused/closed/hired tuition is 200 +
+  // noindex (PR28 §6) — de-listed from Google's jobs results while it is not
+  // accepting applications, reversing cleanly on resume. Only an OPEN, non-fixture
+  // tuition is indexable (matching the sitemap and the JobPosting JSON-LD below).
   const fixture = isFixtureTuition({
     jobTxId: job.job_tx_id,
     parentIsSeed: job.poster_is_seed,
     postedByTeam: job.posted_by_team,
   })
+  const noindex = !state.indexable || fixture
 
   return {
     title,
@@ -145,11 +149,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       path: `/tuitions/${citySegment(job.city)}/${job.public_slug}`,
       type: 'article',
     }),
-    // A real open tuition carries no robots key (indexable, matching the
-    // sitemap); a fixture is noindex. The closed/missing case above sets its own
-    // noindex, and an under-review job stays visible with a sticker (not
-    // delisted), so those need nothing here.
-    ...(fixture ? { robots: { index: false, follow: true } } : {}),
+    ...(noindex ? { robots: { index: false, follow: true } } : {}),
   }
 }
 
@@ -166,15 +166,17 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
   const job = await jobByPublicSlug(slug)
 
-  // ------------------------------------------------------------ gone / 404 --
+  // ------------------------------------------------------------------ 404 --
   //
-  // `job.status !== 'open'` is not redundant with the null check. An ADMIN and
-  // the job's own parent CAN read a closed row — jobs_public_read_open is
-  // `status = 'open' OR parent_id = auth.uid() OR is_admin()` — so without it
-  // those two would get the full open page, Apply button and JobPosting
-  // structured data, for a tuition that has been filled. A parent's own view
-  // of their closed tuition is on their dashboard, where it can be reopened.
-  if (!job || job.status !== 'open') notFound()
+  // 404 is ONLY for a slug that does not exist (PR28). A paused/closed/hired
+  // tuition renders 200 with a plain status banner — never a 404, so an indexed
+  // URL that auto-pauses does not flap 200↔404 and no state is a dead end.
+  if (!job) notFound()
+
+  // The public state of the page: open accepts applications, is indexable, emits
+  // JobPosting and sits in the sitemap; paused/closed/hired do none of those and
+  // carry a plain banner. All render 200.
+  const state = tuitionPublicState(job.status)
 
   // The page's title/heading is the stored human headline (composed only as a
   // fallback) — the composed field list belongs on the card, not on the page or
@@ -198,10 +200,14 @@ export default async function TuitionPage({ params }: { params: Params }) {
   let isTutor = false
   let applied = false
   let tutorGender: string | null = null
+  let isPoster = false
+  let isAdmin = false
 
   if (user) {
     const ent = await getEntitlements(user.id)
     isTutor = ent.audience === 'tutor'
+    isAdmin = ent.role === 'admin'
+    isPoster = job.parent_id === user.id
     if (isTutor) {
       const [{ data: mine }, { data: me }] = await Promise.all([
         supabase.from('applications').select('id').eq('tutor_id', user.id).eq('job_id', job.id).maybeSingle(),
@@ -211,6 +217,32 @@ export default async function TuitionPage({ params }: { params: Params }) {
       tutorGender = (me?.gender as string | null) ?? null
     }
   }
+
+  // §7 — the poster (and admin) see when their OPEN tuition will auto-pause,
+  // derived at read time from coalesce(resumed_at, created_at) + 15 days. The
+  // poster reads their own row, so no service role is needed.
+  let pausesInDays: number | null = null
+  if ((isPoster || isAdmin) && state.isOpen) {
+    const { data: clock } = await supabase
+      .from('jobs')
+      .select('created_at, resumed_at')
+      .eq('id', job.id)
+      .maybeSingle()
+    const base =
+      (clock?.resumed_at as string | null) ?? (clock?.created_at as string | null) ?? job.created_at
+    pausesInDays = daysUntilPause(base)
+  }
+
+  // A non-open tuition is never a dead end (§3): offer similar OPEN tuitions,
+  // same city first then same subject, plus the browse links already below.
+  const similar = !state.isOpen
+    ? await similarOpenTuitions(
+        job.id,
+        job.city,
+        (job.subject_links ?? []).map((l) => l.masterId),
+        3,
+      )
+    : []
 
   // The gender-preference sentence, shown plainly to everyone. And, for a
   // signed-in tutor whose gender does not match, the Apply-blocking reason —
@@ -246,8 +278,9 @@ export default async function TuitionPage({ params }: { params: Params }) {
   )
 
   // Guests see Apply -- pressing it is what opens the sign-in modal. A parent
-  // browsing the board has no use for it.
-  const showApply = !user || isTutor
+  // browsing the board has no use for it. Only an OPEN tuition shows Apply; a
+  // paused/closed/hired one hides it (and the server refuses regardless, §4).
+  const showApply = state.isOpen && (!user || isTutor)
   const url = absoluteUrl(`/tuitions/${canonicalCity}/${job.public_slug}`)
   const budget = budgetLabel(job.budget_min_pkr, job.budget_max_pkr, job.budget_pkr)
   const mode = jobType(job.teaching_mode)
@@ -264,7 +297,9 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6">
-      {!fixture && (
+      {/* JobPosting structured data: OPEN, non-fixture tuitions only (§6). A
+          paused/closed/hired tuition must not sit in Google's jobs results. */}
+      {!fixture && state.emitJobPosting && (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={jsonLdScript(
@@ -306,6 +341,42 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
       <article className="relative space-y-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
         {job.is_featured && <FeaturedTag className="absolute right-3 top-3 sm:right-4 sm:top-4" />}
+
+        {/* Status banner for a non-open tuition (§2): plain, in the same voice as
+            the rest of the page. Vocabulary stays paused/closed/hired. */}
+        {state.banner && (
+          <div
+            className={`space-y-2 rounded-xl p-3 ${
+              state.banner.tone === 'gold'
+                ? 'bg-tm-tint-gold text-tm-gold-ink'
+                : state.banner.tone === 'green'
+                  ? 'bg-tm-tint-green text-tm-green-deep'
+                  : 'bg-tm-tint-navy text-tm-navy'
+            }`}
+          >
+            <p className="text-xs font-bold">{state.banner.text}</p>
+            {/* The poster's own Resume, inline (§5) — reuses /api/parent/jobs/resume. */}
+            {isPoster && job.status === 'paused' && <ResumeInline jobId={job.id} />}
+            {/* An admin manages pause/resume on the admin tuition page (§5). */}
+            {isAdmin && !isPoster && (
+              <Link
+                href={`/admin/jobs/${job.id}`}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-current px-4 text-xs font-bold"
+              >
+                Manage this tuition in admin
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* §7 — the poster/admin see when an OPEN tuition will auto-pause. */}
+        {pausesInDays !== null && state.isOpen && (
+          <p className="rounded-xl bg-tm-bg p-3 text-[11px] font-semibold text-gray-500">
+            {pausesInDays === 0
+              ? 'This tuition pauses today unless you resume it. Paused tuitions are hidden from tutors until resumed.'
+              : `Pauses in ${pausesInDays} day${pausesInDays === 1 ? '' : 's'} — after that, resume it to keep it visible to tutors.`}
+          </p>
+        )}
 
         {job.under_review && (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-gold px-3 py-1 text-[11px] font-black uppercase tracking-wide text-tm-gold-ink">
@@ -558,6 +629,25 @@ export default async function TuitionPage({ params }: { params: Params }) {
               label="Report this post"
             />
           )}
+        </section>
+      )}
+
+      {/* No dead end (§3): a paused/closed/hired page offers live tuitions to go
+          to — same city first, then same subject. */}
+      {!state.isOpen && similar.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-black text-tm-navy">Similar open tuitions</h2>
+          <div className="space-y-4">
+            {similar.map((t) => (
+              <JobCard
+                key={t.id}
+                job={t}
+                signedIn={!!user}
+                showApply={!user || isTutor}
+                viewerCity={job.city}
+              />
+            ))}
+          </div>
         </section>
       )}
 

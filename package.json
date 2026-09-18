@@ -42,7 +42,8 @@
     "test:taxonomy": "tsx --test scripts/test-taxonomy.ts",
     "test:tutorflow": "tsx --test scripts/test-tutorflow.ts",
     "test:taxonomy:live": "tsx --test scripts/test-taxonomy-live.ts",
-    "test:onboarding": "tsx --test scripts/test-onboarding.ts"
+    "test:onboarding": "tsx --test scripts/test-onboarding.ts",
+    "test:tuition": "tsx --test scripts/test-tuition-status.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

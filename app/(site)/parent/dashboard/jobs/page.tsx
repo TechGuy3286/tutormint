@@ -6,6 +6,7 @@ import EmptyState from '@/components/EmptyState'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { daysUntilPause } from '@/lib/tuitionStatus'
 
 // The parent's tuitions, in full.
 //
@@ -27,7 +28,7 @@ export default async function ParentJobsPage() {
 
   const { data: jobs } = await supabase
     .from('jobs')
-    .select('id, job_tx_id, title, city, status, is_featured, created_at')
+    .select('id, job_tx_id, title, city, status, is_featured, created_at, resumed_at')
     .eq('parent_id', userId)
     .order('created_at', { ascending: false })
 
@@ -111,7 +112,13 @@ export default async function ParentJobsPage() {
                       <span className="block text-[11px] text-gray-500">
                         {(j.city as string) ?? '—'} ·{' '}
                         {j.status === 'open'
-                          ? `${n} interested tutor${n === 1 ? '' : 's'}`
+                          ? `${n} interested tutor${n === 1 ? '' : 's'} · pauses in ${daysUntilPause(
+                              (j.resumed_at as string | null) ?? (j.created_at as string),
+                            )} day${
+                              daysUntilPause((j.resumed_at as string | null) ?? (j.created_at as string)) === 1
+                                ? ''
+                                : 's'
+                            }`
                           : j.status === 'hired'
                             ? 'Hired'
                             : j.status === 'paused'

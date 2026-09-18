@@ -485,6 +485,68 @@ export async function jobByPublicSlug(slug: string): Promise<JobCardData | null>
   return job ?? null
 }
 
+/**
+ * A few OPEN tuitions like this one — same city first, then same subject (PR28).
+ * Used to keep a paused/closed/hired tuition page from being a dead end: the
+ * reader always has live tuitions to go to. Open only, and the current job is
+ * excluded. Reuses JOB_COLUMNS + decorate, so the cards match browse exactly.
+ */
+export async function similarOpenTuitions(
+  jobId: string,
+  city: string | null,
+  masterIds: number[],
+  limit = 3,
+): Promise<JobCardData[]> {
+  const supabase = await createClient()
+  const collected = new Map<string, Record<string, unknown>>()
+
+  const add = (rows: Record<string, unknown>[] | null | undefined) => {
+    for (const r of rows ?? []) {
+      const id = r.id as string
+      if (id !== jobId && !collected.has(id) && collected.size < limit) collected.set(id, r)
+    }
+  }
+
+  // Same city first — the most useful "instead of this one".
+  if (city) {
+    const { data } = await supabase
+      .from('jobs')
+      .select(JOB_COLUMNS)
+      .eq('status', 'open')
+      .neq('id', jobId)
+      .ilike('city', city)
+      .order('is_featured', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit + 1)
+    add(data as Record<string, unknown>[])
+  }
+
+  // Then the same subject, wherever it is, to fill any remaining slots.
+  if (collected.size < limit && masterIds.length > 0) {
+    const { data: links } = await supabase
+      .from('job_subjects')
+      .select('job_id')
+      .in('master_id', masterIds)
+      .limit(80)
+    const ids = Array.from(new Set((links ?? []).map((l) => l.job_id as string))).filter(
+      (id) => id !== jobId && !collected.has(id),
+    )
+    if (ids.length > 0) {
+      const { data } = await supabase
+        .from('jobs')
+        .select(JOB_COLUMNS)
+        .eq('status', 'open')
+        .in('id', ids)
+        .order('is_featured', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(limit + 1)
+      add(data as Record<string, unknown>[])
+    }
+  }
+
+  return decorate([...collected.values()])
+}
+
 
 /** One job by its human id or uuid, for the detail view. */
 export async function jobByRef(ref: string): Promise<JobCardData | null> {

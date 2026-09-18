@@ -1,0 +1,21 @@
+-- 97_public_read_tuition_any_status.sql — a tuition's public page never 404s
+-- because of status (owner, PR28). Only the STATUS PREDICATE of the public read
+-- policy changes.
+--
+-- Before: jobs_public_read_open USING (status='open' OR parent_id=auth.uid()
+-- OR is_admin()) — anon could read only open jobs, so a paused/closed/hired
+-- tuition 404'd for the public, and an auto-paused indexed URL flapped
+-- 200↔404 on every pause/resume.
+--
+-- After: anon may read a tuition in ANY status. This does NOT widen the column
+-- shape — anon already receives the whole jobs row for an open job, and there is
+-- NO contact/phone/CNIC/address on the jobs row (that lives in job_contacts,
+-- which keeps its admin-only policies). The de-listing of paused/closed/hired
+-- tuitions moves to the app layer: they render 200 + noindex, emit no JobPosting
+-- JSON-LD, and stay out of the sitemap (indexable_job_slugs still = status='open').
+--
+-- Admin and owner read/write policies are untouched. USING(true) subsumes the
+-- old parent/admin OR (they were already covered), so the row shape and the
+-- write policies are unchanged.
+
+alter policy "jobs_public_read_open" on public.jobs using (true);

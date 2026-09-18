@@ -14,8 +14,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
+import { PAUSE_AFTER_DAYS } from '@/lib/tuitionStatus'
 
-export const PAUSE_AFTER_DAYS = 15
+export { PAUSE_AFTER_DAYS }
 
 function cutoffIso(now = Date.now()): string {
   return new Date(now - PAUSE_AFTER_DAYS * 24 * 3600 * 1000).toISOString()

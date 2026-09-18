@@ -5530,3 +5530,54 @@ and admin queue already read). A live payment gateway (AssanPay) is not enabled,
 so `/pay/manual/[ref]` IS the payment page today; if a gateway is turned on, the
 one-time/non-refundable line would need a pre-redirect interstitial (out of scope,
 noted).
+
+## Tuitions auto-pause after 15 days, and keep a real public page (PR27 + PR28)
+
+**PR27 (migration 96, 18 Sep 2026).** Every tuition auto-pauses 15 days after it
+was posted or last resumed. `jobs` gained `paused_at` and `resumed_at`; the
+15-day clock runs from `coalesce(resumed_at, created_at)`. A paused tuition has
+`status = 'paused'` (there is no CHECK on `jobs.status`) and is excluded from
+browse, search, matching, the sitemap, landing pages and Apply — all of which
+filter `status = 'open'`. The daily sweep is `pauseStaleTuitions()` in
+`lib/tuitionPause.ts`, riding `/api/cron/subscriptions` (`0 3 * * *`, Vercel Cron,
+bom1); it notifies the poster in-app and by email (`tuition_paused` template).
+The poster resumes from the tuition page or `/parent/dashboard/job/[id]`
+(`/api/parent/jobs/resume` → `resumeJob`, fresh 15-day clock); admins pause/resume
+any tuition from `/admin/jobs/[id]` with a reason logged to `admin_audit_log`.
+Closed and hired tuitions are never touched.
+
+**PR28 — no tuition URL ever 404s because of status (migration 97, owner, 18 Sep
+2026).** PR27's pause exposed a flaw: `jobs_public_read_open` hid any non-open
+job from the public, so a paused/closed/hired tuition page 404'd for anon — and
+an auto-paused indexed URL flapped 200↔404 on every pause/resume, on a page that
+carries JobPosting data. That is a dead end and a bad de-listing signal.
+
+- **RLS.** `jobs_public_read_open` USING is now `true` — anon may read a tuition
+  in ANY status. This does not widen the column shape: anon already received the
+  whole `jobs` row for an open job, and there is NO contact/phone/CNIC/address on
+  it (that lives in `job_contacts`, admin-only). Admin/owner read/write policies
+  are unchanged; `USING(true)` subsumes the old parent/admin OR.
+- **The page always renders 200** for open, paused, closed and hired. 404 is
+  reserved for a slug that does not exist. `lib/tuitionStatus.ts`
+  `tuitionPublicState(status)` is the one rule the route, its metadata and the
+  guard test read: only **open** is indexable, emits JobPosting JSON-LD and is
+  sitemap-eligible; **paused/closed/hired** are 200 + `noindex`, emit no
+  JobPosting and stay out of the sitemap (`indexable_job_slugs()` still filters
+  `status='open'`, unchanged) — the correct de-listing that reverses on resume.
+  A plain banner states the state (paused → not accepting applications right now;
+  closed → this tuition is closed; hired → a tutor has been hired). The word
+  "expired" never appears; the vocabulary stays paused/closed/hired.
+- **No dead end.** A non-open page shows the tuition, then similar OPEN tuitions
+  (same city, then same subject — `similarOpenTuitions()` in `lib/jobFeed.ts`,
+  reusing `JOB_COLUMNS`/`decorate`) and the browse links.
+- **Apply stays server-gated:** `applyToJob` refuses a non-open job; the page
+  hides the Apply panel for non-open as well.
+- **Poster/admin:** the poster's own paused tuition shows an inline Resume
+  (`ResumeInline` → `/api/parent/jobs/resume`); an admin gets a link to
+  `/admin/jobs/[id]`. On an OPEN tuition the poster/admin see "pauses in N days"
+  (from `coalesce(resumed_at, created_at) + 15`, derived at read time —
+  `daysUntilPause()`), and the same on the poster's dashboard row.
+- Guard: `npm run test:tuition` (`scripts/test-tuition-status.ts`) asserts the
+  state rules, the banner copy, the never-negative clock, that `jobByPublicSlug`
+  has no status branch (identical anon columns for open and paused), and that the
+  sitemap RPC still filters open only.
