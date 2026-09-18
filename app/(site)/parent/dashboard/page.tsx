@@ -1,41 +1,30 @@
-import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { ArrowRight, Briefcase, FilePlus2, Heart, MessageSquare, UserCheck, Users, Video } from 'lucide-react'
 
-import AdSlot from '@/components/ads/AdSlot'
-import ActivityBand from '@/components/dashboard/ActivityBand'
-import IdentityBlock from '@/components/dashboard/IdentityBlock'
-import NeedsYou from '@/components/dashboard/NeedsYou'
-import YourThings, { type ThingRow } from '@/components/dashboard/YourThings'
-import IdentityStatusLine from '@/components/identity/IdentityStatusLine'
+import Breadcrumbs from '@/components/Breadcrumbs'
+import ParentHeaderCard from '@/components/parent/ParentHeaderCard'
+import ChildrenCard, { type ChildRow } from '@/components/parent/ChildrenCard'
 import ShortlistSection from '@/components/parent/ShortlistSection'
+import { CountGrid, type CountTile } from '@/components/tutor/DashboardCards'
 import { type CardViewer } from '@/components/TutorCard'
-import { tutorCardsByIds } from '@/lib/browseTutors'
-import { getSessionUser } from '@/lib/auth'
-import { loadIdentity } from '@/lib/identity'
-import { recentActivity } from '@/lib/dashboardFeed'
-import { getEntitlements, isUnlimitedDisplay } from '@/lib/entitlements'
-import { unreadMessageCount } from '@/lib/messaging'
-import { parentNeeds } from '@/lib/needsYou'
-import { createClient } from '@/lib/supabase/server'
 
-// The parent dashboard, in three bands.
+import { getSessionUser } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/server'
+import { getEntitlements } from '@/lib/entitlements'
+import { unreadMessageCount } from '@/lib/messaging'
+import { tutorCardsByIds } from '@/lib/browseTutors'
+
+// The parent dashboard — the SAME shape as the tutor dashboard (PR24): one
+// narrow centred column (~480px) at every width, phone-first, no desktop grid.
 //
-//   1. NEEDS YOU   what is blocked on this parent, one line and one action each
-//   2. ACTIVITY    real events, newest first, each linking to its subject
-//   3. YOUR THINGS counts that link out -- the lists live on their own pages
+//   1. profile card (photo, name, city, status badge, Get verified, public card)
+//   2. count tiles, two to a row
+//   3. Post a tuition (when verified), My children (hidden when empty),
+//      Shortlisted tutors (hidden when empty)
 //
-// WHAT THIS REPLACED, and why the shape was the problem. Everything used to be
-// a white rounded card with a bold heading: the verification block that stops
-// you posting, the plan card, the children editor, all nine tuitions rendered
-// in full, the demo inbox, and two full-width outlined buttons at the bottom
-// reading "Messages" and "Browse tutors". 2,428px on a laptop, and no way to
-// tell at a glance which of it needed doing. The nine tuitions alone were
-// 600px of content the parent had already seen.
-//
-// The lists did not disappear -- they moved to /jobs, /demos and /children,
-// which is where a list belongs. What is here is the count, so the question
-// "is there anything new" is answered without scrolling.
+// Nothing else — no "Needs you", no identity-status card, no activity band, no
+// "Your things" heading, no ad slot, no loose text. The lists live on their own
+// pages (/jobs, /demos, /children, /hired-tutors) and the tiles link out.
 
 export const dynamic = 'force-dynamic'
 
@@ -47,69 +36,23 @@ export default async function ParentDashboardPage() {
   const [{ data: profile }, ent] = await Promise.all([
     supabase
       .from('profiles')
-      .select(
-        'full_name, avatar_url, city, verification_state, cnic_verified_at, address_verified_at, profile_completion',
-      )
+      .select('full_name, avatar_url, city, cnic_verified_at, address_verified_at')
       .eq('id', userId)
       .maybeSingle(),
     getEntitlements(userId),
   ])
 
   const verified = !!profile?.cnic_verified_at && !!profile?.address_verified_at
+  const featured = ent.plan === 'parent_featured'
 
-  const [
-    needs,
-    activity,
-    identity,
-    { data: jobs },
-    unreadMessages,
-    { data: demos },
-    { data: children },
-    { data: shortlisted },
-  ] = await Promise.all([
-      parentNeeds({
-        userId,
-        ent,
-        cnicVerified: !!profile?.cnic_verified_at,
-        addressVerified: !!profile?.address_verified_at,
-        verificationState: (profile?.verification_state as string) ?? null,
-      }),
-      // The "plan ended · Reactivate" card must not appear while a plan is
-      // live. It surfaces on TWO bands — Needs you (lapsedPlanRow) and this
-      // timeline (a plan_expired feed item) — and both read ent, the computed
-      // authority, so a member who reactivated is never told their plan ended.
-      recentActivity({
-        userId,
-        role: 'parent',
-        limit: 8,
-        hideKinds:
-          ent.plan || ent.planPaused
-            ? ['plan_expired', 'plan_revoked', 'plan_cancelled', 'plan_ended']
-            : [],
-      }),
-      loadIdentity(userId),
+  const [{ data: jobs }, unread, { data: demos }, { data: children }, { data: shortlisted }] =
+    await Promise.all([
       supabase.from('jobs').select('id, status, hired_tutor_id').eq('parent_id', userId),
       unreadMessageCount(userId),
       supabase.from('demo_requests').select('id, status').eq('parent_id', userId),
-      supabase.from('children').select('id').eq('parent_id', userId),
-      // The parent's shortlist, newest first. RLS scopes it to their own rows.
+      supabase.from('children').select('id, name, class_level').eq('parent_id', userId).order('created_at'),
       supabase.from('shortlists').select('tutor_id, created_at').order('created_at', { ascending: false }),
     ])
-
-  // Full cards for the shortlisted tutors, in shortlist order. Reads the
-  // listing view, so any that have since unlisted or been suspended drop out.
-  const shortlistIds = (shortlisted ?? []).map((s) => s.tutor_id as string)
-  const shortlistCards = await tutorCardsByIds(shortlistIds)
-  const shortlistOrder = new Map(shortlistIds.map((id, i) => [id, i]))
-  shortlistCards.sort(
-    (a, b) => (shortlistOrder.get(a.id) ?? 0) - (shortlistOrder.get(b.id) ?? 0),
-  )
-  const shortlistViewer: CardViewer = {
-    signedIn: true,
-    role: ent.role,
-    verifiedParent: ent.audience === 'parent' && !!ent.plan,
-    canInitiateMessage: ent.canInitiateMessage,
-  }
 
   const allJobs = jobs ?? []
   const openJobs = allJobs.filter((j) => j.status === 'open')
@@ -117,176 +60,99 @@ export default async function ParentDashboardPage() {
     allJobs.map((j) => j.hired_tutor_id as string | null).filter((x): x is string => !!x),
   )
 
-  // Applicants across the parent's own jobs. Readable with the member's own
-  // client -- applications are visible to the job's parent.
+  // Applicants across the parent's own OPEN tuitions (their own client can read
+  // applications to their jobs).
   let applicants = 0
   if (openJobs.length > 0) {
     const { count } = await supabase
       .from('applications')
       .select('id', { count: 'exact', head: true })
-      .in(
-        'job_id',
-        openJobs.map((j) => j.id as string),
-      )
+      .in('job_id', openJobs.map((j) => j.id as string))
       .is('withdrawn_at', null)
     applicants = count ?? 0
   }
 
-  // Real rows, not a hard-coded false. See unreadMessageCount().
-  const unread = unreadMessages
   const liveDemos = (demos ?? []).filter((d) =>
     ['requested', 'accepted'].includes(d.status as string),
   ).length
 
-  const completion = (profile?.profile_completion as number | null) ?? 0
-  // "Verified parent - Karachi". The city is dropped rather than written as
-  // "unknown": a member who has not told us where they are does not need to be
-  // reminded of it on their own dashboard every visit.
-  const identityLine = [
-    verified ? 'Verified parent' : 'Parent',
-    (profile?.city as string | null) || null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  // Shortlisted tutor cards, in shortlist order. Reads the listing view, so any
+  // that have since unlisted or been suspended drop out.
+  const shortlistIds = (shortlisted ?? []).map((s) => s.tutor_id as string)
+  const shortlistCards = await tutorCardsByIds(shortlistIds)
+  const shortlistOrder = new Map(shortlistIds.map((id, i) => [id, i]))
+  shortlistCards.sort((a, b) => (shortlistOrder.get(a.id) ?? 0) - (shortlistOrder.get(b.id) ?? 0))
+  const shortlistViewer: CardViewer = {
+    signedIn: true,
+    role: ent.role,
+    verifiedParent: ent.audience === 'parent' && !!ent.plan,
+    canInitiateMessage: ent.canInitiateMessage,
+  }
 
-  const things: ThingRow[] = [
-    {
-      key: 'jobs',
-      label: 'My tuitions',
-      count: openJobs.length,
-      note: 'open',
-      href: '/parent/dashboard/jobs',
-      icon: 'jobs',
-    },
-    {
-      key: 'applicants',
-      label: 'Applicants',
-      count: applicants,
-      note: applicants > 0 ? 'total' : undefined,
-      href: '/parent/dashboard/jobs',
-      icon: 'applications',
-    },
-    {
-      key: 'messages',
-      label: 'Messages',
-      count: unread,
-      note: 'unread',
-      href: '/parent/dashboard/messages',
-      icon: 'messages',
-      highlight: unread > 0,
-    },
-    {
-      key: 'hired',
-      label: 'Hired tutors',
-      count: hired.size,
-      href: '/parent/dashboard/hired-tutors',
-      icon: 'hired',
-    },
-    {
-      key: 'demos',
-      label: 'Demo classes',
-      count: liveDemos,
-      note: liveDemos > 0 ? 'live' : undefined,
-      href: '/parent/dashboard/demos',
-      icon: 'demos',
-    },
-    {
-      key: 'children',
-      label: 'My children',
-      count: (children ?? []).length,
-      href: '/parent/dashboard/children',
-      icon: 'children',
-    },
-    {
-      key: 'plan',
-      label: ent.planName ? `${ent.planName} plan` : 'No plan yet',
-      // "Unlimited" plans say Unlimited, never the real 100-cap counted down.
-      count: ent.plan && !isUnlimitedDisplay(ent.displayedQuota) ? ent.quotaLeft : null,
-      display:
-        ent.plan && isUnlimitedDisplay(ent.displayedQuota)
-          ? (ent.displayedQuota ?? 'Unlimited')
-          : undefined,
-      note: ent.plan
-        ? isUnlimitedDisplay(ent.displayedQuota)
-          ? 'posts'
-          : 'posts left'
-        : undefined,
-      href: '/membership-plans?for=parents',
-      icon: 'plan',
-    },
+  const childRows: ChildRow[] = (children ?? []).map((c) => ({
+    id: c.id as string,
+    name: (c.name as string | null) ?? null,
+    classLevel: (c.class_level as string | null) ?? null,
+  }))
+
+  const tiles: CountTile[] = [
+    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: openJobs.length, label: 'My tuitions', href: '/parent/dashboard/jobs', tone: 'green' },
+    { key: 'applicants', icon: <Users aria-hidden size={22} />, value: applicants, label: 'Applicants', href: '/parent/dashboard/jobs', tone: 'navy' },
+    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', href: '/parent/dashboard/messages', tone: 'navy', highlight: unread > 0 },
+    { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo requests', href: '/parent/dashboard/demos', tone: 'red', highlight: liveDemos > 0 },
+    { key: 'hired', icon: <UserCheck aria-hidden size={22} />, value: hired.size, label: 'Hired tutors', href: '/parent/dashboard/hired-tutors', tone: 'gold' },
+    { key: 'shortlisted', icon: <Heart aria-hidden size={22} />, value: shortlistCards.length, label: 'Shortlisted tutors', href: '#shortlisted-tutors', tone: 'mint' },
   ]
 
   return (
-    <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8 lg:px-8">
-      <div className="mx-auto max-w-3xl space-y-5">
+    <main className="min-h-screen bg-tm-bg px-4 pt-3 pb-8">
+      <div className="mx-auto w-full max-w-[480px] space-y-3">
         <Breadcrumbs items={[{ label: 'Parent dashboard' }]} />
 
-        {/* Who this is, from the outside. The same component the tutor
-            dashboard uses -- see IdentityBlock for why one and not two. */}
-        <IdentityBlock
+        {/* 1. Profile card — minimal. */}
+        <ParentHeaderCard
           name={profile?.full_name ?? 'Your account'}
           avatarUrl={(profile?.avatar_url as string | null) ?? null}
-          badges={ent.badges}
-          line={identityLine}
-          completion={completion}
-          completionHref="/parent/verify"
-          editHref={{ label: 'Edit your details', href: '/parent/dashboard/settings' }}
+          city={(profile?.city as string | null) ?? null}
+          verified={verified}
+          featured={featured}
+          publicHref={`/parent/${userId}`}
         />
 
-        {/* The one primary ACTION on this page. It creates something, so it is
-            a button. Messages, Browse tutors and Packages went to the menu --
-            those go somewhere, and navigation dressed as a button is what made
-            this page read like a form. */}
+        {/* 2. Count tiles, two to a row. */}
+        <CountGrid tiles={tiles} />
+
+        {/* 3.1 Post a tuition — the one primary action. Shown once verified; an
+            unverified parent's action is "Get verified" in the card above, and
+            /parent/dashboard/post-job bounces an unverified parent back here. */}
         {verified && (
           <Link
             href="/parent/dashboard/post-job"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
+            className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-tm-navy"
           >
-            <Plus aria-hidden size={14} />
-            Post a job
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-tm-tint-red text-tm-red">
+              <FilePlus2 aria-hidden size={18} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-tm-navy">Post a tuition</p>
+              <p className="text-[11px] text-gray-500">Tell tutors what you need.</p>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-tm-red">
+              Post
+              <ArrowRight aria-hidden size={13} />
+            </span>
           </Link>
         )}
 
-        {/* Compact status line only. The CNIC form and "Request a change" live
-            in Settings → Identity (/parent/verify). "Verified" needs BOTH CNIC
-            and address; a partial approval reads as Pending review, never a
-            "Verified" state beside an upload prompt. */}
-        <IdentityStatusLine
-          state={
-            verified
-              ? 'approved'
-              : identity.state === 'approved'
-                ? 'submitted'
-                : identity.state
-          }
-          settingsHref="/parent/verify"
-        />
+        {/* 3.2 My children — hidden when empty. */}
+        {childRows.length > 0 && <ChildrenCard items={childRows} />}
 
-        <NeedsYou
-          rows={needs}
-          emptyHint={
-            openJobs.length > 0
-              ? 'Your tuitions are live and tutors can apply to them.'
-              : 'Post a tuition when you are ready and tutors will apply.'
-          }
-        />
-
-        <ActivityBand
-          items={activity}
-          unreadMessages={unread}
-          inboxHref="/parent/dashboard/messages"
-          emptyHint="Nothing has happened yet. Applications, replies and demo answers will appear here as they arrive."
-          emptyAction={{ label: 'Browse tutors', href: '/browse/tutors' }}
-        />
-
-        <YourThings rows={things} />
-
-        {/* The shortlist finally has a home — the cards a parent saved, which
-            until now they could add to but never see. */}
-        <ShortlistSection initial={shortlistCards} viewer={shortlistViewer} />
-
-        {/* The parent dashboard slot from the revenue spec. One per page. */}
-        <AdSlot slot="parent-sidebar" audience="parents" viewerRole="parent" viewerPlan={ent.plan} />
+        {/* 3.3 Shortlisted tutors — hidden when empty; the tile links here. */}
+        {shortlistCards.length > 0 && (
+          <div id="shortlisted-tutors" className="scroll-mt-3">
+            <ShortlistSection initial={shortlistCards} viewer={shortlistViewer} />
+          </div>
+        )}
       </div>
     </main>
   )
