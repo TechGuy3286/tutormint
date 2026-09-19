@@ -66,10 +66,9 @@ export default async function PayReturnPage({
           ) : status === 'pending' ? (
             <>
               <Clock size={40} className="mx-auto text-tm-gold-ink" />
-              <h1 className="text-lg font-black text-tm-navy">We are confirming your payment</h1>
+              <h1 className="text-lg font-black text-tm-navy">This payment isn&rsquo;t complete</h1>
               <p className="text-xs leading-relaxed text-gray-500">
-                Nothing more to do. Your plan starts as soon as the payment is confirmed — usually
-                within a few hours for a bank or wallet transfer.
+                Finish your transfer and submit the receipt to activate your plan.
               </p>
             </>
           ) : status === 'rejected' ? (

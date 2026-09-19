@@ -104,8 +104,9 @@ export const SCREEN_ACCESS = {
   // Money — admin (and owner) only, never operations.
   plans: ['admin'] as AdminRole[],
   plansMutate: ['admin'] as AdminRole[],
+  // Payments is read-only now — a transfer activates on submit, so there is no
+  // approve/reject permission (PR30). `payments` is the read-access key only.
   payments: ['admin'] as AdminRole[],
-  paymentsMutate: ['admin'] as AdminRole[],
   // Staff management is the ONE thing an Admin does not get. `[]` +
   // roleSatisfies() = owner only, with no magic string.
   team: [] as AdminRole[],

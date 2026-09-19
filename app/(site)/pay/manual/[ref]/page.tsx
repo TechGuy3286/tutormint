@@ -1,12 +1,10 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { AlertTriangle, ArrowLeft, MessageCircle, Clock } from 'lucide-react'
+import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { manualInstructions, availableMethods } from '@/lib/payments/manual'
-import { paymentsGatewayLive } from '@/lib/payments'
-import { getSupportContact, whatsappHref } from '@/lib/support'
 import ManualPaymentForm from './ManualPaymentForm'
 
 // Transfer instructions and the receipt form.
@@ -15,10 +13,8 @@ import ManualPaymentForm from './ManualPaymentForm'
 // -- CLAUDE.md rule 7. A channel with no details configured is not offered at
 // all rather than shown blank, which is why availableMethods() exists.
 //
-// The copy here is the part the owner was specific about: a manual transfer is
-// not instant, and this page must not imply it is. "Usually activated within a
-// few hours", and no refunds, stated before the member sends money rather than
-// after.
+// A transfer activates on submit now (PR30) — there is no human approval — so
+// the copy says the plan starts when they submit, and never implies a wait.
 
 export const dynamic = 'force-dynamic'
 
@@ -36,43 +32,6 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
     .maybeSingle()
 
   if (!payment) notFound()
-
-  // PR16 §5.2 — while the real gateway is not live, the payment page shows
-  // "Payments open soon" with the support WhatsApp link and NO form (no bank
-  // transfer, no receipt upload). It never re-asks for details already saved
-  // (§5.1): there is no form here to ask them.
-  if (!paymentsGatewayLive()) {
-    const support = await getSupportContact()
-    const wa = whatsappHref(support.whatsapp, 'Assalam-o-Alaikum, I would like to pay on TutorMint.')
-    return (
-      <main className="min-h-screen bg-tm-bg px-4 py-6 text-slate-700 sm:px-6 sm:py-8">
-        <div className="mx-auto max-w-lg space-y-4">
-          <Breadcrumbs items={[{ label: 'TutorMint', href: '/' }, { label: 'Payments' }]} />
-          <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-6 text-center">
-            <span className="inline-flex rounded-2xl bg-tm-tint-navy p-3 text-tm-navy">
-              <Clock aria-hidden size={22} />
-            </span>
-            <h1 className="text-lg font-black text-tm-navy">Payments open soon</h1>
-            <p className="text-sm leading-relaxed text-slate-700">
-              Online payments are not open yet. We&rsquo;ll let you know the moment they are — nothing
-              to do for now.
-            </p>
-            {wa && (
-              <a
-                href={wa}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-tm-green-deep px-5 text-xs font-bold text-white hover:bg-tm-green-deep-hover"
-              >
-                <MessageCircle aria-hidden size={15} />
-                Message us on WhatsApp
-              </a>
-            )}
-          </div>
-        </div>
-      </main>
-    )
-  }
 
   const { data: plan } = await supabase
     .from('plans')
@@ -148,22 +107,16 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <h2 className="text-sm font-black text-tm-navy">2. Send us the receipt</h2>
 
-          {payment.status !== 'pending' ? (
+          {payment.status === 'approved' ? (
             <p className="text-xs font-bold text-tm-green-deep">
+              This payment is complete and your plan is active.
+            </p>
+          ) : payment.status !== 'pending' ? (
+            <p className="text-xs font-bold text-tm-navy">
               This payment has already been {payment.status as string}.
             </p>
           ) : methods.length === 0 ? (
             <p className="text-xs text-gray-500">Nothing to submit yet.</p>
-          ) : payment.reference ? (
-            <div className="space-y-2">
-              <p className="text-xs font-bold text-tm-navy">
-                Received — we are checking your transfer.
-              </p>
-              <p className="text-[11px] leading-relaxed text-gray-500">
-                Transactions are usually confirmed within a few hours. You will get a notification
-                the moment your plan starts.
-              </p>
-            </div>
           ) : (
             <ManualPaymentForm reference={payment.provider_ref as string} methods={methods} />
           )}
@@ -172,8 +125,8 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
         <p className="flex items-start gap-2 rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4 text-[11px] leading-relaxed text-tm-gold-ink">
           <AlertTriangle size={14} className="mt-px shrink-0" />
           <span>
-            Bank and wallet transfers are checked by a person, so this is not instant — plans are
-            usually activated within a few hours. Plans are non-refundable; please read the{' '}
+            Your plan starts as soon as you submit your transfer. Plans are non-refundable; please
+            read the{' '}
             <Link href="/terms" className="font-bold underline">
               Terms
             </Link>{' '}

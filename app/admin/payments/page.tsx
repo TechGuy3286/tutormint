@@ -24,7 +24,7 @@ export default async function AdminPaymentsPage({
   searchParams: Promise<{ filter?: string; q?: string }>
 }) {
   await requireAdminRole(...SCREEN_ACCESS.payments)
-  const { filter = 'pending', q = '' } = await searchParams
+  const { filter = 'all', q = '' } = await searchParams
   const search = q.trim()
 
   const admin = createAdminClient()
@@ -45,7 +45,7 @@ export default async function AdminPaymentsPage({
     <div className="space-y-5">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-xs text-gray-500">
-          Approving a transfer runs exactly the same activation a gateway webhook runs.
+          Payments activate on submit — this is a read-only record.
         </p>
         <Link
           href="/admin/payments/usage"

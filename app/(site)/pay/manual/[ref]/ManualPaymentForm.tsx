@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 // Transaction ID + receipt screenshot. Both go to /api/payments/manual, which
-// keeps the payment pending -- submitting a receipt is a claim, not a payment.
+// activates the plan on submit (PR30) and sends the member to the success page.
 
 export default function ManualPaymentForm({
   reference,
@@ -39,10 +39,10 @@ export default function ManualPaymentForm({
       const res = await fetch('/api/payments/manual', { signal: submitSignal(UPLOAD_TIMEOUT_MS), method: 'POST', body: form })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not submit your payment.')
-      // No silent successes. Manual transfers are never "instant" — say what
-      // actually happens next.
-      toast.success('Payment submitted. It’s usually activated within a few hours.')
-      router.refresh()
+      // Activated on submit (PR30) — land on the success page, which shows the
+      // now-active plan and badge, rather than a "we'll check it" message.
+      toast.success('Payment received — your plan is active.')
+      router.push('/pay/return?ref=' + encodeURIComponent(reference))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not submit your payment.')
     } finally {
@@ -84,7 +84,7 @@ export default function ManualPaymentForm({
         label="Screenshot of the transfer"
         acceptLabel="JPG or PNG"
         onFile={(f) => setFile(f)}
-        hint="Only our finance team can open it. It is stored privately and never shown on your profile."
+        hint="Only our team can open it. It is stored privately and never shown on your profile."
       />
 
       {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
@@ -95,7 +95,7 @@ export default function ManualPaymentForm({
         disabled={busy || payerReference.trim().length < 4}
         className="min-h-[44px] w-full rounded-xl bg-tm-black px-5 text-xs font-bold text-white disabled:bg-gray-300"
       >
-        {busy ? 'Sending…' : 'Submit for review'}
+        {busy ? 'Activating…' : 'Submit and activate'}
       </button>
     </div>
   )

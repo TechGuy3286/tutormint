@@ -1,20 +1,22 @@
 'use client'
-import { Receipt, Undo2, X } from 'lucide-react'
+import { Receipt } from 'lucide-react'
 
-import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import QueueSearch from '@/components/admin/QueueSearch'
 import StatusChip from '@/components/admin/StatusChip'
-import { adminFetch } from '@/components/admin/adminFetch'
-import { useToast } from '@/components/ui/Toast'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
 import type { QueuePaymentRow, QueueSubscriptionRow } from '@/lib/adminQueues'
 
-// The payments screen: a queue of transfers to decide on, and the ledger of
-// what is currently active.
+// The payments screen: a READ-ONLY record of payments, and the ledger of what
+// is currently active (PR30).
+//
+// There is no human approval any more — a transfer activates the moment the
+// member submits it (/api/payments/manual runs the same activatePayment a
+// gateway webhook does). So this screen has no Approve/Reject and no Pending
+// tab; it is a list to look at. Rejected is kept because old rejected records
+// exist and are shown read-only.
 //
 // Mobile-first. The subscription ledger is genuinely tabular, so on small
 // screens it becomes a stack of cards rather than a table with a horizontal
@@ -25,10 +27,9 @@ export type QueuePayment = QueuePaymentRow
 export type SubscriptionRow = QueueSubscriptionRow
 
 const FILTERS = [
-  { key: 'pending', label: 'Pending' },
+  { key: 'all', label: 'All' },
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
-  { key: 'all', label: 'All' },
 ]
 
 export default function PaymentQueue({
@@ -50,11 +51,9 @@ export default function PaymentQueue({
   subscriptionsCursor: string | null
   subscriptionsTotal: number
 }) {
-  const router = useRouter()
-  const toast = useToast()
   // Two lists on one screen, two cursors. They page independently: reading
-  // further down the ledger has nothing to do with the queue above it. Only the
-  // payments queue is searchable — the search term rides its params and its
+  // further down the ledger has nothing to do with the list above it. Only the
+  // payments list is searchable — the search term rides its params and its
   // storage key so a filtered/searched window never restores a different one's
   // rows; the ledger below is unaffected.
   const morePayments = useInfinite<QueuePayment>({
@@ -71,40 +70,6 @@ export default function PaymentQueue({
   })
   const allPayments = [...payments, ...morePayments.items]
   const allSubs = [...subscriptions, ...moreSubs.items]
-  const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [rejecting, setRejecting] = useState<string | null>(null)
-  const [reason, setReason] = useState('')
-
-  const decide = async (paymentId: string, action: 'approve' | 'reject') => {
-    setBusy(paymentId)
-    setError(null)
-    try {
-      const { ok, data: json } = await adminFetch<{ [k: string]: unknown; error?: string }>(
-        '/api/admin/payments/decide',
-        {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentId, action, reason }),
-        },
-      )
-      if (!ok) throw new Error(json.error ?? 'That did not work.')
-      setRejecting(null)
-      setReason('')
-      toast.success(
-        action === 'approve'
-          ? 'Payment approved. The member has been notified.'
-          : 'Payment rejected. The member has been notified.',
-      )
-      router.refresh()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'That did not work.'
-      setError(msg)
-      toast.error(msg)
-    } finally {
-      setBusy(null)
-    }
-  }
 
   return (
     <div className="space-y-5">
@@ -124,13 +89,7 @@ export default function PaymentQueue({
         ))}
       </nav>
 
-      {error && (
-        <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
-          {error}
-        </p>
-      )}
-
-      {/* ------------------------------------------------------- queue --- */}
+      {/* ------------------------------------------------------- payments --- */}
       <section className="space-y-3">
         <div className="flex flex-col gap-3">
           <div className="space-y-0.5">
@@ -138,7 +97,7 @@ export default function PaymentQueue({
               Payments {paymentsTotal > 0 ? `(${paymentsTotal})` : ''}
             </h2>
             <p className="text-[11px] text-gray-500">
-              Bank transfers wait here for Approve or Reject. Gateway payments activate on their own.
+              A read-only record. Payments activate on submit — there is nothing to approve.
             </p>
           </div>
           {/* Searches the payer's name or email, or a reference off the receipt. */}
@@ -200,69 +159,6 @@ export default function PaymentQueue({
                     Open receipt
                   </a>
                 )}
-
-                {/* Gateway payments (AssanPay / simulator) confirm on the
-                    webhook — there is nothing for a human to approve. Only
-                    bank-transfer / manual payments carry Approve & Reject. */}
-                {p.status === 'pending' && p.provider !== 'manual' && (
-                  <p className="rounded-xl bg-tm-tint-navy px-3 py-2 text-[11px] font-semibold text-tm-navy">
-                    Gateway payment — activates automatically when the gateway confirms. No approval needed.
-                  </p>
-                )}
-
-                {p.status === 'pending' && p.provider === 'manual' &&
-                  (rejecting === p.id ? (
-                    <div className="space-y-2">
-                      <input
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                        placeholder="Why? The member sees this."
-                        aria-label="Rejection reason"
-                        className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs font-semibold"
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          disabled={reason.trim().length < 5 || busy === p.id}
-                          onClick={() => decide(p.id, 'reject')}
-                          className="inline-flex items-center gap-1.5 min-h-[44px] rounded-xl bg-tm-red px-4 text-xs font-bold text-white disabled:bg-gray-300"
-                        >
-                          <X aria-hidden size={13} />
-                          Confirm reject
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRejecting(null)
-                            setReason('')
-                          }}
-                          className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
-                        >
-                          <Undo2 aria-hidden size={13} />
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        disabled={busy === p.id}
-                        onClick={() => decide(p.id, 'approve')}
-                        className="min-h-[44px] rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white disabled:opacity-60"
-                      >
-                        {busy === p.id ? 'Working…' : 'Approve & activate'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRejecting(p.id)}
-                        className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
-                      >
-                        <X aria-hidden size={13} />
-                        Reject
-                      </button>
-                    </div>
-                  ))}
               </li>
             ))}
           </ul>

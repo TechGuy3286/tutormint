@@ -1,22 +1,25 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { logActivity } from '@/lib/activityLog'
-import { notify } from '@/lib/notifications'
+import { activatePayment } from '@/lib/payments/activate'
 
-// Submit a bank / JazzCash / Easypaisa transfer for review.
+// Submit a bank / JazzCash / Easypaisa transfer — and activate it now (PR30).
 //
-// The pending payment row already exists (created by /api/payments/checkout);
-// this attaches the member's own transaction reference and their screenshot,
-// and leaves it pending. Approval is a human decision on /admin/payments.
+// There is no longer a human approval step. The pending payment row created by
+// /api/payments/checkout is finished here: this attaches the member's own
+// transaction reference and screenshot, then runs the SAME activatePayment() a
+// gateway webhook runs, so the plan starts the moment they submit and a
+// transfer-paid member ends up with the identical subscription, badge and
+// receipt as a gateway-paid one. No second activation path is written.
 //
-// Nothing here activates a plan, and the copy the member sees never promises
-// one will appear instantly -- CLAUDE.md is explicit that "usually activated
-// within a few hours" is the honest line for a manual transfer.
+// IDEMPOTENT. A double tap cannot activate twice: activatePayment returns
+// alreadyActive for a payment that is already approved, and an already-approved
+// payment short-circuits at the top here — so no duplicate subscription, no
+// second month.
 //
 // The screenshot goes to the PRIVATE payment-proofs bucket. It shows an
-// account number and usually a name, so there is no public URL to it: the
-// finance admin reads it through /api/payments/proof/[id].
+// account number and usually a name, so there is no public URL to it: it is read
+// only through /api/payments/proof/[id].
 
 export const runtime = 'nodejs'
 
@@ -63,11 +66,13 @@ export async function POST(request: Request) {
     .maybeSingle()
 
   if (!payment) return NextResponse.json({ error: 'Payment not found.' }, { status: 404 })
-  if (payment.status !== 'pending') {
-    return NextResponse.json(
-      { error: 'That payment has already been reviewed.' },
-      { status: 409 },
-    )
+  // Idempotent: an already-approved payment (a double tap, or a resubmit after it
+  // activated) is a success, not an error — the plan is already live.
+  if (payment.status === 'approved') {
+    return NextResponse.json({ success: true, reference })
+  }
+  if (payment.status === 'rejected') {
+    return NextResponse.json({ error: 'That payment has already been reviewed.' }, { status: 409 })
   }
 
   let screenshotPath: string | null = null
@@ -113,7 +118,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
   }
 
-  const { data: updated, error } = await admin
+  // Record the transfer details on the row. Not fatal if it matches no rows (a
+  // concurrent submit may already have moved it on) — activatePayment below is
+  // the source of truth and is idempotent.
+  const { error } = await admin
     .from('payments')
     .update({
       method,
@@ -124,41 +132,16 @@ export async function POST(request: Request) {
     .eq('id', payment.id)
     .eq('user_id', user.id)
     .eq('status', 'pending')
-    .select('id')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  // An update that matches no rows is not an error in PostgREST. Saying
-  // "received" when nothing was stored is how a member waits for a review
-  // that will never come, so check rather than assume.
-  if (!updated || updated.length === 0) {
-    return NextResponse.json(
-      { error: 'That payment could not be updated. Please contact support.' },
-      { status: 409 },
-    )
+  // Activate now — the SAME function the gateway webhook runs (PR30). It sets the
+  // payment approved, creates the subscription (or records the one-time fee),
+  // sends the plan/fee notification and receipt, and is idempotent on a replay.
+  const result = await activatePayment({ paymentId: payment.id as string, source: 'manual_submit' })
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status })
   }
-
-  await notify({
-    userId: user.id,
-    kind: 'payment_submitted',
-    title: 'Payment details received',
-    body: 'Our team will confirm your transfer, usually within a few hours. Your plan starts as soon as it is confirmed.',
-    href: '/pay/return?ref=' + encodeURIComponent(reference),
-  })
-
-  await logActivity({
-    userId: user.id,
-    event: 'payment_submitted',
-    targetType: 'payment',
-    targetId: payment.id as string,
-    meta: {
-      planCode: payment.plan_code,
-      provider: 'manual',
-      method,
-      reference,
-      hasScreenshot: !!screenshotPath,
-    },
-  })
 
   return NextResponse.json({ success: true, reference })
 }

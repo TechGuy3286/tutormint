@@ -32,7 +32,11 @@ export type ActivationResult =
   | { ok: true; alreadyActive: false; feeRecorded?: false; subscriptionId: string; planCode: string; expiresAt: string }
   | { ok: false; status: number; error: string }
 
-export type ActivationSource = 'gateway' | 'manual_approval'
+// 'gateway' = a verified webhook; 'manual_submit' = the member submitting a
+// transfer, which auto-activates now that there is no human approval (PR30);
+// 'manual_approval' = the legacy admin Approve path, kept for old records / the
+// webhook's reject path referencing this module.
+export type ActivationSource = 'gateway' | 'manual_submit' | 'manual_approval'
 
 /**
  * Turn the denormalised Featured flags on for a plan that has just started.

@@ -12,23 +12,22 @@ import { unreadCount } from '@/lib/notificationFeed'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // Small sidebar count badges (owner PR9 §6.5): tutors with a CNIC pending review,
-// payments awaiting approval, and open reports. Cheap head-count reads; a zero
-// shows no badge (the shell omits it).
+// and open reports. Cheap head-count reads; a zero shows no badge (the shell
+// omits it). Payments no longer carries a count — transfers activate on submit,
+// so there is no pending queue to flag (PR30).
 async function navBadges(): Promise<Record<string, number>> {
   const admin = createAdminClient()
   if (!admin) return {}
-  const [tutors, payments, reports] = await Promise.all([
+  const [tutors, reports] = await Promise.all([
     admin
       .from('profiles')
       .select('id', { count: 'exact', head: true })
       .eq('role', 'tutor')
       .eq('verification_state', 'submitted'),
-    admin.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
   ])
   return {
     '/admin/tutors': tutors.count ?? 0,
-    '/admin/payments': payments.count ?? 0,
     '/admin/reports': reports.count ?? 0,
   }
 }
