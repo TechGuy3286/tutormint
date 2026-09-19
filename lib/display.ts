@@ -28,6 +28,101 @@ function titleCase(raw: string): string {
 }
 
 /**
+ * A stored key ("email_confirmed", "staff.remove") as readable words:
+ * separators to spaces, sentence case. The last-resort fallback for a timeline
+ * event or an admin action that has no explicit label — so an unmapped key
+ * still reads as words, never the raw key (PR31 §5).
+ */
+export function humanizeKey(raw: string | null | undefined): string {
+  return (raw ?? '')
+    .replace(/[_.\-]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/^./, (c) => c.toUpperCase())
+}
+
+/**
+ * A person's name in proper case for display — "ALEE SABEER" → "Alee Sabeer"
+ * (PR31 §6). Only touches a word that is ALL CAPS or all lower; a name the
+ * member typed with deliberate casing ("McAli", "al-Rashid") is left alone, so
+ * this fixes shouty/careless input without mangling real names. Display only —
+ * the stored name is never changed.
+ */
+export function properName(raw: string | null | undefined): string {
+  const s = (raw ?? '').trim().replace(/\s+/g, ' ')
+  if (!s) return s
+  return s
+    .split(' ')
+    .map((w) =>
+      // Only normalise a word that is entirely upper or entirely lower; a word
+      // with deliberate internal caps ("McAli") is left as the member typed it.
+      w === w.toUpperCase() || w === w.toLowerCase()
+        ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+        : w,
+    )
+    .join(' ')
+}
+
+/**
+ * An admin_audit_log action ("staff.remove") in plain words ("Removed from
+ * staff") for the member page's "Admin actions" panel (PR31 §5). Total: an
+ * unmapped action falls back to humanizeKey, never the raw key.
+ */
+export function adminActionLabel(action: string | null | undefined): string {
+  const known: Record<string, string> = {
+    'staff.create': 'Added to staff',
+    'staff.remove': 'Removed from staff',
+    'staff.role_change': 'Staff role changed',
+    'staff.grant_existing': 'Granted a staff role',
+    'staff.invite_resend': 'Staff invite resent',
+    'staff.suspend': 'Staff access suspended',
+    'staff.reactivate': 'Staff access restored',
+    'plan.grant': 'Plan granted',
+    'plan.revoke': 'Plan revoked',
+    'payment.approve': 'Payment approved',
+    'payment.reject': 'Payment rejected',
+    'member.suspend': 'Suspended',
+    'member.unsuspend': 'Reinstated',
+    'member.ban': 'Banned',
+    'member.unban': 'Unbanned',
+    'member.warn': 'Warned',
+    'member.message': 'Sent a message',
+    'member.export': 'Exported members',
+    'member.change_mobile': 'Changed their mobile',
+    'member.verify_mobile': 'Verified their mobile',
+    'mobile.clear_verification': 'Cleared mobile verification',
+    'tutor.approve': 'Approved a tutor',
+    'tutor.hold': 'Put a tutor video on hold',
+    'tutor.suspend': 'Suspended a tutor',
+    'tutor.unsuspend': 'Reinstated a tutor',
+    'tutor.import': 'Imported tutors',
+    'tutor.slug': 'Changed a profile address',
+    'parent.verify.approve': 'Approved parent verification',
+    'parent.verify.reject': 'Rejected parent verification',
+    'job.post': 'Posted a tuition',
+    'job.edit': 'Edited a tuition',
+    'job.close': 'Closed a tuition',
+    'job.contact_message': 'Messaged a tuition contact',
+    'video.visibility': 'Changed video visibility',
+    'report.action': 'Actioned a report',
+    'user.delete': 'Deleted an account',
+    'ad.create': 'Created an ad',
+    'ad.edit': 'Edited an ad',
+    'ad.delete': 'Deleted an ad',
+    'ad.status': 'Changed an ad status',
+    'social.generate': 'Generated a social post',
+    'blog.generate': 'Generated a blog draft',
+    'blog.publish': 'Published a post',
+    'blog.schedule': 'Scheduled a post',
+    'blog.unpublish': 'Unpublished a post',
+    'blog.delete': 'Deleted a post',
+    'orphan.backfill': 'Created a missing profile',
+    'cnic.reveal': 'Revealed a CNIC number',
+  }
+  return known[(action ?? '').trim()] ?? humanizeKey(action)
+}
+
+/**
  * Job Type — the kind of work a tutor wants, or a tuition offers.
  *
  * Three mutually-exclusive options (owner, 10 Sep 2026): Home Tuition, Online

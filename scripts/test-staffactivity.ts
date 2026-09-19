@@ -23,8 +23,9 @@ test('metric actions cover every mapped action, no duplicates', () => {
   assert.ok(STAFF_METRIC_ACTIONS.includes('job.post'))
   assert.ok(STAFF_METRIC_ACTIONS.includes('tutor.approve'))
   assert.ok(STAFF_METRIC_ACTIONS.includes('parent.verify.reject'))
-  assert.ok(STAFF_METRIC_ACTIONS.includes('payment.approve'))
   assert.ok(STAFF_METRIC_ACTIONS.includes('member.message'))
+  // Payments approved was removed (PR31 §3) — nothing is approved any more.
+  assert.ok(!STAFF_METRIC_ACTIONS.includes('payment.approve'))
   assert.equal(new Set(STAFF_METRIC_ACTIONS).size, STAFF_METRIC_ACTIONS.length)
 })
 
@@ -45,13 +46,12 @@ test('approvals and rejections map from both tutor and parent actions', () => {
     { actorId: 'a', action: 'tutor.hold', createdAt: '2026-09-18T17:00:00Z' },
     { actorId: 'a', action: 'tutor.suspend', createdAt: '2026-09-18T17:00:00Z' },
     { actorId: 'a', action: 'parent.verify.reject', createdAt: '2026-09-18T17:00:00Z' },
-    { actorId: 'a', action: 'payment.approve', createdAt: '2026-09-18T17:00:00Z' },
+    { actorId: 'a', action: 'payment.approve', createdAt: '2026-09-18T17:00:00Z' }, // no longer a metric — ignored
     { actorId: 'a', action: 'member.message', createdAt: '2026-09-18T17:00:00Z' },
   ]
   const c = tallyStaffActivity(rows, NOW).get('a')!
   assert.equal(c.approved.total, 2)
   assert.equal(c.rejected.total, 3)
-  assert.equal(c.payments.total, 1)
   assert.equal(c.messages.total, 1)
 })
 
@@ -68,12 +68,12 @@ test('unmapped actions, missing actor and bad dates are ignored', () => {
 test('two actors are tallied independently', () => {
   const rows: AuditRow[] = [
     { actorId: 'a', action: 'job.post', createdAt: '2026-09-18T17:00:00Z' },
-    { actorId: 'b', action: 'payment.approve', createdAt: '2026-09-18T17:00:00Z' },
+    { actorId: 'b', action: 'member.message', createdAt: '2026-09-18T17:00:00Z' },
   ]
   const map = tallyStaffActivity(rows, NOW)
   assert.equal(map.get('a')!.posted.total, 1)
-  assert.equal(map.get('b')!.payments.total, 1)
-  assert.equal(map.get('a')!.payments.total, 0)
+  assert.equal(map.get('b')!.messages.total, 1)
+  assert.equal(map.get('a')!.messages.total, 0)
 })
 
 test('emptyStaffCounts is all zeroes', () => {

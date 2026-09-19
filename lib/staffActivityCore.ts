@@ -12,11 +12,12 @@
 //   messages  member.message (an official Team → member message)
 // A metric counts an ACTOR's rows, not a target's — see lib/staffActivity.ts.
 
+// 'Payments approved' was removed (PR31 §3): payments activate on submit, so
+// nothing is approved any more.
 export const STAFF_METRICS = [
   { key: 'posted', label: 'Tuitions posted', actions: ['job.post'] },
   { key: 'approved', label: 'Verifications approved', actions: ['tutor.approve', 'parent.verify.approve'] },
   { key: 'rejected', label: 'Verifications rejected', actions: ['tutor.hold', 'tutor.suspend', 'parent.verify.reject'] },
-  { key: 'payments', label: 'Payments approved', actions: ['payment.approve'] },
   { key: 'messages', label: 'Messages sent', actions: ['member.message'] },
 ] as const
 

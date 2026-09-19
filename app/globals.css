@@ -108,7 +108,12 @@ html {
    put only in a tooltip (the visible label carries it there). Driven by a
    `data-tip` attribute so it adds no markup and cannot break a flex/grid cell;
    the element it sits on must be positioned (relative/absolute) so the bubble
-   anchors to it. Colours are brand tokens (navy bubble, white text). */
+   anchors to it.
+
+   PR31 §7: dimmed text on a matching soft surface — muted grey text on a light
+   grey surface in light mode, a soft dark surface with muted light text in dark
+   mode. Small rounded corners, a subtle border and shadow. Both pairs clear
+   WCAG AA (slate-600 on slate-100 ≈ 7:1; slate-300 on slate-800 ≈ 8:1). */
 @media (hover: hover) and (pointer: fine) {
   [data-tip]:hover::after,
   [data-tip]:focus-visible::after {
@@ -122,14 +127,59 @@ html {
     max-width: 16rem;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding: 4px 8px;
+    padding: 5px 9px;
     border-radius: 8px;
-    background: var(--color-tm-navy);
-    color: #ffffff;
+    background: #f1f5f9; /* slate-100 — soft light surface */
+    color: #475569; /* slate-600 — muted grey text */
+    border: 1px solid #e2e8f0; /* slate-200 */
     font-size: 11px;
     font-weight: 600;
     line-height: 1.2;
     pointer-events: none;
-    box-shadow: 0 6px 20px -8px rgba(10, 10, 10, 0.5);
+    box-shadow: 0 6px 20px -10px rgba(10, 10, 10, 0.35);
   }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-color-scheme: dark) {
+  [data-tip]:hover::after,
+  [data-tip]:focus-visible::after {
+    background: #1e293b; /* slate-800 — soft dark surface */
+    color: #cbd5e1; /* slate-300 — muted light text */
+    border-color: #334155; /* slate-700 */
+    box-shadow: 0 6px 20px -10px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* The hand pointer on every clickable element (PR31 §8). Applied globally, not
+   per page: native interactive elements, ARIA roles for custom controls, links,
+   labels (clicking one activates its control), and checkboxes/radios. A clickable
+   card or row is a link or has role="button", so it is covered here. Components
+   add cursor-pointer only where an element is none of these (a bare div with an
+   onClick). Disabled things show not-allowed — the disabled selectors below carry
+   higher specificity than the element selectors above, so they win. */
+button,
+[role='button'],
+[role='tab'],
+[role='menuitem'],
+[role='menuitemradio'],
+[role='option'],
+[role='switch'],
+summary,
+label,
+select,
+a[href],
+input[type='checkbox'],
+input[type='radio'],
+input[type='submit'],
+input[type='button'],
+input[type='reset'] {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled,
+[disabled],
+[aria-disabled='true'] {
+  cursor: not-allowed;
 }

@@ -21,12 +21,6 @@ export default async function StaffActivityPage() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs leading-relaxed text-gray-600">
-        Each member&apos;s work, counted from the audit log by who acted. Team tuitions are posted on
-        the TutorMint team account, so they are counted here under the staff member who posted them —
-        not under that account&apos;s own Jobs list.
-      </p>
-
       {staff.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-500">
           No staff accounts yet.

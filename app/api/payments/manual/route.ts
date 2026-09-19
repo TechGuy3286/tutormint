@@ -124,7 +124,10 @@ export async function POST(request: Request) {
   const { error } = await admin
     .from('payments')
     .update({
-      method,
+      // One consistent channel value for every manual transfer (PR31 §2). The
+      // member still picks how they paid above (validated), but the stored
+      // channel is normalised to 'transfer' so old and new rows read the same.
+      method: 'transfer',
       reference: payerReference,
       screenshot_path: screenshotPath,
       updated_at: new Date().toISOString(),

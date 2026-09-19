@@ -96,9 +96,6 @@ export default function PaymentQueue({
             <h2 className="text-sm font-black text-tm-navy">
               Payments {paymentsTotal > 0 ? `(${paymentsTotal})` : ''}
             </h2>
-            <p className="text-[11px] text-gray-500">
-              A read-only record. Payments activate on submit — there is nothing to approve.
-            </p>
           </div>
           {/* Searches the payer's name or email, or a reference off the receipt. */}
           <QueueSearch
@@ -123,15 +120,25 @@ export default function PaymentQueue({
                     <p className="truncate text-sm font-black text-tm-navy">{p.name}</p>
                     <p className="truncate text-[11px] text-gray-500">{p.email}</p>
                   </div>
-                  <StatusChip status={p.status} />
+                  {/* A payment left 'pending' never completed (there is no approval
+                      to wait for now). Show it as a neutral "Incomplete", not a
+                      gold "PENDING" warning (PR31 §2). The data is unchanged. */}
+                  {p.status === 'pending' ? (
+                    <StatusChip status={p.status} label="Incomplete" tone="neutral" />
+                  ) : (
+                    <StatusChip status={p.status} />
+                  )}
                 </div>
 
                 <dl className="grid grid-cols-2 gap-2 text-[11px]">
                   <Cell label="Plan" value={p.planName} />
                   <Cell label="Amount" value={`Rs. ${p.amountPkr.toLocaleString('en-PK')}`} />
+                  {/* One consistent value for every manual transfer — "transfer"
+                      — regardless of the stored method (bank/easypaisa/null on
+                      older rows). Display mapping; the rows are not rewritten. */}
                   <Cell
                     label="Channel"
-                    value={p.provider === 'manual' ? (p.method ?? 'transfer') : p.provider}
+                    value={p.provider === 'manual' ? 'transfer' : p.provider}
                   />
                   <Cell label="Submitted" value={formatDateTime(p.createdAt)} />
                   <Cell label="Our reference" value={p.ourReference ?? '—'} mono />

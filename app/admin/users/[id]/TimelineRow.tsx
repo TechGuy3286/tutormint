@@ -1,4 +1,5 @@
 import { formatDateTime } from '@/lib/datetime'
+import { humanizeKey } from '@/lib/display'
 import type { TimelineRowData } from '@/lib/adminQueues'
 
 // One row of a member's timeline, rendered identically whether the server drew
@@ -58,8 +59,27 @@ export const EVENT_LABEL: Record<string, string> = {
   unsuspended: 'Reinstated',
   staff_created: 'Staff account created',
   staff_role_changed: 'Staff role changed',
+  staff_removed: 'Removed from staff',
   staff_suspended: 'Staff access suspended',
   staff_reactivated: 'Staff access restored',
+  email_confirmed: 'Email confirmed',
+  password_changed: 'Password changed',
+  terms_accepted: 'Accepted the terms',
+  profile_claimed: 'Claimed their profile',
+  imported: 'Imported',
+  cv_downloaded: 'Downloaded their CV',
+  saved_job_added: 'Saved a tuition',
+  saved_job_removed: 'Unsaved a tuition',
+  admin_message_received: 'Message from the team',
+  seeded_contact_messaged: 'Contacted a tuition poster',
+  verification_fee_paid: 'Paid the verification fee',
+  payment_approved: 'Payment activated',
+}
+
+/** One event key as plain words. Total: an unmapped key is humanized (PR31 §5),
+ *  never rendered raw. */
+export function eventLabel(event: string): string {
+  return EVENT_LABEL[event] ?? humanizeKey(event)
 }
 
 const TONE: Record<string, string> = {
@@ -74,15 +94,13 @@ const TONE: Record<string, string> = {
 export default function TimelineRow({ event: e }: { event: TimelineEvent }) {
   return (
     <li className="flex min-h-[44px] flex-wrap items-baseline gap-x-2 gap-y-1 rounded-2xl border border-gray-200 bg-white p-3">
+      {/* Plain words, once — a tone-tinted pill, no raw key beside it (PR31 §5). */}
       <span
-        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+        className={`min-w-0 flex-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
           TONE[e.event] ?? 'bg-slate-100 text-slate-700'
         }`}
       >
-        {e.event.replace(/_/g, ' ')}
-      </span>
-      <span className="min-w-0 flex-1 text-xs font-semibold text-tm-navy">
-        {EVENT_LABEL[e.event] ?? e.event}
+        {eventLabel(e.event)}
       </span>
       <span className="shrink-0 text-[11px] text-gray-500">{formatDateTime(e.at)}</span>
       {Object.keys(e.meta).length > 0 && (

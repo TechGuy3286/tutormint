@@ -20,6 +20,7 @@
 
 export { SITE_URL } from '@/lib/siteUrl'
 import { SITE_URL } from '@/lib/siteUrl'
+import { properName } from '@/lib/display'
 
 export type TemplateId =
   | 'welcome'
@@ -273,7 +274,7 @@ export function render(input: TemplateInput): RenderedEmail {
         `You have been invited to the TutorMint team`,
         `You're invited to the TutorMint team`,
         [
-          `Hi ${input.name}, you have been added to the TutorMint team as ${asRole}.`,
+          `Hi ${properName(input.name)}, you have been added to the TutorMint team as ${asRole}.`,
           'Click the button below to set your own password. The link is one-time and takes you straight to a screen where you choose a password — then you land in the admin panel with your role.',
           'If you were not expecting this, you can ignore this email and no account is activated.',
         ],
@@ -284,9 +285,12 @@ export function render(input: TemplateInput): RenderedEmail {
 
     // ---------------------------------------------------------------------
     case 'welcome': {
+      const name = properName(input.name)
       const isTutor = input.role === 'tutor'
+      // The verification-video line is removed for now (PR31 §6) — the YouTube
+      // channel is unverified so uploads fail. Subjects, area and photo stay.
       const next = isTutor
-        ? 'Complete your profile so parents can find you — add your subjects, area and a photo, and record your verification video. Finishing your profile is what puts you in search and on Google.'
+        ? 'Complete your profile so parents can find you — add your subjects, area and a photo. Finishing your profile is what puts you in search and on Google.'
         : 'Verify your CNIC and address, then you can post a tuition and message tutors directly.'
       const cta = isTutor
         ? { label: 'Complete your profile', href: '/tutor/complete-profile' }
@@ -313,9 +317,9 @@ export function render(input: TemplateInput): RenderedEmail {
       // already signed up, so nothing is lost by not sending it.
       return build(
         'Welcome to TutorMint',
-        `Welcome, ${input.name}`,
+        `Welcome, ${name}`,
         [
-          `Congratulations, ${input.name} — your TutorMint account is ready.`,
+          `Congratulations, ${name} — your TutorMint account is ready.`,
           next,
           'Browsing tutors and tuitions is free — you only need an account for the things that involve another person.',
         ],
@@ -413,7 +417,7 @@ export function render(input: TemplateInput): RenderedEmail {
     case 'verification_fee_paid':
       return build(
         'You are verified on TutorMint',
-        `You are verified, ${input.name}`,
+        `You are verified, ${properName(input.name)}`,
         [
           `Payment of Rs. ${input.amountPkr.toLocaleString('en-PK')} received. Your one-time verification fee is paid and your profile is now shown to parents.`,
           'Complete your profile to appear higher in search. Verified tutors are shown to parents first.',
@@ -486,7 +490,7 @@ export function render(input: TemplateInput): RenderedEmail {
     case 'plan_granted':
       return build(
         `Your ${input.planName} plan is active`,
-        `Congratulations, ${input.name}`,
+        `Congratulations, ${properName(input.name)}`,
         [
           `Your ${input.planName} plan is now active on your TutorMint account.`,
           input.unlocks,
@@ -502,7 +506,7 @@ export function render(input: TemplateInput): RenderedEmail {
     case 'account_banned':
       return build(
         'Your TutorMint account has been closed',
-        `Hello ${input.name}`,
+        `Hello ${properName(input.name)}`,
         [
           'Your account has been banned due to fraudulent activities.',
           'If you believe this is a mistake, please contact support.',

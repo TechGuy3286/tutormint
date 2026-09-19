@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { describeUtm } from '@/lib/utm'
-import { applicationStatus, jobStatus } from '@/lib/display'
+import { applicationStatus, jobStatus, adminActionLabel } from '@/lib/display'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MemberActions from './MemberActions'
 import { loadMemberTimeline } from '@/lib/adminQueues'
@@ -280,10 +280,6 @@ export default async function AdminMemberPage({
           <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
             Staff activity
           </h2>
-          <p className="text-[11px] text-gray-500">
-            Counted from the audit log by who acted — a team tuition is posted on the TutorMint team
-            account, so it appears here under the staff member who posted it, not under Jobs.
-          </p>
           <StaffActivityTable counts={staffCounts} />
         </section>
       )}
@@ -366,7 +362,7 @@ export default async function AdminMemberPage({
           {(auditAbout ?? []).map((a) => (
             <Row
               key={a.id as string}
-              main={a.action as string}
+              main={adminActionLabel(a.action as string)}
               sub={`${a.actor_email ?? 'system'} (${a.actor_role ?? '—'}) · ${formatDateTime(a.created_at as string)}`}
             />
           ))}
