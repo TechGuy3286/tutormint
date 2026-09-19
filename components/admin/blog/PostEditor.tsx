@@ -18,6 +18,7 @@ import {
   SEO_DESCRIPTION_MAX,
   SEO_TITLE_MAX,
   canPublish,
+  statePublishReasons,
   clusterLabel,
   postPath,
   publicBlogUrl,
@@ -27,7 +28,8 @@ import {
   type PostStatus,
 } from '@/lib/blog'
 import { figureGate, promptLeakViolations, wordCount, BLOG_MIN_WORDS, type ConfirmedFigure } from '@/lib/ai/blogBrief'
-import { notesTopicMismatch } from '@/lib/ai/platformFacts'
+import { notesTopicMismatch, PLATFORM_LINK_MAP } from '@/lib/ai/platformFacts'
+import { collectBlogProblems, sanitizeDraft, toRelativeHref, type BlogProblem } from '@/lib/ai/blogChecker'
 import { parseMarkdown } from '@/lib/markdown'
 import { slugify } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
@@ -82,6 +84,7 @@ const SOURCE_LABEL: Record<string, string> = {
 export default function PostEditor({
   initial,
   landingOptions,
+  publishedPosts = [],
   suggestions = [],
   canPublishCap,
   canGenerate,
@@ -89,6 +92,9 @@ export default function PostEditor({
 }: {
   initial: EditorPost
   landingOptions: LandingOption[]
+  /** Published posts {title, slug} — for the auto-checker's "link a real post"
+   *  rule and the Link picker (PR35). */
+  publishedPosts?: { title: string; slug: string }[]
   /** The open content queue, for the "Start from a suggested title" panel. */
   suggestions?: EditorSuggestion[]
   canPublishCap: boolean
@@ -222,6 +228,21 @@ export default function PostEditor({
     [post.sourceNotes, post.subject, post.city],
   )
 
+  // The checker's live set: this post can link any OTHER published post, and the
+  // live landing pages (paths with the leading slash the checker expects).
+  const publishedPostSlugs = useMemo(
+    () => publishedPosts.filter((p) => p.slug !== post.slug).map((p) => p.slug),
+    [publishedPosts, post.slug],
+  )
+  const landingPaths = useMemo(() => landingOptions.map((o) => `/${o.path}`), [landingOptions])
+
+  // ALL body problems at once (PR35 §4), computed live from the CURRENT body so
+  // the "Before publishing" list guides the edit in progress.
+  const bodyProblems = useMemo(
+    () => collectBlogProblems(post.body, { publishedPostSlugs, landingPaths }),
+    [post.body, publishedPostSlugs, landingPaths],
+  )
+
   const gate = canPublish({
     title: saved.current.title,
     slug: saved.current.slug,
@@ -231,8 +252,35 @@ export default function PostEditor({
     editedByHuman: saved.current.editedByHuman,
     reviewed: saved.current.reviewed,
   })
-  const publishable = canPublishCap && !dirty && gate.ok && !!post.id
+  // The publish button also requires the SAVED body's link/coverage problems to
+  // be clear — the server checks the same, so the button matches the route.
+  const savedBodyProblems = collectBlogProblems(saved.current.body, { publishedPostSlugs, landingPaths })
+  const publishable =
+    canPublishCap && !dirty && gate.ok && savedBodyProblems.length === 0 && !!post.id
   const isLive = saved.current.status === 'published' || saved.current.status === 'scheduled'
+
+  // The full "Before publishing" list (PR35 §4): the state checks on the current
+  // fields + every body problem, each in plain words with its section. Deduped.
+  const stateReasons = statePublishReasons({
+    title: post.title,
+    slug: post.slug,
+    body: post.body,
+    coverPath: post.coverPath,
+    coverAlt: post.coverAlt,
+    editedByHuman: post.editedByHuman,
+    reviewed: post.reviewed,
+  })
+  const publishProblems: BlogProblem[] = [
+    ...(dirty ? [{ message: 'Save your changes first.', heading: null, blocking: true as const }] : []),
+    ...stateReasons.map((m) => ({ message: m, heading: null, blocking: true as const })),
+    ...bodyProblems,
+  ]
+
+  // The Link picker (PR35 §5): captures the textarea selection, then inserts a
+  // relative link chosen from published posts / key pages or a pasted URL.
+  const [linkPicker, setLinkPicker] = useState<{ start: number; end: number; text: string } | null>(null)
+  const [linkQuery, setLinkQuery] = useState('')
+  const [pasteUrl, setPasteUrl] = useState('')
 
   async function post_(action: string, extra: Record<string, unknown> = {}) {
     setBusy(true)
@@ -327,30 +375,70 @@ export default function PostEditor({
         setGenProgress({ current: i + 1, total: sections.length })
       }
 
-      const draftBody = parts.join('\n\n')
+      // §3 — the deterministic fixer runs BEFORE anything else: full
+      // tutormint.org URLs → relative, repeated links unlinked, "free demo"
+      // stripped, and the required links (/membership-plans, /faq, one published
+      // post) added in a closing line if missing. A draft out of this passes
+      // every LINK rule by construction.
+      const opts = { blogSlugs: publishedPostSlugs, audience: post.audience }
+      let assembled = sanitizeDraft(draftAssemble(parts), opts)
 
       // §1.3: reject a draft that echoed instructions or internal data.
-      if (promptLeakViolations(draftBody).length > 0) {
+      if (promptLeakViolations(assembled).length > 0) {
         fail('the draft echoed instructions or internal data — nothing was written')
         return
       }
 
+      // §3 — auto-check. If a FACT CONTRADICTION remains (the fixer cannot
+      // rewrite prose) and it maps to a section, regenerate THAT one section
+      // once, then re-fix and re-check. Everything else the fixer has handled.
+      let problems = collectBlogProblems(assembled, { publishedPostSlugs, landingPaths })
+      const contra = problems.find((p) => p.heading && sections.some((s) => sameHeading(s, p.heading)))
+      if (contra?.heading) {
+        const idx = sections.findIndex((s) => sameHeading(s, contra.heading))
+        if (idx >= 0) {
+          try {
+            const rr = await fetch('/api/admin/blog/generate', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ step: 'section', ...common, sections, index: idx }),
+            })
+            const rd = await rr.json()
+            if (rr.ok && rd.ok && typeof rd.markdown === 'string' && rd.markdown.trim()) {
+              parts[idx] = rd.markdown.trim()
+              assembled = sanitizeDraft(draftAssemble(parts), opts)
+              problems = collectBlogProblems(assembled, { publishedPostSlugs, landingPaths })
+            }
+          } catch {
+            // Keep the first assembly; the problem is reported below.
+          }
+        }
+      }
+
       // Success — write the body and SEO fields now.
-      const draftWords = wordCount(draftBody)
+      const draftWords = wordCount(assembled)
       setPost((p) => ({
         ...p,
-        body: draftBody,
+        body: assembled,
         seoTitle: oData.seoTitle || p.seoTitle,
         seoDescription: oData.seoDescription || p.seoDescription,
         confirmedFigures: [],
       }))
       setDirty(true)
       setGenProgress(null)
-      // §1.6: the word-count note is shown ONLY after a successful generation.
+      // §4 — the toast summarises the auto-check; the "Before publishing" box
+      // lists any remaining problems in full.
+      if (problems.length > 0) {
+        toast.error(`Draft ready — ${problems.length} thing${problems.length === 1 ? '' : 's'} to fix before publishing.`)
+      } else {
+        toast.success('Draft ready — it passes every publish check.')
+      }
       setGenNote(
         draftWords < BLOG_MIN_WORDS
           ? `Draft is ${draftWords} words — ${BLOG_MIN_WORDS - draftWords} under the ${BLOG_MIN_WORDS}-word target. Add more fact notes so it can cover more ground; padding it would read worse, not better.`
-          : 'Draft ready. Read it through, edit, then tick Reviewed.',
+          : problems.length > 0
+            ? 'Draft ready. Clear the items in “Before publishing”, then tick Reviewed.'
+            : 'Draft ready. Read it through, then tick Reviewed.',
       )
     } catch {
       fail('a network error interrupted the draft')
@@ -491,6 +579,47 @@ export default function PostEditor({
     })
   }
 
+  // §5 — open the Link picker: capture the current selection so the chosen link
+  // wraps it (or is inserted at the caret when nothing is selected).
+  function openLinkPicker() {
+    const el = bodyRef.current
+    const start = el?.selectionStart ?? post.body.length
+    const end = el?.selectionEnd ?? post.body.length
+    setLinkPicker({ start, end, text: post.body.slice(start, end) })
+    setLinkQuery('')
+    setPasteUrl('')
+  }
+
+  // Insert the chosen link as relative Markdown. A full tutormint.org URL is
+  // saved as its relative path (no "(https://)" placeholder is ever left).
+  function insertLink(href: string, defaultText: string) {
+    if (!linkPicker) return
+    const rel = toRelativeHref(href).trim()
+    if (!rel) return
+    const text = linkPicker.text.trim() || defaultText || rel
+    const md = `[${text}](${rel})`
+    const { start, end } = linkPicker
+    const next = post.body.slice(0, start) + md + post.body.slice(end)
+    setPost((p) => ({ ...p, body: next }))
+    setDirty(true)
+    setLinkPicker(null)
+    requestAnimationFrame(() => {
+      const el = bodyRef.current
+      if (!el) return
+      el.focus()
+      const caret = start + md.length
+      el.setSelectionRange(caret, caret)
+    })
+  }
+
+  const linkChoices = [
+    ...PLATFORM_LINK_MAP.map((l) => ({ path: l.path, label: l.intent, text: l.text })),
+    ...publishedPosts.map((p) => ({ path: `/blog/${p.slug}`, label: `Blog: ${p.title}`, text: p.title })),
+  ].filter((c) => {
+    const q = linkQuery.trim().toLowerCase()
+    return !q || `${c.label} ${c.path}`.toLowerCase().includes(q)
+  })
+
   function confirmFigure(figure: string) {
     const source = (confirmDraft[figure] ?? '').trim()
     if (!source) return
@@ -625,6 +754,77 @@ export default function PostEditor({
 
   return (
     <div className="space-y-4">
+      {/* §5 — the Link picker: search published posts + key pages, or paste a
+          URL (saved as a relative path). Replaces the old "(https://)"
+          placeholder. */}
+      {linkPicker && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-tm-black/50 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Insert a link"
+          onClick={() => setLinkPicker(null)}
+        >
+          <div
+            className="w-full space-y-3 rounded-t-3xl bg-white p-5 shadow-xl sm:max-w-md sm:rounded-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-black text-tm-navy">Insert a link</p>
+              <button type="button" onClick={() => setLinkPicker(null)} aria-label="Close" className="text-gray-500 hover:text-tm-navy">
+                <X aria-hidden size={16} />
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-500">
+              {linkPicker.text.trim() ? <>Linking “{linkPicker.text.trim()}”.</> : 'Pick a page or post, or paste a URL.'}
+            </p>
+            <input
+              value={linkQuery}
+              onChange={(e) => setLinkQuery(e.target.value)}
+              placeholder="Search pages and published posts…"
+              aria-label="Search links"
+              className={input}
+            />
+            <ul className="max-h-56 space-y-1 overflow-y-auto">
+              {linkChoices.map((c) => (
+                <li key={c.path}>
+                  <button
+                    type="button"
+                    onClick={() => insertLink(c.path, c.text)}
+                    className="flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 px-3 py-2 text-left hover:border-tm-navy hover:bg-tm-bg"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-bold text-tm-navy">{c.label}</span>
+                      <span className="block truncate text-[11px] text-gray-500">{c.path}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+              {linkChoices.length === 0 && (
+                <li className="px-1 py-2 text-[11px] text-gray-500">No pages or posts match “{linkQuery}”.</li>
+              )}
+            </ul>
+            <div className="flex items-center gap-2 border-t border-gray-100 pt-3">
+              <input
+                value={pasteUrl}
+                onChange={(e) => setPasteUrl(e.target.value)}
+                placeholder="or paste a URL"
+                aria-label="Paste a URL"
+                className={`${input} mt-0 flex-1`}
+              />
+              <button
+                type="button"
+                onClick={() => insertLink(pasteUrl, '')}
+                disabled={!pasteUrl.trim()}
+                className="inline-flex min-h-[40px] shrink-0 items-center rounded-xl bg-tm-navy px-3 text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-50"
+              >
+                Use URL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Start from a suggested title — new posts only. */}
       {!post.id && openSuggestions.length > 0 && (
         <div className="rounded-2xl border border-tm-navy/15 bg-tm-tint-navy/40 p-4">
@@ -778,14 +978,26 @@ export default function PostEditor({
         </p>
       )}
 
-      {/* Publish checklist, when it is not yet publishable */}
-      {canPublishCap && post.status !== 'published' && !publishable && (
+      {/* Before publishing — EVERY problem at once, in plain words, each naming
+          the section it is in (PR35 §4). Shown until the post is publishable and
+          a cover is set. */}
+      {canPublishCap && post.status !== 'published' && (publishProblems.length > 0 || !post.coverPath) && (
         <div className="rounded-2xl border border-gray-200 bg-tm-bg p-4">
-          <p className="text-xs font-bold text-tm-navy">Before publishing</p>
+          <p className="text-xs font-bold text-tm-navy">
+            Before publishing
+            {publishProblems.length > 0 && (
+              <span className="font-semibold text-tm-red">
+                {' '}
+                — {publishProblems.length} thing{publishProblems.length === 1 ? '' : 's'} to fix
+              </span>
+            )}
+          </p>
           <ul className="mt-1.5 space-y-1 text-xs text-gray-600">
-            {dirty && <li>• Save your changes first.</li>}
-            {gate.reasons.map((r) => (
-              <li key={r}>• {r}</li>
+            {publishProblems.map((p, i) => (
+              <li key={i}>
+                • {p.message}
+                {p.heading && <span className="text-gray-500"> — in “{p.heading}”</span>}
+              </li>
             ))}
             {/* Cover is optional, so this is advisory, not a gate. */}
             <li className={post.coverPath ? 'font-semibold text-tm-green-deep' : ''}>
@@ -959,7 +1171,7 @@ export default function PostEditor({
                   { label: 'B', title: 'Bold', run: () => insertMarkdown('**', '**', 'bold'), bold: true },
                   { label: 'I', title: 'Italic', run: () => insertMarkdown('_', '_', 'italic'), italic: true },
                   { label: 'List', title: 'Bulleted list', run: () => insertMarkdown('\n- ', '', 'item') },
-                  { label: 'Link', title: 'Link', run: () => insertMarkdown('[', '](https://)', 'text') },
+                  { label: 'Link', title: 'Link', run: () => openLinkPicker() },
                   { label: 'Image', title: 'Image', run: () => insertMarkdown('![', '](https://)', 'alt text') },
                   { label: 'Tutor', title: 'Embed a tutor card', run: () => insertMarkdown('\n{{tutor:', '}}\n', 'tutor-slug') },
                   { label: 'Tuition', title: 'Embed a tuition card', run: () => insertMarkdown('\n{{job:', '}}\n', 'tuition-slug') },
@@ -1414,6 +1626,21 @@ export default function PostEditor({
       </div>
     </div>
   )
+}
+
+/** The section markdowns joined into one body, the same way the draft is built. */
+function draftAssemble(parts: string[]): string {
+  return parts.join('\n\n')
+}
+
+/** Whether an outline heading and a problem's section heading are the same, up
+ *  to leading marks, trailing "?" and case — so a contradiction can be mapped
+ *  back to the section that must be regenerated. */
+function sameHeading(outline: string, heading: string | null): boolean {
+  if (!heading) return false
+  const norm = (s: string) =>
+    s.replace(/^#{1,6}\s+/, '').replace(/[?:.]+$/, '').trim().toLowerCase()
+  return norm(outline) === norm(heading)
 }
 
 function Counter({ value, max }: { value: string; max: number }) {

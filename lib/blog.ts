@@ -94,12 +94,13 @@ export type PublishGateInput = {
 }
 
 /**
- * The publish gate, in one place because the button (client) and the route
- * (server) must agree on it exactly. Publish is allowed only when a human has
- * saved at least one edit AND ticked "reviewed", and the post has the fields a
- * published page needs. Returns every unmet reason so the editor can show them.
+ * The STATE checks only (PR35 §4): a human has saved an edit and ticked
+ * Reviewed, and the fields a published page needs are present. These are
+ * facts about the post record, not its prose — the body-level problems
+ * (scaffold, leaked prompt, contradictions, links) come from
+ * collectBlogProblems() in lib/ai/blogChecker, so the two are never duplicated.
  */
-export function canPublish(p: PublishGateInput): { ok: boolean; reasons: string[] } {
+export function statePublishReasons(p: PublishGateInput): string[] {
   const reasons: string[] = []
   if (!p.editedByHuman) reasons.push('Save at least one edit first.')
   if (!p.reviewed) reasons.push('Tick “Reviewed” once a person has read it through.')
@@ -111,6 +112,23 @@ export function canPublish(p: PublishGateInput): { ok: boolean; reasons: string[
   if (p.coverPath && !(p.coverAlt ?? '').trim()) {
     reasons.push('Add alt text for the cover image.')
   }
+  return reasons
+}
+
+/**
+ * The publish gate, in one place because the button (client) and the route
+ * (server) must agree on it exactly. Publish is allowed only when a human has
+ * saved at least one edit AND ticked "reviewed", the post has the fields a
+ * published page needs, AND its BODY is clean (no scaffold, leaked prompt, or
+ * fact contradiction). Returns every unmet reason so the editor can show them.
+ *
+ * Link RULES (3–5 links, each once, /membership-plans, /faq, one blog post) and
+ * link EXISTENCE are checked by collectBlogProblems() in the route and editor,
+ * because they need the live set of published posts and landing pages that this
+ * pure function does not have.
+ */
+export function canPublish(p: PublishGateInput): { ok: boolean; reasons: string[] } {
+  const reasons: string[] = [...statePublishReasons(p)]
   // Never publish the AI scaffold. A composed draft ships with instruction
   // lines ("Edit it into shape before publishing", "Explain the steps in
   // order…") as a starting point; one went live once. Block publish while any

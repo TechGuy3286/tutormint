@@ -203,6 +203,24 @@ export async function publishedSlugs(): Promise<{ slug: string; updatedAt: strin
 }
 
 /**
+ * Published posts as {title, slug} — for the AI draft prompt (so it can link a
+ * real post by name) and the editor's Link picker (PR35 §3/§5). Title + slug
+ * only; nothing a draft should not see.
+ */
+export async function publishedPostLinks(): Promise<{ title: string; slug: string }[]> {
+  const db = createPublicClient()
+  const { data } = await db
+    .from('posts')
+    .select('title, slug, published_at')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+  return (data ?? []).map((r) => ({
+    title: (r.title as string) ?? (r.slug as string),
+    slug: r.slug as string,
+  }))
+}
+
+/**
  * Related published posts for the "Related reading" section (PR17 §4.4).
  *
  * SAME SUBJECT OR SAME CITY ONLY — a shared cluster is NOT enough. The post

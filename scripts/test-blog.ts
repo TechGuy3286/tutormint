@@ -474,3 +474,51 @@ test('PR28 §2.3 notes-topic mismatch warns on a foreign city', () => {
   // Empty notes → nothing, even with a city.
   assert.equal(notesTopicMismatch('', 'Physics', 'Islamabad'), null)
 })
+
+// ── PR35 — facts single-source, free-demo block, question/answer pairing ──
+import { contradictionViolations as cv35 } from '../lib/ai/platformFacts'
+import { sanitizeDraft, collectBlogProblems } from '../lib/ai/blogChecker'
+
+test('PR35 §4: "free demo" is a contradiction (blocks publish)', () => {
+  assert.ok(cv35('Book a free demo with any tutor.').length > 0)
+  // "demo" without "free" is fine.
+  assert.deepEqual(cv35('Book a demo lesson with any tutor.'), [])
+})
+
+test('PR35 §4: a question answered "No" is not a contradiction', () => {
+  const ok = '## Is TutorMint free to use?\n\nNo. Browsing is free, but tutors pay a one-time verification fee.'
+  assert.deepEqual(cv35(ok), [])
+  const bad = '## Is TutorMint free to use?\n\nYes, everything is completely free.'
+  assert.ok(cv35(bad).length > 0)
+})
+
+test('PR35 §4: a line that denies a false claim is not flagged', () => {
+  assert.deepEqual(cv35('TutorMint is not free to join — there is a verification fee.'), [])
+})
+
+test('PR35 §3: sanitizeDraft makes a bare draft pass the link rules', () => {
+  const raw = [
+    '## A guide',
+    'Read our [membership plans](https://tutormint.org/membership-plans) and [plans again](https://www.tutormint.org/membership-plans).',
+    'Book a free demo.',
+  ].join('\n\n')
+  const fixed = sanitizeDraft(raw, { blogSlugs: ['o-level-guide'], audience: 'both' })
+  // Absolute URLs became relative.
+  assert.ok(!/tutormint\.org/i.test(fixed), 'no absolute tutormint.org URLs remain')
+  // The repeated /membership-plans link was unlinked after the first.
+  assert.equal((fixed.match(/\]\(\/membership-plans\)/g) || []).length, 1)
+  // "free demo" lost the "free".
+  assert.ok(!/free\s+demo/i.test(fixed))
+  // The required links are present, so the link rules pass.
+  const problems = collectBlogProblems(fixed, { publishedPostSlugs: ['o-level-guide'], landingPaths: [] })
+  assert.deepEqual(problems, [], `a sanitized draft should have no problems, got: ${problems.map((p) => p.message).join(' | ')}`)
+})
+
+test('PR35 §4: a link to an unpublished post is a blocking problem', () => {
+  const body = [
+    'See [a guide](/blog/o-level-guide), [membership plans](/membership-plans) and [the FAQ](/faq).',
+    'Also [a missing post](/blog/does-not-exist).',
+  ].join('\n\n')
+  const problems = collectBlogProblems(body, { publishedPostSlugs: ['o-level-guide'], landingPaths: [] })
+  assert.ok(problems.some((p) => /does-not-exist/.test(p.message)), 'the unpublished link is flagged')
+})

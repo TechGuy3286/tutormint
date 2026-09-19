@@ -36,6 +36,10 @@ export type BlogBrief = {
   notes: string
   /** Live landing pages the draft may link to, as {label, path}. */
   landingLinks: { label: string; path: string }[]
+  /** Today's date (YYYY-MM-DD), so timing lines ("weeks away") are right (PR35 §3). */
+  today?: string
+  /** Published blog posts the draft may link to, {title, slug} (PR35 §3). */
+  publishedPosts?: { title: string; slug: string }[]
 }
 
 export type BlogDraft = {
@@ -369,8 +373,10 @@ export function composeBlogDraft(brief: BlogBrief): BlogDraft {
   }
 
   parts.push('## Frequently asked questions')
-  parts.push('### Is TutorMint free to use?')
-  parts.push('Yes. Browsing tutors and posting a tuition is free. There is no fee and no commission.')
+  // A correct FAQ — never the "TutorMint is free" contradiction. Browsing is
+  // free; joining and getting verified are not, and there is no commission.
+  parts.push('### Does TutorMint charge a commission?')
+  parts.push('No. TutorMint takes no commission on what a tutor charges or a parent pays. Browsing is free; a tutor pays a one-time verification fee to get verified, and memberships are optional.')
 
   parts.push(
     brief.audience === 'tutors'

@@ -6,7 +6,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import { parseBody, z } from '@/lib/validate'
 import { slugify } from '@/lib/slugs'
 import {
-  canPublish,
+  statePublishReasons,
   isClusterSlug,
   postPath,
   SEO_TITLE_MAX,
@@ -16,7 +16,8 @@ import {
 import { slugTaken, publishedSlugs } from '@/lib/blogFeed'
 import { revalidateBlog, notifySearchEngines } from '@/lib/blogPublish'
 import { figureGate } from '@/lib/ai/blogBrief'
-import { invalidInternalLinks, linkRuleViolations } from '@/lib/ai/platformFacts'
+import { invalidInternalLinks } from '@/lib/ai/platformFacts'
+import { collectBlogProblems } from '@/lib/ai/blogChecker'
 import { landingOptionsForEditor } from '@/lib/blogEditor'
 
 // Blog CMS mutations. Save + review is manager or support (support drafts);
@@ -282,27 +283,27 @@ export async function POST(request: Request) {
 
   const nowIso = new Date().toISOString()
 
-  // PR16 §6.3 / PR17 §4.3 — link EXISTENCE and link RULES block publishing (and
-  // scheduling). Computed once from the live set: the landing pages and OTHER
-  // published posts. Every internal link must resolve; the post must carry 3–5
-  // links, each target once, with one to a published blog post (if any exist),
-  // one to /membership-plans and one to /faq, and link text matching the page.
-  async function publishLinkProblems(): Promise<string[]> {
+  // PR35 §4 — the FULL publish problem list, from the ONE shared checker the
+  // editor also runs, so the server and the editor never disagree. State checks
+  // (saved, reviewed, title, slug, body, cover alt) come from statePublishReasons;
+  // body problems (scaffold, leaked prompt, fact contradictions, dead links, the
+  // 3–5 link/coverage rules) from collectBlogProblems, computed against the live
+  // set of landing pages and OTHER published posts.
+  async function publishProblems(): Promise<string[]> {
     const [posts, landing] = await Promise.all([publishedSlugs(), landingOptionsForEditor()])
-    const otherPosts = posts.filter((p) => p.slug !== (post!.slug as string))
-    const allowed = [...landing.map((l) => `/${l.path}`), ...otherPosts.map((p) => `/blog/${p.slug}`)]
-    return [
-      ...invalidInternalLinks(gateInput.body, allowed).map((h) => `This internal link does not point to a real page: ${h}`),
-      ...linkRuleViolations(gateInput.body, { hasPublishedPosts: otherPosts.length > 0 }),
-    ]
+    const otherSlugs = posts.filter((p) => p.slug !== (post!.slug as string)).map((p) => p.slug)
+    const landingPaths = landing.map((l) => `/${l.path}`)
+    const bodyProblems = collectBlogProblems(gateInput.body, {
+      publishedPostSlugs: otherSlugs,
+      landingPaths,
+    })
+    return [...statePublishReasons(gateInput), ...bodyProblems.map((p) => p.message)]
   }
 
   // ---------------------------------------------------------- publish ----
   if (body.action === 'publish') {
-    const gateResult = canPublish(gateInput)
-    const linkProblems = await publishLinkProblems()
-    if (!gateResult.ok || linkProblems.length > 0) {
-      const reasons = [...gateResult.reasons, ...linkProblems]
+    const reasons = await publishProblems()
+    if (reasons.length > 0) {
       return NextResponse.json({ error: reasons[0], reasons }, { status: 400 })
     }
     const { error } = await admin
@@ -342,10 +343,8 @@ export async function POST(request: Request) {
 
   // --------------------------------------------------------- schedule ----
   if (body.action === 'schedule') {
-    const gateResult = canPublish(gateInput)
-    const linkProblems = await publishLinkProblems()
-    if (!gateResult.ok || linkProblems.length > 0) {
-      const reasons = [...gateResult.reasons, ...linkProblems]
+    const reasons = await publishProblems()
+    if (reasons.length > 0) {
       return NextResponse.json({ error: reasons[0], reasons }, { status: 400 })
     }
     const when = new Date(body.publishAt)

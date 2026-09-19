@@ -15,6 +15,16 @@
 // message parents directly. Every one of those is false, and this sheet plus the
 // contradiction check exist to stop the next one.
 
+// What the Verified badge means, taken from the code (lib/planBadges.badgesForPlan
+// + lib/entitlements): a tutor shows Verified when they are listed AND hold a
+// tutor plan (basic = the one-time verification fee paid) AND have a reviewed
+// degree on file; without a reviewed degree the tier badges stay but Verified is
+// stripped. The team's underlying verification is identity/CNIC + a reviewed
+// degree + an intro video (verification_status). Parents' Verified is CNIC +
+// address. One sentence the prompt and any explainer reuse — never reworded.
+export const VERIFIED_BADGE_MEANING =
+  'The Verified badge on a tutor means they have paid the one-time verification fee and the team has checked their identity (CNIC), a degree certificate and an introduction video; a tutor without a reviewed degree on file does not get the Verified badge. A tutor’s experience, fees and subjects are self-declared and are NOT checked. On a parent, Verified means their CNIC and address were approved.'
+
 export const PLATFORM_FACTS_TEXT = [
   'TutorMint — how it actually works (do NOT contradict any of this):',
   '',
@@ -26,6 +36,7 @@ export const PLATFORM_FACTS_TEXT = [
   '',
   'RANKING AND BADGES (money DOES affect these — do not deny it):',
   '- Premium and Featured tutors rank HIGHER in search than others; verified tutors rank above unverified ones. Payment DOES affect ranking. NEVER claim ranking ignores who pays, that TutorMint does not rank by payment, or that paying does not move a tutor up.',
+  '- ' + VERIFIED_BADGE_MEANING,
   '- The Verified badge comes WITH the one-time verification fee (paid) — it is not purely a reflection of unpaid checks. NEVER claim the badge is not tied to payment or is "not a paid placement".',
   '',
   'WHAT IS CHECKED (verification):',
@@ -35,7 +46,7 @@ export const PLATFORM_FACTS_TEXT = [
   '- NOT every profile is checked before it is visible. UNVERIFIED tutors CAN appear in search (marked "Not verified"). NEVER claim TutorMint checks every tutor’s identity before their profile goes live, or that all visible tutors are verified.',
   '',
   'WHO CAN MESSAGE WHOM:',
-  '- Any verified parent can message any tutor and request a free demo.',
+  '- Any verified parent can message any tutor and request a demo. NEVER call a demo "free" — it is a demo lesson; the phrase "free demo" is banned.',
   '- A tutor can REPLY to parents and apply to tuitions once verified. Only a tutor on the Premium or Featured membership can START a conversation with a parent. A basic (verified) tutor cannot message parents first.',
   '- Completing a HIRE needs a Featured PARENT. A verified (free) parent can message and request demos but cannot complete a hire.',
   '- Seeing a parent’s or tutor’s phone number is a paid power (Featured parent / Premium-or-higher tutor). Never claim ordinary verified tutors can contact parents directly.',
@@ -45,6 +56,31 @@ export const PLATFORM_FACTS_TEXT = [
   '',
   'VISIBILITY:',
   '- A tutor appears in search once their mobile is verified and their city, area, subjects and gender are set. The Verified badge, ranking first, and applying require the one-time fee.',
+  '',
+  'NO PRICES: never state any amount, fee, or price in the post.',
+].join('\n')
+
+// ─────────────────────────────────────────────────────────── the link map ──
+//
+// The ONE place the blog's internal links are defined (PR35 §2). The AI prompt
+// renders LINK_MAP_TEXT so it links the right page for each intent, and the
+// editor's Link picker offers the same set. Every path is relative and exists.
+// The cardinal rule: a parent posting a tuition goes to the real post-a-tuition
+// page, NEVER to /browse/tuitions.
+export const PLATFORM_LINK_MAP: { intent: string; path: string; text: string }[] = [
+  { intent: 'A parent posting a tuition', path: '/parent/dashboard/post-job', text: 'post a tuition' },
+  { intent: 'A tutor finding work', path: '/browse/tuitions', text: 'open tuitions' },
+  { intent: 'Finding tutors', path: '/browse/tutors', text: 'browse tutors' },
+  { intent: 'Plans and pricing', path: '/membership-plans', text: 'membership plans' },
+  { intent: 'Questions and answers', path: '/faq', text: 'the FAQ' },
+]
+
+/** The link map as prompt text — each intent, the exact path, and the words to
+ *  use for the link. */
+export const LINK_MAP_TEXT = [
+  'LINK MAP — link the RIGHT page for each intent, using the exact relative path (never a full https://tutormint.org URL):',
+  ...PLATFORM_LINK_MAP.map((l) => `- ${l.intent} → ${l.path} (link text like "${l.text}")`),
+  'NEVER send a parent who wants to post a tuition to /browse/tuitions — that page is for tutors finding work.',
 ].join('\n')
 
 // ─────────────────────────────────────────────── contradiction check (§6.2) ──
@@ -57,6 +93,11 @@ export const PLATFORM_FACTS_TEXT = [
 type FactRule = { test: RegExp; why: string }
 
 const CONTRADICTIONS: FactRule[] = [
+  {
+    // PR35 §4 — a demo is never called "free". Blocks publish.
+    test: /\bfree\s+demos?\b/i,
+    why: 'A demo is never described as "free" on TutorMint — call it a demo lesson.',
+  },
   {
     // "free to join", "completely free", "charges no fee", "no membership fee",
     // "does not charge", "costs nothing" — claims TutorMint takes no money.
@@ -108,16 +149,77 @@ const CONTRADICTIONS: FactRule[] = [
   },
 ]
 
-/** Lines in the draft that contradict the platform facts (PR16 §6.2). Empty when
- *  clean. Each entry names the offending line and why it is wrong. */
-export function contradictionViolations(body: string): { line: string; why: string }[] {
-  const out: { line: string; why: string }[] = []
-  for (const raw of body.split('\n')) {
-    const line = raw.trim()
+const HEADING_RE = /^#{1,6}\s+/
+// A negation immediately before the matched phrase → the line DENIES the false
+// claim rather than making it ("TutorMint is not free to use"), so it is not a
+// contradiction. Checked in the ~16 chars before the match; a claim whose own
+// wording contains the "no" ("no joining fee") has nothing negating BEFORE it,
+// so it still flags.
+const DENIAL_BEFORE = /\b(no|not|never|isn'?t|aren'?t|doesn'?t|don'?t|cannot|can'?t|without)\b[^.?!]{0,16}$/i
+// An answer that correctly denies the false premise of its question heading.
+const ANSWER_DENIES = /^\s*(no\b|nope\b|not\b)|(\bis not\b|\bisn'?t\b|\bdoes not\b|\bdoesn'?t\b|\bthere is no\b|\bnot free\b|\bcharges?\s+a\b|\bone-?time\b|\bpays?\s+a\s+fee\b)/i
+
+/** The answer under a heading: the following non-empty, non-heading lines. */
+function answerUnder(lines: string[], headingIndex: number): string {
+  const parts: string[] = []
+  for (let j = headingIndex + 1; j < lines.length; j++) {
+    const t = lines[j].trim()
+    if (!t) {
+      if (parts.length) break
+      continue
+    }
+    if (HEADING_RE.test(t)) break
+    parts.push(t)
+    if (parts.length >= 2) break
+  }
+  return parts.join(' ')
+}
+
+/**
+ * Lines in the draft that contradict the platform facts (PR16 §6.2, PR35 §4).
+ * Empty when clean. Each entry names the offending line, why it is wrong, and the
+ * section heading it sits under.
+ *
+ * A QUESTION heading is judged TOGETHER with its answer (PR35 §4): "Is TutorMint
+ * free to use?" answered "No, it charges a one-time fee" is CORRECT, not a
+ * contradiction; the same question answered "Yes" is flagged. A body line that
+ * DENIES a false claim ("TutorMint is not free to use") is not flagged either.
+ */
+export function contradictionViolations(
+  body: string,
+): { line: string; why: string; heading: string | null }[] {
+  const out: { line: string; why: string; heading: string | null }[] = []
+  const lines = body.split('\n')
+  let heading: string | null = null
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
     if (!line || line.startsWith('|')) continue // skip blanks and table rows
+
+    if (HEADING_RE.test(line)) {
+      heading = line.replace(HEADING_RE, '').trim()
+      // A question heading is judged with its answer, so a correctly-answered
+      // "No" is not a contradiction.
+      if (heading.endsWith('?')) {
+        for (const rule of CONTRADICTIONS) {
+          if (rule.test.test(heading)) {
+            const answer = answerUnder(lines, i)
+            if (!ANSWER_DENIES.test(answer)) {
+              out.push({ line: heading.slice(0, 120), why: rule.why, heading })
+            }
+            break
+          }
+        }
+      }
+      continue
+    }
+
     for (const rule of CONTRADICTIONS) {
-      if (rule.test.test(line)) {
-        out.push({ line: line.slice(0, 120), why: rule.why })
+      const m = rule.test.exec(line)
+      if (m) {
+        // Skip a line that denies the false claim rather than asserting it.
+        if (DENIAL_BEFORE.test(line.slice(0, m.index))) break
+        out.push({ line: line.slice(0, 120), why: rule.why, heading })
         break
       }
     }

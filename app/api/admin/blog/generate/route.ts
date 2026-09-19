@@ -6,7 +6,7 @@ import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 import { parseBody, z } from '@/lib/validate'
 import { clusterLabel, isClusterSlug } from '@/lib/blog'
 import { landingOptionsForEditor } from '@/lib/blogEditor'
-import { publishedSlugs } from '@/lib/blogFeed'
+import { publishedPostLinks } from '@/lib/blogFeed'
 import {
   generateBlogOutline,
   generateBlogSection,
@@ -68,17 +68,14 @@ export async function POST(request: Request) {
   // landing pages, /membership-plans and /faq, and recently published posts. Every
   // path here exists, so the 3-5 internal links it places resolve (the save gate
   // re-checks). Capped so the prompt stays bounded.
-  const [landing, posts] = await Promise.all([landingOptionsForEditor(), publishedSlugs()])
+  const [landing, posts] = await Promise.all([landingOptionsForEditor(), publishedPostLinks()])
   const linkOptions = [
     ...landing.map((l) => ({ label: l.label, path: l.path })),
     { label: 'Membership Plans (pricing)', path: 'membership-plans' },
     { label: 'Questions and answers (FAQ)', path: 'faq' },
     { label: 'Find tutors', path: 'browse/tutors' },
     { label: 'Find tuitions (post a job)', path: 'browse/tuitions' },
-    ...posts.slice(0, 12).map((p) => ({
-      label: `Blog: ${p.slug.replace(/-/g, ' ')}`,
-      path: `blog/${p.slug}`,
-    })),
+    ...posts.slice(0, 12).map((p) => ({ label: `Blog: ${p.title}`, path: `blog/${p.slug}` })),
   ]
   const brief: BlogBrief = {
     title: body.title,
@@ -87,6 +84,9 @@ export async function POST(request: Request) {
     language: body.language,
     notes: body.notes,
     landingLinks: linkOptions,
+    // PR35 §3 — today's date (for timing lines) and the published posts by name.
+    today: new Date().toISOString().slice(0, 10),
+    publishedPosts: posts.slice(0, 12),
   }
 
   // ------------------------------------------------------------- a section ---

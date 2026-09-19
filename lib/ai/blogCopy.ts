@@ -19,7 +19,7 @@
 // holding the line.
 
 import { complete, isConfigured, MODEL } from './anthropic'
-import { PLATFORM_FACTS_TEXT } from './platformFacts'
+import { PLATFORM_FACTS_TEXT, LINK_MAP_TEXT } from './platformFacts'
 import {
   BLOG_MAX_WORDS,
   BLOG_MIN_WORDS,
@@ -34,7 +34,19 @@ import {
 // PR16 §6.3 — how the internal-link list is described to the model, shared by the
 // full-draft and sectioned prompts. It must place real links from the list only.
 const LINK_RULE =
-  'Internal links: place 3 to 5 relevant internal links in the body, using the EXACT paths from this list and no others. Never invent a link, and never link to a path not in this list:'
+  'Internal links: place 3 to 5 relevant internal links in the body, using the EXACT relative paths from this list and no others (never a full https://tutormint.org URL). Never invent a link, and never link to a path not in this list:'
+
+// The specific links a passing post must carry (PR35 §3), placed in the closing
+// section. The deterministic fixer guarantees these too, so the model only has
+// to try — but asking keeps the draft natural rather than bolted-on.
+const REQUIRED_LINKS_RULE = [
+  'Across the whole post, include: exactly ONE link to a published blog post from the list; ONE link to /membership-plans in a tutor-facing line (for example "get verified"); and ONE link to /faq. Link each page at most once.',
+].join('\n')
+
+// Never produced, in any step (PR35 §3): the banned demo phrasing, prices, and
+// outcome promises.
+const OUTCOME_RULE =
+  'Never write "free demo" — a demo is a demo lesson, never described as free. Never state a price, fee or amount. Never promise or imply tuitions, replies, applications, hires or income.'
 
 export { composeBlogDraft, unsupportedFigures } from './blogBrief'
 export type { BlogBrief, BlogDraft } from './blogBrief'
@@ -88,8 +100,13 @@ function brandBrief(brief: BlogBrief): string {
     '- Include a "## Frequently asked questions" section with 3-4 questions as ### sub-headings.',
     '- If the facts below are too thin to fill this length HONESTLY, write a shorter, accurate post rather than inventing material — do NOT pad with generalities to reach a word count.',
     cta,
+    brief.today ? `Today's date is ${brief.today}; make timing references correct relative to it.` : '',
+    LINK_MAP_TEXT,
     LINK_RULE,
     links,
+    publishedPostsBlock(brief),
+    REQUIRED_LINKS_RULE,
+    OUTCOME_RULE,
     figureRule,
     BANNED_WORD_RULE,
     NO_META_RULE,
@@ -156,6 +173,7 @@ function sectionSystem(brief: BlogBrief, sections: string[], index: number, ters
       index === sections.length - 1
         ? 'End with a short call to action (post a tuition / join TutorMint), no price.'
         : 'Do NOT add a call to action.',
+      OUTCOME_RULE,
       figureRuleFor(brief),
       NO_META_RULE,
       brief.language === 'ur' ? 'Write in Roman Urdu (Latin script).' : 'Write in clear English.',
@@ -182,8 +200,13 @@ function sectionSystemFull(brief: BlogBrief, sections: string[], index: number):
     last
       ? 'This is the last section — end with a short call to action (post a tuition / join TutorMint), no price.'
       : 'Do NOT add a call to action; this is not the last section.',
-    'Internal links you MAY use where relevant (exact paths only; invent no others; the whole post should carry 3-5 across its sections):',
+    brief.today ? `Today's date is ${brief.today}; make any timing reference (an exam "weeks away", a season) correct relative to it.` : '',
+    LINK_MAP_TEXT,
+    'Internal links you MAY use where relevant (exact RELATIVE paths only; invent no others; the whole post should carry 3-5 across its sections):',
     links,
+    publishedPostsBlock(brief),
+    last ? REQUIRED_LINKS_RULE : '',
+    OUTCOME_RULE,
     figureRuleFor(brief),
     BANNED_WORD_RULE,
     NO_META_RULE,
@@ -288,15 +311,24 @@ function returnedNoText(reason: string): boolean {
   return reason.includes('returned no text')
 }
 
+function publishedPostsBlock(brief: BlogBrief): string {
+  const posts = brief.publishedPosts ?? []
+  if (posts.length === 0) return '(no published blog posts yet — do not link to a blog post)'
+  return ['Published blog posts you may link (use the exact /blog/<slug> path):', ...posts.map((p) => `- ${p.title}: /blog/${p.slug}`)].join('\n')
+}
+
 function factsBlock(brief: BlogBrief): string {
   return [
     `Title: ${brief.title}`,
     `Topic: ${brief.clusterLabel}`,
     `Audience: ${brief.audience}`,
+    brief.today ? `Today's date: ${brief.today}` : '',
     '',
     'Facts you may use (and nothing beyond them for any number):',
     brief.notes.trim() || '(none supplied)',
-  ].join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 /**
