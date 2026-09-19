@@ -30,12 +30,17 @@ export async function POST() {
     return NextResponse.json({ error: 'Only parent accounts need this verification.' }, { status: 403 })
   }
 
+  // The email item (PR29 §4) is a separate completion concern added in Settings
+  // and confirmed by a link — it is NOT part of CNIC/address verification, and a
+  // mobile-signup parent has no real email yet. Gating verification on it would
+  // lock them out of posting jobs, so it is excluded from this gate.
   const completion = calculateParentCompletion({ profile })
-  if (completion.percent < 100) {
+  const missing = completion.missing.filter((m) => m.key !== 'email')
+  if (missing.length > 0) {
     return NextResponse.json(
       {
         error: 'Complete every field before submitting.',
-        missing: completion.missing.map((m) => m.label),
+        missing: missing.map((m) => m.label),
       },
       { status: 400 },
     )

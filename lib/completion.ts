@@ -27,7 +27,7 @@ export async function computeCompletion(userId: string): Promise<Completion | nu
   const { data: profile } = await supabase
     .from('profiles')
     .select(
-      'id, role, full_name, city, address, cnic_number, cnic_image_path, phone_verified_at',
+      'id, role, full_name, city, email, address, cnic_number, cnic_image_path, phone_verified_at',
     )
     .eq('id', userId)
     .maybeSingle()

@@ -167,7 +167,13 @@ export async function POST(request: Request) {
     // Revoke the role; return to an ordinary member. Not suspended — an ex-staff
     // member keeps ordinary access. role must be a member role for admin_role to
     // be null under the profiles CHECK constraint.
-    const { error } = await admin
+    //
+    // VERIFY THE ROW CHANGED before logging (PR29 §3). A .update().eq() that
+    // matches no row returns NO error, so writing staff.remove regardless is how
+    // the audit log can say "removed" while the account is still staff — exactly
+    // the mismatch found on the Aqsa account. Select the row back and refuse to
+    // record a removal that did not happen.
+    const { data: updated, error } = await admin
       .from('profiles')
       .update({
         admin_role: null,
@@ -178,8 +184,15 @@ export async function POST(request: Request) {
         suspended_by: null,
       })
       .eq('id', userId)
+      .select('id')
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (!updated || updated.length === 0) {
+      return NextResponse.json(
+        { error: 'That did not take effect — the account was not changed. Refresh and try again.' },
+        { status: 409 },
+      )
+    }
 
     await logAdminAction({
       actorId: actor.id,

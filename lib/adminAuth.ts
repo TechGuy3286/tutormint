@@ -118,6 +118,9 @@ export const SCREEN_ACCESS = {
   jobsMutate: ['admin'] as AdminRole[],
   jobsPost: ['admin', 'operations'] as AdminRole[],
   users: ['admin', 'operations'] as AdminRole[],
+  // Staff performance across the team — a management view, so admin (and owner)
+  // only, not operations.
+  staffActivity: ['admin'] as AdminRole[],
   orphans: ['admin', 'operations'] as AdminRole[],
   signups: ['admin', 'operations'] as AdminRole[],
   // Exporting the directory carries mobile numbers off the platform — admin

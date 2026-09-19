@@ -74,7 +74,7 @@ async function main() {
   for (const id of ids) {
     const { data: profile } = await admin
       .from('profiles')
-      .select('id, role, full_name, city, address, cnic_number, cnic_image_path, phone_verified_at, profile_completion')
+      .select('id, role, full_name, city, email, address, cnic_number, cnic_image_path, phone_verified_at, profile_completion')
       .eq('id', id)
       .maybeSingle()
     if (!profile) {

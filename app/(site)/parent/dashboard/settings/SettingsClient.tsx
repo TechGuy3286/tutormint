@@ -12,7 +12,7 @@ import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
-import { looksLikeEmail } from '@/lib/phone'
+import EmailCard from '@/components/account/EmailCard'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 
 // PR17 §3.2 — a verified number is changed through support. The number is the one
@@ -57,33 +57,9 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
   const supabase = createClient()
   const toast = useToast()
 
-  // ---------------------------------------------------------------- email ---
-  const [email, setEmail] = useState(initial.email)
-  const [emailBusy, setEmailBusy] = useState(false)
-  const emailChanged = email.trim().toLowerCase() !== initial.email.trim().toLowerCase()
-
-  const saveEmail = async () => {
-    setEmailBusy(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/account/email', {
-        signal: submitSignal(),
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not save that email.')
-      toast.success(initial.email ? 'Email updated.' : 'Email added.')
-      router.refresh()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Could not save that email.'
-      setError(msg)
-      toast.error(msg)
-    } finally {
-      setEmailBusy(false)
-    }
-  }
+  // Email is its own shared card now (EmailCard, PR29 §4): adding one sends a
+  // confirmation LINK and shows "Email not confirmed" until it is clicked,
+  // rather than saving it pre-confirmed here.
 
   const [fullName, setFullName] = useState(initial.fullName)
   const [city, setCity] = useState(initial.city)
@@ -410,32 +386,9 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
         </Card>
       )}
 
-      {/* --------------------------------------------------------- email --- */}
-      <Card
-        title={initial.email ? 'Email address' : 'Add an email'}
-        hint="For receipts and reminders — and you can sign in with it too. Your mobile number keeps working either way."
-      >
-        <label className="block space-y-1">
-          <span className={LABEL}>Email</span>
-          <input
-            value={email}
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@example.com"
-            className={FIELD}
-          />
-        </label>
-        <button
-          type="button"
-          onClick={saveEmail}
-          disabled={emailBusy || !emailChanged || !looksLikeEmail(email.trim())}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-tm-navy disabled:opacity-50"
-        >
-          {emailBusy ? 'Saving…' : initial.email ? 'Update email' : 'Add email'}
-        </button>
-      </Card>
+      {/* Email (PR29 §4) — the shared card: add/confirm by link, "not confirmed"
+          until clicked. */}
+      <EmailCard />
     </div>
   )
 }

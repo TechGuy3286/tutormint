@@ -70,13 +70,38 @@ const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-seri
  * The button is a full-width tap target. The wordmark is TEXT (no image), so no
  * blocked-image placeholder and nothing to fetch. Palette only (see above).
  */
-function shell(heading: string, paragraphs: string[], cta?: { label: string; href: string }): string {
+/** A list of linked items (the welcome email's recent tuitions), rendered as a
+ *  stack of full-width tappable cards — tables + inline styles, palette only. */
+type EmailItems = { heading: string; items: { title: string; meta: string; href: string }[] }
+
+function shell(
+  heading: string,
+  paragraphs: string[],
+  cta?: { label: string; href: string },
+  extra?: EmailItems,
+): string {
   const body = paragraphs
     .map(
       (p) =>
         `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:${INK};font-family:${FONT};">${escapeHtml(p)}</p>`,
     )
     .join('')
+
+  const items =
+    extra && extra.items.length > 0
+      ? `<p style="margin:20px 0 10px;font-family:${FONT};font-size:13px;font-weight:800;color:${NAVY};">${escapeHtml(extra.heading)}</p>` +
+        extra.items
+          .map(
+            (it) =>
+              `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;"><tr><td bgcolor="${MINT_TINT}" style="background:${MINT_TINT};border-radius:12px;padding:12px 14px;">
+                <a href="${escapeHtml(link(it.href))}" style="text-decoration:none;font-family:${FONT};">
+                  <span style="display:block;font-size:14px;font-weight:700;color:${NAVY};">${escapeHtml(it.title)}</span>
+                  ${it.meta ? `<span style="display:block;margin-top:2px;font-size:12px;color:${INK};">${escapeHtml(it.meta)}</span>` : ''}
+                </a>
+              </td></tr></table>`,
+          )
+          .join('')
+      : ''
 
   // Full-width button as its own table so the coloured cell carries bgcolor —
   // Gmail dark mode leaves a bgcolor cell alone but would recolour a styled <a>.
@@ -105,6 +130,7 @@ function shell(heading: string, paragraphs: string[], cta?: { label: string; hre
         <p style="margin:0 0 20px;font-family:${FONT};font-size:20px;font-weight:900;color:${NAVY};">Tutor<span style="color:${RED};">Mint</span></p>
         <h1 style="margin:0 0 16px;font-family:${FONT};font-size:18px;font-weight:800;color:${NAVY};line-height:1.35;">${escapeHtml(heading)}</h1>
         ${body}
+        ${items}
         ${button}
       </td></tr>
       <tr><td style="padding:16px 12px 0;">
@@ -130,8 +156,19 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function plain(heading: string, paragraphs: string[], cta?: { label: string; href: string }): string {
+function plain(
+  heading: string,
+  paragraphs: string[],
+  cta?: { label: string; href: string },
+  extra?: EmailItems,
+): string {
   const parts = [heading, '', ...paragraphs]
+  if (extra && extra.items.length > 0) {
+    parts.push('', `${extra.heading}:`)
+    for (const it of extra.items) {
+      parts.push(`• ${[it.title, it.meta].filter(Boolean).join(' — ')}: ${link(it.href)}`)
+    }
+  }
   if (cta) parts.push('', `${cta.label}: ${link(cta.href)}`)
   parts.push(
     '',
@@ -149,11 +186,12 @@ function build(
   paragraphs: string[],
   essential: boolean,
   cta?: { label: string; href: string },
+  extra?: EmailItems,
 ): RenderedEmail {
   return {
     subject,
-    text: plain(heading, paragraphs, cta),
-    html: shell(heading, paragraphs, cta),
+    text: plain(heading, paragraphs, cta, extra),
+    html: shell(heading, paragraphs, cta, extra),
     essential,
   }
 }
@@ -161,7 +199,14 @@ function build(
 // -------------------------------------------------------------- templates --
 
 export type TemplateInput =
-  | { id: 'welcome'; name: string; role: 'tutor' | 'parent' | 'admin' | null }
+  | {
+      id: 'welcome'
+      name: string
+      role: 'tutor' | 'parent' | 'admin' | null
+      /** Recent open tuitions for a tutor's welcome (PR29 §1.2), from a live
+       *  query. Omitted / empty for parents and when nothing is open (§1.3). */
+      tuitions?: { title: string; city: string; budget: string; href: string }[]
+    }
   | {
       id: 'verification_decision'
       name: string
@@ -239,23 +284,44 @@ export function render(input: TemplateInput): RenderedEmail {
 
     // ---------------------------------------------------------------------
     case 'welcome': {
-      const next =
-        input.role === 'tutor'
-          ? 'Complete your profile and record your verification video. Once you are verified and hold a membership, parents can find you in search — and finishing your profile is what puts you on Google.'
-          : 'Verify your CNIC and address, then you can post a tuition and message tutors directly.'
-      const cta =
-        input.role === 'tutor'
-          ? { label: 'Complete your profile', href: '/tutor/complete-profile' }
-          : { label: 'Verify your account', href: '/parent/verify' }
+      const isTutor = input.role === 'tutor'
+      const next = isTutor
+        ? 'Complete your profile so parents can find you — add your subjects, area and a photo, and record your verification video. Finishing your profile is what puts you in search and on Google.'
+        : 'Verify your CNIC and address, then you can post a tuition and message tutors directly.'
+      const cta = isTutor
+        ? { label: 'Complete your profile', href: '/tutor/complete-profile' }
+        : { label: 'Post a tuition', href: '/parent/dashboard/post-job' }
+
+      // A tutor's welcome lists recent open tuitions (§1.2), from the live query
+      // the caller ran; a parent's does not (§1.4). Left out entirely when
+      // nothing is open (§1.3) — shell/plain render the section only when items
+      // are present.
+      const tuitions = isTutor ? (input.tuitions ?? []) : []
+      const extra: EmailItems | undefined =
+        tuitions.length > 0
+          ? {
+              heading: 'Tuitions posted recently',
+              items: tuitions.map((t) => ({
+                title: t.title,
+                meta: [t.city, t.budget].filter(Boolean).join(' · '),
+                href: t.href,
+              })),
+            }
+          : undefined
 
       // Not essential: a welcome email is a courtesy. Anyone who opts out has
       // already signed up, so nothing is lost by not sending it.
       return build(
         'Welcome to TutorMint',
         `Welcome, ${input.name}`,
-        ['Your TutorMint account is ready.', next, 'Browsing tutors and tuitions is free and always will be — you only need an account for the things that involve another person.'],
+        [
+          `Congratulations, ${input.name} — your TutorMint account is ready.`,
+          next,
+          'Browsing tutors and tuitions is free — you only need an account for the things that involve another person.',
+        ],
         false,
         cta,
+        extra,
       )
     }
 

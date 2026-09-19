@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
+  Activity,
   Camera,
   ChevronDown,
   ChevronRight,
@@ -57,6 +58,7 @@ import type { NavColor, NavGroup } from '@/lib/adminNav'
 // that is locked is its own small betrayal.
 
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  activity: Activity,
   gauge: Gauge,
   graduation: GraduationCap,
   users: Users,

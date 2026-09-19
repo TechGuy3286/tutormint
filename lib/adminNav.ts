@@ -21,6 +21,7 @@ export type AdminScreen =
   | 'tutors'
   | 'parents'
   | 'users'
+  | 'staffActivity'
   | 'orphans'
   | 'signups'
   | 'team'
@@ -73,6 +74,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // Orphaned accounts folded into Abandoned signups as a second section
       // (owner, 14 Sep 2026) — /admin/orphans now redirects there.
       { href: '/admin/signups', label: 'Abandoned signups', icon: 'userPlus', screen: 'signups' },
+      { href: '/admin/staff-activity', label: 'Staff activity', icon: 'activity', screen: 'staffActivity' },
       { href: '/admin/team', label: 'Team', icon: 'key', screen: 'team' },
     ],
   },
@@ -135,6 +137,7 @@ export const SECTION_LABELS: Record<string, string> = {
   orphans: 'Orphaned accounts',
   signups: 'Abandoned signups',
   social: 'Social posts',
+  'staff-activity': 'Staff activity',
   team: 'Team',
   tutors: 'Tutors',
   usage: 'Quota usage',

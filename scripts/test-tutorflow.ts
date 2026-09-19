@@ -109,6 +109,10 @@ test('the "You\'re listed" verdict is exactly directoryBlockers empty', () => {
 test('every completion item maps to a flow step (§1.6 links never dead-end)', () => {
   const items = calculateTutorCompletion({}).items
   for (const it of items) {
+    // The email item (PR29 §4) is fixed in Settings, not the gap flow — it is
+    // added and confirmed by a link, not filled as a field — so checklistHref
+    // routes it to Settings and it is the one item with no flow step.
+    if (it.key === 'email') continue
     assert.ok(COMPLETION_KEY_TO_STEP[it.key], `completion item "${it.key}" has no flow step`)
     assert.ok(FLOW_ORDER.includes(COMPLETION_KEY_TO_STEP[it.key]), `"${it.key}" maps to an unknown step`)
   }

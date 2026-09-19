@@ -234,7 +234,7 @@ export async function loadTutorQueue({
   const [{ data: profiles }, { data: docs }, { data: subjectRows }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, full_name, city, profile_completion, cnic_number, cnic_image_path, phone_number, phone_verified_at, is_seed, is_team_account, is_suspended, is_banned')
+      .select('id, full_name, city, email, profile_completion, cnic_number, cnic_image_path, phone_number, phone_verified_at, is_seed, is_team_account, is_suspended, is_banned')
       .in('id', ids.length ? ids : [NO_MATCH]),
     admin
       .from('user_documents')
@@ -278,6 +278,7 @@ export async function loadTutorQueue({
         // check on line ~284 uses), so the completion input and the directory
         // rule agree on the same value (PR 3b §0.6).
         city: (t.city as string | null) ?? (p?.city as string | null) ?? null,
+        email: (p?.email as string | null) ?? null,
         cnic_number: (p?.cnic_number as string) ?? null,
         cnic_image_path: (p?.cnic_image_path as string) ?? null,
         phone_verified_at: (p?.phone_verified_at as string) ?? null,

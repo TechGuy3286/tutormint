@@ -11,6 +11,17 @@
 // and listings, not the percentage.
 
 import { COMPLETION_KEY_TO_STEP } from '@/lib/tutorFlow'
+import { isSyntheticEmail } from '@/lib/phone'
+
+/** A real, sendable email is on file — present and not the synthetic
+ *  <msisdn>@users.tutormint.org address a mobile signup carries (PR29 §4). A
+ *  synthetic address is confirmed nowhere and delivered to nowhere, so it does
+ *  not count. A member's real email only reaches profiles.email once its
+ *  confirmation link is clicked (app/api/auth/callback), so "present and real"
+ *  IS "confirmed". */
+export function hasRealEmail(email: string | null | undefined): boolean {
+  return !!(email && email.trim()) && !isSyntheticEmail(email)
+}
 
 export type ChecklistItem = {
   key: string
@@ -38,6 +49,12 @@ export type Completion = {
  * every item so a link never dead-ends. Parents keep the step-tab verify flow.
  */
 export function checklistHref(role: 'tutor' | 'parent', item: ChecklistItem): string {
+  // The email item is added and confirmed in Settings, not in the gap-flow /
+  // verify screens — a confirmation link, not a field on a form (PR29 §4). So it
+  // is the one item whose link goes to Settings for both roles.
+  if (item.key === 'email') {
+    return role === 'tutor' ? '/tutor/dashboard/settings#email' : '/parent/dashboard/settings#email'
+  }
   if (role === 'tutor') {
     const step = COMPLETION_KEY_TO_STEP[item.key] ?? 'city'
     return `/tutor/complete-profile?step=${step}`
@@ -58,6 +75,7 @@ export type TutorCompletionInput = {
   profile?: {
     full_name?: string | null
     city?: string | null
+    email?: string | null
     cnic_number?: string | null
     cnic_image_path?: string | null
     phone_verified_at?: string | null
@@ -91,6 +109,7 @@ export type ParentCompletionInput = {
   profile?: {
     full_name?: string | null
     city?: string | null
+    email?: string | null
     address?: string | null
     cnic_number?: string | null
     cnic_image_path?: string | null
@@ -99,10 +118,10 @@ export type ParentCompletionInput = {
 }
 
 /**
- * Tutor completion. 16 equally weighted items — the SAME step list as the tap
- * flow (lib/tutorFlow, owner PR5a §3.1), so the count, the percentage and the
- * flow can never disagree. The percentage floors so a finished profile is
- * exactly 100 and nothing else ever is.
+ * Tutor completion. 17 equally weighted items — the 16 gap-flow steps plus the
+ * contact-email item (PR29 §4), which is fixed in Settings, not the flow. The
+ * percentage floors so a finished profile is exactly 100 and nothing else ever
+ * is.
  */
 export function calculateTutorCompletion(input: TutorCompletionInput): Completion {
   const p = input.profile ?? {}
@@ -140,6 +159,11 @@ export function calculateTutorCompletion(input: TutorCompletionInput): Completio
       anchor: 'cnic',
     },
     { key: 'phone', label: 'Mobile number verified', done: has(p.phone_verified_at), step: 6, anchor: 'phone' },
+    // The other contact channel (PR29 §4). A mobile signup carries a synthetic
+    // address, so this asks them to add and confirm a real email; an email
+    // signup already has one, so it is done. Added in Settings, confirmed by a
+    // link — checklistHref sends it there, not to a gap-flow step.
+    { key: 'email', label: 'Email address', done: hasRealEmail(p.email), step: 6, anchor: 'email' },
     {
       key: 'video',
       label: 'Introduction video submitted',
@@ -164,6 +188,8 @@ export function calculateParentCompletion(input: ParentCompletionInput): Complet
     { key: 'cnic_number', label: 'CNIC number', done: has(p.cnic_number), step: 2, anchor: 'cnic_number' },
     { key: 'cnic_image', label: 'CNIC image', done: has(p.cnic_image_path), step: 2, anchor: 'cnic_image' },
     { key: 'phone', label: 'Mobile number verified', done: has(p.phone_verified_at), step: 3, anchor: 'phone' },
+    // The other contact channel (PR29 §4) — added and confirmed in Settings.
+    { key: 'email', label: 'Email address', done: hasRealEmail(p.email), step: 3, anchor: 'email' },
   ]
 
   return summarise(items)

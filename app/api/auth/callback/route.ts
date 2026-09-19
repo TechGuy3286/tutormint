@@ -6,6 +6,8 @@ import { deliverEmail } from '@/lib/notify'
 import { logActivity } from '@/lib/activityLog'
 import { homeForRole, type Role } from '@/lib/authRoutes'
 import { needsOnboarding } from '@/lib/onboardingGate'
+import { recentOpenTuitionsForWelcome } from '@/lib/welcomeTuitions'
+import { isSyntheticEmail } from '@/lib/phone'
 
 // Supabase email-confirmation callback.
 //
@@ -72,6 +74,13 @@ export async function GET(request: NextRequest) {
   // member for a month reads as a bug, because it is one. The return value is
   // true only on the FIRST confirmation, which is exactly the email verification
   // we want to confirm on screen (see ?verified=email below).
+  // A member who added an email in Settings (PR29 §4) confirms it by clicking
+  // the link that lands here (type email_change / email). Sync profiles.email to
+  // the now-confirmed auth email BEFORE the welcome runs — so a mobile-signup
+  // account that just added its first real email both stops being unmailable and
+  // gets its welcome (welcomed_at is still null for it).
+  await syncConfirmedEmail()
+
   const firstConfirmation = await sendWelcomeOnce()
 
   // The email path chose a role at /register; it must drive the landing page,
@@ -106,6 +115,35 @@ export async function GET(request: NextRequest) {
   if (verifiedParam) url.searchParams.set('verified', 'email')
 
   return NextResponse.redirect(url.toString())
+}
+
+/** Sync profiles.email to the confirmed auth email when they differ and the auth
+ *  email is a real (non-synthetic) address — the moment an added email becomes
+ *  usable for sending (PR29 §4). A no-op for an email-signup account (already in
+ *  sync) and for a synthetic mobile account that has not added one. */
+async function syncConfirmedEmail(): Promise<void> {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user?.email || isSyntheticEmail(user.email)) return
+
+    const admin = createAdminClient()
+    if (!admin) return
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('email')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (profile && (profile.email as string | null) !== user.email) {
+      // email_verified mirrors the confirmed auth email (the column the old
+      // pre-confirmed flow set); now it is only set when the link is clicked.
+      await admin.from('profiles').update({ email: user.email, email_verified: true }).eq('id', user.id)
+    }
+  } catch (e) {
+    console.error('[auth/callback] email sync failed', e)
+  }
 }
 
 /** The signed-in member's role, read through the service role, or null. */
@@ -148,15 +186,32 @@ async function sendWelcomeOnce(): Promise<boolean> {
 
     // Stamped before sending, not after. A retry storm here would mail the
     // same person repeatedly; one lost welcome is a far smaller problem than
-    // ten delivered ones.
+    // ten delivered ones. welcomed_at is what makes it once per account (§1.1).
     await admin.from('profiles').update({ welcomed_at: new Date().toISOString() }).eq('id', user.id)
+
+    const role = (profile.role as 'tutor' | 'parent' | 'admin' | null) ?? null
+
+    // A tutor's welcome carries 3–5 recently posted open tuitions from a live
+    // query (§1.2). Never for a parent (§1.4). recentOpenTuitionsForWelcome
+    // returns [] when nothing is open, and the template then omits the section
+    // (§1.3). Kept off the critical path — a query wobble must not stop a member
+    // reaching their account.
+    let tuitions: { title: string; city: string; budget: string; href: string }[] = []
+    if (role === 'tutor') {
+      try {
+        tuitions = await recentOpenTuitionsForWelcome(4)
+      } catch (e) {
+        console.error('[auth/callback] welcome tuition query failed', e)
+      }
+    }
 
     await deliverEmail(
       { userId: user.id },
       {
         id: 'welcome',
         name: (profile.full_name as string) ?? 'there',
-        role: (profile.role as 'tutor' | 'parent' | 'admin' | null) ?? null,
+        role,
+        tuitions,
       },
     )
 

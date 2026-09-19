@@ -18,6 +18,7 @@ import VideoUpload from '@/components/tutor/VideoUpload'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
 import QuickRepliesEditor from '@/components/tutor/QuickRepliesEditor'
 import PublicPageStatus from '@/components/tutor/PublicPageStatus'
+import EmailCard from '@/components/account/EmailCard'
 import type { Identity } from '@/lib/identity'
 import { formatPkMobile } from '@/lib/phone'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
@@ -317,6 +318,9 @@ export default function TutorSettingsPage() {
           listed, or the not-live preview when not. */}
       {publicSlug && <PublicPageStatus slug={publicSlug} listed={publicListed} />}
 
+      {/* Add or confirm an email (PR29 §4) — the other contact channel. */}
+      <EmailCard />
+
       <Link
         href="/tutor/dashboard/cv"
         className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-tm-navy"
@@ -344,16 +348,10 @@ export default function TutorSettingsPage() {
               className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium focus:border-tm-navy focus:outline-none"
             />
           </label>
-          <label className="block">
-            <span className="sr-only">Email (cannot be changed)</span>
-            <input
-              type="email"
-              value={tutorEmail}
-              disabled
-              aria-label="Email, cannot be changed"
-              className="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-100 p-3 text-xs font-medium text-gray-500"
-            />
-          </label>
+          {/* Email lives in its own card now (EmailCard, PR29 §4): a mobile
+              signup has no real email yet, so a disabled box showing the
+              synthetic <msisdn>@users.tutormint.org address read as "your email,
+              cannot be changed" — wrong on both counts. */}
         </div>
 
         {/* PR17 §3 — a verified number is read-only and changed through support;

@@ -8,6 +8,8 @@ import { applicationStatus, jobStatus } from '@/lib/display'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MemberActions from './MemberActions'
 import { loadMemberTimeline } from '@/lib/adminQueues'
+import { loadStaffCountsFor } from '@/lib/staffActivity'
+import StaffActivityTable from '@/components/admin/StaffActivityTable'
 import Timeline from './Timeline'
 
 // One member, everything about them in one place.
@@ -143,6 +145,12 @@ export default async function AdminMemberPage({
   // lib/adminQueues.ts for why that mattered.
   const timeline = await loadMemberTimeline({ userId: id, group })
 
+  // A staff account's work never shows in "Jobs (0)": a team tuition is posted
+  // on the team account, so it belongs to that account, not the staff member.
+  // The audit log records who ACTED, so read the staff card by actor (PR29 §2).
+  const isStaff = profile.role === 'admin'
+  const staffCounts = isStaff ? await loadStaffCountsFor(id) : null
+
   const verified = !!profile.cnic_verified_at && !!profile.address_verified_at
 
   return (
@@ -265,6 +273,20 @@ export default async function AdminMemberPage({
         mobileVerified={!!profile.phone_verified_at}
         hasMobile={!!profile.phone_number}
       />
+
+      {/* ---------------------------------------------- staff activity --- */}
+      {staffCounts && (
+        <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
+          <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
+            Staff activity
+          </h2>
+          <p className="text-[11px] text-gray-500">
+            Counted from the audit log by who acted — a team tuition is posted on the TutorMint team
+            account, so it appears here under the staff member who posted it, not under Jobs.
+          </p>
+          <StaffActivityTable counts={staffCounts} />
+        </section>
+      )}
 
       {/* ------------------------------------------------ linked objects --- */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">

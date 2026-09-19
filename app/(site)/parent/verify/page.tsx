@@ -88,13 +88,23 @@ export default function ParentVerifyPage() {
     return () => { live = false }
   }, [state, docs.length])
 
-  const completion = calculateParentCompletion({
+  const fullCompletion = calculateParentCompletion({
     profile: {
       full_name: fullName, city, address, cnic_number: cnic,
       cnic_image_path: docs.length > 0 ? 'set' : null,
       phone_verified_at: phoneVerified ? 'set' : null,
     },
   })
+  // This screen is CNIC/address verification. The email item (PR29 §4) is added
+  // and confirmed in Settings, not here, so it does not count toward this
+  // screen's progress or gate its Submit — a mobile-signup parent must still be
+  // able to submit for review.
+  const verifyItems = fullCompletion.items.filter((i) => i.key !== 'email')
+  const verifyDone = verifyItems.filter((i) => i.done).length
+  const completion = {
+    percent: verifyDone === verifyItems.length ? 100 : Math.min(99, Math.floor((verifyDone / verifyItems.length) * 100)),
+    missing: verifyItems.filter((i) => !i.done),
+  }
 
   async function saveDetails() {
     setSaving(true); setErr(''); setMsg('')
