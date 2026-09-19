@@ -53,14 +53,16 @@ export default function StatTile({
   const t = TILE_TONE[tone]
   return (
     <li>
+      {/* The WHOLE box is washed in the tone's soft tint (PR34 §2); the border
+          stays for definition and the red highlight border still wins. */}
       <Link
         prefetch={prefetch}
         href={href}
         data-tip={tip}
-        className={`relative flex h-full min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-2xl border bg-white p-4 text-center transition-shadow hover:shadow-md ${
+        className={`relative flex h-full min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center transition-shadow hover:shadow-md ${t.card} ${
           highlight
             ? 'border-tm-red shadow-[0_2px_14px_-6px_var(--color-tm-red)]'
-            : 'border-gray-200 shadow-xs'
+            : 'border-black/5 shadow-xs'
         }`}
       >
         {unread && (
@@ -70,17 +72,20 @@ export default function StatTile({
           />
         )}
 
+        {/* The icon disc: a solid brand hue with a white glyph, so it reads on
+            both the light and the dark box. */}
         <span className={`grid h-12 w-12 place-items-center rounded-2xl ${t.chip}`}>{icon}</span>
 
+        {/* Number, label and helper all take the tone's dark ink shade. */}
         {value != null && (
           <span className={`text-xl font-black leading-none ${t.ink}`}>{value}</span>
         )}
 
-        <span className="line-clamp-2 text-xs font-semibold leading-snug text-gray-700">
+        <span className={`line-clamp-2 text-xs font-semibold leading-snug ${t.ink}`}>
           {label}
         </span>
 
-        {note && <span className="text-[11px] leading-tight text-gray-500">{note}</span>}
+        {note && <span className={`text-[11px] leading-tight opacity-80 ${t.ink}`}>{note}</span>}
       </Link>
     </li>
   )

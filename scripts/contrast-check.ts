@@ -101,6 +101,23 @@ const C = {
   tealInk: '#0F6D70',
   tintViolet: '#ECE9FB',
   violetInk: '#5B21B6',
+  // Tinted count-tile tokens (PR34 §2), light AND dark. Kept in sync with the
+  // app/globals.css @theme values and its prefers-color-scheme: dark override by
+  // hand — a mismatch shows as a failing pair below. Suffix D = the dark-mode
+  // value. The chip glyph is white on a brand hue, already covered by the
+  // symmetric "ink on white" pairs, so only the box text pairs are listed.
+  tileNavyBg: '#E8EAF5', tileNavyInk: '#151E6B',
+  tileGreenBg: '#EEFBEE', tileGreenInk: '#2E7D4F',
+  tileRedBg: '#FBEAEA', tileRedInk: '#C20202',
+  tileGoldBg: '#FEF6E6', tileGoldInk: '#92400E',
+  tileTealBg: '#D3F0EF', tileTealInk: '#0F6D70',
+  tileVioletBg: '#ECE9FB', tileVioletInk: '#5B21B6',
+  tileNavyBgD: '#1E2547', tileNavyInkD: '#C6CCF2',
+  tileGreenBgD: '#14331F', tileGreenInkD: '#A6E7BF',
+  tileRedBgD: '#3B1516', tileRedInkD: '#F4B2B2',
+  tileGoldBgD: '#3A2A0E', tileGoldInkD: '#F3C77C',
+  tileTealBgD: '#0E3130', tileTealInkD: '#8EDFDD',
+  tileVioletBgD: '#241A47', tileVioletInkD: '#CEBFF5',
 } as Record<string, string>
 
 type Pair = { fg: string; bg: string; where: string; large?: boolean }
@@ -226,6 +243,23 @@ const PAIRS: Pair[] = [
   { fg: 'tealInk', bg: 'white', where: 'count tile number, teal tone' },
   { fg: 'violetInk', bg: 'tintViolet', where: 'count tile chip glyph, violet tone' },
   { fg: 'violetInk', bg: 'white', where: 'count tile number, violet tone' },
+
+  // The tinted count-tile boxes (PR34 §2): the number, label and helper all take
+  // the tone's ink on the tone's box tint. Light mode, then dark mode (deeper
+  // muted box, light ink). The chip glyph is white on a brand hue — covered by
+  // the symmetric ink-on-white pairs above.
+  { fg: 'tileNavyInk', bg: 'tileNavyBg', where: 'tinted tile text, navy — light' },
+  { fg: 'tileGreenInk', bg: 'tileGreenBg', where: 'tinted tile text, green — light' },
+  { fg: 'tileRedInk', bg: 'tileRedBg', where: 'tinted tile text, red — light' },
+  { fg: 'tileGoldInk', bg: 'tileGoldBg', where: 'tinted tile text, gold — light' },
+  { fg: 'tileTealInk', bg: 'tileTealBg', where: 'tinted tile text, teal — light' },
+  { fg: 'tileVioletInk', bg: 'tileVioletBg', where: 'tinted tile text, violet — light' },
+  { fg: 'tileNavyInkD', bg: 'tileNavyBgD', where: 'tinted tile text, navy — dark' },
+  { fg: 'tileGreenInkD', bg: 'tileGreenBgD', where: 'tinted tile text, green — dark' },
+  { fg: 'tileRedInkD', bg: 'tileRedBgD', where: 'tinted tile text, red — dark' },
+  { fg: 'tileGoldInkD', bg: 'tileGoldBgD', where: 'tinted tile text, gold — dark' },
+  { fg: 'tileTealInkD', bg: 'tileTealBgD', where: 'tinted tile text, teal — dark' },
+  { fg: 'tileVioletInkD', bg: 'tileVioletBgD', where: 'tinted tile text, violet — dark' },
 
   // The four initials-avatar pairs (lib/brand.ts AVATAR_TINTS). Named here
   // rather than left to the identical pairs above, because the avatar is the

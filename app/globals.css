@@ -82,8 +82,59 @@
   --color-tm-tint-violet: #ece9fb;
   --color-tm-violet-ink: #5b21b6;
 
+  /* ---- Tinted count-tile tokens (PR34 §2) ----------------------------------
+     The dashboard/overview count tiles now wash the WHOLE box in a soft tint,
+     with the number and label in a dark shade of the same colour and the icon
+     in a white glyph on a solid brand-hue chip. These are DEDICATED tokens,
+     separate from the shared tint and ink tokens, for one reason: they carry a
+     dark-mode override (below), and the shared tints are used all over the app
+     on surfaces that are NOT dark-themed — overriding those would darken info
+     panels, avatars and inbox rows on a dark-OS device while the page around
+     them stayed light. Scoping the dark behaviour to these tile tokens keeps it
+     contained. Six tones (navy/green/red/gold/teal/violet — the ones the tiles
+     use; mint is unused). `-bg` is the box, `-ink` is the text; the chip reuses
+     the brand hue tokens (a white glyph on tm-navy / -green-deep / -red /
+     -gold-ink / -teal-ink / -violet-ink). Light values here; dark below. Every
+     text-on-box pair, in both modes, is in scripts/contrast-check.ts. */
+  --color-tm-tile-navy-bg: #e8eaf5;
+  --color-tm-tile-navy-ink: #151e6b;
+  --color-tm-tile-green-bg: #eefbee;
+  --color-tm-tile-green-ink: #2e7d4f;
+  --color-tm-tile-red-bg: #fbeaea;
+  --color-tm-tile-red-ink: #c20202;
+  --color-tm-tile-gold-bg: #fef6e6;
+  --color-tm-tile-gold-ink: #92400e;
+  --color-tm-tile-teal-bg: #d3f0ef;
+  --color-tm-tile-teal-ink: #0f6d70;
+  --color-tm-tile-violet-bg: #ece9fb;
+  --color-tm-tile-violet-ink: #5b21b6;
+
   /* Page ground. */
   --color-tm-bg: #f8fafc;
+}
+
+/* Dark mode for the count tiles (PR34 §2): deeper, muted tints for the box and
+   a light shade of the same colour for the text. Same pattern as the tooltip
+   below — prefers-color-scheme, the only "dark mode" this codebase has. Scoped
+   to the tile tokens ONLY (see the note above): overriding the token the
+   utility already reads swaps the resolved colour in dark without renaming a
+   class or touching any shared tint. The chip stays the fixed brand hue (a
+   white glyph reads on it in both modes). Every pair is contrast-checked. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-tm-tile-navy-bg: #1e2547;
+    --color-tm-tile-navy-ink: #c6ccf2;
+    --color-tm-tile-green-bg: #14331f;
+    --color-tm-tile-green-ink: #a6e7bf;
+    --color-tm-tile-red-bg: #3b1516;
+    --color-tm-tile-red-ink: #f4b2b2;
+    --color-tm-tile-gold-bg: #3a2a0e;
+    --color-tm-tile-gold-ink: #f3c77c;
+    --color-tm-tile-teal-bg: #0e3130;
+    --color-tm-tile-teal-ink: #8edfdd;
+    --color-tm-tile-violet-bg: #241a47;
+    --color-tm-tile-violet-ink: #cebff5;
+  }
 }
 
 /* The document ground, so a page that sets no background still sits on the

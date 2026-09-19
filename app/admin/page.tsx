@@ -89,17 +89,20 @@ export default async function AdminHome() {
             const tone = TILE_TONE[style.tone]
             const Icon = style.icon
             return (
+              // The whole card is washed in the tone's tint (PR34 §2): a white
+              // glyph on the brand-hue chip, and the number, label and meaning
+              // in the tone's dark ink shade.
               <Link
                 key={t.key}
                 href={t.href}
-                className="flex h-full min-h-[104px] flex-col gap-0.5 rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-tm-navy"
+                className={`flex h-full min-h-[104px] flex-col gap-0.5 rounded-2xl border border-black/5 p-4 transition-shadow hover:shadow-md ${tone.card}`}
               >
                 <span className={`mb-1 grid h-9 w-9 place-items-center rounded-xl ${tone.chip}`}>
                   <Icon aria-hidden size={18} />
                 </span>
                 <p className={`text-2xl font-black ${tone.ink}`}>{t.value}</p>
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{t.label}</p>
-                <p className="mt-auto text-[10px] leading-snug text-gray-500">{t.meaning}</p>
+                <p className={`text-[11px] font-bold uppercase tracking-wide ${tone.ink}`}>{t.label}</p>
+                <p className={`mt-auto text-[10px] leading-snug opacity-80 ${tone.ink}`}>{t.meaning}</p>
               </Link>
             )
           })}
