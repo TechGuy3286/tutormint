@@ -1,11 +1,25 @@
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Briefcase, GraduationCap, RefreshCw, Users, Wallet } from 'lucide-react'
+import type { ComponentType } from 'react'
 
 import RevenueChart from '@/components/admin/charts/RevenueChart'
 import SignupsChart from '@/components/admin/charts/SignupsChart'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadOverview } from '@/lib/adminOverview'
+import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
+
+// Each Overview card a distinct colour (PR32 §2) — keyed on the tile's own key,
+// so the tones do not drift if the order changes. Five keys, five distinct tones
+// (the same shared palette the dashboards use); the icon and the number wear the
+// tone, nothing about WHAT each card counts changes.
+const TILE_STYLE: Record<string, { tone: TileTone; icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }> }> = {
+  revenue: { tone: 'green', icon: Wallet },
+  resubscribed: { tone: 'teal', icon: RefreshCw },
+  tutors: { tone: 'navy', icon: GraduationCap },
+  parents: { tone: 'violet', icon: Users },
+  jobs: { tone: 'gold', icon: Briefcase },
+}
 
 // The admin landing: how much the platform is earning, and who to nudge onto a
 // plan (owner, 14 Sep 2026). The queue tiles and the "Needs attention" block
@@ -70,17 +84,25 @@ export default async function AdminHome() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {tiles.map((t) => (
-            <Link
-              key={t.key}
-              href={t.href}
-              className="flex h-full min-h-[104px] flex-col gap-0.5 rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-tm-navy"
-            >
-              <p className="text-2xl font-black text-tm-navy">{t.value}</p>
-              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{t.label}</p>
-              <p className="mt-auto text-[10px] leading-snug text-gray-500">{t.meaning}</p>
-            </Link>
-          ))}
+          {tiles.map((t) => {
+            const style = TILE_STYLE[t.key] ?? { tone: 'navy' as TileTone, icon: Wallet }
+            const tone = TILE_TONE[style.tone]
+            const Icon = style.icon
+            return (
+              <Link
+                key={t.key}
+                href={t.href}
+                className="flex h-full min-h-[104px] flex-col gap-0.5 rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-tm-navy"
+              >
+                <span className={`mb-1 grid h-9 w-9 place-items-center rounded-xl ${tone.chip}`}>
+                  <Icon aria-hidden size={18} />
+                </span>
+                <p className={`text-2xl font-black ${tone.ink}`}>{t.value}</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{t.label}</p>
+                <p className="mt-auto text-[10px] leading-snug text-gray-500">{t.meaning}</p>
+              </Link>
+            )
+          })}
         </div>
       )}
 
@@ -88,9 +110,9 @@ export default async function AdminHome() {
       {seesMembers && (
         <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="border-b border-gray-200 px-4 py-3 sm:px-5">
-            <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">Tips</h2>
+            <h2 className="text-sm font-black text-tm-navy">Tutors to nudge to get verified</h2>
             <p className="mt-0.5 text-[11px] text-gray-500">
-              Tutors to nudge onto a plan. Each row opens the exact list.
+              Each row opens the exact list.
             </p>
           </div>
           <ul>

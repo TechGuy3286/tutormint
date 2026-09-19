@@ -54,7 +54,19 @@ export default function BuyButton({
       mode?: string
       url?: string
       next?: string
+      needsVerify?: boolean
+      verifyHref?: string
     }>('/api/payments/checkout', { planCode })
+
+    // Verification before plan (PR32 §3): an unverified tutor tapping Premium or
+    // Featured is sent to get verified FIRST, carrying a return to the plan they
+    // chose, rather than shown a dead error.
+    if (data?.needsVerify && data.verifyHref) {
+      const back = `${pathname}?plan=${planCode}`
+      const sep = data.verifyHref.includes('?') ? '&' : '?'
+      router.push(`${data.verifyHref}${sep}next=${encodeURIComponent(back)}`)
+      return
+    }
 
     if (!ok || !data) {
       setError(failed ?? 'Could not start the payment.')

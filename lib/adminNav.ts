@@ -67,10 +67,10 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: 'Members',
+    title: 'People',
     color: 'navy', // #151E6B
     items: [
-      { href: '/admin/users', label: 'Members', icon: 'contact', screen: 'users' },
+      { href: '/admin/users', label: 'People', icon: 'contact', screen: 'users' },
       // Orphaned accounts folded into Abandoned signups as a second section
       // (owner, 14 Sep 2026) — /admin/orphans now redirects there.
       { href: '/admin/signups', label: 'Abandoned signups', icon: 'userPlus', screen: 'signups' },
@@ -141,7 +141,9 @@ export const SECTION_LABELS: Record<string, string> = {
   team: 'Team',
   tutors: 'Tutors',
   usage: 'Quota usage',
-  users: 'Members',
+  // "Members" → "People" everywhere admin reads it (owner PR32 §6). The URL stays
+  // /admin/users — only the label changes.
+  users: 'People',
 }
 
 export type Crumb = { label: string; href?: string }
@@ -174,7 +176,7 @@ export function adminTrail(
         // Fallbacks for when the lookup found nothing: the row may have been
         // deleted between the link and the click. A word beats a uuid.
         (parts[i - 1] === 'users'
-          ? 'Member'
+          ? 'Person'
           : parts[i - 1] === 'jobs'
             ? 'Tuition'
             : parts[i - 1] === 'tutors'

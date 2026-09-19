@@ -203,14 +203,14 @@ export async function loadOverview(): Promise<Overview | null> {
     {
       key: 'unpaid-tutors',
       label: 'Unpaid tutors',
-      meaning: 'No active plan — newest first',
+      meaning: 'Verification fee not paid — newest first',
       href: '/admin/users?tip=unpaid-tutors',
       count: tips.unpaidTutors,
     },
     {
       key: 'listed-unpaid',
       label: 'Listed but unpaid',
-      meaning: 'Complete, verified, no plan — closest to converting',
+      meaning: 'Shown in Browse, fee not paid — closest to converting',
       href: '/admin/users?tip=listed-unpaid',
       count: tips.listedUnpaid,
     },

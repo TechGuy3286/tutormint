@@ -42,7 +42,7 @@ export default function MemberSearch({
       <Typeahead
         initialQuery={initialQuery}
         placeholder="Name, email, mobile or profile slug"
-        ariaLabel="Search members"
+        ariaLabel="Search people"
         suggest={false}
         onQueryChange={(q) => apply(q, true)}
         onCommit={(q) => apply(q, false)}

@@ -93,6 +93,14 @@ const C = {
   gray500: '#6B7280',
   gray100: '#F3F4F6',
   gray700: '#374151',
+  // The two added tile tones (PR32 §2). Defined in app/globals.css @theme;
+  // repeated here because the pair list needs their hex to check them, exactly
+  // as the neutrals above are. Kept in sync with globals.css by hand — a mismatch
+  // shows as a failing pair below.
+  tintTeal: '#D3F0EF',
+  tealInk: '#0F6D70',
+  tintViolet: '#ECE9FB',
+  violetInk: '#5B21B6',
 } as Record<string, string>
 
 type Pair = { fg: string; bg: string; where: string; large?: boolean }
@@ -208,6 +216,16 @@ const PAIRS: Pair[] = [
   { fg: 'gray700', bg: 'tintGold', where: 'your-things tile label, gold tone' },
   { fg: 'gray700', bg: 'tintMint', where: 'your-things tile label, mint tone' },
   { fg: 'gray700', bg: 'white', where: 'your-things tile note pill' },
+
+  // The count-tile tones (lib/tileTones.ts, PR32 §2). Every dashboard and admin
+  // Overview count tile is a white card with a tinted icon chip and a coloured
+  // number. The ink is on the tint (the chip glyph) and on white (the number);
+  // navy/green/red/gold are already above, so only the two added tones need
+  // listing — on their own tint (chip) and on white (number).
+  { fg: 'tealInk', bg: 'tintTeal', where: 'count tile chip glyph, teal tone' },
+  { fg: 'tealInk', bg: 'white', where: 'count tile number, teal tone' },
+  { fg: 'violetInk', bg: 'tintViolet', where: 'count tile chip glyph, violet tone' },
+  { fg: 'violetInk', bg: 'white', where: 'count tile number, violet tone' },
 
   // The four initials-avatar pairs (lib/brand.ts AVATAR_TINTS). Named here
   // rather than left to the identical pairs above, because the avatar is the

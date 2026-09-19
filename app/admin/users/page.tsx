@@ -125,7 +125,7 @@ export default async function AdminUsersPage({
           </p>
         ) : (
           <p className="text-xs text-gray-500">
-            {count} {count === 1 ? 'member' : 'members'}
+            {count} {count === 1 ? 'person' : 'people'}
             {active === 'tutor' ? ' — tutors' : active === 'parent' ? ' — parents' : active === 'admin' ? ' — staff' : active === 'suspended' ? ' — suspended' : ''}
             {term ? ` matching “${term}”` : ''}.
           </p>

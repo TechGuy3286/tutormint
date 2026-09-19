@@ -71,6 +71,17 @@
   --color-tm-tint-gold: #fef6e6;
   --color-tm-tint-mint: #d5f5e3;
 
+  /* Two further tile tones (PR32 §2). The dashboard/overview count tiles need
+     six DISTINCT inks so no two tiles share a number colour; the four brand
+     tints plus these two give six, each a tint + a readable ink. They go beyond
+     the four brand hues deliberately (the owner allowed colours past brand for
+     the tiles) but clear WCAG AA on both their own tint and white — the pairs
+     are in scripts/contrast-check.ts. Used only through lib/tileTones.ts. */
+  --color-tm-tint-teal: #d3f0ef;
+  --color-tm-teal-ink: #0f6d70;
+  --color-tm-tint-violet: #ece9fb;
+  --color-tm-violet-ink: #5b21b6;
+
   /* Page ground. */
   --color-tm-bg: #f8fafc;
 }

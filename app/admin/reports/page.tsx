@@ -49,7 +49,7 @@ export default async function AdminReportsPage({
           className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
         >
           <Users aria-hidden size={14} />
-          Members
+          People
         </Link>
       </header>
 

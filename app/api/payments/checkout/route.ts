@@ -70,6 +70,31 @@ export async function POST(request: Request) {
     )
   }
 
+  // VERIFICATION BEFORE PLAN (owner PR32 §3). A tutor cannot buy Premium or
+  // Featured before the one-time Rs 199 verification fee is paid — a tutor is
+  // never Premium/Featured while unverified. Send them to get verified first
+  // (the fee flow), then back to the plan they chose. This is the server guard;
+  // activate.ts additionally pauses any such plan that slips through a gateway,
+  // so an unverified account can never hold an ACTIVE Premium/Featured.
+  if (audience === 'tutor' && (plan.code === 'premium' || plan.code === 'featured')) {
+    const { data: tp } = await supabase
+      .from('tutor_profiles')
+      .select('verified_fee_paid_at')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (!tp?.verified_fee_paid_at) {
+      return NextResponse.json(
+        {
+          error: `Get verified first. ${plan.name} is for verified tutors — pay the one-time verification fee, then choose ${plan.name}.`,
+          needsVerify: true,
+          planCode: plan.code,
+          verifyHref: '/tutor/complete-profile?step=verify',
+        },
+        { status: 400 },
+      )
+    }
+  }
+
   const provider = getProvider()
   const reference = newPaymentReference()
 

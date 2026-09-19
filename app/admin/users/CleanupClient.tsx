@@ -86,7 +86,7 @@ export default function CleanupClient({
     <div className="space-y-5">
       <header className="space-y-2">
         <Link href="/admin/users" className="text-xs font-bold text-tm-red hover:underline">
-          ← All members
+          ← All people
         </Link>
         <h2 className="text-lg font-black text-tm-navy">Junk accounts</h2>
         <p className="text-xs leading-relaxed text-gray-500">

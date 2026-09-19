@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { TILE_TONE, type TileTone } from '@/lib/tileTones'
+
 // One square dashboard tile — the shared shape behind BOTH the "Your things"
 // grid and the Activity band, so the two dashboards cannot drift into two card
 // languages again.
@@ -15,20 +17,7 @@ import type { ReactNode } from 'react'
 // link — there is no second tap target inside it, which is what lets it stay a
 // clean square at 360px where a button row would wrap.
 
-export type TileTone = 'navy' | 'green' | 'red' | 'gold' | 'mint'
-
-// chip = the tint ground + the family ink for the icon; every pair here is in
-// scripts/contrast-check.ts (the tint-chip rows). ink = the same family ink,
-// used for the count on the WHITE card. The mint tone uses navy ink — mint's
-// own family ink (green-deep) is marginal on the most saturated tint, and navy
-// clears AA on both the chip and white.
-const TONE: Record<TileTone, { chip: string; ink: string }> = {
-  navy: { chip: 'bg-tm-tint-navy text-tm-navy', ink: 'text-tm-navy' },
-  green: { chip: 'bg-tm-tint-green text-tm-green-deep', ink: 'text-tm-green-deep' },
-  red: { chip: 'bg-tm-tint-red text-tm-red', ink: 'text-tm-red' },
-  gold: { chip: 'bg-tm-tint-gold text-tm-gold-ink', ink: 'text-tm-gold-ink' },
-  mint: { chip: 'bg-tm-tint-mint text-tm-navy', ink: 'text-tm-navy' },
-}
+export type { TileTone }
 
 export default function StatTile({
   href,
@@ -61,7 +50,7 @@ export default function StatTile({
    *  card takes a red border so the eye lands on it, whatever its tone. */
   highlight?: boolean
 }) {
-  const t = TONE[tone]
+  const t = TILE_TONE[tone]
   return (
     <li>
       <Link

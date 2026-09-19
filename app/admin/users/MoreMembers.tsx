@@ -38,8 +38,8 @@ export default function MoreMembers({
         loadMore={loadMore}
         sentinel={sentinel}
         loadedCount={serverCount + items.length}
-        noun="members"
-        endLabel={`That’s everyone — ${serverCount + items.length} members.`}
+        noun="people"
+        endLabel={`That’s everyone — ${serverCount + items.length} people.`}
       />
     </>
   )
