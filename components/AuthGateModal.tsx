@@ -111,7 +111,13 @@ export default function AuthGateModal({
   const goToLogin = () => {
     if (draft !== undefined) saveDraft(intent, draft)
     const target = next ?? (typeof window !== 'undefined' ? window.location.pathname : '/')
-    router.push(`/login?next=${encodeURIComponent(target)}`)
+    // Carry the role the sign-up form should start on (owner PR33 §3): every
+    // gated action here is a PARENT one except applying, which is the tutor's.
+    // /login forwards this to its "Create an account" link, so a guest who
+    // messages a tutor lands on a sign-up form with Parent pre-selected — even
+    // though `next` is that tutor's own page.
+    const role = intent === 'apply' ? 'tutor' : 'parent'
+    router.push(`/login?next=${encodeURIComponent(target)}&role=${role}`)
   }
 
   return (

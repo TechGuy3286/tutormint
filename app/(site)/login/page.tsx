@@ -22,9 +22,12 @@ import LoginForm from './LoginForm'
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>
+  searchParams: Promise<{ next?: string; role?: string }>
 }) {
-  const { next } = await searchParams
+  const { next, role } = await searchParams
   await redirectIfSignedIn(next)
-  return <LoginForm next={next ?? null} />
+  // `role` is a sign-up hint (owner PR33 §3) carried from a gated parent/tutor
+  // action; it means nothing to signing in, only to the "Create an account"
+  // link, which forwards it to /register.
+  return <LoginForm next={next ?? null} role={role ?? null} />
 }

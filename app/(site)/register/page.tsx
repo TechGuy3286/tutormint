@@ -1,4 +1,5 @@
 import { redirectIfSignedIn } from '@/lib/auth'
+import { defaultRegisterRole } from '@/lib/authRoutes'
 
 import RegisterForm from './RegisterForm'
 
@@ -21,12 +22,17 @@ import RegisterForm from './RegisterForm'
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>
+  searchParams: Promise<{ next?: string; role?: string }>
 }) {
-  const { next } = await searchParams
+  const { next, role } = await searchParams
   // Somebody with a session is not creating an account. Before this they saw
   // the form, filled it in and were told the mobile number was already taken --
   // by themselves.
   await redirectIfSignedIn(next)
-  return <RegisterForm next={next} />
+  // Tutor by default; the parent card starts checked only when a parent action
+  // sent them here (owner PR33 §3). Decided on the server so the checked radio
+  // is in the shipped HTML — the page is the platform's main conversion surface
+  // and must not depend on JS to show the right default.
+  const initialRole = defaultRegisterRole(role, next)
+  return <RegisterForm next={next} initialRole={initialRole} />
 }

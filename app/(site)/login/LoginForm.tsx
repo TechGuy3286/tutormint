@@ -43,7 +43,7 @@ const helpWhatsappHref = whatsappHref(
 // response shape lands in a branch, and the navigation itself has a deadline
 // after which the member is given a link and their button back.
 
-export default function LoginForm({ next }: { next: string | null }) {
+export default function LoginForm({ next, role }: { next: string | null; role?: string | null }) {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
@@ -249,7 +249,15 @@ export default function LoginForm({ next }: { next: string | null }) {
                   back on what they were doing -- through signup AND through the
                   phone gate. */}
               <Link
-                href={next ? `/register?next=${encodeURIComponent(next)}` : '/register'}
+                href={(() => {
+                  // Forward BOTH `next` (the interrupted action) and `role` (the
+                  // sign-up default hint, owner PR33 §3) to the sign-up page.
+                  const p = new URLSearchParams()
+                  if (next) p.set('next', next)
+                  if (role === 'parent' || role === 'tutor') p.set('role', role)
+                  const q = p.toString()
+                  return q ? `/register?${q}` : '/register'
+                })()}
                 className="font-bold text-tm-red hover:underline"
               >
                 Create an account

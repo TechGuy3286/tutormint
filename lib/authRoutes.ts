@@ -40,6 +40,36 @@ export function homeForRole(role: Role | null | undefined): string {
 }
 
 /**
+ * Which role the Create-your-account form starts on (owner PR33 §3).
+ *
+ * Default is 'tutor'. The exception is a PARENT action — post a tuition, message
+ * a tutor, request a demo, hire, shortlist — where the parent card is
+ * pre-selected instead. The signal is, in order:
+ *
+ *   1. an explicit `role` hint the entry point put on the URL — the reliable one,
+ *      set by AuthGateModal from the intent and carried through /login. It is the
+ *      ONLY correct signal for "a parent messages a tutor", where `next` is the
+ *      tutor's own /tutor/[slug] page and would otherwise read as a tutor action.
+ *   2. the `next` return path's namespace — /parent/* → parent, /tutor/* → tutor
+ *      — which catches the entry points that redirect through a role layout
+ *      without the modal (a guest tapping "Post your tuition" → /parent/…).
+ *   3. otherwise 'tutor'.
+ *
+ * The member can still switch either card; this only sets which starts checked.
+ */
+export function defaultRegisterRole(
+  roleParam: string | null | undefined,
+  next: string | null | undefined,
+): 'tutor' | 'parent' {
+  if (roleParam === 'parent' || roleParam === 'tutor') return roleParam
+  if (next && next.startsWith('/') && !next.startsWith('//')) {
+    if (next.startsWith('/parent')) return 'parent'
+    if (next.startsWith('/tutor')) return 'tutor'
+  }
+  return 'tutor'
+}
+
+/**
  * True when `next` is a safe same-origin path this role is allowed to land on.
  * Guards against open redirects (protocol-relative or absolute URLs) and stops
  * a parent being sent to a tutor page just because ?next= said so.

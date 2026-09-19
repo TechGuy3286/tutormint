@@ -50,7 +50,9 @@ function identifierShape(v: string): 'mobile' | 'email' | 'unknown' {
 }
 
 const ROLES: { value: Role; label: string; helper?: string }[] = [
-  { value: 'tutor', label: 'Tutor' },
+  // Both cards carry one line of helper text so they read as equals (owner
+  // PR33 §3); the Tutor line matches the Parent line's size and colour.
+  { value: 'tutor', label: 'Tutor', helper: 'Teach at home or online.' },
   {
     value: 'parent',
     label: 'Parent / Institution',
@@ -58,8 +60,16 @@ const ROLES: { value: Role; label: string; helper?: string }[] = [
   },
 ]
 
-export default function RegisterForm({ next }: { next?: string }) {
-  const [role, setRole] = useState<Role>('parent')
+export default function RegisterForm({
+  next,
+  initialRole = 'tutor',
+}: {
+  next?: string
+  /** Which card starts checked. Tutor by default; parent for a parent action
+   *  (owner PR33 §3). Decided on the server (see lib/authRoutes.defaultRegisterRole). */
+  initialRole?: Role
+}) {
+  const [role, setRole] = useState<Role>(initialRole)
   const [fullName, setFullName] = useState('')
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')

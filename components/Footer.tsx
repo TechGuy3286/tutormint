@@ -34,12 +34,27 @@ import FooterTagline from '@/components/FooterTagline'
 import { supportContactFromEnv, formatSupportWhatsApp, whatsappHref } from '@/lib/support'
 import { getSessionUser } from '@/lib/auth'
 
-type SocialLink = { name: string; icon: string; href: string }
+type SocialLink = {
+  name: string
+  icon: string
+  href: string
+  /** Overrides the default `TutorMint on <name>` aria-label. */
+  label?: string
+  /** Overrides the default `noopener noreferrer me` (the `me` marks an owned
+   *  profile — wrong for the support WhatsApp line). */
+  rel?: string
+}
 type FooterLink = { label: string; href: string }
 type LinkColumn = { heading: string; links: FooterLink[] }
 
-/** The social profiles, in the reference's order. Only configured ones render. */
-function socialLinks(): SocialLink[] {
+/**
+ * The social row's icons, in the reference's order. The five brand profiles are
+ * env-configured and only a configured one renders; the WhatsApp support icon
+ * (owner PR33 §2) always renders — its number is the one support constant, never
+ * env-gated — and sits last, so a full set wraps as a tidy 3 + 3. The wa.me link
+ * is built from the SAME support source the "WhatsApp us" auth links use.
+ */
+function socialLinks(supportWhatsapp: string | null): SocialLink[] {
   const configured: [string, string, string | undefined][] = [
     ['Facebook', '/facebook.png', process.env.SOCIAL_FACEBOOK],
     ['Instagram', '/instagram.png', process.env.SOCIAL_INSTAGRAM],
@@ -48,9 +63,21 @@ function socialLinks(): SocialLink[] {
     ['TikTok', '/tiktok.png', process.env.SOCIAL_TIKTOK],
   ]
 
-  return configured
+  const links: SocialLink[] = configured
     .filter(([, , href]) => !!href?.trim())
     .map(([name, icon, href]) => ({ name, icon, href: href!.trim() }))
+
+  const wa = whatsappHref(supportWhatsapp)
+  if (wa) {
+    links.push({
+      name: 'WhatsApp',
+      icon: '/whatsapp.png',
+      href: wa,
+      label: 'WhatsApp support',
+      rel: 'noopener noreferrer',
+    })
+  }
+  return links
 }
 
 /** The two link columns whose auth links are hidden once signed in. */
@@ -95,7 +122,7 @@ function linkColumns(signedIn: boolean): LinkColumn[] {
 
 export default async function Footer() {
   const support = supportContactFromEnv()
-  const socials = socialLinks()
+  const socials = socialLinks(support.whatsapp)
   const signedIn = !!(await getSessionUser())
   const columns = linkColumns(signedIn)
   const year = new Date().getFullYear()
@@ -205,18 +232,23 @@ export default async function Footer() {
   )
 }
 
-/** One row of social icons. Only configured profiles render. */
+/**
+ * The social icons. Three to a row (`grid-cols-3`, `w-max` so the block stays as
+ * wide as its icons rather than the column), so a full set of six wraps as a
+ * tidy 3 + 3 at 360px and on the narrow desktop brand column alike. Each icon
+ * keeps its 44px tap target. WhatsApp carries its own label and rel.
+ */
 function SocialRow({ socials }: { socials: SocialLink[] }) {
   if (socials.length === 0) return null
   return (
-    <ul className="mt-2 flex flex-wrap items-center gap-1">
+    <ul className="mt-2 grid w-max grid-cols-3 gap-1">
       {socials.map((s) => (
         <li key={s.name}>
           <a
             href={s.href}
             target="_blank"
-            rel="noopener noreferrer me"
-            aria-label={`TutorMint on ${s.name}`}
+            rel={s.rel ?? 'noopener noreferrer me'}
+            aria-label={s.label ?? `TutorMint on ${s.name}`}
             className="flex h-11 w-11 items-center justify-center rounded-lg transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tm-mint"
           >
             <Image src={s.icon} alt="" width={2048} height={2048} sizes="20px" className="h-5 w-5 object-contain" />
