@@ -522,3 +522,37 @@ test('PR35 §4: a link to an unpublished post is a blocking problem', () => {
   const problems = collectBlogProblems(body, { publishedPostSlugs: ['o-level-guide'], landingPaths: [] })
   assert.ok(problems.some((p) => /does-not-exist/.test(p.message)), 'the unpublished link is flagged')
 })
+
+// ── PR36 — one shared route list; AI link map and checker agree ──
+import { invalidInternalLinks as iil36 } from '../lib/ai/platformFacts'
+import { PLATFORM_LINK_MAP } from '../lib/ai/platformFacts'
+import { staticValidPaths } from '../lib/ai/blogRoutes'
+
+test('PR36 §2: the post-a-tuition link is valid for the checker', () => {
+  // The exact path the AI link map offers is in the checker's valid set.
+  assert.ok(staticValidPaths().includes('/parent/dashboard/post-job'))
+  assert.ok(PLATFORM_LINK_MAP.some((l) => l.path === '/parent/dashboard/post-job'))
+  assert.deepEqual(iil36('Parents can [post a tuition](/parent/dashboard/post-job).', []), [])
+})
+
+test('PR36 §4: a draft with the post-job link has zero problems', () => {
+  const body = [
+    'Parents can [post a tuition](/parent/dashboard/post-job).',
+    'See [membership plans](/membership-plans) and [the FAQ](/faq).',
+    'Read [a guide](/blog/o-level-guide).',
+  ].join('\n\n')
+  const problems = collectBlogProblems(body, { publishedPostSlugs: ['o-level-guide'], landingPaths: [] })
+  assert.deepEqual(problems, [], problems.map((p) => p.message).join(' | '))
+})
+
+test('PR36 §4: sanitizeDraft removes a link to an unknown page (keeps the words)', () => {
+  const raw = [
+    'Try our [magic matcher](/parent/magic-match) today.',
+    'See [membership plans](/membership-plans) and [the FAQ](/faq).',
+  ].join('\n\n')
+  const fixed = sanitizeDraft(raw, { blogSlugs: ['o-level-guide'], audience: 'parents', landingPaths: [] })
+  assert.ok(!fixed.includes('(/parent/magic-match)'), 'the unknown link is gone')
+  assert.ok(fixed.includes('magic matcher'), 'the words survive')
+  const problems = collectBlogProblems(fixed, { publishedPostSlugs: ['o-level-guide'], landingPaths: [] })
+  assert.deepEqual(problems, [], problems.map((p) => p.message).join(' | '))
+})

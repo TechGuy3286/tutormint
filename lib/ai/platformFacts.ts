@@ -23,7 +23,7 @@
 // degree + an intro video (verification_status). Parents' Verified is CNIC +
 // address. One sentence the prompt and any explainer reuse — never reworded.
 export const VERIFIED_BADGE_MEANING =
-  'The Verified badge on a tutor means they have paid the one-time verification fee and the team has checked their identity (CNIC), a degree certificate and an introduction video; a tutor without a reviewed degree on file does not get the Verified badge. A tutor’s experience, fees and subjects are self-declared and are NOT checked. On a parent, Verified means their CNIC and address were approved.'
+  'On a tutor, the Verified badge means they have paid the one-time verification fee and have a reviewed degree certificate on file — those two are what the code requires for the badge; the team also checks identity (CNIC) and an introduction video when verifying a tutor, but those are not what the badge itself requires, and a tutor’s experience, fees and subjects are self-declared and never checked. On a parent, Verified means their CNIC and address were approved.'
 
 export const PLATFORM_FACTS_TEXT = [
   'TutorMint — how it actually works (do NOT contradict any of this):',
@@ -62,26 +62,14 @@ export const PLATFORM_FACTS_TEXT = [
 
 // ─────────────────────────────────────────────────────────── the link map ──
 //
-// The ONE place the blog's internal links are defined (PR35 §2). The AI prompt
-// renders LINK_MAP_TEXT so it links the right page for each intent, and the
-// editor's Link picker offers the same set. Every path is relative and exists.
-// The cardinal rule: a parent posting a tuition goes to the real post-a-tuition
-// page, NEVER to /browse/tuitions.
-export const PLATFORM_LINK_MAP: { intent: string; path: string; text: string }[] = [
-  { intent: 'A parent posting a tuition', path: '/parent/dashboard/post-job', text: 'post a tuition' },
-  { intent: 'A tutor finding work', path: '/browse/tuitions', text: 'open tuitions' },
-  { intent: 'Finding tutors', path: '/browse/tutors', text: 'browse tutors' },
-  { intent: 'Plans and pricing', path: '/membership-plans', text: 'membership plans' },
-  { intent: 'Questions and answers', path: '/faq', text: 'the FAQ' },
-]
-
-/** The link map as prompt text — each intent, the exact path, and the words to
- *  use for the link. */
-export const LINK_MAP_TEXT = [
-  'LINK MAP — link the RIGHT page for each intent, using the exact relative path (never a full https://tutormint.org URL):',
-  ...PLATFORM_LINK_MAP.map((l) => `- ${l.intent} → ${l.path} (link text like "${l.text}")`),
-  'NEVER send a parent who wants to post a tuition to /browse/tuitions — that page is for tutors finding work.',
-].join('\n')
+// The link map and the checker's valid-page list are ONE list now (PR36 §2),
+// defined in lib/ai/blogRoutes.ts and re-exported here so the existing importers
+// (the prompt via lib/ai/blogCopy, the Link picker in PostEditor) are unchanged.
+// PLATFORM_LINK_MAP is the AI-offered subset; the checker's static allowlist is
+// staticValidPaths() from the same module (used in invalidInternalLinks below),
+// so a draft can never link a page the checker then rejects.
+export { LINK_MAP as PLATFORM_LINK_MAP, LINK_MAP_TEXT } from './blogRoutes'
+import { staticValidPaths } from './blogRoutes'
 
 // ─────────────────────────────────────────────── contradiction check (§6.2) ──
 //
@@ -246,10 +234,10 @@ export function internalLinksIn(body: string): string[] {
  */
 export function invalidInternalLinks(body: string, allowed: string[]): string[] {
   const ok = new Set(allowed.map((h) => h.split('#')[0].replace(/\/$/, '') || '/'))
-  // Always-valid destinations a post may link without them being in the live set.
-  for (const h of ['/membership-plans', '/faq', '/browse/tutors', '/browse/tuitions', '/about', '/support', '/blog', '/register', '/']) {
-    ok.add(h)
-  }
+  // The always-valid static pages come from the ONE shared list (PR36 §2), the
+  // same list the AI link map is built from — so a page the AI is told to link
+  // (e.g. /parent/dashboard/post-job) is never rejected here.
+  for (const h of staticValidPaths()) ok.add(h.split('#')[0].replace(/\/$/, '') || '/')
   return internalLinksIn(body).filter((h) => !ok.has(h))
 }
 

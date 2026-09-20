@@ -380,7 +380,7 @@ export default function PostEditor({
       // stripped, and the required links (/membership-plans, /faq, one published
       // post) added in a closing line if missing. A draft out of this passes
       // every LINK rule by construction.
-      const opts = { blogSlugs: publishedPostSlugs, audience: post.audience }
+      const opts = { blogSlugs: publishedPostSlugs, audience: post.audience, landingPaths }
       let assembled = sanitizeDraft(draftAssemble(parts), opts)
 
       // §1.3: reject a draft that echoed instructions or internal data.

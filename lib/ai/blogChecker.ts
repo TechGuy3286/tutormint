@@ -28,6 +28,7 @@ import {
   invalidInternalLinks,
   linkRuleViolations,
 } from './platformFacts'
+import { staticValidPaths, suggestValidPage } from './blogRoutes'
 import { scaffoldViolations, promptLeakViolations } from './blogBrief'
 
 // ─────────────────────────────────────────────────────────── plain text ──
@@ -119,10 +120,12 @@ export function collectBlogProblems(body: string, ctx: CheckerContext): BlogProb
     ...ctx.publishedPostSlugs.map((s) => `/blog/${s}`),
   ]
   for (const href of invalidInternalLinks(body, allowed)) {
-    const what = href.startsWith('/blog/')
+    const base = href.startsWith('/blog/')
       ? `This links to a blog post that is not published: ${href}`
       : `This links to a page that does not exist: ${href}`
-    add(what, headingForLink(body, href))
+    // Plain-words guidance on which page to use instead (PR36 §2).
+    const hint = suggestValidPage(href)
+    add(hint ? `${base} — ${hint}` : base, headingForLink(body, href))
   }
 
   for (const v of linkRuleViolations(body, { hasPublishedPosts: ctx.publishedPostSlugs.length > 0 })) {
@@ -156,6 +159,9 @@ export type SanitizeOptions = {
   /** Published post slugs other than this post — for the "one blog link" rule. */
   blogSlugs: string[]
   audience: 'parents' | 'tutors' | 'both'
+  /** Live landing-page paths (with leading slash), so a valid landing link is
+   *  not stripped as unknown. Optional; defaults to none. */
+  landingPaths?: string[]
 }
 
 /**
@@ -180,6 +186,20 @@ export function sanitizeDraft(body: string, opts: SanitizeOptions): string {
 
   // 2. A demo is never "free".
   out = out.replace(/\bfree\s+(demos?)\b/gi, '$1')
+
+  // 2b. Unlink any internal link to a page that is NOT valid (PR36 §4): the
+  // shared static pages, a published /blog/<slug>, or a live landing page. An
+  // unknown page (an old /parent/dashboard/post-job typo, an invented path) is
+  // turned back into plain text, so a draft never carries a dead link. The
+  // required links are ensured afterwards, so the post still passes the checker.
+  {
+    const valid = new Set<string>(staticValidPaths().map(normHref))
+    for (const s of opts.blogSlugs) valid.add(`/blog/${s}`)
+    for (const p of opts.landingPaths ?? []) valid.add(normHref(p))
+    out = out.replace(INTERNAL_LINK_RE, (m, text: string, href: string) =>
+      valid.has(normHref(href)) ? m : text,
+    )
+  }
 
   // 3. Unlink an internal link repeated after its first occurrence.
   {
