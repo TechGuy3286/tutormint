@@ -594,3 +594,23 @@ test('the banned-login message is exact and owner-locked', () => {
     'Your account has been banned due to fraudulent activities. Please contact support.',
   )
 })
+
+// ── PR37 — one shared indexability rule (lib/seo/indexable) ──
+import { tutorProfileIndexable, tuitionIndexable } from '../lib/seo/indexable'
+
+test('PR37: a tutor is indexable only at 100% + fee paid, never seed/under-review', () => {
+  const base = { feePaid: true, profileCompletion: 100, isSeed: false, underReview: false }
+  assert.equal(tutorProfileIndexable(base), true)
+  assert.equal(tutorProfileIndexable({ ...base, profileCompletion: 99 }), false, 'under 100%')
+  assert.equal(tutorProfileIndexable({ ...base, feePaid: false }), false, 'no fee')
+  assert.equal(tutorProfileIndexable({ ...base, isSeed: true }), false, 'seed never indexable')
+  assert.equal(tutorProfileIndexable({ ...base, underReview: true }), false, 'under review')
+})
+
+test('PR37: a tuition is indexable only when open and not a fixture', () => {
+  assert.equal(tuitionIndexable({ status: 'open', isFixture: false }), true)
+  assert.equal(tuitionIndexable({ status: 'paused', isFixture: false }), false, 'paused')
+  assert.equal(tuitionIndexable({ status: 'closed', isFixture: false }), false, 'closed')
+  assert.equal(tuitionIndexable({ status: 'hired', isFixture: false }), false, 'hired')
+  assert.equal(tuitionIndexable({ status: 'open', isFixture: true }), false, 'seed/fixture')
+})

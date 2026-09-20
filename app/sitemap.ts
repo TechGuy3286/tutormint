@@ -25,8 +25,16 @@ import { publishedSlugs } from '@/lib/blogFeed'
 // THE HOST MUST MATCH THE CANONICAL. lib/siteUrl.ts resolves to www, and
 // next.config.ts permanently redirects the apex to it -- a sitemap listing
 // apex URLs would hand a crawler a list of redirects.
+//
+// COMPUTED ON EVERY REQUEST (PR37 §3). With only `revalidate` this file was
+// prerendered at build and served stale — a newly published post was missing
+// and every lastmod was frozen at the build time. force-dynamic reads the
+// database on each fetch, so a newly published post, a newly qualifying tutor or
+// a new open tuition appears (and one that stops qualifying drops out) with no
+// redeploy, and every lastmod is the record's own updated time. A crawler fetches
+// the sitemap rarely, so the few RPCs per fetch are cheap.
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 const BASE = SITE_URL
 

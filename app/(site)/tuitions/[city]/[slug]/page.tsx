@@ -16,6 +16,7 @@ import { getEntitlements } from '@/lib/entitlements'
 import { jobByPublicSlug, similarOpenTuitions } from '@/lib/jobFeed'
 import { tuitionPublicState, pauseCountdownLabel } from '@/lib/tuitionStatus'
 import { isFixtureTuition } from '@/lib/fixtures'
+import { tuitionIndexable } from '@/lib/seo/indexable'
 import JobCard from '@/components/JobCard'
 import ResumeInline from './ResumeInline'
 import { citySegment } from '@/lib/slugs'
@@ -121,8 +122,6 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       : `${pageHeadline} — apply free`,
   )
 
-  const state = tuitionPublicState(job.status)
-
   // A FIXTURE tuition (seed parent / JOB-TRK bulk import / SEED-JOB) is noindex
   // regardless (owner, 10 Sep 2026). And a paused/closed/hired tuition is 200 +
   // noindex (PR28 §6) — de-listed from Google's jobs results while it is not
@@ -133,7 +132,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     parentIsSeed: job.poster_is_seed,
     postedByTeam: job.posted_by_team,
   })
-  const noindex = !state.indexable || fixture
+  // PR37 §2 — the one shared indexability rule (open + not a fixture).
+  const noindex = !tuitionIndexable({ status: job.status, isFixture: fixture })
 
   return {
     title,

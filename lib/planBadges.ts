@@ -11,6 +11,8 @@
 // plan code that the SERVER already resolved to the badges that plan grants.
 // A client component can render a badge; it can never grant one.
 
+import { tutorProfileIndexable } from '@/lib/seo/indexable'
+
 export type BadgeName = 'Verified' | 'Premium' | 'Featured'
 
 const TUTOR_PLANS = new Set(['basic', 'premium', 'featured'])
@@ -134,12 +136,15 @@ export function tutorProfileNoindex(input: {
   underReview?: boolean | null
   isSeed?: boolean | null
 }): boolean {
-  if (input.isSeed) return true
-  if (input.underReview) return true
-  // PR16 §1.4 — unverified profiles are noindex (and out of the sitemap and
-  // structured data). Only a VERIFIED, complete profile is offered to a crawler.
-  if (!input.verified) return true
-  return (input.profileCompletion ?? 0) < 100
+  // PR37 §2 — the ONE indexability rule lives in lib/seo/indexable; this stays
+  // as the tutor page's entry point (its callers import it here) but no longer
+  // carries its own copy of the logic.
+  return !tutorProfileIndexable({
+    feePaid: input.verified,
+    profileCompletion: input.profileCompletion,
+    underReview: input.underReview,
+    isSeed: input.isSeed,
+  })
 }
 
 /**
