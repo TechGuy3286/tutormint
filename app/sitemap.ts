@@ -38,95 +38,105 @@ export const dynamic = 'force-dynamic'
 
 const BASE = SITE_URL
 
+// HONEST lastmod for the code-only static pages (PR38 §3). The homepage and the
+// marketing/legal pages (about, faq, support, privacy, terms) change only when
+// their code changes, so they carry a STORED date — not `now`, which the
+// force-dynamic sitemap would otherwise stamp on every request, making a static
+// page look edited on every crawl. Bump this the next time that content changes.
+// Data-backed pages (blog index, the two browse pages, landing) get their lastmod
+// from the newest relevant record instead.
+const STATIC_LASTMOD = new Date('2026-09-19T00:00:00.000Z')
+
+/** The newest of a set of date-ish values, or null when there are none. */
+function newest(values: (string | null | undefined)[]): Date | null {
+  const times = values.filter(Boolean).map((v) => new Date(v as string).getTime()).filter((t) => !Number.isNaN(t))
+  return times.length ? new Date(Math.max(...times)) : null
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date()
-
-  const staticPages: MetadataRoute.Sitemap = [
-    { url: BASE, lastModified: now, changeFrequency: 'daily', priority: 1.0 },
-    { url: `${BASE}/browse/tutors`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
-    { url: `${BASE}/browse/tuitions`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
-    // NOT listed here, deliberately (owner, 9 Sep 2026): /register is disallowed
-    // in robots.ts and noindexed by its own layout — a signup page with no unique
-    // content is not an organic-search target, so the sitemap must not advertise a
-    // URL the crawler is told not to fetch. /membership-plans?for=tutors and /membership-plans?for=parents
-    // are reachable by a member's own click but are price/conversion pages, not
-    // organic content, so they are excluded here — but the exclusion alone is
-    // NOT the control: Footer.tsx links both sitewide and /about links them in
-    // prose, so a crawler reaches them anyway. Each page carries its own
-    // `robots: { index: false, follow: true }` (10 Sep 2026); they stay
-    // crawlable, just never indexed. /login and /forgot-password were never
-    // listed. See robots-vs-sitemap reconciliation.
-    { url: `${BASE}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
-    { url: `${BASE}/blog`, lastModified: now, changeFrequency: 'daily', priority: 0.6 },
-    { url: `${BASE}/faq`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
-    { url: `${BASE}/support`, lastModified: now, changeFrequency: 'monthly', priority: 0.3 },
-    { url: `${BASE}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
-    { url: `${BASE}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
-  ]
-
-  // Public pages are indexed now (owner, 8 Sep 2026), so the sitemap lists
-  // every listed tutor and open tuition alongside the static pages — the
-  // preview-mode withholding is gone. If the tutor/tuition reads fail we still
-  // return the static pages rather than an empty file.
+  // The database reads first (PR37: live, force-dynamic). A blip leaves the
+  // arrays empty and the static pages still ship — never a 500 for a crawler.
+  let tutors: { slug: string; updated_at: string }[] = []
+  let jobs: { public_slug: string; city: string | null; created_at: string }[] = []
+  let landing: { kind: string; citySlug: string; subjectSlug: string }[] = []
+  let posts: { slug: string; updatedAt: string | null }[] = []
   try {
     const supabase = createPublicClient()
-
     // Both reads go through SECURITY DEFINER functions that already encode what
-    // may be listed. listed_tutor_slugs() = listed + 100% + NOT a seed account;
-    // indexable_job_slugs() = open, with a real public_slug, and NOT a fixture
-    // (seed parent / JOB-TRK bulk import / SEED-JOB) unless it is a genuine team
-    // post. `jobs` is public-read but `profiles` is not, so the fixture rule
-    // could not be applied by a plain join on the publishable key here anyway —
-    // the function does it with definer rights. (Migrations 70/71.)
-    const [{ data: tutors }, { data: jobs }] = await Promise.all([
+    // may be listed. listed_tutor_slugs() = listed + 100% + fee + NOT a seed
+    // account; indexable_job_slugs() = open, real public_slug, NOT a fixture
+    // (seed parent / JOB-TRK / SEED-JOB) unless a genuine team post. These are
+    // the SQL mirror of lib/seo/indexable (PR37). `jobs` is public-read but
+    // `profiles` is not, so the fixture rule needs definer rights here.
+    const [{ data: t }, { data: j }] = await Promise.all([
       supabase.rpc('listed_tutor_slugs'),
       supabase.rpc('indexable_job_slugs'),
     ])
-
-    const tutorPages: MetadataRoute.Sitemap = (
-      (tutors ?? []) as { slug: string; updated_at: string }[]
-    ).map((t) => ({
-      url: `${BASE}/tutor/${t.slug}`,
-      lastModified: t.updated_at ? new Date(t.updated_at) : now,
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
-    }))
-
-    const jobPages: MetadataRoute.Sitemap = (
-      (jobs ?? []) as { public_slug: string; city: string | null; created_at: string }[]
-    ).map((j) => ({
-      url: `${BASE}/tuitions/${citySegment(j.city)}/${j.public_slug}`,
-      lastModified: j.created_at ? new Date(j.created_at) : now,
-      changeFrequency: 'daily' as const,
-      priority: 0.6,
-    }))
-
-    // The T9.1 landing pages: every (city, subject) that clears the threshold,
-    // listed once. Read from the same tagged cache the pages and the link
-    // helper use, so a combination that has just crossed the threshold appears
-    // here as soon as that cache is revalidated. (Indexing is decoupled from
-    // preview mode since 8 Sep — these are always listed now.)
-    const landing = await liveLandingPages()
-    const landingPages: MetadataRoute.Sitemap = landing.map((p) => ({
-      url: `${BASE}/${p.kind}/${p.citySlug}/${p.subjectSlug}`,
-      lastModified: now,
-      changeFrequency: 'daily' as const,
-      priority: 0.7,
-    }))
-
-    // Published blog posts (status='published' only — drafts cannot enter here).
-    const posts = await publishedSlugs()
-    const postPages: MetadataRoute.Sitemap = posts.map((p) => ({
-      url: `${BASE}/blog/${p.slug}`,
-      lastModified: p.updatedAt ? new Date(p.updatedAt) : now,
-      changeFrequency: 'monthly' as const,
-      priority: 0.5,
-    }))
-
-    return [...staticPages, ...tutorPages, ...jobPages, ...landingPages, ...postPages]
+    tutors = (t ?? []) as typeof tutors
+    jobs = (j ?? []) as typeof jobs
+    landing = (await liveLandingPages()) as typeof landing
+    posts = await publishedSlugs()
   } catch {
-    // A database blip must not produce a 500 for the crawler; the static
-    // pages are still worth serving.
-    return staticPages
+    // Leave the arrays empty; the static pages are still worth serving.
   }
+
+  // Real per-page freshness signals (PR38 §3).
+  const newestPost = newest(posts.map((p) => p.updatedAt))
+  const newestTutor = newest(tutors.map((t) => t.updated_at))
+  const newestJob = newest(jobs.map((j) => j.created_at))
+  // A landing page reflects its listings, so it changed no later than the newest
+  // listing of either kind.
+  const newestListing = newest([
+    newestTutor?.toISOString() ?? null,
+    newestJob?.toISOString() ?? null,
+  ])
+
+  const staticPages: MetadataRoute.Sitemap = [
+    { url: BASE, lastModified: STATIC_LASTMOD, changeFrequency: 'daily', priority: 1.0 },
+    // Data-backed: the browse pages change with their newest listing.
+    { url: `${BASE}/browse/tutors`, lastModified: newestTutor ?? STATIC_LASTMOD, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${BASE}/browse/tuitions`, lastModified: newestJob ?? STATIC_LASTMOD, changeFrequency: 'daily', priority: 0.9 },
+    // NOT listed here, deliberately (owner, 9 Sep 2026): /register is disallowed
+    // in robots.ts and noindexed by its own layout. /membership-plans?for=… are
+    // price/conversion pages, crawlable but never indexed (their own robots meta).
+    // /login and /forgot-password were never listed. See robots-vs-sitemap.
+    { url: `${BASE}/about`, lastModified: STATIC_LASTMOD, changeFrequency: 'monthly', priority: 0.4 },
+    // Data-backed: the blog index changes when a post is published/updated.
+    { url: `${BASE}/blog`, lastModified: newestPost ?? STATIC_LASTMOD, changeFrequency: 'daily', priority: 0.6 },
+    { url: `${BASE}/faq`, lastModified: STATIC_LASTMOD, changeFrequency: 'monthly', priority: 0.4 },
+    { url: `${BASE}/support`, lastModified: STATIC_LASTMOD, changeFrequency: 'monthly', priority: 0.3 },
+    { url: `${BASE}/privacy`, lastModified: STATIC_LASTMOD, changeFrequency: 'yearly', priority: 0.2 },
+    { url: `${BASE}/terms`, lastModified: STATIC_LASTMOD, changeFrequency: 'yearly', priority: 0.2 },
+  ]
+
+  // Records keep their own real updated times (PR37).
+  const tutorPages: MetadataRoute.Sitemap = tutors.map((t) => ({
+    url: `${BASE}/tutor/${t.slug}`,
+    lastModified: t.updated_at ? new Date(t.updated_at) : STATIC_LASTMOD,
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
+  }))
+
+  const jobPages: MetadataRoute.Sitemap = jobs.map((j) => ({
+    url: `${BASE}/tuitions/${citySegment(j.city)}/${j.public_slug}`,
+    lastModified: j.created_at ? new Date(j.created_at) : STATIC_LASTMOD,
+    changeFrequency: 'daily' as const,
+    priority: 0.6,
+  }))
+
+  const landingPages: MetadataRoute.Sitemap = landing.map((p) => ({
+    url: `${BASE}/${p.kind}/${p.citySlug}/${p.subjectSlug}`,
+    lastModified: newestListing ?? STATIC_LASTMOD,
+    changeFrequency: 'daily' as const,
+    priority: 0.7,
+  }))
+
+  const postPages: MetadataRoute.Sitemap = posts.map((p) => ({
+    url: `${BASE}/blog/${p.slug}`,
+    lastModified: p.updatedAt ? new Date(p.updatedAt) : STATIC_LASTMOD,
+    changeFrequency: 'monthly' as const,
+    priority: 0.5,
+  }))
+
+  return [...staticPages, ...tutorPages, ...jobPages, ...landingPages, ...postPages]
 }

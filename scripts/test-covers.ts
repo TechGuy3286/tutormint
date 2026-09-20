@@ -179,3 +179,23 @@ for (const seed of [0, 1, 2]) {
     assert.ok(buf.length > 5000, 'suspiciously small PNG')
   })
 }
+
+// ── PR38 — cover image prompt (pure, no image service) ──
+import { coverImagePrompt } from '../lib/covers/prompt'
+
+test('PR38: cover prompt locks house style, palette, size, and forbids text', () => {
+  const p = coverImagePrompt({ title: 'O Level Physics fees in Lahore', clusterLabel: 'Cost & hiring', city: 'Lahore', subject: 'O Level Physics' })
+  assert.ok(p.includes('O Level Physics fees in Lahore'), 'title')
+  assert.ok(p.includes('Cost & hiring'), 'cluster')
+  assert.ok(p.includes('Lahore, Pakistan'), 'city + country')
+  assert.ok(p.includes('O Level Physics'), 'subject')
+  assert.ok(p.includes('1200x630'), 'size')
+  for (const hex of ['#C20202', '#151E6B', '#9AE899', '#0A0A0A']) assert.ok(p.includes(hex), `palette ${hex}`)
+  assert.ok(/NO text/i.test(p), 'forbids text')
+})
+
+test('PR38: cover prompt omits optional fields cleanly', () => {
+  const p = coverImagePrompt({ title: 'How verification works', clusterLabel: 'Safety & trust' })
+  assert.ok(p.includes('set in Pakistan'), 'defaults to Pakistan when no city')
+  assert.ok(!/focused on/.test(p), 'no subject clause when subject absent')
+})

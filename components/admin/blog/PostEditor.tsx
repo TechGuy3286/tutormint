@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, AlertTriangle, CheckCircle2, Eye, Image as ImageIcon, Lightbulb, Lock, Pencil, Shuffle, Sparkles, X } from 'lucide-react'
+import { AlertCircle, AlertTriangle, CheckCircle2, Copy, Eye, Image as ImageIcon, Lightbulb, Lock, Pencil, Shuffle, Sparkles, X } from 'lucide-react'
 
 import FileUpload from '@/components/FileUpload'
 import { compressImage } from '@/lib/imageCompress'
@@ -30,6 +30,7 @@ import {
 import { figureGate, promptLeakViolations, wordCount, BLOG_MIN_WORDS, type ConfirmedFigure } from '@/lib/ai/blogBrief'
 import { notesTopicMismatch, PLATFORM_LINK_MAP } from '@/lib/ai/platformFacts'
 import { collectBlogProblems, sanitizeDraft, toRelativeHref, type BlogProblem } from '@/lib/ai/blogChecker'
+import { coverImagePrompt } from '@/lib/covers/prompt'
 import { parseMarkdown } from '@/lib/markdown'
 import { slugify } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
@@ -141,6 +142,10 @@ export default function PostEditor({
   // Cover composer: the three previews use seeds base..base+2; Shuffle advances
   // the base by three for a fresh trio.
   const [coverBase, setCoverBase] = useState(0)
+  // The "Copy image prompt" box (PR38 §2): null = closed; a string = the current
+  // (editable) prompt text. The admin generates the image in their own tool and
+  // uploads it with the control below — nothing is generated here.
+  const [coverPrompt, setCoverPrompt] = useState<string | null>(null)
   // A debounced mirror of the fields the preview reads, so live-typing does not
   // fire a satori render on every keystroke. Commit (pickCover) uses the exact
   // current values.
@@ -610,6 +615,29 @@ export default function PostEditor({
       const caret = start + md.length
       el.setSelectionRange(caret, caret)
     })
+  }
+
+  // §2 — open/close the cover-prompt box, seeding it from the post's fields.
+  function toggleCoverPrompt() {
+    setCoverPrompt((cur) =>
+      cur === null
+        ? coverImagePrompt({
+            title: post.title,
+            clusterLabel: clusterLabel(post.cluster),
+            city: post.city,
+            subject: post.subject,
+          })
+        : null,
+    )
+  }
+
+  async function copyCoverPrompt() {
+    try {
+      await navigator.clipboard?.writeText(coverPrompt ?? '')
+      toast.success('Prompt copied.')
+    } catch {
+      toast.error('Could not copy — select the text and copy it manually.')
+    }
   }
 
   const linkChoices = [
@@ -1469,7 +1497,7 @@ export default function PostEditor({
                     )
                   })}
                 </div>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setCoverBase((b) => b + 3)}
@@ -1477,8 +1505,50 @@ export default function PostEditor({
                   >
                     <Shuffle aria-hidden size={12} /> Shuffle
                   </button>
-                  <span className="text-[11px] text-gray-500">Pick one, or shuffle for three more.</span>
+                  {/* §2 — build an image prompt to generate a matching cover in
+                      your own tool, then upload it below. Nothing is generated
+                      here. */}
+                  <button
+                    type="button"
+                    onClick={toggleCoverPrompt}
+                    className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-[11px] font-bold text-tm-navy hover:border-tm-navy"
+                  >
+                    <Copy aria-hidden size={12} /> Copy image prompt
+                  </button>
                 </div>
+
+                {/* The editable prompt box: read and edit before copying. */}
+                {coverPrompt !== null && (
+                  <div className="space-y-2 rounded-xl border border-gray-200 bg-tm-bg p-3">
+                    <p className="text-[11px] text-gray-500">
+                      Generate this in your own image tool, then upload the result below. The style is
+                      locked to match TutorMint covers — edit if you like.
+                    </p>
+                    <textarea
+                      value={coverPrompt}
+                      onChange={(e) => setCoverPrompt(e.target.value)}
+                      rows={8}
+                      aria-label="Cover image prompt"
+                      className={`${input} font-mono text-[11px] leading-relaxed`}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={copyCoverPrompt}
+                        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-tm-navy px-3 text-[11px] font-bold text-white hover:bg-tm-navy-hover"
+                      >
+                        <Copy aria-hidden size={12} /> Copy prompt
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCoverPrompt(null)}
+                        className="inline-flex min-h-[36px] items-center rounded-lg border border-gray-200 px-3 text-[11px] font-bold text-tm-navy hover:border-tm-navy"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <p className="text-[11px] text-gray-500">Add a title to generate cover options.</p>
