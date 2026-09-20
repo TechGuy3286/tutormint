@@ -7,6 +7,7 @@ import BadgeRow from '@/components/badges/BadgeRow'
 import TimeAgo from '@/components/TimeAgo'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { listedTutorIds } from '@/lib/directoryStatus'
 import { badgesForPlan } from '@/lib/entitlements'
 import { budgetLabel } from '@/lib/feeBands'
 import { applicationStatus, jobType } from '@/lib/display'
@@ -101,6 +102,9 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
     (tutorProfiles ?? []).map((p) => [p.id as string, (p.avatar_url as string) ?? null]),
   )
   const tutorSlug = new Map((tutorRows ?? []).map((t) => [t.id as string, t.slug as string]))
+  // Which applicants are actually LISTED (PR39): a "View public profile" link is
+  // shown only for these, so it never 404s on an unlisted applicant. One query.
+  const listedApplicants = await listedTutorIds(tutorIds)
 
   const parentVerified = !!parent?.cnic_verified_at && !!parent?.address_verified_at
   const parentBadges = badgesForPlan(
@@ -382,7 +386,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
                       >
                         {isHired ? 'Hired' : applicationStatus(a.status as string)}
                       </span>
-                      {slug && (
+                      {slug && listedApplicants.has(tid) && (
                         <Link
                           href={`/tutor/${slug}`}
                           className="inline-flex items-center gap-1 text-[10px] font-bold text-tm-red hover:underline"

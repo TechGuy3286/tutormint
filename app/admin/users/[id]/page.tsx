@@ -1,4 +1,3 @@
-import { ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -7,6 +6,8 @@ import { describeUtm } from '@/lib/utm'
 import { applicationStatus, jobStatus, adminActionLabel } from '@/lib/display'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MemberActions from './MemberActions'
+import PublicProfileLink from '@/components/admin/PublicProfileLink'
+import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { loadMemberTimeline } from '@/lib/adminQueues'
 import { loadStaffCountsFor } from '@/lib/staffActivity'
 import StaffActivityTable from '@/components/admin/StaffActivityTable'
@@ -57,6 +58,9 @@ export default async function AdminMemberPage({
   if (!profile) notFound()
 
   const isTutor = profile.role === 'tutor'
+  // The one shared listing rule, so "Open public profile" shows only when the
+  // page actually resolves (PR39).
+  const directory = isTutor ? await loadDirectoryStatus(id) : null
 
   const [
     { data: tutor },
@@ -227,7 +231,12 @@ export default async function AdminMemberPage({
         />
         {isTutor && tutor && (
           <>
-            <Fact label="Listing" value={(tutor.verification_status as string) ?? '—'} />
+            {/* The real directory state (the same gate the public site uses),
+                not the verification-pipeline status — a tutor can be
+                "verified" yet not listed, or listed while verification is
+                pending. Both are shown, each under its true label (PR39). */}
+            <Fact label="Listing" value={directory?.listed ? 'Listed' : 'Not listed'} />
+            <Fact label="Verification" value={(tutor.verification_status as string) ?? '—'} />
             <Fact label="Video" value={(tutor.video_status as string) ?? 'none'} />
             <Fact label="Video visibility" value={(tutor.video_visibility as string) ?? 'private'} />
             <Fact
@@ -246,15 +255,12 @@ export default async function AdminMemberPage({
           >
             Tutor record &amp; profile address
           </Link>
-          {tutor?.slug && (
-            <Link
-              href={`/tutor/${tutor.slug}`}
-              className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
-            >
-              <ExternalLink aria-hidden size={14} />
-              Open public profile
-            </Link>
-          )}
+          <PublicProfileLink
+            slug={(tutor?.slug as string | null) ?? null}
+            listed={!!directory?.listed}
+            blockers={directory?.blockers ?? []}
+            completion={(profile.profile_completion as number) ?? 0}
+          />
         </div>
       )}
 

@@ -1,11 +1,13 @@
-import { ClipboardList, ExternalLink, Users } from 'lucide-react'
+import { ClipboardList, Users } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import Avatar from '@/components/Avatar'
 import StatusChip from '@/components/admin/StatusChip'
+import PublicProfileLink from '@/components/admin/PublicProfileLink'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { formatDate } from '@/lib/datetime'
 import { jobType, jobTypesLabel, verificationStatus } from '@/lib/display'
 import SlugField from './SlugField'
@@ -64,6 +66,9 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
   const canEdit = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutorSlug)
   const name = (tutor.full_name as string) ?? (profile.full_name as string) ?? 'Tutor'
   const completion = Number(profile.profile_completion ?? 0)
+  // The shared listing rule, so "Open public profile" shows only when the page
+  // resolves (PR39).
+  const directory = await loadDirectoryStatus(id)
 
   return (
     <div className="space-y-4">
@@ -147,15 +152,12 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
       </section>
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        {tutor.slug && (
-          <Link
-            href={`/tutor/${tutor.slug as string}`}
-            className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"
-          >
-            <ExternalLink aria-hidden size={14} />
-            Open public profile
-          </Link>
-        )}
+        <PublicProfileLink
+          slug={(tutor.slug as string | null) ?? null}
+          listed={directory.listed}
+          blockers={directory.blockers}
+          completion={completion}
+        />
         <Link
           href={`/admin/users/${id}`}
           className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy"

@@ -47,3 +47,17 @@ export async function loadDirectoryStatus(userId: string): Promise<DirectoryStat
   })
   return { listed: blockers.length === 0, blockers }
 }
+
+/**
+ * Which of these tutor ids are actually LISTED (in tutor_directory), in ONE
+ * query — for admin surfaces that link many public profiles at once (e.g. the
+ * tuition applicant rows), so a link is shown only when the page resolves and
+ * never 404s. Reads the directory VIEW directly through the service role (the
+ * same gate loadDirectoryStatus mirrors), so it is not a second rule.
+ */
+export async function listedTutorIds(ids: string[]): Promise<Set<string>> {
+  const admin = createAdminClient()
+  if (!admin || ids.length === 0) return new Set()
+  const { data } = await admin.from('tutor_directory').select('id').in('id', ids)
+  return new Set((data ?? []).map((r) => r.id as string))
+}
