@@ -269,7 +269,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       description,
       alternates: { canonical: `/tutor/${tutor.slug}` },
       ...(tutorProfileNoindex({ verified: flags.verified, profileCompletion: flags.profileCompletion, underReview: flags.underReview, isSeed: flags.isSeed })
-        ? { robots: { index: false, follow: false } }
+        ? { robots: { index: false, follow: true } }
         : {}),
       ...socialMeta({ title, description, path: `/tutor/${tutor.slug}`, type: 'profile' }),
     }
@@ -294,8 +294,10 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     // of Google until they finish. The noindex lifts automatically at 100%; no
     // robots key is emitted otherwise, so it is indexable again the moment
     // either condition clears.
+    // PR37 §4 — noindex, FOLLOW (not nofollow): held out of Google but its links
+    // are still crawled, matching the tuition page and the brief's exact value.
     ...(tutorProfileNoindex({ verified: flags.verified, profileCompletion: flags.profileCompletion, underReview: flags.underReview, isSeed: flags.isSeed })
-      ? { robots: { index: false, follow: false } }
+      ? { robots: { index: false, follow: true } }
       : {}),
     // Their photo when they have one, the branded default otherwise. Complete
     // OG + Twitter, so the card is never a bare link. See socialMeta.
