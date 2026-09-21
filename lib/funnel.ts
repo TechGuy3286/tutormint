@@ -404,6 +404,37 @@ export async function jobsThisWeek(
 }
 
 /**
+ * How many OPEN tuitions in the tutor's city MATCH their subjects — the count on
+ * the tutor dashboard's "Find tuitions" action bar (PR42 §2), e.g. "12 tuitions
+ * match your subjects in Lahore".
+ *
+ * A real count from real rows: open tuitions in the given city whose subjects
+ * intersect the tutor's own. Returns 0 (→ the bar shows its plain line, never a
+ * zero) when the city or the subjects are unknown, or when nothing matches.
+ * Deliberately city-scoped, so the number the bar states is the one the reader
+ * finds when the bar opens /browse/tuitions?city=… .
+ */
+export async function matchingTuitionsInCity(userId: string, city: string | null): Promise<number> {
+  if (!city) return 0
+  const db = createAdminClient() ?? (await createClient())
+
+  const { data: subs } = await db.from('tutor_subjects').select('master_id').eq('tutor_id', userId)
+  const masterIds = (subs ?? []).map((s) => s.master_id as number)
+  if (masterIds.length === 0) return 0
+
+  const { data: jobs } = await db.from('jobs').select('id').eq('status', 'open').ilike('city', city)
+  const open = (jobs ?? []).map((j) => j.id as string)
+  if (open.length === 0) return 0
+
+  const { data: matched } = await db
+    .from('job_subjects')
+    .select('job_id')
+    .in('master_id', masterIds)
+    .in('job_id', open)
+  return new Set((matched ?? []).map((m) => m.job_id as string)).size
+}
+
+/**
  * How many OPEN tuitions in the tutor's city match NOTHING on their profile —
  * the honest, quantified nudge that replaces the "finish your profile" modal
  * (owner rule 5, 10 Sep 2026). It is the same open-jobs query as the dashboard

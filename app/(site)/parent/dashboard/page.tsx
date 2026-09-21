@@ -1,10 +1,11 @@
 import Link from 'next/link'
-import { ArrowRight, Briefcase, FilePlus2, Heart, MessageSquare, UserCheck, Users, Video } from 'lucide-react'
+import { ArrowRight, Briefcase, FilePlus2, Heart, MessageSquare, Search, UserCheck, Users, Video } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import ParentHeaderCard from '@/components/parent/ParentHeaderCard'
 import ChildrenCard, { type ChildRow } from '@/components/parent/ChildrenCard'
 import ShortlistSection from '@/components/parent/ShortlistSection'
+import DashboardActionBar from '@/components/dashboard/DashboardActionBar'
 import { CountGrid, type CountTile } from '@/components/tutor/DashboardCards'
 import { type CardViewer } from '@/components/TutorCard'
 
@@ -12,7 +13,7 @@ import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { unreadMessageCount } from '@/lib/messaging'
-import { tutorCardsByIds } from '@/lib/browseTutors'
+import { tutorCardsByIds, listedTutorsInCity } from '@/lib/browseTutors'
 
 // The parent dashboard — the SAME shape as the tutor dashboard (PR24): one
 // narrow centred column (~480px) at every width, phone-first, no desktop grid.
@@ -44,14 +45,16 @@ export default async function ParentDashboardPage() {
 
   const verified = !!profile?.cnic_verified_at && !!profile?.address_verified_at
   const featured = ent.plan === 'parent_featured'
+  const city = (profile?.city as string | null) ?? null
 
-  const [{ data: jobs }, unread, { data: demos }, { data: children }, { data: shortlisted }] =
+  const [{ data: jobs }, unread, { data: demos }, { data: children }, { data: shortlisted }, tutorCount] =
     await Promise.all([
       supabase.from('jobs').select('id, status, hired_tutor_id').eq('parent_id', userId),
       unreadMessageCount(userId),
       supabase.from('demo_requests').select('id, status').eq('parent_id', userId),
       supabase.from('children').select('id, name, class_level').eq('parent_id', userId).order('created_at'),
       supabase.from('shortlists').select('tutor_id, created_at').order('created_at', { ascending: false }),
+      listedTutorsInCity(city),
     ])
 
   const allJobs = jobs ?? []
@@ -95,6 +98,15 @@ export default async function ParentDashboardPage() {
     classLevel: (c.class_level as string | null) ?? null,
   }))
 
+  // "Find tutors for your child" bar (PR42 §3): a real, positive, city-scoped
+  // count of listed tutors, otherwise the plain line — never a zero. The link
+  // opens the tutors list filtered to the parent's city when known.
+  const findTutorsLine =
+    tutorCount > 0 && city
+      ? `${tutorCount} verified tutor${tutorCount === 1 ? '' : 's'} in ${city}`
+      : 'Verified tutors in your city and subject'
+  const findTutorsHref = city ? `/browse/tutors?city=${encodeURIComponent(city)}` : '/browse/tutors'
+
   // Six tiles, six distinct tones — no two share a colour (PR32 §2).
   const tiles: CountTile[] = [
     // "Posted tuitions" counts every tuition she has posted — open, closed and
@@ -121,6 +133,17 @@ export default async function ParentDashboardPage() {
           verified={verified}
           featured={featured}
           publicHref={`/parent/${userId}`}
+        />
+
+        {/* Action bar — the main thing a parent comes back to do (PR42 §3).
+            Navy (parent-side), mirrored from the tutor bar so the two dashboards
+            are never confusable. */}
+        <DashboardActionBar
+          href={findTutorsHref}
+          label="Find tutors for your child"
+          line={findTutorsLine}
+          tone="navy"
+          icon={<Search aria-hidden size={20} />}
         />
 
         {/* 2. Count tiles, two to a row. */}

@@ -1,17 +1,18 @@
 import { redirect } from 'next/navigation'
-import { Send, MessageSquare, Video, Briefcase, Eye, Heart } from 'lucide-react'
+import { Send, MessageSquare, Video, Briefcase, Eye, Heart, Search } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import CvCard from '@/components/tutor/CvCard'
 import SavedJobsSection from '@/components/tutor/SavedJobsSection'
 import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
+import DashboardActionBar from '@/components/dashboard/DashboardActionBar'
 import { CountGrid, type CountTile } from '@/components/tutor/DashboardCards'
 
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { computeCompletion } from '@/lib/completion'
 import { getEntitlements } from '@/lib/entitlements'
-import { jobsThisWeek } from '@/lib/funnel'
+import { jobsThisWeek, matchingTuitionsInCity } from '@/lib/funnel'
 import { savedJobsForTutor } from '@/lib/jobFeed'
 import { unreadMessageCount } from '@/lib/messaging'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
@@ -48,14 +49,16 @@ export default async function TutorDashboardPage() {
   const city = (tutorProfile?.city as string | null) ?? null
   const jobTypes = (tutorProfile?.job_types as string[] | null) ?? null
 
-  const [views, weekJobs, unread, { data: apps }, { data: demos }, savedJobs] = await Promise.all([
-    viewSummary(userId, ent.canSeeViewerIdentity, 20),
-    jobsThisWeek(userId, city, jobTypes),
-    unreadMessageCount(userId),
-    supabase.from('applications').select('id, job_id, withdrawn_at').eq('tutor_id', userId),
-    supabase.from('demo_requests').select('id, status').eq('tutor_id', userId),
-    savedJobsForTutor(userId),
-  ])
+  const [views, weekJobs, unread, { data: apps }, { data: demos }, savedJobs, matchCount] =
+    await Promise.all([
+      viewSummary(userId, ent.canSeeViewerIdentity, 20),
+      jobsThisWeek(userId, city, jobTypes),
+      unreadMessageCount(userId),
+      supabase.from('applications').select('id, job_id, withdrawn_at').eq('tutor_id', userId),
+      supabase.from('demo_requests').select('id, status').eq('tutor_id', userId),
+      savedJobsForTutor(userId),
+      matchingTuitionsInCity(userId, city),
+    ])
 
   const liveApps = (apps ?? []).filter((a) => !a.withdrawn_at)
   const appliedJobIds = liveApps.map((a) => a.job_id as string)
@@ -63,6 +66,18 @@ export default async function TutorDashboardPage() {
 
   const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
   const publicHref = directoryListed && tutorProfile?.slug ? `/tutor/${tutorProfile.slug}` : null
+
+  // "Find tuitions to apply for" bar (PR42 §2). A real count only when it is a
+  // real, positive, city-scoped number of subject matches; otherwise the plain
+  // line — never a zero, never an invented figure. The link opens the tuitions
+  // list in the tutor's city when known (the browse URL carries a single subject,
+  // so a multi-subject tutor's link is city-scoped rather than distorted to one
+  // subject; the count states the matches they will find there).
+  const findTuitionsLine =
+    matchCount > 0 && city
+      ? `${matchCount} tuition${matchCount === 1 ? '' : 's'} match your subjects in ${city}`
+      : 'New tuitions in your subjects and area'
+  const findTuitionsHref = city ? `/browse/tuitions?city=${encodeURIComponent(city)}` : '/browse/tuitions'
 
   // Six tiles, six distinct tones — no two share a colour (PR32 §2).
   const tiles: CountTile[] = [
@@ -88,6 +103,15 @@ export default async function TutorDashboardPage() {
           planName={ent.planName}
           completion={percent}
           publicHref={publicHref}
+        />
+
+        {/* Action bar — the main thing a tutor comes back to do (PR42 §2). */}
+        <DashboardActionBar
+          href={findTuitionsHref}
+          label="Find tuitions to apply for"
+          line={findTuitionsLine}
+          tone="red"
+          icon={<Search aria-hidden size={20} />}
         />
 
         {/* 3.2 Count tiles, two to a row. */}

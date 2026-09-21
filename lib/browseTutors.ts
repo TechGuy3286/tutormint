@@ -70,6 +70,25 @@ export function tutorFiltersToParams(f: TutorFilters): Record<string, string> {
 }
 
 /**
+ * How many LISTED tutors are in a city — the count on the parent dashboard's
+ * "Find tutors" action bar (PR42 §3), e.g. "38 verified tutors in Lahore".
+ *
+ * Counts tutor_directory (the listing view: fee-paid, verified, not suspended /
+ * under-review, real content), which is exactly "verified tutors in your city".
+ * Returns 0 (→ the bar shows its plain line, never a zero) when the city is
+ * unknown or none are listed there.
+ */
+export async function listedTutorsInCity(city: string | null): Promise<number> {
+  if (!city) return 0
+  const supabase = await createClient()
+  const { count } = await supabase
+    .from('tutor_directory')
+    .select('id', { count: 'exact', head: true })
+    .ilike('city', city)
+  return count ?? 0
+}
+
+/**
  * One window of ranked tutors.
  *
  * `offset` answers a cold `?page=N` arrival — a crawler or a shared link, with
