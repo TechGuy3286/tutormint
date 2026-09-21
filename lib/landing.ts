@@ -70,7 +70,7 @@ type SubjectIndex = {
 }
 
 const loadSubjectIndex = unstable_cache(
-  async (): Promise<{ rows: SubjectMeta[] }> => {
+  async (): Promise<{ all: SubjectMeta[]; deduped: SubjectMeta[] }> => {
     const db = createPublicClient()
     // Paginated (fetchTaxonomyTables): taxonomy_master is 4,500+ rows and a bare
     // select is capped at 1000 per PostgREST response, which truncated this
@@ -80,41 +80,51 @@ const loadSubjectIndex = unstable_cache(
     const levelName = new Map((tables?.levels ?? []).map((l) => [l.slug, l.name]))
     const subjectName = new Map((tables?.subjects ?? []).map((s) => [s.slug, s.name]))
 
-    const rows: SubjectMeta[] = []
+    // `all` — EVERY master's meta, keyed later by master_id. `deduped` — one
+    // master per slug (first wins), for resolving a slug back to a subject.
+    //
+    // The two must be separate. The old code kept only `deduped` and then looked
+    // combos up in it BY MASTER ID — so a live master whose slug had already been
+    // claimed by an earlier (legacy) master was absent, and its landing page
+    // 404'd even though it had the tutors. Migration 80 kept the pre-2026 masters
+    // valid, and they sort first, so every new-taxonomy tutor combo lost its slug
+    // to a legacy row and NO tutor landing page resolved at all. A combo is now
+    // resolved against its OWN master via `all`, so it always finds its slug.
+    const all: SubjectMeta[] = []
+    const deduped: SubjectMeta[] = []
     const seen = new Set<string>()
     for (const m of tables?.master ?? []) {
       const level = levelName.get(m.level_slug as string)
       if (!level) continue
       const subject = m.subject_slug ? subjectName.get(m.subject_slug as string) ?? null : null
       const slug = subjectSlugFor(level, subject)
-      // First row wins a slug collision (none expected: (level, subject) is
-      // unique and the names are distinct). A later duplicate is dropped rather
-      // than silently shadowing, so the URL space stays one-to-one.
-      if (seen.has(slug)) continue
-      seen.add(slug)
-      rows.push({
+      const meta: SubjectMeta = {
         masterId: m.id as number,
         name: subject ? `${level} ${subject}` : level,
         slug,
         level,
         subject,
         category: (m.level_slug as string) ?? '',
-      })
+      }
+      all.push(meta)
+      if (seen.has(slug)) continue
+      seen.add(slug)
+      deduped.push(meta)
     }
-    return { rows }
+    return { all, deduped }
   },
-  ['landing-subject-index'],
+  ['landing-subject-index-v2'],
   { revalidate: 60 * 60 * 24 },
 )
 
 async function subjectIndex(): Promise<SubjectIndex> {
-  const { rows } = await loadSubjectIndex()
+  const { all, deduped } = await loadSubjectIndex()
   const byMaster = new Map<number, SubjectMeta>()
   const bySlug = new Map<string, SubjectMeta>()
-  for (const r of rows) {
-    byMaster.set(r.masterId, r)
-    bySlug.set(r.slug, r)
-  }
+  // byMaster covers every master (so a combo is never dropped); bySlug keeps the
+  // one-to-one slug → subject map for isSubjectSlug / slug resolution.
+  for (const r of all) byMaster.set(r.masterId, r)
+  for (const r of deduped) bySlug.set(r.slug, r)
   return { byMaster, bySlug }
 }
 
@@ -147,12 +157,17 @@ export const liveCombinationsAll = unstable_cache(
       .select('kind, city, master_id, n')
     const { byMaster } = await subjectIndex()
 
-    const out: LandingCombo[] = []
+    // One page per (kind, city, subject slug). Two masters can share a slug (a
+    // legacy and a live row for the same subject name); if both have listings in
+    // the same city, keep the busier one so the URL resolves to the fuller page
+    // rather than doubling the entry. In practice legacy masters have no live
+    // listings, so this only ever fires as a safety net.
+    const byKey = new Map<string, LandingCombo>()
     for (const row of data ?? []) {
       const meta = byMaster.get(row.master_id as number)
       if (!meta) continue
       const city = row.city as string
-      out.push({
+      const combo: LandingCombo = {
         kind: row.kind as LandingKind,
         city,
         citySlug: citySegment(city),
@@ -160,9 +175,12 @@ export const liveCombinationsAll = unstable_cache(
         subjectSlug: meta.slug,
         subjectName: meta.name,
         count: row.n as number,
-      })
+      }
+      const key = `${combo.kind}:${combo.citySlug}:${combo.subjectSlug}`
+      const existing = byKey.get(key)
+      if (!existing || combo.count > existing.count) byKey.set(key, combo)
     }
-    return out
+    return [...byKey.values()]
   },
   ['landing-combinations'],
   { revalidate: LANDING_REVALIDATE, tags: [LANDING_TAG] },
