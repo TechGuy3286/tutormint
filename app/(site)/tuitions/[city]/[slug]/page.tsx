@@ -256,14 +256,17 @@ export default async function TuitionPage({ params }: { params: Params }) {
   let landingLabel: string | null = null
   let relatedOpen: typeof similar = []
   if (state.isOpen && job.city) {
-    const primary = (job.subject_links ?? [])[0] ?? null
-    if (primary) {
-      const linker = await getLandingLinker()
-      const href = linker.tuitionSubjectHref(primary.masterId, job.city)
-      // A real landing path (not the /browse fallback) means the page exists.
+    // The first of this tuition's subjects that HAS a landing page (a job lists
+    // several subjects and the first is not always one that clears the
+    // threshold). A real /tuitions/ path — not the /browse fallback — means the
+    // page exists.
+    const linker = await getLandingLinker()
+    for (const s of job.subject_links ?? []) {
+      const href = linker.tuitionSubjectHref(s.masterId, job.city)
       if (href.startsWith('/tuitions/')) {
         landingHref = href
-        landingLabel = primary.label
+        landingLabel = s.label
+        break
       }
     }
     relatedOpen = await similarOpenTuitions(
