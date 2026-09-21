@@ -33,6 +33,8 @@ import { deliverMessageDigest } from '@/lib/notify'
 import { previewText } from '@/lib/messagingRules'
 import { messageListTime } from '@/lib/datetime'
 import { teamUnreadCount } from '@/lib/adminMessaging'
+import { flagIfAbusive } from '@/lib/abuse/flag'
+import { SUPPORT_WHATSAPP_DISPLAY, SUPPORT_EMAIL_FALLBACK } from '@/lib/supportContacts'
 
 // PR16 §2.3 — an unverified tutor (fee unpaid) may RECEIVE parent messages and
 // demo requests but cannot read or reply to them until the fee is paid. This is
@@ -306,7 +308,14 @@ export async function sendMessage(params: {
       .maybeSingle()
     senderName = (sender?.full_name as string) ?? 'a TutorMint member'
     if (sender?.is_suspended) {
-      return { ok: false, status: 403, error: 'Your account is suspended. Contact support.' }
+      // One plain line for a (possibly auto-)suspended sender, with how to appeal
+      // (PR40 §2). This is what a member auto-suspended for repeated abuse sees on
+      // their next send.
+      return {
+        ok: false,
+        status: 403,
+        error: `You can't send messages — your account is suspended. To appeal, message support on WhatsApp ${SUPPORT_WHATSAPP_DISPLAY} or email ${SUPPORT_EMAIL_FALLBACK}.`,
+      }
     }
     // PR16 §2.3 — an unverified tutor cannot reply until the fee is paid. (They
     // also cannot read the message they would be replying to.)
@@ -343,6 +352,26 @@ export async function sendMessage(params: {
     .single()
 
   if (error) return { ok: false, status: 400, error: error.message }
+
+  // Abuse flagging (PR40 §2): the message has been SENT (flag, do not block). If
+  // the body contains a banned term a flag is raised for staff, and the sender is
+  // auto-suspended on their third flag — which bites on their NEXT send (above).
+  // The recipient is never told. Never fails the send.
+  if (body) {
+    // Awaited (not fire-and-forget) so it runs to completion on serverless, but
+    // never fails the send — the message is already stored.
+    try {
+      await flagIfAbusive({
+        source: 'message',
+        subjectId: me,
+        recipientId: other,
+        content: body,
+        context: { messageId: created.id, threadId: thread.id },
+      })
+    } catch {
+      /* a flag failure must not fail a sent message */
+    }
+  }
 
   if (admin) {
     await admin

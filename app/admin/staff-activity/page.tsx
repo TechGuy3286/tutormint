@@ -30,8 +30,10 @@ export default async function StaffActivityPage() {
           {staff.map((s) => (
             <section key={s.id} className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
+                {/* The name opens this staff member's detail page unfiltered
+                    (PR40 §4); the numbers below open it filtered. */}
                 <Link
-                  href={`/admin/users/${s.id}`}
+                  href={`/admin/staff-activity/${s.id}`}
                   className="text-sm font-black text-tm-navy hover:text-tm-red hover:underline"
                 >
                   {s.name}
@@ -43,7 +45,7 @@ export default async function StaffActivityPage() {
                   </span>
                 </span>
               </div>
-              <StaffActivityTable counts={s.counts} />
+              <StaffActivityTable counts={s.counts} staffId={s.id} />
             </section>
           ))}
         </div>

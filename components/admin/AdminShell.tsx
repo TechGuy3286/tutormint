@@ -26,6 +26,7 @@ import {
   ListChecks,
   Scroll,
   Search,
+  ShieldAlert,
   Upload,
   UserPlus,
   UserX,
@@ -80,6 +81,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
   mail: Mail,
   userPlus: UserPlus,
   userX: UserX,
+  shieldAlert: ShieldAlert,
 }
 
 // Per-group colour (owner PR9 §6.1). On the DARK sidebar the raw brand colours

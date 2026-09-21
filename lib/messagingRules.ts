@@ -22,6 +22,17 @@ export const DEFAULT_QUICK_REPLIES: string[] = [
   'When would you like to start?',
 ]
 
+/** The quick message templates a PARENT gets in a conversation (PR40 §3). Same
+ *  placement and tap-to-insert behaviour as the tutor chips; a parent asks, a
+ *  tutor answers. Editable before sending. */
+export const DEFAULT_PARENT_QUICK_REPLIES: string[] = [
+  'Are you available for tuition in my area?',
+  'What is your monthly fee for this level?',
+  'Which days and times can you teach?',
+  'Can we arrange a demo class?',
+  'Do you teach at home or online?',
+]
+
 /** Clean a quick-reply list from any source: trim, drop empties, cap length and count. */
 export function sanitizeQuickReplies(input: unknown): string[] {
   const arr = Array.isArray(input) ? input : []

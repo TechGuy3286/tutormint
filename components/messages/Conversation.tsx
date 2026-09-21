@@ -580,7 +580,8 @@ export default function Conversation({
                 </div>
               )}
 
-              {/* Tutor quick replies: tap to insert, never to send. */}
+              {/* Quick message templates: tap to insert, never to send. Tutors
+                  answer, parents ask (PR40 §3) — same chips, edit before sending. */}
               {quickReplies.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {quickReplies.map((q, i) => (

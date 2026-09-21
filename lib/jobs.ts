@@ -18,6 +18,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
+import { flagIfAbusive } from '@/lib/abuse/flag'
 import { checkQuota, consumeQuota } from '@/lib/quota'
 import { upgradeHref } from '@/lib/upgradePath'
 import { buildGate, type Gate } from '@/lib/gate'
@@ -239,6 +240,20 @@ export async function createJob(
 
   await consumeQuota(parentId, 'job_post')
 
+  // PR40 §2 — flag (do not block) an abusive tuition title/description. The job
+  // is posted; a flag is raised for staff and the poster auto-suspends on their
+  // third. Never fails the post.
+  try {
+    await flagIfAbusive({
+      source: 'tuition',
+      subjectId: parentId,
+      content: [input.title, input.description].filter(Boolean).join('\n\n'),
+      context: { jobId: job.id },
+    })
+  } catch {
+    /* a flag failure must not fail a posted tuition */
+  }
+
   await logActivity({
     userId: parentId,
     event: 'job_posted',
@@ -385,6 +400,20 @@ export async function createTeamJob(
       await admin.from('jobs').delete().eq('id', job.id)
       return { ok: false, status: 400, error: contactError.message }
     }
+  }
+
+  // PR40 §2 — flag (do not block) abusive tuition text. Attributed to the acting
+  // ADMIN (they wrote it), not the team account, so a stray flag never suspends
+  // the shared team account.
+  try {
+    await flagIfAbusive({
+      source: 'tuition',
+      subjectId: actor.id,
+      content: [input.title, input.description].filter(Boolean).join('\n\n'),
+      context: { jobId: job.id, teamPost: true },
+    })
+  } catch {
+    /* a flag failure must not fail a posted tuition */
   }
 
   // On the team account's own timeline, so a team post appears there like any

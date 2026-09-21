@@ -93,6 +93,7 @@ export const NAV_GROUPS: NavGroup[] = [
     color: 'gold', // #F59E0B
     items: [
       { href: '/admin/reports', label: 'Reports', icon: 'flag', screen: 'reports' },
+      { href: '/admin/flags', label: 'Flagged messages', icon: 'shieldAlert', screen: 'reports' },
       { href: '/admin/inbox', label: 'Team inbox', icon: 'mail', screen: 'inbox' },
       { href: '/admin/audit', label: 'Audit', icon: 'scroll', screen: 'audit' },
     ],

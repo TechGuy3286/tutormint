@@ -10,7 +10,7 @@ import TeamPane from '@/components/messages/TeamPane'
 import { getEntitlements } from '@/lib/entitlements'
 import { loadQuickReplies, messagePage, threadHeader, threadPage } from '@/lib/messaging'
 import { loadTeamSummary } from '@/lib/adminMessaging'
-import { mayAttachPhoto, DEFAULT_QUICK_REPLIES } from '@/lib/messagingRules'
+import { mayAttachPhoto, DEFAULT_QUICK_REPLIES, DEFAULT_PARENT_QUICK_REPLIES } from '@/lib/messagingRules'
 import { createClient } from '@/lib/supabase/server'
 
 // The inbox, both roles, one implementation.
@@ -64,9 +64,15 @@ export default async function InboxShell({
   const selfName = ((self?.full_name as string | null) || 'You').split(' ')[0]
   const contactReason = role === 'tutor' ? 'tutor_contact' : 'parent_contact'
   // A tutor who has saved none sees the defaults as a starting set (the spec
-  // calls them defaults, editable in Settings); once they save, theirs win.
+  // calls them defaults, editable in Settings); once they save, theirs win. A
+  // PARENT gets the fixed parent templates (PR40 §3) — same chips, editable
+  // before sending.
   const chips =
-    role === 'tutor' ? (quickReplies.length > 0 ? quickReplies : DEFAULT_QUICK_REPLIES) : []
+    role === 'tutor'
+      ? quickReplies.length > 0
+        ? quickReplies
+        : DEFAULT_QUICK_REPLIES
+      : DEFAULT_PARENT_QUICK_REPLIES
 
   const header = threadId && !isTeam ? await threadHeader(userId, threadId) : null
 

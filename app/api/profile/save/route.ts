@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { flagIfAbusive } from '@/lib/abuse/flag'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
 import { BAD_AVATAR_MESSAGE, isOurStorageUrl } from '@/lib/avatarUrl'
@@ -150,6 +151,23 @@ export async function POST(request: Request) {
       userId: user.id, event: 'profile_updated', targetType: 'profile', targetId: user.id,
       meta: { step: body.step ?? null, fields: changed },
     })
+  }
+
+  // PR40 §2 — flag (do not block) abusive display name / profile text. Awaited so
+  // it runs on serverless; failures never block the save (which already succeeded).
+  try {
+    const fullName = typeof profilePatch.full_name === 'string' ? profilePatch.full_name : null
+    if (fullName) {
+      await flagIfAbusive({ source: 'display_name', subjectId: user.id, content: fullName, context: { field: 'full_name' } })
+    }
+    const headline = typeof body.tutorProfile?.headline === 'string' ? body.tutorProfile.headline : null
+    const bio = typeof body.tutorProfile?.bio === 'string' ? body.tutorProfile.bio : null
+    const profileText = [headline, bio].filter(Boolean).join('\n\n')
+    if (profileText) {
+      await flagIfAbusive({ source: 'profile', subjectId: user.id, content: profileText, context: { field: 'headline/bio' } })
+    }
+  } catch {
+    /* a flag failure must not fail a saved profile */
   }
 
   return NextResponse.json({
