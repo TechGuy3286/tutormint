@@ -8,6 +8,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { detectAbuse, isAbusive } from '../lib/abuse/filter'
+import { abuseWarning, flagStageLabel, WITHHELD_MESSAGE_LINE } from '../lib/abuse/warnings'
 
 test('flags English obscenities, incl. leet / spacing / censoring / repeats', () => {
   for (const t of [
@@ -50,4 +51,47 @@ test('does NOT flag ordinary clean messages (false-positive guard)', () => {
   ]) {
     assert.deepEqual(detectAbuse(t), [], `must NOT flag: "${t}"`)
   }
+})
+
+// The exact phrasings exercised by hand in the PR41 production verification.
+test('flags the by-hand PR41 phrasings', () => {
+  assert.deepEqual(detectAbuse('oye gandu kahan ho'), ['gandu'])
+  assert.deepEqual(detectAbuse('tum harami insaan ho'), ['harami'])
+  assert.deepEqual(detectAbuse('kutti send nudes').sort(), ['kutti', 'nudes'])
+})
+
+// The escalating warning (PR41 §3): warning 1, warning 2, then the suspension.
+test('escalating warning copy: 1 → 2 → suspension', () => {
+  const w1 = abuseWarning(1, false)
+  assert.equal(w1.suspended, false)
+  assert.match(w1.text, /was not sent/i)
+  assert.match(w1.text, /can be suspended/i)
+
+  const w2 = abuseWarning(2, false)
+  assert.equal(w2.suspended, false)
+  assert.match(w2.text, /second time/i)
+  assert.match(w2.text, /will be suspended/i)
+
+  const w3 = abuseWarning(3, true)
+  assert.equal(w3.suspended, true)
+  assert.match(w3.text, /suspended/i)
+  // The appeal route is in the suspension line.
+  assert.match(w3.text, /0321 5872222/)
+  assert.match(w3.text, /support@tutormint\.org/)
+
+  // A flag beyond the third still reads as the suspension, not "Warning 4".
+  assert.equal(abuseWarning(4, false).suspended, true)
+})
+
+test('flag stage label maps the warning number', () => {
+  assert.equal(flagStageLabel(1), 'Warning 1')
+  assert.equal(flagStageLabel(2), 'Warning 2')
+  assert.equal(flagStageLabel(3), 'Suspension')
+  assert.equal(flagStageLabel(4), 'Suspension')
+  assert.equal(flagStageLabel(null), 'Flag')
+})
+
+test('the withheld message line never echoes the matched word', () => {
+  // It is a fixed line — no interpolation of user content.
+  assert.equal(WITHHELD_MESSAGE_LINE, 'Not sent — this message breaks our rules.')
 })

@@ -17,7 +17,7 @@ export async function loadFlagQueue(limit = 200): Promise<FlagRow[]> {
 
   const { data: flags } = await admin
     .from('abuse_flags')
-    .select('id, source, subject_id, recipient_id, content, matched, context, created_at')
+    .select('id, source, subject_id, recipient_id, content, matched, context, created_at, warning_level, withheld')
     .eq('status', 'open')
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -51,6 +51,8 @@ export async function loadFlagQueue(limit = 200): Promise<FlagRow[]> {
       matched: (r.matched as string[] | null) ?? [],
       context: (r.context as Record<string, unknown> | null) ?? null,
       createdAt: r.created_at as string,
+      warningLevel: (r.warning_level as number | null) ?? null,
+      withheld: !!(r.withheld as boolean | null),
     }
   })
 }

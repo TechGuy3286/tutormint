@@ -32,6 +32,8 @@ import Avatar from '@/components/Avatar'
 import { formatDate, formatDateTime, pkDayKey } from '@/lib/datetime'
 import type { GateReason } from '@/lib/gate'
 import type { ThreadMessage, MessageReplyRef } from '@/lib/messaging'
+import type { AbuseWarning } from '@/lib/abuse/warnings'
+import { WITHHELD_MESSAGE_LINE } from '@/lib/abuse/warnings'
 import { useThreadChannel } from '@/components/messages/useThreadChannel'
 
 // The right pane: one conversation, oldest at the top, and the composer.
@@ -106,6 +108,9 @@ export default function Conversation({
   const [error, setError] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  // The plain warning shown when the message just sent was withheld for abuse
+  // (PR41 §3) — in the conversation, right where they sent it, never by email.
+  const [abuseWarn, setAbuseWarn] = useState<AbuseWarning | null>(null)
 
   const [reply, setReply] = useState<MessageReplyRef | null>(null)
   const [pending, setPending] = useState<Pending | null>(null)
@@ -208,15 +213,28 @@ export default function Conversation({
     const payload: Record<string, unknown> = { threadId, body }
     if (reply) payload.replyTo = reply.id
     if (pending) payload.attachment = { path: pending.path, w: pending.w, h: pending.h, bytes: pending.bytes }
-    const r = await postGated('/api/messages', payload, upgradeSheet?.showGate)
+    const r = await postGated<{ withheld?: boolean; warning?: AbuseWarning | null }>(
+      '/api/messages',
+      payload,
+      upgradeSheet?.showGate,
+    )
     if (r.ok) {
       setDraft('')
       setReply(null)
       if (pending) URL.revokeObjectURL(pending.url)
       setPending(null)
-      toast.success('Message sent.')
-      router.refresh()
-      signal('msg')
+      if (r.data?.withheld) {
+        // Not delivered: no "sent" toast, and no 'msg' broadcast — the other
+        // side must not be told. The message appears in the sender's own thread
+        // marked "not sent" after the refresh; the warning shows here.
+        setAbuseWarn(r.data.warning ?? null)
+        router.refresh()
+      } else {
+        setAbuseWarn(null)
+        toast.success('Message sent.')
+        router.refresh()
+        signal('msg')
+      }
       requestAnimationFrame(() => bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }))
     } else if (!r.gated) {
       setError(r.error)
@@ -472,7 +490,22 @@ export default function Conversation({
                       )}
 
                       {m.body.trim().length > 0 && (
-                        <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">{m.body}</p>
+                        <p
+                          className={`whitespace-pre-wrap break-words text-xs leading-relaxed ${
+                            m.withheld ? 'text-tm-navy/50 line-through' : ''
+                          }`}
+                        >
+                          {m.body}
+                        </p>
+                      )}
+
+                      {/* A message flagged for abuse: shown to its sender, plainly
+                          marked not delivered (PR41 §2). No matched word. */}
+                      {m.withheld && (
+                        <p className="flex items-start gap-1 text-[10px] font-bold text-tm-red">
+                          <ShieldAlert size={11} className="mt-px shrink-0" aria-hidden />
+                          {WITHHELD_MESSAGE_LINE}
+                        </p>
                       )}
 
                       <p
@@ -482,6 +515,7 @@ export default function Conversation({
                       >
                         {formatDateTime(m.createdAt)}
                         {m.mine &&
+                          !m.withheld &&
                           (m.readAt ? (
                             <CheckCheck size={12} aria-label="Seen" className="text-tm-green-deep" />
                           ) : (
@@ -525,6 +559,18 @@ export default function Conversation({
       <div className="border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5">
         <div className="space-y-2">
           {error && <p className="text-[11px] font-bold text-tm-red">{error}</p>}
+
+          {/* The escalating abuse warning (PR41 §3): warning 1, warning 2, then
+              the suspension line — shown right after the send that was withheld. */}
+          {abuseWarn && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-xl bg-tm-tint-red p-3 text-[11px] font-semibold leading-relaxed text-tm-red"
+            >
+              <ShieldAlert size={14} className="mt-px shrink-0" aria-hidden />
+              <span>{abuseWarn.text}</span>
+            </div>
+          )}
 
           {suspended ? (
             <p className="flex items-start gap-2 rounded-xl bg-tm-tint-red p-3 text-[11px] leading-relaxed text-tm-red">

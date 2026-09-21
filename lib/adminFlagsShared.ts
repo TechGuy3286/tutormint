@@ -13,6 +13,11 @@ export type FlagRow = {
   matched: string[]
   context: Record<string, unknown> | null
   createdAt: string
+  /** The flag number when raised: 1 = first warning, 2 = second, 3 = suspension
+      (PR41 §4). Null on flags raised before the column existed. */
+  warningLevel: number | null
+  /** Whether the flagged content was withheld from delivery / publication. */
+  withheld: boolean
 }
 
 const SOURCE_LABEL: Record<FlagRow['source'], string> = {

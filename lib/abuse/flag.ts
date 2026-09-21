@@ -4,15 +4,20 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { detectAbuse } from './filter'
+import { AUTO_SUSPEND_AT } from './warnings'
 
-// The server side of abuse flagging (PR40 §2): FLAG, DO NOT BLOCK.
+// The server side of abuse flagging (PR41 §2/§3): FLAG, WITHHOLD, then WARN.
 //
-// The content has already been saved by the caller; this scans it, and if a
-// banned term is present writes an abuse_flags row (sender, recipient, the text,
-// the match, the time) for the /admin/flags queue. After the author's THIRD open
-// flag it suspends them automatically. Nobody is notified except that the
-// suspended member finds out on their next send; the recipient of a flagged
-// message is never told — staff handle it.
+// This scans a piece of content and, if a banned term is present, writes an
+// abuse_flags row (sender, recipient, the text, the match, the time, whether it
+// was withheld, and the WARNING NUMBER) for the /admin/flags queue. The CALLER
+// is responsible for not delivering / not publishing the flagged content — this
+// only records the flag, counts it, and (on the third open flag) suspends.
+//
+// The warning number returned is the member's OPEN-flag count after this flag:
+// 1 = first warning, 2 = second, 3 = suspension. Clearing a flag on /admin/flags
+// drops the open count, so a mistaken flag does not push someone toward
+// suspension (that is the whole reason the count is OPEN flags, not all flags).
 //
 // The auto-suspend sets profiles.is_suspended — the single fact suspension rests
 // on (getEntitlements returns nothing, dashboards redirect, tutor_directory
@@ -21,11 +26,15 @@ import { detectAbuse } from './filter'
 // timeline record it. A staff REINSTATEMENT is an admin action and IS audited
 // (lib/moderation unsuspendMember, from the queue).
 
-const AUTO_SUSPEND_AT = 3
-
 export type FlagSource = 'message' | 'profile' | 'tuition' | 'display_name'
 
-export type FlagResult = { flagged: boolean; matched: string[]; suspended: boolean }
+export type FlagResult = {
+  flagged: boolean
+  matched: string[]
+  /** The member's open-flag count after this flag (1, 2, 3…). 0 when not flagged. */
+  warningLevel: number
+  suspended: boolean
+}
 
 export async function flagIfAbusive(params: {
   source: FlagSource
@@ -36,12 +45,22 @@ export async function flagIfAbusive(params: {
   content: string
   /** {messageId, threadId, jobId, field} — whatever locates the flagged text. */
   context?: Record<string, unknown>
+  /** Whether the caller withheld the content from delivery / publication. */
+  withheld?: boolean
 }): Promise<FlagResult> {
   const matched = detectAbuse(params.content)
-  if (matched.length === 0) return { flagged: false, matched: [], suspended: false }
+  if (matched.length === 0) return { flagged: false, matched: [], warningLevel: 0, suspended: false }
 
   const admin = createAdminClient()
-  if (!admin) return { flagged: false, matched, suspended: false }
+  if (!admin) return { flagged: false, matched, warningLevel: 0, suspended: false }
+
+  // Count this author's OPEN flags AFTER this one — the warning number.
+  const { count: before } = await admin
+    .from('abuse_flags')
+    .select('id', { count: 'exact', head: true })
+    .eq('subject_id', params.subjectId)
+    .eq('status', 'open')
+  const warningLevel = (before ?? 0) + 1
 
   await admin.from('abuse_flags').insert({
     source: params.source,
@@ -50,20 +69,15 @@ export async function flagIfAbusive(params: {
     content: params.content.slice(0, 4000),
     matched,
     context: params.context ?? null,
+    warning_level: warningLevel,
+    withheld: params.withheld ?? false,
   })
 
-  // Count this author's OPEN flags; suspend on the third.
-  const { count } = await admin
-    .from('abuse_flags')
-    .select('id', { count: 'exact', head: true })
-    .eq('subject_id', params.subjectId)
-    .eq('status', 'open')
-
   let suspended = false
-  if ((count ?? 0) >= AUTO_SUSPEND_AT) {
+  if (warningLevel >= AUTO_SUSPEND_AT) {
     suspended = await autoSuspend(admin, params.subjectId)
   }
-  return { flagged: true, matched, suspended }
+  return { flagged: true, matched, warningLevel, suspended }
 }
 
 /** Suspend the member for repeated abuse — the same state moderation.ts sets,

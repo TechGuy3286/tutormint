@@ -34,6 +34,8 @@ import { previewText } from '@/lib/messagingRules'
 import { messageListTime } from '@/lib/datetime'
 import { teamUnreadCount } from '@/lib/adminMessaging'
 import { flagIfAbusive } from '@/lib/abuse/flag'
+import { detectAbuse } from '@/lib/abuse/filter'
+import { abuseWarning, type AbuseWarning } from '@/lib/abuse/warnings'
 import { SUPPORT_WHATSAPP_DISPLAY, SUPPORT_EMAIL_FALLBACK } from '@/lib/supportContacts'
 
 // PR16 §2.3 — an unverified tutor (fee unpaid) may RECEIVE parent messages and
@@ -82,6 +84,10 @@ export type ThreadMessage = {
   readAt: string | null
   replyTo: MessageReplyRef | null
   attachment: MessageAttachment | null
+  /** The sender's own message that was flagged and NOT delivered (PR41 §2).
+      Only ever true on the sender's own bubble — the recipient never receives a
+      withheld message at all. */
+  withheld: boolean
 }
 
 type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate }
@@ -234,7 +240,10 @@ export async function sendMessage(params: {
   replyTo?: string | null
   /** A photo already uploaded to message-media by this sender, if any. */
   attachment?: { path: string; w: number; h: number; bytes: number } | null
-}): Promise<{ ok: true; messageId: string } | Fail> {
+}): Promise<
+  | { ok: true; messageId: string; withheld?: boolean; warning?: AbuseWarning }
+  | Fail
+> {
   const body = params.body.trim()
   const attachment = params.attachment ?? null
   // A message needs a body OR a photo. Both together (a caption) is fine.
@@ -331,6 +340,16 @@ export async function sendMessage(params: {
     }
   }
 
+  // Abuse check BEFORE delivery (PR41 §2): a flagged message is WITHHELD — it is
+  // recorded so the SENDER sees it in their own thread marked "not sent", but it
+  // never reaches the recipient (no row they can read, no notification, no
+  // unread, no digest, no last_message_at bump). The row is written with
+  // withheld_at ALREADY SET, so there is no window in which the recipient's read
+  // path could return it.
+  const matched = body ? detectAbuse(body) : []
+  const withheld = matched.length > 0
+  const nowIso = new Date().toISOString()
+
   const { data: created, error } = await supabase
     .from('messages')
     .insert({
@@ -342,6 +361,7 @@ export async function sendMessage(params: {
       attachment_w: attachment?.w ?? null,
       attachment_h: attachment?.h ?? null,
       attachment_bytes: attachment?.bytes ?? null,
+      withheld_at: withheld ? nowIso : null,
       // Legacy NOT NULL columns, mirrored until T8 removes them.
       job_id: (thread.job_id as string) ?? '',
       sender: me,
@@ -353,41 +373,48 @@ export async function sendMessage(params: {
 
   if (error) return { ok: false, status: 400, error: error.message }
 
-  // Abuse flagging (PR40 §2): the message has been SENT (flag, do not block). If
-  // the body contains a banned term a flag is raised for staff, and the sender is
-  // auto-suspended on their third flag — which bites on their NEXT send (above).
-  // The recipient is never told. Never fails the send.
-  if (body) {
-    // Awaited (not fire-and-forget) so it runs to completion on serverless, but
-    // never fails the send — the message is already stored.
-    try {
-      await flagIfAbusive({
-        source: 'message',
-        subjectId: me,
-        recipientId: other,
-        content: body,
-        context: { messageId: created.id, threadId: thread.id },
-      })
-    } catch {
-      /* a flag failure must not fail a sent message */
-    }
-  }
-
-  if (admin) {
-    await admin
-      .from('threads')
-      .update({ last_message_at: new Date().toISOString() })
-      .eq('id', thread.id)
-  }
-
   // The event records the thread id and nothing else -- message content never
-  // enters the activity log.
+  // enters the activity log. Recorded for a withheld message too: the member DID
+  // send (the attempt happened); it simply was not delivered.
   await logActivity({
     userId: me,
     event: 'message_sent',
     targetType: 'thread',
     targetId: thread.id as string,
   })
+
+  if (withheld) {
+    // Raise the flag and read the warning number back. Awaited so it runs to
+    // completion on serverless; a flag failure must not fail the (withheld)
+    // send, but the sender still sees their message marked not sent.
+    let warning: AbuseWarning = abuseWarning(1, false)
+    try {
+      const flag = await flagIfAbusive({
+        source: 'message',
+        subjectId: me,
+        recipientId: other,
+        content: body,
+        context: { messageId: created.id, threadId: thread.id },
+        withheld: true,
+      })
+      warning = abuseWarning(flag.warningLevel || 1, flag.suspended)
+      if (admin) {
+        await admin.from('messages').update({ withheld_level: flag.warningLevel }).eq('id', created.id)
+      }
+    } catch {
+      /* keep the default first-warning copy if the flag write failed */
+    }
+    // No notification, no digest, no last_message_at bump: the recipient must
+    // never learn a withheld message exists.
+    return { ok: true, messageId: created.id as string, withheld: true, warning }
+  }
+
+  if (admin) {
+    await admin
+      .from('threads')
+      .update({ last_message_at: nowIso })
+      .eq('id', thread.id)
+  }
 
   // PR16 §2.2 — an UNVERIFIED tutor recipient is told a parent wrote, and to
   // verify to read and reply; the body stays hidden until the fee is paid (§2.3,
@@ -753,7 +780,7 @@ export async function threadPage({
     admin
       ? admin
           .from('messages')
-          .select('thread_id, body, created_at, attachment_path, deleted_for')
+          .select('thread_id, sender_id, body, created_at, attachment_path, deleted_for, withheld_at')
           .in('thread_id', threadIds)
           .order('created_at', { ascending: false })
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
@@ -777,18 +804,25 @@ export async function threadPage({
     })
   }
 
-  // The newest message per thread that is NOT deleted-for-me, so a preview never
-  // shows a line the reader deleted. An attachment with no body previews as
-  // "Photo" (attachments never leak past that word, here or in notifications).
-  const latest = new Map<string, { body: string; hasAttachment: boolean }>()
+  // The newest message per thread that this viewer can SEE, so a preview never
+  // shows a line the reader deleted — and never a WITHHELD (abuse-flagged)
+  // message that belongs to the other party, which the recipient must never
+  // learn exists (PR41 §2). A withheld message is only ever visible to its own
+  // sender, and shows as a plain "not sent" marker in their list. An attachment
+  // with no body previews as "Photo".
+  const latest = new Map<string, { body: string; hasAttachment: boolean; withheld: boolean }>()
   for (const m of previews.data ?? []) {
     const key = m.thread_id as string
     if (latest.has(key)) continue
     const deletedFor = (m.deleted_for as string[] | null) ?? []
     if (deletedFor.includes(userId)) continue
+    const isWithheld = !!(m.withheld_at as string | null)
+    // A withheld message reaches nobody but its sender.
+    if (isWithheld && (m.sender_id as string) !== userId) continue
     latest.set(key, {
       body: (m.body as string) ?? '',
       hasAttachment: !!(m.attachment_path as string | null),
+      withheld: isWithheld,
     })
   }
 
@@ -801,35 +835,47 @@ export async function threadPage({
     }),
   )
 
-  const items: ThreadRow[] = page.map((t) => {
-    const otherId =
-      t.participant_a === userId ? (t.participant_b as string) : (t.participant_a as string)
-    const job = t.job_id ? jobInfo.get(t.job_id as string) : undefined
-    const newest = latest.get(t.id as string)
-    // Masked here as well as in the thread. A preview is a message body with
-    // fewer characters, and leaking a number through the list would make the
-    // masking inside the conversation pointless. A bare attachment reads "Photo".
-    const previewSource = previewText(newest?.body ?? '', newest?.hasAttachment ?? false)
-    const rendered = locked
-      ? { text: LOCKED_PREVIEW }
-      : renderMessageBody(previewSource, share.get(otherId) ?? false)
-    const lastMessageAt = (t.last_message_at as string) ?? (t.created_at as string)
+  const items: ThreadRow[] = page
+    // A thread with NO message this viewer can see is dropped from their list —
+    // which is how a brand-new conversation whose only message was withheld
+    // never appears in the recipient's inbox (PR41 §2). The sender still sees it
+    // (their withheld message is visible to them, so it has a `latest`).
+    .filter((t) => latest.has(t.id as string))
+    .map((t) => {
+      const otherId =
+        t.participant_a === userId ? (t.participant_b as string) : (t.participant_a as string)
+      const job = t.job_id ? jobInfo.get(t.job_id as string) : undefined
+      const newest = latest.get(t.id as string)
+      // Masked here as well as in the thread. A preview is a message body with
+      // fewer characters, and leaking a number through the list would make the
+      // masking inside the conversation pointless. A bare attachment reads "Photo".
+      // A withheld (not-sent) message previews as a plain marker, shown only to
+      // its own sender.
+      const rendered = newest?.withheld
+        ? { text: 'Not sent' }
+        : locked
+          ? { text: LOCKED_PREVIEW }
+          : renderMessageBody(
+              previewText(newest?.body ?? '', newest?.hasAttachment ?? false),
+              share.get(otherId) ?? false,
+            )
+      const lastMessageAt = (t.last_message_at as string) ?? (t.created_at as string)
 
-    return {
-      id: t.id as string,
-      jobId: (t.job_id as string) ?? null,
-      jobTitle: job?.title ?? null,
-      jobRef: job?.ref ?? null,
-      otherId,
-      otherName: names.get(otherId)?.name ?? NAME_FALLBACK,
-      otherAvatar: names.get(otherId)?.avatar ?? null,
-      otherRole: names.get(otherId)?.role ?? null,
-      lastMessageAt,
-      lastMessageLabel: messageListTime(lastMessageAt),
-      preview: rendered.text.slice(0, 140),
-      unread: unread.get(t.id as string) ?? 0,
-    }
-  })
+      return {
+        id: t.id as string,
+        jobId: (t.job_id as string) ?? null,
+        jobTitle: job?.title ?? null,
+        jobRef: job?.ref ?? null,
+        otherId,
+        otherName: names.get(otherId)?.name ?? NAME_FALLBACK,
+        otherAvatar: names.get(otherId)?.avatar ?? null,
+        otherRole: names.get(otherId)?.role ?? null,
+        lastMessageAt,
+        lastMessageLabel: messageListTime(lastMessageAt),
+        preview: rendered.text.slice(0, 140),
+        unread: unread.get(t.id as string) ?? 0,
+      }
+    })
 
   const last = page[page.length - 1]
   const next = hasMore
@@ -982,11 +1028,15 @@ export async function messagePage({
 
   let query = supabase
     .from('messages')
-    .select('id, sender_id, body, created_at, reply_to, read_at, attachment_path, attachment_w, attachment_h')
+    .select('id, sender_id, body, created_at, reply_to, read_at, attachment_path, attachment_w, attachment_h, withheld_at')
     .eq('thread_id', threadId)
     // A message this reader deleted for themselves is invisible to them, and
     // only them — the row stays for the other participant.
     .not('deleted_for', 'cs', `{${userId}}`)
+    // A WITHHELD (abuse-flagged) message never reaches the recipient (PR41 §2):
+    // it is returned only to its own sender, marked "not sent". A withheld
+    // message is always the sender's own, so this is the recipient exclusion.
+    .or(`withheld_at.is.null,sender_id.eq.${userId}`)
 
   const after = decodeCursor<MessageCursor>(cursor)
   if (after) {
@@ -1051,6 +1101,7 @@ export async function messagePage({
           readAt: (m.read_at as string | null) ?? null,
           replyTo: null,
           attachment: null,
+          withheld: false,
         }
       }
       // Masked on the server. The digits are not sent to a reader who may not
@@ -1070,6 +1121,7 @@ export async function messagePage({
         attachment: hasAttachment
           ? { w: (m.attachment_w as number | null) ?? null, h: (m.attachment_h as number | null) ?? null }
           : null,
+        withheld: !!(m.withheld_at as string | null),
       }
     })
 

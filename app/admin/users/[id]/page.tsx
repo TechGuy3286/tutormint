@@ -11,6 +11,8 @@ import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { loadMemberTimeline } from '@/lib/adminQueues'
 import { loadStaffCountsFor } from '@/lib/staffActivity'
 import StaffActivityTable from '@/components/admin/StaffActivityTable'
+import { flagStageLabel } from '@/lib/abuse/warnings'
+import { flagSourceLabel } from '@/lib/adminFlagsShared'
 import Timeline from './Timeline'
 
 // One member, everything about them in one place.
@@ -71,6 +73,7 @@ export default async function AdminMemberPage({
     { data: reportsAbout },
     { data: reportsBy },
     { data: penalties },
+    { data: abuseFlags },
     { data: auditAbout },
     { data: plans },
   ] = await Promise.all([
@@ -119,6 +122,12 @@ export default async function AdminMemberPage({
       .from('penalties_log')
       .select('id, kind, reason, created_at')
       .eq('user_id', id)
+      .order('created_at', { ascending: false })
+      .limit(25),
+    admin
+      .from('abuse_flags')
+      .select('id, source, matched, status, warning_level, withheld, created_at')
+      .eq('subject_id', id)
       .order('created_at', { ascending: false })
       .limit(25),
     admin
@@ -360,6 +369,18 @@ export default async function AdminMemberPage({
               key={p.id as string}
               main={`${p.kind}: ${p.reason}`}
               sub={formatDateTime(p.created_at as string)}
+            />
+          ))}
+        </Panel>
+
+        {/* Abuse flags — the warnings (1, 2) and the suspension (3), so it is
+            plain the member was warned before being suspended (PR41 §4). */}
+        <Panel title={`Abuse flags (${(abuseFlags ?? []).length})`}>
+          {(abuseFlags ?? []).map((f) => (
+            <Row
+              key={f.id as string}
+              main={`${flagStageLabel((f.warning_level as number | null) ?? null)} — ${flagSourceLabel(f.source as string)}`}
+              sub={`${f.withheld ? 'content withheld' : 'delivered'} · ${(f.status as string) === 'cleared' ? 'cleared' : 'open'} · ${formatDateTime(f.created_at as string)}`}
             />
           ))}
         </Panel>

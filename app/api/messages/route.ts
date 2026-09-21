@@ -53,5 +53,13 @@ export async function POST(request: Request) {
   })
 
   if (!result.ok) return NextResponse.json({ error: result.error, gate: result.gate }, { status: result.status })
-  return NextResponse.json({ success: true, messageId: result.messageId })
+  // A withheld (abuse-flagged) message returns success — it WAS accepted, just
+  // not delivered — and carries the plain warning the sender sees in the
+  // conversation (PR41 §2/§3). Never the matched word.
+  return NextResponse.json({
+    success: true,
+    messageId: result.messageId,
+    withheld: result.withheld ?? false,
+    warning: result.warning ?? null,
+  })
 }

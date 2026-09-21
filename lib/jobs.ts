@@ -19,6 +19,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { flagIfAbusive } from '@/lib/abuse/flag'
+import { detectAbuse } from '@/lib/abuse/filter'
+import { WITHHELD_TUITION_LINE } from '@/lib/abuse/warnings'
 import { checkQuota, consumeQuota } from '@/lib/quota'
 import { upgradeHref } from '@/lib/upgradePath'
 import { buildGate, type Gate } from '@/lib/gate'
@@ -181,6 +183,22 @@ export async function createJob(
     return { ...quota, gate: await buildGate('parent_post_quota', ent) }
   }
 
+  // PR41 §2 — a tuition whose title or description contains banned wording is
+  // NOT published. Checked before the insert: a flag is raised (withheld,
+  // counting toward the third-strike suspension) and the post is refused with a
+  // plain line. No job row is created and no quota is spent.
+  {
+    const abuseText = [input.title, input.description].filter(Boolean).join('\n\n')
+    if (detectAbuse(abuseText).length > 0) {
+      try {
+        await flagIfAbusive({ source: 'tuition', subjectId: parentId, content: abuseText, withheld: true })
+      } catch {
+        /* the content stays unpublished whether or not the flag write succeeded */
+      }
+      return { ok: false, status: 400, error: WITHHELD_TUITION_LINE }
+    }
+  }
+
   // A child must belong to the parent posting the job.
   if (input.childId) {
     const { data: child } = await supabase
@@ -240,19 +258,8 @@ export async function createJob(
 
   await consumeQuota(parentId, 'job_post')
 
-  // PR40 §2 — flag (do not block) an abusive tuition title/description. The job
-  // is posted; a flag is raised for staff and the poster auto-suspends on their
-  // third. Never fails the post.
-  try {
-    await flagIfAbusive({
-      source: 'tuition',
-      subjectId: parentId,
-      content: [input.title, input.description].filter(Boolean).join('\n\n'),
-      context: { jobId: job.id },
-    })
-  } catch {
-    /* a flag failure must not fail a posted tuition */
-  }
+  // Abusive tuition text was withheld and flagged before the insert (PR41 §2),
+  // so a posted job here contains no flagged wording.
 
   await logActivity({
     userId: parentId,
@@ -343,6 +350,24 @@ export async function createTeamJob(
   // is_featured follows the team account's plan, like any parent's job.
   const ent = await getEntitlements(teamId)
 
+  // PR41 §2 — a team tuition with banned wording is NOT posted either. Attributed
+  // to the acting ADMIN (they wrote it), never the shared team account, so a
+  // stray flag can never suspend the team account.
+  {
+    const abuseText = [input.title, input.description].filter(Boolean).join('\n\n')
+    if (detectAbuse(abuseText).length > 0) {
+      try {
+        await flagIfAbusive({
+          source: 'tuition', subjectId: actor.id, content: abuseText,
+          context: { teamPost: true }, withheld: true,
+        })
+      } catch {
+        /* the content stays unpublished whether or not the flag write succeeded */
+      }
+      return { ok: false, status: 400, error: WITHHELD_TUITION_LINE }
+    }
+  }
+
   const labels = await subjectLabels(input.masterIds)
   const jobTxId = newJobTxId()
 
@@ -402,19 +427,8 @@ export async function createTeamJob(
     }
   }
 
-  // PR40 §2 — flag (do not block) abusive tuition text. Attributed to the acting
-  // ADMIN (they wrote it), not the team account, so a stray flag never suspends
-  // the shared team account.
-  try {
-    await flagIfAbusive({
-      source: 'tuition',
-      subjectId: actor.id,
-      content: [input.title, input.description].filter(Boolean).join('\n\n'),
-      context: { jobId: job.id, teamPost: true },
-    })
-  } catch {
-    /* a flag failure must not fail a posted tuition */
-  }
+  // Abusive tuition text was withheld and flagged before the insert (PR41 §2),
+  // so a posted team job here contains no flagged wording.
 
   // On the team account's own timeline, so a team post appears there like any
   // other posted job — flagged as admin-posted with the origin and acting admin.

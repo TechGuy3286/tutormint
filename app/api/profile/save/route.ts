@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { flagIfAbusive } from '@/lib/abuse/flag'
+import { detectAbuse } from '@/lib/abuse/filter'
+import { WITHHELD_CONTENT_LINE } from '@/lib/abuse/warnings'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
 import { BAD_AVATAR_MESSAGE, isOurStorageUrl } from '@/lib/avatarUrl'
@@ -65,6 +67,40 @@ export async function POST(request: Request) {
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
   const role = me?.role
+
+  // PR41 §2 — check the PUBLIC text fields BEFORE writing, and do NOT publish
+  // anything abusive: a banned display name, headline or bio is withheld (not
+  // saved), a flag is raised for staff (counting toward the third-strike
+  // suspension), and the member sees one plain line. The rest of the save is
+  // rejected with it — nothing here is published if any field breaks the rules.
+  const nameIn = typeof body.profile?.full_name === 'string' ? body.profile.full_name : null
+  const headlineIn = typeof body.tutorProfile?.headline === 'string' ? body.tutorProfile.headline : null
+  const bioIn = typeof body.tutorProfile?.bio === 'string' ? body.tutorProfile.bio : null
+  const nameAbusive = !!nameIn && detectAbuse(nameIn).length > 0
+  const headlineAbusive = !!headlineIn && detectAbuse(headlineIn).length > 0
+  const bioAbusive = !!bioIn && detectAbuse(bioIn).length > 0
+  if (nameAbusive || headlineAbusive || bioAbusive) {
+    try {
+      if (nameAbusive) {
+        await flagIfAbusive({
+          source: 'display_name', subjectId: user.id, content: nameIn!,
+          context: { field: 'full_name' }, withheld: true,
+        })
+      }
+      const profileText = [headlineAbusive ? headlineIn : null, bioAbusive ? bioIn : null]
+        .filter(Boolean)
+        .join('\n\n')
+      if (profileText) {
+        await flagIfAbusive({
+          source: 'profile', subjectId: user.id, content: profileText,
+          context: { field: 'headline/bio' }, withheld: true,
+        })
+      }
+    } catch {
+      /* a flag failure must not change the outcome — the content stays unpublished */
+    }
+    return NextResponse.json({ error: WITHHELD_CONTENT_LINE }, { status: 400 })
+  }
 
   // ONE CITY FIELD FOR TUTORS (PR 3b §0). `city` arrives under `profile.city`
   // from every form. A blank string clears it (null); an absent key leaves it
@@ -153,22 +189,8 @@ export async function POST(request: Request) {
     })
   }
 
-  // PR40 §2 — flag (do not block) abusive display name / profile text. Awaited so
-  // it runs on serverless; failures never block the save (which already succeeded).
-  try {
-    const fullName = typeof profilePatch.full_name === 'string' ? profilePatch.full_name : null
-    if (fullName) {
-      await flagIfAbusive({ source: 'display_name', subjectId: user.id, content: fullName, context: { field: 'full_name' } })
-    }
-    const headline = typeof body.tutorProfile?.headline === 'string' ? body.tutorProfile.headline : null
-    const bio = typeof body.tutorProfile?.bio === 'string' ? body.tutorProfile.bio : null
-    const profileText = [headline, bio].filter(Boolean).join('\n\n')
-    if (profileText) {
-      await flagIfAbusive({ source: 'profile', subjectId: user.id, content: profileText, context: { field: 'headline/bio' } })
-    }
-  } catch {
-    /* a flag failure must not fail a saved profile */
-  }
+  // Abusive display name / profile text was already withheld and flagged before
+  // any write above (PR41 §2), so a saved profile here contains no flagged text.
 
   return NextResponse.json({
     success: true,

@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { formatDateTime } from '@/lib/datetime'
 import { flagSourceLabel, type FlagRow } from '@/lib/adminFlagsShared'
+import { flagStageLabel } from '@/lib/abuse/warnings'
 
 // The flagged-content queue (PR40 §2). Each row: the flagged text, both members
 // (linked to their admin page), what matched and when, and the staff actions —
@@ -76,6 +77,20 @@ export default function FlagQueue({ initial }: { initial: FlagRow[] }) {
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
             <span className="inline-flex items-center gap-1 rounded-full bg-tm-tint-gold px-2 py-0.5 font-black text-tm-gold-ink">
               <AlertTriangle aria-hidden size={11} /> {flagSourceLabel(f.source)}
+            </span>
+            {/* Which strike this was: Warning 1, Warning 2, or the Suspension. */}
+            <span
+              className={`rounded-full px-2 py-0.5 font-black ${
+                (f.warningLevel ?? 0) >= 3
+                  ? 'bg-tm-tint-red text-tm-red'
+                  : 'bg-tm-tint-navy text-tm-navy'
+              }`}
+            >
+              {flagStageLabel(f.warningLevel)}
+            </span>
+            {/* Whether the content was kept off the platform. */}
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 font-bold text-slate-700">
+              {f.withheld ? 'Content withheld' : 'Delivered'}
             </span>
             <span className="text-gray-500">{formatDateTime(f.createdAt)}</span>
             {f.subject.suspended && (
