@@ -14,7 +14,7 @@ import { computeCompletion } from '@/lib/completion'
 import { getEntitlements } from '@/lib/entitlements'
 import { jobsThisWeek, matchingTuitionsInCity } from '@/lib/funnel'
 import { savedJobsForTutor } from '@/lib/jobFeed'
-import { unreadMessageCount } from '@/lib/messaging'
+import { unreadMessageCount, conversationCount } from '@/lib/messaging'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { viewSummary } from '@/lib/profileViews'
 import { canDownloadCv } from '@/lib/cv/access'
@@ -49,11 +49,12 @@ export default async function TutorDashboardPage() {
   const city = (tutorProfile?.city as string | null) ?? null
   const jobTypes = (tutorProfile?.job_types as string[] | null) ?? null
 
-  const [views, weekJobs, unread, { data: apps }, { data: demos }, savedJobs, matchCount] =
+  const [views, weekJobs, unread, conversations, { data: apps }, { data: demos }, savedJobs, matchCount] =
     await Promise.all([
       viewSummary(userId, ent.canSeeViewerIdentity, 20),
       jobsThisWeek(userId, city, jobTypes),
       unreadMessageCount(userId),
+      conversationCount(userId),
       supabase.from('applications').select('id, job_id, withdrawn_at').eq('tutor_id', userId),
       supabase.from('demo_requests').select('id, status').eq('tutor_id', userId),
       savedJobsForTutor(userId),
@@ -82,7 +83,9 @@ export default async function TutorDashboardPage() {
   // Six tiles, six distinct tones — no two share a colour (PR32 §2).
   const tiles: CountTile[] = [
     { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'green', tip: 'Tuitions you have applied to' },
-    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', href: '/tutor/dashboard/messages', tone: 'navy', highlight: unread > 0, tip: 'Your conversations with parents' },
+    // The number is the tutor's CONVERSATIONS (four conversations → 4); unread
+    // is the small badge, never the main number (PR44 §2).
+    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: conversations, label: 'Messages', href: '/tutor/dashboard/messages', tone: 'navy', badge: unread, tip: 'Your conversations with parents' },
     { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo requests', href: '/tutor/dashboard/demos', tone: 'red', highlight: liveDemos > 0, tip: 'Demo lessons parents have asked you for' },
     { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: weekJobs.length, label: 'Tuitions for you', href: '/tutor/dashboard/jobs', tone: 'gold', tip: 'Open tuitions that match your profile' },
     { key: 'views', icon: <Eye aria-hidden size={22} />, value: views.total, label: 'Profile views', href: '/tutor/dashboard/views', tone: 'teal', tip: 'Parents who viewed your profile' },

@@ -14,6 +14,8 @@ export type CountTile = {
   href: string
   tone: TileTone
   highlight?: boolean
+  /** A small red unread-count badge in the corner (PR44 §2); no badge when 0. */
+  badge?: number
   /** Desktop-only hover tooltip (PR27 §2). */
   tip?: string
 }
@@ -32,6 +34,7 @@ export function CountGrid({ tiles }: { tiles: CountTile[] }) {
           prefetch={false}
           tone={t.tone}
           highlight={t.highlight}
+          badge={t.badge}
           icon={t.icon}
           value={t.value}
           label={t.label}

@@ -28,6 +28,7 @@ export default function StatTile({
   label,
   note,
   tip,
+  badge,
   unread = false,
   highlight = false,
 }: {
@@ -44,6 +45,9 @@ export default function StatTile({
   note?: ReactNode
   /** Desktop-only hover tooltip (PR27 §2), e.g. "Tutors interested in your tuitions". */
   tip?: string
+  /** A small red count badge in the top-right corner (e.g. unread messages). No
+   *  badge when 0 or undefined; caps the display at 99+ (PR44 §2). */
+  badge?: number
   /** Draws the red unread dot in the top-right corner. */
   unread?: boolean
   /** Something with a consequence (a plan ending, a genuinely new thing): the
@@ -65,7 +69,19 @@ export default function StatTile({
             : 'border-black/5 shadow-xs'
         }`}
       >
-        {unread && (
+        {/* Unread count badge — the small red pill in the corner (PR44 §2). The
+            unread number lives HERE, never as the tile's main value; the same
+            red as the header bell and the inbox pill, on both dashboards. */}
+        {typeof badge === 'number' && badge > 0 && (
+          <span
+            className="absolute right-2.5 top-2.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-tm-red px-1.5 text-[10px] font-black text-white"
+            aria-label={`${badge} unread`}
+          >
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+
+        {unread && badge == null && (
           <span
             aria-hidden
             className="absolute right-3 top-3 h-2 w-2 rounded-full bg-tm-red"

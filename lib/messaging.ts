@@ -657,23 +657,56 @@ export const unreadMessageCount = cache(async (userId: string): Promise<number> 
   return (count ?? 0) + team
 })
 
-/** How many conversations this member has. For the dashboard count only. */
-export async function threadCount(userId: string): Promise<number> {
+/**
+ * How many conversations this member actually SEES — the number on the dashboard
+ * Messages tile (PR44 §2). It mirrors the inbox list (threadPage) exactly: a
+ * thread counts only when it holds at least one message this member can see, so
+ *   - a thread whose only message was WITHHELD (abuse-flagged) from this member
+ *     never appears — a withheld message reaches nobody but its own sender, so
+ *     for the recipient the thread has no visible message and is not a
+ *     conversation (PR41 §2);
+ *   - a thread whose messages this member has all deleted-for-me drops out too;
+ *   - an empty thread (created but never messaged) does not count.
+ * Blocked counterparts are excluded, as everywhere else.
+ *
+ * The Team channel is NOT counted here: it is a system channel, not a peer
+ * conversation, and "four conversations" means four people. Its unread still
+ * shows on the tile's badge, which reads unreadMessageCount (peer + team), the
+ * same source the header bell uses.
+ */
+export async function conversationCount(userId: string): Promise<number> {
   const supabase = await createClient()
   const blocked = await blockedCounterparts(userId)
 
-  let q = supabase
+  let tq = supabase
     .from('threads')
-    .select('id', { count: 'exact', head: true })
+    .select('id')
     .or(`participant_a.eq.${userId},participant_b.eq.${userId}`)
-
   if (blocked.length > 0) {
     const list = `(${blocked.join(',')})`
-    q = q.not('participant_a', 'in', list).not('participant_b', 'in', list)
+    tq = tq.not('participant_a', 'in', list).not('participant_b', 'in', list)
   }
+  const { data: threads } = await tq
+  const ids = (threads ?? []).map((t) => t.id as string)
+  if (ids.length === 0) return 0
 
-  const { count } = await q
-  return count ?? 0
+  // The member's own client may read the messages of its own threads
+  // (owns_thread). Withheld/deleted filtering is application-level (RLS does not
+  // hide them), so it is applied here, exactly as threadPage does for the list.
+  const { data: msgs } = await supabase
+    .from('messages')
+    .select('thread_id, sender_id, withheld_at, deleted_for')
+    .in('thread_id', ids)
+
+  const visible = new Set<string>()
+  for (const m of msgs ?? []) {
+    const deletedFor = (m.deleted_for as string[] | null) ?? []
+    if (deletedFor.includes(userId)) continue
+    // A withheld message is visible only to its own sender.
+    if ((m.withheld_at as string | null) && (m.sender_id as string) !== userId) continue
+    visible.add(m.thread_id as string)
+  }
+  return visible.size
 }
 
 /**

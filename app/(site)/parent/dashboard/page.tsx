@@ -12,7 +12,7 @@ import { type CardViewer } from '@/components/TutorCard'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
-import { unreadMessageCount } from '@/lib/messaging'
+import { unreadMessageCount, conversationCount } from '@/lib/messaging'
 import { tutorCardsByIds, listedTutorsInCity } from '@/lib/browseTutors'
 
 // The parent dashboard — the SAME shape as the tutor dashboard (PR24): one
@@ -47,10 +47,11 @@ export default async function ParentDashboardPage() {
   const featured = ent.plan === 'parent_featured'
   const city = (profile?.city as string | null) ?? null
 
-  const [{ data: jobs }, unread, { data: demos }, { data: children }, { data: shortlisted }, tutorCount] =
+  const [{ data: jobs }, unread, conversations, { data: demos }, { data: children }, { data: shortlisted }, tutorCount] =
     await Promise.all([
       supabase.from('jobs').select('id, status, hired_tutor_id').eq('parent_id', userId),
       unreadMessageCount(userId),
+      conversationCount(userId),
       supabase.from('demo_requests').select('id, status').eq('parent_id', userId),
       supabase.from('children').select('id, name, class_level').eq('parent_id', userId).order('created_at'),
       supabase.from('shortlists').select('tutor_id, created_at').order('created_at', { ascending: false }),
@@ -114,7 +115,9 @@ export default async function ParentDashboardPage() {
     // tuitions have all been filled or closed.
     { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: allJobs.length, label: 'Posted tuitions', href: '/parent/dashboard/jobs', tone: 'green', tip: 'Every tuition you have posted' },
     { key: 'applicants', icon: <Users aria-hidden size={22} />, value: applicants, label: 'Interested tutors', href: '/parent/dashboard/jobs', tone: 'teal', tip: 'Tutors interested in your open tuitions' },
-    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', href: '/parent/dashboard/messages', tone: 'navy', highlight: unread > 0, tip: 'Your conversations with tutors' },
+    // The number is the parent's CONVERSATIONS; unread is the small badge, never
+    // the main number (PR44 §2). Mirrors the tutor dashboard exactly.
+    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: conversations, label: 'Messages', href: '/parent/dashboard/messages', tone: 'navy', badge: unread, tip: 'Your conversations with tutors' },
     { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo lessons', href: '/parent/dashboard/demos', tone: 'red', highlight: liveDemos > 0, tip: 'Demo lessons you have asked for' },
     { key: 'hired', icon: <UserCheck aria-hidden size={22} />, value: hired.size, label: 'Hired tutors', href: '/parent/dashboard/hired-tutors', tone: 'gold', tip: 'Tutors you have hired' },
     { key: 'shortlisted', icon: <Heart aria-hidden size={22} />, value: shortlistCards.length, label: 'Shortlisted tutors', href: '#shortlisted-tutors', tone: 'violet', tip: 'Tutors you saved to look at later' },
