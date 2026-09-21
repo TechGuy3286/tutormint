@@ -47,22 +47,37 @@ export function tutorProfileIndexable(f: TutorIndexFacts): boolean {
   return (f.profileCompletion ?? 0) >= 100
 }
 
+/**
+ * The minimum description length for a tuition page to stand alone as an indexed
+ * page (PR43 §3). Below this it is noindex and out of the sitemap — a one-line
+ * request is too thin to be worth a search result. Mirrored in the sitemap's
+ * indexable_job_slugs() (migration 102), so page and sitemap agree.
+ */
+export const MIN_TUITION_DESC = 40
+
 export type TuitionIndexFacts = {
   /** jobs.status — only 'open' is indexable; 'paused'/'closed'/'hired' are not. */
   status: string | null | undefined
   /** A fixture tuition (seed parent / JOB-TRK / SEED-JOB, not a team post). */
   isFixture: boolean
+  /** Trimmed length of the parent's description; a very short one is too thin. */
+  descriptionLength?: number | null
 }
 
 /**
- * A tuition is indexable ONLY when it is OPEN and not a fixture (PR37 §1). A
- * paused (auto-paused after 15 days) or closed/hired tuition, and any
- * seed/example tuition, is noindex and out of the sitemap; a genuine team post
- * is not a fixture (decided by isFixtureTuition before this is called).
+ * A tuition is indexable ONLY when it is OPEN, not a fixture, AND carries enough
+ * unique requirement text to stand alone (PR37 §1, PR43 §3). A paused
+ * (auto-paused after 15 days) or closed/hired tuition, any seed/example tuition,
+ * and any one-line post below MIN_TUITION_DESC is noindex and out of the
+ * sitemap; a genuine team post is not a fixture (decided by isFixtureTuition
+ * before this is called). `descriptionLength` is optional so an existing caller
+ * that does not pass it keeps the pre-PR43 behaviour.
  */
 export function tuitionIndexable(f: TuitionIndexFacts): boolean {
   if (f.isFixture) return false
-  return (f.status ?? '') === 'open'
+  if ((f.status ?? '') !== 'open') return false
+  if (f.descriptionLength != null && f.descriptionLength < MIN_TUITION_DESC) return false
+  return true
 }
 
 /**

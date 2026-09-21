@@ -94,7 +94,7 @@ export default async function InboxShell({
   const selected = Boolean(header) || isTeam
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-3 pb-4 pt-2 sm:px-6 sm:pb-6 lg:px-8">
       <Breadcrumbs
         items={
           isTeam
@@ -113,8 +113,8 @@ export default async function InboxShell({
         }
       />
 
-      <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Messages</h1>
-
+      {/* No "Messages" heading — the breadcrumb already says it, and dropping it
+          lets the conversation start higher on phone and desktop (PR43 §4). */}
       {role === 'tutor' && !ent.canInitiateMessage && (
         <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
           {ent.verified ? (

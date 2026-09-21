@@ -25,7 +25,7 @@ import { jobType } from '@/lib/display'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, socialMeta } from '@/lib/seo'
 import { preferHumanTitle } from '@/lib/jobDisplayTitle'
-import { isSubjectSlug, resolveLanding } from '@/lib/landing'
+import { isSubjectSlug, resolveLanding, getLandingLinker } from '@/lib/landing'
 import { loadJobContact } from '@/lib/jobContact'
 import { normalisePkMobile, formatPkMobile } from '@/lib/phone'
 import { whatsappHref } from '@/lib/support'
@@ -132,8 +132,13 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     parentIsSeed: job.poster_is_seed,
     postedByTeam: job.posted_by_team,
   })
-  // PR37 §2 — the one shared indexability rule (open + not a fixture).
-  const noindex = !tuitionIndexable({ status: job.status, isFixture: fixture })
+  // PR37 §2 / PR43 §3 — the one shared indexability rule: open + not a fixture +
+  // enough description to stand alone (a one-line post is too thin to index).
+  const noindex = !tuitionIndexable({
+    status: job.status,
+    isFixture: fixture,
+    descriptionLength: job.description?.trim().length ?? 0,
+  })
 
   return {
     title,
@@ -243,6 +248,31 @@ export default async function TuitionPage({ params }: { params: Params }) {
         3,
       )
     : []
+
+  // §3 — an OPEN tuition is cross-linked too, so the page carries more unique,
+  // useful content than a single row: the matching landing page (all tuitions for
+  // this subject in this city, when one exists) and a few live related tuitions.
+  let landingHref: string | null = null
+  let landingLabel: string | null = null
+  let relatedOpen: typeof similar = []
+  if (state.isOpen && job.city) {
+    const primary = (job.subject_links ?? [])[0] ?? null
+    if (primary) {
+      const linker = await getLandingLinker()
+      const href = linker.tuitionSubjectHref(primary.masterId, job.city)
+      // A real landing path (not the /browse fallback) means the page exists.
+      if (href.startsWith('/tuitions/')) {
+        landingHref = href
+        landingLabel = primary.label
+      }
+    }
+    relatedOpen = await similarOpenTuitions(
+      job.id,
+      job.city,
+      (job.subject_links ?? []).map((l) => l.masterId),
+      3,
+    )
+  }
 
   // The gender-preference sentence, shown plainly to everyone. And, for a
   // signed-in tutor whose gender does not match, the Apply-blocking reason —
@@ -651,6 +681,43 @@ export default async function TuitionPage({ params }: { params: Params }) {
               />
             ))}
           </div>
+        </section>
+      )}
+
+      {/* §3 — an OPEN tuition points at more of the same: the matching landing
+          page and a few live related tuitions, so it is not a dead-end single row. */}
+      {state.isOpen && (landingHref || relatedOpen.length > 0) && (
+        <section className="space-y-3">
+          {landingHref && landingLabel && (
+            <Link
+              href={landingHref}
+              className="flex items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-white p-4 text-sm font-bold text-tm-navy hover:border-tm-navy sm:p-5"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Briefcase aria-hidden size={16} className="text-gray-500" />
+                See all {landingLabel} tuitions in {job.city}
+              </span>
+              <span aria-hidden className="text-tm-red">→</span>
+            </Link>
+          )}
+          {relatedOpen.length > 0 && (
+            <>
+              <h2 className="text-sm font-black text-tm-navy">
+                More open tuitions{job.city ? ` in ${job.city}` : ''}
+              </h2>
+              <div className="space-y-4">
+                {relatedOpen.map((t) => (
+                  <JobCard
+                    key={t.id}
+                    job={t}
+                    signedIn={!!user}
+                    showApply={!user || isTutor}
+                    viewerCity={job.city}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </section>
       )}
 

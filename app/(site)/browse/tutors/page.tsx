@@ -14,6 +14,7 @@ import TutorCard, { type TutorCardData, type CardViewer } from '@/components/Tut
 import AdSlot from '@/components/ads/AdSlot'
 import TutorFilterBar, { type FilterValues } from './TutorFilterBar'
 import MoreTutors from './MoreTutors'
+import PopularLandingLinks from '@/components/landing/PopularLandingLinks'
 import { rankedTutors, tutorFiltersFrom, tutorFiltersToParams } from '@/lib/browseTutors'
 import { resolveSubjectQuery } from '@/lib/searchResolve'
 
@@ -418,6 +419,10 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
             adEvery={AD_EVERY}
           />
         )}
+
+        {/* Internal links to the city × subject landing pages (PR43 §2), so they
+            are not orphans. Only shows the ones that exist (>= threshold). */}
+        <PopularLandingLinks kind="tutors" />
       </div>
     </main>
   )

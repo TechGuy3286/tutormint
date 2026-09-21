@@ -16,6 +16,7 @@ import JobCard from '@/components/JobCard'
 import AdSlot from '@/components/ads/AdSlot'
 import JobFilterBar, { type JobFilterValues } from './JobFilterBar'
 import MoreJobs from './MoreJobs'
+import PopularLandingLinks from '@/components/landing/PopularLandingLinks'
 
 // /browse/tuitions -- the other half of the organic-search surface.
 //
@@ -408,6 +409,10 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             savedIds={Array.from(savedIds)}
           />
         )}
+
+        {/* Internal links to the city × subject landing pages (PR43 §2), so they
+            are not orphans. Only shows the ones that exist (>= threshold). */}
+        <PopularLandingLinks kind="tuitions" />
       </div>
     </main>
   )
