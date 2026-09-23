@@ -39,6 +39,7 @@ export type AuditAction =
   | 'mfa.enroll'
   | 'mfa.reset'
   | 'mfa.backup_used'
+  | 'mfa.regenerate'
   | 'report.dismiss'
   | 'report.action'
   | 'video.visibility'

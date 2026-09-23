@@ -56,7 +56,12 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: 'Overview',
     color: 'navy', // #151E6B
-    items: [{ href: '/admin', label: 'Overview', icon: 'gauge' }],
+    items: [
+      { href: '/admin', label: 'Overview', icon: 'gauge' },
+      // No `screen`: every staff member can open their own two-factor screen
+      // (PR50 §2), including a non-owner who never sees the Team page.
+      { href: '/admin/security', label: 'Two-factor', icon: 'shieldCheck' },
+    ],
   },
   {
     title: 'Verification',
@@ -133,6 +138,7 @@ export const SECTION_LABELS: Record<string, string> = {
   payments: 'Payments',
   plans: 'Plans',
   reports: 'Reports',
+  security: 'Two-factor',
   seo: 'SEO',
   landing: 'Landing pages',
   orphans: 'Orphaned accounts',

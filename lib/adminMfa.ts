@@ -44,6 +44,17 @@ export function inMfaGrace(now: number = Date.now()): boolean {
   return now < MFA_GRACE_UNTIL.getTime()
 }
 
+/** Does this account have a verified authenticator on file? Read server-side
+ *  (the Auth admin API) for the self-service and Team screens, so a staff member
+ *  is shown their true two-factor state without depending on their session's
+ *  assurance level. */
+export async function hasVerifiedFactor(userId: string): Promise<boolean> {
+  const admin = createAdminClient()
+  if (!admin) return false
+  const { data } = await admin.auth.admin.mfa.listFactors({ userId })
+  return (data?.factors ?? []).some((f) => f.status === 'verified' && f.factor_type === 'totp')
+}
+
 // ── backup codes ────────────────────────────────────────────────────────────
 
 const CODE_COUNT = 10

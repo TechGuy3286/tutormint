@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Copy, KeyRound, Mail, Send, ShieldAlert, Undo2 } from 'lucide-react'
+import { Copy, KeyRound, Mail, Send, ShieldAlert, ShieldCheck, ShieldOff, Undo2 } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -30,6 +31,8 @@ export type StaffRow = {
   /** Has ever signed in (auth.users.last_sign_in_at). A must-change account that
    *  HAS signed in clicked its link but never finished — a broken invite. */
   hasSignedIn: boolean
+  /** Has a verified authenticator (two-factor is set up). */
+  twoFactorOn: boolean
   createdAt: string
   isMe: boolean
 }
@@ -582,6 +585,15 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                 <p className="truncate text-[11px] text-gray-500">{s.email}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
+                {s.twoFactorOn ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-tm-tint-green px-2 py-0.5 text-[10px] font-bold text-tm-green-deep">
+                    <ShieldCheck size={11} aria-hidden /> 2FA on
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">
+                    <ShieldOff size={11} aria-hidden /> no 2FA
+                  </span>
+                )}
                 {state === 'invited' && (
                   <span className="rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
                     invited
@@ -603,6 +615,16 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                 </span>
               </div>
             </div>
+
+            {s.isMe && (
+              <Link
+                href="/admin/security"
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-tm-navy/30 px-4 text-xs font-bold text-tm-navy hover:bg-tm-tint-navy"
+              >
+                <ShieldCheck aria-hidden size={13} />
+                {s.twoFactorOn ? 'Manage your two-factor' : 'Set up your two-factor'}
+              </Link>
+            )}
 
             {s.adminRole === 'owner' ? (
               <p className="flex items-start gap-2 rounded-xl bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">

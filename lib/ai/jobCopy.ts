@@ -8,6 +8,7 @@
 // `composeJobCopy` -- never to an error -- because the member is trying to
 // post a job and a generation problem must not become their problem.
 
+import { jobType } from '@/lib/display'
 import { complete, isConfigured } from './anthropic'
 import {
   budgetSentence,
@@ -40,13 +41,20 @@ const SYSTEM = [
   '- No corporate filler: no "passionate", no "dynamic", no "we are seeking a highly qualified individual".',
   '- No greeting, no sign-off, no emoji, no hashtags, no markdown.',
   `- The description must be between ${MIN_WORDS} and ${MAX_WORDS} words.`,
-  // Owner PR9 §3.1: the job type LEADS the title.
-  '- The title must be one line, under 90 characters, and start with the job type, then the subject(s), then the grade/level, then the area and city — e.g. "Home Tutor for Art & Drawing, Pre Nursery / KG I in DHA, Lahore". Use only the grades/levels in the facts.',
+  // Owner PR9 §3.1 / PR50 §3: the job type LEADS the title, and it must be the
+  // EXACT job type from the facts — never a different one, never dropped.
+  '- The title MUST begin with the exact "Job type" from the facts, word for word. If the Job type is "Music Teacher", the title starts with "Music Teacher"; do NOT change it to "Home Tutor" or leave it out.',
+  '- After the job type, add the subject(s), then the grade/level, then the area and city — e.g. "Music Teacher for Piano, Grade 6 to 8 in DHA, Lahore" or "Home Tutor for Art & Drawing, Pre Nursery / KG I in DHA, Lahore". The title is one line, under 90 characters. Use only the grades/levels in the facts.',
   'Reply as JSON only, exactly: {"title": "...", "description": "..."}',
 ].join('\n')
 
 function factsBlock(sel: JobSelection): string {
   const facts: string[] = []
+  // The Job Type LEADS the title, so it must be a fact the model is given
+  // (PR50 §3). Without it the model was told to "start with the job type" but
+  // never told what it was, so it dropped it or invented "Home Tutor".
+  const type = jobType(sel.mode)
+  if (type) facts.push(`Job type: ${type}`)
   if (sel.level) facts.push(`Level: ${sel.level}`)
   if (sel.subjects.length > 0) facts.push(`Subjects: ${sel.subjects.join(', ')}`)
   const place = placePhrase(sel)

@@ -78,6 +78,7 @@ export function adminActionLabel(action: string | null | undefined): string {
     'mfa.enroll': 'Set up two-factor',
     'mfa.reset': 'Two-factor reset',
     'mfa.backup_used': 'Backup code used',
+    'mfa.regenerate': 'New backup codes made',
     'staff.suspend': 'Staff access suspended',
     'staff.reactivate': 'Staff access restored',
     'plan.grant': 'Plan granted',

@@ -42,6 +42,18 @@ export default async function AdminTeamPage() {
     if (u.last_sign_in_at) signedIn.add(u.id)
   }
 
+  // Whether each staff member has two-factor set up (a verified authenticator),
+  // so the owner can see at a glance who is protected (PR50 §2). Small list.
+  const twoFactorOn = new Set<string>()
+  await Promise.all(
+    (staff ?? []).map(async (s) => {
+      const { data } = await admin.auth.admin.mfa.listFactors({ userId: s.id as string })
+      if ((data?.factors ?? []).some((f) => f.status === 'verified' && f.factor_type === 'totp')) {
+        twoFactorOn.add(s.id as string)
+      }
+    }),
+  )
+
   const rows: StaffRow[] = (staff ?? []).map((s) => ({
     id: s.id as string,
     name: (s.full_name as string) ?? '—',
@@ -51,6 +63,7 @@ export default async function AdminTeamPage() {
     suspensionReason: (s.suspension_reason as string) ?? null,
     mustChangePassword: !!s.must_change_password,
     hasSignedIn: signedIn.has(s.id as string),
+    twoFactorOn: twoFactorOn.has(s.id as string),
     createdAt: s.created_at as string,
     isMe: (s.id as string) === actor.id,
   }))
