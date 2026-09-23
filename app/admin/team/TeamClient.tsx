@@ -260,6 +260,29 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
     setForm({ fullName: '', email: '', adminRole: 'operations' })
   }
 
+  // Reset a staff member's two-factor (PR49 §2) — for when they lose both their
+  // phone and their backup codes. Behind a password re-entry (the route). They
+  // set up a fresh authenticator at their next sign-in.
+  const resetMfa = async (s: StaffRow) => {
+    const ok = await confirm({
+      title: `Reset ${s.name}'s two-factor?`,
+      body: 'Use this only if they have lost their phone and their backup codes. They will set up a new authenticator app the next time they sign in.',
+      confirmLabel: 'Reset two-factor',
+      destructive: false,
+    })
+    if (!ok) return
+    setBusy(s.id)
+    setError(null)
+    const { ok: done, status, data: json } = await adminFetch<{ error?: string }>('/api/admin/mfa/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: s.id }),
+    })
+    setBusy(null)
+    if (done) toast.success(`${s.name}'s two-factor has been reset. They set up a new app at next sign-in.`)
+    else { const m = json.error ?? 'That did not work.'; setError(status ? `${m} (HTTP ${status})` : m); toast.error(m) }
+  }
+
   const resend = async (s: StaffRow) => {
     const json = await call({ action: 'resend', userId: s.id }, s.id)
     if (!json) return
@@ -618,6 +641,18 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                       : state === 'expired'
                         ? 'Resend invite (the old link expired)'
                         : 'Resend invite'}
+                  </button>
+                )}
+
+                {!s.isMe && (
+                  <button
+                    type="button"
+                    disabled={busy === s.id}
+                    onClick={() => resetMfa(s)}
+                    className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700 hover:border-tm-navy disabled:opacity-40"
+                  >
+                    <KeyRound aria-hidden size={13} />
+                    Reset two-factor (lost phone and backup codes)
                   </button>
                 )}
 

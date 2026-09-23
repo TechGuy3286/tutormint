@@ -5,19 +5,18 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
 
-// Close, un-feature, remove.
+// Close, pause/resume, un-feature.
 //
-// Each writes admin_audit_log and notifies the parent -- the route does both,
-// so a screen added later cannot forget either. The reason box is shared: it
-// is optional for close and un-feature and required for remove, because
-// "removed" with no stated cause is the version a parent cannot argue with and
-// support cannot explain.
+// NOTHING IS DELETED, EVER (PR49 §4). There is no "remove" button any more.
+// A tuition that is finished is Closed; one that is not needed right now is
+// Paused and brought back later. Either way the post, its applications and its
+// chats stay, so nothing a tutor spent effort on is lost and a mistake can be
+// undone.
 //
-// Nothing is deleted. Remove closes the tuition and drops the Featured tag;
-// the row, its applications and its threads stay, so a mistake is recoverable
-// and a tutor keeps the application they spent quota on.
+// Each action writes admin_audit_log and tells the parent -- the route does
+// both, so a screen added later cannot forget either. The reason box is
+// optional; whatever is typed is shown to the parent in the message they get.
 
 export default function JobActions({
   jobId,
@@ -34,17 +33,8 @@ export default function JobActions({
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const toast = useToast()
-  const confirm = useConfirm()
 
-  const act = async (action: 'close' | 'unfeature' | 'remove' | 'pause' | 'resume') => {
-    if (action === 'remove') {
-      const ok = await confirm({
-        title: 'Remove this tuition from the board?',
-        body: 'It closes and loses its Featured tag. Nothing is deleted — the post, its applications and its conversations stay.',
-        confirmLabel: 'Remove',
-      })
-      if (!ok) return
-    }
+  const act = async (action: 'close' | 'unfeature' | 'pause' | 'resume') => {
     setBusy(action)
     setError(null)
     setDone(null)
@@ -58,14 +48,12 @@ export default function JobActions({
     if (r.ok) {
       const message =
         action === 'close'
-          ? 'Closed. The parent has been notified.'
+          ? 'Done. This tuition is closed and the parent has been told.'
           : action === 'unfeature'
-            ? 'Featured tag removed. The parent has been notified.'
+            ? 'Done. The Featured tag is removed and the parent has been told.'
             : action === 'pause'
-              ? 'Paused. The poster has been notified.'
-              : action === 'resume'
-                ? 'Resumed. It is live again and the poster has been notified.'
-                : 'Removed from the board. The parent has been notified.'
+              ? 'Done. This tuition is paused and the parent has been told.'
+              : 'Done. This tuition is live again and the parent has been told.'
       setDone(message)
       toast.success(message)
       setReason('')
@@ -84,7 +72,7 @@ export default function JobActions({
     className,
     disabled,
   }: {
-    action: 'close' | 'unfeature' | 'remove' | 'pause' | 'resume'
+    action: 'close' | 'unfeature' | 'pause' | 'resume'
     label: string
     className: string
     disabled?: boolean
@@ -115,13 +103,13 @@ export default function JobActions({
 
       <label className="block space-y-1">
         <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
-          Reason (required to remove — the parent is shown this)
+          Reason for the parent (optional)
         </span>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={2}
-          placeholder="e.g. Duplicate of JOB-TX-XXXXXX, or contact details in the description"
+          placeholder="The parent sees this. For example: a tutor has been found, or a phone number is not allowed in the details."
           className="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs outline-none focus:border-tm-red"
         />
       </label>
@@ -133,11 +121,10 @@ export default function JobActions({
           disabled={status !== 'open'}
           className="border border-gray-200 text-tm-navy hover:border-tm-navy"
         />
-        {/* Pause / resume (PR27 §3.4). The reason box above is logged with it. */}
         {status === 'paused' ? (
           <Button
             action="resume"
-            label="Resume"
+            label="Bring it back"
             className="bg-tm-red text-white hover:bg-tm-red-hover"
           />
         ) : (
@@ -150,21 +137,24 @@ export default function JobActions({
         )}
         <Button
           action="unfeature"
-          label={isFeatured ? 'Remove Featured tag' : 'Not featured'}
+          label={isFeatured ? 'Remove the Featured tag' : 'Not featured'}
           disabled={!isFeatured}
           className="border border-gray-200 text-tm-navy hover:border-tm-navy"
         />
-        <Button
-          action="remove"
-          label="Remove from the board"
-          className="bg-tm-red text-white hover:bg-tm-red-hover"
-        />
       </div>
 
-      <p className="text-[10px] leading-relaxed text-gray-500">
-        Nothing is deleted. Removing closes the tuition and drops the Featured tag; the post, its
-        applications and its conversations stay, so a mistake can be undone.
-      </p>
+      <div className="space-y-1.5 text-[10px] leading-relaxed text-gray-500">
+        <p>
+          <span className="font-bold text-gray-700">Close</span> — the tuition is finished. Use this
+          when a tutor has been found, or the parent no longer needs one. Tutors can no longer apply.
+        </p>
+        <p>
+          <span className="font-bold text-gray-700">Pause</span> — hide the tuition for now and bring
+          it back later with “Bring it back”. Tutors cannot apply while it is paused. Use this if the
+          tuition may be needed again soon.
+        </p>
+        <p>Nothing is ever deleted. The post, its applications and its chats always stay.</p>
+      </div>
     </section>
   )
 }

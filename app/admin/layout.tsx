@@ -10,6 +10,9 @@ import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { NAV_GROUPS, type NavGroup } from '@/lib/adminNav'
 import { unreadCount } from '@/lib/notificationFeed'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
+import { mfaState, inMfaGrace } from '@/lib/adminMfa'
+import MfaGate from '@/components/admin/MfaGate'
 
 // Small sidebar count badges (owner PR9 §6.5): tutors with a CNIC pending review,
 // and open reports. Cheap head-count reads; a zero shows no badge (the shell
@@ -58,6 +61,16 @@ export default async function AdminLayout({
 
   // Not an admin: the existence of this area is not worth advertising.
   if (!actor) redirect('/')
+
+  // Two-factor gate (PR49 §2). Every staff account must set up an authenticator
+  // and enter a code each sign-in. This is the ONE place it is decided, so the
+  // panel is shown only to a verified session; the enrol/verify screen renders
+  // in place of it otherwise, and cannot lock itself out. A staff member with no
+  // factor keeps working during the grace window (mid-deploy) and enrols after.
+  const supabase = await createClient()
+  const mfa = await mfaState(supabase)
+  if (mfa === 'unverified') return <MfaGate mode="verify" email={actor.email} />
+  if (mfa === 'none' && !inMfaGrace()) return <MfaGate mode="setup" email={actor.email} />
 
   const groups: NavGroup[] = NAV_GROUPS.map((g) => ({
     ...g,

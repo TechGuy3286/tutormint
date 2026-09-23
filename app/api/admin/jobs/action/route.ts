@@ -6,12 +6,17 @@ import { logAdminAction } from '@/lib/auditLog'
 import { notify } from '@/lib/notifications'
 import { parseBody, z, uuid, text } from '@/lib/validate'
 
-// Close, un-feature or remove a tuition.
+// Close, pause/resume, or un-feature a tuition.
+//
+// NOTHING IS DELETED, EVER (PR49 §4). There is no "remove" — a tuition is
+// closed (finished) or paused (hidden for now, brought back later). Both keep
+// the post, its applications and its chats. The old delete-shaped "remove"
+// button is gone; a tuition that is not needed is closed or paused.
 //
 // MUTATION IS NARROWER THAN THE SCREEN. Reading the board is manager +
 // support, because support has to be able to answer "why can nobody see my
-// job". Acting on one stops at manager: closing or removing a tuition takes
-// the applications with it out of the parent's reach, and that is not a
+// job". Acting on one stops at manager: closing a tuition takes the
+// applications with it out of the parent's reach, and that is not a
 // first-line action.
 //
 // EVERY ACTION DOES THREE THINGS, and all three matter:
@@ -19,22 +24,16 @@ import { parseBody, z, uuid, text } from '@/lib/validate'
 //   2. writes admin_audit_log        -- so there is a record of who and why
 //   3. notifies the PARENT           -- so they are not left to notice
 //
-// A reason is required on removal and optional on the rest. "Removed" with no
-// stated cause is the version a parent cannot argue with or learn from, and it
-// is the one that generates a support ticket we cannot answer either.
-//
-// NOTHING IS DELETED. `remove` sets status='closed' and clears the featured
-// flag; the row, its applications and its threads stay. The platform has never
-// deleted member content and this is not the place to start -- a mistaken
-// removal has to be recoverable, and an application a tutor spent quota on is
-// theirs.
+// A reason is optional on every action. When one is given the parent is shown
+// it in the notification, so it reads as an explanation rather than a bare
+// state change.
 
 export const dynamic = 'force-dynamic'
 
 const ActionBody = z.object({
   jobId: uuid,
-  action: z.enum(['close', 'unfeature', 'remove', 'pause', 'resume'], {
-    message: 'Choose close, unfeature, remove, pause or resume.',
+  action: z.enum(['close', 'unfeature', 'pause', 'resume'], {
+    message: 'Choose close, unfeature, pause or resume.',
   }),
   reason: text({ min: 0, max: 500, label: 'Reason' }).nullish(),
 })
@@ -47,16 +46,6 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
   const { jobId, action } = parsed.data
   const reason = (parsed.data.reason ?? '').trim()
-
-  if (action === 'remove' && reason.length < 4) {
-    return NextResponse.json(
-      {
-        error: 'Give a reason for removing this tuition.',
-        fields: { reason: 'The parent is told this, so say what was wrong with it.' },
-      },
-      { status: 400 },
-    )
-  }
 
   const admin = createAdminClient()
   if (!admin) {
@@ -77,7 +66,6 @@ export async function POST(request: Request) {
   let kind:
     | 'job_closed_by_admin'
     | 'job_unfeatured_by_admin'
-    | 'job_removed_by_admin'
     | 'tuition_paused'
     | 'tuition_resumed' = 'job_closed_by_admin'
 
@@ -88,8 +76,8 @@ export async function POST(request: Request) {
     patch.status = 'closed'
     patch.closed_at = new Date().toISOString()
     kind = 'job_closed_by_admin'
-    title = 'Your tuition was closed'
-    body = `“${job.title}” has been closed by TutorMint.${reason ? ` Reason: ${reason}` : ''}`
+    title = 'Your tuition is closed'
+    body = `Your tuition “${job.title}” is now closed. Tutors can no longer apply.${reason ? ` Reason: ${reason}` : ''}`
   }
 
   if (action === 'unfeature') {
@@ -98,17 +86,8 @@ export async function POST(request: Request) {
     }
     patch.is_featured = false
     kind = 'job_unfeatured_by_admin'
-    title = 'Your tuition is no longer featured'
-    body = `“${job.title}” no longer carries the Featured tag.${reason ? ` Reason: ${reason}` : ''}`
-  }
-
-  if (action === 'remove') {
-    patch.status = 'closed'
-    patch.closed_at = new Date().toISOString()
-    patch.is_featured = false
-    kind = 'job_removed_by_admin'
-    title = 'Your tuition was removed'
-    body = `“${job.title}” has been removed from the board. Reason: ${reason}`
+    title = 'Your tuition no longer has the Featured tag'
+    body = `Your tuition “${job.title}” no longer has the Featured tag.${reason ? ` Reason: ${reason}` : ''}`
   }
 
   // PR27 §3.4 — admin can pause/resume any (team-posted) tuition, with a reason,
@@ -121,7 +100,7 @@ export async function POST(request: Request) {
     patch.paused_at = new Date().toISOString()
     kind = 'tuition_paused'
     title = 'Your tuition is paused'
-    body = `“${job.title}” has been paused by TutorMint.${reason ? ` Reason: ${reason}` : ''}`
+    body = `Your tuition “${job.title}” is paused for now. Tutors cannot apply while it is paused.${reason ? ` Reason: ${reason}` : ''}`
   }
 
   if (action === 'resume') {
@@ -133,7 +112,7 @@ export async function POST(request: Request) {
     patch.paused_at = null
     kind = 'tuition_resumed'
     title = 'Your tuition is live again'
-    body = `“${job.title}” is live again and tutors can apply.${reason ? ` Reason: ${reason}` : ''}`
+    body = `Your tuition “${job.title}” is live again. Tutors can apply.${reason ? ` Reason: ${reason}` : ''}`
   }
 
   const { error } = await admin.from('jobs').update(patch).eq('id', jobId)
@@ -143,7 +122,7 @@ export async function POST(request: Request) {
     actorId: gate.actor.id,
     actorRole: gate.actor.adminRole,
     actorEmail: gate.actor.email,
-    action: `job.${action}` as 'job.close' | 'job.unfeature' | 'job.remove' | 'job.pause' | 'job.resume',
+    action: `job.${action}` as 'job.close' | 'job.unfeature' | 'job.pause' | 'job.resume',
     targetType: 'job',
     targetId: jobId,
     detail: {

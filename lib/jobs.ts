@@ -213,7 +213,15 @@ export async function createJob(
   const labels = await subjectLabels(input.masterIds)
   const jobTxId = newJobTxId()
 
-  const { data: job, error } = await supabase
+  // jobs.is_featured (a plan cache) is set here from the parent's entitlements,
+  // so the INSERT goes through the SERVICE ROLE — is_featured is locked from the
+  // member client on insert too (migration 105), so a member cannot POST a job
+  // with is_featured already true. parent_id is the authenticated parentId, so
+  // the row still belongs to them; RLS is bypassed only for this trusted write.
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
+  const { data: job, error } = await admin
     .from('jobs')
     .insert({
       job_tx_id: jobTxId,
@@ -252,7 +260,8 @@ export async function createJob(
   if (linkError) {
     // Without its subjects a job cannot be matched to anyone, so it is worse
     // than useless. Remove it rather than leave an unmatchable post behind.
-    await supabase.from('jobs').delete().eq('id', job.id)
+    // Through the service role, since the row was inserted that way.
+    await admin.from('jobs').delete().eq('id', job.id)
     return { ok: false, status: 400, error: linkError.message }
   }
 
