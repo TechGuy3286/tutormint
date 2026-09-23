@@ -141,6 +141,11 @@ export async function suspendMember(params: {
     .eq('id', params.userId)
   if (error) return { ok: false, status: 400, error: error.message }
 
+  // End their session immediately (PR48 §4): clears auth.sessions + refresh
+  // tokens so an open tab cannot keep acting. The app's per-request is_suspended
+  // check already blocks them; this stops them refreshing a token afterwards.
+  await admin.rpc('revoke_user_sessions', { uid: params.userId })
+
   if (target.role === 'tutor') {
     await admin
       .from('tutor_profiles')
@@ -318,6 +323,11 @@ export async function banMember(params: {
     })
     .eq('id', params.userId)
   if (error) return { ok: false, status: 400, error: error.message }
+
+  // End their session immediately (PR48 §4): a banned account's open tab cannot
+  // keep acting. Login is already refused for a banned account; this closes the
+  // existing one.
+  await admin.rpc('revoke_user_sessions', { uid: params.userId })
 
   // The mobile and (hashed) CNIC go on the blocklist so a fresh signup or claim
   // with the same identity is refused.

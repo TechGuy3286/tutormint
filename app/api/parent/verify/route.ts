@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { recomputeCompletion } from '@/lib/completion'
 import { calculateParentCompletion } from '@/lib/profileChecklist'
 import { logActivity } from '@/lib/activityLog'
@@ -46,7 +47,12 @@ export async function POST() {
     )
   }
 
-  const { error } = await supabase
+  // verification_state is locked from the member's own client (migration 103) —
+  // a parent must not be able to self-mark verified. Written through the service
+  // role, scoped to their own id, after the completeness check above (PR48 §2).
+  const admin = createAdminClient()
+  if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
+  const { error } = await admin
     .from('profiles')
     .update({
       verification_state: 'submitted',

@@ -15,6 +15,7 @@
 // and two jobs posted in the same millisecond are ordinary on a busy board.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sanitizeOrTerm } from '@/lib/pgFilter'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { teamParentId } from '@/lib/teamAccount'
 
@@ -112,7 +113,7 @@ export async function adminJobPage({
     if (filters.postedBy === 'admin') q = teamId ? q.eq('parent_id', teamId) : q.eq('id', '00000000-0000-0000-0000-000000000000')
     if (filters.postedBy === 'parent' && teamId) q = q.neq('parent_id', teamId)
     if (filters.q) {
-      const term = filters.q.replace(/[,()]/g, ' ').trim()
+      const term = sanitizeOrTerm(filters.q)
       // The reference and the internal id are what an admin pastes from a
       // support message, so both must match as readily as the title. ref_id
       // matches with or without the "TM-" prefix (ilike %1005% and %TM-1005%).

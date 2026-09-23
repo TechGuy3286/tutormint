@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { activatePayment } from '@/lib/payments/activate'
+import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 
 // Submit a bank / JazzCash / Easypaisa transfer — and activate it now (PR30).
 //
@@ -33,6 +34,9 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
+
+  const limit = await rateLimit('payment', user.id)
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'payment attempts')
 
   let form: FormData
   try {

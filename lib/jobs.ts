@@ -676,17 +676,23 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
   }
   if (job.status !== 'open') return { ok: true }
 
-  const { error } = await supabase
+  // jobs.status is locked from the member's own client (migration 103), so the
+  // status write goes through the service role — after the ownership check above
+  // and re-scoped to this parent's own job (PR48 §2).
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
+  const { error } = await admin
     .from('jobs')
     .update({ status: 'closed', closed_at: new Date().toISOString() })
     .eq('id', jobId)
+    .eq('parent_id', parentId)
 
   if (error) return { ok: false, status: 400, error: error.message }
 
   // Everyone who applied deserves to know the job is gone rather than being
   // left waiting on a post that will never be answered.
-  const admin = createAdminClient()
-  if (admin) {
+  {
     const { data: applicants } = await admin
       .from('applications')
       .select('tutor_id')
@@ -740,10 +746,16 @@ export async function resumeJob(parentId: string, jobId: string): Promise<{ ok: 
   }
   if (job.status !== 'paused') return { ok: true }
 
-  const { error } = await supabase
+  // jobs.status is locked from the member client (migration 103) — resume through
+  // the service role, after the ownership check and re-scoped to this parent.
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
+  const { error } = await admin
     .from('jobs')
     .update({ status: 'open', resumed_at: new Date().toISOString(), paused_at: null })
     .eq('id', jobId)
+    .eq('parent_id', parentId)
     .eq('status', 'paused')
 
   if (error) return { ok: false, status: 400, error: error.message }
@@ -815,13 +827,20 @@ export async function hireApplicant(
 
   const now = new Date().toISOString()
 
+  // jobs.status / hired_tutor_id are locked from the member client (migration
+  // 103), so the hire write goes through the service role — after the ownership,
+  // suspension and Featured checks above, re-scoped to this parent's own job
+  // (PR48 §2). The applications row is not locked and stays on the member client.
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
   const { error: appError } = await supabase
     .from('applications')
     .update({ status: 'hired', status_changed_at: now })
     .eq('id', applicationId)
   if (appError) return { ok: false, status: 400, error: appError.message }
 
-  const { error: jobError } = await supabase
+  const { error: jobError } = await admin
     .from('jobs')
     .update({
       status: 'hired',
@@ -830,9 +849,9 @@ export async function hireApplicant(
       closed_at: now,
     })
     .eq('id', job.id)
+    .eq('parent_id', parentId)
   if (jobError) return { ok: false, status: 400, error: jobError.message }
 
-  const admin = createAdminClient()
   if (admin) {
     // Everyone else is rejected in one statement, and told. Leaving other
     // applicants on "applied" forever is how a marketplace loses its tutors.

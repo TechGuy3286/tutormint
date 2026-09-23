@@ -3,6 +3,7 @@ import 'server-only'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { publicAdUrl } from '@/lib/ads'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sanitizeOrTerm } from '@/lib/pgFilter'
 import { describeUtm } from '@/lib/utm'
 import { calculateTutorCompletion } from '@/lib/profileChecklist'
 import { directoryBlockers, type ListingBlocker } from '@/lib/tutorListingStatus'
@@ -498,11 +499,12 @@ export async function loadPaymentQueue({
   // match on the payment's own references, so an admin can paste either a
   // person's name or the reference from a receipt.
   let payerIds: string[] | null = null
-  if (term) {
+  const orTerm = sanitizeOrTerm(term)
+  if (orTerm) {
     const { data: payers } = await admin
       .from('profiles')
       .select('id')
-      .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
+      .or(`full_name.ilike.%${orTerm}%,email.ilike.%${orTerm}%`)
       .limit(500)
     payerIds = (payers ?? []).map((p) => p.id as string)
   }

@@ -19,6 +19,7 @@
 // for exactly one sign-in.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sanitizeOrTerm } from '@/lib/pgFilter'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { ensureProfile } from '@/lib/ensureProfile'
@@ -312,7 +313,9 @@ export async function searchGrantCandidates(query: string): Promise<GrantCandida
   const q = query.trim()
   if (q.length < 2) return []
 
-  const like = `%${q.replace(/[%_]/g, (m) => `\\${m}`)}%`
+  const clean = sanitizeOrTerm(q)
+  if (!clean) return []
+  const like = `%${clean}%`
   const { data: profs } = await admin
     .from('profiles')
     .select('id, full_name, email, role')

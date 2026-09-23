@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createJob, updateJob, type JobInput } from '@/lib/jobs'
 import { parseBody, z, uuid, text, rupees } from '@/lib/validate'
+import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 
 // Post and edit a tuition.
 //
@@ -69,6 +70,9 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
 
   if (!user) return NextResponse.json({ error: 'Sign in to post a job.' }, { status: 401 })
+
+  const limit = await rateLimit('job_post', user.id)
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'tuition posts')
 
   const parsed = await parseBody(request, JobBody)
   if (!parsed.ok) return parsed.response

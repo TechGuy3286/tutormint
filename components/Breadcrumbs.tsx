@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ArrowLeft, ChevronRight, Home } from 'lucide-react'
 
 import { absoluteUrl } from '@/lib/siteUrl'
+import { jsonLdScript } from '@/lib/seo'
 
 // The trail back. On every page except the homepage.
 //
@@ -176,9 +177,10 @@ export default function Breadcrumbs({
 
       <script
         type="application/ld+json"
-        // The content is built here from a typed literal; nothing user-entered
-        // reaches it unescaped except the labels, which JSON.stringify escapes.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // jsonLdScript escapes "<" (<), so a breadcrumb label containing
+        // "</script>" — a user-controlled job title or tutor name — cannot break
+        // out of this tag (PR48 §3). Plain JSON.stringify does NOT escape "<".
+        dangerouslySetInnerHTML={jsonLdScript(jsonLd)}
       />
     </nav>
   )

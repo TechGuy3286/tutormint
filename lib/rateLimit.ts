@@ -26,6 +26,8 @@ export type BucketName =
   | 'otp_send'
   | 'otp_verify'
   | 'apply'
+  | 'job_post'
+  | 'payment'
   | 'message'
   | 'report'
   | 'password_change'
@@ -61,6 +63,12 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   otp_send: { windowSeconds: 3600, max: 8 }, // costs real money per message
   otp_verify: { windowSeconds: 900, max: 10 },
   apply: { windowSeconds: 3600, max: 40 },
+  // Posting a tuition and starting/submitting a payment (PR48 §5). The plan
+  // quota is what actually governs a member's posting volume and the provider
+  // governs payments; these are sized far above any real member so an honest
+  // parent never meets them, and only exist to stop a script hammering the route.
+  job_post: { windowSeconds: 3600, max: 30 },
+  payment: { windowSeconds: 3600, max: 30 },
   message: { windowSeconds: 3600, max: 120 },
   report: { windowSeconds: 3600, max: 20 },
   password_change: { windowSeconds: 3600, max: 10 },

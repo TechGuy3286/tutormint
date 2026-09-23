@@ -5,6 +5,7 @@ import { formatCnic, isValidCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { recomputeCompletion } from '@/lib/completion'
 import { loadIdentity } from '@/lib/identity'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBody, z } from '@/lib/validate'
 
 // The identity card's three writes, for either role.
@@ -86,7 +87,12 @@ export async function POST(request: Request) {
   // images underneath it change would mean the badge is vouching for a
   // document no human has seen.
   if (action === 'reopen') {
-    const { error } = await supabase
+    // cnic_verified_at / verification_state are locked from the member client
+    // (migration 103). Clearing them (a member asking to re-verify) goes through
+    // the service role, scoped to their own id (PR48 §2).
+    const admin = createAdminClient()
+    if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
+    const { error } = await admin
       .from('profiles')
       .update({
         cnic_verified_at: null,
@@ -133,7 +139,12 @@ export async function POST(request: Request) {
     )
   }
 
-  const { error } = await supabase
+  // verification_state is locked from the member client (migration 103) —
+  // submitting for review goes through the service role, scoped to their own id,
+  // after the CNIC-number and both-sides checks above (PR48 §2).
+  const admin = createAdminClient()
+  if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
+  const { error } = await admin
     .from('profiles')
     .update({
       verification_state: 'submitted',

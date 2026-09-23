@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProvider, newPaymentReference } from '@/lib/payments'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, text } from '@/lib/validate'
+import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 
 // Start a purchase.
 //
@@ -31,6 +32,9 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
+
+  const limit = await rateLimit('payment', user.id)
+  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'payment attempts')
 
   const parsed = await parseBody(request, CheckoutBody)
   if (!parsed.ok) return parsed.response
