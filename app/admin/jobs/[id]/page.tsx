@@ -296,12 +296,12 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
         <section className="space-y-3 rounded-2xl border border-tm-green-deep/30 bg-tm-tint-green p-4 sm:p-5">
           <h2 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-tm-green-deep">
             <Phone aria-hidden size={12} />
-            Real parent contact (seeded tuition)
+            Parent&rsquo;s contact
           </h2>
           <p className="text-[11px] leading-relaxed text-slate-700">
-            This tuition carries a real poster’s contact, shown openly to signed-in tutors on the
-            job page. It is never shown to another parent, never indexed, and never in the sitemap
-            or structured data.
+            TutorMint staff posted this tuition for the parent. This is the parent&rsquo;s own contact,
+            shown to signed-in tutors on the tuition page — never to another parent, and never made
+            public (not indexed, not in the sitemap or structured data).
           </p>
           <dl className="space-y-1 text-xs">
             {contactName && (

@@ -82,6 +82,33 @@ export function budgetPhrase(sel: JobSelection): string {
   )
 }
 
+/**
+ * The budget as ONE grammatical clause that drops straight into a sentence —
+ * "over Rs 20,000", "between Rs 10,000 and Rs 20,000", "under Rs 5,000" — so the
+ * generator never joins two phrasings ("between over Rs 20,000") (PR46 §4).
+ *
+ * It reads the band label `budgetPhrase` produces and turns each shape into its
+ * clause: a hyphen range ("Rs 10,000 - 20,000") becomes "between Rs A and Rs B";
+ * an "Over"/"Under" band lowercases its lead word; the "From"/"Up to" open-ended
+ * forms (a hand-set URL) become "from Rs X" / "up to Rs X"; and a degenerate
+ * range whose ends match collapses to the single figure. Empty when no budget.
+ */
+export function budgetSentence(sel: JobSelection): string {
+  const phrase = budgetPhrase(sel)
+  if (!phrase) return ''
+  // A range — the band label ("Rs 5,000 - 10,000") or a free pair — where the
+  // second number carries no "Rs".
+  const range = phrase.match(/^Rs\s+([\d,]+)\s*-\s*(?:Rs\s+)?([\d,]+)$/i)
+  if (range) {
+    return range[1] === range[2] ? `Rs ${range[1]}` : `between Rs ${range[1]} and Rs ${range[2]}`
+  }
+  if (/^under\s+/i.test(phrase)) return phrase.replace(/^under\s+/i, 'under ')
+  if (/^over\s+/i.test(phrase)) return phrase.replace(/^over\s+/i, 'over ')
+  if (/^from\s+/i.test(phrase)) return phrase.replace(/^from\s+/i, 'from ')
+  if (/^up to\s+/i.test(phrase)) return phrase.replace(/^up to\s+/i, 'up to ')
+  return phrase
+}
+
 export function modePhrase(sel: JobSelection): string {
   const m = jobType(sel.mode)
   if (!m) return ''
@@ -122,7 +149,7 @@ export function composeJobCopy(sel: JobSelection): JobCopy {
   const subject = subjectPhrase(sel.subjects)
   const place = placePhrase(sel)
   const mode = modePhrase(sel)
-  const budget = budgetPhrase(sel)
+  const budget = budgetSentence(sel)
 
   const title = buildJobTitle(sel, subject, place)
 
@@ -135,9 +162,9 @@ export function composeJobCopy(sel: JobSelection): JobCopy {
   if (place) lines.push(`We are in ${place}.`)
   if (mode) lines.push(`Lessons can be ${mode}.`)
   if (sel.schedule) lines.push(`We are hoping for ${sel.schedule}.`)
-  // Not lowercased: the band label carries "Rs", and "our budget is rs 10,000"
-  // reads like a typo in the one sentence about money.
-  if (budget) lines.push(`Our monthly budget is ${budget.replace(/^Under /, 'under ').replace(/^Over /, 'over ')}.`)
+  // budgetSentence already reads as one clause ("over Rs 20,000", "between
+  // Rs 10,000 and Rs 20,000") — never two phrasings joined (PR46 §4).
+  if (budget) lines.push(`Our monthly budget is ${budget}.`)
   lines.push('Please get in touch if this suits you and tell us about your experience.')
 
   return { title, description: lines.join(' '), source: 'composed' }

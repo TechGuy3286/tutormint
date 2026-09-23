@@ -10,7 +10,7 @@
 
 import { complete, isConfigured } from './anthropic'
 import {
-  budgetPhrase,
+  budgetSentence,
   composeJobCopy,
   modePhrase,
   placePhrase,
@@ -35,6 +35,7 @@ const SYSTEM = [
   'Rules you must not break:',
   '- Use ONLY the facts given to you. Invent nothing.',
   '- Do NOT mention a grade, mark, percentage, exam result, age, budget, fee, day or time unless it is in the facts.',
+  '- Write the monthly budget EXACTLY as it appears in the facts (for example "over Rs 20,000" or "between Rs 10,000 and Rs 20,000"). Do NOT put another word such as "between", "around", "about" or "up to" in front of it.',
   '- Do NOT describe the child. You have not met them and the parent has not told you anything about them.',
   '- No corporate filler: no "passionate", no "dynamic", no "we are seeking a highly qualified individual".',
   '- No greeting, no sign-off, no emoji, no hashtags, no markdown.',
@@ -53,7 +54,9 @@ function factsBlock(sel: JobSelection): string {
   const mode = modePhrase(sel)
   if (mode) facts.push(`Lessons: ${mode}`)
   if (sel.schedule) facts.push(`Days and times: ${sel.schedule}`)
-  const budget = budgetPhrase(sel)
+  // The finished clause ("over Rs 20,000", "between Rs 10,000 and Rs 20,000"),
+  // so the model has nothing to reformat into "between over Rs 20,000" (PR46 §4).
+  const budget = budgetSentence(sel)
   if (budget) facts.push(`Monthly budget: ${budget}`)
   return facts.join('\n')
 }

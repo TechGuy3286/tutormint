@@ -26,7 +26,32 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { composeJobCopy, unsupportedFacts, type JobSelection } from '../lib/ai/jobBrief'
+import { composeJobCopy, unsupportedFacts, budgetSentence, type JobSelection } from '../lib/ai/jobBrief'
+
+// PR46 §4 — the budget clause reads correctly for every band, and is never two
+// phrasings joined ("between over Rs 20,000").
+const budgetSel = (min: number | null, max: number | null): JobSelection => ({
+  level: 'O Levels', subjects: ['Physics'], city: 'Lahore', area: null, mode: 'Home Tutor',
+  budgetMin: min, budgetMax: max, schedule: null,
+})
+test('budget clause: one grammatical phrasing per band', () => {
+  assert.equal(budgetSentence(budgetSel(null, null)), '')                       // Any budget
+  assert.equal(budgetSentence(budgetSel(null, 4999)), 'under Rs 5,000')          // Under Rs 5,000
+  assert.equal(budgetSentence(budgetSel(5000, 9999)), 'between Rs 5,000 and Rs 10,000')
+  assert.equal(budgetSentence(budgetSel(10000, 19999)), 'between Rs 10,000 and Rs 20,000')
+  assert.equal(budgetSentence(budgetSel(20000, null)), 'over Rs 20,000')         // Over Rs 20,000
+})
+test('budget clause: composed sentence never joins two phrasings', () => {
+  for (const [min, max] of [[null, null], [null, 4999], [5000, 9999], [10000, 19999], [20000, null]] as const) {
+    const d = composeJobCopy(budgetSel(min, max)).description
+    assert.ok(!/between\s+over/i.test(d), `no "between over" for ${min}-${max}: ${d}`)
+    assert.ok(!/over\s+between/i.test(d), `no "over between" for ${min}-${max}: ${d}`)
+    assert.ok(!/between[^.]*\bunder\b/i.test(d), `no "between … under" for ${min}-${max}: ${d}`)
+  }
+  // The "Over" band reads as a clean clause in the sentence.
+  assert.match(composeJobCopy(budgetSel(20000, null)).description, /budget is over Rs 20,000\./)
+  assert.match(composeJobCopy(budgetSel(10000, 19999)).description, /budget is between Rs 10,000 and Rs 20,000\./)
+})
 
 /** One real selection set: what the form sends for one pass through the taps. */
 const SELECTION: JobSelection = {
@@ -60,7 +85,7 @@ test('the composed fallback carries every selection it was given', () => {
   for (const fact of ['Physics', 'Mathematics', 'O Levels', 'DHA Phase 5', 'Lahore', 'in person']) {
     assert.ok(c.description.includes(fact), `missing: ${fact}`)
   }
-  assert.match(c.description, /Rs 10,000 - 20,000/)
+  assert.match(c.description, /between Rs 10,000 and Rs 20,000/)
 })
 
 test('the composed fallback is silent about what was NOT selected', () => {

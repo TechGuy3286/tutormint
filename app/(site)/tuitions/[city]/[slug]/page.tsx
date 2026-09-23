@@ -546,7 +546,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
         <section className="space-y-3 rounded-2xl border border-tm-green-deep/30 bg-tm-tint-green p-4 sm:p-5">
           <h2 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-tm-green-deep">
             <Phone aria-hidden size={13} />
-            Contact this parent directly
+            Parent&rsquo;s contact
           </h2>
           {contact.contact_name && <p className="text-sm font-black text-tm-navy">{contact.contact_name}</p>}
 
@@ -616,8 +616,10 @@ export default async function TuitionPage({ params }: { params: Params }) {
           )}
 
           <p className="text-[11px] leading-relaxed text-slate-700">
-            Posted by TutorMint — you can contact the parent directly, no application needed. You
-            can still apply through TutorMint if you prefer.
+            TutorMint staff posted this tuition for the parent, so you can contact them directly — no
+            application needed. This is the parent&rsquo;s own number, shown only to signed-in tutors:
+            never to other parents, and never made public. You can still apply through TutorMint if you
+            prefer.
           </p>
         </section>
       )}
