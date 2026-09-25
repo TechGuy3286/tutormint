@@ -335,7 +335,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             verified tutors. Replaces the stale "Get found" strip, which was never
             in the codebase or the advertisements table. */}
         {tutorUnverified && (
-          <section className="flex flex-col gap-2 rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-4 sm:flex-row sm:items-center sm:justify-between">
+          <section className="flex flex-col gap-2 rounded-2xl border border-tm-green-deep/20 bg-tm-tint-green p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-1">
               <p className="text-xs font-semibold text-tm-navy">
                 Verified tutors can apply to tuitions and contact parents directly.
