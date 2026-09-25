@@ -174,20 +174,32 @@ async function loadPlan(code: string): Promise<GatePlan | undefined> {
 export async function buildGate(
   reason: GateReason,
   ent?: Pick<Entitlements, 'audience' | 'plan' | 'quota' | 'profileCompletion'> | null,
+  // The plan to OFFER, for the tutor apply-quota gate only (PR52 §3): the caller
+  // chooses it from the tutor's current plan, so a Premium tutor at the cap is
+  // offered Featured (not Premium) and a Featured tutor is offered nothing. null
+  // = no higher package; undefined = use the fixed REQUIRES mapping (every other
+  // caller and reason).
+  offeredPlanCode?: string | null,
 ): Promise<Gate> {
   // Completion no longer gates listing (owner, 10 Sep 2026), so a gate no longer
   // leads with "finish your profile first / buy anyway": a paid tutor at 40% is
   // listed and applying, and the honest upsell is the plan itself. The base gate
   // stands on its own.
-  return buildBaseGate(reason, ent)
+  return buildBaseGate(reason, ent, offeredPlanCode)
 }
 
 async function buildBaseGate(
   reason: GateReason,
   ent?: Pick<Entitlements, 'audience' | 'plan' | 'quota'> | null,
+  offeredPlanCode?: string | null,
 ): Promise<Gate> {
   const audience: Audience | null = ent?.audience ?? defaultAudience(reason)
-  const required = REQUIRES[reason]
+  // The apply-quota gate's plan is chosen by the caller from the tutor's current
+  // plan; every other reason uses the fixed REQUIRES mapping.
+  const required =
+    reason === 'tutor_apply_quota' && offeredPlanCode !== undefined
+      ? offeredPlanCode
+      : REQUIRES[reason]
   const plan = required ? await loadPlan(required) : undefined
 
   switch (reason) {
@@ -250,14 +262,31 @@ async function buildBaseGate(
       }
 
     case 'tutor_apply_quota':
+      // No higher package — a Featured tutor at the cap (PR52 §3c). Keep the
+      // title and the reset line; drop the plan card and the upgrade button, so
+      // the sheet shows only a close button.
+      if (!plan) {
+        return {
+          kind: 'quota',
+          title: "You have used this month's applications",
+          body: 'Your allowance resets at the start of next month.',
+          audience: 'tutor',
+          href: '/tutor/dashboard/jobs',
+          ctaLabel: 'Close',
+          actionable: false,
+        }
+      }
+      // The offered plan's own name and figure, so a Premium tutor is offered
+      // Featured (PR52 §3b). For a Basic tutor the offer is Premium, so this
+      // renders exactly as before.
       return {
         kind: 'quota',
         title: "You have used this month's applications",
-        body: `Your allowance resets at the start of next month. Premium raises it to ${plan?.displayedQuota ?? 'more'} a month and lets you message parents directly.`,
+        body: `Your allowance resets at the start of next month. ${plan.name} raises it to ${plan.displayedQuota ?? 'more'} a month and lets you message parents directly.`,
         audience: 'tutor',
         plan,
         href: packagesHref('tutor', required),
-        ctaLabel: 'See Premium',
+        ctaLabel: `See ${plan.name}`,
         actionable: true,
       }
 

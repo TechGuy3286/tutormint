@@ -13,7 +13,7 @@
 //      unset tutor gender is never blocked; a plain message, not an upgrade)
 //   4. the job is still open
 //   5. they have not already applied (a unique index backs this up)
-//   6. quota: Basic 10/month; Premium and Featured "Unlimited" (100 / 150 real cap)
+//   6. quota: Basic 10/month; Premium and Featured "Unlimited" (100 / 300 real cap)
 //
 // Quota is spent only after the row exists, and withdrawal never refunds it
 // (the owner's rule) -- the application still cost a slot, which is what stops
@@ -23,6 +23,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { checkQuota, consumeQuota } from '@/lib/quota'
+import { tutorApplyOffer } from '@/lib/upgradePath'
 import { logActivity } from '@/lib/activityLog'
 import { buildGate, type Gate } from '@/lib/gate'
 import { genderApplyBlocked, genderPrefSentence } from '@/lib/genderPref'
@@ -148,16 +149,27 @@ export async function applyToJob(params: {
   // 5. Quota
   const quota = checkQuota(ent, 'job_application')
   if (!quota.ok) {
-    return {
-      ...quota,
-      gate: await buildGate(
-        // No plan at all = not yet verified: the way forward is the one-time
-        // Rs 199 fee (the Verify gate), not a paid-plan upsell. A Basic tutor
-        // over their monthly allowance is the Premium upsell.
-        quota.reason === 'no_plan' ? 'tutor_verify' : 'tutor_apply_quota',
-        ent,
-      ),
+    // No plan at all = not yet verified: the way forward is the one-time Rs 199
+    // fee (the Verify gate), not a paid-plan upsell.
+    if (quota.reason === 'no_plan') {
+      return { ...quota, gate: await buildGate('tutor_verify', ent) }
     }
+    // Over the monthly allowance: offer the NEXT package up from where they are
+    // now (PR52 §3) — Basic → Premium, Premium → Featured, Featured → nothing.
+    // A tutor now on Basic whose earlier paid plan lapsed is pushed to Featured.
+    let hadPaidPlanBefore = false
+    if (ent.plan === 'basic' && admin) {
+      const { data: prior } = await admin
+        .from('subscriptions')
+        .select('plan_code')
+        .eq('user_id', params.tutorId)
+        .in('plan_code', ['premium', 'featured'])
+        .limit(1)
+        .maybeSingle()
+      hadPaidPlanBefore = !!prior
+    }
+    const offered = tutorApplyOffer(ent.plan, hadPaidPlanBefore)
+    return { ...quota, gate: await buildGate('tutor_apply_quota', ent, offered) }
   }
 
   const { data: created, error } = await supabase

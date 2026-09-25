@@ -33,7 +33,27 @@ export function nextPlan(audience: Audience, currentPlan: string | null): string
 
 export function packagesHref(audience: Audience, plan?: string | null): string {
   const base = audience === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents'
-  return plan ? `${base}?plan=${encodeURIComponent(plan)}` : base
+  // `base` already carries `?for=…`, so a second parameter joins with `&`. It was
+  // `?plan=` (PR52 §2), which produced `…?for=tutors?plan=premium` — a single
+  // malformed query string in which `plan` never parsed, so the target card was
+  // never highlighted.
+  return plan ? `${base}&plan=${encodeURIComponent(plan)}` : base
+}
+
+/**
+ * The plan to OFFER a tutor at their monthly apply limit (PR52 §3): the next
+ * package up from where they are now — never the same plan, never a lower one —
+ * or null at Featured, where there is no higher package. A tutor now on Basic
+ * who previously held a paid plan that has since lapsed is pushed to Featured;
+ * a Basic tutor who never had a paid plan is offered Premium.
+ */
+export function tutorApplyOffer(
+  currentPlan: string | null,
+  hadPaidPlanBefore: boolean,
+): string | null {
+  if (currentPlan === 'featured') return null
+  if (currentPlan === 'premium') return 'featured'
+  return hadPaidPlanBefore ? 'featured' : 'premium'
 }
 
 /**
