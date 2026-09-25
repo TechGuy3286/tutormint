@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { postGated } from '@/lib/gatedFetch'
 import { armEscape, submitSignal } from '@/lib/submit'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
@@ -47,6 +48,9 @@ export default function ProfileActions({
   const [saved, setSaved] = useState(initiallySaved)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  // A link to similar tutors when a request is refused at the tutor's monthly
+  // limit — so the parent is never a dead end (PR54 Part B).
+  const [noticeHref, setNoticeHref] = useState<string | null>(null)
   const [gateOpen, setGateOpen] = useState(false)
   const [gateIntent, setGateIntent] = useState<AuthIntent>('shortlist')
 
@@ -82,6 +86,7 @@ export default function ProfileActions({
     if (!signedIn) return gate('demo')
     setBusy(true)
     setNotice(null)
+    setNoticeHref(null)
     try {
       const res = await fetch('/api/demo/request', { signal: submitSignal(),
         method: 'POST',
@@ -89,7 +94,11 @@ export default function ProfileActions({
         body: JSON.stringify({ tutorId }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not send your demo request.')
+      if (!res.ok) {
+        setNotice(json.error ?? 'Could not send your demo request.')
+        setNoticeHref(typeof json.similarHref === 'string' ? json.similarHref : null)
+        return
+      }
       setNotice(`Demo requested. ${tutorName.split(' ')[0]} will reply with a time.`)
     } catch (e) {
       setNotice(e instanceof Error ? e.message : 'Could not send your demo request.')
@@ -131,7 +140,17 @@ export default function ProfileActions({
     <>
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:mx-auto sm:mt-4 sm:max-w-3xl sm:rounded-2xl sm:border sm:p-4">
         {notice && (
-          <p className="pb-2 text-center text-[11px] font-semibold text-slate-700">{notice}</p>
+          <p className="pb-2 text-center text-[11px] font-semibold text-slate-700">
+            {notice}
+            {noticeHref && (
+              <>
+                {' '}
+                <Link href={noticeHref} className="font-bold text-tm-red hover:underline">
+                  See similar tutors
+                </Link>
+              </>
+            )}
+          </p>
         )}
         <div className="mx-auto flex max-w-3xl flex-wrap gap-2">
           <button

@@ -30,6 +30,8 @@ import { notify, notifyMany } from '@/lib/notifications'
 import { tuitionPath } from '@/lib/slugs'
 import { normaliseGenderPref } from '@/lib/genderPref'
 import { deliverEmail } from '@/lib/notify'
+import { tutorAtIncomingCap, refuseIncomingRequest, recordIncoming } from '@/lib/incomingRequests'
+import { sendMatchEmails } from '@/lib/matchEmail'
 import { revalidateLanding } from '@/lib/landingRevalidate'
 import { teamParentId } from '@/lib/teamAccount'
 import { buildJobContact } from '@/lib/jobContactCore'
@@ -98,7 +100,7 @@ export type JobInput = {
   contactSocial?: string | null
 }
 
-type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate }
+type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate; similarHref?: string }
 
 function newJobTxId(): string {
   return `JOB-TX-${Math.random().toString(36).slice(2, 9).toUpperCase()}`
@@ -834,6 +836,15 @@ export async function hireApplicant(
     }
   }
 
+  // Basic incoming-request limit (PR54 Part B): a hire is a hiring request the
+  // tutor receives. A Basic or no-plan tutor at their monthly limit is not
+  // hired here; the parent is pointed at similar tutors and the tutor is nudged
+  // to upgrade. Fails open.
+  if (await tutorAtIncomingCap(application.tutor_id as string)) {
+    const refused = await refuseIncomingRequest(application.tutor_id as string)
+    return { ok: false, status: 403, error: refused.error, similarHref: refused.similarHref }
+  }
+
   const now = new Date().toISOString()
 
   // jobs.status / hired_tutor_id are locked from the member client (migration
@@ -950,6 +961,9 @@ export async function hireApplicant(
 
   // Hiring closes the tuition, so it may close a landing page.
   revalidateLanding()
+
+  // Counted only after the hire succeeded — same order as applications.
+  await recordIncoming(application.tutor_id as string)
 
   return { ok: true, tutorId: application.tutor_id as string }
 }
@@ -1103,6 +1117,22 @@ async function notifyMatchingTutors(
         meta: { online_suitable: true },
       })
     }
+
+    // On top of the in-app notification, email Premium/Featured tutors (PR54 §C).
+    // Best-effort inside its own module; wrapped again here so it can never fail
+    // the post even if the import path throws.
+    await sendMatchEmails(
+      {
+        jobId,
+        subject: subjectName,
+        city: input.city,
+        area: input.area ?? null,
+        // teaching_mode stores the Job Type label verbatim (migration 77).
+        mode: input.teachingMode ?? null,
+        href,
+      },
+      [...sameCityIds, ...crossCityIds],
+    )
   } catch {
     // See above: never fail a job post over a notification.
   }

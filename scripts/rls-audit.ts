@@ -119,6 +119,9 @@ const NO_POLICY_OK: Record<string, string> = {
     'written and read by the server only. No client key may touch it — the account is created ' +
     'from this row when the code verifies.',
   ad_events: 'impressions and clicks: server-written, admin-read via the service role',
+  match_email_sent:
+    'which tuition was emailed to which tutor (PR54 §C dedupe): written and read ' +
+    'by the server only, so the same tuition is never emailed twice. No client key touches it.',
   tutor_rank_snapshots:
     'where each tutor stood the last time the position widget ran, one row each. ' +
     'Written and read through the service role only: a tutor learns nothing from their own row ' +

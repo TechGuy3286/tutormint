@@ -31,7 +31,10 @@ export async function POST(request: Request) {
 
   const result = await hireApplicant(user.id, body.applicationId)
   if (!result.ok) {
-    return NextResponse.json({ error: result.error, upgrade: result.upgrade, gate: result.gate }, { status: result.status })
+    return NextResponse.json(
+      { error: result.error, upgrade: result.upgrade, gate: result.gate, similarHref: result.similarHref },
+      { status: result.status },
+    )
   }
 
   return NextResponse.json({ success: true, tutorId: result.tutorId })

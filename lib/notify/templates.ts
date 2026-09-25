@@ -80,6 +80,9 @@ function shell(
   paragraphs: string[],
   cta?: { label: string; href: string },
   extra?: EmailItems,
+  /** An ABSOLUTE one-click unsubscribe URL for this kind of email (PR54 §C).
+   *  Passed pre-built, so it is used as-is (not run through link()). */
+  unsubscribeHref?: string,
 ): string {
   const body = paragraphs
     .map(
@@ -139,6 +142,7 @@ function shell(
           <a href="${escapeHtml(SITE_URL)}" style="color:${NAVY};text-decoration:none;font-weight:700;">tutormint.org</a><br />
           You can change which emails you receive at
           <a href="${escapeHtml(link('/account/notifications/settings'))}" style="color:${RED};">Notification settings</a>.<br />
+          ${unsubscribeHref ? `<a href="${escapeHtml(unsubscribeHref)}" style="color:${RED};">Stop these tuition emails</a>.<br />` : ''}
           <span style="color:${NAVY};">© 2026 Tutor Mint (Private) Limited</span>
         </p>
       </td></tr>
@@ -162,6 +166,7 @@ function plain(
   paragraphs: string[],
   cta?: { label: string; href: string },
   extra?: EmailItems,
+  unsubscribeHref?: string,
 ): string {
   const parts = [heading, '', ...paragraphs]
   if (extra && extra.items.length > 0) {
@@ -176,8 +181,9 @@ function plain(
     '—',
     'TutorMint · tutormint.org',
     `Notification settings: ${link('/account/notifications/settings')}`,
-    '© 2026 Tutor Mint (Private) Limited',
   )
+  if (unsubscribeHref) parts.push(`Stop these tuition emails: ${unsubscribeHref}`)
+  parts.push('© 2026 Tutor Mint (Private) Limited')
   return parts.join('\n')
 }
 
@@ -188,11 +194,12 @@ function build(
   essential: boolean,
   cta?: { label: string; href: string },
   extra?: EmailItems,
+  unsubscribeHref?: string,
 ): RenderedEmail {
   return {
     subject,
-    text: plain(heading, paragraphs, cta, extra),
-    html: shell(heading, paragraphs, cta, extra),
+    text: plain(heading, paragraphs, cta, extra, unsubscribeHref),
+    html: shell(heading, paragraphs, cta, extra, unsubscribeHref),
     essential,
   }
 }
@@ -251,6 +258,19 @@ export type TemplateInput =
   // ABSOLUTE one-time link, so `link()` leaves it untouched.
   | { id: 'staff_invite'; name: string; role: string; url: string }
   | { id: 'tuition_paused'; title: string }
+  // A tuition matching a Premium/Featured tutor's subjects (PR54 §C). Not
+  // essential — it carries a one-click unsubscribe. NEVER a parent's name or
+  // contact details, and no price.
+  | {
+      id: 'tuition_match'
+      subject: string
+      city: string
+      area: string | null
+      mode: string | null
+      href: string
+      /** Absolute one-click unsubscribe URL, built by the caller. */
+      unsubscribeHref: string
+    }
 
 export function render(input: TemplateInput): RenderedEmail {
   switch (input.id) {
@@ -485,6 +505,29 @@ export function render(input: TemplateInput): RenderedEmail {
         true, // loss of visibility, like plan_expired — delivered regardless of opt-out
         { label: 'Resume your tuition', href: '/parent/dashboard/jobs' },
       )
+
+    // ---------------------------------------------------------------------
+    case 'tuition_match': {
+      // Plain, simple English. Subject (which carries the grade/level), city,
+      // area and mode; one button to the tuition page. NEVER a parent's name or
+      // contact details, and no price. Not essential — a one-click unsubscribe
+      // sits in the footer.
+      const where = input.area ? `${input.area}, ${input.city}` : input.city
+      return build(
+        'A new tuition for you on TutorMint',
+        'A new tuition matching your subjects',
+        [
+          `A parent has posted a new tuition that matches your subjects${input.mode ? ` (${input.mode})` : ''}.`,
+          `Subject: ${input.subject}`,
+          `Where: ${where}`,
+          'Open it to see the full details and apply. Verified tutors are shown to parents first.',
+        ],
+        false,
+        { label: 'View this tuition', href: input.href },
+        undefined,
+        input.unsubscribeHref,
+      )
+    }
 
     // ---------------------------------------------------------------------
     case 'plan_granted':

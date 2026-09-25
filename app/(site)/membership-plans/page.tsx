@@ -117,14 +117,19 @@ export default async function PackagesPage({
             month.
           </p>
         )}
-        <p className="text-slate-700">
-          <strong className="text-tm-navy">An academy keeps half your first month.</strong> On a Rs
-          20,000 tuition that is Rs 10,000 out of your first month, every time, and many keep a
-          share of every month after. TutorMint takes 0% of what you earn, forever.
-        </p>
-        <p className="text-gray-500">
-          Being verified is what gets you listed. Whether a parent picks you depends on your profile,
-          your reply and your experience.
+        {/* Urdu value line (PR54 §A). RTL, right-aligned, Urdu-capable font with
+            a system fallback; mobile-first. Latin "TutorMint" sits inside the
+            RTL run correctly. */}
+        <p
+          lang="ur"
+          dir="rtl"
+          className="text-right text-sm leading-loose text-slate-700"
+          style={{
+            fontFamily:
+              "'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Nafees Nastaleeq', 'Urdu Typesetting', 'Segoe UI', system-ui, sans-serif",
+          }}
+        >
+          TutorMint پر پروفائل بنانا بالکل مفت ہے۔ ملک بھر کی ٹیوشنز ایک ہی جگہ پر، فیس بک اور واٹس ایپ گروپس میں لمبی اسکرولنگ کی ضرورت نہیں۔ اپنے مضمون اور علاقے کی ٹیوشنز آسانی سے تلاش کریں اور خود اپلائی کریں۔
         </p>
       </section>
 

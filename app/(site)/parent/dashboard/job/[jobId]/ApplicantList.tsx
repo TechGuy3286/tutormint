@@ -54,10 +54,14 @@ export default function ApplicantList({
   const toast = useToast()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // A link to similar tutors when a hire is refused because the tutor is at
+  // their monthly request limit — so the parent is never a dead end (PR54 §B).
+  const [errorHref, setErrorHref] = useState<string | null>(null)
 
   const act = async (url: string, payload: Record<string, unknown>, id: string, success: string) => {
     setBusy(id)
     setError(null)
+    setErrorHref(null)
     const r = await postGated(url, payload, upgradeSheet?.showGate)
     // A gate is not an error: the sheet has said what is needed and offers the
     // one tap that fixes it. Echoing the sentence here as well would read as a
@@ -67,6 +71,7 @@ export default function ApplicantList({
       router.refresh()
     } else if (!r.gated) {
       setError(r.error)
+      setErrorHref(r.similarHref ?? null)
       toast.error(r.error)
     }
     setBusy(null)
@@ -107,6 +112,14 @@ export default function ApplicantList({
       {error && (
         <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-bold text-tm-red">
           {error}
+          {errorHref && (
+            <>
+              {' '}
+              <Link href={errorHref} className="underline">
+                See similar tutors
+              </Link>
+            </>
+          )}
         </p>
       )}
 

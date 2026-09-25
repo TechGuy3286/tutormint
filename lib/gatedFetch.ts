@@ -19,7 +19,10 @@ import { submitError, submitSignal } from '@/lib/submit'
 export type GatedResult<T> =
   | { ok: true; data: T }
   | { ok: false; gated: true }
-  | { ok: false; gated: false; error: string }
+  // `similarHref` is carried through for a plain refusal that offers somewhere
+  // else to go — the Basic incoming-request limit points a parent at similar
+  // tutors (PR54 Part B) rather than leaving them at a dead end.
+  | { ok: false; gated: false; error: string; similarHref?: string }
 
 export async function postGated<T = unknown>(
   url: string,
@@ -48,7 +51,7 @@ export async function postGated<T = unknown>(
     }
   }
 
-  let json: { error?: string; gate?: Gate } & Record<string, unknown> = {}
+  let json: { error?: string; gate?: Gate; similarHref?: string } & Record<string, unknown> = {}
   try {
     json = await res.json()
   } catch {
@@ -68,5 +71,6 @@ export async function postGated<T = unknown>(
     ok: false,
     gated: false,
     error: json.error ?? 'That did not work. Please try again.',
+    similarHref: typeof json.similarHref === 'string' ? json.similarHref : undefined,
   }
 }

@@ -193,6 +193,9 @@ export default function TutorCard({
   const [saved, setSaved] = useState(initiallySaved)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  // When a request is refused because the tutor is at their monthly limit, the
+  // notice carries a link to similar tutors so the parent is never a dead end.
+  const [noticeHref, setNoticeHref] = useState<string | null>(null)
   const [gateOpen, setGateOpen] = useState(false)
   const [gateIntent, setGateIntent] = useState<AuthIntent>('shortlist')
   const upgradeSheet = useUpgradeSheet()
@@ -250,6 +253,7 @@ export default function TutorCard({
     if (!viewer.signedIn) return gate('demo')
     setBusy(true)
     setNotice(null)
+    setNoticeHref(null)
     try {
       const res = await fetch('/api/demo/request', { signal: submitSignal(),
         method: 'POST',
@@ -257,7 +261,14 @@ export default function TutorCard({
         body: JSON.stringify({ tutorId: tutor.id }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not send your demo request.')
+      if (!res.ok) {
+        const msg = json.error ?? 'Could not send your demo request.'
+        toast.error(msg)
+        setNotice(msg)
+        // The Basic incoming-request limit hands back a link to similar tutors.
+        setNoticeHref(typeof json.similarHref === 'string' ? json.similarHref : null)
+        return
+      }
       const msg = `Demo requested. ${tutor.full_name.split(' ')[0]} will reply with a time.`
       setNotice(msg)
       toast.success(msg)
@@ -553,6 +564,14 @@ export default function TutorCard({
             {notice && (
               <p className="relative z-10 pt-2 text-[11px] font-semibold leading-snug text-slate-700">
                 {notice}
+                {noticeHref && (
+                  <>
+                    {' '}
+                    <Link href={noticeHref} className="font-bold text-tm-red hover:underline">
+                      See similar tutors
+                    </Link>
+                  </>
+                )}
               </p>
             )}
           </div>

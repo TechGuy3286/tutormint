@@ -5,6 +5,7 @@ import { getEntitlements } from '@/lib/entitlements'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { isUnverifiedTutor } from '@/lib/messaging'
+import { tutorAtIncomingCap, refuseIncomingRequest, recordIncoming } from '@/lib/incomingRequests'
 import { parseBody, z, uuid } from '@/lib/validate'
 
 // A parent asks a tutor for a free demo lesson.
@@ -84,6 +85,15 @@ export async function POST(request: Request) {
     }
   }
 
+  // Basic incoming-request limit (PR54 Part B). A Basic or no-plan tutor receives
+  // 10 hiring/demo requests a month; over that the request is NOT created, the
+  // parent is pointed at similar tutors, and the tutor is nudged to upgrade.
+  // Fails open — an unreadable counter never blocks a request.
+  if (await tutorAtIncomingCap(tutorId)) {
+    const refused = await refuseIncomingRequest(tutorId)
+    return NextResponse.json(refused, { status: 403 })
+  }
+
   const { data: created, error } = await supabase
     .from('demo_requests')
     .insert({
@@ -97,6 +107,9 @@ export async function POST(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Counted only after it exists — same order as applications.
+  await recordIncoming(tutorId)
 
   // PR16 §2.2 — an unverified tutor is told a parent requested a demo and to
   // verify to see it; details stay hidden until the fee is paid (§2.3). No price.

@@ -125,6 +125,9 @@ export type NotificationKind =
   // is text with no CHECK constraint.
   | 'tuition_paused'
   | 'tuition_resumed'
+  // PR54 §B — a parent tried to send a hiring/demo request to a tutor who has
+  // reached this month's free limit. No parent name or details.
+  | 'incoming_request_capped'
 
 export async function notify(params: {
   userId: string
