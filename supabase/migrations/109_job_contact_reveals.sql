@@ -16,9 +16,10 @@
 alter table contact_reveals
   add column if not exists job_contact_id uuid references job_contacts(job_id) on delete cascade;
 
--- parent_id is no longer always present; exactly one target is set.
-alter table contact_reveals alter column parent_id drop not null;
+-- parent_id is no longer always present; exactly one target is set. Drop the
+-- composite PK FIRST — a PK column cannot have its NOT NULL removed.
 alter table contact_reveals drop constraint if exists contact_reveals_pkey;
+alter table contact_reveals alter column parent_id drop not null;
 
 create unique index if not exists contact_reveals_parent_uq
   on contact_reveals (tutor_id, parent_id) where parent_id is not null;
