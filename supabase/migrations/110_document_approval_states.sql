@@ -45,11 +45,11 @@ update profiles set profile_pic_status = 'pending'
  where role = 'tutor' and nullif(btrim(coalesce(avatar_url, '')), '') is not null
    and profile_pic_status is null;
 
--- Selfie: one on file (selfie_url or a user_documents selfie), not reviewed → pending.
+-- Selfie: one on file (a user_documents selfie — selfie_url lives on
+-- tutor_profiles), not reviewed → pending.
 update profiles set selfie_status = 'pending'
  where role = 'tutor'
-   and (nullif(btrim(coalesce(selfie_url, '')), '') is not null
-        or exists (select 1 from user_documents ud where ud.user_id = profiles.id and ud.kind = 'selfie'))
+   and exists (select 1 from user_documents ud where ud.user_id = profiles.id and ud.kind = 'selfie')
    and selfie_status is null;
 
 -- ── privileged-column lock (extends migration 103) ───────────────────────────

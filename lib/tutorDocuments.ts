@@ -54,10 +54,11 @@ function normStatus(v: unknown): DocStatus {
 export async function loadDocumentStatuses(userId: string): Promise<DocumentStatuses> {
   const db = createAdminClient() ?? (await createClient())
 
-  // The always-present columns.
+  // The always-present columns. selfie_url lives on tutor_profiles, so the
+  // selfie's presence is read from user_documents below.
   const { data: base } = await db
     .from('profiles')
-    .select('verification_state, verification_rejection_reason, cnic_verified_at, avatar_url, selfie_url')
+    .select('verification_state, verification_rejection_reason, cnic_verified_at, avatar_url')
     .eq('id', userId)
     .maybeSingle()
 
@@ -74,25 +75,22 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
     /* columns not there yet */
   }
 
-  // A selfie upload can predate selfie_url (onboarding wrote user_documents).
+  // The selfie's presence is whether a selfie document exists.
   let selfieDoc = false
-  if (!base?.selfie_url) {
-    try {
-      const { data } = await db
-        .from('user_documents')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('kind', 'selfie')
-        .limit(1)
-        .maybeSingle()
-      selfieDoc = !!data
-    } catch {
-      /* ignore */
-    }
+  try {
+    const { data } = await db
+      .from('user_documents')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('kind', 'selfie')
+      .limit(1)
+      .maybeSingle()
+    selfieDoc = !!data
+  } catch {
+    /* ignore */
   }
 
   const avatar = base?.avatar_url as string | null
-  const selfieUrl = base?.selfie_url as string | null
   const cnic = cnicStatus((base?.verification_state as string) ?? null, (base?.cnic_verified_at as string) ?? null)
 
   return {
@@ -111,7 +109,7 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
     selfie: {
       status: normStatus(newCols?.selfie_status),
       reason: (newCols?.selfie_reason as string) ?? null,
-      hasUpload: !!(selfieUrl && selfieUrl.trim()) || selfieDoc,
+      hasUpload: selfieDoc,
     },
   }
 }

@@ -68,7 +68,9 @@ export async function POST(request: Request) {
   // selfie still uploaded. selfie_url is member-writable and kept for the
   // completion checklist.
   if (kind === 'selfie') {
-    await supabase.from('profiles').update({ selfie_url: result.doc.originalPath }).eq('id', user.id)
+    // selfie_url lives on tutor_profiles (member-writable); selfie_status is a
+    // locked column, so it goes through the service role.
+    await supabase.from('tutor_profiles').update({ selfie_url: result.doc.originalPath }).eq('id', user.id)
     const admin = createAdminClient()
     if (admin) {
       try {
