@@ -8,6 +8,8 @@ import PublicProfileLink from '@/components/admin/PublicProfileLink'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
+import { loadDocumentStatuses } from '@/lib/tutorDocuments'
+import TutorDocumentReview from '@/components/admin/TutorDocumentReview'
 import { formatDate } from '@/lib/datetime'
 import { jobType, jobTypesLabel, verificationStatus } from '@/lib/display'
 import SlugField from './SlugField'
@@ -64,8 +66,26 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
     .limit(20)
 
   const canEdit = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutorSlug)
+  const canReview = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)
   const name = (tutor.full_name as string) ?? (profile.full_name as string) ?? 'Tutor'
   const completion = Number(profile.profile_completion ?? 0)
+
+  // Identity documents for review (PR60): the newest CNIC front/back and selfie,
+  // plus each item's approval status. Read-resilient (statuses default to none
+  // before the migration).
+  const [{ data: idDocs }, docStatuses] = await Promise.all([
+    admin
+      .from('user_documents')
+      .select('id, kind, label, created_at')
+      .eq('user_id', id)
+      .in('kind', ['cnic', 'selfie'])
+      .order('created_at', { ascending: false }),
+    loadDocumentStatuses(id),
+  ])
+  const docs = (idDocs ?? []) as { id: string; kind: string; label: string | null }[]
+  const cnicFront = docs.find((d) => d.kind === 'cnic' && (d.label ?? 'front') !== 'back')
+  const cnicBack = docs.find((d) => d.kind === 'cnic' && d.label === 'back')
+  const selfieDoc = docs.find((d) => d.kind === 'selfie')
   // The shared listing rule, so "Open public profile" shows only when the page
   // resolves (PR39).
   const directory = await loadDirectoryStatus(id)
@@ -122,6 +142,16 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
       </section>
 
       <SlugField tutorId={id} initialSlug={(tutor.slug as string | null) ?? null} canEdit={canEdit} />
+
+      <TutorDocumentReview
+        tutorId={id}
+        canReview={canReview}
+        avatarUrl={(profile.avatar_url as string | null) ?? null}
+        cnicFrontId={cnicFront?.id ?? null}
+        cnicBackId={cnicBack?.id ?? null}
+        selfieDocId={selfieDoc?.id ?? null}
+        statuses={docStatuses}
+      />
 
       {/* The redirects that exist because of past changes. Shown so an admin
           can see what an address change actually left behind, rather than

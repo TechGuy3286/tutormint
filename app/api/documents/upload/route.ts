@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { storeDocument } from '@/lib/documents'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
@@ -59,6 +60,23 @@ export async function POST(request: Request) {
       .from('profiles')
       .update({ cnic_image_path: result.doc.originalPath })
       .eq('id', user.id)
+  }
+
+  // A new selfie sets it back to WAITING for approval (PR60). selfie_status is a
+  // locked column, so this goes through the service role. Best-effort and
+  // resilient: if the column is not there yet, the update simply fails and the
+  // selfie still uploaded. selfie_url is member-writable and kept for the
+  // completion checklist.
+  if (kind === 'selfie') {
+    await supabase.from('profiles').update({ selfie_url: result.doc.originalPath }).eq('id', user.id)
+    const admin = createAdminClient()
+    if (admin) {
+      try {
+        await admin.from('profiles').update({ selfie_status: 'pending' }).eq('id', user.id)
+      } catch {
+        /* column not there yet — fine */
+      }
+    }
   }
 
   await logActivity({

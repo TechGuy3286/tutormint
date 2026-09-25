@@ -13,6 +13,7 @@ import Avatar from '@/components/Avatar'
 import Link from 'next/link'
 import { X, Plus, Save, FileText, ArrowRight, BadgeCheck, ShieldAlert } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
+import IdentityDocsStatus from '@/components/tutor/IdentityDocsStatus'
 import SubjectPicker from '@/components/tutor/SubjectPicker'
 import VideoUpload from '@/components/tutor/VideoUpload'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
@@ -611,6 +612,10 @@ export default function TutorSettingsPage() {
 
       {/* --------------------------------------------------------- identity */}
       {identity && <IdentityCard identity={identity} role="tutor" />}
+
+      {/* Verification status for CNIC, profile picture and selfie, + selfie
+          upload (PR60). Self-loads; renders nothing until it has the status. */}
+      <IdentityDocsStatus />
 
       {/* ---------------------------------------------------------- degrees */}
       <Card title="Degrees" hint="Your certificate images are private — watermarked previews only, never downloadable.">
