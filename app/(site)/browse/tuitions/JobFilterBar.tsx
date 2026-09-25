@@ -211,6 +211,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
           ariaLabel="Search tuitions"
           city={values.city || undefined}
           groups={['subject', 'location', 'job']}
+          context="tuitions"
           // §4.2: DO NOT apply on every keystroke — that re-rendered the board
           // with the half-typed literal query and flashed "no tuitions match".
           // The results (and the count) change only when the query is COMMITTED

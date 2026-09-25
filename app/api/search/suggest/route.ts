@@ -28,6 +28,11 @@ const QuerySchema = z.object({
   // taxonomy and is not a search, it is a scan.
   q: z.string().trim().max(80).optional().default(''),
   city: z.string().trim().max(60).optional().default(''),
+  // The page the search was opened from (PR53 Part B). Subject, city and popular
+  // suggestions must land back on the SAME board — the SQL builds them all as
+  // `/browse/tutors?…`, so on the tuitions board they are re-pointed to
+  // `/browse/tuitions?…`. Defaults to tutors, the shape the SQL already emits.
+  for: z.enum(['tutors', 'tuitions']).optional().default('tutors'),
 })
 
 export type SuggestGroup = 'subject' | 'location' | 'tutor' | 'job'
@@ -53,6 +58,18 @@ export async function GET(request: Request) {
 
   const q = parsed.data.q
   const city = parsed.data.city || null
+
+  // Keep a subject/city/popular suggestion on the board it was opened from
+  // (PR53 Part B). The SQL emits every one of these as `/browse/tutors?…`; on
+  // the tuitions board we swap that one path prefix, which preserves the
+  // ?subject= / ?city= the tuitions page already reads. A job hit
+  // (`/browse/tuitions?job=`) and a tutor hit (`/tutor/<slug>`) do not start
+  // with `/browse/tutors`, so they are untouched — and each is only ever shown
+  // in its own board's group anyway.
+  const retarget = (href: string): string =>
+    parsed.data.for === 'tuitions' && href.startsWith('/browse/tutors')
+      ? '/browse/tuitions' + href.slice('/browse/tutors'.length)
+      : href
 
   const admin = createAdminClient()
   if (!admin) {
@@ -86,7 +103,9 @@ export async function GET(request: Request) {
     return NextResponse.json({
       query: q,
       suggestions: [],
-      popular: (data ?? []).map(toSuggestion('subject')),
+      popular: (data ?? [])
+        .map(toSuggestion('subject'))
+        .map((s: Suggestion) => ({ ...s, href: retarget(s.href) })),
     } satisfies SuggestResponse)
   }
 
@@ -126,8 +145,9 @@ export async function GET(request: Request) {
     href: r.href,
   }))
 
+  const suggestions = withAllLevels(mapped).map((s) => ({ ...s, href: retarget(s.href) }))
   return NextResponse.json(
-    { query: q, suggestions: withAllLevels(mapped), popular: [] } satisfies SuggestResponse,
+    { query: q, suggestions, popular: [] } satisfies SuggestResponse,
   )
 }
 

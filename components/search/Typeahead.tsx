@@ -43,6 +43,13 @@ type Props = {
   city?: string
   /** Groups to render, in order. Only groups with hits are shown. */
   groups?: SuggestGroup[]
+  /**
+   * The board this search lives on (PR53 Part B). Subject, city and popular
+   * suggestions are re-pointed server-side so they filter THIS board — tapping
+   * a popular subject on the tuitions board opens tuition results, not tutors.
+   * Defaults to tutors.
+   */
+  context?: 'tutors' | 'tuitions'
 }
 
 const GROUP_LABEL: Record<SuggestGroup, string> = {
@@ -70,6 +77,7 @@ export default function Typeahead({
   suggest = true,
   city,
   groups = DEFAULT_GROUPS,
+  context = 'tutors',
 }: Props) {
   const router = useRouter()
   const listId = useId()
@@ -108,6 +116,7 @@ export default function Typeahead({
       try {
         const params = new URLSearchParams({ q: text })
         if (city) params.set('city', city)
+        if (context === 'tuitions') params.set('for', context)
         const res = await fetch(`/api/search/suggest?${params}`, {
           signal: controller.signal,
         })
@@ -128,7 +137,7 @@ export default function Typeahead({
         if (!controller.signal.aborted) setLoading(false)
       }
     },
-    [city],
+    [city, context],
   )
 
   // ----------------------------------------------------------- typing ------
