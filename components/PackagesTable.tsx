@@ -55,9 +55,9 @@ const isUnlimited = (p: PlanRow) => (p.displayed_quota ?? '').toLowerCase() === 
 // approved sheet: Premium keeps 1-4, 6, 7 (5 and 8 are Featured-only, gated on
 // search_rank ≥ 3); Featured keeps all eight (PR55).
 const TUTOR_FEATURES: Feature[] = [
-  // Premium shows "100 Jobs" (owner PR57 §A); Featured keeps "Unlimited
+  // Premium shows "100 applications" (owner PR58); Featured keeps "Unlimited
   // applications"; Basic's line is in tutorFreeRows.
-  { label: (p) => (p.code === 'premium' ? '100 Jobs' : isUnlimited(p) ? 'Unlimited applications' : `Apply — ${quota(p)} a month`), level: (p) => p.monthly_quota },
+  { label: (p) => (p.code === 'premium' ? '100 applications' : isUnlimited(p) ? 'Unlimited applications' : `Apply — ${quota(p)} a month`), level: (p) => p.monthly_quota },
   { label: () => 'See parent phone & email — unlimited', level: (p) => (p.can_view_contact ? 1 : 0) },
   { label: () => 'WhatsApp parents with one tap', level: (p) => (p.can_whatsapp ? 1 : 0) },
   { label: () => 'See who viewed your profile', level: (p) => (p.can_see_viewer_identity ? 1 : 0) },
