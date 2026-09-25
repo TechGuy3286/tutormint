@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { Briefcase, CalendarDays, MapPin, ShieldCheck } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
+import ContactReveal from '@/components/ContactReveal'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import TimeAgo from '@/components/TimeAgo'
 import { publicParent } from '@/lib/publicParent'
@@ -105,6 +106,9 @@ export default async function PublicParentPage({ params }: { params: Params }) {
                   ? 'Verified parent — CNIC and address approved. Hiring needs a Featured plan.'
                   : 'This member has not completed verification yet.'}
           </p>
+          {/* Tutor-only contact reveal (PR56). Self-hides for guests, parents and
+              the team account; the phone/email arrive only from the reveal call. */}
+          {!parent.team && <ContactReveal parentId={parent.id} className="pt-1" />}
         </div>
       </section>
 

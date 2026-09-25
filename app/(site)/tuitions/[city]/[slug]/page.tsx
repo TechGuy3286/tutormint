@@ -5,6 +5,7 @@ import { Briefcase, CalendarDays, Clock, GraduationCap, Globe, Mail, MapPin, Mes
 import { genderPrefSentence, genderApplyBlocked } from '@/lib/genderPref'
 
 import Avatar from '@/components/Avatar'
+import ContactReveal from '@/components/ContactReveal'
 import BadgeRow from '@/components/badges/BadgeRow'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import FeaturedTag from '@/components/badges/FeaturedTag'
@@ -656,6 +657,12 @@ export default async function TuitionPage({ params }: { params: Params }) {
                     ? 'Featured parent — able to complete a hire.'
                     : 'Verified parent — cannot complete a hire yet.'}
               </p>
+              {/* Tutor-only contact reveal (PR56) — real-parent tuitions only,
+                  never the team account (its contact is the job_contacts block
+                  above, the external parent's own details). */}
+              {isTutor && !job.posted_by_team && (
+                <ContactReveal parentId={job.parent_id} className="pt-1" />
+              )}
             </div>
           </div>
 

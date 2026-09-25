@@ -35,6 +35,7 @@ export type BucketName =
   | 'anon_search'
   | 'ai_generate'
   | 'ai_blog'
+  | 'contact_reveal'
   | 'client_error'
 
 /**
@@ -93,6 +94,10 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   // the route, and twenty an hour is far more drafting than a person does and
   // nowhere near worth scripting.
   ai_blog: { windowSeconds: 3600, max: 20 },
+  // Revealing a parent's contact (PR56). The plan quota (Basic 5/month) is what
+  // actually governs volume; this is a loose script-stop, sized well above any
+  // real tutor working through the board.
+  contact_reveal: { windowSeconds: 3600, max: 60 },
   // Swallowed client-side errors (lib/silentFailure.ts). Sized to be generous
   // to a browser that is genuinely having a bad time -- one broken page can
   // legitimately report several distinct failures -- and small enough that a

@@ -26,6 +26,7 @@ import {
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import UpgradeTrigger from '@/components/upgrade/UpgradeTrigger'
+import ContactReveal from '@/components/ContactReveal'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import Avatar from '@/components/Avatar'
@@ -555,6 +556,16 @@ export default function Conversation({
 
         <div ref={bottom} aria-hidden />
       </div>
+
+      {/* Tutor-only contact reveal (PR56). Shown only when the viewer is a tutor
+          (contactReason === 'tutor_contact'); the component self-hides if the
+          other party is not a real, revealable parent. Separate from the message
+          masking above, which is unchanged. */}
+      {contactReason === 'tutor_contact' && (
+        <div className="border-t border-gray-200 bg-white/95 px-4 py-2 sm:px-5">
+          <ContactReveal parentId={otherId} />
+        </div>
+      )}
 
       <div className="border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5">
         <div className="space-y-2">
