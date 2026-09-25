@@ -19,6 +19,7 @@ import type { Metadata } from 'next'
 import { SITE_URL, absoluteUrl } from '@/lib/siteUrl'
 import type { Company } from '@/lib/company'
 import { formatSupportPhoneSchema } from '@/lib/supportContacts'
+import { provinceForCity, postcodeFor } from '@/lib/pkLocations'
 
 export const BRAND = 'TutorMint'
 export const SLOGAN = 'No fee, no commission, no middleman'
@@ -335,21 +336,35 @@ export function jobPostingJsonLd(job: {
     new Date(job.datePosted).getTime() + 30 * 24 * 3600_000,
   ).toISOString()
 
+  // baseSalary must carry BOTH minValue and maxValue, or Google flags the value
+  // as incomplete (PR51 §4). A real range ("Rs 10,000 - 20,000") has both. A
+  // one-sided band — the open-ended "Over Rs 20,000", where only the floor is
+  // known — is emitted as a single figure: min and max both the known bound,
+  // rather than inventing an upper number. No budget at all → baseSalary is
+  // omitted, not sent half-filled.
+  const lo = job.budgetMin ?? null
+  const hi = job.budgetMax ?? null
   const salary =
-    job.budgetMin || job.budgetMax
+    lo !== null || hi !== null
       ? {
           baseSalary: {
             '@type': 'MonetaryAmount',
             currency: 'PKR',
             value: {
               '@type': 'QuantitativeValue',
-              ...(job.budgetMin ? { minValue: job.budgetMin } : {}),
-              ...(job.budgetMax ? { maxValue: job.budgetMax } : {}),
+              minValue: lo ?? hi,
+              maxValue: hi ?? lo,
               unitText: 'MONTH',
             },
           },
         }
       : {}
+
+  // Province and postcode are filled from the city (and area) — see
+  // lib/pkLocations.ts. Each is added only when known, so a city we cannot map
+  // simply omits that line rather than emitting a blank or a guess.
+  const region = provinceForCity(job.city)
+  const postalCode = postcodeFor(job.city, job.area)
 
   return {
     '@context': 'https://schema.org',
@@ -382,6 +397,8 @@ export function jobPostingJsonLd(job: {
         '@type': 'PostalAddress',
         ...(job.area ? { streetAddress: job.area } : {}),
         addressLocality: job.city ?? 'Pakistan',
+        ...(region ? { addressRegion: region } : {}),
+        ...(postalCode ? { postalCode } : {}),
         addressCountry: 'PK',
       },
     },
