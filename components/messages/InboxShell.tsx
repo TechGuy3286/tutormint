@@ -10,6 +10,7 @@ import TeamPane from '@/components/messages/TeamPane'
 import { getEntitlements } from '@/lib/entitlements'
 import { loadQuickReplies, messagePage, threadHeader, threadPage } from '@/lib/messaging'
 import { loadTeamSummary } from '@/lib/adminMessaging'
+import QuickRepliesEditor from '@/components/tutor/QuickRepliesEditor'
 import { mayAttachPhoto, DEFAULT_QUICK_REPLIES, DEFAULT_PARENT_QUICK_REPLIES } from '@/lib/messagingRules'
 import { createClient } from '@/lib/supabase/server'
 
@@ -147,6 +148,18 @@ export default async function InboxShell({
             </>
           )}
         </div>
+      )}
+
+      {/* Quick replies management (PR61 §A3): moved here from Settings, same
+          editor and saved data. Tutors only, collapsed by default so it never
+          crowds the inbox. The tap-to-insert chips already live in the composer. */}
+      {role === 'tutor' && (
+        <details className="rounded-2xl border border-gray-200 bg-white p-3">
+          <summary className="cursor-pointer text-xs font-black text-tm-navy">Quick replies</summary>
+          <div className="pt-3">
+            <QuickRepliesEditor />
+          </div>
+        </details>
       )}
 
       <div className="grid h-[calc(100dvh-15rem)] min-h-[420px] grid-cols-1 overflow-hidden rounded-2xl border border-gray-200 bg-white lg:h-[calc(100dvh-16rem)] lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">

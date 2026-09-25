@@ -11,13 +11,12 @@ import { areasForCity } from '@/lib/cityAreasCore'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
 import Link from 'next/link'
-import { X, Plus, Save, FileText, ArrowRight, BadgeCheck, ShieldAlert } from 'lucide-react'
+import { X, Plus, Save, ArrowRight, BadgeCheck, ShieldAlert } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
 import IdentityDocsStatus from '@/components/tutor/IdentityDocsStatus'
 import SubjectPicker from '@/components/tutor/SubjectPicker'
 import VideoUpload from '@/components/tutor/VideoUpload'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
-import QuickRepliesEditor from '@/components/tutor/QuickRepliesEditor'
 import PublicPageStatus from '@/components/tutor/PublicPageStatus'
 import EmailCard from '@/components/account/EmailCard'
 import type { Identity } from '@/lib/identity'
@@ -308,12 +307,8 @@ export default function TutorSettingsPage() {
     <main className="mx-auto w-full max-w-2xl flex-1 space-y-5 px-4 py-6 font-sans text-slate-700 sm:px-6">
       <Breadcrumbs items={[{ label: 'Tutor dashboard', href: '/tutor/dashboard' }, { label: 'Settings' }]} />
 
-      <header className="space-y-1">
-        <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Settings</h1>
-        <p className="text-xs text-gray-500">
-          Your profile, subjects, availability and documents — one card per thing, each saved on its own.
-        </p>
-      </header>
+      {/* Heading removed (PR61 §A1). The breadcrumb and the public-profile link
+          below stay; the CV card is gone (it lives on the dashboard, §A2). */}
 
       {/* The tutor's public page (§3.1/§3.2): "View your public profile" when
           listed, or the not-live preview when not. */}
@@ -321,20 +316,6 @@ export default function TutorSettingsPage() {
 
       {/* Add or confirm an email (PR29 §4) — the other contact channel. */}
       <EmailCard />
-
-      <Link
-        href="/tutor/dashboard/cv"
-        className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-tm-navy"
-      >
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-tm-tint-navy text-tm-navy">
-          <FileText aria-hidden size={18} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-tm-navy">Your CV</p>
-          <p className="text-[11px] text-gray-500">A print-ready CV, built from everything on this page.</p>
-        </div>
-        <ArrowRight aria-hidden size={16} className="shrink-0 text-tm-red" />
-      </Link>
 
       {/* ------------------------------------------------------------ details */}
       <Card title="Your details">
@@ -647,10 +628,8 @@ export default function TutorSettingsPage() {
         <SaveBar onSave={saveCertifications} />
       </Card>
 
-      {/* -------------------------------------------------- quick replies */}
-      <Card title="Quick replies">
-        <QuickRepliesEditor />
-      </Card>
+      {/* Quick replies moved to the Messages page (PR61 §A3) — same editor,
+          same saved data. */}
 
       {/* ------------------------------------------------------------ password */}
       <Card title="Change password" hint="Update your account password.">

@@ -79,10 +79,7 @@ export default async function ParentSettingsPage() {
         <Breadcrumbs
           items={[{ label: 'Parent dashboard', href: '/parent/dashboard' }, { label: 'Settings' }]}
         />
-        <header className="space-y-1">
-          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Settings</h1>
-          <p className="text-xs text-gray-500">Your details, your children and what we email you.</p>
-        </header>
+        {/* Heading removed (PR61 §A1) — the breadcrumb stays. */}
 
         <SettingsClient initial={initial} />
 
