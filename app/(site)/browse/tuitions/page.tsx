@@ -336,9 +336,23 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             in the codebase or the advertisements table. */}
         {tutorUnverified && (
           <section className="flex flex-col gap-2 rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs font-semibold text-tm-navy">
-              Get verified. Verified tutors are shown to parents first.
-            </p>
+            <div className="min-w-0 space-y-1">
+              <p className="text-xs font-semibold text-tm-navy">
+                Verified tutors can apply to tuitions and contact parents directly.
+              </p>
+              {/* Urdu line (PR59), same font stack as the Membership Plans box. */}
+              <p
+                lang="ur"
+                dir="rtl"
+                className="text-right text-xs font-semibold leading-loose text-tm-navy"
+                style={{
+                  fontFamily:
+                    "'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Nafees Nastaleeq', 'Urdu Typesetting', 'Segoe UI', system-ui, sans-serif",
+                }}
+              >
+                تصدیق شدہ ٹیوٹرز ٹیوشنز کے لیے اپلائی کر سکتے ہیں اور والدین سے براہ راست رابطہ کر سکتے ہیں۔
+              </p>
+            </div>
             <Link
               href="/tutor/complete-profile?step=verify"
               className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover"
