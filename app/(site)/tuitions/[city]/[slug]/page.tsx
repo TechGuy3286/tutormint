@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, permanentRedirect } from 'next/navigation'
-import { Briefcase, CalendarDays, Clock, GraduationCap, Globe, Mail, MapPin, MessageCircle, Phone, ShieldCheck, Wallet, UserRound } from 'lucide-react'
+import { Briefcase, CalendarDays, Clock, GraduationCap, MapPin, ShieldCheck, Wallet, UserRound } from 'lucide-react'
 import { genderPrefSentence, genderApplyBlocked } from '@/lib/genderPref'
 
 import Avatar from '@/components/Avatar'
@@ -27,9 +27,6 @@ import { absoluteUrl } from '@/lib/siteUrl'
 import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, socialMeta } from '@/lib/seo'
 import { preferHumanTitle } from '@/lib/jobDisplayTitle'
 import { isSubjectSlug, resolveLanding, getLandingLinker } from '@/lib/landing'
-import { loadJobContact } from '@/lib/jobContact'
-import { normalisePkMobile, formatPkMobile } from '@/lib/phone'
-import { whatsappHref } from '@/lib/support'
 import LandingView from '@/components/landing/LandingView'
 import ApplyPanel from './ApplyPanel'
 
@@ -286,30 +283,11 @@ export default async function TuitionPage({ params }: { params: Params }) {
   const genderBlockedNotice =
     isTutor && genderApplyBlocked(job.gender_preference, tutorGender) ? genderSentence : null
 
-  // A seeded team tuition can carry the real parent's contact. It is shown
-  // OPENLY to a signed-in TUTOR — no plan gate — so a tutor can reach the parent
-  // directly. Read via the service role (loadJobContact) and rendered ONLY in
-  // this tutor branch: an anonymous crawler, a guest and a parent never receive
-  // it, so it is never indexed and never in the metadata, JSON-LD, OG or sitemap.
-  const contact = isTutor && job.posted_by_team ? await loadJobContact(job.id) : null
-  // Phone and WhatsApp are stored already-normalised (MSISDN), but re-normalise
-  // defensively before building tel:/wa.me links.
-  const contactMsisdn = contact?.contact_phone ? normalisePkMobile(contact.contact_phone) : null
-  const contactWaMsisdn = contact?.contact_whatsapp ? normalisePkMobile(contact.contact_whatsapp) : null
-  const contactWa = contactWaMsisdn
-    ? whatsappHref(contactWaMsisdn, 'Assalam o Alaikum, I saw your tuition on TutorMint and would like to discuss it.')
-    : null
-  const contactSocialHref =
-    contact?.contact_social && /^https?:\/\//i.test(contact.contact_social) ? contact.contact_social : null
-  const hasAnyContact = !!(
-    contact &&
-    (contact.contact_name ||
-      contactMsisdn ||
-      contactWa ||
-      contact.contact_email ||
-      contact.contact_address ||
-      contact.contact_social)
-  )
+  // A staff-posted team tuition carries the real external parent's contact
+  // (job_contacts). Since PR57 it is revealed through the SAME counted flow as a
+  // parent account's contact — a "Show phone & email" button on the poster card
+  // below (ContactReveal jobId=…), not rendered into this page. It is never in
+  // the HTML, props, metadata, JSON-LD, OG or sitemap before a tutor taps.
 
   // Guests see Apply -- pressing it is what opens the sign-in modal. A parent
   // browsing the board has no use for it. Only an OPEN tuition shows Apply; a
@@ -540,90 +518,6 @@ export default async function TuitionPage({ params }: { params: Params }) {
         )}
       </article>
 
-      {/* A seeded team tuition's real-parent contact — tutors only, no gate.
-          Rendered only in the signed-in-tutor branch above, so it never reaches
-          a guest, a parent or a crawler. */}
-      {hasAnyContact && contact && (
-        <section className="space-y-3 rounded-2xl border border-tm-green-deep/30 bg-tm-tint-green p-4 sm:p-5">
-          <h2 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-tm-green-deep">
-            <Phone aria-hidden size={13} />
-            Parent&rsquo;s contact
-          </h2>
-          {contact.contact_name && <p className="text-sm font-black text-tm-navy">{contact.contact_name}</p>}
-
-          {/* Call + WhatsApp buttons. Each renders only if its number is present
-              — a job with an email and no numbers shows no button row. */}
-          {(contactMsisdn || contactWa) && (
-            <div className="flex flex-wrap gap-2">
-              {contactMsisdn && (
-                <a
-                  href={`tel:+${contactMsisdn}`}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white transition-colors hover:bg-tm-green-deep-hover"
-                >
-                  <Phone aria-hidden size={14} />
-                  Call {formatPkMobile(contactMsisdn)}
-                </a>
-              )}
-              {contactWa && (
-                <a
-                  href={contactWa}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-tm-green-deep bg-white px-4 text-xs font-bold text-tm-green-deep transition-colors hover:bg-tm-tint-green"
-                >
-                  <MessageCircle aria-hidden size={14} />
-                  WhatsApp{contactWaMsisdn ? ` ${formatPkMobile(contactWaMsisdn)}` : ''}
-                </a>
-              )}
-            </div>
-          )}
-
-          {/* Email, address, social — each a row only when filled; no empty rows
-              and no stray labels. */}
-          {(contact.contact_email || contact.contact_address || contact.contact_social) && (
-            <dl className="space-y-1.5 text-xs text-slate-700">
-              {contact.contact_email && (
-                <div className="flex items-start gap-2">
-                  <Mail aria-hidden size={14} className="mt-0.5 shrink-0 text-tm-green-deep" />
-                  <a href={`mailto:${contact.contact_email}`} className="font-semibold text-tm-navy underline">
-                    {contact.contact_email}
-                  </a>
-                </div>
-              )}
-              {contact.contact_address && (
-                <div className="flex items-start gap-2">
-                  <MapPin aria-hidden size={14} className="mt-0.5 shrink-0 text-tm-green-deep" />
-                  <span className="font-semibold text-tm-navy">{contact.contact_address}</span>
-                </div>
-              )}
-              {contact.contact_social && (
-                <div className="flex items-start gap-2">
-                  <Globe aria-hidden size={14} className="mt-0.5 shrink-0 text-tm-green-deep" />
-                  {contactSocialHref ? (
-                    <a
-                      href={contactSocialHref}
-                      target="_blank"
-                      rel="noopener noreferrer nofollow"
-                      className="font-semibold text-tm-navy underline break-all"
-                    >
-                      {contact.contact_social}
-                    </a>
-                  ) : (
-                    <span className="font-semibold text-tm-navy break-all">{contact.contact_social}</span>
-                  )}
-                </div>
-              )}
-            </dl>
-          )}
-
-          <p className="text-[11px] leading-relaxed text-slate-700">
-            TutorMint staff posted this tuition for the parent, so you can contact them directly — no
-            application needed. This is the parent&rsquo;s own number, shown only to signed-in tutors:
-            never to other parents, and never made public. You can still apply through TutorMint if you
-            prefer.
-          </p>
-        </section>
-      )}
 
       {/* Who posted it. Name, picture and badges — never a number, an email or
           an address. Contact details are what a Featured plan buys, and a
@@ -657,11 +551,16 @@ export default async function TuitionPage({ params }: { params: Params }) {
                     ? 'Featured parent — able to complete a hire.'
                     : 'Verified parent — cannot complete a hire yet.'}
               </p>
-              {/* Tutor-only contact reveal (PR56) — real-parent tuitions only,
-                  never the team account (its contact is the job_contacts block
-                  above, the external parent's own details). */}
+              {/* Tutor-only contact reveal. Real-parent tuitions reveal the
+                  parent account (PR56); staff-posted team tuitions reveal the
+                  external parent's job contact (PR57), never the team account.
+                  Both go through the same counted /api/contact/reveal flow, so
+                  no contact is in this page until a tutor taps. */}
               {isTutor && !job.posted_by_team && (
                 <ContactReveal parentId={job.parent_id} className="pt-1" />
+              )}
+              {isTutor && job.posted_by_team && (
+                <ContactReveal jobId={job.id} className="pt-1" />
               )}
             </div>
           </div>

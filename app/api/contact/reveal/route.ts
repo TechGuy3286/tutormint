@@ -1,24 +1,34 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { revealParentContact, revealStatus } from '@/lib/contactReveal'
+import {
+  revealParentContact,
+  revealStatus,
+  revealJobContact,
+  jobContactRevealStatus,
+} from '@/lib/contactReveal'
 import { parseBody, parseQuery, z, uuid } from '@/lib/validate'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 
-// Tutor reveal of a parent's phone & email (PR56).
+// Tutor reveal of contact details (PR56 parent account, PR57 staff-posted job
+// contact).
 //
-//   GET  ?parentId=…  -> status for the button: eligible, plan, reveals left,
-//                        already-revealed. NEVER any contact.
-//   POST { parentId }  -> the counted reveal: returns the contact only after
-//                        every entitlement check and an atomic count succeed.
+//   GET  ?parentId=… | ?jobId=…  -> status for the button: eligible, plan,
+//                        reveals left, already-revealed. NEVER any contact.
+//   POST { parentId } | { jobId } -> the counted reveal: returns the contact
+//                        only after every entitlement check and an atomic count
+//                        succeed.
 //
 // The contact lives in ONE place (lib/contactReveal.ts) and reaches the client
-// only in the POST success body. Both verbs require a signed-in tutor; the
-// entitlement, parent-eligibility and count decisions are all server-side.
+// only in the POST success body. Both verbs require a signed-in tutor; every
+// entitlement, eligibility and count decision is server-side. Exactly one of
+// parentId / jobId is accepted.
 
 export const dynamic = 'force-dynamic'
 
-const StatusQuery = z.object({ parentId: uuid })
-const RevealBody = z.object({ parentId: uuid })
+const StatusQuery = z
+  .object({ parentId: uuid.optional(), jobId: uuid.optional() })
+  .refine((v) => !!v.parentId !== !!v.jobId, { message: 'Give exactly one of parentId or jobId.' })
+const RevealBody = StatusQuery
 
 export async function GET(request: Request) {
   const supabase = await createClient()
@@ -30,7 +40,9 @@ export async function GET(request: Request) {
   const parsed = parseQuery(new URL(request.url), StatusQuery)
   if (!parsed.ok) return parsed.response
 
-  const status = await revealStatus(user.id, parsed.data.parentId)
+  const status = parsed.data.jobId
+    ? await jobContactRevealStatus(user.id, parsed.data.jobId)
+    : await revealStatus(user.id, parsed.data.parentId!)
   return NextResponse.json(status)
 }
 
@@ -47,7 +59,9 @@ export async function POST(request: Request) {
   const parsed = await parseBody(request, RevealBody)
   if (!parsed.ok) return parsed.response
 
-  const result = await revealParentContact(user.id, parsed.data.parentId)
+  const result = parsed.data.jobId
+    ? await revealJobContact(user.id, parsed.data.jobId)
+    : await revealParentContact(user.id, parsed.data.parentId!)
   if (!result.ok) {
     return NextResponse.json({ error: result.error, gate: result.gate }, { status: result.status })
   }

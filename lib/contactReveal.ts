@@ -20,6 +20,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements, currentPeriod } from '@/lib/entitlements'
 import { buildGate, type Gate } from '@/lib/gate'
 import { normalisePkMobile } from '@/lib/phone'
+import { loadJobContact } from '@/lib/jobContact'
 
 export const CONTACT_REVEAL_CAP = 5
 // Premium/Featured are unlimited; the RPC still logs the reveal, so it is called
@@ -27,11 +28,28 @@ export const CONTACT_REVEAL_CAP = 5
 const UNLIMITED_CAP = 2_000_000_000
 
 export type RevealContact = {
-  /** Verified mobile, canonical MSISDN (e.g. 923001234567), or null. */
+  /** Mobile, canonical MSISDN (e.g. 923001234567), or null. Parent: verified
+   *  mobile. Job contact: the number staff entered for the external parent. */
   phone: string | null
-  /** Verified email, or null when the email is unverified/synthetic. */
+  /** A separate WhatsApp MSISDN (job contact only); parent reveals use `phone`. */
+  whatsapp: string | null
+  /** Email, or null. Parent: verified email only. Job contact: as entered. */
   email: string | null
+  /** Job contact only — the external parent's name/address/social if entered. */
+  name: string | null
+  address: string | null
+  social: string | null
 }
+
+const emptyContact = (over: Partial<RevealContact>): RevealContact => ({
+  phone: null,
+  whatsapp: null,
+  email: null,
+  name: null,
+  address: null,
+  social: null,
+  ...over,
+})
 
 export type RevealResult =
   | { ok: true; contact: RevealContact; remaining: number | null; alreadyRevealed: boolean }
@@ -85,7 +103,7 @@ async function loadParent(
   }
 
   if (!phone && !email) return { ok: false, reason: 'no_contact' }
-  return { ok: true, contact: { phone, email } }
+  return { ok: true, contact: emptyContact({ phone, email }) }
 }
 
 /** Shared entitlement gate for both status and reveal. */
@@ -254,6 +272,140 @@ export async function revealParentContact(tutorId: string, parentId: string): Pr
   return {
     ok: true,
     contact: parent.contact,
+    remaining: unlimited ? null : Math.max(0, CONTACT_REVEAL_CAP - used),
+    alreadyRevealed: already,
+  }
+}
+
+// ── job-contact reveals (PR57): staff-posted tuitions ──────────────────────
+//
+// A staff-posted tuition carries the real EXTERNAL parent's contact in
+// job_contacts (never the team account, never a staff member). This brings it
+// under the exact same reveal rules: the same 5-count, the same atomic RPC, the
+// same verify/suspend/upgrade behaviour — keyed to the job contact so each real
+// parent counts once.
+
+async function loadJobContactTarget(
+  jobId: string,
+): Promise<{ ok: false; reason: 'no_contact' } | { ok: true; contact: RevealContact }> {
+  const c = await loadJobContact(jobId)
+  if (!c) return { ok: false, reason: 'no_contact' }
+  const phone = c.contact_phone ? normalisePkMobile(c.contact_phone) : null
+  const whatsapp = c.contact_whatsapp ? normalisePkMobile(c.contact_whatsapp) : null
+  const email = c.contact_email ?? null
+  if (!phone && !whatsapp && !email && !c.contact_name && !c.contact_address && !c.contact_social) {
+    return { ok: false, reason: 'no_contact' }
+  }
+  return {
+    ok: true,
+    contact: emptyContact({
+      phone,
+      whatsapp,
+      email,
+      name: c.contact_name ?? null,
+      address: c.contact_address ?? null,
+      social: c.contact_social ?? null,
+    }),
+  }
+}
+
+export async function jobContactRevealStatus(tutorId: string, jobId: string): Promise<RevealStatus> {
+  const admin = createAdminClient()
+  if (!admin) return { eligible: false, plan: null, remaining: null, alreadyRevealed: false, reason: 'off' }
+
+  const gate = await tutorGate(tutorId)
+  if (!gate.ok) return gate.status
+
+  const target = await loadJobContactTarget(jobId)
+  if (!target.ok) return { eligible: false, plan: gate.plan, remaining: null, alreadyRevealed: false, reason: 'no_contact' }
+
+  // Already revealed? Keyed on job_contact_id — the column may be missing before
+  // the migration, so Premium/Featured stay eligible and Basic is off.
+  let already = false
+  let tableOk = true
+  try {
+    const { data, error } = await admin
+      .from('contact_reveals')
+      .select('tutor_id')
+      .eq('tutor_id', tutorId)
+      .eq('job_contact_id', jobId)
+      .maybeSingle()
+    if (error) tableOk = false
+    else already = !!data
+  } catch {
+    tableOk = false
+  }
+
+  if (gate.plan === 'premium' || gate.plan === 'featured') {
+    return { eligible: true, plan: gate.plan, remaining: null, alreadyRevealed: already }
+  }
+  if (!tableOk) return { eligible: false, plan: 'basic', remaining: null, alreadyRevealed: false, reason: 'off' }
+  const used = await usedThisPeriod(admin, tutorId)
+  if (used === null) return { eligible: false, plan: 'basic', remaining: null, alreadyRevealed: false, reason: 'off' }
+  return {
+    eligible: true,
+    plan: 'basic',
+    remaining: Math.max(0, CONTACT_REVEAL_CAP - used),
+    alreadyRevealed: already,
+  }
+}
+
+export async function revealJobContact(tutorId: string, jobId: string): Promise<RevealResult> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
+  const gate = await tutorGate(tutorId)
+  if (!gate.ok) {
+    const s = gate.status
+    if (s.reason === 'verify') return { ok: false, status: 403, error: 'Verify your account first.', gate: s.gate }
+    if (s.reason === 'suspended') return { ok: false, status: 403, error: 'Your account is suspended.' }
+    return { ok: false, status: 403, error: 'Only verified tutors can see contact details.' }
+  }
+
+  const target = await loadJobContactTarget(jobId)
+  if (!target.ok) return { ok: false, status: 403, error: 'Contact details are not available.' }
+
+  const unlimited = gate.plan === 'premium' || gate.plan === 'featured'
+  const cap = unlimited ? UNLIMITED_CAP : CONTACT_REVEAL_CAP
+
+  let allowed = false
+  let already = false
+  let used = 0
+  try {
+    const { data, error } = await admin.rpc('reveal_job_contact', {
+      p_tutor: tutorId,
+      p_job_contact: jobId,
+      p_cap: cap,
+      p_period: currentPeriod(),
+    })
+    if (error) throw error
+    const row = Array.isArray(data) ? data[0] : data
+    allowed = !!row?.allowed
+    already = !!row?.already_revealed
+    used = (row?.used as number | null) ?? 0
+  } catch {
+    if (unlimited) {
+      allowed = true
+      already = false
+      used = 0
+    } else {
+      return { ok: false, status: 503, error: 'Contact reveal is not available right now.' }
+    }
+  }
+
+  if (!allowed) {
+    const ent = await getEntitlements(tutorId)
+    return {
+      ok: false,
+      status: 403,
+      error: "You have used this month's 5 contact reveals.",
+      gate: await buildGate('tutor_contact', ent),
+    }
+  }
+
+  return {
+    ok: true,
+    contact: target.contact,
     remaining: unlimited ? null : Math.max(0, CONTACT_REVEAL_CAP - used),
     alreadyRevealed: already,
   }
