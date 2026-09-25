@@ -50,13 +50,19 @@ const isUnlimited = (p: PlanRow) => (p.displayed_quota ?? '').toLowerCase() === 
 // The DELTA features a paid card shows over the free tier. The quota line reads
 // "Unlimited applications / tuition posts" when the plan is unlimited (owner
 // PR14 §4.2), and the number from the row otherwise.
+// The order here IS the order the paid cards render (the delta filter keeps a
+// feature when its level exceeds Basic's, in array order). It yields exactly the
+// approved sheet: Premium keeps 1-4, 6, 7 (5 and 8 are Featured-only, gated on
+// search_rank ≥ 3); Featured keeps all eight (PR55).
 const TUTOR_FEATURES: Feature[] = [
   { label: (p) => (isUnlimited(p) ? 'Unlimited applications' : `Apply — ${quota(p)} a month`), level: (p) => p.monthly_quota },
-  { label: () => 'See parent phone & WhatsApp', level: (p) => (p.can_view_contact ? 1 : 0) },
+  { label: () => 'See parent phone & email — unlimited', level: (p) => (p.can_view_contact ? 1 : 0) },
   { label: () => 'WhatsApp parents with one tap', level: (p) => (p.can_whatsapp ? 1 : 0) },
   { label: () => 'See who viewed your profile', level: (p) => (p.can_see_viewer_identity ? 1 : 0) },
-  { label: (p) => rankWords('tutor', p.search_rank), level: (p) => p.search_rank },
+  { label: () => 'Top of search results', level: (p) => (p.search_rank >= 3 ? 3 : 0) },
   { label: (p) => (isUnlimited(p) ? 'Unlimited hiring & demo requests' : `Incoming hiring & demo requests — ${quota(p)} a month`), level: (p) => p.monthly_quota },
+  { label: () => 'Matched tuitions on your email', level: (p) => (p.can_view_contact ? 1 : 0) },
+  { label: () => 'Matched tuitions on your WhatsApp', level: (p) => (p.search_rank >= 3 ? 3 : 0) },
 ]
 
 const PARENT_FEATURES: Feature[] = [
@@ -77,7 +83,8 @@ function tutorFreeRows(p: PlanRow): string[] {
   return [
     'Browse tuitions',
     `Apply — ${quota(p)} a month`,
-    'Reply to parents who message you',
+    'Message parents in the app',
+    'See parent phone & email — 5',
     'Download your CV',
     `Incoming hiring & demo requests — ${quota(p)} a month`,
   ]
@@ -271,13 +278,4 @@ export default function PackagesTable({
       </section>
     </div>
   )
-}
-
-function rankWords(audience: 'tutor' | 'parent', rank: number): string {
-  if (audience === 'parent') {
-    return rank >= 3 ? 'Your jobs shown first' : 'Standard job placement'
-  }
-  if (rank >= 3) return 'Top of search results'
-  if (rank === 2) return 'Ranked above Basic tutors'
-  return 'Listed in search results'
 }
