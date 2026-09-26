@@ -26,6 +26,9 @@ export type JobFilterValues = {
   budgetMin: string
   budgetMax: string
   q: string
+  /** PR71: 'all' when the tutor has widened past their own areas. Preserved
+   *  through every filter change so the default is not silently re-applied. */
+  scope?: string
 }
 
 const FIELD =
@@ -80,6 +83,8 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
       budgetMin: values.budgetMin,
       budgetMax: values.budgetMax,
       q: values.q,
+      // Keep the tutor's "all cities" choice across filter changes (PR71).
+      scope: values.scope ?? '',
     }
     for (const [k, v] of Object.entries(patch)) merged[k] = v ?? ''
     const params = new URLSearchParams()
@@ -250,7 +255,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
           {values.q && <Chip label={`"${values.q}"`} onClear={() => apply({ q: null })} />}
           <button
             type="button"
-            onClick={() => router.push('/browse/tuitions')}
+            onClick={() => router.push(values.scope === 'all' ? '/browse/tuitions?scope=all' : '/browse/tuitions')}
             className="text-[11px] font-bold text-tm-red underline"
           >
             Clear all

@@ -12,8 +12,7 @@ import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { computeCompletion } from '@/lib/completion'
 import { getEntitlements } from '@/lib/entitlements'
-import { jobsThisWeek, matchingTuitionsInCity } from '@/lib/funnel'
-import { savedJobsForTutor } from '@/lib/jobFeed'
+import { savedJobsForTutor, resolveTutorScope, countJobsInScope, browseJobs, NO_JOB_FILTERS } from '@/lib/jobFeed'
 import { unreadMessageCount, conversationCount } from '@/lib/messaging'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { viewSummary } from '@/lib/profileViews'
@@ -39,7 +38,7 @@ export default async function TutorDashboardPage() {
   const supabase = await createClient()
 
   const [{ data: tutorProfile }, completion, ent, directory] = await Promise.all([
-    supabase.from('tutor_profiles').select('slug, city, job_types').eq('id', userId).maybeSingle(),
+    supabase.from('tutor_profiles').select('slug, city').eq('id', userId).maybeSingle(),
     computeCompletion(userId),
     getEntitlements(userId),
     loadDirectoryStatus(userId),
@@ -47,18 +46,21 @@ export default async function TutorDashboardPage() {
 
   const directoryListed = directory.listed
   const city = (tutorProfile?.city as string | null) ?? null
-  const jobTypes = (tutorProfile?.job_types as string[] | null) ?? null
 
-  const [views, weekJobs, unread, conversations, { data: apps }, { data: demos }, savedJobs, matchCount] =
+  // PR71: the tutor's own city+areas scope drives both the "Tuitions for you"
+  // tile and the action-bar count, so both agree with what /browse/tuitions
+  // shows a signed-in tutor. No city/areas yet → the whole open board.
+  const tutorScope = await resolveTutorScope(supabase, userId)
+
+  const [views, unread, conversations, { data: apps }, { data: demos }, savedJobs, boardCount] =
     await Promise.all([
       viewSummary(userId, ent.canSeeViewerIdentity, 20),
-      jobsThisWeek(userId, city, jobTypes),
       unreadMessageCount(userId),
       conversationCount(userId),
       supabase.from('applications').select('id, job_id, withdrawn_at').eq('tutor_id', userId),
       supabase.from('demo_requests').select('id, status').eq('tutor_id', userId),
       savedJobsForTutor(userId),
-      matchingTuitionsInCity(userId, city),
+      tutorScope ? countJobsInScope(tutorScope) : browseJobs(NO_JOB_FILTERS, 1).then((r) => r.total),
     ])
 
   const liveApps = (apps ?? []).filter((a) => !a.withdrawn_at)
@@ -68,17 +70,23 @@ export default async function TutorDashboardPage() {
   const percent = completion?.percent ?? session?.profile?.profile_completion ?? 0
   const publicHref = directoryListed && tutorProfile?.slug ? `/tutor/${tutorProfile.slug}` : null
 
-  // "Find tuitions to apply for" bar (PR42 §2). A real count only when it is a
-  // real, positive, city-scoped number of subject matches; otherwise the plain
-  // line — never a zero, never an invented figure. The link opens the tuitions
-  // list in the tutor's city when known (the browse URL carries a single subject,
-  // so a multi-subject tutor's link is city-scoped rather than distorted to one
-  // subject; the count states the matches they will find there).
+  // "Find tuitions to apply for" bar (PR42 §2, PR71 §2). The count uses the same
+  // city+areas default as /browse/tuitions, so the number here matches the list
+  // the link opens (bare /browse/tuitions applies the tutor's default). A tutor
+  // with no city/areas gets a prompt to add their area rather than a figure.
   const findTuitionsLine =
-    matchCount > 0 && city
-      ? `${matchCount} tuition${matchCount === 1 ? '' : 's'} match your subjects in ${city}`
-      : 'New tuitions in your subjects and area'
-  const findTuitionsHref = city ? `/browse/tuitions?city=${encodeURIComponent(city)}` : '/browse/tuitions'
+    tutorScope && boardCount > 0
+      ? `${boardCount} tuition${boardCount === 1 ? '' : 's'} in your areas`
+      : tutorScope
+        ? 'No tuitions in your areas yet — new ones are posted daily'
+        : 'Add your area in Settings to see tuitions near you'
+  const findTuitionsLineUr =
+    tutorScope && boardCount > 0
+      ? 'آپ کے علاقوں میں ٹیوشنز'
+      : tutorScope
+        ? 'ابھی آپ کے علاقوں میں کوئی ٹیوشن نہیں — روزانہ نئی ٹیوشنز آتی ہیں'
+        : 'اپنے قریب ٹیوشنز دیکھنے کے لیے سیٹنگز میں اپنا علاقہ شامل کریں'
+  const findTuitionsHref = '/browse/tuitions'
 
   // Six tiles, six distinct tones — no two share a colour (PR32 §2).
   const tiles: CountTile[] = [
@@ -87,7 +95,7 @@ export default async function TutorDashboardPage() {
     // is the small badge, never the main number (PR44 §2).
     { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: conversations, label: 'Messages', href: '/tutor/dashboard/messages', tone: 'navy', badge: unread, tip: 'Your conversations with parents' },
     { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo requests', href: '/tutor/dashboard/demos', tone: 'red', highlight: liveDemos > 0, tip: 'Demo lessons parents have asked you for' },
-    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: weekJobs.length, label: 'Tuitions for you', href: '/tutor/dashboard/jobs', tone: 'gold', tip: 'Open tuitions that match your profile' },
+    { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: boardCount, label: 'Tuitions for you', href: '/browse/tuitions', tone: 'gold', tip: tutorScope ? 'Open tuitions in your city and areas' : 'Open tuitions — add your area in Settings to narrow this' },
     { key: 'views', icon: <Eye aria-hidden size={22} />, value: views.total, label: 'Profile views', href: '/tutor/dashboard/views', tone: 'teal', tip: 'Parents who viewed your profile' },
     { key: 'saved', icon: <Heart aria-hidden size={22} />, value: savedJobs.length, label: 'Saved tuitions', href: '#saved-tuitions', tone: 'violet', tip: 'Tuitions you saved to look at later' },
   ]
@@ -113,6 +121,7 @@ export default async function TutorDashboardPage() {
           href={findTuitionsHref}
           label="Find tuitions to apply for"
           line={findTuitionsLine}
+          lineUr={findTuitionsLineUr}
           tone="red"
           icon={<Search aria-hidden size={20} />}
         />

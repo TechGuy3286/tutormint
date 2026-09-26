@@ -10,7 +10,8 @@ import { cookies } from 'next/headers'
 import { logSearchPerformed } from '@/lib/activityLog'
 import { logAnonSearch } from '@/lib/anonSearch'
 import { ANON_COOKIE, isAnonId } from '@/lib/anonSession'
-import { browseJobs, type JobFilters } from '@/lib/jobFeed'
+import { browseJobs, type JobFilters, type TutorScope } from '@/lib/jobFeed'
+import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
 import { resolveSubjectQuery } from '@/lib/searchResolve'
 import JobCard from '@/components/JobCard'
 import AdSlot from '@/components/ads/AdSlot'
@@ -174,24 +175,6 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     }
   }
 
-  const filters: JobFilters = {
-    masterId: subjectId,
-    masterIds: resolvedMasterIds,
-    city: city || null,
-    mode: mode || null,
-    budgetMin: intOrNull(budgetMin),
-    budgetMax: intOrNull(budgetMax),
-    // When the query resolved to subject(s), the literal title filter is dropped
-    // (it would AND with the subject and empty the board again).
-    q: resolvedLabel ? null : q || null,
-  }
-
-  // The first window is server-rendered — this page is an organic-search
-  // surface and ?page=N must keep resolving for crawlers and shared links.
-  // Everything below it is appended by MoreJobs from a keyset cursor.
-  const { jobs, total, nextCursor } = await browseJobs(filters, PAGE_SIZE, (page - 1) * PAGE_SIZE)
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-
   const supabase = await createClient()
   const {
     data: { user },
@@ -205,6 +188,12 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   let tutorUnverified = false
   let appliedIds = new Set<string>()
   let savedIds = new Set<string>()
+  // PR71: the tutor's own city+areas default, resolved BEFORE the query so the
+  // first window is scoped. Applied only on a bare location URL (no ?city and no
+  // ?scope=all), so removing it (the chip's widen links) is honoured — and never
+  // for a guest or a parent, who see the whole board exactly as before.
+  const wantsAll = one(sp.scope) === 'all'
+  let tutorScope: TutorScope | null = null
 
   if (user) {
     const ent = await getEntitlements(user.id)
@@ -218,15 +207,44 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     // Job Type + city, to align matches and decide the "Suitable for online"
     // chip on a cross-city online job.
     if (isTutor) {
-      const { data: tp } = await supabase
-        .from('tutor_profiles')
-        .select('city, teaching_mode, job_types')
-        .eq('id', user.id)
-        .maybeSingle()
+      const [{ data: tp }, { data: areaRows }] = await Promise.all([
+        supabase.from('tutor_profiles').select('city, teaching_mode, job_types').eq('id', user.id).maybeSingle(),
+        supabase.from('tutor_areas').select('area').eq('tutor_id', user.id),
+      ])
       viewerCity = (tp?.city as string | null) ?? null
       viewerJobTypes = (tp?.job_types as string[] | null) ?? null
+      const tutorCity = (viewerCity ?? '').trim()
+      const areas = [...new Set(((areaRows ?? []).map((r) => ((r.area as string) ?? '').trim()).filter(Boolean)))]
+      if (tutorCity && areas.length > 0) {
+        tutorScope = { city: tutorCity, areas, includeOnline: (viewerJobTypes ?? []).includes(ONLINE_JOB_TITLE) }
+      }
     }
+  }
 
+  // Apply the default only when the tutor did not choose a location (no ?city)
+  // and did not widen to all cities (?scope=all).
+  const defaultApplied = !!tutorScope && !city && !wantsAll
+
+  const filters: JobFilters = {
+    masterId: subjectId,
+    masterIds: resolvedMasterIds,
+    city: city || null,
+    mode: mode || null,
+    budgetMin: intOrNull(budgetMin),
+    budgetMax: intOrNull(budgetMax),
+    // When the query resolved to subject(s), the literal title filter is dropped
+    // (it would AND with the subject and empty the board again).
+    q: resolvedLabel ? null : q || null,
+    tutorScope: defaultApplied ? tutorScope : null,
+  }
+
+  // The first window is server-rendered — this page is an organic-search
+  // surface and ?page=N must keep resolving for crawlers and shared links.
+  // Everything below it is appended by MoreJobs from a keyset cursor.
+  const { jobs, total, nextCursor } = await browseJobs(filters, PAGE_SIZE, (page - 1) * PAGE_SIZE)
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  if (user) {
     if (isTutor && jobs.length > 0) {
       const { data: mine } = await supabase
         .from('applications')
@@ -289,7 +307,23 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     budgetMin,
     budgetMax,
     q,
+    scope: wantsAll ? 'all' : '',
   }
+
+  // The two "widen" links on the default-areas chip (PR71), preserving every
+  // NON-location filter so removing the area default keeps the subject/budget/etc.
+  const widenHref = (override: Record<string, string>) => {
+    const p = new URLSearchParams()
+    if (filterValues.subject) p.set('subject', filterValues.subject)
+    if (mode) p.set('mode', mode)
+    if (budgetMin) p.set('budgetMin', budgetMin)
+    if (budgetMax) p.set('budgetMax', budgetMax)
+    if (q) p.set('q', q)
+    for (const [k, v] of Object.entries(override)) p.set(k, v)
+    return `/browse/tuitions?${p}`
+  }
+  const cityWidenHref = defaultApplied ? widenHref({ city: tutorScope!.city }) : '#'
+  const allCitiesHref = defaultApplied ? widenHref({ scope: 'all' }) : '#'
 
   const pageHref = (n: number) => {
     const params = new URLSearchParams()
@@ -365,6 +399,40 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
         <JobFilterBar values={filterValues} />
 
+        {/* PR71: the tutor's own city+areas default, as a removable chip. Only a
+            signed-in tutor with a city and areas sees it; guests and parents do
+            not. English with Urdu underneath. */}
+        {defaultApplied && tutorScope && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-tm-navy/15 bg-tm-tint-navy px-3 py-2.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-bold text-tm-navy">
+              <span>
+                Your areas: {tutorScope.areas.join(', ')}
+                <span lang="ur" dir="rtl" className="ms-1 font-medium text-gray-500">آپ کے علاقے</span>
+              </span>
+              <Link href={allCitiesHref} aria-label="Remove your-areas filter and show all cities" className="grid h-5 w-5 place-items-center rounded-full text-tm-navy hover:bg-tm-tint-navy">✕</Link>
+            </span>
+            <Link href={cityWidenHref} className="inline-flex min-h-[36px] items-center rounded-full border border-tm-navy/30 bg-white px-3 text-xs font-bold text-tm-navy hover:border-tm-navy">
+              All areas in {tutorScope.city}
+              <span lang="ur" dir="rtl" className="ms-1 font-medium text-gray-500">{tutorScope.city} کے تمام علاقے</span>
+            </Link>
+            <Link href={allCitiesHref} className="inline-flex min-h-[36px] items-center rounded-full border border-tm-navy/30 bg-white px-3 text-xs font-bold text-tm-navy hover:border-tm-navy">
+              All cities
+              <span lang="ur" dir="rtl" className="ms-1 font-medium text-gray-500">تمام شہر</span>
+            </Link>
+          </div>
+        )}
+
+        {/* A tutor with no city/areas yet sees the whole board (as now) with a
+            short prompt to add their area so this list can be narrowed (PR71 §1). */}
+        {isTutor && !tutorScope && !city && !wantsAll && (
+          <p className="rounded-xl border border-tm-navy/15 bg-tm-tint-navy px-3 py-2.5 text-xs text-tm-navy">
+            Add your city and areas in{' '}
+            <Link href="/tutor/dashboard/settings" className="font-bold underline">Settings</Link>{' '}
+            to see tuitions near you.
+            <span lang="ur" dir="rtl" className="ms-1 text-gray-500">اپنے قریب ٹیوشنز دیکھنے کے لیے سیٹنگز میں اپنا شہر اور علاقے شامل کریں۔</span>
+          </p>
+        )}
+
         {jobs.length === 0 ? (
           <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-8 text-center">
             <p className="text-sm font-black text-tm-navy">Nothing matches those filters</p>
@@ -410,7 +478,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
         {/* No numbered pagination (CLAUDE.md, 3 Sep 2026). */}
         {jobs.length > 0 && (
           <MoreJobs
-            params={{ ...jobParams(sp), ...(page > 1 ? { page: String(page) } : {}) }}
+            params={{ ...jobParams(sp), ...(defaultApplied ? { scope: 'mine' } : {}), ...(page > 1 ? { page: String(page) } : {}) }}
             initialCursor={nextCursor}
             total={total}
             serverCount={(page - 1) * PAGE_SIZE + jobs.length}

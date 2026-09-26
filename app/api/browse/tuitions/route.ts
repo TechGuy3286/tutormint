@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { getEntitlements } from '@/lib/entitlements'
-import { browseJobs, type JobFilters } from '@/lib/jobFeed'
+import { browseJobs, resolveTutorScope, type JobFilters } from '@/lib/jobFeed'
 import { createClient } from '@/lib/supabase/server'
 
 // Load-more for /browse/tuitions.
@@ -28,6 +28,21 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const get = (k: string) => (url.searchParams.get(k) ?? '').trim()
 
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // scope=mine (PR71): the tutor's own city+areas default. Re-derived from the
+  // caller's own session — never from the query string — so a later window
+  // filters exactly as the server-rendered first window did, and nobody can ask
+  // for another tutor's scope. Ignored for a signed-out caller or a non-tutor.
+  let tutorScope = null
+  if (get('scope') === 'mine' && user) {
+    const ent = await getEntitlements(user.id)
+    if (ent.audience === 'tutor') tutorScope = await resolveTutorScope(supabase, user.id)
+  }
+
   const filters: JobFilters = {
     masterId: intOrNull(get('subject')),
     city: get('city') || null,
@@ -35,14 +50,10 @@ export async function GET(request: Request) {
     budgetMin: intOrNull(get('budgetMin')),
     budgetMax: intOrNull(get('budgetMax')),
     q: get('q') || null,
+    tutorScope,
   }
 
   const { jobs, nextCursor } = await browseJobs(filters, PAGE_SIZE, 0, get('cursor') || null)
-
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
   let applied = new Set<string>()
   if (user && jobs.length > 0) {

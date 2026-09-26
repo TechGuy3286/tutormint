@@ -26,12 +26,15 @@ export default function DashboardActionBar({
   href,
   label,
   line,
+  lineUr,
   tone,
   icon,
 }: {
   href: string
   label: string
   line: string
+  /** The Urdu rendering of `line`, shown beneath it (PR71). */
+  lineUr?: string
   tone: 'red' | 'navy'
   icon: ReactNode
 }) {
@@ -46,6 +49,9 @@ export default function DashboardActionBar({
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-black">{label}</span>
         <span className="block text-[11px] font-medium text-white/90">{line}</span>
+        {lineUr && (
+          <span lang="ur" dir="rtl" className="block text-[11px] font-medium text-white/80">{lineUr}</span>
+        )}
       </span>
       <ArrowRight aria-hidden size={18} className="shrink-0" />
     </Link>

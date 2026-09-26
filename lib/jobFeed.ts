@@ -23,6 +23,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
 import { jobType } from '@/lib/display'
 import { matchVisibility } from '@/lib/matchChip'
 import { genderPrefWord } from '@/lib/genderPref'
@@ -314,6 +315,15 @@ export async function matchingJobsForTutor(
 // so. It is gone -- the board is browseJobs with no filters set, which already
 // has the keyset cursor, the id tiebreaker and the exact count.
 
+/**
+ * A signed-in tutor's own city+areas scope (PR71). A tuition is in scope when it
+ * is in the tutor's city AND its area is one of the tutor's areas (or has no area
+ * set), OR — when the tutor teaches online — it is an online tuition in ANY city.
+ * The default view of /browse/tuitions for a signed-in tutor, and the number the
+ * dashboard "Tuitions for you" tile and action bar count agree with.
+ */
+export type TutorScope = { city: string; areas: string[]; includeOnline: boolean }
+
 export type JobFilters = {
   masterId: number | null
   /** A set of subject masters to match ANY of — how a resolved query filters
@@ -325,6 +335,34 @@ export type JobFilters = {
   budgetMin: number | null
   budgetMax: number | null
   q: string | null
+  /** The tutor's own city+areas default (PR71). Mutually exclusive with `city`:
+   *  the page sets one or the other, never both. */
+  tutorScope?: TutorScope | null
+}
+
+/**
+ * The tutor's city+areas scope, or null when they have no city or no areas yet
+ * (in which case the whole board is shown — owner PR71 §1). Shared by
+ * /browse/tuitions, its load-more route and the dashboard so all three agree.
+ */
+export async function resolveTutorScope(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<TutorScope | null> {
+  const [{ data: tp }, { data: areaRows }] = await Promise.all([
+    supabase.from('tutor_profiles').select('city, job_types').eq('id', userId).maybeSingle(),
+    supabase.from('tutor_areas').select('area').eq('tutor_id', userId),
+  ])
+  const city = ((tp?.city as string | null) ?? '').trim()
+  const areas = [...new Set(((areaRows ?? []).map((r) => ((r.area as string) ?? '').trim()).filter(Boolean)))]
+  if (!city || areas.length === 0) return null
+  const jobTypes = (tp?.job_types as string[] | null) ?? []
+  return { city, areas, includeOnline: jobTypes.includes(ONLINE_JOB_TITLE) }
+}
+
+/** The exact number of open tuitions in the tutor's scope (PR71 §2). */
+export async function countJobsInScope(scope: TutorScope): Promise<number> {
+  return (await browseJobs({ ...NO_JOB_FILTERS, tutorScope: scope }, 1)).total
 }
 
 /**
@@ -341,6 +379,7 @@ export const NO_JOB_FILTERS: JobFilters = {
   budgetMin: null,
   budgetMax: null,
   q: null,
+  tutorScope: null,
 }
 
 /**
@@ -402,6 +441,18 @@ export async function browseJobs(
   const build = () => {
     let q = supabase.from('jobs').select(JOB_COLUMNS, { count: 'exact' }).eq('status', 'open')
     if (matchingIds) q = q.in('id', matchingIds)
+    // The tutor's own city+areas default (PR71). One PostgREST OR group:
+    //   (city = tutor's city AND (area ∈ areas OR area is null))
+    //   OR teaching_mode = 'Online Tutor'   (only when the tutor teaches online)
+    // ANDed with everything else (subject/budget) and, later, the keyset cursor.
+    if (filters.tutorScope) {
+      const s = filters.tutorScope
+      const qv = (v: string) => `"${v.replace(/"/g, '\\"')}"`
+      const cityBranch = `and(city.ilike.${qv(s.city)},or(area.in.(${s.areas.map(qv).join(',')}),area.is.null))`
+      const parts = [cityBranch]
+      if (s.includeOnline) parts.push(`teaching_mode.eq.${qv(ONLINE_JOB_TITLE)}`)
+      q = q.or(parts.join(','))
+    }
     if (filters.city) q = q.ilike('city', filters.city)
     if (filters.mode) {
       // A job carries exactly one Job Type title (migration 77), stored
