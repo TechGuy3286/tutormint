@@ -21,6 +21,7 @@ import ReportButton from '@/components/ReportButton'
 import ProfileActions from './ProfileActions'
 import { formatDate } from '@/lib/datetime'
 import { levelLabel } from '@/lib/display'
+import { feeLabelOf } from '@/lib/fee'
 import JobTypesChip from '@/components/JobTypesChip'
 import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorJsonLd } from '@/lib/seo'
 import { getLandingLinker } from '@/lib/landing'
@@ -56,6 +57,8 @@ type PublicTutor = {
   online_platforms: string[] | null
   gender: string | null
   hourly_rate_pkr: number | null
+  fee_min_pkr: number | null
+  fee_max_pkr: number | null
   experience_years: number | null
   degrees: string[] | null
   video_youtube_id: string | null
@@ -95,7 +98,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
   const { data: tp } = await admin
     .from('tutor_profiles')
     .select(
-      'id, slug, full_name, headline, bio, avatar_url, city, area, teaching_mode, job_types, online_platforms, gender, hourly_rate_pkr, experience_years, degrees, video_youtube_id, video_status, rating_avg, rating_count, created_at',
+      'id, slug, full_name, headline, bio, avatar_url, city, area, teaching_mode, job_types, online_platforms, gender, hourly_rate_pkr, fee_min_pkr, fee_max_pkr, experience_years, degrees, video_youtube_id, video_status, rating_avg, rating_count, created_at',
     )
     .eq('id', userId)
     .maybeSingle()
@@ -220,6 +223,8 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     online_platforms: (tp.online_platforms as string[] | null) ?? null,
     gender: (tp.gender as string) ?? null,
     hourly_rate_pkr: (tp.hourly_rate_pkr as number) ?? null,
+    fee_min_pkr: (tp.fee_min_pkr as number) ?? null,
+    fee_max_pkr: (tp.fee_max_pkr as number) ?? null,
     experience_years: (tp.experience_years as number) ?? null,
     degrees: (tp.degrees as string[] | null) ?? null,
     // Same rule as tutor_public_page: only an APPROVED video is shown.
@@ -700,6 +705,8 @@ export default async function TutorPublicProfile({ params }: { params: Params })
             new Set(tutor.subjects.map((x) => x.subject ?? x.level).filter(Boolean) as string[]),
           ),
           hourlyRatePkr: tutor.hourly_rate_pkr,
+          feeMinPkr: tutor.fee_min_pkr,
+          feeMaxPkr: tutor.fee_max_pkr,
           ratingAvg: tutor.rating_avg === null ? null : Number(tutor.rating_avg),
           ratingCount: tutor.rating_count,
         })
@@ -820,10 +827,10 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                     ? `${tutor.experience_years} years experience`
                     : 'New to TutorMint'}
                 </p>
-                {tutor.hourly_rate_pkr ? (
+                {feeLabelOf(tutor) ? (
                   <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
                     <Wallet size={14} className="text-gray-500" />
-                    Rs. {tutor.hourly_rate_pkr.toLocaleString('en-PK')} / month
+                    {feeLabelOf(tutor)}
                   </p>
                 ) : null}
               </div>

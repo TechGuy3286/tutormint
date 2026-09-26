@@ -13,11 +13,12 @@ import Link from 'next/link'
 import {
   X, Plus, Save, ArrowLeft, ArrowRight, BadgeCheck, ShieldAlert,
   Smartphone, CreditCard, Image as ImageIcon, Camera, BookOpen, MapPin, ShieldCheck,
-  GraduationCap, Award, Briefcase, Mail, Tags, CalendarDays, Video, Lock, UserRound,
+  GraduationCap, Award, Briefcase, Mail, Tags, CalendarDays, Video, Lock, UserRound, Wallet,
 } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
 import { StatusCard, StepHeader, SettingsTile, Urdu } from '@/components/tutor/SettingsPieces'
 import { READONLY_LINES, type CardStatus } from '@/lib/tutorSettingsCopy'
+import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange, feeLabelOf } from '@/lib/fee'
 import type { DocumentStatuses, DocState } from '@/lib/tutorDocuments'
 import { labelsForMasterIds } from '@/lib/taxonomy'
 import SubjectPicker from '@/components/tutor/SubjectPicker'
@@ -67,6 +68,9 @@ export default function TutorSettingsPage() {
   const [statuses, setStatuses] = useState<DocumentStatuses | null>(null);
   const [feePaid, setFeePaid] = useState(false);
   const [experienceYears, setExperienceYears] = useState<number | null>(null);
+  // Monthly fee range (PR67) — the two fields, prefilled from the saved values.
+  const [feeMin, setFeeMin] = useState("");
+  const [feeMax, setFeeMax] = useState("");
   const [realEmail, setRealEmail] = useState("");
   const [emailVerified, setEmailVerified] = useState(false);
   // Tile mode (once every Step 2 item is done): which card's form is open.
@@ -204,6 +208,10 @@ export default function TutorSettingsPage() {
       setExperienceYears(
         typeof tp?.experience_years === 'number' ? (tp.experience_years as number) : null,
       );
+      const savedMin = (tp?.fee_min_pkr as number | null) ?? (tp?.hourly_rate_pkr as number | null);
+      const savedMax = (tp?.fee_max_pkr as number | null) ?? (tp?.hourly_rate_pkr as number | null);
+      setFeeMin(String(savedMin ?? FEE_MIN_DEFAULT));
+      setFeeMax(String(savedMax ?? FEE_MAX_DEFAULT));
 
       if (tp) {
         setFormData({
@@ -352,6 +360,19 @@ export default function TutorSettingsPage() {
   const saveDegrees = () => tutorUpdate({ degrees });
   const saveCertifications = () => tutorUpdate({ certifications });
 
+  // Monthly fee range (PR67 §3): whole rupees, min ≤ max, saved to fee_min/fee_max.
+  const parseFee = (s: string): number | null => {
+    const digits = s.replace(/[^\d]/g, "");
+    return digits === "" ? null : Number(digits);
+  };
+  const saveFee = async () => {
+    const min = parseFee(feeMin);
+    const max = parseFee(feeMax);
+    const err = validateFeeRange(min, max);
+    if (err) throw new Error(err.en);
+    await postProfileSave({ tutorProfile: { fee_min_pkr: min, fee_max_pkr: max } });
+  };
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) { setPasswordMsg("❌ New passwords do not match."); return; }
@@ -411,6 +432,7 @@ export default function TutorSettingsPage() {
   const certsSummary = certifications.length
     ? short(certifications.map((c) => c.title).filter(Boolean)) || `${certifications.length} added`
     : '';
+  const feeSummary = feeLabelOf({ fee_min_pkr: parseFee(feeMin), fee_max_pkr: parseFee(feeMax) }) ?? '';
 
   // ---- PR62: per-card status (read-only; presentation only) ---------------
   // Maps a document approval state (CNIC / profile picture / selfie) to a card
@@ -437,6 +459,7 @@ export default function TutorSettingsPage() {
   const degreesStatus: CardStatus = degrees.length > 0 ? 'completed' : 'missing';
   const certsStatus: CardStatus = certifications.length > 0 ? 'completed' : 'missing';
   const experienceStatus: CardStatus = experienceYears && experienceYears > 0 ? 'completed' : 'missing';
+  const feeMonthlyStatus: CardStatus = parseFee(feeMin) && parseFee(feeMax) ? 'completed' : 'missing';
   const emailStatus: CardStatus = realEmail && emailVerified ? 'completed' : 'missing';
   const videoStatusCard: CardStatus =
     videoStatus === 'approved'
@@ -799,6 +822,40 @@ export default function TutorSettingsPage() {
           done={!!(experienceYears && experienceYears > 0)}
           href="/tutor/complete-profile"
         />
+      ),
+    },
+    {
+      key: 'monthlyFee',
+      status: feeMonthlyStatus,
+      collapsible: true,
+      summary: feeSummary,
+      icon: <Wallet size={20} aria-hidden />,
+      body: (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="space-y-1">
+              <span className="block text-[11px] font-bold text-tm-navy">Minimum (Rs / month)</span>
+              <input
+                inputMode="numeric"
+                value={feeMin}
+                onChange={(e) => setFeeMin(e.target.value)}
+                placeholder={String(FEE_MIN_DEFAULT)}
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="block text-[11px] font-bold text-tm-navy">Maximum (Rs / month)</span>
+              <input
+                inputMode="numeric"
+                value={feeMax}
+                onChange={(e) => setFeeMax(e.target.value)}
+                placeholder={String(FEE_MAX_DEFAULT)}
+                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+              />
+            </label>
+          </div>
+          <SaveBar onSave={saveFee} onSaved={() => collapse('monthlyFee')} />
+        </div>
       ),
     },
     {

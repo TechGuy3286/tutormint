@@ -34,7 +34,7 @@ type Body = {
 const PROFILE_FIELDS = new Set(['full_name', 'province', 'address', 'cnic_number', 'whatsapp'])
 const TUTOR_FIELDS = new Set([
   'gender', 'area', 'avatar_url', 'headline', 'bio',
-  'experience_years', 'hourly_rate_pkr', 'teaching_mode', 'job_types', 'online_platforms', 'degrees',
+  'experience_years', 'hourly_rate_pkr', 'fee_min_pkr', 'fee_max_pkr', 'teaching_mode', 'job_types', 'online_platforms', 'degrees',
 ])
 
 function pick(src: Record<string, unknown> | undefined, allowed: Set<string>) {
@@ -124,6 +124,18 @@ export async function POST(request: Request) {
     const tutorPatch = pick(body.tutorProfile, TUTOR_FIELDS)
     // The tutor's canonical city lives on tutor_profiles.
     if (cityWrite !== undefined) tutorPatch.city = cityWrite
+
+    // Fee range (PR67): whole rupees, non-negative, min ≤ max. A friendly error,
+    // never a raw DB message. The trigger keeps hourly_rate_pkr = fee_min_pkr.
+    const feeMin = tutorPatch.fee_min_pkr
+    const feeMax = tutorPatch.fee_max_pkr
+    const badFee = (n: unknown) => n != null && (!Number.isInteger(n) || (n as number) < 0)
+    if (badFee(feeMin) || badFee(feeMax)) {
+      return NextResponse.json({ error: 'Enter your fee in whole rupees.' }, { status: 400 })
+    }
+    if (typeof feeMin === 'number' && typeof feeMax === 'number' && feeMin > feeMax) {
+      return NextResponse.json({ error: 'The minimum fee can’t be higher than the maximum.' }, { status: 400 })
+    }
 
     // The picture must be a file in one of our buckets. This route had no
     // check on avatar_url at all, which is how a 4MB base64 string ended up in

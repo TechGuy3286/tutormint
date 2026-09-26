@@ -1,4 +1,4 @@
-import { BookOpen, Briefcase, GraduationCap, Mail, MapPin, Monitor, Phone } from 'lucide-react'
+import { BookOpen, Briefcase, GraduationCap, Mail, MapPin, Monitor, Phone, Wallet } from 'lucide-react'
 
 import { cvSections, type CvIcon, type CvModel, type CvTemplate } from '@/lib/cv/model'
 
@@ -12,6 +12,7 @@ const ICONS: Record<CvIcon, typeof BookOpen> = {
   graduation: GraduationCap,
   phone: Phone,
   mail: Mail,
+  wallet: Wallet,
 }
 
 // The on-screen CV preview. HTML, tm-* tokens only, the SAME data (CvModel) the

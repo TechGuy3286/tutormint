@@ -13,6 +13,7 @@ import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio, type OnboardingAnswers } from '@/lib/onboarding/copy'
+import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import type { OnboardingFacets } from '@/lib/openJobCounts'
 import SubjectPicker from '@/components/tutor/SubjectPicker'
 import VideoUpload from '@/components/tutor/VideoUpload'
@@ -101,6 +102,8 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   const { map: cityMap } = useCityAreas()
 
   const [facts, setFacts] = useState<FlowFacts | null>(null)
+  // The tutor's saved fee range prefills the fee step (defaults otherwise, PR67).
+  const [feeInit, setFeeInit] = useState<{ min: number; max: number }>({ min: FEE_MIN_DEFAULT, max: FEE_MAX_DEFAULT })
   // The tutor's actual saved subject master ids, so the subjects step preselects
   // them and a toggle EDITS the set rather than replacing it with one pick.
   const [subjectIds, setSubjectIds] = useState<number[]>([])
@@ -141,12 +144,19 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         .select('full_name, city, cnic_number, cnic_image_path, phone_verified_at, phone_number, verification_state, is_seed, is_team_account, is_banned, is_suspended')
         .eq('id', user.id).maybeSingle(),
       supabase.from('tutor_profiles')
-        .select('city, area, gender, avatar_url, headline, bio, experience_years, hourly_rate_pkr, job_types, degrees, video_youtube_id, video_status, verified_fee_paid_at, under_review, verification_status, imported, claimed_at')
+        .select('city, area, gender, avatar_url, headline, bio, experience_years, hourly_rate_pkr, fee_min_pkr, fee_max_pkr, job_types, degrees, video_youtube_id, video_status, verified_fee_paid_at, under_review, verification_status, imported, claimed_at')
         .eq('id', user.id).maybeSingle(),
       supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
       supabase.from('user_documents').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('kind', 'degree'),
     ])
     const ids = (subj.data ?? []).map((r) => r.master_id as number)
+    // Prefill the fee step from the saved range (PR67), falling back to the legacy
+    // single fee, then the defaults.
+    {
+      const mn = (tp?.fee_min_pkr as number | null) ?? (tp?.hourly_rate_pkr as number | null)
+      const mx = (tp?.fee_max_pkr as number | null) ?? (tp?.hourly_rate_pkr as number | null)
+      setFeeInit({ min: mn ?? FEE_MIN_DEFAULT, max: mx ?? FEE_MAX_DEFAULT })
+    }
     const facts: FlowFacts = {
       fullName: (p?.full_name as string) ?? null,
       gender: (tp?.gender as string) ?? null,
@@ -462,14 +472,11 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
           />
         )}
         {stepKey === 'fee' && (
-          <TextStep
-            initial={facts.hourlyRate != null ? String(facts.hourlyRate) : ''} placeholder="Monthly fee in PKR, e.g. 15000" numeric
-            onNext={(v) => {
-              const n = Number(v.replace(/[^\d]/g, ''))
-              if (!n) { toast.error('Enter your expected monthly fee.'); return }
-              void tapSave({ tutorProfile: { hourly_rate_pkr: n } }, { hourlyRate: n })
-            }}
+          <FeeRangeStep
+            initialMin={feeInit.min}
+            initialMax={feeInit.max}
             busy={busy}
+            onNext={(min, max) => void tapSave({ tutorProfile: { fee_min_pkr: min, fee_max_pkr: max } }, { hourlyRate: min })}
           />
         )}
 
@@ -620,6 +627,86 @@ function TextStep({ initial, placeholder, onNext, busy, multiline, numeric }: {
       )}
       <button
         type="button" disabled={busy || !v.trim()} onClick={() => onNext(v.trim())}
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
+      >
+        {busy ? '…' : 'Save & continue'}
+      </button>
+    </div>
+  )
+}
+
+// The fee step (PR67 §2): Minimum and Maximum monthly-fee fields, prefilled and
+// editable, with a plain bilingual error when the minimum is above the maximum.
+function FeeRangeStep({
+  initialMin,
+  initialMax,
+  busy,
+  onNext,
+}: {
+  initialMin: number
+  initialMax: number
+  busy: boolean
+  onNext: (min: number, max: number) => void
+}) {
+  const [min, setMin] = useState(String(initialMin))
+  const [max, setMax] = useState(String(initialMax))
+  const [error, setError] = useState<{ en: string; ur: string } | null>(null)
+  const parse = (s: string): number | null => {
+    const digits = s.replace(/[^\d]/g, '')
+    if (digits === '') return null
+    const n = Number(digits)
+    return Number.isFinite(n) ? n : null
+  }
+  const submit = () => {
+    const mn = parse(min)
+    const mx = parse(max)
+    const err = validateFeeRange(mn, mx)
+    if (err) {
+      setError(err)
+      return
+    }
+    setError(null)
+    onNext(mn as number, mx as number)
+  }
+  const field = (
+    label: string,
+    labelUr: string,
+    value: string,
+    set: (v: string) => void,
+    placeholder: string,
+  ) => (
+    <label className="space-y-1">
+      <span className="block text-xs font-bold text-tm-navy">{label}</span>
+      <span className="block text-right text-[11px] text-gray-500" lang="ur" dir="rtl">{labelUr}</span>
+      <input
+        value={value}
+        inputMode="numeric"
+        onChange={(e) => set(e.target.value)}
+        placeholder={placeholder}
+        className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy"
+      />
+    </label>
+  )
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        {field('Minimum', 'کم از کم', min, setMin, String(FEE_MIN_DEFAULT))}
+        {field('Maximum', 'زیادہ سے زیادہ', max, setMax, String(FEE_MAX_DEFAULT))}
+      </div>
+      <div>
+        <p className="text-[11px] text-gray-500">Rupees per month, whole numbers.</p>
+        <p className="text-right text-[11px] text-gray-500" lang="ur" dir="rtl">ماہانہ فیس، پورے روپوں میں۔</p>
+      </div>
+      {error && (
+        <div role="alert" className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-2.5">
+          <p className="text-xs font-bold text-tm-red">{error.en}</p>
+          <p className="text-right text-[11px] font-semibold text-tm-red" lang="ur" dir="rtl">{error.ur}</p>
+        </div>
+      )}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={submit}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
       >
         {busy ? '…' : 'Save & continue'}

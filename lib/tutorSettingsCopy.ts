@@ -128,6 +128,13 @@ export const CARDS: Record<string, { title: Bilingual; hint?: Bilingual }> = {
     title: { en: 'Experience', ur: 'تجربہ' },
     hint: { en: 'How many years you have taught.', ur: 'آپ نے کتنے سال پڑھایا ہے۔' },
   },
+  monthlyFee: {
+    title: { en: 'Your monthly fee', ur: 'آپ کی ماہانہ فیس' },
+    hint: {
+      en: 'What you charge per month — a minimum and a maximum.',
+      ur: 'آپ ماہانہ کتنی فیس لیتے ہیں — کم از کم اور زیادہ سے زیادہ۔',
+    },
+  },
   email: {
     title: { en: 'Email', ur: 'ای میل' },
     hint: { en: 'For receipts and reminders.', ur: 'رسیدوں اور یاد دہانیوں کے لیے۔' },

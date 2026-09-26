@@ -235,11 +235,23 @@ export function tutorJsonLd(t: {
   area: string | null
   subjects: string[]
   hourlyRatePkr: number | null
+  feeMinPkr?: number | null
+  feeMaxPkr?: number | null
   ratingAvg: number | null
   ratingCount: number | null
 }) {
   const url = absoluteUrl(`/tutor/${t.slug}`)
   const areaServed = [t.area, t.city].filter(Boolean).join(', ') || null
+
+  // The fee is a MONTHLY range (PR67); fall back to the single legacy figure.
+  const feeLo = (typeof t.feeMinPkr === 'number' && t.feeMinPkr > 0 ? t.feeMinPkr : null) ?? t.hourlyRatePkr
+  const feeHi = (typeof t.feeMaxPkr === 'number' && t.feeMaxPkr > 0 ? t.feeMaxPkr : null) ?? t.hourlyRatePkr
+  const feeSpec =
+    feeLo && feeHi
+      ? feeLo === feeHi
+        ? { '@type': 'UnitPriceSpecification', price: feeLo, priceCurrency: 'PKR', unitText: 'MONTH' }
+        : { '@type': 'UnitPriceSpecification', minPrice: feeLo, maxPrice: feeHi, priceCurrency: 'PKR', unitText: 'MONTH' }
+      : null
 
   const person = {
     '@type': 'Person',
@@ -262,22 +274,18 @@ export function tutorJsonLd(t: {
     provider: { '@id': `${url}#person` },
     url,
     ...(areaServed ? { areaServed: { '@type': 'Place', name: areaServed } } : {}),
-    ...(t.hourlyRatePkr
+    ...(feeSpec
       ? {
           offers: {
             '@type': 'Offer',
             priceCurrency: 'PKR',
             availability: 'https://schema.org/InStock',
-            // The stored figure is a MONTHLY fee (the column is named
-            // hourly_rate_pkr for legacy reasons only — owner, 14 Sep 2026). A
-            // bare `price` reads as per-session in a rich result and understates
-            // it by an order of magnitude, so it is a per-month unit price.
-            priceSpecification: {
-              '@type': 'UnitPriceSpecification',
-              price: t.hourlyRatePkr,
-              priceCurrency: 'PKR',
-              unitText: 'MONTH',
-            },
+            // The stored figures are a MONTHLY fee range (PR67; the column
+            // hourly_rate_pkr is the legacy single figure). A bare `price` reads
+            // as per-session in a rich result and understates it by an order of
+            // magnitude, so it is a per-month unit price — a min/max range when
+            // the tutor set one, a single price when min = max.
+            priceSpecification: feeSpec,
           },
         }
       : {}),

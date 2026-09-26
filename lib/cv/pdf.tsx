@@ -81,6 +81,7 @@ const ICON_PATHS: Record<CvIcon, string[]> = {
     'M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 11a16 16 0 0 0 6 6l1.6-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z',
   ],
   mail: ['M2 5h20v14H2z', 'M2 6l10 7 10-7'],
+  wallet: ['M2 7h18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z', 'M16 12h4'],
 }
 
 function PdfIcon({ icon, size, color }: { icon: CvIcon; size: number; color: string }) {

@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, Mail, Star, Eye, Handshake, BadgeCheck, X } from 'lucide-react'
 import JobTypesChip from '@/components/JobTypesChip'
 import CardActions, { type CardAction } from '@/components/CardActions'
+import { feeLabelOf } from '@/lib/fee'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
@@ -45,6 +46,9 @@ export type TutorCardData = {
   teaching_mode: string | null
   job_types: string[] | null
   hourly_rate_pkr: number | null
+  /** The monthly fee range (PR67). Falls back to hourly_rate_pkr when absent. */
+  fee_min_pkr?: number | null
+  fee_max_pkr?: number | null
   experience_years: number | null
   rating_avg: number | string | null
   rating_count: number | null
@@ -466,9 +470,9 @@ export default function TutorCard({
               </DetailLine>
             </div>
 
-            {tutor.hourly_rate_pkr ? (
+            {feeLabelOf(tutor) ? (
               <p className="pt-0.5 text-xs font-black text-tm-navy">
-                Rs. {tutor.hourly_rate_pkr.toLocaleString('en-PK')}
+                {feeLabelOf(tutor)!.replace(/ \/ month$/, '')}
                 <span className="font-semibold text-gray-500"> / month</span>
               </p>
             ) : null}

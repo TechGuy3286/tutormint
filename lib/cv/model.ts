@@ -14,6 +14,7 @@
 
 import { isOurStorageUrl } from '@/lib/avatarUrl'
 import { levelLabel, jobType, jobTypesLabel } from '@/lib/display'
+import { feeRangeLabel } from '@/lib/fee'
 
 export type CvSubjectGroup = { level: string; subjects: string[] }
 
@@ -30,6 +31,10 @@ export type CvRaw = {
   subjectGroups: CvSubjectGroup[]
   degrees: string[]
   experienceYears: number | null
+  /** Monthly fee range (PR67). Falls back to hourlyRatePkr. */
+  feeMinPkr?: number | null
+  feeMaxPkr?: number | null
+  hourlyRatePkr?: number | null
   /** Legacy single Job Type (primary), kept as a fallback. */
   teachingMode: string | null
   /** The tutor's full set of Job Types — what the CV actually shows. */
@@ -54,6 +59,8 @@ export type CvModel = {
   subjects: CvSubjectGroup[]
   degrees: string[]
   experienceYears: number | null
+  /** "Rs 5,000 – 100,000 / month" (PR67), or null. */
+  feeLabel: string | null
   location: string | null
   teachingMode: string | null
   languages: string[]
@@ -118,6 +125,10 @@ export function toCvModel(raw: CvRaw, opts: CvOptions): CvModel {
     subjects,
     degrees,
     experienceYears: raw.experienceYears && raw.experienceYears > 0 ? raw.experienceYears : null,
+    feeLabel: feeRangeLabel(
+      raw.feeMinPkr ?? raw.hourlyRatePkr,
+      raw.feeMaxPkr ?? raw.hourlyRatePkr,
+    ),
     location,
     teachingMode: jobTypesLabel(raw.jobTypes) ?? jobType(raw.teachingMode),
     languages,
@@ -166,7 +177,7 @@ export function cvContactRows(contact: CvContact | null): CvContactRow[] {
 // @react-pdf/hyphenate CJS export gap — so its equality rests on reading the
 // same functions plus the live smoke).
 
-export type CvIcon = 'book' | 'briefcase' | 'monitor' | 'pin' | 'graduation' | 'phone' | 'mail'
+export type CvIcon = 'book' | 'briefcase' | 'monitor' | 'pin' | 'graduation' | 'phone' | 'mail' | 'wallet'
 
 /** A line in a section. `icon: null` is a plain paragraph (About, Languages). */
 export type CvLine = { icon: CvIcon | null; text: string }
@@ -196,6 +207,7 @@ export function cvSections(model: CvModel): CvSection[] {
 
   const teaching: CvLine[] = []
   if (model.experienceYears) teaching.push({ icon: 'briefcase', text: experienceLine(model.experienceYears) })
+  if (model.feeLabel) teaching.push({ icon: 'wallet', text: model.feeLabel })
   if (model.location) teaching.push({ icon: 'pin', text: model.location })
   if (model.teachingMode) teaching.push({ icon: 'monitor', text: model.teachingMode })
   if (teaching.length > 0) sections.push({ key: 'teaching', heading: 'Teaching', lines: teaching })
