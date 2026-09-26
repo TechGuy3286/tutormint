@@ -1,8 +1,9 @@
 'use client'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, MessageCircle } from 'lucide-react'
 
 import { useEffect } from 'react'
 import ErrorShell from '@/components/ErrorShell'
+import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
 
 // An unhandled error inside the app shell — the body of every error boundary
 // on the site.
@@ -35,6 +36,9 @@ export default function AppErrorView({
       message="This is our fault, not yours. Nothing you had saved has been lost — try again, and if it keeps happening let us know."
       detail={
         <div className="space-y-2">
+          {/* The plain bilingual line (PR72 §B), the same one forms and toasts use. */}
+          <p className="text-[11px] text-gray-500">{GENERIC_ERROR.en}</p>
+          <p lang="ur" dir="rtl" className="text-[11px] text-gray-500">{GENERIC_ERROR.ur}</p>
           <button
             type="button"
             onClick={reset}
@@ -43,6 +47,15 @@ export default function AppErrorView({
             <RotateCcw aria-hidden size={14} />
             Try again
           </button>
+          <a
+            href={supportWhatsappHref(error.digest)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 min-h-[44px] w-full rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+          >
+            <MessageCircle aria-hidden size={14} />
+            Contact support on WhatsApp
+          </a>
           {error.digest && (
             <p className="text-[11px] text-gray-500">
               Reference: <span className="font-mono">{error.digest}</span>

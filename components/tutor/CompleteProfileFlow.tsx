@@ -419,6 +419,9 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
     areas: areaInit.length > 0 ? areaInit : facts?.area ? [facts.area] : [],
     subjectNames: Array.from(new Set(Object.values(selByCat).flat())),
     levelNames: selCats,
+    // PR72 §C: the tagline is built from the tutor's job types (chosen at the
+    // jobtype step, which comes before tagline in the flow order).
+    jobTypes: facts?.jobTypes ?? [],
     experienceBand: EXPERIENCE_BANDS.find((b) => b.years === facts?.experienceYears)?.label ?? null,
   })
 

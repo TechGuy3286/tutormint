@@ -403,7 +403,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
         {job.posted_by_team && (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-3 py-1 text-[11px] font-black uppercase tracking-wide text-tm-navy">
             <ShieldCheck aria-hidden size={13} />
-            Posted by TutorMint
+            Verified tuition
           </p>
         )}
 
@@ -522,7 +522,11 @@ export default async function TuitionPage({ params }: { params: Params }) {
       {/* Who posted it. Name, picture and badges — never a number, an email or
           an address. Contact details are what a Featured plan buys, and a
           public URL is the last place to give them away. */}
-      {job.parent_id && job.parent_name && (
+      {/* A parent post shows the "Posted by" identity block. A team tuition
+          (PR72 §D) shows NO TutorMint logo, name or team line — the "Verified
+          tuition" pill above already conveys it — but KEEPS the contact reveal
+          and Report this post. */}
+      {job.parent_id && job.parent_name && !job.posted_by_team && (
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
             Posted by
@@ -540,31 +544,34 @@ export default async function TuitionPage({ params }: { params: Params }) {
                 href={`/parent/${job.parent_id}`}
                 className="inline-flex min-h-[24px] items-center gap-1.5 text-sm font-black text-tm-navy hover:text-tm-red hover:underline"
               >
-                {job.posted_by_team && <ShieldCheck aria-hidden size={14} className="text-tm-navy" />}
                 {job.parent_name}
               </Link>
               {job.parent_badges.length > 0 && <BadgeRow badges={job.parent_badges} size="sm" />}
               <p className="text-[11px] leading-relaxed text-gray-500">
-                {job.posted_by_team
-                  ? 'A verified team tuition, posted and managed by the TutorMint team.'
-                  : job.parent_can_hire
-                    ? 'Featured parent — able to complete a hire.'
-                    : 'Verified parent — cannot complete a hire yet.'}
+                {job.parent_can_hire
+                  ? 'Featured parent — able to complete a hire.'
+                  : 'Verified parent — cannot complete a hire yet.'}
               </p>
-              {/* Tutor-only contact reveal. Real-parent tuitions reveal the
-                  parent account (PR56); staff-posted team tuitions reveal the
-                  external parent's job contact (PR57), never the team account.
-                  Both go through the same counted /api/contact/reveal flow, so
-                  no contact is in this page until a tutor taps. */}
-              {isTutor && !job.posted_by_team && (
-                <ContactReveal parentId={job.parent_id} className="pt-1" />
-              )}
-              {isTutor && job.posted_by_team && (
-                <ContactReveal jobId={job.id} className="pt-1" />
-              )}
+              {/* Tutor-only contact reveal of the parent account (PR56). */}
+              {isTutor && <ContactReveal parentId={job.parent_id} className="pt-1" />}
             </div>
           </div>
 
+          {user && (
+            <ReportButton
+              reportedId={job.parent_id}
+              targetType="job"
+              targetId={job.id}
+              label="Report this post"
+            />
+          )}
+        </section>
+      )}
+
+      {/* Team tuition (PR72 §D): keep the contact reveal + Report, no identity. */}
+      {job.parent_id && job.posted_by_team && (isTutor || user) && (
+        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+          {isTutor && <ContactReveal jobId={job.id} />}
           {user && (
             <ReportButton
               reportedId={job.parent_id}

@@ -2,6 +2,7 @@
 
 
 import { BRAND, NEUTRAL } from '@/lib/brand'
+import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
 
 // The last resort: an error in the root layout itself.
 //
@@ -53,8 +54,11 @@ export default function GlobalError({
           <h1 style={{ margin: '0 0 10px', fontSize: '18px', fontWeight: 800, color: BRAND.navy }}>
             The site failed to load
           </h1>
-          <p style={{ margin: '0 0 20px', fontSize: '14px', lineHeight: 1.6 }}>
-            Something went wrong before the page could start. Reloading usually fixes it.
+          <p style={{ margin: '0 0 6px', fontSize: '14px', lineHeight: 1.6 }}>
+            {GENERIC_ERROR.en}
+          </p>
+          <p dir="rtl" lang="ur" style={{ margin: '0 0 20px', fontSize: '13px', lineHeight: 1.7, color: NEUTRAL.slate700 }}>
+            {GENERIC_ERROR.ur}
           </p>
 
           <button
@@ -78,7 +82,12 @@ export default function GlobalError({
             Reload
           </button>
 
-          <p style={{ margin: '14px 0 0', fontSize: '12px' }}>
+          <p style={{ margin: '12px 0 0', fontSize: '12px' }}>
+            <a href={supportWhatsappHref(error.digest)} target="_blank" rel="noopener noreferrer" style={{ color: BRAND.navy, fontWeight: 700 }}>
+              Contact support on WhatsApp
+            </a>
+          </p>
+          <p style={{ margin: '10px 0 0', fontSize: '12px' }}>
             <a href="/" style={{ color: BRAND.red, fontWeight: 700 }}>
               Go to the homepage
             </a>

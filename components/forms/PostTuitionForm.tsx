@@ -309,7 +309,7 @@ export default function PostTuitionForm({
           <ShieldCheck size={14} className="mt-px shrink-0" aria-hidden />
           <span>
             This tuition is posted on the official TutorMint team account and is marked{' '}
-            <strong>&ldquo;Posted by TutorMint&rdquo;</strong> everywhere it appears. Applications,
+            <strong>&ldquo;Verified tuition&rdquo;</strong> everywhere it appears. Applications,
             messages and hiring run through the ordinary parent flow on that account.
           </span>
         </p>

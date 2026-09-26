@@ -7,6 +7,7 @@ import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
 import { BAD_AVATAR_MESSAGE, isOurStorageUrl } from '@/lib/avatarUrl'
 import { parseBody, z } from '@/lib/validate'
+import { serverError } from '@/lib/errorResponse'
 import { ensureTutorSlug } from '@/lib/tutorSlug'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
   if (role !== 'tutor' && cityWrite !== undefined) profilePatch.city = cityWrite
   if (Object.keys(profilePatch).length > 0) {
     const { error } = await supabase.from('profiles').update(profilePatch).eq('id', user.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'profile.save:profiles.update')
   }
 
   if (role === 'tutor') {
@@ -169,7 +170,7 @@ export async function POST(request: Request) {
 
     if (Object.keys(tutorPatch).length > 0) {
       const { error } = await supabase.from('tutor_profiles').update(tutorPatch).eq('id', user.id)
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+      if (error) return serverError(error, 'profile.save:tutor_profiles.update')
     }
 
     // Mirror the tutor's city into profiles.city in the SAME save (PR 3b §0.2),
@@ -177,7 +178,7 @@ export async function POST(request: Request) {
     // step with the listing rule (which reads tutor_profiles.city).
     if (cityWrite !== undefined) {
       const { error } = await supabase.from('profiles').update({ city: cityWrite }).eq('id', user.id)
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+      if (error) return serverError(error, 'profile.save:profiles.city')
     }
 
     // ONE NAME (PR66 §5). profiles.full_name is canonical (what the dashboard
@@ -189,7 +190,7 @@ export async function POST(request: Request) {
         .from('tutor_profiles')
         .update({ full_name: profilePatch.full_name })
         .eq('id', user.id)
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+      if (error) return serverError(error, 'profile.save:tutor_profiles.full_name')
     }
 
     // Replace the tutor_areas set (PR68). The city for each area is the one being
@@ -203,14 +204,14 @@ export async function POST(request: Request) {
       }
       const del = await supabase.from('tutor_areas').delete().eq('tutor_id', user.id)
       if (del.error && del.error.code !== '42P01') {
-        return NextResponse.json({ error: del.error.message }, { status: 400 })
+        return serverError(del.error, 'profile.save:tutor_areas.delete')
       }
       if (!del.error && areasList.length > 0) {
         const { error } = await supabase
           .from('tutor_areas')
           .insert(areasList.map((area) => ({ tutor_id: user.id, city: areaCity, area })))
         if (error && error.code !== '42P01') {
-          return NextResponse.json({ error: error.message }, { status: 400 })
+          return serverError(error, 'profile.save:tutor_areas.insert')
         }
       }
     }
@@ -219,13 +220,13 @@ export async function POST(request: Request) {
       const ids = body.subjectMasterIds.filter((n) => Number.isInteger(n))
       // Replace the set: delete then insert, so deselecting actually removes.
       const del = await supabase.from('tutor_subjects').delete().eq('tutor_id', user.id)
-      if (del.error) return NextResponse.json({ error: del.error.message }, { status: 400 })
+      if (del.error) return serverError(del.error, 'profile.save:tutor_subjects.delete')
 
       if (ids.length > 0) {
         const { error } = await supabase
           .from('tutor_subjects')
           .insert(ids.map((master_id) => ({ tutor_id: user.id, master_id })))
-        if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+        if (error) return serverError(error, 'profile.save:tutor_subjects.insert')
       }
     }
   }

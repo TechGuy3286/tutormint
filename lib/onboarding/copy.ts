@@ -79,8 +79,22 @@ export type OnboardingAnswers = {
   areas: string[]
   subjectNames: string[]
   levelNames: string[]
+  /** The tutor's job types (PR72) — drives the tagline sentence. */
+  jobTypes?: string[]
   experienceBand: string | null // e.g. '3–5'
 }
+
+// Leadership job titles (PR72 §C). A title is a leadership role when it names
+// one of these, so School Principal / Vice Principal / Coordinator / Head of
+// Department are recognised regardless of the exact wording in the taxonomy.
+const LEADERSHIP_ROLES = ['principal', 'vice principal', 'coordinator', 'head of department', 'headmaster', 'headmistress', 'director', 'dean']
+export function isLeadershipRole(title: string): boolean {
+  const t = title.toLowerCase()
+  return LEADERSHIP_ROLES.some((k) => t.includes(k))
+}
+
+/** The lowercased online-tutor title (PR72). */
+const ONLINE_TITLE = 'online tutor'
 
 // --- natural-language helpers ------------------------------------------------
 
@@ -116,15 +130,40 @@ function expPhrase(band: string | null): string {
 // --- the tagline -------------------------------------------------------------
 
 /**
- * "O Levels Physics tutor in Lahore" — first level + first subject + city.
- * Every segment optional; drops what is not there without a stray preposition.
+ * The tagline (PR72 §C), built from the tutor's job types, levels and city.
+ * Four shapes, invents nothing beyond what they chose:
+ *   - leadership roles only → "I am offering my services as School Principal in Lahore."
+ *   - Online Tutor only     → "I am offering Online Tutor services to Middle School and High School students."
+ *   - otherwise / mixed     → "I am offering my teaching and tutoring services to
+ *                              Middle School and High School students as Home Tutor and Online Tutor."
+ * Lists join with commas and "and"; a missing city/level drops its clause cleanly.
  */
 export function composeHeadline(a: OnboardingAnswers): string {
-  const subject = a.subjectNames[0] ?? ''
-  const level = a.levelNames[0] ?? ''
-  const who = [level, subject].filter(Boolean).join(' ')
-  if (who) return `${who} tutor${a.city ? ` in ${a.city}` : ''}`
-  return a.city ? `Tutor in ${a.city}` : 'Tutor'
+  const jobTypes = (a.jobTypes ?? []).filter(Boolean)
+  const levels = list(a.levelNames.filter(Boolean), a.levelNames.length)
+  const city = a.city?.trim() || ''
+
+  // No job types yet — a plain, honest fallback rather than an invented role.
+  if (jobTypes.length === 0) {
+    return city ? `I am offering my teaching and tutoring services in ${city}.` : 'I am offering my teaching and tutoring services.'
+  }
+
+  const roles = list(jobTypes, jobTypes.length)
+  const allLeadership = jobTypes.every(isLeadershipRole)
+  const onlineOnly = jobTypes.length === 1 && jobTypes[0].toLowerCase() === ONLINE_TITLE
+
+  if (allLeadership) {
+    return `I am offering my services as ${roles}${city ? ` in ${city}` : ''}.`
+  }
+  if (onlineOnly) {
+    return levels
+      ? `I am offering Online Tutor services to ${levels} students.`
+      : 'I am offering Online Tutor services.'
+  }
+  // Otherwise (teaching, or leadership mixed with teaching): list every role.
+  return levels
+    ? `I am offering my teaching and tutoring services to ${levels} students as ${roles}.`
+    : `I am offering my teaching and tutoring services as ${roles}.`
 }
 
 // --- the bio -----------------------------------------------------------------

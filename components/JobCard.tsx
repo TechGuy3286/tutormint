@@ -235,7 +235,7 @@ export default function JobCard({
           {job.posted_by_team && (
             <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-tm-navy">
               <ShieldCheck aria-hidden size={12} />
-              Posted by TutorMint
+              Verified tuition
             </p>
           )}
           <div className="space-y-1 pr-16 sm:pr-20">
@@ -258,7 +258,10 @@ export default function JobCard({
                 picture, not contact information -- the number, WhatsApp and
                 email stay behind canViewContact. */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
-              {job.parent_name && (
+              {/* A team tuition shows only the date and TM number here — no
+                  TutorMint logo or name (PR72 §D). A parent post shows their
+                  avatar and name as before. */}
+              {!job.posted_by_team && job.parent_name && (
                 <Avatar
                   name={job.parent_name}
                   src={job.parent_avatar_url}
@@ -276,7 +279,7 @@ export default function JobCard({
                   <span className="font-semibold tabular-nums text-slate-700">{job.ref_id}</span>
                 </>
               )}
-              {job.parent_name && (
+              {!job.posted_by_team && job.parent_name && (
                 <>
                   <span aria-hidden="true">·</span>
                   {/* Every member name is a link. relative z-10 so the card's
@@ -295,7 +298,7 @@ export default function JobCard({
                   )}
                 </>
               )}
-              {job.parent_badges.length > 0 && <BadgeRow badges={job.parent_badges} size="sm" />}
+              {!job.posted_by_team && job.parent_badges.length > 0 && <BadgeRow badges={job.parent_badges} size="sm" />}
             </div>
           </div>
 
@@ -374,15 +377,15 @@ export default function JobCard({
           )}
 
           {/* Tutor-side steering: say plainly who can finish a hire. A team
-              tuition is operated by the TutorMint team, which can complete a
-              hire — but it is described as a team post, not a "Featured parent". */}
-          <p className="text-[11px] font-semibold text-gray-500">
-            {job.posted_by_team
-              ? 'Posted by the TutorMint team — a verified team tuition.'
-              : job.parent_can_hire
+              tuition carries the "Verified tuition" pill above and shows NO
+              poster line at all (PR72 §D) — the pill already conveys the trust. */}
+          {!job.posted_by_team && (
+            <p className="text-[11px] font-semibold text-gray-500">
+              {job.parent_can_hire
                 ? 'Featured parent — can complete a hire'
                 : 'Verified parent — cannot complete a hire yet'}
-          </p>
+            </p>
+          )}
 
           {/* One non-wrapping row at every width (was stacked on mobile). Two
               actions, so no More menu is needed. */}

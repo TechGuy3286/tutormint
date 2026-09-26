@@ -23,7 +23,7 @@ export default async function AdminPostJobPage() {
         <h1 className="text-lg font-black text-tm-navy">Post a tuition</h1>
         <p className="text-xs text-gray-500">
           A trusted team tuition, posted on the official TutorMint account and marked{' '}
-          &ldquo;Posted by TutorMint&rdquo; everywhere it appears.
+          &ldquo;Verified tuition&rdquo; everywhere it appears.
         </p>
       </header>
 

@@ -18,23 +18,40 @@ const full: OnboardingAnswers = {
   city: 'Lahore',
   areas: ['Johar Town'],
   subjectNames: ['Physics', 'Chemistry'],
-  levelNames: ['O Levels'],
+  levelNames: ['Middle School', 'High School'],
+  jobTypes: ['Home Tutor', 'Online Tutor'],
   experienceBand: '3–5',
 }
 
-test('the headline is a natural phrase built from level + subject + city', () => {
-  assert.equal(composeHeadline(full), 'O Levels Physics tutor in Lahore')
+test('the tagline is built from job types, levels and city (PR72 §C)', () => {
+  // Otherwise / mixed teaching roles: teaching-and-tutoring sentence, all roles.
   assert.equal(
-    composeHeadline({ ...full, levelNames: [] }),
-    'Physics tutor in Lahore',
+    composeHeadline(full),
+    'I am offering my teaching and tutoring services to Middle School and High School students as Home Tutor and Online Tutor.',
+  )
+  // Leadership roles only → "offering my services as … in <city>".
+  assert.equal(
+    composeHeadline({ ...full, jobTypes: ['Principal'] }),
+    'I am offering my services as Principal in Lahore.',
   )
   assert.equal(
-    composeHeadline({ ...full, city: null, levelNames: [] }),
-    'Physics tutor',
+    composeHeadline({ ...full, jobTypes: ['Principal', 'Vice Principal'], city: null }),
+    'I am offering my services as Principal and Vice Principal.',
   )
+  // Online Tutor only → "offering Online Tutor services to <levels> students".
   assert.equal(
-    composeHeadline({ city: null, areas: [], subjectNames: [], levelNames: [], experienceBand: null }),
-    'Tutor',
+    composeHeadline({ ...full, jobTypes: ['Online Tutor'] }),
+    'I am offering Online Tutor services to Middle School and High School students.',
+  )
+  // Leadership mixed with teaching uses the "otherwise" sentence with all roles.
+  assert.equal(
+    composeHeadline({ ...full, jobTypes: ['Principal', 'Home Tutor'], levelNames: [] }),
+    'I am offering my teaching and tutoring services as Principal and Home Tutor.',
+  )
+  // No job types → a plain fallback, nothing invented.
+  assert.equal(
+    composeHeadline({ city: null, areas: [], subjectNames: [], levelNames: [], jobTypes: [], experienceBand: null }),
+    'I am offering my teaching and tutoring services.',
   )
 })
 

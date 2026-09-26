@@ -493,6 +493,20 @@ export default function TutorSettingsPage() {
     formData.city.trim() && areas.length > 0 ? 'completed' : 'missing';
   const feeStatus: CardStatus = feePaid ? 'completed' : 'missing';
 
+  // PR72 §E: field locks. Each mirrors the server trigger (migration 116).
+  // mobile/CNIC/picture/selfie lock once verified/approved; subjects, city and
+  // areas lock once ALL of step 1 is complete. The show-picture toggle stays
+  // editable (rendered separately below).
+  const step1Complete =
+    mobileStatus === 'completed' &&
+    cnicStatus === 'completed' &&
+    profilePicStatus === 'completed' &&
+    selfieStatus === 'completed' &&
+    subjectsStatus === 'completed' &&
+    locationStatus === 'completed';
+  const subjectSummaryText = subjectLabels.length > 0 ? subjectLabels.join(', ') : '';
+  const locationSummaryText = [formData.city, areas.join(', ')].filter(Boolean).join(' · ');
+
   const jobTypeStatus: CardStatus = formData.jobTypes.length > 0 ? 'completed' : 'missing';
   const availabilityStatus: CardStatus = availabilityList.length > 0 ? 'completed' : 'missing';
   const degreesStatus: CardStatus = degrees.length > 0 ? 'completed' : 'missing';
@@ -513,6 +527,8 @@ export default function TutorSettingsPage() {
     {
       key: 'mobile',
       status: mobileStatus,
+      locked: mobileStatus === 'completed',
+      lockedValue: phoneNumber ? formatPkMobile(phoneNumber) : 'Verified',
       icon: <Smartphone size={20} aria-hidden />,
       body: (
         <div className="space-y-1">
@@ -555,6 +571,8 @@ export default function TutorSettingsPage() {
     {
       key: 'cnic',
       status: cnicStatus,
+      locked: cnicStatus === 'completed',
+      lockedValue: 'Verified',
       reason: statuses?.cnic.reason,
       bare: true,
       icon: <CreditCard size={20} aria-hidden />,
@@ -571,23 +589,38 @@ export default function TutorSettingsPage() {
       icon: <ImageIcon size={20} aria-hidden />,
       body: (
         <div className="space-y-3">
-          <FileUpload
-            label="Profile photo"
-            acceptLabel="JPG or PNG"
-            shape="square"
-            changeLabel="Change photo"
-            busy={uploading}
-            onFile={handleProfileImageChange}
-            currentPreview={
-              <Avatar
-                name={formData.fullName}
-                src={formData.profileImage || null}
-                decorative
-                ring=""
-                className="h-full w-full rounded-none text-2xl"
-              />
-            }
-          />
+          {/* PR72 §E: once the picture is approved it is locked — read-only, a
+              lock note, no Change. The show-picture toggle below stays editable. */}
+          {profilePicStatus === 'completed' ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3">
+                <Avatar name={formData.fullName} src={formData.profileImage || null} decorative ring="" className="h-14 w-14 rounded-xl text-lg" />
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500">
+                  <Lock aria-hidden size={13} /> Approved
+                </span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-gray-600">To change this, contact support.</p>
+              <p className="text-[11px] leading-relaxed text-gray-600" lang="ur" dir="rtl">تبدیلی کے لیے سپورٹ سے رابطہ کریں۔</p>
+            </div>
+          ) : (
+            <FileUpload
+              label="Profile photo"
+              acceptLabel="JPG or PNG"
+              shape="square"
+              changeLabel="Change photo"
+              busy={uploading}
+              onFile={handleProfileImageChange}
+              currentPreview={
+                <Avatar
+                  name={formData.fullName}
+                  src={formData.profileImage || null}
+                  decorative
+                  ring=""
+                  className="h-full w-full rounded-none text-2xl"
+                />
+              }
+            />
+          )}
           {/* The picture/selfie instruction (PR70 §4). */}
           <div className="rounded-xl bg-tm-tint-navy p-3">
             <p className="text-[11px] leading-relaxed text-tm-navy">{L.pictureNote.en}</p>
@@ -623,6 +656,8 @@ export default function TutorSettingsPage() {
     {
       key: 'selfie',
       status: selfieStatus,
+      locked: selfieStatus === 'completed',
+      lockedValue: 'Approved',
       reason: statuses?.selfie.reason,
       icon: <Camera size={20} aria-hidden />,
       body: (
@@ -658,6 +693,8 @@ export default function TutorSettingsPage() {
     {
       key: 'subjects',
       status: subjectsStatus,
+      locked: step1Complete,
+      lockedValue: subjectSummaryText,
       icon: <BookOpen size={20} aria-hidden />,
       collapsible: true,
       summary: subjectSummary,
@@ -671,6 +708,8 @@ export default function TutorSettingsPage() {
     {
       key: 'location',
       status: locationStatus,
+      locked: step1Complete,
+      lockedValue: locationSummaryText,
       icon: <MapPin size={20} aria-hidden />,
       collapsible: true,
       summary: locationSummary,
@@ -1088,7 +1127,9 @@ export default function TutorSettingsPage() {
       bare={c.bare}
       summary={c.collapsible ? c.summary : undefined}
       open={c.collapsible ? forceOpen || editing.has(c.key) : true}
-      onEdit={c.collapsible ? () => openEdit(c.key) : undefined}
+      onEdit={c.collapsible && !c.locked ? () => openEdit(c.key) : undefined}
+      locked={c.locked}
+      lockedValue={c.lockedValue}
     >
       {c.body}
     </StatusCard>
@@ -1161,6 +1202,9 @@ type CardDesc = {
   collapsible?: boolean;
   /** The collapsed plain-text value; empty means the form stays open. */
   summary?: string;
+  /** PR72 §E: the field is locked — read-only, lock icon, no Edit. */
+  locked?: boolean;
+  lockedValue?: string | null;
   icon: React.ReactNode;
   body: React.ReactNode;
 };

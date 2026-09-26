@@ -1,7 +1,9 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { Lock, MessageCircle } from 'lucide-react'
 import { TILE_TONE } from '@/lib/tileTones'
+import { supportWhatsappHref } from '@/lib/errorMessages'
 import {
   URDU_FONT,
   STATUS_META,
@@ -82,6 +84,8 @@ export function StatusCard({
   summary,
   open = true,
   onEdit,
+  locked = false,
+  lockedValue,
   children,
 }: {
   cardKey: string
@@ -96,12 +100,16 @@ export function StatusCard({
   open?: boolean
   /** Tapping Edit; presence of this + a non-empty summary makes the card collapsible. */
   onEdit?: () => void
+  /** PR72 §E: the field is locked — read-only, a lock icon, no Edit, a
+   *  "contact support" note. `lockedValue` is the value shown read-only. */
+  locked?: boolean
+  lockedValue?: string | null
   children: ReactNode
 }) {
   const meta = STATUS_META[status]
   const copy = CARDS[cardKey]
   const badge = STATUS_META[status].badge
-  const collapsible = !!onEdit && !!summary && summary.trim() !== ''
+  const collapsible = !locked && !!onEdit && !!summary && summary.trim() !== ''
   const showBody = !collapsible || open
 
   return (
@@ -109,7 +117,10 @@ export function StatusCard({
       {/* English title + badge on one row; the Urdu title and Urdu badge each on
           their own full-width right-aligned line below. */}
       <div className="flex items-start justify-between gap-3">
-        <h3 className="text-sm font-black text-tm-navy">{copy.title.en}</h3>
+        <h3 className="flex items-center gap-1.5 text-sm font-black text-tm-navy">
+          {locked && <Lock aria-hidden size={13} className="shrink-0 text-gray-500" />}
+          {copy.title.en}
+        </h3>
         <StatusBadge status={status} />
       </div>
       <Urdu className="text-[13px] font-bold text-tm-navy">{copy.title.ur}</Urdu>
@@ -125,7 +136,25 @@ export function StatusCard({
         <p className="rounded-xl bg-white/70 p-2.5 text-[11px] font-semibold text-tm-red">{reason}</p>
       )}
 
-      {showBody ? (
+      {locked ? (
+        // PR72 §E: read-only value + a lock icon (in the title) + a "contact
+        // support" note in English and Urdu with the WhatsApp link. No Edit.
+        <div className="space-y-2 pt-1">
+          {lockedValue && lockedValue.trim() !== '' && (
+            <p className="rounded-xl bg-white p-3 text-xs font-semibold text-tm-navy">{lockedValue}</p>
+          )}
+          <p className="text-[11px] leading-relaxed text-gray-600">To change this, contact support.</p>
+          <Urdu className="text-[11px] leading-relaxed text-gray-600">تبدیلی کے لیے سپورٹ سے رابطہ کریں۔</Urdu>
+          <a
+            href={supportWhatsappHref()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-tm-navy/30 px-3 text-[11px] font-bold text-tm-navy transition-colors hover:bg-tm-tint-navy"
+          >
+            <MessageCircle aria-hidden size={13} /> WhatsApp 0321 5872222
+          </a>
+        </div>
+      ) : showBody ? (
         <div className="pt-1">
           {bare ? children : <div className="rounded-xl bg-white p-3 sm:p-4">{children}</div>}
         </div>
