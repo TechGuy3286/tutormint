@@ -21,6 +21,7 @@ import { READONLY_LINES, type CardStatus } from '@/lib/tutorSettingsCopy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange, feeLabelOf } from '@/lib/fee'
 import type { DocumentStatuses, DocState } from '@/lib/tutorDocuments'
 import { labelsForMasterIds } from '@/lib/taxonomy'
+import { L } from '@/lib/onboarding/copy'
 import SubjectPicker from '@/components/tutor/SubjectPicker'
 import VideoUpload from '@/components/tutor/VideoUpload'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
@@ -107,6 +108,9 @@ export default function TutorSettingsPage() {
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState("");
   const [selfieBusy, setSelfieBusy] = useState(false);
   const [selfieError, setSelfieError] = useState("");
+  // "Show my picture to parents" (PR70). Default on; read tolerantly from the
+  // select('*') load so a not-yet-applied migration means "shown".
+  const [showAvatar, setShowAvatar] = useState(true);
 
   // Subjects are the tutor's taxonomy_master ids (SubjectPicker, PR 3b §2.4).
   const [subjectIds, setSubjectIds] = useState<number[]>([]);
@@ -239,6 +243,9 @@ export default function TutorSettingsPage() {
           jobTypes: (tp.job_types as string[] | null) ?? [],
           profileImage: tp.avatar_url || "",
         });
+        // Tolerant: `select('*')` simply omits show_avatar before the migration,
+        // so undefined → shown (the default). Only an explicit false hides it.
+        setShowAvatar((tp as { show_avatar?: boolean | null }).show_avatar !== false);
 
         const { data: selfieDoc } = await supabase
           .from('user_documents')
@@ -382,6 +389,12 @@ export default function TutorSettingsPage() {
   const saveSubjects = () => postProfileSave({ subjectMasterIds: subjectIds });
 
   const saveAvailability = () => tutorUpdate({ availability_list: availabilityList });
+  // "Show my picture to parents" (PR70): flip immediately, write direct (RLS-scoped
+  // to the tutor's own row). Tolerant of the not-yet-applied migration.
+  const saveShowAvatar = async (value: boolean) => {
+    setShowAvatar(value);
+    try { await tutorUpdate({ show_avatar: value }); } catch { /* pre-migration or transient */ }
+  };
   const saveDegrees = () => tutorUpdate({ degrees });
   const saveCertifications = () => tutorUpdate({ certifications });
 
@@ -557,23 +570,54 @@ export default function TutorSettingsPage() {
       reason: statuses?.profilePic.reason,
       icon: <ImageIcon size={20} aria-hidden />,
       body: (
-        <FileUpload
-          label="Profile photo"
-          acceptLabel="JPG or PNG"
-          shape="square"
-          changeLabel="Change photo"
-          busy={uploading}
-          onFile={handleProfileImageChange}
-          currentPreview={
-            <Avatar
-              name={formData.fullName}
-              src={formData.profileImage || null}
-              decorative
-              ring=""
-              className="h-full w-full rounded-none text-2xl"
-            />
-          }
-        />
+        <div className="space-y-3">
+          <FileUpload
+            label="Profile photo"
+            acceptLabel="JPG or PNG"
+            shape="square"
+            changeLabel="Change photo"
+            busy={uploading}
+            onFile={handleProfileImageChange}
+            currentPreview={
+              <Avatar
+                name={formData.fullName}
+                src={formData.profileImage || null}
+                decorative
+                ring=""
+                className="h-full w-full rounded-none text-2xl"
+              />
+            }
+          />
+          {/* The picture/selfie instruction (PR70 §4). */}
+          <div className="rounded-xl bg-tm-tint-navy p-3">
+            <p className="text-[11px] leading-relaxed text-tm-navy">{L.pictureNote.en}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-tm-navy" lang="ur" dir="rtl">{L.pictureNote.ur}</p>
+          </div>
+          {/* "Show my picture to parents" toggle (PR70 §2). Default on; the tutor
+              still sees their own photo above with a "Hidden from parents" note. */}
+          <div className="rounded-xl border border-gray-200 bg-white p-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showAvatar}
+              onClick={() => void saveShowAvatar(!showAvatar)}
+              className="flex w-full items-center justify-between gap-3 text-left"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-tm-navy">{L.showAvatar.en}</span>
+                <span className="block text-[11px] text-gray-500" lang="ur" dir="rtl">{L.showAvatar.ur}</span>
+              </span>
+              <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${showAvatar ? 'bg-tm-green-deep' : 'bg-gray-300'}`}>
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${showAvatar ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </span>
+            </button>
+            {!showAvatar && (
+              <p className="mt-2 text-[11px] font-bold text-tm-gold-ink">
+                {L.hiddenFromParents.en} — <span lang="ur" dir="rtl">{L.hiddenFromParents.ur}</span>
+              </p>
+            )}
+          </div>
+        </div>
       ),
     },
     {
@@ -583,6 +627,11 @@ export default function TutorSettingsPage() {
       icon: <Camera size={20} aria-hidden />,
       body: (
         <div className="space-y-1.5">
+          {/* The picture/selfie instruction (PR70 §4). */}
+          <div className="rounded-xl bg-tm-tint-navy p-3">
+            <p className="text-[11px] leading-relaxed text-tm-navy">{L.pictureNote.en}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-tm-navy" lang="ur" dir="rtl">{L.pictureNote.ur}</p>
+          </div>
           <div className="w-40">
             <PhotoCaptureTile
               facingMode="user"

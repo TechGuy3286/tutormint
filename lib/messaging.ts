@@ -21,6 +21,7 @@ import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { tuitionPath } from '@/lib/slugs'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { hiddenAvatarTutorIds } from '@/lib/showAvatar'
 import { getEntitlements, badgesForPlan } from '@/lib/entitlements'
 import { renderMessageBody } from '@/lib/masking'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
@@ -820,12 +821,18 @@ export async function threadPage({
     unreadByThread(userId),
   ])
 
+  // A tutor who hid their picture (PR70) shows initials to the parent in the
+  // inbox too. The other party's photo is nulled when they are a tutor with
+  // show_avatar=false; a parent has no such flag and is never affected.
+  const hiddenAvatars = await hiddenAvatarTutorIds(admin, otherIds)
+
   const names = new Map<string, { name: string; role: string | null; avatar: string | null }>()
   for (const p of people.data ?? []) {
-    names.set(p.id as string, {
+    const pid = p.id as string
+    names.set(pid, {
       name: (p.full_name as string) ?? NAME_FALLBACK,
       role: (p.role as string) ?? null,
-      avatar: (p.avatar_url as string) ?? null,
+      avatar: hiddenAvatars.has(pid) ? null : ((p.avatar_url as string) ?? null),
     })
   }
 
@@ -977,6 +984,11 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
     otherName = (profile?.full_name as string) ?? otherName
     otherAvatar = (profile?.avatar_url as string) ?? null
     otherRole = (profile?.role as string) ?? null
+    // The counterpart tutor's hidden picture (PR70) → initials in the header too.
+    if (otherAvatar) {
+      const hidden = await hiddenAvatarTutorIds(admin, [otherId])
+      if (hidden.has(otherId)) otherAvatar = null
+    }
     otherSlug = (tutor?.slug as string) ?? null
     otherBadges = badgesForPlan(
       (subs ?? [])[0]?.plan_code as string | undefined,

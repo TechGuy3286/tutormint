@@ -12,7 +12,7 @@ import { isValidCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
-import { EXPERIENCE_BANDS, composeHeadline, composeBio, type OnboardingAnswers } from '@/lib/onboarding/copy'
+import { EXPERIENCE_BANDS, composeHeadline, composeBio, L, type OnboardingAnswers } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import type { OnboardingFacets } from '@/lib/openJobCounts'
 import { fetchTaxonomyTree, resolveMasterIds, fetchNonLegacyMasters, type TaxonomyNode } from '@/lib/taxonomy'
@@ -56,6 +56,7 @@ const TITLES: Record<FlowStepKey, string> = {
   name: 'Your full name',
   gender: 'You are',
   photo: 'Add your photo',
+  selfie: 'Take a selfie',
   tagline: 'Your professional tagline',
   bio: 'A short about-you',
   experience: 'Years of experience',
@@ -79,6 +80,7 @@ const URDU: Record<FlowStepKey, string> = {
   name: 'آپ کا پورا نام',
   gender: 'آپ ہیں',
   photo: 'اپنی تصویر لگائیں',
+  selfie: 'سیلفی لیں',
   tagline: 'آپ کا پیشہ ورانہ عنوان',
   bio: 'اپنے بارے میں مختصر',
   experience: 'تجربے کے سال',
@@ -117,6 +119,9 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   const [selByCat, setSelByCat] = useState<Record<string, string[]>>({})
   // The tutor's saved availability slots prefill the availability step (PR69).
   const [availabilityInit, setAvailabilityInit] = useState<{ day: string; timeSlot: string }[]>([])
+  // "Show my picture to parents" (PR70). Default ON; a new tutor (no photo yet) is
+  // the only one who reaches the photo step, so defaulting on is exactly right.
+  const [showAvatar, setShowAvatar] = useState(true)
   // The tutor's actual saved subject master ids, so the subjects step preselects
   // them and a toggle EDITS the set rather than replacing it with one pick.
   const [subjectIds, setSubjectIds] = useState<number[]>([])
@@ -152,7 +157,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       router.push(`/login?next=${encodeURIComponent(selfHref())}`)
       return null
     }
-    const [{ data: p }, { data: tp }, subj, deg] = await Promise.all([
+    const [{ data: p }, { data: tp }, subj, deg, self] = await Promise.all([
       supabase.from('profiles')
         .select('full_name, city, cnic_number, cnic_image_path, phone_verified_at, phone_number, verification_state, is_seed, is_team_account, is_banned, is_suspended')
         .eq('id', user.id).maybeSingle(),
@@ -161,6 +166,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         .eq('id', user.id).maybeSingle(),
       supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
       supabase.from('user_documents').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('kind', 'degree'),
+      supabase.from('user_documents').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('kind', 'selfie'),
     ])
     const ids = (subj.data ?? []).map((r) => r.master_id as number)
     setAvailabilityInit(Array.isArray(tp?.availability_list) ? (tp.availability_list as { day: string; timeSlot: string }[]) : [])
@@ -200,6 +206,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       cnicNumber: (p?.cnic_number as string) ?? null,
       cnicImagePath: (p?.cnic_image_path as string) ?? null,
       subjectCount: ids.length,
+      selfieDone: (self.count ?? 0) > 0,
       availabilityCount: Array.isArray(tp?.availability_list) ? tp.availability_list.length : 0,
       phoneVerified: !!p?.phone_verified_at,
       feePaid: !!tp?.verified_fee_paid_at,
@@ -382,6 +389,19 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       toast.error(e instanceof Error ? e.message : 'Could not save.')
     }
   }, [supabase, facts, stepKey, toast])
+
+  // "Show my picture to parents" (PR70): a direct, RLS-scoped update of the
+  // tutor's own row. Tolerant of the not-yet-applied migration — if the column
+  // is missing, the local toggle still reflects the choice and the write is a
+  // no-op that surfaces no error to a new tutor mid-onboarding.
+  const saveShowAvatar = useCallback(async (value: boolean) => {
+    setShowAvatar(value)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      await supabase.from('tutor_profiles').update({ show_avatar: value }).eq('id', user.id)
+    } catch { /* pre-migration or transient — the choice is kept locally */ }
+  }, [supabase])
 
   if (!facts || !stepKey) {
     return <div className="grid min-h-screen place-items-center text-xs font-bold text-gray-500">Loading…</div>
@@ -581,11 +601,22 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         )}
 
         {stepKey === 'photo' && (
-          <PhotoStep
-            seed={seed}
-            currentUrl={facts.avatarUrl}
-            onUploaded={(url) => void tapSave({ tutorProfile: { avatar_url: url } }, { avatarUrl: url })}
-          />
+          <div className="space-y-4">
+            <PhotoStep
+              seed={seed}
+              currentUrl={facts.avatarUrl}
+              onUploaded={(url) => void tapSave({ tutorProfile: { avatar_url: url } }, { avatarUrl: url })}
+            />
+            <PictureNote />
+            <ShowAvatarToggle value={showAvatar} onChange={(v) => void saveShowAvatar(v)} />
+          </div>
+        )}
+
+        {/* Selfie (PR70 §5): a verification selfie, reusing the Settings upload
+            (front camera, private bucket, sets the selfie status to pending).
+            Optional — "Later" continues the flow. */}
+        {stepKey === 'selfie' && (
+          <SelfieStep done={facts.selfieDone} onDone={() => void advance()} onLater={() => void advance()} />
         )}
 
         {stepKey === 'name' && (
@@ -637,7 +668,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
                 only way to leave the flow. */}
             {/* The component-driven steps advance from their own callback; the
                 rest advance on this button. Blockers require the step done. */}
-            {!['mobile', 'verify', 'cnic', 'video', 'degree', 'photo', 'name', 'tagline', 'bio', 'fee', 'area', 'level', 'subjects', 'availability'].includes(stepKey) && (
+            {!['mobile', 'verify', 'cnic', 'video', 'degree', 'photo', 'selfie', 'name', 'tagline', 'bio', 'fee', 'area', 'level', 'subjects', 'availability'].includes(stepKey) && (
               <button
                 type="button" onClick={() => void advance()} disabled={busy || (isBlocker && !stepDone(facts, stepKey))}
                 className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
@@ -1174,6 +1205,114 @@ function PhotoStep({ seed, currentUrl, onUploaded }: { seed: string; currentUrl:
       <button type="button" disabled={busy} onClick={() => galleryRef.current?.click()}
         className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700 disabled:opacity-60">
         Choose from gallery
+      </button>
+    </div>
+  )
+}
+
+// The shared picture/selfie instruction (PR70 §4). English over Urdu, the same
+// style as every other step's sub-label.
+function PictureNote() {
+  return (
+    <div className="rounded-xl bg-tm-tint-navy p-3">
+      <p className="text-[11px] leading-relaxed text-tm-navy">{L.pictureNote.en}</p>
+      <p className="mt-1 text-[11px] leading-relaxed text-tm-navy" lang="ur" dir="rtl">{L.pictureNote.ur}</p>
+    </div>
+  )
+}
+
+// "Show my picture to parents" (PR70 §2). Default on; off shows a "Hidden from
+// parents" note. English label with Urdu beneath.
+function ShowAvatarToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-3">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        onClick={() => onChange(!value)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-bold text-tm-navy">{L.showAvatar.en}</span>
+          <span className="block text-[11px] text-gray-500" lang="ur" dir="rtl">{L.showAvatar.ur}</span>
+        </span>
+        <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${value ? 'bg-tm-green-deep' : 'bg-gray-300'}`}>
+          <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        </span>
+      </button>
+      {!value && (
+        <p className="mt-2 text-[11px] font-bold text-tm-gold-ink">
+          {L.hiddenFromParents.en} — <span lang="ur" dir="rtl">{L.hiddenFromParents.ur}</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
+// The onboarding selfie step (PR70 §5): the same front-camera upload as Settings
+// (private bucket, sets the selfie status to pending), plus the shared note.
+// Optional — "Later" continues the flow.
+function SelfieStep({ done, onDone, onLater }: { done: boolean; onDone: () => void; onLater: () => void }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const [preview, setPreview] = useState<string | null>(null)
+  const uploaded = done || !!preview
+
+  async function upload(file: File) {
+    setBusy(true)
+    try {
+      const img = await compressUnder1MB(file)
+      const body = new FormData()
+      body.append('kind', 'selfie')
+      body.append('file', img)
+      const res = await fetch('/api/documents/upload', { method: 'POST', body })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.previewUrl) throw new Error(data?.error || 'That photo could not be uploaded. Try a JPG or PNG.')
+      setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
+      toast.success('Selfie uploaded.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not upload the selfie.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <PictureNote />
+      <div className="mx-auto w-40">
+        <PhotoCaptureTile
+          facingMode="user"
+          aspectClass="aspect-square"
+          label={uploaded ? 'Selfie added' : 'Selfie'}
+          ariaLabel="your verification selfie"
+          busy={busy}
+          done={uploaded}
+          preview={
+            preview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={preview} alt="Your verification selfie" className="h-full w-full object-cover" />
+            ) : null
+          }
+          onPick={(f) => void upload(f)}
+        />
+      </div>
+      <button
+        type="button"
+        disabled={busy || !uploaded}
+        onClick={onDone}
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40"
+      >
+        {busy ? '…' : 'Save & continue'}
+      </button>
+      <button
+        type="button"
+        onClick={onLater}
+        disabled={busy}
+        className="w-full text-center text-[11px] font-bold text-gray-500 underline disabled:opacity-40"
+      >
+        Add it later — آپ بعد میں شامل کر سکتے ہیں
       </button>
     </div>
   )

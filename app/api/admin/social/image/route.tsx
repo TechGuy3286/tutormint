@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { avatarShown } from '@/lib/showAvatar'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { badgesForPlan } from '@/lib/planBadges'
 import { absoluteUrl } from '@/lib/siteUrl'
@@ -87,6 +88,10 @@ export async function GET(request: Request) {
   const listed = !!listedRow
   const hasReviewedDegree = Array.isArray(tp.degrees) && (tp.degrees as unknown[]).length > 0
 
+  // The banner is public marketing, so it honours the tutor's "show my picture
+  // to parents" toggle (PR70) — hidden → initials, like the public profile.
+  const showPhoto = await avatarShown(admin, tp.id as string)
+
   const tutor = {
     id: tp.id,
     slug: tp.slug,
@@ -96,7 +101,7 @@ export async function GET(request: Request) {
     area: tp.area,
     rating_avg: tp.rating_avg,
     rating_count: tp.rating_count,
-    avatar_url: tp.avatar_url,
+    avatar_url: showPhoto ? tp.avatar_url : null,
     experience_years: tp.experience_years,
     teaching_mode: tp.teaching_mode,
   }

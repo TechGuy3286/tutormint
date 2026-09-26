@@ -22,6 +22,7 @@ export type FlowStepKey =
   | 'name'
   | 'gender'
   | 'photo'
+  | 'selfie'
   | 'tagline'
   | 'bio'
   | 'experience'
@@ -46,6 +47,7 @@ export const FLOW_ORDER: FlowStepKey[] = [
   'name',
   'gender',
   'photo',
+  'selfie',
   'tagline',
   'bio',
   'experience',
@@ -106,6 +108,7 @@ export type FlowFacts = {
   cnicNumber: string | null
   cnicImagePath: string | null
   subjectCount: number
+  selfieDone: boolean
   availabilityCount: number
   phoneVerified: boolean
   feePaid: boolean
@@ -149,6 +152,10 @@ export function stepDone(f: FlowFacts, key: FlowStepKey): boolean {
       return nonblank(f.gender)
     case 'photo':
       return nonblank(f.avatarUrl)
+    // The verification selfie is optional in the flow (the tutor continues via
+    // "Later"); it reads as done once a selfie document is on file (PR70).
+    case 'selfie':
+      return f.selfieDone
     case 'tagline':
       return nonblank(f.headline)
     case 'bio':

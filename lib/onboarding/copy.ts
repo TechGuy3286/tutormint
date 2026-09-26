@@ -29,6 +29,14 @@ export const L = {
   selfie: { en: 'Take a selfie', ur: 'سیلفی لیں' },
   review: { en: 'Your profile', ur: 'آپ کا پروفائل' },
 
+  // The picture/selfie visibility toggle and the shared instruction (PR70).
+  showAvatar: { en: 'Show my picture to parents', ur: 'اپنی تصویر والدین کو دکھائیں' },
+  hiddenFromParents: { en: 'Hidden from parents', ur: 'والدین سے چھپی ہوئی' },
+  pictureNote: {
+    en: 'Your picture and selfie are used to check you are a real person. Only TutorMint’s verification team sees your selfie. If you don’t want your profile picture shown to parents, you can hide it — you still need to upload it.',
+    ur: 'آپ کی تصویر اور سیلفی صرف اس بات کی تصدیق کے لیے لی جاتی ہیں کہ آپ ایک حقیقی فرد ہیں۔ آپ کی سیلفی صرف ٹیوٹرمنٹ کی تصدیقی ٹیم دیکھتی ہے۔ اگر آپ نہیں چاہتے کہ آپ کی پروفائل تصویر والدین کو دکھائی جائے تو آپ اسے چھپا سکتے ہیں — لیکن اسے اپ لوڈ کرنا پھر بھی ضروری ہے۔',
+  },
+
   // Controls.
   next: { en: 'Next', ur: 'آگے' },
   back: { en: 'Back', ur: 'پیچھے' },

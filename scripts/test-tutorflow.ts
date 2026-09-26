@@ -31,7 +31,7 @@ const FULL: FlowFacts = {
   fullName: 'Sana', gender: 'female', city: 'Lahore', area: 'Gulberg',
   avatarUrl: 'https://x/a.jpg', headline: 'O Level Physics tutor', bio: 'I teach physics.',
   experienceYears: 3, hourlyRate: 15000, jobTypes: ['Home Tutor'], degreesCount: 1, degreeDocCount: 1,
-  cnicNumber: '35201-1234567-1', cnicImagePath: 'p/cnic', subjectCount: 2, availabilityCount: 1, phoneVerified: true,
+  cnicNumber: '35201-1234567-1', cnicImagePath: 'p/cnic', subjectCount: 2, selfieDone: true, availabilityCount: 1, phoneVerified: true,
   feePaid: true, videoDone: true,
   isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false, underReview: false,
   verificationStatus: 'verified', imported: false, claimedAt: null,
@@ -41,7 +41,7 @@ const FULL: FlowFacts = {
 const EMPTY: FlowFacts = {
   fullName: 'New Tutor', gender: null, city: null, area: null, avatarUrl: null, headline: null, bio: null,
   experienceYears: null, hourlyRate: null, jobTypes: [], degreesCount: 0, degreeDocCount: 0,
-  cnicNumber: null, cnicImagePath: null, subjectCount: 0, availabilityCount: 0, phoneVerified: false, feePaid: false,
+  cnicNumber: null, cnicImagePath: null, subjectCount: 0, selfieDone: false, availabilityCount: 0, phoneVerified: false, feePaid: false,
   videoDone: false, isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false,
   underReview: false, verificationStatus: 'pending', imported: false, claimedAt: null,
 }

@@ -2,6 +2,7 @@ import 'server-only'
 
 import { createClient } from '@/lib/supabase/server'
 import { absoluteUrl, SITE_URL } from '@/lib/siteUrl'
+import { avatarShown } from '@/lib/showAvatar'
 import type { CvRaw, CvSubjectGroup } from '@/lib/cv/model'
 
 // Reads a tutor's OWN profile into a CvRaw — the base tables, not the
@@ -74,9 +75,14 @@ export async function buildCvRaw(userId: string): Promise<CvRaw> {
 
   const slug = (tp?.slug as string | null) ?? null
 
+  // The CV is a shareable artifact (a parent downloads it), so it honours the
+  // "show my picture to parents" toggle (PR70): hidden → initials, like every
+  // other non-staff surface. Tolerant of the not-yet-applied migration.
+  const showPhoto = await avatarShown(supabase, userId)
+
   return {
     fullName: (profile?.full_name as string) || 'Tutor',
-    avatarUrl: (profile?.avatar_url as string | null) ?? null,
+    avatarUrl: showPhoto ? ((profile?.avatar_url as string | null) ?? null) : null,
     city: (profile?.city as string | null) ?? null,
     area: (tp?.area as string | null) ?? null,
     headline: (tp?.headline as string | null) ?? null,
