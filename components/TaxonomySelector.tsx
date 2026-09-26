@@ -105,6 +105,12 @@ export default function TaxonomySelector({
     else setSelectedGrades([...selectedGrades, g]);
   };
 
+  // "Select all grades in this level" (owner PR64 §B2): pick every grade the
+  // chosen level offers in one tap, or clear them.
+  const allGradesSelected =
+    gradesList.length > 0 && gradesList.every((g) => selectedGrades.includes(g));
+  const toggleAllGrades = () => setSelectedGrades(allGradesSelected ? [] : [...gradesList]);
+
   if (loading) {
     return <div className="text-xs text-gray-500 py-4">Loading taxonomy structure...</div>;
   }
@@ -136,15 +142,26 @@ export default function TaxonomySelector({
         <div className="space-y-2">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <label className="text-xs font-bold text-tm-navy block">Grade or specialisation</label>
-            {gradesList.length > 6 && (
-              <input
-                type="text"
-                placeholder="Search grades..."
-                value={gradeSearch}
-                onChange={(e) => setGradeSearch(e.target.value)}
-                className="min-h-[44px] p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none w-full sm:w-48 text-slate-700"
-              />
-            )}
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              {gradesList.length > 6 && (
+                <input
+                  type="text"
+                  placeholder="Search grades..."
+                  value={gradeSearch}
+                  onChange={(e) => setGradeSearch(e.target.value)}
+                  className="min-h-[44px] p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none flex-1 sm:w-48 text-slate-700"
+                />
+              )}
+              {allowSelectAll && gradesList.length > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleAllGrades}
+                  className="inline-flex min-h-[44px] items-center text-[11px] font-extrabold text-tm-red hover:underline whitespace-nowrap cursor-pointer"
+                >
+                  {allGradesSelected ? 'Deselect all grades' : 'Select all grades'}
+                </button>
+              )}
+            </div>
           </div>
 
           {selectedGrades.length > 0 && (

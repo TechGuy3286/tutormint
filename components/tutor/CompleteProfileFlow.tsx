@@ -304,7 +304,8 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   }
 
   const isBlocker = stepKey !== 'final' && BLOCKER_STEPS.has(stepKey)
-  const canSkip = stepKey !== 'final' && !isBlocker
+  // Skip is removed from every step (owner PR64 §A4); only the top "Later" link
+  // lets a tutor leave the flow.
   const stepIndex = stepKey === 'final' ? FLOW_ORDER.length : FLOW_ORDER.indexOf(stepKey)
 
   return (
@@ -487,11 +488,8 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       {stepKey !== 'final' && (
         <div className="fixed inset-x-0 bottom-0 border-t border-gray-200 bg-white px-4 py-3">
           <div className="mx-auto flex max-w-md items-center gap-3">
-            {canSkip && (
-              <button type="button" onClick={() => void advance()} className="min-h-[48px] rounded-xl px-4 text-sm font-bold text-gray-500">
-                Skip
-              </button>
-            )}
+            {/* Skip removed (owner PR64 §A4) — the "Later" link at the top is the
+                only way to leave the flow. */}
             {/* The component-driven steps advance from their own callback; the
                 rest advance on this button. Blockers require the step done. */}
             {!['mobile', 'verify', 'cnic', 'video', 'degree', 'photo', 'name', 'tagline', 'bio', 'fee'].includes(stepKey) && (

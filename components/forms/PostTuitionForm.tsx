@@ -346,6 +346,9 @@ export default function PostTuitionForm({
               Loading the subjects on this job…
             </p>
           ) : (
+            /* Select-all subjects + "Select all grades" are enabled on the
+               tuition form (owner PR64 §B, superseding the earlier "post-a-tuition
+               drops Select all" note). */
             <TaxonomySelector
               selectedLevel={v.category}
               setSelectedLevel={(x) => setV((p) => ({ ...p, category: x, levels: [], subjects: [] }))}
@@ -353,7 +356,7 @@ export default function PostTuitionForm({
               setSelectedGrades={(x) => set('levels', x)}
               selectedSubjects={v.subjects}
               setSelectedSubjects={(x) => set('subjects', x)}
-              allowSelectAll={false}
+              allowSelectAll
             />
           )}
           {levelLeaf && v.levels.length > 0 && (
