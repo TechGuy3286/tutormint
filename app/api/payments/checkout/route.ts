@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getProvider, newPaymentReference } from '@/lib/payments'
+import { pproVisibleFor, startPayproCheckout, toPayproMobile } from '@/lib/payments/paypro'
+import { isSyntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, text } from '@/lib/validate'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
+
+// node:https (PayPro) needs the Node runtime, not edge.
+export const runtime = 'nodejs'
 
 // Start a purchase.
 //
@@ -96,6 +101,52 @@ export async function POST(request: Request) {
         },
         { status: 400 },
       )
+    }
+  }
+
+  // PayPro (PR65). While the gateway is in sandbox it is offered ONLY to
+  // owner/staff/seed accounts (pproVisibleFor); every other member falls through
+  // to the existing provider path below, unchanged. The amount is the plan price
+  // read above — never the client's. If PayPro is not configured, pproVisibleFor
+  // is false and nothing changes.
+  {
+    const { data: payProfile } = await supabase
+      .from('profiles')
+      .select('admin_role, is_seed, full_name, phone_number, email, utm_source, utm_medium, utm_campaign, utm_content')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (payProfile && pproVisibleFor(payProfile)) {
+      const rawEmail = typeof payProfile.email === 'string' ? payProfile.email : ''
+      const started = await startPayproCheckout({
+        userId: user.id,
+        planCode: plan.code as string,
+        amountPkr: plan.price_pkr as number,
+        customer: {
+          name: (payProfile.full_name as string) ?? 'Customer',
+          mobile: toPayproMobile(payProfile.phone_number as string | null),
+          email: rawEmail && !isSyntheticEmail(rawEmail) ? rawEmail : '',
+        },
+        utm: {
+          source: (payProfile.utm_source as string) ?? null,
+          medium: (payProfile.utm_medium as string) ?? null,
+          campaign: (payProfile.utm_campaign as string) ?? null,
+          content: (payProfile.utm_content as string) ?? null,
+        },
+      })
+      if (!started.ok) return NextResponse.json({ error: started.error }, { status: started.status })
+      await logActivity({
+        userId: user.id,
+        event: 'payment_submitted',
+        targetType: 'payment',
+        targetId: started.paymentId,
+        meta: { planCode: plan.code, provider: 'paypro', reference: started.reference, amountPkr: plan.price_pkr },
+      })
+      return NextResponse.json({
+        mode: 'redirect',
+        url: started.url,
+        reference: started.reference,
+        paymentId: started.paymentId,
+      })
     }
   }
 

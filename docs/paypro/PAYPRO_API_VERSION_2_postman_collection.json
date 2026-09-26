@@ -1,0 +1,632 @@
+{
+	"info": {
+		"_postman_id": "c9ccedb3-a30d-4c03-a484-316d6df6a59b",
+		"name": "PAYPRO API VERSION 2",
+		"description": "**PayPro** Rest APIs\n\nResponse Codes with their description\n\n| **Status** | **Description** |\n| --- | --- |\n| **00** | Success |\n| **01** | Invalid Data. The username cannot be empty |\n| **01** | Invalid Data. The username length is invalid |\n| **02** | Service Failed. The user is not authorized for this service |\n| **03** | No data available |",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "14543555"
+	},
+	"item": [
+		{
+			"name": "PayPro Auth",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"clientid\": \"Client ID\",\r\n    \"clientsecret\": \"Client Secret\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/auth",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"auth"
+					]
+				},
+				"description": "PayPro Auth API to get API request token.\n\nNote:\n\n- Auth Token is returned inside the response header as param called token.\n- Token param will be returned as **Token** in live env."
+			},
+			"response": []
+		},
+		{
+			"name": "Create Single Order ppro/co V2",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "token",
+						"value": "Token from Auth API to be passed here",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "[\r\n    {\r\n        \"MerchantId\": \"Enter Your Provided Username\"\r\n    },\r\n    {\r\n        \"OrderNumber\": \"Test-803\",\r\n        \"OrderAmount\": \"200\",\r\n        \"OrderDueDate\": \"25/10/2021\",\r\n        \"OrderType\": \"Service\",\r\n        \"IssueDate\": \"05/05/2021\",\r\n        \"OrderExpireAfterSeconds\": \"0\",\r\n        \"CustomerName\": \"Fahad\",\r\n        \"CustomerMobile\": \"\",\r\n        \"CustomerEmail\": \"\",\r\n        \"CustomerAddress\": \"\"\r\n    }\r\n]",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/co",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"co"
+					]
+				},
+				"description": "PayPro Create Single Order API. API is used to create/generate an invoice on PayPro which customer can pay via merchant-opted payment methods.\n\n**REQUEST PARAMETERS**\n\n| **Parameter** | **Description** | **Required** |\n| --- | --- | --- |\n| **MerchantId** | Merchant ID of the merchant also known as the username. | **Y** |\n| **OrderNumber** | The order Number of the invoice can be alpha-number | **Y** |\n| **OrderAmount** | The amount to be charged to the customer upon payment. | **Y** |\n| **OrderDueDate** | Order Due Date the invoice will remain payable till this date. | **Y** |\n| **OrderType** | This param will remain static as **Service** | **Y** |\n| **IssueDate** | Invoice issue date | **Y** |\n| **OrderExpireAfterSeconds** | If it is required that invoice should be block after certain amount of time you can pass those number of seconds in this param and invoice will automatically get Blocked after that time. | **N** |\n| **ReusableConsumerId** | It is a optional parameter to be used when you want to create invoice for an consumer. | N |\n| **CustomerName** | Customer Name | **Y** |\n| **CustomerMobile** | Customer Mobile can be passed empty if you do not want to send SMS to the customer. Parameter can be passed empty but it must be present in the request payload. Also note that PayPro only supports Pakistani phone numbers in **03XXXXXXXXX** format. | **Y** |\n| **CustomerEmail** | Customer Email Address can be passed empty if you do not want to send Email to the customer. Parameter can be passed empty but it must be present in the request payload | **Y** |\n| **CustomerAddress** | Customer Address parameter can be passed empty but it must be present in the request payload | **Y** |\n\n**RESPONSE PARAMETERS**\n\n| **Parameter** | **Description** |\n| --- | --- |\n| **OrderAmount** | Amount Payable |\n| **Description** | Action description according of response status |\n| **Created_on** | Invoice creation date as per PayPro's system |\n| **Order_Expire_After_Seconds** | Amount of seconds after which invoice will get blocked automatically. |\n| **Click2Pay** | This is the **payment link** on which user/customer can make the payment for invoice using their debit/credit card. |\n| **BillUrl** | Digital pdf invoice link |\n| **OrderNumber** | Invoice Order Number |\n| **PayProId** | The unique invoice ID against which payment can be made using any banking platform available (Pakistan Only). |\n| **PayProFee** | Amount convenience fee to be applied when making payment using Banking Platform. |\n| **IsFeeApplied** | Let know if convenience fee will be paid by customer or merchant. |\n\n**Note:** If convenience fee is applied to customer the total amount including the convenience fee will be shown in the banking platform(Banking Apps) if not then customer will see the invoice amount."
+			},
+			"response": [
+				{
+					"name": "Create Single Order ppro/co V2",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "token",
+								"value": "Auth Token To Be Placed Here",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[{\r\n\"MerchantId\": \"Merchant Username\"\r\n},\r\n{\r\n\"OrderNumber\": \"Test-909\",\r\n\"OrderAmount\": \"200\",\r\n\"OrderDueDate\": \"31/12/2022\",\r\n\"OrderType\": \"Service\",\r\n\"IssueDate\": \"31/12/2021\",\r\n\"OrderExpireAfterSeconds\": \"0\",\r\n\"CustomerName\": \"Customer\",\r\n\"CustomerMobile\": \"\",\r\n\"CustomerEmail\": \"\",\r\n\"CustomerAddress\": \"\"\r\n}]\r\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://demoapi.paypro.com.pk/v2/ppro/co",
+							"protocol": "https",
+							"host": [
+								"demoapi",
+								"paypro",
+								"com",
+								"pk"
+							],
+							"path": [
+								"v2",
+								"ppro",
+								"co"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Cache-Control",
+							"value": "no-cache"
+						},
+						{
+							"key": "Pragma",
+							"value": "no-cache"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json; charset=utf-8"
+						},
+						{
+							"key": "Expires",
+							"value": "-1"
+						},
+						{
+							"key": "Server",
+							"value": "Microsoft-IIS/8.5"
+						},
+						{
+							"key": "X-AspNet-Version",
+							"value": "4.0.30319"
+						},
+						{
+							"key": "X-Powered-By",
+							"value": "ASP.NET"
+						},
+						{
+							"key": "Access-Control-Allow-Origin",
+							"value": "*"
+						},
+						{
+							"key": "Access-Control-Allow-Headers",
+							"value": "Content-Type"
+						},
+						{
+							"key": "Expect-CT",
+							"value": "enforce, max-age=300, report-uri=https://www.demoapi.paypro.com.pk"
+						},
+						{
+							"key": "X-XSS-Protection",
+							"value": "1; mode=block"
+						},
+						{
+							"key": "Date",
+							"value": "Fri, 25 Feb 2022 04:39:09 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "794"
+						}
+					],
+					"cookie": [],
+					"body": "[\n    {\n        \"Status\": \"00\"\n    },\n    {\n        \"IPGList\": [\n            {\n                \"IPGName\": \"UP\",\n                \"isTransactionFeeApplied\": true,\n                \"Click2Pay_Link_Allowed\": true,\n                \"isAllowed\": false\n            },\n            {\n                \"IPGName\": \"BAF\",\n                \"isTransactionFeeApplied\": true,\n                \"Click2Pay_Link_Allowed\": true,\n                \"isAllowed\": false\n            },\n            {\n                \"IPGName\": \"NIFT\",\n                \"isTransactionFeeApplied\": true,\n                \"Click2Pay_Link_Allowed\": true,\n                \"isAllowed\": false\n            }\n        ],\n        \"OrderAmount\": \"200\",\n        \"Description\": \"Order number Test-909 created successfully\",\n        \"BAFCharge\": true,\n        \"1LinkCharge\": false,\n        \"Created_on\": \"2022-02-25T09:39:24\",\n        \"Order_Expire_After_Seconds\": 0,\n        \"Click2Pay\": \"https://marketplace.paypro.com.pk/pyb-demo/?bid=MDExMDIyMDU2MDAwMDE%3d\",\n        \"ConnectPayId\": \"01102205600001\",\n        \"FetchOrderType\": \"LIFO\",\n        \"ConnectPayFee\": \"60\",\n        \"BillUrl\": \"https://cpay.pk:1010/jCl1czXrFN\",\n        \"OrderNumber\": \"Test-909\",  \n        \"ParityAmount\": \"3\",\n        \"IsParity\": true,\n        \"PayProId\": \"01102205600001\",\n        \"IsFeeApplied\": \"False\",\n        \"PayProFee\": \"60\"\n    }\n]"
+				}
+			]
+		},
+		{
+			"name": "Create Multiple Orders (ppro/cmo) V2",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[\r\n    {\r\n        \"MerchantId\": \"Enter Your Provided Username\"\r\n    },\r\n    {\r\n        \"OrderNumber\": \"Test-804\",\r\n        \"OrderAmount\": \"200\",\r\n        \"OrderDueDate\": \"25/10/2021\",\r\n        \"OrderType\": \"Service\",\r\n        \"IssueDate\": \"05/05/2021\",\r\n        \"OrderExpireAfterSeconds\": \"0\",\r\n        \"CustomerName\": \"Fahad\",\r\n        \"CustomerMobile\": \"\",\r\n        \"CustomerEmail\": \"\",\r\n        \"CustomerAddress\": \"\"\r\n    },\r\n    {\r\n        \"OrderNumber\": \"Test-805\",\r\n        \"OrderAmount\": \"200\",\r\n        \"OrderDueDate\": \"25/10/2021\",\r\n        \"OrderType\": \"Service\",\r\n        \"IssueDate\": \"05/05/2021\",\r\n        \"OrderExpireAfterSeconds\": \"0\",\r\n        \"CustomerName\": \"Fahad\",\r\n        \"CustomerMobile\": \"\",\r\n        \"CustomerEmail\": \"\",\r\n        \"CustomerAddress\": \"\"\r\n    }\r\n]",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/cmo",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"cmo"
+					]
+				},
+				"description": "PayPro Create Multiple Orders API. API is used to create/generate multiple invoices at once on PayPro which customers can pay via merchant opted payment methods.\n\n**REQUEST PARAMETERS**\n\n| **Parameter** | **Description** | **Required** |\n| --- | --- | --- |\n| **MerchantId** | Merchant ID of the merchant also knows as Username. | **Y** |\n| **OrderNumber** | Order Number of the invoice can be alpha-number | **Y** |\n| **OrderAmount** | The amount to be charged to the customer upon payment. | Y |\n| **OrderDueDate** | Order Due Date the invoice will remain payable till this date. | **Y** |\n| **OrderType** | This param will remain static as **Service** | **Y** |\n| **IssueDate** | Invoice issue date | **Y** |\n| **OrderExpireAfterSeconds** | If it is required that invoice should be block after certain amount of time you can pass those number of seconds in this param and invoice will automatically get Blocked after that time. | **N** |\n| **CustomerName** | Customer Name | **Y** |\n| **CustomerMobile** | Customer Mobile can be passed empty if you do not want to send SMS to the customer. Parameter can be passed empty but it must be present in the request payload. Also note that PayPro only supports Pakistani phone numbers in **03XXXXXXXXX** format. | **Y** |\n| **CustomerEmail** | Customer Email Address can be passed empty if you do not want to send Email to the customer. Parameter can be passed empty but it must be present in the request payload | **Y** |\n| **CustomerAddress** | Customer Address parameter can be passed empty but it must be present in the request payload | **Y** |\n\nThe parameters are same as Create Single Order API just you will be passing multiple JSON objects containing invoice details.\n\n**RESPONSE PARAMETERS**\n\n| **Parameter** | **Description** |\n| --- | --- |\n| **OrderAmount** | Amount Payable |\n| **Description** | Action description according of response status |\n| **Created_on** | Invoice creation date as per PayPro's system |\n| **Order_Expire_After_Seconds** | Amount of seconds after which invoice will get blocked automatically. |\n| **Click2Pay** | This is the **payment link** on which user/customer can make the payment for invoice using their debit/credit card. |\n| **BillUrl** | Digital pdf invoice link |\n| **OrderNumber** | Invoice Order Number |\n| **PayProId** | The unique invoice ID against which payment can be made using any banking platform available (Pakistan Only). |\n| **PayProFee** | Amount convenience fee to be applied when making payment using Banking Platform. |\n| **IsFeeApplied** | Let know if convenience fee will be paid by customer or merchant. |\n\n**Note:**\n\n- If convenience fee is applied to customer the total amount including the convenience fee will be shown in the banking platform(Banking Apps) if not then customer will see the invoice amount.\n- The response remains same as Create Single Order API Response just you will be receiving multiple objects against each invoice which gets generated."
+			},
+			"response": []
+		},
+		{
+			"name": "Create Multiple Consumers V2",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[\r\n    {\r\n        \"MerchantId\": \"Enter Your Provided Username\"\r\n    },\r\n    {\r\n        \"ConsumerID\": \"7867861\",\r\n        \"Name\": \"Userone\",\r\n        \"Mobile\": \"03001234567\",\r\n        \"Email\": \"abcde@paypro.com.pk\",\r\n        \"Address\": \"Address\"\r\n    },\r\n    {\r\n        \"ConsumerID\": \"7867862\",\r\n        \"Name\": \"Usertwo\",\r\n        \"Mobile\": \"03001234567\",\r\n        \"Email\": \"abcde@paypro.com.pk\",\r\n        \"Address\": \"Address\"\r\n    }\r\n]",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/cmc",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"cmc"
+					]
+				},
+				"description": "PayPro Create Multiple Consumers is used to create/register single or multiple consumers in PayPro's system. Consumers contain fix Consumer ID which they can use to pay their latest generated invoice against their Consumer ID.\n\n| **Parameter** | **Description** | **Required** |\n| --- | --- | --- |\n| **MerchantId** | Merchant ID of the merchant also knows as Username. | **Y** |\n| **ConsumerID** | Consumer ID which you want assign to the consumer.  <br>**Note:** ConsumerID can be of max 20 digit however it should not be of 10 digit it can be lower or higher then 10 digits. | **Y** |\n| **Name** | Customer Name | **Y** |\n| **Mobile** | Customer Mobile Parameter can be passed empty but it must be present in the request payload | **Y** |\n| **Email** | Customer Email Address Parameter can be passed empty but it must be present in the request payload | **Y** |\n| **Address** | Customer Address parameter can be passed empty but it must be present in the request payload | **Y** |\n\n**Note:** The final consumer id will consist 4 digits PayPro prefix as well for example: **0110**874574"
+			},
+			"response": []
+		},
+		{
+			"name": "Update  Single Consumer (ppro/uc) V2",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[\r\n    {\r\n        \"MerchantId\": \"Enter Your Provided Username\"\r\n    },\r\n    {\r\n        \"ConsumerID\": \"ConsumerID\",\r\n        \"Name\": \"UserOneNew\",\r\n        \"Mobile\": \"03001234567\",\r\n        \"Email\": \"abcd@paypro.com.pk\",\r\n        \"Address\": \"Address\"\r\n    }\r\n]",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/uc",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"uc"
+					]
+				},
+				"description": "PayPro Update Single Consumer API is used to update a single consumer in PayPro's system.\n\n| **Parameter** | **Description** | **Required** |\n| --- | --- | --- |\n| **MerchantId** | Merchant ID of the merchant also knows as Username. | **Y** |\n| **ConsumerID** | Consumer ID which you want assign to the consumer.  <br>**Note:** ConsumerID here is full consumer id consisting 4-digits PayPro prefix as well. | **Y** |\n| **Name** | Customer Name | **Y** |\n| **Mobile** | Customer Mobile Parameter can be passed empty but it must be present in the request payload | **Y** |\n| **Email** | Customer Email Address Parameter can be passed empty but it must be present in the request payload | **Y** |\n| **Address** | Customer Address parameter can be passed empty but it must be present in the request payload | **Y** |"
+			},
+			"response": []
+		},
+		{
+			"name": "Update Multiple Consumers (ppro/umc) V2",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[\r\n    {\r\n        \"MerchantId\": \"Enter Your Provided Username\"\r\n    },\r\n    {\r\n        \"ConsumerID\": \"01107867861\",\r\n        \"Name\": \"Ali Ahmed\",\r\n        \"Mobile\": \"\",\r\n        \"Email\": \"abcde@paypro.com.pk\",\r\n        \"Address\": \"Address\"\r\n    },\r\n    {\r\n        \"ConsumerID\": \"01107867862\",\r\n        \"Name\": \"Ali Zafar\",\r\n        \"Mobile\": \"\",\r\n        \"Email\": \"abcde@paypro.com.pk\",\r\n        \"Address\": \"Address\"\r\n    }\r\n]",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/umc",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"umc"
+					]
+				},
+				"description": "PayPro Update Multiple Consumers API is used to update a multiple consumers at once in PayPro's system.\n\n| **Parameter** | **Description** | **Required** |\n| --- | --- | --- |\n| **MerchantId** | Merchant ID of the merchant also knows as Username. | **Y** |\n| **ConsumerID** | Consumer ID which you want assign to the consumer.  <br>**Note:** ConsumerID here is full consumer id consisting 4-digits PayPro prefix as well. | **Y** |\n| **Name** | Customer Name | **Y** |\n| **Mobile** | Customer Mobile Parameter can be passed empty but it must be present in the request payload | **Y** |\n| **Email** | Customer Email Address Parameter can be passed empty but it must be present in the request payload | **Y** |\n| **Address** | Customer Address parameter can be passed empty but it must be present in the request payload | **Y** |\n\n**Note:** The parameters are same as Update Single Consumer API just you will be passing multiple JSON objects containing consumer details."
+			},
+			"response": []
+		},
+		{
+			"name": "Mark Single Order as Paid V2 (ppro/moap)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Token",
+						"value": "REDACTED",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"Username\": \"Enter Your Provided Username\",\r\n    \"CsvOrderNumbers\": \"Test-800\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/moap",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"moap"
+					]
+				},
+				"description": "**PayPro Mark Single Order as Paid** serves the purpose of updating an invoice status from Unpaid to Paid.\n\n**Note:** Only unpaid invoices/orders can be marked as paid."
+			},
+			"response": []
+		},
+		{
+			"name": "Mark Order as Blocked V2 (ppro/moab)",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"Username\": \"Enter Your Provided Username\",\r\n    \"CsvOrderNumbers\": \"Test-801\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/moab",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"moab"
+					]
+				},
+				"description": "**PayPro Mark Order as Blocked** serves the purpose of updating an invoice status from Unpaid to Blocked.\n\nNote: Only unpaid invoices/orders can be marked as blocked."
+			},
+			"response": []
+		},
+		{
+			"name": "Mark Multiple Orders as Paid  V2 (ppro/moap)",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"Username\": \"Enter Your Provided Username\",\r\n\t\"CsvOrderNumbers\": \"Test-802,Test-803\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/moap",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"moap"
+					]
+				},
+				"description": "**PayPro Mark Multiple Orders as Paid** serves the purpose of updating multiple invoice status at once from Unpaid to Paid.\n\nNote: Only unpaid invoices/orders can be marked as paid."
+			},
+			"response": []
+		},
+		{
+			"name": "Mark Multiple Orders as Blocked V2 (ppro/moab)",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"Username\": \"Enter Your Provided Username\",\r\n\t\"CsvOrderNumbers\": \"Test-804,Test-805\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/moab",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"moab"
+					]
+				},
+				"description": "**PayPro Mark Multiple Orders as Blocked** serves the purpose of updating multiple invoice status at once from Unpaid to Blocked.\n\nNote: Only unpaid invoices/orders can be marked as blocked."
+			},
+			"response": []
+		},
+		{
+			"name": "Get General Order Status V2",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"userName\" : \"Enter Your Provided Username\",\r\n    \"cpayId\" : \"01102125200005\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/ggos",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"ggos"
+					]
+				},
+				"description": "**Get General Order Status** API is used to fetch check and invoice status.\n\n**REQUEST PARAMETERS**\n\n| **Parameter** | **Description** | **Required** |\n| --- | --- | --- |\n| **userName** | PayPro username | **Y** |\n| **cpayId** | cpayid is the PayProID which is unique for the each generated invoice | **Y** |\n\n**RESPONSE PARAMETERS**\n\n| **Parameter** | **Description** |\n| --- | --- |\n| **OrderNumber** | Invoice order number |\n| **PaymentVia** | Returns Payment Mode of Invoice if paid:  <br>**BAF**: Debit/Credit Card  <br>**1Link**: Via Banking Channel  <br>**Nift**: Via Nift Epay |\n| **DatePaid** | Datetime when invoice was paid |\n| **AmountPayable** | Amount Payable |\n| **CustomerName** | Customer name for the invoice |\n| **CustomerBank** | Returns Bank name by which invoice was paid from.  <br>Note: Parameter only returns value if invoice was paid from 1Link. |\n| **OrderAmountPaid** | Order Amount Paid by the customer |"
+			},
+			"response": [
+				{
+					"name": "Get General Order Status V2",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"Username\" : \"Username\",\r\n    \"Cpayid\" : \"01102125200005\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://demoapi.paypro.com.pk/v2/ppro/gpo",
+							"protocol": "https",
+							"host": [
+								"demoapi",
+								"paypro",
+								"com",
+								"pk"
+							],
+							"path": [
+								"v2",
+								"ppro",
+								"gpo"
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [
+						{}
+					],
+					"cookie": [
+						{
+							"expires": "Invalid Date"
+						}
+					],
+					"body": "[\r\n    {\r\n        \"Status\": \"00\"\r\n    },\r\n    {\r\n        \"PaymentVia\": \"BAF\",\r\n        \"DatePaid\": \"2022-11-19T11:33:35.587\",\r\n        \"AmountPayable\": 15508.5000,\r\n        \"OrderNumber\": \"16620019414\",\r\n        \"CustomerName\": \"Fahad-Defence Authority Sunset Club\",\r\n        \"CustomerBank\": null,\r\n        \"OrderStatus\": \"PAID\",\r\n        \"OrderAmountPaid\": 15509.0000\r\n    }\r\n]"
+				}
+			]
+		},
+		{
+			"name": "Get General Order Status V2 Copy",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"userName\" : \"Enter Your Provided Username\",\r\n    \"cpayId\" : \"01102125200005\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/ggos",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"ggos"
+					]
+				},
+				"description": "**Get General Order Status** API is used to fetch check and invoice status.\n\n**REQUEST PARAMETERS**\n\n| **Parameter** | **Description** | **Required** |\n| --- | --- | --- |\n| **userName** | PayPro username | **Y** |\n| **cpayId** | cpayid is the PayProID which is unique for the each generated invoice | **Y** |\n\n**RESPONSE PARAMETERS**\n\n| **Parameter** | **Description** |\n| --- | --- |\n| **OrderNumber** | Invoice order number |\n| **PaymentVia** | Returns Payment Mode of Invoice if paid:  <br>**BAF**: Debit/Credit Card  <br>**1Link**: Via Banking Channel  <br>**Nift**: Via Nift Epay |\n| **DatePaid** | Datetime when invoice was paid |\n| **AmountPayable** | Amount Payable |\n| **CustomerName** | Customer name for the invoice |\n| **CustomerBank** | Returns Bank name by which invoice was paid from.  <br>Note: Parameter only returns value if invoice was paid from 1Link. |\n| **OrderAmountPaid** | Order Amount Paid by the customer |"
+			},
+			"response": [
+				{
+					"name": "Get General Order Status V2",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"Username\" : \"Username\",\r\n    \"Cpayid\" : \"01102125200005\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://demoapi.paypro.com.pk/v2/ppro/gpo",
+							"protocol": "https",
+							"host": [
+								"demoapi",
+								"paypro",
+								"com",
+								"pk"
+							],
+							"path": [
+								"v2",
+								"ppro",
+								"gpo"
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [
+						{}
+					],
+					"cookie": [
+						{
+							"expires": "Invalid Date"
+						}
+					],
+					"body": "[\r\n    {\r\n        \"Status\": \"00\"\r\n    },\r\n    {\r\n        \"PaymentVia\": \"BAF\",\r\n        \"DatePaid\": \"2022-11-19T11:33:35.587\",\r\n        \"AmountPayable\": 15508.5000,\r\n        \"OrderNumber\": \"16620019414\",\r\n        \"CustomerName\": \"Fahad-Defence Authority Sunset Club\",\r\n        \"CustomerBank\": null,\r\n        \"OrderStatus\": \"PAID\",\r\n        \"OrderAmountPaid\": 15509.0000\r\n    }\r\n]"
+				}
+			]
+		},
+		{
+			"name": "Get Paid Order V2",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"Username\": \"Enter Your Provided Username\",\r\n\t\"startDate\": \"2020-08-25\",\r\n\t\"endDate\": \"2020-12-25\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/v2/ppro/gpo",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"v2",
+						"ppro",
+						"gpo"
+					]
+				},
+				"description": "**PayPro Get Paid Order** API is used to fetch paid orders between a date range."
+			},
+			"response": [
+				{
+					"name": "Get Paid Order V2",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n\t\"Username\": \"Enter Your Provided Username\",\r\n\t\"startDate\": \"2020-08-25\",\r\n\t\"endDate\": \"2020-12-25\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://demoapi.paypro.com.pk/v2/ppro/gpo",
+							"protocol": "https",
+							"host": [
+								"demoapi",
+								"paypro",
+								"com",
+								"pk"
+							],
+							"path": [
+								"v2",
+								"ppro",
+								"gpo"
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [
+						{}
+					],
+					"cookie": [
+						{
+							"expires": "Invalid Date"
+						}
+					],
+					"body": "[\r\n    {\r\n        \"Status\": \"00\"\r\n    },\r\n    {\r\n        \"Order Due Date\": \"2022-12-31T23:59:59\",\r\n        \"Customer Address\": null,\r\n        \"ConsumerId\": null,\r\n        \"Amount Paid\": 5170.0000,\r\n        \"Date Created\": \"2022-02-10T17:39:57.937\",\r\n        \"Customer Email\": null,\r\n        \"TransactionStatus\": \"PAID\",\r\n        \"Date Paid\": \"2022-02-10T18:17:46.527\",\r\n        \"Total Penalty\": 0.0,\r\n        \"OrderId\": \"8457454\",\r\n        \"Payment Mode\": \"\",\r\n        \"PayProId\": \"01102204100012\",\r\n        \"Issue Date\": \"2020-11-28T00:00:00\",\r\n        \"Customer Mobile\": \"\",\r\n        \"Order Amount\": 5000.0000\r\n    },\r\n    {\r\n        \"Order Due Date\": \"2022-12-31T23:59:59\",\r\n        \"Customer Address\": null,\r\n        \"ConsumerId\": null,\r\n        \"Amount Paid\": 6169.5000,\r\n        \"Date Created\": \"2022-02-11T10:31:21.597\",\r\n        \"Customer Email\": null,\r\n        \"TransactionStatus\": \"PAID\",\r\n        \"Date Paid\": \"2022-02-24T11:02:36.13\",\r\n        \"Total Penalty\": 0.0,\r\n        \"OrderId\": \"8457455\",\r\n        \"Payment Mode\": \"\",\r\n        \"PayProId\": \"01102204200001\",\r\n        \"Issue Date\": \"2020-11-28T00:00:00\",\r\n        \"Customer Mobile\": \"\",\r\n        \"Order Amount\": 6000.0000\r\n    }\r\n]"
+				}
+			]
+		}
+	]
+}
