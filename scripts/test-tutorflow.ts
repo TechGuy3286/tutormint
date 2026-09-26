@@ -31,7 +31,7 @@ const FULL: FlowFacts = {
   fullName: 'Sana', gender: 'female', city: 'Lahore', area: 'Gulberg',
   avatarUrl: 'https://x/a.jpg', headline: 'O Level Physics tutor', bio: 'I teach physics.',
   experienceYears: 3, hourlyRate: 15000, jobTypes: ['Home Tutor'], degreesCount: 1, degreeDocCount: 1,
-  cnicNumber: '35201-1234567-1', cnicImagePath: 'p/cnic', subjectCount: 2, phoneVerified: true,
+  cnicNumber: '35201-1234567-1', cnicImagePath: 'p/cnic', subjectCount: 2, availabilityCount: 1, phoneVerified: true,
   feePaid: true, videoDone: true,
   isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false, underReview: false,
   verificationStatus: 'verified', imported: false, claimedAt: null,
@@ -41,14 +41,15 @@ const FULL: FlowFacts = {
 const EMPTY: FlowFacts = {
   fullName: 'New Tutor', gender: null, city: null, area: null, avatarUrl: null, headline: null, bio: null,
   experienceYears: null, hourlyRate: null, jobTypes: [], degreesCount: 0, degreeDocCount: 0,
-  cnicNumber: null, cnicImagePath: null, subjectCount: 0, phoneVerified: false, feePaid: false,
+  cnicNumber: null, cnicImagePath: null, subjectCount: 0, availabilityCount: 0, phoneVerified: false, feePaid: false,
   videoDone: false, isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false,
   underReview: false, verificationStatus: 'pending', imported: false, claimedAt: null,
 }
 
-test('blockers come first, in the owner order (city, subjects, mobile, verify)', () => {
-  assert.deepEqual(FLOW_ORDER.slice(0, 4), ['city', 'subjects', 'mobile', 'verify'])
-  for (const k of ['city', 'subjects', 'mobile', 'verify'] as const) assert.ok(BLOCKER_STEPS.has(k))
+test('blockers come first, in the owner order (city, level, subjects, mobile, verify)', () => {
+  // PR69: level (choose the academic level) precedes subjects.
+  assert.deepEqual(FLOW_ORDER.slice(0, 5), ['city', 'level', 'subjects', 'mobile', 'verify'])
+  for (const k of ['city', 'level', 'subjects', 'mobile', 'verify'] as const) assert.ok(BLOCKER_STEPS.has(k))
   // The rest are not blockers.
   assert.ok(!BLOCKER_STEPS.has('jobtype'))
   assert.ok(!BLOCKER_STEPS.has('photo'))
@@ -69,17 +70,18 @@ test('a brand-new tutor opens at city and misses everything but name', () => {
 })
 
 test('firstMissingStep skips filled steps — an existing tutor sees only her gaps', () => {
-  // City + mobile done, everything else empty → first gap is subjects (not city).
+  // City + mobile done, everything else empty → first gap is level (PR69: level
+  // precedes subjects, and both are unfilled while subjectCount is 0).
   const f: FlowFacts = { ...EMPTY, city: 'Karachi', phoneVerified: true }
-  assert.equal(firstMissingStep(f), 'subjects')
-  // Fill subjects too → next gap is verify (still a blocker, before the rest).
+  assert.equal(firstMissingStep(f), 'level')
+  // Fill subjects too → level and subjects are both done → next gap is verify.
   assert.equal(firstMissingStep({ ...f, subjectCount: 1 }), 'verify')
 })
 
 test('nextMissingAfter walks forward over filled steps', () => {
-  // On the city step, city done → next missing is subjects.
+  // On the city step, city done → next missing is level (PR69: level before subjects).
   const f: FlowFacts = { ...EMPTY, city: 'Lahore' }
-  assert.equal(nextMissingAfter(f, 'city'), 'subjects')
+  assert.equal(nextMissingAfter(f, 'city'), 'level')
   // From the last step with nothing after → null.
   assert.equal(nextMissingAfter(FULL, 'video'), null)
 })

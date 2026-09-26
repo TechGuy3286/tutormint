@@ -67,7 +67,8 @@ export const EXPERIENCE_BANDS: { label: string; years: number }[] = [
 
 export type OnboardingAnswers = {
   city: string | null
-  area: string | null
+  /** ALL the tutor's areas (PR69). */
+  areas: string[]
   subjectNames: string[]
   levelNames: string[]
   experienceBand: string | null // e.g. '3–5'
@@ -82,8 +83,21 @@ function list(items: string[], max = 3): string {
   return `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`
 }
 
+/** A subject list that shortens naturally: "A, B, C and 5 more subjects" (PR69). */
+function subjectList(items: string[], max = 3): string {
+  const xs = items.filter(Boolean)
+  if (xs.length === 0) return ''
+  if (xs.length <= max) return list(xs, xs.length)
+  const extra = xs.length - max
+  return `${xs.slice(0, max).join(', ')} and ${extra} more subject${extra === 1 ? '' : 's'}`
+}
+
+/** All the areas, then the city: "Model Town and Gulberg, Lahore" (PR69). */
 function place(a: OnboardingAnswers): string {
-  return [a.area, a.city].filter(Boolean).join(', ')
+  const areas = a.areas.filter(Boolean)
+  const areaPhrase =
+    areas.length <= 1 ? areas[0] ?? '' : `${areas.slice(0, -1).join(', ')} and ${areas[areas.length - 1]}`
+  return [areaPhrase, a.city].filter(Boolean).join(', ')
 }
 
 function expPhrase(band: string | null): string {
@@ -123,7 +137,7 @@ function hash(seed: string): number {
  * the same. Empty facts are dropped rather than voiced.
  */
 export function composeBio(a: OnboardingAnswers, seed: string): string {
-  const subjects = list(a.subjectNames)
+  const subjects = subjectList(a.subjectNames)
   const levels = list(a.levelNames)
   const where = place(a)
   const exp = expPhrase(a.experienceBand)

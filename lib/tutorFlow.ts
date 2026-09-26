@@ -13,6 +13,7 @@ import { directoryBlockers, type ListingFacts } from '@/lib/tutorListingStatus'
 
 export type FlowStepKey =
   | 'city'
+  | 'level'
   | 'subjects'
   | 'mobile'
   | 'verify'
@@ -25,6 +26,7 @@ export type FlowStepKey =
   | 'bio'
   | 'experience'
   | 'fee'
+  | 'availability'
   | 'degree'
   | 'cnic'
   | 'video'
@@ -35,6 +37,7 @@ export type FlowStepKey =
 // skipped (§1.7).
 export const FLOW_ORDER: FlowStepKey[] = [
   'city',
+  'level',
   'subjects',
   'mobile',
   'verify',
@@ -47,14 +50,17 @@ export const FLOW_ORDER: FlowStepKey[] = [
   'bio',
   'experience',
   'fee',
+  'availability',
   'degree',
   'cnic',
   'video',
 ]
 
-/** The listing blockers a tutor fixes in the flow — not skippable. */
+/** The listing blockers a tutor fixes in the flow — not skippable. Level is the
+ *  first half of choosing subjects (PR69), so it is a blocker like subjects. */
 export const BLOCKER_STEPS: ReadonlySet<FlowStepKey> = new Set([
   'city',
+  'level',
   'subjects',
   'mobile',
   'verify',
@@ -100,6 +106,7 @@ export type FlowFacts = {
   cnicNumber: string | null
   cnicImagePath: string | null
   subjectCount: number
+  availabilityCount: number
   phoneVerified: boolean
   feePaid: boolean
   videoDone: boolean
@@ -121,6 +128,11 @@ export function stepDone(f: FlowFacts, key: FlowStepKey): boolean {
   switch (key) {
     case 'city':
       return nonblank(f.city)
+    // Level and subjects are two halves of one choice (PR69): both are "done"
+    // exactly when the tutor has subjects, so a new tutor flows level → subjects
+    // and an existing tutor (who already has subjects) skips both, untouched.
+    case 'level':
+      return f.subjectCount > 0
     case 'subjects':
       return f.subjectCount > 0
     case 'mobile':
@@ -145,6 +157,10 @@ export function stepDone(f: FlowFacts, key: FlowStepKey): boolean {
       return f.experienceYears != null && f.experienceYears >= 0
     case 'fee':
       return f.hourlyRate != null && f.hourlyRate > 0
+    // Availability is optional (the tutor continues without slots via "Later").
+    // It reads as done once at least one slot exists.
+    case 'availability':
+      return f.availabilityCount > 0
     case 'degree':
       return f.degreesCount > 0 && f.degreeDocCount > 0
     case 'cnic':

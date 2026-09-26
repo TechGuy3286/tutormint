@@ -16,7 +16,7 @@ import { composeHeadline, composeBio, type OnboardingAnswers } from '../lib/onbo
 
 const full: OnboardingAnswers = {
   city: 'Lahore',
-  area: 'Johar Town',
+  areas: ['Johar Town'],
   subjectNames: ['Physics', 'Chemistry'],
   levelNames: ['O Levels'],
   experienceBand: '3–5',
@@ -33,7 +33,7 @@ test('the headline is a natural phrase built from level + subject + city', () =>
     'Physics tutor',
   )
   assert.equal(
-    composeHeadline({ city: null, area: null, subjectNames: [], levelNames: [], experienceBand: null }),
+    composeHeadline({ city: null, areas: [], subjectNames: [], levelNames: [], experienceBand: null }),
     'Tutor',
   )
 })
@@ -70,7 +70,7 @@ test('a bio with no experience band carries no numbers at all', () => {
 
 test('an almost-empty answer set still composes a valid, honest bio', () => {
   const bio = composeBio(
-    { city: null, area: null, subjectNames: [], levelNames: [], experienceBand: null },
+    { city: null, areas: [], subjectNames: [], levelNames: [], experienceBand: null },
     'seed-z',
   )
   assert.ok(bio.length > 0, 'never an empty bio')
