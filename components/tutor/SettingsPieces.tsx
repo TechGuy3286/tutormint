@@ -15,9 +15,11 @@ import {
 // them: the step headers with counts, the per-card status card (green / red /
 // waiting / rejected) with English + Urdu, and the tinted tile used in tile mode.
 
+// Every Urdu line is a full-width, right-aligned block (owner PR63 §C3) — flush
+// to the card's right edge, never squeezed beside an English element.
 export function Urdu({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <span lang="ur" dir="rtl" className={`block text-right ${className}`} style={{ fontFamily: URDU_FONT }}>
+    <span lang="ur" dir="rtl" className={`block w-full text-right ${className}`} style={{ fontFamily: URDU_FONT }}>
       {children}
     </span>
   )
@@ -37,24 +39,22 @@ export function StepHeader({
   total?: number
 }) {
   const s = SECTIONS[section]
+  const hasCount = s.count && typeof done === 'number' && typeof total === 'number'
   return (
     <div className="space-y-1 pt-1">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-base font-black text-tm-navy">{s.title.en}</h2>
-        {s.count && typeof done === 'number' && typeof total === 'number' && (
+        {hasCount && (
           <span className="shrink-0 text-[11px] font-black text-tm-green-deep">
-            {fill(s.count.en, done, total)}
+            {fill(s.count!.en, done!, total!)}
           </span>
         )}
       </div>
-      <div className="flex items-baseline justify-between gap-3">
-        <Urdu className="text-sm font-bold text-tm-navy">{s.title.ur}</Urdu>
-        {s.count && typeof done === 'number' && typeof total === 'number' && (
-          <Urdu className="shrink-0 text-[11px] font-bold text-tm-green-deep">
-            {fill(s.count.ur, done, total)}
-          </Urdu>
-        )}
-      </div>
+      {/* Urdu heading and count each on their own full-width right-aligned line. */}
+      <Urdu className="text-sm font-bold text-tm-navy">{s.title.ur}</Urdu>
+      {hasCount && (
+        <Urdu className="text-[11px] font-bold text-tm-green-deep">{fill(s.count!.ur, done!, total!)}</Urdu>
+      )}
     </div>
   )
 }
@@ -69,13 +69,19 @@ function StatusBadge({ status }: { status: CardStatus }) {
   )
 }
 
-// One card: its title (English + Urdu), a hint, the status badge, an optional
-// reject reason, then the page's own form body as children.
+// One card: its title (English + Urdu, each Urdu line flush right, full width),
+// the status badge, an optional reject reason, and then either the page's form
+// body or — once the card has a saved value — a plain-text summary with a small
+// Edit button (owner PR63 §C2). Collapse only applies when `summary` and `onEdit`
+// are provided and the card is not `open`; other cards always show their body.
 export function StatusCard({
   cardKey,
   status,
   reason,
   bare = false,
+  summary,
+  open = true,
+  onEdit,
   children,
 }: {
   cardKey: string
@@ -84,36 +90,57 @@ export function StatusCard({
   /** The child is already a self-contained card (CNIC, email, a read-only line),
    *  so it is rendered without the inner white box. */
   bare?: boolean
+  /** The collapsed plain-text value, e.g. "Lahore · Model Town". */
+  summary?: string | null
+  /** Whether the form body is shown. Ignored unless the card is collapsible. */
+  open?: boolean
+  /** Tapping Edit; presence of this + a non-empty summary makes the card collapsible. */
+  onEdit?: () => void
   children: ReactNode
 }) {
   const meta = STATUS_META[status]
   const copy = CARDS[cardKey]
+  const badge = STATUS_META[status].badge
+  const collapsible = !!onEdit && !!summary && summary.trim() !== ''
+  const showBody = !collapsible || open
+
   return (
-    <section className={`space-y-3 rounded-2xl border p-4 sm:p-5 ${meta.card}`}>
+    <section className={`space-y-2 rounded-2xl border p-4 sm:p-5 ${meta.card}`}>
+      {/* English title + badge on one row; the Urdu title and Urdu badge each on
+          their own full-width right-aligned line below. */}
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-0.5">
-          <h3 className="text-sm font-black text-tm-navy">{copy.title.en}</h3>
-          <Urdu className="text-[13px] font-bold text-tm-navy">{copy.title.ur}</Urdu>
-          {copy.hint && (
-            <>
-              <p className="pt-0.5 text-[11px] leading-relaxed text-gray-600">{copy.hint.en}</p>
-              <Urdu className="text-[11px] leading-relaxed text-gray-600">{copy.hint.ur}</Urdu>
-            </>
-          )}
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <StatusBadge status={status} />
-          {STATUS_META[status].badge && (
-            <Urdu className="text-[10px] font-bold text-gray-600">{STATUS_META[status].badge!.ur}</Urdu>
-          )}
-        </div>
+        <h3 className="text-sm font-black text-tm-navy">{copy.title.en}</h3>
+        <StatusBadge status={status} />
       </div>
+      <Urdu className="text-[13px] font-bold text-tm-navy">{copy.title.ur}</Urdu>
+      {badge && <Urdu className="text-[10px] font-bold text-gray-600">{badge.ur}</Urdu>}
+      {copy.hint && (
+        <>
+          <p className="text-[11px] leading-relaxed text-gray-600">{copy.hint.en}</p>
+          <Urdu className="text-[11px] leading-relaxed text-gray-600">{copy.hint.ur}</Urdu>
+        </>
+      )}
 
       {status === 'rejected' && reason && (
         <p className="rounded-xl bg-white/70 p-2.5 text-[11px] font-semibold text-tm-red">{reason}</p>
       )}
 
-      {bare ? children : <div className="rounded-xl bg-white p-3 sm:p-4">{children}</div>}
+      {showBody ? (
+        <div className="pt-1">
+          {bare ? children : <div className="rounded-xl bg-white p-3 sm:p-4">{children}</div>}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-white p-3">
+          <p className="min-w-0 flex-1 truncate text-xs font-semibold text-tm-navy">{summary}</p>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex min-h-[36px] shrink-0 items-center rounded-lg border border-tm-navy/30 px-3 text-[11px] font-bold text-tm-navy transition-colors hover:bg-tm-tint-navy"
+          >
+            Edit
+          </button>
+        </div>
+      )}
     </section>
   )
 }

@@ -58,11 +58,13 @@ const TUTOR_FEATURES: Feature[] = [
   // Premium shows "100 applications" (owner PR58); Featured keeps "Unlimited
   // applications"; Basic's line is in tutorFreeRows.
   { label: (p) => (p.code === 'premium' ? '100 applications' : isUnlimited(p) ? 'Unlimited applications' : `Apply — ${quota(p)} a month`), level: (p) => p.monthly_quota },
-  { label: () => 'See parent phone & email — unlimited', level: (p) => (p.can_view_contact ? 1 : 0) },
-  { label: () => 'WhatsApp parents with one tap', level: (p) => (p.can_whatsapp ? 1 : 0) },
+  // Premium's contact / WhatsApp / incoming powers are capped at 120 (owner
+  // PR63 §A); Featured stays unlimited. Basic's contact line is in tutorFreeRows.
+  { label: (p) => (p.code === 'premium' ? 'See parent phone & email — 120' : 'See parent phone & email — unlimited'), level: (p) => (p.can_view_contact ? 1 : 0) },
+  { label: (p) => (p.code === 'premium' ? 'WhatsApp parents with one tap — 120' : 'WhatsApp parents with one tap'), level: (p) => (p.can_whatsapp ? 1 : 0) },
   { label: () => 'See who viewed your profile', level: (p) => (p.can_see_viewer_identity ? 1 : 0) },
   { label: () => 'Top of search results', level: (p) => (p.search_rank >= 3 ? 3 : 0) },
-  { label: (p) => (isUnlimited(p) ? 'Unlimited hiring & demo requests' : `Incoming hiring & demo requests — ${quota(p)} a month`), level: (p) => p.monthly_quota },
+  { label: (p) => (p.code === 'premium' ? '120 hiring & demo requests' : isUnlimited(p) ? 'Unlimited hiring & demo requests' : `Incoming hiring & demo requests — ${quota(p)} a month`), level: (p) => p.monthly_quota },
   { label: () => 'Matched tuitions on your email', level: (p) => (p.can_view_contact ? 1 : 0) },
   { label: () => 'Matched tuitions on your WhatsApp', level: (p) => (p.search_rank >= 3 ? 3 : 0) },
 ]

@@ -18,9 +18,17 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { currentPeriod, getEntitlements } from '@/lib/entitlements'
 import { notify } from '@/lib/notifications'
 
-/** Basic and no-plan tutors: 10 incoming hiring/demo requests a month. Premium
- *  and Featured are unlimited. */
+/** Basic and no-plan tutors: 10 incoming hiring/demo requests a month. Premium:
+ *  120 (owner PR63 §A). Featured: unlimited. */
 export const INCOMING_CAP = 10
+export const PREMIUM_INCOMING_CAP = 120
+
+/** The monthly incoming cap for a plan, or null for unlimited (Featured). */
+function incomingCapFor(plan: string | null | undefined): number | null {
+  if (plan === 'featured') return null
+  if (plan === 'premium') return PREMIUM_INCOMING_CAP
+  return INCOMING_CAP
+}
 
 /**
  * This period's incoming-request count for a tutor, or null when it cannot be
@@ -46,15 +54,16 @@ export async function incomingCount(tutorId: string): Promise<number | null> {
 
 /**
  * True when this tutor cannot receive another hiring/demo request this period.
- * Only Basic and no-plan tutors are capped; Premium and Featured are unlimited.
- * Fails OPEN: an unreadable counter returns false (not capped).
+ * Basic/no-plan: 10; Premium: 120; Featured: unlimited. Fails OPEN: an unreadable
+ * counter returns false (not capped).
  */
 export async function tutorAtIncomingCap(tutorId: string): Promise<boolean> {
   const ent = await getEntitlements(tutorId)
-  if (ent.plan === 'premium' || ent.plan === 'featured') return false
+  const cap = incomingCapFor(ent.plan)
+  if (cap === null) return false // Featured — unlimited
   const count = await incomingCount(tutorId)
   if (count === null) return false
-  return count >= INCOMING_CAP
+  return count >= cap
 }
 
 /**
@@ -123,12 +132,20 @@ export async function similarTutorsHref(tutorId: string): Promise<string> {
 export async function refuseIncomingRequest(
   tutorId: string,
 ): Promise<{ error: string; similarHref: string }> {
+  // A Premium tutor at 120 is offered Featured (unlimited); a Basic/no-plan tutor
+  // at 10 is offered Premium (owner PR63 §A / the next-package rule).
+  const ent = await getEntitlements(tutorId)
+  const premium = ent.plan === 'premium'
   await notify({
     userId: tutorId,
     kind: 'incoming_request_capped',
     title: 'A parent tried to send you a request',
-    body: 'You have reached this month’s free limit of hiring and demo requests. Upgrade to Premium to receive more.',
-    href: '/membership-plans?for=tutors&plan=premium',
+    body: premium
+      ? 'You have reached this month’s limit of 120 hiring and demo requests. Upgrade to Featured to receive unlimited.'
+      : 'You have reached this month’s free limit of hiring and demo requests. Upgrade to Premium to receive more.',
+    href: premium
+      ? '/membership-plans?for=tutors&plan=featured'
+      : '/membership-plans?for=tutors&plan=premium',
   })
   return {
     error: "This tutor can't take more requests right now.",

@@ -23,9 +23,41 @@ import { normalisePkMobile } from '@/lib/phone'
 import { loadJobContact } from '@/lib/jobContact'
 
 export const CONTACT_REVEAL_CAP = 5
-// Premium/Featured are unlimited; the RPC still logs the reveal, so it is called
-// with a cap that never refuses.
+// Premium is counted at 120 a month (owner PR63 §A) — one shared allowance across
+// parent accounts and staff-posted job contacts, exactly like Basic's 5. Featured
+// stays unlimited; the RPC still logs its reveal, called with a cap that never
+// refuses.
+export const PREMIUM_CONTACT_CAP = 120
 const UNLIMITED_CAP = 2_000_000_000
+
+const CAP_FOR: Record<'basic' | 'premium' | 'featured', number> = {
+  basic: CONTACT_REVEAL_CAP,
+  premium: PREMIUM_CONTACT_CAP,
+  featured: UNLIMITED_CAP,
+}
+
+/** The refusal when a tutor has spent this period's reveals. Basic → offer
+ *  Premium (raises the cap to 120); Premium → offer Featured (unlimited). */
+async function overCapResult(
+  plan: 'basic' | 'premium' | 'featured',
+  tutorId: string,
+): Promise<RevealResult> {
+  const ent = await getEntitlements(tutorId)
+  if (plan === 'premium') {
+    return {
+      ok: false,
+      status: 403,
+      error: "You have used this month's 120 contact reveals.",
+      gate: await buildGate('tutor_contact_cap', ent),
+    }
+  }
+  return {
+    ok: false,
+    status: 403,
+    error: "You have used this month's 5 contact reveals.",
+    gate: await buildGate('tutor_contact', ent),
+  }
+}
 
 export type RevealContact = {
   /** Mobile, canonical MSISDN (e.g. 923001234567), or null. Parent: verified
@@ -167,8 +199,19 @@ export async function revealStatus(tutorId: string, parentId: string): Promise<R
     tableOk = false
   }
 
-  if (gate.plan === 'premium' || gate.plan === 'featured') {
-    return { eligible: true, plan: gate.plan, remaining: null, alreadyRevealed: already }
+  if (gate.plan === 'featured') {
+    return { eligible: true, plan: 'featured', remaining: null, alreadyRevealed: already }
+  }
+  if (gate.plan === 'premium') {
+    // Premium is counted (120). A counter that cannot be read leaves the button
+    // ON with an unknown remaining — a paying tutor is never turned off.
+    const used = tableOk ? await usedThisPeriod(admin, tutorId) : null
+    return {
+      eligible: true,
+      plan: 'premium',
+      remaining: used === null ? null : Math.max(0, PREMIUM_CONTACT_CAP - used),
+      alreadyRevealed: already,
+    }
   }
 
   // Basic: needs the counter. Fail closed if it is not there yet.
@@ -226,12 +269,14 @@ export async function revealParentContact(tutorId: string, parentId: string): Pr
     return { ok: false, status: 403, error: msg }
   }
 
-  const unlimited = gate.plan === 'premium' || gate.plan === 'featured'
-  const cap = unlimited ? UNLIMITED_CAP : CONTACT_REVEAL_CAP
+  const cap = CAP_FOR[gate.plan]
+  // A paying tutor (Premium/Featured) is never blocked on a counter error; only
+  // Basic fails closed.
+  const failOpen = gate.plan !== 'basic'
 
   // Atomic reveal-or-count. If the function/table is missing (pre-migration):
-  // Premium/Featured still reveal (unlimited, no count needed); Basic fails
-  // closed.
+  // Premium/Featured still reveal (fail open, still logged when it can be);
+  // Basic fails closed.
   let allowed = false
   let already = false
   let used = 0
@@ -248,8 +293,7 @@ export async function revealParentContact(tutorId: string, parentId: string): Pr
     already = !!row?.already_revealed
     used = (row?.used as number | null) ?? 0
   } catch {
-    if (unlimited) {
-      // Log unavailable, but an unlimited plan is still entitled — reveal.
+    if (failOpen) {
       allowed = true
       already = false
       used = 0
@@ -258,21 +302,12 @@ export async function revealParentContact(tutorId: string, parentId: string): Pr
     }
   }
 
-  if (!allowed) {
-    // Basic over the monthly limit → offer Premium (PR52 next-package rule).
-    const ent = await getEntitlements(tutorId)
-    return {
-      ok: false,
-      status: 403,
-      error: "You have used this month's 5 contact reveals.",
-      gate: await buildGate('tutor_contact', ent),
-    }
-  }
+  if (!allowed) return overCapResult(gate.plan, tutorId)
 
   return {
     ok: true,
     contact: parent.contact,
-    remaining: unlimited ? null : Math.max(0, CONTACT_REVEAL_CAP - used),
+    remaining: gate.plan === 'featured' ? null : Math.max(0, cap - used),
     alreadyRevealed: already,
   }
 }
@@ -336,8 +371,17 @@ export async function jobContactRevealStatus(tutorId: string, jobId: string): Pr
     tableOk = false
   }
 
-  if (gate.plan === 'premium' || gate.plan === 'featured') {
-    return { eligible: true, plan: gate.plan, remaining: null, alreadyRevealed: already }
+  if (gate.plan === 'featured') {
+    return { eligible: true, plan: 'featured', remaining: null, alreadyRevealed: already }
+  }
+  if (gate.plan === 'premium') {
+    const used = tableOk ? await usedThisPeriod(admin, tutorId) : null
+    return {
+      eligible: true,
+      plan: 'premium',
+      remaining: used === null ? null : Math.max(0, PREMIUM_CONTACT_CAP - used),
+      alreadyRevealed: already,
+    }
   }
   if (!tableOk) return { eligible: false, plan: 'basic', remaining: null, alreadyRevealed: false, reason: 'off' }
   const used = await usedThisPeriod(admin, tutorId)
@@ -365,8 +409,8 @@ export async function revealJobContact(tutorId: string, jobId: string): Promise<
   const target = await loadJobContactTarget(jobId)
   if (!target.ok) return { ok: false, status: 403, error: 'Contact details are not available.' }
 
-  const unlimited = gate.plan === 'premium' || gate.plan === 'featured'
-  const cap = unlimited ? UNLIMITED_CAP : CONTACT_REVEAL_CAP
+  const cap = CAP_FOR[gate.plan]
+  const failOpen = gate.plan !== 'basic'
 
   let allowed = false
   let already = false
@@ -384,7 +428,7 @@ export async function revealJobContact(tutorId: string, jobId: string): Promise<
     already = !!row?.already_revealed
     used = (row?.used as number | null) ?? 0
   } catch {
-    if (unlimited) {
+    if (failOpen) {
       allowed = true
       already = false
       used = 0
@@ -393,20 +437,12 @@ export async function revealJobContact(tutorId: string, jobId: string): Promise<
     }
   }
 
-  if (!allowed) {
-    const ent = await getEntitlements(tutorId)
-    return {
-      ok: false,
-      status: 403,
-      error: "You have used this month's 5 contact reveals.",
-      gate: await buildGate('tutor_contact', ent),
-    }
-  }
+  if (!allowed) return overCapResult(gate.plan, tutorId)
 
   return {
     ok: true,
     contact: target.contact,
-    remaining: unlimited ? null : Math.max(0, CONTACT_REVEAL_CAP - used),
+    remaining: gate.plan === 'featured' ? null : Math.max(0, cap - used),
     alreadyRevealed: already,
   }
 }

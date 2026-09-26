@@ -106,6 +106,7 @@ export type GateReason =
   | 'tutor_apply_quota'
   | 'tutor_message'
   | 'tutor_contact'
+  | 'tutor_contact_cap'
   | 'tutor_viewer_identity'
   | 'cv_download'
   | 'parent_verify'
@@ -130,6 +131,9 @@ const REQUIRES: Record<GateReason, string | null> = {
   // Seeing a parent's contact/WhatsApp is a Premium power (Basic NO,
   // Premium/Featured Yes — owner, 15 Sep 2026).
   tutor_contact: 'premium',
+  // A Premium tutor who has used this month's 120 contact reveals → Featured
+  // (unlimited). Only ever shown to a Premium tutor; Featured never hits a cap.
+  tutor_contact_cap: 'featured',
   // "See who viewed you" is a Premium power now (Basic NO, Premium/Featured Yes
   // — owner, 15 Sep 2026). Basic/no-plan tutors get the anonymised teaser and
   // this upsell; it sells Premium, the tier whose row carries the power.
@@ -348,6 +352,22 @@ async function buildBaseGate(
         plan,
         href: packagesHref('tutor', required),
         ctaLabel: 'See Premium',
+        actionable: true,
+      }
+
+    case 'tutor_contact_cap':
+      // A Premium tutor who has spent this month's 120 contact reveals. Offer
+      // Featured (unlimited), not their own plan.
+      return {
+        kind: 'quota',
+        title: "You have used this month's contact reveals",
+        body: `Your allowance resets at the start of next month. ${
+          plan?.name ?? 'Featured'
+        } gives you unlimited parent contacts and WhatsApp, and top placement in search.`,
+        audience: 'tutor',
+        plan,
+        href: packagesHref('tutor', required),
+        ctaLabel: `See ${plan?.name ?? 'Featured'}`,
         actionable: true,
       }
 

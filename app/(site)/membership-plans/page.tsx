@@ -171,16 +171,20 @@ export default async function PackagesPage({
         Verification is free. Featured lets you contact tutors directly and complete a hire.
       </p>
 
+      {/* Urdu value line (PR63 §B), mirroring the tutor tab's Urdu box: RTL,
+          right-aligned, the same Urdu-capable font stack with a system fallback.
+          Replaces the earlier English academy-commission box. */}
       <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed sm:p-5">
-        <p className="text-slate-700">
-          <strong className="text-tm-navy">An academy takes half your first month&apos;s fee.</strong>{' '}
-          On a Rs 20,000 tuition that is Rs 10,000 gone before the first class, and many keep a share
-          every month after. You keep every rupee of what you pay the tutor — we never touch the fee
-          and never take a commission.
-        </p>
-        <p className="text-gray-500">
-          Browsing, messaging tutors, demo requests and five job posts a month stay free once your
-          CNIC and address are approved. Memberships are not refundable.
+        <p
+          lang="ur"
+          dir="rtl"
+          className="text-right text-sm leading-loose text-slate-700"
+          style={{
+            fontFamily:
+              "'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Nafees Nastaleeq', 'Urdu Typesetting', 'Segoe UI', system-ui, sans-serif",
+          }}
+        >
+          TutorMint پر تصدیق شدہ ٹیوٹرز مفت تلاش کریں۔ اپنے بچے کے مضمون اور علاقے کے مطابق ٹیوٹرز دیکھیں، ڈیمو کی درخواست کریں اور براہ راست پیغام بھیجیں۔
         </p>
       </section>
 

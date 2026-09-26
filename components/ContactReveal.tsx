@@ -98,7 +98,10 @@ export default function ContactReveal({
 
   if (!status || (!status.eligible && status.reason !== 'verify')) return null
 
-  const isBasic = status.plan === 'basic'
+  // Basic and Premium both show a monthly counter ("N of 5 / 120 left"); Featured
+  // is unlimited and shows none.
+  const showCounter = status.plan === 'basic' || status.plan === 'premium'
+  const capText = status.plan === 'premium' ? 120 : 5
   const social = contact?.social
   const socialHref = social && /^https?:\/\//i.test(social) ? social : null
   // A separate WhatsApp link only when the WhatsApp number differs from phone.
@@ -163,8 +166,8 @@ export default function ContactReveal({
             )}
           </p>
         )}
-        {isBasic && remaining !== null && (
-          <p className="text-[11px] text-gray-500">{remaining} of 5 left this month</p>
+        {showCounter && remaining !== null && (
+          <p className="text-[11px] text-gray-500">{remaining} of {capText} left this month</p>
         )}
       </div>
     )
@@ -181,8 +184,8 @@ export default function ContactReveal({
         {busy ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Eye size={14} aria-hidden />}
         Show phone &amp; email
       </button>
-      {isBasic && remaining !== null && (
-        <span className="text-[11px] text-gray-500">{remaining} of 5 left this month</span>
+      {showCounter && remaining !== null && (
+        <span className="text-[11px] text-gray-500">{remaining} of {capText} left this month</span>
       )}
       {error && <span className="text-[11px] font-bold text-tm-red">{error}</span>}
     </div>

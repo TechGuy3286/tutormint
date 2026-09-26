@@ -8,11 +8,10 @@ import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 
-import Breadcrumbs from '@/components/Breadcrumbs'
 import Avatar from '@/components/Avatar'
 import Link from 'next/link'
 import {
-  X, Plus, Save, ArrowRight, BadgeCheck, ShieldAlert,
+  X, Plus, Save, ArrowLeft, ArrowRight, BadgeCheck, ShieldAlert,
   Smartphone, CreditCard, Image as ImageIcon, Camera, BookOpen, MapPin, ShieldCheck,
   GraduationCap, Award, Briefcase, Mail, Tags, CalendarDays, Video, Lock, UserRound,
 } from 'lucide-react'
@@ -20,10 +19,10 @@ import IdentityCard from '@/components/identity/IdentityCard'
 import { StatusCard, StepHeader, SettingsTile, Urdu } from '@/components/tutor/SettingsPieces'
 import { READONLY_LINES, type CardStatus } from '@/lib/tutorSettingsCopy'
 import type { DocumentStatuses, DocState } from '@/lib/tutorDocuments'
+import { labelsForMasterIds } from '@/lib/taxonomy'
 import SubjectPicker from '@/components/tutor/SubjectPicker'
 import VideoUpload from '@/components/tutor/VideoUpload'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
-import PublicPageStatus from '@/components/tutor/PublicPageStatus'
 import EmailCard from '@/components/account/EmailCard'
 import type { Identity } from '@/lib/identity'
 import { formatPkMobile, isSyntheticEmail } from '@/lib/phone'
@@ -73,16 +72,16 @@ export default function TutorSettingsPage() {
   // Tile mode (once every Step 2 item is done): which card's form is open.
   const [openCard, setOpenCard] = useState<string | null>(null);
 
+  // Collapse-after-save (PR63 §C2): which collapsible cards are being edited. A
+  // card with a saved value is shown collapsed (summary + Edit) until its key is
+  // here; saving removes it again. Empty cards are never collapsed.
+  const [editing, setEditing] = useState<Set<string>>(new Set());
+  // Subject labels for the collapsed subjects summary (resolved from ids).
+  const [subjectLabels, setSubjectLabels] = useState<string[]>([]);
+
   // Read-only verified mobile (PR 3b §2.2), from profiles.
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
-
-  // The tutor's public page (owner PR12 §3): their slug, and whether they are
-  // LISTED — read from tutor_directory (the view returns the row only when the
-  // tutor is in the public directory), so "View your public profile" vs the
-  // not-live preview matches exactly what parents can see.
-  const [publicSlug, setPublicSlug] = useState("");
-  const [publicListed, setPublicListed] = useState(false);
 
   // Change Password
   const [newPassword, setNewPassword] = useState("");
@@ -150,6 +149,24 @@ export default function TutorSettingsPage() {
     };
   }, []);
 
+  // Subject labels for the collapsed subjects summary (PR63 §C2), resolved from
+  // the saved master ids. Read-only.
+  useEffect(() => {
+    let live = true;
+    if (subjectIds.length === 0) {
+      setSubjectLabels([]);
+      return;
+    }
+    labelsForMasterIds(subjectIds)
+      .then((ls) => {
+        if (live) setSubjectLabels(ls);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [subjectIds]);
+
   const reloadStatuses = async () => {
     try {
       const r = await fetch('/api/tutor/document-status', { headers: { accept: 'application/json' } });
@@ -169,17 +186,14 @@ export default function TutorSettingsPage() {
       setUserId(user.id);
       setTutorEmail(user.email || "");
 
-      const [{ data: prof }, { data: tp }, { data: subjRows }, { data: dir }] = await Promise.all([
+      const [{ data: prof }, { data: tp }, { data: subjRows }] = await Promise.all([
         supabase.from('profiles').select('phone_number, phone_verified_at, email, email_verified').eq('id', user.id).maybeSingle(),
         supabase.from('tutor_profiles').select('*').eq('id', user.id).maybeSingle(),
         supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
-        supabase.from('tutor_directory').select('id').eq('id', user.id).maybeSingle(),
       ]);
 
       setPhoneNumber((prof?.phone_number as string) || "");
       setPhoneVerified(Boolean(prof?.phone_verified_at));
-      setPublicSlug((tp?.slug as string) || "");
-      setPublicListed(Boolean(dir));
 
       // A synthetic <msisdn>@users.tutormint.org address is not one the tutor
       // chose — it reads as "no email yet".
@@ -355,6 +369,43 @@ export default function TutorSettingsPage() {
     [jobTitles, jobTypeDemand],
   );
 
+  // ---- PR63 §C2: collapse-after-save --------------------------------------
+  const openEdit = (key: string) => setEditing((s) => new Set(s).add(key));
+  const collapse = (key: string) =>
+    setEditing((s) => {
+      const n = new Set(s);
+      n.delete(key);
+      return n;
+    });
+
+  const short = (parts: string[], keep = 2): string => {
+    const kept = parts.slice(0, keep).join(', ');
+    return parts.length > keep ? `${kept} +${parts.length - keep} more` : kept;
+  };
+
+  // Collapsed summaries — plain text shown when a card has a saved value.
+  const detailsSummary = formData.fullName.trim();
+  const locationSummary = formData.city.trim()
+    ? formData.areaName.trim()
+      ? `${formData.city.trim()} · ${formData.areaName.trim()}`
+      : formData.city.trim()
+    : '';
+  const subjectSummary = subjectLabels.length
+    ? short(subjectLabels.map((l) => l.split(' — ').pop() ?? l))
+    : subjectIds.length
+      ? `${subjectIds.length} subjects`
+      : '';
+  const jobTypeSummary = formData.jobTypes.length ? short(formData.jobTypes) : '';
+  const availabilitySummary = availabilityList.length
+    ? `${availabilityList.length} time${availabilityList.length > 1 ? 's' : ''} added`
+    : '';
+  const degreesSummary = degrees.length
+    ? short(degrees.map((d) => d.title).filter(Boolean)) || `${degrees.length} added`
+    : '';
+  const certsSummary = certifications.length
+    ? short(certifications.map((c) => c.title).filter(Boolean)) || `${certifications.length} added`
+    : '';
+
   // ---- PR62: per-card status (read-only; presentation only) ---------------
   // Maps a document approval state (CNIC / profile picture / selfie) to a card
   // status. An item uploaded but not yet reviewed reads "Waiting for approval".
@@ -504,10 +555,12 @@ export default function TutorSettingsPage() {
       key: 'subjects',
       status: subjectsStatus,
       icon: <BookOpen size={20} aria-hidden />,
+      collapsible: true,
+      summary: subjectSummary,
       body: (
         <div className="space-y-3">
           <SubjectPicker value={subjectIds} onChange={setSubjectIds} />
-          <SaveBar onSave={saveSubjects} />
+          <SaveBar onSave={saveSubjects} onSaved={() => collapse('subjects')} />
         </div>
       ),
     },
@@ -515,6 +568,8 @@ export default function TutorSettingsPage() {
       key: 'location',
       status: locationStatus,
       icon: <MapPin size={20} aria-hidden />,
+      collapsible: true,
+      summary: locationSummary,
       body: (
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -558,7 +613,7 @@ export default function TutorSettingsPage() {
               </datalist>
             </label>
           </div>
-          <SaveBar onSave={saveLocation} />
+          <SaveBar onSave={saveLocation} onSaved={() => collapse('location')} />
         </div>
       ),
     },
@@ -576,6 +631,8 @@ export default function TutorSettingsPage() {
       key: 'jobType',
       status: jobTypeStatus,
       icon: <Tags size={20} aria-hidden />,
+      collapsible: true,
+      summary: jobTypeSummary,
       body: (
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
@@ -605,7 +662,7 @@ export default function TutorSettingsPage() {
               );
             })}
           </div>
-          <SaveBar onSave={saveJobTypes} />
+          <SaveBar onSave={saveJobTypes} onSaved={() => collapse('jobType')} />
         </div>
       ),
     },
@@ -613,6 +670,8 @@ export default function TutorSettingsPage() {
       key: 'availability',
       status: availabilityStatus,
       icon: <CalendarDays size={20} aria-hidden />,
+      collapsible: true,
+      summary: availabilitySummary,
       body: (
         <div className="space-y-3">
           {availabilityList.length > 0 && (
@@ -675,7 +734,7 @@ export default function TutorSettingsPage() {
               </button>
             </div>
           </div>
-          <SaveBar onSave={saveAvailability} />
+          <SaveBar onSave={saveAvailability} onSaved={() => collapse('availability')} />
         </div>
       ),
     },
@@ -683,6 +742,8 @@ export default function TutorSettingsPage() {
       key: 'degrees',
       status: degreesStatus,
       icon: <GraduationCap size={20} aria-hidden />,
+      collapsible: true,
+      summary: degreesSummary,
       body: (
         <div className="space-y-3">
           <CredentialEditor
@@ -695,7 +756,7 @@ export default function TutorSettingsPage() {
             field2Placeholder="Institute"
             addLabel="Add degree"
           />
-          <SaveBar onSave={saveDegrees} />
+          <SaveBar onSave={saveDegrees} onSaved={() => collapse('degrees')} />
         </div>
       ),
     },
@@ -703,6 +764,8 @@ export default function TutorSettingsPage() {
       key: 'certifications',
       status: certsStatus,
       icon: <Award size={20} aria-hidden />,
+      collapsible: true,
+      summary: certsSummary,
       body: (
         <div className="space-y-3">
           <CredentialEditor
@@ -715,7 +778,7 @@ export default function TutorSettingsPage() {
             field2Placeholder="Issuer"
             addLabel="Add certification"
           />
-          <SaveBar onSave={saveCertifications} />
+          <SaveBar onSave={saveCertifications} onSaved={() => collapse('certifications')} />
         </div>
       ),
     },
@@ -758,6 +821,8 @@ export default function TutorSettingsPage() {
       key: 'details',
       status: 'neutral',
       icon: <UserRound size={20} aria-hidden />,
+      collapsible: true,
+      summary: detailsSummary,
       body: (
         <div className="space-y-3">
           <label className="block">
@@ -780,7 +845,7 @@ export default function TutorSettingsPage() {
               className="mt-1 w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
             />
           </label>
-          <SaveBar onSave={saveDetails} />
+          <SaveBar onSave={saveDetails} onSaved={() => collapse('details')} />
         </div>
       ),
     },
@@ -842,8 +907,19 @@ export default function TutorSettingsPage() {
   // Tile mode once every Step 2 item is complete (owner PR62 §4).
   const tileMode = step2Cards.length > 0 && step2Done === step2Cards.length;
 
-  const renderCard = (c: CardDesc) => (
-    <StatusCard key={c.key} cardKey={c.key} status={c.status} reason={c.reason} bare={c.bare}>
+  // forceOpen: in tile mode the tapped card always shows its form (never the
+  // collapsed summary).
+  const renderCard = (c: CardDesc, forceOpen = false) => (
+    <StatusCard
+      key={c.key}
+      cardKey={c.key}
+      status={c.status}
+      reason={c.reason}
+      bare={c.bare}
+      summary={c.collapsible ? c.summary : undefined}
+      open={c.collapsible ? forceOpen || editing.has(c.key) : true}
+      onEdit={c.collapsible ? () => openEdit(c.key) : undefined}
+    >
       {c.body}
     </StatusCard>
   );
@@ -866,35 +942,38 @@ export default function TutorSettingsPage() {
       {list
         .filter((c) => openCard === c.key)
         .map((c) => (
-          <div key={`open-${c.key}`}>{renderCard(c)}</div>
+          <div key={`open-${c.key}`}>{renderCard(c, true)}</div>
         ))}
     </>
   );
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-4 py-6 font-sans text-slate-700 sm:px-6">
-      <Breadcrumbs items={[{ label: 'Tutor dashboard', href: '/tutor/dashboard' }, { label: 'Settings' }]} />
-
-      {/* The tutor's public page (§3.1/§3.2): "View your public profile" when
-          listed, or the not-live preview when not. Kept at the top (PR61/PR62). */}
-      {publicSlug && <PublicPageStatus slug={publicSlug} listed={publicListed} />}
+      {/* PR63 §C1: the breadcrumb and "View your public profile" are removed
+          (both live on the dashboard); a single Back link remains. */}
+      <Link
+        href="/tutor/dashboard"
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-tm-navy hover:underline"
+      >
+        <ArrowLeft aria-hidden size={14} /> Back to Tutor dashboard
+      </Link>
 
       {/* Step 1 — required. */}
       <section className="space-y-3">
         <StepHeader section="step1" done={step1Done} total={step1Cards.length} />
-        {tileMode ? renderTiles(step1Cards) : step1Cards.map(renderCard)}
+        {tileMode ? renderTiles(step1Cards) : step1Cards.map((c) => renderCard(c))}
       </section>
 
       {/* Step 2 — optional. */}
       <section className="space-y-3">
         <StepHeader section="step2" done={step2Done} total={step2Cards.length} />
-        {tileMode ? renderTiles(step2Cards) : step2Cards.map(renderCard)}
+        {tileMode ? renderTiles(step2Cards) : step2Cards.map((c) => renderCard(c))}
       </section>
 
       {/* Account — name, WhatsApp and password. Not part of the two steps. */}
       <section className="space-y-3">
         <StepHeader section="account" />
-        {accountCards.map(renderCard)}
+        {accountCards.map((c) => renderCard(c))}
       </section>
     </main>
   );
@@ -908,6 +987,10 @@ type CardDesc = {
   status: CardStatus;
   reason?: string | null;
   bare?: boolean;
+  /** PR63 §C2: this card collapses to a summary + Edit once it has a value. */
+  collapsible?: boolean;
+  /** The collapsed plain-text value; empty means the form stays open. */
+  summary?: string;
   icon: React.ReactNode;
   body: React.ReactNode;
 };
@@ -935,7 +1018,16 @@ function ReadonlyLine({ kind, done, href }: { kind: 'fee' | 'experience'; done: 
 
 // One Save button per card (PR 3b §2.6): saves that card only, shows "Saved." or
 // the error inline. onSave throws to signal a failure.
-function SaveBar({ onSave, label = 'Save' }: { onSave: () => Promise<void>; label?: string }) {
+function SaveBar({
+  onSave,
+  onSaved,
+  label = 'Save',
+}: {
+  onSave: () => Promise<void>;
+  /** Called after a successful save — used to collapse the card (PR63 §C2). */
+  onSaved?: () => void;
+  label?: string;
+}) {
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [msg, setMsg] = useState('');
   const run = async () => {
@@ -944,6 +1036,7 @@ function SaveBar({ onSave, label = 'Save' }: { onSave: () => Promise<void>; labe
     try {
       await onSave();
       setState('saved');
+      onSaved?.();
       setTimeout(() => setState((s) => (s === 'saved' ? 'idle' : s)), 3000);
     } catch (e) {
       setState('error');
