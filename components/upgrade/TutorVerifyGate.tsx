@@ -7,6 +7,7 @@ import { Loader2, RefreshCw } from 'lucide-react'
 import CnicCameraField from '@/components/tutor/CnicCameraField'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
+import FriendlyPaymentError from '@/components/ui/FriendlyPaymentError'
 import type { IdentityState } from '@/lib/identity'
 
 // The verification gate an UNVERIFIED tutor meets when they tap Apply (owner,
@@ -130,9 +131,9 @@ export default function TutorVerifyGate({ onClose }: { onClose: () => void }) {
   const buttons = (
     <>
       {error && (
-        <div role="alert" className="space-y-2">
-          <p className="text-[11px] font-bold text-tm-red">{error}</p>
-          {stuck && <SubmitEscape href={stuck} />}
+        <div className="space-y-2">
+          {/* Never show raw error text on the payment/verify flow (PR66 §2). */}
+          {stuck ? <SubmitEscape href={stuck} /> : <FriendlyPaymentError />}
         </div>
       )}
       <div className="flex flex-col gap-2 sm:flex-row-reverse">

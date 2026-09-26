@@ -148,6 +148,18 @@ export async function POST(request: Request) {
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
+    // ONE NAME (PR66 §5). profiles.full_name is canonical (what the dashboard
+    // shows); mirror it into tutor_profiles.full_name in the SAME save so admin,
+    // the public profile and the CV read the same name. Applies to every caller
+    // that sets a tutor's name here (onboarding, Settings).
+    if (Object.prototype.hasOwnProperty.call(profilePatch, 'full_name')) {
+      const { error } = await supabase
+        .from('tutor_profiles')
+        .update({ full_name: profilePatch.full_name })
+        .eq('id', user.id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
     if (Array.isArray(body.subjectMasterIds)) {
       const ids = body.subjectMasterIds.filter((n) => Number.isInteger(n))
       // Replace the set: delete then insert, so deselecting actually removes.

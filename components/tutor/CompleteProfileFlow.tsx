@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Camera, Check, Clock, Loader2, MessageCircle, Mail, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Camera, Check, CheckCircle2, Clock, Loader2, MessageCircle, Mail, ShieldCheck } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -765,6 +765,7 @@ function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
   const [back, setBack] = useState(false)
   const [busy, setBusy] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [approved, setApproved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Prefill from any earlier attempt so a returning tutor is not asked twice.
@@ -777,7 +778,12 @@ function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
         setCnic((j.identity.cnicNumber as string) ?? '')
         setFront(j.identity.front != null)
         setBack(j.identity.back != null)
-        if (j.identity.state === 'submitted' || j.identity.state === 'approved') setSubmitted(true)
+        // ONE CNIC status (PR66 §4): approved only with the number AND both images;
+        // otherwise it is still being checked. A truly approved card reads "verified",
+        // not "being checked".
+        const hasDocs = !!((j.identity.cnicNumber as string) ?? '').trim() && j.identity.front != null && j.identity.back != null
+        if (j.identity.state === 'approved' && hasDocs) setApproved(true)
+        else if (j.identity.state === 'submitted' || j.identity.state === 'approved') setSubmitted(true)
       })
       .catch(() => {})
     return () => { live = false }
@@ -813,6 +819,29 @@ function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  if (approved) {
+    return (
+      <div className="space-y-5 pt-4 text-center">
+        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-tm-tint-green text-tm-green-deep">
+          <CheckCircle2 size={30} aria-hidden />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-black text-tm-navy">CNIC verified</p>
+          <p className="mx-auto max-w-xs text-xs leading-relaxed text-gray-500">
+            Your card has been approved.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onSubmitted}
+          className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white"
+        >
+          Continue
+        </button>
+      </div>
+    )
   }
 
   if (submitted) {

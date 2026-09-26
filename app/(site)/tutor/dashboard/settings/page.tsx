@@ -326,7 +326,13 @@ export default function TutorSettingsPage() {
     if (error) throw new Error(error.message);
   };
 
-  const saveDetails = () => tutorUpdate({ full_name: formData.fullName, whatsapp_number: formData.whatsapp });
+  // Name is canonical on profiles.full_name (PR66 §5); write it there AND mirror
+  // to tutor_profiles so admin / public profile / CV match the dashboard.
+  const saveDetails = async () => {
+    await tutorUpdate({ full_name: formData.fullName, whatsapp_number: formData.whatsapp });
+    const { error } = await supabase.from('profiles').update({ full_name: formData.fullName }).eq('id', userId);
+    if (error) throw new Error(error.message);
+  };
 
   const saveLocation = async () => {
     // City is required wherever an area is collected (PR 3b §2.7): the listing

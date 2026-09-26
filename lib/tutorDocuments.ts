@@ -19,28 +19,13 @@ import type { AdminRole } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
+import { deriveCnicStatus } from '@/lib/cnicStatus'
 
 export type DocItem = 'cnic' | 'profile_pic' | 'selfie'
 export type DocStatus = 'none' | 'pending' | 'approved' | 'rejected'
 
 export type DocState = { status: DocStatus; reason: string | null; hasUpload: boolean }
 export type DocumentStatuses = { cnic: DocState; profilePic: DocState; selfie: DocState }
-
-/** CNIC's status comes from verification_state ('submitted' == pending) plus the
- *  verified timestamp, which always wins. */
-function cnicStatus(verificationState: string | null, verifiedAt: string | null): DocStatus {
-  if (verifiedAt) return 'approved'
-  switch ((verificationState ?? 'none').toLowerCase()) {
-    case 'submitted':
-      return 'pending'
-    case 'approved':
-      return 'approved'
-    case 'rejected':
-      return 'rejected'
-    default:
-      return 'none'
-  }
-}
 
 function normStatus(v: unknown): DocStatus {
   return v === 'pending' || v === 'approved' || v === 'rejected' ? v : 'none'
@@ -58,7 +43,7 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
   // selfie's presence is read from user_documents below.
   const { data: base } = await db
     .from('profiles')
-    .select('verification_state, verification_rejection_reason, cnic_verified_at, avatar_url')
+    .select('verification_state, verification_rejection_reason, cnic_verified_at, cnic_number, cnic_image_path, avatar_url')
     .eq('id', userId)
     .maybeSingle()
 
@@ -91,7 +76,15 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
   }
 
   const avatar = base?.avatar_url as string | null
-  const cnic = cnicStatus((base?.verification_state as string) ?? null, (base?.cnic_verified_at as string) ?? null)
+  // ONE CNIC source (PR66 §4): approved only with the marker AND the documents.
+  const cnicSingle = deriveCnicStatus({
+    verification_state: (base?.verification_state as string) ?? null,
+    cnic_verified_at: (base?.cnic_verified_at as string) ?? null,
+    cnic_number: (base?.cnic_number as string) ?? null,
+    cnic_image_path: (base?.cnic_image_path as string) ?? null,
+  })
+  // Map the CNIC vocabulary ('submitted') onto the shared DocStatus ('pending').
+  const cnic: DocStatus = cnicSingle === 'submitted' ? 'pending' : cnicSingle
 
   return {
     cnic: {

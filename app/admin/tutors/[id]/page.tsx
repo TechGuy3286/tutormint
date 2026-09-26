@@ -9,6 +9,7 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { loadDocumentStatuses } from '@/lib/tutorDocuments'
+import { deriveCnicStatus } from '@/lib/cnicStatus'
 import TutorDocumentReview from '@/components/admin/TutorDocumentReview'
 import { formatDate } from '@/lib/datetime'
 import { jobType, jobTypesLabel, verificationStatus } from '@/lib/display'
@@ -51,7 +52,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
       .maybeSingle(),
     admin
       .from('profiles')
-      .select('id, full_name, avatar_url, role, is_suspended, profile_completion')
+      .select('id, full_name, avatar_url, role, is_suspended, profile_completion, verification_state, cnic_verified_at, cnic_number, cnic_image_path')
       .eq('id', id)
       .maybeSingle(),
   ])
@@ -67,8 +68,28 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
 
   const canEdit = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutorSlug)
   const canReview = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)
-  const name = (tutor.full_name as string) ?? (profile.full_name as string) ?? 'Tutor'
+  // One name (PR66 §5): the canonical is profiles.full_name (what the member sees
+  // on their dashboard); fall back to tutor_profiles only if it is blank.
+  const name =
+    ((profile.full_name as string) || '').trim() || ((tutor.full_name as string) || '').trim() || 'Tutor'
   const completion = Number(profile.profile_completion ?? 0)
+  // One CNIC status (PR66 §4): the header must not claim "Verified" when the CNIC
+  // is not truly approved (marker + number + image). Display-only; data unchanged.
+  const cnicApproved =
+    deriveCnicStatus({
+      verification_state: profile.verification_state as string | null,
+      cnic_verified_at: profile.cnic_verified_at as string | null,
+      cnic_number: profile.cnic_number as string | null,
+      cnic_image_path: profile.cnic_image_path as string | null,
+    }) === 'approved'
+  const verifiedShown = (tutor.verification_status as string) === 'verified' && cnicApproved
+  const headerStatus = profile.is_suspended
+    ? 'suspended'
+    : verifiedShown
+      ? 'verified'
+      : (tutor.verification_status as string) === 'rejected'
+        ? 'rejected'
+        : 'pending'
 
   // Identity documents for review (PR60): the newest CNIC front/back and selfie,
   // plus each item's approval status. Read-resilient (statuses default to none
@@ -107,15 +128,15 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
           )}
           <div className="flex flex-wrap items-center gap-1.5">
             <StatusChip
-              status={
-                profile.is_suspended
-                  ? 'suspended'
-                  : ((tutor.verification_status as string) ?? 'pending')
-              }
+              status={headerStatus}
               label={
                 profile.is_suspended
                   ? 'Suspended'
-                  : verificationStatus(tutor.verification_status as string)
+                  : verifiedShown
+                    ? 'Verified'
+                    : (tutor.verification_status as string) === 'verified'
+                      ? 'CNIC pending'
+                      : verificationStatus(tutor.verification_status as string)
               }
             />
             <StatusChip status={tutor.video_status as string} label={`Video: ${tutor.video_status ?? 'none'}`} />

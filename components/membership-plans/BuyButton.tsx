@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import SubmitEscape from '@/components/SubmitEscape'
+import FriendlyPaymentError from '@/components/ui/FriendlyPaymentError'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import { usePathname } from 'next/navigation'
 
@@ -113,9 +114,10 @@ export default function BuyButton({
         {busy ? 'Starting…' : label}
       </button>
       {error && (
-        <div role="alert" className="space-y-2">
-          <p className="text-[11px] font-bold text-tm-red">{error}</p>
-          {stuck && <SubmitEscape href={stuck} />}
+        <div className="space-y-2">
+          {/* The "stuck" case has a real link to continue (PR66 §2: never show raw
+              error text — the friendly message covers a genuine failure). */}
+          {stuck ? <SubmitEscape href={stuck} /> : <FriendlyPaymentError />}
         </div>
       )}
     </div>

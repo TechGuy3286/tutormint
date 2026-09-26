@@ -133,7 +133,13 @@ export async function POST(request: Request) {
           content: (payProfile.utm_content as string) ?? null,
         },
       })
-      if (!started.ok) return NextResponse.json({ error: started.error }, { status: started.status })
+      if (!started.ok) {
+        // Never surface a database or gateway message to the member (PR66 §2).
+        // Log the real error server-side (no secrets — start errors carry a DB or
+        // PayPro description, never a token); the client shows the friendly message.
+        console.error('[paypro] checkout start failed:', started.error)
+        return NextResponse.json({ error: 'We could not start your payment.', code: 'payment_failed' }, { status: started.status })
+      }
       await logActivity({
         userId: user.id,
         event: 'payment_submitted',

@@ -40,12 +40,29 @@ export function pproSandbox(): boolean {
   return BASE().includes('demoapi')
 }
 
-/** Who may see PayPro checkout. Sandbox: owner/staff (admin_role set) or a seed
- *  test account. Live: every member. Never selected when PayPro is unconfigured. */
-export function pproVisibleFor(profile: { admin_role?: string | null; is_seed?: boolean | null }): boolean {
+/** Emails allow-listed for sandbox PayPro checkout (PR66 §3), case-insensitive. */
+function payproTestEmails(): Set<string> {
+  return new Set(
+    (process.env.PAYPRO_TEST_EMAILS ?? '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
+  )
+}
+
+/** Who may see PayPro checkout. Sandbox: owner/staff (admin_role set), a seed test
+ *  account, or an email listed in PAYPRO_TEST_EMAILS. Live: every member. Never
+ *  selected when PayPro is unconfigured. */
+export function pproVisibleFor(profile: {
+  admin_role?: string | null
+  is_seed?: boolean | null
+  email?: string | null
+}): boolean {
   if (!pproConfigured()) return false
   if (!pproSandbox()) return true
-  return !!profile.admin_role || !!profile.is_seed
+  if (profile.admin_role || profile.is_seed) return true
+  const email = (profile.email ?? '').trim().toLowerCase()
+  return !!email && payproTestEmails().has(email)
 }
 
 // ── low-level transport ─────────────────────────────────────────────────────
