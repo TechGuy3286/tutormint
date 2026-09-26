@@ -104,6 +104,8 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   const [facts, setFacts] = useState<FlowFacts | null>(null)
   // The tutor's saved fee range prefills the fee step (defaults otherwise, PR67).
   const [feeInit, setFeeInit] = useState<{ min: number; max: number }>({ min: FEE_MIN_DEFAULT, max: FEE_MAX_DEFAULT })
+  // The tutor's saved areas prefill the area step (PR68).
+  const [areaInit, setAreaInit] = useState<string[]>([])
   // The tutor's actual saved subject master ids, so the subjects step preselects
   // them and a toggle EDITS the set rather than replacing it with one pick.
   const [subjectIds, setSubjectIds] = useState<number[]>([])
@@ -156,6 +158,19 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       const mn = (tp?.fee_min_pkr as number | null) ?? (tp?.hourly_rate_pkr as number | null)
       const mx = (tp?.fee_max_pkr as number | null) ?? (tp?.hourly_rate_pkr as number | null)
       setFeeInit({ min: mn ?? FEE_MIN_DEFAULT, max: mx ?? FEE_MAX_DEFAULT })
+    }
+    // Prefill the area step from the saved areas (PR68); fall back to the single
+    // area. Fail-open if the table is not there yet (pre-migration).
+    try {
+      const { data: areaRows } = await supabase
+        .from('tutor_areas')
+        .select('area')
+        .eq('tutor_id', user.id)
+        .order('created_at')
+      const list = (areaRows ?? []).map((r) => r.area as string).filter(Boolean)
+      setAreaInit(list.length > 0 ? list : (tp?.area as string) ? [tp!.area as string] : [])
+    } catch {
+      setAreaInit((tp?.area as string) ? [tp!.area as string] : [])
     }
     const facts: FlowFacts = {
       fullName: (p?.full_name as string) ?? null,
@@ -392,10 +407,11 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         )}
 
         {stepKey === 'area' && (
-          <ChipRow
-            options={areaOptions(facets, cityMap, facts.city)}
-            selected={facts.area}
-            onPick={(name) => void tapSave({ tutorProfile: { area: name } }, { area: name })}
+          <AreaMultiStep
+            options={areaOptions(facets, cityMap, facts.city).map((o) => o.name)}
+            initial={areaInit}
+            busy={busy}
+            onNext={(areas) => void tapSave({ areas, profile: { city: facts.city } }, { area: areas[0] ?? null })}
           />
         )}
 
@@ -499,7 +515,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
                 only way to leave the flow. */}
             {/* The component-driven steps advance from their own callback; the
                 rest advance on this button. Blockers require the step done. */}
-            {!['mobile', 'verify', 'cnic', 'video', 'degree', 'photo', 'name', 'tagline', 'bio', 'fee'].includes(stepKey) && (
+            {!['mobile', 'verify', 'cnic', 'video', 'degree', 'photo', 'name', 'tagline', 'bio', 'fee', 'area'].includes(stepKey) && (
               <button
                 type="button" onClick={() => void advance()} disabled={busy || (isBlocker && !stepDone(facts, stepKey))}
                 className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
@@ -707,6 +723,59 @@ function FeeRangeStep({
         type="button"
         disabled={busy}
         onClick={submit}
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
+      >
+        {busy ? '…' : 'Save & continue'}
+      </button>
+    </div>
+  )
+}
+
+// The area step (PR68 §2): multi-select with the same search + chips, at least one
+// area required. All areas are within the tutor's chosen city (the options are the
+// city's areas). Its own Save & continue advances (the footer Next is disabled for
+// this step).
+function AreaMultiStep({
+  options,
+  initial,
+  busy,
+  onNext,
+}: {
+  options: string[]
+  initial: string[]
+  busy: boolean
+  onNext: (areas: string[]) => void
+}) {
+  const [selected, setSelected] = useState<string[]>(initial)
+  const [q, setQ] = useState('')
+  const query = q.trim().toLowerCase()
+  // Keep any already-selected areas visible even if not in the (search-filtered) list.
+  const shown = query ? options.filter((o) => o.toLowerCase().includes(query)).slice(0, 40) : options
+  const toggle = (name: string) =>
+    setSelected((s) => (s.includes(name) ? s.filter((x) => x !== name) : [...s, name]))
+  return (
+    <div className="space-y-4">
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search…"
+        aria-label="Search areas"
+        className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-tm-navy"
+      />
+      {selected.length > 0 && (
+        <p className="text-center text-[11px] font-bold text-tm-green-deep">
+          {selected.length} selected · {selected.join(', ')}
+        </p>
+      )}
+      <div className="flex flex-wrap justify-center gap-2">
+        {Array.from(new Set([...selected, ...shown])).map((name) => (
+          <Chip key={name} label={name} selected={selected.includes(name)} onClick={() => toggle(name)} />
+        ))}
+      </div>
+      <button
+        type="button"
+        disabled={busy || selected.length === 0}
+        onClick={() => onNext(selected)}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
       >
         {busy ? '…' : 'Save & continue'}

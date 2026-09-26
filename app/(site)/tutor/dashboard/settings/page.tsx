@@ -71,6 +71,9 @@ export default function TutorSettingsPage() {
   // Monthly fee range (PR67) — the two fields, prefilled from the saved values.
   const [feeMin, setFeeMin] = useState("");
   const [feeMax, setFeeMax] = useState("");
+  // Multiple areas (PR68). `areas` is the list; `newAreaInput` is the add field.
+  const [areas, setAreas] = useState<string[]>([]);
+  const [newAreaInput, setNewAreaInput] = useState("");
   const [realEmail, setRealEmail] = useState("");
   const [emailVerified, setEmailVerified] = useState(false);
   // Tile mode (once every Step 2 item is done): which card's form is open.
@@ -213,6 +216,19 @@ export default function TutorSettingsPage() {
       setFeeMin(String(savedMin ?? FEE_MIN_DEFAULT));
       setFeeMax(String(savedMax ?? FEE_MAX_DEFAULT));
 
+      // Areas (PR68): the tutor_areas list, falling back to the single area.
+      try {
+        const { data: areaRows } = await supabase
+          .from('tutor_areas')
+          .select('area')
+          .eq('tutor_id', user.id)
+          .order('created_at');
+        const list = (areaRows ?? []).map((r) => r.area as string).filter(Boolean);
+        setAreas(list.length > 0 ? list : (tp?.area ? [tp.area as string] : []));
+      } catch {
+        setAreas(tp?.area ? [tp.area as string] : []);
+      }
+
       if (tp) {
         setFormData({
           fullName: tp.full_name || "",
@@ -342,13 +358,22 @@ export default function TutorSettingsPage() {
     if (error) throw new Error(error.message);
   };
 
+  const addArea = () => {
+    const a = newAreaInput.trim();
+    if (a && !areas.includes(a)) setAreas([...areas, a]);
+    setNewAreaInput("");
+  };
   const saveLocation = async () => {
     // City is required wherever an area is collected (PR 3b §2.7): the listing
     // keys on the city, and an area with no city places nobody.
     if (!formData.city.trim()) {
       throw new Error('Add your city — you are not shown to parents without it.');
     }
-    await postProfileSave({ profile: { city: formData.city }, tutorProfile: { area: formData.areaName } });
+    if (areas.length === 0) {
+      throw new Error('Add at least one area you teach in.');
+    }
+    // PR68: save the whole area list; profiles/tutor_profiles.area follows the first.
+    await postProfileSave({ profile: { city: formData.city }, areas });
   };
 
   const saveJobTypes = () =>
@@ -412,9 +437,10 @@ export default function TutorSettingsPage() {
 
   // Collapsed summaries — plain text shown when a card has a saved value.
   const detailsSummary = formData.fullName.trim();
+  // "Lahore · Model Town, Gulberg, Johar Town" — up to 3 areas, then "+N more".
   const locationSummary = formData.city.trim()
-    ? formData.areaName.trim()
-      ? `${formData.city.trim()} · ${formData.areaName.trim()}`
+    ? areas.length
+      ? `${formData.city.trim()} · ${short(areas, 3)}`
       : formData.city.trim()
     : '';
   const subjectSummary = subjectLabels.length
@@ -451,7 +477,7 @@ export default function TutorSettingsPage() {
   const selfieStatus: CardStatus = docCard(statuses?.selfie, !!selfiePreviewUrl);
   const subjectsStatus: CardStatus = subjectIds.length > 0 ? 'completed' : 'missing';
   const locationStatus: CardStatus =
-    formData.city.trim() && formData.areaName.trim() ? 'completed' : 'missing';
+    formData.city.trim() && areas.length > 0 ? 'completed' : 'missing';
   const feeStatus: CardStatus = feePaid ? 'completed' : 'missing';
 
   const jobTypeStatus: CardStatus = formData.jobTypes.length > 0 ? 'completed' : 'missing';
@@ -624,23 +650,55 @@ export default function TutorSettingsPage() {
                 </p>
               )}
             </label>
-            <label className="block space-y-1">
-              <span className="sr-only">Area</span>
-              <input
-                type="text"
-                list="tutor-area-options"
-                autoComplete="off"
-                value={formData.areaName}
-                onChange={(e) => setFormData({ ...formData, areaName: e.target.value })}
-                placeholder="Area"
-                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-              />
-              <datalist id="tutor-area-options">
-                {areasForCity(cityMap, formData.city).map((a) => (
-                  <option key={a} value={a} />
-                ))}
-              </datalist>
-            </label>
+            <div className="block space-y-1.5">
+              <span className="text-[11px] font-bold text-tm-navy">Areas you teach in</span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  list="tutor-area-options"
+                  autoComplete="off"
+                  value={newAreaInput}
+                  onChange={(e) => setNewAreaInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); addArea(); }
+                  }}
+                  placeholder="Add an area"
+                  className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
+                />
+                <datalist id="tutor-area-options">
+                  {areasForCity(cityMap, formData.city).map((a) => (
+                    <option key={a} value={a} />
+                  ))}
+                </datalist>
+                <button
+                  type="button"
+                  onClick={addArea}
+                  className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-xl border border-gray-200 px-3 text-xs font-bold text-tm-navy hover:border-tm-navy"
+                >
+                  <Plus aria-hidden size={14} /> Add
+                </button>
+              </div>
+              {areas.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {areas.map((a) => (
+                    <span key={a} className="inline-flex items-center gap-1 rounded-full bg-tm-red py-1 pl-2.5 pr-1 text-[11px] font-semibold text-white">
+                      <span className="max-w-[10rem] truncate">{a}</span>
+                      <button
+                        type="button"
+                        onClick={() => setAreas(areas.filter((x) => x !== a))}
+                        aria-label={`Remove ${a}`}
+                        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-white/25"
+                      >
+                        <X aria-hidden size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {areas.length === 0 && (
+                <p className="text-[11px] font-bold text-tm-red">Add at least one area.</p>
+              )}
+            </div>
           </div>
           <SaveBar onSave={saveLocation} onSaved={() => collapse('location')} />
         </div>

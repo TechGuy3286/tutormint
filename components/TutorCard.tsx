@@ -43,6 +43,8 @@ export type TutorCardData = {
   avatar_url: string | null
   city: string | null
   area: string | null
+  /** All the areas the tutor serves (PR68). Falls back to [area] when absent. */
+  areas?: string[] | null
   teaching_mode: string | null
   job_types: string[] | null
   hourly_rate_pkr: number | null
@@ -440,21 +442,46 @@ export default function TutorCard({
                   : subjects}
               </DetailLine>
               <DetailLine icon={<Briefcase size={14} />} label="Experience" value={experience} />
-              <DetailLine
-                icon={<MapPin size={14} />}
-                label="Area"
-                value={tutor.area || 'Flexible'}
-              >
-                {tutor.area && tutor.city ? (
-                  <InlineLink
-                    href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}&area=${encodeURIComponent(tutor.area)}`}
+              {(() => {
+                // Up to 2 areas, then "+N more" (PR68). Falls back to the single area.
+                const list = (tutor.areas && tutor.areas.length > 0
+                  ? tutor.areas
+                  : tutor.area
+                    ? [tutor.area]
+                    : []
+                ).filter(Boolean) as string[]
+                const shown = list.slice(0, 2)
+                const extra = list.length - shown.length
+                return (
+                  <DetailLine
+                    icon={<MapPin size={14} />}
+                    label="Area"
+                    value={list.length ? list.join(', ') : 'Flexible'}
                   >
-                    {tutor.area}
-                  </InlineLink>
-                ) : (
-                  tutor.area || 'Flexible'
-                )}
-              </DetailLine>
+                    {list.length === 0 ? (
+                      'Flexible'
+                    ) : (
+                      <>
+                        {shown.map((a, i) => (
+                          <span key={a}>
+                            {i > 0 && ', '}
+                            {tutor.city ? (
+                              <InlineLink
+                                href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}&area=${encodeURIComponent(a)}`}
+                              >
+                                {a}
+                              </InlineLink>
+                            ) : (
+                              a
+                            )}
+                          </span>
+                        ))}
+                        {extra > 0 && <span className="text-gray-500"> +{extra} more</span>}
+                      </>
+                    )}
+                  </DetailLine>
+                )
+              })()}
               <DetailLine
                 icon={<Building2 size={14} />}
                 label="City"

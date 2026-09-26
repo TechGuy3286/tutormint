@@ -22,6 +22,8 @@ type Body = {
   tutorProfile?: Record<string, unknown>
   /** taxonomy_master ids, replacing the tutor's current subject set. */
   subjectMasterIds?: number[]
+  /** PR68: a tutor's areas (all in their city), replacing the tutor_areas set. */
+  areas?: string[]
 }
 
 // Only these columns may be written from the client, per table.
@@ -47,6 +49,8 @@ const ProfileBody = z.object({
   profile: z.record(z.string(), z.unknown()).optional(),
   tutorProfile: z.record(z.string(), z.unknown()).optional(),
   subjectMasterIds: z.array(z.number().int().positive()).max(60).optional(),
+  /** PR68: a tutor's areas (all in their city). Replaces the tutor_areas set. */
+  areas: z.array(z.string().max(120)).max(40).optional(),
   step: z.string().max(64).optional(),
 })
 
@@ -125,6 +129,22 @@ export async function POST(request: Request) {
     // The tutor's canonical city lives on tutor_profiles.
     if (cityWrite !== undefined) tutorPatch.city = cityWrite
 
+    // Multiple areas (PR68). The caller sends `areas: string[]`; we set the single
+    // tutor_profiles.area to the first (so it works pre-migration and satisfies the
+    // listing rule) AND replace the tutor_areas list. The list write is fail-open:
+    // if the table is not there yet, the single area is the fallback.
+    let areasList: string[] | null = null
+    if (Array.isArray(body.areas)) {
+      areasList = Array.from(
+        new Set(
+          body.areas
+            .filter((a): a is string => typeof a === 'string' && a.trim() !== '')
+            .map((a) => a.trim()),
+        ),
+      )
+      tutorPatch.area = areasList[0] ?? null
+    }
+
     // Fee range (PR67): whole rupees, non-negative, min ≤ max. A friendly error,
     // never a raw DB message. The trigger keeps hourly_rate_pkr = fee_min_pkr.
     const feeMin = tutorPatch.fee_min_pkr
@@ -170,6 +190,29 @@ export async function POST(request: Request) {
         .update({ full_name: profilePatch.full_name })
         .eq('id', user.id)
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    // Replace the tutor_areas set (PR68). The city for each area is the one being
+    // saved, or the tutor's current city. Fail-open: a missing table (pre-migration,
+    // 42P01) is ignored — tutor_profiles.area (set above) is the fallback.
+    if (areasList) {
+      let areaCity: string | null | undefined = cityWrite
+      if (areaCity === undefined) {
+        const { data: cur } = await supabase.from('tutor_profiles').select('city').eq('id', user.id).maybeSingle()
+        areaCity = (cur?.city as string | null) ?? null
+      }
+      const del = await supabase.from('tutor_areas').delete().eq('tutor_id', user.id)
+      if (del.error && del.error.code !== '42P01') {
+        return NextResponse.json({ error: del.error.message }, { status: 400 })
+      }
+      if (!del.error && areasList.length > 0) {
+        const { error } = await supabase
+          .from('tutor_areas')
+          .insert(areasList.map((area) => ({ tutor_id: user.id, city: areaCity, area })))
+        if (error && error.code !== '42P01') {
+          return NextResponse.json({ error: error.message }, { status: 400 })
+        }
+      }
     }
 
     if (Array.isArray(body.subjectMasterIds)) {

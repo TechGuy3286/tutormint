@@ -52,6 +52,7 @@ type PublicTutor = {
   avatar_url: string | null
   city: string | null
   area: string | null
+  areas: string[] | null
   teaching_mode: string | null
   job_types: string[] | null
   online_platforms: string[] | null
@@ -209,6 +210,20 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     .filter((d) => d.preview_path)
     .map((d) => ({ id: d.id as string, label: (d.label as string) ?? null }))
 
+  // The tutor's areas (PR68), for the owner's own preview. Fail-open to the single
+  // area if the table is not there yet (pre-migration).
+  let previewAreas: string[] | null = tp.area ? [tp.area as string] : null
+  try {
+    const { data: areaRows } = await admin
+      .from('tutor_areas')
+      .select('area')
+      .eq('tutor_id', userId)
+      .order('created_at')
+    if (areaRows && areaRows.length > 0) previewAreas = areaRows.map((r) => r.area as string)
+  } catch {
+    /* table not there yet — single area fallback */
+  }
+
   return {
     id: tp.id as string,
     slug: tp.slug as string,
@@ -218,6 +233,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     avatar_url: (tp.avatar_url as string) ?? null,
     city: (tp.city as string) ?? null,
     area: (tp.area as string) ?? null,
+    areas: previewAreas,
     teaching_mode: (tp.teaching_mode as string) ?? null,
     job_types: (tp.job_types as string[] | null) ?? null,
     online_platforms: (tp.online_platforms as string[] | null) ?? null,
@@ -795,18 +811,37 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               <JobTypesChip types={tutor.job_types} className="mt-0.5" />
 
               <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-2">
-                <p className="flex items-center gap-2 text-xs">
-                  <MapPin size={14} className="text-gray-500" />
-                  {tutor.area && tutor.city ? (
-                    <Link
-                      href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}&area=${encodeURIComponent(tutor.area)}`}
-                      className="font-semibold hover:text-tm-red hover:underline"
-                    >
-                      {tutor.area}
-                    </Link>
-                  ) : (
-                    (tutor.area ?? 'Area not set')
-                  )}
+                <p className="flex items-start gap-2 text-xs">
+                  <MapPin size={14} className="mt-0.5 shrink-0 text-gray-500" />
+                  {/* All the tutor's areas (PR68). */}
+                  {(() => {
+                    const list = (tutor.areas && tutor.areas.length > 0
+                      ? tutor.areas
+                      : tutor.area
+                        ? [tutor.area]
+                        : []
+                    ).filter(Boolean) as string[]
+                    if (list.length === 0) return <span>Area not set</span>
+                    return (
+                      <span>
+                        {list.map((a, i) => (
+                          <span key={a}>
+                            {i > 0 && ', '}
+                            {tutor.city ? (
+                              <Link
+                                href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}&area=${encodeURIComponent(a)}`}
+                                className="font-semibold hover:text-tm-red hover:underline"
+                              >
+                                {a}
+                              </Link>
+                            ) : (
+                              a
+                            )}
+                          </span>
+                        ))}
+                      </span>
+                    )
+                  })()}
                 </p>
                 <p className="flex items-center gap-2 text-xs">
                   <Building2 size={14} className="text-gray-500" />
