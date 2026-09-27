@@ -55,7 +55,11 @@ export type BucketName =
  */
 const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   login: { windowSeconds: 900, max: 10 }, // 10 per 15 min per IP
-  register: { windowSeconds: 3600, max: 5 }, // 5 accounts an hour per IP
+  // Loosened (PR76 §A.1): 5/hour turned honest households and shared-IP retries
+  // away. 10 per 10 minutes is roomy for a person mistyping and re-trying, still
+  // far below scriptable, and short-windowed so a genuine wait clears fast. NOTE
+  // this does NOT touch otp_send — each SMS costs money and stays at 8/hour.
+  register: { windowSeconds: 600, max: 10 }, // 10 per 10 min per IP
   // A tighter cap that applies ONLY while the shared BRIDGE_OTP code is active
   // (lib/sms bridgeStatus): a single code verifies every signup, so a batch
   // from one IP is the fake-account vector. Three an hour is more than a real

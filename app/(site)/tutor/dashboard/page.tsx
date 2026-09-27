@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Send, MessageSquare, Video, Briefcase, Eye, Heart, Search } from 'lucide-react'
+import { Send, MessageSquare, Video, Briefcase, Eye, Heart, Search, Clapperboard } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import CvCard from '@/components/tutor/CvCard'
@@ -88,7 +88,8 @@ export default async function TutorDashboardPage() {
         : 'اپنے قریب ٹیوشنز دیکھنے کے لیے سیٹنگز میں اپنا علاقہ شامل کریں'
   const findTuitionsHref = '/browse/tuitions'
 
-  // Six tiles, six distinct tones — no two share a colour (PR32 §2).
+  // Seven tiles, seven distinct tones — no two share a colour (PR32 §2). The
+  // seventh is the optional Intro video tile (PR76 §D.3), its own mint tint.
   const tiles: CountTile[] = [
     { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'green', tip: 'Tuitions you have applied to' },
     // The number is the tutor's CONVERSATIONS (four conversations → 4); unread
@@ -98,6 +99,9 @@ export default async function TutorDashboardPage() {
     { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: boardCount, label: 'Tuitions for you', href: '/browse/tuitions', tone: 'gold', tip: tutorScope ? 'Open tuitions in your city and areas' : 'Open tuitions — add your area in Settings to narrow this' },
     { key: 'views', icon: <Eye aria-hidden size={22} />, value: views.total, label: 'Profile views', href: '/tutor/dashboard/views', tone: 'teal', tip: 'Parents who viewed your profile' },
     { key: 'saved', icon: <Heart aria-hidden size={22} />, value: savedJobs.length, label: 'Saved tuitions', href: '#saved-tuitions', tone: 'violet', tip: 'Tuitions you saved to look at later' },
+    // Optional, no pressure — a label-only action tile opening the existing
+    // upload flow. It is not a completion item (§C.6).
+    { key: 'video', icon: <Clapperboard aria-hidden size={22} />, label: 'Intro video', href: '/tutor/dashboard/video', tone: 'mint', tip: 'Optional — a short hello for parents' },
   ]
 
   return (

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile, syntheticEmail, looksLikeEmail } from '@/lib/phone'
 import { parseBody, z } from '@/lib/validate'
-import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
+import { rateLimit, callerIp } from '@/lib/rateLimit'
 import { bridgeStatus } from '@/lib/sms'
 import { checkBlocklist } from '@/lib/blocklist'
 import { numberSavedElsewhere } from '@/lib/phoneAccount'
@@ -63,9 +63,18 @@ const BLOCKED = 'We could not create an account with these details. If you think
 // as staff invites and bulk import, so no auth-user-creating path can silently
 // break again if the trigger is ever lost.
 
+// The sign-up too-many response uses the owner's exact plain wording (PR76 §A.1),
+// English + Urdu, rather than the "wait about N minutes" phrasing.
+function tooManySignups(retryAfterSeconds: number): NextResponse {
+  return NextResponse.json(
+    { error: AUTH_MSG.tooMany.en, errorUr: AUTH_MSG.tooMany.ur },
+    { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
+  )
+}
+
 export async function POST(request: Request) {
   const limit = await rateLimit('register', callerIp(request))
-  if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'sign-up attempts')
+  if (!limit.allowed) return tooManySignups(limit.retryAfterSeconds)
 
   const parsed = await parseBody(request, RegisterBody)
   if (!parsed.ok) return parsed.response
@@ -201,7 +210,7 @@ export async function POST(request: Request) {
   // provider deployment is not throttled.
   if (bridgeStatus().active) {
     const bridgeLimit = await rateLimit('register_bridge', callerIp(request))
-    if (!bridgeLimit.allowed) return tooManyRequests(bridgeLimit.retryAfterSeconds, 'sign-up attempts')
+    if (!bridgeLimit.allowed) return tooManySignups(bridgeLimit.retryAfterSeconds)
   }
 
   const authEmail = syntheticEmail(mobile)

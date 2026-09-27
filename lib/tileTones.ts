@@ -30,9 +30,9 @@ export const TILE_TONE: Record<TileTone, { card: string; ink: string; chip: stri
   green: { card: 'bg-tm-tile-green-bg', ink: 'text-tm-tile-green-ink', chip: 'bg-tm-green-deep text-white' },
   red: { card: 'bg-tm-tile-red-bg', ink: 'text-tm-tile-red-ink', chip: 'bg-tm-red text-white' },
   gold: { card: 'bg-tm-tile-gold-bg', ink: 'text-tm-tile-gold-ink', chip: 'bg-tm-gold-ink text-white' },
-  // mint is not used by any tile; it maps to the navy tone so the palette stays
-  // total (a caller passing 'mint' gets a valid, contrast-checked tile).
-  mint: { card: 'bg-tm-tile-navy-bg', ink: 'text-tm-tile-navy-ink', chip: 'bg-tm-navy text-white' },
+  // mint — its own soft emerald tint (PR76 §D.3), for the optional Intro video
+  // tile on the dashboard. The chip is a solid deep green with a white glyph.
+  mint: { card: 'bg-tm-tile-mint-bg', ink: 'text-tm-tile-mint-ink', chip: 'bg-tm-green-deep text-white' },
   teal: { card: 'bg-tm-tile-teal-bg', ink: 'text-tm-tile-teal-ink', chip: 'bg-tm-teal-ink text-white' },
   violet: { card: 'bg-tm-tile-violet-bg', ink: 'text-tm-tile-violet-ink', chip: 'bg-tm-violet-ink text-white' },
 }

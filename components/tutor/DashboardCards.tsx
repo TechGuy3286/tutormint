@@ -9,7 +9,8 @@ import type { TileTone } from '@/lib/tileTones'
 export type CountTile = {
   key: string
   icon: React.ReactNode
-  value: number
+  /** The count. Omit for an action tile that shows only an icon + label. */
+  value?: React.ReactNode
   label: string
   href: string
   tone: TileTone

@@ -30,32 +30,37 @@ export type FlowStepKey =
   | 'availability'
   | 'degree'
   | 'cnic'
-  | 'video'
 
-// Blockers FIRST (owner §1.3: city, subjects, mobile, verification/fee), then the
-// rest (job type — which subsumes the retired "mode" and, via the subjects step,
-// "level"; area, then the remaining completion items). A blocker cannot be
-// skipped (§1.7).
+// PR76 §C.1 — the owner's order:
+//   1 City · 2 Areas · 3 Academic levels · 4 Subjects · 5 Job title ·
+//   6 Time slots · 7 Contact and about you · 8 Education & certifications ·
+//   9 Experience · 10 Expected fee · 11 Photo · 12 Selfie · 13 CNIC ·
+//   14 Platform fee.
+// "Contact and about you" (7) is the mobile → name → gender → tagline → bio run
+// (kept as consecutive steps; a single merged screen is a later refinement). The
+// platform fee ('verify') moves to LAST, so a tutor answers everything before
+// paying. The intro-video step is removed entirely (§C.6) — it now lives only as
+// an optional tile on the dashboard. The gap flow still opens at the first
+// missing step and skips filled ones, so this reorder needs no per-screen change.
 export const FLOW_ORDER: FlowStepKey[] = [
   'city',
+  'area',
   'level',
   'subjects',
-  'mobile',
-  'verify',
   'jobtype',
-  'area',
+  'availability',
+  'mobile',
   'name',
   'gender',
-  'photo',
-  'selfie',
   'tagline',
   'bio',
+  'degree',
   'experience',
   'fee',
-  'availability',
-  'degree',
+  'photo',
+  'selfie',
   'cnic',
-  'video',
+  'verify',
 ]
 
 /** The listing blockers a tutor fixes in the flow — not skippable. Level is the
@@ -87,7 +92,6 @@ export const COMPLETION_KEY_TO_STEP: Record<string, FlowStepKey> = {
   degrees: 'degree',
   cnic: 'cnic',
   phone: 'mobile',
-  video: 'video',
 }
 
 /** The facts every step's "done" test reads — a superset of the completion input
@@ -112,7 +116,6 @@ export type FlowFacts = {
   availabilityCount: number
   phoneVerified: boolean
   feePaid: boolean
-  videoDone: boolean
   // Account-state facts, for the directory ("You're listed") check.
   isSeed: boolean
   isTeamAccount: boolean
@@ -172,8 +175,6 @@ export function stepDone(f: FlowFacts, key: FlowStepKey): boolean {
       return f.degreesCount > 0 && f.degreeDocCount > 0
     case 'cnic':
       return nonblank(f.cnicNumber) && nonblank(f.cnicImagePath)
-    case 'video':
-      return f.videoDone
   }
 }
 

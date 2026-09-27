@@ -32,7 +32,7 @@ const FULL: FlowFacts = {
   avatarUrl: 'https://x/a.jpg', headline: 'O Level Physics tutor', bio: 'I teach physics.',
   experienceYears: 3, hourlyRate: 15000, jobTypes: ['Home Tutor'], degreesCount: 1, degreeDocCount: 1,
   cnicNumber: '35201-1234567-1', cnicImagePath: 'p/cnic', subjectCount: 2, selfieDone: true, availabilityCount: 1, phoneVerified: true,
-  feePaid: true, videoDone: true,
+  feePaid: true,
   isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false, underReview: false,
   verificationStatus: 'verified', imported: false, claimedAt: null,
 }
@@ -42,15 +42,22 @@ const EMPTY: FlowFacts = {
   fullName: 'New Tutor', gender: null, city: null, area: null, avatarUrl: null, headline: null, bio: null,
   experienceYears: null, hourlyRate: null, jobTypes: [], degreesCount: 0, degreeDocCount: 0,
   cnicNumber: null, cnicImagePath: null, subjectCount: 0, selfieDone: false, availabilityCount: 0, phoneVerified: false, feePaid: false,
-  videoDone: false, isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false,
+  isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false,
   underReview: false, verificationStatus: 'pending', imported: false, claimedAt: null,
 }
 
-test('blockers come first, in the owner order (city, level, subjects, mobile, verify)', () => {
-  // PR69: level (choose the academic level) precedes subjects.
-  assert.deepEqual(FLOW_ORDER.slice(0, 5), ['city', 'level', 'subjects', 'mobile', 'verify'])
+test('the flow follows the owner order (PR76 §C.1) with the platform fee last', () => {
+  assert.deepEqual(FLOW_ORDER, [
+    'city', 'area', 'level', 'subjects', 'jobtype', 'availability',
+    'mobile', 'name', 'gender', 'tagline', 'bio',
+    'degree', 'experience', 'fee', 'photo', 'selfie', 'cnic', 'verify',
+  ])
+  // The platform fee moves to LAST — everything is answered before paying.
+  assert.equal(FLOW_ORDER[FLOW_ORDER.length - 1], 'verify')
+  // The intro video is gone from the flow entirely (§C.6).
+  assert.ok(!(FLOW_ORDER as string[]).includes('video'))
+  // The blocker SET is unchanged (order-independent).
   for (const k of ['city', 'level', 'subjects', 'mobile', 'verify'] as const) assert.ok(BLOCKER_STEPS.has(k))
-  // The rest are not blockers.
   assert.ok(!BLOCKER_STEPS.has('jobtype'))
   assert.ok(!BLOCKER_STEPS.has('photo'))
 })
@@ -65,25 +72,25 @@ test('a brand-new tutor opens at city and misses everything but name', () => {
   assert.equal(firstMissingStep(EMPTY), 'city')
   assert.ok(!missingSteps(EMPTY).includes('name')) // name is set at signup
   assert.ok(missingSteps(EMPTY).includes('subjects'))
-  assert.ok(missingSteps(EMPTY).includes('video'))
   assert.equal(isListed(EMPTY), false)
 })
 
 test('firstMissingStep skips filled steps — an existing tutor sees only her gaps', () => {
-  // City + mobile done, everything else empty → first gap is level (PR69: level
-  // precedes subjects, and both are unfilled while subjectCount is 0).
+  // City done, everything else empty → first gap is area (2nd in the order).
   const f: FlowFacts = { ...EMPTY, city: 'Karachi', phoneVerified: true }
-  assert.equal(firstMissingStep(f), 'level')
-  // Fill subjects too → level and subjects are both done → next gap is verify.
-  assert.equal(firstMissingStep({ ...f, subjectCount: 1 }), 'verify')
+  assert.equal(firstMissingStep(f), 'area')
+  // Fill the preference run (area, level+subjects, jobtype, availability) → the
+  // first gap is now gender (name is already set at signup).
+  const g: FlowFacts = { ...f, area: 'Saddar', subjectCount: 1, jobTypes: ['Home Tutor'], availabilityCount: 1 }
+  assert.equal(firstMissingStep(g), 'gender')
 })
 
 test('nextMissingAfter walks forward over filled steps', () => {
-  // On the city step, city done → next missing is level (PR69: level before subjects).
+  // On the city step, city done → next missing is area (2nd in the order).
   const f: FlowFacts = { ...EMPTY, city: 'Lahore' }
-  assert.equal(nextMissingAfter(f, 'city'), 'level')
-  // From the last step with nothing after → null.
-  assert.equal(nextMissingAfter(FULL, 'video'), null)
+  assert.equal(nextMissingAfter(f, 'city'), 'area')
+  // From the last step ('verify') with nothing after → null.
+  assert.equal(nextMissingAfter(FULL, 'verify'), null)
 })
 
 test('stepDone matches the facts for each step', () => {

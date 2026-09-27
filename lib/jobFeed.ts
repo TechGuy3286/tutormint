@@ -324,7 +324,16 @@ export async function matchingJobsForTutor(
  * The default view of /browse/tuitions for a signed-in tutor, and the number the
  * dashboard "Tuitions for you" tile and action bar count agree with.
  */
-export type TutorScope = { city: string; areas: string[]; includeOnline: boolean }
+export type TutorScope = {
+  city: string
+  areas: string[]
+  includeOnline: boolean
+  // The tutor's own subject master ids (PR76 §A.3). Within the scope, tuitions in
+  // these subjects sort ahead of the rest — so the board leads with the work the
+  // tutor actually teaches. Empty when the tutor has no subjects yet (then the
+  // scope orders newest-first, exactly as before).
+  subjectMasterIds: number[]
+}
 
 export type JobFilters = {
   masterId: number | null
@@ -351,15 +360,17 @@ export async function resolveTutorScope(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
 ): Promise<TutorScope | null> {
-  const [{ data: tp }, { data: areaRows }] = await Promise.all([
+  const [{ data: tp }, { data: areaRows }, { data: subRows }] = await Promise.all([
     supabase.from('tutor_profiles').select('city, job_types').eq('id', userId).maybeSingle(),
     supabase.from('tutor_areas').select('area').eq('tutor_id', userId),
+    supabase.from('tutor_subjects').select('master_id').eq('tutor_id', userId),
   ])
   const city = ((tp?.city as string | null) ?? '').trim()
   const areas = [...new Set(((areaRows ?? []).map((r) => ((r.area as string) ?? '').trim()).filter(Boolean)))]
   if (!city || areas.length === 0) return null
   const jobTypes = (tp?.job_types as string[] | null) ?? []
-  return { city, areas, includeOnline: jobTypes.includes(ONLINE_JOB_TITLE) }
+  const subjectMasterIds = [...new Set(((subRows ?? []).map((r) => r.master_id as number)))]
+  return { city, areas, includeOnline: jobTypes.includes(ONLINE_JOB_TITLE), subjectMasterIds }
 }
 
 /** The exact number of open tuitions in the tutor's scope (PR71 §2). */
@@ -466,6 +477,59 @@ export async function browseJobs(
     if (filters.budgetMax !== null) q = q.lte('budget_pkr', filters.budgetMax)
     if (literalQ) q = q.ilike('title', `%${literalQ}%`)
     return q
+  }
+
+  // PR76 §A.3 — the tutor's own scoped default view. Within the scope, tuitions
+  // in the tutor's subjects lead, then the rest, each newest-first. The scope is
+  // one tutor's city+areas (a small, low-churn set) and this is a signed-in
+  // surface, NOT the crawler board — so we rank the whole in-scope set in memory
+  // and page over it, which is obviously correct. The public keyset path below is
+  // left exactly as it was. Only taken when there is no explicit subject filter
+  // (an explicit filter is already subject-specific, so "matched first" is moot).
+  if (filters.tutorScope && !matchingIds && filters.tutorScope.subjectMasterIds.length > 0) {
+    const { data: links } = await supabase
+      .from('job_subjects')
+      .select('job_id')
+      .in('master_id', filters.tutorScope.subjectMasterIds)
+    const matchedSet = new Set((links ?? []).map((l) => l.job_id as string))
+
+    // The whole in-scope open board (small — one tutor's city+areas), full rows.
+    const { data: allRows } = await build()
+    const all = (allRows ?? []) as Record<string, unknown>[]
+
+    // Rank: subject match first, then featured, then newest, id as the total
+    // tiebreaker so the order is stable across pages.
+    const sorted = [...all].sort((a, b) => {
+      const am = matchedSet.has(a.id as string) ? 1 : 0
+      const bm = matchedSet.has(b.id as string) ? 1 : 0
+      if (am !== bm) return bm - am
+      const af = a.is_featured ? 1 : 0
+      const bf = b.is_featured ? 1 : 0
+      if (af !== bf) return bf - af
+      const ac = String(a.created_at)
+      const bc = String(b.created_at)
+      if (ac !== bc) return ac < bc ? 1 : -1
+      return String(a.id) < String(b.id) ? 1 : -1
+    })
+    const total = sorted.length
+
+    // Page over the ranked list. The cursor carries the last id AND the next
+    // index: normally we resume just after the last id, but if that job has since
+    // closed we fall back to the recorded index rather than restarting at the top.
+    const after = decodeCursor<{ i: string; n: number }>(cursor)
+    let start = offset
+    if (after) {
+      const idx = sorted.findIndex((r) => String(r.id) === after.i)
+      start = idx >= 0 ? idx + 1 : Math.min(Math.max(after.n, 0), total)
+    }
+    const pageRows = sorted.slice(start, start + limit)
+    const end = start + pageRows.length
+    const lastId = pageRows.length ? String(pageRows[pageRows.length - 1].id) : null
+    return {
+      jobs: await decorate(pageRows),
+      total,
+      nextCursor: end >= total || !lastId ? null : encodeCursor({ i: lastId, n: end }),
+    }
   }
 
   // `id` is not decoration: (is_featured, created_at) is not unique -- two

@@ -108,6 +108,8 @@
   --color-tm-tile-teal-ink: #0f6d70;
   --color-tm-tile-violet-bg: #ece9fb;
   --color-tm-tile-violet-ink: #5b21b6;
+  --color-tm-tile-mint-bg: #cdeede;
+  --color-tm-tile-mint-ink: #0b6b52;
 
   /* Page ground. */
   --color-tm-bg: #f8fafc;
@@ -134,6 +136,8 @@
     --color-tm-tile-teal-ink: #8edfdd;
     --color-tm-tile-violet-bg: #241a47;
     --color-tm-tile-violet-ink: #cebff5;
+    --color-tm-tile-mint-bg: #103326;
+    --color-tm-tile-mint-ink: #8fe3c0;
   }
 }
 
@@ -150,6 +154,18 @@ html {
    design/reference/homepage.png. */
 .tm-headline {
   letter-spacing: -0.03em;
+}
+
+/* Urdu reads a little small next to Latin type at the same pixel size, so every
+   Urdu line on the site is bumped ~18% and given comfortable line height (PR76
+   §A.2). One rule keyed on the `lang="ur"` the Urdu lines already carry — not a
+   class to remember per page — so the English/Urdu pair always reads as a pair.
+   `em` keeps it relative to whatever size the line inherits (a caption Urdu line
+   grows from the caption size, a heading Urdu line from the heading size). Colour
+   is untouched, so every contrast pair still holds. */
+[lang='ur'] {
+  font-size: 1.18em;
+  line-height: 1.85;
 }
 
 /* Respect a reader who has asked for less motion. Every transition in the app

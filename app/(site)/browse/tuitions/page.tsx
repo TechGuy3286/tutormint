@@ -207,16 +207,18 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     // Job Type + city, to align matches and decide the "Suitable for online"
     // chip on a cross-city online job.
     if (isTutor) {
-      const [{ data: tp }, { data: areaRows }] = await Promise.all([
+      const [{ data: tp }, { data: areaRows }, { data: subRows }] = await Promise.all([
         supabase.from('tutor_profiles').select('city, teaching_mode, job_types').eq('id', user.id).maybeSingle(),
         supabase.from('tutor_areas').select('area').eq('tutor_id', user.id),
+        supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
       ])
       viewerCity = (tp?.city as string | null) ?? null
       viewerJobTypes = (tp?.job_types as string[] | null) ?? null
       const tutorCity = (viewerCity ?? '').trim()
       const areas = [...new Set(((areaRows ?? []).map((r) => ((r.area as string) ?? '').trim()).filter(Boolean)))]
+      const subjectMasterIds = [...new Set(((subRows ?? []).map((r) => r.master_id as number)))]
       if (tutorCity && areas.length > 0) {
-        tutorScope = { city: tutorCity, areas, includeOnline: (viewerJobTypes ?? []).includes(ONLINE_JOB_TITLE) }
+        tutorScope = { city: tutorCity, areas, includeOnline: (viewerJobTypes ?? []).includes(ONLINE_JOB_TITLE), subjectMasterIds }
       }
     }
   }

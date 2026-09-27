@@ -13,7 +13,7 @@ import Link from 'next/link'
 import {
   X, Plus, Save, ArrowLeft, ArrowRight, BadgeCheck, ShieldAlert,
   Smartphone, CreditCard, Image as ImageIcon, Camera, BookOpen, MapPin, ShieldCheck,
-  GraduationCap, Award, Briefcase, Mail, Tags, CalendarDays, Video, Lock, UserRound, Wallet,
+  GraduationCap, Award, Briefcase, Mail, Tags, CalendarDays, Lock, UserRound, Wallet,
 } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
 import { StatusCard, StepHeader, SettingsTile, Urdu } from '@/components/tutor/SettingsPieces'
@@ -25,7 +25,6 @@ import { L } from '@/lib/onboarding/copy'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
 import { availabilityToSlots, slotsToAvailabilityList, formatSlots, type DaySlot } from '@/lib/timeSlots'
 import SubjectPicker from '@/components/tutor/SubjectPicker'
-import VideoUpload from '@/components/tutor/VideoUpload'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
 import { parseCredential } from '@/lib/degrees'
 import EmailCard from '@/components/account/EmailCard'
@@ -127,9 +126,6 @@ export default function TutorSettingsPage() {
   const [degrees, setDegrees] = useState<Credential[]>([]);
   const [certifications, setCertifications] = useState<Credential[]>([]);
 
-  const [videoAttempts, setVideoAttempts] = useState(0);
-  const [videoStatus, setVideoStatus] = useState("none");
-  const [videoYoutubeId, setVideoYoutubeId] = useState<string>("");
 
   useEffect(() => {
     loadTutorProfile();
@@ -276,9 +272,6 @@ export default function TutorSettingsPage() {
         };
         setDegrees(Array.isArray(tp.degrees) ? tp.degrees.map(asDegree) : []);
         setCertifications(Array.isArray(tp.certifications) ? tp.certifications.map(asCert) : []);
-        setVideoAttempts((tp.video_attempts as number) ?? 0);
-        setVideoStatus((tp.video_status as string) ?? 'none');
-        setVideoYoutubeId((tp.video_youtube_id as string) ?? '');
       }
 
       setSubjectIds((subjRows ?? []).map((r) => r.master_id as number));
@@ -438,12 +431,16 @@ export default function TutorSettingsPage() {
 
   // ---- PR63 §C2: collapse-after-save --------------------------------------
   const openEdit = (key: string) => setEditing((s) => new Set(s).add(key));
-  const collapse = (key: string) =>
+  const collapse = (key: string) => {
     setEditing((s) => {
       const n = new Set(s);
       n.delete(key);
       return n;
     });
+    // PR76 §D.1: Settings is always a tile grid — a card's form opens in place
+    // (openCard) and Save shrinks it back to its square tile.
+    setOpenCard((o) => (o === key ? null : o));
+  };
 
   const short = (parts: string[], keep = 2): string => {
     const kept = parts.slice(0, keep).join(', ');
@@ -521,18 +518,6 @@ export default function TutorSettingsPage() {
   const experienceStatus: CardStatus = experienceYears && experienceYears > 0 ? 'completed' : 'missing';
   const feeMonthlyStatus: CardStatus = parseFee(feeMin) && parseFee(feeMax) ? 'completed' : 'missing';
   const emailStatus: CardStatus = realEmail && emailVerified ? 'completed' : 'missing';
-  // PR74 §C2: status and content must agree — "Completed" needs a video ACTUALLY
-  // on file. A stale 'approved' with no video reads as not-yet-done (upload it),
-  // not Completed-with-an-empty-box.
-  const hasVideo = videoYoutubeId.trim() !== '';
-  const videoStatusCard: CardStatus =
-    videoStatus === 'rejected'
-      ? 'rejected'
-      : hasVideo
-        ? videoStatus === 'approved'
-          ? 'completed'
-          : 'waiting'
-        : 'missing';
 
   const step1Cards: CardDesc[] = [
     {
@@ -967,30 +952,9 @@ export default function TutorSettingsPage() {
       icon: <Mail size={20} aria-hidden />,
       body: <EmailCard />,
     },
-    {
-      key: 'video',
-      status: videoStatusCard,
-      icon: <Video size={20} aria-hidden />,
-      body: hasVideo ? (
-        // PR74 §C2: a video is on file — confirm it, don't show an empty uploader.
-        // The intro is uploaded PRIVATE to the official channel, so it is not
-        // embedded here; the tutor is told it is received and its review state.
-        <div className="flex items-center gap-2 rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
-          <Video aria-hidden size={15} />
-          <span>
-            {videoStatus === 'approved'
-              ? 'Your introduction video is uploaded and approved.'
-              : 'Your introduction video is uploaded and awaiting review.'}
-          </span>
-        </div>
-      ) : (
-        <VideoUpload
-          initialAttempts={videoAttempts}
-          initialStatus={videoStatus}
-          onSubmitted={() => void loadTutorProfile()}
-        />
-      ),
-    },
+    // PR76 §D.2: the Intro video tile is removed from Settings (it is no longer a
+    // completion item and is offered as an optional tile on the dashboard). It is
+    // therefore out of the Step 2 count too, which is derived from this array.
   ];
 
   const accountCards: CardDesc[] = [
@@ -1081,8 +1045,6 @@ export default function TutorSettingsPage() {
 
   const step1Done = step1Cards.filter((c) => c.status === 'completed').length;
   const step2Done = step2Cards.filter((c) => c.status === 'completed').length;
-  // Tile mode once every Step 2 item is complete (owner PR62 §4).
-  const tileMode = step2Cards.length > 0 && step2Done === step2Cards.length;
 
   // forceOpen: in tile mode the tapped card always shows its form (never the
   // collapsed summary).
@@ -1137,22 +1099,25 @@ export default function TutorSettingsPage() {
         <ArrowLeft aria-hidden size={14} /> Back to Tutor dashboard
       </Link>
 
+      {/* PR76 §D.1: every section is a two-column grid of equal square tiles.
+          Tapping a tile expands it in place to its full-width form; Save (or
+          tapping the tile again) shrinks it back. */}
       {/* Step 1 — required. */}
       <section className="space-y-3">
         <StepHeader section="step1" done={step1Done} total={step1Cards.length} />
-        {tileMode ? renderTiles(step1Cards) : step1Cards.map((c) => renderCard(c))}
+        {renderTiles(step1Cards)}
       </section>
 
       {/* Step 2 — optional. */}
       <section className="space-y-3">
         <StepHeader section="step2" done={step2Done} total={step2Cards.length} />
-        {tileMode ? renderTiles(step2Cards) : step2Cards.map((c) => renderCard(c))}
+        {renderTiles(step2Cards)}
       </section>
 
-      {/* Account — name, WhatsApp and password. Not part of the two steps. */}
+      {/* Account — name, WhatsApp and password. Tiles too (§D.1). */}
       <section className="space-y-3">
         <StepHeader section="account" />
-        {accountCards.map((c) => renderCard(c))}
+        {renderTiles(accountCards)}
       </section>
     </main>
   );

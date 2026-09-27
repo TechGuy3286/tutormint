@@ -118,10 +118,14 @@ export type ParentCompletionInput = {
 }
 
 /**
- * Tutor completion. 17 equally weighted items — the 16 gap-flow steps plus the
+ * Tutor completion. 16 equally weighted items — the gap-flow steps plus the
  * contact-email item (PR29 §4), which is fixed in Settings, not the flow. The
  * percentage floors so a finished profile is exactly 100 and nothing else ever
  * is.
+ *
+ * The introduction video is NOT a completion item (PR76 §C.6/§D): it is removed
+ * from onboarding and from Settings, and is offered only as an optional tile on
+ * the dashboard — so it must not hold a tutor below 100%.
  */
 export function calculateTutorCompletion(input: TutorCompletionInput): Completion {
   const p = input.profile ?? {}
@@ -164,14 +168,6 @@ export function calculateTutorCompletion(input: TutorCompletionInput): Completio
     // signup already has one, so it is done. Added in Settings, confirmed by a
     // link — checklistHref sends it there, not to a gap-flow step.
     { key: 'email', label: 'Email address', done: hasRealEmail(p.email), step: 6, anchor: 'email' },
-    {
-      key: 'video',
-      label: 'Introduction video submitted',
-      // Submitted, not approved. Admin review must not move the percentage.
-      done: has(t.video_youtube_id) || (t.video_status ? t.video_status !== 'none' : false),
-      step: 7,
-      anchor: 'video',
-    },
   ]
 
   return summarise(items)

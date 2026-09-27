@@ -112,12 +112,14 @@ const C = {
   tileGoldBg: '#FEF6E6', tileGoldInk: '#92400E',
   tileTealBg: '#D3F0EF', tileTealInk: '#0F6D70',
   tileVioletBg: '#ECE9FB', tileVioletInk: '#5B21B6',
+  tileMintBg: '#CDEEDE', tileMintInk: '#0B6B52',
   tileNavyBgD: '#1E2547', tileNavyInkD: '#C6CCF2',
   tileGreenBgD: '#14331F', tileGreenInkD: '#A6E7BF',
   tileRedBgD: '#3B1516', tileRedInkD: '#F4B2B2',
   tileGoldBgD: '#3A2A0E', tileGoldInkD: '#F3C77C',
   tileTealBgD: '#0E3130', tileTealInkD: '#8EDFDD',
   tileVioletBgD: '#241A47', tileVioletInkD: '#CEBFF5',
+  tileMintBgD: '#103326', tileMintInkD: '#8FE3C0',
 } as Record<string, string>
 
 type Pair = { fg: string; bg: string; where: string; large?: boolean }
@@ -254,12 +256,14 @@ const PAIRS: Pair[] = [
   { fg: 'tileGoldInk', bg: 'tileGoldBg', where: 'tinted tile text, gold — light' },
   { fg: 'tileTealInk', bg: 'tileTealBg', where: 'tinted tile text, teal — light' },
   { fg: 'tileVioletInk', bg: 'tileVioletBg', where: 'tinted tile text, violet — light' },
+  { fg: 'tileMintInk', bg: 'tileMintBg', where: 'tinted tile text, mint — light' },
   { fg: 'tileNavyInkD', bg: 'tileNavyBgD', where: 'tinted tile text, navy — dark' },
   { fg: 'tileGreenInkD', bg: 'tileGreenBgD', where: 'tinted tile text, green — dark' },
   { fg: 'tileRedInkD', bg: 'tileRedBgD', where: 'tinted tile text, red — dark' },
   { fg: 'tileGoldInkD', bg: 'tileGoldBgD', where: 'tinted tile text, gold — dark' },
   { fg: 'tileTealInkD', bg: 'tileTealBgD', where: 'tinted tile text, teal — dark' },
   { fg: 'tileVioletInkD', bg: 'tileVioletBgD', where: 'tinted tile text, violet — dark' },
+  { fg: 'tileMintInkD', bg: 'tileMintBgD', where: 'tinted tile text, mint — dark' },
 
   // The four initials-avatar pairs (lib/brand.ts AVATAR_TINTS). Named here
   // rather than left to the identical pairs above, because the avatar is the

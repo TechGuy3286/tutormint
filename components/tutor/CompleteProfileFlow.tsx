@@ -16,7 +16,6 @@ import { EXPERIENCE_BANDS, composeHeadline, composeBio, L, type OnboardingAnswer
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import type { OnboardingFacets } from '@/lib/openJobCounts'
 import { fetchTaxonomyTree, resolveMasterIds, fetchNonLegacyMasters, type TaxonomyNode } from '@/lib/taxonomy'
-import VideoUpload from '@/components/tutor/VideoUpload'
 import CnicCameraField from '@/components/tutor/CnicCameraField'
 import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
@@ -46,15 +45,18 @@ import { directoryBlockers, listingFixItems } from '@/lib/tutorListingStatus'
 // NOTE: no browser drove this. The gap ORDER and the per-step done tests are
 // unit-tested in lib/tutorFlow; the screens themselves are not exercised here.
 
+// Steps 1–6 and 10 are TUITION PREFERENCES (PR76 §C.2): they ask what work the
+// tutor wants, and drive their default tuition feed, "Tuitions for you" and match
+// notifications. So the wording is "…do you want to teach?", not "…do you teach?".
 const TITLES: Record<FlowStepKey, string> = {
-  city: 'Which city do you teach in?',
-  level: 'Which level do you teach?',
-  subjects: 'What subjects do you teach?',
-  availability: 'When are you available?',
+  city: 'Which city do you want tuitions in?',
+  area: 'Which areas do you want tuitions in?',
+  level: 'Which levels do you want to teach?',
+  subjects: 'Which subjects do you want to teach?',
+  jobtype: 'What kind of work do you want?',
+  availability: 'When can you teach?',
   mobile: 'Verify your mobile number',
   verify: 'Get verified',
-  jobtype: 'What kind of work do you want?',
-  area: 'Which area?',
   name: 'Your full name',
   gender: 'You are',
   photo: 'Add your photo',
@@ -62,23 +64,22 @@ const TITLES: Record<FlowStepKey, string> = {
   tagline: 'Your professional tagline',
   bio: 'A short about-you',
   experience: 'Years of experience',
-  fee: 'Your expected monthly fee',
+  fee: 'What monthly fee do you expect?',
   degree: 'Your top degree',
   cnic: 'Your CNIC',
-  video: 'A short introduction video',
 }
 
 // The Urdu sub-label under each step title (owner PR5a §1.5), the way the
 // previous new-tutor onboarding read. English on top, Urdu smaller beneath.
 const URDU: Record<FlowStepKey, string> = {
-  city: 'آپ کس شہر میں پڑھاتے ہیں؟',
-  level: 'آپ کون سی جماعتیں پڑھاتے ہیں؟',
-  subjects: 'آپ کون سے مضامین پڑھاتے ہیں؟',
-  availability: 'آپ کب دستیاب ہیں؟',
+  city: 'آپ کس شہر میں ٹیوشن چاہتے ہیں؟',
+  area: 'آپ کن علاقوں میں ٹیوشن چاہتے ہیں؟',
+  level: 'آپ کون سی جماعتیں پڑھانا چاہتے ہیں؟',
+  subjects: 'آپ کون سے مضامین پڑھانا چاہتے ہیں؟',
+  jobtype: 'آپ کس قسم کا کام چاہتے ہیں؟',
+  availability: 'آپ کب پڑھا سکتے ہیں؟',
   mobile: 'اپنے موبائل نمبر کی تصدیق کریں',
   verify: 'تصدیق کروائیں',
-  jobtype: 'آپ کس قسم کا کام چاہتے ہیں؟',
-  area: 'کون سا علاقہ؟',
   name: 'آپ کا پورا نام',
   gender: 'آپ ہیں',
   photo: 'اپنی تصویر لگائیں',
@@ -86,10 +87,9 @@ const URDU: Record<FlowStepKey, string> = {
   tagline: 'آپ کا پیشہ ورانہ عنوان',
   bio: 'اپنے بارے میں مختصر',
   experience: 'تجربے کے سال',
-  fee: 'آپ کی متوقع ماہانہ فیس',
+  fee: 'آپ کتنی ماہانہ فیس کی توقع رکھتے ہیں؟',
   degree: 'آپ کی اعلیٰ ترین ڈگری',
   cnic: 'آپ کا شناختی کارڈ',
-  video: 'ایک مختصر تعارفی ویڈیو',
 }
 
 type Props = {
@@ -212,7 +212,6 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       availabilityCount: Array.isArray(tp?.availability_list) ? tp.availability_list.length : 0,
       phoneVerified: !!p?.phone_verified_at,
       feePaid: !!tp?.verified_fee_paid_at,
-      videoDone: !!tp?.video_youtube_id || ((tp?.video_status as string | null) ?? 'none') !== 'none',
       isSeed: !!p?.is_seed,
       isTeamAccount: !!p?.is_team_account,
       isBanned: !!p?.is_banned,
@@ -311,7 +310,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   }, [stepKey, jobTitles])
 
   // Advance to the next gap after the current step (skips filled), or the final
-  // screen. Reloads facts first so a component-driven step (cnic, video, verify)
+  // screen. Reloads facts first so a component-driven step (cnic, verify)
   // is seen as done.
   const advance = useCallback(async () => {
     setBusy(true)
@@ -660,9 +659,6 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
           <DegreeStep onSaved={() => void advance()} />
         )}
         {stepKey === 'cnic' && <CnicFlowStep onSubmitted={() => void advance()} />}
-        {stepKey === 'video' && (
-          <VideoUpload initialAttempts={0} initialStatus={facts.videoDone ? 'uploaded' : 'none'} onSubmitted={() => void advance()} />
-        )}
 
         {stepKey === 'final' && <FinalScreen facts={facts} onLeave={leave} />}
       </main>
@@ -675,7 +671,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
                 only way to leave the flow. */}
             {/* The component-driven steps advance from their own callback; the
                 rest advance on this button. Blockers require the step done. */}
-            {!['mobile', 'verify', 'cnic', 'video', 'degree', 'photo', 'selfie', 'name', 'tagline', 'bio', 'fee', 'area', 'level', 'subjects', 'availability'].includes(stepKey) && (
+            {!['mobile', 'verify', 'cnic', 'degree', 'photo', 'selfie', 'name', 'tagline', 'bio', 'fee', 'area', 'level', 'subjects', 'availability'].includes(stepKey) && (
               <button
                 type="button" onClick={() => void advance()} disabled={busy || (isBlocker && !stepDone(facts, stepKey))}
                 className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
