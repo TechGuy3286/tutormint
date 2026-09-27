@@ -29,8 +29,15 @@ export type TileTone = 'navy' | 'green' | 'red' | 'gold' | 'mint' | 'teal' | 'vi
 // tiles use, so the tutor Settings tiles and the dashboard tiles are the same
 // square by construction rather than by two class strings kept in sync by hand.
 // Both StatTile (the dashboard tile) and SettingsTile draw from these.
+//
+// `w-full h-full` make the tile FILL its grid cell (PR77b): a block-level <a>
+// (StatTile) filled its column without it, but a <button> (SettingsTile) shrinks
+// to its content width, so the Settings tiles came out unequal — narrow "Selfie",
+// wide "CNIC". With w-full every tile fills its column equally, long labels wrap
+// inside instead of widening the tile, and h-full keeps a row's tiles equal
+// height. It is a no-op for the already-full <a>.
 export const TILE_BOX =
-  'relative flex h-full min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center transition-shadow hover:shadow-md'
+  'relative flex h-full w-full min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center transition-shadow hover:shadow-md'
 export const TILE_CHIP = 'grid h-12 w-12 place-items-center rounded-2xl'
 export const TILE_BORDER_DEFAULT = 'border-black/5 shadow-xs'
 export const TILE_BORDER_HIGHLIGHT = 'border-tm-red shadow-[0_2px_14px_-6px_var(--color-tm-red)]'
