@@ -171,6 +171,7 @@ export function tooManyRequests(retryAfterSeconds: number, what: string): Respon
   return new Response(
     JSON.stringify({
       error: `Too many ${what}. Please wait about ${minutes} minute${minutes === 1 ? '' : 's'} and try again.`,
+      errorUr: 'بہت زیادہ کوششیں۔ براہ کرم چند منٹ انتظار کر کے دوبارہ کوشش کریں۔',
     }),
     {
       status: 429,

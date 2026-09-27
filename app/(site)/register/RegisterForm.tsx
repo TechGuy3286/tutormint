@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
 import PasswordInput from '@/components/ui/PasswordInput'
+import AuthError from '@/components/auth/AuthError'
+import { AUTH_MSG, MIN_PASSWORD_LENGTH } from '@/lib/authMessages'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 
 const supportHref = whatsappHref(
@@ -76,21 +78,46 @@ export default function RegisterForm({
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [errorUr, setErrorUr] = useState<string | null>(null)
+  const [errorRef, setErrorRef] = useState<string | null>(null)
+  const [errorSignIn, setErrorSignIn] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [stuckHref, setStuckHref] = useState<string | null>(null)
 
   const router = useRouter()
   const shape = identifierShape(identifier)
 
+  const showError = (en: string, ur?: string | null, opts?: { ref?: string | null; signIn?: boolean; fields?: Record<string, string> }) => {
+    setErrorMsg(en)
+    setErrorUr(ur ?? null)
+    setErrorRef(opts?.ref ?? null)
+    setErrorSignIn(!!opts?.signIn)
+    setFieldErrors(opts?.fields ?? {})
+  }
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setErrorMsg('')
+    setErrorUr(null)
+    setErrorRef(null)
+    setErrorSignIn(false)
     setFieldErrors({})
 
+    // Client-side pre-check (PR75 §2): a too-short password is the obvious first
+    // thing to fix, said before a round trip. The server still enforces the full
+    // rule (Supabase also rejects weak/leaked passwords).
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      showError(AUTH_MSG.shortPassword.en, AUTH_MSG.shortPassword.ur, { fields: { password: AUTH_MSG.shortPassword.en } })
+      return
+    }
+
+    setLoading(true)
     const { ok, data, error: failed } = await submitJson<{
       next?: string
       fields?: Record<string, string>
+      errorUr?: string
+      ref?: string
+      signIn?: boolean
     }>('/api/auth/register', {
       role,
       fullName,
@@ -100,8 +127,11 @@ export default function RegisterForm({
     })
 
     if (!ok) {
-      setErrorMsg(failed ?? 'Could not create your account.')
-      setFieldErrors(data?.fields ?? {})
+      showError(failed ?? 'Could not create your account.', data?.errorUr, {
+        ref: data?.ref,
+        signIn: data?.signIn,
+        fields: data?.fields,
+      })
       setLoading(false)
       return
     }
@@ -151,11 +181,8 @@ export default function RegisterForm({
         </div>
 
         {errorMsg && (
-          <div
-            role="alert"
-            className="space-y-2 p-3 bg-tm-tint-red border border-tm-red/30 text-tm-red text-xs font-bold rounded-xl text-center"
-          >
-            <p>{errorMsg}</p>
+          <div className="space-y-2">
+            <AuthError message={errorMsg} messageUr={errorUr} ref={errorRef} signIn={errorSignIn} />
             {stuckHref && <SubmitEscape href={stuckHref} />}
           </div>
         )}

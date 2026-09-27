@@ -7,6 +7,7 @@ import { Mail } from 'lucide-react'
 import { STUCK_MESSAGE, armEscape, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
 import { useToast } from '@/components/ui/Toast'
+import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
 
 // Pre-auth code entry for a mobile signup (owner, 11 Sep 2026).
 //
@@ -29,6 +30,8 @@ export default function PendingVerifyForm({ next }: { next: string | null }) {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [errorUr, setErrorUr] = useState<string | null>(null)
+  const [errorRef, setErrorRef] = useState<string | null>(null)
   const [terminal, setTerminal] = useState(false) // expired / locked → start over
   const [stuckHref, setStuckHref] = useState<string | null>(null)
 
@@ -36,14 +39,20 @@ export default function PendingVerifyForm({ next }: { next: string | null }) {
     e.preventDefault()
     setBusy(true)
     setError('')
+    setErrorUr(null)
+    setErrorRef(null)
 
     const { ok, data, error: failed } = await submitJson<{
       next?: string
       reason?: string
+      errorUr?: string
+      ref?: string
     }>('/api/auth/register/verify', { code, next: next ?? undefined })
 
     if (!ok) {
       setError(failed ?? 'That code was not accepted.')
+      setErrorUr(data?.errorUr ?? (data?.ref ? GENERIC_ERROR.ur : null))
+      setErrorRef(data?.ref ?? null)
       // On a terminal reason the draft is gone: swap the field for "start over".
       if (data?.reason === 'expired' || data?.reason === 'locked' || data?.reason === 'exists' || data?.reason === 'blocked') {
         setTerminal(true)
@@ -73,6 +82,19 @@ export default function PendingVerifyForm({ next }: { next: string | null }) {
           className="space-y-2 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red"
         >
           <p>{error}</p>
+          {errorUr && (
+            <p lang="ur" dir="rtl" className="leading-relaxed">
+              {errorUr}
+            </p>
+          )}
+          {errorRef && (
+            <p className="text-[11px] font-normal text-tm-red/80">
+              Ref: <span className="font-mono">{errorRef}</span>{' '}
+              <a href={supportWhatsappHref(errorRef)} target="_blank" rel="noopener noreferrer" className="underline">
+                WhatsApp support
+              </a>
+            </p>
+          )}
           {stuckHref && <SubmitEscape href={stuckHref} />}
           {terminal && (
             <Link

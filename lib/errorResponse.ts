@@ -28,12 +28,14 @@ const LOCK_SQLSTATE = 'TMLCK'
 export function serverError(error: unknown, context: string, status = 500): NextResponse {
   const code = (error as { code?: string } | null)?.code
   if (code === LOCK_SQLSTATE) {
-    return NextResponse.json({ error: LOCKED_FIELD_MESSAGE.en, locked: true }, { status: 403 })
+    return NextResponse.json({ error: LOCKED_FIELD_MESSAGE.en, errorUr: LOCKED_FIELD_MESSAGE.ur, locked: true }, { status: 403 })
   }
   const ref = makeRefCode()
   // One line, no PII: the ref, a short context tag, and the error itself. In
   // production this is the only place the real message survives.
   const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
   console.error(`[error ${ref}] ${context} — ${detail}`)
-  return NextResponse.json({ error: GENERIC_ERROR.en, ref }, { status })
+  // errorUr so every screen can show the plain Urdu line beside the English one
+  // (PR75 §2); ref so the member can quote it to support.
+  return NextResponse.json({ error: GENERIC_ERROR.en, errorUr: GENERIC_ERROR.ur, ref }, { status })
 }

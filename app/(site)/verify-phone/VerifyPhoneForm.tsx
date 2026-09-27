@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { STUCK_MESSAGE, armEscape, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
 import { useToast } from '@/components/ui/Toast'
+import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
 
 // The code entry — the AUTHENTICATED gate (a legacy mobile-first account, or a
 // bridge-verified one re-verifying once the real provider lands). The pre-auth
@@ -27,6 +28,8 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [errorUr, setErrorUr] = useState<string | null>(null)
+  const [errorRef, setErrorRef] = useState<string | null>(null)
   const [locked, setLocked] = useState(false)
   const [stuckHref, setStuckHref] = useState<string | null>(null)
 
@@ -34,14 +37,18 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
     e.preventDefault()
     setBusy(true)
     setError('')
+    setErrorUr(null)
+    setErrorRef(null)
 
-    const { ok, data, error: failed } = await submitJson<{ locked?: boolean }>(
+    const { ok, data, error: failed } = await submitJson<{ locked?: boolean; errorUr?: string; ref?: string }>(
       '/api/auth/otp',
       { action: 'verify', phone: mobile, code },
     )
 
     if (!ok) {
       setError(failed ?? 'That code was not accepted.')
+      setErrorUr(data?.errorUr ?? (data?.ref ? GENERIC_ERROR.ur : null))
+      setErrorRef(data?.ref ?? null)
       if (data?.locked) setLocked(true)
       setBusy(false)
       return
@@ -67,6 +74,19 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
           className="space-y-2 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red"
         >
           <p>{error}</p>
+          {errorUr && (
+            <p lang="ur" dir="rtl" className="leading-relaxed">
+              {errorUr}
+            </p>
+          )}
+          {errorRef && (
+            <p className="text-[11px] font-normal text-tm-red/80">
+              Ref: <span className="font-mono">{errorRef}</span>{' '}
+              <a href={supportWhatsappHref(errorRef)} target="_blank" rel="noopener noreferrer" className="underline">
+                WhatsApp support
+              </a>
+            </p>
+          )}
           {stuckHref && <SubmitEscape href={stuckHref} />}
         </div>
       )}

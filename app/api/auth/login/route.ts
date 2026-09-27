@@ -40,6 +40,10 @@ const BANNED_MESSAGE = BANNED_LOGIN_MESSAGE
 // known to whoever holds the address.
 
 const GENERIC = 'Those sign-in details are not right. Please check and try again.'
+// The plain Urdu line each screen shows beside the English one (PR75 §2).
+const GENERIC_UR = 'یہ سائن اِن تفصیلات درست نہیں ہیں۔ براہ کرم جانچ کر دوبارہ کوشش کریں۔'
+const NEEDS_CONFIRM_UR = 'سائن اِن کرنے کے لیے براہ کرم اپنے ای میل ایڈریس کی تصدیق کریں۔'
+const BANNED_MESSAGE_UR = 'آپ کا اکاؤنٹ فراڈ سرگرمیوں کی وجہ سے بند کر دیا گیا ہے۔ براہ کرم سپورٹ سے رابطہ کریں۔'
 
 const LoginBody = z.object({
   identifier: z.string().min(1).max(320),
@@ -62,14 +66,14 @@ export async function POST(request: Request) {
   // "that is not a valid mobile number" and "no account with that number" are
   // two different answers and the difference is the oracle.
   const parsed = await parseBody(request, LoginBody)
-  if (!parsed.ok) return NextResponse.json({ error: GENERIC }, { status: 400 })
+  if (!parsed.ok) return NextResponse.json({ error: GENERIC, errorUr: GENERIC_UR }, { status: 400 })
 
   const identifier = parsed.data.identifier.trim()
   const password = parsed.data.password
   const rememberMe = parsed.data.rememberMe
 
   const email = await resolveEmail(identifier)
-  if (!email) return NextResponse.json({ error: GENERIC }, { status: 400 })
+  if (!email) return NextResponse.json({ error: GENERIC, errorUr: GENERIC_UR }, { status: 400 })
 
   // Remember the member's choice for later refreshes (proxy + server client
   // read this), and set it BEFORE sign-in so the flag is on the same response
@@ -92,11 +96,11 @@ export async function POST(request: Request) {
       // stranger guessing never sees it. Verification follows the identifier the
       // member chose — this is the email path (owner, 9 Sep).
       return NextResponse.json(
-        { error: 'Please confirm your email address to sign in.', needsConfirm: true, email },
+        { error: 'Please confirm your email address to sign in.', errorUr: NEEDS_CONFIRM_UR, needsConfirm: true, email },
         { status: 400 },
       )
     }
-    return NextResponse.json({ error: GENERIC }, { status: 400 })
+    return NextResponse.json({ error: GENERIC, errorUr: GENERIC_UR }, { status: 400 })
   }
 
   const { data: profile } = await supabase
@@ -112,7 +116,7 @@ export async function POST(request: Request) {
   if (profile?.is_banned) {
     await supabase.auth.signOut()
     return NextResponse.json(
-      { error: BANNED_MESSAGE, banned: true, supportHref: '/support' },
+      { error: BANNED_MESSAGE, errorUr: BANNED_MESSAGE_UR, banned: true, supportHref: '/support' },
       { status: 403 },
     )
   }

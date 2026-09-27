@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { homeForRole, nextForRole, type Role } from '@/lib/authRoutes'
 import { armEscape, STUCK_MESSAGE, submitError, submitJson } from '@/lib/submit'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
+import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
 
 // The support WhatsApp link shown under the form (§3.4). The number is the one
 // constant from lib/support(Contacts); a client component cannot read the
@@ -49,6 +50,8 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
   const [rememberMe, setRememberMe] = useState(true)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [errorUr, setErrorUr] = useState<string | null>(null)
+  const [errorRef, setErrorRef] = useState<string | null>(null)
   const [stuckHref, setStuckHref] = useState<string | null>(null)
   const [needsConfirm, setNeedsConfirm] = useState<string | null>(null)
   const [supportHref, setSupportHref] = useState<string | null>(null)
@@ -73,6 +76,8 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
     e.preventDefault()
     setLoading(true)
     setErrorMsg('')
+    setErrorUr(null)
+    setErrorRef(null)
     setResendMsg('')
     setStuckHref(null)
     setNeedsConfirm(null)
@@ -88,10 +93,16 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
       supportHref?: string
       reverify?: boolean
       needsPhoneVerify?: boolean
+      errorUr?: string
+      ref?: string
     }>('/api/auth/login', { identifier, password, rememberMe })
 
     if (!ok || !data) {
       setErrorMsg(error ?? 'Could not sign you in.')
+      // The Urdu line beside the English one (PR75 §2). Fall back to the generic
+      // Urdu when a ref is present but the route sent no specific line.
+      setErrorUr(data?.errorUr ?? (data?.ref ? GENERIC_ERROR.ur : null))
+      setErrorRef(data?.ref ?? null)
       if (data?.needsConfirm) setNeedsConfirm(data.email ?? identifier)
       // A banned account is signed out server-side; there is no session to
       // route, so we stay on the form and show the message with a support link.
@@ -156,6 +167,19 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
               className="space-y-2 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red"
             >
               <p>{errorMsg}</p>
+              {errorUr && (
+                <p lang="ur" dir="rtl" className="leading-relaxed">
+                  {errorUr}
+                </p>
+              )}
+              {errorRef && (
+                <p className="text-[11px] font-normal text-tm-red/80">
+                  Ref: <span className="font-mono">{errorRef}</span>{' '}
+                  <a href={supportWhatsappHref(errorRef)} target="_blank" rel="noopener noreferrer" className="underline">
+                    WhatsApp support
+                  </a>
+                </p>
+              )}
               {stuckHref && <SubmitEscape href={stuckHref} />}
               {supportHref && (
                 <Link

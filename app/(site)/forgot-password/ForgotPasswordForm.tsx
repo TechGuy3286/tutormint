@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PasswordInput from '@/components/ui/PasswordInput'
 import { submitJson } from '@/lib/submit'
+import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
 
 // Password reset, two ways in.
 //
@@ -39,6 +40,20 @@ export default function ForgotPasswordForm() {
   const [mode, setMode] = useState<Mode>('mobile')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [errorUr, setErrorUr] = useState<string | null>(null)
+  const [errorRef, setErrorRef] = useState<string | null>(null)
+
+  // Show a failure with its Urdu line and reference code, the one shape every
+  // auth screen uses (PR75 §2).
+  function showFailure(
+    failed: string | null | undefined,
+    data: { errorUr?: string; ref?: string } | null,
+    fallback: string,
+  ) {
+    setError(failed ?? fallback)
+    setErrorUr(data?.errorUr ?? (data?.ref ? GENERIC_ERROR.ur : null))
+    setErrorRef(data?.ref ?? null)
+  }
 
   // email path
   const [email, setEmail] = useState('')
@@ -76,17 +91,17 @@ export default function ForgotPasswordForm() {
   async function requestCode(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
-    setError('')
+    setError(''); setErrorUr(null); setErrorRef(null)
 
-    const { ok, error: failed } = await submitJson('/api/auth/reset', {
-      action: 'request',
-      mobile,
-    })
+    const { ok, data, error: failed } = await submitJson<{ errorUr?: string; ref?: string }>(
+      '/api/auth/reset',
+      { action: 'request', mobile },
+    )
 
     if (!ok) {
       // Only transport and rate-limit failures reach here; the route itself
       // answers the same way for a known and an unknown number.
-      setError(failed ?? 'Could not send a code right now.')
+      showFailure(failed, data, 'Could not send a code right now.')
       setBusy(false)
       return
     }
@@ -98,17 +113,15 @@ export default function ForgotPasswordForm() {
   async function confirmReset(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
-    setError('')
+    setError(''); setErrorUr(null); setErrorRef(null)
 
-    const { ok, error: failed } = await submitJson('/api/auth/reset', {
-      action: 'confirm',
-      mobile,
-      code,
-      password,
-    })
+    const { ok, data, error: failed } = await submitJson<{ errorUr?: string; ref?: string }>(
+      '/api/auth/reset',
+      { action: 'confirm', mobile, code, password },
+    )
 
     if (!ok) {
-      setError(failed ?? 'That code was not accepted.')
+      showFailure(failed, data, 'That code was not accepted.')
       setBusy(false)
       return
     }
@@ -136,9 +149,22 @@ export default function ForgotPasswordForm() {
         </div>
 
         {error && (
-          <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red">
-            {error}
-          </p>
+          <div className="space-y-1.5 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red">
+            <p>{error}</p>
+            {errorUr && (
+              <p lang="ur" dir="rtl" className="leading-relaxed">
+                {errorUr}
+              </p>
+            )}
+            {errorRef && (
+              <p className="text-[11px] font-normal text-tm-red/80">
+                Ref: <span className="font-mono">{errorRef}</span>{' '}
+                <a href={supportWhatsappHref(errorRef)} target="_blank" rel="noopener noreferrer" className="underline">
+                  WhatsApp support
+                </a>
+              </p>
+            )}
+          </div>
         )}
 
         {done ? (
@@ -190,7 +216,7 @@ export default function ForgotPasswordForm() {
                   aria-selected={mode === m}
                   onClick={() => {
                     setMode(m)
-                    setError('')
+                    setError(''); setErrorUr(null); setErrorRef(null)
                   }}
                   className={`min-h-[44px] rounded-xl border-2 px-3 text-xs font-black transition-colors ${
                     mode === m
@@ -312,7 +338,7 @@ export default function ForgotPasswordForm() {
                   onClick={() => {
                     setCodeRequested(false)
                     setCode('')
-                    setError('')
+                    setError(''); setErrorUr(null); setErrorRef(null)
                   }}
                   className="flex min-h-[44px] w-full items-center justify-center text-xs font-bold text-gray-500 hover:text-tm-navy"
                 >

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
+import { AUTH_MSG, classifyAuthError } from '@/lib/authMessages'
 import { UTM_COOKIE, decodeUtm, hasUtm } from '@/lib/utm'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
@@ -9,7 +10,7 @@ import { parseBody, z } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { bridgeStatus } from '@/lib/sms'
 import { checkBlocklist } from '@/lib/blocklist'
-import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
+import { numberSavedElsewhere } from '@/lib/phoneAccount'
 import { ensureProfile } from '@/lib/ensureProfile'
 import { startPendingSignup, PENDING_COOKIE } from '@/lib/pendingSignup'
 import { CODE_TTL_MS } from '@/lib/otp'
@@ -112,8 +113,10 @@ export async function POST(request: Request) {
     if (existingEmail) {
       return NextResponse.json(
         {
-          error: 'An account already uses that email address.',
-          fields: { identifier: 'An account already uses that email address. Try signing in instead.' },
+          error: AUTH_MSG.emailTaken.en,
+          errorUr: AUTH_MSG.emailTaken.ur,
+          signIn: true,
+          fields: { identifier: AUTH_MSG.emailTaken.en },
         },
         { status: 409 },
       )
@@ -134,11 +137,19 @@ export async function POST(request: Request) {
       },
     })
     if (signUpError) {
-      const msg = signUpError.message.toLowerCase()
-      if (msg.includes('already') || msg.includes('registered')) {
+      // PR75 §1/§2: a GoTrue error here is usually ACTIONABLE — a weak/leaked
+      // password (the reported bug), an already-registered email, a send failure
+      // or a rate limit — so surface the exact plain message (English + Urdu),
+      // never the generic. Only a genuinely unexpected error falls through to
+      // serverError (generic + reference code). The weak-password protection is
+      // a security control and is NOT weakened; the fix is telling the member.
+      const cls = classifyAuthError(signUpError.message)
+      if (cls) {
+        const m = AUTH_MSG[cls.key]
+        const status = cls.key === 'emailTaken' ? 409 : cls.key === 'tooMany' ? 429 : 400
         return NextResponse.json(
-          { error: 'An account with those details already exists. Try signing in instead.' },
-          { status: 409 },
+          { error: m.en, errorUr: m.ur, ...(cls.signIn ? { signIn: true } : {}), ...(cls.field ? { fields: { [cls.field]: m.en } } : {}) },
+          { status },
         )
       }
       return serverError(signUpError, 'auth/register')
@@ -211,8 +222,10 @@ export async function POST(request: Request) {
   if (await numberSavedElsewhere(admin, mobile)) {
     return NextResponse.json(
       {
-        error: NUMBER_TAKEN_MESSAGE,
-        fields: { identifier: NUMBER_TAKEN_MESSAGE },
+        error: AUTH_MSG.mobileTaken.en,
+        errorUr: AUTH_MSG.mobileTaken.ur,
+        signIn: true,
+        fields: { identifier: AUTH_MSG.mobileTaken.en },
       },
       { status: 409 },
     )
@@ -227,7 +240,7 @@ export async function POST(request: Request) {
 
   if (existingEmail) {
     return NextResponse.json(
-      { error: 'An account with those details already exists. Try signing in instead.' },
+      { error: AUTH_MSG.mobileTaken.en, errorUr: AUTH_MSG.mobileTaken.ur, signIn: true },
       { status: 409 },
     )
   }
