@@ -1,8 +1,8 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Lock, MessageCircle } from 'lucide-react'
-import { TILE_TONE } from '@/lib/tileTones'
+import { Lock, MessageCircle, X } from 'lucide-react'
+import { TILE_TONE, TILE_BOX, TILE_CHIP, TILE_BORDER_DEFAULT, TILE_BORDER_OPEN } from '@/lib/tileTones'
 import { supportWhatsappHref } from '@/lib/errorMessages'
 import {
   URDU_FONT,
@@ -52,10 +52,11 @@ export function StepHeader({
           </span>
         )}
       </div>
-      {/* Urdu heading and count each on their own full-width right-aligned line. */}
-      <Urdu className="text-sm font-bold text-tm-navy">{s.title.ur}</Urdu>
+      {/* Urdu heading and count each on their own full-width right-aligned line.
+          tm-ur-cap keeps them no larger than the English above (PR77 §4). */}
+      <Urdu className="tm-ur-cap text-sm font-bold text-tm-navy">{s.title.ur}</Urdu>
       {hasCount && (
-        <Urdu className="text-[11px] font-bold text-tm-green-deep">{fill(s.count!.ur, done!, total!)}</Urdu>
+        <Urdu className="tm-ur-cap text-[11px] font-bold text-tm-green-deep">{fill(s.count!.ur, done!, total!)}</Urdu>
       )}
     </div>
   )
@@ -84,6 +85,7 @@ export function StatusCard({
   summary,
   open = true,
   onEdit,
+  onClose,
   locked = false,
   lockedValue,
   children,
@@ -100,6 +102,9 @@ export function StatusCard({
   open?: boolean
   /** Tapping Edit; presence of this + a non-empty summary makes the card collapsible. */
   onEdit?: () => void
+  /** PR77: when this card is the EXPANDED tile, a × in the header collapses it
+   *  without saving. */
+  onClose?: () => void
   /** PR72 §E: the field is locked — read-only, a lock icon, no Edit, a
    *  "contact support" note. `lockedValue` is the value shown read-only. */
   locked?: boolean
@@ -121,7 +126,19 @@ export function StatusCard({
           {locked && <Lock aria-hidden size={13} className="shrink-0 text-gray-500" />}
           {copy.title.en}
         </h3>
-        <StatusBadge status={status} />
+        <div className="flex shrink-0 items-center gap-2">
+          <StatusBadge status={status} />
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close without saving"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100"
+            >
+              <X aria-hidden size={15} />
+            </button>
+          )}
+        </div>
       </div>
       <Urdu className="text-[13px] font-bold text-tm-navy">{copy.title.ur}</Urdu>
       {badge && <Urdu className="text-[10px] font-bold text-gray-600">{badge.ur}</Urdu>}
@@ -174,37 +191,85 @@ export function StatusCard({
   )
 }
 
-// A tinted tile (tile mode): the same square-tile look as the dashboard, tinted
-// by the card's status, tap to open that card's form.
+// A tinted tile — the EXACT dashboard tile shell (PR77): the same box, icon chip,
+// grid and font sizes as StatTile (all from lib/tileTones), tinted by the card's
+// STATUS (green completed, red missing, navy waiting…). Inside: the icon, the
+// English name, the Urdu name and the status word (or a lock icon when locked).
+// Tap to expand that card in place. `title`/`titleUr` may be passed explicitly so
+// the same tile serves parent Settings (which has no CARDS copy).
 export function SettingsTile({
   cardKey,
   status,
   icon,
   open,
   onClick,
+  title,
+  titleUr,
+  locked = false,
 }: {
-  cardKey: string
+  cardKey?: string
   status: CardStatus
   icon: ReactNode
   open: boolean
   onClick: () => void
+  title?: string
+  titleUr?: string
+  locked?: boolean
 }) {
   const tone = TILE_TONE[STATUS_META[status].tone]
-  const copy = CARDS[cardKey]
+  const copy = cardKey ? CARDS[cardKey] : undefined
+  const en = title ?? copy?.title.en ?? ''
+  const ur = titleUr ?? copy?.title.ur ?? ''
   const badge = STATUS_META[status].badge
   return (
     <button
       type="button"
       onClick={onClick}
       aria-expanded={open}
-      className={`flex min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center transition-shadow hover:shadow-md ${tone.card} ${
-        open ? 'border-tm-navy ring-2 ring-tm-navy/30' : 'border-black/5 shadow-xs'
-      }`}
+      className={`${TILE_BOX} ${tone.card} ${open ? TILE_BORDER_OPEN : TILE_BORDER_DEFAULT}`}
     >
-      <span className={`inline-flex h-11 w-11 items-center justify-center rounded-full ${tone.chip}`}>{icon}</span>
-      <span className={`text-xs font-black leading-tight ${tone.ink}`}>{copy.title.en}</span>
-      <Urdu className={`text-[11px] font-bold ${tone.ink}`}>{copy.title.ur}</Urdu>
-      {badge && <span className={`text-[10px] font-black ${tone.ink}`}>{badge.en}</span>}
+      <span className={`${TILE_CHIP} ${tone.chip}`}>{icon}</span>
+      <span className={`line-clamp-2 text-xs font-semibold leading-snug ${tone.ink}`}>{en}</span>
+      <Urdu className={`text-[11px] font-bold ${tone.ink}`}>{ur}</Urdu>
+      <span className={`inline-flex items-center gap-1 text-[10px] font-black ${tone.ink}`}>
+        {locked && <Lock aria-hidden size={11} />}
+        {locked ? 'Locked' : badge?.en}
+      </span>
     </button>
+  )
+}
+
+// The header row of an EXPANDED tile (PR77): the title (English + Urdu), the
+// status badge, and a × to collapse without saving. Shared by tutor and parent
+// Settings so an open tile looks the same on both.
+export function OpenTileHeader({
+  title,
+  titleUr,
+  status,
+  onClose,
+}: {
+  title: string
+  titleUr: string
+  status: CardStatus
+  onClose: () => void
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-sm font-black text-tm-navy">{title}</h3>
+        <div className="flex shrink-0 items-center gap-2">
+          <StatusBadge status={status} />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close without saving"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100"
+          >
+            <X aria-hidden size={15} />
+          </button>
+        </div>
+      </div>
+      {titleUr && <Urdu className="text-[13px] font-bold text-tm-navy">{titleUr}</Urdu>}
+    </div>
   )
 }

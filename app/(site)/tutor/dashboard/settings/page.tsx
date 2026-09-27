@@ -38,7 +38,7 @@ const mobileSupportHref = whatsappHref(
   SUPPORT_WHATSAPP_FALLBACK,
   'Assalam-o-Alaikum, I need to change the mobile number on my TutorMint account.',
 )
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -81,6 +81,13 @@ export default function TutorSettingsPage() {
   const [emailVerified, setEmailVerified] = useState(false);
   // Tile mode (once every Step 2 item is done): which card's form is open.
   const [openCard, setOpenCard] = useState<string | null>(null);
+  // PR77: scroll the tile that just expanded into view.
+  const openTileRef = useRef<HTMLLIElement | null>(null);
+  useEffect(() => {
+    if (openCard && openTileRef.current) {
+      openTileRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [openCard]);
 
   // Collapse-after-save (PR63 §C2): which collapsible cards are being edited. A
   // card with a saved value is shown collapsed (summary + Edit) until its key is
@@ -1046,9 +1053,9 @@ export default function TutorSettingsPage() {
   const step1Done = step1Cards.filter((c) => c.status === 'completed').length;
   const step2Done = step2Cards.filter((c) => c.status === 'completed').length;
 
-  // forceOpen: in tile mode the tapped card always shows its form (never the
-  // collapsed summary).
-  const renderCard = (c: CardDesc, forceOpen = false) => (
+  // forceOpen: the expanded tile always shows its form (never the collapsed
+  // summary). onClose renders the × that collapses it without saving (PR77).
+  const renderCard = (c: CardDesc, forceOpen = false, onClose?: () => void) => (
     <StatusCard
       key={c.key}
       cardKey={c.key}
@@ -1058,6 +1065,7 @@ export default function TutorSettingsPage() {
       summary={c.collapsible ? c.summary : undefined}
       open={c.collapsible ? forceOpen || editing.has(c.key) : true}
       onEdit={c.collapsible && !c.locked ? () => openEdit(c.key) : undefined}
+      onClose={onClose}
       locked={c.locked}
       lockedValue={c.lockedValue}
     >
@@ -1065,27 +1073,31 @@ export default function TutorSettingsPage() {
     </StatusCard>
   );
 
+  // PR77: the tiles are a two-column grid; the OPEN tile expands IN PLACE to full
+  // width (col-span-2) at its own position, and the others reflow around it
+  // (grid-auto-flow: dense backfills the gap). Only one is open at a time; Save
+  // or the × shrinks it back. Nothing opens below the group.
   const renderTiles = (list: CardDesc[]) => (
-    <>
-      <ul className="grid grid-cols-2 gap-3">
-        {list.map((c) => (
+    <ul className="grid grid-cols-2 gap-3 grid-flow-row-dense">
+      {list.map((c) =>
+        openCard === c.key ? (
+          <li key={c.key} ref={openTileRef} className="col-span-2 scroll-mt-4">
+            {renderCard(c, true, () => collapse(c.key))}
+          </li>
+        ) : (
           <li key={c.key}>
             <SettingsTile
               cardKey={c.key}
               status={c.status}
               icon={c.icon}
-              open={openCard === c.key}
-              onClick={() => setOpenCard(openCard === c.key ? null : c.key)}
+              locked={c.locked}
+              open={false}
+              onClick={() => setOpenCard(c.key)}
             />
           </li>
-        ))}
-      </ul>
-      {list
-        .filter((c) => openCard === c.key)
-        .map((c) => (
-          <div key={`open-${c.key}`}>{renderCard(c, true)}</div>
-        ))}
-    </>
+        ),
+      )}
+    </ul>
   );
 
   return (

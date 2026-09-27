@@ -2,9 +2,9 @@
 
 import { submitSignal } from '@/lib/submit'
 
-import { Check, Loader2, ShieldCheck } from 'lucide-react'
+import { Check, Loader2, ShieldCheck, Image as ImageIcon, UserRound, Smartphone, Mail } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import Avatar from '@/components/Avatar'
 import FileUpload from '@/components/FileUpload'
@@ -14,6 +14,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import EmailCard from '@/components/account/EmailCard'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
+import { SettingsTile, OpenTileHeader } from '@/components/tutor/SettingsPieces'
+import { STATUS_META, type CardStatus } from '@/lib/tutorSettingsCopy'
 
 // PR17 §3.2 — a verified number is changed through support. The number is the one
 // client-safe constant; a client component cannot read the app_settings override.
@@ -71,6 +73,14 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // PR77: parent Settings uses the same tile grid + in-place expansion as the
+  // tutor side. One tile open at a time; Save or the × shrinks it back.
+  const [openKey, setOpenKey] = useState<string | null>(null)
+  const openRef = useRef<HTMLLIElement | null>(null)
+  useEffect(() => {
+    if (openKey && openRef.current) openRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [openKey])
+
   // ---------------------------------------------------------------- phone ---
   const [phone, setPhone] = useState(initial.phone)
   const [otp, setOtp] = useState('')
@@ -109,6 +119,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not save your details.')
       setSaved(true)
+      setOpenKey(null) // Save shrinks the tile back (PR77).
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save your details.')
@@ -181,8 +192,15 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
     setOtpSent(false)
     setOtp('')
     setOtpMsg('Number verified.')
+    setOpenKey(null) // Verified — shrink the tile back (PR77).
     router.refresh()
   }
+
+  const tileProps = { openKey, setOpenKey, openRef }
+  const pictureStatus: CardStatus = avatarUrl ? 'completed' : 'missing'
+  const detailsStatus: CardStatus =
+    fullName.trim().length >= 2 && !!city.trim() && !!area.trim() ? 'completed' : 'missing'
+  const mobileStatus: CardStatus = phoneVerified ? 'completed' : 'missing'
 
   return (
     <div className="space-y-4">
@@ -192,8 +210,11 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
         </p>
       )}
 
+      {/* PR77: the same two-column tile grid + in-place expansion as the tutor
+          Settings, so both sides match. One tile open at a time. */}
+      <ul className="grid grid-cols-2 gap-3 grid-flow-row-dense">
       {/* ------------------------------------------------------- picture --- */}
-      <Card title="Your picture" hint="Tutors see this on the tuitions you post. It is not contact information.">
+      <Card {...tileProps} cardKey="picture" icon={<ImageIcon aria-hidden size={20} />} title="Your picture" titleUr="آپ کی تصویر" status={pictureStatus} hint="Tutors see this on the tuitions you post. It is not contact information.">
         {/* One control, square. The picture used to sit in an <Avatar> beside
             a full-width drop zone, so after a successful upload the zone said
             "Tap to choose" while the avatar next to it showed the new photo --
@@ -219,7 +240,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
       </Card>
 
       {/* --------------------------------------------------------- about --- */}
-      <Card title="Your details">
+      <Card {...tileProps} cardKey="details" icon={<UserRound aria-hidden size={20} />} title="Your details" titleUr="آپ کی تفصیلات" status={detailsStatus}>
         <label className="block space-y-1">
           <span className={LABEL}>Full name</span>
           <input value={fullName} onChange={(e) => setFullName(e.target.value)} className={FIELD} />
@@ -300,7 +321,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
           verified with a code (one code, no resend). Once VERIFIED the field is
           read-only and a change goes through support. */}
       {initial.phoneVerified ? (
-        <Card title="Mobile number" hint="Your verified number.">
+        <Card {...tileProps} cardKey="mobile" icon={<Smartphone aria-hidden size={20} />} title="Mobile number" titleUr="موبائل نمبر" status={mobileStatus} hint="Your verified number.">
           <p className="inline-flex items-center gap-1.5 rounded-xl bg-tm-tint-green px-3 py-2 text-xs font-bold text-tm-green-deep">
             <Check aria-hidden size={14} />
             {initial.phone} — verified
@@ -323,7 +344,12 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
         </Card>
       ) : (
         <Card
+          {...tileProps}
+          cardKey="mobile"
+          icon={<Smartphone aria-hidden size={20} />}
           title="Mobile number"
+          titleUr="موبائل نمبر"
+          status={mobileStatus}
           hint="We send a 6-digit code to check the number reaches you. You can change the number before verifying."
         >
           <label className="block space-y-1">
@@ -388,27 +414,63 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
 
       {/* Email (PR29 §4) — the shared card: add/confirm by link, "not confirmed"
           until clicked. */}
-      <EmailCard />
+      <Card {...tileProps} cardKey="email" icon={<Mail aria-hidden size={20} />} title="Email" titleUr="ای میل" status="neutral">
+        <EmailCard />
+      </Card>
+      </ul>
     </div>
   )
 }
 
+// One parent Settings card as a tile (PR77): collapsed it is the shared
+// SettingsTile (the exact dashboard tile shell), tinted by status; open it
+// expands IN PLACE to full width with the form inside, a status header and a ×.
+// Module-level so it is a stable component — the open form keeps focus as the
+// parent re-renders on each keystroke.
 function Card({
+  cardKey,
+  icon,
   title,
+  titleUr,
+  status,
   hint,
+  openKey,
+  setOpenKey,
+  openRef,
   children,
 }: {
+  cardKey: string
+  icon: React.ReactNode
   title: string
+  titleUr: string
+  status: CardStatus
   hint?: string
+  openKey: string | null
+  setOpenKey: (k: string | null) => void
+  openRef: React.RefObject<HTMLLIElement | null>
   children: React.ReactNode
 }) {
+  if (openKey !== cardKey) {
+    return (
+      <li>
+        <SettingsTile
+          status={status}
+          icon={icon}
+          title={title}
+          titleUr={titleUr}
+          open={false}
+          onClick={() => setOpenKey(cardKey)}
+        />
+      </li>
+    )
+  }
   return (
-    <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-      <div className="space-y-0.5">
-        <h2 className="text-sm font-black text-tm-navy">{title}</h2>
+    <li ref={openRef} className="col-span-2 scroll-mt-4">
+      <section className={`space-y-3 rounded-2xl border p-4 sm:p-5 ${STATUS_META[status].card}`}>
+        <OpenTileHeader title={title} titleUr={titleUr} status={status} onClose={() => setOpenKey(null)} />
         {hint && <p className="text-[11px] leading-relaxed text-gray-500">{hint}</p>}
-      </div>
-      {children}
-    </section>
+        {children}
+      </section>
+    </li>
   )
 }

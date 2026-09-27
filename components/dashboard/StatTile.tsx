@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
-import { TILE_TONE, type TileTone } from '@/lib/tileTones'
+import { TILE_TONE, TILE_BOX, TILE_CHIP, TILE_BORDER_DEFAULT, TILE_BORDER_HIGHLIGHT, type TileTone } from '@/lib/tileTones'
 
 // One square dashboard tile — the shared shape behind BOTH the "Your things"
 // grid and the Activity band, so the two dashboards cannot drift into two card
@@ -63,11 +63,7 @@ export default function StatTile({
         prefetch={prefetch}
         href={href}
         data-tip={tip}
-        className={`relative flex h-full min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center transition-shadow hover:shadow-md ${t.card} ${
-          highlight
-            ? 'border-tm-red shadow-[0_2px_14px_-6px_var(--color-tm-red)]'
-            : 'border-black/5 shadow-xs'
-        }`}
+        className={`${TILE_BOX} ${t.card} ${highlight ? TILE_BORDER_HIGHLIGHT : TILE_BORDER_DEFAULT}`}
       >
         {/* Unread count badge — the small red pill in the corner (PR44 §2). The
             unread number lives HERE, never as the tile's main value; the same
@@ -90,7 +86,7 @@ export default function StatTile({
 
         {/* The icon disc: a solid brand hue with a white glyph, so it reads on
             both the light and the dark box. */}
-        <span className={`grid h-12 w-12 place-items-center rounded-2xl ${t.chip}`}>{icon}</span>
+        <span className={`${TILE_CHIP} ${t.chip}`}>{icon}</span>
 
         {/* Number, label and helper all take the tone's dark ink shade. */}
         {value != null && (

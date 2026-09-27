@@ -163,10 +163,16 @@ html {
    `em` keeps it relative to whatever size the line inherits (a caption Urdu line
    grows from the caption size, a heading Urdu line from the heading size). Colour
    is untouched, so every contrast pair still holds. */
-[lang='ur'] {
+[lang='ur']:not(.tm-ur-cap) {
   font-size: 1.18em;
   line-height: 1.85;
 }
+
+/* Section headings and their counts pair an English line with an Urdu line at
+   the SAME text size, so the +18% body bump would make the Urdu heading larger
+   than the English above it (PR77 §4). `.tm-ur-cap` opts an Urdu line out of the
+   bump, so it renders at its own `text-*` size — matching the English it sits
+   under. Body text and tile names keep the larger size. */
 
 /* Respect a reader who has asked for less motion. Every transition in the app
    is decorative; none of them carries information. */

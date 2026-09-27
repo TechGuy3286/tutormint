@@ -25,6 +25,18 @@
 
 export type TileTone = 'navy' | 'green' | 'red' | 'gold' | 'mint' | 'teal' | 'violet'
 
+// The ONE tile shell (PR77): the exact box, icon chip and border the dashboard
+// tiles use, so the tutor Settings tiles and the dashboard tiles are the same
+// square by construction rather than by two class strings kept in sync by hand.
+// Both StatTile (the dashboard tile) and SettingsTile draw from these.
+export const TILE_BOX =
+  'relative flex h-full min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center transition-shadow hover:shadow-md'
+export const TILE_CHIP = 'grid h-12 w-12 place-items-center rounded-2xl'
+export const TILE_BORDER_DEFAULT = 'border-black/5 shadow-xs'
+export const TILE_BORDER_HIGHLIGHT = 'border-tm-red shadow-[0_2px_14px_-6px_var(--color-tm-red)]'
+/** The selected (about-to-expand) tile border. */
+export const TILE_BORDER_OPEN = 'border-tm-navy ring-2 ring-tm-navy/30'
+
 export const TILE_TONE: Record<TileTone, { card: string; ink: string; chip: string }> = {
   navy: { card: 'bg-tm-tile-navy-bg', ink: 'text-tm-tile-navy-ink', chip: 'bg-tm-navy text-white' },
   green: { card: 'bg-tm-tile-green-bg', ink: 'text-tm-tile-green-ink', chip: 'bg-tm-green-deep text-white' },
