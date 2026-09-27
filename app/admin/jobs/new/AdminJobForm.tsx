@@ -36,6 +36,7 @@ export default function AdminJobForm() {
         budgetMin: payload.budgetMin,
         budgetMax: payload.budgetMax,
         schedule: payload.schedule,
+        scheduleSlots: payload.scheduleSlots,
         description: payload.description,
         genderPreference: payload.genderPreference,
         origin: payload.origin,

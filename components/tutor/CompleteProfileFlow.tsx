@@ -19,6 +19,8 @@ import { fetchTaxonomyTree, resolveMasterIds, fetchNonLegacyMasters, type Taxono
 import VideoUpload from '@/components/tutor/VideoUpload'
 import CnicCameraField from '@/components/tutor/CnicCameraField'
 import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
+import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
+import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
 import TutorVerifyGate from '@/components/upgrade/TutorVerifyGate'
 import {
   FLOW_ORDER,
@@ -118,7 +120,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   const [selCats, setSelCats] = useState<string[]>([])
   const [selByCat, setSelByCat] = useState<Record<string, string[]>>({})
   // The tutor's saved availability slots prefill the availability step (PR69).
-  const [availabilityInit, setAvailabilityInit] = useState<{ day: string; timeSlot: string }[]>([])
+  const [availabilityInit, setAvailabilityInit] = useState<DaySlot[]>([])
   // "Show my picture to parents" (PR70). Default ON; a new tutor (no photo yet) is
   // the only one who reaches the photo step, so defaulting on is exactly right.
   const [showAvatar, setShowAvatar] = useState(true)
@@ -169,7 +171,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       supabase.from('user_documents').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('kind', 'selfie'),
     ])
     const ids = (subj.data ?? []).map((r) => r.master_id as number)
-    setAvailabilityInit(Array.isArray(tp?.availability_list) ? (tp.availability_list as { day: string; timeSlot: string }[]) : [])
+    setAvailabilityInit(availabilityToSlots(tp?.availability_list))
     // Prefill the fee step from the saved range (PR67), falling back to the legacy
     // single fee, then the defaults.
     {
@@ -372,12 +374,14 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   // Availability (PR69 §3): written the SAME way Settings does — a direct,
   // RLS-scoped update of the tutor's own row (availability_list is not a
   // /api/profile/save whitelisted field), then patch facts and advance.
-  const saveAvailability = useCallback(async (slots: { day: string; timeSlot: string }[]) => {
+  const saveAvailability = useCallback(async (slots: DaySlot[]) => {
     setBusy(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Please sign in again.')
-      const { error } = await supabase.from('tutor_profiles').update({ availability_list: slots }).eq('id', user.id)
+      // Slot-label shape (PR73): availability_list holds one {day, timeSlot:label}
+      // per slot, so day+slot round-trips losslessly through the existing column.
+      const { error } = await supabase.from('tutor_profiles').update({ availability_list: slotsToAvailabilityList(slots) }).eq('id', user.id)
       if (error) throw new Error(error.message)
       setAvailabilityInit(slots)
       const f = facts ? { ...facts, availabilityCount: slots.length } : facts
@@ -1074,75 +1078,22 @@ function SubjectsPerLevelStep({
 
 // Availability (PR69 §3): the same day/time editor as Settings. Save & continue is
 // enabled once a slot is added; without slots the tutor continues only via "Later".
+// PR73 §A: the shared 7×3 time-slot grid, replacing the free-text day/time rows.
 function AvailabilityStep({
   initial,
   busy,
   onNext,
   onLater,
 }: {
-  initial: { day: string; timeSlot: string }[]
+  initial: DaySlot[]
   busy: boolean
-  onNext: (slots: { day: string; timeSlot: string }[]) => void
+  onNext: (slots: DaySlot[]) => void
   onLater: () => void
 }) {
-  const [slots, setSlots] = useState(initial)
-  const [day, setDay] = useState('Monday')
-  const [time, setTime] = useState('')
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-  const add = () => {
-    if (!time.trim()) return
-    setSlots([...slots, { day, timeSlot: time.trim() }])
-    setTime('')
-  }
+  const [slots, setSlots] = useState<DaySlot[]>(initial)
   return (
     <div className="space-y-4">
-      {slots.length > 0 && (
-        <ul className="space-y-2">
-          {slots.map((s, i) => (
-            <li key={i} className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 text-xs">
-              <span>
-                <strong className="text-tm-navy">{s.day}</strong>{' '}
-                <span className="font-medium text-gray-500">{s.timeSlot}</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setSlots(slots.filter((_, j) => j !== i))}
-                aria-label={`Remove ${s.day} ${s.timeSlot}`}
-                className="inline-flex min-h-[36px] items-center gap-1 font-bold text-tm-red"
-              >
-                <X aria-hidden size={13} /> Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_auto]">
-        <select
-          value={day}
-          onChange={(e) => setDay(e.target.value)}
-          aria-label="Day"
-          className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-tm-navy"
-        >
-          {days.map((d) => (
-            <option key={d} value={d}>{d}</option>
-          ))}
-        </select>
-        <input
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
-          placeholder="Time, e.g. 4:00 PM – 7:00 PM"
-          aria-label="Time"
-          className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-tm-navy"
-        />
-        <button
-          type="button"
-          onClick={add}
-          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 text-sm font-bold text-tm-navy hover:border-tm-navy"
-        >
-          <Plus aria-hidden size={14} /> Add
-        </button>
-      </div>
+      <TimeSlotGrid value={slots} onChange={setSlots} disabled={busy} />
       <button
         type="button"
         disabled={busy || slots.length === 0}

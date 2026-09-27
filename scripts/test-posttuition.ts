@@ -134,7 +134,7 @@ test('shared form: the admin-only extras are admin-only', () => {
   const admin = renderAdmin()
   const parent = renderParent()
   for (const label of [
-    'Posted by TutorMint',
+    'Verified tuition',
     'Origin (for the audit trail)',
     'Poster contact',
     // The four extra contact fields are admin-only too.

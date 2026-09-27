@@ -22,6 +22,8 @@ import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange, feeLabelOf } from '
 import type { DocumentStatuses, DocState } from '@/lib/tutorDocuments'
 import { labelsForMasterIds } from '@/lib/taxonomy'
 import { L } from '@/lib/onboarding/copy'
+import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
+import { availabilityToSlots, slotsToAvailabilityList, formatSlots, type DaySlot } from '@/lib/timeSlots'
 import SubjectPicker from '@/components/tutor/SubjectPicker'
 import VideoUpload from '@/components/tutor/VideoUpload'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
@@ -118,9 +120,8 @@ export default function TutorSettingsPage() {
   // Job-type demand, so the chips order by how much work each title has (§2.3).
   const [jobTypeDemand, setJobTypeDemand] = useState<Record<string, number>>({});
 
-  const [availabilityList, setAvailabilityList] = useState<{ day: string; timeSlot: string }[]>([]);
-  const [newDayInput, setNewDayInput] = useState("Monday");
-  const [newTimeInput, setNewTimeInput] = useState("");
+  // PR73 §A: availability is a list of day+slot pairs, edited with the shared grid.
+  const [availabilityList, setAvailabilityList] = useState<DaySlot[]>([]);
 
   const [degrees, setDegrees] = useState<Credential[]>([]);
   const [certifications, setCertifications] = useState<Credential[]>([]);
@@ -257,7 +258,7 @@ export default function TutorSettingsPage() {
           .maybeSingle();
         if (selfieDoc) setSelfiePreviewUrl(`/api/documents/${selfieDoc.id}/preview`);
 
-        setAvailabilityList(Array.isArray(tp.availability_list) ? tp.availability_list : []);
+        setAvailabilityList(availabilityToSlots(tp.availability_list));
 
         const asDegree = (d: unknown) =>
           typeof d === 'string'
@@ -333,12 +334,6 @@ export default function TutorSettingsPage() {
   const uploadCredential = async (file: File): Promise<string> =>
     (await uploadFileToCloud(file)) ?? "";
 
-  const addAvailabilitySlot = () => {
-    if (!newTimeInput.trim()) return;
-    setAvailabilityList([...availabilityList, { day: newDayInput, timeSlot: newTimeInput.trim() }]);
-    setNewTimeInput("");
-  };
-
   // ---------------------------------------------------------- card saves ----
   const postProfileSave = async (payload: Record<string, unknown>) => {
     const res = await fetch('/api/profile/save', {
@@ -388,7 +383,7 @@ export default function TutorSettingsPage() {
 
   const saveSubjects = () => postProfileSave({ subjectMasterIds: subjectIds });
 
-  const saveAvailability = () => tutorUpdate({ availability_list: availabilityList });
+  const saveAvailability = () => tutorUpdate({ availability_list: slotsToAvailabilityList(availabilityList) });
   // "Show my picture to parents" (PR70): flip immediately, write direct (RLS-scoped
   // to the tutor's own row). Tolerant of the not-yet-applied migration.
   const saveShowAvatar = async (value: boolean) => {
@@ -463,7 +458,7 @@ export default function TutorSettingsPage() {
       : '';
   const jobTypeSummary = formData.jobTypes.length ? short(formData.jobTypes) : '';
   const availabilitySummary = availabilityList.length
-    ? `${availabilityList.length} time${availabilityList.length > 1 ? 's' : ''} added`
+    ? formatSlots(availabilityList)
     : '';
   const degreesSummary = degrees.length
     ? short(degrees.map((d) => d.title).filter(Boolean)) || `${degrees.length} added`
@@ -849,66 +844,8 @@ export default function TutorSettingsPage() {
       summary: availabilitySummary,
       body: (
         <div className="space-y-3">
-          {availabilityList.length > 0 && (
-            <ul className="space-y-2">
-              {availabilityList.map((slot, idx) => (
-                <li
-                  key={idx}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs"
-                >
-                  <span>
-                    <strong className="text-tm-navy">{slot.day}</strong>{' '}
-                    <span className="font-medium text-gray-500">{slot.timeSlot}</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setAvailabilityList(availabilityList.filter((_, i) => i !== idx))}
-                    aria-label={`Remove ${slot.day} ${slot.timeSlot}`}
-                    className="inline-flex min-h-[36px] items-center gap-1 font-bold text-tm-red"
-                  >
-                    <X aria-hidden size={13} /> Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="sr-only">Day</span>
-                <select
-                  value={newDayInput}
-                  onChange={(e) => setNewDayInput(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-                >
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="sr-only">Time slot</span>
-                <input
-                  type="text"
-                  value={newTimeInput}
-                  onChange={(e) => setNewTimeInput(e.target.value)}
-                  placeholder="Time, e.g. 4:00 PM – 7:00 PM"
-                  className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-                />
-              </label>
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={addAvailabilitySlot}
-                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
-              >
-                <Plus aria-hidden size={14} /> Add time
-              </button>
-            </div>
-          </div>
+          {/* PR73 §A: the shared 7×3 time-slot grid. */}
+          <TimeSlotGrid value={availabilityList} onChange={setAvailabilityList} />
           <SaveBar onSave={saveAvailability} onSaved={() => collapse('availability')} />
         </div>
       ),

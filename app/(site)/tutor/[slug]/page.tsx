@@ -8,6 +8,7 @@ import { headers } from 'next/headers'
 import { MapPin, Building2, Briefcase, Wallet, Lock, Phone, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { formatSlots, availabilityToSlots } from '@/lib/timeSlots'
 import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlements'
 import { degreeLabels } from '@/lib/degrees'
 import { tutorProfileNoindex } from '@/lib/planBadges'
@@ -70,6 +71,7 @@ type PublicTutor = {
   plan_code: string | null
   subjects: { master_id: number; category: string; level: string; subject: string | null }[]
   slots: { id: string; text: string; booked: boolean }[]
+  availabilityText: string
   reviews: { id: string; rating: number; comment: string | null; created_at: string; reviewer: string }[]
   degree_documents: { id: string; label: string | null }[]
 }
@@ -182,6 +184,14 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     booked: !!s.is_booked,
   }))
 
+  // PR73 §A: the day+slot availability, as the one short line.
+  const { data: availRow } = await admin
+    .from('tutor_profiles')
+    .select('availability_list')
+    .eq('id', userId)
+    .maybeSingle()
+  const availabilityText = formatSlots(availabilityToSlots(availRow?.availability_list))
+
   const { data: reviewRows } = await admin
     .from('reviews')
     .select('id, rating, comment, created_at, parent_id')
@@ -252,6 +262,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     plan_code: planCode,
     subjects,
     slots,
+    availabilityText,
     reviews,
     degree_documents,
   }
@@ -1070,7 +1081,10 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         {/* ------------------------------------------------- availability --- */}
         <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
           <h2 className="pb-3 text-sm font-black text-tm-navy">Availability</h2>
-          {tutor.slots.length === 0 ? (
+          {tutor.availabilityText ? (
+            // PR73 §A: the day+slot line, e.g. "Mon, Tue, Wed: Evening · Sat: Morning".
+            <p className="text-xs font-semibold text-tm-navy">{tutor.availabilityText}</p>
+          ) : tutor.slots.length === 0 ? (
             <p className="text-xs text-gray-500">
               No fixed slots published. Request a demo and agree a time directly.
             </p>

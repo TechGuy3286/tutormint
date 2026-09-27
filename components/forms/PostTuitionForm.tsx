@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Sparkles, Loader2, Info, ShieldCheck, Phone, UserRound } from 'lucide-react'
+import { Sparkles, Loader2, Info, ShieldCheck, Phone, UserRound, Clock } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import WhereHowWhen from '@/components/forms/WhereHowWhen'
+import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
+import { parseTimings, formatSlots, type DaySlot } from '@/lib/timeSlots'
 import { useJobTitles } from '@/lib/jobTitles'
 import { isLevelLeaf, resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
 import { collapseLevels } from '@/lib/levelDisplay'
@@ -74,6 +76,8 @@ export type PostTuitionPayload = {
   budgetMin: string | null
   budgetMax: string | null
   schedule: string
+  /** PR73 §A: the structured day+slot list, stored in jobs.schedule_slots. */
+  scheduleSlots: DaySlot[]
   description: string
   genderPreference: string | null
   childId: string | null
@@ -149,8 +153,11 @@ export default function PostTuitionForm({
   const [error, setError] = useState<string | null>(null)
   const [levelLeaf, setLevelLeaf] = useState(false)
 
-  const [days, setDays] = useState('')
-  const [times, setTimes] = useState('')
+  // PR73 §A: schedule is a day+slot grid. In edit mode, pre-fill from the job's
+  // existing timings text (the old column) — the tutor re-confirms on the grid.
+  const [scheduleSlots, setScheduleSlots] = useState<DaySlot[]>(
+    mode === 'edit' && initial?.schedule ? parseTimings(initial.schedule) ?? [] : [],
+  )
 
   const [writing, setWriting] = useState(false)
   const [wroteItOurselves, setWroteItOurselves] = useState(false)
@@ -196,11 +203,10 @@ export default function PostTuitionForm({
     isLevelLeaf(v.category, v.levels[0]).then(setLevelLeaf).catch(() => setLevelLeaf(false))
   }, [v.category, v.levels])
 
-  // The two schedule choices are one stored string, synced one way only.
+  // The grid is the source of truth; keep the display/AI text in sync (PR73).
   useEffect(() => {
-    const joined = [days, times].filter(Boolean).join(', ')
-    if (joined) setV((p) => ({ ...p, schedule: joined }))
-  }, [days, times])
+    setV((p) => ({ ...p, schedule: formatSlots(scheduleSlots) }))
+  }, [scheduleSlots])
 
   const set = <K extends keyof PostTuitionValues>(k: K, value: PostTuitionValues[K]) =>
     setV((prev) => ({ ...prev, [k]: value }))
@@ -269,6 +275,7 @@ export default function PostTuitionForm({
         budgetMin: v.budgetMin || null,
         budgetMax: v.budgetMax || null,
         schedule: v.schedule,
+        scheduleSlots,
         description: v.description,
         genderPreference: v.genderPreference || null,
         childId: v.childId || null,
@@ -389,17 +396,23 @@ export default function PostTuitionForm({
             city={v.city}
             area={v.area}
             band={band}
-            days={days}
-            times={times}
             onCity={(x) => setV((p) => ({ ...p, city: x, area: '' }))}
             onArea={(x) => set('area', x)}
             onBand={(x) => {
               const r = bandRange(x)
               setV((p) => ({ ...p, budgetMin: r.min, budgetMax: r.max }))
             }}
-            onDays={setDays}
-            onTimes={setTimes}
           />
+
+          {/* PR73 §A: the shared time-slot grid (was free-text days/times). */}
+          <div className="space-y-1.5">
+            <span className={`${LABEL} flex items-center gap-1.5`}>
+              <Clock size={12} aria-hidden />
+              When can lessons happen?
+              <span lang="ur" dir="rtl" className="ms-1 font-medium text-gray-500">دستیاب اوقات</span>
+            </span>
+            <TimeSlotGrid value={scheduleSlots} onChange={setScheduleSlots} disabled={busy} />
+          </div>
 
           {/* Optional tutor-gender preference. Never required; the job stays
               visible to everyone and only Apply is gated to a matching tutor. */}
@@ -421,11 +434,6 @@ export default function PostTuitionForm({
             </select>
           </label>
 
-          {mode === 'edit' && v.schedule && !days && !times && (
-            <p className="text-[11px] text-gray-500">
-              Currently: {v.schedule}. Choosing days or times above replaces it.
-            </p>
-          )}
         </Step>
 
         {/* --------------------------------------------------- 4. the words */}

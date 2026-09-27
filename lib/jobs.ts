@@ -30,6 +30,25 @@ import { notify, notifyMany } from '@/lib/notifications'
 import { tuitionPath } from '@/lib/slugs'
 import { normaliseGenderPref } from '@/lib/genderPref'
 import { deliverEmail } from '@/lib/notify'
+import { normalizeSlots, type DaySlot } from '@/lib/timeSlots'
+
+/**
+ * Persist the structured schedule to jobs.schedule_slots — BEST-EFFORT: the
+ * column is added by a migration applied after this code deploys, so a missing
+ * column (42703) is ignored (the timings text is already written and is the
+ * display source). PR73 §A.
+ */
+async function writeScheduleSlots(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: any,
+  jobId: string,
+  slots: DaySlot[] | undefined,
+): Promise<void> {
+  if (!slots) return
+  try {
+    await client.from('jobs').update({ schedule_slots: normalizeSlots(slots) }).eq('id', jobId)
+  } catch { /* pre-migration: column absent — timings text stands in */ }
+}
 import { tutorAtIncomingCap, refuseIncomingRequest, recordIncoming } from '@/lib/incomingRequests'
 import { sendMatchEmails } from '@/lib/matchEmail'
 import { revalidateLanding } from '@/lib/landingRevalidate'
@@ -77,6 +96,9 @@ export type JobInput = {
   budgetMin?: number | null
   budgetMax?: number | null
   schedule: string | null
+  /** PR73 §A: the structured day+slot schedule; written to jobs.schedule_slots
+   *  best-effort (the timings text stays the display/AI copy). */
+  scheduleSlots?: DaySlot[]
   description: string | null
   childId: string | null
   /**
@@ -267,6 +289,8 @@ export async function createJob(
     return { ok: false, status: 400, error: linkError.message }
   }
 
+  await writeScheduleSlots(admin, job.id as string, input.scheduleSlots)
+
   await consumeQuota(parentId, 'job_post')
 
   // Abusive tuition text was withheld and flagged before the insert (PR41 §2),
@@ -438,6 +462,8 @@ export async function createTeamJob(
     }
   }
 
+  await writeScheduleSlots(admin, job.id as string, input.scheduleSlots)
+
   // Abusive tuition text was withheld and flagged before the insert (PR41 §2),
   // so a posted team job here contains no flagged wording.
 
@@ -569,6 +595,8 @@ export async function updateTeamJob(
   await admin
     .from('job_subjects')
     .insert(input.masterIds.map((master_id) => ({ job_id: jobId, master_id })))
+
+  await writeScheduleSlots(admin, jobId, input.scheduleSlots)
 
   // The seeded parent-contact block, edited or cleared.
   if (contact.hasContact) {

@@ -32,6 +32,7 @@ const TeamJobBody = z.object({
   budgetMin: rupees.nullish(),
   budgetMax: rupees.nullish(),
   schedule: z.string().max(500).nullish(),
+  scheduleSlots: z.array(z.object({ day: z.string(), slot: z.string() })).max(21).nullish(),
   description: z.string().max(5000, 'Keep the description under 5000 characters.').nullish(),
   origin: z.enum(['support', 'referral', 'external']).nullish(),
   // Optional preferred tutor gender (migration 72). Never required.
@@ -65,6 +66,7 @@ function parseInput(body: z.infer<typeof TeamJobBody>): JobInput {
     budgetMin: body.budgetMin ?? null,
     budgetMax: body.budgetMax ?? null,
     schedule: str(body.schedule),
+    scheduleSlots: (body.scheduleSlots ?? undefined) as import('@/lib/timeSlots').DaySlot[] | undefined,
     description: str(body.description),
     childId: null,
     genderPreference: body.genderPreference ?? null,

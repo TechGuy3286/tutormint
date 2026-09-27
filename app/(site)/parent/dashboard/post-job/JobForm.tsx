@@ -48,6 +48,7 @@ export default function JobForm({
         budgetMin: payload.budgetMin,
         budgetMax: payload.budgetMax,
         schedule: payload.schedule,
+        scheduleSlots: payload.scheduleSlots,
         description: payload.description,
         childId: payload.childId,
         genderPreference: payload.genderPreference,

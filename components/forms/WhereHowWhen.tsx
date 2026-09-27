@@ -1,25 +1,20 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Building2, MapPin, Wallet, Calendar, Clock } from 'lucide-react'
+import { Building2, MapPin, Wallet } from 'lucide-react'
 
 import { BUDGET_BANDS } from '@/lib/feeBands'
 import LocationInput from '@/components/forms/LocationInput'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 
-// The "Where, how and when" row of the job form — the five selects for city,
-// area, budget, days and times. (Job Type moved to its own field at the top of
-// the form, owner 11 Sep 2026.)
+// The "Where and how" row of the job form — city, area and budget. "When" is now
+// the shared TimeSlotGrid, rendered by the form beside this (PR73 §A).
 //
 // SHARED by the parent post-a-tuition form AND the admin team-post form, so the
 // two cannot drift: an icon or a placeholder changed here changes in both. Each
-// select carries a recognising icon (location, money, calendar, clock) and a
-// short placeholder that is the field's own noun — "City", not "Choose a
-// city" — since a visible sr-only label already names it for a screen reader.
-
-export const DAY_OPTIONS = ['Weekdays', 'Weekends', 'Every day'] as const
-export const TIME_OPTIONS = ['Mornings', 'Afternoons', 'Evenings'] as const
+// select carries a recognising icon and a short placeholder that is the field's
+// own noun — "City", not "Choose a city".
 
 /** A select with a left-hand recognising icon. The icon accompanies the field's
  *  own text (its placeholder or chosen value) — never icon-only. */
@@ -66,25 +61,17 @@ export default function WhereHowWhen({
   city,
   area,
   band,
-  days,
-  times,
   onCity,
   onArea,
   onBand,
-  onDays,
-  onTimes,
 }: {
   city: string
   area: string
   /** The budget BAND value (feeBands), not the min/max — the parent converts. */
   band: string
-  days: string
-  times: string
   onCity: (v: string) => void
   onArea: (v: string) => void
   onBand: (v: string) => void
-  onDays: (v: string) => void
-  onTimes: (v: string) => void
 }) {
   // The curated lists, from the DB (migration 73), fetched once and cached.
   // City and Area are datalist inputs: they suggest the curated names but accept
@@ -119,24 +106,6 @@ export default function WhereHowWhen({
           {BUDGET_BANDS.map((b) => (
             <option key={b.value} value={b.value}>
               {b.value === '' ? 'Budget' : b.label}
-            </option>
-          ))}
-        </IconSelect>
-
-        <IconSelect icon={<Calendar size={15} />} label="Days" value={days} onChange={onDays}>
-          <option value="">Days</option>
-          {DAY_OPTIONS.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </IconSelect>
-
-        <IconSelect icon={<Clock size={15} />} label="Times" value={times} onChange={onTimes}>
-          <option value="">Time</option>
-          {TIME_OPTIONS.map((t) => (
-            <option key={t} value={t}>
-              {t}
             </option>
           ))}
         </IconSelect>
