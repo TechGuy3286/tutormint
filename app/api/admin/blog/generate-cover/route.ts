@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { randomUUID } from 'node:crypto'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
     const res = await composeCoverResponse(input, seed)
     const bytes = new Uint8Array(await res.arrayBuffer())
     const up = await admin.storage.from('blog').upload(coverPath, bytes, { contentType: 'image/png', upsert: false })
-    if (up.error) return NextResponse.json({ error: up.error.message }, { status: 400 })
+    if (up.error) return serverError(up.error, 'admin/blog/generate-cover')
   } catch (e) {
     console.error('[blog cover] compose/upload failed:', String(e))
     return NextResponse.json({ error: 'Could not render the cover.' }, { status: 500 })

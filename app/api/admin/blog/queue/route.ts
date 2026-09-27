@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
       .from('content_suggestions')
       .update({ status: 'snoozed', snooze_until: until, updated_at: nowIso })
       .eq('id', body.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'admin/blog/queue')
     return NextResponse.json({ success: true, snoozedUntil: until })
   }
 
@@ -63,6 +64,6 @@ export async function POST(request: Request) {
     .from('content_suggestions')
     .update({ status: 'dismissed', dismiss_reason: (body.reason ?? '').trim() || null, updated_at: nowIso })
     .eq('id', body.id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'admin/blog/queue')
   return NextResponse.json({ success: true })
 }

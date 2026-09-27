@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { getProvider, newPaymentReference } from '@/lib/payments'
 import { pproVisibleFor, startPayproCheckout, toPayproMobile } from '@/lib/payments/paypro'
@@ -192,7 +193,7 @@ export async function POST(request: Request) {
     .select('id')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'payments/checkout')
 
   const origin = new URL(request.url).origin
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
       .from('tutor_profiles')
       .update({ terms_accepted_at: new Date().toISOString() })
       .eq('id', user.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'tutor/claim')
 
     await logActivity({
       userId: user.id,
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
       .update({ claimed_at: new Date().toISOString() })
       .eq('id', user.id)
       .is('claimed_at', null)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'tutor/claim')
 
     await logActivity({ userId: user.id, event: 'profile_claimed', targetType: 'tutor_profile', targetId: user.id })
 

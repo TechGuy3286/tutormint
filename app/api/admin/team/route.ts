@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { checkAdminRole, SCREEN_ACCESS, type AdminRole } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createStaff, changeStaffRole, resendStaffInvite, grantStaffToExisting, searchGrantCandidates } from '@/lib/staff'
@@ -186,7 +187,7 @@ export async function POST(request: Request) {
       .eq('id', userId)
       .select('id')
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'admin/team')
     if (!updated || updated.length === 0) {
       return NextResponse.json(
         { error: 'That did not take effect — the account was not changed. Refresh and try again.' },

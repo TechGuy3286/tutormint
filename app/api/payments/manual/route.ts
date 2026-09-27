@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { activatePayment } from '@/lib/payments/activate'
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
       })
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 400 })
+      return serverError(uploadError, 'payments/manual')
     }
     screenshotPath = path
   }
@@ -140,7 +141,7 @@ export async function POST(request: Request) {
     .eq('user_id', user.id)
     .eq('status', 'pending')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'payments/manual')
 
   // Activate now — the SAME function the gateway webhook runs (PR30). It sets the
   // payment approved, creates the subscription (or records the one-time fee),

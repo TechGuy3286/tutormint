@@ -95,7 +95,9 @@ export default async function InboxShell({
   const selected = Boolean(header) || isTeam
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-3 pb-4 pt-2 sm:px-6 sm:pb-6 lg:px-8">
+    // PR74 §F: on mobile Messages starts right under the sticky header (pt-0);
+    // desktop keeps sm:pt-2. The breadcrumb stays.
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-3 pb-4 pt-0 sm:px-6 sm:pb-6 sm:pt-2 lg:px-8">
       <Breadcrumbs
         items={
           isTeam

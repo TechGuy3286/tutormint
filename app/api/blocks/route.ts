@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
       .delete()
       .eq('blocker_id', user.id)
       .eq('blocked_id', target)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'blocks')
 
     await logActivity({ userId: user.id, event: 'unblocked', targetType: 'block', targetId: target })
     return NextResponse.json({ success: true, blocked: false })
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     .from('user_blocks')
     .upsert({ blocker_id: user.id, blocked_id: target }, { onConflict: 'blocker_id,blocked_id' })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'blocks')
 
   await logActivity({ userId: user.id, event: 'blocked', targetType: 'block', targetId: target })
   await logActivity({ userId: target, event: 'blocked_by', targetType: 'blocked_by', targetId: user.id })

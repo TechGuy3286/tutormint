@@ -44,6 +44,7 @@
     "test:taxonomy:live": "tsx --test scripts/test-taxonomy-live.ts",
     "test:onboarding": "tsx --test scripts/test-onboarding.ts",
     "test:timeslots": "tsx --test scripts/test-timeslots.ts",
+    "test:degrees": "tsx --test scripts/test-degrees.ts",
     "test:tuition": "tsx --test scripts/test-tuition-status.ts",
     "test:staffactivity": "tsx --test scripts/test-staffactivity.ts",
     "test:completion": "tsx --test scripts/test-completion.ts",

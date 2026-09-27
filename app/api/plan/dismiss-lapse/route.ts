@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
     .eq('user_id', user.id)
     .select('id')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'plan/dismiss-lapse')
   if (!data || data.length === 0) {
     // Either the id is not a real subscription or it is not theirs. Both
     // answer identically: this route must not report whether a subscription

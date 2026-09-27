@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
       .from('demo_feedback')
       .update({ tutor_reply: reply })
       .eq('id', existing.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'demo/feedback')
 
     return NextResponse.json({ success: true, replied: true })
   }
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
     .select('id')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'demo/feedback')
 
   await notify({
     userId: demo.tutor_id as string,

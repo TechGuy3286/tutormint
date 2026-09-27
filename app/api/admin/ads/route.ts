@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
 
     if (action === 'delete') {
       const { error } = await admin.from('advertisements').delete().eq('id', adId)
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+      if (error) return serverError(error, 'admin/ads')
 
       await logAdminAction({
         actorId: gate.actor.id,
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
       .from('advertisements')
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', adId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'admin/ads')
 
     await logAdminAction({
       actorId: gate.actor.id,
@@ -137,7 +138,7 @@ export async function POST(request: Request) {
         contentType: file.type,
         upsert: false,
       })
-    if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 400 })
+    if (uploadError) return serverError(uploadError, 'admin/ads')
     imagePath = path
   }
 
@@ -157,7 +158,7 @@ export async function POST(request: Request) {
   if (action === 'edit') {
     if (!adId) return NextResponse.json({ error: 'Missing ad.' }, { status: 400 })
     const { error } = await admin.from('advertisements').update(patch).eq('id', adId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'admin/ads')
 
     await logAdminAction({
       actorId: gate.actor.id,
@@ -183,7 +184,7 @@ export async function POST(request: Request) {
     .select('id')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'admin/ads')
 
   await logAdminAction({
     actorId: gate.actor.id,

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { logActivity } from '@/lib/activityLog'
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
       .from('demo_requests')
       .update({ status: 'declined', responded_at: now, decline_reason: reason })
       .eq('id', demoId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'demo/respond')
 
     await notify({
       userId: demo.parent_id as string,
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
     .from('demo_requests')
     .update({ status: 'accepted', responded_at: now, proposed_time: proposed.toISOString() })
     .eq('id', demoId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'demo/respond')
 
   await notify({
     userId: demo.parent_id as string,

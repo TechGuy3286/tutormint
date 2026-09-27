@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 
 import { logActivity } from '@/lib/activityLog'
 import { formatCnic, isValidCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
       .from('profiles')
       .update({ cnic_number: formatCnic(cnicNumber) })
       .eq('id', user.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'identity')
 
     await recomputeCompletion(user.id)
     return NextResponse.json({ success: true, cnicNumber: formatCnic(cnicNumber) })
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
         verification_rejection_reason: null,
       })
       .eq('id', user.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'identity')
 
     await recomputeCompletion(user.id)
     await logActivity({
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
       verification_rejection_reason: null,
     })
     .eq('id', user.id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'identity')
 
   await recomputeCompletion(user.id)
   await logActivity({

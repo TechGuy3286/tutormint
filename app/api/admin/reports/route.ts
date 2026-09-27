@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
     })
     .eq('id', reportId)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'admin/reports')
 
   // Lift the "under review" pause on the target. A dismiss reopens it and tells
   // the owner; an uphold clears the flag while the sanction carries the

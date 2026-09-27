@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import sharp from 'sharp'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
   const { error } = await supabase.storage
     .from('message-media')
     .upload(path, out, { contentType: file.type, upsert: false })
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'messages/media')
 
   return NextResponse.json({ path, w: width, h: height, bytes: out.byteLength })
 }

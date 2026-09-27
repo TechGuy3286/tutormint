@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { setVideoVisibility, youtubeConfigured } from '@/lib/youtube'
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
     })
     .eq('id', tutorId)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'admin/tutors/video-visibility')
 
   await logAdminAction({
     actorId: gate.actor.id,

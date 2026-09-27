@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
       .delete()
       .eq('id', body.id)
       .eq('parent_id', user.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'parent/children')
     return NextResponse.json({ success: true })
   }
 
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
     : supabase.from('children').insert(row).select('id').single()
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'parent/children')
 
   await logActivity({
     userId: user.id,

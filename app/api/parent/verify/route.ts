@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { recomputeCompletion } from '@/lib/completion'
@@ -61,7 +62,7 @@ export async function POST() {
     })
     .eq('id', user.id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'parent/verify')
 
   await recomputeCompletion(user.id)
   await logActivity({

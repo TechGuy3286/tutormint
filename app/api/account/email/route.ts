@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
     { emailRedirectTo: `${origin}/api/auth/callback` },
   )
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
+    return serverError(error, 'account/email')
   }
 
   // The address is pending until the link is clicked; the confirmation, not this

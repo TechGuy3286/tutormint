@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -211,7 +212,7 @@ export async function POST(request: Request) {
     let postId = existing?.id as string | undefined
     if (existing) {
       const { error } = await admin.from('posts').update(row).eq('id', existing.id)
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+      if (error) return serverError(error, 'admin/blog')
     } else {
       const { data, error } = await admin
         .from('posts')
@@ -316,7 +317,7 @@ export async function POST(request: Request) {
         updated_at: nowIso,
       })
       .eq('id', post.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'admin/blog')
 
     // A published post from a suggestion closes it for good ('done'), distinct
     // from 'drafted' (an open draft that reopens if deleted).
@@ -355,7 +356,7 @@ export async function POST(request: Request) {
       .from('posts')
       .update({ status: 'scheduled', publish_at: when.toISOString(), slug_locked: true, updated_at: nowIso })
       .eq('id', post.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'admin/blog')
 
     await logAdminAction({
       actorId: pub.actor.id,
@@ -375,7 +376,7 @@ export async function POST(request: Request) {
       .from('posts')
       .update({ status: 'unpublished', updated_at: nowIso })
       .eq('id', post.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'admin/blog')
 
     await logAdminAction({
       actorId: pub.actor.id,
@@ -393,7 +394,7 @@ export async function POST(request: Request) {
 
   // ----------------------------------------------------------- delete ----
   const { error } = await admin.from('posts').delete().eq('id', post.id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'admin/blog')
 
   // Deleting a draft made from a suggestion reopens it, so the topic returns to
   // the queue rather than being silently lost with the draft.

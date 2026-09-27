@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
   }
 
   const { error } = await admin.from('tutor_profiles').update(patch).eq('id', tutorId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'admin/tutors/moderate')
 
   // A verification decision can make a tutor LISTED — approve turns
   // verification_status to 'verified', and unsuspend clears the suspension. If

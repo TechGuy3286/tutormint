@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 
 import { checkAdminRole } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
     .eq('id', parsed.data.tutorId)
     .select('id, phone_verified_at')
     .maybeSingle()
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'admin/tutors/clear-mobile')
   if (!updated || updated.phone_verified_at !== null) {
     return NextResponse.json(
       { error: 'The clear did not take effect. Please try again.' },

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 
 import { BAD_AVATAR_MESSAGE, isOurStorageUrl } from '@/lib/avatarUrl'
 import { logActivity } from '@/lib/activityLog'
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     })
     .eq('id', user.id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'parent/profile')
 
   await recomputeCompletion(user.id)
   await logActivity({

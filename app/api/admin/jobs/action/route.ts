@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
   }
 
   const { error } = await admin.from('jobs').update(patch).eq('id', jobId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'admin/jobs/action')
 
   await logAdminAction({
     actorId: gate.actor.id,

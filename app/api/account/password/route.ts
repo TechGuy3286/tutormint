@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
   if (error) {
     // "New password should be different from the old password" is the common
     // one and is worth passing through: it is actionable and reveals nothing.
-    return NextResponse.json({ error: error.message }, { status: 400 })
+    return serverError(error, 'account/password')
   }
 
   const admin = createAdminClient()

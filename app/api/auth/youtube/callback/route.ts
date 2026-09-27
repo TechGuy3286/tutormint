@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { serverError } from '@/lib/errorResponse'
 import { google } from 'googleapis';
 import { BRAND, NEUTRAL } from '@/lib/brand'
 
@@ -33,6 +34,6 @@ export async function GET(request: NextRequest) {
       headers: { 'Content-Type': 'text/html' },
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, 'auth/youtube/callback');
   }
 }

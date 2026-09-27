@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { warnMember, suspendMember, unsuspendMember, banMember, unbanMember } from '@/lib/moderation'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
         phone_verified_via: null,
       })
       .eq('id', userId)
-    if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 })
+    if (upErr) return serverError(upErr, 'admin/members')
 
     // Invalidate any outstanding code for the old and new numbers.
     await admin.from('phone_otps').update({ consumed_at: new Date().toISOString() }).eq('user_id', userId).is('consumed_at', null)
@@ -156,7 +157,7 @@ export async function POST(request: Request) {
         phone_gate_required: false,
       })
       .eq('id', userId)
-    if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 })
+    if (upErr) return serverError(upErr, 'admin/members')
 
     // Any locked/outstanding code for this number is now moot — consume it.
     await admin

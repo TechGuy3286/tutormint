@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
       .eq('status', 'active')
       .select('id, plan_code')
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'admin/plans')
 
     // Featured tags follow the plan. Nothing is deleted -- the tutor stays
     // listed and the jobs stay open, they simply stop being promoted.
@@ -205,7 +206,7 @@ export async function POST(request: Request) {
     .select('id')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'admin/plans')
 
   // Same flag handling a purchase gets, so a granted plan and a bought plan
   // leave the account in identical state.

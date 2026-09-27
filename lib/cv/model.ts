@@ -15,6 +15,7 @@
 import { isOurStorageUrl } from '@/lib/avatarUrl'
 import { levelLabel, jobType, jobTypesLabel } from '@/lib/display'
 import { feeRangeLabel } from '@/lib/fee'
+import { degreeLabels } from '@/lib/degrees'
 
 export type CvSubjectGroup = { level: string; subjects: string[] }
 
@@ -105,7 +106,8 @@ export function toCvModel(raw: CvRaw, opts: CvOptions): CvModel {
 
   const location = [clean(raw.area), clean(raw.city)].filter(Boolean).join(', ') || null
 
-  const degrees = raw.degrees.map((d) => d.trim()).filter((d) => d.length > 0)
+  // PR74 §B: decode every stored shape (plain, object, nested JSON) to clean text.
+  const degrees = degreeLabels(raw.degrees)
   const languages = raw.languages.map((l) => l.trim()).filter((l) => l.length > 0)
 
   let contact: CvContact | null = null

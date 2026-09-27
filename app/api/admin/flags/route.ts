@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
       .from('abuse_flags')
       .update({ status: 'cleared', cleared_by: actor.id, cleared_at: new Date().toISOString() })
       .eq('id', body.flagId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'admin/flags')
     await logAdminAction({
       actorId: actor.id,
       actorRole: actor.adminRole,

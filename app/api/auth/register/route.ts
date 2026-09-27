@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { UTM_COOKIE, decodeUtm, hasUtm } from '@/lib/utm'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
@@ -140,7 +141,7 @@ export async function POST(request: Request) {
           { status: 409 },
         )
       }
-      return NextResponse.json({ error: signUpError.message }, { status: 400 })
+      return serverError(signUpError, 'auth/register')
     }
 
     // Write the profile with the SELECTED role now — the trigger no longer does

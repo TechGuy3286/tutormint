@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
     .update({ status: 'completed', completed_at: new Date().toISOString() })
     .eq('id', body.demoId)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'demo/complete')
 
   const other = demo.parent_id === user.id ? (demo.tutor_id as string) : (demo.parent_id as string)
   await notify({

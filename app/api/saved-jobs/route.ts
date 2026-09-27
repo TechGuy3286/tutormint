@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
       .delete()
       .eq('user_id', user.id)
       .eq('job_id', jobId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'saved-jobs')
 
     await logActivity({
       userId: user.id,
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
   const { error } = await supabase
     .from('saved_jobs')
     .upsert({ user_id: user.id, job_id: jobId }, { onConflict: 'user_id,job_id' })
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'saved-jobs')
 
   await logActivity({
     userId: user.id,

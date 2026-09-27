@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z } from '@/lib/validate'
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
     .update({ email_opt_out: parsed.data.emailOptOut })
     .eq('id', user.id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'account/notifications')
 
   await logActivity({
     userId: user.id,

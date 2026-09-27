@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 
 import { createClient } from '@/lib/supabase/server'
 import { recomputeCompletion } from '@/lib/completion'
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
   }
   if (Object.keys(tutorPatch).length > 0) {
     const { error } = await supabase.from('tutor_profiles').update(tutorPatch).eq('id', user.id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'tutor/onboarding')
   }
 
   // ---- write tutor_subjects (delete then insert the whole set) ----
@@ -119,7 +120,7 @@ export async function POST(request: Request) {
     const { error } = await supabase
       .from('tutor_subjects')
       .insert(masterIds.map((master_id) => ({ tutor_id: user.id, master_id })))
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'tutor/onboarding')
     await logActivity({
       userId: user.id,
       event: 'subjects_changed',

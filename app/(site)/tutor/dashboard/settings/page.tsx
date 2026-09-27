@@ -27,6 +27,7 @@ import { availabilityToSlots, slotsToAvailabilityList, formatSlots, type DaySlot
 import SubjectPicker from '@/components/tutor/SubjectPicker'
 import VideoUpload from '@/components/tutor/VideoUpload'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
+import { parseCredential } from '@/lib/degrees'
 import EmailCard from '@/components/account/EmailCard'
 import type { Identity } from '@/lib/identity'
 import { formatPkMobile, isSyntheticEmail } from '@/lib/phone'
@@ -128,6 +129,7 @@ export default function TutorSettingsPage() {
 
   const [videoAttempts, setVideoAttempts] = useState(0);
   const [videoStatus, setVideoStatus] = useState("none");
+  const [videoYoutubeId, setVideoYoutubeId] = useState<string>("");
 
   useEffect(() => {
     loadTutorProfile();
@@ -207,11 +209,13 @@ export default function TutorSettingsPage() {
       setPhoneNumber((prof?.phone_number as string) || "");
       setPhoneVerified(Boolean(prof?.phone_verified_at));
 
-      // A synthetic <msisdn>@users.tutormint.org address is not one the tutor
-      // chose — it reads as "no email yet".
-      const rawEmail = (prof?.email as string) || user.email || "";
-      setRealEmail(isSyntheticEmail(rawEmail) ? "" : rawEmail);
-      setEmailVerified(Boolean(prof?.email_verified));
+      // PR74 §C1: the confirmed state comes from the AUTH user (what EmailCard
+      // shows), not profiles.email_verified, which can lag. A signed-in account
+      // with a real (non-synthetic) email has confirmed it.
+      const authEmail = user.email || "";
+      const real = isSyntheticEmail(authEmail) ? "" : authEmail;
+      setRealEmail(real);
+      setEmailVerified(real !== "");
       setFeePaid(Boolean(tp?.verified_fee_paid_at));
       setExperienceYears(
         typeof tp?.experience_years === 'number' ? (tp.experience_years as number) : null,
@@ -260,18 +264,21 @@ export default function TutorSettingsPage() {
 
         setAvailabilityList(availabilityToSlots(tp.availability_list));
 
-        const asDegree = (d: unknown) =>
-          typeof d === 'string'
-            ? { title: d, institute: '', year: '', fileName: '', fileUrl: '' }
-            : (d as { title: string; institute: string; year: string; fileName: string; fileUrl: string });
-        const asCert = (c: unknown) =>
-          typeof c === 'string'
-            ? { title: c, issuer: '', year: '', fileName: '', fileUrl: '' }
-            : (c as { title: string; issuer: string; year: string; fileName: string; fileUrl: string });
+        // PR74 §B: decode every stored shape (plain, object, nested JSON) to
+        // clean fields, so a corrupted degree is never re-wrapped on Save.
+        const asDegree = (d: unknown) => {
+          const c = parseCredential(d);
+          return { title: c.title, institute: c.institute, year: c.year, fileName: c.fileName, fileUrl: c.fileUrl };
+        };
+        const asCert = (c: unknown) => {
+          const p = parseCredential(c);
+          return { title: p.title, issuer: p.institute, year: p.year, fileName: p.fileName, fileUrl: p.fileUrl };
+        };
         setDegrees(Array.isArray(tp.degrees) ? tp.degrees.map(asDegree) : []);
         setCertifications(Array.isArray(tp.certifications) ? tp.certifications.map(asCert) : []);
         setVideoAttempts((tp.video_attempts as number) ?? 0);
         setVideoStatus((tp.video_status as string) ?? 'none');
+        setVideoYoutubeId((tp.video_youtube_id as string) ?? '');
       }
 
       setSubjectIds((subjRows ?? []).map((r) => r.master_id as number));
@@ -460,11 +467,16 @@ export default function TutorSettingsPage() {
   const availabilitySummary = availabilityList.length
     ? formatSlots(availabilityList)
     : '';
+  // PR74 §B: the plain line "BS Physics, Punjab University (2019)", never raw JSON.
+  const credLine = (title: string, second: string, year: string) => {
+    const head = [title, second].filter((x) => x && x.trim()).join(', ') || title.trim();
+    return head && year.trim() ? `${head} (${year.trim()})` : head;
+  };
   const degreesSummary = degrees.length
-    ? short(degrees.map((d) => d.title).filter(Boolean)) || `${degrees.length} added`
+    ? short(degrees.map((d) => credLine(d.title, d.institute ?? '', d.year)).filter(Boolean)) || `${degrees.length} added`
     : '';
   const certsSummary = certifications.length
-    ? short(certifications.map((c) => c.title).filter(Boolean)) || `${certifications.length} added`
+    ? short(certifications.map((c) => credLine(c.title, c.issuer ?? '', c.year)).filter(Boolean)) || `${certifications.length} added`
     : '';
   const feeSummary = feeLabelOf({ fee_min_pkr: parseFee(feeMin), fee_max_pkr: parseFee(feeMax) }) ?? '';
 
@@ -509,14 +521,18 @@ export default function TutorSettingsPage() {
   const experienceStatus: CardStatus = experienceYears && experienceYears > 0 ? 'completed' : 'missing';
   const feeMonthlyStatus: CardStatus = parseFee(feeMin) && parseFee(feeMax) ? 'completed' : 'missing';
   const emailStatus: CardStatus = realEmail && emailVerified ? 'completed' : 'missing';
+  // PR74 §C2: status and content must agree — "Completed" needs a video ACTUALLY
+  // on file. A stale 'approved' with no video reads as not-yet-done (upload it),
+  // not Completed-with-an-empty-box.
+  const hasVideo = videoYoutubeId.trim() !== '';
   const videoStatusCard: CardStatus =
-    videoStatus === 'approved'
-      ? 'completed'
-      : videoStatus === 'rejected'
-        ? 'rejected'
-        : videoStatus === 'uploaded' || videoStatus === 'pending'
-          ? 'waiting'
-          : 'missing';
+    videoStatus === 'rejected'
+      ? 'rejected'
+      : hasVideo
+        ? videoStatus === 'approved'
+          ? 'completed'
+          : 'waiting'
+        : 'missing';
 
   const step1Cards: CardDesc[] = [
     {
@@ -657,11 +673,12 @@ export default function TutorSettingsPage() {
       icon: <Camera size={20} aria-hidden />,
       body: (
         <div className="space-y-1.5">
-          {/* The picture/selfie instruction (PR70 §4). */}
-          <div className="rounded-xl bg-tm-tint-navy p-3">
-            <p className="text-[11px] leading-relaxed text-tm-navy">{L.pictureNote.en}</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-tm-navy" lang="ur" dir="rtl">{L.pictureNote.ur}</p>
-          </div>
+          {/* PR74 §C4: the full instruction lives on the profile-picture card;
+              here, one line only. */}
+          <p className="text-[11px] leading-relaxed text-gray-600">
+            Only TutorMint’s verification team sees your selfie.
+            <span lang="ur" dir="rtl" className="ms-1">آپ کی سیلفی صرف ٹیوٹرمنٹ کی تصدیقی ٹیم دیکھتی ہے۔</span>
+          </p>
           <div className="w-40">
             <PhotoCaptureTile
               facingMode="user"
@@ -899,13 +916,15 @@ export default function TutorSettingsPage() {
       status: experienceStatus,
       bare: true,
       icon: <Briefcase size={20} aria-hidden />,
-      body: (
-        <ReadonlyLine
-          kind="experience"
-          done={!!(experienceYears && experienceYears > 0)}
-          href="/tutor/complete-profile"
-        />
-      ),
+      body:
+        experienceYears && experienceYears > 0 ? (
+          // PR74 §C3: show the value in plain text, e.g. "5 years".
+          <div className="rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
+            {experienceYears} {experienceYears === 1 ? 'year' : 'years'} of experience
+          </div>
+        ) : (
+          <ReadonlyLine kind="experience" done={false} href="/tutor/complete-profile" />
+        ),
     },
     {
       key: 'monthlyFee',
@@ -952,7 +971,19 @@ export default function TutorSettingsPage() {
       key: 'video',
       status: videoStatusCard,
       icon: <Video size={20} aria-hidden />,
-      body: (
+      body: hasVideo ? (
+        // PR74 §C2: a video is on file — confirm it, don't show an empty uploader.
+        // The intro is uploaded PRIVATE to the official channel, so it is not
+        // embedded here; the tutor is told it is received and its review state.
+        <div className="flex items-center gap-2 rounded-xl border border-tm-green-deep/30 bg-tm-tint-green p-3 text-xs font-bold text-tm-green-deep">
+          <Video aria-hidden size={15} />
+          <span>
+            {videoStatus === 'approved'
+              ? 'Your introduction video is uploaded and approved.'
+              : 'Your introduction video is uploaded and awaiting review.'}
+          </span>
+        </div>
+      ) : (
         <VideoUpload
           initialAttempts={videoAttempts}
           initialStatus={videoStatus}

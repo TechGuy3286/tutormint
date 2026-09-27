@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, uuid } from '@/lib/validate'
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
       .eq('user_id', user.id)
       .eq('tutor_id', tutorId)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return serverError(error, 'shortlist')
 
     await logActivity({
       userId: user.id,
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
     .from('shortlists')
     .upsert({ user_id: user.id, tutor_id: tutorId }, { onConflict: 'user_id,tutor_id' })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'shortlist')
 
   await logActivity({
     userId: user.id,

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/errorResponse'
 import { randomUUID } from 'node:crypto'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
     contentType: file.type,
     upsert: false,
   })
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return serverError(error, 'admin/blog/cover')
 
   return NextResponse.json({ success: true, path, url: publicBlogUrl(path) })
 }
