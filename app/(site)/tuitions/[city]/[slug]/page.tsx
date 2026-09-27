@@ -483,6 +483,12 @@ export default async function TuitionPage({ params }: { params: Params }) {
               <span className="font-black text-tm-navy">{budget}</span> / month
             </Fact>
           )}
+          {/* PR73 §A: the schedule as the short slot line. */}
+          {job.schedule && (
+            <Fact icon={<CalendarDays size={14} aria-hidden />} label="When">
+              {job.schedule}
+            </Fact>
+          )}
         </dl>
 
         {genderSentence && (

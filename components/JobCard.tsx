@@ -95,6 +95,8 @@ export type JobCardData = {
    * the Apply action for a mismatched tutor (server-enforced). Optional.
    */
   gender_preference?: string | null
+  /** PR73 §A: the schedule as the short slot line, e.g. "Mon, Tue: Evening". */
+  schedule?: string | null
 }
 
 export default function JobCard({
@@ -360,6 +362,13 @@ export default function JobCard({
                 {budgetLabel(job.budget_min_pkr, job.budget_max_pkr, job.budget_pkr)} / month
               </p>
             ) : null}
+            {/* PR73 §A: the schedule as the short slot line. */}
+            {job.schedule && (
+              <p className="flex items-center gap-2 text-xs text-slate-700">
+                <Clock size={14} className="shrink-0 text-gray-500" />
+                {job.schedule}
+              </p>
+            )}
           </div>
 
           {job.description && (

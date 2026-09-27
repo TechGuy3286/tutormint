@@ -247,12 +247,14 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       posted_by_team: f?.team ?? false,
       poster_is_seed: f?.isSeed ?? false,
       gender_preference: (j.gender_preference as string | null) ?? null,
+      // PR73 §A: the schedule as the short slot line (timings holds it after sync).
+      schedule: (j.timings as string | null) ?? null,
     }
   })
 }
 
 const JOB_COLUMNS =
-  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, under_review, parent_id, status, gender_preference'
+  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, under_review, parent_id, status, gender_preference, timings'
 
 /**
  * Open jobs that match a tutor's subjects, their city first.
