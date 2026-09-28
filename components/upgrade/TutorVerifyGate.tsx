@@ -29,7 +29,16 @@ import type { IdentityState } from '@/lib/identity'
 
 type Side = 'front' | 'back'
 
-export default function TutorVerifyGate({ onClose }: { onClose: () => void }) {
+export default function TutorVerifyGate({
+  onClose,
+  // PR78 §D: in the onboarding flow there is NO "Not now" (no skip — the fee step
+  // is the last step and stays until paid; the tutor leaves via the site nav). In
+  // the upgrade-sheet MODAL the dismiss is needed, so it defaults on.
+  showDismiss = true,
+}: {
+  onClose: () => void
+  showDismiss?: boolean
+}) {
   const router = useRouter()
   const [done, setDone] = useState<{ front: boolean; back: boolean }>({ front: false, back: false })
   const [error, setError] = useState<string | null>(null)
@@ -145,13 +154,15 @@ export default function TutorVerifyGate({ onClose }: { onClose: () => void }) {
         >
           {starting ? 'Starting…' : 'Verify'}
         </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
-        >
-          Not now
-        </button>
+        {showDismiss && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+          >
+            Not now
+          </button>
+        )}
       </div>
     </>
   )

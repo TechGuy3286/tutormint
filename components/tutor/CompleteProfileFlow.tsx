@@ -12,6 +12,8 @@ import { isValidCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
+import { isSyntheticEmail } from '@/lib/phone'
+import EmailCard from '@/components/account/EmailCard'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio, L, type OnboardingAnswers } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import type { OnboardingFacets } from '@/lib/openJobCounts'
@@ -55,17 +57,14 @@ const TITLES: Record<FlowStepKey, string> = {
   subjects: 'Which subjects do you want to teach?',
   jobtype: 'What kind of work do you want?',
   availability: 'When can you teach?',
-  mobile: 'Verify your mobile number',
+  contact: 'Contact and about you',
   verify: 'Get verified',
   name: 'Your full name',
-  gender: 'You are',
   photo: 'Add your photo',
   selfie: 'Take a selfie',
-  tagline: 'Your professional tagline',
-  bio: 'A short about-you',
   experience: 'Years of experience',
   fee: 'What monthly fee do you expect?',
-  degree: 'Your top degree',
+  degree: 'Your education and certificates',
   cnic: 'Your CNIC',
 }
 
@@ -78,17 +77,14 @@ const URDU: Record<FlowStepKey, string> = {
   subjects: 'آپ کون سے مضامین پڑھانا چاہتے ہیں؟',
   jobtype: 'آپ کس قسم کا کام چاہتے ہیں؟',
   availability: 'آپ کب پڑھا سکتے ہیں؟',
-  mobile: 'اپنے موبائل نمبر کی تصدیق کریں',
+  contact: 'رابطہ اور آپ کے بارے میں',
   verify: 'تصدیق کروائیں',
   name: 'آپ کا پورا نام',
-  gender: 'آپ ہیں',
   photo: 'اپنی تصویر لگائیں',
   selfie: 'سیلفی لیں',
-  tagline: 'آپ کا پیشہ ورانہ عنوان',
-  bio: 'اپنے بارے میں مختصر',
   experience: 'تجربے کے سال',
   fee: 'آپ کتنی ماہانہ فیس کی توقع رکھتے ہیں؟',
-  degree: 'آپ کی اعلیٰ ترین ڈگری',
+  degree: 'آپ کی تعلیم اور اسناد',
   cnic: 'آپ کا شناختی کارڈ',
 }
 
@@ -131,6 +127,9 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   // review state (for the final screen's CNIC-aware labels). Kept outside the
   // pure FlowFacts so the unit-tested type is untouched.
   const [phonePrefill, setPhonePrefill] = useState('')
+  // PR78 §C: the contact step prefills WhatsApp and email from the profile.
+  const [whatsappPrefill, setWhatsappPrefill] = useState('')
+  const [emailPrefill, setEmailPrefill] = useState('')
   const [verificationState, setVerificationState] = useState<'none' | 'submitted' | 'approved' | 'rejected'>('none')
   const [stepKey, setStepKey] = useState<FlowStepKey | 'final' | null>(null)
   const [jobTypeDemand, setJobTypeDemand] = useState<Record<string, number>>({})
@@ -138,6 +137,12 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   // tap never reshuffles the chips. Set once on entering the jobtype step.
   const [jobOrder, setJobOrder] = useState<string[] | null>(null)
   const [busy, setBusy] = useState(false)
+  // PR78 §D.2: onboarded_at is stamped once the tutor reaches the LAST step (the
+  // platform fee) or the final screen — i.e. every other step is answered
+  // (photo/selfie/CNIC count as answered once uploaded, since they precede the
+  // fee in the order). The fee step stays last until paid, but the tutor is no
+  // longer force-routed back into onboarding. Fired once per session.
+  const onboardedMarked = useRef(false)
 
   const deepLink = params.get('step')
 
@@ -152,6 +157,8 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
     facts: FlowFacts
     subjectIds: number[]
     phone: string
+    whatsapp: string
+    email: string
     verificationState: 'none' | 'submitted' | 'approved' | 'rejected'
   } | null> => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -161,7 +168,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
     }
     const [{ data: p }, { data: tp }, subj, deg, self] = await Promise.all([
       supabase.from('profiles')
-        .select('full_name, city, cnic_number, cnic_image_path, phone_verified_at, phone_number, verification_state, is_seed, is_team_account, is_banned, is_suspended')
+        .select('full_name, city, cnic_number, cnic_image_path, phone_verified_at, phone_number, whatsapp, email, verification_state, is_seed, is_team_account, is_banned, is_suspended')
         .eq('id', user.id).maybeSingle(),
       supabase.from('tutor_profiles')
         .select('city, area, gender, avatar_url, headline, bio, experience_years, hourly_rate_pkr, fee_min_pkr, fee_max_pkr, job_types, degrees, availability_list, video_youtube_id, video_status, verified_fee_paid_at, under_review, verification_status, imported, claimed_at')
@@ -192,6 +199,18 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
     } catch {
       setAreaInit((tp?.area as string) ? [tp!.area as string] : [])
     }
+    // PR78 §D: the "No degree to add yet" marker. Read defensively so the flow
+    // works before migration 119 is applied (column missing → false).
+    let noDegreeYet = false
+    try {
+      const { data: nd } = await supabase
+        .from('tutor_profiles')
+        .select('no_degree_yet')
+        .eq('id', user.id)
+        .maybeSingle()
+      noDegreeYet = !!(nd as { no_degree_yet?: boolean } | null)?.no_degree_yet
+    } catch { /* pre-migration: no marker yet */ }
+
     const facts: FlowFacts = {
       fullName: (p?.full_name as string) ?? null,
       gender: (tp?.gender as string) ?? null,
@@ -212,6 +231,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       availabilityCount: Array.isArray(tp?.availability_list) ? tp.availability_list.length : 0,
       phoneVerified: !!p?.phone_verified_at,
       feePaid: !!tp?.verified_fee_paid_at,
+      noDegreeYet,
       isSeed: !!p?.is_seed,
       isTeamAccount: !!p?.is_team_account,
       isBanned: !!p?.is_banned,
@@ -225,6 +245,9 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       facts,
       subjectIds: ids,
       phone: (p?.phone_number as string) ?? '',
+      whatsapp: (p?.whatsapp as string) ?? '',
+      // A synthetic mobile-signup address is not a real inbox — do not prefill it.
+      email: isSyntheticEmail((p?.email as string) ?? '') ? '' : ((p?.email as string) ?? ''),
       verificationState: ((p?.verification_state as 'none' | 'submitted' | 'approved' | 'rejected' | null) ?? 'none'),
     }
   }, [supabase, router, selfHref])
@@ -238,6 +261,8 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       setFacts(res.facts)
       setSubjectIds(res.subjectIds)
       setPhonePrefill(res.phone)
+      setWhatsappPrefill(res.whatsapp)
+      setEmailPrefill(res.email)
       setVerificationState(res.verificationState)
       // PR69: prefill the level/subjects steps from the tutor's existing subjects,
       // grouped by EVERY category they teach (so a returning multi-category tutor
@@ -275,12 +300,24 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Stamp onboarded_at when the fee step (last) or the final screen is reached.
+  useEffect(() => {
+    if ((stepKey === 'verify' || stepKey === 'final') && !onboardedMarked.current) {
+      onboardedMarked.current = true
+      void fetch('/api/tutor/onboarding', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dismiss: true }),
+      }).catch(() => { /* the sign-in gate also falls back to subjects+city */ })
+    }
+  }, [stepKey])
+
   const reload = useCallback(async () => {
     const res = await buildFacts()
     if (res) {
       setFacts(res.facts)
       setSubjectIds(res.subjectIds)
       setPhonePrefill(res.phone)
+      setWhatsappPrefill(res.whatsapp)
+      setEmailPrefill(res.email)
       setVerificationState(res.verificationState)
     }
     return res?.facts ?? null
@@ -406,6 +443,22 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
     } catch { /* pre-migration or transient — the choice is kept locally */ }
   }, [supabase])
 
+  // "No degree to add yet" (PR78 §D): the explicit Education answer. Marks the
+  // step answered (migration 119) and advances. Tolerant of the not-yet-applied
+  // migration — the local fact carries the answer for this session and the flow
+  // advances either way (degree is not a listing blocker).
+  const saveNoDegree = useCallback(async () => {
+    setBusy(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) await supabase.from('tutor_profiles').update({ no_degree_yet: true }).eq('id', user.id)
+    } catch { /* pre-migration — advance anyway */ }
+    const f = facts ? { ...facts, noDegreeYet: true } : facts
+    if (f) setFacts(f)
+    setBusy(false)
+    if (f && stepKey && stepKey !== 'final') setStepKey(nextMissingAfter(f, stepKey) ?? 'final')
+  }, [supabase, facts, stepKey])
+
   if (!facts || !stepKey) {
     return <div className="grid min-h-screen place-items-center text-xs font-bold text-gray-500">Loading…</div>
   }
@@ -446,10 +499,9 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
             ))}
           </div>
         </div>
-        <button type="button" onClick={() => void leave('/tutor/dashboard')} disabled={busy}
-          className="shrink-0 text-[11px] font-bold text-gray-500 disabled:opacity-40">
-          Later
-        </button>
+        {/* PR78 §D: no "Later"/"Skip" in onboarding. A tutor leaves via the site
+            header/nav above this flow and returns to the first unanswered step
+            (the gap flow); every step is answered by tapping. */}
       </header>
 
       <main className="flex-1 pt-6">
@@ -531,14 +583,13 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
           </div>
         )}
 
-        {/* Availability (PR69): the same editor as Settings. Continue without slots
-            only via the "Later" link. */}
+        {/* Availability (PR69): the same editor as Settings. PR78 §D removed the
+            "Later" skip — the tutor picks at least one slot to continue. */}
         {stepKey === 'availability' && (
           <AvailabilityStep
             initial={availabilityInit}
             busy={busy}
             onNext={(slots) => void saveAvailability(slots)}
-            onLater={() => void advance()}
           />
         )}
 
@@ -563,46 +614,51 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
           />
         )}
 
-        {stepKey === 'gender' && (
-          <div className="grid grid-cols-2 gap-3">
-            {(['male', 'female'] as const).map((g) => (
-              <button
-                key={g} type="button"
-                onClick={() => void tapSave({ tutorProfile: { gender: g } }, { gender: g })}
-                aria-pressed={facts.gender === g}
-                className={`flex min-h-[96px] items-center justify-center rounded-2xl border-2 text-lg font-black capitalize ${
-                  facts.gender === g ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy'
-                }`}
-              >
-                {g}
-              </button>
-            ))}
-          </div>
-        )}
-
         {stepKey === 'experience' && (
           <div className="flex flex-wrap justify-center gap-2">
             {EXPERIENCE_BANDS.map((b) => (
               <Chip
-                key={b.label} label={`${b.label} years`} selected={false}
+                key={b.label}
+                // PR78 §D: the lowest band reads "New to teaching" (an explicit
+                // answer), not "0–1 years".
+                label={b.years === 0 ? 'New to teaching' : `${b.label} years`}
+                selected={false}
                 onClick={() => void tapSave({ tutorProfile: { experience_years: b.years } }, { experienceYears: b.years })}
               />
             ))}
           </div>
         )}
 
-        {stepKey === 'mobile' && (
-          <MobileStep
+        {/* PR78 §C — "Contact and about you" on ONE screen: mobile (verified /
+            verify-by-SMS), WhatsApp, email, gender, tagline and bio. */}
+        {stepKey === 'contact' && (
+          <ContactStep
             support={support}
-            initialPhone={phonePrefill}
             smsAvailable={smsAvailable}
-            onVerified={() => void advance()}
+            phoneVerified={facts.phoneVerified}
+            phone={phonePrefill}
+            gender={facts.gender}
+            whatsappInit={whatsappPrefill}
+            headlineInit={facts.headline ?? composeHeadline(currentAnswers())}
+            bioInit={facts.bio ?? composeBio(currentAnswers(), seed)}
+            emailConfirmed={!!emailPrefill}
+            busy={busy}
+            onGender={(g) => void tapSave({ tutorProfile: { gender: g } }, { gender: g })}
+            onMobileVerified={() => setFacts((f) => (f ? { ...f, phoneVerified: true } : f))}
+            onContinue={(v) =>
+              void tapSave(
+                { tutorProfile: { headline: v.headline, bio: v.bio }, profile: { whatsapp: v.whatsapp } },
+                { headline: v.headline, bio: v.bio },
+              )
+            }
           />
         )}
 
         {stepKey === 'verify' && (
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <TutorVerifyGate onClose={() => void advance()} />
+            {/* PR78 §D: no "Not now" here — the fee step is the last step and
+                stays until paid; the tutor leaves via the site nav if needed. */}
+            <TutorVerifyGate onClose={() => void advance()} showDismiss={false} />
           </div>
         )}
 
@@ -620,29 +676,15 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
 
         {/* Selfie (PR70 §5): a verification selfie, reusing the Settings upload
             (front camera, private bucket, sets the selfie status to pending).
-            Optional — "Later" continues the flow. */}
+            PR78 §D removed the "Later" skip — it is uploaded, not skipped. */}
         {stepKey === 'selfie' && (
-          <SelfieStep done={facts.selfieDone} onDone={() => void advance()} onLater={() => void advance()} />
+          <SelfieStep done={facts.selfieDone} onDone={() => void advance()} />
         )}
 
         {stepKey === 'name' && (
           <TextStep
             initial={facts.fullName ?? ''} placeholder="Your full name"
             onNext={(v) => void tapSave({ profile: { full_name: v } }, { fullName: v })}
-            busy={busy}
-          />
-        )}
-        {stepKey === 'tagline' && (
-          <TextStep
-            initial={facts.headline ?? composeHeadline(currentAnswers())} placeholder="e.g. O Level Physics specialist"
-            onNext={(v) => void tapSave({ tutorProfile: { headline: v } }, { headline: v })}
-            busy={busy}
-          />
-        )}
-        {stepKey === 'bio' && (
-          <TextStep
-            initial={facts.bio ?? composeBio(currentAnswers(), seed)} placeholder="Two or three lines about how you teach" multiline
-            onNext={(v) => void tapSave({ tutorProfile: { bio: v } }, { bio: v })}
             busy={busy}
           />
         )}
@@ -656,7 +698,21 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         )}
 
         {stepKey === 'degree' && (
-          <DegreeStep onSaved={() => void advance()} />
+          <div className="space-y-4">
+            <DegreeStep onSaved={() => void advance()} />
+            {/* PR78 §D: an explicit answer instead of a skip. A degree is not a
+                listing requirement (it gates only the Verified badge), so "none
+                yet" is a valid answer; the tutor can add one later from Settings. */}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void saveNoDegree()}
+              className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy hover:border-tm-navy disabled:opacity-40"
+            >
+              No degree to add yet
+              <span lang="ur" dir="rtl" className="ms-2 text-gray-500">— ابھی کوئی ڈگری نہیں</span>
+            </button>
+          </div>
         )}
         {stepKey === 'cnic' && <CnicFlowStep onSubmitted={() => void advance()} />}
 
@@ -667,11 +723,11 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       {stepKey !== 'final' && (
         <div className="fixed inset-x-0 bottom-0 border-t border-gray-200 bg-white px-4 py-3">
           <div className="mx-auto flex max-w-md items-center gap-3">
-            {/* Skip removed (owner PR64 §A4) — the "Later" link at the top is the
-                only way to leave the flow. */}
-            {/* The component-driven steps advance from their own callback; the
+            {/* PR78 §D: no Skip/Later. The site header/nav (above this flow) is
+                the way out; the gap flow resumes at the first unanswered step.
+                The component-driven steps advance from their own callback; the
                 rest advance on this button. Blockers require the step done. */}
-            {!['mobile', 'verify', 'cnic', 'degree', 'photo', 'selfie', 'name', 'tagline', 'bio', 'fee', 'area', 'level', 'subjects', 'availability'].includes(stepKey) && (
+            {!['contact', 'verify', 'cnic', 'degree', 'photo', 'selfie', 'name', 'fee', 'area', 'level', 'subjects', 'availability'].includes(stepKey) && (
               <button
                 type="button" onClick={() => void advance()} disabled={busy || (isBlocker && !stepDone(facts, stepKey))}
                 className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
@@ -1079,17 +1135,16 @@ function AvailabilityStep({
   initial,
   busy,
   onNext,
-  onLater,
 }: {
   initial: DaySlot[]
   busy: boolean
   onNext: (slots: DaySlot[]) => void
-  onLater: () => void
 }) {
   const [slots, setSlots] = useState<DaySlot[]>(initial)
   return (
     <div className="space-y-4">
       <TimeSlotGrid value={slots} onChange={setSlots} disabled={busy} />
+      {/* PR78 §D: no "Later" — the tutor picks at least one slot to continue. */}
       <button
         type="button"
         disabled={busy || slots.length === 0}
@@ -1098,14 +1153,9 @@ function AvailabilityStep({
       >
         {busy ? '…' : 'Save & continue'}
       </button>
-      <button
-        type="button"
-        onClick={onLater}
-        disabled={busy}
-        className="w-full text-center text-[11px] font-bold text-gray-500 underline disabled:opacity-40"
-      >
-        No times yet? Add them later — آپ بعد میں شامل کر سکتے ہیں
-      </button>
+      {slots.length === 0 && (
+        <p className="text-center text-[11px] text-gray-500">Pick at least one time to continue.</p>
+      )}
     </div>
   )
 }
@@ -1202,8 +1252,8 @@ function ShowAvatarToggle({ value, onChange }: { value: boolean; onChange: (v: b
 
 // The onboarding selfie step (PR70 §5): the same front-camera upload as Settings
 // (private bucket, sets the selfie status to pending), plus the shared note.
-// Optional — "Later" continues the flow.
-function SelfieStep({ done, onDone, onLater }: { done: boolean; onDone: () => void; onLater: () => void }) {
+// PR78 §D: no "Later" — the selfie is uploaded to continue.
+function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
   const toast = useToast()
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
@@ -1256,14 +1306,9 @@ function SelfieStep({ done, onDone, onLater }: { done: boolean; onDone: () => vo
       >
         {busy ? '…' : 'Save & continue'}
       </button>
-      <button
-        type="button"
-        onClick={onLater}
-        disabled={busy}
-        className="w-full text-center text-[11px] font-bold text-gray-500 underline disabled:opacity-40"
-      >
-        Add it later — آپ بعد میں شامل کر سکتے ہیں
-      </button>
+      {!uploaded && (
+        <p className="text-center text-[11px] text-gray-500">Take your selfie to continue.</p>
+      )}
     </div>
   )
 }
@@ -1616,6 +1661,151 @@ function MobileStep({
           <SupportBox support={support} title="No code arriving?" />
         </>
       )}
+    </div>
+  )
+}
+
+// A field label: English with the Urdu beneath it (PR78 §C, English + Urdu).
+function FieldLabel({ en, ur }: { en: string; ur: string }) {
+  return (
+    <div>
+      <span className="text-xs font-bold text-tm-navy">{en}</span>
+      <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">{ur}</span>
+    </div>
+  )
+}
+
+// PR78 §C — "Contact and about you" on ONE screen. Mobile (verified read-only, or
+// verify-by-SMS via the shared MobileStep), WhatsApp (optional + "Same as my
+// mobile"), email (optional, EmailCard's confirm-by-link flow, or "I don't use
+// email"), gender, tagline and bio. Required to continue: a verified mobile,
+// gender, tagline and bio (WhatsApp and email are optional). Saves use the same
+// paths as the old separate steps (gender on tap; whatsapp/headline/bio on
+// Continue via /api/profile/save; email via EmailCard).
+function ContactStep({
+  support,
+  smsAvailable,
+  phoneVerified,
+  phone,
+  gender,
+  whatsappInit,
+  headlineInit,
+  bioInit,
+  emailConfirmed,
+  busy,
+  onGender,
+  onMobileVerified,
+  onContinue,
+}: {
+  support: { waHref: string | null; waDisplay: string | null; email: string | null }
+  smsAvailable: boolean
+  phoneVerified: boolean
+  phone: string
+  gender: string | null
+  whatsappInit: string
+  headlineInit: string
+  bioInit: string
+  emailConfirmed: boolean
+  busy: boolean
+  onGender: (g: 'male' | 'female') => void
+  onMobileVerified: () => void
+  onContinue: (v: { whatsapp: string; headline: string; bio: string }) => void
+}) {
+  const [whatsapp, setWhatsapp] = useState(whatsappInit)
+  const [tagline, setTagline] = useState(headlineInit)
+  const [bio, setBio] = useState(bioInit)
+  const [emailChoice, setEmailChoice] = useState<'add' | 'none'>(emailConfirmed ? 'add' : 'add')
+
+  const missing: string[] = []
+  if (!phoneVerified) missing.push('verify your mobile number')
+  if (!gender) missing.push('choose your gender')
+  if (!tagline.trim()) missing.push('add a tagline')
+  if (!bio.trim()) missing.push('write a short about-you')
+  const ready = missing.length === 0
+
+  const fieldCls =
+    'min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy'
+
+  return (
+    <div className="space-y-5">
+      {/* Mobile — verified/read-only, or verify by SMS. */}
+      <section className="space-y-2">
+        <FieldLabel en="Mobile number" ur="موبائل نمبر" />
+        {phoneVerified ? (
+          <p className="flex items-center gap-2 rounded-xl bg-tm-tint-green px-3 py-2 text-xs font-bold text-tm-green-deep">
+            <CheckCircle2 size={15} aria-hidden /> {phone || 'Your number'} — verified
+          </p>
+        ) : (
+          <MobileStep support={support} initialPhone={phone} smsAvailable={smsAvailable} onVerified={onMobileVerified} />
+        )}
+      </section>
+
+      {/* WhatsApp — optional, no verification, one-tap "Same as my mobile". */}
+      <section className="space-y-2">
+        <FieldLabel en="WhatsApp number (optional)" ur="واٹس ایپ نمبر (اختیاری)" />
+        <input value={whatsapp} inputMode="tel" onChange={(e) => setWhatsapp(e.target.value)} placeholder="0300 1234567" aria-label="WhatsApp number" className={fieldCls} />
+        <button type="button" onClick={() => setWhatsapp(phone)} disabled={!phone}
+          className="text-[11px] font-bold text-tm-navy hover:underline disabled:opacity-40">
+          Same as my mobile <span lang="ur" dir="rtl">— میرے موبائل جیسا</span>
+        </button>
+      </section>
+
+      {/* Email — optional; EmailCard sends a confirm link. "I don't use email". */}
+      <section className="space-y-2">
+        <FieldLabel en="Email (optional)" ur="ای میل (اختیاری)" />
+        {emailChoice === 'none' ? (
+          <p className="text-[11px] text-gray-500">
+            No email for now.{' '}
+            <button type="button" className="font-bold text-tm-navy underline" onClick={() => setEmailChoice('add')}>Add an email</button>
+          </p>
+        ) : (
+          <>
+            <EmailCard />
+            <button type="button" onClick={() => setEmailChoice('none')} className="text-[11px] font-bold text-gray-500 hover:underline">
+              I don&rsquo;t use email <span lang="ur" dir="rtl">— میں ای میل استعمال نہیں کرتا</span>
+            </button>
+          </>
+        )}
+      </section>
+
+      {/* Gender. */}
+      <section className="space-y-2">
+        <FieldLabel en="You are" ur="آپ ہیں" />
+        <div className="grid grid-cols-2 gap-3">
+          {(['male', 'female'] as const).map((g) => (
+            <button key={g} type="button" onClick={() => onGender(g)} aria-pressed={gender === g}
+              className={`flex min-h-[56px] items-center justify-center rounded-2xl border-2 text-sm font-black capitalize ${
+                gender === g ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy'
+              }`}>
+              {g}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Tagline (prefilled from the tutor's own answers, editable). */}
+      <section className="space-y-2">
+        <FieldLabel en="Your tagline" ur="آپ کا عنوان" />
+        <input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="e.g. O Level Physics specialist" aria-label="Tagline" className={fieldCls} />
+      </section>
+
+      {/* Bio (prefilled, editable). */}
+      <section className="space-y-2">
+        <FieldLabel en="A short about-you" ur="اپنے بارے میں مختصر" />
+        <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} placeholder="Two or three lines about how you teach" aria-label="About you"
+          className="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy" />
+      </section>
+
+      <div className="space-y-1">
+        <button type="button" disabled={busy || !ready}
+          onClick={() => onContinue({ whatsapp: whatsapp.trim(), headline: tagline.trim(), bio: bio.trim() })}
+          className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40">
+          {busy ? '…' : 'Continue'}
+        </button>
+        {!ready && (
+          <p className="text-center text-[11px] text-gray-500">To continue, {missing[0]}.</p>
+        )}
+      </div>
     </div>
   )
 }

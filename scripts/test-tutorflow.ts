@@ -32,7 +32,7 @@ const FULL: FlowFacts = {
   avatarUrl: 'https://x/a.jpg', headline: 'O Level Physics tutor', bio: 'I teach physics.',
   experienceYears: 3, hourlyRate: 15000, jobTypes: ['Home Tutor'], degreesCount: 1, degreeDocCount: 1,
   cnicNumber: '35201-1234567-1', cnicImagePath: 'p/cnic', subjectCount: 2, selfieDone: true, availabilityCount: 1, phoneVerified: true,
-  feePaid: true,
+  feePaid: true, noDegreeYet: false,
   isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false, underReview: false,
   verificationStatus: 'verified', imported: false, claimedAt: null,
 }
@@ -42,24 +42,43 @@ const EMPTY: FlowFacts = {
   fullName: 'New Tutor', gender: null, city: null, area: null, avatarUrl: null, headline: null, bio: null,
   experienceYears: null, hourlyRate: null, jobTypes: [], degreesCount: 0, degreeDocCount: 0,
   cnicNumber: null, cnicImagePath: null, subjectCount: 0, selfieDone: false, availabilityCount: 0, phoneVerified: false, feePaid: false,
+  noDegreeYet: false,
   isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false,
   underReview: false, verificationStatus: 'pending', imported: false, claimedAt: null,
 }
 
-test('the flow follows the owner order (PR76 §C.1) with the platform fee last', () => {
+test('the flow follows the owner order with the platform fee last (PR78 §C)', () => {
   assert.deepEqual(FLOW_ORDER, [
     'city', 'area', 'level', 'subjects', 'jobtype', 'availability',
-    'mobile', 'name', 'gender', 'tagline', 'bio',
+    'name', 'contact',
     'degree', 'experience', 'fee', 'photo', 'selfie', 'cnic', 'verify',
   ])
   // The platform fee moves to LAST — everything is answered before paying.
   assert.equal(FLOW_ORDER[FLOW_ORDER.length - 1], 'verify')
-  // The intro video is gone from the flow entirely (§C.6).
-  assert.ok(!(FLOW_ORDER as string[]).includes('video'))
-  // The blocker SET is unchanged (order-independent).
-  for (const k of ['city', 'level', 'subjects', 'mobile', 'verify'] as const) assert.ok(BLOCKER_STEPS.has(k))
+  // Step 7 "Contact and about you" is ONE screen (PR78 §C) — the old separate
+  // mobile / gender / tagline / bio steps are gone.
+  for (const k of ['mobile', 'gender', 'tagline', 'bio', 'video'] as const) {
+    assert.ok(!(FLOW_ORDER as string[]).includes(k), `${k} should not be its own step`)
+  }
+  // Mobile verification is still a listing blocker — now via the 'contact' step.
+  for (const k of ['city', 'level', 'subjects', 'contact', 'verify'] as const) assert.ok(BLOCKER_STEPS.has(k))
   assert.ok(!BLOCKER_STEPS.has('jobtype'))
   assert.ok(!BLOCKER_STEPS.has('photo'))
+})
+
+test('the contact step needs mobile + gender + tagline + bio; whatsapp/email are optional (PR78 §C)', () => {
+  const base: FlowFacts = { ...EMPTY, phoneVerified: true, gender: 'female', headline: 'x', bio: 'y' }
+  assert.equal(stepDone(base, 'contact'), true)
+  assert.equal(stepDone({ ...base, phoneVerified: false }, 'contact'), false)
+  assert.equal(stepDone({ ...base, gender: null }, 'contact'), false)
+  assert.equal(stepDone({ ...base, headline: null }, 'contact'), false)
+  assert.equal(stepDone({ ...base, bio: '  ' }, 'contact'), false)
+})
+
+test('degree is answered by a real degree OR "No degree to add yet" (PR78 §D)', () => {
+  assert.equal(stepDone({ ...EMPTY, degreesCount: 1, degreeDocCount: 1 }, 'degree'), true)
+  assert.equal(stepDone({ ...EMPTY, noDegreeYet: true }, 'degree'), true)
+  assert.equal(stepDone({ ...EMPTY, degreesCount: 1, degreeDocCount: 0, noDegreeYet: false }, 'degree'), false)
 })
 
 test('a fully-complete tutor has no missing steps and is listed', () => {
@@ -80,9 +99,10 @@ test('firstMissingStep skips filled steps — an existing tutor sees only her ga
   const f: FlowFacts = { ...EMPTY, city: 'Karachi', phoneVerified: true }
   assert.equal(firstMissingStep(f), 'area')
   // Fill the preference run (area, level+subjects, jobtype, availability) → the
-  // first gap is now gender (name is already set at signup).
+  // first gap is now the contact step (name is already set at signup; gender/
+  // tagline/bio are still missing, so contact is not done).
   const g: FlowFacts = { ...f, area: 'Saddar', subjectCount: 1, jobTypes: ['Home Tutor'], availabilityCount: 1 }
-  assert.equal(firstMissingStep(g), 'gender')
+  assert.equal(firstMissingStep(g), 'contact')
 })
 
 test('nextMissingAfter walks forward over filled steps', () => {
