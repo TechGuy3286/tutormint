@@ -179,6 +179,8 @@ export type QueueTutorRow = {
    *  sent to the browser; owner/admin reveal it through a logged endpoint. */
   cnicNumber: string | null
   phone: string | null
+  /** PR86: the tutor's WhatsApp number (profiles.whatsapp), for the staff chat button. */
+  whatsapp: string | null
   documents: { id: string; kind: 'cnic' | 'degree'; label: string | null; createdAt: string }[]
   /** Is this tutor returned by tutor_directory (visible in browse, migration 94)? */
   listed: boolean
@@ -235,7 +237,7 @@ export async function loadTutorQueue({
   const [{ data: profiles }, { data: docs }, { data: subjectRows }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, full_name, city, email, profile_completion, cnic_number, cnic_image_path, phone_number, phone_verified_at, is_seed, is_team_account, is_suspended, is_banned')
+      .select('id, full_name, city, email, profile_completion, cnic_number, cnic_image_path, phone_number, phone_verified_at, whatsapp, is_seed, is_team_account, is_suspended, is_banned')
       .in('id', ids.length ? ids : [NO_MATCH]),
     admin
       .from('user_documents')
@@ -341,6 +343,7 @@ export async function loadTutorQueue({
       missing: completion.missing.map((m) => ({ key: m.key, label: m.label })),
       cnicNumber: maskCnicHeavy(p?.cnic_number as string | null),
       phone: (p?.phone_number as string) ?? null,
+      whatsapp: (p?.whatsapp as string) ?? null,
       documents: myDocs.map((d) => ({
         id: d.id as string,
         kind: d.kind as 'cnic' | 'degree',

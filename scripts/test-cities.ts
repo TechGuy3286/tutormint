@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { cityCoord, orderCitiesByDistance } from '../lib/cityDistance'
 import { matchVisibilityCities, showsOnlineChipCities } from '../lib/matchChip'
 import { feedGenderFilter } from '../lib/jobFeed'
+import { whatsappTarget, waMeHref } from '../lib/tutorWhatsapp'
 
 // ---- city distance (PR85 Part B.3) -----------------------------------------
 
@@ -65,4 +66,24 @@ test('feedGenderFilter: male/female filter; other/null/empty do not', () => {
   assert.equal(feedGenderFilter('other'), null)
   assert.equal(feedGenderFilter(null), null)
   assert.equal(feedGenderFilter(''), null)
+})
+
+// ---- WhatsApp target (PR86) ------------------------------------------------
+
+test('whatsappTarget: prefers WhatsApp, falls back to legacy col then mobile', () => {
+  // A real WhatsApp number (any input shape → normalised MSISDN).
+  assert.deepEqual(whatsappTarget({ whatsapp: '0300 1234567', phone: '923009999999' }), { msisdn: '923001234567', isWhatsapp: true })
+  // Legacy tutor_profiles.whatsapp_number when profiles.whatsapp is empty.
+  assert.deepEqual(whatsappTarget({ whatsapp: null, whatsappNumber: '03011234567', phone: '923009999999' }), { msisdn: '923011234567', isWhatsapp: true })
+  // No WhatsApp → the verified mobile, flagged as not-WhatsApp.
+  assert.deepEqual(whatsappTarget({ whatsapp: '', phone: '0321 5872222' }), { msisdn: '923215872222', isWhatsapp: false })
+  // Nothing usable → null.
+  assert.deepEqual(whatsappTarget({}), { msisdn: null, isWhatsapp: false })
+  // An invalid WhatsApp value is ignored, falling through to the mobile.
+  assert.equal(whatsappTarget({ whatsapp: 'not-a-number', phone: '923001234567' }).isWhatsapp, false)
+})
+
+test('waMeHref builds the wa.me link or null', () => {
+  assert.equal(waMeHref({ msisdn: '923001234567', isWhatsapp: true }), 'https://wa.me/923001234567')
+  assert.equal(waMeHref({ msisdn: null, isWhatsapp: false }), null)
 })

@@ -10,6 +10,7 @@ import { parseBody, z } from '@/lib/validate'
 import { serverError } from '@/lib/errorResponse'
 import { ensureTutorSlug } from '@/lib/tutorSlug'
 import { recordFieldChanges, type FieldChange } from '@/lib/fieldHistory'
+import { normalisePkMobile } from '@/lib/phone'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
 // then recomputes profiles.profile_completion so the stored percentage can
@@ -127,6 +128,14 @@ export async function POST(request: Request) {
 
   const profilePatch = pick(body.profile, PROFILE_FIELDS)
   if (role !== 'tutor' && cityWrite !== undefined) profilePatch.city = cityWrite
+  // PR86: the WhatsApp number is required and validated like the mobile. When a
+  // save carries `whatsapp`, it must be a valid Pakistani mobile — stored
+  // normalised. (Other steps do not send whatsapp, so they are unaffected.)
+  if (Object.prototype.hasOwnProperty.call(profilePatch, 'whatsapp')) {
+    const wa = normalisePkMobile(profilePatch.whatsapp as string | null)
+    if (!wa) return NextResponse.json({ error: 'Add a valid WhatsApp number.', fields: { whatsapp: 'Enter a valid Pakistani mobile number.' } }, { status: 400 })
+    profilePatch.whatsapp = wa
+  }
   if (Object.keys(profilePatch).length > 0) {
     const { error } = await supabase.from('profiles').update(profilePatch).eq('id', user.id)
     if (error) return serverError(error, 'profile.save:profiles.update')

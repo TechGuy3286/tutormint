@@ -32,7 +32,7 @@ import CredentialEditor, { type Credential } from '@/components/tutor/Credential
 import { parseCredential } from '@/lib/degrees'
 import EmailCard from '@/components/account/EmailCard'
 import type { Identity } from '@/lib/identity'
-import { formatPkMobile, isSyntheticEmail } from '@/lib/phone'
+import { formatPkMobile, isSyntheticEmail, normalisePkMobile } from '@/lib/phone'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 import { reportSilentFailure } from '@/lib/silentFailure'
 
@@ -214,7 +214,7 @@ export default function TutorSettingsPage() {
       setTutorEmail(user.email || "");
 
       const [{ data: prof }, { data: tp }, { data: subjRows }] = await Promise.all([
-        supabase.from('profiles').select('phone_number, phone_verified_at, email, email_verified').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('phone_number, phone_verified_at, email, email_verified, whatsapp').eq('id', user.id).maybeSingle(),
         supabase.from('tutor_profiles').select('*').eq('id', user.id).maybeSingle(),
         supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
       ]);
@@ -267,7 +267,9 @@ export default function TutorSettingsPage() {
       if (tp) {
         setFormData({
           fullName: tp.full_name || "",
-          whatsapp: tp.whatsapp_number || "",
+          // PR86: profiles.whatsapp is canonical (onboarding + admin read it);
+          // fall back to the legacy tutor_profiles.whatsapp_number.
+          whatsapp: (prof?.whatsapp as string) || tp.whatsapp_number || "",
           // One city field for tutors: tutor_profiles.city is canonical (PR 3b §0).
           city: tp.city || "",
           areaName: tp.area || "",
@@ -389,9 +391,15 @@ export default function TutorSettingsPage() {
   // Name is canonical on profiles.full_name (PR66 §5); write it there AND mirror
   // to tutor_profiles so admin / public profile / CV match the dashboard.
   const saveDetails = async () => {
-    await tutorUpdate({ full_name: formData.fullName, whatsapp_number: formData.whatsapp });
-    const { error } = await supabase.from('profiles').update({ full_name: formData.fullName }).eq('id', userId);
+    // PR86: WhatsApp is required, validated like the mobile.
+    const wa = normalisePkMobile(formData.whatsapp);
+    if (!wa) throw new Error('Add a valid WhatsApp number (Pakistani mobile format).');
+    await tutorUpdate({ full_name: formData.fullName });
+    // PR86: WhatsApp is canonical on profiles.whatsapp (onboarding + admin read
+    // it), stored normalised; the legacy whatsapp_number column is left as-is.
+    const { error } = await supabase.from('profiles').update({ full_name: formData.fullName, whatsapp: wa }).eq('id', userId);
     if (error) throw new Error(error.message);
+    setFormData((f) => ({ ...f, whatsapp: wa }));
   };
 
   const saveLocation = async () => {
@@ -975,16 +983,20 @@ export default function TutorSettingsPage() {
             <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">واٹس ایپ نمبر</span>
             <input
               type="tel"
+              inputMode="tel"
               value={formData.whatsapp}
               onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-              placeholder="WhatsApp number"
+              placeholder="0300 1234567"
               className="mt-1 w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
             />
+            {formData.whatsapp.trim() && !normalisePkMobile(formData.whatsapp) && (
+              <span className="mt-1 block text-[11px] font-bold text-tm-red">Enter a valid Pakistani mobile number.</span>
+            )}
           </label>
           <SaveBar onSave={saveDetails} onSaved={() => collapse('details')}
             items={[
               { en: 'Type your full name', ur: 'اپنا پورا نام لکھیں', done: formData.fullName.trim().length >= 2 },
-              { en: 'Add your WhatsApp number', ur: 'اپنا واٹس ایپ نمبر شامل کریں', done: !!formData.whatsapp.trim(), optional: true },
+              { en: 'Add your WhatsApp number', ur: 'اپنا واٹس ایپ نمبر شامل کریں', done: !!normalisePkMobile(formData.whatsapp) },
             ]} />
         </div>
       ),

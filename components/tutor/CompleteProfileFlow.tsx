@@ -11,7 +11,7 @@ import { compressImage, compressUnder1MB } from '@/lib/imageCompress'
 import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
-import { isSyntheticEmail } from '@/lib/phone'
+import { isSyntheticEmail, normalisePkMobile } from '@/lib/phone'
 import EmailCard from '@/components/account/EmailCard'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
@@ -234,6 +234,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       selfieDone: (self.count ?? 0) > 0,
       availabilityCount: Array.isArray(tp?.availability_list) ? tp.availability_list.length : 0,
       phoneVerified: !!p?.phone_verified_at,
+      whatsapp: (p?.whatsapp as string) ?? null,
       feePaid: !!tp?.verified_fee_paid_at,
       noDegreeYet,
       isSeed: !!p?.is_seed,
@@ -657,7 +658,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
             onContinue={(v) =>
               void tapSave(
                 { tutorProfile: { headline: v.headline, bio: v.bio }, profile: { whatsapp: v.whatsapp } },
-                { headline: v.headline, bio: v.bio },
+                { headline: v.headline, bio: v.bio, whatsapp: v.whatsapp },
               )
             }
           />
@@ -1745,11 +1746,14 @@ function ContactStep({
   const [bio, setBio] = useState(bioInit)
   const [emailChoice, setEmailChoice] = useState<'add' | 'none'>(emailConfirmed ? 'add' : 'add')
 
-  // Self-explaining checklist (PR80). Required: verified mobile, gender, tagline,
-  // bio — mirrors stepDone('contact'). WhatsApp and email are optional.
+  // The WhatsApp number is now REQUIRED (PR86), validated the same as the mobile.
+  const waValid = !!normalisePkMobile(whatsapp)
+
+  // Self-explaining checklist (PR80). Required: verified mobile, WhatsApp, gender,
+  // tagline, bio. Email stays optional.
   const items: ChecklistItem[] = [
     { en: 'Verify your mobile number', ur: 'اپنے موبائل نمبر کی تصدیق کریں', done: phoneVerified },
-    { en: 'Add your WhatsApp number', ur: 'اپنا واٹس ایپ نمبر شامل کریں', done: !!whatsapp.trim(), optional: true },
+    { en: 'Add your WhatsApp number', ur: 'اپنا واٹس ایپ نمبر شامل کریں', done: waValid },
     { en: 'Add your email', ur: 'اپنی ای میل شامل کریں', done: emailConfirmed, optional: true },
     { en: 'Choose your gender', ur: 'اپنی جنس منتخب کریں', done: !!gender },
     { en: 'Write a tagline', ur: 'ایک عنوان لکھیں', done: !!tagline.trim() },
@@ -1775,10 +1779,17 @@ function ContactStep({
         )}
       </section>
 
-      {/* WhatsApp — optional, no verification, one-tap "Same as my mobile". */}
+      {/* WhatsApp — REQUIRED (PR86), same validation as the mobile, no
+          verification, one-tap "Same as my mobile". */}
       <section className="space-y-2">
-        <FieldLabel en="WhatsApp number (optional)" ur="واٹس ایپ نمبر (اختیاری)" />
-        <input value={whatsapp} inputMode="tel" onChange={(e) => setWhatsapp(e.target.value)} placeholder="0300 1234567" aria-label="WhatsApp number" className={fieldCls} />
+        <FieldLabel en="WhatsApp number" ur="واٹس ایپ نمبر" />
+        <MobileNumberInput value={whatsapp} onChange={setWhatsapp} ariaLabel="WhatsApp number" className={fieldCls} />
+        {whatsapp.trim() && !waValid && (
+          <p className="text-[11px] font-bold text-tm-red">
+            Enter a valid Pakistani mobile number.
+            <span lang="ur" dir="rtl" className="ms-1 block text-gray-500">درست پاکستانی موبائل نمبر درج کریں۔</span>
+          </p>
+        )}
         <button type="button" onClick={() => setWhatsapp(phone)} disabled={!phone}
           className="text-[11px] font-bold text-tm-navy hover:underline disabled:opacity-40">
           Same as my mobile <span lang="ur" dir="rtl">— میرے موبائل جیسا</span>
@@ -1833,7 +1844,7 @@ function ContactStep({
 
       <div className="space-y-1">
         <button type="button" disabled={busy || !ready}
-          onClick={() => onContinue({ whatsapp: whatsapp.trim(), headline: tagline.trim(), bio: bio.trim() })}
+          onClick={() => onContinue({ whatsapp: normalisePkMobile(whatsapp) ?? whatsapp.trim(), headline: tagline.trim(), bio: bio.trim() })}
           className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40">
           {busy ? '…' : 'Continue'}
         </button>

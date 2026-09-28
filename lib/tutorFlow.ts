@@ -113,6 +113,8 @@ export type FlowFacts = {
   selfieDone: boolean
   availabilityCount: number
   phoneVerified: boolean
+  /** PR86: the WhatsApp number is a required part of the contact step. */
+  whatsapp: string | null
   feePaid: boolean
   /** PR78 §D: the tutor answered "No degree to add yet", so the Education step is
    *  answered without a degree. */
@@ -150,11 +152,12 @@ export function stepDone(f: FlowFacts, key: FlowStepKey): boolean {
       return nonblank(f.area)
     case 'name':
       return nonblank(f.fullName)
-    // PR78 §C — the one "Contact and about you" screen. Its REQUIRED parts are a
-    // verified mobile (a listing blocker), gender, tagline and bio; WhatsApp and
-    // email are optional and do not gate the step.
+    // PR78 §C / PR86 — the one "Contact and about you" screen. Its REQUIRED parts
+    // are a verified mobile (a listing blocker), a WhatsApp number, gender, tagline
+    // and bio; email stays optional. WhatsApp is NOT a listing/apply gate (see
+    // directoryBlockers / needsOnboarding) — only a step-completion requirement.
     case 'contact':
-      return f.phoneVerified && nonblank(f.gender) && nonblank(f.headline) && nonblank(f.bio)
+      return f.phoneVerified && nonblank(f.whatsapp) && nonblank(f.gender) && nonblank(f.headline) && nonblank(f.bio)
     case 'photo':
       return nonblank(f.avatarUrl)
     // The verification selfie reads as done once a selfie document is on file

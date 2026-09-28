@@ -13,6 +13,7 @@ import { useInfinite } from '@/lib/useInfinite'
 import { submitJson, submitSignal } from '@/lib/submit'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import WhatsappChatButton from '@/components/admin/WhatsappChatButton'
 import type { QueueTutorRow } from '@/lib/adminQueues'
 import { BLOCKER_LABEL, type ListingBlocker } from '@/lib/tutorListingStatus'
 
@@ -331,6 +332,8 @@ export default function TutorModerationClient({
                       Not visible · {t.blockers.map((b) => BLOCKER_LABEL[b]).join(', ')}
                     </p>
                   )}
+                  {/* PR86: one-tap WhatsApp chat (staff only). */}
+                  <WhatsappChatButton whatsapp={t.whatsapp} phone={t.phone} compact className="mt-1 inline-flex" />
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <CnicPill

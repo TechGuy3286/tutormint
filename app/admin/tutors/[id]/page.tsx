@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 
 import Avatar from '@/components/Avatar'
 import StatusChip from '@/components/admin/StatusChip'
+import WhatsappChatButton from '@/components/admin/WhatsappChatButton'
 import PublicProfileLink from '@/components/admin/PublicProfileLink'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -48,13 +49,13 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
     admin
       .from('tutor_profiles')
       .select(
-        'id, slug, full_name, headline, city, area, teaching_mode, job_types, verification_status, video_status, rating_avg, rating_count, imported, claimed_at, created_at',
+        'id, slug, full_name, headline, city, area, teaching_mode, job_types, verification_status, video_status, rating_avg, rating_count, imported, claimed_at, created_at, whatsapp_number',
       )
       .eq('id', id)
       .maybeSingle(),
     admin
       .from('profiles')
-      .select('id, full_name, avatar_url, role, is_suspended, profile_completion, verification_state, cnic_verified_at, cnic_number, cnic_image_path')
+      .select('id, full_name, avatar_url, role, is_suspended, profile_completion, verification_state, cnic_verified_at, cnic_number, cnic_image_path, whatsapp, phone_number')
       .eq('id', id)
       .maybeSingle(),
   ])
@@ -164,6 +165,17 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
             Joined {formatDate(tutor.created_at as string)}
           </p>
         </div>
+      </section>
+
+      {/* PR86: staff-only WhatsApp chat (this page is already gated to
+          admin/operations, who can see contact details). */}
+      <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
+        <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">WhatsApp</h2>
+        <WhatsappChatButton
+          whatsapp={profile.whatsapp as string | null}
+          whatsappNumber={tutor.whatsapp_number as string | null}
+          phone={profile.phone_number as string | null}
+        />
       </section>
 
       <SlugField tutorId={id} initialSlug={(tutor.slug as string | null) ?? null} canEdit={canEdit} />

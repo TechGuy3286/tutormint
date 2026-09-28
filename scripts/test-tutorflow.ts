@@ -32,7 +32,7 @@ const FULL: FlowFacts = {
   avatarUrl: 'https://x/a.jpg', headline: 'O Level Physics tutor', bio: 'I teach physics.',
   experienceYears: 3, hourlyRate: 15000, jobTypes: ['Home Tutor'], degreesCount: 1, degreeDocCount: 1,
   cnicNumber: '35201-1234567-1', cnicImagePath: 'p/cnic', subjectCount: 2, selfieDone: true, availabilityCount: 1, phoneVerified: true,
-  feePaid: true, noDegreeYet: false,
+  whatsapp: '923001234567', feePaid: true, noDegreeYet: false,
   isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false, underReview: false,
   verificationStatus: 'verified', imported: false, claimedAt: null,
 }
@@ -41,11 +41,21 @@ const FULL: FlowFacts = {
 const EMPTY: FlowFacts = {
   fullName: 'New Tutor', gender: null, city: null, area: null, avatarUrl: null, headline: null, bio: null,
   experienceYears: null, hourlyRate: null, jobTypes: [], degreesCount: 0, degreeDocCount: 0,
-  cnicNumber: null, cnicImagePath: null, subjectCount: 0, selfieDone: false, availabilityCount: 0, phoneVerified: false, feePaid: false,
+  cnicNumber: null, cnicImagePath: null, subjectCount: 0, selfieDone: false, availabilityCount: 0, phoneVerified: false,
+  whatsapp: null, feePaid: false,
   noDegreeYet: false,
   isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false,
   underReview: false, verificationStatus: 'pending', imported: false, claimedAt: null,
 }
+
+test('PR86: the contact step requires a WhatsApp number', () => {
+  // FULL has one → contact is done.
+  assert.equal(stepDone(FULL, 'contact'), true)
+  // Remove it → contact is no longer done (surfaces step 7). Not a listing gate.
+  const noWa = { ...FULL, whatsapp: null }
+  assert.equal(stepDone(noWa, 'contact'), false)
+  assert.equal(isListed(noWa), true) // WhatsApp does NOT block listing
+})
 
 test('the flow follows the owner order with the platform fee last (PR78 §C)', () => {
   assert.deepEqual(FLOW_ORDER, [
@@ -66,10 +76,11 @@ test('the flow follows the owner order with the platform fee last (PR78 §C)', (
   assert.ok(!BLOCKER_STEPS.has('photo'))
 })
 
-test('the contact step needs mobile + gender + tagline + bio; whatsapp/email are optional (PR78 §C)', () => {
-  const base: FlowFacts = { ...EMPTY, phoneVerified: true, gender: 'female', headline: 'x', bio: 'y' }
+test('the contact step needs mobile + WhatsApp + gender + tagline + bio; email optional (PR78 §C / PR86)', () => {
+  const base: FlowFacts = { ...EMPTY, phoneVerified: true, whatsapp: '923001234567', gender: 'female', headline: 'x', bio: 'y' }
   assert.equal(stepDone(base, 'contact'), true)
   assert.equal(stepDone({ ...base, phoneVerified: false }, 'contact'), false)
+  assert.equal(stepDone({ ...base, whatsapp: null }, 'contact'), false) // PR86: WhatsApp required
   assert.equal(stepDone({ ...base, gender: null }, 'contact'), false)
   assert.equal(stepDone({ ...base, headline: null }, 'contact'), false)
   assert.equal(stepDone({ ...base, bio: '  ' }, 'contact'), false)

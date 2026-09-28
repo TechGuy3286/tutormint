@@ -2,6 +2,7 @@ import Link from 'next/link'
 
 import StatusChip from '@/components/admin/StatusChip'
 import CopyButton from '@/components/admin/CopyButton'
+import WhatsappChatButton from '@/components/admin/WhatsappChatButton'
 import type { MemberRow as Row } from '@/lib/memberFeed'
 import { formatDate } from '@/lib/datetime'
 
@@ -47,6 +48,8 @@ export default function MemberRow({ row: r }: { row: Row }) {
               <CopyButton text={r.phone} label="mobile" />
             </span>
           )}
+          {/* PR86: one-tap WhatsApp chat (staff only; sits above the stretched link). */}
+          <WhatsappChatButton whatsapp={r.whatsapp} phone={r.phone} compact className="relative z-10" />
           {r.slug && <span className="truncate">· /tutor/{r.slug}</span>}
         </div>
 
