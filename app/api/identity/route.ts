@@ -5,6 +5,7 @@ import { logActivity } from '@/lib/activityLog'
 import { formatCnic, isValidCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { recomputeCompletion } from '@/lib/completion'
 import { loadIdentity } from '@/lib/identity'
+import { recordTutorSelfChanges, maskCnicHistory } from '@/lib/fieldHistory'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBody, z } from '@/lib/validate'
@@ -67,6 +68,8 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
+    // The old value, for the change history (best-effort; never blocks the save).
+    const { data: before } = await supabase.from('profiles').select('cnic_number').eq('id', user.id).maybeSingle()
     // Stored in the display form, which is how every Pakistani document and
     // every member writes it. normaliseCnic() is what makes the comparison
     // work regardless of how it arrived.
@@ -76,6 +79,10 @@ export async function POST(request: Request) {
       .eq('id', user.id)
     if (error) return serverError(error, 'identity')
 
+    // PR83 (Part C): a tutor's own change is recorded too (masked, no reason).
+    await recordTutorSelfChanges(user.id, [
+      { field: 'cnic_number', oldValue: maskCnicHistory(before?.cnic_number as string | null), newValue: maskCnicHistory(formatCnic(cnicNumber)) },
+    ])
     await recomputeCompletion(user.id)
     return NextResponse.json({ success: true, cnicNumber: formatCnic(cnicNumber) })
   }

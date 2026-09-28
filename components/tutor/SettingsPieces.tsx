@@ -156,7 +156,7 @@ export function StatusCard({
           )}
         </div>
       </div>
-      <Urdu className="text-[13px] font-bold text-tm-navy">{copy.title.ur}</Urdu>
+      <Urdu className="tm-ur-cap text-sm font-bold text-tm-navy">{copy.title.ur}</Urdu>
       {badge && <Urdu className="text-[10px] font-bold text-gray-600">{badge.ur}</Urdu>}
       {copy.hint && (
         <>
@@ -246,7 +246,10 @@ export function SettingsTile({
     >
       <span className={`${TILE_CHIP} ${tone.chip}`}>{icon}</span>
       <span className={`line-clamp-2 text-xs font-semibold leading-snug ${tone.ink}`}>{en}</span>
-      <Urdu center className={`text-[11px] font-bold ${tone.ink}`}>{ur}</Urdu>
+      {/* The Urdu tile name matches the English one's size (PR83 Part A.1):
+          tm-ur-cap opts out of the +18% body bump, so it sits at text-xs like
+          the English above it instead of wrapping larger. */}
+      <Urdu center className={`tm-ur-cap text-xs font-bold ${tone.ink}`}>{ur}</Urdu>
       <span className={`inline-flex items-center gap-1 text-[10px] font-black ${tone.ink}`}>
         {locked && <Lock aria-hidden size={11} />}
         {locked ? 'Locked' : badge?.en}
@@ -285,7 +288,7 @@ export function OpenTileHeader({
           </button>
         </div>
       </div>
-      {titleUr && <Urdu className="text-[13px] font-bold text-tm-navy">{titleUr}</Urdu>}
+      {titleUr && <Urdu className="tm-ur-cap text-sm font-bold text-tm-navy">{titleUr}</Urdu>}
     </div>
   )
 }

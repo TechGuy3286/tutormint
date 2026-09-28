@@ -8,8 +8,9 @@ import { parseBody, z, pkMobile } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { sendOtp, verifyOtp, consumeOtp } from '@/lib/otp'
 import { activatePausedIfListed } from '@/lib/payments/goLive'
-import { normalisePkMobile, syntheticEmail, isSyntheticEmail } from '@/lib/phone'
+import { normalisePkMobile, formatPkMobile, syntheticEmail, isSyntheticEmail } from '@/lib/phone'
 import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE, NUMBER_TAKEN_MESSAGE_UR } from '@/lib/phoneAccount'
+import { recordTutorSelfChanges } from '@/lib/fieldHistory'
 
 // Phone / SMS OTP for the SIGNED-IN account.
 //
@@ -160,6 +161,8 @@ export async function POST(request: Request) {
   // and changing a verified number is still refused above (lines ~88-99) and by
   // the trigger for direct member writes. `.select()` still confirms the write.
   const writer = admin ?? supabase
+  // The old number, for the change history (best-effort; never blocks verify).
+  const { data: beforeProf } = await writer.from('profiles').select('phone_number').eq('id', user.id).maybeSingle()
   const { data: saved, error: updErr } = await writer
     .from('profiles')
     .update({
@@ -186,6 +189,11 @@ export async function POST(request: Request) {
 
   // Saved — NOW mark the code used (PR79 §2).
   if (result.otpId) await consumeOtp(result.otpId)
+
+  // PR83 (Part C): record a tutor's own mobile change (best-effort; tutor-gated).
+  await recordTutorSelfChanges(user.id, [
+    { field: 'mobile', oldValue: beforeProf?.phone_number ? formatPkMobile(beforeProf.phone_number as string) : null, newValue: formatPkMobile(phone) },
+  ])
 
   // PR17 §3.1 — a mobile-first account signs in with an address derived from its
   // number (<msisdn>@users.tutormint.org). If the number changed while unverified

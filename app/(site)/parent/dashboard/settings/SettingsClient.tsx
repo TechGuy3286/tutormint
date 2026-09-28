@@ -4,7 +4,7 @@ import { submitSignal } from '@/lib/submit'
 
 import { Check, Loader2, Image as ImageIcon, UserRound, Smartphone, Mail } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 
 import Avatar from '@/components/Avatar'
 import FileUpload from '@/components/FileUpload'
@@ -199,29 +199,32 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
     router.refresh()
   }
 
-  const tileProps = { openKey, setOpenKey, openRef }
   const pictureStatus: CardStatus = avatarUrl ? 'completed' : 'missing'
   const detailsStatus: CardStatus =
     fullName.trim().length >= 2 && !!city.trim() && !!area.trim() ? 'completed' : 'missing'
   const mobileStatus: CardStatus = phoneVerified ? 'completed' : 'missing'
 
-  return (
-    <div className="space-y-4">
-      {error && (
-        <p role="alert" className="rounded-xl bg-tm-tint-red p-3 text-xs font-bold text-tm-red-hover">
-          {error}
-        </p>
-      )}
-
-      {/* PR77: the same two-column tile grid + in-place expansion as the tutor
-          Settings, so both sides match. One tile open at a time. */}
-      <ul className="grid grid-cols-2 gap-3 grid-flow-row-dense">
-      {/* ------------------------------------------------------- picture --- */}
-      <Card {...tileProps} cardKey="picture" icon={<ImageIcon aria-hidden size={20} />} title="Your picture" titleUr="آپ کی تصویر" status={pictureStatus} hint="Tutors see this on the tuitions you post. It is not contact information.">
-        {/* One control, square. The picture used to sit in an <Avatar> beside
-            a full-width drop zone, so after a successful upload the zone said
-            "Tap to choose" while the avatar next to it showed the new photo --
-            two components disagreeing about whether anything had happened. */}
+  // The tiles, in order. Rendered as a 2-column grid where the OPEN tile's panel
+  // appears full-width in the row directly after its own row (PR83 Part A.2) —
+  // no grid-flow-row-dense, so the other tiles keep their order. Every field
+  // label carries its Urdu line (Part A.3).
+  const parentTiles: {
+    key: string
+    icon: ReactNode
+    title: string
+    titleUr: string
+    status: CardStatus
+    hint?: string
+    body: ReactNode
+  }[] = [
+    {
+      key: 'picture',
+      icon: <ImageIcon aria-hidden size={20} />,
+      title: 'Your picture',
+      titleUr: 'آپ کی تصویر',
+      status: pictureStatus,
+      hint: 'Tutors see this on the tuitions you post. It is not contact information.',
+      body: (
         <FileUpload
           label="Profile picture"
           acceptLabel="JPG or PNG"
@@ -240,107 +243,123 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
             />
           }
         />
-      </Card>
-
-      {/* --------------------------------------------------------- about --- */}
-      <Card {...tileProps} cardKey="details" icon={<UserRound aria-hidden size={20} />} title="Your details" titleUr="آپ کی تفصیلات" status={detailsStatus}>
-        <label className="block space-y-1">
-          <span className={LABEL}>Full name</span>
-          <input value={fullName} onChange={(e) => setFullName(e.target.value)} className={FIELD} />
-        </label>
-
-        <div className="grid gap-3 sm:grid-cols-2">
+      ),
+    },
+    {
+      key: 'details',
+      icon: <UserRound aria-hidden size={20} />,
+      title: 'Your details',
+      titleUr: 'آپ کی تفصیلات',
+      status: detailsStatus,
+      body: (
+        <>
           <label className="block space-y-1">
-            <span className={LABEL}>City</span>
-            <input
-              list="parent-city-options"
-              value={city}
-              onChange={(e) => {
-                setCity(e.target.value)
-                setArea('')
-              }}
-              placeholder="Choose or type your city"
-              autoComplete="off"
-              className={FIELD}
-            />
-            <datalist id="parent-city-options">
-              {map.cities.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
+            <span className={LABEL}>Full name</span>
+            <FieldUr>پورا نام</FieldUr>
+            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className={FIELD} />
           </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className={LABEL}>City</span>
+              <FieldUr>شہر</FieldUr>
+              <input
+                list="parent-city-options"
+                value={city}
+                onChange={(e) => {
+                  setCity(e.target.value)
+                  setArea('')
+                }}
+                placeholder="Choose or type your city"
+                autoComplete="off"
+                className={FIELD}
+              />
+              <datalist id="parent-city-options">
+                {map.cities.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </label>
+            <label className="block space-y-1">
+              <span className={LABEL}>Area</span>
+              <FieldUr>علاقہ</FieldUr>
+              <input
+                list="parent-area-options"
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+                placeholder="Choose or type your area"
+                autoComplete="off"
+                className={FIELD}
+              />
+              <datalist id="parent-area-options">
+                {areas.map((a) => (
+                  <option key={a} value={a} />
+                ))}
+              </datalist>
+            </label>
+          </div>
+
           <label className="block space-y-1">
-            <span className={LABEL}>Area</span>
-            <input
-              list="parent-area-options"
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              placeholder="Choose or type your area"
-              autoComplete="off"
-              className={FIELD}
+            <span className={LABEL}>Home address</span>
+            <FieldUr>گھر کا پتہ</FieldUr>
+            <textarea
+              rows={2}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className={`${FIELD} py-2`}
             />
-            <datalist id="parent-area-options">
-              {areas.map((a) => (
-                <option key={a} value={a} />
-              ))}
-            </datalist>
-          </label>
-        </div>
-
-        <label className="block space-y-1">
-          <span className={LABEL}>Home address</span>
-          <textarea
-            rows={2}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className={`${FIELD} py-2`}
-          />
-          <span className="block text-[11px] text-gray-500">
-            Only you and our verification team see this. It is never on a job post.
-          </span>
-        </label>
-
-        {/* Self-explaining checklist (PR80) — mirrors the Save gate (name ≥ 2). */}
-        <FormChecklist
-          items={[
-            { en: 'Type your full name', ur: 'اپنا پورا نام لکھیں', done: fullName.trim().length >= 2 },
-            { en: 'Add your city', ur: 'اپنا شہر شامل کریں', done: !!city.trim(), optional: true },
-            { en: 'Add your home address', ur: 'اپنا گھر کا پتہ شامل کریں', done: !!address.trim(), optional: true },
-          ]}
-        />
-
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving || fullName.trim().length < 2}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-tm-navy disabled:opacity-50"
-          >
-            {saving && <Loader2 aria-hidden size={14} className="animate-spin" />}
-            {saving ? 'Saving…' : 'Save changes'}
-          </button>
-          {saved && !saving && (
-            <span className="inline-flex items-center gap-1 text-xs font-bold text-tm-green-deep">
-              <Check aria-hidden size={14} />
-              Saved
+            <span className="block text-[11px] text-gray-500">
+              Only you and our verification team see this. It is never on a job post.
             </span>
-          )}
-        </div>
-        <ChecklistStatus
-          items={[
-            { en: 'Type your full name', ur: 'اپنا پورا نام لکھیں', done: fullName.trim().length >= 2 },
-            { en: 'Add your city', ur: 'اپنا شہر شامل کریں', done: !!city.trim(), optional: true },
-            { en: 'Add your home address', ur: 'اپنا گھر کا پتہ شامل کریں', done: !!address.trim(), optional: true },
-          ]}
-        />
-      </Card>
+          </label>
 
-      {/* --------------------------------------------------------- phone --- */}
-      {/* PR17 §3 — while the number is NOT verified it can be edited here and
-          verified with a code (one code, no resend). Once VERIFIED the field is
-          read-only and a change goes through support. */}
-      {initial.phoneVerified ? (
-        <Card {...tileProps} cardKey="mobile" icon={<Smartphone aria-hidden size={20} />} title="Mobile number" titleUr="موبائل نمبر" status={mobileStatus} hint="Your verified number.">
+          {/* Self-explaining checklist (PR80) — mirrors the Save gate (name ≥ 2). */}
+          <FormChecklist
+            items={[
+              { en: 'Type your full name', ur: 'اپنا پورا نام لکھیں', done: fullName.trim().length >= 2 },
+              { en: 'Add your city', ur: 'اپنا شہر شامل کریں', done: !!city.trim(), optional: true },
+              { en: 'Add your home address', ur: 'اپنا گھر کا پتہ شامل کریں', done: !!address.trim(), optional: true },
+            ]}
+          />
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || fullName.trim().length < 2}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-tm-black px-5 text-xs font-bold text-white transition-colors hover:bg-tm-navy disabled:opacity-50"
+            >
+              {saving && <Loader2 aria-hidden size={14} className="animate-spin" />}
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+            {saved && !saving && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-tm-green-deep">
+                <Check aria-hidden size={14} />
+                Saved
+              </span>
+            )}
+          </div>
+          <ChecklistStatus
+            items={[
+              { en: 'Type your full name', ur: 'اپنا پورا نام لکھیں', done: fullName.trim().length >= 2 },
+              { en: 'Add your city', ur: 'اپنا شہر شامل کریں', done: !!city.trim(), optional: true },
+              { en: 'Add your home address', ur: 'اپنا گھر کا پتہ شامل کریں', done: !!address.trim(), optional: true },
+            ]}
+          />
+        </>
+      ),
+    },
+    {
+      key: 'mobile',
+      icon: <Smartphone aria-hidden size={20} />,
+      title: 'Mobile number',
+      titleUr: 'موبائل نمبر',
+      status: mobileStatus,
+      hint: initial.phoneVerified
+        ? 'Your verified number.'
+        : 'We send a 6-digit code to check the number reaches you. You can change the number before verifying.',
+      body: initial.phoneVerified ? (
+        <>
           <p className="inline-flex items-center gap-1.5 rounded-xl bg-tm-tint-green px-3 py-2 text-xs font-bold text-tm-green-deep">
             <Check aria-hidden size={14} />
             {initial.phone} — verified
@@ -360,19 +379,12 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
               'Contact support.'
             )}
           </p>
-        </Card>
+        </>
       ) : (
-        <Card
-          {...tileProps}
-          cardKey="mobile"
-          icon={<Smartphone aria-hidden size={20} />}
-          title="Mobile number"
-          titleUr="موبائل نمبر"
-          status={mobileStatus}
-          hint="We send a 6-digit code to check the number reaches you. You can change the number before verifying."
-        >
+        <>
           <label className="block space-y-1">
             <span className={LABEL}>Number</span>
+            <FieldUr>نمبر</FieldUr>
             {/* Shared mobile input (PR82). */}
             <MobileNumberInput
               value={phone}
@@ -396,8 +408,6 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
               </button>
             )}
             {otpSent && (
-              // Shared code entry (PR82). Verify failures show in the card's own
-              // top error block (setError), so no error props here.
               <OtpCodeEntry
                 code={otp}
                 onChange={setOtp}
@@ -409,68 +419,78 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
             )}
           </div>
           {otpMsg && <p className="text-[11px] font-semibold text-tm-green-deep">{otpMsg}</p>}
-        </Card>
+        </>
+      ),
+    },
+    {
+      key: 'email',
+      icon: <Mail aria-hidden size={20} />,
+      title: 'Email',
+      titleUr: 'ای میل',
+      status: 'neutral',
+      body: <EmailCard />,
+    },
+  ]
+
+  const tileRows: (typeof parentTiles)[] = []
+  for (let i = 0; i < parentTiles.length; i += 2) tileRows.push(parentTiles.slice(i, i + 2))
+
+  return (
+    <div className="space-y-4">
+      {error && (
+        <p role="alert" className="rounded-xl bg-tm-tint-red p-3 text-xs font-bold text-tm-red-hover">
+          {error}
+        </p>
       )}
 
-      {/* Email (PR29 §4) — the shared card: add/confirm by link, "not confirmed"
-          until clicked. */}
-      <Card {...tileProps} cardKey="email" icon={<Mail aria-hidden size={20} />} title="Email" titleUr="ای میل" status="neutral">
-        <EmailCard />
-      </Card>
+      {/* PR83 (Part A.2): a two-column grid; the open tile's panel appears
+          full-width in the row directly after its own row, the rest keep order
+          (no grid-flow-row-dense). One tile open at a time. */}
+      <ul className="grid grid-cols-2 gap-3">
+        {tileRows.map((row, ri) => {
+          const openInRow = row.find((t) => t.key === openKey)
+          return (
+            <Fragment key={ri}>
+              {row.map((t) => (
+                <li key={t.key}>
+                  <SettingsTile
+                    status={t.status}
+                    icon={t.icon}
+                    title={t.title}
+                    titleUr={t.titleUr}
+                    open={openKey === t.key}
+                    onClick={() => setOpenKey(openKey === t.key ? null : t.key)}
+                  />
+                </li>
+              ))}
+              {openInRow && (
+                <li ref={openRef} className="col-span-2 scroll-mt-4">
+                  <section className={`space-y-3 rounded-2xl border p-4 sm:p-5 ${STATUS_META[openInRow.status].card}`}>
+                    <OpenTileHeader
+                      title={openInRow.title}
+                      titleUr={openInRow.titleUr}
+                      status={openInRow.status}
+                      onClose={() => setOpenKey(null)}
+                    />
+                    {openInRow.hint && <p className="text-[11px] leading-relaxed text-gray-500">{openInRow.hint}</p>}
+                    {openInRow.body}
+                  </section>
+                </li>
+              )}
+            </Fragment>
+          )
+        })}
       </ul>
     </div>
   )
 }
 
-// One parent Settings card as a tile (PR77): collapsed it is the shared
-// SettingsTile (the exact dashboard tile shell), tinted by status; open it
-// expands IN PLACE to full width with the form inside, a status header and a ×.
-// Module-level so it is a stable component — the open form keeps focus as the
-// parent re-renders on each keystroke.
-function Card({
-  cardKey,
-  icon,
-  title,
-  titleUr,
-  status,
-  hint,
-  openKey,
-  setOpenKey,
-  openRef,
-  children,
-}: {
-  cardKey: string
-  icon: React.ReactNode
-  title: string
-  titleUr: string
-  status: CardStatus
-  hint?: string
-  openKey: string | null
-  setOpenKey: (k: string | null) => void
-  openRef: React.RefObject<HTMLLIElement | null>
-  children: React.ReactNode
-}) {
-  if (openKey !== cardKey) {
-    return (
-      <li>
-        <SettingsTile
-          status={status}
-          icon={icon}
-          title={title}
-          titleUr={titleUr}
-          open={false}
-          onClick={() => setOpenKey(cardKey)}
-        />
-      </li>
-    )
-  }
+// The Urdu line under a field label (PR83 Part A.3). Body text, so it keeps the
+// PR76 body size (no tm-ur-cap) — matching the onboarding field labels.
+function FieldUr({ children }: { children: ReactNode }) {
   return (
-    <li ref={openRef} className="col-span-2 scroll-mt-4">
-      <section className={`space-y-3 rounded-2xl border p-4 sm:p-5 ${STATUS_META[status].card}`}>
-        <OpenTileHeader title={title} titleUr={titleUr} status={status} onClose={() => setOpenKey(null)} />
-        {hint && <p className="text-[11px] leading-relaxed text-gray-500">{hint}</p>}
-        {children}
-      </section>
-    </li>
+    <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">
+      {children}
+    </span>
   )
 }

@@ -53,6 +53,9 @@ export default function CnicCapture({
   backStoredPreview,
   onUploaded,
   onState,
+  uploadUrl,
+  uploadExtra,
+  saveNumber,
 }: {
   initialNumber?: string
   initialFront?: boolean
@@ -66,6 +69,14 @@ export default function CnicCapture({
    *  the doc (IdentityCard uses it for its status-mode previews). */
   onUploaded?: (side: 'front' | 'back', documentId: string) => void
   onState?: (s: CnicCaptureState) => void
+  /** PR83: the staff editor points the image upload at the service-role admin
+   *  route and passes the target tutor via uploadExtra; members keep the
+   *  defaults. */
+  uploadUrl?: string
+  uploadExtra?: Record<string, string>
+  /** PR83: override how the number is saved before an image (the staff editor
+   *  saves it to the target tutor). Default = the member /api/identity path. */
+  saveNumber?: (number: string) => Promise<{ ok: boolean; error?: string }>
 }) {
   const [number, setNumber] = useState(formatCnic(initialNumber))
   const [front, setFront] = useState(initialFront)
@@ -90,6 +101,17 @@ export default function CnicCapture({
       setError(CNIC_FORMAT_HINT)
       return false
     }
+    // PR83: a staff editor supplies its own save (targets the tutor); the
+    // default is the member's self-scoped /api/identity save-number.
+    if (saveNumber) {
+      const res = await saveNumber(number)
+      if (!res.ok) {
+        setError(res.error ?? 'Could not save the CNIC number.')
+        return false
+      }
+      setError(null)
+      return true
+    }
     const r = await fetch('/api/identity', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -101,7 +123,7 @@ export default function CnicCapture({
     }
     setError(null)
     return true
-  }, [number])
+  }, [number, saveNumber])
 
   return (
     <div className="space-y-4">
@@ -124,6 +146,8 @@ export default function CnicCapture({
           beforeUpload={ensureNumber}
           onUploaded={(id) => { setFront(true); onUploaded?.('front', id) }}
           onError={(m) => setError(m || null)}
+          uploadUrl={uploadUrl}
+          uploadExtra={uploadExtra}
         />
         <CnicCameraField
           side="back"
@@ -133,6 +157,8 @@ export default function CnicCapture({
           beforeUpload={ensureNumber}
           onUploaded={(id) => { setBack(true); onUploaded?.('back', id) }}
           onError={(m) => setError(m || null)}
+          uploadUrl={uploadUrl}
+          uploadExtra={uploadExtra}
         />
       </div>
       <p className="text-[11px] leading-relaxed text-gray-500">

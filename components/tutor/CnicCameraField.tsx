@@ -31,6 +31,8 @@ export default function CnicCameraField({
   beforeUpload,
   onUploaded,
   onError,
+  uploadUrl = '/api/documents/upload',
+  uploadExtra,
 }: {
   side: 'front' | 'back'
   label: string
@@ -43,6 +45,11 @@ export default function CnicCameraField({
   beforeUpload?: () => Promise<boolean> | boolean
   onUploaded?: (documentId: string) => void
   onError?: (message: string) => void
+  /** Endpoint override (PR83): the staff CNIC editor points this at the
+   *  service-role admin route; members keep the default self-scoped route. */
+  uploadUrl?: string
+  /** Extra form fields (e.g. the target tutorId + reason on the staff route). */
+  uploadExtra?: Record<string, string>
 }) {
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -58,7 +65,8 @@ export default function CnicCameraField({
       fd.append('kind', 'cnic')
       fd.append('label', side)
       fd.append('file', img)
-      const res = await fetch('/api/documents/upload', { method: 'POST', body: fd })
+      if (uploadExtra) for (const [k, v] of Object.entries(uploadExtra)) fd.append(k, v)
+      const res = await fetch(uploadUrl, { method: 'POST', body: fd })
       const json = await res.json().catch(() => ({}))
       if (!res.ok || !json.documentId) {
         throw new Error(

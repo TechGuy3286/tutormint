@@ -134,6 +134,11 @@ export const SCREEN_ACCESS = {
   // decisions — admin only, above the verifying operations does.
   videoVisibility: ['admin'] as AdminRole[],
   tutorSlug: ['admin'] as AdminRole[],
+  // Editing a tutor's locked step-1 fields (mobile, CNIC, pictures, subjects,
+  // city, areas) from /admin/tutors/[id] — operations' verifying work, so both
+  // admin and operations (PR83 Part B). The member field-locks (PR72) stay for
+  // members; staff write via the service role, which bypasses them.
+  tutorEdit: ['admin', 'operations'] as AdminRole[],
   // Marketing — ads, social posts and bulk onboarding are operations' work.
   ads: ['admin', 'operations'] as AdminRole[],
   social: ['admin', 'operations'] as AdminRole[],

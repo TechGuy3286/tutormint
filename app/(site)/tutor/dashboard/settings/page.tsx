@@ -40,7 +40,7 @@ const mobileSupportHref = whatsappHref(
   SUPPORT_WHATSAPP_FALLBACK,
   'Assalam-o-Alaikum, I need to change the mobile number on my TutorMint account.',
 )
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -747,6 +747,7 @@ export default function TutorSettingsPage() {
             </label>
             <div className="block space-y-1.5">
               <span className="text-[11px] font-bold text-tm-navy">Areas you teach in</span>
+              <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">آپ جن علاقوں میں پڑھاتے ہیں</span>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -938,6 +939,7 @@ export default function TutorSettingsPage() {
           <div className="grid grid-cols-2 gap-3">
             <label className="space-y-1">
               <span className="block text-[11px] font-bold text-tm-navy">Minimum (Rs / month)</span>
+              <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">کم از کم (روپے / ماہ)</span>
               <input
                 inputMode="numeric"
                 value={feeMin}
@@ -948,6 +950,7 @@ export default function TutorSettingsPage() {
             </label>
             <label className="space-y-1">
               <span className="block text-[11px] font-bold text-tm-navy">Maximum (Rs / month)</span>
+              <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">زیادہ سے زیادہ (روپے / ماہ)</span>
               <input
                 inputMode="numeric"
                 value={feeMax}
@@ -998,6 +1001,7 @@ export default function TutorSettingsPage() {
           </label>
           <label className="block">
             <span className="text-[11px] font-bold text-tm-navy">WhatsApp number</span>
+            <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">واٹس ایپ نمبر</span>
             <input
               type="tel"
               value={formData.whatsapp}
@@ -1090,32 +1094,44 @@ export default function TutorSettingsPage() {
     </StatusCard>
   );
 
-  // PR77: the tiles are a two-column grid; the OPEN tile expands IN PLACE to full
-  // width (col-span-2) at its own position, and the others reflow around it
-  // (grid-auto-flow: dense backfills the gap). Only one is open at a time; Save
-  // or the × shrinks it back. Nothing opens below the group.
-  const renderTiles = (list: CardDesc[]) => (
-    <ul className="grid grid-cols-2 gap-3 grid-flow-row-dense">
-      {list.map((c) =>
-        openCard === c.key ? (
-          <li key={c.key} ref={openTileRef} className="col-span-2 scroll-mt-4">
-            {renderCard(c, true, () => collapse(c.key))}
-          </li>
-        ) : (
-          <li key={c.key}>
-            <SettingsTile
-              cardKey={c.key}
-              status={c.status}
-              icon={c.icon}
-              locked={c.locked}
-              open={false}
-              onClick={() => setOpenCard(c.key)}
-            />
-          </li>
-        ),
-      )}
-    </ul>
-  );
+  // PR83 (Part A.2): the tiles are a two-column grid, laid out in source order.
+  // The tapped tile stays in its cell (highlighted); its expanded panel opens
+  // full-width in the row DIRECTLY AFTER the tile's row. No grid-flow-row-dense
+  // (its backfill was reordering the other tiles and dropping an odd-column
+  // tile's panel a row below where it belonged). Only one is open at a time;
+  // Save or the × shrinks it back.
+  const renderTiles = (list: CardDesc[]) => {
+    const rows: CardDesc[][] = [];
+    for (let i = 0; i < list.length; i += 2) rows.push(list.slice(i, i + 2));
+    return (
+      <ul className="grid grid-cols-2 gap-3">
+        {rows.map((row, ri) => {
+          const openInRow = row.find((c) => c.key === openCard);
+          return (
+            <Fragment key={ri}>
+              {row.map((c) => (
+                <li key={c.key}>
+                  <SettingsTile
+                    cardKey={c.key}
+                    status={c.status}
+                    icon={c.icon}
+                    locked={c.locked}
+                    open={openCard === c.key}
+                    onClick={() => (openCard === c.key ? collapse(c.key) : setOpenCard(c.key))}
+                  />
+                </li>
+              ))}
+              {openInRow && (
+                <li ref={openTileRef} className="col-span-2 scroll-mt-4">
+                  {renderCard(openInRow, true, () => collapse(openInRow.key))}
+                </li>
+              )}
+            </Fragment>
+          );
+        })}
+      </ul>
+    );
+  };
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-4 py-6 font-sans text-slate-700 sm:px-6">

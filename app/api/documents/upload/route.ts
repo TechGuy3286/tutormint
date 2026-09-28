@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { storeDocument } from '@/lib/documents'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
+import { recordTutorSelfChanges, type Step1Field } from '@/lib/fieldHistory'
 
 // Upload a CNIC scan or a degree certificate.
 //
@@ -85,6 +86,13 @@ export async function POST(request: Request) {
     userId: user.id, event: 'document_uploaded', targetType: 'user_document', targetId: result.doc.id,
     meta: { kind },
   })
+
+  // PR83 (Part C): a tutor's own CNIC / selfie image change is recorded too, as
+  // a file reference (best-effort). Degree certificates are not step-1 fields.
+  if (kind === 'cnic' || kind === 'selfie') {
+    const field: Step1Field = kind === 'selfie' ? 'selfie' : label === 'back' ? 'cnic_back' : 'cnic_front'
+    await recordTutorSelfChanges(user.id, [{ field, oldValue: null, newValue: `doc:${result.doc.id}` }])
+  }
 
   const completion = await recomputeCompletion(user.id)
 

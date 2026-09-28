@@ -12,8 +12,10 @@ import { loadDocumentStatuses } from '@/lib/tutorDocuments'
 import { deriveCnicStatus } from '@/lib/cnicStatus'
 import TutorDocumentReview from '@/components/admin/TutorDocumentReview'
 import { formatDate } from '@/lib/datetime'
-import { jobType, jobTypesLabel, verificationStatus } from '@/lib/display'
+import { jobTypesLabel, verificationStatus } from '@/lib/display'
 import SlugField from './SlugField'
+import TutorFieldEditor from './TutorFieldEditor'
+import TutorFieldHistory from './TutorFieldHistory'
 
 // One tutor, as staff.
 //
@@ -68,6 +70,8 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
 
   const canEdit = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutorSlug)
   const canReview = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)
+  // Editing the tutor's locked step-1 fields (PR83) — admin + operations.
+  const canFieldEdit = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutorEdit)
   // One name (PR66 §5): the canonical is profiles.full_name (what the member sees
   // on their dashboard); fall back to tutor_profiles only if it is blank.
   const name =
@@ -173,6 +177,12 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
         selfieDocId={selfieDoc?.id ?? null}
         statuses={docStatuses}
       />
+
+      {canFieldEdit && (
+        <TutorFieldEditor tutorId={id} currentCity={(tutor.city as string | null) ?? null} />
+      )}
+
+      <TutorFieldHistory tutorId={id} />
 
       {/* The redirects that exist because of past changes. Shown so an admin
           can see what an address change actually left behind, rather than

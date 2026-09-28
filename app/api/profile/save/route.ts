@@ -9,6 +9,7 @@ import { BAD_AVATAR_MESSAGE, isOurStorageUrl } from '@/lib/avatarUrl'
 import { parseBody, z } from '@/lib/validate'
 import { serverError } from '@/lib/errorResponse'
 import { ensureTutorSlug } from '@/lib/tutorSlug'
+import { recordFieldChanges, type FieldChange } from '@/lib/fieldHistory'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
 // then recomputes profiles.profile_completion so the stored percentage can
@@ -70,8 +71,9 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
   const body = parsed.data as Body
 
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+  const { data: me } = await supabase.from('profiles').select('role, email').eq('id', user.id).maybeSingle()
   const role = me?.role
+  const myEmail = (me?.email as string | null) ?? null
 
   // PR41 §2 — check the PUBLIC text fields BEFORE writing, and do NOT publish
   // anything abusive: a banned display name, headline or bio is withheld (not
@@ -129,6 +131,29 @@ export async function POST(request: Request) {
     const tutorPatch = pick(body.tutorProfile, TUTOR_FIELDS)
     // The tutor's canonical city lives on tutor_profiles.
     if (cityWrite !== undefined) tutorPatch.city = cityWrite
+
+    // PR83 (Part C): capture OLD values for the change history, before the writes
+    // below. Best-effort — a failed read just leaves an old value null and never
+    // affects the save.
+    const avatarProvided = typeof body.tutorProfile?.avatar_url === 'string'
+    const histOld: { city?: string | null; avatar?: string | null; subjects?: string; areas?: string } = {}
+    try {
+      if (cityWrite !== undefined || avatarProvided) {
+        const { data } = await supabase.from('tutor_profiles').select('city, avatar_url').eq('id', user.id).maybeSingle()
+        histOld.city = (data?.city as string | null) ?? null
+        histOld.avatar = (data?.avatar_url as string | null) ?? null
+      }
+      if (Array.isArray(body.subjectMasterIds)) {
+        const { data } = await supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id)
+        histOld.subjects = (data ?? []).map((r) => r.master_id as number).sort((a, b) => a - b).join(',')
+      }
+      if (Array.isArray(body.areas)) {
+        const { data } = await supabase.from('tutor_areas').select('area').eq('tutor_id', user.id)
+        histOld.areas = (data ?? []).map((r) => r.area as string).sort().join(', ')
+      }
+    } catch {
+      /* best-effort */
+    }
 
     // Multiple areas (PR68). The caller sends `areas: string[]`; we set the single
     // tutor_profiles.area to the first (so it works pre-migration and satisfies the
@@ -229,6 +254,20 @@ export async function POST(request: Request) {
         if (error) return serverError(error, 'profile.save:tutor_subjects.insert')
       }
     }
+
+    // PR83 (Part C): record the tutor's own step-1 changes (best-effort; no
+    // reason for a self-change). recordFieldChanges drops no-ops, so a save that
+    // did not touch a field records nothing for it.
+    const hist: FieldChange[] = []
+    const base = { tutorId: user.id, changedBy: user.id, changedByRole: 'tutor' as const, changedByEmail: myEmail, reason: null }
+    if (cityWrite !== undefined) hist.push({ ...base, field: 'city', oldValue: histOld.city ?? null, newValue: cityWrite })
+    if (avatarProvided) hist.push({ ...base, field: 'profile_picture', oldValue: histOld.avatar ?? null, newValue: (tutorPatch.avatar_url as string) ?? null })
+    if (Array.isArray(body.subjectMasterIds)) {
+      const newIds = body.subjectMasterIds.filter((n) => Number.isInteger(n)).slice().sort((a, b) => a - b).join(',')
+      hist.push({ ...base, field: 'subjects', oldValue: histOld.subjects ?? '', newValue: newIds })
+    }
+    if (areasList) hist.push({ ...base, field: 'areas', oldValue: histOld.areas ?? '', newValue: areasList.slice().sort().join(', ') })
+    await recordFieldChanges(hist)
   }
 
   // A tutor's public address, assigned or improved here.
