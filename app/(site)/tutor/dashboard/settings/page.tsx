@@ -26,7 +26,7 @@ import { labelsForMasterIds } from '@/lib/taxonomy'
 import { L } from '@/lib/onboarding/copy'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
 import { availabilityToSlots, slotsToAvailabilityList, formatSlots, type DaySlot } from '@/lib/timeSlots'
-import SubjectPicker from '@/components/tutor/SubjectPicker'
+import SubjectLevelEditor from '@/components/tutor/SubjectLevelEditor'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
 import { parseCredential } from '@/lib/degrees'
 import EmailCard from '@/components/account/EmailCard'
@@ -123,8 +123,12 @@ export default function TutorSettingsPage() {
   // select('*') load so a not-yet-applied migration means "shown".
   const [showAvatar, setShowAvatar] = useState(true);
 
-  // Subjects are the tutor's taxonomy_master ids (SubjectPicker, PR 3b §2.4).
+  // Subjects are the tutor's taxonomy_master ids. `subjectIds` is the FINAL set
+  // to save (the merge output); `existingSubjectIds` is the IMMUTABLE saved
+  // baseline the level-first editor merges against (PR84), refreshed only after
+  // a successful save.
   const [subjectIds, setSubjectIds] = useState<number[]>([]);
+  const [existingSubjectIds, setExistingSubjectIds] = useState<number[]>([]);
 
   // Job-type demand, so the chips order by how much work each title has (§2.3).
   const [jobTypeDemand, setJobTypeDemand] = useState<Record<string, number>>({});
@@ -283,7 +287,11 @@ export default function TutorSettingsPage() {
         setCertifications(Array.isArray(tp.certifications) ? tp.certifications.map(asCert) : []);
       }
 
-      setSubjectIds((subjRows ?? []).map((r) => r.master_id as number));
+      {
+        const loaded = (subjRows ?? []).map((r) => r.master_id as number);
+        setSubjectIds(loaded);
+        setExistingSubjectIds(loaded);
+      }
     } catch (err) {
       console.error("Error loading tutor profile:", err);
     }
@@ -390,7 +398,12 @@ export default function TutorSettingsPage() {
   const saveJobTypes = () =>
     postProfileSave({ tutorProfile: { job_types: formData.jobTypes, teaching_mode: formData.jobTypes[0] ?? null } });
 
-  const saveSubjects = () => postProfileSave({ subjectMasterIds: subjectIds });
+  const saveSubjects = async () => {
+    await postProfileSave({ subjectMasterIds: subjectIds });
+    // The just-saved set becomes the new baseline, so re-opening the editor
+    // merges against what is actually stored (PR84).
+    setExistingSubjectIds(subjectIds);
+  };
 
   const saveAvailability = () => tutorUpdate({ availability_list: slotsToAvailabilityList(availabilityList) });
   // "Show my picture to parents" (PR70): flip immediately, write direct (RLS-scoped
@@ -706,7 +719,7 @@ export default function TutorSettingsPage() {
       summary: subjectSummary,
       body: (
         <div className="space-y-3">
-          <SubjectPicker value={subjectIds} onChange={setSubjectIds} />
+          <SubjectLevelEditor existing={existingSubjectIds} onChange={setSubjectIds} />
           <SaveBar onSave={saveSubjects} onSaved={() => collapse('subjects')}
             items={[{ en: 'Choose at least one subject', ur: 'کم از کم ایک مضمون منتخب کریں', done: subjectIds.length > 0 }]} />
         </div>
