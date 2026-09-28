@@ -58,18 +58,29 @@ export function matchVisibility(
   tutorTypes: readonly string[] | null | undefined,
   tutorCity: string | null | undefined,
 ): MatchVisibility {
+  return matchVisibilityCities(jobType, jobCity, tutorTypes, tutorCity ? [tutorCity] : [])
+}
+
+/** Multi-city variant (PR85): a tutor may teach in up to 2 cities. The job is
+ *  same-city when its city matches ANY of the tutor's cities. */
+export function matchVisibilityCities(
+  jobType: string | null | undefined,
+  jobCity: string | null | undefined,
+  tutorTypes: readonly string[] | null | undefined,
+  tutorCities: readonly (string | null | undefined)[] | null | undefined,
+): MatchVisibility {
   const jt = norm(jobType)
   const tt = (tutorTypes ?? []).map(norm).filter(Boolean)
   if (tt.length > 0 && jt && !tt.includes(jt)) return 'exclude'
 
   const jc = norm(jobCity)
-  const tc = norm(tutorCity)
+  const tcs = (tutorCities ?? []).map(norm).filter(Boolean)
   const online = isOnlineTitle(jobType)
 
   // No tutor city → in-person excluded, online only.
-  if (!tc) return online ? 'online' : 'exclude'
+  if (tcs.length === 0) return online ? 'online' : 'exclude'
 
-  if (!jc || jc === tc) return 'same_city'
+  if (!jc || tcs.includes(jc)) return 'same_city'
 
   return online ? 'online' : 'exclude'
 }
@@ -86,4 +97,14 @@ export function showsOnlineChip(
   tutorCity: string | null | undefined,
 ): boolean {
   return matchVisibility(jobType, jobCity, tutorTypes, tutorCity) === 'online'
+}
+
+/** Multi-city chip predicate (PR85). */
+export function showsOnlineChipCities(
+  jobType: string | null | undefined,
+  jobCity: string | null | undefined,
+  tutorTypes: readonly string[] | null | undefined,
+  tutorCities: readonly (string | null | undefined)[] | null | undefined,
+): boolean {
+  return matchVisibilityCities(jobType, jobCity, tutorTypes, tutorCities) === 'online'
 }

@@ -10,8 +10,15 @@ import { cookies } from 'next/headers'
 import { logSearchPerformed } from '@/lib/activityLog'
 import { logAnonSearch } from '@/lib/anonSearch'
 import { ANON_COOKIE, isAnonId } from '@/lib/anonSession'
-import { browseJobs, type JobFilters, type TutorScope } from '@/lib/jobFeed'
-import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
+import {
+  browseJobs,
+  resolveTutorScope,
+  tutorFeed,
+  feedGenderFilter,
+  type JobFilters,
+  type ResolvedTutor,
+  type FeedMessage,
+} from '@/lib/jobFeed'
 import { resolveSubjectQuery } from '@/lib/searchResolve'
 import JobCard from '@/components/JobCard'
 import AdSlot from '@/components/ads/AdSlot'
@@ -182,18 +189,20 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
   let isTutor = false
   let viewerCity: string | null = null
+  let viewerCities: readonly string[] | null = null
   let viewerJobTypes: readonly string[] | null = null
   let viewerRole: string | null = null
   let viewerPlan: string | null = null
   let tutorUnverified = false
   let appliedIds = new Set<string>()
   let savedIds = new Set<string>()
-  // PR71: the tutor's own city+areas default, resolved BEFORE the query so the
-  // first window is scoped. Applied only on a bare location URL (no ?city and no
-  // ?scope=all), so removing it (the chip's widen links) is honoured — and never
-  // for a guest or a parent, who see the whole board exactly as before.
+  // PR71/PR85: the tutor's own cities+areas default, resolved BEFORE the query so
+  // the first window is scoped (with the 3-level fallback). Applied only on a bare
+  // location URL (no ?city and no ?scope=all); widening honours the chip links —
+  // and never for a guest or a parent, who see the whole board exactly as before.
   const wantsAll = one(sp.scope) === 'all'
-  let tutorScope: TutorScope | null = null
+  let resolved: ResolvedTutor | null = null
+  let viewerGender: string | null = null
 
   if (user) {
     const ent = await getEntitlements(user.id)
@@ -204,28 +213,19 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     // from the fee). Only this viewer sees the verify prompt (owner PR2 §1.3).
     tutorUnverified = isTutor && !ent.plan
 
-    // Job Type + city, to align matches and decide the "Suitable for online"
-    // chip on a cross-city online job.
     if (isTutor) {
-      const [{ data: tp }, { data: areaRows }, { data: subRows }] = await Promise.all([
-        supabase.from('tutor_profiles').select('city, teaching_mode, job_types').eq('id', user.id).maybeSingle(),
-        supabase.from('tutor_areas').select('area').eq('tutor_id', user.id),
-        supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
-      ])
-      viewerCity = (tp?.city as string | null) ?? null
-      viewerJobTypes = (tp?.job_types as string[] | null) ?? null
-      const tutorCity = (viewerCity ?? '').trim()
-      const areas = [...new Set(((areaRows ?? []).map((r) => ((r.area as string) ?? '').trim()).filter(Boolean)))]
-      const subjectMasterIds = [...new Set(((subRows ?? []).map((r) => r.master_id as number)))]
-      if (tutorCity && areas.length > 0) {
-        tutorScope = { city: tutorCity, areas, includeOnline: (viewerJobTypes ?? []).includes(ONLINE_JOB_TITLE), subjectMasterIds }
-      }
+      resolved = await resolveTutorScope(supabase, user.id)
+      viewerCities = resolved?.cities ?? null
+      viewerCity = resolved?.cities[0] ?? null
+      viewerJobTypes = resolved?.jobTypes ?? null
+      // Part C: hide gender-mismatched tuitions from this tutor, everywhere.
+      viewerGender = feedGenderFilter(resolved?.gender)
     }
   }
 
   // Apply the default only when the tutor did not choose a location (no ?city)
   // and did not widen to all cities (?scope=all).
-  const defaultApplied = !!tutorScope && !city && !wantsAll
+  const defaultApplied = !!resolved && !city && !wantsAll
 
   const filters: JobFilters = {
     masterId: subjectId,
@@ -237,13 +237,21 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     // When the query resolved to subject(s), the literal title filter is dropped
     // (it would AND with the subject and empty the board again).
     q: resolvedLabel ? null : q || null,
-    tutorScope: defaultApplied ? tutorScope : null,
+    tutorScope: null,
+    viewerGender,
   }
 
-  // The first window is server-rendered — this page is an organic-search
-  // surface and ?page=N must keep resolving for crawlers and shared links.
-  // Everything below it is appended by MoreJobs from a keyset cursor.
-  const { jobs, total, nextCursor } = await browseJobs(filters, PAGE_SIZE, (page - 1) * PAGE_SIZE)
+  // PR85 Part B: the scoped default goes through the 3-level fallback; every
+  // other view (filtered, widened, guest, parent) is the plain board. The first
+  // window is server-rendered (organic-search surface; ?page=N keeps resolving);
+  // MoreJobs appends the rest from a keyset cursor, continuing the same level.
+  const result =
+    defaultApplied && resolved
+      ? await tutorFeed(supabase, resolved, viewerGender, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE })
+      : await browseJobs(filters, PAGE_SIZE, (page - 1) * PAGE_SIZE)
+  const { jobs, total, nextCursor } = result
+  const feedMessage: FeedMessage = 'message' in result ? (result.message as FeedMessage) : null
+  const feedLevel: 1 | 2 | 3 | null = 'level' in result ? (result.level as 1 | 2 | 3) : null
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   if (user) {
@@ -324,7 +332,9 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     for (const [k, v] of Object.entries(override)) p.set(k, v)
     return `/browse/tuitions?${p}`
   }
-  const cityWidenHref = defaultApplied ? widenHref({ city: tutorScope!.city }) : '#'
+  const mainCity = resolved?.cities[0] ?? ''
+  const allAreas = resolved ? resolved.cities.flatMap((c) => resolved.areasByCity[c] ?? []) : []
+  const cityWidenHref = defaultApplied ? widenHref({ city: mainCity }) : '#'
   const allCitiesHref = defaultApplied ? widenHref({ scope: 'all' }) : '#'
 
   const pageHref = (n: number) => {
@@ -404,18 +414,18 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
         {/* PR71: the tutor's own city+areas default, as a removable chip. Only a
             signed-in tutor with a city and areas sees it; guests and parents do
             not. English with Urdu underneath. */}
-        {defaultApplied && tutorScope && (
+        {defaultApplied && resolved && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-tm-navy/15 bg-tm-tint-navy px-3 py-2.5">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-bold text-tm-navy">
               <span>
-                Your areas: {tutorScope.areas.join(', ')}
+                {resolved.cities.length > 1 ? `Your cities: ${resolved.cities.join(', ')}` : `Your areas: ${allAreas.join(', ')}`}
                 <span lang="ur" dir="rtl" className="ms-1 font-medium text-gray-500">آپ کے علاقے</span>
               </span>
               <Link href={allCitiesHref} aria-label="Remove your-areas filter and show all cities" className="grid h-5 w-5 place-items-center rounded-full text-tm-navy hover:bg-tm-tint-navy">✕</Link>
             </span>
             <Link href={cityWidenHref} className="inline-flex min-h-[36px] items-center rounded-full border border-tm-navy/30 bg-white px-3 text-xs font-bold text-tm-navy hover:border-tm-navy">
-              All areas in {tutorScope.city}
-              <span lang="ur" dir="rtl" className="ms-1 font-medium text-gray-500">{tutorScope.city} کے تمام علاقے</span>
+              All areas in {mainCity}
+              <span lang="ur" dir="rtl" className="ms-1 font-medium text-gray-500">{mainCity} کے تمام علاقے</span>
             </Link>
             <Link href={allCitiesHref} className="inline-flex min-h-[36px] items-center rounded-full border border-tm-navy/30 bg-white px-3 text-xs font-bold text-tm-navy hover:border-tm-navy">
               All cities
@@ -424,9 +434,18 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
           </div>
         )}
 
-        {/* A tutor with no city/areas yet sees the whole board (as now) with a
-            short prompt to add their area so this list can be narrowed (PR71 §1). */}
-        {isTutor && !tutorScope && !city && !wantsAll && (
+        {/* PR85 Part B: the fallback message when the feed widened past the
+            tutor's chosen areas (level 2) or their cities (level 3). */}
+        {feedMessage && (
+          <p className="rounded-xl border border-tm-gold/30 bg-tm-tint-gold px-3 py-2.5 text-xs font-semibold leading-relaxed text-tm-gold-ink">
+            {feedMessage.en}
+            <span lang="ur" dir="rtl" className="mt-0.5 block font-medium">{feedMessage.ur}</span>
+          </p>
+        )}
+
+        {/* A tutor with no city yet sees the whole board (as now) with a short
+            prompt to add their city/areas so this list can be narrowed. */}
+        {isTutor && !resolved && !city && !wantsAll && (
           <p className="rounded-xl border border-tm-navy/15 bg-tm-tint-navy px-3 py-2.5 text-xs text-tm-navy">
             Add your city and areas in{' '}
             <Link href="/tutor/dashboard/settings" className="font-bold underline">Settings</Link>{' '}
@@ -459,6 +478,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
                   showApply={showApply}
                   applied={appliedIds.has(job.id)}
                   viewerCity={viewerCity}
+                  viewerCities={viewerCities}
                   viewerJobTypes={viewerJobTypes}
                   saveable={isTutor}
                   initiallySaved={savedIds.has(job.id)}
@@ -480,7 +500,11 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
         {/* No numbered pagination (CLAUDE.md, 3 Sep 2026). */}
         {jobs.length > 0 && (
           <MoreJobs
-            params={{ ...jobParams(sp), ...(defaultApplied ? { scope: 'mine' } : {}), ...(page > 1 ? { page: String(page) } : {}) }}
+            params={{
+              ...jobParams(sp),
+              ...(defaultApplied ? { scope: 'mine', ...(feedLevel ? { level: String(feedLevel) } : {}) } : {}),
+              ...(page > 1 ? { page: String(page) } : {}),
+            }}
             initialCursor={nextCursor}
             total={total}
             serverCount={(page - 1) * PAGE_SIZE + jobs.length}
@@ -488,6 +512,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
             showApply={showApply}
             adEvery={AD_EVERY}
             viewerCity={viewerCity}
+            viewerCities={viewerCities}
             viewerJobTypes={viewerJobTypes}
             saveable={isTutor}
             savedIds={Array.from(savedIds)}

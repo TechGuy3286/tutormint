@@ -27,6 +27,7 @@ import { L } from '@/lib/onboarding/copy'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
 import { availabilityToSlots, slotsToAvailabilityList, formatSlots, type DaySlot } from '@/lib/timeSlots'
 import SubjectLevelEditor from '@/components/tutor/SubjectLevelEditor'
+import TutorCitiesEditor, { type CitiesState } from '@/components/tutor/TutorCitiesEditor'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
 import { parseCredential } from '@/lib/degrees'
 import EmailCard from '@/components/account/EmailCard'
@@ -76,9 +77,12 @@ export default function TutorSettingsPage() {
   // Monthly fee range (PR67) — the two fields, prefilled from the saved values.
   const [feeMin, setFeeMin] = useState("");
   const [feeMax, setFeeMax] = useState("");
-  // Multiple areas (PR68). `areas` is the list; `newAreaInput` is the add field.
+  // Multiple areas (PR68). `areas` is the flattened list (status/summary/lock).
   const [areas, setAreas] = useState<string[]>([]);
-  const [newAreaInput, setNewAreaInput] = useState("");
+  // PR85: up to 2 cities each with areas. `initialLoc` seeds the editor;
+  // `locState` is the editor's live state, sent on save.
+  const [initialLoc, setInitialLoc] = useState<{ cities: string[]; areasByCity: Record<string, string[]> }>({ cities: [], areasByCity: {} });
+  const [locState, setLocState] = useState<CitiesState | null>(null);
   const [realEmail, setRealEmail] = useState("");
   const [emailVerified, setEmailVerified] = useState(false);
   // Tile mode (once every Step 2 item is done): which card's form is open.
@@ -234,16 +238,29 @@ export default function TutorSettingsPage() {
       setFeeMin(String(savedMin ?? FEE_MIN_DEFAULT));
       setFeeMax(String(savedMax ?? FEE_MAX_DEFAULT));
 
-      // Areas (PR68): the tutor_areas list, falling back to the single area.
+      // Areas (PR68/PR85): the tutor_areas list grouped by city (up to 2 cities).
       try {
         const { data: areaRows } = await supabase
           .from('tutor_areas')
-          .select('area')
+          .select('city, area')
           .eq('tutor_id', user.id)
           .order('created_at');
-        const list = (areaRows ?? []).map((r) => r.area as string).filter(Boolean);
-        setAreas(list.length > 0 ? list : (tp?.area ? [tp.area as string] : []));
+        const mainCity = ((tp?.city as string) || '').trim();
+        const abc: Record<string, string[]> = {};
+        const order: string[] = [];
+        for (const r of areaRows ?? []) {
+          const c = ((r.city as string) || '').trim() || mainCity;
+          const a = ((r.area as string) || '').trim();
+          if (!c || !a) continue;
+          if (!abc[c]) { abc[c] = []; order.push(c); }
+          if (!abc[c].includes(a)) abc[c].push(a);
+        }
+        const cities = [mainCity, ...order.filter((c) => c.toLowerCase() !== mainCity.toLowerCase())].filter(Boolean);
+        const flat = Object.values(abc).flat();
+        setInitialLoc({ cities: cities.length > 0 ? cities : mainCity ? [mainCity] : [], areasByCity: abc });
+        setAreas(flat.length > 0 ? flat : tp?.area ? [tp.area as string] : []);
       } catch {
+        setInitialLoc({ cities: tp?.city ? [tp.city as string] : [], areasByCity: {} });
         setAreas(tp?.area ? [tp.area as string] : []);
       }
 
@@ -377,22 +394,27 @@ export default function TutorSettingsPage() {
     if (error) throw new Error(error.message);
   };
 
-  const addArea = () => {
-    const a = newAreaInput.trim();
-    if (a && !areas.includes(a)) setAreas([...areas, a]);
-    setNewAreaInput("");
-  };
   const saveLocation = async () => {
-    // City is required wherever an area is collected (PR 3b §2.7): the listing
-    // keys on the city, and an area with no city places nobody.
-    if (!formData.city.trim()) {
-      throw new Error('Add your city — you are not shown to parents without it.');
+    // PR85: up to 2 cities each with areas. The editor's live state is `locState`;
+    // fall back to what was loaded if the editor has not reported yet.
+    const s: CitiesState =
+      locState ?? {
+        mainCity: initialLoc.cities[0] ?? formData.city,
+        cities: initialLoc.cities,
+        areasByCity: initialLoc.areasByCity,
+        valid: false,
+      };
+    if (!s.mainCity.trim()) {
+      throw new Error('Add your main city — you are not shown to parents without it.');
     }
-    if (areas.length === 0) {
-      throw new Error('Add at least one area you teach in.');
+    if (!s.valid) {
+      throw new Error('Add at least one area for every city you chose.');
     }
-    // PR68: save the whole area list; profiles/tutor_profiles.area follows the first.
-    await postProfileSave({ profile: { city: formData.city }, areas });
+    await postProfileSave({ profile: { city: s.mainCity }, areasByCity: s.areasByCity });
+    // Reflect the save locally so the summary/lock update without a reload.
+    setFormData((f) => ({ ...f, city: s.mainCity }));
+    setAreas(Object.values(s.areasByCity).flat());
+    setInitialLoc({ cities: s.cities, areasByCity: s.areasByCity });
   };
 
   const saveJobTypes = () =>
@@ -471,12 +493,14 @@ export default function TutorSettingsPage() {
 
   // Collapsed summaries — plain text shown when a card has a saved value.
   const detailsSummary = formData.fullName.trim();
-  // "Lahore · Model Town, Gulberg, Johar Town" — up to 3 areas, then "+N more".
-  const locationSummary = formData.city.trim()
-    ? areas.length
-      ? `${formData.city.trim()} · ${short(areas, 3)}`
-      : formData.city.trim()
-    : '';
+  // PR85: "Lahore · DHA, Gulberg | Gujranwala · Model Town" (per city).
+  const locSource =
+    locState && locState.valid
+      ? { cities: locState.cities, areasByCity: locState.areasByCity }
+      : initialLoc;
+  const locationSummary = locSource.cities.length
+    ? locSource.cities.map((c) => `${c} · ${short(locSource.areasByCity[c] ?? [], 3)}`).join(' | ')
+    : formData.city.trim();
   const subjectSummary = subjectLabels.length
     ? short(subjectLabels.map((l) => l.split(' — ').pop() ?? l))
     : subjectIds.length
@@ -531,7 +555,9 @@ export default function TutorSettingsPage() {
     subjectsStatus === 'completed' &&
     locationStatus === 'completed';
   const subjectSummaryText = subjectLabels.length > 0 ? subjectLabels.join(', ') : '';
-  const locationSummaryText = [formData.city, areas.join(', ')].filter(Boolean).join(' · ');
+  const locationSummaryText = initialLoc.cities.length
+    ? initialLoc.cities.map((c) => `${c}: ${(initialLoc.areasByCity[c] ?? []).join(', ')}`).join(' | ')
+    : [formData.city, areas.join(', ')].filter(Boolean).join(' · ');
 
   const jobTypeStatus: CardStatus = formData.jobTypes.length > 0 ? 'completed' : 'missing';
   const availabilityStatus: CardStatus = availabilityList.length > 0 ? 'completed' : 'missing';
@@ -735,84 +761,16 @@ export default function TutorSettingsPage() {
       summary: locationSummary,
       body: (
         <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block space-y-1">
-              <span className="sr-only">City</span>
-              <input
-                type="text"
-                list="tutor-city-options"
-                autoComplete="off"
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                placeholder="City"
-                className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-              />
-              <datalist id="tutor-city-options">
-                {cityMap.cities.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-              {!formData.city.trim() && (
-                <p className="text-[11px] font-bold text-tm-red">
-                  Add your city — you are not shown to parents without it.
-                </p>
-              )}
-            </label>
-            <div className="block space-y-1.5">
-              <span className="text-[11px] font-bold text-tm-navy">Areas you teach in</span>
-              <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">آپ جن علاقوں میں پڑھاتے ہیں</span>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  list="tutor-area-options"
-                  autoComplete="off"
-                  value={newAreaInput}
-                  onChange={(e) => setNewAreaInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); addArea(); }
-                  }}
-                  placeholder="Add an area"
-                  className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-                />
-                <datalist id="tutor-area-options">
-                  {areasForCity(cityMap, formData.city).map((a) => (
-                    <option key={a} value={a} />
-                  ))}
-                </datalist>
-                <button
-                  type="button"
-                  onClick={addArea}
-                  className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-xl border border-gray-200 px-3 text-xs font-bold text-tm-navy hover:border-tm-navy"
-                >
-                  <Plus aria-hidden size={14} /> Add
-                </button>
-              </div>
-              {areas.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {areas.map((a) => (
-                    <span key={a} className="inline-flex items-center gap-1 rounded-full bg-tm-red py-1 pl-2.5 pr-1 text-[11px] font-semibold text-white">
-                      <span className="max-w-[10rem] truncate">{a}</span>
-                      <button
-                        type="button"
-                        onClick={() => setAreas(areas.filter((x) => x !== a))}
-                        aria-label={`Remove ${a}`}
-                        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-white/25"
-                      >
-                        <X aria-hidden size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              {areas.length === 0 && (
-                <p className="text-[11px] font-bold text-tm-red">Add at least one area.</p>
-              )}
-            </div>
-          </div>
+          {/* PR85: up to 2 cities, each with its areas. */}
+          <TutorCitiesEditor
+            initialCities={initialLoc.cities}
+            initialAreasByCity={initialLoc.areasByCity}
+            onChange={setLocState}
+          />
           <SaveBar onSave={saveLocation} onSaved={() => collapse('location')}
             items={[
-              { en: 'Choose your city', ur: 'اپنا شہر منتخب کریں', done: !!formData.city.trim() },
-              { en: 'Choose at least one area', ur: 'کم از کم ایک علاقہ منتخب کریں', done: areas.length > 0 },
+              { en: 'Choose your main city', ur: 'اپنا مرکزی شہر منتخب کریں', done: !!(locState?.mainCity ?? initialLoc.cities[0] ?? '').trim() },
+              { en: 'Add at least one area per city', ur: 'ہر شہر کے لیے کم از کم ایک علاقہ', done: locState ? locState.valid : areas.length > 0 },
             ]} />
         </div>
       ),

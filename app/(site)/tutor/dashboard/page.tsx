@@ -12,7 +12,7 @@ import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { computeCompletion } from '@/lib/completion'
 import { getEntitlements } from '@/lib/entitlements'
-import { savedJobsForTutor, resolveTutorScope, countJobsInScope, browseJobs, NO_JOB_FILTERS } from '@/lib/jobFeed'
+import { savedJobsForTutor, resolveTutorScope, tutorFeedCount, feedGenderFilter, browseJobs, NO_JOB_FILTERS } from '@/lib/jobFeed'
 import { unreadMessageCount, conversationCount } from '@/lib/messaging'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { viewSummary } from '@/lib/profileViews'
@@ -51,6 +51,7 @@ export default async function TutorDashboardPage() {
   // tile and the action-bar count, so both agree with what /browse/tuitions
   // shows a signed-in tutor. No city/areas yet → the whole open board.
   const tutorScope = await resolveTutorScope(supabase, userId)
+  const viewerGender = feedGenderFilter(tutorScope?.gender)
 
   const [views, unread, conversations, { data: apps }, { data: demos }, savedJobs, boardCount] =
     await Promise.all([
@@ -60,7 +61,10 @@ export default async function TutorDashboardPage() {
       supabase.from('applications').select('id, job_id, withdrawn_at').eq('tutor_id', userId),
       supabase.from('demo_requests').select('id, status').eq('tutor_id', userId),
       savedJobsForTutor(userId),
-      tutorScope ? countJobsInScope(tutorScope) : browseJobs(NO_JOB_FILTERS, 1).then((r) => r.total),
+      // PR85: the count is the feed's first non-empty fallback level, gender-filtered.
+      tutorScope
+        ? tutorFeedCount(supabase, tutorScope, viewerGender)
+        : browseJobs({ ...NO_JOB_FILTERS, viewerGender }, 1).then((r) => r.total),
     ])
 
   const liveApps = (apps ?? []).filter((a) => !a.withdrawn_at)

@@ -44,7 +44,10 @@ export async function POST(request: Request) {
   })
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error, upgrade: result.upgrade, gate: result.gate }, { status: result.status })
+    return NextResponse.json(
+      { error: result.error, upgrade: result.upgrade, gate: result.gate, completeProfile: result.completeProfile },
+      { status: result.status },
+    )
   }
 
   return NextResponse.json({ success: true, applicationId: result.applicationId })

@@ -33,6 +33,7 @@ type Body = {
   subjectMasterIds?: number[]
   city?: string
   areas?: string[]
+  areasByCity?: Record<string, string[]>
 }
 
 export async function POST(request: Request) {
@@ -173,20 +174,45 @@ export async function POST(request: Request) {
 
   // ----------------------------------------------------------------- areas ---
   if (action === 'set-areas') {
-    const areas = Array.from(new Set((body.areas ?? []).map((a) => (a ?? '').trim()).filter(Boolean)))
-    if (areas.length === 0) return NextResponse.json({ error: 'Add at least one area.' }, { status: 400 })
     const { data: tp } = await admin.from('tutor_profiles').select('city').eq('id', tutorId).maybeSingle()
-    const areaCity = ((tp?.city as string | null) ?? '').trim()
-    const { data: oldRows } = await admin.from('tutor_areas').select('area').eq('tutor_id', tutorId)
-    const oldAreas = (oldRows ?? []).map((r) => r.area as string).sort()
-    const updOne = await admin.from('tutor_profiles').update({ area: areas[0] }).eq('id', tutorId)
+    const mainCity = ((tp?.city as string | null) ?? '').trim()
+
+    // PR85: up to 2 cities each with areas (areasByCity) supersedes the single
+    // `areas` list (all in the main city).
+    let rows: { city: string; area: string }[]
+    if (body.areasByCity && typeof body.areasByCity === 'object') {
+      rows = []
+      const seen = new Set<string>()
+      for (const [rawCity, rawAreas] of Object.entries(body.areasByCity).slice(0, 2)) {
+        const c = (rawCity ?? '').trim()
+        if (!c || !Array.isArray(rawAreas)) continue
+        for (const a of rawAreas as string[]) {
+          const area = (typeof a === 'string' ? a : '').trim()
+          if (!area) continue
+          const k = `${c.toLowerCase()}|${area.toLowerCase()}`
+          if (seen.has(k)) continue
+          seen.add(k)
+          rows.push({ city: c, area })
+        }
+      }
+    } else {
+      const areas = Array.from(new Set((body.areas ?? []).map((a) => (a ?? '').trim()).filter(Boolean)))
+      rows = areas.map((area) => ({ city: mainCity, area }))
+    }
+    if (rows.length === 0) return NextResponse.json({ error: 'Add at least one area.' }, { status: 400 })
+
+    const { data: oldRows } = await admin.from('tutor_areas').select('city, area').eq('tutor_id', tutorId)
+    const oldAreas = (oldRows ?? []).map((r) => `${(r.city as string) ?? ''}: ${r.area as string}`).sort()
+    // tutor_profiles.area follows the main city's first area.
+    const mainFirst = rows.find((r) => r.city.toLowerCase() === mainCity.toLowerCase())?.area ?? rows[0].area
+    const updOne = await admin.from('tutor_profiles').update({ area: mainFirst }).eq('id', tutorId)
     if (updOne.error) return NextResponse.json({ error: updOne.error.message }, { status: 400 })
     const del = await admin.from('tutor_areas').delete().eq('tutor_id', tutorId)
     if (del.error && del.error.code !== '42P01') return NextResponse.json({ error: del.error.message }, { status: 400 })
-    const ins = await admin.from('tutor_areas').insert(areas.map((area) => ({ tutor_id: tutorId, city: areaCity, area })))
+    const ins = await admin.from('tutor_areas').insert(rows.map((r) => ({ tutor_id: tutorId, city: r.city, area: r.area })))
     if (ins.error && ins.error.code !== '42P01') return NextResponse.json({ error: ins.error.message }, { status: 400 })
-    await recordFieldChanges([{ tutorId, field: 'areas', oldValue: oldAreas.join(', '), newValue: [...areas].sort().join(', '), changedBy: gate.actor.id, changedByRole: 'staff', changedByEmail: actorEmail, reason }])
-    await audit('areas', { count: areas.length })
+    await recordFieldChanges([{ tutorId, field: 'areas', oldValue: oldAreas.join(', '), newValue: rows.map((r) => `${r.city}: ${r.area}`).sort().join(', '), changedBy: gate.actor.id, changedByRole: 'staff', changedByEmail: actorEmail, reason }])
+    await audit('areas', { count: rows.length })
     await timeline('areas')
     await recomputeCompletion(tutorId)
     return NextResponse.json({ ok: true })

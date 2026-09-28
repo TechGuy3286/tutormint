@@ -42,6 +42,8 @@ export type TutorCardData = {
   headline: string | null
   avatar_url: string | null
   city: string | null
+  /** PR85: the tutor's cities (up to 2). Falls back to [city] when absent. */
+  cities?: string[] | null
   area: string | null
   /** All the areas the tutor serves (PR68). Falls back to [area] when absent. */
   areas?: string[] | null
@@ -482,19 +484,31 @@ export default function TutorCard({
                   </DetailLine>
                 )
               })()}
-              <DetailLine
-                icon={<Building2 size={14} />}
-                label="City"
-                value={tutor.city || 'Online'}
-              >
-                {tutor.city ? (
-                  <InlineLink href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}`}>
-                    {tutor.city}
-                  </InlineLink>
-                ) : (
-                  'Online'
-                )}
-              </DetailLine>
+              {(() => {
+                // PR85: up to 2 cities, each linking to its browse filter.
+                const cityList = (tutor.cities && tutor.cities.length > 0
+                  ? tutor.cities
+                  : tutor.city
+                    ? [tutor.city]
+                    : []
+                ).slice(0, 2)
+                return (
+                  <DetailLine
+                    icon={<Building2 size={14} />}
+                    label={cityList.length > 1 ? 'Cities' : 'City'}
+                    value={cityList.join(', ') || 'Online'}
+                  >
+                    {cityList.length > 0
+                      ? cityList.map((c, i) => (
+                          <span key={c}>
+                            {i > 0 && ', '}
+                            <InlineLink href={`/browse/tutors?city=${encodeURIComponent(c)}`}>{c}</InlineLink>
+                          </span>
+                        ))
+                      : 'Online'}
+                  </DetailLine>
+                )
+              })()}
             </div>
 
             {feeLabelOf(tutor) ? (

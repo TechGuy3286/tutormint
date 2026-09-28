@@ -24,6 +24,14 @@ export type GatedResult<T> =
   // tutors (PR54 Part B) rather than leaving them at a dead end.
   | { ok: false; gated: false; error: string; similarHref?: string }
 
+/** PR85 Part D: send an unfinished tutor to onboarding, then back to where they
+ *  were (the tuition they tried to apply to / reveal). */
+export function goCompleteProfile(): void {
+  if (typeof window === 'undefined') return
+  const next = window.location.pathname + window.location.search
+  window.location.assign(`/tutor/onboarding?next=${encodeURIComponent(next)}`)
+}
+
 export async function postGated<T = unknown>(
   url: string,
   body: unknown,
@@ -51,7 +59,8 @@ export async function postGated<T = unknown>(
     }
   }
 
-  let json: { error?: string; gate?: Gate; similarHref?: string } & Record<string, unknown> = {}
+  let json: { error?: string; gate?: Gate; similarHref?: string; completeProfile?: boolean } &
+    Record<string, unknown> = {}
   try {
     json = await res.json()
   } catch {
@@ -59,6 +68,13 @@ export async function postGated<T = unknown>(
   }
 
   if (res.ok) return { ok: true, data: json as T }
+
+  // PR85 Part D: an unfinished tutor is routed to onboarding (remembering the
+  // tuition they were on), then back — quietly, like a gate.
+  if (json.completeProfile) {
+    goCompleteProfile()
+    return { ok: false, gated: true }
+  }
 
   // The whole point: a refusal the server described as a gate becomes the
   // sheet, whatever route it came from.

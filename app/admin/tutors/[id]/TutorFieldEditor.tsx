@@ -8,6 +8,7 @@ import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import LocationInput from '@/components/forms/LocationInput'
+import TutorCitiesEditor, { type CitiesState } from '@/components/tutor/TutorCitiesEditor'
 import { useToast } from '@/components/ui/Toast'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
@@ -152,10 +153,8 @@ export default function TutorFieldEditor({
   const [cityReason, setCityReason] = useState('')
 
   // ---- areas ---------------------------------------------------------------
-  const [areaDraft, setAreaDraft] = useState('')
-  const [areaList, setAreaList] = useState<string[]>([])
+  const [locState, setLocState] = useState<CitiesState | null>(null)
   const [areasReason, setAreasReason] = useState('')
-  const cityAreaOptions = areasForCity(map, city || currentCity || '')
 
   // ---- image upload (profile picture / selfie) -----------------------------
   const [imgReason, setImgReason] = useState<Record<'avatar' | 'selfie', string>>({ avatar: '', selfie: '' })
@@ -308,42 +307,24 @@ export default function TutorFieldEditor({
         </button>
       </Section>
 
-      {/* Areas */}
-      <Section icon={<MapPin size={16} />} title="Areas" titleUr="علاقے" open={open === 'areas'} onToggle={() => toggle('areas')}>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-0 flex-1">
-            <LocationInput id="edit-area" label="Add an area" value={areaDraft} onChange={setAreaDraft} options={cityAreaOptions} placeholder="Add an area" icon={<MapPin size={15} />} />
-          </div>
-          <button
-            type="button"
-            onClick={() => { const a = areaDraft.trim(); if (a && !areaList.includes(a)) setAreaList((l) => [...l, a]); setAreaDraft('') }}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy hover:border-tm-navy"
-          >
-            Add
-          </button>
-        </div>
-        {areaList.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {areaList.map((a) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => setAreaList((l) => l.filter((x) => x !== a))}
-                className="inline-flex items-center gap-1 rounded-full bg-tm-red px-2.5 py-1 text-[11px] font-bold text-white"
-              >
-                {a} <span aria-hidden>×</span>
-              </button>
-            ))}
-          </div>
-        )}
+      {/* Areas (PR85: up to 2 cities each with areas). */}
+      <Section icon={<MapPin size={16} />} title="Cities & areas" titleUr="شہر اور علاقے" open={open === 'areas'} onToggle={() => toggle('areas')}>
+        <TutorCitiesEditor
+          initialCities={currentCity ? [currentCity] : []}
+          initialAreasByCity={{}}
+          onChange={setLocState}
+        />
         <ReasonField value={areasReason} onChange={setAreasReason} />
         <button
           type="button"
-          disabled={busy === 'set-areas' || areaList.length === 0}
-          onClick={async () => { if (await postEdit('set-areas', { areas: areaList }, areasReason)) { setAreaList([]); setAreasReason('') } }}
+          disabled={busy === 'set-areas' || !locState?.valid}
+          onClick={async () => {
+            if (!locState?.valid) return
+            if (await postEdit('set-areas', { areasByCity: locState.areasByCity }, areasReason)) setAreasReason('')
+          }}
           className={SAVE_BTN}
         >
-          {busy === 'set-areas' ? 'Saving…' : 'Replace areas'}
+          {busy === 'set-areas' ? 'Saving…' : 'Replace cities & areas'}
         </button>
       </Section>
     </section>

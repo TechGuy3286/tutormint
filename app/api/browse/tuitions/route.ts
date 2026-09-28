@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server'
 
 import { getEntitlements } from '@/lib/entitlements'
-import { browseJobs, resolveTutorScope, type JobFilters } from '@/lib/jobFeed'
+import {
+  browseJobs,
+  resolveTutorScope,
+  tutorFeed,
+  feedGenderFilter,
+  type JobFilters,
+  type FeedLevel,
+} from '@/lib/jobFeed'
 import { createClient } from '@/lib/supabase/server'
 
 // Load-more for /browse/tuitions.
@@ -33,14 +40,29 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // scope=mine (PR71): the tutor's own city+areas default. Re-derived from the
-  // caller's own session — never from the query string — so a later window
-  // filters exactly as the server-rendered first window did, and nobody can ask
-  // for another tutor's scope. Ignored for a signed-out caller or a non-tutor.
-  let tutorScope = null
-  if (get('scope') === 'mine' && user) {
+  // scope=mine (PR71/PR85): the tutor's own feed. Re-derived from the caller's
+  // own session — never from the query string — so a later window filters
+  // exactly as the server-rendered first window did. `level` (from the first
+  // window) keeps load-more paging the SAME fallback level. A signed-in tutor is
+  // always gender-filtered (Part C), even on the plain board.
+  let viewerGender: string | null = null
+  if (user) {
     const ent = await getEntitlements(user.id)
-    if (ent.audience === 'tutor') tutorScope = await resolveTutorScope(supabase, user.id)
+    if (ent.audience === 'tutor') {
+      const resolved = await resolveTutorScope(supabase, user.id)
+      viewerGender = feedGenderFilter(resolved?.gender)
+
+      if (get('scope') === 'mine' && resolved) {
+        const lvl = Number(get('level'))
+        const forceLevel: FeedLevel | undefined = lvl === 1 || lvl === 2 || lvl === 3 ? (lvl as FeedLevel) : undefined
+        const feed = await tutorFeed(supabase, resolved, viewerGender, {
+          limit: PAGE_SIZE,
+          cursor: get('cursor') || null,
+          forceLevel,
+        })
+        return respond(feed.jobs, feed.nextCursor, user.id, supabase)
+      }
+    }
   }
 
   const filters: JobFilters = {
@@ -50,19 +72,29 @@ export async function GET(request: Request) {
     budgetMin: intOrNull(get('budgetMin')),
     budgetMax: intOrNull(get('budgetMax')),
     q: get('q') || null,
-    tutorScope,
+    tutorScope: null,
+    viewerGender,
   }
 
   const { jobs, nextCursor } = await browseJobs(filters, PAGE_SIZE, 0, get('cursor') || null)
+  return respond(jobs, nextCursor, user?.id ?? null, supabase)
+}
+
+async function respond(
+  jobs: Awaited<ReturnType<typeof browseJobs>>['jobs'],
+  nextCursor: string | null,
+  userId: string | null,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
 
   let applied = new Set<string>()
-  if (user && jobs.length > 0) {
-    const ent = await getEntitlements(user.id)
+  if (userId && jobs.length > 0) {
+    const ent = await getEntitlements(userId)
     if (ent.audience === 'tutor') {
       const { data } = await supabase
         .from('applications')
         .select('job_id')
-        .eq('tutor_id', user.id)
+        .eq('tutor_id', userId)
         .in(
           'job_id',
           jobs.map((j) => j.id),

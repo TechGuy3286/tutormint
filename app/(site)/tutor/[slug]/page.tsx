@@ -52,6 +52,7 @@ type PublicTutor = {
   bio: string | null
   avatar_url: string | null
   city: string | null
+  cities: string[] | null
   area: string | null
   areas: string[] | null
   teaching_mode: string | null
@@ -223,13 +224,20 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
   // The tutor's areas (PR68), for the owner's own preview. Fail-open to the single
   // area if the table is not there yet (pre-migration).
   let previewAreas: string[] | null = tp.area ? [tp.area as string] : null
+  // PR85: the tutor's cities for the owner preview (main + any area cities).
+  let previewCities: string[] | null = tp.city ? [tp.city as string] : null
   try {
     const { data: areaRows } = await admin
       .from('tutor_areas')
-      .select('area')
+      .select('city, area')
       .eq('tutor_id', userId)
       .order('created_at')
-    if (areaRows && areaRows.length > 0) previewAreas = areaRows.map((r) => r.area as string)
+    if (areaRows && areaRows.length > 0) {
+      previewAreas = areaRows.map((r) => r.area as string)
+      const cs = [((tp.city as string) ?? '').trim(), ...areaRows.map((r) => ((r.city as string) ?? '').trim())]
+      const uniq = [...new Set(cs.filter(Boolean))]
+      if (uniq.length > 0) previewCities = uniq
+    }
   } catch {
     /* table not there yet — single area fallback */
   }
@@ -242,6 +250,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     bio: (tp.bio as string) ?? null,
     avatar_url: (tp.avatar_url as string) ?? null,
     city: (tp.city as string) ?? null,
+    cities: previewCities,
     area: (tp.area as string) ?? null,
     areas: previewAreas,
     teaching_mode: (tp.teaching_mode as string) ?? null,
@@ -854,18 +863,26 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                     )
                   })()}
                 </p>
-                <p className="flex items-center gap-2 text-xs">
+                <p className="flex flex-wrap items-center gap-2 text-xs">
                   <Building2 size={14} className="text-gray-500" />
-                  {tutor.city ? (
-                    <Link
-                      href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}`}
-                      className="font-semibold hover:text-tm-red hover:underline"
-                    >
-                      {tutor.city}
-                    </Link>
-                  ) : (
-                    'Online'
-                  )}
+                  {(() => {
+                    // PR85: up to 2 cities, each linking to its browse filter.
+                    const cityList = (tutor.cities && tutor.cities.length > 0
+                      ? tutor.cities
+                      : tutor.city
+                        ? [tutor.city]
+                        : []
+                    ).slice(0, 2)
+                    if (cityList.length === 0) return 'Online'
+                    return cityList.map((c, i) => (
+                      <span key={c}>
+                        {i > 0 && <span className="text-gray-500">·</span>}{' '}
+                        <Link href={`/browse/tutors?city=${encodeURIComponent(c)}`} className="font-semibold hover:text-tm-red hover:underline">
+                          {c}
+                        </Link>
+                      </span>
+                    ))
+                  })()}
                 </p>
                 <p className="flex items-center gap-2 text-xs">
                   <Briefcase size={14} className="text-gray-500" />

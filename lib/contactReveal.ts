@@ -21,6 +21,8 @@ import { getEntitlements, currentPeriod } from '@/lib/entitlements'
 import { buildGate, type Gate } from '@/lib/gate'
 import { normalisePkMobile } from '@/lib/phone'
 import { loadJobContact } from '@/lib/jobContact'
+import { needsOnboarding } from '@/lib/onboardingGate'
+import { genderApplyBlocked } from '@/lib/genderPref'
 
 export const CONTACT_REVEAL_CAP = 5
 // Premium is counted at 120 a month (owner PR63 §A) — one shared allowance across
@@ -85,7 +87,20 @@ const emptyContact = (over: Partial<RevealContact>): RevealContact => ({
 
 export type RevealResult =
   | { ok: true; contact: RevealContact; remaining: number | null; alreadyRevealed: boolean }
-  | { ok: false; status: number; error: string; gate?: Gate }
+  | { ok: false; status: number; error: string; gate?: Gate; completeProfile?: boolean }
+
+/** PR85 Part C: does this tuition's gender preference exclude this tutor? */
+async function jobGenderBlocks(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  tutorId: string,
+  jobId: string,
+): Promise<boolean> {
+  const { data: job } = await admin.from('jobs').select('gender_preference').eq('id', jobId).maybeSingle()
+  const pref = (job?.gender_preference as string | null) ?? null
+  if (!pref) return false
+  const { data: me } = await admin.from('tutor_profiles').select('gender').eq('id', tutorId).maybeSingle()
+  return genderApplyBlocked(pref, (me?.gender as string | null) ?? null)
+}
 
 export type RevealStatus = {
   /** Whether a "Show phone & email" button should appear at all. */
@@ -95,7 +110,18 @@ export type RevealStatus = {
   remaining: number | null
   alreadyRevealed: boolean
   /** Why not eligible, when eligible is false. */
-  reason?: 'not_tutor' | 'suspended' | 'verify' | 'team' | 'not_parent' | 'no_contact' | 'off'
+  reason?:
+    | 'not_tutor'
+    | 'suspended'
+    | 'verify'
+    | 'team'
+    | 'not_parent'
+    | 'no_contact'
+    | 'off'
+    /** PR85 Part D: onboarding not finished — "Complete your profile first". */
+    | 'complete'
+    /** PR85 Part C: this tuition asks for the other gender. */
+    | 'gender'
   /** A verify gate to show when reason === 'verify'. */
   gate?: Gate
 }
@@ -148,6 +174,10 @@ async function tutorGate(
   }
   if (ent.suspended) {
     return { ok: false, status: { eligible: false, plan: null, remaining: null, alreadyRevealed: false, reason: 'suspended' } }
+  }
+  // PR85 Part D: revealing a parent's contact needs a FINISHED profile too.
+  if (await needsOnboarding(tutorId)) {
+    return { ok: false, status: { eligible: false, plan: null, remaining: null, alreadyRevealed: false, reason: 'complete' } }
   }
   // No fee paid → the verify gate (the platform's way onto contact at all).
   if (!ent.verified) {
@@ -253,6 +283,9 @@ export async function revealParentContact(tutorId: string, parentId: string): Pr
   const gate = await tutorGate(tutorId)
   if (!gate.ok) {
     const s = gate.status
+    if (s.reason === 'complete') {
+      return { ok: false, status: 403, error: 'Complete your profile first to apply.', completeProfile: true }
+    }
     if (s.reason === 'verify') return { ok: false, status: 403, error: 'Verify your account first.', gate: s.gate }
     if (s.reason === 'suspended') return { ok: false, status: 403, error: 'Your account is suspended.' }
     return { ok: false, status: 403, error: 'Only verified tutors can see contact details.' }
@@ -354,6 +387,11 @@ export async function jobContactRevealStatus(tutorId: string, jobId: string): Pr
   const target = await loadJobContactTarget(jobId)
   if (!target.ok) return { eligible: false, plan: gate.plan, remaining: null, alreadyRevealed: false, reason: 'no_contact' }
 
+  // PR85 Part C: a gender-mismatched tuition's contact is not revealed.
+  if (await jobGenderBlocks(admin, tutorId, jobId)) {
+    return { eligible: false, plan: gate.plan, remaining: null, alreadyRevealed: false, reason: 'gender' }
+  }
+
   // Already revealed? Keyed on job_contact_id — the column may be missing before
   // the migration, so Premium/Featured stay eligible and Basic is off.
   let already = false
@@ -401,9 +439,17 @@ export async function revealJobContact(tutorId: string, jobId: string): Promise<
   const gate = await tutorGate(tutorId)
   if (!gate.ok) {
     const s = gate.status
+    if (s.reason === 'complete') {
+      return { ok: false, status: 403, error: 'Complete your profile first to apply.', completeProfile: true }
+    }
     if (s.reason === 'verify') return { ok: false, status: 403, error: 'Verify your account first.', gate: s.gate }
     if (s.reason === 'suspended') return { ok: false, status: 403, error: 'Your account is suspended.' }
     return { ok: false, status: 403, error: 'Only verified tutors can see contact details.' }
+  }
+
+  // PR85 Part C: block a cross-gender reveal (plain message; not a dead end).
+  if (await jobGenderBlocks(admin, tutorId, jobId)) {
+    return { ok: false, status: 403, error: 'This tuition asks for a different tutor gender.' }
   }
 
   const target = await loadJobContactTarget(jobId)

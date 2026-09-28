@@ -27,10 +27,11 @@ import { tutorApplyOffer } from '@/lib/upgradePath'
 import { logActivity } from '@/lib/activityLog'
 import { buildGate, type Gate } from '@/lib/gate'
 import { genderApplyBlocked, genderPrefSentence } from '@/lib/genderPref'
+import { needsOnboarding } from '@/lib/onboardingGate'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 
-type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate }
+type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate; completeProfile?: boolean }
 
 export async function applyToJob(params: {
   tutorId: string
@@ -73,6 +74,19 @@ export async function applyToJob(params: {
       error: 'Your account is suspended, so you cannot apply for jobs. Contact support.',
       upgrade: '/support',
       gate: await buildGate('suspended', ent),
+    }
+  }
+
+  // 0c. FINISHED PROFILE (PR85 Part D). Browsing tuitions is open to everyone;
+  //     applying needs a completed profile (onboarding complete per the flow's
+  //     own rule). A plain refusal with completeProfile:true — the client routes
+  //     to the next onboarding step and returns to this tuition.
+  if (await needsOnboarding(params.tutorId)) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Complete your profile first to apply.',
+      completeProfile: true,
     }
   }
 

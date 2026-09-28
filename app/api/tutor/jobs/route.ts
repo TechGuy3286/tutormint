@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { getEntitlements } from '@/lib/entitlements'
-import { browseJobs, NO_JOB_FILTERS } from '@/lib/jobFeed'
+import { browseJobs, NO_JOB_FILTERS, resolveTutorScope, feedGenderFilter } from '@/lib/jobFeed'
 import { createClient } from '@/lib/supabase/server'
 
 // Load-more for /tutor/dashboard/jobs.
@@ -29,7 +29,10 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Sign in required.' }, { status: 401 })
 
   const cursor = new URL(request.url).searchParams.get('cursor')
-  const { jobs, nextCursor } = await browseJobs(NO_JOB_FILTERS, PAGE_SIZE, 0, cursor)
+  // PR85 Part C: gender-filter the board for the signed-in tutor.
+  const resolved = await resolveTutorScope(supabase, user.id)
+  const viewerGender = feedGenderFilter(resolved?.gender)
+  const { jobs, nextCursor } = await browseJobs({ ...NO_JOB_FILTERS, viewerGender }, PAGE_SIZE, 0, cursor)
 
   // Merged ONTO each item rather than returned alongside them. useInfinite
   // appends `page.items` and reads nothing else off the response, so a

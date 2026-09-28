@@ -18,6 +18,7 @@ import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
 import CnicCapture, { cnicChecklistItems, type CnicCaptureState } from '@/components/identity/CnicCapture'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
+import TutorCitiesEditor, { type CitiesState } from '@/components/tutor/TutorCitiesEditor'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio, L, type OnboardingAnswers } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import type { OnboardingFacets } from '@/lib/openJobCounts'
@@ -609,11 +610,16 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         )}
 
         {stepKey === 'area' && (
-          <AreaMultiStep
-            options={areaOptions(facets, cityMap, facts.city).map((o) => o.name)}
-            initial={areaInit}
+          <CitiesAreasStep
+            initialCity={facts.city}
+            initialAreas={areaInit}
             busy={busy}
-            onNext={(areas) => void tapSave({ areas, profile: { city: facts.city } }, { area: areas[0] ?? null })}
+            onNext={(mainCity, areasByCity) =>
+              void tapSave(
+                { areasByCity, profile: { city: mainCity } },
+                { city: mainCity, area: (areasByCity[mainCity] ?? [])[0] ?? null },
+              )
+            }
           />
         )}
 
@@ -719,7 +725,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         )}
         {stepKey === 'cnic' && <CnicFlowStep onSubmitted={() => void advance()} />}
 
-        {stepKey === 'final' && <FinalScreen facts={facts} onLeave={leave} />}
+        {stepKey === 'final' && <FinalScreen facts={facts} onLeave={leave} next={params.get('next')} />}
       </main>
 
       {/* footer */}
@@ -952,55 +958,37 @@ function FeeRangeStep({
   )
 }
 
-// The area step (PR68 §2): multi-select with the same search + chips, at least one
-// area required. All areas are within the tutor's chosen city (the options are the
-// city's areas). Its own Save & continue advances (the footer Next is disabled for
-// this step).
-function AreaMultiStep({
-  options,
-  initial,
+// The cities + areas step (PR85 §A): up to 2 cities, each with its areas
+// (grouped under the city). Seeded with the main city chosen in the previous
+// step. Its own Save & continue advances (the footer Next is disabled here).
+function CitiesAreasStep({
+  initialCity,
+  initialAreas,
   busy,
   onNext,
 }: {
-  options: string[]
-  initial: string[]
+  initialCity: string | null
+  initialAreas: string[]
   busy: boolean
-  onNext: (areas: string[]) => void
+  onNext: (mainCity: string, areasByCity: Record<string, string[]>) => void
 }) {
-  const [selected, setSelected] = useState<string[]>(initial)
-  const [q, setQ] = useState('')
-  const query = q.trim().toLowerCase()
-  // Keep any already-selected areas visible even if not in the (search-filtered) list.
-  const shown = query ? options.filter((o) => o.toLowerCase().includes(query)).slice(0, 40) : options
-  const toggle = (name: string) =>
-    setSelected((s) => (s.includes(name) ? s.filter((x) => x !== name) : [...s, name]))
+  const [state, setState] = useState<CitiesState | null>(null)
   const items: ChecklistItem[] = [
-    { en: 'Choose at least one area', ur: 'کم از کم ایک علاقہ منتخب کریں', done: selected.length > 0 },
+    { en: 'Add at least one area per city', ur: 'ہر شہر کے لیے کم از کم ایک علاقہ', done: !!state?.valid },
   ]
+  const seedCity = (initialCity ?? '').trim()
   return (
     <div className="space-y-4">
       <FormChecklist items={items} />
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search…"
-        aria-label="Search areas"
-        className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-tm-navy"
+      <TutorCitiesEditor
+        initialCities={seedCity ? [seedCity] : []}
+        initialAreasByCity={seedCity ? { [seedCity]: initialAreas } : {}}
+        onChange={setState}
       />
-      {selected.length > 0 && (
-        <p className="text-center text-[11px] font-bold text-tm-green-deep">
-          {selected.length} selected · {selected.join(', ')}
-        </p>
-      )}
-      <div className="flex flex-wrap justify-center gap-2">
-        {Array.from(new Set([...selected, ...shown])).map((name) => (
-          <Chip key={name} label={name} selected={selected.includes(name)} onClick={() => toggle(name)} />
-        ))}
-      </div>
       <button
         type="button"
-        disabled={busy || selected.length === 0}
-        onClick={() => onNext(selected)}
+        disabled={busy || !state?.valid}
+        onClick={() => state && onNext(state.mainCity, state.areasByCity)}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
       >
         {busy ? '…' : 'Save & continue'}
@@ -1858,9 +1846,12 @@ function ContactStep({
 function FinalScreen({
   facts,
   onLeave,
+  next = null,
 }: {
   facts: FlowFacts
   onLeave: (to: string) => void
+  /** PR85 Part D: where the tutor was before onboarding (a tuition), to return to. */
+  next?: string | null
 }) {
   const listed = isListed(facts)
   const blockers = directoryBlockers(toListingFacts(facts))
@@ -1876,9 +1867,9 @@ function FinalScreen({
           <p className="mx-auto max-w-xs text-xs leading-relaxed text-gray-500">
             Parents can find you in search. A more complete profile ranks you higher.
           </p>
-          <button type="button" onClick={() => onLeave('/browse/tuitions')}
+          <button type="button" onClick={() => onLeave(next || '/browse/tuitions')}
             className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-red px-4 text-sm font-black text-white">
-            See tuitions
+            {next ? 'Back to the tuition' : 'See tuitions'}
           </button>
         </>
       ) : (

@@ -24,9 +24,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
+import { orderCitiesByDistance } from '@/lib/cityDistance'
 import { jobType } from '@/lib/display'
 import { matchVisibility } from '@/lib/matchChip'
-import { genderPrefWord } from '@/lib/genderPref'
+import { genderPrefWord, genderApplyBlocked } from '@/lib/genderPref'
 import { jobDisplayTitle } from '@/lib/jobDisplayTitle'
 import { collapseLevels } from '@/lib/levelDisplay'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
@@ -324,9 +325,14 @@ export async function matchingJobsForTutor(
  * The default view of /browse/tuitions for a signed-in tutor, and the number the
  * dashboard "Tuitions for you" tile and action bar count agree with.
  */
+/** One city with the tutor's chosen areas in it. `areas` empty = the whole city
+ *  (the level-2/3 fallback), area-agnostic. */
+export type CityScope = { city: string; areas: string[] }
+
 export type TutorScope = {
-  city: string
-  areas: string[]
+  // PR85 (Part A/B): up to 2 cities, each with its own areas. One PostgREST
+  // branch per city; unioned with online.
+  cityScopes: CityScope[]
   includeOnline: boolean
   // The tutor's own subject master ids (PR76 §A.3). Within the scope, tuitions in
   // these subjects sort ahead of the rest — so the board leads with the work the
@@ -349,6 +355,11 @@ export type JobFilters = {
   /** The tutor's own city+areas default (PR71). Mutually exclusive with `city`:
    *  the page sets one or the other, never both. */
   tutorScope?: TutorScope | null
+  /** PR85 (Part C): a signed-in tutor's own gender. When set, gender-mismatched
+   *  tuitions (a female-pref job for a male tutor, etc.) are hidden — a job shows
+   *  only when it has no preference or the preference equals this. Guests/parents
+   *  pass null and see every tuition. */
+  viewerGender?: string | null
 }
 
 /**
@@ -356,26 +367,159 @@ export type JobFilters = {
  * (in which case the whole board is shown — owner PR71 §1). Shared by
  * /browse/tuitions, its load-more route and the dashboard so all three agree.
  */
+/** A signed-in tutor's resolved feed inputs: up to 2 cities each with its areas,
+ *  their subjects, whether they teach online, and their gender (PR85). Null when
+ *  the tutor has no main city yet (then the whole board is shown). */
+export type ResolvedTutor = {
+  cities: string[]
+  areasByCity: Record<string, string[]>
+  includeOnline: boolean
+  jobTypes: string[]
+  subjectMasterIds: number[]
+  gender: string | null
+}
+
 export async function resolveTutorScope(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-): Promise<TutorScope | null> {
+): Promise<ResolvedTutor | null> {
   const [{ data: tp }, { data: areaRows }, { data: subRows }] = await Promise.all([
-    supabase.from('tutor_profiles').select('city, job_types').eq('id', userId).maybeSingle(),
-    supabase.from('tutor_areas').select('area').eq('tutor_id', userId),
+    supabase.from('tutor_profiles').select('city, job_types, gender').eq('id', userId).maybeSingle(),
+    supabase.from('tutor_areas').select('city, area').eq('tutor_id', userId),
     supabase.from('tutor_subjects').select('master_id').eq('tutor_id', userId),
   ])
-  const city = ((tp?.city as string | null) ?? '').trim()
-  const areas = [...new Set(((areaRows ?? []).map((r) => ((r.area as string) ?? '').trim()).filter(Boolean)))]
-  if (!city || areas.length === 0) return null
+  const mainCity = ((tp?.city as string | null) ?? '').trim()
+  if (!mainCity) return null
+
+  const areasByCity: Record<string, string[]> = {}
+  for (const r of areaRows ?? []) {
+    const c = ((r.city as string | null) ?? '').trim() || mainCity
+    const a = ((r.area as string | null) ?? '').trim()
+    if (!a) continue
+    ;(areasByCity[c] ??= []).push(a)
+  }
+  for (const k of Object.keys(areasByCity)) areasByCity[k] = [...new Set(areasByCity[k])]
+
+  // Cities: main first, then any others from tutor_areas, deduped (case-insensitive).
+  const cities = [mainCity]
+  for (const c of Object.keys(areasByCity)) {
+    if (!cities.some((x) => x.toLowerCase() === c.toLowerCase())) cities.push(c)
+  }
+
   const jobTypes = (tp?.job_types as string[] | null) ?? []
-  const subjectMasterIds = [...new Set(((subRows ?? []).map((r) => r.master_id as number)))]
-  return { city, areas, includeOnline: jobTypes.includes(ONLINE_JOB_TITLE), subjectMasterIds }
+  return {
+    cities,
+    areasByCity,
+    includeOnline: jobTypes.includes(ONLINE_JOB_TITLE),
+    jobTypes,
+    subjectMasterIds: [...new Set(((subRows ?? []).map((r) => r.master_id as number)))],
+    gender: (tp?.gender as string | null) ?? null,
+  }
 }
 
-/** The exact number of open tuitions in the tutor's scope (PR71 §2). */
-export async function countJobsInScope(scope: TutorScope): Promise<number> {
-  return (await browseJobs({ ...NO_JOB_FILTERS, tutorScope: scope }, 1)).total
+// ---- PR85 (Part B): the tutor tuition feed with a 3-level fallback ----------
+export type FeedLevel = 1 | 2 | 3
+export type FeedMessage = { en: string; ur: string } | null
+
+function level1Scope(r: ResolvedTutor): TutorScope {
+  const cityScopes = r.cities
+    .filter((c) => (r.areasByCity[c] ?? []).length > 0)
+    .map((c) => ({ city: c, areas: r.areasByCity[c] }))
+  return { cityScopes, includeOnline: r.includeOnline, subjectMasterIds: r.subjectMasterIds }
+}
+function cityScopeFor(r: ResolvedTutor, cities: string[]): TutorScope {
+  return {
+    cityScopes: cities.map((c) => ({ city: c, areas: [] })),
+    includeOnline: r.includeOnline,
+    subjectMasterIds: r.subjectMasterIds,
+  }
+}
+function areaFallbackMsg(cityWord: string): FeedMessage {
+  return {
+    en: `No tuitions in your chosen areas right now. Here are tuitions in ${cityWord}.`,
+    ur: `اس وقت آپ کے منتخب علاقوں میں کوئی ٹیوشن نہیں۔ یہ ${cityWord} میں ٹیوشنز ہیں۔`,
+  }
+}
+function cityFallbackMsg(cityWord: string): FeedMessage {
+  return {
+    en: `No tuitions in ${cityWord} right now. Here are tuitions in nearby cities.`,
+    ur: `اس وقت ${cityWord} میں کوئی ٹیوشن نہیں۔ یہ قریبی شہروں کی ٹیوشنز ہیں۔`,
+  }
+}
+
+/** Up to 3 nearest OTHER cities that currently have open tuitions the tutor may
+ *  see (gender-respecting), ordered by distance from the tutor's cities. */
+export async function nearbyCitiesWithTuitions(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  r: ResolvedTutor,
+  viewerGender: string | null,
+): Promise<string[]> {
+  let q = supabase.from('jobs').select('city').eq('status', 'open')
+  if (viewerGender) q = q.or(`gender_preference.is.null,gender_preference.eq.${viewerGender}`)
+  const { data } = await q
+  const cities = [...new Set(((data ?? []).map((j) => ((j.city as string | null) ?? '').trim()).filter(Boolean)))]
+  return orderCitiesByDistance(r.cities, cities).slice(0, 3)
+}
+
+export type TutorFeedResult = {
+  jobs: JobCardData[]
+  total: number
+  nextCursor: string | null
+  level: FeedLevel
+  message: FeedMessage
+  nearby: string[]
+}
+
+/**
+ * The tutor tuition feed (PR85 Part B): level 1 = chosen areas across both
+ * cities; if empty, level 2 = their city/cities; if empty, level 3 = the nearest
+ * cities with tuitions. Gender-filtered throughout (Part C). `forceLevel` skips
+ * the cascade — load-more passes the level the first window resolved so it keeps
+ * paging the same level.
+ */
+export async function tutorFeed(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  r: ResolvedTutor,
+  viewerGender: string | null,
+  opts: { limit?: number; offset?: number; cursor?: string | null; forceLevel?: FeedLevel },
+): Promise<TutorFeedResult> {
+  const limit = opts.limit ?? 12
+  const offset = opts.offset ?? 0
+  const cursor = opts.cursor ?? null
+  const cityWord = r.cities.join(', ')
+  const run = (scope: TutorScope, cur: string | null) =>
+    browseJobs({ ...NO_JOB_FILTERS, tutorScope: scope, viewerGender }, limit, offset, cur)
+
+  if (opts.forceLevel === 1) return { ...(await run(level1Scope(r), cursor)), level: 1, message: null, nearby: [] }
+  if (opts.forceLevel === 2) {
+    return { ...(await run(cityScopeFor(r, r.cities), cursor)), level: 2, message: areaFallbackMsg(cityWord), nearby: [] }
+  }
+  if (opts.forceLevel === 3) {
+    const nearby = await nearbyCitiesWithTuitions(supabase, r, viewerGender)
+    return { ...(await run(cityScopeFor(r, nearby), cursor)), level: 3, message: cityFallbackMsg(cityWord), nearby }
+  }
+
+  // Cascade (cold first window).
+  const l1 = level1Scope(r)
+  if (l1.cityScopes.length > 0) {
+    const res1 = await run(l1, cursor)
+    if (res1.total > 0) return { ...res1, level: 1, message: null, nearby: [] }
+  }
+  const res2 = await run(cityScopeFor(r, r.cities), cursor)
+  if (res2.total > 0) return { ...res2, level: 2, message: areaFallbackMsg(cityWord), nearby: [] }
+  const nearby = await nearbyCitiesWithTuitions(supabase, r, viewerGender)
+  const res3 = await run(cityScopeFor(r, nearby), cursor)
+  return { ...res3, level: 3, message: cityFallbackMsg(cityWord), nearby }
+}
+
+/** The exact number of open tuitions the tutor's feed would show (its first
+ *  non-empty fallback level), for the dashboard "Tuitions for you" count. */
+export async function tutorFeedCount(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  r: ResolvedTutor,
+  viewerGender: string | null,
+): Promise<number> {
+  return (await tutorFeed(supabase, r, viewerGender, { limit: 1 })).total
 }
 
 /**
@@ -393,6 +537,15 @@ export const NO_JOB_FILTERS: JobFilters = {
   budgetMax: null,
   q: null,
   tutorScope: null,
+  viewerGender: null,
+}
+
+/** PR85 (Part C): the gender word to filter a feed by, or null (no filter).
+ *  A tutor gender of 'male'/'female' filters; anything else (null/'other') does
+ *  not — an unset gender is never a mismatch, matching the apply rule. */
+export function feedGenderFilter(tutorGender: string | null | undefined): string | null {
+  const g = (tutorGender ?? '').trim().toLowerCase()
+  return g === 'male' || g === 'female' ? g : null
 }
 
 /**
@@ -461,10 +614,20 @@ export async function browseJobs(
     if (filters.tutorScope) {
       const s = filters.tutorScope
       const qv = (v: string) => `"${v.replace(/"/g, '\\"')}"`
-      const cityBranch = `and(city.ilike.${qv(s.city)},or(area.in.(${s.areas.map(qv).join(',')}),area.is.null))`
-      const parts = [cityBranch]
+      // One branch per city: (city = C AND (area ∈ that city's areas OR area is
+      // null)) when the city has chosen areas, else the whole city (fallback).
+      const parts = s.cityScopes.map((cs) =>
+        cs.areas.length > 0
+          ? `and(city.ilike.${qv(cs.city)},or(area.in.(${cs.areas.map(qv).join(',')}),area.is.null))`
+          : `city.ilike.${qv(cs.city)}`,
+      )
       if (s.includeOnline) parts.push(`teaching_mode.eq.${qv(ONLINE_JOB_TITLE)}`)
-      q = q.or(parts.join(','))
+      if (parts.length > 0) q = q.or(parts.join(','))
+    }
+    // PR85 (Part C): hide gender-mismatched tuitions from a signed-in tutor. A
+    // second .or() is ANDed with the scope group, so this narrows every path.
+    if (filters.viewerGender) {
+      q = q.or(`gender_preference.is.null,gender_preference.eq.${filters.viewerGender}`)
     }
     if (filters.city) q = q.ilike('city', filters.city)
     if (filters.mode) {
@@ -613,6 +776,9 @@ export async function similarOpenTuitions(
   city: string | null,
   masterIds: number[],
   limit = 3,
+  /** PR85 Part C: a signed-in tutor's gender — gender-mismatched tuitions are
+   *  dropped from the "similar" list. Null for guests/parents (show all). */
+  viewerGender: string | null = null,
 ): Promise<JobCardData[]> {
   const supabase = await createClient()
   const collected = new Map<string, Record<string, unknown>>()
@@ -620,7 +786,9 @@ export async function similarOpenTuitions(
   const add = (rows: Record<string, unknown>[] | null | undefined) => {
     for (const r of rows ?? []) {
       const id = r.id as string
-      if (id !== jobId && !collected.has(id) && collected.size < limit) collected.set(id, r)
+      if (id === jobId || collected.has(id) || collected.size >= limit) continue
+      if (viewerGender && genderApplyBlocked((r.gender_preference as string | null) ?? null, viewerGender)) continue
+      collected.set(id, r)
     }
   }
 

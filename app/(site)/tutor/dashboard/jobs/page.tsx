@@ -5,7 +5,7 @@ import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements, isUnlimitedDisplay } from '@/lib/entitlements'
-import { browseJobs, NO_JOB_FILTERS } from '@/lib/jobFeed'
+import { browseJobs, NO_JOB_FILTERS, resolveTutorScope, feedGenderFilter } from '@/lib/jobFeed'
 import JobCard from '@/components/JobCard'
 import MoreOpenJobs from './MoreOpenJobs'
 import MyApplications, { type MyApplication } from './MyApplications'
@@ -30,16 +30,18 @@ export default async function TutorJobsPage() {
   // a 50-row cap in one go -- 18,672px on production, and silently nothing at
   // all beyond the 51st. The rest arrives through /api/tutor/jobs on the same
   // keyset cursor the browse pages use.
+  // PR85: the tutor's cities (up to 2), Job Types and gender — the board is
+  // gender-filtered (Part C) and the online chip uses both cities.
+  const resolved = await resolveTutorScope(supabase, userId)
+  const viewerGender = feedGenderFilter(resolved?.gender)
+  const viewerCities = resolved?.cities ?? null
+  const viewerCity = resolved?.cities[0] ?? null
+  const viewerJobTypes = resolved?.jobTypes ?? null
+
   const [{ jobs, total, nextCursor }, ent] = await Promise.all([
-    browseJobs(NO_JOB_FILTERS, PAGE_SIZE, 0, null),
+    browseJobs({ ...NO_JOB_FILTERS, viewerGender }, PAGE_SIZE, 0, null),
     getEntitlements(userId),
   ])
-
-  // The tutor's own city, only to decide the "Suitable for online" chip on a
-  // cross-city online tuition.
-  const { data: tp } = await supabase.from('tutor_profiles').select('city, job_types').eq('id', userId).maybeSingle()
-  const viewerCity = (tp?.city as string | null) ?? null
-  const viewerJobTypes = (tp?.job_types as string[] | null) ?? null
 
   const { data: mine } = await supabase
     .from('applications')
@@ -125,6 +127,7 @@ export default async function TutorJobsPage() {
                       showApply
                       applied={appliedIds.has(job.id)}
                       viewerCity={viewerCity}
+                      viewerCities={viewerCities}
                       viewerJobTypes={viewerJobTypes}
                       saveable
                       initiallySaved={savedIds.has(job.id)}
@@ -138,6 +141,7 @@ export default async function TutorJobsPage() {
                 total={total}
                 serverCount={jobs.length}
                 viewerCity={viewerCity}
+                viewerCities={viewerCities}
                 viewerJobTypes={viewerJobTypes}
               />
             </>

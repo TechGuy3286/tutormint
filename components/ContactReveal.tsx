@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Phone, Mail, MessageCircle, MapPin, Globe, Loader2, Eye } from 'lucide-react'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { submitSignal } from '@/lib/submit'
+import { goCompleteProfile } from '@/lib/gatedFetch'
 import { formatPkMobile } from '@/lib/phone'
 import type { Gate } from '@/lib/gate'
 
@@ -81,6 +82,8 @@ export default function ContactReveal({
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
+        // PR85 Part D: an unfinished tutor → onboarding, then back here.
+        if (json.completeProfile) return goCompleteProfile()
         if (json.gate && upgradeSheet?.showGate) upgradeSheet.showGate(json.gate)
         else setError(json.error ?? 'Could not show contact details.')
         return
@@ -96,7 +99,10 @@ export default function ContactReveal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parentId, jobId, upgradeSheet])
 
-  if (!status || (!status.eligible && status.reason !== 'verify')) return null
+  // Hidden entirely for a gender-mismatched tuition (Part C). Shown for 'verify'
+  // (→ upgrade sheet) and 'complete' (→ onboarding on click, Part D).
+  if (status?.reason === 'gender') return null
+  if (!status || (!status.eligible && status.reason !== 'verify' && status.reason !== 'complete')) return null
 
   // Basic and Premium both show a monthly counter ("N of 5 / 120 left"); Featured
   // is unlimited and shows none.

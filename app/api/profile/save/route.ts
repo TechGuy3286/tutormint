@@ -26,6 +26,8 @@ type Body = {
   subjectMasterIds?: number[]
   /** PR68: a tutor's areas (all in their city), replacing the tutor_areas set. */
   areas?: string[]
+  /** PR85: up to 2 cities, each with its areas — supersedes `areas`. */
+  areasByCity?: Record<string, string[]>
 }
 
 // Only these columns may be written from the client, per table.
@@ -51,8 +53,11 @@ const ProfileBody = z.object({
   profile: z.record(z.string(), z.unknown()).optional(),
   tutorProfile: z.record(z.string(), z.unknown()).optional(),
   subjectMasterIds: z.array(z.number().int().positive()).max(60).optional(),
-  /** PR68: a tutor's areas (all in their city). Replaces the tutor_areas set. */
+  /** PR68: a tutor's areas (all in their MAIN city). Replaces the tutor_areas set. */
   areas: z.array(z.string().max(120)).max(40).optional(),
+  /** PR85 (Part A): up to 2 cities, each with its own areas. When present it
+   *  supersedes `areas`, and the FIRST key must be the main city (profile.city). */
+  areasByCity: z.record(z.string().max(120), z.array(z.string().max(120)).max(40)).optional(),
   step: z.string().max(64).optional(),
 })
 
@@ -147,9 +152,12 @@ export async function POST(request: Request) {
         const { data } = await supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id)
         histOld.subjects = (data ?? []).map((r) => r.master_id as number).sort((a, b) => a - b).join(',')
       }
-      if (Array.isArray(body.areas)) {
-        const { data } = await supabase.from('tutor_areas').select('area').eq('tutor_id', user.id)
-        histOld.areas = (data ?? []).map((r) => r.area as string).sort().join(', ')
+      if (Array.isArray(body.areas) || body.areasByCity) {
+        const { data } = await supabase.from('tutor_areas').select('city, area').eq('tutor_id', user.id)
+        histOld.areas = (data ?? [])
+          .map((r) => (body.areasByCity ? `${(r.city as string) ?? ''}: ${r.area as string}` : (r.area as string)))
+          .sort()
+          .join(', ')
       }
     } catch {
       /* best-effort */
@@ -169,6 +177,30 @@ export async function POST(request: Request) {
         ),
       )
       tutorPatch.area = areasList[0] ?? null
+    }
+
+    // PR85 (Part A): up to 2 cities, each with its areas — supersedes `areas`.
+    let cityAreaRows: { city: string; area: string }[] | null = null
+    if (body.areasByCity && typeof body.areasByCity === 'object') {
+      cityAreaRows = []
+      const seen = new Set<string>()
+      const entries = Object.entries(body.areasByCity).slice(0, 2) // at most 2 cities
+      for (const [rawCity, rawAreas] of entries) {
+        const c = (rawCity ?? '').trim()
+        if (!c || !Array.isArray(rawAreas)) continue
+        for (const a of rawAreas) {
+          const area = (typeof a === 'string' ? a : '').trim()
+          if (!area) continue
+          const key = `${c.toLowerCase()}|${area.toLowerCase()}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          cityAreaRows.push({ city: c, area })
+        }
+      }
+      // tutor_profiles.area follows the MAIN city's first area (main = profile.city).
+      const mainCity = ((typeof cityWrite === 'string' ? cityWrite : '') || entries[0]?.[0] || '').trim().toLowerCase()
+      const mainFirst = cityAreaRows.find((r) => r.city.toLowerCase() === mainCity)?.area
+      tutorPatch.area = (mainFirst ?? cityAreaRows[0]?.area) ?? null
     }
 
     // Fee range (PR67): whole rupees, non-negative, min ≤ max. A friendly error,
@@ -221,7 +253,21 @@ export async function POST(request: Request) {
     // Replace the tutor_areas set (PR68). The city for each area is the one being
     // saved, or the tutor's current city. Fail-open: a missing table (pre-migration,
     // 42P01) is ignored — tutor_profiles.area (set above) is the fallback.
-    if (areasList) {
+    if (cityAreaRows) {
+      // PR85: the full per-city set replaces tutor_areas verbatim.
+      const del = await supabase.from('tutor_areas').delete().eq('tutor_id', user.id)
+      if (del.error && del.error.code !== '42P01') {
+        return serverError(del.error, 'profile.save:tutor_areas.delete')
+      }
+      if (!del.error && cityAreaRows.length > 0) {
+        const { error } = await supabase
+          .from('tutor_areas')
+          .insert(cityAreaRows.map((r) => ({ tutor_id: user.id, city: r.city, area: r.area })))
+        if (error && error.code !== '42P01') {
+          return serverError(error, 'profile.save:tutor_areas.insert')
+        }
+      }
+    } else if (areasList) {
       let areaCity: string | null | undefined = cityWrite
       if (areaCity === undefined) {
         const { data: cur } = await supabase.from('tutor_profiles').select('city').eq('id', user.id).maybeSingle()
@@ -266,7 +312,11 @@ export async function POST(request: Request) {
       const newIds = body.subjectMasterIds.filter((n) => Number.isInteger(n)).slice().sort((a, b) => a - b).join(',')
       hist.push({ ...base, field: 'subjects', oldValue: histOld.subjects ?? '', newValue: newIds })
     }
-    if (areasList) hist.push({ ...base, field: 'areas', oldValue: histOld.areas ?? '', newValue: areasList.slice().sort().join(', ') })
+    if (cityAreaRows) {
+      hist.push({ ...base, field: 'areas', oldValue: histOld.areas ?? '', newValue: cityAreaRows.map((r) => `${r.city}: ${r.area}`).sort().join(', ') })
+    } else if (areasList) {
+      hist.push({ ...base, field: 'areas', oldValue: histOld.areas ?? '', newValue: areasList.slice().sort().join(', ') })
+    }
     await recordFieldChanges(hist)
   }
 

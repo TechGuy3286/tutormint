@@ -238,12 +238,15 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
   // A non-open tuition is never a dead end (§3): offer similar OPEN tuitions,
   // same city first then same subject, plus the browse links already below.
+  // PR85 Part C: a signed-in tutor's "similar" list is gender-filtered.
+  const similarGender = isTutor ? tutorGender : null
   const similar = !state.isOpen
     ? await similarOpenTuitions(
         job.id,
         job.city,
         (job.subject_links ?? []).map((l) => l.masterId),
         3,
+        similarGender,
       )
     : []
 
@@ -272,6 +275,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
       job.city,
       (job.subject_links ?? []).map((l) => l.masterId),
       3,
+      similarGender,
     )
   }
 

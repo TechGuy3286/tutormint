@@ -63,7 +63,10 @@ export async function POST(request: Request) {
     ? await revealJobContact(user.id, parsed.data.jobId)
     : await revealParentContact(user.id, parsed.data.parentId!)
   if (!result.ok) {
-    return NextResponse.json({ error: result.error, gate: result.gate }, { status: result.status })
+    return NextResponse.json(
+      { error: result.error, gate: result.gate, completeProfile: result.completeProfile },
+      { status: result.status },
+    )
   }
   return NextResponse.json({
     contact: result.contact,

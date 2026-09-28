@@ -13,7 +13,7 @@ import { genderPrefSentence } from '@/lib/genderPref'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import BadgeRow from '@/components/badges/BadgeRow'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
-import { showsOnlineChip } from '@/lib/matchChip'
+import { showsOnlineChipCities } from '@/lib/matchChip'
 import { jobType } from '@/lib/display'
 import JobTypeChip from '@/components/JobTypeChip'
 import FeaturedTag from '@/components/badges/FeaturedTag'
@@ -106,6 +106,7 @@ export default function JobCard({
   showApply = false,
   applied = false,
   viewerCity = null,
+  viewerCities = null,
   viewerJobTypes = null,
   saveable = false,
   initiallySaved = false,
@@ -124,6 +125,9 @@ export default function JobCard({
    * Null for guests and parents — no chip, the board still shows every job.
    */
   viewerCity?: string | null
+  /** The viewing tutor's own cities (PR85 — up to 2). Preferred over viewerCity
+   *  for the chip; falls back to [viewerCity] when not given. */
+  viewerCities?: readonly string[] | null
   /** The viewing tutor's own Job Types — used with viewerCity to decide the
    *  "Suitable for online" chip. Null for guests and parents. */
   viewerJobTypes?: readonly string[] | null
@@ -348,7 +352,7 @@ export default function JobCard({
             {jobType(job.teaching_mode) && (
               <p className="flex flex-wrap items-center gap-2 text-xs text-slate-700">
                 <JobTypeChip mode={job.teaching_mode} />
-                {showsOnlineChip(job.teaching_mode, job.city, viewerJobTypes, viewerCity) && (
+                {showsOnlineChipCities(job.teaching_mode, job.city, viewerJobTypes, viewerCities ?? (viewerCity ? [viewerCity] : [])) && (
                   <OnlineSuitableChip />
                 )}
               </p>

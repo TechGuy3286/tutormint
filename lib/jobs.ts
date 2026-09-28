@@ -28,7 +28,7 @@ import { logActivity } from '@/lib/activityLog'
 import { logAdminAction } from '@/lib/auditLog'
 import { notify, notifyMany } from '@/lib/notifications'
 import { tuitionPath } from '@/lib/slugs'
-import { normaliseGenderPref } from '@/lib/genderPref'
+import { normaliseGenderPref, genderApplyBlocked } from '@/lib/genderPref'
 import { deliverEmail } from '@/lib/notify'
 import { normalizeSlots, type DaySlot } from '@/lib/timeSlots'
 
@@ -1061,7 +1061,13 @@ export async function subjectLabels(masterIds: number[]): Promise<string[]> {
 async function notifyMatchingTutors(
   jobId: string,
   publicSlug: string | null,
-  input: { masterIds: number[]; city: string | null; area?: string | null; teachingMode?: string | null },
+  input: {
+    masterIds: number[]
+    city: string | null
+    area?: string | null
+    teachingMode?: string | null
+    genderPreference?: string | null
+  },
 ): Promise<void> {
   try {
     const admin = createAdminClient()
@@ -1090,10 +1096,17 @@ async function notifyMatchingTutors(
     // a bounded set) with their job_types + city, then bucket by matchVisibility.
     const { data: candidates } = await admin
       .from('tutor_directory')
-      .select('id, city, job_types')
+      .select('id, city, job_types, gender')
       .in('id', tutorIds)
       .limit(200)
-    const cands = (candidates ?? []) as { id: string; city: string | null; job_types: string[] | null }[]
+    let cands = (candidates ?? []) as { id: string; city: string | null; job_types: string[] | null; gender: string | null }[]
+
+    // PR85 Part C: never notify (or later email) a tutor about a tuition whose
+    // gender preference they do not match. An unset tutor gender is not a
+    // mismatch (same rule as apply).
+    if (input.genderPreference) {
+      cands = cands.filter((c) => !genderApplyBlocked(input.genderPreference as string, c.gender))
+    }
 
     // Same city (or unknown city) AND the tutor offers this title or offers none.
     const sameCityIds = new Set(
