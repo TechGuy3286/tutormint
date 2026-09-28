@@ -85,6 +85,22 @@ export function relativeTime(value: When): string {
   return formatDate(d)
 }
 
+/**
+ * "Applied 18 Sept", or "Applied today, 3:40 PM" when it was today, with an Urdu
+ * rendering underneath (PR78 §A.2). Karachi time; server-rendered, so the "today"
+ * test is stable for the request.
+ */
+export function appliedLabel(value: When): { en: string; ur: string } {
+  const d = toDate(value)
+  if (!d) return { en: '', ur: '' }
+  if (pkDayKey(new Date()) === pkDayKey(d)) {
+    const t = d.toLocaleTimeString('en-PK', { hour: 'numeric', minute: '2-digit', timeZone: PK_TIMEZONE })
+    return { en: `Applied today, ${t}`, ur: `آج درخواست دی، ${t}` }
+  }
+  const short = d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', timeZone: PK_TIMEZONE })
+  return { en: `Applied ${short}`, ur: `${short} کو درخواست دی` }
+}
+
 /** "2:05 pm", in Karachi time. */
 export function formatTime(value: When): string {
   const d = toDate(value)

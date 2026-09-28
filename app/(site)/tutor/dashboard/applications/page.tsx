@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { appliedLabel } from '@/lib/datetime'
 
 // The tutor's own applications.
 //
@@ -41,7 +42,7 @@ export default async function TutorApplicationsPage() {
   // the browse view that makes open jobs public.
   const jobs = new Map<
     string,
-    { title: string; city: string | null; ref: string; slug: string | null; status: string }
+    { title: string; city: string | null; area: string | null; ref: string; slug: string | null; status: string }
   >()
   const ids = Array.from(new Set((apps ?? []).map((a) => a.job_id as string)))
   if (ids.length > 0) {
@@ -49,12 +50,15 @@ export default async function TutorApplicationsPage() {
     if (admin) {
       const { data: rows } = await admin
         .from('jobs')
-        .select('id, job_tx_id, public_slug, title, city, status')
+        .select('id, job_tx_id, public_slug, title, city, area, status')
         .in('id', ids)
       for (const j of rows ?? []) {
         jobs.set(j.id as string, {
           title: (j.title as string) ?? 'Tuition',
+          // The location under a row comes from the TUITION itself (jobs.city /
+          // jobs.area), never the tutor (PR78 §A.3).
           city: (j.city as string) ?? null,
+          area: (j.area as string | null) ?? null,
           ref: ((j.job_tx_id as string) ?? (j.id as string)) as string,
           slug: (j.public_slug as string | null) ?? null,
           status: (j.status as string) ?? 'open',
@@ -121,7 +125,19 @@ export default async function TutorApplicationsPage() {
                       <span className="block truncate text-xs font-black text-tm-navy">
                         {job?.title ?? 'Tuition'}
                       </span>
-                      <span className="block text-[11px] text-gray-500">{job?.city ?? '—'}</span>
+                      <span className="block text-[11px] text-gray-500">
+                        {[job?.area, job?.city].filter(Boolean).join(', ') || '—'}
+                      </span>
+                      {/* When the tutor applied — English with Urdu underneath (§A.2). */}
+                      {(() => {
+                        const al = appliedLabel(a.created_at as string)
+                        return al.en ? (
+                          <>
+                            <span className="block text-[11px] font-semibold text-tm-navy">{al.en}</span>
+                            <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">{al.ur}</span>
+                          </>
+                        ) : null
+                      })()}
                     </span>
                     <span
                       className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${st.className}`}

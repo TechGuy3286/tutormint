@@ -17,11 +17,27 @@ import {
 // them: the step headers with counts, the per-card status card (green / red /
 // waiting / rejected) with English + Urdu, and the tinted tile used in tile mode.
 
-// Every Urdu line is a full-width, right-aligned block (owner PR63 §C3) — flush
-// to the card's right edge, never squeezed beside an English element.
-export function Urdu({ children, className = '' }: { children: ReactNode; className?: string }) {
+// Every Urdu line is a full-width block (owner PR63 §C3). It is right-aligned by
+// default — flush to a card's right edge, never squeezed beside an English
+// element — but CENTRED inside a tile (PR78 §A.1), where the English name above
+// it is centred and a right-aligned Urdu line looked misaligned. dir="rtl" holds
+// either way.
+export function Urdu({
+  children,
+  className = '',
+  center = false,
+}: {
+  children: ReactNode
+  className?: string
+  center?: boolean
+}) {
   return (
-    <span lang="ur" dir="rtl" className={`block w-full text-right ${className}`} style={{ fontFamily: URDU_FONT }}>
+    <span
+      lang="ur"
+      dir="rtl"
+      className={`block w-full ${center ? 'text-center' : 'text-right'} ${className}`}
+      style={{ fontFamily: URDU_FONT }}
+    >
       {children}
     </span>
   )
@@ -230,7 +246,7 @@ export function SettingsTile({
     >
       <span className={`${TILE_CHIP} ${tone.chip}`}>{icon}</span>
       <span className={`line-clamp-2 text-xs font-semibold leading-snug ${tone.ink}`}>{en}</span>
-      <Urdu className={`text-[11px] font-bold ${tone.ink}`}>{ur}</Urdu>
+      <Urdu center className={`text-[11px] font-bold ${tone.ink}`}>{ur}</Urdu>
       <span className={`inline-flex items-center gap-1 text-[10px] font-black ${tone.ink}`}>
         {locked && <Lock aria-hidden size={11} />}
         {locked ? 'Locked' : badge?.en}
