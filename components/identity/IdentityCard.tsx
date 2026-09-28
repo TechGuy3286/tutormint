@@ -1,15 +1,14 @@
 'use client'
 
-import { AlertCircle, BadgeCheck, Clock, IdCard, PencilLine, Send, Upload } from 'lucide-react'
+import { AlertCircle, BadgeCheck, Clock, IdCard, Send, Upload } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import CnicCameraField from '@/components/tutor/CnicCameraField'
+import CnicCapture, { cnicChecklistItems, type CnicCaptureState } from '@/components/identity/CnicCapture'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
-import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
-import type { ChecklistItem } from '@/lib/formChecklist'
+import { ChecklistStatus } from '@/components/forms/FormChecklist'
 import { useToast } from '@/components/ui/Toast'
-import { CNIC_FORMAT_HINT, formatCnic, isValidCnic, maskCnic } from '@/lib/cnic'
+import { CNIC_FORMAT_HINT, maskCnic } from '@/lib/cnic'
 import { formatDate } from '@/lib/datetime'
 import type { Identity } from '@/lib/identity'
 import { submitJson } from '@/lib/submit'
@@ -62,7 +61,9 @@ export default function IdentityCard({ identity, role }: Props) {
   const router = useRouter()
   const toast = useToast()
 
-  const [number, setNumber] = useState(identity.cnicNumber ?? '')
+  // The shared CnicCapture (PR81) owns the number + photos + checklist and reports
+  // its state here; IdentityCard keeps the masking, status, previews and submit.
+  const [cap, setCap] = useState<CnicCaptureState | null>(null)
   const [front, setFront] = useState(identity.front)
   const [back, setBack] = useState(identity.back)
   const [state, setState] = useState(identity.state)
@@ -74,47 +75,12 @@ export default function IdentityCard({ identity, role }: Props) {
   const [editing, setEditing] = useState(false)
 
   const masked = maskCnic(identity.cnicNumber)
-  const numberSaved = isValidCnic(identity.cnicNumber)
   const showForm = editing || state === 'none' || state === 'rejected'
-
-  async function saveNumber() {
-    setBusy(true)
-    setError('')
-    setNotice('')
-    const { ok, error: failed } = await submitJson('/api/identity', {
-      action: 'save-number',
-      cnicNumber: number,
-    })
-    setBusy(false)
-    if (!ok) {
-      setError(failed ?? CNIC_FORMAT_HINT)
-      toast.error(failed ?? CNIC_FORMAT_HINT)
-      return false
-    }
-    setNotice('CNIC number saved.')
-    toast.success('CNIC number saved.')
-    router.refresh()
-    return true
-  }
 
   // A stored identity document is REPLACED, never removed — the file is
   // retained privately either way, and "delete then re-upload before you can
   // submit" is a worse flow than replacing in place. So there is no remove
   // path here (and none in /api/identity): Replace is the only action.
-
-  // The number gates the images, and it is enforced here as well as in the
-  // submit route: uploading a national identity document is not something to let
-  // somebody do and then tell them it did not count. Returns false to abort the
-  // capture (CnicCameraField's beforeUpload contract).
-  async function ensureNumber(): Promise<boolean> {
-    setError('')
-    if (!isValidCnic(number)) {
-      setError('Add your CNIC number first — it has to match the card in the photo.')
-      return false
-    }
-    if (!numberSaved && !(await saveNumber())) return false
-    return true
-  }
 
   function onUploaded(side: 'front' | 'back', documentId: string) {
     const doc = { id: documentId, side, uploadedAt: new Date().toISOString() }
@@ -127,9 +93,18 @@ export default function IdentityCard({ identity, role }: Props) {
   }
 
   async function submit() {
-    if (!numberSaved && !(await saveNumber())) return
+    if (!cap?.ready) return
     setBusy(true)
     setError('')
+    // Save the current number (idempotent — CnicCapture saved it on upload), then
+    // submit. Same /api/identity endpoints as before.
+    const saveRes = await submitJson('/api/identity', { action: 'save-number', cnicNumber: cap.number })
+    if (!saveRes.ok) {
+      setBusy(false)
+      setError(saveRes.error ?? CNIC_FORMAT_HINT)
+      toast.error(saveRes.error ?? CNIC_FORMAT_HINT)
+      return
+    }
     const { ok, error: failed } = await submitJson('/api/identity', { action: 'submit' })
     setBusy(false)
     if (!ok) {
@@ -161,13 +136,7 @@ export default function IdentityCard({ identity, role }: Props) {
     router.refresh()
   }
 
-  const canSubmit = isValidCnic(number) && !!front && !!back && !busy
-  // Self-explaining checklist (PR80) — mirrors canSubmit exactly.
-  const cnicItems: ChecklistItem[] = [
-    { en: 'Type your CNIC number', ur: 'اپنا شناختی کارڈ نمبر لکھیں', done: isValidCnic(number) },
-    { en: 'Add a photo of the front', ur: 'سامنے کے رخ کی تصویر لگائیں', done: !!front },
-    { en: 'Add a photo of the back', ur: 'پچھلے رخ کی تصویر لگائیں', done: !!back },
-  ]
+  const canSubmit = !!cap?.ready && !busy
 
   return (
     <section
@@ -220,68 +189,20 @@ export default function IdentityCard({ identity, role }: Props) {
         <div className="space-y-3">
           <p className="text-[11px] leading-relaxed text-gray-500">{CONSEQUENCE[role]}</p>
 
-          <div className="space-y-1">
-            <label htmlFor="cnic-number" className="text-[11px] font-bold text-tm-navy">
-              CNIC number
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="cnic-number"
-                value={number}
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="42101-1234567-1"
-                // Normalised as it is typed, so the dashes appear whether or
-                // not the member puts them in and the stored form is the same
-                // either way.
-                onChange={(e) => setNumber(formatCnic(e.target.value))}
-                className="min-h-[44px] flex-1 rounded-xl border border-gray-200 bg-white px-3 font-mono text-xs outline-none focus:border-tm-navy"
-              />
-              <button
-                type="button"
-                onClick={() => void saveNumber()}
-                disabled={busy || !isValidCnic(number)}
-                className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-[11px] font-bold text-tm-navy transition-colors hover:border-tm-navy disabled:opacity-50"
-              >
-                <PencilLine aria-hidden size={13} />
-                Save
-              </button>
-            </div>
-            <p className="text-[11px] text-gray-500">{CNIC_FORMAT_HINT}</p>
-          </div>
+          {/* The ONE shared CNIC entry (PR81) — number with auto-dashes, front/
+              back tiles and the checklist, identical everywhere. IdentityCard keeps
+              its masking, status, uploaded-document previews and submit endpoint. */}
+          <CnicCapture
+            initialNumber={identity.cnicNumber ?? ''}
+            initialFront={!!front}
+            initialBack={!!back}
+            frontStoredPreview={front ? <SecureDocumentPreview documentId={front.id} alt="Front CNIC" /> : undefined}
+            backStoredPreview={back ? <SecureDocumentPreview documentId={back.id} alt="Back CNIC" /> : undefined}
+            onUploaded={(side, id) => onUploaded(side, id)}
+            onState={setCap}
+          />
 
-          {/* The SHARED CNIC capture (PR 3b §2.1) — same camera-first control as
-              the apply-gate modal: tap opens the camera, the tile fills with the
-              photo, tap to retake, compressed under 1 MB. */}
-          <div className="flex gap-3">
-            <CnicCameraField
-              side="front"
-              label="Front CNIC"
-              disabled={!isValidCnic(number)}
-              beforeUpload={ensureNumber}
-              onUploaded={(id) => onUploaded('front', id)}
-              onError={(m) => setError(m)}
-              storedPreview={
-                front ? <SecureDocumentPreview documentId={front.id} alt="Front CNIC" /> : undefined
-              }
-            />
-            <CnicCameraField
-              side="back"
-              label="Back CNIC"
-              disabled={!isValidCnic(number)}
-              beforeUpload={ensureNumber}
-              onUploaded={(id) => onUploaded('back', id)}
-              onError={(m) => setError(m)}
-              storedPreview={
-                back ? <SecureDocumentPreview documentId={back.id} alt="Back CNIC" /> : undefined
-              }
-            />
-          </div>
-          <p className="text-[11px] leading-relaxed text-gray-500">
-            Take a clear photo of each side — all four corners in frame and the text readable.
-          </p>
-
-          <FormChecklist items={cnicItems} />
+          {error && <p role="alert" className="text-[11px] font-bold text-tm-red">{error}</p>}
 
           <button
             type="button"
@@ -292,7 +213,7 @@ export default function IdentityCard({ identity, role }: Props) {
             <Send aria-hidden size={14} />
             Send for checking
           </button>
-          {!busy && <ChecklistStatus items={cnicItems} />}
+          {!busy && cap && <ChecklistStatus items={cnicChecklistItems(cap)} />}
         </div>
       ) : (
         <div className="space-y-3">

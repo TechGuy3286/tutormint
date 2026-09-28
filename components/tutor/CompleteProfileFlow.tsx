@@ -8,7 +8,6 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { compressImage, compressUnder1MB } from '@/lib/imageCompress'
-import { isValidCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
@@ -16,11 +15,11 @@ import { isSyntheticEmail } from '@/lib/phone'
 import EmailCard from '@/components/account/EmailCard'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
+import CnicCapture, { cnicChecklistItems, type CnicCaptureState } from '@/components/identity/CnicCapture'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio, L, type OnboardingAnswers } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import type { OnboardingFacets } from '@/lib/openJobCounts'
 import { fetchTaxonomyTree, resolveMasterIds, fetchNonLegacyMasters, type TaxonomyNode } from '@/lib/taxonomy'
-import CnicCameraField from '@/components/tutor/CnicCameraField'
 import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
 import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
@@ -1436,55 +1435,50 @@ function DegreeStep({ onSaved }: { onSaved: () => void }) {
 // "Identity documents" heading and three separate buttons mid-flow.
 function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
   const toast = useToast()
-  const [cnic, setCnic] = useState('')
-  const [front, setFront] = useState(false)
-  const [back, setBack] = useState(false)
   const [busy, setBusy] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [approved, setApproved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Prefill from any earlier attempt so a returning tutor is not asked twice, then
+  // the shared CnicCapture owns the number/photos/checklist.
+  const [prefill, setPrefill] = useState<{ number: string; front: boolean; back: boolean } | null>(null)
+  const [cap, setCap] = useState<CnicCaptureState | null>(null)
 
-  // Prefill from any earlier attempt so a returning tutor is not asked twice.
   useEffect(() => {
     let live = true
     fetch('/api/identity', { headers: { accept: 'application/json' } })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (!live || !j?.identity) return
-        setCnic((j.identity.cnicNumber as string) ?? '')
-        setFront(j.identity.front != null)
-        setBack(j.identity.back != null)
-        // ONE CNIC status (PR66 §4): approved only with the number AND both images;
-        // otherwise it is still being checked. A truly approved card reads "verified",
-        // not "being checked".
-        const hasDocs = !!((j.identity.cnicNumber as string) ?? '').trim() && j.identity.front != null && j.identity.back != null
-        if (j.identity.state === 'approved' && hasDocs) setApproved(true)
-        else if (j.identity.state === 'submitted' || j.identity.state === 'approved') setSubmitted(true)
+        if (!live) return
+        const id = j?.identity
+        const number = (id?.cnicNumber as string) ?? ''
+        const front = id?.front != null
+        const back = id?.back != null
+        setPrefill({ number, front, back })
+        if (id) {
+          // ONE CNIC status (PR66 §4): approved only with the number AND both
+          // images; otherwise it is still being checked.
+          const hasDocs = !!number.trim() && front && back
+          if (id.state === 'approved' && hasDocs) setApproved(true)
+          else if (id.state === 'submitted' || id.state === 'approved') setSubmitted(true)
+        }
       })
-      .catch(() => {})
+      .catch(() => setPrefill({ number: '', front: false, back: false }))
     return () => { live = false }
   }, [])
 
-  // The number must exist before a side is uploaded, so submit (which requires
-  // it) always succeeds afterwards. Saved on the first photo, in one place.
-  const ensureNumber = useCallback(async (): Promise<boolean> => {
-    if (!isValidCnic(cnic)) { setError(CNIC_FORMAT_HINT); return false }
-    const r = await fetch('/api/identity', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save-number', cnicNumber: cnic }),
-    })
-    if (!r.ok) { setError((await r.json().catch(() => ({}))).error ?? 'Could not save your CNIC number.'); return false }
-    setError(null)
-    return true
-  }, [cnic])
-
   async function saveAndContinue() {
+    if (!cap?.ready) return
     setError(null)
-    if (!isValidCnic(cnic)) { setError(CNIC_FORMAT_HINT); return }
-    if (!front || !back) { setError('Take a photo of both the front and the back of your card.'); return }
     setBusy(true)
     try {
-      if (!(await ensureNumber())) return
+      // Re-save the current number (idempotent — CnicCapture already saved it on
+      // upload), then submit for checking. Same /api/identity endpoints as before.
+      const num = await fetch('/api/identity', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save-number', cnicNumber: cap.number }),
+      })
+      if (!num.ok) { setError((await num.json().catch(() => ({}))).error ?? 'Could not save your CNIC number.'); return }
       const res = await fetch('/api/identity', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'submit' }),
@@ -1542,48 +1536,27 @@ function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
     )
   }
 
-  // Self-explaining checklist (PR80). Mirrors saveAndContinue's server-aligned
-  // rule exactly: a valid CNIC number + a photo of each side.
-  const items: ChecklistItem[] = [
-    { en: 'Type your CNIC number', ur: 'اپنا شناختی کارڈ نمبر لکھیں', done: isValidCnic(cnic) },
-    { en: 'Add a photo of the front', ur: 'سامنے کے رخ کی تصویر لگائیں', done: front },
-    { en: 'Add a photo of the back', ur: 'پچھلے رخ کی تصویر لگائیں', done: back },
-  ]
-  const ready = checklistReady(items)
-
   return (
     <div className="space-y-4">
-      <FormChecklist items={items} />
-      <input
-        value={cnic} inputMode="numeric" onChange={(e) => setCnic(e.target.value)}
-        placeholder="CNIC number, e.g. 35201-1234567-1" aria-label="CNIC number"
-        className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy"
-      />
-      <div className="flex gap-3">
-        <CnicCameraField
-          side="front" label="Front" urdu="سامنے کا رخ"
-          beforeUpload={ensureNumber}
-          onUploaded={() => setFront(true)}
-          onError={(m) => setError(m || null)}
+      {/* The ONE shared CNIC entry (PR81): number + auto-dashes + front/back tiles
+          + the numbered checklist. This step keeps its own submit (save-number +
+          /api/identity submit) and its being-checked/verified states. */}
+      {prefill && (
+        <CnicCapture
+          initialNumber={prefill.number}
+          initialFront={prefill.front}
+          initialBack={prefill.back}
+          onState={setCap}
         />
-        <CnicCameraField
-          side="back" label="Back" urdu="پچھلا رخ"
-          beforeUpload={ensureNumber}
-          onUploaded={() => setBack(true)}
-          onError={(m) => setError(m || null)}
-        />
-      </div>
-      <p className="text-[11px] leading-relaxed text-gray-500">
-        Only our verification team sees it. It never appears on your profile.
-      </p>
+      )}
       {error && <p role="alert" className="text-[11px] font-bold text-tm-red">{error}</p>}
       <button
-        type="button" disabled={busy || !ready} onClick={() => void saveAndContinue()}
+        type="button" disabled={busy || !cap?.ready} onClick={() => void saveAndContinue()}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40"
       >
         {busy ? '…' : 'Save & continue'}
       </button>
-      <ChecklistStatus items={items} />
+      {cap && <ChecklistStatus items={cnicChecklistItems(cap)} />}
     </div>
   )
 }

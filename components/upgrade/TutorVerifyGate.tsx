@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, RefreshCw } from 'lucide-react'
 
-import CnicCameraField from '@/components/tutor/CnicCameraField'
-import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
+import CnicCapture, { cnicChecklistItems, type CnicCaptureState } from '@/components/identity/CnicCapture'
+import { ChecklistStatus } from '@/components/forms/FormChecklist'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
 import FriendlyPaymentError from '@/components/ui/FriendlyPaymentError'
@@ -19,8 +19,8 @@ import type { IdentityState } from '@/lib/identity'
 // they go straight to the payment step. The tiles appear only when there is no
 // CNIC on file yet, or a submission was rejected (then with the reason).
 //
-//   * CNIC not submitted / rejected → FRONT and BACK camera tiles (the shared
-//     CnicCameraField), then Verify (enabled once both are taken),
+//   * CNIC not submitted / rejected → the shared CnicCapture (number + FRONT and
+//     BACK tiles + checklist, PR81), then Verify (enabled once it is complete),
 //   * CNIC submitted / approved → a status line and a single Verify button
 //     straight to the payment page,
 //   * "Verify" routes to the payment page and does nothing else — NO price here.
@@ -28,7 +28,6 @@ import type { IdentityState } from '@/lib/identity'
 // The images save to the tutor's profile automatically (kind 'cnic' — the private
 // identity-docs bucket; never re-uploaded elsewhere, never shown publicly).
 
-type Side = 'front' | 'back'
 
 export default function TutorVerifyGate({
   onClose,
@@ -41,7 +40,7 @@ export default function TutorVerifyGate({
   showDismiss?: boolean
 }) {
   const router = useRouter()
-  const [done, setDone] = useState<{ front: boolean; back: boolean }>({ front: false, back: false })
+  const [cap, setCap] = useState<CnicCaptureState | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   const [stuck, setStuck] = useState<string | null>(null)
@@ -74,9 +73,6 @@ export default function TutorVerifyGate({
     void loadIdentityState()
   }, [loadIdentityState])
 
-  const both = done.front && done.back
-
-  const markDone = (side: Side) => setDone((d) => ({ ...d, [side]: true }))
 
   async function verify() {
     setStarting(true)
@@ -150,7 +146,7 @@ export default function TutorVerifyGate({
         <button
           type="button"
           onClick={() => void verify()}
-          disabled={starting || (!hasCnic && !both)}
+          disabled={starting || (!hasCnic && !cap?.ready)}
           className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-60"
         >
           {starting ? 'Starting…' : 'Verify'}
@@ -204,42 +200,16 @@ export default function TutorVerifyGate({
       )}
       {/* One line — what to do. Nothing about what verification is, or the fee. */}
       <p className="flex flex-col leading-tight">
-        <span className="text-xs font-semibold text-slate-700">Upload your CNIC, front and back.</span>
+        <span className="text-xs font-semibold text-slate-700">Enter your CNIC, front and back.</span>
         <span className="text-[11px] text-gray-500" lang="ur" dir="rtl">
-          اپنا شناختی کارڈ اپلوڈ کریں — سامنے اور پیچھے
+          اپنا شناختی کارڈ درج کریں — سامنے اور پیچھے
         </span>
       </p>
 
-      {/* Self-explaining checklist (PR80): the two required photos, mirroring the
-          Verify gate (both = front && back). */}
-      <FormChecklist
-        items={[
-          { en: 'Add a photo of the front', ur: 'سامنے کے رخ کی تصویر لگائیں', done: done.front },
-          { en: 'Add a photo of the back', ur: 'پچھلے رخ کی تصویر لگائیں', done: done.back },
-        ]}
-      />
-
-      {/* Front + back, side by side. Each fills with the real photo once taken. */}
-      <div className="flex gap-3">
-        <CnicCameraField
-          side="front"
-          label="Front"
-          urdu="سامنے کا رخ"
-          onUploaded={() => markDone('front')}
-          onError={(m) => setError(m || null)}
-        />
-        <CnicCameraField
-          side="back"
-          label="Back"
-          urdu="پچھلا رخ"
-          onUploaded={() => markDone('back')}
-          onError={(m) => setError(m || null)}
-        />
-      </div>
-
-      <p className="text-[10px] leading-relaxed text-gray-500">
-        Only our verification team sees it. Never on your profile.
-      </p>
+      {/* The ONE shared CNIC entry (PR81) — number with auto-dashes + front/back
+          tiles + the checklist, identical to onboarding and Settings. The verify
+          gate keeps its own action: Verify → checkout (unchanged). */}
+      <CnicCapture onState={setCap} />
 
       {/* The apply-gate green box (owner PR): the capability verifying unlocks —
           applying. Not an outcome promise (no replies, students or income). */}
@@ -251,12 +221,7 @@ export default function TutorVerifyGate({
       </p>
 
       {buttons}
-      <ChecklistStatus
-        items={[
-          { en: 'Add a photo of the front', ur: 'سامنے کے رخ کی تصویر لگائیں', done: done.front },
-          { en: 'Add a photo of the back', ur: 'پچھلے رخ کی تصویر لگائیں', done: done.back },
-        ]}
-      />
+      {cap && <ChecklistStatus items={cnicChecklistItems(cap)} />}
     </div>
   )
 }
