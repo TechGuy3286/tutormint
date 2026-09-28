@@ -5,9 +5,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Mail } from 'lucide-react'
 import { STUCK_MESSAGE, armEscape, submitJson } from '@/lib/submit'
-import SubmitEscape from '@/components/SubmitEscape'
+import OtpCodeEntry, { OtpErrorBlock } from '@/components/auth/OtpCodeEntry'
 import { useToast } from '@/components/ui/Toast'
-import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
+import { GENERIC_ERROR } from '@/lib/errorMessages'
 
 // Pre-auth code entry for a mobile signup (owner, 11 Sep 2026).
 //
@@ -35,8 +35,7 @@ export default function PendingVerifyForm({ next }: { next: string | null }) {
   const [terminal, setTerminal] = useState(false) // expired / locked → start over
   const [stuckHref, setStuckHref] = useState<string | null>(null)
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
+  async function submit() {
     setBusy(true)
     setError('')
     setErrorUr(null)
@@ -74,65 +73,38 @@ export default function PendingVerifyForm({ next }: { next: string | null }) {
     router.push(target)
   }
 
+  // A terminal reason (expired / locked / exists / blocked) means the draft is
+  // gone — show only the error block with "Start over", not the code field.
+  const startOver = (
+    <Link
+      href="/register"
+      className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover"
+    >
+      Start over
+    </Link>
+  )
+
   return (
     <div className="space-y-4">
-      {error && (
-        <div
-          role="alert"
-          className="space-y-2 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red"
-        >
-          <p>{error}</p>
-          {errorUr && (
-            <p lang="ur" dir="rtl" className="leading-relaxed">
-              {errorUr}
-            </p>
-          )}
-          {errorRef && (
-            <p className="text-[11px] font-normal text-tm-red/80">
-              Ref: <span className="font-mono">{errorRef}</span>{' '}
-              <a href={supportWhatsappHref(errorRef)} target="_blank" rel="noopener noreferrer" className="underline">
-                WhatsApp support
-              </a>
-            </p>
-          )}
-          {stuckHref && <SubmitEscape href={stuckHref} />}
-          {terminal && (
-            <Link
-              href="/register"
-              className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover"
-            >
-              Start over
-            </Link>
-          )}
-        </div>
-      )}
-
-      {!terminal && (
-        <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1">
-            <label htmlFor="code" className="text-xs font-bold text-tm-navy">
-              6-digit code
-            </label>
-            <input
-              id="code"
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              autoFocus
-              placeholder="000000"
-              className="w-full min-h-[52px] rounded-xl border border-gray-200 bg-tm-bg p-3 text-center text-2xl font-black tracking-[0.4em] text-tm-navy outline-none focus:border-tm-navy focus:bg-white"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={busy || code.length < 6}
-            className="w-full min-h-[44px] rounded-xl bg-tm-red py-3.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
-          >
-            {busy ? 'Checking…' : 'Verify and continue'}
-          </button>
-        </form>
+      {terminal ? (
+        <OtpErrorBlock error={error || null} errorUr={errorUr} errorRef={errorRef} stuckHref={stuckHref}>
+          {startOver}
+        </OtpErrorBlock>
+      ) : (
+        // The shared code entry (PR82). No resend/"different number" — the way to a
+        // new code is Start over (the terminal path) or the email fallback below.
+        <OtpCodeEntry
+          code={code}
+          onChange={setCode}
+          onVerify={() => void submit()}
+          busy={busy}
+          busyLabel="Checking…"
+          verifyLabel="Verify and continue"
+          error={error || null}
+          errorUr={errorUr}
+          errorRef={errorRef}
+          stuckHref={stuckHref}
+        />
       )}
 
       {/* Email fallback (owner). Not a resend — a free path that already works.

@@ -2,7 +2,7 @@
 
 import { submitSignal } from '@/lib/submit'
 
-import { Check, Loader2, ShieldCheck, Image as ImageIcon, UserRound, Smartphone, Mail } from 'lucide-react'
+import { Check, Loader2, Image as ImageIcon, UserRound, Smartphone, Mail } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
@@ -13,6 +13,8 @@ import { areasForCity } from '@/lib/cityAreasCore'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import EmailCard from '@/components/account/EmailCard'
+import MobileNumberInput from '@/components/auth/MobileNumberInput'
+import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 import { SettingsTile, OpenTileHeader } from '@/components/tutor/SettingsPieces'
 import { STATUS_META, type CardStatus } from '@/lib/tutorSettingsCopy'
@@ -371,14 +373,13 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
         >
           <label className="block space-y-1">
             <span className={LABEL}>Number</span>
-            <input
+            {/* Shared mobile input (PR82). */}
+            <MobileNumberInput
               value={phone}
-              inputMode="tel"
-              onChange={(e) => {
-                setPhone(e.target.value)
+              onChange={(v) => {
+                setPhone(v)
                 setOtpSent(false)
               }}
-              placeholder="03214567890"
               className={FIELD}
             />
           </label>
@@ -395,34 +396,16 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
               </button>
             )}
             {otpSent && (
-              <>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    inputMode="numeric"
-                    placeholder="000000"
-                    aria-label="Verification code"
-                    className={FIELD}
-                  />
-                  <button
-                    type="button"
-                    onClick={verifyCode}
-                    disabled={otp.trim().length < 4}
-                    className="gap-1.5 inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:opacity-50"
-                  >
-                    <ShieldCheck aria-hidden size={14} />
-                    Verify
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setOtpSent(false)}
-                  className="text-[11px] font-bold text-tm-navy hover:underline"
-                >
-                  Use a different number
-                </button>
-              </>
+              // Shared code entry (PR82). Verify failures show in the card's own
+              // top error block (setError), so no error props here.
+              <OtpCodeEntry
+                code={otp}
+                onChange={setOtp}
+                onVerify={verifyCode}
+                label=""
+                autoFocus={false}
+                onDifferentNumber={() => setOtpSent(false)}
+              />
             )}
           </div>
           {otpMsg && <p className="text-[11px] font-semibold text-tm-green-deep">{otpMsg}</p>}

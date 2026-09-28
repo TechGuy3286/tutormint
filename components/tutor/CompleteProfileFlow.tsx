@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Camera, Check, CheckCircle2, Clock, Loader2, MessageCircle, Mail, Plus, ShieldCheck, X } from 'lucide-react'
+import { ArrowLeft, Camera, Check, CheckCircle2, Clock, Loader2, MessageCircle, Mail, Plus, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -16,6 +16,8 @@ import EmailCard from '@/components/account/EmailCard'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
 import CnicCapture, { cnicChecklistItems, type CnicCaptureState } from '@/components/identity/CnicCapture'
+import MobileNumberInput from '@/components/auth/MobileNumberInput'
+import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio, L, type OnboardingAnswers } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import type { OnboardingFacets } from '@/lib/openJobCounts'
@@ -1613,11 +1615,18 @@ function MobileStep({
   const [otp, setOtp] = useState('')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Verify failures show inline through the shared OtpCodeEntry (PR82) — the same
+  // treatment (message + Urdu + ref + locked) as every other verify surface.
+  const [error, setError] = useState<string | null>(null)
+  const [errorUr, setErrorUr] = useState<string | null>(null)
+  const [errorRef, setErrorRef] = useState<string | null>(null)
+  const [locked, setLocked] = useState(false)
 
   useEffect(() => { if (initialPhone) setPhone((p) => p || initialPhone) }, [initialPhone])
 
   async function send() {
     setBusy(true)
+    setError(null); setErrorUr(null); setErrorRef(null)
     try {
       const res = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', phone }) })
       const j = await res.json().catch(() => ({}))
@@ -1628,10 +1637,17 @@ function MobileStep({
   }
   async function verify() {
     setBusy(true)
+    setError(null); setErrorUr(null); setErrorRef(null)
     try {
       const res = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', phone, code: otp }) })
       const j = await res.json().catch(() => ({}))
-      if (!res.ok) { toast.error(j.error ?? 'Could not verify.'); return }
+      if (!res.ok) {
+        setError(j.error ?? 'Could not verify.')
+        setErrorUr(j.errorUr ?? null)
+        setErrorRef(j.ref ?? null)
+        if (j.locked) setLocked(true)
+        return
+      }
       toast.success('Number verified.')
       onVerified()
     } finally { setBusy(false) }
@@ -1657,11 +1673,8 @@ function MobileStep({
       <p className="text-center text-[11px] leading-relaxed text-gray-500" lang="ur" dir="rtl">
         ہم اس نمبر پر ایس ایم ایس کے ذریعے 6 ہندسوں کا کوڈ بھیجیں گے۔
       </p>
-      <input
-        value={phone} inputMode="tel" readOnly={sent} onChange={(e) => setPhone(e.target.value)}
-        placeholder="0300 1234567" aria-label="Mobile number"
-        className={`min-h-[48px] w-full rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-tm-navy ${sent ? 'bg-gray-50 text-gray-500' : 'bg-white'}`}
-      />
+      {/* Shared mobile input (PR82). */}
+      <MobileNumberInput value={phone} readOnly={sent} onChange={setPhone} />
       {!sent ? (
         <button type="button" disabled={busy || !phone} onClick={() => void send()}
           className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40">
@@ -1669,19 +1682,22 @@ function MobileStep({
         </button>
       ) : (
         <>
-          <input value={otp} inputMode="numeric" autoComplete="one-time-code" onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000"
-            className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-center text-lg font-black tracking-widest outline-none focus:border-tm-navy" />
-          <button type="button" disabled={busy || otp.length < 6} onClick={() => void verify()}
-            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-tm-red px-4 text-sm font-black text-white disabled:opacity-40">
-            <ShieldCheck size={16} aria-hidden /> Verify
-          </button>
-          {/* PR17 §3.1 — while the number is not yet verified the tutor can enter a
-              different one; sending to the new number cancels the old code. No
-              resend to the SAME number (one code, no countdown). */}
-          <button type="button" onClick={() => { setSent(false); setOtp('') }}
-            className="flex min-h-[44px] w-full items-center justify-center px-1 text-xs font-bold text-tm-navy hover:underline">
-            Use a different number
-          </button>
+          {/* Shared code entry (PR82). PR17 §3.1 — while the number is not yet
+              verified the tutor can enter a different one; sending to the new
+              number cancels the old code. No resend to the SAME number. */}
+          <OtpCodeEntry
+            code={otp}
+            onChange={setOtp}
+            onVerify={() => void verify()}
+            busy={busy}
+            locked={locked}
+            label=""
+            autoFocus={false}
+            onDifferentNumber={() => { setSent(false); setOtp(''); setError(null); setErrorUr(null); setErrorRef(null) }}
+            error={error}
+            errorUr={errorUr}
+            errorRef={errorRef}
+          />
           {/* The support fallback if the code was lost or the number is locked. */}
           <SupportBox support={support} title="No code arriving?" />
         </>

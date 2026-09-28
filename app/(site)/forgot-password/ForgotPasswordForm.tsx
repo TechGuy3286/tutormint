@@ -8,6 +8,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import PasswordInput from '@/components/ui/PasswordInput'
+import MobileNumberInput from '@/components/auth/MobileNumberInput'
+import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import { submitJson } from '@/lib/submit'
 import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
 
@@ -110,8 +112,7 @@ export default function ForgotPasswordForm() {
     setBusy(false)
   }
 
-  async function confirmReset(e: React.FormEvent) {
-    e.preventDefault()
+  async function confirmReset() {
     setBusy(true)
     setError(''); setErrorUr(null); setErrorRef(null)
 
@@ -267,14 +268,12 @@ export default function ForgotPasswordForm() {
                   <label htmlFor="mobile" className="text-xs font-bold text-tm-navy">
                     Mobile number
                   </label>
-                  <input
+                  {/* Shared mobile input (PR82). */}
+                  <MobileNumberInput
                     id="mobile"
                     required
-                    inputMode="tel"
-                    autoComplete="tel"
                     value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    placeholder="0300 1234567"
+                    onChange={setMobile}
                     className={inputClass}
                   />
                 </div>
@@ -287,64 +286,45 @@ export default function ForgotPasswordForm() {
                 </button>
               </form>
             ) : (
-              <form onSubmit={confirmReset} className="space-y-4">
+              <div className="space-y-4">
                 <p className="rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs leading-relaxed text-gray-600">
                   If that number has an account, a code is on its way. Enter it below with your new
                   password.
                 </p>
 
-                <div className="space-y-1">
-                  <label htmlFor="code" className="text-xs font-bold text-tm-navy">
-                    6-digit code
-                  </label>
-                  <input
-                    id="code"
-                    required
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    className={`${inputClass} text-center text-xl font-black tracking-[0.35em]`}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="newPassword" className="text-xs font-bold text-tm-navy">
-                    New password
-                  </label>
-                  <PasswordInput
-                    id="newPassword"
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="At least 8 characters"
-                    className={inputClass}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={busy || code.length < 6}
-                  className="min-h-[44px] w-full rounded-xl bg-tm-red py-3.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
-                >
-                  {busy ? 'Setting…' : 'Set new password'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
+                {/* Shared code entry (PR82); the reset's failure is shown by the
+                    card's own top error block, so no error props here. The new
+                    password sits inside the same form via children. */}
+                <OtpCodeEntry
+                  code={code}
+                  onChange={setCode}
+                  onVerify={() => void confirmReset()}
+                  busy={busy}
+                  busyLabel="Setting…"
+                  verifyLabel="Set new password"
+                  onDifferentNumber={() => {
                     setCodeRequested(false)
                     setCode('')
                     setError(''); setErrorUr(null); setErrorRef(null)
                   }}
-                  className="flex min-h-[44px] w-full items-center justify-center text-xs font-bold text-gray-500 hover:text-tm-navy"
                 >
-                  Use a different number
-                </button>
-              </form>
+                  <div className="space-y-1">
+                    <label htmlFor="newPassword" className="text-xs font-bold text-tm-navy">
+                      New password
+                    </label>
+                    <PasswordInput
+                      id="newPassword"
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="At least 8 characters"
+                      className={inputClass}
+                    />
+                  </div>
+                </OtpCodeEntry>
+              </div>
             )}
 
             <Link

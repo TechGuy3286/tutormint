@@ -1,5 +1,5 @@
 'use client'
-import { Clock, MessageSquare, Save, Send, ShieldCheck } from 'lucide-react'
+import { Clock, MessageSquare, Save, Send } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { submitJson, submitSignal } from '@/lib/submit'
@@ -7,6 +7,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import IdentityCard from '@/components/identity/IdentityCard'
+import MobileNumberInput from '@/components/auth/MobileNumberInput'
+import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import type { Identity } from '@/lib/identity'
 import { reportSilentFailure } from '@/lib/silentFailure'
 import { calculateParentCompletion } from '@/lib/profileChecklist'
@@ -241,19 +243,17 @@ export default function ParentVerifyPage() {
               <p className="text-xs font-bold text-tm-green-deep bg-tm-tint-green border border-tm-green-deep/30 rounded-xl p-3">✓ Verified</p>
             ) : (
               <>
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="03214567890" className={inputCls} />
+                {/* Shared mobile input (PR82). This surface keeps its own resend/
+                    cooldown rule on Send (unchanged). */}
+                <MobileNumberInput value={phone} onChange={setPhone} className={inputCls} />
                 <button onClick={sendOtp} disabled={cooldown > 0 || !phone} className={btnDark}>
                   <MessageSquare aria-hidden size={13} />
                   {cooldown > 0 ? `Resend in ${cooldown}s` : otpSent ? 'Resend code' : 'Send code'}
                 </button>
                 {otpSent && (
-                  <>
-                    <input value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className={inputCls} />
-                    <button onClick={verifyOtp} disabled={!otp} className={btnRed}>
-                      <ShieldCheck aria-hidden size={13} />
-                      Verify
-                    </button>
-                  </>
+                  // Shared code entry (PR82). Verify failures show in the page's own
+                  // top error block (setErr), so no error props here.
+                  <OtpCodeEntry code={otp} onChange={setOtp} onVerify={verifyOtp} label="" autoFocus={false} />
                 )}
                 {otpMsg && <p className="text-[11px] font-bold text-tm-green-deep">{otpMsg}</p>}
               </>
@@ -300,8 +300,6 @@ const inputCls =
   'w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy focus:bg-white'
 const btnDark =
   'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-black hover:bg-tm-green-deep text-white font-bold text-xs rounded-xl disabled:opacity-40 transition-colors'
-const btnRed =
-  'inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 py-3 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl disabled:opacity-40 transition-colors'
 
 function F({ id, label, value, onChange, placeholder }: {
   id: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string

@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { STUCK_MESSAGE, armEscape, submitJson } from '@/lib/submit'
-import SubmitEscape from '@/components/SubmitEscape'
+import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import { useToast } from '@/components/ui/Toast'
-import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
+import { GENERIC_ERROR } from '@/lib/errorMessages'
 
 // The code entry — the AUTHENTICATED gate (a legacy mobile-first account, or a
 // bridge-verified one re-verifying once the real provider lands). The pre-auth
@@ -33,8 +33,7 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
   const [locked, setLocked] = useState(false)
   const [stuckHref, setStuckHref] = useState<string | null>(null)
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
+  async function submit() {
     setBusy(true)
     setError('')
     setErrorUr(null)
@@ -67,59 +66,22 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
   }
 
   return (
-    <div className="space-y-4">
-      {error && (
-        <div
-          role="alert"
-          className="space-y-2 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red"
-        >
-          <p>{error}</p>
-          {errorUr && (
-            <p lang="ur" dir="rtl" className="leading-relaxed">
-              {errorUr}
-            </p>
-          )}
-          {errorRef && (
-            <p className="text-[11px] font-normal text-tm-red/80">
-              Ref: <span className="font-mono">{errorRef}</span>{' '}
-              <a href={supportWhatsappHref(errorRef)} target="_blank" rel="noopener noreferrer" className="underline">
-                WhatsApp support
-              </a>
-            </p>
-          )}
-          {stuckHref && <SubmitEscape href={stuckHref} />}
-        </div>
-      )}
-
-      <form onSubmit={submit} className="space-y-4">
-        <div className="space-y-1">
-          <label htmlFor="code" className="text-xs font-bold text-tm-navy">
-            6-digit code
-          </label>
-          <input
-            id="code"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            autoFocus
-            placeholder="000000"
-            className="w-full min-h-[52px] rounded-xl border border-gray-200 bg-tm-bg p-3 text-center text-2xl font-black tracking-[0.4em] text-tm-navy outline-none focus:border-tm-navy focus:bg-white"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={busy || code.length < 6 || locked}
-          className="w-full min-h-[44px] rounded-xl bg-tm-red py-3.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-tm-red-hover disabled:opacity-50"
-        >
-          {busy ? 'Checking…' : 'Verify and continue'}
-        </button>
-      </form>
-
-      {/* No Resend and no "wrong number?" — one code per account, and number
-          changes go through support (PR16 §3). The support box in the page shell
-          below is the way through if the code was lost or is locked. */}
-    </div>
+    // The shared code entry (PR82). No Resend and no "wrong number?" — one code per
+    // account, and number changes go through support (PR16 §3); so no
+    // onDifferentNumber here. The support box in the page shell below is the way
+    // through if the code was lost or is locked.
+    <OtpCodeEntry
+      code={code}
+      onChange={setCode}
+      onVerify={() => void submit()}
+      busy={busy}
+      busyLabel="Checking…"
+      verifyLabel="Verify and continue"
+      locked={locked}
+      error={error || null}
+      errorUr={errorUr}
+      errorRef={errorRef}
+      stuckHref={stuckHref}
+    />
   )
 }
