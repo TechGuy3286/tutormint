@@ -19,6 +19,8 @@ import IdentityCard from '@/components/identity/IdentityCard'
 import { StatusCard, StepHeader, SettingsTile, Urdu } from '@/components/tutor/SettingsPieces'
 import { READONLY_LINES, type CardStatus } from '@/lib/tutorSettingsCopy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange, feeLabelOf } from '@/lib/fee'
+import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
+import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
 import type { DocumentStatuses, DocState } from '@/lib/tutorDocuments'
 import { labelsForMasterIds } from '@/lib/taxonomy'
 import { L } from '@/lib/onboarding/copy'
@@ -705,7 +707,8 @@ export default function TutorSettingsPage() {
       body: (
         <div className="space-y-3">
           <SubjectPicker value={subjectIds} onChange={setSubjectIds} />
-          <SaveBar onSave={saveSubjects} onSaved={() => collapse('subjects')} />
+          <SaveBar onSave={saveSubjects} onSaved={() => collapse('subjects')}
+            items={[{ en: 'Choose at least one subject', ur: 'کم از کم ایک مضمون منتخب کریں', done: subjectIds.length > 0 }]} />
         </div>
       ),
     },
@@ -792,7 +795,11 @@ export default function TutorSettingsPage() {
               )}
             </div>
           </div>
-          <SaveBar onSave={saveLocation} onSaved={() => collapse('location')} />
+          <SaveBar onSave={saveLocation} onSaved={() => collapse('location')}
+            items={[
+              { en: 'Choose your city', ur: 'اپنا شہر منتخب کریں', done: !!formData.city.trim() },
+              { en: 'Choose at least one area', ur: 'کم از کم ایک علاقہ منتخب کریں', done: areas.length > 0 },
+            ]} />
         </div>
       ),
     },
@@ -841,7 +848,8 @@ export default function TutorSettingsPage() {
               );
             })}
           </div>
-          <SaveBar onSave={saveJobTypes} onSaved={() => collapse('jobType')} />
+          <SaveBar onSave={saveJobTypes} onSaved={() => collapse('jobType')}
+            items={[{ en: 'Choose at least one job type', ur: 'کم از کم ایک قسمِ کام منتخب کریں', done: formData.jobTypes.length > 0 }]} />
         </div>
       ),
     },
@@ -855,7 +863,8 @@ export default function TutorSettingsPage() {
         <div className="space-y-3">
           {/* PR73 §A: the shared 7×3 time-slot grid. */}
           <TimeSlotGrid value={availabilityList} onChange={setAvailabilityList} />
-          <SaveBar onSave={saveAvailability} onSaved={() => collapse('availability')} />
+          <SaveBar onSave={saveAvailability} onSaved={() => collapse('availability')}
+            items={[{ en: 'Pick at least one time you can teach', ur: 'کم از کم ایک وقت منتخب کریں جب آپ پڑھا سکیں', done: availabilityList.length > 0 }]} />
         </div>
       ),
     },
@@ -948,7 +957,11 @@ export default function TutorSettingsPage() {
               />
             </label>
           </div>
-          <SaveBar onSave={saveFee} onSaved={() => collapse('monthlyFee')} />
+          <SaveBar onSave={saveFee} onSaved={() => collapse('monthlyFee')}
+            items={[
+              { en: 'Enter your minimum monthly fee', ur: 'اپنی کم از کم ماہانہ فیس درج کریں', done: (parseFee(feeMin) ?? 0) > 0 },
+              { en: 'Enter a maximum that is at least the minimum', ur: 'کم از کم کے برابر یا زیادہ حد درج کریں', done: validateFeeRange(parseFee(feeMin), parseFee(feeMax)) === null },
+            ]} />
         </div>
       ),
     },
@@ -993,7 +1006,11 @@ export default function TutorSettingsPage() {
               className="mt-1 w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
             />
           </label>
-          <SaveBar onSave={saveDetails} onSaved={() => collapse('details')} />
+          <SaveBar onSave={saveDetails} onSaved={() => collapse('details')}
+            items={[
+              { en: 'Type your full name', ur: 'اپنا پورا نام لکھیں', done: formData.fullName.trim().length >= 2 },
+              { en: 'Add your WhatsApp number', ur: 'اپنا واٹس ایپ نمبر شامل کریں', done: !!formData.whatsapp.trim(), optional: true },
+            ]} />
         </div>
       ),
     },
@@ -1181,14 +1198,21 @@ function SaveBar({
   onSave,
   onSaved,
   label = 'Save',
+  items,
 }: {
   onSave: () => Promise<void>;
   /** Called after a successful save — used to collapse the card (PR63 §C2). */
   onSaved?: () => void;
   label?: string;
+  /** PR80: the self-explaining required parts. When given, they render as a
+   *  numbered checklist above and a "what's missing / ready" line below, and the
+   *  Save button is disabled until every required part is done. Omitted → no gate
+   *  (single-obvious-action cards keep the plain bar). */
+  items?: ChecklistItem[];
 }) {
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [msg, setMsg] = useState('');
+  const ready = !items || checklistReady(items);
   const run = async () => {
     setState('saving');
     setMsg('');
@@ -1203,25 +1227,29 @@ function SaveBar({
     }
   };
   return (
-    <div className="flex flex-wrap items-center gap-3 pt-1">
-      <button
-        type="button"
-        onClick={run}
-        disabled={state === 'saving'}
-        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-tm-red px-5 text-xs font-extrabold text-white transition-colors hover:bg-tm-red-hover disabled:opacity-60"
-      >
-        <Save aria-hidden size={14} /> {state === 'saving' ? 'Saving…' : label}
-      </button>
-      {state === 'saved' && (
-        <p className="rounded-xl border border-tm-green-deep/30 bg-tm-tint-green px-3 py-2 text-[11px] font-bold text-tm-green-deep">
-          Saved.
-        </p>
-      )}
-      {state === 'error' && (
-        <p role="alert" className="rounded-xl border border-tm-red/30 bg-tm-tint-red px-3 py-2 text-[11px] font-bold text-tm-red">
-          {msg}
-        </p>
-      )}
+    <div className="space-y-2 pt-1">
+      {items && items.length > 0 && <FormChecklist items={items} />}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={run}
+          disabled={state === 'saving' || !ready}
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-tm-red px-5 text-xs font-extrabold text-white transition-colors hover:bg-tm-red-hover disabled:opacity-60"
+        >
+          <Save aria-hidden size={14} /> {state === 'saving' ? 'Saving…' : label}
+        </button>
+        {state === 'saved' && (
+          <p className="rounded-xl border border-tm-green-deep/30 bg-tm-tint-green px-3 py-2 text-[11px] font-bold text-tm-green-deep">
+            Saved.
+          </p>
+        )}
+        {state === 'error' && (
+          <p role="alert" className="rounded-xl border border-tm-red/30 bg-tm-tint-red px-3 py-2 text-[11px] font-bold text-tm-red">
+            {msg}
+          </p>
+        )}
+      </div>
+      {items && items.length > 0 && <ChecklistStatus items={items} />}
     </div>
   );
 }

@@ -10,6 +10,20 @@ import IdentityCard from '@/components/identity/IdentityCard'
 import type { Identity } from '@/lib/identity'
 import { reportSilentFailure } from '@/lib/silentFailure'
 import { calculateParentCompletion } from '@/lib/profileChecklist'
+import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
+import type { ChecklistItem } from '@/lib/formChecklist'
+
+// The verification parts as self-explaining actions, English + Urdu (PR80). Keyed
+// on the parent-completion item keys, so the checklist mirrors the exact server
+// rule that gates Submit (calculateParentCompletion).
+const VERIFY_LABELS: Record<string, { en: string; ur: string }> = {
+  name: { en: 'Add your full name', ur: 'اپنا پورا نام شامل کریں' },
+  city: { en: 'Add your city', ur: 'اپنا شہر شامل کریں' },
+  address: { en: 'Add your home address', ur: 'اپنا گھر کا پتہ شامل کریں' },
+  cnic_number: { en: 'Type your CNIC number', ur: 'اپنا شناختی کارڈ نمبر لکھیں' },
+  cnic_image: { en: 'Add a photo of your CNIC', ur: 'اپنے شناختی کارڈ کی تصویر لگائیں' },
+  phone: { en: 'Verify your mobile number', ur: 'اپنے موبائل نمبر کی تصدیق کریں' },
+}
 
 // Parent verification: CNIC number + image, address, mobile OTP.
 //
@@ -105,6 +119,13 @@ export default function ParentVerifyPage() {
     percent: verifyDone === verifyItems.length ? 100 : Math.min(99, Math.floor((verifyDone / verifyItems.length) * 100)),
     missing: verifyItems.filter((i) => !i.done),
   }
+  // The self-explaining checklist (PR80), straight from the same items that gate
+  // Submit — English + Urdu, so no surprise about what's still needed.
+  const checklistItems: ChecklistItem[] = verifyItems.map((i) => ({
+    en: VERIFY_LABELS[i.key]?.en ?? i.label,
+    ur: VERIFY_LABELS[i.key]?.ur ?? i.label,
+    done: i.done,
+  }))
 
   async function saveDetails() {
     setSaving(true); setErr(''); setMsg('')
@@ -240,12 +261,9 @@ export default function ParentVerifyPage() {
           </div>
         </section>
 
-        {completion.missing.length > 0 && (
-          <ul className="bg-white border border-gray-200 rounded-2xl p-4 space-y-1">
-            <li className="text-xs font-bold text-tm-navy pb-1">Still needed</li>
-            {completion.missing.map((m) => <li key={m.key} className="text-xs text-gray-600">• {m.label}</li>)}
-          </ul>
-        )}
+        <div className="rounded-2xl border border-gray-200 bg-white p-4">
+          <FormChecklist items={checklistItems} />
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
           <button onClick={saveDetails} disabled={saving} className="inline-flex items-center justify-center gap-1.5 flex-1 min-h-[44px] py-3 bg-tm-bg border border-gray-200 text-slate-700 font-bold text-xs rounded-xl disabled:opacity-50">
@@ -270,6 +288,7 @@ export default function ParentVerifyPage() {
             )}
           </button>
         </div>
+        {state !== 'submitted' && <ChecklistStatus items={checklistItems} />}
 
 
       </div>

@@ -14,6 +14,8 @@ import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import { isSyntheticEmail } from '@/lib/phone'
 import EmailCard from '@/components/account/EmailCard'
+import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
+import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio, L, type OnboardingAnswers } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import type { OnboardingFacets } from '@/lib/openJobCounts'
@@ -911,8 +913,17 @@ function FeeRangeStep({
       />
     </label>
   )
+  // Self-explaining checklist (PR80). Item 2's "done" IS the server rule
+  // (validateFeeRange null = both present, positive, min ≤ max), so the gate never
+  // diverges from validation.
+  const items: ChecklistItem[] = [
+    { en: 'Enter your minimum monthly fee', ur: 'اپنی کم از کم ماہانہ فیس درج کریں', done: (parse(min) ?? 0) > 0 },
+    { en: 'Enter a maximum that is at least the minimum', ur: 'کم از کم کے برابر یا زیادہ حد درج کریں', done: validateFeeRange(parse(min), parse(max)) === null },
+  ]
+  const ready = checklistReady(items)
   return (
     <div className="space-y-4">
+      <FormChecklist items={items} />
       <div className="grid grid-cols-2 gap-3">
         {field('Minimum', 'کم از کم', min, setMin, String(FEE_MIN_DEFAULT))}
         {field('Maximum', 'زیادہ سے زیادہ', max, setMax, String(FEE_MAX_DEFAULT))}
@@ -929,12 +940,13 @@ function FeeRangeStep({
       )}
       <button
         type="button"
-        disabled={busy}
+        disabled={busy || !ready}
         onClick={submit}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
       >
         {busy ? '…' : 'Save & continue'}
       </button>
+      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -961,8 +973,12 @@ function AreaMultiStep({
   const shown = query ? options.filter((o) => o.toLowerCase().includes(query)).slice(0, 40) : options
   const toggle = (name: string) =>
     setSelected((s) => (s.includes(name) ? s.filter((x) => x !== name) : [...s, name]))
+  const items: ChecklistItem[] = [
+    { en: 'Choose at least one area', ur: 'کم از کم ایک علاقہ منتخب کریں', done: selected.length > 0 },
+  ]
   return (
     <div className="space-y-4">
+      <FormChecklist items={items} />
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -988,6 +1004,7 @@ function AreaMultiStep({
       >
         {busy ? '…' : 'Save & continue'}
       </button>
+      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -1010,6 +1027,9 @@ function LevelStep({
   const shown = query ? options.filter((o) => o.toLowerCase().includes(query)) : options
   const toggle = (name: string) =>
     setSelected((s) => (s.includes(name) ? s.filter((x) => x !== name) : [...s, name]))
+  const items: ChecklistItem[] = [
+    { en: 'Choose at least one level', ur: 'کم از کم ایک جماعت منتخب کریں', done: selected.length > 0 },
+  ]
   return (
     <div className="space-y-4">
       {options.length === 0 ? (
@@ -1018,6 +1038,7 @@ function LevelStep({
         </p>
       ) : (
         <>
+          <FormChecklist items={items} />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -1041,6 +1062,7 @@ function LevelStep({
           >
             {busy ? '…' : 'Save & continue'}
           </button>
+          <ChecklistStatus items={items} />
         </>
       )}
     </div>
@@ -1092,8 +1114,12 @@ function SubjectsPerLevelStep({
     const cur = selByCat[cat] ?? []
     onChange({ ...selByCat, [cat]: cur.includes(sub) ? cur.filter((x) => x !== sub) : [...cur, sub] })
   }
+  const items: ChecklistItem[] = [
+    { en: 'Choose at least one subject', ur: 'کم از کم ایک مضمون منتخب کریں', done: total > 0 },
+  ]
   return (
     <div className="space-y-4">
+      <FormChecklist items={items} />
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -1124,6 +1150,7 @@ function SubjectsPerLevelStep({
       >
         {busy ? '…' : 'Save & continue'}
       </button>
+      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -1141,8 +1168,12 @@ function AvailabilityStep({
   onNext: (slots: DaySlot[]) => void
 }) {
   const [slots, setSlots] = useState<DaySlot[]>(initial)
+  const items: ChecklistItem[] = [
+    { en: 'Pick at least one time you can teach', ur: 'کم از کم ایک وقت منتخب کریں جب آپ پڑھا سکیں', done: slots.length > 0 },
+  ]
   return (
     <div className="space-y-4">
+      <FormChecklist items={items} />
       <TimeSlotGrid value={slots} onChange={setSlots} disabled={busy} />
       {/* PR78 §D: no "Later" — the tutor picks at least one slot to continue. */}
       <button
@@ -1153,9 +1184,7 @@ function AvailabilityStep({
       >
         {busy ? '…' : 'Save & continue'}
       </button>
-      {slots.length === 0 && (
-        <p className="text-center text-[11px] text-gray-500">Pick at least one time to continue.</p>
-      )}
+      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -1278,8 +1307,12 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
     }
   }
 
+  const items: ChecklistItem[] = [
+    { en: 'Take a selfie', ur: 'ایک سیلفی لیں', done: uploaded },
+  ]
   return (
     <div className="space-y-4">
+      <FormChecklist items={items} />
       <PictureNote />
       <div className="mx-auto w-40">
         <PhotoCaptureTile
@@ -1306,9 +1339,7 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
       >
         {busy ? '…' : 'Save & continue'}
       </button>
-      {!uploaded && (
-        <p className="text-center text-[11px] text-gray-500">Take your selfie to continue.</p>
-      )}
+      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -1356,8 +1387,17 @@ function DegreeStep({ onSaved }: { onSaved: () => void }) {
     } finally { setBusy(false) }
   }
 
+  // Self-explaining checklist (PR80) — mirrors save(): a degree title + a
+  // certificate image. (The "No degree to add yet" answer is a separate button
+  // rendered by the flow, outside this sub-form.)
+  const items: ChecklistItem[] = [
+    { en: 'Type your degree', ur: 'اپنی ڈگری لکھیں', done: !!title.trim() },
+    { en: 'Add a photo of the certificate', ur: 'سند کی تصویر لگائیں', done: uploaded },
+  ]
+  const ready = checklistReady(items)
   return (
     <div className="space-y-4">
+      <FormChecklist items={items} />
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Degree, e.g. BSc Physics — Punjab University"
         className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy" />
       {/* Camera OR gallery — the shared tile (§3). */}
@@ -1379,10 +1419,11 @@ function DegreeStep({ onSaved }: { onSaved: () => void }) {
         />
       </div>
       <p className="text-[11px] text-gray-500">Only you and our verification team can see it. Previews are watermarked.</p>
-      <button type="button" disabled={busy} onClick={() => void save()}
+      <button type="button" disabled={busy || !ready} onClick={() => void save()}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40">
         {busy ? '…' : 'Save & continue'}
       </button>
+      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -1501,8 +1542,18 @@ function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
     )
   }
 
+  // Self-explaining checklist (PR80). Mirrors saveAndContinue's server-aligned
+  // rule exactly: a valid CNIC number + a photo of each side.
+  const items: ChecklistItem[] = [
+    { en: 'Type your CNIC number', ur: 'اپنا شناختی کارڈ نمبر لکھیں', done: isValidCnic(cnic) },
+    { en: 'Add a photo of the front', ur: 'سامنے کے رخ کی تصویر لگائیں', done: front },
+    { en: 'Add a photo of the back', ur: 'پچھلے رخ کی تصویر لگائیں', done: back },
+  ]
+  const ready = checklistReady(items)
+
   return (
     <div className="space-y-4">
+      <FormChecklist items={items} />
       <input
         value={cnic} inputMode="numeric" onChange={(e) => setCnic(e.target.value)}
         placeholder="CNIC number, e.g. 35201-1234567-1" aria-label="CNIC number"
@@ -1527,11 +1578,12 @@ function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
       </p>
       {error && <p role="alert" className="text-[11px] font-bold text-tm-red">{error}</p>}
       <button
-        type="button" disabled={busy} onClick={() => void saveAndContinue()}
+        type="button" disabled={busy || !ready} onClick={() => void saveAndContinue()}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40"
       >
         {busy ? '…' : 'Save & continue'}
       </button>
+      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -1716,18 +1768,24 @@ function ContactStep({
   const [bio, setBio] = useState(bioInit)
   const [emailChoice, setEmailChoice] = useState<'add' | 'none'>(emailConfirmed ? 'add' : 'add')
 
-  const missing: string[] = []
-  if (!phoneVerified) missing.push('verify your mobile number')
-  if (!gender) missing.push('choose your gender')
-  if (!tagline.trim()) missing.push('add a tagline')
-  if (!bio.trim()) missing.push('write a short about-you')
-  const ready = missing.length === 0
+  // Self-explaining checklist (PR80). Required: verified mobile, gender, tagline,
+  // bio — mirrors stepDone('contact'). WhatsApp and email are optional.
+  const items: ChecklistItem[] = [
+    { en: 'Verify your mobile number', ur: 'اپنے موبائل نمبر کی تصدیق کریں', done: phoneVerified },
+    { en: 'Add your WhatsApp number', ur: 'اپنا واٹس ایپ نمبر شامل کریں', done: !!whatsapp.trim(), optional: true },
+    { en: 'Add your email', ur: 'اپنی ای میل شامل کریں', done: emailConfirmed, optional: true },
+    { en: 'Choose your gender', ur: 'اپنی جنس منتخب کریں', done: !!gender },
+    { en: 'Write a tagline', ur: 'ایک عنوان لکھیں', done: !!tagline.trim() },
+    { en: 'Write a short about-you', ur: 'اپنے بارے میں مختصر لکھیں', done: !!bio.trim() },
+  ]
+  const ready = checklistReady(items)
 
   const fieldCls =
     'min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy'
 
   return (
     <div className="space-y-5">
+      <FormChecklist items={items} />
       {/* Mobile — verified/read-only, or verify by SMS. */}
       <section className="space-y-2">
         <FieldLabel en="Mobile number" ur="موبائل نمبر" />
@@ -1802,9 +1860,7 @@ function ContactStep({
           className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40">
           {busy ? '…' : 'Continue'}
         </button>
-        {!ready && (
-          <p className="text-center text-[11px] text-gray-500">To continue, {missing[0]}.</p>
-        )}
+        <ChecklistStatus items={items} />
       </div>
     </div>
   )

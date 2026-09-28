@@ -16,6 +16,7 @@ import EmailCard from '@/components/account/EmailCard'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 import { SettingsTile, OpenTileHeader } from '@/components/tutor/SettingsPieces'
 import { STATUS_META, type CardStatus } from '@/lib/tutorSettingsCopy'
+import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 
 // PR17 §3.2 — a verified number is changed through support. The number is the one
 // client-safe constant; a client component cannot read the app_settings override.
@@ -297,6 +298,15 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
           </span>
         </label>
 
+        {/* Self-explaining checklist (PR80) — mirrors the Save gate (name ≥ 2). */}
+        <FormChecklist
+          items={[
+            { en: 'Type your full name', ur: 'اپنا پورا نام لکھیں', done: fullName.trim().length >= 2 },
+            { en: 'Add your city', ur: 'اپنا شہر شامل کریں', done: !!city.trim(), optional: true },
+            { en: 'Add your home address', ur: 'اپنا گھر کا پتہ شامل کریں', done: !!address.trim(), optional: true },
+          ]}
+        />
+
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <button
             type="button"
@@ -314,6 +324,13 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
             </span>
           )}
         </div>
+        <ChecklistStatus
+          items={[
+            { en: 'Type your full name', ur: 'اپنا پورا نام لکھیں', done: fullName.trim().length >= 2 },
+            { en: 'Add your city', ur: 'اپنا شہر شامل کریں', done: !!city.trim(), optional: true },
+            { en: 'Add your home address', ur: 'اپنا گھر کا پتہ شامل کریں', done: !!address.trim(), optional: true },
+          ]}
+        />
       </Card>
 
       {/* --------------------------------------------------------- phone --- */}

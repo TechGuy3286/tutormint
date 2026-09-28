@@ -41,6 +41,7 @@
     "test:levels": "tsx --test scripts/test-levels.ts",
     "test:taxonomy": "tsx --test scripts/test-taxonomy.ts",
     "test:tutorflow": "tsx --test scripts/test-tutorflow.ts",
+    "test:formchecklist": "tsx --test scripts/test-formchecklist.ts",
     "test:taxonomy:live": "tsx --test scripts/test-taxonomy-live.ts",
     "test:onboarding": "tsx --test scripts/test-onboarding.ts",
     "test:timeslots": "tsx --test scripts/test-timeslots.ts",

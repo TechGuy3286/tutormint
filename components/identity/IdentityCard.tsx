@@ -6,6 +6,8 @@ import { useState } from 'react'
 
 import CnicCameraField from '@/components/tutor/CnicCameraField'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
+import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
+import type { ChecklistItem } from '@/lib/formChecklist'
 import { useToast } from '@/components/ui/Toast'
 import { CNIC_FORMAT_HINT, formatCnic, isValidCnic, maskCnic } from '@/lib/cnic'
 import { formatDate } from '@/lib/datetime'
@@ -160,6 +162,12 @@ export default function IdentityCard({ identity, role }: Props) {
   }
 
   const canSubmit = isValidCnic(number) && !!front && !!back && !busy
+  // Self-explaining checklist (PR80) — mirrors canSubmit exactly.
+  const cnicItems: ChecklistItem[] = [
+    { en: 'Type your CNIC number', ur: 'اپنا شناختی کارڈ نمبر لکھیں', done: isValidCnic(number) },
+    { en: 'Add a photo of the front', ur: 'سامنے کے رخ کی تصویر لگائیں', done: !!front },
+    { en: 'Add a photo of the back', ur: 'پچھلے رخ کی تصویر لگائیں', done: !!back },
+  ]
 
   return (
     <section
@@ -273,6 +281,8 @@ export default function IdentityCard({ identity, role }: Props) {
             Take a clear photo of each side — all four corners in frame and the text readable.
           </p>
 
+          <FormChecklist items={cnicItems} />
+
           <button
             type="button"
             onClick={() => void submit()}
@@ -282,15 +292,7 @@ export default function IdentityCard({ identity, role }: Props) {
             <Send aria-hidden size={14} />
             Send for checking
           </button>
-          {!canSubmit && !busy && (
-            <p className="text-[11px] text-gray-500">
-              {!isValidCnic(number)
-                ? 'Add your CNIC number to continue.'
-                : !front || !back
-                  ? 'Both sides of the card are needed.'
-                  : ''}
-            </p>
-          )}
+          {!busy && <ChecklistStatus items={cnicItems} />}
         </div>
       ) : (
         <div className="space-y-3">

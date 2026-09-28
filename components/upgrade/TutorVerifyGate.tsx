@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, RefreshCw } from 'lucide-react'
 
 import CnicCameraField from '@/components/tutor/CnicCameraField'
+import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
 import FriendlyPaymentError from '@/components/ui/FriendlyPaymentError'
@@ -209,6 +210,15 @@ export default function TutorVerifyGate({
         </span>
       </p>
 
+      {/* Self-explaining checklist (PR80): the two required photos, mirroring the
+          Verify gate (both = front && back). */}
+      <FormChecklist
+        items={[
+          { en: 'Add a photo of the front', ur: 'سامنے کے رخ کی تصویر لگائیں', done: done.front },
+          { en: 'Add a photo of the back', ur: 'پچھلے رخ کی تصویر لگائیں', done: done.back },
+        ]}
+      />
+
       {/* Front + back, side by side. Each fills with the real photo once taken. */}
       <div className="flex gap-3">
         <CnicCameraField
@@ -241,6 +251,12 @@ export default function TutorVerifyGate({
       </p>
 
       {buttons}
+      <ChecklistStatus
+        items={[
+          { en: 'Add a photo of the front', ur: 'سامنے کے رخ کی تصویر لگائیں', done: done.front },
+          { en: 'Add a photo of the back', ur: 'پچھلے رخ کی تصویر لگائیں', done: done.back },
+        ]}
+      />
     </div>
   )
 }

@@ -7,6 +7,8 @@ import { submitSignal } from '@/lib/submit'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import WhereHowWhen from '@/components/forms/WhereHowWhen'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
+import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
+import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
 import { parseTimings, formatSlots, type DaySlot } from '@/lib/timeSlots'
 import { useJobTitles } from '@/lib/jobTitles'
 import { isLevelLeaf, resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
@@ -216,6 +218,13 @@ export default function PostTuitionForm({
 
   const band = useMemo(() => bandFor(v.budgetMin, v.budgetMax), [v.budgetMin, v.budgetMax])
   const hasSelection = !!(v.category && v.levels.length > 0 && (levelLeaf || v.subjects.length > 0))
+
+  // Self-explaining checklist (PR80). The two parts that actually gate a post.
+  const checklistItems: ChecklistItem[] = [
+    { en: 'Choose the level, grade and subject', ur: 'جماعت، گریڈ اور مضمون منتخب کریں', done: hasSelection },
+    { en: 'Write a title (or tap “Write this for me”)', ur: 'ایک عنوان لکھیں (یا "میرے لیے لکھیں" دبائیں)', done: v.title.trim() !== '' },
+  ]
+  const postReady = checklistReady(checklistItems)
 
   // ------------------------------------------------------------ generate ---
   const write = async () => {
@@ -589,17 +598,24 @@ export default function PostTuitionForm({
         </p>
       )}
 
+      {/* Self-explaining checklist (PR80). Required mirrors what actually gates a
+          post: a title (server: min 1) and a level+grade+subject (client:
+          masterIds ≥ 1, via hasSelection). Job Type / city / budget are optional
+          server-side, so they never block. */}
+      <FormChecklist items={checklistItems} />
+
       {/* Sticky on mobile: the primary action must be reachable without
           scrolling back through the whole card. */}
       <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         <button
           type="button"
           onClick={submit}
-          disabled={busy}
+          disabled={busy || !postReady}
           className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:bg-gray-300 sm:w-auto"
         >
           {busy ? busyLabel : submitLabel}
         </button>
+        <ChecklistStatus items={checklistItems} className="mt-2" />
       </div>
     </div>
   )
