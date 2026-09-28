@@ -6,10 +6,10 @@ import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, pkMobile } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
-import { sendOtp, verifyOtp } from '@/lib/otp'
+import { sendOtp, verifyOtp, consumeOtp } from '@/lib/otp'
 import { activatePausedIfListed } from '@/lib/payments/goLive'
 import { normalisePkMobile, syntheticEmail, isSyntheticEmail } from '@/lib/phone'
-import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
+import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE, NUMBER_TAKEN_MESSAGE_UR } from '@/lib/phoneAccount'
 
 // Phone / SMS OTP for the SIGNED-IN account.
 //
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
   // before any SMS goes out. Never reveals which account holds it.
   const admin = createAdminClient()
   if (admin && (await numberSavedElsewhere(admin, phone, user.id))) {
-    return NextResponse.json({ error: NUMBER_TAKEN_MESSAGE }, { status: 409 })
+    return NextResponse.json({ error: NUMBER_TAKEN_MESSAGE, errorUr: NUMBER_TAKEN_MESSAGE_UR }, { status: 409 })
   }
 
   // PR17 §3.2 — once a number is VERIFIED it is read-only; a change goes through
@@ -125,11 +125,16 @@ export async function POST(request: Request) {
   }
 
   // -------------------------------------------------------------- verify ---
+  // commit:false — the code is validated but NOT consumed here. It is marked used
+  // only AFTER the save below succeeds (PR79 §2), so a save failure leaves the
+  // code valid for a retry rather than burning a one-code-for-life code on a
+  // write that did not land (the "correct but could not save" trap).
   const result = await verifyOtp({
     phone,
     code: typeof body.code === 'string' ? body.code : '',
     purpose: 'verify',
     userId: user.id,
+    commit: false,
   })
 
   if (!result.ok) {
@@ -141,13 +146,21 @@ export async function POST(request: Request) {
 
   // phone_verified_at is the ONE field every reader keys "mobile verified" on —
   // directoryBlockers, the dashboard, the flow, completion and entitlements all
-  // read it (owner PR7 §2.1). Write it, and CONFIRM the write landed: the update
-  // used to be fire-and-forget, so a failed write (RLS, a bad column) would still
-  // let the flow say "Number verified." while the field stayed null — the exact
-  // "verified on phone, dashboard still says verify" split. `.select()` echoes the
-  // row back, so a null here means the verification did NOT persist and we say so
-  // rather than reporting a success that did not happen.
-  const { data: saved, error: updErr } = await supabase
+  // read it (owner PR7 §2.1).
+  //
+  // PR79 §1: this is written with the SERVICE ROLE, not the caller's cookie
+  // client. phone_verified_at / phone_verified / phone_verified_via are NOT in
+  // the column-level UPDATE grant for `authenticated` (deliberately — a member
+  // must not be able to self-verify by writing phone_verified_at directly through
+  // PostgREST), so the old cookie-scoped update was denied on phone_verified_at
+  // and produced "your code was correct, but we could not save it". The server
+  // has just verified the OTP, so it is the trusted writer here. First-time
+  // verification is therefore always allowed; the field-lock trigger (which fires
+  // only for a MEMBER changing an ALREADY-verified number) is not in this path,
+  // and changing a verified number is still refused above (lines ~88-99) and by
+  // the trigger for direct member writes. `.select()` still confirms the write.
+  const writer = admin ?? supabase
+  const { data: saved, error: updErr } = await writer
     .from('profiles')
     .update({
       phone_number: phone,
@@ -164,11 +177,15 @@ export async function POST(request: Request) {
 
   if (updErr || !saved?.phone_verified_at) {
     console.error(`[otp] verify: profile write did not persist for ${user.id}: ${updErr?.message ?? 'no row returned'}`)
+    // The code was NOT consumed (commit:false), so the member can retry.
     return NextResponse.json(
       { error: 'Your code was correct, but we could not save it. Please try again.' },
       { status: 500 },
     )
   }
+
+  // Saved — NOW mark the code used (PR79 §2).
+  if (result.otpId) await consumeOtp(result.otpId)
 
   // PR17 §3.1 — a mobile-first account signs in with an address derived from its
   // number (<msisdn>@users.tutormint.org). If the number changed while unverified

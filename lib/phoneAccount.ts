@@ -19,6 +19,10 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 export const NUMBER_TAKEN_MESSAGE =
   'This number is already linked to another TutorMint account. Use a different number, or contact support.'
 
+/** The Urdu line shown beneath NUMBER_TAKEN_MESSAGE (PR79 §1). */
+export const NUMBER_TAKEN_MESSAGE_UR =
+  'یہ موبائل نمبر پہلے سے کسی دوسرے اکاؤنٹ پر استعمال ہو رہا ہے۔ واٹس ایپ پر سپورٹ سے رابطہ کریں۔'
+
 /**
  * True when a DIFFERENT account already has this number VERIFIED
  * (phone_verified_at set). `exceptUserId` is the account being checked (skipped);

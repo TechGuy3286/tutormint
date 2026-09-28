@@ -79,7 +79,7 @@ export type SendResult =
   | { ok: false; status: number; error: string; detail?: string }
 
 export type VerifyResult =
-  | { ok: true; userId: string | null; devBypass: boolean; bridged: boolean }
+  | { ok: true; userId: string | null; devBypass: boolean; bridged: boolean; otpId: string | null }
   | { ok: false; status: number; error: string; attemptsLeft?: number; locked?: boolean }
 
 export type DeliverResult =
@@ -300,9 +300,19 @@ export async function verifyOtp(opts: {
   code: string
   purpose: OtpPurpose
   userId?: string | null
+  /**
+   * When false, a CORRECT code is validated but NOT consumed — the caller must
+   * call consumeOtp(otpId) after the follow-on write (e.g. saving the verified
+   * number) succeeds (PR79 §2). This is the one-code-for-life safety: if the save
+   * fails, the code is never marked used, so the member can retry with the same
+   * code. Wrong-guess attempt counting is unaffected. Default true (consume
+   * inline) so register/reset are unchanged.
+   */
+  commit?: boolean
 }): Promise<VerifyResult> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: UNAVAILABLE.error }
+  const commit = opts.commit !== false
 
   const submitted = opts.code.trim()
   if (!submitted) return { ok: false, status: 400, error: 'Enter the verification code.' }
@@ -336,11 +346,13 @@ export async function verifyOtp(opts: {
     if (!otp) {
       return { ok: false, status: 400, error: 'No active code for this number. Request a new one.' }
     }
-    await admin
-      .from('phone_otps')
-      .update({ consumed_at: new Date().toISOString() })
-      .eq('id', otp.id)
-    return { ok: true, userId: otp.user_id ?? opts.userId ?? null, devBypass: isBypass, bridged: isBridge }
+    if (commit) {
+      await admin
+        .from('phone_otps')
+        .update({ consumed_at: new Date().toISOString() })
+        .eq('id', otp.id)
+    }
+    return { ok: true, userId: otp.user_id ?? opts.userId ?? null, devBypass: isBypass, bridged: isBridge, otpId: otp.id as string }
   }
 
   if (!otp) {
@@ -379,10 +391,27 @@ export async function verifyOtp(opts: {
     }
   }
 
-  await admin
-    .from('phone_otps')
-    .update({ consumed_at: new Date().toISOString(), attempts: (otp.attempts ?? 0) + 1 })
-    .eq('id', otp.id)
+  // Correct code. Consume it now only when committing (register/reset); the
+  // signed-in verify route defers this until the profile save succeeds (§2),
+  // marking it used via consumeOtp(otpId). A correct code never increments
+  // attempts (only wrong guesses do).
+  if (commit) {
+    await admin
+      .from('phone_otps')
+      .update({ consumed_at: new Date().toISOString() })
+      .eq('id', otp.id)
+  }
 
-  return { ok: true, userId: otp.user_id ?? opts.userId ?? null, devBypass: false, bridged: false }
+  return { ok: true, userId: otp.user_id ?? opts.userId ?? null, devBypass: false, bridged: false, otpId: otp.id as string }
+}
+
+/**
+ * Mark a validated OTP row used — called by the signed-in verify route AFTER the
+ * verified number has been saved (PR79 §2), so a save failure leaves the code
+ * valid for a retry.
+ */
+export async function consumeOtp(otpId: string): Promise<void> {
+  const admin = createAdminClient()
+  if (!admin) return
+  await admin.from('phone_otps').update({ consumed_at: new Date().toISOString() }).eq('id', otpId)
 }
