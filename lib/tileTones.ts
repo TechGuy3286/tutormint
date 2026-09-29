@@ -23,7 +23,7 @@
 // PURE — no imports — so StatTile (a component) and the admin Overview page both
 // read it, and the class strings are Tailwind utilities the tokens generate.
 
-export type TileTone = 'navy' | 'green' | 'red' | 'gold' | 'mint' | 'teal' | 'violet'
+export type TileTone = 'navy' | 'green' | 'red' | 'gold' | 'mint' | 'teal' | 'violet' | 'sky' | 'pink'
 
 // The ONE tile shell (PR77): the exact box, icon chip and border the dashboard
 // tiles use, so the tutor Settings tiles and the dashboard tiles are the same
@@ -54,4 +54,8 @@ export const TILE_TONE: Record<TileTone, { card: string; ink: string; chip: stri
   mint: { card: 'bg-tm-tile-mint-bg', ink: 'text-tm-tile-mint-ink', chip: 'bg-tm-green-deep text-white' },
   teal: { card: 'bg-tm-tile-teal-bg', ink: 'text-tm-tile-teal-ink', chip: 'bg-tm-teal-ink text-white' },
   violet: { card: 'bg-tm-tile-violet-bg', ink: 'text-tm-tile-violet-ink', chip: 'bg-tm-violet-ink text-white' },
+  // sky (sky blue) and pink (soft pink) — PR88, so every dashboard card gets a
+  // distinct tint. Solid-hue chip, white glyph, like the others.
+  sky: { card: 'bg-tm-tile-sky-bg', ink: 'text-tm-tile-sky-ink', chip: 'bg-tm-sky-ink text-white' },
+  pink: { card: 'bg-tm-tile-pink-bg', ink: 'text-tm-tile-pink-ink', chip: 'bg-tm-pink-ink text-white' },
 }

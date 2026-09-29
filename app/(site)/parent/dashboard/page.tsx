@@ -117,7 +117,7 @@ export default async function ParentDashboardPage() {
     { key: 'applicants', icon: <Users aria-hidden size={22} />, value: applicants, label: 'Interested tutors', href: '/parent/dashboard/jobs', tone: 'teal', tip: 'Tutors interested in your open tuitions' },
     // The number is the parent's CONVERSATIONS; unread is the small badge, never
     // the main number (PR44 §2). Mirrors the tutor dashboard exactly.
-    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: conversations, label: 'Messages', href: '/parent/dashboard/messages', tone: 'navy', badge: unread, tip: 'Your conversations with tutors' },
+    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: conversations, label: 'Messages', href: '/parent/dashboard/messages', tone: 'sky', badge: unread, tip: 'Your conversations with tutors' },
     { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo lessons', href: '/parent/dashboard/demos', tone: 'red', highlight: liveDemos > 0, tip: 'Demo lessons you have asked for' },
     { key: 'hired', icon: <UserCheck aria-hidden size={22} />, value: hired.size, label: 'Hired tutors', href: '/parent/dashboard/hired-tutors', tone: 'gold', tip: 'Tutors you have hired' },
     { key: 'shortlisted', icon: <Heart aria-hidden size={22} />, value: shortlistCards.length, label: 'Shortlisted tutors', href: '#shortlisted-tutors', tone: 'violet', tip: 'Tutors you saved to look at later' },

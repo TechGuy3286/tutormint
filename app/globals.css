@@ -81,6 +81,11 @@
   --color-tm-teal-ink: #0f6d70;
   --color-tm-tint-violet: #ece9fb;
   --color-tm-violet-ink: #5b21b6;
+  /* Two more tile hues (PR88) — sky blue and soft pink — so every dashboard
+     card carries a distinct tint. Chip/ink hues; the tint boxes are below. Both
+     clear WCAG AA on their own tint and on white (scripts/contrast-check.ts). */
+  --color-tm-sky-ink: #075985;
+  --color-tm-pink-ink: #9d174d;
 
   /* ---- Tinted count-tile tokens (PR34 §2) ----------------------------------
      The dashboard/overview count tiles now wash the WHOLE box in a soft tint,
@@ -110,6 +115,10 @@
   --color-tm-tile-violet-ink: #5b21b6;
   --color-tm-tile-mint-bg: #cdeede;
   --color-tm-tile-mint-ink: #0b6b52;
+  --color-tm-tile-sky-bg: #e0f2fe;
+  --color-tm-tile-sky-ink: #075985;
+  --color-tm-tile-pink-bg: #fce7f3;
+  --color-tm-tile-pink-ink: #9d174d;
 
   /* Page ground. */
   --color-tm-bg: #f8fafc;
@@ -138,6 +147,10 @@
     --color-tm-tile-violet-ink: #cebff5;
     --color-tm-tile-mint-bg: #103326;
     --color-tm-tile-mint-ink: #8fe3c0;
+    --color-tm-tile-sky-bg: #0c2b3f;
+    --color-tm-tile-sky-ink: #a8dcf5;
+    --color-tm-tile-pink-bg: #3a1226;
+    --color-tm-tile-pink-ink: #f6b8d4;
   }
 }
 

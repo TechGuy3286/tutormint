@@ -95,7 +95,7 @@ export default async function TutorDashboardPage() {
   // Seven tiles, seven distinct tones — no two share a colour (PR32 §2). The
   // seventh is the optional Intro video tile (PR76 §D.3), its own mint tint.
   const tiles: CountTile[] = [
-    { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'green', tip: 'Tuitions you have applied to' },
+    { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'sky', tip: 'Tuitions you have applied to' },
     // The number is the tutor's CONVERSATIONS (four conversations → 4); unread
     // is the small badge, never the main number (PR44 §2).
     { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: conversations, label: 'Messages', href: '/tutor/dashboard/messages', tone: 'navy', badge: unread, tip: 'Your conversations with parents' },
@@ -105,7 +105,7 @@ export default async function TutorDashboardPage() {
     { key: 'saved', icon: <Heart aria-hidden size={22} />, value: savedJobs.length, label: 'Saved tuitions', href: '#saved-tuitions', tone: 'violet', tip: 'Tuitions you saved to look at later' },
     // Optional, no pressure — a label-only action tile opening the existing
     // upload flow. It is not a completion item (§C.6).
-    { key: 'video', icon: <Clapperboard aria-hidden size={22} />, label: 'Intro video', href: '/tutor/dashboard/video', tone: 'mint', tip: 'Optional — a short hello for parents' },
+    { key: 'video', icon: <Clapperboard aria-hidden size={22} />, label: 'Intro video', href: '/tutor/dashboard/video', tone: 'pink', tip: 'Optional — a short hello for parents' },
   ]
 
   return (
