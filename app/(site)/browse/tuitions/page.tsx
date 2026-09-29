@@ -197,10 +197,9 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   let appliedIds = new Set<string>()
   let savedIds = new Set<string>()
   // PR71/PR85: the tutor's own cities+areas default, resolved BEFORE the query so
-  // the first window is scoped (with the 3-level fallback). Applied only on a bare
-  // location URL (no ?city and no ?scope=all); widening honours the chip links —
-  // and never for a guest or a parent, who see the whole board exactly as before.
-  const wantsAll = one(sp.scope) === 'all'
+  // the first window is scoped (with the 3-level fallback). Applied only on a
+  // BARE board with no filter picked — never for a guest or a parent, who see the
+  // whole board exactly as before.
   let resolved: ResolvedTutor | null = null
   let viewerGender: string | null = null
 
@@ -223,9 +222,12 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     }
   }
 
-  // Apply the default only when the tutor did not choose a location (no ?city)
-  // and did not widen to all cities (?scope=all).
-  const defaultApplied = !!resolved && !city && !wantsAll
+  // PR90: the chip bar is gone. Any user-picked filter (city, subject, mode,
+  // budget or a committed query) wins for that visit and suppresses the default
+  // area feed; clearing all filters returns to it. The tutor widens via the
+  // normal City filter in the filter bar.
+  const filtered = !!(subjectId || city || mode || budgetMin || budgetMax || q)
+  const defaultApplied = !!resolved && !filtered
 
   const filters: JobFilters = {
     masterId: subjectId,
@@ -271,7 +273,6 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
       savedIds = new Set((savedRows ?? []).map((s) => s.job_id as string))
     }
 
-    const filtered = !!(subjectId || city || mode || budgetMin || budgetMax || q)
     if (filtered) {
       // Collapsed for the typeahead -- see logSearchPerformed().
       await logSearchPerformed({
@@ -288,7 +289,6 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   } else {
     // Anonymous demand — most of the traffic. Session-scoped, no PII, never on
     // a member timeline. See lib/anonSearch.ts.
-    const filtered = !!(subjectId || city || mode || budgetMin || budgetMax || q)
     if (filtered) {
       const sessionId = (await cookies()).get(ANON_COOKIE)?.value
       if (isAnonId(sessionId)) {
@@ -317,25 +317,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     budgetMin,
     budgetMax,
     q,
-    scope: wantsAll ? 'all' : '',
   }
-
-  // The two "widen" links on the default-areas chip (PR71), preserving every
-  // NON-location filter so removing the area default keeps the subject/budget/etc.
-  const widenHref = (override: Record<string, string>) => {
-    const p = new URLSearchParams()
-    if (filterValues.subject) p.set('subject', filterValues.subject)
-    if (mode) p.set('mode', mode)
-    if (budgetMin) p.set('budgetMin', budgetMin)
-    if (budgetMax) p.set('budgetMax', budgetMax)
-    if (q) p.set('q', q)
-    for (const [k, v] of Object.entries(override)) p.set(k, v)
-    return `/browse/tuitions?${p}`
-  }
-  const mainCity = resolved?.cities[0] ?? ''
-  const allAreas = resolved ? resolved.cities.flatMap((c) => resolved.areasByCity[c] ?? []) : []
-  const cityWidenHref = defaultApplied ? widenHref({ city: mainCity }) : '#'
-  const allCitiesHref = defaultApplied ? widenHref({ scope: 'all' }) : '#'
 
   const pageHref = (n: number) => {
     const params = new URLSearchParams()
@@ -411,28 +393,9 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
         <JobFilterBar values={filterValues} />
 
-        {/* PR71: the tutor's own city+areas default, as a removable chip. Only a
-            signed-in tutor with a city and areas sees it; guests and parents do
-            not. English with Urdu underneath. */}
-        {defaultApplied && resolved && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-tm-navy/15 bg-tm-tint-navy px-3 py-2.5">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-bold text-tm-navy">
-              <span>
-                {resolved.cities.length > 1 ? `Your cities: ${resolved.cities.join(', ')}` : `Your areas: ${allAreas.join(', ')}`}
-                <span lang="ur" dir="rtl" className="ms-1 font-medium text-gray-500">آپ کے علاقے</span>
-              </span>
-              <Link href={allCitiesHref} aria-label="Remove your-areas filter and show all cities" className="grid h-5 w-5 place-items-center rounded-full text-tm-navy hover:bg-tm-tint-navy">✕</Link>
-            </span>
-            <Link href={cityWidenHref} className="inline-flex min-h-[36px] items-center rounded-full border border-tm-navy/30 bg-white px-3 text-xs font-bold text-tm-navy hover:border-tm-navy">
-              All areas in {mainCity}
-              <span lang="ur" dir="rtl" className="ms-1 font-medium text-gray-500">{mainCity} کے تمام علاقے</span>
-            </Link>
-            <Link href={allCitiesHref} className="inline-flex min-h-[36px] items-center rounded-full border border-tm-navy/30 bg-white px-3 text-xs font-bold text-tm-navy hover:border-tm-navy">
-              All cities
-              <span lang="ur" dir="rtl" className="ms-1 font-medium text-gray-500">تمام شہر</span>
-            </Link>
-          </div>
-        )}
+        {/* PR90: the "Your areas / All areas / All cities" chip bar is removed.
+            The default area feed still opens for a signed-in tutor (below); to
+            widen, the tutor uses the City filter in the filter bar above. */}
 
         {/* PR85 Part B: the fallback message when the feed widened past the
             tutor's chosen areas (level 2) or their cities (level 3). */}
@@ -445,7 +408,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
         {/* A tutor with no city yet sees the whole board (as now) with a short
             prompt to add their city/areas so this list can be narrowed. */}
-        {isTutor && !resolved && !city && !wantsAll && (
+        {isTutor && !resolved && !filtered && (
           <p className="rounded-xl border border-tm-navy/15 bg-tm-tint-navy px-3 py-2.5 text-xs text-tm-navy">
             Add your city and areas in{' '}
             <Link href="/tutor/dashboard/settings" className="font-bold underline">Settings</Link>{' '}
