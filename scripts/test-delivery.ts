@@ -418,3 +418,15 @@ test('maskMsisdn: a log line never carries the full number', async () => {
   // A short/garbage value degrades to a constant, never echoing what it got.
   assert.equal(maskMsisdn('123'), '***')
 })
+
+// ------------------------------------------------------ PR93: SMS text ---
+
+test('otpMessage: exact wording, no expiry line, code embedded', async () => {
+  const { otpMessage } = await import('../lib/otp')
+  assert.equal(otpMessage('123456'), 'Your TutorMint verification code is 123456. tutormint.org')
+  // No "valid/expires/minutes" language remains.
+  assert.doesNotMatch(otpMessage('123456'), /valid|expir|minute/i)
+  // SendPK extracts the first 4–8 digit run — it must be the code, not a stray
+  // number in the trailer (there is none).
+  assert.equal(otpMessage('654321').match(/\d{4,8}/)?.[0], '654321')
+})

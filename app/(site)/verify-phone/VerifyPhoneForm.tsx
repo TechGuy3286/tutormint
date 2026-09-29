@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { STUCK_MESSAGE, armEscape, submitJson } from '@/lib/submit'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
+import OtpAlreadySentNotice from '@/components/auth/OtpAlreadySentNotice'
 import { useToast } from '@/components/ui/Toast'
 import { GENERIC_ERROR } from '@/lib/errorMessages'
 
@@ -67,21 +68,24 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
 
   return (
     // The shared code entry (PR82). No Resend and no "wrong number?" — one code per
-    // account, and number changes go through support (PR16 §3); so no
-    // onDifferentNumber here. The support box in the page shell below is the way
-    // through if the code was lost or is locked.
-    <OtpCodeEntry
-      code={code}
-      onChange={setCode}
-      onVerify={() => void submit()}
-      busy={busy}
-      busyLabel="Checking…"
-      verifyLabel="Verify and continue"
-      locked={locked}
-      error={error || null}
-      errorUr={errorUr}
-      errorRef={errorRef}
-      stuckHref={stuckHref}
-    />
+    // account, and number changes go through support (PR16 §3). The standing
+    // notice (PR93) says to use the code already sent; the support box in the page
+    // shell below is the way through if the code was lost or is locked.
+    <div className="space-y-4">
+      <OtpAlreadySentNotice emailSignupHref="/register" />
+      <OtpCodeEntry
+        code={code}
+        onChange={setCode}
+        onVerify={() => void submit()}
+        busy={busy}
+        busyLabel="Checking…"
+        verifyLabel="Verify and continue"
+        locked={locked}
+        error={error || null}
+        errorUr={errorUr}
+        errorRef={errorRef}
+        stuckHref={stuckHref}
+      />
+    </div>
   )
 }

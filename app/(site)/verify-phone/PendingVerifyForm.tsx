@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Mail } from 'lucide-react'
 import { STUCK_MESSAGE, armEscape, submitJson } from '@/lib/submit'
 import OtpCodeEntry, { OtpErrorBlock } from '@/components/auth/OtpCodeEntry'
+import OtpAlreadySentNotice from '@/components/auth/OtpAlreadySentNotice'
 import { useToast } from '@/components/ui/Toast'
 import { GENERIC_ERROR } from '@/lib/errorMessages'
 
@@ -15,7 +16,7 @@ import { GENERIC_ERROR } from '@/lib/errorMessages'
 // and entering the code CREATES the account and signs the member in. So this
 // form differs from the authenticated gate in three deliberate ways:
 //
-//   * NO resend button. One SMS per number; the code lasts ten minutes, and the
+//   * NO resend button. One SMS per number; the code does not expire, and the
 //     way to get a new one is to start over (which sends exactly one message).
 //   * The fallback is EMAIL SIGNUP, not a resend — a free path that already
 //     works. A verified mobile can be added later from settings; it is only
@@ -91,20 +92,24 @@ export default function PendingVerifyForm({ next }: { next: string | null }) {
           {startOver}
         </OtpErrorBlock>
       ) : (
-        // The shared code entry (PR82). No resend/"different number" — the way to a
-        // new code is Start over (the terminal path) or the email fallback below.
-        <OtpCodeEntry
-          code={code}
-          onChange={setCode}
-          onVerify={() => void submit()}
-          busy={busy}
-          busyLabel="Checking…"
-          verifyLabel="Verify and continue"
-          error={error || null}
-          errorUr={errorUr}
-          errorRef={errorRef}
-          stuckHref={stuckHref}
-        />
+        // The shared code entry (PR82). One code per number, no resend — the
+        // standing notice (PR93) says to use the code already sent; a new code
+        // comes only from Start over or the email fallback.
+        <>
+          <OtpAlreadySentNotice emailSignupHref="/register" />
+          <OtpCodeEntry
+            code={code}
+            onChange={setCode}
+            onVerify={() => void submit()}
+            busy={busy}
+            busyLabel="Checking…"
+            verifyLabel="Verify and continue"
+            error={error || null}
+            errorUr={errorUr}
+            errorRef={errorRef}
+            stuckHref={stuckHref}
+          />
+        </>
       )}
 
       {/* Email fallback (owner). Not a resend — a free path that already works.

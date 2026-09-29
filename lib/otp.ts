@@ -32,6 +32,18 @@ import { getSmsProvider, devOtpCode, bridgeOtpCode } from '@/lib/sms'
 
 export type OtpPurpose = 'verify' | 'reset'
 
+/**
+ * The exact SMS body (PR93 Part A.4): "Your TutorMint verification code is
+ * 123456. tutormint.org" — no expiry line. For a provider that sends the body
+ * verbatim (Twilio, the dev console) this IS the delivered text; SendPK renders
+ * its OWN pre-approved template and only extracts the code from here, so the
+ * delivered wording there is owner-controlled (re-register it to match). Pure, so
+ * the exact wording is asserted by a test.
+ */
+export function otpMessage(code: string): string {
+  return `Your TutorMint verification code is ${code}. tutormint.org`
+}
+
 // No expiry (PR16 §3.1). expires_at is NOT NULL in the schema, so a far-future
 // value satisfies it while meaning "never expires". The code lives until it is
 // used (consumed_at) or locked (attempts >= MAX) or the number changes.
@@ -117,10 +129,7 @@ export async function deliverCode(
     return { ok: true, channel: 'bridge', devBypassActive: false }
   }
 
-  const sent = await provider.send(
-    phone,
-    `Your TutorMint verification code is ${code}. Do not share it with anyone.`,
-  )
+  const sent = await provider.send(phone, otpMessage(code))
 
   reportSend({
     purpose,
@@ -232,6 +241,15 @@ export async function sendOtp(opts: {
   })
 
   if (insertError) {
+    // ATOMIC one-code guard (PR93 Part A.1, migration 125). The pre-check SELECT
+    // above is a race window; the partial unique index on (phone, purpose) WHERE
+    // consumed_at IS NULL is the real barrier. Two quick taps both pass the SELECT
+    // and both attempt the INSERT — one wins, the other hits a 23505 unique
+    // violation and is treated as "already sent", so no second SMS goes out.
+    if ((insertError as { code?: string }).code === '23505') {
+      reportSend({ purpose: opts.purpose, phone: opts.phone, channel: 'existing', ok: true })
+      return { ok: true, channel: 'existing', devBypassActive: !!devOtpCode(), alreadySent: true }
+    }
     return { ok: false, status: 500, error: insertError.message }
   }
 

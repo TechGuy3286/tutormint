@@ -299,9 +299,10 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
             Parent&rsquo;s contact
           </h2>
           <p className="text-[11px] leading-relaxed text-slate-700">
-            TutorMint staff posted this tuition for the parent. This is the parent&rsquo;s own contact,
-            shown to signed-in tutors on the tuition page — never to another parent, and never made
-            public (not indexed, not in the sitemap or structured data).
+            TutorMint staff posted this tuition for the parent. Tutors see this contact masked; it&rsquo;s
+            shown in full only after a tutor taps &ldquo;View number&rdquo;, which uses 1 application from
+            their monthly allowance. Never shown to another parent, never public (not indexed, not in the
+            sitemap or structured data).
           </p>
           <dl className="space-y-1 text-xs">
             {contactName && (

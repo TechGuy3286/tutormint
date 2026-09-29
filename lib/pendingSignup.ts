@@ -77,6 +77,15 @@ export async function startPendingSignup(opts: {
 
   const now = Date.now()
 
+  // Clean up any DEAD draft for this number first, so the one-mobile unique index
+  // (PR93, migration 125) only ever guards a LIVE draft — an expired row must not
+  // block a fresh signup.
+  await admin
+    .from('pending_signups')
+    .delete()
+    .eq('mobile', opts.mobile)
+    .lt('expires_at', new Date().toISOString())
+
   // A live pending row for this number means a code is still outstanding: reuse
   // it, send nothing, and hand back its token so the caller can re-point the
   // cookie at it (works across devices — verifying still needs the code).
@@ -113,6 +122,18 @@ export async function startPendingSignup(opts: {
     expires_at: new Date(now + PENDING_TTL_MS).toISOString(),
   })
   if (insertError) {
+    // ATOMIC one-code guard (PR93, migration 125): a concurrent signup inserted
+    // the live draft first (unique on mobile). Reuse it — send nothing.
+    if ((insertError as { code?: string }).code === '23505') {
+      const { data: live } = await admin
+        .from('pending_signups')
+        .select('token')
+        .eq('mobile', opts.mobile)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (live) return { ok: true, alreadySent: true, token: live.token as string }
+    }
     return { ok: false, status: 500, error: 'Could not start sign-up. Please try again.', detail: insertError.message }
   }
 
