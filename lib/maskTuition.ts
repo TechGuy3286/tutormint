@@ -21,12 +21,16 @@
 // data layer and the tests share one function.
 
 import { findPhoneSpans, MASK } from '@/lib/masking'
+import { formatPkMobile } from '@/lib/phone'
 
 /** An email address. Deliberately conservative: a local part, @, a dotted
  *  domain with a 2+ letter TLD. Matches the address, not a stray "@handle". */
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
 
 const EMAIL_MASK = '•••••@•••••'
+
+/** The masked email teaser shown on the always-visible "Contact:" line (PR92). */
+export const EMAIL_TEASER = EMAIL_MASK
 
 export type TuitionMask = {
   /** The masked text. Equal to the input when nothing matched. */
@@ -55,6 +59,21 @@ function maskPhoneRun(run: string): string {
   // Keep the separators that lead the rest (e.g. the "-"), drop its digits.
   const restSeparators = run.slice(i).replace(/\d/g, '')
   return head + restSeparators + MASK
+}
+
+/**
+ * The masked phone teaser for the always-visible "Contact:" line (PR92): the
+ * first 4 digits then dots. `fromMsisdn` formats a canonical 92… number to its
+ * local 0… shape first (job_contacts / a parent's verified number); a raw text
+ * run is masked as written (keeping its "-"). Returns null if there is nothing
+ * to show.
+ */
+export function phoneTeaser(input: string | null | undefined, fromMsisdn = false): string | null {
+  const raw = (input ?? '').trim()
+  if (!raw) return null
+  const run = fromMsisdn ? formatPkMobile(raw) : raw
+  const masked = maskPhoneRun(run)
+  return masked || null
 }
 
 /**

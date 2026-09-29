@@ -29,7 +29,9 @@ import { jobType } from '@/lib/display'
 import { matchVisibility } from '@/lib/matchChip'
 import { genderPrefWord, genderApplyBlocked } from '@/lib/genderPref'
 import { jobDisplayTitle } from '@/lib/jobDisplayTitle'
-import { maskTuitionText } from '@/lib/maskTuition'
+import { maskTuitionText, extractTuitionContacts, phoneTeaser, EMAIL_TEASER } from '@/lib/maskTuition'
+import { normalisePkMobile } from '@/lib/phone'
+import { parseJobRef } from '@/lib/jobRef'
 import { collapseLevels } from '@/lib/levelDisplay'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
@@ -47,6 +49,13 @@ type ParentFacts = {
   team: boolean
   /** This job's parent is a seed/fixture account (profiles.is_seed, migration 71). */
   isSeed: boolean
+  /** PR92: the parent's verified mobile (canonical MSISDN) for the masked
+   *  "Contact:" teaser — null for the team account (its jobs@ mailbox is never a
+   *  parent teaser; a team tuition's teaser comes from job_contacts). */
+  contactPhone: string | null
+  /** PR92: the parent has a non-synthetic email (a rough teaser signal — the
+   *  reveal does the authoritative confirmed-email check). */
+  hasContactEmail: boolean
 }
 
 async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
@@ -59,7 +68,7 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
   const [{ data: profiles }, { data: subs }, { data: plans }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, full_name, avatar_url, profile_completion, cnic_verified_at, address_verified_at, is_team_account, is_seed')
+      .select('id, full_name, avatar_url, profile_completion, cnic_verified_at, address_verified_at, is_team_account, is_seed, phone_number, phone_verified_at, email')
       .in('id', ids),
     admin
       .from('subscriptions')
@@ -104,9 +113,40 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
       canHire: !!(code && planByCode.get(code)?.can_hire),
       team,
       isSeed: !!(p.is_seed as boolean | null),
+      // PR92 masked-contact teaser signals (never the team account's own mailbox).
+      contactPhone:
+        !team && p.phone_verified_at && p.phone_number
+          ? normalisePkMobile(p.phone_number as string)
+          : null,
+      hasContactEmail:
+        !team && !!(p.email as string | null) && !(p.email as string).endsWith('@users.tutormint.org'),
     })
   }
 
+  return out
+}
+
+/** PR92: the raw contact-field numbers/email for a batch of jobs (job_contacts,
+ *  staff-posted tuitions), read through the service role for the masked teaser.
+ *  Never returns anything to a client — only feeds the masked "Contact:" line. */
+async function jobContactRaw(
+  jobIds: string[],
+): Promise<Map<string, { phone: string | null; whatsapp: string | null; email: string | null }>> {
+  const out = new Map<string, { phone: string | null; whatsapp: string | null; email: string | null }>()
+  if (jobIds.length === 0) return out
+  const admin = createAdminClient()
+  if (!admin) return out
+  const { data } = await admin
+    .from('job_contacts')
+    .select('job_id, contact_phone, contact_whatsapp, contact_email')
+    .in('job_id', jobIds)
+  for (const c of data ?? []) {
+    out.set(c.job_id as string, {
+      phone: (c.contact_phone as string | null) ?? null,
+      whatsapp: (c.contact_whatsapp as string | null) ?? null,
+      email: (c.contact_email as string | null) ?? null,
+    })
+  }
   return out
 }
 
@@ -115,6 +155,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
 
   const supabase = await createClient()
   const jobIds = rawJobs.map((j) => j.id as string)
+  const jobContacts = await jobContactRaw(jobIds)
 
   // Subject labels for the chips, resolved from the join table.
   const { data: links } = await supabase
@@ -217,6 +258,28 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
     // directly, not through here, so staff screens keep the full text.
     const maskedHeadline = maskTuitionText((j.title as string | null)?.trim() || null)
     const maskedDescription = maskTuitionText((j.description as string) ?? null)
+
+    // PR92 Part A: the always-visible masked "Contact:" line. A tuition has a
+    // contact if a number/email sits in its TEXT, its job_contacts (staff-posted),
+    // or the real parent's verified contact. Show the first number's masked teaser
+    // (first 4 digits + dots), or the email mask if there is only an email. This
+    // is the deterrent that tells a tutor a number exists and draws them to
+    // verify + "View number"; the full number is only shown after a counted
+    // reveal (PR91). Never the team account's own mailbox.
+    const textContacts = extractTuitionContacts(
+      (j.title as string | null) ?? null,
+      (j.description as string | null) ?? null,
+    )
+    const jc = jobContacts.get(j.id as string)
+    const teaserPhone =
+      (textContacts.phones[0] ? phoneTeaser(textContacts.phones[0], false) : null) ??
+      (jc?.phone ? phoneTeaser(jc.phone, true) : null) ??
+      (jc?.whatsapp ? phoneTeaser(jc.whatsapp, true) : null) ??
+      (f?.contactPhone ? phoneTeaser(f.contactPhone, true) : null)
+    const hasTeaserEmail =
+      textContacts.emails.length > 0 || !!jc?.email || (f?.hasContactEmail ?? false)
+    const contactTeaser = teaserPhone ?? (hasTeaserEmail ? EMAIL_TEASER : null)
+
     return {
       id: j.id as string,
       job_tx_id: (j.job_tx_id as string) ?? null,
@@ -232,6 +295,10 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       /** True when the tuition's free text hides a phone/email behind the mask —
        *  drives the inline "View number" affordance on the card and page. */
       textHasContact: maskedHeadline.masked || maskedDescription.masked,
+      /** PR92: the masked "Contact:" teaser (first 4 digits + dots, or the email
+       *  mask), or null when the tuition has no contact at all. Shown to everyone;
+       *  the full number needs a counted reveal. */
+      contactTeaser,
       // Fall back to the legacy text column for jobs posted before the join
       // table existed, so old posts still show what they are for.
       subjects,
@@ -601,7 +668,27 @@ export async function browseJobs(
   // misspelling ("hisab") lands on Mathematics rather than a literal title match.
   let masterIds = filters.masterIds ?? (filters.masterId != null ? [filters.masterId] : null)
   let literalQ = filters.q
-  if ((!masterIds || masterIds.length === 0) && filters.q) {
+
+  // PR92 Part B: a job reference ("TM-1414", "tm1414", "1414") finds that tuition
+  // first. If the query parses to a ref that names an OPEN job, filter to that
+  // ref and skip the subject/title resolution entirely, so the tuition is the
+  // result. A ref that names nothing falls through to the normal text search.
+  let refId: string | null = null
+  const maybeRef = filters.q ? parseJobRef(filters.q) : null
+  if (maybeRef) {
+    const { data: hit } = await supabase
+      .from('jobs')
+      .select('id')
+      .eq('ref_id', maybeRef)
+      .eq('status', 'open')
+      .maybeSingle()
+    if (hit) {
+      refId = maybeRef
+      literalQ = null
+    }
+  }
+
+  if (!refId && (!masterIds || masterIds.length === 0) && filters.q) {
     const resolved = await resolveSubjectQuery(filters.q, filters.city)
     if (resolved) {
       masterIds = resolved.masterIds
@@ -621,6 +708,8 @@ export async function browseJobs(
 
   const build = () => {
     let q = supabase.from('jobs').select(JOB_COLUMNS, { count: 'exact' }).eq('status', 'open')
+    // PR92 Part B: a resolved job reference is the whole filter.
+    if (refId) return q.eq('ref_id', refId)
     if (matchingIds) q = q.in('id', matchingIds)
     // The tutor's own city+areas default (PR71). One PostgREST OR group:
     //   (city = tutor's city AND (area ∈ areas OR area is null))

@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { parseQuery, z } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { maskTuitionText } from '@/lib/maskTuition'
+import { parseJobRef } from '@/lib/jobRef'
+import { citySegment } from '@/lib/slugs'
 
 // GET /api/search/suggest?q=…&city=…
 //
@@ -120,9 +122,17 @@ export async function GET(request: Request) {
   // thrown away unread, and they still get the 429.
   //
   // This reasoning does not transfer to a route that writes.
-  const [limited, result] = await Promise.all([
+  // PR92 Part B: if the query is a job reference ("TM-1414", "tm1414", "1414"),
+  // look that tuition up so it can lead the suggestions.
+  const ref = parseJobRef(q)
+  const refLookup = ref
+    ? admin.from('jobs').select('id, public_slug, city, title, ref_id').eq('ref_id', ref).eq('status', 'open').maybeSingle()
+    : Promise.resolve({ data: null })
+
+  const [limited, result, refRes] = await Promise.all([
     rateLimit('search', callerIp(request)),
     admin.rpc('search_suggest', { p_query: q, p_city: city, p_limit: 5 }),
+    refLookup,
   ])
 
   if (!limited.allowed) return tooManyRequests(limited.retryAfterSeconds, 'searches')
@@ -148,7 +158,25 @@ export async function GET(request: Request) {
     href: r.href,
   }))
 
-  const suggestions = withAllLevels(mapped).map((s) => ({ ...s, href: retarget(s.href) }))
+  let suggestions = withAllLevels(mapped).map((s) => ({ ...s, href: retarget(s.href) }))
+
+  // PR92 Part B: put the exact job-reference hit FIRST (deduped against any the
+  // text search already returned).
+  const refJob = refRes.data as { public_slug: string | null; city: string | null; title: string; ref_id: string } | null
+  if (refJob?.public_slug) {
+    const href = `/tuitions/${citySegment(refJob.city)}/${refJob.public_slug}`
+    suggestions = [
+      {
+        group: 'job' as SuggestGroup,
+        ref: refJob.ref_id,
+        label: maskTuitionText(refJob.title).text,
+        sublabel: refJob.ref_id,
+        href,
+      },
+      ...suggestions.filter((s) => s.href !== href),
+    ]
+  }
+
   return NextResponse.json(
     { query: q, suggestions, popular: [] } satisfies SuggestResponse,
   )

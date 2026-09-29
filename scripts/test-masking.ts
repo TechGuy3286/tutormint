@@ -122,3 +122,16 @@ test('extractTuitionContacts: pulls the phone run and email out of the text', ()
   assert.ok(got.phones.some((p) => p.includes('0313')))
   assert.ok(got.phones.some((p) => p.includes('03009998877')))
 })
+
+// ── PR92 — masked contact teaser ──
+
+import { phoneTeaser, EMAIL_TEASER } from '../lib/maskTuition'
+
+test('phoneTeaser: keeps first 4 digits then dots', () => {
+  assert.equal(phoneTeaser('0313-0042960'), '0313-•••••••')
+  // from a canonical MSISDN → local shape first
+  assert.equal(phoneTeaser('923130042960', true), '0313 •••••••')
+  assert.equal(phoneTeaser('', false), null)
+  assert.equal(phoneTeaser(null), null)
+  assert.equal(EMAIL_TEASER, '•••••@•••••')
+})

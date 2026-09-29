@@ -32,18 +32,30 @@ export default function ViewNumberLink({
   jobId,
   signedIn,
   canReveal,
+  initialContact = null,
 }: {
   jobId: string
   /** Whether a session exists at all. */
   signedIn: boolean
   /** Whether this viewer is a tutor (only a tutor can reveal). */
   canReveal: boolean
+  /** PR92 Part A.3: when the viewer already has access, the full contact is
+   *  passed in and shown directly — no "View number" link, no spend. */
+  initialContact?: RevealedContact | null
 }) {
   const pathname = usePathname()
   const upgradeSheet = useUpgradeSheet()
   const [state, setState] = useState<'idle' | 'busy' | 'guest'>('idle')
-  const [phones, setPhones] = useState<string[] | null>(null)
-  const [emails, setEmails] = useState<string[]>([])
+  const flatten = (c: RevealedContact | null) =>
+    c
+      ? {
+          phones: Array.from(new Set([c.phone, c.whatsapp, ...(c.textPhones ?? [])].filter((x): x is string => !!x))),
+          emails: Array.from(new Set([c.email, ...(c.textEmails ?? [])].filter((x): x is string => !!x))),
+        }
+      : null
+  const initial = flatten(initialContact)
+  const [phones, setPhones] = useState<string[] | null>(initial?.phones ?? null)
+  const [emails, setEmails] = useState<string[]>(initial?.emails ?? [])
   const [error, setError] = useState<string | null>(null)
 
   const reveal = useCallback(async () => {

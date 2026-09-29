@@ -16,6 +16,7 @@ import { budgetLabel } from '@/lib/feeBands'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { jobByPublicSlug, similarOpenTuitions } from '@/lib/jobFeed'
+import { peekTuitionContact } from '@/lib/contactReveal'
 import { tuitionPublicState, pauseCountdownLabel, pauseDueAtMs } from '@/lib/tuitionStatus'
 import { isFixtureTuition } from '@/lib/fixtures'
 import { tuitionIndexable } from '@/lib/seo/indexable'
@@ -206,6 +207,10 @@ export default async function TuitionPage({ params }: { params: Params }) {
   let tutorGender: string | null = null
   let isPoster = false
   let isAdmin = false
+  // PR92 Part A.3: the full tuition contact when the signed-in tutor ALREADY has
+  // access (applied / viewed before) — shown on the contact line instead of the
+  // masked teaser, with no spend.
+  let revealedContact: Awaited<ReturnType<typeof peekTuitionContact>> = null
 
   if (user) {
     const ent = await getEntitlements(user.id)
@@ -213,12 +218,14 @@ export default async function TuitionPage({ params }: { params: Params }) {
     isAdmin = ent.role === 'admin'
     isPoster = job.parent_id === user.id
     if (isTutor) {
-      const [{ data: mine }, { data: me }] = await Promise.all([
+      const [{ data: mine }, { data: me }, peeked] = await Promise.all([
         supabase.from('applications').select('id').eq('tutor_id', user.id).eq('job_id', job.id).maybeSingle(),
         supabase.from('tutor_profiles').select('gender').eq('id', user.id).maybeSingle(),
+        peekTuitionContact(user.id, job.id),
       ])
       applied = !!mine
       tutorGender = (me?.gender as string | null) ?? null
+      revealedContact = peeked
     }
   }
 
@@ -510,6 +517,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
           </p>
         )}
 
+        {/* PR91: numbers inside the description stay masked inline. */}
         {job.description && (
           <div className="space-y-1">
             <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
@@ -517,17 +525,20 @@ export default async function TuitionPage({ params }: { params: Params }) {
             </h2>
             <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
               {job.description}
-              {/* PR91 Part A: a number/email in the text is masked; "View number"
-                  reveals it (a tutor spends 1 from the shared pool, once per
-                  tuition; a guest is asked to sign up). */}
-              {job.textHasContact && (
-                <>
-                  {' '}
-                  <ViewNumberLink jobId={job.id} signedIn={!!user} canReveal={isTutor} />
-                </>
-              )}
             </p>
           </div>
+        )}
+
+        {/* PR92 Part A: the always-visible masked contact line. Shown to everyone
+            (a tutor SEES a number exists → drawn to verify). "View number" spends
+            one pool unit on tap (once per tuition; a guest is asked to sign up);
+            a tutor who already has access sees the full number instead. */}
+        {job.contactTeaser && (
+          <p className="flex flex-wrap items-center gap-1.5 rounded-xl bg-tm-tint-navy px-3 py-2 text-sm font-semibold text-tm-navy">
+            Contact:{' '}
+            {revealedContact ? null : <span className="tabular-nums">{job.contactTeaser}</span>}
+            <ViewNumberLink jobId={job.id} signedIn={!!user} canReveal={isTutor} initialContact={revealedContact} />
+          </p>
         )}
 
         {showApply && (

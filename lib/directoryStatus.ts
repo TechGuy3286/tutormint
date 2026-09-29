@@ -30,6 +30,9 @@ export async function loadDirectoryStatus(userId: string): Promise<DirectoryStat
     admin.from('tutor_subjects').select('tutor_id').eq('tutor_id', userId).limit(1),
   ])
 
+  // The step-1 completeness items (verified mobile, subjects, city, area, gender)
+  // — still what a tutor needs to be FOUND ON GOOGLE and to earn their badge and
+  // start their plan (PR89), now surfaced as a nudge rather than a listing gate.
   const blockers = directoryBlockers({
     phoneVerified: !!prof?.phone_verified_at,
     hasSubjects: (subj ?? []).length > 0,
@@ -45,7 +48,12 @@ export async function loadDirectoryStatus(userId: string): Promise<DirectoryStat
     isSeed: prof?.is_seed as boolean | null,
     isTeamAccount: prof?.is_team_account as boolean | null,
   })
-  return { listed: blockers.length === 0, blockers }
+  // PR92: "listed" now means present in the public browse directory, which lists
+  // every real tutor — so it is read from the VIEW itself, not from the step-1
+  // completeness blockers above. A seed/suspended/banned/team/rejected tutor is
+  // absent from the view and reads as not listed.
+  const { data: inDir } = await admin.from('tutor_directory').select('id').eq('id', userId).maybeSingle()
+  return { listed: !!inDir, blockers }
 }
 
 /**

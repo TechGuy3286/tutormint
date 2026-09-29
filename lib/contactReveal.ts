@@ -330,6 +330,23 @@ export async function revealJobContact(tutorId: string, jobId: string): Promise<
   return finishReveal(spend, target.contact, gate.ent, tutorId)
 }
 
+/**
+ * PR92 Part A.3: the FULL tuition contact for a tutor who ALREADY has access
+ * (an access row, an application, or an earlier reveal) — no spend, no gate. Used
+ * to render the full number on the tuition page instead of the masked teaser.
+ * Returns null for anyone who has not already paid for this tuition.
+ */
+export async function peekTuitionContact(tutorId: string, jobId: string): Promise<RevealContact | null> {
+  const admin = createAdminClient()
+  if (!admin) return null
+  const ent = await getEntitlements(tutorId)
+  if (ent.audience !== 'tutor' || !ent.verified || ent.suspended) return null
+  if (await jobGenderBlocks(admin, tutorId, jobId)) return null
+  if (!(await tuitionAlreadyPaid(admin, tutorId, jobId))) return null
+  const target = await loadTuitionTarget(admin, jobId)
+  return target.ok ? target.contact : null
+}
+
 // ── shared tails ──────────────────────────────────────────────────────────
 
 /** Turn a pool spend into a reveal result. Fails OPEN when the pool function is

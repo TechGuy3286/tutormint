@@ -223,3 +223,19 @@ test('isMessyTitle: true only when a clean-up would change the title', () => {
   assert.equal(isMessyTitle('Clean Title'), false)
   assert.equal(isMessyTitle(''), false)
 })
+
+// ── PR92 Part B — parse a job reference from a search query ──
+
+import { parseJobRef } from '../lib/jobRef'
+
+test('parseJobRef: TM-1414 / tm1414 / 1414 → TM-1414; non-refs → null', () => {
+  assert.equal(parseJobRef('TM-1414'), 'TM-1414')
+  assert.equal(parseJobRef('tm1414'), 'TM-1414')
+  assert.equal(parseJobRef('TM 1414'), 'TM-1414')
+  assert.equal(parseJobRef('1414'), 'TM-1414')
+  assert.equal(parseJobRef('  tm-1414 '), 'TM-1414')
+  assert.equal(parseJobRef('physics'), null)
+  assert.equal(parseJobRef('TM-1414 physics'), null)
+  assert.equal(parseJobRef(''), null)
+  assert.equal(parseJobRef(null), null)
+})

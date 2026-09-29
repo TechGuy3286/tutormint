@@ -71,6 +71,9 @@ export type JobCardData = {
   /** PR91 Part A: the free text hides a phone/email behind the mask, so the card
    *  and page show an inline "View number" affordance. */
   textHasContact?: boolean
+  /** PR92 Part A: the masked "Contact:" teaser (first 4 digits + dots, or the
+   *  email mask) shown to everyone; null when the tuition has no contact. */
+  contactTeaser?: string | null
   created_at: string
   /** The auto-pause clock base, when resumed at least once (PR89 Part C). The
    *  tuition auto-pauses at coalesce(resumed_at, created_at) + 15 days, which is
@@ -382,20 +385,20 @@ export default function JobCard({
             )}
           </div>
 
+          {/* PR91: numbers inside the description stay masked inline. */}
           {job.description && (
-            <p className="line-clamp-2 text-xs leading-relaxed text-slate-700">
-              {job.description}
-              {/* PR91 Part A: a number/email in the text is masked; "View number"
-                  (a plain inline link, tutor spends 1 from the pool) reveals it on
-                  the tuition page. */}
-              {job.textHasContact && (
-                <>
-                  {' '}
-                  <Link href={detailHref} className="font-bold text-tm-red hover:underline">
-                    View number
-                  </Link>
-                </>
-              )}
+            <p className="line-clamp-2 text-xs leading-relaxed text-slate-700">{job.description}</p>
+          )}
+
+          {/* PR92 Part A: the always-visible masked contact line — a tutor SEES a
+              number exists (drawing them to verify), and "View number" (a plain
+              inline link → the tuition page, where a counted reveal shows it). */}
+          {job.contactTeaser && (
+            <p className="text-xs font-semibold text-tm-navy">
+              Contact: <span className="tabular-nums">{job.contactTeaser}</span>{' '}
+              <Link href={detailHref} className="font-bold text-tm-red hover:underline">
+                View number
+              </Link>
             </p>
           )}
 
