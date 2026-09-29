@@ -22,6 +22,7 @@ import { flagIfAbusive } from '@/lib/abuse/flag'
 import { detectAbuse } from '@/lib/abuse/filter'
 import { WITHHELD_TUITION_LINE } from '@/lib/abuse/warnings'
 import { checkQuota, consumeQuota } from '@/lib/quota'
+import { cleanTuitionTitle } from '@/lib/cleanTitle'
 import { upgradeHref } from '@/lib/upgradePath'
 import { buildGate, type Gate } from '@/lib/gate'
 import { logActivity } from '@/lib/activityLog'
@@ -250,7 +251,7 @@ export async function createJob(
     .insert({
       job_tx_id: jobTxId,
       parent_id: parentId,
-      title: input.title.trim(),
+      title: cleanTuitionTitle(input.title),
       class_levels: levelArr(input),
       class_level: levelDisplay(input),
       city: input.city,
@@ -411,7 +412,7 @@ export async function createTeamJob(
     .insert({
       job_tx_id: jobTxId,
       parent_id: teamId,
-      title: input.title.trim(),
+      title: cleanTuitionTitle(input.title),
       class_levels: levelArr(input),
       class_level: levelDisplay(input),
       city: input.city,
@@ -551,7 +552,7 @@ export async function updateTeamJob(
 
   const labels = await subjectLabels(input.masterIds)
   const next = {
-    title: input.title.trim(),
+    title: cleanTuitionTitle(input.title),
     class_levels: levelArr(input),
     class_level: levelDisplay(input),
     city: input.city,
@@ -661,7 +662,7 @@ export async function updateJob(
   const { error } = await supabase
     .from('jobs')
     .update({
-      title: input.title.trim(),
+      title: cleanTuitionTitle(input.title),
       class_levels: levelArr(input),
       class_level: levelDisplay(input),
       city: input.city,

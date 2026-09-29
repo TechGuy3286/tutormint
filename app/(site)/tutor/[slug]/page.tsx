@@ -12,6 +12,7 @@ import { formatSlots, availabilityToSlots } from '@/lib/timeSlots'
 import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlements'
 import { degreeLabels } from '@/lib/degrees'
 import { tutorProfileNoindex } from '@/lib/planBadges'
+import { deriveCnicStatus } from '@/lib/cnicStatus'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import BadgeRow from '@/components/badges/BadgeRow'
@@ -309,7 +310,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       title,
       description,
       alternates: { canonical: `/tutor/${tutor.slug}` },
-      ...(tutorProfileNoindex({ verified: flags.verified, profileCompletion: flags.profileCompletion, underReview: flags.underReview, isSeed: flags.isSeed })
+      ...(tutorProfileNoindex(flags)
         ? { robots: { index: false, follow: true } }
         : {}),
       ...socialMeta({ title, description, path: `/tutor/${tutor.slug}`, type: 'profile' }),
@@ -337,7 +338,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     // either condition clears.
     // PR37 §4 — noindex, FOLLOW (not nofollow): held out of Google but its links
     // are still crawled, matching the tuition page and the brief's exact value.
-    ...(tutorProfileNoindex({ verified: flags.verified, profileCompletion: flags.profileCompletion, underReview: flags.underReview, isSeed: flags.isSeed })
+    ...(tutorProfileNoindex(flags)
       ? { robots: { index: false, follow: true } }
       : {}),
     // Their photo when they have one, the branded default otherwise. Complete
@@ -376,25 +377,68 @@ async function tutorUnderReview(tutorId: string): Promise<boolean> {
  * has not been claimed — an unclaimed tutor never given a photo/name to the
  * world through a preview).
  */
-async function tutorMetaFlags(
-  tutorId: string,
-): Promise<{ underReview: boolean; shareHidden: boolean; profileCompletion: number; isSeed: boolean; verified: boolean }> {
+type TutorMetaFlags = {
+  underReview: boolean
+  shareHidden: boolean
+  isSeed: boolean
+  verified: boolean
+  // STEP 1 facts (owner, 15 Sep 2026) — the tutor page's noindex is now the
+  // step-1 rule, not profile completion. Mirrors listed_tutor_slugs().
+  mobileVerified: boolean
+  cnicApproved: boolean
+  profilePicApproved: boolean
+  selfieApproved: boolean
+  hasSubject: boolean
+  hasCity: boolean
+  hasArea: boolean
+}
+
+async function tutorMetaFlags(tutorId: string): Promise<TutorMetaFlags> {
+  const openDefault: TutorMetaFlags = {
+    underReview: false, shareHidden: false, isSeed: false, verified: true,
+    mobileVerified: true, cnicApproved: true, profilePicApproved: true,
+    selfieApproved: true, hasSubject: true, hasCity: true, hasArea: true,
+  }
   const admin = createAdminClient()
-  if (!admin) return { underReview: false, shareHidden: false, profileCompletion: 100, isSeed: false, verified: true }
-  const [{ data: tp }, { data: prof }] = await Promise.all([
-    admin.from('tutor_profiles').select('under_review, imported, claimed_at, verified_fee_paid_at').eq('id', tutorId).maybeSingle(),
-    admin.from('profiles').select('profile_completion, is_seed').eq('id', tutorId).maybeSingle(),
+  if (!admin) return openDefault
+  const [{ data: tp }, { data: prof }, { count: subjectCount }] = await Promise.all([
+    admin
+      .from('tutor_profiles')
+      .select('under_review, imported, claimed_at, verified_fee_paid_at, city, area')
+      .eq('id', tutorId)
+      .maybeSingle(),
+    admin
+      .from('profiles')
+      .select(
+        'is_seed, phone_verified_at, verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status',
+      )
+      .eq('id', tutorId)
+      .maybeSingle(),
+    admin.from('tutor_subjects').select('master_id', { count: 'exact', head: true }).eq('tutor_id', tutorId),
   ])
   const underReview = !!tp?.under_review
   const unclaimed = !!tp?.imported && !tp?.claimed_at
+  const cnicApproved =
+    deriveCnicStatus({
+      verification_state: (prof?.verification_state as string) ?? null,
+      cnic_verified_at: (prof?.cnic_verified_at as string) ?? null,
+      cnic_number: (prof?.cnic_number as string) ?? null,
+      cnic_image_path: (prof?.cnic_image_path as string) ?? null,
+    }) === 'approved'
+  const nonBlank = (v: unknown) => !!(v && String(v).trim())
   return {
     underReview,
     shareHidden: underReview || unclaimed,
-    profileCompletion: (prof?.profile_completion as number | null) ?? 0,
-    // A fixture tutor is noindex regardless of completion (owner, 10 Sep 2026).
     isSeed: !!(prof?.is_seed as boolean | null),
     // PR16 §1.4 — the one-time verification fee. Unverified → noindex.
     verified: !!(tp?.verified_fee_paid_at as string | null),
+    mobileVerified: nonBlank(prof?.phone_verified_at),
+    cnicApproved,
+    profilePicApproved: (prof?.profile_pic_status as string | null) === 'approved',
+    selfieApproved: (prof?.selfie_status as string | null) === 'approved',
+    hasSubject: (subjectCount ?? 0) > 0,
+    hasCity: nonBlank(tp?.city),
+    hasArea: nonBlank(tp?.area),
   }
 }
 

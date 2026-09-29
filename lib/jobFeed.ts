@@ -238,6 +238,9 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       budget_max_pkr: (j.budget_max_pkr as number) ?? null,
       description: (j.description as string) ?? null,
       created_at: (j.created_at as string) ?? new Date().toISOString(),
+      // The auto-pause clock base for JobPosting validThrough (PR89 Part C):
+      // coalesce(resumed_at, created_at) + 15 days is when the tuition auto-pauses.
+      resumed_at: (j.resumed_at as string | null) ?? null,
       is_featured: (j.is_featured as boolean) ?? false,
       under_review: (j.under_review as boolean) ?? false,
       parent_id: (j.parent_id as string) ?? null,
@@ -255,7 +258,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
 }
 
 const JOB_COLUMNS =
-  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, is_featured, under_review, parent_id, status, gender_preference, timings'
+  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, resumed_at, is_featured, under_review, parent_id, status, gender_preference, timings'
 
 /**
  * Open jobs that match a tutor's subjects, their city first.

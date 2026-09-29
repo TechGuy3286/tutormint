@@ -15,6 +15,7 @@ import assert from 'node:assert/strict'
 
 import { sortJobTitles, isOnlineTitle, keepKnownTitles, ONLINE_JOB_TITLE } from '../lib/jobTitlesCore'
 import { jobDisplayTitle, preferHumanTitle } from '../lib/jobDisplayTitle'
+import { cleanTuitionTitle, isMessyTitle } from '../lib/cleanTitle'
 import { parseMode } from '../lib/locations'
 import { matchVisibility } from '../lib/matchChip'
 import { jobType } from '../lib/display'
@@ -186,4 +187,39 @@ test('parseMode maps legacy codes to titles and passes real titles through', () 
   assert.equal(parseMode('O Levels Teacher'), 'O Levels Teacher')
   assert.equal(parseMode(''), null)
   assert.equal(parseMode(null), null)
+})
+
+// ── PR89 Part B — clean a messy stored tuition title ──
+
+test('cleanTuitionTitle: trims, collapses spaces, drops empty/separator segments', () => {
+  // The owner's example.
+  assert.equal(
+    cleanTuitionTitle('Female Home Tutor Required  | Grade 3 | -'),
+    'Female Home Tutor Required | Grade 3',
+  )
+  // Double spaces collapse.
+  assert.equal(cleanTuitionTitle('Home  Tutor   Needed'), 'Home Tutor Needed')
+  // Leading/trailing separators on the whole string go.
+  assert.equal(cleanTuitionTitle('| Grade 5 |'), 'Grade 5')
+  assert.equal(cleanTuitionTitle('- Maths tutor, '), 'Maths tutor')
+  // An empty "| |" segment is dropped.
+  assert.equal(cleanTuitionTitle('A |  | B'), 'A | B')
+  // A lone separator segment is dropped, the address segment is kept whole.
+  assert.equal(
+    cleanTuitionTitle('Female Home Tutor Required | Grade 3 | - PECHS Block 6, Karachi'),
+    'Female Home Tutor Required | Grade 3 | PECHS Block 6, Karachi',
+  )
+  // Internal punctuation survives — only segment ENDS are stripped.
+  assert.equal(cleanTuitionTitle('O-Level Physics for Grade 9-10'), 'O-Level Physics for Grade 9-10')
+  assert.equal(cleanTuitionTitle('Grade 1–5 tutor'), 'Grade 1–5 tutor')
+  // Empty in, empty out.
+  assert.equal(cleanTuitionTitle(''), '')
+  assert.equal(cleanTuitionTitle(null), '')
+})
+
+test('isMessyTitle: true only when a clean-up would change the title', () => {
+  assert.equal(isMessyTitle('Female Home Tutor Required  | Grade 3 | -'), true)
+  assert.equal(isMessyTitle('Home Tutor | Grade 3 | Lahore'), false)
+  assert.equal(isMessyTitle('Clean Title'), false)
+  assert.equal(isMessyTitle(''), false)
 })

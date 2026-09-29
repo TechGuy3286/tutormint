@@ -119,48 +119,78 @@ export function tutorListed(
 }
 
 /**
- * A listed tutor's public profile is NOINDEX below 100% completion (owner rule
- * 3): fully listed, searchable and applying, but held out of Google until the
- * profile is finished. At 100% the noindex lifts automatically — one threshold,
- * no second list of fields. Under review is always noindex (Part 6).
+ * A listed tutor's public profile is NOINDEX until STEP 1 is complete (owner, 15
+ * Sep 2026): verified mobile, CNIC approved, profile picture approved, selfie
+ * approved, at least one subject, a city, at least one area, and the fee paid.
+ * The profile is fully listed, searchable and applying meanwhile, but held out of
+ * Google until step 1 finishes; the noindex lifts automatically the moment it
+ * does. Under review is always noindex (Part 6).
  *
  * SEED WINS (owner, 10 Sep 2026): a fixture tutor (profiles.is_seed) is noindex
- * regardless of completion — a seed cast member at 100% must never reach Google.
- * They stay visible and searchable on-site; this only holds back search engines.
- * Pure, so the profile page and its test read one decision.
+ * regardless — a seed cast member must never reach Google. They stay visible and
+ * searchable on-site; this only holds back search engines. Pure, so the profile
+ * page and its test read one decision.
  */
 export function tutorProfileNoindex(input: {
   /** The one-time verification fee is paid. PR16 §1.4: unverified → noindex. */
   verified?: boolean | null
-  profileCompletion: number | null | undefined
   underReview?: boolean | null
   isSeed?: boolean | null
+  mobileVerified: boolean | null | undefined
+  cnicApproved: boolean | null | undefined
+  profilePicApproved: boolean | null | undefined
+  selfieApproved: boolean | null | undefined
+  hasSubject: boolean | null | undefined
+  hasCity: boolean | null | undefined
+  hasArea: boolean | null | undefined
 }): boolean {
   // PR37 §2 — the ONE indexability rule lives in lib/seo/indexable; this stays
   // as the tutor page's entry point (its callers import it here) but no longer
   // carries its own copy of the logic.
   return !tutorProfileIndexable({
     feePaid: input.verified,
-    profileCompletion: input.profileCompletion,
     underReview: input.underReview,
     isSeed: input.isSeed,
+    mobileVerified: input.mobileVerified,
+    cnicApproved: input.cnicApproved,
+    profilePicApproved: input.profilePicApproved,
+    selfieApproved: input.selfieApproved,
+    hasSubject: input.hasSubject,
+    hasCity: input.hasCity,
+    hasArea: input.hasArea,
   })
 }
 
 /**
- * A listed tutor appears in the SITEMAP only at 100% AND when not a fixture
- * (mirrors listed_tutor_slugs). Listed-but-incomplete tutors are on-site
- * searchable yet withheld from the sitemap so the two indexing signals never
- * disagree; a seed tutor is withheld regardless of completion (owner, 10 Sep).
+ * A listed tutor appears in the SITEMAP only when STEP 1 is complete AND not a
+ * fixture (mirrors listed_tutor_slugs, owner 15 Sep 2026). Listed tutors who have
+ * not finished step 1 are on-site searchable yet withheld from the sitemap so the
+ * two indexing signals never disagree; a seed tutor is withheld regardless.
  */
 export function tutorSitemapEligible(input: {
   listed: boolean
-  /** PR16 §1.4 — the sitemap lists only VERIFIED (fee-paid) tutors. */
   verified?: boolean | null
-  profileCompletion: number | null | undefined
   isSeed?: boolean | null
+  underReview?: boolean | null
+  mobileVerified: boolean | null | undefined
+  cnicApproved: boolean | null | undefined
+  profilePicApproved: boolean | null | undefined
+  selfieApproved: boolean | null | undefined
+  hasSubject: boolean | null | undefined
+  hasCity: boolean | null | undefined
+  hasArea: boolean | null | undefined
 }): boolean {
-  if (input.isSeed) return false
-  if (!input.verified) return false
-  return input.listed && (input.profileCompletion ?? 0) >= 100
+  if (!input.listed) return false
+  return tutorProfileIndexable({
+    feePaid: input.verified,
+    isSeed: input.isSeed,
+    underReview: input.underReview,
+    mobileVerified: input.mobileVerified,
+    cnicApproved: input.cnicApproved,
+    profilePicApproved: input.profilePicApproved,
+    selfieApproved: input.selfieApproved,
+    hasSubject: input.hasSubject,
+    hasCity: input.hasCity,
+    hasArea: input.hasArea,
+  })
 }

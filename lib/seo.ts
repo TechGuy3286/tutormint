@@ -339,10 +339,15 @@ export function jobPostingJsonLd(job: {
   subjects: string[]
   budgetMin: number | null
   budgetMax: number | null
+  /** When the posting stops accepting applications (PR89 Part C). A tuition
+   *  auto-pauses 15 days after it was posted or last resumed, so validThrough is
+   *  that auto-pause instant — and moves forward when a paused tuition resumes.
+   *  Omitted → the pre-PR89 fallback of datePosted + 30 days. */
+  validThrough?: string | null
 }) {
-  const validThrough = new Date(
-    new Date(job.datePosted).getTime() + 30 * 24 * 3600_000,
-  ).toISOString()
+  const validThrough =
+    job.validThrough ??
+    new Date(new Date(job.datePosted).getTime() + 30 * 24 * 3600_000).toISOString()
 
   // baseSalary must carry BOTH minValue and maxValue, or Google flags the value
   // as incomplete (PR51 §4). A real range ("Rs 10,000 - 20,000") has both. A

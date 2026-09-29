@@ -15,7 +15,7 @@ import { budgetLabel } from '@/lib/feeBands'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { jobByPublicSlug, similarOpenTuitions } from '@/lib/jobFeed'
-import { tuitionPublicState, pauseCountdownLabel } from '@/lib/tuitionStatus'
+import { tuitionPublicState, pauseCountdownLabel, pauseDueAtMs } from '@/lib/tuitionStatus'
 import { isFixtureTuition } from '@/lib/fixtures'
 import { tuitionIndexable } from '@/lib/seo/indexable'
 import JobCard from '@/components/JobCard'
@@ -330,6 +330,13 @@ export default async function TuitionPage({ params }: { params: Params }) {
                     : 'Posted by a verified parent on TutorMint.'
                 }`,
               datePosted: job.created_at,
+              // validThrough = the auto-pause instant (PR89 Part C): the same
+              // clock base the sweep uses, coalesce(resumed_at, created_at) + 15
+              // days. A resumed tuition carries a later resumed_at, so its
+              // validThrough moves forward with it.
+              validThrough: new Date(
+                pauseDueAtMs(job.resumed_at ?? job.created_at),
+              ).toISOString(),
               city: job.city,
               area: job.area,
               subjects: job.subjects ?? [],

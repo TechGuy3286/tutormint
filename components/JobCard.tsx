@@ -69,6 +69,10 @@ export type JobCardData = {
   budget_max_pkr?: number | null
   description: string | null
   created_at: string
+  /** The auto-pause clock base, when resumed at least once (PR89 Part C). The
+   *  tuition auto-pauses at coalesce(resumed_at, created_at) + 15 days, which is
+   *  the JobPosting validThrough. Absent for a never-resumed tuition. */
+  resumed_at?: string | null
   is_featured: boolean | null
   /** Paused while a report is checked: amber sticker, Apply disabled. */
   under_review?: boolean | null

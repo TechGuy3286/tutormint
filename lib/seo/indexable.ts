@@ -14,8 +14,8 @@
 // the publishable key, so the sitemap cannot read completion / fee / is_seed
 // directly; it reads two SECURITY DEFINER functions that are the SQL EXPRESSION
 // of these same predicates and must stay in lockstep with them:
-//   - listed_tutor_slugs()   ⇔ tutorProfileIndexable  (tutor_directory + >=100 +
-//                               verified_fee_paid_at not null + not is_seed)
+//   - listed_tutor_slugs()   ⇔ tutorProfileIndexable  (tutor_directory + step 1:
+//                               fee paid + CNIC/picture/selfie approved, not seed)
 //   - indexable_job_slugs()  ⇔ tuitionIndexable        (status='open' + not a
 //                               fixture: seed parent / JOB-TRK / SEED-JOB, unless
 //                               a genuine team post)
@@ -24,27 +24,57 @@
 export type TutorIndexFacts = {
   /** The one-time Rs 199 verification fee is paid (verified_fee_paid_at is set). */
   feePaid: boolean | null | undefined
-  /** profiles.profile_completion (0–100). */
-  profileCompletion: number | null | undefined
   /** A seed / example / fixture account — never indexed, whatever its state. */
   isSeed?: boolean | null
   /** A reported profile, temporarily delisted. */
   underReview?: boolean | null
+  /** profiles.phone_verified_at is set. */
+  mobileVerified: boolean | null | undefined
+  /** CNIC approved — deriveCnicStatus(...) === 'approved' (marker + documents). */
+  cnicApproved: boolean | null | undefined
+  /** profiles.profile_pic_status === 'approved' (PR60 staff review). */
+  profilePicApproved: boolean | null | undefined
+  /** profiles.selfie_status === 'approved' (PR60 staff review). */
+  selfieApproved: boolean | null | undefined
+  /** At least one tutor_subjects row. */
+  hasSubject: boolean | null | undefined
+  /** tutor_profiles.city is set. */
+  hasCity: boolean | null | undefined
+  /** tutor_profiles.area is set. */
+  hasArea: boolean | null | undefined
 }
 
 /**
- * A tutor profile is indexable ONLY when it is 100% complete AND the fee is
- * paid — and never for a seed account or a profile under review (PR37 §1). Every
- * other tutor profile is noindex and out of the sitemap. (A tutor whose page
- * does not render at all — suspended / banned / rejected / unclaimed import — is
- * handled upstream by tutor_visible_profiles; this only decides index vs
- * noindex for a page that DOES render.)
+ * A tutor profile is indexable and in the sitemap once STEP 1 is complete (owner,
+ * 15 Sep 2026), which REPLACES the earlier "100% complete + fee paid" rule:
+ *   verified mobile, CNIC approved, profile picture approved, selfie approved,
+ *   at least one subject, a city, at least one area, and the verification fee
+ *   paid.
+ * A seed/fixture account and a profile under review are NEVER indexed, whatever
+ * their state. Every other tutor profile is noindex and out of the sitemap.
+ *
+ * The CNIC/picture/selfie approvals use the single sources — lib/cnicStatus
+ * (deriveCnicStatus === 'approved') and the PR60 profile_pic_status/selfie_status
+ * columns — resolved to booleans by the caller. The SQL mirror is
+ * listed_tutor_slugs() (built on tutor_directory, which already enforces mobile /
+ * city / area / subject); they must stay in lockstep.
+ *
+ * (A tutor whose page does not render at all — suspended / banned / rejected /
+ * unclaimed import — is handled upstream by tutor_visible_profiles; this only
+ * decides index vs noindex for a page that DOES render.)
  */
 export function tutorProfileIndexable(f: TutorIndexFacts): boolean {
   if (f.isSeed) return false
   if (f.underReview) return false
   if (!f.feePaid) return false
-  return (f.profileCompletion ?? 0) >= 100
+  if (!f.mobileVerified) return false
+  if (!f.cnicApproved) return false
+  if (!f.profilePicApproved) return false
+  if (!f.selfieApproved) return false
+  if (!f.hasSubject) return false
+  if (!f.hasCity) return false
+  if (!f.hasArea) return false
+  return true
 }
 
 /**
