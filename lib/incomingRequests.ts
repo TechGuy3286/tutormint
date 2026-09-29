@@ -19,9 +19,9 @@ import { currentPeriod, getEntitlements } from '@/lib/entitlements'
 import { notify } from '@/lib/notifications'
 
 /** Basic and no-plan tutors: 10 incoming hiring/demo requests a month. Premium:
- *  120 (owner PR63 §A). Featured: unlimited. */
+ *  100 (owner PR91 §B.6, down from 120). Featured: unlimited. */
 export const INCOMING_CAP = 10
-export const PREMIUM_INCOMING_CAP = 120
+export const PREMIUM_INCOMING_CAP = 100
 
 /** The monthly incoming cap for a plan, or null for unlimited (Featured). */
 function incomingCapFor(plan: string | null | undefined): number | null {
@@ -141,7 +141,7 @@ export async function refuseIncomingRequest(
     kind: 'incoming_request_capped',
     title: 'A parent tried to send you a request',
     body: premium
-      ? 'You have reached this month’s limit of 120 hiring and demo requests. Upgrade to Featured to receive unlimited.'
+      ? 'You have reached this month’s limit of 100 hiring and demo requests. Upgrade to Featured to receive unlimited.'
       : 'You have reached this month’s free limit of hiring and demo requests. Upgrade to Premium to receive more.',
     href: premium
       ? '/membership-plans?for=tutors&plan=featured'

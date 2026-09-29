@@ -6,6 +6,7 @@ import { genderPrefSentence, genderApplyBlocked } from '@/lib/genderPref'
 
 import Avatar from '@/components/Avatar'
 import ContactReveal from '@/components/ContactReveal'
+import ViewNumberLink from '@/components/ViewNumberLink'
 import BadgeRow from '@/components/badges/BadgeRow'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import FeaturedTag from '@/components/badges/FeaturedTag'
@@ -516,6 +517,15 @@ export default async function TuitionPage({ params }: { params: Params }) {
             </h2>
             <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
               {job.description}
+              {/* PR91 Part A: a number/email in the text is masked; "View number"
+                  reveals it (a tutor spends 1 from the shared pool, once per
+                  tuition; a guest is asked to sign up). */}
+              {job.textHasContact && (
+                <>
+                  {' '}
+                  <ViewNumberLink jobId={job.id} signedIn={!!user} canReveal={isTutor} />
+                </>
+              )}
             </p>
           </div>
         )}
@@ -570,7 +580,10 @@ export default async function TuitionPage({ params }: { params: Params }) {
                   : 'Verified parent — cannot complete a hire yet.'}
               </p>
               {/* Tutor-only contact reveal of the parent account (PR56). */}
-              {isTutor && <ContactReveal parentId={job.parent_id} className="pt-1" />}
+              {/* PR91: a tuition reveal is per-TUITION (jobId), so it draws one
+                  pool unit once per tuition and also surfaces any number in the
+                  listing text — not a per-parent reveal. */}
+              {isTutor && <ContactReveal jobId={job.id} className="pt-1" />}
             </div>
           </div>
 

@@ -73,3 +73,52 @@ test('empty / null input is a no-op', () => {
   assert.equal(maskPhoneNumbers(null).masked, false)
   assert.equal(maskPhoneNumbers(undefined).masked, false)
 })
+
+// ── PR91 Part A — tuition text masking (partial phone + email) ──
+
+import { maskTuitionText, extractTuitionContacts } from '../lib/maskTuition'
+
+test('maskTuitionText: a phone keeps its first 4 digits, then dots', () => {
+  const r = maskTuitionText('Please contact 0313-0042960 for details')
+  assert.equal(r.masked, true)
+  assert.equal(r.text, 'Please contact 0313-••••••• for details')
+})
+
+test('maskTuitionText: 03130042960 (no separator) → 0313•••••••', () => {
+  assert.equal(maskTuitionText('call 03130042960 now').text, 'call 0313••••••• now')
+})
+
+test('maskTuitionText: an email becomes the email mask', () => {
+  const r = maskTuitionText('email me at parent.name@gmail.com please')
+  assert.equal(r.masked, true)
+  assert.equal(r.text, 'email me at •••••@••••• please')
+})
+
+test('maskTuitionText: a fee range / years are NOT masked', () => {
+  assert.equal(maskTuitionText('Budget is 15000-20000 per month').masked, false)
+  assert.equal(maskTuitionText('exams in 2024 2025 2026').masked, false)
+})
+
+test('maskTuitionText: masks both a phone and an email in one string', () => {
+  const r = maskTuitionText('WhatsApp 0300 1234567 or a@b.com')
+  assert.equal(r.masked, true)
+  assert.ok(r.text.includes('0300') && r.text.includes('•••••@•••••'))
+  assert.ok(!r.text.includes('1234567'))
+})
+
+test('maskTuitionText: empty/no-contact text is unchanged', () => {
+  assert.deepEqual(maskTuitionText('Home tutor needed for Grade 5'), {
+    text: 'Home tutor needed for Grade 5',
+    masked: false,
+  })
+  assert.deepEqual(maskTuitionText(null), { text: '', masked: false })
+})
+
+test('extractTuitionContacts: pulls the phone run and email out of the text', () => {
+  const got = extractTuitionContacts('reach 0313-0042960 or teacher@school.pk', 'also 03009998877')
+  assert.deepEqual(got.emails, ['teacher@school.pk'])
+  // The raw runs are returned (the caller normalises); both phones present.
+  assert.equal(got.phones.length, 2)
+  assert.ok(got.phones.some((p) => p.includes('0313')))
+  assert.ok(got.phones.some((p) => p.includes('03009998877')))
+})

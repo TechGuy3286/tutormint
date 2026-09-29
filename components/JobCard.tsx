@@ -68,6 +68,9 @@ export type JobCardData = {
   budget_min_pkr?: number | null
   budget_max_pkr?: number | null
   description: string | null
+  /** PR91 Part A: the free text hides a phone/email behind the mask, so the card
+   *  and page show an inline "View number" affordance. */
+  textHasContact?: boolean
   created_at: string
   /** The auto-pause clock base, when resumed at least once (PR89 Part C). The
    *  tuition auto-pauses at coalesce(resumed_at, created_at) + 15 days, which is
@@ -380,7 +383,20 @@ export default function JobCard({
           </div>
 
           {job.description && (
-            <p className="line-clamp-2 text-xs leading-relaxed text-slate-700">{job.description}</p>
+            <p className="line-clamp-2 text-xs leading-relaxed text-slate-700">
+              {job.description}
+              {/* PR91 Part A: a number/email in the text is masked; "View number"
+                  (a plain inline link, tutor spends 1 from the pool) reveals it on
+                  the tuition page. */}
+              {job.textHasContact && (
+                <>
+                  {' '}
+                  <Link href={detailHref} className="font-bold text-tm-red hover:underline">
+                    View number
+                  </Link>
+                </>
+              )}
+            </p>
           )}
 
           {/* The tutor-gender preference, shown plainly (owner, 11 Sep 2026). The

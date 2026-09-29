@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { parseQuery, z } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
+import { maskTuitionText } from '@/lib/maskTuition'
 
 // GET /api/search/suggest?q=…&city=…
 //
@@ -140,8 +141,10 @@ export async function GET(request: Request) {
   const mapped: Suggestion[] = ((data ?? []) as Row[]).map((r) => ({
     group: r.grp as SuggestGroup,
     ref: r.ref,
-    label: r.label,
-    sublabel: r.sublabel,
+    // PR91 Part A: a job suggestion's label/sublabel is the tuition title/snippet,
+    // free text that can hide a phone/email — mask it like every other surface.
+    label: r.grp === 'job' ? maskTuitionText(r.label).text : r.label,
+    sublabel: r.grp === 'job' ? maskTuitionText(r.sublabel).text : r.sublabel,
     href: r.href,
   }))
 

@@ -29,6 +29,7 @@ import { jobType } from '@/lib/display'
 import { matchVisibility } from '@/lib/matchChip'
 import { genderPrefWord, genderApplyBlocked } from '@/lib/genderPref'
 import { jobDisplayTitle } from '@/lib/jobDisplayTitle'
+import { maskTuitionText } from '@/lib/maskTuition'
 import { collapseLevels } from '@/lib/levelDisplay'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
@@ -209,17 +210,28 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       area: (j.area as string) ?? null,
       city,
     })
+    // PR91 Part A: mask any phone/email a parent typed into the free text. This
+    // is the data-layer choke point every non-staff surface reads (browse cards,
+    // the tuition page, More strips, dashboard lists, My applications, the page
+    // <title>/meta, OG and the JobPosting JSON-LD description). Admin reads jobs
+    // directly, not through here, so staff screens keep the full text.
+    const maskedHeadline = maskTuitionText((j.title as string | null)?.trim() || null)
+    const maskedDescription = maskTuitionText((j.description as string) ?? null)
     return {
       id: j.id as string,
       job_tx_id: (j.job_tx_id as string) ?? null,
       ref_id: (j.ref_id as string) ?? null,
       public_slug: (j.public_slug as string) ?? null,
       status: (j.status as string) ?? 'open',
-      // CARD title: the composed field list.
-      title: composedTitle || (j.title as string) || 'Tuition required',
+      // CARD title: the composed field list (masked defensively — the stored
+      // fallback below is free text).
+      title: maskTuitionText(composedTitle || (j.title as string) || 'Tuition required').text,
       // PAGE title: the stored human headline (or null → page falls back to the
       // composed string via preferHumanTitle).
-      headline: (j.title as string | null)?.trim() || null,
+      headline: maskedHeadline.masked ? maskedHeadline.text : ((j.title as string | null)?.trim() || null),
+      /** True when the tuition's free text hides a phone/email behind the mask —
+       *  drives the inline "View number" affordance on the card and page. */
+      textHasContact: maskedHeadline.masked || maskedDescription.masked,
       // Fall back to the legacy text column for jobs posted before the join
       // table existed, so old posts still show what they are for.
       subjects,
@@ -236,7 +248,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       budget_pkr: (j.budget_pkr as number) ?? null,
       budget_min_pkr: (j.budget_min_pkr as number) ?? null,
       budget_max_pkr: (j.budget_max_pkr as number) ?? null,
-      description: (j.description as string) ?? null,
+      description: maskedDescription.masked ? maskedDescription.text : ((j.description as string) ?? null),
       created_at: (j.created_at as string) ?? new Date().toISOString(),
       // The auto-pause clock base for JobPosting validThrough (PR89 Part C):
       // coalesce(resumed_at, created_at) + 15 days is when the tuition auto-pauses.

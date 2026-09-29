@@ -74,21 +74,20 @@ export type MaskResult = {
   masked: boolean
 }
 
-/**
- * Replace phone-like runs with a mask.
- *
- * Matches are collected from every pattern first and then applied by position,
- * so overlapping patterns cannot mask a fragment twice or corrupt offsets.
- */
-export function maskPhoneNumbers(input: string | null | undefined): MaskResult {
-  const text = input ?? ''
-  if (!text) return { text, masked: false }
+export type Span = { start: number; end: number }
 
-  type Span = { start: number; end: number }
+/**
+ * Every phone/CNIC run in `text`, as sorted, merged, non-overlapping spans.
+ *
+ * Shared by the message masker (full mask) and the tuition masker (PR91,
+ * partial mask + email), so both catch exactly the same numbers and neither can
+ * drift from the other's shape rules. Structural PATTERNS fire on a number
+ * embedded in a sentence; CANDIDATE runs mask only when the WHOLE cleaned run is
+ * a Pakistani mobile or a CNIC (so a fee range is never touched).
+ */
+export function findPhoneSpans(text: string): Span[] {
   const spans: Span[] = []
 
-  // Structural mobile patterns: their own shape is the gate, so any match is a
-  // number — including one embedded in a longer sentence.
   for (const re of PATTERNS) {
     re.lastIndex = 0
     let m: RegExpExecArray | null
@@ -98,8 +97,6 @@ export function maskPhoneNumbers(input: string | null | undefined): MaskResult {
     }
   }
 
-  // Candidate runs: masked only when the WHOLE cleaned run is a mobile or a
-  // CNIC. Separators are stripped; the + is kept because MOBILE_SHAPE allows it.
   CANDIDATE.lastIndex = 0
   let c: RegExpExecArray | null
   while ((c = CANDIDATE.exec(text)) !== null) {
@@ -110,8 +107,7 @@ export function maskPhoneNumbers(input: string | null | undefined): MaskResult {
     if (c.index === CANDIDATE.lastIndex) CANDIDATE.lastIndex++ // zero-width guard
   }
 
-  if (spans.length === 0) return { text, masked: false }
-
+  if (spans.length === 0) return []
   spans.sort((a, b) => a.start - b.start || b.end - a.end)
 
   const merged: Span[] = []
@@ -120,6 +116,21 @@ export function maskPhoneNumbers(input: string | null | undefined): MaskResult {
     if (last && s.start <= last.end) last.end = Math.max(last.end, s.end)
     else merged.push({ ...s })
   }
+  return merged
+}
+
+/**
+ * Replace phone-like runs with a mask.
+ *
+ * Matches are collected from every pattern first and then applied by position,
+ * so overlapping patterns cannot mask a fragment twice or corrupt offsets.
+ */
+export function maskPhoneNumbers(input: string | null | undefined): MaskResult {
+  const text = input ?? ''
+  if (!text) return { text, masked: false }
+
+  const merged = findPhoneSpans(text)
+  if (merged.length === 0) return { text, masked: false }
 
   let out = ''
   let cursor = 0

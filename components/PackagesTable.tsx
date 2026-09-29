@@ -58,13 +58,14 @@ const TUTOR_FEATURES: Feature[] = [
   // Premium shows "100 applications" (owner PR58); Featured keeps "Unlimited
   // applications"; Basic's line is in tutorFreeRows.
   { label: (p) => (p.code === 'premium' ? '100 applications' : isUnlimited(p) ? 'Unlimited applications' : `Apply — ${quota(p)} a month`), level: (p) => p.monthly_quota },
-  // Premium's contact / WhatsApp / incoming powers are capped at 120 (owner
-  // PR63 §A); Featured stays unlimited. Basic's contact line is in tutorFreeRows.
-  { label: (p) => (p.code === 'premium' ? 'See parent phone & email — 120' : 'See parent phone & email — unlimited'), level: (p) => (p.can_view_contact ? 1 : 0) },
-  { label: (p) => (p.code === 'premium' ? 'WhatsApp parents with one tap — 120' : 'WhatsApp parents with one tap'), level: (p) => (p.can_whatsapp ? 1 : 0) },
+  // Premium's contact / WhatsApp / incoming powers are capped at 100 (owner
+  // PR91 §B/C, down from 120); Featured stays unlimited. Basic's contact line is
+  // in tutorFreeRows.
+  { label: (p) => (p.code === 'premium' ? 'See parent phone & email — 100' : 'See parent phone & email — unlimited'), level: (p) => (p.can_view_contact ? 1 : 0) },
+  { label: (p) => (p.code === 'premium' ? 'WhatsApp parents with one tap — 100' : 'WhatsApp parents with one tap'), level: (p) => (p.can_whatsapp ? 1 : 0) },
   { label: () => 'See who viewed your profile', level: (p) => (p.can_see_viewer_identity ? 1 : 0) },
   { label: () => 'Top of search results', level: (p) => (p.search_rank >= 3 ? 3 : 0) },
-  { label: (p) => (p.code === 'premium' ? '120 hiring & demo requests' : isUnlimited(p) ? 'Unlimited hiring & demo requests' : `Incoming hiring & demo requests — ${quota(p)} a month`), level: (p) => p.monthly_quota },
+  { label: (p) => (p.code === 'premium' ? '100 hiring & demo requests' : isUnlimited(p) ? 'Unlimited hiring & demo requests' : `Incoming hiring & demo requests — ${quota(p)} a month`), level: (p) => p.monthly_quota },
   { label: () => 'Matched tuitions on your email', level: (p) => (p.can_view_contact ? 1 : 0) },
   { label: () => 'Matched tuitions on your WhatsApp', level: (p) => (p.search_rank >= 3 ? 3 : 0) },
 ]
@@ -87,8 +88,10 @@ function tutorFreeRows(p: PlanRow): string[] {
   return [
     'Browse tuitions',
     `Apply — ${quota(p)} a month`,
+    // PR91: one shared pool — viewing a number spends one application.
+    'View Contact Number = 1 Apply',
     'Message parents in the app',
-    'See parent phone & email — 5',
+    `See parent phone & email — ${quota(p)}`,
     'Download your CV',
     `Incoming hiring & demo requests — ${quota(p)} a month`,
   ]

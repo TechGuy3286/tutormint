@@ -6,6 +6,7 @@ import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { appliedLabel } from '@/lib/datetime'
+import { maskTuitionText } from '@/lib/maskTuition'
 
 // The tutor's own applications.
 //
@@ -54,7 +55,9 @@ export default async function TutorApplicationsPage() {
         .in('id', ids)
       for (const j of rows ?? []) {
         jobs.set(j.id as string, {
-          title: (j.title as string) ?? 'Tuition',
+          // PR91 Part A: mask any phone/email in the tuition title on this
+          // tutor-facing list.
+          title: maskTuitionText((j.title as string) ?? 'Tuition').text || 'Tuition',
           // The location under a row comes from the TUITION itself (jobs.city /
           // jobs.area), never the tutor (PR78 §A.3).
           city: (j.city as string) ?? null,

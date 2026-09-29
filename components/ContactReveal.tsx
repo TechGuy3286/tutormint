@@ -33,6 +33,9 @@ type Contact = {
   name: string | null
   address: string | null
   social: string | null
+  /** PR91 Part B.2 — numbers/emails written into the tuition's own text. */
+  textPhones?: string[]
+  textEmails?: string[]
 }
 
 export default function ContactReveal({
@@ -104,10 +107,9 @@ export default function ContactReveal({
   if (status?.reason === 'gender') return null
   if (!status || (!status.eligible && status.reason !== 'verify' && status.reason !== 'complete')) return null
 
-  // Basic and Premium both show a monthly counter ("N of 5 / 120 left"); Featured
-  // is unlimited and shows none.
-  const showCounter = status.plan === 'basic' || status.plan === 'premium'
-  const capText = status.plan === 'premium' ? 120 : 5
+  // PR91: one shared monthly pool. A plan that shows a number (Basic) counts
+  // down "N left this month"; a plan shown as "Unlimited" (Premium/Featured)
+  // shows no counter. The server sends `remaining` = null when it is unlimited.
   const social = contact?.social
   const socialHref = social && /^https?:\/\//i.test(social) ? social : null
   // A separate WhatsApp link only when the WhatsApp number differs from phone.
@@ -172,8 +174,27 @@ export default function ContactReveal({
             )}
           </p>
         )}
-        {showCounter && remaining !== null && (
-          <p className="text-[11px] text-gray-500">{remaining} of {capText} left this month</p>
+        {/* PR91 Part B.2 — numbers/emails found in the listing text. */}
+        {(contact.textPhones ?? []).map((p) => (
+          <div key={`tp-${p}`} className="flex flex-wrap items-center gap-3 text-xs font-bold text-tm-navy">
+            <a href={`tel:+${p}`} className="inline-flex items-center gap-1.5 hover:underline">
+              <Phone size={14} aria-hidden />
+              {formatPkMobile(p)}
+            </a>
+            <a href={`https://wa.me/${p}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-tm-green-deep hover:underline">
+              <MessageCircle size={14} aria-hidden />
+              WhatsApp
+            </a>
+          </div>
+        ))}
+        {(contact.textEmails ?? []).map((em) => (
+          <a key={`te-${em}`} href={`mailto:${em}`} className="inline-flex items-center gap-1.5 text-xs font-bold text-tm-navy hover:underline">
+            <Mail size={14} aria-hidden />
+            {em}
+          </a>
+        ))}
+        {remaining !== null && (
+          <p className="text-[11px] text-gray-500">{remaining} left this month</p>
         )}
       </div>
     )
@@ -190,8 +211,8 @@ export default function ContactReveal({
         {busy ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Eye size={14} aria-hidden />}
         Show phone &amp; email
       </button>
-      {showCounter && remaining !== null && (
-        <span className="text-[11px] text-gray-500">{remaining} of {capText} left this month</span>
+      {remaining !== null && (
+        <span className="text-[11px] text-gray-500">{remaining} left this month</span>
       )}
       {error && <span className="text-[11px] font-bold text-tm-red">{error}</span>}
     </div>

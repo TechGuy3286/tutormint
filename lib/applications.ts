@@ -23,7 +23,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { checkQuota, consumeQuota } from '@/lib/quota'
-import { tutorApplyOffer } from '@/lib/upgradePath'
+import { spendTuitionPool, poolExhaustedFail } from '@/lib/pool'
 import { logActivity } from '@/lib/activityLog'
 import { buildGate, type Gate } from '@/lib/gate'
 import { genderApplyBlocked, genderPrefSentence } from '@/lib/genderPref'
@@ -160,30 +160,28 @@ export async function applyToJob(params: {
     }
   }
 
-  // 5. Quota
-  const quota = checkQuota(ent, 'job_application')
-  if (!quota.ok) {
-    // No plan at all = not yet verified: the way forward is the one-time Rs 199
-    // fee (the Verify gate), not a paid-plan upsell.
-    if (quota.reason === 'no_plan') {
-      return { ...quota, gate: await buildGate('tutor_verify', ent) }
+  // 5. Shared pool (PR91 Part B). Applying spends ONE pool unit — Basic 10,
+  //    Premium 100, Featured 300 (shown "Unlimited") — drawn from the SAME
+  //    allowance as viewing a number. If this tutor has ALREADY viewed this
+  //    tuition's number (a per-tuition access row) or applied before, applying is
+  //    free. The spend and the cap check are atomic (spend_tuition_pool), so a
+  //    concurrent apply+view can never overspend. Pool empty → the next-plan
+  //    offer (Basic → Premium, Premium → Featured, Featured just waits).
+  const spend = await spendTuitionPool(params.tutorId, job.id, ent.quota)
+  if (!spend.ok && spend.reason === 'exhausted') {
+    const fail = await poolExhaustedFail(ent, params.tutorId)
+    return { ok: false, status: fail.status, error: fail.error, upgrade: fail.upgrade, gate: fail.gate }
+  }
+  // Pre-migration (the pool function is not there yet): fall back to the old
+  // check→insert→consume path so applying still works during the deploy window.
+  const poolUnavailable = !spend.ok
+  if (poolUnavailable) {
+    const quota = checkQuota(ent, 'job_application')
+    if (!quota.ok) {
+      if (quota.reason === 'no_plan') return { ...quota, gate: await buildGate('tutor_verify', ent) }
+      const fail = await poolExhaustedFail(ent, params.tutorId)
+      return { ...quota, gate: fail.gate }
     }
-    // Over the monthly allowance: offer the NEXT package up from where they are
-    // now (PR52 §3) — Basic → Premium, Premium → Featured, Featured → nothing.
-    // A tutor now on Basic whose earlier paid plan lapsed is pushed to Featured.
-    let hadPaidPlanBefore = false
-    if (ent.plan === 'basic' && admin) {
-      const { data: prior } = await admin
-        .from('subscriptions')
-        .select('plan_code')
-        .eq('user_id', params.tutorId)
-        .in('plan_code', ['premium', 'featured'])
-        .limit(1)
-        .maybeSingle()
-      hadPaidPlanBefore = !!prior
-    }
-    const offered = tutorApplyOffer(ent.plan, hadPaidPlanBefore)
-    return { ...quota, gate: await buildGate('tutor_apply_quota', ent, offered) }
   }
 
   const { data: created, error } = await supabase
@@ -199,7 +197,9 @@ export async function applyToJob(params: {
 
   if (error) return { ok: false, status: 400, error: error.message }
 
-  await consumeQuota(params.tutorId, 'job_application')
+  // The pool RPC already recorded the spend (and the access row); only the
+  // fallback path needs to count here.
+  if (poolUnavailable) await consumeQuota(params.tutorId, 'job_application')
 
   await notify({
     userId: job.parent_id as string,

@@ -206,6 +206,12 @@ const SECTIONS: LegalSection[] = [
           fair one. Fewer than one member in a hundred approaches it.
         </p>
         <p>
+          <strong>Viewing contact numbers.</strong> Viewing a parent’s or institution’s contact
+          number on a tuition counts as one application from your monthly application allowance.
+          Viewing the same tuition’s number again, or applying to a tuition whose number you have
+          already viewed, does not use another application.
+        </p>
+        <p>
           <strong>Upgrading.</strong> Buying a different plan ends the current one immediately and
           starts a fresh full month. There is no proration and no credit for the part-month you
           leave behind.

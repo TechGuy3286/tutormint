@@ -9,6 +9,7 @@ import { budgetLabel } from '@/lib/feeBands'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { tuitionPath } from '@/lib/slugs'
+import { maskTuitionText } from '@/lib/maskTuition'
 
 // One application, in full.
 //
@@ -74,6 +75,11 @@ export default async function ApplicationDetailPage({ params }: { params: Params
         .eq('id', application.job_id as string)
         .maybeSingle()
     : { data: null }
+
+  // PR91 Part A: mask any phone/email a parent typed into the tuition text on
+  // this tutor-facing page.
+  const jobTitleMasked = job?.title ? maskTuitionText(job.title as string).text : null
+  const jobDescriptionMasked = job?.description ? maskTuitionText(job.description as string).text : null
 
   // The subjects, through the join table and the taxonomy slugs -- never the
   // retired jobs.subjects text[] column. taxonomy_master carries slugs only,
@@ -142,7 +148,7 @@ export default async function ApplicationDetailPage({ params }: { params: Params
           items={[
             { label: 'Tutor dashboard', href: '/tutor/dashboard' },
             { label: 'My applications', href: '/tutor/dashboard/applications' },
-            { label: (job?.title as string) ?? 'Your application' },
+            { label: jobTitleMasked ?? 'Your application' },
           ]}
         />
 
@@ -150,7 +156,7 @@ export default async function ApplicationDetailPage({ params }: { params: Params
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <h1 className="text-lg font-black leading-tight text-tm-navy sm:text-xl">
-              {(job?.title as string) ?? 'This tuition is no longer on record'}
+              {jobTitleMasked ?? 'This tuition is no longer on record'}
             </h1>
             <span
               className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${chip.className}`}
@@ -194,9 +200,9 @@ export default async function ApplicationDetailPage({ params }: { params: Params
             </Fact>
           </dl>
 
-          {job?.description ? (
+          {jobDescriptionMasked ? (
             <p className="whitespace-pre-line rounded-xl bg-tm-bg p-3 text-xs leading-relaxed text-slate-700">
-              {job.description as string}
+              {jobDescriptionMasked}
             </p>
           ) : null}
 
