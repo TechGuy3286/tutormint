@@ -130,7 +130,7 @@ export default async function TutorDashboardPage() {
           label="Find tuitions to apply for"
           line={findTuitionsLine}
           lineUr={findTuitionsLineUr}
-          tone="red"
+          tone="green"
           icon={<Search aria-hidden size={20} />}
         />
 
