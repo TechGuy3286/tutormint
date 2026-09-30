@@ -34,8 +34,12 @@ export default function MoreTutors({
 }) {
   // The storage key carries the filters, so coming back to a different search
   // never restores the previous one's rows.
+  // The version marker (PR96) busts stale sessionStorage caches after a deploy,
+  // so a returning browser never re-serves rows that were loaded before an
+  // account was hidden or a card component changed. Bump it whenever the public
+  // tutor set or the card markup changes.
   const storageKey = useMemo(
-    () => `tm:more:tutors:${new URLSearchParams(params).toString()}`,
+    () => `tm:more:tutors:v2:${new URLSearchParams(params).toString()}`,
     [params],
   )
 

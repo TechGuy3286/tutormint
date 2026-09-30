@@ -39,7 +39,8 @@ export default function MoreJobs({
 }) {
   const saved = useMemo(() => new Set(savedIds), [savedIds])
   const storageKey = useMemo(
-    () => `tm:more:tuitions:${new URLSearchParams(params).toString()}`,
+    // v2 (PR96): bust stale caches so no pre-masking/pre-hide list is re-served.
+    () => `tm:more:tuitions:v2:${new URLSearchParams(params).toString()}`,
     [params],
   )
 
