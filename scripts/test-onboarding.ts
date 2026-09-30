@@ -93,3 +93,19 @@ test('an almost-empty answer set still composes a valid, honest bio', () => {
   assert.ok(bio.length > 0, 'never an empty bio')
   assert.ok(bio.includes('a range of subjects'), 'falls back to a non-specific, non-false phrase')
 })
+
+// ── PR94 Part 1 — experience label ──
+
+import { experienceLabel } from '../lib/experienceLabel'
+
+test('experienceLabel: bands render as ranges; 0/null → New to teaching', () => {
+  assert.equal(experienceLabel(0).en, 'New to teaching')
+  assert.equal(experienceLabel(null).en, 'New to teaching')
+  assert.equal(experienceLabel(undefined).en, 'New to teaching')
+  assert.equal(experienceLabel(3).en, '3–5 years') // band lower bound 3
+  assert.equal(experienceLabel(10).en, '10+ years')
+  assert.equal(experienceLabel(1).en, '1–3 years')
+  // Urdu present for every case, none says "TutorMint".
+  for (const y of [0, 1, 3, 5, 10]) assert.ok(experienceLabel(y).ur.length > 0)
+  assert.doesNotMatch(experienceLabel(0).en + experienceLabel(5).en, /TutorMint/)
+})

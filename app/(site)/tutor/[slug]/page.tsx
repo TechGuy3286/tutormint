@@ -13,6 +13,7 @@ import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlemen
 import { degreeLabels } from '@/lib/degrees'
 import { tutorProfileNoindex } from '@/lib/planBadges'
 import { deriveCnicStatus } from '@/lib/cnicStatus'
+import { experienceLabel } from '@/lib/experienceLabel'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import BadgeRow from '@/components/badges/BadgeRow'
@@ -928,11 +929,16 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                     ))
                   })()}
                 </p>
-                <p className="flex items-center gap-2 text-xs">
-                  <Briefcase size={14} className="text-gray-500" />
-                  {tutor.experience_years
-                    ? `${tutor.experience_years} years experience`
-                    : 'New to TutorMint'}
+                {/* Real teaching experience from onboarding step 9, not account
+                    age (PR94 Part 1). English with Urdu underneath. */}
+                <p className="flex items-start gap-2 text-xs">
+                  <Briefcase size={14} className="mt-px shrink-0 text-gray-500" />
+                  <span>
+                    {experienceLabel(tutor.experience_years).en}
+                    <span lang="ur" dir="rtl" className="mt-0.5 block text-[11px] text-gray-500">
+                      {experienceLabel(tutor.experience_years).ur}
+                    </span>
+                  </span>
                 </p>
                 {feeLabelOf(tutor) ? (
                   <p className="flex items-center gap-2 text-xs font-black text-tm-navy">

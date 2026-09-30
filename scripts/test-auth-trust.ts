@@ -639,3 +639,21 @@ test('PR37: a tuition is indexable only when open and not a fixture', () => {
   assert.equal(tuitionIndexable({ status: 'hired', isFixture: false }), false, 'hired')
   assert.equal(tuitionIndexable({ status: 'open', isFixture: true }), false, 'seed/fixture')
 })
+
+// ── PR94 Part 3 — Team inbox status tags (first missing wins) ──
+
+import { memberInboxTag } from '../lib/inboxTags'
+
+test('memberInboxTag: tutor first-missing order; parent only on verification', () => {
+  const complete = { role: 'tutor', completion: 100, hasWhatsapp: true, awaitingApproval: false, feePaid: true, cnicVerified: true }
+  assert.equal(memberInboxTag(complete), null)
+  assert.equal(memberInboxTag({ ...complete, completion: 40 })?.label, 'Incomplete profile — 40%')
+  assert.equal(memberInboxTag({ ...complete, hasWhatsapp: false })?.label, 'No WhatsApp number')
+  assert.equal(memberInboxTag({ ...complete, awaitingApproval: true })?.label, 'Waiting for staff approval')
+  assert.equal(memberInboxTag({ ...complete, feePaid: false })?.label, 'Fee not paid')
+  assert.equal(memberInboxTag({ ...complete, completion: 40, hasWhatsapp: false, feePaid: false })?.label, 'Incomplete profile — 40%')
+  assert.equal(memberInboxTag({ role: 'parent', completion: 0, hasWhatsapp: false, awaitingApproval: false, feePaid: false, cnicVerified: true }), null)
+  assert.equal(memberInboxTag({ role: 'parent', completion: 100, hasWhatsapp: true, awaitingApproval: false, feePaid: true, cnicVerified: false })?.label, 'CNIC not verified')
+  const t = memberInboxTag({ ...complete, completion: 40 })!
+  assert.ok(t.labelUr.length > 0 && ['gold', 'red', 'navy', 'teal'].includes(t.tone))
+})

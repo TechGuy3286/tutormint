@@ -60,15 +60,17 @@ export async function publicParent(id: string): Promise<PublicParent | null> {
   const { data: profile } = await admin
     .from('profiles')
     // The allowlist. Nothing that could identify or contact them.
-    .select('id, full_name, avatar_url, city, role, is_suspended, created_at, cnic_verified_at, address_verified_at, is_team_account')
+    .select('id, full_name, avatar_url, city, role, is_suspended, hidden_from_public, created_at, cnic_verified_at, address_verified_at, is_team_account')
     .eq('id', id)
     .maybeSingle()
 
-  // A tutor's id, a suspended member, and an id that does not exist all return
-  // null, so the 404 tells nobody which of the three it was.
+  // A tutor's id, a suspended member, a hidden test/seed account, and an id that
+  // does not exist all return null, so the 404 tells nobody which it was.
   if (!profile) return null
   if (profile.role !== 'parent' && profile.role !== 'academy') return null
   if (profile.is_suspended) return null
+  // PR94 Part 2: a hidden test/seed account has no public card.
+  if (profile.hidden_from_public) return null
 
   const [{ data: subs }, { data: plans }] = await Promise.all([
     admin

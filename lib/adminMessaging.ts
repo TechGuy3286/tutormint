@@ -7,6 +7,8 @@ import { logActivity } from '@/lib/activityLog'
 import { deliverEmail } from '@/lib/notify'
 import { normalisePkMobile, isSyntheticEmail } from '@/lib/phone'
 import { whatsappHref } from '@/lib/support'
+import { deriveCnicStatus } from '@/lib/cnicStatus'
+import { memberInboxTag } from '@/lib/inboxTags'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { citySegment } from '@/lib/slugs'
 import type { AdminRole } from '@/lib/adminAuth'
@@ -153,6 +155,8 @@ export type InboxThread = {
   lastAt: string
   lastDirection: 'out' | 'in'
   unreadFromMember: number
+  /** The step-1 status tag (PR94 Part 3), or null when complete. */
+  tag: import('@/lib/inboxTags').InboxTag | null
 }
 
 /** The inbox list: one row per member with any official message, newest first. */
@@ -181,6 +185,7 @@ export async function loadInboxThreads(limit = 100): Promise<InboxThread[]> {
         lastAt: r.created_at as string,
         lastDirection: r.direction as 'out' | 'in',
         unreadFromMember: 0,
+        tag: null,
       }
       byMember.set(id, t)
     }
@@ -188,16 +193,42 @@ export async function loadInboxThreads(limit = 100): Promise<InboxThread[]> {
   }
 
   const ids = [...byMember.keys()].slice(0, limit)
-  const { data: people } = await admin
-    .from('profiles')
-    .select('id, full_name, email')
-    .in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000'])
+  const safeIds = ids.length ? ids : ['00000000-0000-0000-0000-000000000000']
+  // Profiles + tutor rows for the name/email AND the step-1 status tag (PR94 §3).
+  const [{ data: people }, { data: tutors }] = await Promise.all([
+    admin
+      .from('profiles')
+      .select(
+        'id, full_name, email, role, profile_completion, whatsapp, verification_state, cnic_verified_at, cnic_number, cnic_image_path, address_verified_at, profile_pic_status, selfie_status',
+      )
+      .in('id', safeIds),
+    admin.from('tutor_profiles').select('id, verified_fee_paid_at, whatsapp_number').in('id', safeIds),
+  ])
+  const tutorById = new Map((tutors ?? []).map((tp) => [tp.id as string, tp]))
   for (const p of people ?? []) {
     const t = byMember.get(p.id as string)
-    if (t) {
-      t.memberName = (p.full_name as string) ?? '—'
-      t.memberEmail = (p.email as string) ?? '—'
-    }
+    if (!t) continue
+    t.memberName = (p.full_name as string) ?? '—'
+    t.memberEmail = (p.email as string) ?? '—'
+
+    const tp = tutorById.get(p.id as string)
+    const cnic = deriveCnicStatus({
+      verification_state: (p.verification_state as string) ?? null,
+      cnic_verified_at: (p.cnic_verified_at as string) ?? null,
+      cnic_number: (p.cnic_number as string) ?? null,
+      cnic_image_path: (p.cnic_image_path as string) ?? null,
+    })
+    t.tag = memberInboxTag({
+      role: (p.role as string) ?? null,
+      completion: (p.profile_completion as number | null) ?? 0,
+      hasWhatsapp: !!((p.whatsapp as string)?.trim() || (tp?.whatsapp_number as string)?.trim()),
+      awaitingApproval:
+        cnic === 'submitted' ||
+        (p.profile_pic_status as string) === 'pending' ||
+        (p.selfie_status as string) === 'pending',
+      feePaid: !!(tp?.verified_fee_paid_at as string | null),
+      cnicVerified: !!p.cnic_verified_at && !!p.address_verified_at,
+    })
   }
 
   return ids.map((id) => byMember.get(id)!).filter(Boolean)

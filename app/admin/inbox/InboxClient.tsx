@@ -8,8 +8,22 @@ import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { formatDateTime } from '@/lib/datetime'
 import type { AdminMessage, AdminTemplate, InboxThread } from '@/lib/adminMessaging'
+import { INBOX_TAG_CLASS, type InboxTag } from '@/lib/inboxTags'
 
 const TEAM = 'TutorMint Team'
+
+// The step-1 status pill (PR94 Part 3): English with Urdu underneath, one colour
+// per status. Small enough to sit under a member's name in the list and header.
+function StatusPill({ tag }: { tag: InboxTag }) {
+  return (
+    <span className={`mt-0.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold leading-tight ${INBOX_TAG_CLASS[tag.tone]}`}>
+      {tag.label}
+      <span lang="ur" dir="rtl" className="block text-[9px] font-medium opacity-80">
+        {tag.labelUr}
+      </span>
+    </span>
+  )
+}
 
 function fill(body: string, vars: { name: string; jobTitle: string; reason: string }): string {
   return body
@@ -147,6 +161,7 @@ export default function InboxClient({
                   {t.lastDirection === 'in' ? '↩ ' : ''}
                   {t.lastBody}
                 </p>
+                {t.tag && <StatusPill tag={t.tag} />}
               </Link>
             ))
           )}
@@ -169,6 +184,10 @@ export default function InboxClient({
                   >
                     {selectedName}
                   </Link>
+                  {(() => {
+                    const tag = threads.find((t) => t.memberId === selectedId)?.tag
+                    return tag ? <StatusPill tag={tag} /> : null
+                  })()}
                   <p className="text-[10px] text-gray-500">You reply as {TEAM}.</p>
                 </div>
               </div>

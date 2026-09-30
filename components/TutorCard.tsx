@@ -1,6 +1,7 @@
 'use client'
 
 import { postGated } from '@/lib/gatedFetch'
+import { experienceLabel } from '@/lib/experienceLabel'
 import { armEscape, submitSignal } from '@/lib/submit'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
@@ -130,11 +131,14 @@ function DetailLine({
   icon,
   label,
   value,
+  valueUr,
   children,
 }: {
   icon: React.ReactNode
   label: string
   value?: string
+  /** An Urdu rendering of the value, shown underneath (PR94 Part 1). */
+  valueUr?: string
   /** Linked content, when the value names something with a page of its own. */
   children?: React.ReactNode
 }) {
@@ -144,6 +148,11 @@ function DetailLine({
       <span className="min-w-0">
         <span className="font-bold text-tm-navy">{label}:</span>{' '}
         <span>{children ?? value}</span>
+        {valueUr && (
+          <span lang="ur" dir="rtl" className="mt-0.5 block text-[11px] text-gray-500">
+            {valueUr}
+          </span>
+        )}
       </span>
     </p>
   )
@@ -225,10 +234,8 @@ export default function TutorCard({
       ? tutor.subject_labels.join(', ')
       : 'Subjects being added'
 
-  const experience =
-    tutor.experience_years && tutor.experience_years > 0
-      ? `${tutor.experience_years} year${tutor.experience_years === 1 ? '' : 's'}`
-      : 'New to TutorMint'
+  // Real teaching experience from onboarding step 9, not account age (PR94 Part 1).
+  const experience = experienceLabel(tutor.experience_years)
 
   const gate = (intent: AuthIntent) => {
     setGateIntent(intent)
@@ -443,7 +450,7 @@ export default function TutorCard({
                     ))
                   : subjects}
               </DetailLine>
-              <DetailLine icon={<Briefcase size={14} />} label="Experience" value={experience} />
+              <DetailLine icon={<Briefcase size={14} />} label="Experience" value={experience.en} valueUr={experience.ur} />
               {(() => {
                 // Up to 2 areas, then "+N more" (PR68). Falls back to the single area.
                 const list = (tutor.areas && tutor.areas.length > 0
