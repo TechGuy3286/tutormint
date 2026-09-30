@@ -930,15 +930,10 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   })()}
                 </p>
                 {/* Real teaching experience from onboarding step 9, not account
-                    age (PR94 Part 1). English with Urdu underneath. */}
+                    age (PR94 Part 1). English only (PR97). */}
                 <p className="flex items-start gap-2 text-xs">
                   <Briefcase size={14} className="mt-px shrink-0 text-gray-500" />
-                  <span>
-                    {experienceLabel(tutor.experience_years).en}
-                    <span lang="ur" dir="rtl" className="mt-0.5 block text-[11px] text-gray-500">
-                      {experienceLabel(tutor.experience_years).ur}
-                    </span>
-                  </span>
+                  <span>{experienceLabel(tutor.experience_years).en}</span>
                 </p>
                 {feeLabelOf(tutor) ? (
                   <p className="flex items-center gap-2 text-xs font-black text-tm-navy">

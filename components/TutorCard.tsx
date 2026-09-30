@@ -131,14 +131,11 @@ function DetailLine({
   icon,
   label,
   value,
-  valueUr,
   children,
 }: {
   icon: React.ReactNode
   label: string
   value?: string
-  /** An Urdu rendering of the value, shown underneath (PR94 Part 1). */
-  valueUr?: string
   /** Linked content, when the value names something with a page of its own. */
   children?: React.ReactNode
 }) {
@@ -147,17 +144,7 @@ function DetailLine({
       <span className="mt-px shrink-0 text-gray-500">{icon}</span>
       <span className="min-w-0">
         <span className="font-bold text-tm-navy">{label}:</span>{' '}
-        {/* The value and its Urdu line share one inline-block, so the Urdu line
-            (a block within it) aligns to the VALUE's left edge — under the value,
-            not under the label (PR95 Part 2). */}
-        <span className="inline-block align-top">
-          {children ?? value}
-          {valueUr && (
-            <span lang="ur" dir="rtl" className="mt-0.5 block text-[11px] text-gray-500">
-              {valueUr}
-            </span>
-          )}
-        </span>
+        {children ?? value}
       </span>
     </p>
   )
@@ -455,7 +442,7 @@ export default function TutorCard({
                     ))
                   : subjects}
               </DetailLine>
-              <DetailLine icon={<Briefcase size={14} />} label="Experience" value={experience.en} valueUr={experience.ur} />
+              <DetailLine icon={<Briefcase size={14} />} label="Experience" value={experience.en} />
               {(() => {
                 // Up to 2 areas, then "+N more" (PR68). Falls back to the single area.
                 const list = (tutor.areas && tutor.areas.length > 0

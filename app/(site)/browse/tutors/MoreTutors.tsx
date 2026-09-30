@@ -39,7 +39,7 @@ export default function MoreTutors({
   // account was hidden or a card component changed. Bump it whenever the public
   // tutor set or the card markup changes.
   const storageKey = useMemo(
-    () => `tm:more:tutors:v2:${new URLSearchParams(params).toString()}`,
+    () => `tm:more:tutors:v3:${new URLSearchParams(params).toString()}`,
     [params],
   )
 
