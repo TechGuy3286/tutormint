@@ -104,9 +104,16 @@ export const SCREEN_ACCESS = {
   // Money — admin (and owner) only, never operations.
   plans: ['admin'] as AdminRole[],
   plansMutate: ['admin'] as AdminRole[],
-  // Payments is read-only now — a transfer activates on submit, so there is no
-  // approve/reject permission (PR30). `payments` is the read-access key only.
+  // Reading the payments screen and the subscription ledger.
   payments: ['admin'] as AdminRole[],
+  // Approving / rejecting a manual bank transfer (PR98 §4 restores the human
+  // step). Money, so admin (and owner) only — never operations. "finance" in the
+  // owner's note maps here: that role was deleted (14 Sep), folded into admin.
+  // The route also requires a fresh password (lib/reauth) like every money action.
+  paymentsApprove: ['admin'] as AdminRole[],
+  // The bank-transfer details setting — the account members are told to pay
+  // into. Same money-level permission as approvals.
+  paymentsSettings: ['admin'] as AdminRole[],
   // Staff management is the ONE thing an Admin does not get. `[]` +
   // roleSatisfies() = owner only, with no magic string.
   team: [] as AdminRole[],

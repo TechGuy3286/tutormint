@@ -20,10 +20,13 @@ import type {
   WebhookEvent,
 } from './provider'
 
-const SETTING_KEYS = {
+export const SETTING_KEYS = {
   bankName: 'pay.bank_name',
   accountTitle: 'pay.account_title',
+  bankBranch: 'pay.bank_branch',
+  accountNumber: 'pay.account_number',
   iban: 'pay.iban',
+  qrPath: 'pay.qr_path',
   jazzcash: 'pay.jazzcash',
   easypaisa: 'pay.easypaisa',
 } as const
@@ -47,7 +50,11 @@ export async function manualInstructions(): Promise<ManualInstructions> {
   return {
     bankName: pick(SETTING_KEYS.bankName, process.env.MANUAL_PAY_BANK_NAME),
     accountTitle: pick(SETTING_KEYS.accountTitle, process.env.MANUAL_PAY_ACCOUNT_TITLE),
+    bankBranch: pick(SETTING_KEYS.bankBranch, process.env.MANUAL_PAY_BANK_BRANCH),
+    accountNumber: pick(SETTING_KEYS.accountNumber, process.env.MANUAL_PAY_ACCOUNT_NUMBER),
     iban: pick(SETTING_KEYS.iban, process.env.MANUAL_PAY_IBAN),
+    // Storage path only; never a URL. null when unset → the QR block is hidden.
+    qrPath: stored.get(SETTING_KEYS.qrPath) ?? null,
     jazzcash: pick(SETTING_KEYS.jazzcash, process.env.MANUAL_PAY_JAZZCASH),
     easypaisa: pick(SETTING_KEYS.easypaisa, process.env.MANUAL_PAY_EASYPAISA),
   }

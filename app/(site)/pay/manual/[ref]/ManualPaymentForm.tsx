@@ -9,7 +9,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 // Transaction ID + receipt screenshot. Both go to /api/payments/manual, which
-// activates the plan on submit (PR30) and sends the member to the success page.
+// now records the transfer as WAITING FOR APPROVAL (PR98 §4) — a person confirms
+// it on /admin/payments before the plan starts. No "plan active" message here.
 
 export default function ManualPaymentForm({
   reference,
@@ -39,9 +40,9 @@ export default function ManualPaymentForm({
       const res = await fetch('/api/payments/manual', { signal: submitSignal(UPLOAD_TIMEOUT_MS), method: 'POST', body: form })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not submit your payment.')
-      // Activated on submit (PR30) — land on the success page, which shows the
-      // now-active plan and badge, rather than a "we'll check it" message.
-      toast.success('Payment received — your plan is active.')
+      // Waiting for approval now (PR98 §4) — tell the member it is being checked,
+      // not that the plan is live, and send them to the status page.
+      toast.success('Transfer details received — we will confirm it shortly.')
       router.push('/pay/return?ref=' + encodeURIComponent(reference))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not submit your payment.')
@@ -95,7 +96,7 @@ export default function ManualPaymentForm({
         disabled={busy || payerReference.trim().length < 4}
         className="min-h-[44px] w-full rounded-xl bg-tm-black px-5 text-xs font-bold text-white disabled:bg-gray-300"
       >
-        {busy ? 'Activating…' : 'Submit and activate'}
+        {busy ? 'Sending…' : 'Submit for approval'}
       </button>
     </div>
   )

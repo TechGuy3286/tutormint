@@ -106,15 +106,27 @@ export default async function PayReturnPage({
               )}
             </>
           ) : view === 'waiting' ? (
-            <>
-              <Clock size={40} className="mx-auto text-tm-gold-ink" />
-              <h1 className="text-lg font-black text-tm-navy">We&rsquo;re still waiting for your payment</h1>
-              <p className="text-xs leading-relaxed text-gray-500">
-                If you have just paid, it can take a minute to confirm. Your plan will start on its own —
-                you don&rsquo;t need to do anything.
-              </p>
-              <Urdu>اگر آپ نے ابھی ادائیگی کی ہے تو تصدیق میں ایک منٹ لگ سکتا ہے۔ آپ کا پلان خود بخود چالو ہو جائے گا۔</Urdu>
-            </>
+            payment?.provider === 'manual' ? (
+              <>
+                <Clock size={40} className="mx-auto text-tm-gold-ink" />
+                <h1 className="text-lg font-black text-tm-navy">We&rsquo;re checking your transfer</h1>
+                <p className="text-xs leading-relaxed text-gray-500">
+                  Thank you. Our team will confirm your transfer and activate your plan, usually
+                  within a few hours. You will get a notification the moment it is approved.
+                </p>
+                <Urdu>آپ کی ادائیگی موصول ہو گئی ہے۔ ہماری ٹیم تصدیق کے بعد آپ کا پلان چالو کر دے گی، عموماً چند گھنٹوں میں۔ منظوری ملتے ہی آپ کو اطلاع مل جائے گی۔</Urdu>
+              </>
+            ) : (
+              <>
+                <Clock size={40} className="mx-auto text-tm-gold-ink" />
+                <h1 className="text-lg font-black text-tm-navy">We&rsquo;re still waiting for your payment</h1>
+                <p className="text-xs leading-relaxed text-gray-500">
+                  If you have just paid, it can take a minute to confirm. Your plan will start on its own —
+                  you don&rsquo;t need to do anything.
+                </p>
+                <Urdu>اگر آپ نے ابھی ادائیگی کی ہے تو تصدیق میں ایک منٹ لگ سکتا ہے۔ آپ کا پلان خود بخود چالو ہو جائے گا۔</Urdu>
+              </>
+            )
           ) : view === 'notpaid' ? (
             <>
               <XCircle size={40} className="mx-auto text-tm-red" />

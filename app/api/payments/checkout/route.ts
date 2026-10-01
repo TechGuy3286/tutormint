@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { getProvider, newPaymentReference } from '@/lib/payments'
-import { pproVisibleFor, startPayproCheckout, toPayproMobile } from '@/lib/payments/paypro'
+import { manual } from '@/lib/payments/manual'
+import { checkoutVisibleFor, pproVisibleFor, startPayproCheckout, toPayproMobile } from '@/lib/payments/paypro'
 import { isSyntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, text } from '@/lib/validate'
@@ -29,6 +30,8 @@ export const runtime = 'nodejs'
 
 const CheckoutBody = z.object({
   planCode: text({ min: 1, max: 64, label: 'Plan' }),
+  // 'card' (default) → PayPro; 'transfer' → the bank/wallet transfer order page.
+  method: z.enum(['card', 'transfer']).optional(),
 })
 
 export async function POST(request: Request) {
@@ -68,11 +71,24 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select(
+      'role, admin_role, is_seed, full_name, phone_number, email, utm_source, utm_medium, utm_campaign, utm_content',
+    )
     .eq('id', user.id)
     .maybeSingle()
 
-  const audience = profile?.role === 'tutor' ? 'tutor' : 'parent'
+  // GATE (PR98 §2). While we are launching to a gated audience, checkout — card
+  // OR bank transfer — is visible only to owner/staff/seed/PAYPRO_TEST_EMAILS
+  // accounts. Everyone else is told it is not open yet. Fail-closed: an empty
+  // PAYPRO_TEST_EMAILS admits only owner/staff/seed, never a normal member.
+  if (!profile || !checkoutVisibleFor(profile)) {
+    return NextResponse.json(
+      { error: 'Online payment is not open yet. Please check back soon.', code: 'checkout_closed' },
+      { status: 403 },
+    )
+  }
+
+  const audience = profile.role === 'tutor' ? 'tutor' : 'parent'
   if (plan.audience !== audience) {
     return NextResponse.json(
       { error: `${plan.name} is a ${plan.audience} plan; this is a ${audience} account.` },
@@ -105,59 +121,54 @@ export async function POST(request: Request) {
     }
   }
 
-  // PayPro (PR65). While the gateway is in sandbox it is offered ONLY to
-  // owner/staff/seed accounts (pproVisibleFor); every other member falls through
-  // to the existing provider path below, unchanged. The amount is the plan price
-  // read above — never the client's. If PayPro is not configured, pproVisibleFor
-  // is false and nothing changes.
-  {
-    const { data: payProfile } = await supabase
-      .from('profiles')
-      .select('admin_role, is_seed, full_name, phone_number, email, utm_source, utm_medium, utm_campaign, utm_content')
-      .eq('id', user.id)
-      .maybeSingle()
-    if (payProfile && pproVisibleFor(payProfile)) {
-      const rawEmail = typeof payProfile.email === 'string' ? payProfile.email : ''
-      const started = await startPayproCheckout({
-        userId: user.id,
-        planCode: plan.code as string,
-        amountPkr: plan.price_pkr as number,
-        customer: {
-          name: (payProfile.full_name as string) ?? 'Customer',
-          mobile: toPayproMobile(payProfile.phone_number as string | null),
-          email: rawEmail && !isSyntheticEmail(rawEmail) ? rawEmail : '',
-        },
-        utm: {
-          source: (payProfile.utm_source as string) ?? null,
-          medium: (payProfile.utm_medium as string) ?? null,
-          campaign: (payProfile.utm_campaign as string) ?? null,
-          content: (payProfile.utm_content as string) ?? null,
-        },
-      })
-      if (!started.ok) {
-        // Never surface a database or gateway message to the member (PR66 §2).
-        // Log the real error server-side (no secrets — start errors carry a DB or
-        // PayPro description, never a token); the client shows the friendly message.
-        console.error('[paypro] checkout start failed:', started.error)
-        return NextResponse.json({ error: 'We could not start your payment.', code: 'payment_failed' }, { status: started.status })
-      }
-      await logActivity({
-        userId: user.id,
-        event: 'payment_submitted',
-        targetType: 'payment',
-        targetId: started.paymentId,
-        meta: { planCode: plan.code, provider: 'paypro', reference: started.reference, amountPkr: plan.price_pkr },
-      })
-      return NextResponse.json({
-        mode: 'redirect',
-        url: started.url,
-        reference: started.reference,
-        paymentId: started.paymentId,
-      })
+  // The member can choose to pay by bank/wallet transfer instead of card. When
+  // they do (or PayPro is not configured), we skip the gateway and send them to
+  // the transfer order page. Default is card → PayPro.
+  const wantsTransfer = body.method === 'transfer'
+
+  // PayPro (PR65/PR98). Offered to a gated account that did NOT choose transfer.
+  // The amount is the plan price read above — never the client's.
+  if (!wantsTransfer && pproVisibleFor(profile)) {
+    const rawEmail = typeof profile.email === 'string' ? profile.email : ''
+    const started = await startPayproCheckout({
+      userId: user.id,
+      planCode: plan.code as string,
+      amountPkr: plan.price_pkr as number,
+      customer: {
+        name: (profile.full_name as string) ?? 'Customer',
+        mobile: toPayproMobile(profile.phone_number as string | null),
+        email: rawEmail && !isSyntheticEmail(rawEmail) ? rawEmail : '',
+      },
+      utm: {
+        source: (profile.utm_source as string) ?? null,
+        medium: (profile.utm_medium as string) ?? null,
+        campaign: (profile.utm_campaign as string) ?? null,
+        content: (profile.utm_content as string) ?? null,
+      },
+    })
+    if (!started.ok) {
+      // Never surface a database or gateway message to the member (PR66 §2).
+      console.error('[paypro] checkout start failed:', started.error)
+      return NextResponse.json({ error: 'We could not start your payment.', code: 'payment_failed' }, { status: started.status })
     }
+    await logActivity({
+      userId: user.id,
+      event: 'payment_submitted',
+      targetType: 'payment',
+      targetId: started.paymentId,
+      meta: { planCode: plan.code, provider: 'paypro', reference: started.reference, amountPkr: plan.price_pkr },
+    })
+    return NextResponse.json({
+      mode: 'redirect',
+      url: started.url,
+      reference: started.reference,
+      paymentId: started.paymentId,
+    })
   }
 
-  const provider = getProvider()
+  // Transfer path (or no gateway): force the manual provider so a transfer
+  // choice always lands on the bank/wallet order page, never the dev simulator.
+  const provider = wantsTransfer ? manual : getProvider()
   const reference = newPaymentReference()
 
   // Written with the member's own client, so RLS proves user_id = auth.uid()

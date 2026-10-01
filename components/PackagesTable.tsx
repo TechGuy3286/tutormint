@@ -109,6 +109,7 @@ export default function PackagesTable({
   instantActivation,
   signedIn,
   verified,
+  checkoutOpen,
 }: {
   plans: PlanRow[]
   audience: 'tutor' | 'parent'
@@ -121,6 +122,9 @@ export default function PackagesTable({
   signedIn: boolean
   /** Identity verified. Only gates the free tier's "Get verified" CTA. */
   verified: boolean
+  /** Whether this viewer may check out at all during the gated launch (PR98 §2).
+   *  When false, the paid cards show a "not open yet" note instead of a button. */
+  checkoutOpen: boolean
 }) {
   const currentRank = plans.find((p) => p.code === currentPlan)?.search_rank ?? 0
   const features = audience === 'tutor' ? TUTOR_FEATURES : PARENT_FEATURES
@@ -221,14 +225,24 @@ export default function PackagesTable({
                     {audience === 'tutor' ? 'Get verified' : 'Verify your CNIC (free)'}
                   </Link>
                 ) : null
-              ) : (
+              ) : checkoutOpen ? (
                 <BuyButton
                   planCode={p.code}
                   planName={p.name}
                   signedIn={signedIn}
                   upgrading={!!currentPlan}
                   emphasis={spotlit}
+                  showTransfer
                 />
+              ) : (
+                // Gated launch (PR98 §2): online payment is not open to this
+                // account yet. Plain note, no price, English + Urdu.
+                <p className="rounded-xl bg-tm-bg p-3 text-center text-[11px] font-semibold text-gray-500">
+                  Online payment is not open yet.
+                  <span lang="ur" dir="rtl" className="mt-0.5 block text-gray-500">
+                    آن لائن ادائیگی ابھی دستیاب نہیں۔
+                  </span>
+                </p>
               )}
             </section>
           )

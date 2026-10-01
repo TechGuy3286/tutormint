@@ -2,22 +2,22 @@ import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { activatePayment } from '@/lib/payments/activate'
+import { notify } from '@/lib/notifications'
+import { logActivity } from '@/lib/activityLog'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 
-// Submit a bank / JazzCash / Easypaisa transfer — and activate it now (PR30).
+// Submit a bank / JazzCash / Easypaisa transfer — WAITING FOR APPROVAL (PR98 §4).
 //
-// There is no longer a human approval step. The pending payment row created by
+// Auto-activation is removed. The pending payment row created by
 // /api/payments/checkout is finished here: this attaches the member's own
-// transaction reference and screenshot, then runs the SAME activatePayment() a
-// gateway webhook runs, so the plan starts the moment they submit and a
-// transfer-paid member ends up with the identical subscription, badge and
-// receipt as a gateway-paid one. No second activation path is written.
+// transaction reference and screenshot and leaves the row 'pending', which now
+// means "waiting for a person to approve it". The plan is NOT started here.
+// An owner/admin approves (or rejects) it on /admin/payments; approval runs
+// activatePayment with an actor and writes an admin_audit_log row — so a manual
+// transfer can only ever reach 'active' via a recorded human approval.
 //
-// IDEMPOTENT. A double tap cannot activate twice: activatePayment returns
-// alreadyActive for a payment that is already approved, and an already-approved
-// payment short-circuits at the top here — so no duplicate subscription, no
-// second month.
+// IDEMPOTENT. An already-approved payment (a resubmit after approval) is a
+// success; an already-rejected one is reported as reviewed.
 //
 // The screenshot goes to the PRIVATE payment-proofs bucket. It shows an
 // account number and usually a name, so there is no public URL to it: it is read
@@ -143,13 +143,24 @@ export async function POST(request: Request) {
 
   if (error) return serverError(error, 'payments/manual')
 
-  // Activate now — the SAME function the gateway webhook runs (PR30). It sets the
-  // payment approved, creates the subscription (or records the one-time fee),
-  // sends the plan/fee notification and receipt, and is idempotent on a replay.
-  const result = await activatePayment({ paymentId: payment.id as string, source: 'manual_submit' })
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status })
-  }
+  // No activation here (PR98 §4). The row stays 'pending' = waiting for approval.
+  // Tell the member it was received and is being checked — no "plan active", no
+  // promised time beyond "usually within a few hours".
+  await notify({
+    userId: user.id,
+    kind: 'payment_submitted',
+    title: 'We have your transfer details',
+    body: 'Thank you. Our team will confirm your transfer and activate your plan, usually within a few hours. You will get a notification the moment it is approved.',
+    href: '/membership-plans',
+  })
 
-  return NextResponse.json({ success: true, reference })
+  await logActivity({
+    userId: user.id,
+    event: 'payment_submitted',
+    targetType: 'payment',
+    targetId: payment.id as string,
+    meta: { planCode: payment.plan_code, provider: 'manual', reference, awaitingApproval: true },
+  })
+
+  return NextResponse.json({ success: true, reference, awaitingApproval: true })
 }

@@ -50,19 +50,37 @@ function payproTestEmails(): Set<string> {
   )
 }
 
-/** Who may see PayPro checkout. Sandbox: owner/staff (admin_role set), a seed test
- *  account, or an email listed in PAYPRO_TEST_EMAILS. Live: every member. Never
- *  selected when PayPro is unconfigured. */
-export function pproVisibleFor(profile: {
+type GateProfile = {
   admin_role?: string | null
   is_seed?: boolean | null
   email?: string | null
-}): boolean {
-  if (!pproConfigured()) return false
-  if (!pproSandbox()) return true
+}
+
+/**
+ * Who may check out AT ALL during the gated launch phase (PR98 §2).
+ *
+ * Owner/staff (admin_role set), a seed test account, or an email listed in
+ * PAYPRO_TEST_EMAILS — and NOBODY else, whether PayPro is sandbox or live. We
+ * are going live with a gated audience first, so a normal member sees no
+ * checkout yet regardless of the gateway's mode.
+ *
+ * FAIL CLOSED: if PAYPRO_TEST_EMAILS is missing or empty, only owner/staff/seed
+ * get checkout — never a normal member. The email set is simply empty, so the
+ * membership test below is false for every normal account.
+ */
+export function checkoutVisibleFor(profile: GateProfile): boolean {
   if (profile.admin_role || profile.is_seed) return true
   const email = (profile.email ?? '').trim().toLowerCase()
   return !!email && payproTestEmails().has(email)
+}
+
+/** Whether the PayPro (card) option is offered to this account: PayPro must be
+ *  configured AND the account must be inside the launch gate. The gate is the
+ *  same in sandbox and live — the old "live = everyone" is replaced by the
+ *  gated test phase (PR98 §2). */
+export function pproVisibleFor(profile: GateProfile): boolean {
+  if (!pproConfigured()) return false
+  return checkoutVisibleFor(profile)
 }
 
 // ── low-level transport ─────────────────────────────────────────────────────
@@ -254,6 +272,41 @@ export async function getPayproOrderStatus(payProId: string): Promise<OrderStatu
     orderStatus: String(data.OrderStatus ?? '').toUpperCase(),
     amountPaid: Number(data.OrderAmountPaid ?? 0),
     raw: data,
+  }
+}
+
+// ── mark order blocked (ppro/moab) — cancel/expire an unpaid order ───────────
+
+export type BlockOrderResult = { ok: boolean; status?: string; description?: string; error?: string }
+
+/** Block (cancel/expire) an unpaid order by its order NUMBER (our provider_ref).
+ *  Used by the owner diagnostic (PR98 §1) to tidy up the one Rs 199 test order so
+ *  the reconcile cron is not left chasing it. Never logs secrets. */
+export async function markPayproOrderBlocked(orderNumber: string): Promise<BlockOrderResult> {
+  if (!orderNumber) return { ok: false, error: 'No order number.' }
+  let res: RawResponse
+  try {
+    res = await withToken((token) =>
+      rawRequest('POST', '/v2/ppro/moab', {
+        headers: { token },
+        body: JSON.stringify({ Username: USERNAME(), CsvOrderNumbers: orderNumber }),
+      }),
+    )
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'PayPro block failed.' }
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(res.text)
+  } catch {
+    return { ok: false, error: `PayPro block returned non-JSON (status ${res.status}).` }
+  }
+  const arr = Array.isArray(parsed) ? parsed : [parsed]
+  const first = (arr[0] as { Status?: string; Description?: string } | undefined) ?? {}
+  return {
+    ok: first.Status === '00',
+    status: first.Status,
+    description: typeof first.Description === 'string' ? first.Description : undefined,
   }
 }
 

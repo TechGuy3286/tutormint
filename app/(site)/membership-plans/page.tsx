@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { getViewerEntitlements } from '@/lib/entitlements'
 import { getProvider } from '@/lib/payments'
+import { checkoutVisibleFor } from '@/lib/payments/paypro'
 import PackagesTable, { type PlanRow } from '@/components/PackagesTable'
 import PackagesTabs from '@/components/membership-plans/PackagesTabs'
 import VerifiedPreview from '@/components/membership-plans/VerifiedPreview'
@@ -47,6 +48,34 @@ export default async function PackagesPage({
 
   const provider = getProvider()
   const instant = provider.id !== 'manual'
+
+  // Gated launch (PR98 §2): only owner/staff/seed/test-email accounts may check
+  // out. Others see the plans but a "not open yet" note in place of buy buttons.
+  // Also surface a resumable pending order (PR98 §3 "Pay later").
+  let checkoutOpen = false
+  let resumeHref: string | null = null
+  if (ent) {
+    const { data: me } = await supabase
+      .from('profiles')
+      .select('admin_role, is_seed, email')
+      .eq('id', ent.userId)
+      .maybeSingle()
+    checkoutOpen = !!me && checkoutVisibleFor(me)
+    const { data: pending } = await supabase
+      .from('payments')
+      .select('provider_ref, provider')
+      .eq('user_id', ent.userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (pending?.provider_ref) {
+      resumeHref =
+        pending.provider === 'manual'
+          ? `/pay/manual/${encodeURIComponent(pending.provider_ref as string)}`
+          : `/pay/return?ref=${encodeURIComponent(pending.provider_ref as string)}`
+    }
+  }
 
   // §1.1: a signed-in tutor opens on Tutors, a parent on Parents, a logged-out
   // visitor on Tutors; ?for= overrides.
@@ -142,6 +171,7 @@ export default async function PackagesPage({
         instantActivation={instant}
         signedIn={!!ent}
         verified={tutorVerified}
+        checkoutOpen={checkoutOpen}
       />
 
       <section className="rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed text-gray-500 sm:p-5">
@@ -197,6 +227,7 @@ export default async function PackagesPage({
         instantActivation={instant}
         signedIn={!!ent}
         verified={parentVerified}
+        checkoutOpen={checkoutOpen}
       />
 
       <section className="rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed text-gray-500 sm:p-5">
@@ -228,6 +259,19 @@ export default async function PackagesPage({
               explains (30-day term, non-refundable). */}
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Membership Plans*</h1>
         </header>
+
+        {/* Resume an order left pending (PR98 §3 "Pay later"). */}
+        {resumeHref && (
+          <Link
+            href={resumeHref}
+            className="block rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-4 text-xs font-bold text-tm-navy"
+          >
+            You have a payment in progress — tap to continue.
+            <span lang="ur" dir="rtl" className="mt-0.5 block font-semibold text-tm-navy">
+              آپ کی ایک ادائیگی ابھی باقی ہے — جاری رکھنے کے لیے دبائیں۔
+            </span>
+          </Link>
+        )}
 
         <PackagesTabs initialTab={initialTab} tutorPanel={tutorPanel} parentPanel={parentPanel} />
       </div>

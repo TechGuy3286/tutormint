@@ -40,7 +40,14 @@ export type CheckoutIntent = {
 export type ManualInstructions = {
   bankName: string | null
   accountTitle: string | null
+  /** Branch name/code of the bank account (PR98 §4). */
+  bankBranch: string | null
+  /** The plain account number (PR98 §4), shown alongside the IBAN. */
+  accountNumber: string | null
   iban: string | null
+  /** Storage path of an optional QR image in the private payment-proofs bucket;
+   *  null hides the QR block. Served only through /api/payments/bank-qr. */
+  qrPath: string | null
   jazzcash: string | null
   easypaisa: string | null
 }

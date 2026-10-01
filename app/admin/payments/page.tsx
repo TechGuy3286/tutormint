@@ -1,16 +1,17 @@
-import { Gauge } from 'lucide-react'
+import { Gauge, Landmark } from 'lucide-react'
 import Link from 'next/link'
 
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadPaymentQueue, loadSubscriptionLedger } from '@/lib/adminQueues'
 import { createAdminClient } from '@/lib/supabase/admin'
 import PaymentQueue from './PaymentQueue'
 
-// Payments: the manual-transfer queue and the subscription ledger.
+// Payments: the manual-transfer approval queue and the subscription ledger.
 //
-// owner / manager only (Finance was removed, 14 Sep 2026). An operations or
-// support admin is bounced by requireAdminRole here and by checkAdminRole in
-// the decide route, so the separation holds whether they use the screen or curl.
+// owner / admin only (Finance was removed, 14 Sep 2026). An operations admin is
+// bounced by requireAdminRole here and by checkAdminRole in the decide route, so
+// the separation holds whether they use the screen or curl. Approving a transfer
+// additionally requires a fresh password (PR98 §4).
 //
 // Both lists page independently through lib/adminQueues.ts, which is also what
 // the load-more route calls -- one definition of the query, so the first
@@ -23,7 +24,9 @@ export default async function AdminPaymentsPage({
 }: {
   searchParams: Promise<{ filter?: string; q?: string }>
 }) {
-  await requireAdminRole(...SCREEN_ACCESS.payments)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.payments)
+  const canApprove = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsApprove)
+  const canSettings = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsSettings)
   const { filter = 'all', q = '' } = await searchParams
   const search = q.trim()
 
@@ -45,15 +48,26 @@ export default async function AdminPaymentsPage({
     <div className="space-y-5">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-xs text-gray-500">
-          Payments activate on submit — this is a read-only record.
+          Bank and wallet transfers wait here for approval; card payments confirm on their own.
         </p>
-        <Link
-          href="/admin/payments/usage"
-          className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
-        >
-          <Gauge aria-hidden size={14} />
-          Quota usage
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {canSettings && (
+            <Link
+              href="/admin/payments/bank-details"
+              className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
+            >
+              <Landmark aria-hidden size={14} />
+              Bank transfer details
+            </Link>
+          )}
+          <Link
+            href="/admin/payments/usage"
+            className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
+          >
+            <Gauge aria-hidden size={14} />
+            Quota usage
+          </Link>
+        </div>
       </header>
 
       <PaymentQueue
@@ -61,6 +75,7 @@ export default async function AdminPaymentsPage({
         subscriptions={subscriptions.rows}
         filter={filter}
         search={search}
+        canApprove={canApprove}
         paymentsCursor={payments.nextCursor}
         paymentsTotal={payments.total}
         subscriptionsCursor={subscriptions.nextCursor}

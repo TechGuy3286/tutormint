@@ -26,12 +26,15 @@ export default function BuyButton({
   signedIn,
   upgrading,
   emphasis,
+  showTransfer,
 }: {
   planCode: string
   planName: string
   signedIn: boolean
   upgrading: boolean
   emphasis?: boolean
+  /** Also offer "Pay by bank transfer" (gated accounts only, PR98 §4). */
+  showTransfer?: boolean
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -43,7 +46,7 @@ export default function BuyButton({
   // this button on the held plan's higher tiers); "Get X" for a first purchase.
   const label = upgrading ? `Upgrade to ${planName}` : `Get ${planName}`
 
-  const start = async () => {
+  const start = async (method: 'card' | 'transfer' = 'card') => {
     if (!signedIn) {
       router.push(`/login?next=${encodeURIComponent(`${pathname}?plan=${planCode}`)}`)
       return
@@ -57,7 +60,7 @@ export default function BuyButton({
       next?: string
       needsVerify?: boolean
       verifyHref?: string
-    }>('/api/payments/checkout', { planCode })
+    }>('/api/payments/checkout', { planCode, method })
 
     // Verification before plan (PR32 §3): an unverified tutor tapping Premium or
     // Featured is sent to get verified FIRST, carrying a return to the plan they
@@ -105,7 +108,7 @@ export default function BuyButton({
     <div className="space-y-1.5">
       <button
         type="button"
-        onClick={start}
+        onClick={() => start('card')}
         disabled={busy}
         className={`min-h-[44px] w-full rounded-xl px-4 text-xs font-bold text-white transition-colors disabled:opacity-60 ${
           emphasis ? 'bg-tm-red hover:bg-tm-red-hover' : 'bg-tm-black hover:bg-slate-800'
@@ -113,6 +116,17 @@ export default function BuyButton({
       >
         {busy ? 'Starting…' : label}
       </button>
+      {showTransfer && (
+        <button
+          type="button"
+          onClick={() => start('transfer')}
+          disabled={busy}
+          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-4 text-[11px] font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60"
+        >
+          Pay by bank transfer
+          <span lang="ur" dir="rtl" className="ml-1 text-gray-500">بینک ٹرانسفر</span>
+        </button>
+      )}
       {error && (
         <div className="space-y-2">
           {/* The "stuck" case has a real link to continue (PR66 §2: never show raw

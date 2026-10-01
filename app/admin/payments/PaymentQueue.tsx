@@ -5,18 +5,20 @@ import Link from 'next/link'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import QueueSearch from '@/components/admin/QueueSearch'
 import StatusChip from '@/components/admin/StatusChip'
+import PaymentDecide from './PaymentDecide'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
 import type { QueuePaymentRow, QueueSubscriptionRow } from '@/lib/adminQueues'
 
-// The payments screen: a READ-ONLY record of payments, and the ledger of what
-// is currently active (PR30).
+// The payments screen: the manual-transfer queue (awaiting approval) and the
+// ledger of what is currently active.
 //
-// There is no human approval any more — a transfer activates the moment the
-// member submits it (/api/payments/manual runs the same activatePayment a
-// gateway webhook does). So this screen has no Approve/Reject and no Pending
-// tab; it is a list to look at. Rejected is kept because old rejected records
-// exist and are shown read-only.
+// A bank/wallet transfer waits for a person to approve it (PR98 §4) — it is
+// 'pending' with a payer reference until an owner/admin approves it here, which
+// runs the audited activatePayment. Card payments confirm automatically, so
+// they are shown read-only. A 'pending' row with NO payer reference never
+// completed (the member started a transfer and did not submit it) and is shown
+// as "Incomplete", not a waiting item.
 //
 // Mobile-first. The subscription ledger is genuinely tabular, so on small
 // screens it becomes a stack of cards rather than a table with a horizontal
@@ -28,15 +30,23 @@ export type SubscriptionRow = QueueSubscriptionRow
 
 const FILTERS = [
   { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Waiting' },
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
 ]
+
+// A manual transfer the member has actually submitted (has their transaction
+// reference) and that is still pending — i.e. waiting for a person to approve it.
+function awaitingApproval(p: QueuePayment): boolean {
+  return p.status === 'pending' && p.provider === 'manual' && !!p.payerReference
+}
 
 export default function PaymentQueue({
   payments,
   subscriptions,
   filter,
   search,
+  canApprove,
   paymentsCursor,
   paymentsTotal,
   subscriptionsCursor,
@@ -46,6 +56,7 @@ export default function PaymentQueue({
   subscriptions: SubscriptionRow[]
   filter: string
   search: string
+  canApprove: boolean
   paymentsCursor: string | null
   paymentsTotal: number
   subscriptionsCursor: string | null
@@ -120,10 +131,12 @@ export default function PaymentQueue({
                     <p className="truncate text-sm font-black text-tm-navy">{p.name}</p>
                     <p className="truncate text-[11px] text-gray-500">{p.email}</p>
                   </div>
-                  {/* A payment left 'pending' never completed (there is no approval
-                      to wait for now). Show it as a neutral "Incomplete", not a
-                      gold "PENDING" warning (PR31 §2). The data is unchanged. */}
-                  {p.status === 'pending' ? (
+                  {/* A submitted transfer waiting for a person reads "Waiting for
+                      approval" (gold). A 'pending' row with no payer reference
+                      never completed → neutral "Incomplete". Others as stored. */}
+                  {awaitingApproval(p) ? (
+                    <StatusChip status="pending" label="Waiting for approval" tone="pending" />
+                  ) : p.status === 'pending' ? (
                     <StatusChip status={p.status} label="Incomplete" tone="neutral" />
                   ) : (
                     <StatusChip status={p.status} />
@@ -165,6 +178,10 @@ export default function PaymentQueue({
                     <Receipt aria-hidden size={14} />
                     Open receipt
                   </a>
+                )}
+
+                {canApprove && awaitingApproval(p) && (
+                  <PaymentDecide paymentId={p.id} payerName={p.name} />
                 )}
               </li>
             ))}
