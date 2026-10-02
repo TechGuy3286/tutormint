@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { badgesForPlan } from '@/lib/planBadges'
+import { verifiedBadgeOkOne } from '@/lib/badgeFacts'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { cvQrDataUri } from '@/lib/cv/assets'
 import { resolveSubjectLabels } from '@/lib/social/data'
@@ -55,17 +56,14 @@ export async function GET(request: Request) {
 
   const profileUrl = absoluteUrl(`/tutor/${tutor.slug as string}`)
   const qrDataUri = await cvQrDataUri(profileUrl)
+  // PR105-B §1 — the Verified badge needs staff-approved CNIC+photo+selfie. The
+  // dashboard only offers this card to a tutor who holds the badge, so this is
+  // belt-and-braces.
+  const verifiedOk = await verifiedBadgeOkOne(user.id)
 
   return renderSocialBanner({
     tutor: tutor as unknown as BannerTutor,
-    // Degree-gated: a listed tutor without a reviewed degree has no Verified
-    // badge to share (owner rule 2). The dashboard only offers this card to a
-    // tutor who holds the badge, so this is belt-and-braces.
-    badges: badgesForPlan(
-      (sub?.plan_code as string) ?? null,
-      true,
-      ((tutor.degrees as string[] | null)?.length ?? 0) > 0,
-    ),
+    badges: badgesForPlan((sub?.plan_code as string) ?? null, true, verifiedOk),
     subjects,
     format,
     template: 'success',

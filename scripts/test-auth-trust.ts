@@ -302,6 +302,10 @@ const baseTutor = {
   role: 'tutor', profile_completion: 100, cnic_verified_at: '2026-01-01', address_verified_at: null,
   phone_verified_at: '2026-01-01', is_suspended: false, is_banned: false, phone_verified_via: 'otp',
   is_seed: false, is_team_account: false,
+  // PR105-B §1 — the Verified badge now needs staff-approved CNIC+photo+selfie.
+  // The baseline tutor is fully approved; a dedicated test covers the pending case.
+  verification_state: 'approved', cnic_number: '1234512345671',
+  cnic_image_path: 'identity-docs/u1/cnic.jpg', profile_pic_status: 'approved', selfie_status: 'approved',
 }
 
 // Fee paid, verification not rejected/suspended, degree on file, city+area+gender
@@ -365,6 +369,27 @@ test('entitlements: a fee-paid tutor is on Basic — Verified badge, listed, 10 
   assert.equal(e.quota, 10)
 })
 
+test('entitlements: a fee-paid tutor whose docs are NOT yet staff-approved has verificationPending and no Verified badge (PR105-B §3)', () => {
+  // Fee paid, on Basic, but selfie not yet approved → no Verified badge, and the
+  // dashboard shows "Verification pending".
+  const e = computeEntitlements(inputs({ profile: { ...baseTutor, selfie_status: 'submitted' } }))
+  assert.equal(e.plan, 'basic', 'the fee still puts them on Basic')
+  assert.equal(e.verified, true, 'verified (the fee) is unchanged')
+  assert.equal(e.verificationPending, true)
+  assert.deepEqual(e.badges, [], 'Verified is withheld until all three docs are approved')
+})
+
+test('entitlements: a Premium tutor whose docs are NOT approved keeps Premium but loses Verified (PR105-B §1)', () => {
+  const e = computeEntitlements(
+    inputs({
+      profile: { ...baseTutor, profile_pic_status: 'submitted' },
+      activeSubs: [{ plan_code: 'premium', expires_at: future() }],
+    }),
+  )
+  assert.deepEqual(e.badges, ['Premium'], 'the plan-tier badge stays, Verified is dropped')
+  assert.equal(e.verificationPending, true)
+})
+
 test('entitlements: a Premium tutor sees who viewed, gets contact, and an Unlimited-display cap', () => {
   const e = computeEntitlements(inputs({ activeSubs: [{ plan_code: 'premium', expires_at: future() }] }))
   assert.equal(e.plan, 'premium', 'a paid sub wins over the synthesised Basic tier')
@@ -398,11 +423,24 @@ test('entitlements: a fee-paid tutor whose verification is REJECTED is NOT visib
   assert.equal(e.visible, false, 'a rejected verification delists')
 })
 
-test('entitlements: a verified tutor with NO reviewed degree carries no Verified badge', () => {
+test('entitlements: the Verified badge no longer depends on a degree (PR105-B §1) — it needs staff-approved docs', () => {
+  // A fully-staff-approved tutor with NO degree still shows Verified: the rule is
+  // CNIC+photo+selfie now, not a reviewed degree.
   const e = computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, degrees: [] } }))
-  assert.equal(e.visible, true, 'no degree does not delist — it only removes the badge')
+  assert.equal(e.visible, true, 'no degree does not delist')
   assert.equal(e.verified, true, 'the fee is paid')
-  assert.deepEqual(e.badges, [], 'Basic grants only Verified, which the missing degree drops')
+  assert.deepEqual(e.badges, ['Verified'], 'docs approved → Verified, with or without a degree')
+})
+
+test('entitlements: a verified tutor whose CNIC lacks documents carries no Verified badge (PR105-B §1)', () => {
+  // cnic_verified_at set but no cnic_number/image → deriveCnicStatus is "pending",
+  // so docs are not approved and the Verified badge is withheld.
+  const e = computeEntitlements(
+    inputs({ profile: { ...baseTutor, cnic_number: null, cnic_image_path: null, verification_state: 'submitted' } }),
+  )
+  assert.equal(e.verified, true, 'the fee is paid')
+  assert.deepEqual(e.badges, [], 'no CNIC documents → no Verified badge')
+  assert.equal(e.verificationPending, true)
 })
 
 // --- visibility vs apply-rights (PR16 §1) ---
@@ -553,11 +591,14 @@ test('tutorFixFor: only the tutor-fixable visibility blockers offer a screen', (
   assert.equal(tutorFixFor('unclaimed_import'), null)
 })
 
-test('badgesForPlan: the Verified badge is degree-gated for tutors, not parents', () => {
+test('badgesForPlan: the Verified badge needs staff approval (verifiedOk), tutors AND parents (PR105-B §1)', () => {
   assert.deepEqual(badgesForPlan('basic', true, true), ['Verified'])
-  assert.deepEqual(badgesForPlan('basic', true, false), [], 'no degree drops Verified')
-  assert.deepEqual(badgesForPlan('featured', true, false), ['Premium', 'Featured'], 'tier badges stay')
-  assert.deepEqual(badgesForPlan('parent_verified', true, false), ['Verified'], 'parents are not degree-gated')
+  assert.deepEqual(badgesForPlan('basic', true, false), [], 'approvals incomplete drops Verified')
+  assert.deepEqual(badgesForPlan('featured', true, false), ['Premium', 'Featured'], 'tier badges stay regardless')
+  assert.deepEqual(badgesForPlan('premium', true, false), ['Premium'], 'premium tier badge stays')
+  assert.deepEqual(badgesForPlan('parent_verified', true, false), [], 'a parent without CNIC verified has no Verified badge')
+  assert.deepEqual(badgesForPlan('parent_verified', true, true), ['Verified'], 'a CNIC-verified parent shows Verified')
+  assert.deepEqual(badgesForPlan('parent_featured', true, false), ['Featured'], 'parent tier badge stays')
   assert.deepEqual(badgesForPlan('basic', false, true), [], 'unlisted shows nothing')
 })
 

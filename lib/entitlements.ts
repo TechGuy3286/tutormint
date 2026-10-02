@@ -27,6 +27,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { badgesForPlan, isFeaturedPlan, type BadgeName } from '@/lib/planBadges'
 import { directoryBlockers, type ListingBlocker } from '@/lib/tutorListingStatus'
+import { deriveCnicStatus } from '@/lib/cnicStatus'
 
 // The pure plan -> badge mapping lives in lib/planBadges.ts so client
 // components can import it without pulling next/headers into the browser
@@ -69,6 +70,9 @@ export type Entitlements = {
   searchRank: number
   badges: BadgeName[]
   tagLabel: string | null
+  /** Tutor only: fee paid but staff approvals not yet complete — the dashboard
+   *  shows "Verification pending" in place of the Verified badge (PR105-B §3). */
+  verificationPending?: boolean
   /** Badges are withheld below 100% however much was paid. */
   profileComplete: boolean
   /** The raw percentage, for a gate that says "your profile is 93% complete". */
@@ -227,6 +231,12 @@ export type EntitlementInputs = {
     /** Fixture flags — a seed or the team account is never listed (migration 87). */
     is_seed: boolean | null
     is_team_account: boolean | null
+    /** Staff-review columns for the Verified badge (PR105-B §1). */
+    verification_state?: string | null
+    cnic_number?: string | null
+    cnic_image_path?: string | null
+    profile_pic_status?: string | null
+    selfie_status?: string | null
   } | null
   tutorRow: {
     verification_status: string | null
@@ -301,10 +311,21 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   // Apply / message / badge rights turn on the fee, not visibility.
   const verified = role === 'tutor' ? feePaid : false
 
-  // The Verified badge, for a tutor, additionally needs a reviewed degree
-  // (owner rule 2). A tutor's declared degrees are the signal; parents are
-  // unaffected (their Verified is CNIC + address).
-  const hasReviewedDegree = (tutorRow?.degrees?.length ?? 0) > 0
+  // The VERIFIED badge (PR105-B §1): a tutor needs staff-approved CNIC, photo
+  // AND selfie (the fee is implied by holding a tutor plan); a parent needs CNIC
+  // verified. This replaces the old reviewed-degree rule.
+  const cnicApproved =
+    deriveCnicStatus({
+      verification_state: profile.verification_state ?? null,
+      cnic_verified_at: profile.cnic_verified_at,
+      cnic_number: profile.cnic_number ?? null,
+      cnic_image_path: profile.cnic_image_path ?? null,
+    }) === 'approved'
+  const docsApproved = cnicApproved && profile.profile_pic_status === 'approved' && profile.selfie_status === 'approved'
+  const verifiedOk = audience === 'tutor' ? docsApproved : !!profile.cnic_verified_at
+  // Fee paid but staff approvals not yet complete → the dashboard shows
+  // "Verification pending" instead of the Verified badge (PR105-B §3).
+  const verificationPending = audience === 'tutor' && feePaid && !docsApproved
 
   // BAN short-circuits everything. The login route already refuses a banned
   // account with no session; this is the backstop for a session that was live
@@ -398,12 +419,14 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
     searchRank: p.search_rank ?? 0,
     // A tutor's badge clears `verified` (the fee, PR16 §1.2) — a visible but
     // unverified tutor shows "Not verified", not a badge. A parent has no fee, so
-    // completion is their gate. Verified is additionally degree-gated for tutors.
+    // completion is their gate. The Verified badge needs the staff approvals
+    // (verifiedOk) for tutors AND parents (PR105-B §1).
     badges: badgesForPlan(
       p.code,
       audience === 'tutor' ? verified : profileComplete,
-      audience === 'tutor' ? hasReviewedDegree : true,
+      verifiedOk,
     ),
+    verificationPending,
     tagLabel: (audience === 'tutor' ? verified : profileComplete) ? p.tag_label : null,
     profileComplete,
     profileCompletion,
@@ -428,7 +451,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
 
   const { data: profile } = await db
     .from('profiles')
-    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, is_banned, phone_verified_via, is_seed, is_team_account')
+    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, is_banned, phone_verified_via, is_seed, is_team_account, verification_state, cnic_number, cnic_image_path, profile_pic_status, selfie_status')
     .eq('id', userId)
     .maybeSingle()
 
@@ -487,6 +510,11 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
       phone_verified_via: (profile.phone_verified_via as string | null) ?? null,
       is_seed: (profile.is_seed as boolean | null) ?? null,
       is_team_account: (profile.is_team_account as boolean | null) ?? null,
+      verification_state: (profile.verification_state as string | null) ?? null,
+      cnic_number: (profile.cnic_number as string | null) ?? null,
+      cnic_image_path: (profile.cnic_image_path as string | null) ?? null,
+      profile_pic_status: (profile.profile_pic_status as string | null) ?? null,
+      selfie_status: (profile.selfie_status as string | null) ?? null,
     },
     tutorRow: (tutorRes.data as EntitlementInputs['tutorRow']) ?? null,
     hasSubjects: ((subjRes.data ?? []) as unknown[]).length > 0,

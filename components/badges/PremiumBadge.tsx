@@ -16,6 +16,7 @@ export default function PremiumBadge({
       showLabel={showLabel}
       colour={BRAND.navy}
       label="Premium"
+      urdu="پریمیم"
       title="Premium member"
     >
       <path

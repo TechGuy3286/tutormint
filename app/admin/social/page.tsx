@@ -2,6 +2,7 @@ import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveSubjectLabelsBatch } from '@/lib/social/data'
 import { badgesForPlan, type BadgeName } from '@/lib/planBadges'
+import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import SocialClient, { type PickerTutor } from './SocialClient'
 
 // The social post generator. owner / admin / operations.
@@ -73,6 +74,8 @@ export default async function AdminSocialPage() {
   const tpById = new Map((tps ?? []).map((t) => [t.id as string, t]))
   const listedSet = new Set((listedRows ?? []).map((r) => r.id as string))
   const planByUser = new Map((subs ?? []).map((s) => [s.user_id as string, s.plan_code as string]))
+  // PR105-B §1 — the Verified badge needs staff-approved CNIC+photo+selfie.
+  const verifiedOkSet = await loadVerifiedBadgeOk(ids)
   const subjectCount = new Map<string, number>()
   for (const l of subjectLinks ?? []) {
     const k = l.tutor_id as string
@@ -85,7 +88,7 @@ export default async function AdminSocialPage() {
     const t = tpById.get(id)
     if (!t?.slug) continue // no public slug yet — cannot render a card at all
     const listed = listedSet.has(id)
-    const hasDegree = Array.isArray(t.degrees) && (t.degrees as unknown[]).length > 0
+    const verifiedOk = verifiedOkSet.has(id)
     const nSubjects = subjectCount.get(id) ?? 0
 
     // The card fields that would render blank, named so the poster knows.
@@ -110,8 +113,8 @@ export default async function AdminSocialPage() {
       teachingMode: (t.teaching_mode as string | null) ?? null,
       listed,
       missing,
-      // Real earned badges: gate = listed, degree = real.
-      badges: badgesForPlan(planByUser.get(id) ?? null, listed, hasDegree) as BadgeName[],
+      // Real earned badges: gate = listed, Verified = staff-approved docs.
+      badges: badgesForPlan(planByUser.get(id) ?? null, listed, verifiedOk) as BadgeName[],
     })
   }
 

@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { avatarShown } from '@/lib/showAvatar'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { badgesForPlan } from '@/lib/planBadges'
+import { verifiedBadgeOkOne } from '@/lib/badgeFacts'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { cvQrDataUri } from '@/lib/cv/assets'
 import { resolveSubjectLabels } from '@/lib/social/data'
@@ -86,7 +87,8 @@ export async function GET(request: Request) {
   ])
 
   const listed = !!listedRow
-  const hasReviewedDegree = Array.isArray(tp.degrees) && (tp.degrees as unknown[]).length > 0
+  // PR105-B §1 — the Verified badge needs staff-approved CNIC+photo+selfie.
+  const verifiedOk = await verifiedBadgeOkOne(tp.id as string)
 
   // The banner is public marketing, so it honours the tutor's "show my picture
   // to parents" toggle (PR70) — hidden → initials, like the public profile.
@@ -111,8 +113,9 @@ export async function GET(request: Request) {
 
   return renderSocialBanner({
     tutor: tutor as unknown as BannerTutor,
-    // Real badges only: gate = listed, degree = real. An unlisted tutor gets [].
-    badges: badgesForPlan((sub?.plan_code as string) ?? null, listed, hasReviewedDegree),
+    // Real badges only: gate = listed, Verified = staff-approved docs. An
+    // unlisted tutor gets [].
+    badges: badgesForPlan((sub?.plan_code as string) ?? null, listed, verifiedOk),
     subjects,
     format,
     template,

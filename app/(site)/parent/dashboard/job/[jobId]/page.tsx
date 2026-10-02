@@ -8,6 +8,7 @@ import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements, badgesForPlan } from '@/lib/entitlements'
+import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import ApplicantList, { type Applicant } from './ApplicantList'
 import JobActions from './JobActions'
@@ -88,6 +89,9 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
     }
 
     const tutorById = new Map((tutors ?? []).map((t) => [t.id as string, t]))
+    // PR105-B §1 — the Verified badge needs staff-approved CNIC+photo+selfie,
+    // batched for the whole applicant list.
+    const okSet = await loadVerifiedBadgeOk(tutorIds)
 
     applicants = (apps ?? []).map((a) => {
       const t = tutorById.get(a.tutor_id as string)
@@ -101,7 +105,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
         city: (t?.city as string) ?? null,
         ratingAvg: Number(t?.rating_avg ?? 0),
         ratingCount: (t?.rating_count as number) ?? 0,
-        badges: badgesForPlan(planByTutor.get(id) ?? null, (completionByTutor.get(id) ?? 0) >= 100),
+        badges: badgesForPlan(planByTutor.get(id) ?? null, (completionByTutor.get(id) ?? 0) >= 100, okSet.has(id)),
         message: (a.message as string) ?? null,
         status: a.status as Applicant['status'],
         withdrawn: !!a.withdrawn_at,

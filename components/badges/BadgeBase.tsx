@@ -21,6 +21,7 @@ export default function BadgeBase({
   colour,
   labelColour,
   label,
+  urdu,
   title,
   labelClassName,
   children,
@@ -32,6 +33,11 @@ export default function BadgeBase({
       overrides it: tm-gold on a light ground is 2.05:1. */
   labelColour?: string
   label: string
+  /** The Urdu rendering of the label, shown underneath the English one when the
+      label is visible (CLAUDE.md: every member-facing label is plain English with
+      Urdu beneath). Icon-only badges (showLabel=false) keep only the English
+      accessible name. */
+  urdu?: string
   /** Tooltip / accessible name. Defaults to the label. */
   title?: string
   labelClassName?: string
@@ -72,14 +78,15 @@ export default function BadgeBase({
         </g>
       </svg>
       {showLabel && (
-        <span
-          className={
-            labelClassName ??
-            'text-[11px] font-bold leading-none whitespace-nowrap'
-          }
-          style={{ color: labelColour ?? colour }}
-        >
-          {label}
+        <span className="inline-flex flex-col leading-none" style={{ color: labelColour ?? colour }}>
+          <span className={labelClassName ?? 'text-[11px] font-bold leading-none whitespace-nowrap'}>
+            {label}
+          </span>
+          {urdu && (
+            <span lang="ur" dir="rtl" className="mt-0.5 text-[10px] font-semibold leading-none whitespace-nowrap opacity-90">
+              {urdu}
+            </span>
+          )}
         </span>
       )}
     </span>

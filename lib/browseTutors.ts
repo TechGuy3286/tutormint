@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { encodeCursor, decodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
 import { resolveSubjectQuery } from '@/lib/searchResolve'
+import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import type { TutorCardData } from '@/components/TutorCard'
 
 // The one place /browse/tutors is queried, shared by the page and the
@@ -167,7 +168,11 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
   // card is verified iff tier >= 10. Set it here so the card shows the Verified
   // badge or the "Not verified" chip correctly.
   const raw = ((data ?? []) as RankedTutor[]).map((t) => ({ ...t, verified: (t.tier ?? 0) >= 10 }))
-  const tutors = await withSubjectLinks(supabase, raw)
+  const linked = await withSubjectLinks(supabase, raw)
+  // PR105-B §1 — the VERIFIED badge needs staff-approved CNIC+photo+selfie, in ONE
+  // batched query for the whole window (no per-card read).
+  const okSet = await loadVerifiedBadgeOk(linked.map((t) => t.id))
+  const tutors = linked.map((t) => ({ ...t, verified_ok: okSet.has(t.id) }))
   const total = tutors[0]?.total_count ?? 0
   const seen = (after ? 0 : offset) + tutors.length
 
@@ -330,6 +335,7 @@ export async function tutorCardBySlug(slug: string): Promise<TutorCardData | nul
     subject_links: links,
     plan_code: planCode,
     verified: !!((data as { verified_fee_paid_at?: string | null }).verified_fee_paid_at),
+    verified_ok: (await loadVerifiedBadgeOk([base.id])).has(base.id),
   }
 }
 
@@ -392,10 +398,12 @@ export async function tutorCardsByIds(ids: string[]): Promise<TutorCardData[]> {
     }
   }
 
+  const okSet = await loadVerifiedBadgeOk(ids)
   return withLinks.map((t) => ({
     ...t,
     subject_labels: (t.subject_links ?? []).map((l) => l.label),
     plan_code: planByUser.get(t.id) ?? null,
     verified: feePaidBy.get(t.id) ?? false,
+    verified_ok: okSet.has(t.id),
   }))
 }

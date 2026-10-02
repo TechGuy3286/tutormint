@@ -81,6 +81,13 @@ export type TutorCardData = {
    * cards known to be verified) are unchanged.
    */
   verified?: boolean
+  /**
+   * PR105-B §1 — staff have approved this tutor's CNIC, photo AND selfie. The
+   * VERIFIED badge needs this (the fee alone is no longer enough). Optional;
+   * absent is treated as NOT approved, so a surface that does not carry the fact
+   * shows no Verified badge rather than claiming one it cannot back up.
+   */
+  verified_ok?: boolean
 }
 
 export type CardViewer = {
@@ -216,7 +223,10 @@ export default function TutorCard({
   // has no subscription (plan_code null), so synthesise 'basic' for the badge.
   const isVerified = tutor.verified ?? true
   const effectivePlan = tutor.plan_code ?? (isVerified ? 'basic' : null)
-  const badges = isVerified ? badgesForPlan(effectivePlan, true, tutor.has_degree ?? true) : []
+  // PR105-B §1 — the Verified badge needs staff-approved CNIC+photo+selfie
+  // (`verified_ok`), not the fee alone. Absent → no Verified badge. The plan-tier
+  // badges (Premium/Featured) still show for a verified, plan-holding tutor.
+  const badges = isVerified ? badgesForPlan(effectivePlan, true, tutor.verified_ok ?? false) : []
   const rating = Number(tutor.rating_avg ?? 0)
   const reviews = tutor.rating_count ?? 0
 

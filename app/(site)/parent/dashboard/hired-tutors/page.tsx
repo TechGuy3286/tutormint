@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import BadgeRow from '@/components/badges/BadgeRow'
 import { badgesForPlan } from '@/lib/entitlements'
+import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import { reviewableEngagements } from '@/lib/reviews'
 import ReviewForm from '@/components/ReviewForm'
 import { formatDate } from '@/lib/datetime'
@@ -36,7 +37,7 @@ export default async function HiredTutorsPage() {
   // Tutor names come through the service-role client: tutor_profiles is
   // owner-or-admin under RLS. Only public-profile fields cross over.
   const admin = createAdminClient()
-  const tutors = new Map<string, { name: string; slug: string | null; plan: string | null; complete: boolean }>()
+  const tutors = new Map<string, { name: string; slug: string | null; plan: string | null; complete: boolean; verifiedOk: boolean }>()
   const tutorIds = Array.from(
     new Set((jobs ?? []).map((j) => j.hired_tutor_id as string).filter(Boolean)),
   )
@@ -57,6 +58,8 @@ export default async function HiredTutorsPage() {
     const compBy = new Map(
       (profiles ?? []).map((p) => [p.id as string, ((p.profile_completion as number) ?? 0) >= 100]),
     )
+    // PR105-B §1 — the Verified badge needs staff-approved CNIC+photo+selfie.
+    const okSet = await loadVerifiedBadgeOk(tutorIds)
 
     for (const t of rows ?? []) {
       tutors.set(t.id as string, {
@@ -64,6 +67,7 @@ export default async function HiredTutorsPage() {
         slug: (t.slug as string) ?? null,
         plan: planBy.get(t.id as string) ?? null,
         complete: compBy.get(t.id as string) ?? false,
+        verifiedOk: okSet.has(t.id as string),
       })
     }
   }
@@ -99,7 +103,7 @@ export default async function HiredTutorsPage() {
                         (t?.name ?? 'Tutor')
                       )}
                     </span>
-                    {t && <BadgeRow badges={badgesForPlan(t.plan, t.complete)} size="sm" />}
+                    {t && <BadgeRow badges={badgesForPlan(t.plan, t.complete, t.verifiedOk)} size="sm" />}
                   </div>
                   <p className="text-[11px] text-gray-500">
                     <Link href={`/parent/dashboard/job/${j.job_tx_id ?? j.id}`} className="hover:underline">

@@ -15,23 +15,22 @@ import { tutorProfileIndexable } from '@/lib/seo/indexable'
 
 export type BadgeName = 'Verified' | 'Premium' | 'Featured'
 
-const TUTOR_PLANS = new Set(['basic', 'premium', 'featured'])
-
 /**
  * Which badges a plan grants.
  *
- * `gate` is "may badges show at all" — a tutor's badge clears LISTED (below); a
- * parent's clears profile completion. `hasReviewedDegree` gates the Verified
- * badge for TUTORS only (owner rule, 10 Sep 2026): a paid, listed tutor whose
- * degree has not been reviewed is fully listed and applying, but carries no
- * Verified badge — "badges show only for what was checked". Premium and Featured
- * are plan-tier rewards and are not degree-gated; the parameter is ignored for
- * parent plans (a parent's Verified badge is CNIC + address, not a degree).
+ * `gate` is "may badges show at all" — a tutor's badge clears LISTED; a parent's
+ * clears profile completion. `verifiedOk` gates the VERIFIED badge specifically
+ * (PR105-B §1), REPLACING the old reviewed-degree rule:
+ *   - a TUTOR earns Verified only when staff have approved CNIC, photo and selfie
+ *     (the fee is implied by holding a tutor plan),
+ *   - a PARENT earns Verified only when their CNIC is verified.
+ * Premium and Featured are plan-tier rewards and are NOT gated by verifiedOk.
+ * The caller supplies verifiedOk from lib/badgeFacts (batched for lists).
  */
 export function badgesForPlan(
   plan: string | null | undefined,
   gate: boolean,
-  hasReviewedDegree: boolean = true,
+  verifiedOk: boolean = true,
 ): BadgeName[] {
   if (!gate) return []
   let base: BadgeName[]
@@ -42,26 +41,24 @@ export function badgesForPlan(
     case 'premium':
       base = ['Verified', 'Premium']
       break
-    // Basic is the free tier a tutor is on after paying the one-time Rs 199
-    // verification fee — it carries the Verified badge (they paid the fee, they
-    // are listed). The old 'verified' plan code survives only as the fee marker
-    // (a payment.plan_code), never a plan a tutor holds; kept here so a stray
-    // reference still resolves to the Verified badge.
+    // Basic is the free tier a tutor is on after paying the one-time Rs 199 fee.
+    // The old 'verified' plan code survives only as the fee marker.
     case 'basic':
     case 'verified':
       base = ['Verified']
       break
     case 'parent_featured':
-      return ['Verified', 'Featured']
+      base = ['Verified', 'Featured']
+      break
     case 'parent_verified':
-      return ['Verified']
+      base = ['Verified']
+      break
     default:
       return []
   }
-  // A tutor plan without a reviewed degree keeps its tier badges but not Verified.
-  if (TUTOR_PLANS.has(plan as string) && !hasReviewedDegree) {
-    return base.filter((b) => b !== 'Verified')
-  }
+  // Verified shows only when the identity checks for this member passed; the
+  // tier badges (Premium/Featured) stay regardless.
+  if (!verifiedOk) return base.filter((b) => b !== 'Verified')
   return base
 }
 

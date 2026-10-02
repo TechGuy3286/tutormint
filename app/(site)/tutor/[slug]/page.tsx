@@ -743,12 +743,13 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   })
   const effectivePlan = tutor.plan_code ?? (feePaid ? 'basic' : null)
 
-  // The Verified badge is degree-gated (owner rule 2): a verified tutor without a
-  // reviewed degree on file shows their plan-tier badges but not Verified. A
-  // degree only counts when it has a readable title (owner PR14 §3.1).
+  // PR105-B §1 — the Verified badge needs staff-approved CNIC, photo AND selfie
+  // (replacing the old reviewed-degree rule). A verified, plan-holding tutor whose
+  // documents are not yet all approved shows their plan-tier badges but not
+  // Verified.
   const degreeLines = degreeLabels(tutor.degrees)
-  const hasReviewedDegree = degreeLines.length > 0 || tutor.degree_documents.length > 0
-  const wouldBeBadges = badgesForPlan(effectivePlan, feePaid, hasReviewedDegree)
+  const docsApproved = cnicApproved && profilePicApproved && selfieApproved
+  const wouldBeBadges = badgesForPlan(effectivePlan, feePaid, docsApproved)
   // §3.3: in the OWNER PREVIEW the tutor is not listed, so no badge is true yet
   // — the badge row is suppressed and the plan-derived ones are named as pending
   // below instead. On the live page the badges are shown as normal.

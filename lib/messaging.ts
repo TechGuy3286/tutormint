@@ -23,6 +23,7 @@ import { tuitionPath } from '@/lib/slugs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { hiddenAvatarTutorIds } from '@/lib/showAvatar'
 import { getEntitlements, badgesForPlan } from '@/lib/entitlements'
+import { verifiedBadgeOkOne } from '@/lib/badgeFacts'
 import { renderMessageBody } from '@/lib/masking'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { logActivity } from '@/lib/activityLog'
@@ -990,9 +991,12 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
       if (hidden.has(otherId)) otherAvatar = null
     }
     otherSlug = (tutor?.slug as string) ?? null
+    // PR105-B §1 — the Verified badge needs staff-approved CNIC+photo+selfie for a
+    // tutor, CNIC verified for a parent; verifiedBadgeOkOne decides by role.
     otherBadges = badgesForPlan(
       (subs ?? [])[0]?.plan_code as string | undefined,
       ((profile?.profile_completion as number) ?? 0) >= 100,
+      await verifiedBadgeOkOne(otherId),
     )
   }
 

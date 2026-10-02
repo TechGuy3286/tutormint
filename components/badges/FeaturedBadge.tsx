@@ -18,6 +18,7 @@ export default function FeaturedBadge({
       colour={BRAND.gold}
       labelColour={BRAND.goldInk}
       label="Featured"
+      urdu="نمایاں"
       title="Featured member"
     >
       <g stroke="none">

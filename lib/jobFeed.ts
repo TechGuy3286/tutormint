@@ -109,7 +109,9 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
       // CNIC-verified parent's — the "Posted by TutorMint" marker says so.
       name: team ? TEAM_DISPLAY_NAME : ((p.full_name as string | null)?.split(' ')[0] ?? null),
       avatarUrl: (p.avatar_url as string | null) ?? null,
-      badges: team ? [] : badgesForPlan(code, (p.profile_completion ?? 0) >= 100),
+      // PR105-B §1 — a parent's Verified badge needs CNIC verified (not completion
+      // alone); the plan-tier Featured badge is unaffected.
+      badges: team ? [] : badgesForPlan(code, (p.profile_completion ?? 0) >= 100, !!p.cnic_verified_at),
       canHire: !!(code && planByCode.get(code)?.can_hire),
       team,
       isSeed: !!(p.is_seed as boolean | null),

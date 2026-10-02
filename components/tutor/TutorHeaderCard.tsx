@@ -2,6 +2,8 @@ import Link from 'next/link'
 
 import Avatar from '@/components/Avatar'
 import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
+import BadgeRow from '@/components/badges/BadgeRow'
+import type { BadgeName } from '@/lib/planBadges'
 
 // The tutor dashboard's minimal profile card (PR20 §1).
 //
@@ -21,6 +23,8 @@ export default function TutorHeaderCard({
   city,
   verified,
   planName,
+  badges = [],
+  verificationPending = false,
   completion,
   publicHref,
 }: {
@@ -31,6 +35,12 @@ export default function TutorHeaderCard({
   verified: boolean
   /** The ACTIVE plan's name ("Basic"/"Premium"/"Featured"), or null. */
   planName: string | null
+  /** The earned badges (PR105-B §3) — shown beside the plan name on the tutor's
+   *  OWN dashboard. Empty until staff approve the documents. */
+  badges?: BadgeName[]
+  /** Fee paid but CNIC/photo/selfie not all staff-approved yet — show
+   *  "Verification pending" in place of the Verified badge (PR105-B §3). */
+  verificationPending?: boolean
   /** 0-100, for the ring around the photo below 100%. */
   completion: number
   /** The tutor's public page, when it is live; null otherwise. */
@@ -59,11 +69,23 @@ export default function TutorHeaderCard({
 
         {/* Badge line: badges left, small Get verified button right (§1.2/§1.6). */}
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="flex flex-wrap items-start gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {!verified && <NotVerifiedBadge urdu />}
             {planName && (
               <span className="inline-flex items-center rounded-full bg-tm-tint-green px-2.5 py-0.5 text-[11px] font-bold text-tm-green-deep">
                 {planName}
+              </span>
+            )}
+            {/* Earned badges beside the plan name (§3). */}
+            {verified && badges.length > 0 && <BadgeRow badges={badges} size="sm" showLabel />}
+            {/* Fee paid, documents not yet all approved → a plain pending chip in
+                place of the Verified badge, with its Urdu line (§3). */}
+            {verified && verificationPending && (
+              <span className="inline-flex flex-col rounded-full bg-tm-tint-gold px-2.5 py-0.5 leading-none text-tm-gold-ink">
+                <span className="text-[11px] font-bold leading-none">Verification pending</span>
+                <span lang="ur" dir="rtl" className="mt-0.5 text-[10px] font-semibold leading-none opacity-90">
+                  تصدیق زیرِ عمل
+                </span>
               </span>
             )}
           </div>

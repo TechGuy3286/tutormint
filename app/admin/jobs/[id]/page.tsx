@@ -107,9 +107,11 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
   const listedApplicants = await listedTutorIds(tutorIds)
 
   const parentVerified = !!parent?.cnic_verified_at && !!parent?.address_verified_at
+  // PR105-B §1 — a parent's Verified badge needs CNIC verified.
   const parentBadges = badgesForPlan(
     (parentSubs ?? [])[0]?.plan_code as string | undefined,
     parentVerified,
+    !!parent?.cnic_verified_at,
   )
 
   const canAct = roleSatisfies(actor.adminRole, SCREEN_ACCESS.jobsMutate)

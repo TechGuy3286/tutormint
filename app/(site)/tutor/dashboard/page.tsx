@@ -120,6 +120,8 @@ export default async function TutorDashboardPage() {
           city={city}
           verified={ent.verified}
           planName={ent.planName}
+          badges={ent.badges}
+          verificationPending={!!ent.verificationPending}
           completion={percent}
           publicHref={publicHref}
         />
