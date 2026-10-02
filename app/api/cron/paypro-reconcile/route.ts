@@ -43,8 +43,11 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ ok: true, skipped: 'no_admin_client' })
 
-  // Pending PayPro orders from the last 2 days (older ones have expired).
-  const since = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+  // Pending PayPro orders from the last 2 days (older ones have expired). An
+  // optional ?days=N (bounded 1–60) widens the window for a one-off sweep.
+  const daysParam = Number(new URL(request.url).searchParams.get('days'))
+  const days = Number.isFinite(daysParam) ? Math.min(Math.max(Math.floor(daysParam), 1), 60) : 2
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
   const { data: rows } = await admin
     .from('payments')
     .select('id, user_id, plan_code, amount_pkr, status, provider_ref, raw, created_at')
