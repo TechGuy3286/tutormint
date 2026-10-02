@@ -14,6 +14,7 @@ import StaffActivityTable from '@/components/admin/StaffActivityTable'
 import { flagStageLabel } from '@/lib/abuse/warnings'
 import { flagSourceLabel } from '@/lib/adminFlagsShared'
 import Timeline from './Timeline'
+import MemberActivity from './MemberActivity'
 
 // One member, everything about them in one place.
 //
@@ -79,7 +80,7 @@ export default async function AdminMemberPage({
   ] = await Promise.all([
     admin
       .from('tutor_profiles')
-      .select('id, slug, verification_status, video_status, video_visibility, rating_avg, rating_count, is_featured')
+      .select('id, slug, verification_status, verified_fee_paid_at, video_status, video_visibility, rating_avg, rating_count, is_featured')
       .eq('id', id)
       .maybeSingle(),
     admin
@@ -223,7 +224,14 @@ export default async function AdminMemberPage({
       {/* -------------------------------------------------------- summary --- */}
       <section className="grid grid-cols-2 gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:grid-cols-4">
         <Fact label="Completion" value={`${profile.profile_completion ?? 0}%`} />
-        <Fact label="Verification" value={verified ? 'Verified' : (profile.verification_state as string) ?? 'none'} />
+        {/* The IDENTITY DOCUMENTS review (CNIC/selfie/photo for a tutor; CNIC +
+            address for a parent). Distinct from the tutor's platform
+            verification below — the two were both labelled "Verification" and
+            read as a contradiction (PR99 §3). */}
+        <Fact
+          label="Documents"
+          value={verified ? 'Approved' : (profile.verification_state as string) ?? 'none'}
+        />
         <Fact label="City" value={(profile.city as string) ?? '—'} />
         <Fact
           label="Joined"
@@ -245,7 +253,12 @@ export default async function AdminMemberPage({
                 "verified" yet not listed, or listed while verification is
                 pending. Both are shown, each under its true label (PR39). */}
             <Fact label="Listing" value={directory?.listed ? 'Listed' : 'Not listed'} />
-            <Fact label="Verification" value={(tutor.verification_status as string) ?? '—'} />
+            {/* The tutor's platform verification pipeline (video + CNIC + degree
+                audit → badge/listing). Its own label, not "Verification" again. */}
+            <Fact label="Tutor status" value={(tutor.verification_status as string) ?? '—'} />
+            {/* The one-time Rs 199 verification fee — the status the owner reads
+                as "paid or not" (PR99 §3). */}
+            <Fact label="Platform fee" value={tutor.verified_fee_paid_at ? 'Paid' : 'Not paid'} />
             <Fact label="Video" value={(tutor.video_status as string) ?? 'none'} />
             <Fact label="Video visibility" value={(tutor.video_visibility as string) ?? 'private'} />
             <Fact
@@ -395,6 +408,10 @@ export default async function AdminMemberPage({
           ))}
         </Panel>
       </div>
+
+      {/* Member activity telemetry (PR99 §2): owner/admin only — more sensitive
+          than the curated timeline below, which operations can also read. */}
+      {roleSatisfies(actor.adminRole, ['admin']) && <MemberActivity userId={id} />}
 
       <Timeline
         events={timeline.rows}

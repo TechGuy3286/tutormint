@@ -129,6 +129,26 @@ export async function reviewTutorDocument(params: {
     return { ok: false, status: 400, error: 'A reason is required to reject.' }
   }
 
+  // IDEMPOTENCY (PR99 §3). Approving an item that is ALREADY approved must do
+  // nothing and log nothing — otherwise a second click writes another
+  // admin_audit_log 'tutor.approve' and another member-timeline row, which is
+  // how one tutor accrued five "Approved a tutor" entries. The write + the two
+  // logs happen only when the decision actually changes state.
+  const { data: current } = await admin
+    .from('profiles')
+    .select('verification_state, cnic_verified_at, profile_pic_status, selfie_status')
+    .eq('id', tutorId)
+    .maybeSingle()
+  const alreadyApproved =
+    item === 'cnic'
+      ? current?.verification_state === 'approved' && !!current?.cnic_verified_at
+      : item === 'profile_pic'
+        ? current?.profile_pic_status === 'approved'
+        : current?.selfie_status === 'approved'
+  if (decision === 'approve' && alreadyApproved) {
+    return { ok: true }
+  }
+
   const now = new Date().toISOString()
   const approved = decision === 'approve'
   const patch: Record<string, unknown> = {}

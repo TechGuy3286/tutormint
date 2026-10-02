@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import OfflineNotice from "@/components/OfflineNotice";
 import VerifiedToast from "@/components/VerifiedToast";
+import ActivityTracker from "@/components/ActivityTracker";
 import { UpgradeProvider } from '@/components/upgrade/UpgradeProvider'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
@@ -61,6 +63,12 @@ export default function RootLayout({
               {children}
               <OfflineNotice />
               <VerifiedToast />
+              {/* Member activity telemetry (PR99 §2). Self-gates on the server
+                  (dormant when signed out); Suspense keeps static routes static
+                  despite its useSearchParams. */}
+              <Suspense fallback={null}>
+                <ActivityTracker />
+              </Suspense>
             </UpgradeProvider>
           </ConfirmProvider>
         </ToastProvider>

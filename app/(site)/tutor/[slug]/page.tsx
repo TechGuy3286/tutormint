@@ -795,6 +795,8 @@ export default async function TutorPublicProfile({ params }: { params: Params })
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 pb-28 pt-6 text-slate-700 sm:px-6 sm:pb-8 lg:px-8">
+      {/* Plain-terms label for the activity tracker (PR99 §2). Hidden. */}
+      <span hidden data-tm-page-label={`Viewed tutor ${tutor.full_name ?? ''}`.trim()} />
       {profileSchema && (
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(profileSchema)} />
       )}

@@ -37,6 +37,7 @@ export type BucketName =
   | 'ai_blog'
   | 'contact_reveal'
   | 'client_error'
+  | 'activity'
 
 /**
  * The budgets.
@@ -108,6 +109,11 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   // script cannot write our logs for us. The caller is a fire-and-forget
   // beacon and is told nothing when it meets this.
   client_error: { windowSeconds: 3600, max: 60 },
+  // Member activity telemetry (PR99 §2). A fire-and-forget beacon: a heartbeat
+  // every ~30s plus batched page views and events. Sixty writes a minute is far
+  // above an honest tab and bounds a tampered client; meeting it silently drops
+  // the batch (the member is never blocked or told).
+  activity: { windowSeconds: 60, max: 60 },
 }
 
 export type RateLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number }

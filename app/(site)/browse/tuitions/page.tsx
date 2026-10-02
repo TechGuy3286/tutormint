@@ -1,5 +1,6 @@
 import { List, ShieldCheck } from 'lucide-react'
 import Breadcrumbs from '@/components/Breadcrumbs'
+import TrackSearch from '@/components/TrackSearch'
 import { parseMode } from '@/lib/locations'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -485,6 +486,9 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
         {/* Internal links to the city × subject landing pages (PR43 §2), so they
             are not orphans. Only shows the ones that exist (>= threshold). */}
         <PopularLandingLinks kind="tuitions" />
+        {/* Record a committed search / job-ID lookup with its result count
+            (PR99 §2); masked server-side before storing. */}
+        {q ? <TrackSearch where="browse tuitions" query={q} resultCount={total} /> : null}
       </div>
     </main>
   )

@@ -73,9 +73,10 @@ export const QUEUE_SCREEN: Record<QueueKind, AdminRole[]> = {
  */
 export const TIMELINE_GROUPS: Record<string, string[]> = {
   account: [
-    'registered', 'login', 'otp_verified', 'profile_updated', 'completion_changed',
-    'subjects_changed', 'document_uploaded', 'video_submitted', 'verification_submitted',
-    'verification_decision_received', 'video_visibility_changed', 'admin_message_received',
+    'registered', 'email_confirmed', 'login', 'otp_verified', 'profile_updated',
+    'completion_changed', 'subjects_changed', 'document_uploaded', 'video_submitted',
+    'verification_submitted', 'verification_decision_received', 'video_visibility_changed',
+    'admin_message_received',
   ],
   activity: [
     'job_posted', 'job_edited', 'job_closed', 'application_submitted', 'application_withdrawn',
@@ -117,7 +118,7 @@ type Pageable = {
   order(col: string, opts: { ascending: boolean }): Pageable
   limit(n: number): Pageable
   or(filter: string): Pageable
-  then: PromiseLike<{ data: unknown[] | null; count: number | null }>['then']
+  then: PromiseLike<{ data: unknown[] | null; count: number | null; error?: { message: string } | null }>['then']
 }
 
 /** Applies the keyset ordering, the cursor and the +1 look-ahead. */
@@ -137,7 +138,12 @@ async function keysetPage<T extends Record<string, unknown>>(
     )
   }
 
-  const { data, count } = await query
+  const { data, count, error } = await query
+  // Do not swallow a query error into a silent "0 rows" (PR99 §1): an admin
+  // list showing "0 events" when the query actually FAILED (e.g. a renamed
+  // column) is indistinguishable from a genuinely empty list. Surface it in the
+  // server log so the next such failure is visible rather than mysterious.
+  if (error) console.error(`[keysetPage] query on '${orderCol}' failed:`, error.message)
   const all = (data ?? []) as T[]
   const hasMore = all.length > limit
   const page = hasMore ? all.slice(0, limit) : all

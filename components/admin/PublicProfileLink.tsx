@@ -38,6 +38,21 @@ export default function PublicProfileLink({
     )
   }
 
+  // Listed (in the directory) but no slug yet. Do NOT say "Not listed yet" —
+  // that contradicts the "Listing: Listed" fact beside it (PR99 §3). The slug is
+  // minted when the profile is completed; until then the public URL cannot be
+  // built, but the tutor is genuinely listed.
+  if (listed && !slug) {
+    return (
+      <p
+        aria-disabled="true"
+        className="flex min-h-[44px] items-center rounded-xl border border-dashed border-gray-300 bg-tm-bg px-4 text-xs text-gray-500"
+      >
+        Listed — public page link not ready (no profile URL yet).
+      </p>
+    )
+  }
+
   const missing = blockers.map((b) => BLOCKER_LABEL[b])
   return (
     <p

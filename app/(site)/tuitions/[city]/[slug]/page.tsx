@@ -321,6 +321,9 @@ export default async function TuitionPage({ params }: { params: Params }) {
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6">
+      {/* The activity tracker reads this to label the page view in plain terms
+          (PR99 §2): "Viewed tuition TM-1450". Hidden; carries no contact data. */}
+      <span hidden data-tm-page-label={`Viewed tuition ${job.ref_id ?? job.job_tx_id ?? ''}`.trim()} />
       {/* JobPosting structured data: OPEN, non-fixture tuitions only (§6). A
           paused/closed/hired tuition must not sit in Google's jobs results. */}
       {!fixture && state.emitJobPosting && (

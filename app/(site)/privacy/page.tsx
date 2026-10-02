@@ -23,6 +23,24 @@ export const metadata: Metadata = {
 
 const UPDATED = '1 September 2026'
 
+// An Urdu line that sits under the English it translates (PR99 §4): RTL,
+// right-aligned, an Urdu-capable font with a system fallback.
+function Ur({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      lang="ur"
+      dir="rtl"
+      className="text-right leading-loose text-slate-700"
+      style={{
+        fontFamily:
+          "'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Nafees Nastaleeq', 'Urdu Typesetting', 'Segoe UI', system-ui, sans-serif",
+      }}
+    >
+      {children}
+    </p>
+  )
+}
+
 const SECTIONS: LegalSection[] = [
   {
     id: 'summary',
@@ -50,6 +68,58 @@ const SECTIONS: LegalSection[] = [
           </li>
         </ul>
         <p>The rest of this page is the detail behind those five lines.</p>
+      </>
+    ),
+  },
+  {
+    id: 'activity',
+    heading: 'How we use your activity on TutorMint',
+    body: (
+      <>
+        <p>
+          We record how you use TutorMint: pages you visit, searches you make, time spent, and
+          actions like applying or viewing a contact number. We use this only to improve the
+          platform: to show you better matching tuitions, understand what tutors and parents are
+          looking for, fix problems faster, and keep the platform safe. This information is seen only
+          by TutorMint staff. We never sell it or share it for advertising.
+        </p>
+        <Ur>
+          ہم ریکارڈ کرتے ہیں کہ آپ TutorMint کو کیسے استعمال کرتے ہیں: آپ کون سے صفحات دیکھتے ہیں، کیا
+          تلاش کرتے ہیں، کتنا وقت گزارتے ہیں، اور کون سے کام کرتے ہیں جیسے اپلائی کرنا یا کسی کا رابطہ
+          نمبر دیکھنا۔ ہم یہ معلومات صرف پلیٹ فارم کو بہتر بنانے کے لیے استعمال کرتے ہیں: آپ کو زیادہ
+          موزوں ٹیوشنز دکھانے، یہ سمجھنے کے لیے کہ ٹیوٹرز اور والدین کیا تلاش کر رہے ہیں، مسائل کو تیزی
+          سے حل کرنے، اور پلیٹ فارم کو محفوظ رکھنے کے لیے۔ یہ معلومات صرف TutorMint کا عملہ دیکھتا ہے۔
+          ہم اسے کبھی فروخت نہیں کرتے اور نہ ہی اشتہارات کے لیے کسی کے ساتھ شیئر کرتے ہیں۔
+        </Ur>
+
+        <p>
+          <strong>Viewing a contact number.</strong> Viewing a parent’s contact number uses one from
+          your monthly application allowance — the same allowance that applying uses. It is counted
+          only once for each tuition: if you view a tuition’s number and then apply to it (or apply
+          first and then view), that is one in total, and viewing the same tuition’s number again is
+          free.
+        </p>
+        <Ur>
+          کسی والدین کا رابطہ نمبر دیکھنے پر آپ کی ماہانہ اپلائی کی حد میں سے ایک خرچ ہوتا ہے — وہی حد
+          جو اپلائی کرنے پر استعمال ہوتی ہے۔ یہ ہر ٹیوشن کے لیے صرف ایک بار شمار ہوتا ہے: اگر آپ کسی
+          ٹیوشن کا نمبر دیکھیں اور پھر اس پر اپلائی کریں (یا پہلے اپلائی کریں اور بعد میں نمبر دیکھیں)
+          تو یہ کل ملا کر ایک ہی شمار ہوگا، اور اسی ٹیوشن کا نمبر دوبارہ دیکھنا مفت ہے۔
+        </Ur>
+
+        <p>
+          <strong>When an email address is shown.</strong> A parent’s email address is shown to a
+          tutor only when the tutor views that tuition’s contact details (which uses one from the
+          allowance above), and only if the parent has confirmed their email. For a tuition our team
+          posts on a parent’s behalf, the email shown is the one the parent gave us. We never show an
+          email address that has not been confirmed.
+        </p>
+        <Ur>
+          کسی والدین کا ای میل پتہ ٹیوٹر کو صرف اسی وقت دکھایا جاتا ہے جب ٹیوٹر اس ٹیوشن کی رابطہ
+          تفصیلات دیکھے (جس پر اوپر بیان کردہ حد میں سے ایک خرچ ہوتا ہے)، اور صرف اسی صورت میں جب والدین
+          نے اپنا ای میل تصدیق کر رکھا ہو۔ جو ٹیوشن ہماری ٹیم کسی والدین کی طرف سے پوسٹ کرتی ہے، اس میں
+          وہی ای میل دکھایا جاتا ہے جو والدین نے ہمیں دیا۔ ہم کبھی ایسا ای میل نہیں دکھاتے جس کی تصدیق
+          نہ ہوئی ہو۔
+        </Ur>
       </>
     ),
   },

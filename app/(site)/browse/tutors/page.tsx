@@ -1,5 +1,6 @@
 import { Globe, Plus } from 'lucide-react'
 import Breadcrumbs from '@/components/Breadcrumbs'
+import TrackSearch from '@/components/TrackSearch'
 import { parseMode } from '@/lib/locations'
 import { isOnlineTitle } from '@/lib/jobTitlesCore'
 import type { Metadata } from 'next'
@@ -423,6 +424,9 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
         {/* Internal links to the city × subject landing pages (PR43 §2), so they
             are not orphans. Only shows the ones that exist (>= threshold). */}
         <PopularLandingLinks kind="tutors" />
+        {/* Record a committed search with its real result count (PR99 §2). The
+            term is masked server-side before it is stored. */}
+        {q ? <TrackSearch where="browse tutors" query={q} resultCount={total} /> : null}
       </div>
     </main>
   )
