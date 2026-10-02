@@ -206,7 +206,13 @@ export async function proxy(request: NextRequest) {
   // (308 is the permanent redirect; 301 is its HTTP/1.0-era predecessor). The
   // pages do both themselves now — see app/tutor/[slug] and
   // app/tuitions/[city]/[slug].
-  if (!user && matches(pathname, PROTECTED)) {
+  // /pay/return is the gateway landing (PR106-B §9). A payment provider can send
+  // the member back without a live session (different browser, expired cookie),
+  // and that return must never be an auth redirect — the page renders a neutral
+  // "being processed — sign in" result itself (200, no dead end). The rest of
+  // /pay/* stays protected. Exempt it BEFORE the protected check.
+  const isPayReturn = pathname === '/pay/return' || pathname.startsWith('/pay/return/')
+  if (!user && !isPayReturn && matches(pathname, PROTECTED)) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.search = ''
