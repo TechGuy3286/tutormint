@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPayproOrderStatus, payProIdFromRow } from '@/lib/payments/paypro'
-import { activatePayment } from '@/lib/payments/activate'
+import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
 
 // PayPro callback (PR65) — POST https://www.tutormint.org/paypro/uis
 //
@@ -58,33 +57,29 @@ async function processOrder(
   const id = orderId.trim()
   if (!id) return { StatusCode: '03', InvoiceID: orderId, Description: 'No records found.' }
 
-  // Select only always-present columns + raw (paypro_id column may not exist yet).
   const { data: row } = await admin
     .from('payments')
-    .select('id, amount_pkr, status, raw')
+    .select('id, amount_pkr, status, provider_ref, raw')
     .eq('provider', 'paypro')
     .eq('provider_ref', id)
     .maybeSingle()
 
   if (!row) return { StatusCode: '03', InvoiceID: id, Description: 'No records found.' }
 
-  // Already activated → report success without re-confirming (idempotent).
-  if (row.status === 'approved') {
+  // One shared confirm+activate path (PR104): ggos, the amount rule
+  // (lib/payproVerify — a gateway fee on top of our price is fine), record the
+  // paid details, activate. Idempotent for an already-approved row.
+  const r = await confirmPayproOrder({
+    id: row.id as string,
+    amount_pkr: row.amount_pkr as number,
+    status: row.status as string,
+    provider_ref: row.provider_ref as string,
+    raw: row.raw,
+  })
+  if (r.activated || r.alreadyActive) {
     return { StatusCode: '00', InvoiceID: id, Description: 'Invoice successfully marked as paid' }
   }
-
-  const payProId = payProIdFromRow(row)
-  const status = await getPayproOrderStatus(payProId)
-  if (!status.ok) return { StatusCode: '02', InvoiceID: id, Description: 'Service Failure' }
-
-  const price = Number(row.amount_pkr)
-  const paid = status.orderStatus === 'PAID' && Math.abs(status.amountPaid - price) < 1
-  if (!paid) return { StatusCode: '02', InvoiceID: id, Description: 'Service Failure' }
-
-  const result = await activatePayment({ paymentId: row.id as string, source: 'gateway' })
-  if (!result.ok) return { StatusCode: '02', InvoiceID: id, Description: 'Service Failure' }
-
-  return { StatusCode: '00', InvoiceID: id, Description: 'Invoice successfully marked as paid' }
+  return { StatusCode: '02', InvoiceID: id, Description: 'Service Failure' }
 }
 
 export async function POST(request: Request) {

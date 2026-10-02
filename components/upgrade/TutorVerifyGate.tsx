@@ -9,6 +9,7 @@ import { ChecklistStatus } from '@/components/forms/FormChecklist'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
 import FriendlyPaymentError from '@/components/ui/FriendlyPaymentError'
+import CheckoutClosedNotice from '@/components/ui/CheckoutClosedNotice'
 import type { IdentityState } from '@/lib/identity'
 
 // The verification gate an UNVERIFIED tutor meets when they tap Apply (owner,
@@ -42,6 +43,7 @@ export default function TutorVerifyGate({
   const router = useRouter()
   const [cap, setCap] = useState<CnicCaptureState | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [closed, setClosed] = useState(false)
   const [starting, setStarting] = useState(false)
   const [stuck, setStuck] = useState<string | null>(null)
   // The CNIC review state, loaded before anything renders, so a submitted card
@@ -77,12 +79,19 @@ export default function TutorVerifyGate({
   async function verify() {
     setStarting(true)
     setError(null)
+    setClosed(false)
     // The one-time fee is a checkout for the 'verified' fee marker (Rs 199).
-    const { ok, data, error: failed } = await submitJson<{ mode?: string; url?: string; next?: string }>(
+    const { ok, data, error: failed } = await submitJson<{ mode?: string; url?: string; next?: string; code?: string }>(
       '/api/payments/checkout',
       { planCode: 'verified' },
     )
     if (!ok || !data) {
+      // Checkout not open to this account yet (403) → its own plain notice.
+      if (data?.code === 'checkout_closed') {
+        setClosed(true)
+        setStarting(false)
+        return
+      }
       setError(failed ?? 'Could not start the payment.')
       setStarting(false)
       return
@@ -136,6 +145,7 @@ export default function TutorVerifyGate({
 
   const buttons = (
     <>
+      {closed && <CheckoutClosedNotice />}
       {error && (
         <div className="space-y-2">
           {/* Never show raw error text on the payment/verify flow (PR66 §2). */}

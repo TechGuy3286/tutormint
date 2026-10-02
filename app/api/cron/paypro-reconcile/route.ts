@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPayproOrderStatus, payProIdFromRow, pproConfigured } from '@/lib/payments/paypro'
-import { activatePayment } from '@/lib/payments/activate'
+import { pproConfigured, markPayproOrderBlocked } from '@/lib/payments/paypro'
+import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
 
 // Backup reconcile (PR65 §5). PayPro's "Mark as Paid" callback can be missed, so
-// this re-checks pending PayPro orders via ggos and activates any that PayPro now
-// says are PAID (amount matching). Idempotent — activatePayment does nothing for
-// an already-activated payment — so running it often is safe.
+// this re-checks pending PayPro orders via the ONE confirm path (PR104:
+// confirmPayproOrder → ggos → the amount rule that allows a gateway fee on top →
+// activate). Idempotent, so running it every 5 min is safe.
+//
+// It also tidies DUPLICATES: a pending PayPro order whose (member, plan) already
+// has an APPROVED payment can never be paid again, so it is blocked at PayPro
+// (ppro/moab) and its row set to 'rejected' — the superseded-order case (PR104 §3).
 //
 // Protected by CRON_SECRET (the subscriptions-cron pattern): refuses every
 // request when the secret is unset, and compares in constant time. GET, because
@@ -43,7 +47,7 @@ export async function GET(request: Request) {
   const since = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
   const { data: rows } = await admin
     .from('payments')
-    .select('id, amount_pkr, status, raw, created_at')
+    .select('id, user_id, plan_code, amount_pkr, status, provider_ref, raw, created_at')
     .eq('provider', 'paypro')
     .eq('status', 'pending')
     .gte('created_at', since)
@@ -51,23 +55,54 @@ export async function GET(request: Request) {
 
   let checked = 0
   let activated = 0
-  let mismatched = 0
+  let notPaid = 0
+  let blocked = 0
   for (const row of rows ?? []) {
     checked++
     try {
-      const payProId = payProIdFromRow(row)
-      const status = await getPayproOrderStatus(payProId)
-      if (!status.ok || status.orderStatus !== 'PAID') continue
-      if (Math.abs(status.amountPaid - Number(row.amount_pkr)) >= 1) {
-        mismatched++ // paid a different amount than our price — leave for a human
+      const r = await confirmPayproOrder({
+        id: row.id as string,
+        amount_pkr: row.amount_pkr as number,
+        status: row.status as string,
+        provider_ref: row.provider_ref as string,
+        raw: row.raw,
+      })
+      if (r.activated) {
+        activated++
         continue
       }
-      const result = await activatePayment({ paymentId: row.id as string, source: 'gateway' })
-      if (result.ok) activated++
+      if (r.accepted) continue // already active
+
+      // Not paid (or rejected amount). If the member ALREADY has an approved
+      // payment for this same plan, this pending order is a superseded duplicate
+      // they could pay by mistake — block it at PayPro and mark it rejected.
+      const { data: paidSibling } = await admin
+        .from('payments')
+        .select('id')
+        .eq('user_id', row.user_id as string)
+        .eq('plan_code', row.plan_code as string)
+        .eq('status', 'approved')
+        .limit(1)
+        .maybeSingle()
+      if (paidSibling) {
+        await markPayproOrderBlocked(row.provider_ref as string)
+        await admin
+          .from('payments')
+          .update({
+            status: 'rejected',
+            rejection_reason: 'Duplicate order — superseded by a completed payment.',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', row.id as string)
+          .eq('status', 'pending')
+        blocked++
+      } else {
+        notPaid++
+      }
     } catch {
       /* skip this row; the next run retries */
     }
   }
 
-  return NextResponse.json({ ok: true, checked, activated, mismatched })
+  return NextResponse.json({ ok: true, checked, activated, notPaid, blocked })
 }

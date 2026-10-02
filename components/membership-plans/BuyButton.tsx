@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 
 import SubmitEscape from '@/components/SubmitEscape'
 import FriendlyPaymentError from '@/components/ui/FriendlyPaymentError'
+import CheckoutClosedNotice from '@/components/ui/CheckoutClosedNotice'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import { usePathname } from 'next/navigation'
 
@@ -41,6 +42,7 @@ export default function BuyButton({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [stuck, setStuck] = useState<string | null>(null)
+  const [closed, setClosed] = useState(false)
 
   // "Upgrade" when the member holds a lower plan (PackagesTable only renders
   // this button on the held plan's higher tiers); "Get X" for a first purchase.
@@ -54,12 +56,14 @@ export default function BuyButton({
 
     setBusy(true)
     setError(null)
+    setClosed(false)
     const { ok, data, error: failed } = await submitJson<{
       mode?: string
       url?: string
       next?: string
       needsVerify?: boolean
       verifyHref?: string
+      code?: string
     }>('/api/payments/checkout', { planCode, method })
 
     // Verification before plan (PR32 §3): an unverified tutor tapping Premium or
@@ -73,6 +77,13 @@ export default function BuyButton({
     }
 
     if (!ok || !data) {
+      // Checkout not open to this account yet (403) → its own plain notice, not
+      // the generic error box (PR104 §5).
+      if (data?.code === 'checkout_closed') {
+        setClosed(true)
+        setBusy(false)
+        return
+      }
       setError(failed ?? 'Could not start the payment.')
       setBusy(false)
       return
@@ -127,6 +138,7 @@ export default function BuyButton({
           <span lang="ur" dir="rtl" className="ml-1 text-gray-500">بینک ٹرانسفر</span>
         </button>
       )}
+      {closed && <CheckoutClosedNotice />}
       {error && (
         <div className="space-y-2">
           {/* The "stuck" case has a real link to continue (PR66 §2: never show raw

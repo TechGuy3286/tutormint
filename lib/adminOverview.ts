@@ -86,11 +86,16 @@ export async function loadOverview(): Promise<Overview | null> {
       .in('role', ['parent', 'academy']),
     // Open tuitions: every open job, NOT filtered by seed or team account.
     admin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+    // Revenue = every APPROVED payment, of every kind — plans AND the one-time
+    // Rs 199 verification fee (plan_code 'verified') — dated by APPROVAL time
+    // (reviewed_at), not creation, so a payment made late one month and approved
+    // the next counts in the month it was confirmed (PR104 §4). amount_pkr is
+    // OUR price (199), never the fee-inclusive total the customer paid.
     admin
       .from('payments')
       .select('amount_pkr, plan_code')
       .eq('status', 'approved')
-      .gte('created_at', monthStart),
+      .gte('reviewed_at', monthStart),
     // Renewals: subscriptions that ACTIVATED this month by purchase (not an
     // admin grant). A row here is a re-subscription only if the same member also
     // held an earlier subscription (resolved below).

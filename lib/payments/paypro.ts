@@ -239,7 +239,17 @@ export async function createPayproOrder(o: {
 // ── get order status (ggos) ──────────────────────────────────────────────────
 
 export type OrderStatusResult =
-  | { ok: true; orderStatus: string; amountPaid: number; raw: Record<string, unknown> }
+  | {
+      ok: true
+      orderStatus: string
+      /** OrderAmountPaid — what the customer actually paid (may include PayPro's fee). */
+      amountPaid: number
+      /** AmountPayable — the bill amount PayPro holds for the order (what we created it for). */
+      amountPayable: number
+      /** OrderNumber PayPro echoes back — must match our provider_ref. */
+      orderNumber: string
+      raw: Record<string, unknown>
+    }
   | { ok: false; error: string }
 
 export async function getPayproOrderStatus(payProId: string): Promise<OrderStatusResult> {
@@ -271,6 +281,11 @@ export async function getPayproOrderStatus(payProId: string): Promise<OrderStatu
     ok: true,
     orderStatus: String(data.OrderStatus ?? '').toUpperCase(),
     amountPaid: Number(data.OrderAmountPaid ?? 0),
+    // AmountPayable is the order's bill (our price); fall back to OrderAmountPaid
+    // if PayPro omits it, so an order that is genuinely paid is not rejected
+    // merely because the payable field is absent.
+    amountPayable: Number(data.AmountPayable ?? data.OrderAmountPaid ?? 0),
+    orderNumber: String(data.OrderNumber ?? ''),
     raw: data,
   }
 }
@@ -364,6 +379,42 @@ export async function startPayproCheckout(params: {
 }): Promise<StartResult> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+
+  // DUPLICATE GUARD (PR104 §3). If the member already has a pending PayPro order
+  // for this same plan, do NOT create a second one (which is how two live orders
+  // appeared for one tutor). A recent one (< 24h) is REUSED — send them back to
+  // its Click2Pay link. An older one is blocked at PayPro and marked rejected,
+  // then a fresh order is created below.
+  const DAY_MS = 24 * 60 * 60 * 1000
+  const { data: pendings } = await admin
+    .from('payments')
+    .select('id, provider_ref, created_at, raw')
+    .eq('user_id', params.userId)
+    .eq('plan_code', params.planCode)
+    .eq('provider', 'paypro')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(10)
+  for (const p of pendings ?? []) {
+    const ageMs = Date.now() - new Date(p.created_at as string).getTime()
+    const click2pay = (p.raw as { paypro?: { click2pay?: string } } | null)?.paypro?.click2pay ?? ''
+    if (ageMs < DAY_MS && click2pay) {
+      // Reuse the most recent still-fresh order.
+      return { ok: true, url: click2pay, reference: p.provider_ref as string, paymentId: p.id as string }
+    }
+    // Stale (or no link): block it at PayPro and mark it rejected so it cannot be
+    // paid by mistake, then fall through to create a fresh order.
+    try {
+      await markPayproOrderBlocked(p.provider_ref as string)
+    } catch {
+      /* best-effort; the order is stale regardless */
+    }
+    await admin
+      .from('payments')
+      .update({ status: 'rejected', rejection_reason: 'Expired checkout — replaced by a new order.', updated_at: new Date().toISOString() })
+      .eq('id', p.id as string)
+      .eq('status', 'pending')
+  }
 
   const reference = payproOrderNumber()
   const order = await createPayproOrder({

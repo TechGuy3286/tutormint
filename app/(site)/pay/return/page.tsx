@@ -6,8 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import BadgeRow from '@/components/badges/BadgeRow'
 import { formatDate } from '@/lib/datetime'
-import { getPayproOrderStatus, payProIdFromRow } from '@/lib/payments/paypro'
-import { activatePayment } from '@/lib/payments/activate'
+import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
 
 // Where the gateway sends the member back to — and where they land when they
 // come back after a PayPro payment (PR65 §4).
@@ -64,21 +63,21 @@ export default async function PayReturnPage({
   if (payment && payment.provider === 'paypro' && status === 'pending') {
     const raw = payment.raw as { paypro?: { click2pay?: string } } | null
     clickToPay = raw?.paypro?.click2pay ?? null
-    const gg = await getPayproOrderStatus(payProIdFromRow(payment as { raw?: unknown }))
-    if (gg.ok) {
-      if (gg.orderStatus === 'PAID' && Math.abs(gg.amountPaid - Number(payment.amount_pkr)) < 1) {
-        const res = await activatePayment({ paymentId: payment.id as string, source: 'gateway' })
-        if (res.ok) {
-          status = 'approved'
-          view = 'approved'
-        }
-      } else if (gg.orderStatus === 'BLOCKED' || gg.orderStatus === 'EXPIRED') {
-        view = 'notpaid'
-      } else {
-        view = 'waiting' // UNPAID / not yet paid
-      }
+    // The SAME confirm+activate path as the callback and the cron (PR104): ggos,
+    // the amount rule that allows a gateway fee on top of our price, activate.
+    const r = await confirmPayproOrder({
+      id: payment.id as string,
+      amount_pkr: payment.amount_pkr as number,
+      status: payment.status as string,
+      provider_ref: payment.provider_ref as string,
+      raw: payment.raw,
+    })
+    if (r.activated || r.alreadyActive) {
+      status = 'approved'
+      view = 'approved'
     }
-    // ggos failed → leave as 'waiting' (the cron will keep trying).
+    // Otherwise leave as 'waiting' — the member may still be completing payment,
+    // and the 5-minute cron keeps retrying. (ggos failure is also 'waiting'.)
   }
 
   const ent = await getEntitlements(userId)
