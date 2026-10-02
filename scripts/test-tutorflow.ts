@@ -30,7 +30,7 @@ import { calculateTutorCompletion } from '../lib/profileChecklist'
 const FULL: FlowFacts = {
   fullName: 'Sana', gender: 'female', city: 'Lahore', area: 'Gulberg',
   avatarUrl: 'https://x/a.jpg', headline: 'O Level Physics tutor', bio: 'I teach physics.',
-  experienceYears: 3, hourlyRate: 15000, jobTypes: ['Home Tutor'], degreesCount: 1, degreeDocCount: 1,
+  experienceYears: 3, hourlyRate: 15000, jobTypes: ['Home Tutor'], degreesCount: 1, degreeDocCount: 1, degrees: ['BSc Physics'],
   cnicNumber: '35201-1234567-1', cnicImagePath: 'p/cnic', subjectCount: 2, selfieDone: true, availabilityCount: 1, phoneVerified: true,
   whatsapp: '923001234567', feePaid: true, noDegreeYet: false,
   isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false, underReview: false,
@@ -40,7 +40,7 @@ const FULL: FlowFacts = {
 // A brand-new tutor: nothing done except a name (set at signup).
 const EMPTY: FlowFacts = {
   fullName: 'New Tutor', gender: null, city: null, area: null, avatarUrl: null, headline: null, bio: null,
-  experienceYears: null, hourlyRate: null, jobTypes: [], degreesCount: 0, degreeDocCount: 0,
+  experienceYears: null, hourlyRate: null, jobTypes: [], degreesCount: 0, degreeDocCount: 0, degrees: [],
   cnicNumber: null, cnicImagePath: null, subjectCount: 0, selfieDone: false, availabilityCount: 0, phoneVerified: false,
   whatsapp: null, feePaid: false,
   noDegreeYet: false,
@@ -86,10 +86,13 @@ test('the contact step needs mobile + WhatsApp + gender + tagline + bio; email o
   assert.equal(stepDone({ ...base, bio: '  ' }, 'contact'), false)
 })
 
-test('degree is answered by a real degree OR "No degree to add yet" (PR78 §D)', () => {
+test('degree is answered by a typed degree OR "No degree to add yet" — certificate optional (PR106-A §4)', () => {
   assert.equal(stepDone({ ...EMPTY, degreesCount: 1, degreeDocCount: 1 }, 'degree'), true)
   assert.equal(stepDone({ ...EMPTY, noDegreeYet: true }, 'degree'), true)
-  assert.equal(stepDone({ ...EMPTY, degreesCount: 1, degreeDocCount: 0, noDegreeYet: false }, 'degree'), false)
+  // PR106-A: a typed degree with NO certificate is now enough.
+  assert.equal(stepDone({ ...EMPTY, degreesCount: 1, degreeDocCount: 0, noDegreeYet: false }, 'degree'), true)
+  // Nothing typed and no "none yet" answer → still not done.
+  assert.equal(stepDone({ ...EMPTY, degreesCount: 0, degreeDocCount: 0, noDegreeYet: false }, 'degree'), false)
 })
 
 test('a fully-complete tutor has no missing steps and is listed', () => {
@@ -131,7 +134,7 @@ test('stepDone matches the facts for each step', () => {
   assert.equal(stepDone({ ...EMPTY, jobTypes: ['Home Tutor'] }, 'jobtype'), true)
   assert.equal(stepDone({ ...EMPTY, hourlyRate: 0 }, 'fee'), false) // 0 is not a fee
   assert.equal(stepDone({ ...EMPTY, hourlyRate: 8000 }, 'fee'), true)
-  assert.equal(stepDone({ ...EMPTY, degreesCount: 1, degreeDocCount: 0 }, 'degree'), false) // needs both
+  assert.equal(stepDone({ ...EMPTY, degreesCount: 1, degreeDocCount: 0 }, 'degree'), true) // PR106-A: certificate optional
   assert.equal(stepDone({ ...EMPTY, degreesCount: 1, degreeDocCount: 1 }, 'degree'), true)
   assert.equal(stepDone({ ...EMPTY, cnicNumber: '1', cnicImagePath: null }, 'cnic'), false)
 })

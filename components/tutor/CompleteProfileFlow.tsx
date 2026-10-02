@@ -16,6 +16,9 @@ import EmailCard from '@/components/account/EmailCard'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
 import CnicCapture, { cnicChecklistItems, type CnicCaptureState } from '@/components/identity/CnicCapture'
+import { activeCredentials, parseCredential, serializeCredential } from '@/lib/degrees'
+import { cnicStepView } from '@/lib/cnicStep'
+import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import TutorCitiesEditor, { type CitiesState } from '@/components/tutor/TutorCitiesEditor'
@@ -68,7 +71,7 @@ const TITLES: Record<FlowStepKey, string> = {
   selfie: 'Take a selfie',
   experience: 'Years of experience',
   fee: 'What monthly fee do you expect?',
-  degree: 'Your education and certificates',
+  degree: 'Education',
   cnic: 'Your CNIC',
 }
 
@@ -88,7 +91,7 @@ const URDU: Record<FlowStepKey, string> = {
   selfie: 'سیلفی لیں',
   experience: 'تجربے کے سال',
   fee: 'آپ کتنی ماہانہ فیس کی توقع رکھتے ہیں؟',
-  degree: 'آپ کی تعلیم اور اسناد',
+  degree: 'تعلیم',
   cnic: 'آپ کا شناختی کارڈ',
 }
 
@@ -226,8 +229,11 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       experienceYears: (tp?.experience_years as number | null) ?? null,
       hourlyRate: (tp?.hourly_rate_pkr as number | null) ?? null,
       jobTypes: ((tp?.job_types as string[] | null) ?? []),
-      degreesCount: Array.isArray(tp?.degrees) ? tp.degrees.length : 0,
+      // Count only ACTIVE (non-paused) degrees so a paused-only list is not
+      // mistaken for "has a degree" (PR106-A).
+      degreesCount: activeCredentials(Array.isArray(tp?.degrees) ? (tp.degrees as unknown[]) : []).length,
       degreeDocCount: deg.count ?? 0,
+      degrees: Array.isArray(tp?.degrees) ? (tp.degrees as unknown[]) : [],
       cnicNumber: (p?.cnic_number as string) ?? null,
       cnicImagePath: (p?.cnic_image_path as string) ?? null,
       subjectCount: ids.length,
@@ -709,7 +715,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
 
         {stepKey === 'degree' && (
           <div className="space-y-4">
-            <DegreeStep onSaved={() => void advance()} />
+            <DegreeStep initialDegrees={facts?.degrees ?? []} onSaved={() => void advance()} />
             {/* PR78 §D: an explicit answer instead of a skip. A degree is not a
                 listing requirement (it gates only the Verified badge), so "none
                 yet" is a valid answer; the tutor can add one later from Settings. */}
@@ -724,7 +730,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
             </button>
           </div>
         )}
-        {stepKey === 'cnic' && <CnicFlowStep onSubmitted={() => void advance()} />}
+        {stepKey === 'cnic' && <CnicFlowStep support={support} onSubmitted={() => void advance()} />}
 
         {stepKey === 'final' && <FinalScreen facts={facts} onLeave={leave} next={params.get('next')} />}
       </main>
@@ -1334,80 +1340,171 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
   )
 }
 
-function DegreeStep({ onSaved }: { onSaved: () => void }) {
-  const toast = useToast()
-  const [title, setTitle] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [preview, setPreview] = useState<string | null>(null)
-  const uploaded = !!preview
+// One row in the multi-degree editor (PR106-A). The degree TEXT is the main,
+// highlighted action; the certificate is small and clearly optional.
+type DegreeEntry = {
+  key: string
+  title: string
+  /** The uploaded certificate's document id (links to the watermarked preview). */
+  docId: string
+  /** The watermarked preview URL (/api/documents/<docId>/preview), or null. */
+  preview: string | null
+  uploading: boolean
+}
 
-  async function uploadCert(file: File) {
-    setUploading(true)
+let degreeKeySeq = 0
+const nextDegreeKey = () => `d${++degreeKeySeq}`
+
+function DegreeStep({ initialDegrees, onSaved }: { initialDegrees: unknown[]; onSaved: () => void }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  // Load existing (active) degrees so a returning tutor is never asked again and
+  // never loses what they had (§5). Paused entries are preserved untouched on save.
+  const [entries, setEntries] = useState<DegreeEntry[]>(() => {
+    const active = activeCredentials(initialDegrees)
+    if (active.length === 0) return [{ key: nextDegreeKey(), title: '', docId: '', preview: null, uploading: false }]
+    return active.map((c) => ({
+      key: nextDegreeKey(),
+      title: c.title,
+      docId: c.docId,
+      preview: c.docId ? `/api/documents/${c.docId}/preview` : null,
+      uploading: false,
+    }))
+  })
+  // Already-paused entries from storage — carried forward verbatim so nothing is
+  // ever deleted (§2, "removing pauses, not deletes").
+  const pausedCarry = useMemo(
+    () => (initialDegrees ?? []).map(parseCredential).filter((c) => c.paused && c.title.trim()),
+    [initialDegrees],
+  )
+  // Entries the tutor removed in THIS session (had a title) → stored as paused.
+  const [removed, setRemoved] = useState<{ title: string; docId: string }[]>([])
+
+  const patch = (key: string, p: Partial<DegreeEntry>) =>
+    setEntries((list) => list.map((e) => (e.key === key ? { ...e, ...p } : e)))
+
+  async function uploadCert(key: string, title: string, file: File) {
+    patch(key, { uploading: true })
     try {
-      // Compressed under 1 MB for BOTH the camera and the gallery path (§3).
       const img = await compressUnder1MB(file)
       const fd = new FormData()
       fd.append('kind', 'degree'); fd.append('file', img); fd.append('label', title.trim() || 'Degree certificate')
       const res = await fetch('/api/documents/upload', { method: 'POST', body: fd })
       const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j.error ?? 'Upload failed.')
-      setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
-      toast.success('Certificate uploaded.')
+      if (!res.ok) throw new Error(j.error ?? 'Could not upload. Please try again.')
+      // §6: show the WATERMARKED server preview, not the raw local file.
+      patch(key, { docId: j.documentId as string, preview: j.previewUrl as string })
+      toast.success('Certificate added.')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not upload.')
-    } finally {
-      setUploading(false)
+      patch(key, { uploading: false })
+      toast.error(e instanceof Error ? e.message : 'Could not upload. Please try again.')
+      return
     }
+    patch(key, { uploading: false })
   }
 
+  const addAnother = () =>
+    setEntries((list) => [...list, { key: nextDegreeKey(), title: '', docId: '', preview: null, uploading: false }])
+
+  const removeEntry = (key: string) =>
+    setEntries((list) => {
+      const e = list.find((x) => x.key === key)
+      // A removed entry WITH content is paused (kept in storage), never deleted.
+      if (e && e.title.trim()) setRemoved((r) => [...r, { title: e.title.trim(), docId: e.docId }])
+      const rest = list.filter((x) => x.key !== key)
+      // Never leave zero rows — the step always shows at least one empty field.
+      return rest.length > 0 ? rest : [{ key: nextDegreeKey(), title: '', docId: '', preview: null, uploading: false }]
+    })
+
+  const named = entries.filter((e) => e.title.trim())
+  const ready = named.length > 0
+
   async function save() {
-    if (!title.trim()) { toast.error('Add your degree first.'); return }
-    if (!uploaded) { toast.error('Add the certificate image.'); return }
+    if (!ready) {
+      toast.error('Add your degree first.')
+      return
+    }
     setBusy(true)
     try {
+      // Active entries (as typed) + the ones removed this session (paused) + any
+      // previously-paused entries, so nothing is ever lost (§4: no certificate
+      // is required to save).
+      const degrees = [
+        ...named.map((e) => serializeCredential({ title: e.title.trim(), docId: e.docId })),
+        ...removed.map((r) => serializeCredential({ title: r.title, docId: r.docId, paused: true })),
+        ...pausedCarry.map((c) => serializeCredential({ title: c.title, docId: c.docId, paused: true })),
+      ]
       const res = await fetch('/api/profile/save', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tutorProfile: { degrees: [title.trim()] } }),
+        body: JSON.stringify({ tutorProfile: { degrees } }),
       })
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Could not save.')
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Could not save. Please try again.')
       onSaved()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not save.')
+      toast.error(e instanceof Error ? e.message : 'Could not save. Please try again.')
     } finally { setBusy(false) }
   }
 
-  // Self-explaining checklist (PR80) — mirrors save(): a degree title + a
-  // certificate image. (The "No degree to add yet" answer is a separate button
-  // rendered by the flow, outside this sub-form.)
   const items: ChecklistItem[] = [
-    { en: 'Type your degree', ur: 'اپنی ڈگری لکھیں', done: !!title.trim() },
-    { en: 'Add a photo of the certificate', ur: 'سند کی تصویر لگائیں', done: uploaded },
+    { en: 'Type your degree', ur: 'اپنی ڈگری لکھیں', done: ready },
   ]
-  const ready = checklistReady(items)
+
   return (
     <div className="space-y-4">
       <FormChecklist items={items} />
-      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Degree, e.g. BSc Physics — Punjab University"
-        className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy" />
-      {/* Camera OR gallery — the shared tile (§3). */}
-      <div className="mx-auto w-40">
-        <PhotoCaptureTile
-          facingMode="environment"
-          aspectClass="aspect-[1.4]"
-          label={uploaded ? 'Certificate added' : 'Certificate'}
-          ariaLabel="your degree certificate"
-          busy={uploading}
-          done={uploaded}
-          preview={
-            preview ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview} alt="Certificate preview" className="h-full w-full object-cover" />
-            ) : null
-          }
-          onPick={(f) => void uploadCert(f)}
-        />
-      </div>
+      <ul className="space-y-3">
+        {entries.map((e, i) => (
+          <li key={e.key} className="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
+            <div className="flex items-start gap-2">
+              {/* The degree text is the main, highlighted action (§3). */}
+              <input
+                value={e.title}
+                onChange={(ev) => patch(e.key, { title: ev.target.value })}
+                placeholder="Degree, e.g. BSc Physics — Punjab University"
+                aria-label={`Degree ${i + 1}`}
+                className="min-h-[48px] flex-1 rounded-xl border border-gray-300 bg-white p-3 text-sm font-semibold outline-none focus:border-tm-navy"
+              />
+              {(entries.length > 1 || e.title.trim()) && (
+                <button
+                  type="button"
+                  onClick={() => removeEntry(e.key)}
+                  aria-label="Remove this degree"
+                  className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-tm-red"
+                >
+                  <X size={18} aria-hidden />
+                </button>
+              )}
+            </div>
+            {/* Certificate: small and clearly OPTIONAL (§3). */}
+            <div className="flex items-center gap-2">
+              {e.preview ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={e.preview} alt="Certificate preview" className="h-12 w-16 rounded-md border border-gray-200 object-cover" />
+                  <label className="cursor-pointer text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline">
+                    {e.uploading ? 'Uploading…' : 'Replace certificate'}
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={(ev) => { const f = ev.target.files?.[0]; if (f) void uploadCert(e.key, e.title, f); ev.currentTarget.value = '' }} />
+                  </label>
+                </>
+              ) : (
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-[11px] font-bold text-gray-600 hover:border-tm-navy hover:text-tm-navy">
+                  <Plus size={14} aria-hidden />
+                  {e.uploading ? 'Uploading…' : 'Add certificate (optional)'}
+                  <span lang="ur" dir="rtl" className="text-gray-500">— سند (اختیاری)</span>
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={(ev) => { const f = ev.target.files?.[0]; if (f) void uploadCert(e.key, e.title, f); ev.currentTarget.value = '' }} />
+                </label>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <button type="button" onClick={addAnother}
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-tm-navy underline-offset-2 hover:underline">
+        <Plus size={14} aria-hidden /> Add another degree
+        <span lang="ur" dir="rtl" className="text-gray-500">— ایک اور ڈگری شامل کریں</span>
+      </button>
       <p className="text-[11px] text-gray-500">Only you and our verification team can see it. Previews are watermarked.</p>
       <button type="button" disabled={busy || !ready} onClick={() => void save()}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40">
@@ -1424,15 +1521,24 @@ function DegreeStep({ onSaved }: { onSaved: () => void }) {
 // "Being checked" state with a Continue button. Settings keeps the FULL identity
 // card; this is the slim in-flow version so a tutor is not shown a second
 // "Identity documents" heading and three separate buttons mid-flow.
-function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
+function CnicFlowStep({
+  support,
+  onSubmitted,
+}: {
+  support: { waHref: string | null; waDisplay: string | null; email: string | null }
+  onSubmitted: () => void
+}) {
   const toast = useToast()
   const [busy, setBusy] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [approved, setApproved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Prefill from any earlier attempt so a returning tutor is not asked twice, then
-  // the shared CnicCapture owns the number/photos/checklist.
-  const [prefill, setPrefill] = useState<{ number: string; front: boolean; back: boolean } | null>(null)
+  // the shared CnicCapture owns the number/photos/checklist. The doc ids let us
+  // SHOW the saved photos (§8), not just mark the tiles done.
+  const [prefill, setPrefill] = useState<
+    { number: string; front: boolean; back: boolean; frontId: string | null; backId: string | null } | null
+  >(null)
   const [cap, setCap] = useState<CnicCaptureState | null>(null)
 
   useEffect(() => {
@@ -1443,18 +1549,19 @@ function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
         if (!live) return
         const id = j?.identity
         const number = (id?.cnicNumber as string) ?? ''
-        const front = id?.front != null
-        const back = id?.back != null
-        setPrefill({ number, front, back })
+        const frontId = (id?.front?.id as string | undefined) ?? null
+        const backId = (id?.back?.id as string | undefined) ?? null
+        const front = frontId != null
+        const back = backId != null
+        setPrefill({ number, front, back, frontId, backId })
         if (id) {
-          // ONE CNIC status (PR66 §4): approved only with the number AND both
-          // images; otherwise it is still being checked.
-          const hasDocs = !!number.trim() && front && back
-          if (id.state === 'approved' && hasDocs) setApproved(true)
-          else if (id.state === 'submitted' || id.state === 'approved') setSubmitted(true)
+          // ONE CNIC status (PR66 §4 / PR106-A §8-9), decided by the pure helper.
+          const view = cnicStepView({ state: id.state, hasNumber: !!number.trim(), hasFront: front, hasBack: back })
+          if (view === 'approved') setApproved(true)
+          else if (view === 'submitted') setSubmitted(true)
         }
       })
-      .catch(() => setPrefill({ number: '', front: false, back: false }))
+      .catch(() => setPrefill({ number: '', front: false, back: false, frontId: null, backId: null }))
     return () => { live = false }
   }, [])
 
@@ -1482,17 +1589,47 @@ function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
     }
   }
 
+  // §9: once admin approves, the step is LOCKED for the tutor — the saved number
+  // and both photos are read-only, with a plain "contact support to change" line.
   if (approved) {
     return (
-      <div className="space-y-5 pt-4 text-center">
-        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-tm-tint-green text-tm-green-deep">
-          <CheckCircle2 size={30} aria-hidden />
+      <div className="space-y-4 pt-2">
+        <div className="flex items-center gap-2 rounded-xl bg-tm-tint-green p-3 text-tm-green-deep">
+          <CheckCircle2 size={22} aria-hidden />
+          <div>
+            <p className="text-sm font-black">CNIC approved</p>
+            <p lang="ur" dir="rtl" className="text-[11px] font-bold">شناختی کارڈ منظور ہو گیا</p>
+          </div>
         </div>
-        <div className="space-y-1">
-          <p className="text-sm font-black text-tm-navy">CNIC verified</p>
-          <p className="mx-auto max-w-xs text-xs leading-relaxed text-gray-500">
-            Your card has been approved.
+        {prefill?.number && (
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+            <p className="text-[11px] font-bold text-gray-500">CNIC number</p>
+            <p className="text-sm font-black text-tm-navy">{prefill.number}</p>
+          </div>
+        )}
+        {(prefill?.frontId || prefill?.backId) && (
+          <div className="flex gap-3">
+            {prefill?.frontId && <SecureDocumentPreview documentId={prefill.frontId} alt="Front of your CNIC" className="flex-1" />}
+            {prefill?.backId && <SecureDocumentPreview documentId={prefill.backId} alt="Back of your CNIC" className="flex-1" />}
+          </div>
+        )}
+        <div className="rounded-xl border border-gray-200 bg-white p-3">
+          <p className="text-xs font-semibold text-gray-600">
+            Approved. To change this, contact support.
           </p>
+          <p lang="ur" dir="rtl" className="mt-0.5 text-[11px] font-semibold text-gray-500">
+            منظور شدہ۔ تبدیلی کے لیے سپورٹ سے رابطہ کریں۔
+          </p>
+          {support.waHref && (
+            <a
+              href={support.waHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-tm-green-deep px-3 text-xs font-bold text-white hover:bg-tm-green-deep-hover"
+            >
+              <MessageCircle size={15} aria-hidden /> WhatsApp support{support.waDisplay ? ` ${support.waDisplay}` : ''}
+            </a>
+          )}
         </div>
         <button
           type="button"
@@ -1537,10 +1674,20 @@ function CnicFlowStep({ onSubmitted }: { onSubmitted: () => void }) {
           initialNumber={prefill.number}
           initialFront={prefill.front}
           initialBack={prefill.back}
+          // §8: show the saved photos on re-open, so the step is never blank.
+          frontStoredPreview={prefill.frontId ? <SecureDocumentPreview documentId={prefill.frontId} alt="Front of your CNIC" /> : undefined}
+          backStoredPreview={prefill.backId ? <SecureDocumentPreview documentId={prefill.backId} alt="Back of your CNIC" /> : undefined}
           onState={setCap}
         />
       )}
-      {error && <p role="alert" className="text-[11px] font-bold text-tm-red">{error}</p>}
+      {error && (
+        <div role="alert">
+          <p className="text-[11px] font-bold text-tm-red">{error}</p>
+          <p lang="ur" dir="rtl" className="text-[11px] font-bold text-tm-red">
+            کچھ مسئلہ ہوا۔ دوبارہ کوشش کریں یا سپورٹ سے رابطہ کریں۔
+          </p>
+        </div>
+      )}
       <button
         type="button" disabled={busy || !cap?.ready} onClick={() => void saveAndContinue()}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40"

@@ -149,9 +149,10 @@ export function calculateTutorCompletion(input: TutorCompletionInput): Completio
     { key: 'mode', label: 'Job Type', done: (t.job_types?.length ?? 0) > 0, step: 4, anchor: 'teaching_mode' },
     {
       key: 'degrees',
-      label: 'Degrees listed with a certificate image',
-      // Both halves are required: the typed list AND at least one certificate.
-      done: has(t.degrees) && (input.degreeDocCount ?? 0) > 0,
+      label: 'Education added',
+      // PR106-A §4: the typed degree is enough — a certificate is optional, so the
+      // Education item is done once at least one degree is listed.
+      done: has(t.degrees),
       step: 5,
       anchor: 'degrees',
     },

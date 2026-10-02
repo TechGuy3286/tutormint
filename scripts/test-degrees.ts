@@ -1,41 +1,89 @@
 /**
- * scripts/test-degrees.ts   —   npm run test:degrees
+ * scripts/test-degrees.ts  —  npm run test:degrees
  *
- * lib/degrees: every stored credential shape (plain string, clean object, and the
- * doubly-nested-JSON corruption) decodes to clean fields and a plain display line
- * — never raw JSON. The repair and the readers share this parser.
+ * Pure tests for PR106-A: the multiple-degrees model (lib/degrees) and the CNIC
+ * step-view decision (lib/cnicStep). Nothing here touches the database.
  */
+
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseCredential, degreeLabel, degreeLabels, certLabel } from '../lib/degrees'
 
-test('a plain-string degree is its own line', () => {
-  assert.equal(degreeLabel('BS Physics — Punjab University (2019)'), 'BS Physics — Punjab University (2019)')
-  assert.deepEqual(parseCredential('BS Physics — Punjab University (2019)').title, 'BS Physics — Punjab University (2019)')
+import {
+  parseCredential,
+  degreeLabels,
+  activeCredentials,
+  serializeCredential,
+} from '../lib/degrees'
+import { cnicStepView } from '../lib/cnicStep'
+
+// --------------------------------------------------- multiple degrees ------
+
+test('multiple degrees: save then load round-trips every entry, in order', () => {
+  const stored = [
+    serializeCredential({ title: 'BSc Physics — Punjab University' }),
+    serializeCredential({ title: 'MSc Mathematics', docId: 'doc-123' }),
+  ]
+  const loaded = activeCredentials(stored)
+  assert.equal(loaded.length, 2)
+  assert.equal(loaded[0].title, 'BSc Physics — Punjab University')
+  assert.equal(loaded[0].docId, '')
+  assert.equal(loaded[1].title, 'MSc Mathematics')
+  assert.equal(loaded[1].docId, 'doc-123')
+  assert.deepEqual(degreeLabels(stored), ['BSc Physics — Punjab University', 'MSc Mathematics'])
 })
 
-test('a clean object degree becomes "Title, Institute (Year)"', () => {
-  const c = parseCredential('{"title":"BS Physics","institute":"Punjab University","year":"2019","fileName":"","fileUrl":""}')
-  assert.equal(c.title, 'BS Physics')
-  assert.equal(c.institute, 'Punjab University')
-  assert.equal(c.year, '2019')
-  assert.equal(degreeLabel('{"title":"BS Physics","institute":"Punjab University","year":"2019"}'), 'BS Physics, Punjab University (2019)')
+test('certificate optional: a degree with no docId is a plain string, loads fine, shows no certificate', () => {
+  const s = serializeCredential({ title: 'BA English' })
+  assert.equal(s, 'BA English', 'a simple degree stays a plain string, never re-wrapped')
+  const c = parseCredential(s)
+  assert.equal(c.title, 'BA English')
+  assert.equal(c.docId, '')
+  assert.equal(c.paused, false)
 })
 
-test('the doubly-nested corruption unwraps to the innermost real fields', () => {
-  // The exact shape from production (535aada4): title holds the JSON of the whole
-  // credential, whose title holds the real value.
-  const corrupt =
-    '{"title":"{\\"title\\":\\"BS Physics — Punjab University (2019)\\",\\"institute\\":\\"\\",\\"year\\":\\"\\",\\"fileName\\":\\"\\",\\"fileUrl\\":\\"\\"}","institute":"","year":"","fileName":"","fileUrl":""}'
-  const c = parseCredential(corrupt)
-  assert.equal(c.title, 'BS Physics — Punjab University (2019)')
-  assert.equal(degreeLabel(corrupt), 'BS Physics — Punjab University (2019)')
-  // No braces ever leak.
-  assert.ok(!degreeLabel(corrupt).includes('{'))
+test('a degree WITH a certificate serialises to JSON carrying its docId', () => {
+  const s = serializeCredential({ title: 'BE Civil', docId: 'abc' })
+  assert.ok(s.startsWith('{'), 'carries structure when it has a certificate')
+  const c = parseCredential(s)
+  assert.equal(c.title, 'BE Civil')
+  assert.equal(c.docId, 'abc')
 })
 
-test('certificate keeps its name; issuer maps in; blanks drop', () => {
-  assert.equal(certLabel('{"title":"IELTS 8.0","issuer":"British Council","year":"2021"}'), 'IELTS 8.0, British Council (2021)')
-  assert.equal(certLabel('Cambridge Certified Educator'), 'Cambridge Certified Educator')
-  assert.deepEqual(degreeLabels(['', '{}', 'BSc Maths']), ['BSc Maths'])
+test('removing a degree pauses it: paused entries are kept in storage but hidden from every reader', () => {
+  const stored = [
+    serializeCredential({ title: 'Active degree' }),
+    serializeCredential({ title: 'Removed degree', docId: 'd9', paused: true }),
+  ]
+  // Readers (public profile / CV / admin all use degreeLabels) show only active.
+  assert.deepEqual(degreeLabels(stored), ['Active degree'])
+  // activeCredentials also drops paused.
+  assert.deepEqual(activeCredentials(stored).map((c) => c.title), ['Active degree'])
+  // But the paused entry is still physically in the array (nothing deleted).
+  assert.equal(stored.length, 2)
+  assert.equal(parseCredential(stored[1]).paused, true)
+})
+
+test('legacy shapes still read: plain strings and JSON objects both decode', () => {
+  assert.deepEqual(degreeLabels(['BS Physics — Punjab University (2019)']), ['BS Physics — Punjab University (2019)'])
+  assert.deepEqual(
+    degreeLabels(['{"title":"BS COMPUTER SCIENCE","year":"2024","institute":"PU"}']),
+    ['BS COMPUTER SCIENCE, PU (2024)'],
+  )
+})
+
+// ------------------------------------------------------- CNIC step view ----
+
+test('CNIC prefill: a half-entered card returns to the capture view (so the saved parts show)', () => {
+  assert.equal(cnicStepView({ state: 'none', hasNumber: true, hasFront: true, hasBack: false }), 'capture')
+  assert.equal(cnicStepView({ state: 'none', hasNumber: false, hasFront: false, hasBack: false }), 'capture')
+})
+
+test('CNIC locked after approval ONLY when number + both photos are on file', () => {
+  assert.equal(cnicStepView({ state: 'approved', hasNumber: true, hasFront: true, hasBack: true }), 'approved')
+  // Approved marker but a document missing → still "being checked", never locked.
+  assert.equal(cnicStepView({ state: 'approved', hasNumber: true, hasFront: true, hasBack: false }), 'submitted')
+})
+
+test('CNIC submitted shows the being-checked view', () => {
+  assert.equal(cnicStepView({ state: 'submitted', hasNumber: true, hasFront: true, hasBack: true }), 'submitted')
 })

@@ -107,6 +107,9 @@ export type FlowFacts = {
   jobTypes: string[]
   degreesCount: number
   degreeDocCount: number
+  /** PR106-A: the raw tutor_profiles.degrees array, so the Education step can
+   *  prefill the multi-degree editor (parsed via lib/degrees). */
+  degrees: unknown[]
   cnicNumber: string | null
   cnicImagePath: string | null
   subjectCount: number
@@ -175,7 +178,9 @@ export function stepDone(f: FlowFacts, key: FlowStepKey): boolean {
     // PR78 §D — answered by a real degree + certificate, OR the explicit
     // "No degree to add yet" answer.
     case 'degree':
-      return (f.degreesCount > 0 && f.degreeDocCount > 0) || f.noDegreeYet
+      // PR106-A §4: a typed degree is enough — the certificate is optional. Done
+      // once at least one degree is listed, or the tutor answered "none yet".
+      return f.degreesCount > 0 || f.noDegreeYet
     case 'cnic':
       return nonblank(f.cnicNumber) && nonblank(f.cnicImagePath)
   }
