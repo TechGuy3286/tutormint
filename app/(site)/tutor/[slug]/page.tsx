@@ -214,31 +214,15 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     reviewer: (parentName.get(r.parent_id as string) ?? 'A parent').split(' ')[0] || 'A parent',
   }))
 
-  // PR106-C §1.1 — Certificates show ONLY the watermarked document LINKED to a
-  // degree entry (its docId), validated kind='degree'. An orphan/unlinked
-  // document (e.g. a photo someone uploaded where a certificate was expected) is
-  // never shown, and a degree with no certificate shows nothing. Order follows
-  // the degree list.
-  const { data: degRow } = await admin
-    .from('tutor_profiles')
-    .select('degrees')
-    .eq('id', userId)
-    .maybeSingle()
-  const linkedDocIds = linkedCertificateDocIds((degRow?.degrees as unknown[]) ?? [])
-  let degree_documents: { id: string; label: string | null }[] = []
-  if (linkedDocIds.length > 0) {
-    const { data: docRows } = await admin
-      .from('user_documents')
-      .select('id, label, preview_path, kind')
-      .in('id', linkedDocIds)
-      .eq('kind', 'degree')
-    const byId = new Map(
-      (docRows ?? []).filter((d) => d.preview_path).map((d) => [d.id as string, d]),
-    )
-    degree_documents = linkedDocIds
-      .filter((id) => byId.has(id))
-      .map((id) => ({ id, label: (byId.get(id)!.label as string) ?? null }))
-  }
+  const { data: docRows } = await admin
+    .from('user_documents')
+    .select('id, label, preview_path, created_at')
+    .eq('user_id', userId)
+    .eq('kind', 'degree')
+    .order('created_at')
+  const degree_documents = (docRows ?? [])
+    .filter((d) => d.preview_path)
+    .map((d) => ({ id: d.id as string, label: (d.label as string) ?? null }))
 
   // The tutor's areas (PR68), for the owner's own preview. Fail-open to the single
   // area if the table is not there yet (pre-migration).
@@ -764,6 +748,13 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   // documents are not yet all approved shows their plan-tier badges but not
   // Verified.
   const degreeLines = degreeLabels(tutor.degrees)
+  // PR106-C §1.1 — Certificates show ONLY the document LINKED to a degree entry
+  // (its docId). An orphan/unlinked document (e.g. a photo uploaded where a
+  // certificate was expected) is never shown; a degree with no certificate shows
+  // nothing. Applied here so it covers BOTH the public RPC path (loadTutor →
+  // tutor_public_page) and the owner preview (loadTutorPreview).
+  const linkedCertIds = new Set(linkedCertificateDocIds(tutor.degrees))
+  const certificateDocs = tutor.degree_documents.filter((d) => linkedCertIds.has(d.id))
   const docsApproved = cnicApproved && profilePicApproved && selfieApproved
   const wouldBeBadges = badgesForPlan(effectivePlan, feePaid, docsApproved)
   // §3.3: in the OWNER PREVIEW the tutor is not listed, so no badge is true yet
@@ -1132,7 +1123,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
         {/* ------------------------------------------------------ degrees --- */}
         {/* §3.1: degrees render through degreeLabels, so a row stored as a JSON
             string ({"title":"…"}) shows its title, not raw braces. */}
-        {degreeLines.length > 0 || tutor.degree_documents.length > 0 ? (
+        {degreeLines.length > 0 || certificateDocs.length > 0 ? (
           <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
             <h2 className="pb-3 text-sm font-black text-tm-navy">Qualifications</h2>
             <ul className="space-y-1.5">
@@ -1143,14 +1134,14 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               ))}
             </ul>
 
-            {tutor.degree_documents.length > 0 && (
+            {certificateDocs.length > 0 && (
               <div className="pt-4">
                 <p className="pb-2 text-[11px] font-bold uppercase tracking-wide text-gray-500">
                   Certificates
                 </p>
                 {user ? (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {tutor.degree_documents.map((doc) => (
+                    {certificateDocs.map((doc) => (
                       <SecureDocumentPreview
                         key={doc.id}
                         documentId={doc.id}
@@ -1163,8 +1154,8 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                     <Link href="/login" className="font-bold text-tm-red hover:underline">
                       Sign in
                     </Link>{' '}
-                    to view {tutor.degree_documents.length} uploaded certificate
-                    {tutor.degree_documents.length === 1 ? '' : 's'}.
+                    to view {certificateDocs.length} uploaded certificate
+                    {certificateDocs.length === 1 ? '' : 's'}.
                   </p>
                 )}
                 <p className="pt-2 text-[10px] leading-relaxed text-gray-500">
