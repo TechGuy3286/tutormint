@@ -256,11 +256,16 @@ export async function getPayproOrderStatus(payProId: string): Promise<OrderStatu
   if (!payProId) return { ok: false, error: 'No PayProId on this order.' }
   let res: RawResponse
   try {
-    // ggos carries the merchant username in the body and needs no token header
-    // (per the collection). GET-with-body → node:https, not fetch.
-    res = await rawRequest('GET', '/v2/ppro/ggos', {
-      body: JSON.stringify({ userName: USERNAME(), cpayId: payProId }),
-    })
+    // ggos carries the merchant username in the body AND needs the auth token
+    // header on LIVE (sandbox did not, hence the old "no token" note — live
+    // returns HTTP 401 without it, PR104). withToken adds it and refreshes once
+    // on a 401. GET-with-body → node:https, not fetch.
+    res = await withToken((token) =>
+      rawRequest('GET', '/v2/ppro/ggos', {
+        headers: { token },
+        body: JSON.stringify({ userName: USERNAME(), cpayId: payProId }),
+      }),
+    )
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'PayPro status check failed.' }
   }
