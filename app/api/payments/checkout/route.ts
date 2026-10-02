@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProvider, newPaymentReference } from '@/lib/payments'
 import { manual } from '@/lib/payments/manual'
 import { checkoutVisibleFor, pproVisibleFor, startPayproCheckout, toPayproMobile } from '@/lib/payments/paypro'
+import { getPaymentSwitches, planOpenToAll } from '@/lib/payments/switches'
 import { isSyntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, text } from '@/lib/validate'
@@ -77,11 +78,12 @@ export async function POST(request: Request) {
     .eq('id', user.id)
     .maybeSingle()
 
-  // GATE (PR98 §2). While we are launching to a gated audience, checkout — card
-  // OR bank transfer — is visible only to owner/staff/seed/PAYPRO_TEST_EMAILS
-  // accounts. Everyone else is told it is not open yet. Fail-closed: an empty
-  // PAYPRO_TEST_EMAILS admits only owner/staff/seed, never a normal member.
-  if (!profile || !checkoutVisibleFor(profile)) {
+  // GATE (PR98 §2 / PR105 §1). Checkout is visible to owner/staff/seed/
+  // PAYPRO_TEST_EMAILS always; to everyone else only when the matching owner
+  // switch is ON (the Rs 199 fee → fee_open; any other plan → plans_open).
+  // Fail-closed: the switches default OFF and a settings misread stays OFF.
+  const switches = await getPaymentSwitches()
+  if (!profile || (!checkoutVisibleFor(profile) && !planOpenToAll(plan.code as string, switches))) {
     return NextResponse.json(
       { error: 'Online payment is not open yet. Please check back soon.', code: 'checkout_closed' },
       { status: 403 },

@@ -40,6 +40,7 @@ export default function InboxClient({
   selectedHasMobile,
   conversation,
   canEditTemplates,
+  suggestedTemplateKey = '',
 }: {
   threads: InboxThread[]
   templates: AdminTemplate[]
@@ -49,14 +50,22 @@ export default function InboxClient({
   selectedHasMobile: boolean
   conversation: AdminMessage[]
   canEditTemplates: boolean
+  /** The template the selected member's status tag maps to (PR105 §6) — preselected. */
+  suggestedTemplateKey?: string
 }) {
   const router = useRouter()
   const toast = useToast()
 
-  const [templateKey, setTemplateKey] = useState('')
+  // Preselect the template that matches this member's status tag (PR105 §6). The
+  // component remounts on each member navigation (the page is force-dynamic), so
+  // these initialisers run fresh per selected member.
+  const suggested = templates.find((t) => t.key === suggestedTemplateKey) ?? null
+  const [templateKey, setTemplateKey] = useState(() => (suggested ? suggestedTemplateKey : ''))
   const [jobTitle, setJobTitle] = useState('')
   const [reason, setReason] = useState('')
-  const [body, setBody] = useState('')
+  const [body, setBody] = useState(() =>
+    suggested ? fill(suggested.body, { name: selectedName || 'there', jobTitle: '', reason: '' }) : '',
+  )
   const [busy, setBusy] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
 

@@ -62,6 +62,7 @@ export default async function AdminInboxPage({
       selectedHasMobile={selectedHasMobile}
       conversation={conversation}
       canEditTemplates={roleSatisfies(actor.adminRole, ['admin'])}
+      suggestedTemplateKey={threads.find((t) => t.memberId === selectedId)?.tag?.templateKey ?? ''}
     />
   )
 }

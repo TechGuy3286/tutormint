@@ -16,7 +16,9 @@
 
 export type InboxTagTone = 'gold' | 'red' | 'navy' | 'teal'
 
-export type InboxTag = { label: string; labelUr: string; tone: InboxTagTone }
+// Each tag names the Team-inbox template staff should reach for (PR105 §6), so
+// opening that member's conversation preselects the matching template.
+export type InboxTag = { label: string; labelUr: string; tone: InboxTagTone; templateKey: string }
 
 export type MemberTagFacts = {
   role: string | null
@@ -35,23 +37,23 @@ export type MemberTagFacts = {
 export function memberInboxTag(f: MemberTagFacts): InboxTag | null {
   if (f.role === 'tutor') {
     if (f.completion < 100) {
-      return { label: `Incomplete profile — ${f.completion}%`, labelUr: `پروفائل نامکمل — ${f.completion}%`, tone: 'gold' }
+      return { label: `Incomplete profile — ${f.completion}%`, labelUr: `پروفائل نامکمل — ${f.completion}%`, tone: 'gold', templateKey: 'profile_completion_nudge' }
     }
     if (!f.hasWhatsapp) {
-      return { label: 'No WhatsApp number', labelUr: 'واٹس ایپ نمبر موجود نہیں', tone: 'red' }
+      return { label: 'No WhatsApp number', labelUr: 'واٹس ایپ نمبر موجود نہیں', tone: 'red', templateKey: 'no_whatsapp' }
     }
     if (f.awaitingApproval) {
-      return { label: 'Waiting for staff approval', labelUr: 'عملے کی منظوری کا انتظار', tone: 'navy' }
+      return { label: 'Waiting for staff approval', labelUr: 'عملے کی منظوری کا انتظار', tone: 'navy', templateKey: 'awaiting_approval' }
     }
     if (!f.feePaid) {
-      return { label: 'Fee not paid', labelUr: 'فیس ادا نہیں ہوئی', tone: 'teal' }
+      return { label: 'Fee not paid', labelUr: 'فیس ادا نہیں ہوئی', tone: 'teal', templateKey: 'fee_not_paid' }
     }
     return null
   }
   // Parent / academy: only the verification check has an equivalent (Part 3).
   if (f.role === 'parent' || f.role === 'academy') {
     if (!f.cnicVerified) {
-      return { label: 'CNIC not verified', labelUr: 'شناختی کارڈ کی تصدیق نہیں', tone: 'navy' }
+      return { label: 'CNIC not verified', labelUr: 'شناختی کارڈ کی تصدیق نہیں', tone: 'navy', templateKey: 'cnic_unclear' }
     }
     return null
   }

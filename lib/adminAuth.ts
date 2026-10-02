@@ -114,6 +114,9 @@ export const SCREEN_ACCESS = {
   // The bank-transfer details setting — the account members are told to pay
   // into. Same money-level permission as approvals.
   paymentsSettings: ['admin'] as AdminRole[],
+  // The "open payments" switches (PR105 §1) — opening checkout to ALL members is
+  // an owner decision. `[]` + roleSatisfies = owner only.
+  paymentsSwitches: [] as AdminRole[],
   // Staff management is the ONE thing an Admin does not get. `[]` +
   // roleSatisfies() = owner only, with no magic string.
   team: [] as AdminRole[],

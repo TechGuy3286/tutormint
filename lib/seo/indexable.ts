@@ -27,6 +27,12 @@ export type TutorIndexFacts = {
   /** The tutor's profile completion — the SAME % shown on their dashboard
    *  (profiles.profile_completion). Indexing needs 100. */
   completion: number | null | undefined
+  /** CNIC approved by staff — deriveCnicStatus(...) === 'approved'. */
+  cnicApproved: boolean | null | undefined
+  /** profiles.profile_pic_status === 'approved' (staff review). */
+  profilePicApproved: boolean | null | undefined
+  /** profiles.selfie_status === 'approved' (staff review). */
+  selfieApproved: boolean | null | undefined
   /** A seed / example / fixture account — never indexed, whatever its state. */
   isSeed?: boolean | null
   /** A reported profile, temporarily delisted. */
@@ -34,10 +40,11 @@ export type TutorIndexFacts = {
 }
 
 /**
- * A tutor profile is indexable and in the sitemap ONLY when BOTH are true
- * (owner, PR100), REPLACING the earlier "step 1 complete" rule:
- *   (1) profile completion = 100% — the same figure on the tutor's dashboard, and
- *   (2) the Rs 199 verification fee is paid.
+ * A tutor profile is indexable and in the sitemap ONLY when ALL are true
+ * (owner, PR100 + PR105 §3):
+ *   (1) profile completion = 100% — the same figure on the tutor's dashboard,
+ *   (2) the Rs 199 verification fee is paid, and
+ *   (3) staff have APPROVED the CNIC, the profile photo and the selfie.
  * Otherwise the page is still VISIBLE on TutorMint (browse, search, direct
  * link) but carries noindex and stays out of the sitemap.
  *
@@ -59,6 +66,9 @@ export function tutorProfileIndexable(f: TutorIndexFacts): boolean {
   if (f.underReview) return false
   if (!f.feePaid) return false
   if ((f.completion ?? 0) < 100) return false
+  if (!f.cnicApproved) return false
+  if (!f.profilePicApproved) return false
+  if (!f.selfieApproved) return false
   return true
 }
 

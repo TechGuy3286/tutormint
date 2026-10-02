@@ -13,6 +13,7 @@ import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlemen
 import { degreeLabels } from '@/lib/degrees'
 import { tutorProfileNoindex } from '@/lib/planBadges'
 import { tutorProfileIndexable } from '@/lib/seo/indexable'
+import { deriveCnicStatus } from '@/lib/cnicStatus'
 import { experienceLabel } from '@/lib/experienceLabel'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
@@ -383,14 +384,18 @@ type TutorMetaFlags = {
   shareHidden: boolean
   isSeed: boolean
   verified: boolean
-  // The index rule is now completion = 100 AND fee paid (owner, PR100), so the
-  // page's noindex needs the dashboard completion %. Mirrors listed_tutor_slugs().
+  // The index rule is completion = 100 AND fee paid AND staff-approved CNIC/
+  // photo/selfie (owner, PR100 + PR105 §3). Mirrors listed_tutor_slugs().
   completion: number
+  cnicApproved: boolean
+  profilePicApproved: boolean
+  selfieApproved: boolean
 }
 
 async function tutorMetaFlags(tutorId: string): Promise<TutorMetaFlags> {
   const openDefault: TutorMetaFlags = {
     underReview: false, shareHidden: false, isSeed: false, verified: true, completion: 100,
+    cnicApproved: true, profilePicApproved: true, selfieApproved: true,
   }
   const admin = createAdminClient()
   if (!admin) return openDefault
@@ -402,12 +407,19 @@ async function tutorMetaFlags(tutorId: string): Promise<TutorMetaFlags> {
       .maybeSingle(),
     admin
       .from('profiles')
-      .select('is_seed, profile_completion')
+      .select('is_seed, profile_completion, verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status')
       .eq('id', tutorId)
       .maybeSingle(),
   ])
   const underReview = !!tp?.under_review
   const unclaimed = !!tp?.imported && !tp?.claimed_at
+  const cnicApproved =
+    deriveCnicStatus({
+      verification_state: (prof?.verification_state as string) ?? null,
+      cnic_verified_at: (prof?.cnic_verified_at as string) ?? null,
+      cnic_number: (prof?.cnic_number as string) ?? null,
+      cnic_image_path: (prof?.cnic_image_path as string) ?? null,
+    }) === 'approved'
   return {
     underReview,
     shareHidden: underReview || unclaimed,
@@ -415,6 +427,9 @@ async function tutorMetaFlags(tutorId: string): Promise<TutorMetaFlags> {
     // PR100 — the one-time verification fee. Unpaid → noindex.
     verified: !!(tp?.verified_fee_paid_at as string | null),
     completion: (prof?.profile_completion as number | null) ?? 0,
+    cnicApproved,
+    profilePicApproved: (prof?.profile_pic_status as string | null) === 'approved',
+    selfieApproved: (prof?.selfie_status as string | null) === 'approved',
   }
 }
 
@@ -690,22 +705,42 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   let feePaid = false
   let completion = 0
   let isSeedAcct = false
+  let cnicApproved = false
+  let profilePicApproved = false
+  let selfieApproved = false
   {
     const admin = createAdminClient()
     if (admin) {
       const [{ data: fp }, { data: pr }] = await Promise.all([
         admin.from('tutor_profiles').select('verified_fee_paid_at').eq('id', tutor.id).maybeSingle(),
-        admin.from('profiles').select('profile_completion, is_seed').eq('id', tutor.id).maybeSingle(),
+        admin
+          .from('profiles')
+          .select('profile_completion, is_seed, verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status')
+          .eq('id', tutor.id)
+          .maybeSingle(),
       ])
       feePaid = !!(fp?.verified_fee_paid_at as string | null)
       completion = (pr?.profile_completion as number | null) ?? 0
       isSeedAcct = !!(pr?.is_seed as boolean | null)
+      cnicApproved =
+        deriveCnicStatus({
+          verification_state: (pr?.verification_state as string) ?? null,
+          cnic_verified_at: (pr?.cnic_verified_at as string) ?? null,
+          cnic_number: (pr?.cnic_number as string) ?? null,
+          cnic_image_path: (pr?.cnic_image_path as string) ?? null,
+        }) === 'approved'
+      profilePicApproved = (pr?.profile_pic_status as string | null) === 'approved'
+      selfieApproved = (pr?.selfie_status as string | null) === 'approved'
     }
   }
-  // The ONE index rule (PR100): completion = 100 AND fee paid, not seed/under
-  // review. Gates the Person/Service structured data below, same as the page's
-  // noindex — so a crawler is never handed schema for a page held out of Google.
-  const indexable = tutorProfileIndexable({ feePaid, completion, isSeed: isSeedAcct, underReview })
+  // The ONE index rule (PR100 + PR105 §3): completion = 100 AND fee paid AND
+  // staff-approved CNIC/photo/selfie, not seed/under review. Gates the
+  // Person/Service structured data below, same as the page's noindex — so a
+  // crawler is never handed schema for a page held out of Google.
+  const indexable = tutorProfileIndexable({
+    feePaid, completion, isSeed: isSeedAcct, underReview,
+    cnicApproved, profilePicApproved, selfieApproved,
+  })
   const effectivePlan = tutor.plan_code ?? (feePaid ? 'basic' : null)
 
   // The Verified badge is degree-gated (owner rule 2): a verified tutor without a

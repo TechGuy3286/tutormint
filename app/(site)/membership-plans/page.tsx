@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getViewerEntitlements } from '@/lib/entitlements'
 import { getProvider } from '@/lib/payments'
 import { checkoutVisibleFor } from '@/lib/payments/paypro'
+import { getPaymentSwitches } from '@/lib/payments/switches'
 import PackagesTable, { type PlanRow } from '@/components/PackagesTable'
 import PackagesTabs from '@/components/membership-plans/PackagesTabs'
 import VerifiedPreview from '@/components/membership-plans/VerifiedPreview'
@@ -52,7 +53,11 @@ export default async function PackagesPage({
   // Gated launch (PR98 §2): only owner/staff/seed/test-email accounts may check
   // out. Others see the plans but a "not open yet" note in place of buy buttons.
   // Also surface a resumable pending order (PR98 §3 "Pay later").
-  let checkoutOpen = false
+  // The paid-plan Buy buttons are open to everyone when the owner's "plans" switch
+  // is ON (PR105 §1); otherwise only to the gated set. A signed-out visitor with
+  // the switch ON sees Buy → sign-in (BuyButton routes them to /login?next).
+  const switches = await getPaymentSwitches()
+  let checkoutOpen = switches.plansOpen
   let resumeHref: string | null = null
   if (ent) {
     const { data: me } = await supabase
@@ -60,7 +65,7 @@ export default async function PackagesPage({
       .select('admin_role, is_seed, email')
       .eq('id', ent.userId)
       .maybeSingle()
-    checkoutOpen = !!me && checkoutVisibleFor(me)
+    checkoutOpen = checkoutOpen || (!!me && checkoutVisibleFor(me))
     const { data: pending } = await supabase
       .from('payments')
       .select('provider_ref, provider')

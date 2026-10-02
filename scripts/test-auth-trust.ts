@@ -471,21 +471,24 @@ test('tutorListed: requires the one-time fee on top of the precondition', () => 
   assert.equal(tutorListed({ ...base, feePaid: false }), false, 'no fee, not listed')
 })
 
-test('tutorProfileNoindex: 100% + fee indexes; below 100, no fee, under-review or seed is noindex (PR100)', () => {
-  const ok = { verified: true, completion: 100 }
-  assert.equal(tutorProfileNoindex(ok), false, '100% + fee paid is indexable')
+test('tutorProfileNoindex: 100% + fee + staff approvals index; any missing is noindex (PR100 + PR105 §3)', () => {
+  const ok = { verified: true, completion: 100, cnicApproved: true, profilePicApproved: true, selfieApproved: true }
+  assert.equal(tutorProfileNoindex(ok), false, '100% + fee + all approvals is indexable')
   assert.equal(tutorProfileNoindex({ ...ok, verified: false }), true, 'no fee → noindex')
   assert.equal(tutorProfileNoindex({ ...ok, completion: 99 }), true, 'below 100% → noindex')
+  assert.equal(tutorProfileNoindex({ ...ok, cnicApproved: false }), true, 'CNIC not approved → noindex')
+  assert.equal(tutorProfileNoindex({ ...ok, profilePicApproved: false }), true, 'photo not approved → noindex')
+  assert.equal(tutorProfileNoindex({ ...ok, selfieApproved: false }), true, 'selfie not approved → noindex')
   assert.equal(tutorProfileNoindex({ ...ok, underReview: true }), true)
-  // Seed wins: a fixture tutor at 100% + fee is STILL noindex.
-  assert.equal(tutorProfileNoindex({ ...ok, isSeed: true }), true)
+  assert.equal(tutorProfileNoindex({ ...ok, isSeed: true }), true, 'seed → still noindex')
 })
 
-test('tutorSitemapEligible: listed AND 100% AND fee paid AND not a seed tutor (PR100)', () => {
-  const ok = { verified: true, completion: 100 }
-  assert.equal(tutorSitemapEligible({ listed: true, ...ok }), true, 'a listed 100%+fee tutor is in the sitemap')
+test('tutorSitemapEligible: listed AND 100% AND fee AND all approvals AND not seed (PR100 + PR105 §3)', () => {
+  const ok = { verified: true, completion: 100, cnicApproved: true, profilePicApproved: true, selfieApproved: true }
+  assert.equal(tutorSitemapEligible({ listed: true, ...ok }), true, 'a listed, approved 100%+fee tutor is in the sitemap')
   assert.equal(tutorSitemapEligible({ listed: true, ...ok, verified: false }), false, 'no fee → out')
   assert.equal(tutorSitemapEligible({ listed: true, ...ok, completion: 80 }), false, 'below 100% → out')
+  assert.equal(tutorSitemapEligible({ listed: true, ...ok, selfieApproved: false }), false, 'selfie not approved → out')
   assert.equal(tutorSitemapEligible({ listed: false, ...ok }), false, 'not listed → out')
   assert.equal(tutorSitemapEligible({ listed: true, ...ok, isSeed: true }), false)
 })
@@ -599,12 +602,15 @@ test('the banned-login message is exact and owner-locked', () => {
 // ── PR37 — one shared indexability rule (lib/seo/indexable) ──
 import { tutorProfileIndexable, tuitionIndexable } from '../lib/seo/indexable'
 
-test('PR100: a tutor is indexable only at 100% completion AND fee paid, never seed/under-review', () => {
-  const base = { feePaid: true, completion: 100, isSeed: false, underReview: false }
+test('PR100 + PR105: indexable only at 100% + fee + staff-approved CNIC/photo/selfie', () => {
+  const base = { feePaid: true, completion: 100, cnicApproved: true, profilePicApproved: true, selfieApproved: true, isSeed: false, underReview: false }
   assert.equal(tutorProfileIndexable(base), true)
   assert.equal(tutorProfileIndexable({ ...base, feePaid: false }), false, 'no fee')
   assert.equal(tutorProfileIndexable({ ...base, completion: 99 }), false, 'below 100%')
   assert.equal(tutorProfileIndexable({ ...base, completion: null }), false, 'no completion')
+  assert.equal(tutorProfileIndexable({ ...base, cnicApproved: false }), false, 'CNIC not approved')
+  assert.equal(tutorProfileIndexable({ ...base, profilePicApproved: false }), false, 'photo not approved')
+  assert.equal(tutorProfileIndexable({ ...base, selfieApproved: false }), false, 'selfie not approved')
   assert.equal(tutorProfileIndexable({ ...base, isSeed: true }), false, 'seed never indexable')
   assert.equal(tutorProfileIndexable({ ...base, underReview: true }), false, 'under review')
 })
@@ -631,6 +637,10 @@ test('memberInboxTag: tutor first-missing order; parent only on verification', (
   assert.equal(memberInboxTag({ ...complete, completion: 40, hasWhatsapp: false, feePaid: false })?.label, 'Incomplete profile — 40%')
   assert.equal(memberInboxTag({ role: 'parent', completion: 0, hasWhatsapp: false, awaitingApproval: false, feePaid: false, cnicVerified: true }), null)
   assert.equal(memberInboxTag({ role: 'parent', completion: 100, hasWhatsapp: true, awaitingApproval: false, feePaid: true, cnicVerified: false })?.label, 'CNIC not verified')
+  // Each tag names the template staff should reach for (PR105 §6).
+  assert.equal(memberInboxTag({ ...complete, hasWhatsapp: false })?.templateKey, 'no_whatsapp')
+  assert.equal(memberInboxTag({ ...complete, awaitingApproval: true })?.templateKey, 'awaiting_approval')
+  assert.equal(memberInboxTag({ ...complete, feePaid: false })?.templateKey, 'fee_not_paid')
   const t = memberInboxTag({ ...complete, completion: 40 })!
   assert.ok(t.labelUr.length > 0 && ['gold', 'red', 'navy', 'teal'].includes(t.tone))
 })

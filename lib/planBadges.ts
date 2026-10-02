@@ -136,14 +136,21 @@ export function tutorProfileNoindex(input: {
   verified?: boolean | null
   /** profiles.profile_completion — the dashboard %. Indexing needs 100. */
   completion?: number | null
+  /** Staff approvals (PR105 §3). */
+  cnicApproved?: boolean | null
+  profilePicApproved?: boolean | null
+  selfieApproved?: boolean | null
   underReview?: boolean | null
   isSeed?: boolean | null
 }): boolean {
-  // PR37 §2 / PR100 — the ONE indexability rule lives in lib/seo/indexable; this
-  // stays as the tutor page's entry point (its callers import it here).
+  // PR37 §2 / PR100 / PR105 — the ONE indexability rule lives in lib/seo/indexable;
+  // this stays as the tutor page's entry point (its callers import it here).
   return !tutorProfileIndexable({
     feePaid: input.verified,
     completion: input.completion,
+    cnicApproved: input.cnicApproved,
+    profilePicApproved: input.profilePicApproved,
+    selfieApproved: input.selfieApproved,
     underReview: input.underReview,
     isSeed: input.isSeed,
   })
@@ -160,6 +167,9 @@ export function tutorSitemapEligible(input: {
   listed: boolean
   verified?: boolean | null
   completion?: number | null
+  cnicApproved?: boolean | null
+  profilePicApproved?: boolean | null
+  selfieApproved?: boolean | null
   isSeed?: boolean | null
   underReview?: boolean | null
 }): boolean {
@@ -167,6 +177,9 @@ export function tutorSitemapEligible(input: {
   return tutorProfileIndexable({
     feePaid: input.verified,
     completion: input.completion,
+    cnicApproved: input.cnicApproved,
+    profilePicApproved: input.profilePicApproved,
+    selfieApproved: input.selfieApproved,
     isSeed: input.isSeed,
     underReview: input.underReview,
   })
