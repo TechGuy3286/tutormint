@@ -24,40 +24,31 @@
 export type TutorIndexFacts = {
   /** The one-time Rs 199 verification fee is paid (verified_fee_paid_at is set). */
   feePaid: boolean | null | undefined
+  /** The tutor's profile completion — the SAME % shown on their dashboard
+   *  (profiles.profile_completion). Indexing needs 100. */
+  completion: number | null | undefined
   /** A seed / example / fixture account — never indexed, whatever its state. */
   isSeed?: boolean | null
   /** A reported profile, temporarily delisted. */
   underReview?: boolean | null
-  /** profiles.phone_verified_at is set. */
-  mobileVerified: boolean | null | undefined
-  /** CNIC approved — deriveCnicStatus(...) === 'approved' (marker + documents). */
-  cnicApproved: boolean | null | undefined
-  /** profiles.profile_pic_status === 'approved' (PR60 staff review). */
-  profilePicApproved: boolean | null | undefined
-  /** profiles.selfie_status === 'approved' (PR60 staff review). */
-  selfieApproved: boolean | null | undefined
-  /** At least one tutor_subjects row. */
-  hasSubject: boolean | null | undefined
-  /** tutor_profiles.city is set. */
-  hasCity: boolean | null | undefined
-  /** tutor_profiles.area is set. */
-  hasArea: boolean | null | undefined
 }
 
 /**
- * A tutor profile is indexable and in the sitemap once STEP 1 is complete (owner,
- * 15 Sep 2026), which REPLACES the earlier "100% complete + fee paid" rule:
- *   verified mobile, CNIC approved, profile picture approved, selfie approved,
- *   at least one subject, a city, at least one area, and the verification fee
- *   paid.
- * A seed/fixture account and a profile under review are NEVER indexed, whatever
- * their state. Every other tutor profile is noindex and out of the sitemap.
+ * A tutor profile is indexable and in the sitemap ONLY when BOTH are true
+ * (owner, PR100), REPLACING the earlier "step 1 complete" rule:
+ *   (1) profile completion = 100% — the same figure on the tutor's dashboard, and
+ *   (2) the Rs 199 verification fee is paid.
+ * Otherwise the page is still VISIBLE on TutorMint (browse, search, direct
+ * link) but carries noindex and stays out of the sitemap.
  *
- * The CNIC/picture/selfie approvals use the single sources — lib/cnicStatus
- * (deriveCnicStatus === 'approved') and the PR60 profile_pic_status/selfie_status
- * columns — resolved to booleans by the caller. The SQL mirror is
- * listed_tutor_slugs() (built on tutor_directory, which already enforces mobile /
- * city / area / subject); they must stay in lockstep.
+ * A seed/fixture account and a profile under review are NEVER indexed, whatever
+ * their state. The SQL mirror is listed_tutor_slugs() (built on tutor_directory,
+ * which enforces moderation/mobile/city/subjects and excludes seed/suspended/
+ * banned/rejected/under-review); they must stay in lockstep.
+ *
+ * NOTE on completion: the dashboard % counts UPLOADED documents, not staff
+ * APPROVAL (lib/profileChecklist — "by uploading a CNIC, not by having it
+ * verified"); this rule uses that same %, deliberately (owner, PR100).
  *
  * (A tutor whose page does not render at all — suspended / banned / rejected /
  * unclaimed import — is handled upstream by tutor_visible_profiles; this only
@@ -67,13 +58,7 @@ export function tutorProfileIndexable(f: TutorIndexFacts): boolean {
   if (f.isSeed) return false
   if (f.underReview) return false
   if (!f.feePaid) return false
-  if (!f.mobileVerified) return false
-  if (!f.cnicApproved) return false
-  if (!f.profilePicApproved) return false
-  if (!f.selfieApproved) return false
-  if (!f.hasSubject) return false
-  if (!f.hasCity) return false
-  if (!f.hasArea) return false
+  if ((f.completion ?? 0) < 100) return false
   return true
 }
 

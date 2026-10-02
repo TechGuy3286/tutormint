@@ -132,65 +132,42 @@ export function tutorListed(
  * page and its test read one decision.
  */
 export function tutorProfileNoindex(input: {
-  /** The one-time verification fee is paid. PR16 §1.4: unverified → noindex. */
+  /** The one-time verification fee is paid. PR100: unverified → noindex. */
   verified?: boolean | null
+  /** profiles.profile_completion — the dashboard %. Indexing needs 100. */
+  completion?: number | null
   underReview?: boolean | null
   isSeed?: boolean | null
-  mobileVerified: boolean | null | undefined
-  cnicApproved: boolean | null | undefined
-  profilePicApproved: boolean | null | undefined
-  selfieApproved: boolean | null | undefined
-  hasSubject: boolean | null | undefined
-  hasCity: boolean | null | undefined
-  hasArea: boolean | null | undefined
 }): boolean {
-  // PR37 §2 — the ONE indexability rule lives in lib/seo/indexable; this stays
-  // as the tutor page's entry point (its callers import it here) but no longer
-  // carries its own copy of the logic.
+  // PR37 §2 / PR100 — the ONE indexability rule lives in lib/seo/indexable; this
+  // stays as the tutor page's entry point (its callers import it here).
   return !tutorProfileIndexable({
     feePaid: input.verified,
+    completion: input.completion,
     underReview: input.underReview,
     isSeed: input.isSeed,
-    mobileVerified: input.mobileVerified,
-    cnicApproved: input.cnicApproved,
-    profilePicApproved: input.profilePicApproved,
-    selfieApproved: input.selfieApproved,
-    hasSubject: input.hasSubject,
-    hasCity: input.hasCity,
-    hasArea: input.hasArea,
   })
 }
 
 /**
- * A listed tutor appears in the SITEMAP only when STEP 1 is complete AND not a
- * fixture (mirrors listed_tutor_slugs, owner 15 Sep 2026). Listed tutors who have
- * not finished step 1 are on-site searchable yet withheld from the sitemap so the
- * two indexing signals never disagree; a seed tutor is withheld regardless.
+ * A listed tutor appears in the SITEMAP only when their page is indexable —
+ * completion = 100 AND fee paid, and not a seed/under-review fixture (owner,
+ * PR100; mirrors listed_tutor_slugs). Listed tutors below 100% or unpaid are
+ * on-site searchable yet withheld from the sitemap so the two indexing signals
+ * never disagree.
  */
 export function tutorSitemapEligible(input: {
   listed: boolean
   verified?: boolean | null
+  completion?: number | null
   isSeed?: boolean | null
   underReview?: boolean | null
-  mobileVerified: boolean | null | undefined
-  cnicApproved: boolean | null | undefined
-  profilePicApproved: boolean | null | undefined
-  selfieApproved: boolean | null | undefined
-  hasSubject: boolean | null | undefined
-  hasCity: boolean | null | undefined
-  hasArea: boolean | null | undefined
 }): boolean {
   if (!input.listed) return false
   return tutorProfileIndexable({
     feePaid: input.verified,
+    completion: input.completion,
     isSeed: input.isSeed,
     underReview: input.underReview,
-    mobileVerified: input.mobileVerified,
-    cnicApproved: input.cnicApproved,
-    profilePicApproved: input.profilePicApproved,
-    selfieApproved: input.selfieApproved,
-    hasSubject: input.hasSubject,
-    hasCity: input.hasCity,
-    hasArea: input.hasArea,
   })
 }

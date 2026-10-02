@@ -9,6 +9,7 @@ import { calculateTutorCompletion } from '@/lib/profileChecklist'
 import { directoryBlockers, type ListingBlocker } from '@/lib/tutorListingStatus'
 import { normalisePkMobile } from '@/lib/phone'
 import { maskCnicHeavy } from '@/lib/cnic'
+import { collapseTimeline } from '@/lib/timelineText'
 import type { AdminRole } from '@/lib/adminAuth'
 import { SCREEN_ACCESS } from '@/lib/adminAuth'
 
@@ -1004,11 +1005,16 @@ export type TimelineRowData = {
  * a thread reference and nothing else. There is no path from this data to a
  * conversation; reading one requires a report that names it.
  */
+// A wider first window than the other queues (PR100 §3): a run of subject edits
+// is collapsed into ONE line, and the whole run must sit in one window to
+// collapse fully (a 53-edit burst → one row). Still keyset-paged for the rest.
+const TIMELINE_PAGE = 60
+
 export async function loadMemberTimeline({
   userId,
   group,
   cursor,
-  limit = QUEUE_PAGE,
+  limit = TIMELINE_PAGE,
 }: {
   userId: string
   group: string
@@ -1034,7 +1040,7 @@ export async function loadMemberTimeline({
     limit,
   })
 
-  const rows: TimelineRowData[] = page.map((a) => ({
+  const raw: TimelineRowData[] = page.map((a) => ({
     id: a.id as string,
     event: a.event as string,
     targetType: (a.target_type as string) ?? null,
@@ -1042,6 +1048,9 @@ export async function loadMemberTimeline({
     meta: (a.meta as Record<string, unknown>) ?? {},
     at: a.created_at as string,
   }))
+
+  // Collapse consecutive same-member subject edits within 10 min into one line.
+  const rows = collapseTimeline(raw) as TimelineRowData[]
 
   return { rows, nextCursor, total }
 }

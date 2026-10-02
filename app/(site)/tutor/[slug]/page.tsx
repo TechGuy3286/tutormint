@@ -12,7 +12,7 @@ import { formatSlots, availabilityToSlots } from '@/lib/timeSlots'
 import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlements'
 import { degreeLabels } from '@/lib/degrees'
 import { tutorProfileNoindex } from '@/lib/planBadges'
-import { deriveCnicStatus } from '@/lib/cnicStatus'
+import { tutorProfileIndexable } from '@/lib/seo/indexable'
 import { experienceLabel } from '@/lib/experienceLabel'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
@@ -383,63 +383,38 @@ type TutorMetaFlags = {
   shareHidden: boolean
   isSeed: boolean
   verified: boolean
-  // STEP 1 facts (owner, 15 Sep 2026) — the tutor page's noindex is now the
-  // step-1 rule, not profile completion. Mirrors listed_tutor_slugs().
-  mobileVerified: boolean
-  cnicApproved: boolean
-  profilePicApproved: boolean
-  selfieApproved: boolean
-  hasSubject: boolean
-  hasCity: boolean
-  hasArea: boolean
+  // The index rule is now completion = 100 AND fee paid (owner, PR100), so the
+  // page's noindex needs the dashboard completion %. Mirrors listed_tutor_slugs().
+  completion: number
 }
 
 async function tutorMetaFlags(tutorId: string): Promise<TutorMetaFlags> {
   const openDefault: TutorMetaFlags = {
-    underReview: false, shareHidden: false, isSeed: false, verified: true,
-    mobileVerified: true, cnicApproved: true, profilePicApproved: true,
-    selfieApproved: true, hasSubject: true, hasCity: true, hasArea: true,
+    underReview: false, shareHidden: false, isSeed: false, verified: true, completion: 100,
   }
   const admin = createAdminClient()
   if (!admin) return openDefault
-  const [{ data: tp }, { data: prof }, { count: subjectCount }] = await Promise.all([
+  const [{ data: tp }, { data: prof }] = await Promise.all([
     admin
       .from('tutor_profiles')
-      .select('under_review, imported, claimed_at, verified_fee_paid_at, city, area')
+      .select('under_review, imported, claimed_at, verified_fee_paid_at')
       .eq('id', tutorId)
       .maybeSingle(),
     admin
       .from('profiles')
-      .select(
-        'is_seed, phone_verified_at, verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status',
-      )
+      .select('is_seed, profile_completion')
       .eq('id', tutorId)
       .maybeSingle(),
-    admin.from('tutor_subjects').select('master_id', { count: 'exact', head: true }).eq('tutor_id', tutorId),
   ])
   const underReview = !!tp?.under_review
   const unclaimed = !!tp?.imported && !tp?.claimed_at
-  const cnicApproved =
-    deriveCnicStatus({
-      verification_state: (prof?.verification_state as string) ?? null,
-      cnic_verified_at: (prof?.cnic_verified_at as string) ?? null,
-      cnic_number: (prof?.cnic_number as string) ?? null,
-      cnic_image_path: (prof?.cnic_image_path as string) ?? null,
-    }) === 'approved'
-  const nonBlank = (v: unknown) => !!(v && String(v).trim())
   return {
     underReview,
     shareHidden: underReview || unclaimed,
     isSeed: !!(prof?.is_seed as boolean | null),
-    // PR16 §1.4 — the one-time verification fee. Unverified → noindex.
+    // PR100 — the one-time verification fee. Unpaid → noindex.
     verified: !!(tp?.verified_fee_paid_at as string | null),
-    mobileVerified: nonBlank(prof?.phone_verified_at),
-    cnicApproved,
-    profilePicApproved: (prof?.profile_pic_status as string | null) === 'approved',
-    selfieApproved: (prof?.selfie_status as string | null) === 'approved',
-    hasSubject: (subjectCount ?? 0) > 0,
-    hasCity: nonBlank(tp?.city),
-    hasArea: nonBlank(tp?.area),
+    completion: (prof?.profile_completion as number | null) ?? 0,
   }
 }
 
@@ -713,17 +688,24 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   // synthesise 'basic' so their Verified badge shows. A visible-but-unverified
   // tutor gets NO badge and the "Not verified" chip below.
   let feePaid = false
+  let completion = 0
+  let isSeedAcct = false
   {
     const admin = createAdminClient()
     if (admin) {
-      const { data: fp } = await admin
-        .from('tutor_profiles')
-        .select('verified_fee_paid_at')
-        .eq('id', tutor.id)
-        .maybeSingle()
+      const [{ data: fp }, { data: pr }] = await Promise.all([
+        admin.from('tutor_profiles').select('verified_fee_paid_at').eq('id', tutor.id).maybeSingle(),
+        admin.from('profiles').select('profile_completion, is_seed').eq('id', tutor.id).maybeSingle(),
+      ])
       feePaid = !!(fp?.verified_fee_paid_at as string | null)
+      completion = (pr?.profile_completion as number | null) ?? 0
+      isSeedAcct = !!(pr?.is_seed as boolean | null)
     }
   }
+  // The ONE index rule (PR100): completion = 100 AND fee paid, not seed/under
+  // review. Gates the Person/Service structured data below, same as the page's
+  // noindex — so a crawler is never handed schema for a page held out of Google.
+  const indexable = tutorProfileIndexable({ feePaid, completion, isSeed: isSeedAcct, underReview })
   const effectivePlan = tutor.plan_code ?? (feePaid ? 'basic' : null)
 
   // The Verified badge is degree-gated (owner rule 2): a verified tutor without a
@@ -770,11 +752,11 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   // without real reviews, no price without a rate, no area without one chosen.
   // An aggregateRating with a zero count is both a rich-result violation and a
   // claim about a tutor nobody has reviewed.
-  // PR16 §1.4 — structured data is emitted only for a VERIFIED, non-preview
-  // profile. An unverified (or preview) profile is noindex, so a Person/Service
-  // schema would advertise to a crawler what the noindex is withholding.
+  // PR100 — structured data is emitted ONLY when the page is indexable
+  // (completion = 100 AND fee paid) and not a preview. A noindex page must not
+  // hand a crawler a Person/Service schema for what the noindex withholds.
   const profileSchema =
-    feePaid && !preview
+    indexable && !preview
       ? tutorJsonLd({
           slug: tutor.slug,
           name: tutor.full_name,

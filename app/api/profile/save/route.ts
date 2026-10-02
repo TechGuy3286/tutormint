@@ -11,6 +11,7 @@ import { serverError } from '@/lib/errorResponse'
 import { ensureTutorSlug } from '@/lib/tutorSlug'
 import { recordFieldChanges, type FieldChange } from '@/lib/fieldHistory'
 import { normalisePkMobile } from '@/lib/phone'
+import { labelsForMasterIds } from '@/lib/taxonomy'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
 // then recomputes profiles.profile_completion so the stored percentage can
@@ -141,6 +142,11 @@ export async function POST(request: Request) {
     if (error) return serverError(error, 'profile.save:profiles.update')
   }
 
+  // Old subject ids, captured before the subjects are rewritten below, so the
+  // subjects_changed event can name what was added/removed (PR100 §3). Outer
+  // scope because the logActivity call is outside the tutor block.
+  let oldSubjectIds: number[] = []
+
   if (role === 'tutor') {
     const tutorPatch = pick(body.tutorProfile, TUTOR_FIELDS)
     // The tutor's canonical city lives on tutor_profiles.
@@ -159,7 +165,8 @@ export async function POST(request: Request) {
       }
       if (Array.isArray(body.subjectMasterIds)) {
         const { data } = await supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id)
-        histOld.subjects = (data ?? []).map((r) => r.master_id as number).sort((a, b) => a - b).join(',')
+        oldSubjectIds = (data ?? []).map((r) => r.master_id as number)
+        histOld.subjects = oldSubjectIds.slice().sort((a, b) => a - b).join(',')
       }
       if (Array.isArray(body.areas) || body.areasByCity) {
         const { data } = await supabase.from('tutor_areas').select('city, area').eq('tutor_id', user.id)
@@ -343,9 +350,21 @@ export async function POST(request: Request) {
   const changed = [...Object.keys(profilePatch)]
   if (cityProvided) changed.push('city')
   if (Array.isArray(body.subjectMasterIds)) {
+    // Record WHAT changed, not just a count (PR100 §3): the subject names added
+    // and removed, plus the total after. histOld.subjects holds the old ids.
+    const newIds = body.subjectMasterIds.filter((n) => Number.isInteger(n))
+    const oldIds = oldSubjectIds
+    const addedIds = newIds.filter((id: number) => !oldIds.includes(id))
+    const removedIds = oldIds.filter((id: number) => !newIds.includes(id))
+    const names = (labels: string[]) =>
+      [...new Set(labels.map((l) => (l.split(' — ').pop() ?? l).trim()).filter(Boolean))]
+    const [addedLabels, removedLabels] = await Promise.all([
+      addedIds.length ? labelsForMasterIds(addedIds) : Promise.resolve([] as string[]),
+      removedIds.length ? labelsForMasterIds(removedIds) : Promise.resolve([] as string[]),
+    ])
     await logActivity({
       userId: user.id, event: 'subjects_changed', targetType: 'tutor_profile', targetId: user.id,
-      meta: { count: body.subjectMasterIds.length },
+      meta: { added: names(addedLabels), removed: names(removedLabels), total: newIds.length },
     })
   }
   if (changed.length > 0 || body.tutorProfile) {

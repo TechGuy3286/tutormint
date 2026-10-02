@@ -471,35 +471,23 @@ test('tutorListed: requires the one-time fee on top of the precondition', () => 
   assert.equal(tutorListed({ ...base, feePaid: false }), false, 'no fee, not listed')
 })
 
-test('tutorProfileNoindex: step-1 complete indexes; a missing item, under-review or seed is noindex', () => {
-  // STEP 1 complete (owner, 15 Sep 2026): fee + mobile + CNIC + picture + selfie
-  // + subject + city + area.
-  const step1 = {
-    verified: true, mobileVerified: true, cnicApproved: true, profilePicApproved: true,
-    selfieApproved: true, hasSubject: true, hasCity: true, hasArea: true,
-  }
-  assert.equal(tutorProfileNoindex(step1), false, 'a step-1-complete tutor is indexable')
-  assert.equal(tutorProfileNoindex({ ...step1, verified: false }), true, 'no fee → noindex (PR16 §1.4)')
-  assert.equal(tutorProfileNoindex({ ...step1, cnicApproved: false }), true, 'CNIC not approved → noindex')
-  assert.equal(tutorProfileNoindex({ ...step1, profilePicApproved: false }), true, 'picture not approved → noindex')
-  assert.equal(tutorProfileNoindex({ ...step1, selfieApproved: false }), true, 'selfie not approved → noindex')
-  assert.equal(tutorProfileNoindex({ ...step1, hasArea: false }), true, 'no area → noindex')
-  assert.equal(tutorProfileNoindex({ ...step1, underReview: true }), true)
-  // Seed wins: a fixture tutor with step 1 done is STILL noindex.
-  assert.equal(tutorProfileNoindex({ ...step1, isSeed: true }), true)
+test('tutorProfileNoindex: 100% + fee indexes; below 100, no fee, under-review or seed is noindex (PR100)', () => {
+  const ok = { verified: true, completion: 100 }
+  assert.equal(tutorProfileNoindex(ok), false, '100% + fee paid is indexable')
+  assert.equal(tutorProfileNoindex({ ...ok, verified: false }), true, 'no fee → noindex')
+  assert.equal(tutorProfileNoindex({ ...ok, completion: 99 }), true, 'below 100% → noindex')
+  assert.equal(tutorProfileNoindex({ ...ok, underReview: true }), true)
+  // Seed wins: a fixture tutor at 100% + fee is STILL noindex.
+  assert.equal(tutorProfileNoindex({ ...ok, isSeed: true }), true)
 })
 
-test('tutorSitemapEligible: listed AND step 1 complete AND not a seed tutor', () => {
-  const step1 = {
-    verified: true, mobileVerified: true, cnicApproved: true, profilePicApproved: true,
-    selfieApproved: true, hasSubject: true, hasCity: true, hasArea: true,
-  }
-  assert.equal(tutorSitemapEligible({ listed: true, ...step1 }), true, 'a listed step-1 tutor is in the sitemap')
-  assert.equal(tutorSitemapEligible({ listed: true, ...step1, verified: false }), false, 'no fee → out (PR16 §1.4)')
-  assert.equal(tutorSitemapEligible({ listed: true, ...step1, selfieApproved: false }), false, 'selfie not approved → out')
-  assert.equal(tutorSitemapEligible({ listed: false, ...step1 }), false, 'not listed → out')
-  // A seed tutor with step 1 done is absent from the sitemap.
-  assert.equal(tutorSitemapEligible({ listed: true, ...step1, isSeed: true }), false)
+test('tutorSitemapEligible: listed AND 100% AND fee paid AND not a seed tutor (PR100)', () => {
+  const ok = { verified: true, completion: 100 }
+  assert.equal(tutorSitemapEligible({ listed: true, ...ok }), true, 'a listed 100%+fee tutor is in the sitemap')
+  assert.equal(tutorSitemapEligible({ listed: true, ...ok, verified: false }), false, 'no fee → out')
+  assert.equal(tutorSitemapEligible({ listed: true, ...ok, completion: 80 }), false, 'below 100% → out')
+  assert.equal(tutorSitemapEligible({ listed: false, ...ok }), false, 'not listed → out')
+  assert.equal(tutorSitemapEligible({ listed: true, ...ok, isSeed: true }), false)
 })
 
 test('isFixtureTuition: seed parent / JOB-TRK / SEED-JOB are fixtures; a team post never is', () => {
@@ -611,23 +599,12 @@ test('the banned-login message is exact and owner-locked', () => {
 // ── PR37 — one shared indexability rule (lib/seo/indexable) ──
 import { tutorProfileIndexable, tuitionIndexable } from '../lib/seo/indexable'
 
-test('PR89: a tutor is indexable only when STEP 1 is complete, never seed/under-review', () => {
-  // Step 1 (owner, 15 Sep 2026): fee + mobile + CNIC + picture + selfie + subject
-  // + city + area.
-  const base = {
-    feePaid: true, isSeed: false, underReview: false, mobileVerified: true,
-    cnicApproved: true, profilePicApproved: true, selfieApproved: true,
-    hasSubject: true, hasCity: true, hasArea: true,
-  }
+test('PR100: a tutor is indexable only at 100% completion AND fee paid, never seed/under-review', () => {
+  const base = { feePaid: true, completion: 100, isSeed: false, underReview: false }
   assert.equal(tutorProfileIndexable(base), true)
   assert.equal(tutorProfileIndexable({ ...base, feePaid: false }), false, 'no fee')
-  assert.equal(tutorProfileIndexable({ ...base, mobileVerified: false }), false, 'mobile not verified')
-  assert.equal(tutorProfileIndexable({ ...base, cnicApproved: false }), false, 'CNIC not approved')
-  assert.equal(tutorProfileIndexable({ ...base, profilePicApproved: false }), false, 'picture not approved')
-  assert.equal(tutorProfileIndexable({ ...base, selfieApproved: false }), false, 'selfie not approved')
-  assert.equal(tutorProfileIndexable({ ...base, hasSubject: false }), false, 'no subject')
-  assert.equal(tutorProfileIndexable({ ...base, hasCity: false }), false, 'no city')
-  assert.equal(tutorProfileIndexable({ ...base, hasArea: false }), false, 'no area')
+  assert.equal(tutorProfileIndexable({ ...base, completion: 99 }), false, 'below 100%')
+  assert.equal(tutorProfileIndexable({ ...base, completion: null }), false, 'no completion')
   assert.equal(tutorProfileIndexable({ ...base, isSeed: true }), false, 'seed never indexable')
   assert.equal(tutorProfileIndexable({ ...base, underReview: true }), false, 'under review')
 })
