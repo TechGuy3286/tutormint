@@ -44,6 +44,7 @@
     "test:degrees": "tsx --test scripts/test-degrees.ts",
     "test:tutordash": "tsx --test scripts/test-tutor-dashboard.ts",
     "test:paymentopen": "tsx --test scripts/test-payment-open.ts",
+    "test:privacy": "tsx --test scripts/test-privacy.ts",
     "test:formchecklist": "tsx --test scripts/test-formchecklist.ts",
     "test:taxonomy:live": "tsx --test scripts/test-taxonomy-live.ts",
     "test:onboarding": "tsx --test scripts/test-onboarding.ts",

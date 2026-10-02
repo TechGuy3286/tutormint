@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, X, Loader2 } from 'lucide-react'
+import { Check, X, Loader2, Maximize2 } from 'lucide-react'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
+import Lightbox, { type LightboxImage } from '@/components/admin/Lightbox'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import type { DocumentStatuses, DocItem, DocState } from '@/lib/tutorDocuments'
@@ -42,6 +43,17 @@ export default function TutorDocumentReview({
   selfieDocId: string | null
   statuses: DocumentStatuses
 }) {
+  // PR106-C §3 — the related images, in a fixed order, so the viewer can page
+  // CNIC front ↔ back ↔ photo ↔ selfie. Each thumbnail opens the viewer at its
+  // index. Only the present images are included.
+  const images: LightboxImage[] = []
+  const at: Record<string, number> = {}
+  if (cnicFrontId) { at.cnicFront = images.length; images.push({ src: `/api/documents/${cnicFrontId}/preview`, alt: 'CNIC front' }) }
+  if (cnicBackId) { at.cnicBack = images.length; images.push({ src: `/api/documents/${cnicBackId}/preview`, alt: 'CNIC back' }) }
+  if (avatarUrl) { at.pic = images.length; images.push({ src: avatarUrl, alt: 'Profile picture' }) }
+  if (selfieDocId) { at.selfie = images.length; images.push({ src: `/api/documents/${selfieDocId}/preview`, alt: 'Selfie' }) }
+  const [lbIndex, setLbIndex] = useState<number | null>(null)
+
   return (
     <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
       <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">
@@ -58,12 +70,16 @@ export default function TutorDocumentReview({
         >
           <div className="grid grid-cols-2 gap-2">
             {cnicFrontId ? (
-              <SecureDocumentPreview documentId={cnicFrontId} alt="CNIC front" />
+              <Zoomable onOpen={() => setLbIndex(at.cnicFront)}>
+                <SecureDocumentPreview documentId={cnicFrontId} alt="CNIC front" />
+              </Zoomable>
             ) : (
               <NoImage label="No front" />
             )}
             {cnicBackId ? (
-              <SecureDocumentPreview documentId={cnicBackId} alt="CNIC back" />
+              <Zoomable onOpen={() => setLbIndex(at.cnicBack)}>
+                <SecureDocumentPreview documentId={cnicBackId} alt="CNIC back" />
+              </Zoomable>
             ) : (
               <NoImage label="No back" />
             )}
@@ -78,8 +94,10 @@ export default function TutorDocumentReview({
           state={statuses.profilePic}
         >
           {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- admin-only review thumbnail
-            <img src={avatarUrl} alt="Profile picture" className="h-32 w-32 rounded-xl object-cover" />
+            <Zoomable onOpen={() => setLbIndex(at.pic)}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- admin-only review thumbnail */}
+              <img src={avatarUrl} alt="Profile picture" className="h-32 w-32 rounded-xl object-cover" />
+            </Zoomable>
           ) : (
             <NoImage label="No picture" />
           )}
@@ -93,13 +111,35 @@ export default function TutorDocumentReview({
           state={statuses.selfie}
         >
           {selfieDocId ? (
-            <SecureDocumentPreview documentId={selfieDocId} alt="Selfie" />
+            <Zoomable onOpen={() => setLbIndex(at.selfie)}>
+              <SecureDocumentPreview documentId={selfieDocId} alt="Selfie" />
+            </Zoomable>
           ) : (
             <NoImage label="No selfie" />
           )}
         </ReviewItem>
       </div>
+
+      <Lightbox images={images} index={lbIndex} onIndex={setLbIndex} onClose={() => setLbIndex(null)} />
     </section>
+  )
+}
+
+/** A thumbnail wrapper that opens the admin image viewer on tap/click, with a
+ *  small expand hint. Keeps SecureDocumentPreview's own drag/right-click guard. */
+function Zoomable({ onOpen, children }: { onOpen: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label="Open larger"
+      className="group relative block w-full cursor-zoom-in overflow-hidden rounded-xl"
+    >
+      {children}
+      <span className="pointer-events-none absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-lg bg-tm-black/55 text-white opacity-80 group-hover:opacity-100">
+        <Maximize2 size={14} aria-hidden />
+      </span>
+    </button>
   )
 }
 
@@ -131,8 +171,14 @@ function ReviewItem({
   const [reason, setReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
+  // PR106-C §7: once a decision is made, the active buttons are hidden behind a
+  // "Change decision" link, so an approved/rejected item is not changed by a
+  // stray tap. Clicking reveals the buttons again; any change is logged by the
+  // route exactly as a first decision is.
+  const [changing, setChanging] = useState(false)
 
   const s = STATUS_LABEL[status]
+  const decided = status === 'approved' || status === 'rejected'
 
   const act = async (decision: 'approve' | 'reject') => {
     if (decision === 'reject' && reason.trim().length < 3) {
@@ -151,6 +197,7 @@ function ReviewItem({
       setStatus(decision === 'approve' ? 'approved' : 'rejected')
       setRejecting(false)
       setReason('')
+      setChanging(false)
       toast.success(decision === 'approve' ? 'Approved. The tutor was notified.' : 'Rejected. The tutor was notified.')
     } else {
       toast.error(data?.error ?? 'Could not save that.')
@@ -168,7 +215,17 @@ function ReviewItem({
         <p className="text-[11px] text-tm-red">{state.reason}</p>
       )}
 
-      {canReview && (
+      {canReview && decided && !changing && (
+        <button
+          type="button"
+          onClick={() => setChanging(true)}
+          className="min-h-[32px] text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline"
+        >
+          Change decision
+        </button>
+      )}
+
+      {canReview && (!decided || changing) && (
         <div className="space-y-2">
           {rejecting && (
             <div className="space-y-1">
@@ -213,6 +270,15 @@ function ReviewItem({
               Reject
             </button>
           </div>
+          {decided && changing && (
+            <button
+              type="button"
+              onClick={() => { setChanging(false); setRejecting(false); setReason('') }}
+              className="min-h-[28px] text-[11px] font-semibold text-gray-500 underline-offset-2 hover:underline"
+            >
+              Keep current decision
+            </button>
+          )}
         </div>
       )}
     </div>

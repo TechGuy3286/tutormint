@@ -10,10 +10,9 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { loadDocumentStatuses } from '@/lib/tutorDocuments'
-import { deriveCnicStatus } from '@/lib/cnicStatus'
 import TutorDocumentReview from '@/components/admin/TutorDocumentReview'
 import { formatDate } from '@/lib/datetime'
-import { jobTypesLabel, verificationStatus } from '@/lib/display'
+import { jobTypesLabel } from '@/lib/display'
 import SlugField from './SlugField'
 import TutorFieldEditor from './TutorFieldEditor'
 import TutorFieldHistory from './TutorFieldHistory'
@@ -78,23 +77,8 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
   const name =
     ((profile.full_name as string) || '').trim() || ((tutor.full_name as string) || '').trim() || 'Tutor'
   const completion = Number(profile.profile_completion ?? 0)
-  // One CNIC status (PR66 §4): the header must not claim "Verified" when the CNIC
-  // is not truly approved (marker + number + image). Display-only; data unchanged.
-  const cnicApproved =
-    deriveCnicStatus({
-      verification_state: profile.verification_state as string | null,
-      cnic_verified_at: profile.cnic_verified_at as string | null,
-      cnic_number: profile.cnic_number as string | null,
-      cnic_image_path: profile.cnic_image_path as string | null,
-    }) === 'approved'
-  const verifiedShown = (tutor.verification_status as string) === 'verified' && cnicApproved
-  const headerStatus = profile.is_suspended
-    ? 'suspended'
-    : verifiedShown
-      ? 'verified'
-      : (tutor.verification_status as string) === 'rejected'
-        ? 'rejected'
-        : 'pending'
+  // headerStatus is computed below, once the per-document statuses are loaded
+  // (PR106-C §6): the pill reflects the IDENTITY REVIEW — CNIC + photo + selfie.
 
   // Identity documents for review (PR60): the newest CNIC front/back and selfie,
   // plus each item's approval status. Read-resilient (statuses default to none
@@ -112,6 +96,35 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
   const cnicFront = docs.find((d) => d.kind === 'cnic' && (d.label ?? 'front') !== 'back')
   const cnicBack = docs.find((d) => d.kind === 'cnic' && d.label === 'back')
   const selfieDoc = docs.find((d) => d.kind === 'selfie')
+
+  // PR106-C §6 — the header pill reflects the IDENTITY REVIEW: Approved only once
+  // CNIC, profile picture AND selfie are all staff-approved (relabelled "Identity"
+  // so staff know what it means). Any of the three rejected (or an overall
+  // rejection) → Rejected; otherwise Pending. Suspension wins over all.
+  const identityApproved =
+    docStatuses.cnic.status === 'approved' &&
+    docStatuses.profilePic.status === 'approved' &&
+    docStatuses.selfie.status === 'approved'
+  const identityRejected =
+    docStatuses.cnic.status === 'rejected' ||
+    docStatuses.profilePic.status === 'rejected' ||
+    docStatuses.selfie.status === 'rejected' ||
+    (tutor.verification_status as string) === 'rejected'
+  const headerStatus = profile.is_suspended
+    ? 'suspended'
+    : identityApproved
+      ? 'verified'
+      : identityRejected
+        ? 'rejected'
+        : 'pending'
+  const headerLabel = profile.is_suspended
+    ? 'Suspended'
+    : identityApproved
+      ? 'Identity: Approved'
+      : identityRejected
+        ? 'Identity: Rejected'
+        : 'Identity: Pending'
+
   // The shared listing rule, so "Open public profile" shows only when the page
   // resolves (PR39).
   const directory = await loadDirectoryStatus(id)
@@ -132,18 +145,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
             <p className="truncate text-xs text-gray-500">{tutor.headline as string}</p>
           )}
           <div className="flex flex-wrap items-center gap-1.5">
-            <StatusChip
-              status={headerStatus}
-              label={
-                profile.is_suspended
-                  ? 'Suspended'
-                  : verifiedShown
-                    ? 'Verified'
-                    : (tutor.verification_status as string) === 'verified'
-                      ? 'CNIC pending'
-                      : verificationStatus(tutor.verification_status as string)
-              }
-            />
+            <StatusChip status={headerStatus} label={headerLabel} />
             <StatusChip status={tutor.video_status as string} label={`Video: ${tutor.video_status ?? 'none'}`} />
             <StatusChip
               status={completion >= 100 ? 'verified' : 'pending'}

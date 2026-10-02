@@ -298,13 +298,16 @@ export default function VideoUpload({
       {/* Error, with a retry that keeps the file */}
       {phase === 'error' && (
         <div className="space-y-2">
-          <p
-            role="alert"
-            className="flex items-start gap-1.5 rounded-xl bg-tm-tint-red p-2.5 text-[11px] font-semibold text-tm-red-hover"
-          >
-            <AlertCircle aria-hidden size={13} className="mt-px shrink-0" />
-            {error}
-          </p>
+          <div role="alert" className="rounded-xl bg-tm-tint-red p-2.5 text-tm-red-hover">
+            <p className="flex items-start gap-1.5 text-[11px] font-semibold">
+              <AlertCircle aria-hidden size={13} className="mt-px shrink-0" />
+              {error}
+            </p>
+            {/* PR106-C §9: a plain Urdu line under the English, never technical. */}
+            <p lang="ur" dir="rtl" className="mt-1 text-[11px] font-semibold">
+              ویڈیو اپ لوڈ نہیں ہو سکی۔ دوبارہ کوشش کریں یا تھوڑی دیر بعد کوشش کریں۔
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             {fileRef.current && (
               <button
@@ -328,13 +331,15 @@ export default function VideoUpload({
       )}
 
       {error && phase !== 'error' && (
-        <p
-          role="alert"
-          className="flex items-start gap-1.5 rounded-xl bg-tm-tint-red p-2.5 text-[11px] font-semibold text-tm-red-hover"
-        >
-          <AlertCircle aria-hidden size={13} className="mt-px shrink-0" />
-          {error}
-        </p>
+        <div role="alert" className="rounded-xl bg-tm-tint-red p-2.5 text-tm-red-hover">
+          <p className="flex items-start gap-1.5 text-[11px] font-semibold">
+            <AlertCircle aria-hidden size={13} className="mt-px shrink-0" />
+            {error}
+          </p>
+          <p lang="ur" dir="rtl" className="mt-1 text-[11px] font-semibold">
+            ویڈیو اپ لوڈ نہیں ہو سکی۔ دوبارہ کوشش کریں یا تھوڑی دیر بعد کوشش کریں۔
+          </p>
+        </div>
       )}
     </div>
   )

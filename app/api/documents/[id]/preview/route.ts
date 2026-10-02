@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DOCS_BUCKET } from '@/lib/documents'
+import { documentServable } from '@/lib/documentAccess'
 
 // The ONLY way bytes leave the private identity-docs bucket.
 //
@@ -58,12 +59,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const isOwner = doc.user_id === user.id
 
-  if (!isOwner && doc.kind !== 'degree') {
-    // Only an admin may see someone else's CNIC or selfie.
+  // PR106-C §1.2 — the ONE hard rule, whatever any profile row points at: a
+  // cnic/selfie is served only to the owner (their own) or an admin; a degree is
+  // the one kind widened to any signed-in viewer. Decided in lib/documentAccess.
+  let isAdmin = false
+  if (!isOwner) {
     const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-    if (me?.role !== 'admin') return deny()
+    isAdmin = me?.role === 'admin'
   }
-  // doc.kind === 'degree' for a non-owner: allowed, because they are signed in.
+  if (!documentServable(doc.kind as string, { isOwner, isAdmin })) return deny()
 
   const { data: file, error } = await admin.storage.from(DOCS_BUCKET).download(doc.preview_path)
   if (error || !file) return deny()

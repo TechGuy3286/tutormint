@@ -14,6 +14,7 @@
 
 import sharp from 'sharp'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { watermarkSvg as buildWatermarkSvg } from '@/lib/watermark'
 
 export const DOCS_BUCKET = 'identity-docs'
 
@@ -21,33 +22,12 @@ const PREVIEW_MAX_EDGE = 1000
 const PREVIEW_QUALITY = 72
 
 /**
- * Repeating diagonal wordmark, as an SVG overlay sized to the image.
- * Low-opacity white with a dark outline so it stays legible on both light
- * scans and dark photographs.
+ * Repeating diagonal wordmark, sized to the image. PR106-C §4: brand navy at
+ * 0.30 alpha with a half-opaque white stroke, a dense −30° grid, so it reads on
+ * both light scans and dark photographs. Pattern lives in lib/watermark (pure).
  */
 function watermarkSvg(width: number, height: number): Buffer {
-  // Scale the spacing to the image. A fixed floor (the earlier 140px) meant a
-  // small scan got one mark row, which the -30 degree rotation then pushed off
-  // the canvas entirely -- a small CNIC photo came back unwatermarked.
-  const step = Math.max(48, Math.round(Math.min(width, height) / 3))
-  const fontSize = Math.max(11, Math.round(step / 5))
-
-  // Cover well beyond the canvas so the rotation cannot leave a bare corner.
-  const marks: string[] = []
-  for (let y = -height; y < height * 2; y += step) {
-    for (let x = -width; x < width * 2; x += Math.round(step * 1.6)) {
-      marks.push(
-        `<text x="${x}" y="${y}" font-family="Helvetica,Arial,sans-serif" font-size="${fontSize}" ` +
-          `font-weight="700" fill="rgba(255,255,255,0.42)" stroke="rgba(15,23,42,0.28)" stroke-width="1">TutorMint</text>`,
-      )
-    }
-  }
-
-  return Buffer.from(
-    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-       <g transform="rotate(-30 ${width / 2} ${height / 2})">${marks.join('')}</g>
-     </svg>`,
-  )
+  return Buffer.from(buildWatermarkSvg(width, height))
 }
 
 /** Downscale and watermark. Returns a JPEG buffer. */

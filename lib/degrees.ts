@@ -121,6 +121,16 @@ export function activeCredentials(degrees: unknown[] | null | undefined): Creden
   return (degrees ?? []).map(parseCredential).filter((c) => !c.paused && c.title.trim().length > 0)
 }
 
+/** PR106-C §1.1 — the certificate document ids LINKED to active degrees, in
+ *  degree order. The public profile shows ONLY these (each still validated
+ *  kind='degree' at the source), so an orphan/unlinked document is never shown
+ *  as a certificate and a degree with no certificate shows nothing. */
+export function linkedCertificateDocIds(degrees: unknown[] | null | undefined): string[] {
+  return activeCredentials(degrees)
+    .map((c) => c.docId)
+    .filter((id): id is string => !!id && id.trim().length > 0)
+}
+
 /** Serialise an editor entry back to a storage element: clean JSON when it
  *  carries a certificate or paused flag, else a plain title string (so a simple
  *  degree stays a simple string and never re-wraps). */

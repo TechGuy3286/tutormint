@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatSlots, availabilityToSlots } from '@/lib/timeSlots'
 import { getEntitlements, badgesForPlan, isFeaturedPlan } from '@/lib/entitlements'
-import { degreeLabels } from '@/lib/degrees'
+import { degreeLabels, linkedCertificateDocIds } from '@/lib/degrees'
 import { tutorProfileNoindex } from '@/lib/planBadges'
 import { tutorProfileIndexable } from '@/lib/seo/indexable'
 import { deriveCnicStatus } from '@/lib/cnicStatus'
@@ -214,15 +214,31 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     reviewer: (parentName.get(r.parent_id as string) ?? 'A parent').split(' ')[0] || 'A parent',
   }))
 
-  const { data: docRows } = await admin
-    .from('user_documents')
-    .select('id, label, preview_path, created_at')
-    .eq('user_id', userId)
-    .eq('kind', 'degree')
-    .order('created_at')
-  const degree_documents = (docRows ?? [])
-    .filter((d) => d.preview_path)
-    .map((d) => ({ id: d.id as string, label: (d.label as string) ?? null }))
+  // PR106-C §1.1 — Certificates show ONLY the watermarked document LINKED to a
+  // degree entry (its docId), validated kind='degree'. An orphan/unlinked
+  // document (e.g. a photo someone uploaded where a certificate was expected) is
+  // never shown, and a degree with no certificate shows nothing. Order follows
+  // the degree list.
+  const { data: degRow } = await admin
+    .from('tutor_profiles')
+    .select('degrees')
+    .eq('id', userId)
+    .maybeSingle()
+  const linkedDocIds = linkedCertificateDocIds((degRow?.degrees as unknown[]) ?? [])
+  let degree_documents: { id: string; label: string | null }[] = []
+  if (linkedDocIds.length > 0) {
+    const { data: docRows } = await admin
+      .from('user_documents')
+      .select('id, label, preview_path, kind')
+      .in('id', linkedDocIds)
+      .eq('kind', 'degree')
+    const byId = new Map(
+      (docRows ?? []).filter((d) => d.preview_path).map((d) => [d.id as string, d]),
+    )
+    degree_documents = linkedDocIds
+      .filter((id) => byId.has(id))
+      .map((id) => ({ id, label: (byId.get(id)!.label as string) ?? null }))
+  }
 
   // The tutor's areas (PR68), for the owner's own preview. Fail-open to the single
   // area if the table is not there yet (pre-migration).
