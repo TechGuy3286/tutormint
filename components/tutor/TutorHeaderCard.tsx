@@ -1,8 +1,8 @@
 import Link from 'next/link'
 
 import Avatar from '@/components/Avatar'
-import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
 import BadgeRow from '@/components/badges/BadgeRow'
+import VerifyBadgeControl from '@/components/tutor/VerifyBadgeControl'
 import type { BadgeName } from '@/lib/planBadges'
 
 // The tutor dashboard's minimal profile card (PR20 §1).
@@ -25,6 +25,7 @@ export default function TutorHeaderCard({
   planName,
   badges = [],
   verificationPending = false,
+  findable = false,
   completion,
   publicHref,
 }: {
@@ -38,9 +39,10 @@ export default function TutorHeaderCard({
   /** The earned badges (PR105-B §3) — shown beside the plan name on the tutor's
    *  OWN dashboard. Empty until staff approve the documents. */
   badges?: BadgeName[]
-  /** Fee paid but CNIC/photo/selfie not all staff-approved yet — show
-   *  "Verification pending" in place of the Verified badge (PR105-B §3). */
+  /** Fee paid but CNIC/photo/selfie not all staff-approved yet (PR105-B §3). */
   verificationPending?: boolean
+  /** Profile is 100% complete and approved — the pop-up's "findable" line. */
+  findable?: boolean
   /** 0-100, for the ring around the photo below 100%. */
   completion: number
   /** The tutor's public page, when it is live; null otherwise. */
@@ -64,45 +66,34 @@ export default function TutorHeaderCard({
       </div>
 
       <div className="min-w-0 flex-1 space-y-1.5">
-        <h1 className="truncate text-lg font-black leading-tight text-tm-navy">{name}</h1>
-        {city && <p className="text-xs font-semibold text-gray-500">{city}</p>}
-
-        {/* Badge line: badges left, small Get verified button right (§1.2/§1.6). */}
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {!verified && <NotVerifiedBadge urdu />}
-            {planName && (
-              // PR106-B §2: the plan chip opens Membership Plans.
-              <Link
-                href="/membership-plans?for=tutors"
-                className="inline-flex items-center rounded-full bg-tm-tint-green px-2.5 py-0.5 text-[11px] font-bold text-tm-green-deep hover:bg-tm-tint-green/70"
-              >
-                {planName}
-              </Link>
-            )}
-            {/* Earned badges beside the plan name (§3). PR106-B §1: no Urdu line
-                under the badges on the tutor's OWN dashboard card. */}
-            {verified && badges.length > 0 && <BadgeRow badges={badges} size="sm" showLabel showUrdu={false} />}
-            {/* Fee paid, documents not yet all approved → a plain pending chip in
-                place of the Verified badge, with its Urdu line (§3). */}
-            {verified && verificationPending && (
-              <span className="inline-flex flex-col rounded-full bg-tm-tint-gold px-2.5 py-0.5 leading-none text-tm-gold-ink">
-                <span className="text-[11px] font-bold leading-none">Verification pending</span>
-                <span lang="ur" dir="rtl" className="mt-0.5 text-[10px] font-semibold leading-none opacity-90">
-                  تصدیق زیرِ عمل
-                </span>
-              </span>
-            )}
-          </div>
-          {!verified && (
+        {/* PR106-D §2.3/§2.4 — name and all badges on ONE wrapping line, badges
+            directly after the name. The Verified check (or pending / get-verified
+            chip) is the VerifyBadgeControl; it opens the benefits pop-up (§3). */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h1 className="text-lg font-black leading-tight text-tm-navy">{name}</h1>
+          <VerifyBadgeControl
+            feePaid={verified}
+            verifiedOk={badges.includes('Verified')}
+            verificationPending={verificationPending}
+            findable={findable}
+            payHref="/tutor/complete-profile?step=verify"
+          />
+          {/* Plan-tier badges (Premium/Featured) after the name — icon + label,
+              no Urdu. Verified is shown by the control above, so it is dropped. */}
+          {verified && (
+            <BadgeRow badges={badges.filter((b) => b !== 'Verified')} size="sm" showLabel showUrdu={false} />
+          )}
+          {planName && (
+            // PR106-B §2: the plan chip opens Membership Plans.
             <Link
-              href="/tutor/complete-profile?step=verify"
-              className="inline-flex min-h-[32px] shrink-0 items-center justify-center rounded-lg bg-tm-red px-3 text-[11px] font-bold text-white hover:bg-tm-red-hover"
+              href="/membership-plans?for=tutors"
+              className="inline-flex items-center rounded-full bg-tm-tint-green px-2.5 py-0.5 text-[11px] font-bold text-tm-green-deep hover:bg-tm-tint-green/70"
             >
-              Get verified
+              {planName}
             </Link>
           )}
         </div>
+        {city && <p className="text-xs font-semibold text-gray-500">{city}</p>}
 
         {publicHref && (
           <Link

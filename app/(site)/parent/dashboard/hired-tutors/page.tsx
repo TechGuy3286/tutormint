@@ -93,7 +93,8 @@ export default async function HiredTutorsPage() {
                   key={j.id as string}
                   className="space-y-1 rounded-2xl border border-gray-200 bg-white p-4"
                 >
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  {/* PR106-D §3 — badges directly after the name, same line. */}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="text-xs font-black text-tm-navy">
                       {t?.slug ? (
                         <Link href={`/tutor/${t.slug}`} className="hover:underline">

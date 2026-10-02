@@ -72,7 +72,8 @@ const TITLES: Record<FlowStepKey, string> = {
   experience: 'Years of experience',
   fee: 'What monthly fee do you expect?',
   degree: 'Education',
-  cnic: 'Your CNIC',
+  cnic_number: 'Your CNIC number',
+  cnic_photos: 'Photos of your CNIC',
 }
 
 // The Urdu sub-label under each step title (owner PR5a §1.5), the way the
@@ -92,7 +93,8 @@ const URDU: Record<FlowStepKey, string> = {
   experience: 'تجربے کے سال',
   fee: 'آپ کتنی ماہانہ فیس کی توقع رکھتے ہیں؟',
   degree: 'تعلیم',
-  cnic: 'آپ کا شناختی کارڈ',
+  cnic_number: 'آپ کا شناختی کارڈ نمبر',
+  cnic_photos: 'شناختی کارڈ کی تصاویر',
 }
 
 type Props = {
@@ -730,7 +732,8 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
             </button>
           </div>
         )}
-        {stepKey === 'cnic' && <CnicFlowStep support={support} onSubmitted={() => void advance()} />}
+        {stepKey === 'cnic_number' && <CnicNumberStep support={support} onNext={() => void advance()} />}
+        {stepKey === 'cnic_photos' && <CnicPhotosStep support={support} onSubmitted={() => void advance()} />}
 
         {stepKey === 'final' && <FinalScreen facts={facts} onLeave={leave} next={params.get('next')} />}
       </main>
@@ -743,7 +746,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
                 the way out; the gap flow resumes at the first unanswered step.
                 The component-driven steps advance from their own callback; the
                 rest advance on this button. Blockers require the step done. */}
-            {!['contact', 'verify', 'cnic', 'degree', 'photo', 'selfie', 'name', 'fee', 'area', 'level', 'subjects', 'availability'].includes(stepKey) && (
+            {!['contact', 'verify', 'cnic_number', 'cnic_photos', 'degree', 'photo', 'selfie', 'name', 'fee', 'area', 'level', 'subjects', 'availability'].includes(stepKey) && (
               <button
                 type="button" onClick={() => void advance()} disabled={busy || (isBlocker && !stepDone(facts, stepKey))}
                 className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
@@ -867,7 +870,7 @@ function TextStep({ initial, placeholder, onNext, busy, multiline, numeric }: {
       )}
       <button
         type="button" disabled={busy || !v.trim()} onClick={() => onNext(v.trim())}
-        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg"
       >
         {busy ? '…' : 'Save & continue'}
       </button>
@@ -956,7 +959,7 @@ function FeeRangeStep({
         type="button"
         disabled={busy || !ready}
         onClick={submit}
-        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg"
       >
         {busy ? '…' : 'Save & continue'}
       </button>
@@ -996,7 +999,7 @@ function CitiesAreasStep({
         type="button"
         disabled={busy || !state?.valid}
         onClick={() => state && onNext(state.mainCity, state.areasByCity)}
-        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg"
       >
         {busy ? '…' : 'Save & continue'}
       </button>
@@ -1054,7 +1057,7 @@ function LevelStep({
             type="button"
             disabled={busy || selected.length === 0}
             onClick={() => onNext(selected)}
-            className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
+            className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg"
           >
             {busy ? '…' : 'Save & continue'}
           </button>
@@ -1142,7 +1145,7 @@ function SubjectsPerLevelStep({
         type="button"
         disabled={busy || total === 0}
         onClick={onNext}
-        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg"
       >
         {busy ? '…' : 'Save & continue'}
       </button>
@@ -1176,7 +1179,7 @@ function AvailabilityStep({
         type="button"
         disabled={busy || slots.length === 0}
         onClick={() => onNext(slots)}
-        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg"
       >
         {busy ? '…' : 'Save & continue'}
       </button>
@@ -1331,7 +1334,7 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
         type="button"
         disabled={busy || !uploaded}
         onClick={onDone}
-        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40"
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg"
       >
         {busy ? '…' : 'Save & continue'}
       </button>
@@ -1507,7 +1510,7 @@ function DegreeStep({ initialDegrees, onSaved }: { initialDegrees: unknown[]; on
       </button>
       <p className="text-[11px] text-gray-500">Only you and our verification team can see it. Previews are watermarked.</p>
       <button type="button" disabled={busy || !ready} onClick={() => void save()}
-        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40">
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg">
         {busy ? '…' : 'Save & continue'}
       </button>
       <ChecklistStatus items={items} />
@@ -1521,26 +1524,15 @@ function DegreeStep({ initialDegrees, onSaved }: { initialDegrees: unknown[]; on
 // "Being checked" state with a Continue button. Settings keeps the FULL identity
 // card; this is the slim in-flow version so a tutor is not shown a second
 // "Identity documents" heading and three separate buttons mid-flow.
-function CnicFlowStep({
-  support,
-  onSubmitted,
-}: {
-  support: { waHref: string | null; waDisplay: string | null; email: string | null }
-  onSubmitted: () => void
-}) {
-  const toast = useToast()
-  const [busy, setBusy] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [approved, setApproved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  // Prefill from any earlier attempt so a returning tutor is not asked twice, then
-  // the shared CnicCapture owns the number/photos/checklist. The doc ids let us
-  // SHOW the saved photos (§8), not just mark the tiles done.
-  const [prefill, setPrefill] = useState<
-    { number: string; front: boolean; back: boolean; frontId: string | null; backId: string | null } | null
-  >(null)
-  const [cap, setCap] = useState<CnicCaptureState | null>(null)
+type CnicPrefill = { number: string; front: boolean; back: boolean; frontId: string | null; backId: string | null }
+type SupportInfo = { waHref: string | null; waDisplay: string | null; email: string | null }
 
+// Shared CNIC identity fetch for the two split screens (PR106-D §1.2): the saved
+// number, the front/back document ids (so a returning tutor sees their photos),
+// and the overall review state.
+function useCnicIdentity(): { prefill: CnicPrefill | null; view: 'capture' | 'submitted' | 'approved' } {
+  const [prefill, setPrefill] = useState<CnicPrefill | null>(null)
+  const [view, setView] = useState<'capture' | 'submitted' | 'approved'>('capture')
   useEffect(() => {
     let live = true
     fetch('/api/identity', { headers: { accept: 'application/json' } })
@@ -1551,150 +1543,169 @@ function CnicFlowStep({
         const number = (id?.cnicNumber as string) ?? ''
         const frontId = (id?.front?.id as string | undefined) ?? null
         const backId = (id?.back?.id as string | undefined) ?? null
-        const front = frontId != null
-        const back = backId != null
-        setPrefill({ number, front, back, frontId, backId })
-        if (id) {
-          // ONE CNIC status (PR66 §4 / PR106-A §8-9), decided by the pure helper.
-          const view = cnicStepView({ state: id.state, hasNumber: !!number.trim(), hasFront: front, hasBack: back })
-          if (view === 'approved') setApproved(true)
-          else if (view === 'submitted') setSubmitted(true)
-        }
+        setPrefill({ number, front: frontId != null, back: backId != null, frontId, backId })
+        if (id) setView(cnicStepView({ state: id.state, hasNumber: !!number.trim(), hasFront: frontId != null, hasBack: backId != null }))
       })
       .catch(() => setPrefill({ number: '', front: false, back: false, frontId: null, backId: null }))
     return () => { live = false }
   }, [])
+  return { prefill, view }
+}
 
-  async function saveAndContinue() {
-    if (!cap?.ready) return
-    setError(null)
-    setBusy(true)
-    try {
-      // Re-save the current number (idempotent — CnicCapture already saved it on
-      // upload), then submit for checking. Same /api/identity endpoints as before.
-      const num = await fetch('/api/identity', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'save-number', cnicNumber: cap.number }),
-      })
-      if (!num.ok) { setError((await num.json().catch(() => ({}))).error ?? 'Could not save your CNIC number.'); return }
-      const res = await fetch('/api/identity', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'submit' }),
-      })
-      if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? 'Could not submit for checking.'); return }
-      setSubmitted(true)
-      toast.success('CNIC sent for checking.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  // §9: once admin approves, the step is LOCKED for the tutor — the saved number
-  // and both photos are read-only, with a plain "contact support to change" line.
-  if (approved) {
-    return (
-      <div className="space-y-4 pt-2">
-        <div className="flex items-center gap-2 rounded-xl bg-tm-tint-green p-3 text-tm-green-deep">
-          <CheckCircle2 size={22} aria-hidden />
-          <div>
-            <p className="text-sm font-black">CNIC approved</p>
-            <p lang="ur" dir="rtl" className="text-[11px] font-bold">شناختی کارڈ منظور ہو گیا</p>
-          </div>
+// The locked "Approved — contact support" box, shared by both CNIC screens (§1.2).
+function CnicApprovedBox({ support, onContinue, children }: { support: SupportInfo; onContinue: () => void; children: React.ReactNode }) {
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="flex items-center gap-2 rounded-xl bg-tm-tint-green p-3 text-tm-green-deep">
+        <CheckCircle2 size={22} aria-hidden />
+        <div>
+          <p className="text-sm font-black">CNIC approved</p>
+          <p lang="ur" dir="rtl" className="text-[11px] font-bold">شناختی کارڈ منظور ہو گیا</p>
         </div>
-        {prefill?.number && (
+      </div>
+      {children}
+      <div className="rounded-xl border border-gray-200 bg-white p-3">
+        <p className="text-xs font-semibold text-gray-600">Approved. To change this, contact support.</p>
+        <p lang="ur" dir="rtl" className="mt-0.5 text-[11px] font-semibold text-gray-500">منظور شدہ۔ تبدیلی کے لیے سپورٹ سے رابطہ کریں۔</p>
+        {support.waHref && (
+          <a href={support.waHref} target="_blank" rel="noopener noreferrer"
+            className="mt-2 inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-tm-green-deep px-3 text-xs font-bold text-white hover:bg-tm-green-deep-hover">
+            <MessageCircle size={15} aria-hidden /> WhatsApp support{support.waDisplay ? ` ${support.waDisplay}` : ''}
+          </a>
+        )}
+      </div>
+      <button type="button" onClick={onContinue}
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg">
+        Continue
+      </button>
+    </div>
+  )
+}
+
+function CnicBeingChecked({ onContinue }: { onContinue: () => void }) {
+  return (
+    <div className="space-y-5 pt-4 text-center">
+      <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-tm-tint-gold text-tm-gold-ink">
+        <Clock size={30} aria-hidden />
+      </div>
+      <div className="space-y-1">
+        <p className="text-sm font-black text-tm-navy">CNIC being checked</p>
+        <p className="mx-auto max-w-xs text-xs leading-relaxed text-gray-500">Our team is reviewing your card. You can carry on with your profile.</p>
+      </div>
+      <button type="button" onClick={onContinue}
+        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg">
+        Continue
+      </button>
+    </div>
+  )
+}
+
+function CnicErrorLine({ error }: { error: string }) {
+  return (
+    <div role="alert">
+      <p className="text-[11px] font-bold text-tm-red">{error}</p>
+      <p lang="ur" dir="rtl" className="text-[11px] font-bold text-tm-red">کچھ مسئلہ ہوا۔ دوبارہ کوشش کریں یا سپورٹ سے رابطہ کریں۔</p>
+    </div>
+  )
+}
+
+const CNIC_SAVE_BTN =
+  'flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg'
+
+// Screen (a): the CNIC NUMBER only (PR106-D §1.2). Saves the number; the photos
+// come on the next screen. Prefills on reopen; locks after approval.
+function CnicNumberStep({ support, onNext }: { support: SupportInfo; onNext: () => void }) {
+  const { prefill, view } = useCnicIdentity()
+  const [cap, setCap] = useState<CnicCaptureState | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!prefill) return <div className="grid place-items-center py-6"><Loader2 size={22} className="animate-spin text-gray-500" /></div>
+  if (view === 'approved') {
+    return (
+      <CnicApprovedBox support={support} onContinue={onNext}>
+        {prefill.number && (
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
             <p className="text-[11px] font-bold text-gray-500">CNIC number</p>
             <p className="text-sm font-black text-tm-navy">{prefill.number}</p>
           </div>
         )}
-        {(prefill?.frontId || prefill?.backId) && (
-          <div className="flex gap-3">
-            {prefill?.frontId && <SecureDocumentPreview documentId={prefill.frontId} alt="Front of your CNIC" className="flex-1" />}
-            {prefill?.backId && <SecureDocumentPreview documentId={prefill.backId} alt="Back of your CNIC" className="flex-1" />}
-          </div>
-        )}
-        <div className="rounded-xl border border-gray-200 bg-white p-3">
-          <p className="text-xs font-semibold text-gray-600">
-            Approved. To change this, contact support.
-          </p>
-          <p lang="ur" dir="rtl" className="mt-0.5 text-[11px] font-semibold text-gray-500">
-            منظور شدہ۔ تبدیلی کے لیے سپورٹ سے رابطہ کریں۔
-          </p>
-          {support.waHref && (
-            <a
-              href={support.waHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-tm-green-deep px-3 text-xs font-bold text-white hover:bg-tm-green-deep-hover"
-            >
-              <MessageCircle size={15} aria-hidden /> WhatsApp support{support.waDisplay ? ` ${support.waDisplay}` : ''}
-            </a>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onSubmitted}
-          className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white"
-        >
-          Continue
-        </button>
-      </div>
+      </CnicApprovedBox>
     )
   }
+  if (view === 'submitted') return <CnicBeingChecked onContinue={onNext} />
 
-  if (submitted) {
-    return (
-      <div className="space-y-5 pt-4 text-center">
-        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-tm-tint-gold text-tm-gold-ink">
-          <Clock size={30} aria-hidden />
-        </div>
-        <div className="space-y-1">
-          <p className="text-sm font-black text-tm-navy">CNIC being checked</p>
-          <p className="mx-auto max-w-xs text-xs leading-relaxed text-gray-500">
-            Our team is reviewing your card. You can carry on with your profile.
-          </p>
-        </div>
-        <button
-          type="button" onClick={onSubmitted}
-          className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white"
-        >
-          Continue
-        </button>
-      </div>
-    )
+  const save = async () => {
+    if (!cap?.valid) return
+    setError(null); setBusy(true)
+    try {
+      const r = await fetch('/api/identity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save-number', cnicNumber: cap.number }) })
+      if (!r.ok) { setError((await r.json().catch(() => ({}))).error ?? 'Could not save your CNIC number.'); return }
+      onNext()
+    } finally { setBusy(false) }
   }
-
   return (
     <div className="space-y-4">
-      {/* The ONE shared CNIC entry (PR81): number + auto-dashes + front/back tiles
-          + the numbered checklist. This step keeps its own submit (save-number +
-          /api/identity submit) and its being-checked/verified states. */}
-      {prefill && (
-        <CnicCapture
-          initialNumber={prefill.number}
-          initialFront={prefill.front}
-          initialBack={prefill.back}
-          // §8: show the saved photos on re-open, so the step is never blank.
-          frontStoredPreview={prefill.frontId ? <SecureDocumentPreview documentId={prefill.frontId} alt="Front of your CNIC" /> : undefined}
-          backStoredPreview={prefill.backId ? <SecureDocumentPreview documentId={prefill.backId} alt="Back of your CNIC" /> : undefined}
-          onState={setCap}
-        />
-      )}
-      {error && (
-        <div role="alert">
-          <p className="text-[11px] font-bold text-tm-red">{error}</p>
-          <p lang="ur" dir="rtl" className="text-[11px] font-bold text-tm-red">
-            کچھ مسئلہ ہوا۔ دوبارہ کوشش کریں یا سپورٹ سے رابطہ کریں۔
-          </p>
-        </div>
-      )}
-      <button
-        type="button" disabled={busy || !cap?.ready} onClick={() => void saveAndContinue()}
-        className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40"
-      >
+      <CnicCapture show="number" initialNumber={prefill.number} onState={setCap} />
+      {error && <CnicErrorLine error={error} />}
+      <button type="button" disabled={busy || !cap?.valid} onClick={() => void save()} className={CNIC_SAVE_BTN}>
         {busy ? '…' : 'Save & continue'}
       </button>
-      {cap && <ChecklistStatus items={cnicChecklistItems(cap)} />}
+    </div>
+  )
+}
+
+// Screen (b): the CNIC PHOTOS only (PR106-D §1.2). Front + back; submits for
+// checking. Shows saved photos on reopen; locks after approval. The number is
+// linked to the same CNIC record (saved on the previous screen).
+function CnicPhotosStep({ support, onSubmitted }: { support: SupportInfo; onSubmitted: () => void }) {
+  const { prefill, view } = useCnicIdentity()
+  const toast = useToast()
+  const [cap, setCap] = useState<CnicCaptureState | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!prefill) return <div className="grid place-items-center py-6"><Loader2 size={22} className="animate-spin text-gray-500" /></div>
+  if (view === 'approved') {
+    return (
+      <CnicApprovedBox support={support} onContinue={onSubmitted}>
+        {(prefill.frontId || prefill.backId) && (
+          <div className="flex gap-3">
+            {prefill.frontId && <SecureDocumentPreview documentId={prefill.frontId} alt="Front of your CNIC" className="flex-1" />}
+            {prefill.backId && <SecureDocumentPreview documentId={prefill.backId} alt="Back of your CNIC" className="flex-1" />}
+          </div>
+        )}
+      </CnicApprovedBox>
+    )
+  }
+  if (view === 'submitted') return <CnicBeingChecked onContinue={onSubmitted} />
+
+  const bothReady = !!cap?.front && !!cap?.back
+  const submit = async () => {
+    if (!bothReady) return
+    setError(null); setBusy(true)
+    try {
+      const res = await fetch('/api/identity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'submit' }) })
+      if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? 'Could not submit for checking.'); return }
+      toast.success('CNIC sent for checking.')
+      onSubmitted()
+    } finally { setBusy(false) }
+  }
+  return (
+    <div className="space-y-4">
+      <CnicCapture
+        show="photos"
+        initialNumber={prefill.number}
+        initialFront={prefill.front}
+        initialBack={prefill.back}
+        frontStoredPreview={prefill.frontId ? <SecureDocumentPreview documentId={prefill.frontId} alt="Front of your CNIC" /> : undefined}
+        backStoredPreview={prefill.backId ? <SecureDocumentPreview documentId={prefill.backId} alt="Back of your CNIC" /> : undefined}
+        onState={setCap}
+      />
+      {error && <CnicErrorLine error={error} />}
+      <button type="button" disabled={busy || !bothReady} onClick={() => void submit()} className={CNIC_SAVE_BTN}>
+        {busy ? '…' : 'Save & continue'}
+      </button>
     </div>
   )
 }
@@ -1813,7 +1824,7 @@ function MobileStep({
       <MobileNumberInput value={phone} readOnly={sent} onChange={setPhone} />
       {!sent ? (
         <button type="button" disabled={busy || !phone} onClick={() => void send()}
-          className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40">
+          className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg">
           {busy ? '…' : 'Send code'}
         </button>
       ) : (
@@ -1992,7 +2003,7 @@ function ContactStep({
       <div className="space-y-1">
         <button type="button" disabled={busy || !ready}
           onClick={() => onContinue({ whatsapp: normalisePkMobile(whatsapp) ?? whatsapp.trim(), headline: tagline.trim(), bio: bio.trim() })}
-          className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40">
+          className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg">
           {busy ? '…' : 'Continue'}
         </button>
         <ChecklistStatus items={items} />

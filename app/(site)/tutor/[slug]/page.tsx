@@ -864,16 +864,24 @@ export default async function TutorPublicProfile({ params }: { params: Params })
             />
 
             <div className="min-w-0 flex-1 space-y-2">
-              <h1 className="text-xl font-black leading-tight text-tm-navy sm:text-2xl">
-                {tutor.full_name}
-              </h1>
+              {/* PR106-D §3 — the name and ALL badges on ONE wrapping line, badges
+                  directly after the name. A badge links to the FAQ entry that says
+                  what it means. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h1 className="text-xl font-black leading-tight text-tm-navy sm:text-2xl">
+                  {tutor.full_name}
+                </h1>
+                {badges.length > 0 && (
+                  <Link href="/faq#parents" className="inline-flex" aria-label="What the badges mean">
+                    <BadgeRow badges={badges} size="md" showLabel />
+                  </Link>
+                )}
+                {showNotVerified && <NotVerifiedBadge />}
+              </div>
               {tutor.headline && (
                 <p className="text-sm font-bold text-tm-green-deep">{tutor.headline}</p>
               )}
-              {/* PR17 §2 — the rating, the Verified/Premium/Featured badges and the
-                  red "Not verified" badge all sit on ONE line. A badge links to the
-                  FAQ entry that says what it means. The job-type chip is on its own
-                  line below. */}
+              {/* Rating on its own line below the name. */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="text-xs font-bold text-slate-700">
                   {reviews > 0 ? (
@@ -885,12 +893,6 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                     <span className="font-normal text-gray-500">New tutor · no reviews yet</span>
                   )}
                 </span>
-                {badges.length > 0 && (
-                  <Link href="/faq#parents" className="inline-flex" aria-label="What the badges mean">
-                    <BadgeRow badges={badges} size="md" showLabel />
-                  </Link>
-                )}
-                {showNotVerified && <NotVerifiedBadge />}
               </div>
               {/* §3.3: the preview names the badges that will become true once
                   the tutor is listed, rather than showing them as if earned. */}

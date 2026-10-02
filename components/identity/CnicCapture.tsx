@@ -56,10 +56,14 @@ export default function CnicCapture({
   uploadUrl,
   uploadExtra,
   saveNumber,
+  show = 'all',
 }: {
   initialNumber?: string
   initialFront?: boolean
   initialBack?: boolean
+  /** PR106-D §1.2 — render only the number field, only the photo tiles, or both.
+   *  The onboarding CNIC step is split across two screens that each reuse this. */
+  show?: 'all' | 'number' | 'photos'
   /** A node rendering an already-stored front/back document (e.g. a watermarked
    *  SecureDocumentPreview) — for surfaces like IdentityCard that show the card a
    *  returning member already uploaded. */
@@ -125,24 +129,33 @@ export default function CnicCapture({
     return true
   }, [number, saveNumber])
 
+  const items = cnicChecklistItems({ valid, front, back })
+  const shownItems =
+    show === 'number' ? items.slice(0, 1) : show === 'photos' ? items.slice(1) : items
+
   return (
     <div className="space-y-4">
-      <FormChecklist items={cnicChecklistItems({ valid, front, back })} />
-      <input
-        value={number}
-        inputMode="numeric"
-        onChange={(e) => setNumber(formatCnic(e.target.value))}
-        placeholder="CNIC number, e.g. 35201-1234567-1"
-        aria-label="CNIC number"
-        className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy"
-      />
-      {/* PR106-B §12: the format hint is always shown, English with Urdu under it,
-          on every surface that uses CnicCapture. */}
-      <p className="-mt-1.5 text-[11px] text-gray-500">
-        {CNIC_FORMAT_HINT}
-        <span lang="ur" dir="rtl" className="mt-0.5 block">{CNIC_FORMAT_HINT_UR}</span>
-      </p>
+      <FormChecklist items={shownItems} />
+      {show !== 'photos' && (
+        <>
+          <input
+            value={number}
+            inputMode="numeric"
+            onChange={(e) => setNumber(formatCnic(e.target.value))}
+            placeholder="CNIC number, e.g. 35201-1234567-1"
+            aria-label="CNIC number"
+            className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy"
+          />
+          {/* PR106-B §12: the format hint is always shown, English with Urdu under
+              it, on every surface that uses CnicCapture. */}
+          <p className="-mt-1.5 text-[11px] text-gray-500">
+            {CNIC_FORMAT_HINT}
+            <span lang="ur" dir="rtl" className="mt-0.5 block">{CNIC_FORMAT_HINT_UR}</span>
+          </p>
+        </>
+      )}
       {/* Front + back, side by side. Each fills with the real photo once taken. */}
+      {show !== 'number' && (
       <div className="flex gap-3">
         <CnicCameraField
           side="front"
@@ -167,12 +180,17 @@ export default function CnicCapture({
           uploadExtra={uploadExtra}
         />
       </div>
-      <p className="text-[11px] leading-relaxed text-gray-500">
-        Only our verification team sees it. It never appears on your profile.
-      </p>
-      <p className="text-[11px] leading-relaxed text-gray-500" lang="ur" dir="rtl">
-        صرف ہماری تصدیقی ٹیم دیکھتی ہے۔ یہ کبھی آپ کے پروفائل پر ظاہر نہیں ہوتا۔
-      </p>
+      )}
+      {show !== 'number' && (
+        <>
+          <p className="text-[11px] leading-relaxed text-gray-500">
+            Only our verification team sees it. It never appears on your profile.
+          </p>
+          <p className="text-[11px] leading-relaxed text-gray-500" lang="ur" dir="rtl">
+            صرف ہماری تصدیقی ٹیم دیکھتی ہے۔ یہ کبھی آپ کے پروفائل پر ظاہر نہیں ہوتا۔
+          </p>
+        </>
+      )}
       {error && <p role="alert" className="text-[11px] font-bold text-tm-red">{error}</p>}
     </div>
   )

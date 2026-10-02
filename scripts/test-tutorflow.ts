@@ -61,7 +61,7 @@ test('the flow follows the owner order with the platform fee last (PR78 §C)', (
   assert.deepEqual(FLOW_ORDER, [
     'city', 'area', 'level', 'subjects', 'jobtype', 'availability',
     'name', 'contact',
-    'degree', 'experience', 'fee', 'photo', 'selfie', 'cnic', 'verify',
+    'degree', 'experience', 'fee', 'photo', 'selfie', 'cnic_number', 'cnic_photos', 'verify',
   ])
   // The platform fee moves to LAST — everything is answered before paying.
   assert.equal(FLOW_ORDER[FLOW_ORDER.length - 1], 'verify')
@@ -136,7 +136,12 @@ test('stepDone matches the facts for each step', () => {
   assert.equal(stepDone({ ...EMPTY, hourlyRate: 8000 }, 'fee'), true)
   assert.equal(stepDone({ ...EMPTY, degreesCount: 1, degreeDocCount: 0 }, 'degree'), true) // PR106-A: certificate optional
   assert.equal(stepDone({ ...EMPTY, degreesCount: 1, degreeDocCount: 1 }, 'degree'), true)
-  assert.equal(stepDone({ ...EMPTY, cnicNumber: '1', cnicImagePath: null }, 'cnic'), false)
+  // PR106-D: the CNIC step is split — number screen done on the number, photos
+  // screen done on an uploaded image.
+  assert.equal(stepDone({ ...EMPTY, cnicNumber: '1', cnicImagePath: null }, 'cnic_number'), true)
+  assert.equal(stepDone({ ...EMPTY, cnicNumber: null, cnicImagePath: null }, 'cnic_number'), false)
+  assert.equal(stepDone({ ...EMPTY, cnicNumber: '1', cnicImagePath: null }, 'cnic_photos'), false)
+  assert.equal(stepDone({ ...EMPTY, cnicNumber: '1', cnicImagePath: 'p/x' }, 'cnic_photos'), true)
 })
 
 test('the "You\'re listed" verdict is exactly directoryBlockers empty', () => {

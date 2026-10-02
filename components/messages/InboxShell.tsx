@@ -279,15 +279,17 @@ export default async function InboxShell({
                 />
 
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-black text-tm-navy">
+                  {/* PR106-D §3 — name + badges on ONE wrapping line. */}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-black text-tm-navy">
                     {header.otherSlug ? (
                       <Link href={`/tutor/${header.otherSlug}`} className="hover:underline">
                         {header.otherName}
                       </Link>
                     ) : (
-                      header.otherName
+                      <span>{header.otherName}</span>
                     )}
-                  </p>
+                    {header.otherBadges.length > 0 && <BadgeRow badges={header.otherBadges} size="sm" />}
+                  </div>
                   {header.jobTitle && (
                     <p className="flex items-center gap-1 truncate text-[11px] text-gray-500">
                       <Briefcase size={11} className="shrink-0" aria-hidden />
@@ -314,10 +316,6 @@ export default async function InboxShell({
                     </p>
                   )}
                 </div>
-
-                {header.otherBadges.length > 0 && (
-                  <BadgeRow badges={header.otherBadges} size="sm" />
-                )}
               </div>
 
               <Conversation

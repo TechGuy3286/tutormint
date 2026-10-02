@@ -26,7 +26,8 @@ export type FlowStepKey =
   | 'fee'
   | 'availability'
   | 'degree'
-  | 'cnic'
+  | 'cnic_number'
+  | 'cnic_photos'
 
 // PR76 §C.1 / PR78 §C — the owner's order:
 //   1 City · 2 Areas · 3 Academic levels · 4 Subjects · 5 Job title ·
@@ -54,7 +55,8 @@ export const FLOW_ORDER: FlowStepKey[] = [
   'fee',
   'photo',
   'selfie',
-  'cnic',
+  'cnic_number',
+  'cnic_photos',
   'verify',
 ]
 
@@ -88,7 +90,7 @@ export const COMPLETION_KEY_TO_STEP: Record<string, FlowStepKey> = {
   fee: 'fee',
   mode: 'jobtype',
   degrees: 'degree',
-  cnic: 'cnic',
+  cnic: 'cnic_number',
   phone: 'contact',
 }
 
@@ -181,8 +183,12 @@ export function stepDone(f: FlowFacts, key: FlowStepKey): boolean {
       // PR106-A §4: a typed degree is enough — the certificate is optional. Done
       // once at least one degree is listed, or the tutor answered "none yet".
       return f.degreesCount > 0 || f.noDegreeYet
-    case 'cnic':
-      return nonblank(f.cnicNumber) && nonblank(f.cnicImagePath)
+    // PR106-D §1.2 — the CNIC step is split: screen (a) is the number, screen
+    // (b) the photos. Each is done by its own half.
+    case 'cnic_number':
+      return nonblank(f.cnicNumber)
+    case 'cnic_photos':
+      return nonblank(f.cnicImagePath)
   }
 }
 

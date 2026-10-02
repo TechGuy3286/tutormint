@@ -130,22 +130,25 @@ export default function ApplicantList({
             a.status === 'hired' ? 'border-tm-green-deep ring-1 ring-tm-green-deep' : 'border-gray-200'
           }`}
         >
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-sm font-black text-tm-navy">
-              {a.tutorSlug ? (
-                <Link href={`/tutor/${a.tutorSlug}`} className="hover:underline">
-                  {a.tutorName}
-                </Link>
-              ) : (
-                a.tutorName
-              )}
-            </h3>
+          {/* PR106-D §3 — name + badges on ONE wrapping line, badges right after
+              the name; the status chip stays at the end. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h3 className="text-sm font-black text-tm-navy">
+                {a.tutorSlug ? (
+                  <Link href={`/tutor/${a.tutorSlug}`} className="hover:underline">
+                    {a.tutorName}
+                  </Link>
+                ) : (
+                  a.tutorName
+                )}
+              </h3>
+              {a.badges.length > 0 && <BadgeRow badges={a.badges} size="sm" showLabel />}
+            </div>
             <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
               {applicationStatus(a.status)}
             </span>
           </div>
-
-          {a.badges.length > 0 && <BadgeRow badges={a.badges} size="sm" showLabel />}
 
           <p className="text-[11px] text-gray-500">
             {a.headline ?? 'Tutor'}

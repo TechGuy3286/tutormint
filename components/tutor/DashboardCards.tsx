@@ -12,6 +12,8 @@ export type CountTile = {
   /** The count. Omit for an action tile that shows only an icon + label. */
   value?: React.ReactNode
   label: string
+  /** A quieter line under the label (e.g. the applications quota — PR106-D §9). */
+  note?: React.ReactNode
   href: string
   tone: TileTone
   highlight?: boolean
@@ -39,6 +41,7 @@ export function CountGrid({ tiles }: { tiles: CountTile[] }) {
           icon={t.icon}
           value={t.value}
           label={t.label}
+          note={t.note}
           tip={t.tip}
         />
       ))}

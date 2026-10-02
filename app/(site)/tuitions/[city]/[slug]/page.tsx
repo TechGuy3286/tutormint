@@ -581,13 +581,16 @@ export default async function TuitionPage({ params }: { params: Params }) {
               className="h-12 w-12 shrink-0 text-sm"
             />
             <div className="min-w-0 space-y-1">
-              <Link
-                href={`/parent/${job.parent_id}`}
-                className="inline-flex min-h-[24px] items-center gap-1.5 text-sm font-black text-tm-navy hover:text-tm-red hover:underline"
-              >
-                {job.parent_name}
-              </Link>
-              {job.parent_badges.length > 0 && <BadgeRow badges={job.parent_badges} size="sm" />}
+              {/* PR106-D §3 — name + badges on ONE wrapping line. */}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <Link
+                  href={`/parent/${job.parent_id}`}
+                  className="inline-flex min-h-[24px] items-center gap-1.5 text-sm font-black text-tm-navy hover:text-tm-red hover:underline"
+                >
+                  {job.parent_name}
+                </Link>
+                {job.parent_badges.length > 0 && <BadgeRow badges={job.parent_badges} size="sm" />}
+              </div>
               <p className="text-[11px] leading-relaxed text-gray-500">
                 {job.parent_can_hire
                   ? 'Featured parent — able to complete a hire.'

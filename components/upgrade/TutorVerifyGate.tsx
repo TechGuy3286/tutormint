@@ -173,17 +173,26 @@ export default function TutorVerifyGate({
           </button>
         )}
       </div>
-      {/* Bank transfer — the second option (PR106-C0 §2). Activated by staff
-          after they check the payment; the online option above is instant. */}
-      <button
-        type="button"
-        onClick={() => void start('transfer')}
-        disabled={starting || (!hasCnic && !cap?.ready)}
-        className="min-h-[40px] w-full text-center text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline disabled:opacity-60"
-      >
-        Or pay by bank transfer
-        <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">یا بینک ٹرانسفر سے ادائیگی کریں</span>
-      </button>
+      {/* Manual payment — the second option, clearly below the PayPro button
+          (PR106-C0 §2 / PR106-D §11). "Pay by bank transfer" goes to the order
+          page, which shows the bank / JazzCash / Easypaisa details (from
+          app_settings) and the proof-upload form. The online option above is
+          instant; a transfer is checked by staff first. */}
+      <div className="rounded-xl border border-gray-200 bg-tm-bg p-3">
+        <button
+          type="button"
+          onClick={() => void start('transfer')}
+          disabled={starting || (!hasCnic && !cap?.ready)}
+          className="min-h-[40px] text-[12px] font-bold text-tm-navy underline-offset-2 hover:underline disabled:opacity-60"
+        >
+          Pay by bank transfer
+          <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">بینک ٹرانسفر سے ادائیگی کریں</span>
+        </button>
+        <p className="mt-1 text-[11px] text-gray-500">
+          Bank transfer is activated after our team checks your payment.
+          <span lang="ur" dir="rtl" className="mt-0.5 block">بینک ٹرانسفر ہماری ٹیم کے جانچنے کے بعد چالو ہوتی ہے۔</span>
+        </p>
+      </div>
     </>
   )
 

@@ -5,7 +5,8 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import CvCard from '@/components/tutor/CvCard'
 import SavedJobsSection from '@/components/tutor/SavedJobsSection'
 import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
-import VerificationFeeCard from '@/components/tutor/VerificationFeeCard'
+import { quotaCounter } from '@/lib/tutorDashboard'
+import Link from 'next/link'
 import DashboardActionBar from '@/components/dashboard/DashboardActionBar'
 import { CountGrid, type CountTile } from '@/components/tutor/DashboardCards'
 
@@ -93,10 +94,17 @@ export default async function TutorDashboardPage() {
         : 'اپنے قریب ٹیوشنز دیکھنے کے لیے سیٹنگز میں اپنا علاقہ شامل کریں'
   const findTuitionsHref = '/browse/tuitions'
 
+  // The shared-pool applications quota (PR106-D §9): shown on the My-applications
+  // tile. Basic "x of 10", Premium "x of 100", Featured "Unlimited" (never a
+  // number). Only a tutor who is on a plan (fee paid) sees a count.
+  const q = quotaCounter({ plan: ent.plan, used: ent.quotaUsed, quota: ent.quota })
+  const quotaNote = ent.plan ? `${q.text.replace(' used this month', ' this month')}` : null
+  const findable = percent >= 100 && ent.verified && ent.badges.includes('Verified')
+
   // Seven tiles, seven distinct tones — no two share a colour (PR32 §2). The
   // seventh is the optional Intro video tile (PR76 §D.3), its own mint tint.
   const tiles: CountTile[] = [
-    { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', href: '/tutor/dashboard/applications', tone: 'sky', tip: 'Tuitions you have applied to' },
+    { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', note: quotaNote, href: '/tutor/dashboard/applications', tone: 'sky', tip: 'Tuitions you have applied to' },
     // The number is the tutor's CONVERSATIONS (four conversations → 4); unread
     // is the small badge, never the main number (PR44 §2).
     { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: conversations, label: 'Messages', href: '/tutor/dashboard/messages', tone: 'navy', badge: unread, tip: 'Your conversations with parents' },
@@ -123,6 +131,7 @@ export default async function TutorDashboardPage() {
           planName={ent.planName}
           badges={ent.badges}
           verificationPending={!!ent.verificationPending}
+          findable={findable}
           completion={percent}
           publicHref={publicHref}
         />
@@ -137,18 +146,23 @@ export default async function TutorDashboardPage() {
           icon={<Search aria-hidden size={20} />}
         />
 
-        {/* Verification-fee card + shared-pool quota counter (PR106-B §2–§5).
-            Compact, so the count tiles below are not pushed far down. */}
-        <VerificationFeeCard
-          feePaid={ent.verified}
-          verifiedOk={ent.badges.includes('Verified')}
-          findable={percent >= 100 && ent.verified && ent.badges.includes('Verified')}
-          payHref="/tutor/complete-profile?step=verify"
-          quota={{ plan: ent.plan, used: ent.quotaUsed, cap: ent.quota }}
-        />
+        {/* PR106-D §8: the "Your verification fee" card is removed — its content
+            is now the pop-up behind the dashboard badge. §9: the applications
+            quota moved onto the My-applications tile below. */}
 
         {/* 3.2 Count tiles, two to a row. */}
         <CountGrid tiles={tiles} />
+
+        {/* PR106-D §9: "Get more applications" at ~80% used (Basic/Premium only). */}
+        {q.showGetMore && (
+          <Link
+            href="/membership-plans?for=tutors"
+            className="block text-center text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline"
+          >
+            Get more applications
+            <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">مزید درخواستیں حاصل کریں</span>
+          </Link>
+        )}
 
         {/* 3.3 Your CV. */}
         <CvCard canDownload={canDownloadCv(ent)} />

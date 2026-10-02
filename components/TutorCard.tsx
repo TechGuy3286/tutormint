@@ -392,16 +392,15 @@ export default function TutorCard({
           </div>
 
           <div className="col-start-2 row-start-1 min-w-0 space-y-1.5 pr-16 sm:pr-20">
-            <h3 className="truncate text-base font-black text-tm-navy sm:text-lg">
-              {/* THE WHOLE CARD IS THIS LINK.
-                  `after:absolute after:inset-0` stretches an invisible overlay
-                  from the name across the entire (relative) article, so a tap
-                  anywhere that is not a control opens the profile. It is done
-                  from the name rather than by wrapping the card in an <a>
-                  because a link may not contain buttons — nesting them is
-                  invalid HTML and browsers recover from it unpredictably.
-                  It is also ONE tab stop: the card announces itself as the
-                  tutor's name and the four controls follow it in order. */}
+            {/* PR106-D §3 — the name and ALL badges on ONE wrapping line, badges
+                directly after the name. THE WHOLE CARD IS THE NAME LINK:
+                `after:absolute after:inset-0` stretches an invisible overlay from
+                the name across the entire (relative) article, so a tap anywhere
+                that is not a control opens the profile. Done from the name rather
+                than wrapping the card in an <a> (a link may not contain buttons).
+                The badges are non-interactive, so the overlay sitting over them is
+                fine. */}
+            <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-black text-tm-navy sm:text-lg">
               <Link
                 prefetch={false}
                 href={profileHref}
@@ -409,14 +408,12 @@ export default function TutorCard({
               >
                 {tutor.full_name}
               </Link>
-            </h3>
-            {/* PR17 §2 — the stars, "New tutor", the Verified/Premium/Featured
-                badges and the red "Not verified" badge all sit on ONE line. The
-                job-type chip stays on its own line below. */}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <Stars rating={rating} count={reviews} />
               {badges.length > 0 && <BadgeRow badges={badges} size="sm" />}
               {!isVerified && <NotVerifiedBadge />}
+            </h3>
+            {/* Stars / "New tutor" on their own line below the name. */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Stars rating={rating} count={reviews} />
             </div>
             {tutor.headline && (
               <p className="line-clamp-2 text-xs font-semibold text-tm-green-deep">{tutor.headline}</p>

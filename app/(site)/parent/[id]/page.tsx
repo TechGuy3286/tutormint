@@ -75,14 +75,17 @@ export default async function PublicParentPage({ params }: { params: Params }) {
           decorative
         />
         <div className="min-w-0 flex-1 space-y-1.5">
-          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">{parent.name}</h1>
+          {/* PR106-D §3 — name + badges on ONE wrapping line, badges after the name. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h1 className="text-xl font-black text-tm-navy sm:text-2xl">{parent.name}</h1>
+            {parent.badges.length > 0 && <BadgeRow badges={parent.badges} size="sm" />}
+          </div>
           {parent.team && (
             <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-tm-navy">
               <ShieldCheck aria-hidden size={12} />
               Official TutorMint account
             </p>
           )}
-          {parent.badges.length > 0 && <BadgeRow badges={parent.badges} size="sm" />}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
             {parent.city && (
               <span className="inline-flex items-center gap-1">
