@@ -2,6 +2,7 @@ import 'server-only'
 import https from 'node:https'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile } from '@/lib/phone'
+import { onlinePaymentOpenFrom } from '@/lib/payments/paymentOpen'
 
 // PayPro API v2 client (PR65). Sandbox → https://demoapi.paypro.com.pk.
 //
@@ -40,6 +41,21 @@ export function pproSandbox(): boolean {
   return BASE().includes('demoapi')
 }
 
+/**
+ * THE shared source of truth for "online payment is open" (PR106-C0 §1).
+ *
+ * Open ⟺ the PayPro gateway is genuinely LIVE: configured AND not the sandbox.
+ * This is the SAME fact the working checkout uses to actually take a card
+ * payment, so the open/closed decision can never drift from whether a payment
+ * would really go through. Every gate — the checkout route, the Membership Plans
+ * page, the verify/fee step, the upgrade sheet — resolves through this. When it
+ * is false (sandbox or unconfigured) a normal member sees "not open yet"; that is
+ * the only case the closed notice appears.
+ */
+export function onlinePaymentOpen(): boolean {
+  return onlinePaymentOpenFrom({ configured: pproConfigured(), sandbox: pproSandbox() })
+}
+
 /** Emails allow-listed for sandbox PayPro checkout (PR66 §3), case-insensitive. */
 function payproTestEmails(): Set<string> {
   return new Set(
@@ -74,13 +90,17 @@ export function checkoutVisibleFor(profile: GateProfile): boolean {
   return !!email && payproTestEmails().has(email)
 }
 
-/** Whether the PayPro (card) option is offered to this account: PayPro must be
- *  configured AND the account must be inside the launch gate. The gate is the
- *  same in sandbox and live — the old "live = everyone" is replaced by the
- *  gated test phase (PR98 §2). */
+/** Whether the PayPro (card) option is offered to this account.
+ *
+ *  PR106-C0 §2: once the gateway is LIVE, PayPro is the normal pay option for
+ *  EVERYONE — the launch-phase gating (test accounts only) applied while the
+ *  gateway was being brought up and is now lifted. In SANDBOX it stays owner/
+ *  staff/seed/test-email only, so a demo gateway never takes a real member's
+ *  money. Unconfigured → never. */
 export function pproVisibleFor(profile: GateProfile): boolean {
   if (!pproConfigured()) return false
-  return checkoutVisibleFor(profile)
+  if (pproSandbox()) return checkoutVisibleFor(profile)
+  return true
 }
 
 // ── low-level transport ─────────────────────────────────────────────────────

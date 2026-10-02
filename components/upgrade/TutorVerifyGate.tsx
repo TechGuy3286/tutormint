@@ -76,14 +76,16 @@ export default function TutorVerifyGate({
   }, [loadIdentityState])
 
 
-  async function verify() {
+  async function start(method?: 'transfer') {
     setStarting(true)
     setError(null)
     setClosed(false)
     // The one-time fee is a checkout for the 'verified' fee marker (Rs 199).
+    // No method → the normal online (PayPro) option; 'transfer' → bank transfer
+    // (the second option, activated after staff approval). PR106-C0 §2.
     const { ok, data, error: failed } = await submitJson<{ mode?: string; url?: string; next?: string; code?: string }>(
       '/api/payments/checkout',
-      { planCode: 'verified' },
+      { planCode: 'verified', ...(method ? { method } : {}) },
     )
     if (!ok || !data) {
       // Checkout not open to this account yet (403) → its own plain notice.
@@ -155,7 +157,7 @@ export default function TutorVerifyGate({
       <div className="flex flex-col gap-2 sm:flex-row-reverse">
         <button
           type="button"
-          onClick={() => void verify()}
+          onClick={() => void start()}
           disabled={starting || (!hasCnic && !cap?.ready)}
           className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-60"
         >
@@ -171,6 +173,17 @@ export default function TutorVerifyGate({
           </button>
         )}
       </div>
+      {/* Bank transfer — the second option (PR106-C0 §2). Activated by staff
+          after they check the payment; the online option above is instant. */}
+      <button
+        type="button"
+        onClick={() => void start('transfer')}
+        disabled={starting || (!hasCnic && !cap?.ready)}
+        className="min-h-[40px] w-full text-center text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline disabled:opacity-60"
+      >
+        Or pay by bank transfer
+        <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">یا بینک ٹرانسفر سے ادائیگی کریں</span>
+      </button>
     </>
   )
 

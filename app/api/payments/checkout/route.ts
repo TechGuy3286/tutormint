@@ -3,8 +3,7 @@ import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { getProvider, newPaymentReference } from '@/lib/payments'
 import { manual } from '@/lib/payments/manual'
-import { checkoutVisibleFor, pproVisibleFor, startPayproCheckout, toPayproMobile } from '@/lib/payments/paypro'
-import { getPaymentSwitches, planOpenToAll } from '@/lib/payments/switches'
+import { checkoutVisibleFor, pproVisibleFor, onlinePaymentOpen, startPayproCheckout, toPayproMobile } from '@/lib/payments/paypro'
 import { isSyntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, text } from '@/lib/validate'
@@ -78,12 +77,12 @@ export async function POST(request: Request) {
     .eq('id', user.id)
     .maybeSingle()
 
-  // GATE (PR98 §2 / PR105 §1). Checkout is visible to owner/staff/seed/
-  // PAYPRO_TEST_EMAILS always; to everyone else only when the matching owner
-  // switch is ON (the Rs 199 fee → fee_open; any other plan → plans_open).
-  // Fail-closed: the switches default OFF and a settings misread stays OFF.
-  const switches = await getPaymentSwitches()
-  if (!profile || (!checkoutVisibleFor(profile) && !planOpenToAll(plan.code as string, switches))) {
+  // GATE (PR106-C0 §1). ONE source of truth: checkout is open whenever the PayPro
+  // gateway is genuinely LIVE (onlinePaymentOpen) — the same fact that decides
+  // whether a card payment would actually go through. Owner/staff/seed/test-email
+  // accounts may also check out in sandbox for testing. Only a closed gateway
+  // (sandbox/unconfigured) + a normal member yields "not open yet".
+  if (!profile || (!onlinePaymentOpen() && !checkoutVisibleFor(profile))) {
     return NextResponse.json(
       { error: 'Online payment is not open yet. Please check back soon.', code: 'checkout_closed' },
       { status: 403 },
