@@ -33,6 +33,8 @@ export type ConfirmResult = {
   orderStatus?: string
   amountPayable?: number
   amountPaid?: number
+  /** The ggos failure description (PayPro's text or an HTTP status) — no secret. */
+  ggosError?: string
 }
 
 export async function confirmPayproOrder(row: PayproRow): Promise<ConfirmResult> {
@@ -42,7 +44,9 @@ export async function confirmPayproOrder(row: PayproRow): Promise<ConfirmResult>
   }
 
   const status = await getPayproOrderStatus(payProIdFromRow(row))
-  if (!status.ok) return { activated: false, alreadyActive: false, accepted: false, ggosOk: false, reason: 'ggos_failed' }
+  if (!status.ok) {
+    return { activated: false, alreadyActive: false, accepted: false, ggosOk: false, reason: 'ggos_failed', ggosError: status.error }
+  }
 
   const facts = { orderStatus: status.orderStatus, amountPayable: status.amountPayable, amountPaid: status.amountPaid }
   const verdict = payproOrderAccepted(

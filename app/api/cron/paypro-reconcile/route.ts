@@ -75,6 +75,7 @@ export async function GET(request: Request) {
         activated: r.activated,
         accepted: r.accepted,
         reason: r.reason ?? null,
+        ggosError: r.ggosError ?? null,
         orderStatus: r.orderStatus ?? null,
         amountPayable: r.amountPayable ?? null,
         amountPaid: r.amountPaid ?? null,
