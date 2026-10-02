@@ -18,6 +18,7 @@ const DIMENSION: Record<BadgeSize, number> = { sm: 18, md: 24 }
 export default function BadgeBase({
   size = 'sm',
   showLabel = false,
+  showUrdu = true,
   colour,
   labelColour,
   label,
@@ -28,6 +29,10 @@ export default function BadgeBase({
 }: {
   size?: BadgeSize
   showLabel?: boolean
+  /** Whether the Urdu line under the label renders (default true). The tutor's
+   *  OWN dashboard header card passes false to drop the Urdu badge lines there
+   *  only (PR106-B §1); every other surface keeps it. */
+  showUrdu?: boolean
   colour: string
   /** Text colour for the label. Defaults to `colour`; the gold badge
       overrides it: tm-gold on a light ground is 2.05:1. */
@@ -82,7 +87,7 @@ export default function BadgeBase({
           <span className={labelClassName ?? 'text-[11px] font-bold leading-none whitespace-nowrap'}>
             {label}
           </span>
-          {urdu && (
+          {urdu && showUrdu && (
             <span lang="ur" dir="rtl" className="mt-0.5 text-[10px] font-semibold leading-none whitespace-nowrap opacity-90">
               {urdu}
             </span>

@@ -6,14 +6,17 @@ import { BRAND } from '@/lib/brand'
 export default function PremiumBadge({
   size = 'sm',
   showLabel = false,
+  showUrdu = true,
 }: {
   size?: BadgeSize
   showLabel?: boolean
+  showUrdu?: boolean
 }) {
   return (
     <BadgeBase
       size={size}
       showLabel={showLabel}
+      showUrdu={showUrdu}
       colour={BRAND.navy}
       label="Premium"
       urdu="پریمیم"

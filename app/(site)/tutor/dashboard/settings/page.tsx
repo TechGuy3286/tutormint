@@ -29,7 +29,7 @@ import { availabilityToSlots, slotsToAvailabilityList, formatSlots, type DaySlot
 import SubjectLevelEditor from '@/components/tutor/SubjectLevelEditor'
 import TutorCitiesEditor, { type CitiesState } from '@/components/tutor/TutorCitiesEditor'
 import CredentialEditor, { type Credential } from '@/components/tutor/CredentialEditor'
-import { parseCredential } from '@/lib/degrees'
+import { parseCredential, serializeCredential } from '@/lib/degrees'
 import EmailCard from '@/components/account/EmailCard'
 import type { Identity } from '@/lib/identity'
 import { formatPkMobile, isSyntheticEmail, normalisePkMobile } from '@/lib/phone'
@@ -142,6 +142,10 @@ export default function TutorSettingsPage() {
 
   const [degrees, setDegrees] = useState<Credential[]>([]);
   const [certifications, setCertifications] = useState<Credential[]>([]);
+  // PR106-B §11: paused degrees (from the onboarding editor) are NOT shown or
+  // edited here, but are carried forward verbatim on save so they stay paused and
+  // are never brought back. Kept as their raw stored elements.
+  const [pausedDegrees, setPausedDegrees] = useState<unknown[]>([]);
 
 
   useEffect(() => {
@@ -294,15 +298,19 @@ export default function TutorSettingsPage() {
 
         // PR74 §B: decode every stored shape (plain, object, nested JSON) to
         // clean fields, so a corrupted degree is never re-wrapped on Save.
+        // PR106-B §11: carry the onboarding docId through, and keep PAUSED degrees
+        // out of the editor (preserved separately, re-appended on save).
         const asDegree = (d: unknown) => {
           const c = parseCredential(d);
-          return { title: c.title, institute: c.institute, year: c.year, fileName: c.fileName, fileUrl: c.fileUrl };
+          return { title: c.title, institute: c.institute, year: c.year, fileName: c.fileName, fileUrl: c.fileUrl, docId: c.docId || undefined };
         };
         const asCert = (c: unknown) => {
           const p = parseCredential(c);
           return { title: p.title, issuer: p.institute, year: p.year, fileName: p.fileName, fileUrl: p.fileUrl };
         };
-        setDegrees(Array.isArray(tp.degrees) ? tp.degrees.map(asDegree) : []);
+        const rawDegrees = Array.isArray(tp.degrees) ? (tp.degrees as unknown[]) : [];
+        setDegrees(rawDegrees.filter((d) => !parseCredential(d).paused).map(asDegree));
+        setPausedDegrees(rawDegrees.filter((d) => parseCredential(d).paused));
         setCertifications(Array.isArray(tp.certifications) ? tp.certifications.map(asCert) : []);
       }
 
@@ -442,7 +450,19 @@ export default function TutorSettingsPage() {
     setShowAvatar(value);
     try { await tutorUpdate({ show_avatar: value }); } catch { /* pre-migration or transient */ }
   };
-  const saveDegrees = () => tutorUpdate({ degrees });
+  // PR106-B §11: write the active (edited) degrees PLUS the preserved paused ones
+  // (re-serialised with paused:true), so a Settings save never resurrects or
+  // rewrites a paused degree. docId on an active entry is carried through.
+  const saveDegrees = () =>
+    tutorUpdate({
+      degrees: [
+        ...degrees,
+        ...pausedDegrees.map((d) => {
+          const c = parseCredential(d);
+          return serializeCredential({ title: c.title, docId: c.docId, paused: true });
+        }),
+      ],
+    });
   const saveCertifications = () => tutorUpdate({ certifications });
 
   // Monthly fee range (PR67 §3): whole rupees, min ≤ max, saved to fee_min/fee_max.

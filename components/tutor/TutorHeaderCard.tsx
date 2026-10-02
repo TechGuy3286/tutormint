@@ -72,12 +72,17 @@ export default function TutorHeaderCard({
           <div className="flex flex-wrap items-center gap-2">
             {!verified && <NotVerifiedBadge urdu />}
             {planName && (
-              <span className="inline-flex items-center rounded-full bg-tm-tint-green px-2.5 py-0.5 text-[11px] font-bold text-tm-green-deep">
+              // PR106-B §2: the plan chip opens Membership Plans.
+              <Link
+                href="/membership-plans?for=tutors"
+                className="inline-flex items-center rounded-full bg-tm-tint-green px-2.5 py-0.5 text-[11px] font-bold text-tm-green-deep hover:bg-tm-tint-green/70"
+              >
                 {planName}
-              </span>
+              </Link>
             )}
-            {/* Earned badges beside the plan name (§3). */}
-            {verified && badges.length > 0 && <BadgeRow badges={badges} size="sm" showLabel />}
+            {/* Earned badges beside the plan name (§3). PR106-B §1: no Urdu line
+                under the badges on the tutor's OWN dashboard card. */}
+            {verified && badges.length > 0 && <BadgeRow badges={badges} size="sm" showLabel showUrdu={false} />}
             {/* Fee paid, documents not yet all approved → a plain pending chip in
                 place of the Verified badge, with its Urdu line (§3). */}
             {verified && verificationPending && (

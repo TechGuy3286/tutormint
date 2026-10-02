@@ -7,6 +7,7 @@ import { getEntitlements } from '@/lib/entitlements'
 import BadgeRow from '@/components/badges/BadgeRow'
 import { formatDate } from '@/lib/datetime'
 import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
+import { payReturnView } from '@/lib/payments/returnView'
 
 // Where the gateway sends the member back to — and where they land when they
 // come back after a PayPro payment (PR65 §4).
@@ -42,7 +43,36 @@ export default async function PayReturnPage({
 }) {
   const { ref } = await searchParams
   const session = await getSessionUser()
-  const userId = session!.user.id
+
+  // A gateway return is just a browser redirect — the session cookie is normally
+  // still present, but if it is not (e.g. a different browser, or it expired on
+  // the gateway), this page must NOT 500. Show a neutral, bilingual result with a
+  // way forward; the plan still activates on its own via the callback/cron.
+  if (!session) {
+    return (
+      <main className="min-h-screen bg-tm-bg px-4 py-10 text-slate-700 sm:px-6">
+        <div className="mx-auto max-w-md space-y-4">
+          <Breadcrumbs items={[{ label: 'Payment' }]} />
+          <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-5 text-center">
+            <Clock size={40} className="mx-auto text-tm-gold-ink" />
+            <h1 className="text-lg font-black text-tm-navy">Your payment is being processed</h1>
+            <p className="text-xs leading-relaxed text-gray-500">
+              Sign in to see your plan. If you have just paid, your plan activates on its own — you don&rsquo;t need to do anything.
+            </p>
+            <Urdu>آپ کی ادائیگی پر کارروائی ہو رہی ہے۔ اپنا پلان دیکھنے کے لیے سائن اِن کریں۔ آپ کا پلان خود بخود چالو ہو جائے گا۔</Urdu>
+          </section>
+          <Link
+            href={`/login${ref ? `?next=${encodeURIComponent(`/pay/return?ref=${ref}`)}` : ''}`}
+            className="gap-1.5 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-black px-5 text-xs font-bold text-white"
+          >
+            <LayoutDashboard aria-hidden size={14} />
+            Go to my dashboard
+          </Link>
+        </div>
+      </main>
+    )
+  }
+  const userId = session.user.id
 
   const supabase = await createClient()
   const { data: payment } = ref
@@ -58,7 +88,7 @@ export default async function PayReturnPage({
   // paid (the callback/cron do this too — this is the defensive third path).
   let clickToPay: string | null = null
   let status = (payment?.status as string) ?? 'unknown'
-  let view: View = status === 'approved' ? 'approved' : status === 'rejected' ? 'notpaid' : status === 'pending' ? 'waiting' : 'unknown'
+  let view: View = payReturnView(status)
 
   if (payment && payment.provider === 'paypro' && status === 'pending') {
     const raw = payment.raw as { paypro?: { click2pay?: string } } | null
@@ -129,11 +159,11 @@ export default async function PayReturnPage({
           ) : view === 'notpaid' ? (
             <>
               <XCircle size={40} className="mx-auto text-tm-red" />
-              <h1 className="text-lg font-black text-tm-navy">That payment did not go through</h1>
+              <h1 className="text-lg font-black text-tm-navy">Payment didn&rsquo;t go through</h1>
               <p className="text-xs leading-relaxed text-gray-500">
-                {(payment?.rejection_reason as string) ?? 'Nothing was charged and your plan is unchanged. You can try again.'}
+                {(payment?.rejection_reason as string) ?? 'Nothing was charged and your plan is unchanged. You can try again or pay later.'}
               </p>
-              <Urdu>ادائیگی مکمل نہیں ہوئی۔ آپ سے کچھ وصول نہیں کیا گیا — آپ دوبارہ کوشش کر سکتے ہیں۔</Urdu>
+              <Urdu>ادائیگی مکمل نہیں ہوئی۔ آپ سے کچھ وصول نہیں کیا گیا — آپ دوبارہ کوشش کر سکتے ہیں یا بعد میں ادائیگی کر سکتے ہیں۔</Urdu>
             </>
           ) : (
             <>

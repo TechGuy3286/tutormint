@@ -7,14 +7,17 @@ import { BRAND } from '@/lib/brand'
 export default function FeaturedBadge({
   size = 'sm',
   showLabel = false,
+  showUrdu = true,
 }: {
   size?: BadgeSize
   showLabel?: boolean
+  showUrdu?: boolean
 }) {
   return (
     <BadgeBase
       size={size}
       showLabel={showLabel}
+      showUrdu={showUrdu}
       colour={BRAND.gold}
       labelColour={BRAND.goldInk}
       label="Featured"

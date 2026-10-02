@@ -31,6 +31,9 @@ export type Credential = {
   fileUrl: string
   institute?: string
   issuer?: string
+  /** PR106-B §11: the onboarding certificate's document id, carried through edits
+   *  untouched (the spreads preserve it) so a Settings save never loses the link. */
+  docId?: string
 }
 
 export default function CredentialEditor({

@@ -23,11 +23,15 @@ export default function BadgeRow({
   badges,
   size = 'sm',
   showLabel = false,
+  showUrdu = true,
   className = '',
 }: {
   badges: BadgeName[]
   size?: BadgeSize
   showLabel?: boolean
+  /** Drop the Urdu line under each label (the tutor's own dashboard header card
+   *  passes false — PR106-B §1). Every other surface keeps it. */
+  showUrdu?: boolean
   className?: string
 }) {
   const granted = ORDER.filter((b) => badges.includes(b))
@@ -38,11 +42,11 @@ export default function BadgeRow({
       {granted.map((b) => (
         <span key={b} className="relative inline-flex" data-tip={TIP[b]}>
           {b === 'Verified' ? (
-            <VerifiedBadge size={size} showLabel={showLabel} />
+            <VerifiedBadge size={size} showLabel={showLabel} showUrdu={showUrdu} />
           ) : b === 'Premium' ? (
-            <PremiumBadge size={size} showLabel={showLabel} />
+            <PremiumBadge size={size} showLabel={showLabel} showUrdu={showUrdu} />
           ) : (
-            <FeaturedBadge size={size} showLabel={showLabel} />
+            <FeaturedBadge size={size} showLabel={showLabel} showUrdu={showUrdu} />
           )}
         </span>
       ))}

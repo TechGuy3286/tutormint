@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import CnicCameraField from '@/components/tutor/CnicCameraField'
 import { FormChecklist } from '@/components/forms/FormChecklist'
 import type { ChecklistItem } from '@/lib/formChecklist'
-import { formatCnic, isValidCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
+import { formatCnic, isValidCnic, CNIC_FORMAT_HINT, CNIC_FORMAT_HINT_UR } from '@/lib/cnic'
 
 // The ONE shared CNIC entry (PR81), used everywhere a CNIC is typed and
 // photographed: the tutor onboarding CNIC step, the tutor Settings identity card,
@@ -136,6 +136,12 @@ export default function CnicCapture({
         aria-label="CNIC number"
         className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy"
       />
+      {/* PR106-B §12: the format hint is always shown, English with Urdu under it,
+          on every surface that uses CnicCapture. */}
+      <p className="-mt-1.5 text-[11px] text-gray-500">
+        {CNIC_FORMAT_HINT}
+        <span lang="ur" dir="rtl" className="mt-0.5 block">{CNIC_FORMAT_HINT_UR}</span>
+      </p>
       {/* Front + back, side by side. Each fills with the real photo once taken. */}
       <div className="flex gap-3">
         <CnicCameraField

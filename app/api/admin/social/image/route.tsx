@@ -60,13 +60,16 @@ export async function GET(request: Request) {
 
   if (!tp) return new Response('Tutor not found.', { status: 404 })
 
-  // Fixtures are NEVER promoted — no override.
+  // Fixtures are NEVER promoted — no override. (PR106-B §10: profiles has no
+  // is_fixture column; the real fixture signals are is_seed and the one team
+  // account. Selecting a non-existent column errored and left p null, so the
+  // guard silently passed — seed/team slugs could be rendered.)
   const { data: p } = await admin
     .from('profiles')
-    .select('full_name, is_seed, is_fixture')
+    .select('full_name, is_seed, is_team_account')
     .eq('id', tp.id as string)
     .maybeSingle()
-  if (p?.is_seed || p?.is_fixture) {
+  if (p?.is_seed || p?.is_team_account) {
     return new Response('Fixture accounts are never promoted.', { status: 403 })
   }
 

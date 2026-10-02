@@ -63,3 +63,5 @@ export function maskCnicHeavy(input: string | null | undefined): string | null {
 
 /** The one message shown for a number that is not thirteen digits. */
 export const CNIC_FORMAT_HINT = 'Your CNIC is 13 digits, like 42101-1234567-1.'
+/** The Urdu line shown under the English CNIC-format hint (PR106-B §12). */
+export const CNIC_FORMAT_HINT_UR = 'آپ کا شناختی کارڈ 13 ہندسوں کا ہوتا ہے، جیسے 42101-1234567-1۔'

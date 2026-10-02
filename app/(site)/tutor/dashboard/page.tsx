@@ -5,6 +5,7 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import CvCard from '@/components/tutor/CvCard'
 import SavedJobsSection from '@/components/tutor/SavedJobsSection'
 import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
+import VerificationFeeCard from '@/components/tutor/VerificationFeeCard'
 import DashboardActionBar from '@/components/dashboard/DashboardActionBar'
 import { CountGrid, type CountTile } from '@/components/tutor/DashboardCards'
 
@@ -134,6 +135,16 @@ export default async function TutorDashboardPage() {
           lineUr={findTuitionsLineUr}
           tone="green"
           icon={<Search aria-hidden size={20} />}
+        />
+
+        {/* Verification-fee card + shared-pool quota counter (PR106-B §2–§5).
+            Compact, so the count tiles below are not pushed far down. */}
+        <VerificationFeeCard
+          feePaid={ent.verified}
+          verifiedOk={ent.badges.includes('Verified')}
+          findable={percent >= 100 && ent.verified && ent.badges.includes('Verified')}
+          payHref="/tutor/complete-profile?step=verify"
+          quota={{ plan: ent.plan, used: ent.quotaUsed, cap: ent.quota }}
         />
 
         {/* 3.2 Count tiles, two to a row. */}
