@@ -42,6 +42,22 @@ test('status UNPAID → reject (not_paid)', () => {
   assert.equal(r.accepted === false && r.reason, 'not_paid')
 })
 
+test('fee folded into AmountPayable (206 payable / 206 paid) → accept', () => {
+  // PayPro may echo the payable as the fee-inclusive total; a payable ≥ our
+  // price must not reject (PR104 — the PR103 bug must not reappear on this field).
+  assert.equal(
+    payproOrderAccepted({ orderStatus: 'PAID', amountPayable: 206, amountPaid: 206, orderNumber: 'TM-ABC' }, expected).accepted,
+    true,
+  )
+})
+
+test('AmountPayable not reported (0) / 206 paid → accept', () => {
+  assert.equal(
+    payproOrderAccepted({ orderStatus: 'PAID', amountPayable: 0, amountPaid: 206, orderNumber: 'TM-ABC' }, expected).accepted,
+    true,
+  )
+})
+
 test('wrong order number → reject; missing order number is tolerated', () => {
   const wrong = payproOrderAccepted({ orderStatus: 'PAID', amountPayable: 199, amountPaid: 206, orderNumber: 'TM-OTHER' }, expected)
   assert.equal(wrong.accepted, false)

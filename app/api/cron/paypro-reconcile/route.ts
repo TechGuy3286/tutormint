@@ -57,6 +57,7 @@ export async function GET(request: Request) {
   let activated = 0
   let notPaid = 0
   let blocked = 0
+  const diag: Record<string, unknown>[] = []
   for (const row of rows ?? []) {
     checked++
     try {
@@ -66,6 +67,18 @@ export async function GET(request: Request) {
         status: row.status as string,
         provider_ref: row.provider_ref as string,
         raw: row.raw,
+      })
+      // Amounts/status/reason only — never a secret — for ops to see WHY a paid
+      // order was or was not accepted.
+      diag.push({
+        ref: row.provider_ref,
+        activated: r.activated,
+        accepted: r.accepted,
+        reason: r.reason ?? null,
+        orderStatus: r.orderStatus ?? null,
+        amountPayable: r.amountPayable ?? null,
+        amountPaid: r.amountPaid ?? null,
+        ours: row.amount_pkr,
       })
       if (r.activated) {
         activated++
@@ -104,5 +117,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, checked, activated, notPaid, blocked })
+  return NextResponse.json({ ok: true, checked, activated, notPaid, blocked, diag })
 }

@@ -29,6 +29,10 @@ export type ConfirmResult = {
   accepted: boolean
   ggosOk: boolean
   reason?: string
+  /** ggos facts for ops diagnostics — amounts/status only, never a secret. */
+  orderStatus?: string
+  amountPayable?: number
+  amountPaid?: number
 }
 
 export async function confirmPayproOrder(row: PayproRow): Promise<ConfirmResult> {
@@ -40,17 +44,13 @@ export async function confirmPayproOrder(row: PayproRow): Promise<ConfirmResult>
   const status = await getPayproOrderStatus(payProIdFromRow(row))
   if (!status.ok) return { activated: false, alreadyActive: false, accepted: false, ggosOk: false, reason: 'ggos_failed' }
 
+  const facts = { orderStatus: status.orderStatus, amountPayable: status.amountPayable, amountPaid: status.amountPaid }
   const verdict = payproOrderAccepted(
-    {
-      orderStatus: status.orderStatus,
-      amountPayable: status.amountPayable,
-      amountPaid: status.amountPaid,
-      orderNumber: status.orderNumber,
-    },
+    { ...facts, orderNumber: status.orderNumber },
     { ourPrice: Number(row.amount_pkr), ourRef: row.provider_ref },
   )
   if (!verdict.accepted) {
-    return { activated: false, alreadyActive: false, accepted: false, ggosOk: true, reason: verdict.reason }
+    return { activated: false, alreadyActive: false, accepted: false, ggosOk: true, reason: verdict.reason, ...facts }
   }
 
   // Record what PayPro reported, for finance — amount_pkr stays OUR price.
@@ -76,5 +76,6 @@ export async function confirmPayproOrder(row: PayproRow): Promise<ConfirmResult>
     alreadyActive: result.ok && 'alreadyActive' in result ? !!result.alreadyActive : false,
     accepted: true,
     ggosOk: true,
+    ...facts,
   }
 }

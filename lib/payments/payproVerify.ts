@@ -49,8 +49,13 @@ export function payproOrderAccepted(
   }
   const payable = Number(facts.amountPayable ?? 0)
   const paid = Number(facts.amountPaid ?? 0)
-  // The order must have been billed for OUR price.
-  if (Math.abs(payable - expected.ourPrice) > EPS) {
+  // The order must not have been billed for LESS than our price. We created the
+  // order for our price, so a lower bill means a wrong/foreign order. A HIGHER
+  // AmountPayable is accepted on purpose: PayPro may fold its convenience fee
+  // into the payable it echoes (bill 199 shown back as 206), and rejecting that
+  // is exactly the bug PR103 found — on a different field. A payable of 0 means
+  // PayPro did not report one, which must not reject a genuinely paid order.
+  if (payable > 0 && payable < expected.ourPrice - EPS) {
     return { accepted: false, reason: 'bill_mismatch' }
   }
   // The customer must have paid at least our price (fee on top is fine).
