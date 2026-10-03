@@ -475,7 +475,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   }, [supabase, facts, stepKey])
 
   if (!facts || !stepKey) {
-    return <div className="grid min-h-screen place-items-center text-xs font-bold text-gray-500">Loading…</div>
+    return <div className="fixed inset-0 z-[60] grid place-items-center bg-tm-bg text-xs font-bold text-gray-500">Loading…</div>
   }
 
   const stepIndex = stepKey === 'final' ? FLOW_ORDER.length : FLOW_ORDER.indexOf(stepKey)
@@ -494,26 +494,41 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   })
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-[480px] flex-col px-4 pb-28">
-      {/* header */}
-      <header className="sticky top-0 z-10 -mx-4 flex items-center gap-3 bg-tm-bg px-4 pb-3 pt-4">
-        <button
-          type="button" onClick={goBack} disabled={stepIndex <= 0}
-          aria-label="Back"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-tm-navy disabled:opacity-30"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <div className="min-w-0 flex-1">
-          <div className="flex gap-1">
-            {FLOW_ORDER.map((k, i) => (
-              <span key={k} className={`h-1.5 flex-1 rounded-full ${i < stepIndex ? 'bg-tm-navy' : i === stepIndex ? 'bg-tm-navy/60' : 'bg-gray-200'}`} />
-            ))}
+    // PR106-G §1.2: the flow is a full-screen overlay ABOVE the site header
+    // (z-60 > the navbar's z-50), so onboarding shows NO Login / bell / messages
+    // / avatar — only its own minimal header. Capped width, centred, scrollable.
+    <div className="fixed inset-0 z-[60] mx-auto flex max-w-[480px] flex-col overflow-y-auto bg-tm-bg px-4 pb-28">
+      {/* header: TutorMint logo left, a small "Finish later" link right (saves
+          progress — every step already saves — and goes to the dashboard). */}
+      <header className="sticky top-0 z-10 -mx-4 bg-tm-bg px-4 pb-2 pt-4">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <span className="text-base font-black text-tm-navy">
+            Tutor<span className="text-tm-red">Mint</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => void leave('/tutor/dashboard')}
+            className="min-h-[36px] text-xs font-bold text-tm-navy underline-offset-2 hover:underline"
+          >
+            Finish later
+          </button>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button" onClick={goBack} disabled={stepIndex <= 0}
+            aria-label="Back"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-tm-navy disabled:opacity-30"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex gap-1">
+              {FLOW_ORDER.map((k, i) => (
+                <span key={k} className={`h-1.5 flex-1 rounded-full ${i < stepIndex ? 'bg-tm-navy' : i === stepIndex ? 'bg-tm-navy/60' : 'bg-gray-200'}`} />
+              ))}
+            </div>
           </div>
         </div>
-        {/* PR78 §D: no "Later"/"Skip" in onboarding. A tutor leaves via the site
-            header/nav above this flow and returns to the first unanswered step
-            (the gap flow); every step is answered by tapping. */}
       </header>
 
       <main className="flex-1 pt-6">

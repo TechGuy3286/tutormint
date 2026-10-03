@@ -114,12 +114,15 @@ test('CnicCapture: hideChecklist prop, green-valid input, LTR example in the Urd
 })
 
 // ------------------------------------------------ §13 signup role line ---------
+// SUPERSEDED by PR106-G §4: the role-collapse ("Signing up as … · Change") is
+// replaced by two radios with nothing preselected. This test now pins that the
+// collapse is gone and nothing is preselected (full checks in test:pr106g).
 
-test('signup collapses the role choice to one line with a Change link', () => {
+test('signup role choice is two radios, nothing preselected (PR106-G §4 supersedes the collapse)', () => {
   const r = read('app/(site)/register/RegisterForm.tsx')
-  assert.match(r, /rolePicking/, 'a picking/collapsed state')
-  assert.match(r, /Signing up as a/, 'the collapsed summary line')
-  assert.match(r, />\s*Change\s*</, 'a Change control to reopen the cards')
+  assert.ok(!/rolePicking/.test(r), 'the collapse state is gone')
+  assert.ok(!/Signing up as a/.test(r), 'the collapsed summary line is gone')
+  assert.match(r, /useState<Role \| null>\(null\)/, 'nothing preselected')
 })
 
 // ------------------------------------------------ §14 draft + reuse ------------

@@ -3,28 +3,24 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Mail } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { STUCK_MESSAGE, armEscape, submitJson } from '@/lib/submit'
 import OtpCodeEntry, { OtpErrorBlock } from '@/components/auth/OtpCodeEntry'
-import OtpAlreadySentNotice from '@/components/auth/OtpAlreadySentNotice'
 import { useToast } from '@/components/ui/Toast'
 import { GENERIC_ERROR } from '@/lib/errorMessages'
 
-// Pre-auth code entry for a mobile signup (owner, 11 Sep 2026).
+// Pre-auth code entry for a mobile signup (owner, 11 Sep 2026; cleaned up
+// PR106-G §3). There is NO account and NO session yet: a pending_signups row
+// holds the draft, and entering the code CREATES the account and signs the
+// member in. One code per number for life — no resend, no timer. The ONLY
+// fallback is email signup (a free path); no WhatsApp icon here (§8).
 //
-// There is NO account and NO session yet: a pending_signups row holds the draft,
-// and entering the code CREATES the account and signs the member in. So this
-// form differs from the authenticated gate in three deliberate ways:
-//
-//   * NO resend button. One SMS per number; the code does not expire, and the
-//     way to get a new one is to start over (which sends exactly one message).
-//   * The fallback is EMAIL SIGNUP, not a resend — a free path that already
-//     works. A verified mobile can be added later from settings; it is only
-//     required to be LISTED in search.
-//   * A terminal state (expired code, too many wrong tries) offers "Start over"
-//     back to /register rather than a resend.
+// Top to bottom (§6): a small green "✓ OTP sent to <masked>", the 6-digit box,
+// "Verify and then Sign In", then two small links — "Change number" and
+// "Didn't get the OTP? Use email instead". Errors render as one short line
+// under the box via OtpCodeEntry (English + Urdu), never raw technical text.
 
-export default function PendingVerifyForm({ next }: { next: string | null }) {
+export default function PendingVerifyForm({ next, sentTo }: { next: string | null; sentTo?: string | null }) {
   const router = useRouter()
   const toast = useToast()
 
@@ -53,7 +49,6 @@ export default function PendingVerifyForm({ next }: { next: string | null }) {
       setError(failed ?? 'That code was not accepted.')
       setErrorUr(data?.errorUr ?? (data?.ref ? GENERIC_ERROR.ur : null))
       setErrorRef(data?.ref ?? null)
-      // On a terminal reason the draft is gone: swap the field for "start over".
       if (data?.reason === 'expired' || data?.reason === 'locked' || data?.reason === 'exists' || data?.reason === 'blocked') {
         setTerminal(true)
       }
@@ -61,8 +56,8 @@ export default function PendingVerifyForm({ next }: { next: string | null }) {
       return
     }
 
-    // The account exists and the member is signed in. Confirm before navigating.
-    // Clear the signup draft so a later /register visit starts clean (§14).
+    // The account exists and the member is signed in. Clear the signup draft so
+    // a later /register visit starts clean (§14), then confirm before navigating.
     try { sessionStorage.removeItem('tm_signup_draft') } catch { /* non-fatal */ }
     toast.success('Number verified — welcome to TutorMint.')
 
@@ -78,72 +73,52 @@ export default function PendingVerifyForm({ next }: { next: string | null }) {
 
   // A terminal reason (expired / locked / exists / blocked) means the draft is
   // gone — show only the error block with "Start over", not the code field.
-  const startOver = (
-    <Link
-      href="/register"
-      className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover"
-    >
-      Start over
-    </Link>
-  )
+  if (terminal) {
+    return (
+      <div className="space-y-4">
+        <OtpErrorBlock error={error || null} errorUr={errorUr} errorRef={errorRef} stuckHref={stuckHref}>
+          <Link
+            href="/register"
+            className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover"
+          >
+            Start over
+          </Link>
+        </OtpErrorBlock>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
-      {terminal ? (
-        <OtpErrorBlock error={error || null} errorUr={errorUr} errorRef={errorRef} stuckHref={stuckHref}>
-          {startOver}
-        </OtpErrorBlock>
-      ) : (
-        // The shared code entry (PR82). One code per number, no resend — the
-        // standing notice (PR93) says to use the code already sent; a new code
-        // comes only from Start over or the email fallback.
-        <>
-          <OtpAlreadySentNotice emailSignupHref="/register" />
-          <OtpCodeEntry
-            code={code}
-            onChange={setCode}
-            onVerify={() => void submit()}
-            busy={busy}
-            busyLabel="Checking…"
-            verifyLabel="Verify and then Sign In"
-            verifyLabelUr="تصدیق کریں اور سائن ان ہوں"
-            error={error || null}
-            errorUr={errorUr}
-            errorRef={errorRef}
-            stuckHref={stuckHref}
-          />
-        </>
-      )}
-
-      {/* PR106-F §14: a wrong number is corrected here. The form refills from the
-          saved draft (name + role + number), and submitting the corrected number
-          updates the same pending signup — no second account, no "already
-          registered" (there is no account until the code is entered). */}
-      {!terminal && (
-        <p className="text-center text-xs text-gray-500">
-          Wrong number?{' '}
-          <Link href="/register" className="font-bold text-tm-navy underline-offset-2 hover:underline">
-            Change number
-          </Link>
+      {/* §6: small green confirmation that the OTP was sent. */}
+      {sentTo && (
+        <p className="flex items-center justify-center gap-1.5 rounded-xl bg-tm-tint-green px-3 py-2 text-xs font-bold text-tm-green-deep">
+          <Check size={15} aria-hidden /> OTP sent to {sentTo}
         </p>
       )}
 
-      {/* Email fallback (owner). Not a resend — a free path that already works.
-          Verifying a mobile can wait for settings; it is only required to be
-          LISTED in search. */}
-      <div className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
-        <p className="text-xs font-bold text-tm-navy">Didn&rsquo;t get the code?</p>
-        <p className="text-[11px] leading-relaxed text-gray-500">
-          You can sign up with your email instead — it&rsquo;s free and works right away. Add and
-          verify a mobile number later from Settings; a verified mobile is only needed to be listed
-          in search.
-        </p>
-        <Link
-          href="/register"
-          className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
-        >
-          <Mail aria-hidden size={14} />
-          Sign up with your email instead
+      <OtpCodeEntry
+        code={code}
+        onChange={setCode}
+        onVerify={() => void submit()}
+        busy={busy}
+        busyLabel="Checking…"
+        verifyLabel="Verify and then Sign In"
+        verifyLabelUr="تصدیق کریں اور سائن ان ہوں"
+        error={error || null}
+        errorUr={errorUr}
+        errorRef={errorRef}
+        stuckHref={stuckHref}
+      />
+
+      {/* §6/§7: two small links. One code per number, no resend — the only
+          alternative is email signup, which keeps the name + role. */}
+      <div className="space-y-1 text-center">
+        <Link href="/register" className="block min-h-[36px] text-xs font-bold text-tm-navy underline-offset-2 hover:underline">
+          Change number
+        </Link>
+        <Link href="/register" className="block min-h-[36px] text-xs font-bold text-tm-navy underline-offset-2 hover:underline">
+          Didn&rsquo;t get the OTP? Use email instead
         </Link>
       </div>
     </div>

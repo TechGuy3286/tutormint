@@ -8,12 +8,6 @@ import SubmitEscape from '@/components/SubmitEscape'
 import PasswordInput from '@/components/ui/PasswordInput'
 import AuthError from '@/components/auth/AuthError'
 import { AUTH_MSG, MIN_PASSWORD_LENGTH } from '@/lib/authMessages'
-import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
-
-const supportHref = whatsappHref(
-  SUPPORT_WHATSAPP_FALLBACK,
-  'Assalam-o-Alaikum, I need some help with TutorMint.',
-)
 
 // The single registration page. /tutor/register is a server redirect here,
 // kept because tutor referral links (?ref=) carry that path.
@@ -39,17 +33,6 @@ const supportHref = whatsappHref(
 
 type Role = 'tutor' | 'parent'
 
-// Cheap, client-only shape guess purely for the helper text — the real
-// decision (and the real validation) is the server's. Anything with an "@" is
-// treated as heading down the email path; anything that is only digits and
-// phone punctuation is the mobile path.
-function identifierShape(v: string): 'mobile' | 'email' | 'unknown' {
-  const t = v.trim()
-  if (!t) return 'unknown'
-  if (t.includes('@')) return 'email'
-  if (/^[\d+\-\s()]+$/.test(t)) return 'mobile'
-  return 'unknown'
-}
 
 const ROLES: { value: Role; label: string; helper?: string }[] = [
   // Both cards carry one line of helper text so they read as equals (owner
@@ -71,11 +54,10 @@ export default function RegisterForm({
    *  (owner PR33 §3). Decided on the server (see lib/authRoutes.defaultRegisterRole). */
   initialRole?: Role
 }) {
-  const [role, setRole] = useState<Role>(initialRole)
-  // PR106-F §13: a role is already chosen (the cards collapse to a one-line
-  // "Signing up as … · Change"), so the form fields sit high on a 360px phone
-  // with no scrolling. "Change" brings both cards back; picking one re-collapses.
-  const [rolePicking, setRolePicking] = useState(false)
+  // PR106-G §4: two radio buttons on one line, NOTHING preselected — Create
+  // Account stays disabled until a role is picked. (Supersedes PR106-F's
+  // role-card collapse.) `initialRole` is no longer used to preselect.
+  const [role, setRole] = useState<Role | null>(null)
   const [fullName, setFullName] = useState('')
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -89,7 +71,6 @@ export default function RegisterForm({
   const [stuckHref, setStuckHref] = useState<string | null>(null)
 
   const router = useRouter()
-  const shape = identifierShape(identifier)
 
   // PR106-F §14: never lose what they typed. Going Back from the verify screen
   // returns here and we refill role + name + identifier from the unsaved draft
@@ -131,6 +112,10 @@ export default function RegisterForm({
     setErrorRef(null)
     setErrorSignIn(false)
     setFieldErrors({})
+
+    // A role must be chosen (the button is disabled until then; this guards the
+    // handler too).
+    if (!role) return
 
     // Client-side pre-check (PR75 §2): a too-short password is the obvious first
     // thing to fix, said before a round trip. The server still enforces the full
@@ -209,7 +194,6 @@ export default function RegisterForm({
             Tutor<span className="text-tm-red">Mint</span>
           </Link>
           <h1 className="text-xl font-black text-tm-navy">Create your account</h1>
-          <p className="text-xs text-gray-500">Free to join. Browsing is always free.</p>
         </div>
 
         {errorMsg && (
@@ -226,61 +210,32 @@ export default function RegisterForm({
             options and a screen reader announces "1 of 2" without any of it
             being simulated.
           */}
-          {rolePicking ? (
-            <fieldset>
-              <legend className="mb-2 text-xs font-bold text-tm-navy">I am a…</legend>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {ROLES.map((r) => (
-                  <label
-                    key={r.value}
-                    className={`flex min-h-[44px] cursor-pointer items-start gap-2 rounded-xl border-2 p-3 transition-all ${
-                      role === r.value
-                        ? 'border-tm-red bg-tm-tint-red'
-                        : 'border-gray-200 bg-tm-bg hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="role"
-                      value={r.value}
-                      checked={role === r.value}
-                      // Picking a card collapses the chooser back to the one-line
-                      // summary, so the fields stay high on the screen (§13).
-                      onChange={() => {
-                        setRole(r.value)
-                        setRolePicking(false)
-                      }}
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-tm-red"
-                    />
-                    <span>
-                      <span className="block text-xs font-black text-tm-navy">{r.label}</span>
-                      {r.helper && (
-                        <span className="mt-0.5 block text-[11px] leading-snug text-gray-500">
-                          {r.helper}
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          ) : (
-            <div className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-tm-bg p-3">
-              <p className="text-xs font-bold text-tm-navy">
-                Signing up as a{' '}
-                <span className="text-tm-red">
-                  {role === 'tutor' ? 'Tutor' : 'Parent / Institution'}
-                </span>
-              </p>
-              <button
-                type="button"
-                onClick={() => setRolePicking(true)}
-                className="min-h-[36px] shrink-0 text-xs font-bold text-tm-navy underline-offset-2 hover:underline"
-              >
-                Change
-              </button>
+          {/* PR106-G §4: two radio buttons on one line, nothing preselected. */}
+          <fieldset>
+            <legend className="mb-2 text-xs font-bold text-tm-navy">I am a…</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {ROLES.map((r) => (
+                <label
+                  key={r.value}
+                  className={`flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-xl border-2 px-3 text-center text-xs font-black transition-all ${
+                    role === r.value
+                      ? 'border-tm-red bg-tm-tint-red text-tm-navy'
+                      : 'border-gray-200 bg-tm-bg text-tm-navy hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="role"
+                    value={r.value}
+                    checked={role === r.value}
+                    onChange={() => setRole(r.value)}
+                    className="h-4 w-4 shrink-0 accent-tm-red"
+                  />
+                  {r.label}
+                </label>
+              ))}
             </div>
-          )}
+          </fieldset>
 
           <div className="space-y-1">
             <label htmlFor="fullName" className="text-xs font-bold text-tm-navy">
@@ -314,18 +269,6 @@ export default function RegisterForm({
               placeholder="0300 1234567 or name@example.com"
               className={fieldClass('identifier')}
             />
-            {/* Adaptive helper: it says what will happen with what they have
-                typed so far, so the mobile-vs-email choice is never a surprise
-                after they submit. Both paths are live (owner, Part 8): a mobile
-                number gets its code by SMS; an email gets a confirmation
-                link. */}
-            <p className="text-[11px] text-gray-500">
-              {shape === 'mobile'
-                ? 'We’ll send a code by SMS to confirm your number. This is also how you sign in.'
-                : shape === 'email'
-                  ? 'We’ll email you a confirmation link. Open it to finish signing up.'
-                  : 'Use a mobile number or an email — either works. A mobile number gets its code by SMS.'}
-            </p>
             {fieldErrors.identifier && (
               <p className="text-[11px] font-bold text-tm-red">{fieldErrors.identifier}</p>
             )}
@@ -350,14 +293,8 @@ export default function RegisterForm({
             )}
           </div>
 
-          {/*
-            Terms, with the photo-use consent spelled out rather than left to a
-            link nobody opens. TutorMint puts tutor photographs in promotional
-            posts; consenting to that by implication, through a "terms" link, is
-            not consent anybody would recognise as having given. One tick still
-            covers both -- the clause IS in the terms -- but the sentence is on
-            the screen where the decision is made.
-          */}
+          {/* PR106-G §4: one short consent line. The photo-use consent and the
+              rest moved to the Terms page (§5). */}
           <label className="flex min-h-[44px] cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-tm-bg p-3">
             <input
               type="checkbox"
@@ -369,53 +306,32 @@ export default function RegisterForm({
             <span className="text-[11px] leading-relaxed text-slate-700">
               I accept the{' '}
               <Link href="/terms" className="font-bold text-tm-red underline">
-                Terms of Service
+                Terms
               </Link>{' '}
               and{' '}
               <Link href="/privacy" className="font-bold text-tm-red underline">
                 Privacy Policy
               </Link>
-              {role === 'tutor' ? (
-                <>
-                  , and I agree that TutorMint may use my profile photo and public profile details
-                  to promote the platform. This never includes my phone number, CNIC or address, and
-                  I can withdraw it at any time.
-                </>
-              ) : (
-                '.'
-              )}
             </span>
           </label>
 
+          {/* PR106-G §4: Create account disabled until a role is chosen. */}
           <button
             type="submit"
-            disabled={loading || !acceptedTerms}
+            disabled={loading || !acceptedTerms || !role}
             className="w-full min-h-[44px] py-3.5 bg-tm-red hover:bg-tm-red-hover text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50"
           >
-            {loading ? 'Creating account…' : 'Create Account'}
+            {loading ? 'Creating account…' : 'Create account'}
           </button>
-        </form>
 
-        <p className="text-center text-xs text-gray-500">
-          Already have an account?{' '}
-          <Link href="/login" className="text-tm-red font-bold hover:underline">
+          {/* A full-width outlined "Sign in" under it (no WhatsApp icon on signup). */}
+          <Link
+            href="/login"
+            className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-tm-navy bg-white text-xs font-bold text-tm-navy transition-colors hover:bg-tm-navy/5"
+          >
             Sign in
           </Link>
-        </p>
-        {/* §3.4: the floating WhatsApp button is hidden on this page. */}
-        {supportHref && (
-          <p className="text-center text-[11px] text-gray-500">
-            Need help?{' '}
-            <a
-              href={supportHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-bold text-tm-green-deep hover:underline"
-            >
-              WhatsApp us
-            </a>
-          </p>
-        )}
+        </form>
       </div>
       </div>
     </main>

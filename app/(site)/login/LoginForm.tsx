@@ -158,7 +158,6 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
               Tutor<span className="text-tm-red">Mint</span>
             </Link>
             <h1 className="text-xl font-black text-tm-navy">Sign in to your account</h1>
-            <p className="text-xs text-gray-500">Tutors, parents and schools all sign in here.</p>
           </div>
 
           {errorMsg && (
@@ -259,49 +258,53 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
             </button>
           </form>
 
-          <div className="space-y-2 text-center">
+          <div className="space-y-4">
             <Link
               href="/forgot-password"
-              className="flex min-h-[44px] items-center justify-center text-xs font-bold text-tm-navy hover:underline"
+              className="flex min-h-[40px] items-center justify-center text-xs font-bold text-tm-navy hover:underline"
             >
               Forgot your password?
             </Link>
-            <p className="text-xs text-gray-500">
-              New to TutorMint?{' '}
-              {/* `next` travels on, so a guest who was interrupted mid-action and
-                  chose to create an account instead of signing in still lands
-                  back on what they were doing -- through signup AND through the
-                  phone gate. */}
-              <Link
-                href={(() => {
-                  // Forward BOTH `next` (the interrupted action) and `role` (the
-                  // sign-up default hint, owner PR33 §3) to the sign-up page.
-                  const p = new URLSearchParams()
-                  if (next) p.set('next', next)
-                  if (role === 'parent' || role === 'tutor') p.set('role', role)
-                  const q = p.toString()
-                  return q ? `/register?${q}` : '/register'
-                })()}
-                className="font-bold text-tm-red hover:underline"
-              >
-                Create an account
-              </Link>
-            </p>
-            {/* §3.4: the floating WhatsApp button is hidden on this page; the
-                support number lives here instead. Uses the module-level help
-                link, not the `supportHref` state (that is the ban path). */}
+
+            {/* PR106-G §3: thin "or" divider, then a full-width outlined
+                "Create an account" button (white, navy border + text). */}
+            <div className="flex items-center gap-3">
+              <span className="h-px flex-1 bg-gray-200" />
+              <span className="text-[11px] font-bold text-gray-500">or</span>
+              <span className="h-px flex-1 bg-gray-200" />
+            </div>
+            <Link
+              href={(() => {
+                // Forward BOTH `next` (the interrupted action) and `role` (the
+                // sign-up default hint) to the sign-up page.
+                const p = new URLSearchParams()
+                if (next) p.set('next', next)
+                if (role === 'parent' || role === 'tutor') p.set('role', role)
+                const q = p.toString()
+                return q ? `/register?${q}` : '/register'
+              })()}
+              className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-tm-navy bg-white text-xs font-bold text-tm-navy transition-colors hover:bg-tm-navy/5"
+            >
+              Create an account
+            </Link>
+
+            {/* PR106-G §3: the ONLY WhatsApp icon in signup/onboarding — a round
+                green button opening WhatsApp with the existing prefilled greeting.
+                Accessible label only (no visible text). */}
             {helpWhatsappHref && (
-              <p className="text-[11px] text-gray-500">
-                Need help?{' '}
+              <div className="flex justify-center">
                 <a
                   href={helpWhatsappHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-bold text-tm-green-deep hover:underline"
+                  aria-label="Message us on WhatsApp"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-tm-green-deep text-white transition-colors hover:bg-tm-green-deep-hover"
                 >
-                  WhatsApp us
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden>
+                    <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.87 9.87 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 1.8c2.17 0 4.2.85 5.74 2.38a8.06 8.06 0 0 1 2.38 5.73c0 4.48-3.65 8.12-8.12 8.12-1.46 0-2.89-.39-4.14-1.13l-.3-.18-3.11.82.83-3.04-.19-.31a8.06 8.06 0 0 1-1.25-4.32c0-4.47 3.64-8.11 8.11-8.11zm4.68 10.3c-.26-.13-1.52-.75-1.75-.83-.24-.09-.41-.13-.58.13-.17.26-.67.83-.82 1-.15.17-.3.19-.56.06-.26-.13-1.08-.4-2.06-1.27-.76-.68-1.28-1.52-1.43-1.78-.15-.26-.02-.4.11-.53.12-.12.26-.3.39-.46.13-.15.17-.26.26-.43.09-.17.04-.32-.02-.45-.06-.13-.58-1.4-.8-1.92-.21-.5-.42-.43-.58-.44l-.5-.01c-.17 0-.45.06-.68.32-.24.26-.9.88-.9 2.15 0 1.27.92 2.49 1.05 2.66.13.17 1.82 2.78 4.42 3.9.62.27 1.1.43 1.47.55.62.2 1.18.17 1.63.1.5-.07 1.52-.62 1.74-1.22.21-.6.21-1.11.15-1.22-.06-.11-.24-.17-.5-.3z" />
+                  </svg>
                 </a>
-              </p>
+              </div>
             )}
           </div>
         </div>

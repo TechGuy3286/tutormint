@@ -87,6 +87,7 @@ export default async function VerifyPhonePage({
         }
         support={support}
         waHref={waHref}
+        showSupport
       >
         <VerifyPhoneForm mobile={mobile} home={nextForRole(next, role) ?? home} />
       </Shell>
@@ -102,22 +103,20 @@ export default async function VerifyPhonePage({
     redirect('/login')
   }
 
+  // PR106-G §6: mask the number as 0324 •••• 5462.
+  const local = '0' + pendingMobile.slice(2)
+  const masked = local.length >= 8 ? `${local.slice(0, 4)} •••• ${local.slice(-4)}` : formatPkMobile(pendingMobile)
+
   return (
     <Shell
       heading="Verify your number"
       title="Enter your code to finish signing up"
-      intro={
-        <>
-          We sent a 6-digit code by <span className="font-bold text-tm-green-deep">SMS</span> to{' '}
-          <span className="font-bold text-tm-navy">{formatPkMobile(pendingMobile)}</span>. It comes from{' '}
-          <span className="font-bold text-tm-navy">{OTP_SMS_SENDER}</span> — that short code is us. Your account
-          is created the moment you enter it.
-        </>
-      }
+      intro={<>Your account is created the moment you enter the code.</>}
       support={support}
       waHref={waHref}
+      showSupport={false}
     >
-      <PendingVerifyForm next={next ?? null} />
+      <PendingVerifyForm next={next ?? null} sentTo={masked} />
     </Shell>
   )
 }
@@ -132,6 +131,7 @@ function Shell({
   children,
   support,
   waHref,
+  showSupport = false,
 }: {
   heading: string
   title: string
@@ -139,6 +139,9 @@ function Shell({
   children: React.ReactNode
   support: { whatsapp: string | null; email: string | null }
   waHref: string | null
+  /** PR106-G §8: the pending-signup OTP screen is clean (no WhatsApp/support
+   *  box); only the authenticated gate keeps the human fallback. */
+  showSupport?: boolean
 }) {
   return (
     <main className="flex min-h-screen flex-col bg-tm-bg p-4 text-slate-700 sm:p-6">
@@ -153,7 +156,7 @@ function Shell({
 
           {children}
 
-          {(waHref || support.email) && (
+          {showSupport && (waHref || support.email) && (
             <div className="space-y-2 rounded-2xl border border-gray-200 bg-tm-bg p-4">
               <p className="text-xs font-bold text-tm-navy">Code not arriving?</p>
               <p className="text-[11px] leading-relaxed text-gray-500">
