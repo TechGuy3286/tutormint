@@ -175,6 +175,16 @@ const PAIRS: Pair[] = [
   { fg: 'slate700', bg: 'white', where: 'body text on cards' },
   { fg: 'slate700', bg: 'bg', where: 'body text on the page ground' },
 
+  // Input colour states (PR106-F §7): the typed text on a valid (green) or error
+  // (red) field fill, and the "Rs" adornment (gray-500) on those fills.
+  { fg: 'slate700', bg: 'tintGreen', where: 'valid input field text' },
+  { fg: 'slate700', bg: 'tintRed', where: 'error input field text' },
+  // The fee "Rs" adornment (gray-500) only ever sits on an empty (bg) or valid
+  // (tintGreen) field — the fee step passes no showError, so the field never
+  // turns red. gray-500 on tintRed is not a combination the UI produces (and it
+  // is 4.16:1, under AA), so it is deliberately NOT listed.
+  { fg: 'gray500', bg: 'tintGreen', where: 'fee "Rs" adornment on a valid field' },
+
   // Muted copy. gray-400 is 2.54:1 on white and cannot be text at any size --
   // section 3 greps for it. gray-500 is the lightest grey that clears AA, and
   // is what the admin panel's labels, timestamps and empty states use.

@@ -13,9 +13,10 @@ import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import { isSyntheticEmail, normalisePkMobile } from '@/lib/phone'
 import EmailCard from '@/components/account/EmailCard'
-import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
-import CnicCapture, { cnicChecklistItems, type CnicCaptureState } from '@/components/identity/CnicCapture'
+import { StepHeading, StepButton, StepHelp, Urdu, Ltr } from '@/components/onboarding/StepLayout'
+import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
+import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
 import { activeCredentials, parseCredential, serializeCredential } from '@/lib/degrees'
 import { cnicStepView } from '@/lib/cnicStep'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
@@ -33,8 +34,6 @@ import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/li
 import TutorVerifyGate from '@/components/upgrade/TutorVerifyGate'
 import {
   FLOW_ORDER,
-  BLOCKER_STEPS,
-  stepDone,
   firstMissingStep,
   nextMissingAfter,
   isListed,
@@ -479,9 +478,6 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
     return <div className="grid min-h-screen place-items-center text-xs font-bold text-gray-500">Loading…</div>
   }
 
-  const isBlocker = stepKey !== 'final' && BLOCKER_STEPS.has(stepKey)
-  // Skip is removed from every step (owner PR64 §A4); only the top "Later" link
-  // lets a tutor leave the flow.
   const stepIndex = stepKey === 'final' ? FLOW_ORDER.length : FLOW_ORDER.indexOf(stepKey)
 
   // The tutor's own answers for the tagline/bio prefill (PR69): the picked
@@ -521,14 +517,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       </header>
 
       <main className="flex-1 pt-6">
-        {stepKey !== 'final' && (
-          <div className="mb-5 text-center">
-            <h1 className="text-xl font-black text-tm-navy">{TITLES[stepKey]}</h1>
-            <p className="mt-0.5 text-xs text-gray-500" lang="ur" dir="rtl">
-              {URDU[stepKey]}
-            </p>
-          </div>
-        )}
+        {stepKey !== 'final' && <StepHeading en={TITLES[stepKey]} ur={URDU[stepKey]} />}
 
         {stepKey === 'city' && (
           <ChipRow
@@ -610,15 +599,18 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         )}
 
         {stepKey === 'jobtype' && (
-          <MultiChipRow
-            options={jobOrder ?? orderedTitles(jobTitles, jobTypeDemand)}
-            selected={facts.jobTypes}
-            onToggle={(next) =>
-              void saveProfile({ tutorProfile: { job_types: next, teaching_mode: next[0] ?? null } })
-                .then(() => setFacts((f) => (f ? { ...f, jobTypes: next } : f)))
-                .catch((e) => toast.error(e instanceof Error ? e.message : 'Could not save.'))
-            }
-          />
+          <div className="space-y-4">
+            <MultiChipRow
+              options={jobOrder ?? orderedTitles(jobTitles, jobTypeDemand)}
+              selected={facts.jobTypes}
+              onToggle={(next) =>
+                void saveProfile({ tutorProfile: { job_types: next, teaching_mode: next[0] ?? null } })
+                  .then(() => setFacts((f) => (f ? { ...f, jobTypes: next } : f)))
+                  .catch((e) => toast.error(e instanceof Error ? e.message : 'Could not save.'))
+              }
+            />
+            <StepButton label="Save & continue" busy={busy} disabled={facts.jobTypes.length === 0} onClick={() => void advance()} />
+          </div>
         )}
 
         {stepKey === 'area' && (
@@ -728,10 +720,10 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
               type="button"
               disabled={busy}
               onClick={() => void saveNoDegree()}
-              className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-tm-navy hover:border-tm-navy disabled:opacity-40"
+              className="flex min-h-[44px] w-full flex-col items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-tm-navy hover:border-tm-navy disabled:opacity-40"
             >
               No degree to add yet
-              <span lang="ur" dir="rtl" className="ms-2 text-gray-500">— ابھی کوئی ڈگری نہیں</span>
+              <span lang="ur" dir="rtl" className="font-semibold text-gray-500">ابھی کوئی ڈگری نہیں</span>
             </button>
           </div>
         )}
@@ -741,25 +733,10 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
         {stepKey === 'final' && <FinalScreen facts={facts} onLeave={leave} next={params.get('next')} />}
       </main>
 
-      {/* footer */}
-      {stepKey !== 'final' && (
-        <div className="fixed inset-x-0 bottom-0 border-t border-gray-200 bg-white px-4 py-3">
-          <div className="mx-auto flex max-w-md items-center gap-3">
-            {/* PR78 §D: no Skip/Later. The site header/nav (above this flow) is
-                the way out; the gap flow resumes at the first unanswered step.
-                The component-driven steps advance from their own callback; the
-                rest advance on this button. Blockers require the step done. */}
-            {!['contact', 'verify', 'cnic_number', 'cnic_photos', 'degree', 'photo', 'selfie', 'name', 'fee', 'area', 'level', 'subjects', 'availability'].includes(stepKey) && (
-              <button
-                type="button" onClick={() => void advance()} disabled={busy || (isBlocker && !stepDone(facts, stepKey))}
-                className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-30"
-              >
-                {busy ? '…' : 'Next'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* PR106-F §2: there is no separate app footer. Every step renders ONE
+          shared StepButton (sticky, above the safe area) as its own last
+          element; the single-tap chip steps (city, experience) advance on the
+          tap itself and need no button. */}
     </div>
   )
 }
@@ -862,14 +839,15 @@ function TextStep({ initial, placeholder, onNext, busy, multiline, numeric }: {
   initial: string; placeholder: string; onNext: (v: string) => void; busy: boolean; multiline?: boolean; numeric?: boolean
 }) {
   const [v, setV] = useState(initial)
+  const stateCls = fieldStateClasses(fieldState({ value: v }))
   return (
     <div className="space-y-4">
       {multiline ? (
         <textarea value={v} onChange={(e) => setV(e.target.value)} placeholder={placeholder} rows={5}
-          className="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy" />
+          className={`w-full rounded-xl border p-3 text-sm outline-none ${stateCls}`} />
       ) : (
         <input value={v} inputMode={numeric ? 'numeric' : 'text'} onChange={(e) => setV(e.target.value)} placeholder={placeholder}
-          className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy" />
+          className={`min-h-[48px] w-full rounded-xl border p-3 text-sm outline-none ${stateCls}`} />
       )}
       <button
         type="button" disabled={busy || !v.trim()} onClick={() => onNext(v.trim())}
@@ -914,25 +892,38 @@ function FeeRangeStep({
     setError(null)
     onNext(mn as number, mx as number)
   }
+  // Show the number grouped as typed (5,000 / 100,000), keep "Rs" inside the box,
+  // and a numeric keypad (PR106-F §10).
+  const fmt = (s: string): string => {
+    const d = s.replace(/[^\d]/g, '')
+    return d ? Number(d).toLocaleString('en-PK') : ''
+  }
   const field = (
     label: string,
     labelUr: string,
     value: string,
     set: (v: string) => void,
     placeholder: string,
-  ) => (
-    <label className="space-y-1">
-      <span className="block text-xs font-bold text-tm-navy">{label}</span>
-      <span className="block text-right text-[11px] text-gray-500" lang="ur" dir="rtl">{labelUr}</span>
-      <input
-        value={value}
-        inputMode="numeric"
-        onChange={(e) => set(e.target.value)}
-        placeholder={placeholder}
-        className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy"
-      />
-    </label>
-  )
+  ) => {
+    const n = parse(value)
+    const state = fieldState({ value, valid: (n ?? 0) > 0 })
+    return (
+      <label className="space-y-1">
+        <span className="block text-xs font-bold text-tm-navy">{label}</span>
+        <span className="block text-right text-[11px] text-gray-500" lang="ur" dir="rtl">{labelUr}</span>
+        <div className="relative">
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-bold text-gray-500">Rs</span>
+          <input
+            value={fmt(value)}
+            inputMode="numeric"
+            onChange={(e) => set(e.target.value)}
+            placeholder={fmt(placeholder)}
+            className={`min-h-[48px] w-full rounded-xl border p-3 pl-10 text-sm outline-none ${fieldStateClasses(state)}`}
+          />
+        </div>
+      </label>
+    )
+  }
   // Self-explaining checklist (PR80). Item 2's "done" IS the server rule
   // (validateFeeRange null = both present, positive, min ≤ max), so the gate never
   // diverges from validation.
@@ -943,7 +934,6 @@ function FeeRangeStep({
   const ready = checklistReady(items)
   return (
     <div className="space-y-4">
-      <FormChecklist items={items} />
       <div className="grid grid-cols-2 gap-3">
         {field('Minimum', 'کم از کم', min, setMin, String(FEE_MIN_DEFAULT))}
         {field('Maximum', 'زیادہ سے زیادہ', max, setMax, String(FEE_MAX_DEFAULT))}
@@ -966,7 +956,6 @@ function FeeRangeStep({
       >
         {busy ? '…' : 'Save & continue'}
       </button>
-      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -992,7 +981,6 @@ function CitiesAreasStep({
   const seedCity = (initialCity ?? '').trim()
   return (
     <div className="space-y-4">
-      <FormChecklist items={items} />
       <TutorCitiesEditor
         initialCities={seedCity ? [seedCity] : []}
         initialAreasByCity={seedCity ? { [seedCity]: initialAreas } : {}}
@@ -1006,7 +994,6 @@ function CitiesAreasStep({
       >
         {busy ? '…' : 'Save & continue'}
       </button>
-      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -1040,7 +1027,6 @@ function LevelStep({
         </p>
       ) : (
         <>
-          <FormChecklist items={items} />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -1064,7 +1050,6 @@ function LevelStep({
           >
             {busy ? '…' : 'Save & continue'}
           </button>
-          <ChecklistStatus items={items} />
         </>
       )}
     </div>
@@ -1121,7 +1106,6 @@ function SubjectsPerLevelStep({
   ]
   return (
     <div className="space-y-4">
-      <FormChecklist items={items} />
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -1152,7 +1136,6 @@ function SubjectsPerLevelStep({
       >
         {busy ? '…' : 'Save & continue'}
       </button>
-      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -1175,7 +1158,6 @@ function AvailabilityStep({
   ]
   return (
     <div className="space-y-4">
-      <FormChecklist items={items} />
       <TimeSlotGrid value={slots} onChange={setSlots} disabled={busy} />
       {/* PR78 §D: no "Later" — the tutor picks at least one slot to continue. */}
       <button
@@ -1186,7 +1168,6 @@ function AvailabilityStep({
       >
         {busy ? '…' : 'Save & continue'}
       </button>
-      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -1309,13 +1290,12 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
     }
   }
 
-  const items: ChecklistItem[] = [
-    { en: 'Take a selfie', ur: 'ایک سیلفی لیں', done: uploaded },
-  ]
+  // PR106-F §11: the camera sits directly under the heading (no long blue box
+  // above it), with one short note and a "Why?" that expands the rest. The
+  // sentence about hiding the profile PICTURE lives on the photo step, not here.
+  const [showWhy, setShowWhy] = useState(false)
   return (
     <div className="space-y-4">
-      <FormChecklist items={items} />
-      <PictureNote />
       <div className="mx-auto w-40">
         <PhotoCaptureTile
           facingMode="user"
@@ -1333,6 +1313,31 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
           onPick={(f) => void upload(f)}
         />
       </div>
+      <div className="text-center">
+        <p className="text-[11px] leading-relaxed text-gray-500">Only our verification team sees your selfie.</p>
+        <p lang="ur" dir="rtl" className="text-[11px] leading-relaxed text-gray-500">
+          آپ کی سیلفی صرف ہماری تصدیق ٹیم دیکھتی ہے۔
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowWhy((v) => !v)}
+          aria-expanded={showWhy}
+          className="mt-1 min-h-[32px] text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline"
+        >
+          {showWhy ? 'Hide' : 'Why?'}
+          <span lang="ur" dir="rtl" className="ms-1 text-gray-500">— کیوں؟</span>
+        </button>
+        {showWhy && (
+          <div className="mt-2 rounded-xl bg-tm-tint-navy p-3 text-left">
+            <p className="text-[11px] leading-relaxed text-tm-navy">
+              We use your selfie only to check you are a real person. It is never shown on your profile or to parents.
+            </p>
+            <p lang="ur" dir="rtl" className="mt-1 text-[11px] leading-relaxed text-tm-navy">
+              ہم آپ کی سیلفی صرف یہ جانچنے کے لیے استعمال کرتے ہیں کہ آپ حقیقی شخص ہیں۔ یہ کبھی آپ کے پروفائل پر یا والدین کو نہیں دکھائی جاتی۔
+            </p>
+          </div>
+        )}
+      </div>
       <button
         type="button"
         disabled={busy || !uploaded}
@@ -1341,7 +1346,6 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
       >
         {busy ? '…' : 'Save & continue'}
       </button>
-      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -1457,7 +1461,6 @@ function DegreeStep({ initialDegrees, onSaved }: { initialDegrees: unknown[]; on
 
   return (
     <div className="space-y-4">
-      <FormChecklist items={items} />
       <ul className="space-y-3">
         {entries.map((e, i) => (
           <li key={e.key} className="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
@@ -1468,7 +1471,9 @@ function DegreeStep({ initialDegrees, onSaved }: { initialDegrees: unknown[]; on
                 onChange={(ev) => patch(e.key, { title: ev.target.value })}
                 placeholder="Degree, e.g. BSc Physics — Punjab University"
                 aria-label={`Degree ${i + 1}`}
-                className="min-h-[48px] flex-1 rounded-xl border border-gray-300 bg-white p-3 text-sm font-semibold outline-none focus:border-tm-navy"
+                className={`min-h-[48px] flex-1 rounded-xl border p-3 text-sm font-semibold outline-none ${fieldStateClasses(
+                  fieldState({ value: e.title }),
+                )}`}
               />
               {(entries.length > 1 || e.title.trim()) && (
                 <button
@@ -1481,42 +1486,51 @@ function DegreeStep({ initialDegrees, onSaved }: { initialDegrees: unknown[]; on
                 </button>
               )}
             </div>
-            {/* Certificate: small and clearly OPTIONAL (§3). */}
-            <div className="flex items-center gap-2">
-              {e.preview ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={e.preview} alt="Certificate preview" className="h-12 w-16 rounded-md border border-gray-200 object-cover" />
-                  <label className="cursor-pointer text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline">
-                    {e.uploading ? 'Uploading…' : 'Replace certificate'}
+            {/* Certificate: small and clearly OPTIONAL (§3). Urdu on its own
+                line beneath, not inline (§9). */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                {e.preview ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={e.preview} alt="Certificate preview" className="h-12 w-16 rounded-md border border-gray-200 object-cover" />
+                    <label className="cursor-pointer text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline">
+                      {e.uploading ? 'Uploading…' : 'Replace certificate'}
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={(ev) => { const f = ev.target.files?.[0]; if (f) void uploadCert(e.key, e.title, f); ev.currentTarget.value = '' }} />
+                    </label>
+                  </>
+                ) : (
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-[11px] font-bold text-gray-600 hover:border-tm-navy hover:text-tm-navy">
+                    <Plus size={14} aria-hidden />
+                    {e.uploading ? 'Uploading…' : 'Add certificate (optional)'}
                     <input type="file" accept="image/*" className="hidden"
                       onChange={(ev) => { const f = ev.target.files?.[0]; if (f) void uploadCert(e.key, e.title, f); ev.currentTarget.value = '' }} />
                   </label>
-                </>
-              ) : (
-                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-[11px] font-bold text-gray-600 hover:border-tm-navy hover:text-tm-navy">
-                  <Plus size={14} aria-hidden />
-                  {e.uploading ? 'Uploading…' : 'Add certificate (optional)'}
-                  <span lang="ur" dir="rtl" className="text-gray-500">— سند (اختیاری)</span>
-                  <input type="file" accept="image/*" className="hidden"
-                    onChange={(ev) => { const f = ev.target.files?.[0]; if (f) void uploadCert(e.key, e.title, f); ev.currentTarget.value = '' }} />
-                </label>
+                )}
+              </div>
+              {!e.preview && (
+                <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">سند — اختیاری</span>
               )}
             </div>
           </li>
         ))}
       </ul>
-      <button type="button" onClick={addAnother}
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-tm-navy underline-offset-2 hover:underline">
-        <Plus size={14} aria-hidden /> Add another degree
-        <span lang="ur" dir="rtl" className="text-gray-500">— ایک اور ڈگری شامل کریں</span>
-      </button>
-      <p className="text-[11px] text-gray-500">Only you and our verification team can see it. Previews are watermarked.</p>
+      <div>
+        <button type="button" onClick={addAnother}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-tm-navy underline-offset-2 hover:underline">
+          <Plus size={14} aria-hidden /> Add another degree
+        </button>
+        <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">ایک اور ڈگری شامل کریں</span>
+      </div>
+      <p className="text-[11px] text-gray-500">
+        Only you and our verification team can see it. Previews are watermarked.
+        <span lang="ur" dir="rtl" className="block">صرف آپ اور ہماری تصدیق ٹیم اسے دیکھ سکتے ہیں۔</span>
+      </p>
       <button type="button" disabled={busy || !ready} onClick={() => void save()}
         className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg">
         {busy ? '…' : 'Save & continue'}
       </button>
-      <ChecklistStatus items={items} />
     </div>
   )
 }
@@ -1649,7 +1663,7 @@ function CnicNumberStep({ support, onNext }: { support: SupportInfo; onNext: () 
   }
   return (
     <div className="space-y-4">
-      <CnicCapture show="number" initialNumber={prefill.number} onState={setCap} />
+      <CnicCapture show="number" hideChecklist initialNumber={prefill.number} onState={setCap} />
       {error && <CnicErrorLine error={error} />}
       <button type="button" disabled={busy || !cap?.valid} onClick={() => void save()} className={CNIC_SAVE_BTN}>
         {busy ? '…' : 'Save & continue'}
@@ -1698,6 +1712,7 @@ function CnicPhotosStep({ support, onSubmitted }: { support: SupportInfo; onSubm
     <div className="space-y-4">
       <CnicCapture
         show="photos"
+        hideChecklist
         initialNumber={prefill.number}
         initialFront={prefill.front}
         initialBack={prefill.back}
@@ -1927,7 +1942,6 @@ function ContactStep({
 
   return (
     <div className="space-y-5">
-      <FormChecklist items={items} />
       {/* Mobile — verified/read-only, or verify by SMS. */}
       <section className="space-y-2">
         <FieldLabel en="Mobile number" ur="موبائل نمبر" />
@@ -1993,14 +2007,15 @@ function ContactStep({
       {/* Tagline (prefilled from the tutor's own answers, editable). */}
       <section className="space-y-2">
         <FieldLabel en="Your tagline" ur="آپ کا عنوان" />
-        <input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="e.g. O Level Physics specialist" aria-label="Tagline" className={fieldCls} />
+        <input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="e.g. O Level Physics specialist" aria-label="Tagline"
+          className={`min-h-[48px] w-full rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(fieldState({ value: tagline }))}`} />
       </section>
 
       {/* Bio (prefilled, editable). */}
       <section className="space-y-2">
         <FieldLabel en="A short about-you" ur="اپنے بارے میں مختصر" />
         <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} placeholder="Two or three lines about how you teach" aria-label="About you"
-          className="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy" />
+          className={`w-full rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(fieldState({ value: bio }))}`} />
       </section>
 
       <div className="space-y-1">
@@ -2009,7 +2024,6 @@ function ContactStep({
           className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-40 sticky bottom-[calc(0.75rem_+_env(safe-area-inset-bottom))] z-20 shadow-lg">
           {busy ? '…' : 'Continue'}
         </button>
-        <ChecklistStatus items={items} />
       </div>
     </div>
   )

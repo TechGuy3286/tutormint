@@ -47,6 +47,7 @@
     "test:privacy": "tsx --test scripts/test-privacy.ts",
     "test:pr106d": "tsx --test scripts/test-pr106d.ts",
     "test:pr106e": "tsx --test scripts/test-pr106e.ts",
+    "test:pr106f": "tsx --test scripts/test-pr106f.ts",
     "test:formchecklist": "tsx --test scripts/test-formchecklist.ts",
     "test:taxonomy:live": "tsx --test scripts/test-taxonomy-live.ts",
     "test:onboarding": "tsx --test scripts/test-onboarding.ts",

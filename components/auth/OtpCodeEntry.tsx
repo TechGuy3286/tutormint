@@ -90,6 +90,7 @@ export default function OtpCodeEntry({
   locked = false,
   disabled = false,
   verifyLabel = 'Verify',
+  verifyLabelUr,
   busyLabel = 'Verifying…',
   label = '6-digit code',
   autoFocus = true,
@@ -111,6 +112,8 @@ export default function OtpCodeEntry({
   /** An extra disable a surface may add (never loosens the < 6 / busy / locked rule). */
   disabled?: boolean
   verifyLabel?: string
+  /** An Urdu line shown on its own under the Verify button (PR106-F §15). */
+  verifyLabelUr?: string
   busyLabel?: string
   /** The label above the input; pass '' to hide it where surrounding text says it. */
   label?: string
@@ -169,6 +172,9 @@ export default function OtpCodeEntry({
           <ShieldCheck aria-hidden size={16} />
           {busy ? busyLabel : verifyLabel}
         </button>
+        {verifyLabelUr && (
+          <p lang="ur" dir="rtl" className="text-center text-[11px] text-gray-500">{verifyLabelUr}</p>
+        )}
       </form>
 
       {onDifferentNumber && (

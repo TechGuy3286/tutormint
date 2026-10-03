@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
@@ -72,6 +72,10 @@ export default function RegisterForm({
   initialRole?: Role
 }) {
   const [role, setRole] = useState<Role>(initialRole)
+  // PR106-F §13: a role is already chosen (the cards collapse to a one-line
+  // "Signing up as … · Change"), so the form fields sit high on a 360px phone
+  // with no scrolling. "Change" brings both cards back; picking one re-collapses.
+  const [rolePicking, setRolePicking] = useState(false)
   const [fullName, setFullName] = useState('')
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -86,6 +90,31 @@ export default function RegisterForm({
 
   const router = useRouter()
   const shape = identifierShape(identifier)
+
+  // PR106-F §14: never lose what they typed. Going Back from the verify screen
+  // returns here and we refill role + name + identifier from the unsaved draft
+  // (CLAUDE.md rule 2 permits sessionStorage for an unsaved draft). The password
+  // is NEVER stored — it is re-typed, which is the safe thing to lose.
+  const DRAFT_KEY = 'tm_signup_draft'
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY)
+      if (!raw) return
+      const d = JSON.parse(raw) as { role?: Role; fullName?: string; identifier?: string }
+      if (d.role === 'tutor' || d.role === 'parent') setRole(d.role)
+      if (d.fullName) setFullName(d.fullName)
+      if (d.identifier) setIdentifier(d.identifier)
+    } catch {
+      /* private mode / blocked storage — the form just starts empty */
+    }
+  }, [])
+  const saveDraft = () => {
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ role, fullName, identifier }))
+    } catch {
+      /* non-fatal */
+    }
+  }
 
   const showError = (en: string, ur?: string | null, opts?: { ref?: string | null; signIn?: boolean; fields?: Record<string, string> }) => {
     setErrorMsg(en)
@@ -146,6 +175,9 @@ export default function RegisterForm({
       ? `/verify-phone?next=${encodeURIComponent(next)}`
       : (data?.next ?? '/verify-phone')
 
+    // Keep the draft so Back from the verify screen refills the form (§14).
+    saveDraft()
+
     // The request succeeded — a pending draft (mobile) or an unconfirmed account
     // (email) now exists. If the navigation does not take, the member must not be
     // left watching a spinner on a form they have already submitted; re-pressing
@@ -194,38 +226,61 @@ export default function RegisterForm({
             options and a screen reader announces "1 of 2" without any of it
             being simulated.
           */}
-          <fieldset>
-            <legend className="mb-2 text-xs font-bold text-tm-navy">I am a…</legend>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {ROLES.map((r) => (
-                <label
-                  key={r.value}
-                  className={`flex min-h-[44px] cursor-pointer items-start gap-2 rounded-xl border-2 p-3 transition-all ${
-                    role === r.value
-                      ? 'border-tm-red bg-tm-tint-red'
-                      : 'border-gray-200 bg-tm-bg hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="role"
-                    value={r.value}
-                    checked={role === r.value}
-                    onChange={() => setRole(r.value)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-tm-red"
-                  />
-                  <span>
-                    <span className="block text-xs font-black text-tm-navy">{r.label}</span>
-                    {r.helper && (
-                      <span className="mt-0.5 block text-[11px] leading-snug text-gray-500">
-                        {r.helper}
-                      </span>
-                    )}
-                  </span>
-                </label>
-              ))}
+          {rolePicking ? (
+            <fieldset>
+              <legend className="mb-2 text-xs font-bold text-tm-navy">I am a…</legend>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {ROLES.map((r) => (
+                  <label
+                    key={r.value}
+                    className={`flex min-h-[44px] cursor-pointer items-start gap-2 rounded-xl border-2 p-3 transition-all ${
+                      role === r.value
+                        ? 'border-tm-red bg-tm-tint-red'
+                        : 'border-gray-200 bg-tm-bg hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="role"
+                      value={r.value}
+                      checked={role === r.value}
+                      // Picking a card collapses the chooser back to the one-line
+                      // summary, so the fields stay high on the screen (§13).
+                      onChange={() => {
+                        setRole(r.value)
+                        setRolePicking(false)
+                      }}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-tm-red"
+                    />
+                    <span>
+                      <span className="block text-xs font-black text-tm-navy">{r.label}</span>
+                      {r.helper && (
+                        <span className="mt-0.5 block text-[11px] leading-snug text-gray-500">
+                          {r.helper}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : (
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-tm-bg p-3">
+              <p className="text-xs font-bold text-tm-navy">
+                Signing up as a{' '}
+                <span className="text-tm-red">
+                  {role === 'tutor' ? 'Tutor' : 'Parent / Institution'}
+                </span>
+              </p>
+              <button
+                type="button"
+                onClick={() => setRolePicking(true)}
+                className="min-h-[36px] shrink-0 text-xs font-bold text-tm-navy underline-offset-2 hover:underline"
+              >
+                Change
+              </button>
             </div>
-          </fieldset>
+          )}
 
           <div className="space-y-1">
             <label htmlFor="fullName" className="text-xs font-bold text-tm-navy">

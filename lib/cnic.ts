@@ -63,5 +63,13 @@ export function maskCnicHeavy(input: string | null | undefined): string | null {
 
 /** The one message shown for a number that is not thirteen digits. */
 export const CNIC_FORMAT_HINT = 'Your CNIC is 13 digits, like 42101-1234567-1.'
-/** The Urdu line shown under the English CNIC-format hint (PR106-B §12). */
-export const CNIC_FORMAT_HINT_UR = 'آپ کا شناختی کارڈ 13 ہندسوں کا ہوتا ہے، جیسے 42101-1234567-1۔'
+/** The CNIC example, kept separate so the renderer can wrap it in an LTR
+ *  isolate — inside an Urdu (RTL) line the hyphen-grouped number would
+ *  otherwise reorder and read reversed (PR106-F §5). */
+export const CNIC_EXAMPLE = '42101-1234567-1'
+/** The Urdu CNIC-format hint, WITHOUT the number — the renderer appends the
+ *  example in an LTR isolate so it reads 42101-1234567-1, not reversed. */
+export const CNIC_FORMAT_HINT_UR_LEAD = 'آپ کا شناختی کارڈ 13 ہندسوں کا ہوتا ہے، جیسے'
+/** The full Urdu line (number embedded) — kept for any non-RTL-safe caller; new
+ *  surfaces use CNIC_FORMAT_HINT_UR_LEAD + <Ltr>{CNIC_EXAMPLE}</Ltr>. */
+export const CNIC_FORMAT_HINT_UR = `${CNIC_FORMAT_HINT_UR_LEAD} ${CNIC_EXAMPLE}۔`

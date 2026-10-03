@@ -79,7 +79,8 @@ export default function VerifyPhoneForm({ mobile, home }: { mobile: string; home
         onVerify={() => void submit()}
         busy={busy}
         busyLabel="Checking…"
-        verifyLabel="Verify and continue"
+        verifyLabel="Verify and then Sign In"
+        verifyLabelUr="تصدیق کریں اور سائن ان ہوں"
         locked={locked}
         error={error || null}
         errorUr={errorUr}

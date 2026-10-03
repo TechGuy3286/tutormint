@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import CnicCameraField from '@/components/tutor/CnicCameraField'
 import { FormChecklist } from '@/components/forms/FormChecklist'
 import type { ChecklistItem } from '@/lib/formChecklist'
-import { formatCnic, isValidCnic, CNIC_FORMAT_HINT, CNIC_FORMAT_HINT_UR } from '@/lib/cnic'
+import { formatCnic, isValidCnic, CNIC_FORMAT_HINT, CNIC_FORMAT_HINT_UR_LEAD, CNIC_EXAMPLE } from '@/lib/cnic'
+import { Ltr } from '@/components/onboarding/StepLayout'
+import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
 
 // The ONE shared CNIC entry (PR81), used everywhere a CNIC is typed and
 // photographed: the tutor onboarding CNIC step, the tutor Settings identity card,
@@ -57,6 +59,7 @@ export default function CnicCapture({
   uploadExtra,
   saveNumber,
   show = 'all',
+  hideChecklist = false,
 }: {
   initialNumber?: string
   initialFront?: boolean
@@ -81,6 +84,9 @@ export default function CnicCapture({
   /** PR83: override how the number is saved before an image (the staff editor
    *  saves it to the target tutor). Default = the member /api/identity path. */
   saveNumber?: (number: string) => Promise<{ ok: boolean; error?: string }>
+  /** PR106-F §3 — the onboarding steps hide the numbered checklist (the button
+   *  simply stays disabled until valid). Settings/parent-verify keep it. */
+  hideChecklist?: boolean
 }) {
   const [number, setNumber] = useState(formatCnic(initialNumber))
   const [front, setFront] = useState(initialFront)
@@ -135,7 +141,7 @@ export default function CnicCapture({
 
   return (
     <div className="space-y-4">
-      <FormChecklist items={shownItems} />
+      {!hideChecklist && <FormChecklist items={shownItems} />}
       {show !== 'photos' && (
         <>
           <input
@@ -144,13 +150,18 @@ export default function CnicCapture({
             onChange={(e) => setNumber(formatCnic(e.target.value))}
             placeholder="CNIC number, e.g. 35201-1234567-1"
             aria-label="CNIC number"
-            className="min-h-[48px] w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-tm-navy"
+            className={`min-h-[48px] w-full rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(
+              fieldState({ value: number, valid }),
+            )}`}
           />
-          {/* PR106-B §12: the format hint is always shown, English with Urdu under
-              it, on every surface that uses CnicCapture. */}
+          {/* PR106-B §12 / PR106-F §5: the format hint, English with Urdu under it.
+              The example number is kept in an LTR isolate so it reads
+              42101-1234567-1 inside the RTL Urdu line, not reversed. */}
           <p className="-mt-1.5 text-[11px] text-gray-500">
             {CNIC_FORMAT_HINT}
-            <span lang="ur" dir="rtl" className="mt-0.5 block">{CNIC_FORMAT_HINT_UR}</span>
+            <span lang="ur" dir="rtl" className="mt-0.5 block">
+              {CNIC_FORMAT_HINT_UR_LEAD} <Ltr>{CNIC_EXAMPLE}</Ltr>۔
+            </span>
           </p>
         </>
       )}

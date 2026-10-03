@@ -120,6 +120,28 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle()
     if (existingEmail) {
+      // PR106-F §14: correcting a mistyped email must not dead-end on "already
+      // registered". If that account is still UNCONFIRMED (no session was ever
+      // created for it), reuse it — refresh its password + name/role to what was
+      // just entered and resend the confirmation link — rather than refusing or
+      // creating a second orphan account. A CONFIRMED email is a real member, so
+      // that still returns the sign-in prompt.
+      const { data: existingUser } = await admin.auth.admin.getUserById(existingEmail.id)
+      const confirmed = !!existingUser?.user?.email_confirmed_at
+      if (!confirmed) {
+        await admin.auth.admin.updateUserById(existingEmail.id, {
+          password: body.password,
+          user_metadata: { role: body.role, full_name: body.fullName },
+        })
+        const supabaseReuse = await createClient()
+        const originReuse = new URL(request.url).origin
+        await supabaseReuse.auth.resend({
+          type: 'signup',
+          email: authEmail,
+          options: { emailRedirectTo: `${originReuse}/api/auth/callback` },
+        })
+        return NextResponse.json({ next: `/verify-email?to=${encodeURIComponent(authEmail)}`, signedIn: false })
+      }
       return NextResponse.json(
         {
           error: AUTH_MSG.emailTaken.en,

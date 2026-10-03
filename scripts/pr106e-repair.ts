@@ -17,7 +17,8 @@
  * Fee-flag-without-payment accounts are REPORTED for Alee, never changed.
  * The DB URL comes from env and is never printed.
  */
-import { Client } from 'pg'
+// @ts-expect-error — pg ships no bundled types; this is a dev-only repair script.
+import pg from 'pg'
 
 const APPLY = process.argv.includes('--apply')
 const url = process.env.SUPABASE_DB_URL
@@ -29,7 +30,7 @@ if (!url) {
 const PARENT_ROLES = `('parent','academy')`
 
 async function main() {
-  const c = new Client({ connectionString: url })
+  const c = new pg.Client({ connectionString: url })
   await c.connect()
   try {
     await c.query('begin')

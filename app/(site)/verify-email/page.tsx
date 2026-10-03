@@ -52,11 +52,13 @@ export default async function VerifyEmailPage({
             >
               Go to sign in
             </Link>
+            {/* PR106-F §14: correcting a mistyped email opens the prefilled form
+                (name + role + email refill from the saved draft). */}
             <Link
               href="/register"
               className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-tm-navy hover:border-tm-navy"
             >
-              Use a mobile number instead
+              Change email, or use a mobile number
             </Link>
           </div>
         </div>

@@ -62,6 +62,8 @@ export default function PendingVerifyForm({ next }: { next: string | null }) {
     }
 
     // The account exists and the member is signed in. Confirm before navigating.
+    // Clear the signup draft so a later /register visit starts clean (§14).
+    try { sessionStorage.removeItem('tm_signup_draft') } catch { /* non-fatal */ }
     toast.success('Number verified — welcome to TutorMint.')
 
     const target = data?.next ?? '/login'
@@ -103,13 +105,27 @@ export default function PendingVerifyForm({ next }: { next: string | null }) {
             onVerify={() => void submit()}
             busy={busy}
             busyLabel="Checking…"
-            verifyLabel="Verify and continue"
+            verifyLabel="Verify and then Sign In"
+            verifyLabelUr="تصدیق کریں اور سائن ان ہوں"
             error={error || null}
             errorUr={errorUr}
             errorRef={errorRef}
             stuckHref={stuckHref}
           />
         </>
+      )}
+
+      {/* PR106-F §14: a wrong number is corrected here. The form refills from the
+          saved draft (name + role + number), and submitting the corrected number
+          updates the same pending signup — no second account, no "already
+          registered" (there is no account until the code is entered). */}
+      {!terminal && (
+        <p className="text-center text-xs text-gray-500">
+          Wrong number?{' '}
+          <Link href="/register" className="font-bold text-tm-navy underline-offset-2 hover:underline">
+            Change number
+          </Link>
+        </p>
       )}
 
       {/* Email fallback (owner). Not a resend — a free path that already works.
