@@ -31,6 +31,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements, currentPeriod } from '@/lib/entitlements'
 import { notify } from '@/lib/notifications'
 import { nextUpsell } from '@/lib/upsell'
+import { PARENT_VIEWER_ROLES } from '@/lib/profileViews'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -53,9 +54,15 @@ async function deliverViewTeasers(admin: Admin): Promise<{ sent: number; errors:
   // Count views per tutor over the window in JS — supabase-js has no group-by,
   // and the row count on a "feels free" directory is small. Bounded so a busy
   // week cannot pull an unbounded set into memory.
+  //
+  // PR106-E §6 — the SAME definition the dashboard tile uses (weeklyParentViewCount):
+  // PARENT / academy viewers only, never the tutor themselves, so the teaser's "N
+  // parents viewed your profile this week" equals the tile and is never inflated
+  // by tutor/staff/anonymous views.
   const { data: views, error } = await admin
     .from('profile_views')
-    .select('tutor_id')
+    .select('tutor_id, viewer_id, viewer_role')
+    .in('viewer_role', PARENT_VIEWER_ROLES as unknown as string[])
     .gte('created_at', since)
     .limit(20000)
   if (error) return { sent: 0, errors: [`views: ${error.message}`] }
@@ -64,6 +71,7 @@ async function deliverViewTeasers(admin: Admin): Promise<{ sent: number; errors:
   for (const v of views ?? []) {
     const id = v.tutor_id as string | null
     if (!id) continue
+    if ((v.viewer_id as string | null) === id) continue // never the tutor themselves
     counts.set(id, (counts.get(id) ?? 0) + 1)
   }
   if (counts.size === 0) return { sent: 0, errors }

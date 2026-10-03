@@ -103,6 +103,18 @@ export default function TutorHeaderCard({
             View your public page
           </Link>
         )}
+
+        {/* PR106-E §9 — a small "Complete your profile · N%" link while below 100%,
+            opening the flow at the next unfinished step. Hidden at 100%. */}
+        {completion < 100 && (
+          <Link
+            href="/tutor/complete-profile"
+            className="block min-h-[32px] text-[11px] font-bold text-tm-red underline-offset-2 hover:underline"
+          >
+            Complete your profile · {completion}%
+            <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">پروفائل مکمل کریں</span>
+          </Link>
+        )}
       </div>
     </section>
   )

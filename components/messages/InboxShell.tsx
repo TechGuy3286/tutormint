@@ -98,6 +98,9 @@ export default async function InboxShell({
     // PR74 §F: on mobile Messages starts right under the sticky header (pt-0);
     // desktop keeps sm:pt-2. The breadcrumb stays.
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-3 pb-4 pt-0 sm:px-6 sm:pb-6 sm:pt-2 lg:px-8">
+      {/* PR106-E §11 — on a phone the open conversation hides the breadcrumb; the
+          chat header's ← is the one way back. Desktop (two-pane) keeps it. */}
+      <div className={threadId ? 'hidden lg:block' : ''}>
       <Breadcrumbs
         items={
           isTeam
@@ -115,11 +118,12 @@ export default async function InboxShell({
               : [{ label: dashboardLabel, href: dashboard }, { label: 'Messages' }]
         }
       />
+      </div>
 
       {/* No "Messages" heading — the breadcrumb already says it, and dropping it
           lets the conversation start higher on phone and desktop (PR43 §4). */}
       {role === 'tutor' && !ent.canInitiateMessage && (
-        <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className={`${threadId ? 'hidden lg:flex' : 'flex'} flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between`}>
           {ent.verified ? (
             <>
               <p className="text-[11px] leading-relaxed text-slate-700">
@@ -155,8 +159,11 @@ export default async function InboxShell({
       {/* Quick replies management (PR61 §A3): moved here from Settings, same
           editor and saved data. Tutors only, collapsed by default so it never
           crowds the inbox. The tap-to-insert chips already live in the composer. */}
+      {/* PR106-E §12 — the quick-reply tap-chips live in the composer; this
+          management editor is hidden on the phone conversation view so it never
+          crowds the chat. It stays on the list view and on the desktop two-pane. */}
       {role === 'tutor' && (
-        <details className="rounded-2xl border border-gray-200 bg-white p-3">
+        <details className={`${threadId ? 'hidden lg:block' : 'block'} rounded-2xl border border-gray-200 bg-white p-3`}>
           <summary className="cursor-pointer text-xs font-black text-tm-navy">Quick replies</summary>
           <div className="pt-3">
             <QuickRepliesEditor />
@@ -164,7 +171,16 @@ export default async function InboxShell({
         </details>
       )}
 
-      <div className="grid h-[calc(100dvh-15rem)] min-h-[420px] grid-cols-1 overflow-hidden rounded-2xl border border-gray-200 bg-white lg:h-[calc(100dvh-16rem)] lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+      {/* PR106-E §10 — on a phone with a conversation open, the breadcrumb, the
+          reply-only notice and the quick-reply editor above are hidden, so the
+          chat takes nearly the whole viewport (just the site header above it).
+          The message list inside scrolls independently and the composer stays
+          pinned at the bottom (the Conversation flex column). */}
+      <div
+        className={`grid min-h-[420px] grid-cols-1 overflow-hidden rounded-2xl border border-gray-200 bg-white lg:h-[calc(100dvh-16rem)] lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)] ${
+          threadId ? 'h-[calc(100dvh-5rem)]' : 'h-[calc(100dvh-15rem)]'
+        }`}
+      >
         {/* Left: conversations. Hidden below lg once one is open — one pane at
             a time on a phone, and the conversation is the one being read. */}
         <aside

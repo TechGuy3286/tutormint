@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSupportContact, whatsappHref, formatSupportWhatsApp } from '@/lib/support'
 import { onboardingFacets } from '@/lib/openJobCounts'
+import { manualInstructions } from '@/lib/payments/manual'
 import { smsDeliverable } from '@/lib/sms'
 import CompleteProfileFlow from '@/components/tutor/CompleteProfileFlow'
 
@@ -34,6 +35,7 @@ export default async function TutorOnboardingPage() {
     "Assalam-o-Alaikum, I can't verify my mobile number on TutorMint. Please help.",
   )
   const facets = await onboardingFacets()
+  const manual = await manualInstructions()
 
   return (
     <CompleteProfileFlow
@@ -45,6 +47,7 @@ export default async function TutorOnboardingPage() {
       }}
       seed={user.id}
       smsAvailable={smsDeliverable()}
+      manual={manual}
     />
   )
 }

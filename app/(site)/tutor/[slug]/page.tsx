@@ -491,13 +491,19 @@ async function recordView(tutorId: string, viewerId: string | null, viewerRole: 
     source: searchSubject || searchArea || searchCity ? 'search' : 'direct',
   })
 
-  await notifyProfileViewed({
-    admin,
-    tutorId,
-    subjectMasterId: searchSubject,
-    area: searchArea,
-    city: searchCity,
-  })
+  // PR106-E §7 — "1 parent viewed your profile" is only true for a PARENT viewer.
+  // A view by another tutor, a staff account or an anonymous visitor still counts
+  // as a profile_views row (the tutor's own stat) but must NOT send a made-up
+  // "parent viewed" notification. Only parent/academy viewers notify.
+  if (viewerRole === 'parent' || viewerRole === 'academy') {
+    await notifyProfileViewed({
+      admin,
+      tutorId,
+      subjectMasterId: searchSubject,
+      area: searchArea,
+      city: searchCity,
+    })
+  }
 }
 
 /**

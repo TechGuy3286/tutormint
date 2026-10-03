@@ -113,5 +113,12 @@ test('the payment screens have Back / Pay later and a manual option', () => {
   assert.ok(manual.includes('Back') && manual.includes('Pay later'), 'the order page has Back + Pay later')
   const gate = read('components/upgrade/TutorVerifyGate.tsx')
   assert.ok(gate.includes('Pay by bank transfer'), 'the fee screen offers the manual option')
-  assert.ok(gate.includes('Bank transfer is activated after our team checks your payment'), 'the plain manual line (EN)')
+  // PR106-E consolidated the inline account details + the plain activation line
+  // into the one ManualPayDetails component (single source); the gate renders it.
+  assert.ok(gate.includes('ManualPayDetails'), 'the fee screen renders the shared manual-details block')
+  const details = read('components/payments/ManualPayDetails.tsx')
+  assert.ok(
+    details.includes('Bank transfer is activated after our team checks your payment'),
+    'the plain manual line (EN) lives in the shared block',
+  )
 })

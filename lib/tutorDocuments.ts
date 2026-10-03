@@ -136,9 +136,36 @@ export async function reviewTutorDocument(params: {
   // logs happen only when the decision actually changes state.
   const { data: current } = await admin
     .from('profiles')
-    .select('verification_state, cnic_verified_at, profile_pic_status, selfie_status')
+    .select('verification_state, cnic_verified_at, profile_pic_status, selfie_status, cnic_number, cnic_image_path, avatar_url')
     .eq('id', tutorId)
     .maybeSingle()
+
+  // PR106-E §3 — staff cannot APPROVE a document with no uploaded file. A missing
+  // file means there is nothing to review; approving it would mint a Verified
+  // badge over nothing (the Javeria case). The UI hides Approve for a missing
+  // document too; this is the server backstop.
+  if (decision === 'approve') {
+    const filled = (v: unknown) => typeof v === 'string' && v.trim().length > 0
+    let hasFile = false
+    if (item === 'cnic') {
+      hasFile = filled(current?.cnic_number) && filled(current?.cnic_image_path)
+    } else if (item === 'profile_pic') {
+      hasFile = filled(current?.avatar_url)
+    } else {
+      const { data: selfieDoc } = await admin
+        .from('user_documents')
+        .select('id')
+        .eq('user_id', tutorId)
+        .eq('kind', 'selfie')
+        .limit(1)
+        .maybeSingle()
+      hasFile = !!selfieDoc
+    }
+    if (!hasFile) {
+      return { ok: false, status: 400, error: 'That document has not been uploaded yet, so it cannot be approved.' }
+    }
+  }
+
   const alreadyApproved =
     item === 'cnic'
       ? current?.verification_state === 'approved' && !!current?.cnic_verified_at

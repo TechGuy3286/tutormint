@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { getSupportContact, whatsappHref, formatSupportWhatsApp } from '@/lib/support'
 import { onboardingFacets } from '@/lib/openJobCounts'
+import { manualInstructions } from '@/lib/payments/manual'
 import { smsDeliverable } from '@/lib/sms'
 import { createClient } from '@/lib/supabase/server'
 import CompleteProfileFlow from '@/components/tutor/CompleteProfileFlow'
@@ -42,6 +43,7 @@ export default async function CompleteProfilePage({
   // Demand ordering for the chips; null (no service role) degrades to the curated
   // city/area/job-title lists inside the flow, not a broken screen.
   const facets = await onboardingFacets()
+  const manual = await manualInstructions()
 
   return (
     <CompleteProfileFlow
@@ -53,6 +55,7 @@ export default async function CompleteProfilePage({
       }}
       seed={user.id}
       smsAvailable={smsDeliverable()}
+      manual={manual}
     />
   )
 }

@@ -452,7 +452,7 @@ export default function Conversation({
                       }}
                       onTouchEnd={() => longPress.current && clearTimeout(longPress.current)}
                       onTouchMove={() => longPress.current && clearTimeout(longPress.current)}
-                      className={`max-w-[80%] space-y-1 rounded-2xl px-3 py-2 sm:max-w-[68%] ${
+                      className={`max-w-[80%] space-y-0.5 rounded-2xl px-3 py-1.5 sm:max-w-[68%] ${
                         m.mine
                           ? 'rounded-br-md bg-tm-tint-navy text-tm-navy'
                           : 'rounded-bl-md border border-gray-200 bg-white text-slate-700'
@@ -639,8 +639,10 @@ export default function Conversation({
 
               {/* Quick message templates: tap to insert, never to send. Tutors
                   answer, parents ask (PR40 §3) — same chips, edit before sending. */}
+              {/* PR106-E §12 — ONE horizontally-scrolling row of smaller chips
+                  above the input (no wrap, no separate top panel). */}
               {quickReplies.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
+                <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
                   {quickReplies.map((q, i) => (
                     <button
                       key={i}
@@ -649,7 +651,7 @@ export default function Conversation({
                         setDraft((d) => (d.trim() ? `${d.trim()} ${q}` : q))
                         textareaRef.current?.focus()
                       }}
-                      className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-tm-navy transition-colors hover:border-tm-navy"
+                      className="shrink-0 whitespace-nowrap rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-tm-navy transition-colors hover:border-tm-navy"
                     >
                       {q}
                     </button>
@@ -713,7 +715,9 @@ export default function Conversation({
                   <Send size={16} aria-hidden />
                 </button>
               </div>
-              <p id="composer-hint" className="text-[10px] text-gray-500">
+              {/* PR106-E §13 — the keyboard hint is desktop-only; on a phone the
+                  send button is obvious and the hint just crowds the bar. */}
+              <p id="composer-hint" className="hidden text-[10px] text-gray-500 sm:block">
                 {COMPOSER_HINT}
               </p>
             </div>

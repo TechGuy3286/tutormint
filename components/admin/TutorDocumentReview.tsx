@@ -215,7 +215,13 @@ function ReviewItem({
         <p className="text-[11px] text-tm-red">{state.reason}</p>
       )}
 
-      {canReview && decided && !changing && (
+      {/* PR106-E §3 — no file, nothing to review: show "Not uploaded", no
+          Approve/Reject (the server rejects approving a missing file too). */}
+      {canReview && !state.hasUpload && (
+        <p className="text-[11px] font-semibold text-gray-500">Not uploaded yet — nothing to review.</p>
+      )}
+
+      {canReview && state.hasUpload && decided && !changing && (
         <button
           type="button"
           onClick={() => setChanging(true)}
@@ -225,7 +231,7 @@ function ReviewItem({
         </button>
       )}
 
-      {canReview && (!decided || changing) && (
+      {canReview && state.hasUpload && (!decided || changing) && (
         <div className="space-y-2">
           {rejecting && (
             <div className="space-y-1">

@@ -10,6 +10,9 @@ import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import SubmitEscape from '@/components/SubmitEscape'
 import FriendlyPaymentError from '@/components/ui/FriendlyPaymentError'
 import CheckoutClosedNotice from '@/components/ui/CheckoutClosedNotice'
+import Link from 'next/link'
+import ManualPayDetails from '@/components/payments/ManualPayDetails'
+import type { ManualInstructions } from '@/lib/payments/provider'
 import type { IdentityState } from '@/lib/identity'
 
 // The verification gate an UNVERIFIED tutor meets when they tap Apply (owner,
@@ -36,9 +39,16 @@ export default function TutorVerifyGate({
   // is the last step and stays until paid; the tutor leaves via the site nav). In
   // the upgrade-sheet MODAL the dismiss is needed, so it defaults on.
   showDismiss = true,
+  // PR106-E §1/§2 — the manual account details (from app_settings, one source) and
+  // a "Pay later" link to the dashboard. Passed by the onboarding flow; absent in
+  // the upgrade sheet (then the bank line links to /pay/manual without numbers).
+  manual = null,
+  payLaterHref,
 }: {
   onClose: () => void
   showDismiss?: boolean
+  manual?: ManualInstructions | null
+  payLaterHref?: string
 }) {
   const router = useRouter()
   const [cap, setCap] = useState<CnicCaptureState | null>(null)
@@ -173,26 +183,31 @@ export default function TutorVerifyGate({
           </button>
         )}
       </div>
-      {/* Manual payment — the second option, clearly below the PayPro button
-          (PR106-C0 §2 / PR106-D §11). "Pay by bank transfer" goes to the order
-          page, which shows the bank / JazzCash / Easypaisa details (from
-          app_settings) and the proof-upload form. The online option above is
+      {/* Manual payment — the account details (one source: app_settings) directly
+          below the PayPro button, with "Pay by bank transfer" to submit proof and
+          the plain activation line (PR106-E §2). The online option above is
           instant; a transfer is checked by staff first. */}
-      <div className="rounded-xl border border-gray-200 bg-tm-bg p-3">
+      {manual ? (
+        <ManualPayDetails instructions={manual} onTransfer={() => void start('transfer')} />
+      ) : (
         <button
           type="button"
           onClick={() => void start('transfer')}
           disabled={starting || (!hasCnic && !cap?.ready)}
-          className="min-h-[40px] text-[12px] font-bold text-tm-navy underline-offset-2 hover:underline disabled:opacity-60"
+          className="min-h-[40px] w-full text-center text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline disabled:opacity-60"
         >
-          Pay by bank transfer
-          <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">بینک ٹرانسفر سے ادائیگی کریں</span>
+          Or pay by bank transfer
+          <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">یا بینک ٹرانسفر سے ادائیگی کریں</span>
         </button>
-        <p className="mt-1 text-[11px] text-gray-500">
-          Bank transfer is activated after our team checks your payment.
-          <span lang="ur" dir="rtl" className="mt-0.5 block">بینک ٹرانسفر ہماری ٹیم کے جانچنے کے بعد چالو ہوتی ہے۔</span>
-        </p>
-      </div>
+      )}
+
+      {/* PR106-E §1 — Pay later returns to the dashboard with nothing lost. */}
+      {payLaterHref && (
+        <Link href={payLaterHref} className="block min-h-[40px] text-center text-[11px] font-bold text-gray-500 underline-offset-2 hover:underline">
+          Pay later
+          <span lang="ur" dir="rtl" className="ms-1.5 font-semibold">بعد میں ادائیگی کریں</span>
+        </Link>
+      )}
     </>
   )
 

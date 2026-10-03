@@ -195,27 +195,33 @@ export type ViewSummary = {
   teasers: ViewTeaser[]
 }
 
+// PR106-E §6 — ONE definition of "profile views this week", shared by the
+// dashboard tile and the weekly teaser so they can never disagree: PARENT /
+// academy viewers only, never the tutor themselves, within the last 7 days.
+export const WEEKLY_VIEW_WINDOW_MS = 7 * 24 * 3600_000
+export const PARENT_VIEWER_ROLES = ['parent', 'academy'] as const
+
+export async function weeklyParentViewCount(tutorId: string): Promise<number> {
+  const admin = createAdminClient()
+  if (!admin) return 0
+  const since = new Date(Date.now() - WEEKLY_VIEW_WINDOW_MS).toISOString()
+  const { count } = await admin
+    .from('profile_views')
+    .select('id', { count: 'exact', head: true })
+    .eq('tutor_id', tutorId)
+    .in('viewer_role', PARENT_VIEWER_ROLES as unknown as string[])
+    .neq('viewer_id', tutorId)
+    .gte('created_at', since)
+  return count ?? 0
+}
+
 export async function viewSummary(
   tutorId: string,
   revealIdentity: boolean,
   limit = 20,
 ): Promise<ViewSummary> {
   const { teasers, total } = await viewTeasers(tutorId, revealIdentity, limit)
-
-  let thisWeek = 0
-  const admin = createAdminClient()
-  if (admin) {
-    const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
-    // PR18 §3.1 — same parent-only rule as the total.
-    const { count } = await admin
-      .from('profile_views')
-      .select('id', { count: 'exact', head: true })
-      .eq('tutor_id', tutorId)
-      .in('viewer_role', ['parent', 'academy'])
-      .neq('viewer_id', tutorId)
-      .gte('created_at', since)
-    thisWeek = count ?? 0
-  }
+  const thisWeek = await weeklyParentViewCount(tutorId)
 
   return {
     total,

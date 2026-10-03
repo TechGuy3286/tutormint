@@ -25,6 +25,7 @@ import TutorCitiesEditor, { type CitiesState } from '@/components/tutor/TutorCit
 import { EXPERIENCE_BANDS, composeHeadline, composeBio, L, type OnboardingAnswers } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import type { OnboardingFacets } from '@/lib/openJobCounts'
+import type { ManualInstructions } from '@/lib/payments/provider'
 import { fetchTaxonomyTree, resolveMasterIds, fetchNonLegacyMasters, type TaxonomyNode } from '@/lib/taxonomy'
 import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
@@ -104,9 +105,11 @@ type Props = {
   /** Whether a code can actually be delivered (owner PR5a §2.5). False → the
    *  mobile step says "SMS codes are not available yet" instead of pretending. */
   smsAvailable?: boolean
+  /** PR106-E §1/§2 — manual pay account details (app_settings), for the fee step. */
+  manual?: ManualInstructions | null
 }
 
-export default function CompleteProfileFlow({ facets, support, seed, smsAvailable = true }: Props) {
+export default function CompleteProfileFlow({ facets, support, seed, smsAvailable = true, manual = null }: Props) {
   const router = useRouter()
   const params = useSearchParams()
   const toast = useToast()
@@ -676,7 +679,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             {/* PR78 §D: no "Not now" here — the fee step is the last step and
                 stays until paid; the tutor leaves via the site nav if needed. */}
-            <TutorVerifyGate onClose={() => void advance()} showDismiss={false} />
+            <TutorVerifyGate onClose={() => void advance()} showDismiss={false} manual={manual} payLaterHref="/tutor/dashboard" />
           </div>
         )}
 

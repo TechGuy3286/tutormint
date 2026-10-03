@@ -81,6 +81,9 @@ export async function unreadCount(): Promise<number> {
     .select('id', { count: 'exact', head: true })
     .eq('user_id', user.id)
     .is('read_at', null)
+    // PR106-E: paused notifications (meta.paused=true) are hidden from the feed
+    // and the count — "pause, not delete" (§4/§7). Kept in meta so no migration.
+    .or('meta->>paused.is.null,meta->>paused.neq.true')
   return count ?? 0
 }
 
@@ -107,6 +110,8 @@ export async function notificationPage({
     // created_at alone is not unique: a job being filled notifies every
     // applicant in one insert, so a whole batch shares a timestamp.
     .order('id', { ascending: false })
+    // PR106-E: hide paused notifications from the feed (§4/§7).
+    .or('meta->>paused.is.null,meta->>paused.neq.true')
     .limit(limit)
 
   if (group === 'unread') query = query.is('read_at', null)
