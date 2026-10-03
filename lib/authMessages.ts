@@ -52,6 +52,13 @@ export const AUTH_MSG = {
     en: 'That email/mobile and password do not match. Check them and try again.',
     ur: 'ای میل/موبائل اور پاس ورڈ آپس میں نہیں ملتے۔ انہیں جانچ کر دوبارہ کوشش کریں۔',
   },
+  // HOTFIX-64 §4: a raw GoTrue/DB failure ("Database error creating new user")
+  // must never reach the member. This friendly bilingual line replaces it on
+  // every signup/sign-in path; the real error is logged for staff.
+  accountCreateFailed: {
+    en: 'Something went wrong creating your account. Please try again, or message us on WhatsApp 0321 5872222.',
+    ur: 'آپ کا اکاؤنٹ بناتے ہوئے کچھ مسئلہ پیش آیا۔ براہ کرم دوبارہ کوشش کریں، یا ہمیں واٹس ایپ 0321 5872222 پر پیغام کریں۔',
+  },
 } as const
 
 /** The minimum password length the forms hint and pre-check (Supabase enforces
@@ -83,6 +90,11 @@ export function classifyAuthError(message: string | null | undefined): { key: ke
   }
   if (m.includes('invalid') && m.includes('email')) {
     return { key: 'invalidEmail', field: 'identifier' }
+  }
+  // A trigger/constraint failure during account creation (the HOTFIX-64 bug):
+  // GoTrue surfaces "Database error creating new user" / unexpected_failure.
+  if (m.includes('database error') || m.includes('creating new user') || m.includes('unexpected_failure') || m.includes('unexpected failure')) {
+    return { key: 'accountCreateFailed' }
   }
   return null
 }

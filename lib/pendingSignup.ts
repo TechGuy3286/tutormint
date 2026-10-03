@@ -10,6 +10,7 @@ import { syntheticEmail } from '@/lib/phone'
 import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
 import { checkBlocklist } from '@/lib/blocklist'
 import { ensureProfile } from '@/lib/ensureProfile'
+import { AUTH_MSG } from '@/lib/authMessages'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
 import {
@@ -169,7 +170,7 @@ export async function readPendingMobile(token: string | undefined | null): Promi
 
 export type VerifyPendingResult =
   | { ok: true; userId: string; role: 'tutor' | 'parent'; email: string; bridged: boolean }
-  | { ok: false; status: number; error: string; reason: 'expired' | 'locked' | 'wrong' | 'blocked' | 'exists' | 'server'; attemptsLeft?: number }
+  | { ok: false; status: number; error: string; errorUr?: string; reason: 'expired' | 'locked' | 'wrong' | 'blocked' | 'exists' | 'server'; attemptsLeft?: number }
 
 /**
  * Verify a pending code and, on success, CREATE THE ACCOUNT — this is the step
@@ -286,10 +287,14 @@ export async function verifyPendingSignup(opts: {
     user_metadata: { role, full_name: fullName },
   })
   if (createError || !created?.user) {
+    // HOTFIX-64 §4: the raw GoTrue text ("Database error creating new user")
+    // must never reach the member — log it for staff, show the friendly line.
+    console.error('[register/verify] createUser failed:', createError?.message ?? '(no user returned)')
     return {
       ok: false,
-      status: 400,
-      error: createError?.message ?? 'Could not create the account.',
+      status: 500,
+      error: AUTH_MSG.accountCreateFailed.en,
+      errorUr: AUTH_MSG.accountCreateFailed.ur,
       reason: 'server',
     }
   }
@@ -305,8 +310,9 @@ export async function verifyPendingSignup(opts: {
     utm: utm ?? undefined,
   })
   if (!made.ok) {
+    console.error('[register/verify] ensureProfile failed:', (made as { error?: string }).error ?? '(unknown)')
     await admin.auth.admin.deleteUser(userId)
-    return { ok: false, status: 500, error: 'Could not finish creating the account. Please try again.', reason: 'server' }
+    return { ok: false, status: 500, error: AUTH_MSG.accountCreateFailed.en, errorUr: AUTH_MSG.accountCreateFailed.ur, reason: 'server' }
   }
 
   // The number is already proved — mark it verified now, so the account is
@@ -326,11 +332,13 @@ export async function verifyPendingSignup(opts: {
     .select('phone_verified_at')
     .maybeSingle()
   if (updErr || !saved?.phone_verified_at) {
+    console.error('[register/verify] phone_verified_at write failed:', updErr?.message ?? '(not saved)')
     await admin.auth.admin.deleteUser(userId)
     return {
       ok: false,
       status: 500,
-      error: 'Could not finish creating the account. Please try again.',
+      error: AUTH_MSG.accountCreateFailed.en,
+      errorUr: AUTH_MSG.accountCreateFailed.ur,
       reason: 'server',
     }
   }

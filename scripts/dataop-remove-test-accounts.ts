@@ -16,6 +16,7 @@
 // @ts-expect-error pg ships no bundled types; dev-only data-op script.
 import pg from 'pg'
 import { createClient } from '@supabase/supabase-js'
+import { normMobile } from '../lib/dataopMatch'
 
 const APPLY = process.argv.includes('--apply')
 const dbUrl = process.env.SUPABASE_DB_URL
@@ -25,18 +26,6 @@ if (!dbUrl) { console.error('SUPABASE_DB_URL not set'); process.exit(1) }
 if (APPLY && (!supaUrl || !serviceKey)) { console.error('NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY required for --apply'); process.exit(1) }
 
 // ---- identities ------------------------------------------------------------
-function normMobile(raw: string): { msisdn: string; core10: string } | null {
-  const d = raw.replace(/\D/g, '')
-  let m = d
-  if (m.length === 11 && m.startsWith('0')) m = '92' + m.slice(1)
-  else if (m.length === 10 && m.startsWith('3')) m = '92' + m
-  else if (m.length === 12 && m.startsWith('92')) m = m
-  else if (m.length === 13 && m.startsWith('920')) m = '92' + m.slice(3)
-  else return null
-  if (!(m.length === 12 && m.startsWith('92'))) return null
-  return { msisdn: m, core10: m.slice(2) }
-}
-
 type Identity =
   | { kind: 'mobile'; label: string; msisdn: string; core10: string; synthetic: string }
   | { kind: 'email'; label: string; email: string }
@@ -125,33 +114,51 @@ async function main() {
     console.log(`\n================ ${idn.label} ================`)
     // Resolve auth user ids.
     let rows
-    if (idn.kind === 'mobile') {
-      rows = await c.query(
-        `select u.id, u.email, u.phone, u.created_at, p.role, p.admin_role, p.is_team_account, p.is_seed
-           from auth.users u left join public.profiles p on p.id = u.id
-          where regexp_replace(coalesce(u.phone,''),'\\D','','g') like '%'||$1
-             or lower(u.email) = lower($2)
-             or regexp_replace(coalesce(p.phone_number,''),'\\D','','g') like '%'||$1
-             or regexp_replace(coalesce(p.whatsapp,''),'\\D','','g') like '%'||$1
-             or lower(p.email) = lower($2)`,
-        [idn.core10, idn.synthetic],
-      )
-    } else {
-      rows = await c.query(
-        `select u.id, u.email, u.phone, u.created_at, p.role, p.admin_role, p.is_team_account, p.is_seed
-           from auth.users u left join public.profiles p on p.id = u.id
-          where lower(u.email) = lower($1) or lower(p.email) = lower($1)`,
-        [idn.email],
-      )
-    }
-    const ids = rows.rows.map((r: { id: string }) => r.id)
-    const uniq = Array.from(new Set(ids))
+    // Resolve candidate ids from EVERY source — auth.users (phone/email/JSON
+    // metadata), profiles (phone/whatsapp/email) and tutor_profiles (email) —
+    // ignoring phone formatting (match on the last 10 digits) and catching the
+    // synthetic <msisdn>@users.tutormint.org even when it survives only on
+    // tutor_profiles.email (the HOTFIX-64 half-freed case the old auth-first
+    // query missed). An id with no auth.users row is an ORPHAN, flagged below.
+    const idSql = idn.kind === 'mobile'
+      ? `select distinct cid from (
+           select u.id cid from auth.users u
+             where regexp_replace(coalesce(u.phone,''),'\\D','','g') like '%'||$1
+                or lower(u.email)=lower($2)
+                or regexp_replace(coalesce(u.raw_user_meta_data->>'phone',''),'\\D','','g') like '%'||$1
+                or lower(coalesce(u.raw_user_meta_data->>'email',''))=lower($2)
+           union select p.id from public.profiles p
+             where regexp_replace(coalesce(p.phone_number,''),'\\D','','g') like '%'||$1
+                or regexp_replace(coalesce(p.whatsapp,''),'\\D','','g') like '%'||$1
+                or lower(coalesce(p.email,''))=lower($2)
+           union select tp.id from public.tutor_profiles tp where lower(coalesce(tp.email,''))=lower($2)
+         ) s`
+      : `select distinct cid from (
+           select u.id cid from auth.users u where lower(u.email)=lower($1) or lower(coalesce(u.raw_user_meta_data->>'email',''))=lower($1)
+           union select p.id from public.profiles p where lower(coalesce(p.email,''))=lower($1)
+           union select tp.id from public.tutor_profiles tp where lower(coalesce(tp.email,''))=lower($1)
+         ) s`
+    const idParams = idn.kind === 'mobile' ? [idn.core10, idn.synthetic] : [idn.email]
+    const idRes = await c.query(idSql, idParams)
+    const uniq = (idRes.rows as { cid: string }[]).map((r) => r.cid)
+    rows = uniq.length
+      ? await c.query(
+          `select ids.id, u.email, u.phone, u.created_at, p.role, p.admin_role, p.is_team_account, p.is_seed,
+                  (u.id is not null) as has_auth
+             from (select unnest($1::uuid[]) id) ids
+             left join auth.users u on u.id = ids.id
+             left join public.profiles p on p.id = ids.id`,
+          [uniq],
+        )
+      : { rows: [] }
     if (uniq.length === 0) {
-      console.log('  no auth user matched')
+      console.log('  no account or leftover matched')
     }
-    if (uniq.length > 1) { stop = true; stopReasons.push(`${idn.label}: ${uniq.length} auth users matched`) }
+    const authCount = rows.rows.filter((r: { has_auth: boolean }) => r.has_auth).length
+    if (authCount > 1) { stop = true; stopReasons.push(`${idn.label}: ${authCount} auth users matched`) }
     for (const r of rows.rows) {
-      console.log(`  auth user ${r.id}  role=${r.role ?? '-'} admin_role=${r.admin_role ?? '-'} team=${r.is_team_account} seed=${r.is_seed} created=${new Date(r.created_at).toISOString().slice(0,10)} email=${(r.email||'').replace(/(.{3}).*(@.*)/,'$1…$2')} phone=${r.phone ? '…'+String(r.phone).slice(-4) : '-'}`)
+      const kindLabel = r.has_auth ? 'account' : 'ORPHAN (no auth.users row)'
+      console.log(`  ${kindLabel} ${r.id}  role=${r.role ?? '-'} admin_role=${r.admin_role ?? '-'} team=${r.is_team_account ?? '-'} seed=${r.is_seed ?? '-'} created=${r.created_at ? new Date(r.created_at).toISOString().slice(0,10) : '-'} email=${(r.email||'').replace(/(.{3}).*(@.*)/,'$1…$2')} phone=${r.phone ? '…'+String(r.phone).slice(-4) : '-'}`)
       if (r.admin_role || r.role === 'admin') { stop = true; stopReasons.push(`${idn.label}: account ${r.id} is admin (admin_role=${r.admin_role}, role=${r.role})`) }
       if (r.is_team_account) { stop = true; stopReasons.push(`${idn.label}: account ${r.id} is the team account`) }
       allIds.add(r.id)

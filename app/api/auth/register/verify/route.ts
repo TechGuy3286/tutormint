@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     // gone, so clear the cookie too — the screen offers "start over".
     if (result.reason !== 'wrong') jar.delete(PENDING_COOKIE)
     return NextResponse.json(
-      { error: result.error, reason: result.reason, attemptsLeft: result.attemptsLeft },
+      { error: result.error, errorUr: result.errorUr, reason: result.reason, attemptsLeft: result.attemptsLeft },
       { status: result.status },
     )
   }
