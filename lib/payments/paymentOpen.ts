@@ -12,6 +12,17 @@ export function onlinePaymentOpenFrom(facts: { configured: boolean; sandbox: boo
   return facts.configured && !facts.sandbox
 }
 
+// PR106-G3 §4: the PayPro mode shown to the owner in Admin → Payments, derived
+// from the configured facts WITHOUT ever displaying the base URL (let alone any
+// secret). "sandbox" when the gateway points at the demo API, "live" when it is
+// configured and not the demo, "not_set" when it is unconfigured.
+export type PayproMode = 'live' | 'sandbox' | 'not_set'
+
+export function payproModeFrom(facts: { configured: boolean; sandbox: boolean }): PayproMode {
+  if (!facts.configured) return 'not_set'
+  return facts.sandbox ? 'sandbox' : 'live'
+}
+
 // Who may pay by CARD (PayPro) — pure, so the mobile/email/staff/seed matrix is
 // unit-tested (PR106-G2 §0). When the gateway is LIVE (configured + not sandbox)
 // card is open to EVERY signed-in member, whatever their email (a mobile-signup

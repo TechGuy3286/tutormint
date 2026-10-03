@@ -5,6 +5,8 @@ import { onboardingFacets } from '@/lib/openJobCounts'
 import { manualInstructions } from '@/lib/payments/manual'
 import { smsDeliverable } from '@/lib/sms'
 import { createClient } from '@/lib/supabase/server'
+import { getOnboardingMode } from '@/lib/onboardingModeServer'
+import { showNewOnboarding } from '@/lib/onboardingMode'
 import CompleteProfileFlow from '@/components/tutor/CompleteProfileFlow'
 
 // The tutor completion flow (PR 4 §1). The old step-tab form is retired; this is
@@ -32,8 +34,9 @@ export default async function CompleteProfilePage({
   } = await supabase.auth.getUser()
   if (!user) redirect(`/login?next=${encodeURIComponent(self)}`)
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+  const { data: profile } = await supabase.from('profiles').select('role, admin_role').eq('id', user.id).maybeSingle()
   if (profile?.role !== 'tutor') redirect('/')
+  const newFlow = showNewOnboarding(await getOnboardingMode(), !!profile?.admin_role)
 
   const support = await getSupportContact()
   const waHref = whatsappHref(
@@ -56,6 +59,7 @@ export default async function CompleteProfilePage({
       seed={user.id}
       smsAvailable={smsDeliverable()}
       manual={manual}
+      newFlow={newFlow}
     />
   )
 }

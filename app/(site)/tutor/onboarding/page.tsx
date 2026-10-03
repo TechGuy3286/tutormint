@@ -5,6 +5,8 @@ import { getSupportContact, whatsappHref, formatSupportWhatsApp } from '@/lib/su
 import { onboardingFacets } from '@/lib/openJobCounts'
 import { manualInstructions } from '@/lib/payments/manual'
 import { smsDeliverable } from '@/lib/sms'
+import { getOnboardingMode } from '@/lib/onboardingModeServer'
+import { showNewOnboarding } from '@/lib/onboardingMode'
 import CompleteProfileFlow from '@/components/tutor/CompleteProfileFlow'
 
 // The tutor onboarding flow. ONE flow for every tutor now (PR 4 §1): this route
@@ -21,8 +23,12 @@ export default async function TutorOnboardingPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login?next=/tutor/onboarding')
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+  const { data: profile } = await supabase.from('profiles').select('role, admin_role').eq('id', user.id).maybeSingle()
   if (profile?.role !== 'tutor') redirect('/')
+
+  // PR106-G3 §1: the new flow is shown per the owner switch — "staff only" (the
+  // default) gives it to owner/staff, "everyone" to all tutors, "off" to none.
+  const newFlow = showNewOnboarding(await getOnboardingMode(), !!profile?.admin_role)
 
   // Loop guard: a tutor who has finished or dismissed onboarding is never held
   // here again — they go to their dashboard (they can still edit via settings).
@@ -48,6 +54,7 @@ export default async function TutorOnboardingPage() {
       seed={user.id}
       smsAvailable={smsDeliverable()}
       manual={manual}
+      newFlow={newFlow}
     />
   )
 }

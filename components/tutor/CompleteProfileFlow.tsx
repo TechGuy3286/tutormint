@@ -34,6 +34,7 @@ import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/li
 import TutorVerifyGate from '@/components/upgrade/TutorVerifyGate'
 import {
   FLOW_ORDER,
+  NEW_FLOW_ORDER,
   firstMissingStep,
   nextMissingAfter,
   isListed,
@@ -74,6 +75,7 @@ const TITLES: Record<FlowStepKey, string> = {
   degree: 'Education',
   cnic_number: 'Your CNIC number',
   cnic_photos: 'Photos of your CNIC',
+  gender: 'Select your gender',
 }
 
 // The Urdu sub-label under each step title (owner PR5a §1.5), the way the
@@ -95,6 +97,7 @@ const URDU: Record<FlowStepKey, string> = {
   degree: 'تعلیم',
   cnic_number: 'آپ کا شناختی کارڈ نمبر',
   cnic_photos: 'شناختی کارڈ کی تصاویر',
+  gender: 'اپنی جنس منتخب کریں',
 }
 
 type Props = {
@@ -106,12 +109,19 @@ type Props = {
   smsAvailable?: boolean
   /** PR106-E §1/§2 — manual pay account details (app_settings), for the fee step. */
   manual?: ManualInstructions | null
+  /** PR106-G3 §1 — the NEW onboarding flow (gender first, re-sequenced), shown
+   *  only when the staff switch routes this viewer to it. Default false = the
+   *  current flow, byte-unchanged. */
+  newFlow?: boolean
 }
 
-export default function CompleteProfileFlow({ facets, support, seed, smsAvailable = true, manual = null }: Props) {
+export default function CompleteProfileFlow({ facets, support, seed, smsAvailable = true, manual = null, newFlow = false }: Props) {
   const router = useRouter()
   const params = useSearchParams()
   const toast = useToast()
+  // The step order for this flow. The new flow (NEW_FLOW_ORDER) is additive; the
+  // current flow keeps FLOW_ORDER exactly, so nothing changes when newFlow=false.
+  const ORDER = newFlow ? NEW_FLOW_ORDER : FLOW_ORDER
   const supabase = useMemo(() => createClient(), [])
   const { titles: jobTitles } = useJobTitles()
   const { map: cityMap } = useCityAreas()
@@ -302,8 +312,8 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
           }
         } catch { /* start empty */ }
       }
-      const dl = deepLink && (FLOW_ORDER as string[]).includes(deepLink) ? (deepLink as FlowStepKey) : null
-      setStepKey(dl ?? firstMissingStep(res.facts) ?? 'final')
+      const dl = deepLink && (ORDER as string[]).includes(deepLink) ? (deepLink as FlowStepKey) : null
+      setStepKey(dl ?? firstMissingStep(res.facts, ORDER) ?? 'final')
     })()
     // The taxonomy tree drives the level + subjects steps (PR69).
     void fetchTaxonomyTree().then((t) => { if (live) setTree(t) }).catch(() => {})
@@ -369,19 +379,19 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
     const f = (await reload()) ?? facts
     setBusy(false)
     if (!f || stepKey === 'final' || stepKey === null) return
-    const next = nextMissingAfter(f, stepKey)
+    const next = nextMissingAfter(f, stepKey, ORDER)
     setStepKey(next ?? 'final')
   }, [reload, facts, stepKey])
 
   const goBack = useCallback(() => {
     if (stepKey === 'final') {
       // Back from the summary → the last step in order.
-      setStepKey(FLOW_ORDER[FLOW_ORDER.length - 1])
+      setStepKey(ORDER[ORDER.length - 1])
       return
     }
     if (!stepKey) return
-    const i = FLOW_ORDER.indexOf(stepKey)
-    if (i > 0) setStepKey(FLOW_ORDER[i - 1])
+    const i = ORDER.indexOf(stepKey)
+    if (i > 0) setStepKey(ORDER[i - 1])
   }, [stepKey])
 
   // Persist onboarded_at (so the sign-in gate never loops) and leave.
@@ -415,7 +425,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       if (f) setFacts(f)
       setBusy(false)
       // Advance from the CURRENT step to the next gap using the patched facts.
-      if (f && stepKey && stepKey !== 'final') setStepKey(nextMissingAfter(f, stepKey) ?? 'final')
+      if (f && stepKey && stepKey !== 'final') setStepKey(nextMissingAfter(f, stepKey, ORDER) ?? 'final')
     } catch (e) {
       setBusy(false)
       toast.error(e instanceof Error ? e.message : 'Could not save.')
@@ -438,7 +448,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       const f = facts ? { ...facts, availabilityCount: slots.length } : facts
       if (f) setFacts(f)
       setBusy(false)
-      if (f && stepKey && stepKey !== 'final') setStepKey(nextMissingAfter(f, stepKey) ?? 'final')
+      if (f && stepKey && stepKey !== 'final') setStepKey(nextMissingAfter(f, stepKey, ORDER) ?? 'final')
     } catch (e) {
       setBusy(false)
       toast.error(e instanceof Error ? e.message : 'Could not save.')
@@ -471,14 +481,14 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
     const f = facts ? { ...facts, noDegreeYet: true } : facts
     if (f) setFacts(f)
     setBusy(false)
-    if (f && stepKey && stepKey !== 'final') setStepKey(nextMissingAfter(f, stepKey) ?? 'final')
+    if (f && stepKey && stepKey !== 'final') setStepKey(nextMissingAfter(f, stepKey, ORDER) ?? 'final')
   }, [supabase, facts, stepKey])
 
   if (!facts || !stepKey) {
     return <div className="fixed inset-0 z-[60] grid place-items-center bg-tm-bg text-xs font-bold text-gray-500">Loading…</div>
   }
 
-  const stepIndex = stepKey === 'final' ? FLOW_ORDER.length : FLOW_ORDER.indexOf(stepKey)
+  const stepIndex = stepKey === 'final' ? ORDER.length : ORDER.indexOf(stepKey)
 
   // The tutor's own answers for the tagline/bio prefill (PR69): the picked
   // levels, the subjects across them, all areas, city and the experience band.
@@ -523,7 +533,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex gap-1">
-              {FLOW_ORDER.map((k, i) => (
+              {ORDER.map((k, i) => (
                 <span key={k} className={`h-1.5 flex-1 rounded-full ${i < stepIndex ? 'bg-tm-navy' : i === stepIndex ? 'bg-tm-navy/60' : 'bg-gray-200'}`} />
               ))}
             </div>
@@ -533,6 +543,34 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
 
       <main className="flex-1 pt-6">
         {stepKey !== 'final' && <StepHeading en={TITLES[stepKey]} ur={URDU[stepKey]} />}
+
+        {/* PR106-G3 §3.10 — Gender first: three chips in one row, selected fills
+            Male navy / Female red / Trans deep green with white text. One tap
+            advances (like city/experience). No "You are" label. */}
+        {stepKey === 'gender' && (
+          <div className="flex flex-wrap justify-center gap-2">
+            {([
+              ['male', 'Male', 'border-tm-navy bg-tm-navy'],
+              ['female', 'Female', 'border-tm-red bg-tm-red'],
+              ['trans', 'Trans', 'border-tm-green-deep bg-tm-green-deep'],
+            ] as const).map(([val, label, fill]) => {
+              const on = facts.gender === val
+              return (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => void tapSave({ tutorProfile: { gender: val } }, { gender: val })}
+                  aria-pressed={on}
+                  className={`min-h-[44px] rounded-full border-2 px-6 text-sm font-black transition-colors ${
+                    on ? `${fill} text-white` : 'border-gray-200 bg-white text-tm-navy hover:border-gray-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {stepKey === 'city' && (
           <ChipRow
@@ -593,7 +631,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
                   const f = facts ? { ...facts, subjectCount: ids.length } : facts
                   if (f) {
                     setFacts(f)
-                    setStepKey(nextMissingAfter(f, 'subjects') ?? 'final')
+                    setStepKey(nextMissingAfter(f, 'subjects', ORDER) ?? 'final')
                   }
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : 'Could not save.')
@@ -666,6 +704,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
             phoneVerified={facts.phoneVerified}
             phone={phonePrefill}
             gender={facts.gender}
+            hideGender={newFlow}
             whatsappInit={whatsappPrefill}
             headlineInit={facts.headline ?? composeHeadline(currentAnswers())}
             bioInit={facts.bio ?? composeBio(currentAnswers(), seed)}
@@ -1917,6 +1956,7 @@ function ContactStep({
   onGender,
   onMobileVerified,
   onContinue,
+  hideGender = false,
 }: {
   support: { waHref: string | null; waDisplay: string | null; email: string | null }
   smsAvailable: boolean
@@ -1928,6 +1968,9 @@ function ContactStep({
   bioInit: string
   emailConfirmed: boolean
   busy: boolean
+  /** PR106-G3: the new flow collects gender as its own first step, so the
+   *  contact screen does not ask again. */
+  hideGender?: boolean
   onGender: (g: 'male' | 'female') => void
   onMobileVerified: () => void
   onContinue: (v: { whatsapp: string; headline: string; bio: string }) => void
@@ -1946,7 +1989,7 @@ function ContactStep({
     { en: 'Verify your mobile number', ur: 'اپنے موبائل نمبر کی تصدیق کریں', done: phoneVerified },
     { en: 'Add your WhatsApp number', ur: 'اپنا واٹس ایپ نمبر شامل کریں', done: waValid },
     { en: 'Add your email', ur: 'اپنی ای میل شامل کریں', done: emailConfirmed, optional: true },
-    { en: 'Choose your gender', ur: 'اپنی جنس منتخب کریں', done: !!gender },
+    ...(hideGender ? [] : [{ en: 'Choose your gender', ur: 'اپنی جنس منتخب کریں', done: !!gender }]),
     { en: 'Write a tagline', ur: 'ایک عنوان لکھیں', done: !!tagline.trim() },
     { en: 'Write a short about-you', ur: 'اپنے بارے میں مختصر لکھیں', done: !!bio.trim() },
   ]
@@ -2004,20 +2047,22 @@ function ContactStep({
         )}
       </section>
 
-      {/* Gender. */}
-      <section className="space-y-2">
-        <FieldLabel en="You are" ur="آپ ہیں" />
-        <div className="grid grid-cols-2 gap-3">
-          {(['male', 'female'] as const).map((g) => (
-            <button key={g} type="button" onClick={() => onGender(g)} aria-pressed={gender === g}
-              className={`flex min-h-[56px] items-center justify-center rounded-2xl border-2 text-sm font-black capitalize ${
-                gender === g ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy'
-              }`}>
-              {g}
-            </button>
-          ))}
-        </div>
-      </section>
+      {/* Gender — hidden in the new flow (asked as its own first step). */}
+      {!hideGender && (
+        <section className="space-y-2">
+          <FieldLabel en="You are" ur="آپ ہیں" />
+          <div className="grid grid-cols-2 gap-3">
+            {(['male', 'female'] as const).map((g) => (
+              <button key={g} type="button" onClick={() => onGender(g)} aria-pressed={gender === g}
+                className={`flex min-h-[56px] items-center justify-center rounded-2xl border-2 text-sm font-black capitalize ${
+                  gender === g ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy'
+                }`}>
+                {g}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Tagline (prefilled from the tutor's own answers, editable). */}
       <section className="space-y-2">

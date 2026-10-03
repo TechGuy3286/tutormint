@@ -28,6 +28,9 @@ export type FlowStepKey =
   | 'degree'
   | 'cnic_number'
   | 'cnic_photos'
+  // PR106-G3 §3.10: the NEW flow asks gender as its own first step (the current
+  // flow collects it inside 'contact', so 'gender' never appears in FLOW_ORDER).
+  | 'gender'
 
 // PR76 §C.1 / PR78 §C — the owner's order:
 //   1 City · 2 Areas · 3 Academic levels · 4 Subjects · 5 Job title ·
@@ -53,6 +56,29 @@ export const FLOW_ORDER: FlowStepKey[] = [
   'degree',
   'experience',
   'fee',
+  'photo',
+  'selfie',
+  'cnic_number',
+  'cnic_photos',
+  'verify',
+]
+
+// PR106-G3 §3.9: the NEW onboarding order (behind the staff switch). Gender
+// first, then the current steps re-sequenced; 'name' is omitted (set at signup,
+// never re-asked). Both flows save to the same fields, so a tutor switching
+// between them loses nothing.
+export const NEW_FLOW_ORDER: FlowStepKey[] = [
+  'gender',
+  'city',
+  'area',
+  'level',
+  'subjects',
+  'jobtype',
+  'fee',
+  'experience',
+  'degree',
+  'availability',
+  'contact',
   'photo',
   'selfie',
   'cnic_number',
@@ -189,25 +215,28 @@ export function stepDone(f: FlowFacts, key: FlowStepKey): boolean {
       return nonblank(f.cnicNumber)
     case 'cnic_photos':
       return nonblank(f.cnicImagePath)
+    // PR106-G3 §3.10 — the new flow's first step.
+    case 'gender':
+      return nonblank(f.gender)
   }
 }
 
 /** The missing steps, in flow order. */
-export function missingSteps(f: FlowFacts): FlowStepKey[] {
-  return FLOW_ORDER.filter((k) => !stepDone(f, k))
+export function missingSteps(f: FlowFacts, order: FlowStepKey[] = FLOW_ORDER): FlowStepKey[] {
+  return order.filter((k) => !stepDone(f, k))
 }
 
 /** The first missing step, or null when nothing is missing. */
-export function firstMissingStep(f: FlowFacts): FlowStepKey | null {
-  return FLOW_ORDER.find((k) => !stepDone(f, k)) ?? null
+export function firstMissingStep(f: FlowFacts, order: FlowStepKey[] = FLOW_ORDER): FlowStepKey | null {
+  return order.find((k) => !stepDone(f, k)) ?? null
 }
 
 /** The next missing step strictly AFTER `from` in flow order (for "Next"/"Skip"),
  *  or null when there is none. */
-export function nextMissingAfter(f: FlowFacts, from: FlowStepKey): FlowStepKey | null {
-  const i = FLOW_ORDER.indexOf(from)
-  for (let j = i + 1; j < FLOW_ORDER.length; j++) {
-    if (!stepDone(f, FLOW_ORDER[j])) return FLOW_ORDER[j]
+export function nextMissingAfter(f: FlowFacts, from: FlowStepKey, order: FlowStepKey[] = FLOW_ORDER): FlowStepKey | null {
+  const i = order.indexOf(from)
+  for (let j = i + 1; j < order.length; j++) {
+    if (!stepDone(f, order[j])) return order[j]
   }
   return null
 }

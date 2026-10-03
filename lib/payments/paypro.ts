@@ -2,7 +2,7 @@ import 'server-only'
 import https from 'node:https'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile } from '@/lib/phone'
-import { onlinePaymentOpenFrom, payproCardVisibleFrom } from '@/lib/payments/paymentOpen'
+import { onlinePaymentOpenFrom, payproCardVisibleFrom, payproModeFrom, type PayproMode } from '@/lib/payments/paymentOpen'
 
 // PayPro API v2 client (PR65). Sandbox → https://demoapi.paypro.com.pk.
 //
@@ -54,6 +54,12 @@ export function pproSandbox(): boolean {
  */
 export function onlinePaymentOpen(): boolean {
   return onlinePaymentOpenFrom({ configured: pproConfigured(), sandbox: pproSandbox() })
+}
+
+/** PR106-G3 §4: the owner-facing PayPro mode (live/sandbox/not_set), derived
+ *  from the configured facts — never the base URL or any secret. */
+export function payproMode(): PayproMode {
+  return payproModeFrom({ configured: pproConfigured(), sandbox: pproSandbox() })
 }
 
 /** Emails allow-listed for sandbox PayPro checkout (PR66 §3), case-insensitive. */
