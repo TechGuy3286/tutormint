@@ -11,14 +11,15 @@ import { compressImage, compressUnder1MB } from '@/lib/imageCompress'
 import { isSyntheticEmail, normalisePkMobile } from '@/lib/phone'
 import { StepShell, StepSkip } from '@/components/onboarding/StepShell'
 import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
-import { Ltr } from '@/components/onboarding/StepLayout'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
 import EmailCard from '@/components/account/EmailCard'
+import VerifyBenefitsDialog from '@/components/tutor/VerifyBenefitsDialog'
+import { useVerifyCheckout } from '@/components/tutor/useVerifyCheckout'
+import { verificationFeeCardState } from '@/lib/tutorDashboard'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
-import TutorVerifyGate from '@/components/upgrade/TutorVerifyGate'
 import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio } from '@/lib/onboarding/copy'
@@ -26,7 +27,6 @@ import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import { resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
 import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
 import { NEW_FLOW_ORDER, firstMissingStep, nextMissingAfter, stepDone, type FlowStepKey } from '@/lib/tutorFlow'
-import type { ManualInstructions } from '@/lib/payments/provider'
 
 // The NEW tutor onboarding (PR106-G3c). A SEPARATE component from the live
 // CompleteProfileFlow (which is not touched): shown only when showNewOnboarding
@@ -82,11 +82,9 @@ const TITLES: Record<FlowStepKey, { en: string; ur?: string }> = {
 export default function NewOnboardingFlow({
   seed,
   smsAvailable = true,
-  manual = null,
 }: {
   seed: string
   smsAvailable?: boolean
-  manual?: ManualInstructions | null
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -375,11 +373,10 @@ export default function NewOnboardingFlow({
   if (stepKey === 'tagline') return <TaglineStep facts={facts} shell={shell}
     onSave={(headline, bio) => void saveAndNext({ tutorProfile: { headline, bio } }, { headline, bio })} />
 
-  // ---------- VERIFY (Get verified → existing payment flow) ----------
+  // ---------- COMPLETE YOUR VERIFICATION (final screen → PayPro directly) ----
   if (stepKey === 'verify') return (
-    <GetVerifiedStep title={title.en} stepIndex={stepIndex} stepTotal={ORDER.length}
-      onBack={goBack} onFinishLater={() => void leave('/tutor/dashboard')} manual={manual}
-      onDone={() => void advanceAfter('verify')} />
+    <GetVerifiedStep stepTotal={ORDER.length}
+      onBack={goBack} onFinishLater={() => void leave('/tutor/dashboard')} />
   )
 
   // ---------- FINAL ----------
@@ -1009,37 +1006,43 @@ function TaglineStep({ facts, shell, onSave }: { facts: Facts; shell: ShellFn; o
   })
 }
 
-// ------------------------------------------------------------ Get verified --
-// PR106-G4a §4: a clean intro — the heading, ONE message, and one red button
-// that opens the EXISTING payment flow (TutorVerifyGate, unchanged). The fee
-// cards, the bank panel and the pay-later link live inside that flow, which
-// opens only on the red button — they are not on this intro screen.
-function GetVerifiedStep({ title, stepIndex, stepTotal, onBack, onFinishLater, manual, onDone }: {
-  title: string; stepIndex: number; stepTotal: number; onBack: () => void; onFinishLater: () => void
-  manual: ManualInstructions | null; onDone: () => void
+// ------------------------------------------------- Complete Your Verification
+// PR106-G4b §1: ONE final screen. The progress bar is full (stepIndex ===
+// stepTotal) and there is no step after it. English only. The red button starts
+// PayPro DIRECTLY (useVerifyCheckout → /api/payments/checkout 'verified', which
+// reuses a pending < 24h invoice) and redirects; any failure (incl. PayPro not
+// open) shows one friendly line and keeps the button to retry. No CNIC card, no
+// bank/transfer, no pay-later exit, no TutorVerifyGate, no Urdu on this screen.
+// "What do I get?" opens the shared VerifyBenefitsDialog.
+function GetVerifiedStep({ stepTotal, onBack, onFinishLater }: {
+  stepTotal: number; onBack: () => void; onFinishLater: () => void
 }) {
-  const [pay, setPay] = useState(false)
+  const { start, busy, failed } = useVerifyCheckout()
+  const [benefits, setBenefits] = useState(false)
+  const benefitState = verificationFeeCardState({ feePaid: false, verifiedOk: false, findable: false })
   return (
-    <StepShell heading={title} headingUr={TITLES.verify.ur} stepIndex={stepIndex} stepTotal={stepTotal}
+    <StepShell heading="Complete Your Verification" stepIndex={stepTotal} stepTotal={stepTotal}
       onBack={onBack} backDisabled={false} onFinishLater={onFinishLater} buttonLabel="Finish" onNext={() => {}} hideButton>
-      {pay ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-4">
-          <TutorVerifyGate onClose={onDone} showDismiss={false} manual={manual} payLaterHref="/tutor/dashboard" />
-        </div>
-      ) : (
-        <div className="space-y-4 text-center">
-          <p className="text-sm leading-relaxed text-gray-700">
-            After verification, you can apply to tuitions and jobs and contact parents and employers directly. You pay no commission to <Ltr>TutorMint</Ltr>, and never pay anyone in <Ltr>TutorMint</Ltr>&rsquo;s name.
-          </p>
-          <p lang="ur" dir="rtl" className="text-sm leading-relaxed text-gray-700">
-            تصدیق کے بعد آپ ٹیوشنز اور نوکریوں کے لیے درخواست دے سکتے ہیں اور والدین اور اداروں سے براہِ راست رابطہ کر سکتے ہیں۔ آپ <Ltr>TutorMint</Ltr> کو کوئی کمیشن ادا نہیں کرتے، اور <Ltr>TutorMint</Ltr> کے نام پر کسی کو کچھ ادا نہیں کرتے۔
-          </p>
-          <button type="button" onClick={() => setPay(true)}
-            className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-red px-6 text-sm font-bold text-white hover:bg-tm-red-hover">
-            <CreditCard size={16} aria-hidden /> Complete verification
-          </button>
-        </div>
-      )}
+      <div className="space-y-4 text-center">
+        <p className="text-sm leading-relaxed text-gray-700">
+          After verification, you can apply to tuitions and jobs and contact parents and employers directly. You pay no commission to TutorMint, and never pay anyone in TutorMint&rsquo;s name.
+        </p>
+        <p className="rounded-xl bg-tm-tint-green/60 px-3 py-2 text-[12px] font-semibold leading-snug text-tm-green-deep">
+          Spam Free Platform Fee: Rs 199. We keep TutorMint clean of fake and spam accounts.
+        </p>
+        <button type="button" onClick={() => void start()} disabled={busy}
+          className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-red px-6 text-sm font-bold text-white hover:bg-tm-red-hover disabled:opacity-60">
+          <CreditCard size={16} aria-hidden /> {busy ? 'Starting…' : 'Pay Rs 199 & get verified'}
+        </button>
+        {failed && (
+          <p className="text-xs font-semibold text-tm-red">Payment is unavailable right now. Please try again in a few minutes.</p>
+        )}
+        <button type="button" onClick={() => setBenefits(true)}
+          className="text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline">
+          What do I get?
+        </button>
+      </div>
+      <VerifyBenefitsDialog open={benefits} onClose={() => setBenefits(false)} state={benefitState} />
     </StepShell>
   )
 }

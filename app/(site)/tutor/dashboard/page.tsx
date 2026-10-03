@@ -6,6 +6,7 @@ import CvCard from '@/components/tutor/CvCard'
 import SavedJobsSection from '@/components/tutor/SavedJobsSection'
 import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
 import CompletePaymentPrompt from '@/components/tutor/CompletePaymentPrompt'
+import GetVerifiedValueCard from '@/components/tutor/GetVerifiedValueCard'
 import { quotaCounter } from '@/lib/tutorDashboard'
 import Link from 'next/link'
 import DashboardActionBar from '@/components/dashboard/DashboardActionBar'
@@ -22,6 +23,8 @@ import { viewSummary } from '@/lib/profileViews'
 import { canDownloadCv } from '@/lib/cv/access'
 import { needsOnboarding } from '@/lib/onboardingGate'
 import { pendingPayproInvoice } from '@/lib/payments/pendingInvoice'
+import { getOnboardingMode } from '@/lib/onboardingModeServer'
+import { showNewOnboarding } from '@/lib/onboardingMode'
 
 // The tutor dashboard — one profile card and a few (PR19).
 //
@@ -51,10 +54,14 @@ export default async function TutorDashboardPage() {
   const directoryListed = directory.listed
   const city = (tutorProfile?.city as string | null) ?? null
 
-  // PR106-G4a §5: an unfinished PayPro invoice (started checkout, not yet paid,
-  // still within 24h) → a "Complete your payment" prompt. Hidden once the fee is
-  // paid (ent.verified) or the invoice expires (pendingPayproInvoice returns null).
-  const pendingInvoice = ent.verified ? null : await pendingPayproInvoice(userId)
+  // PR106-G4b §5/§6: for owner/staff (switch "Staff only") an unverified tutor
+  // sees the value-first "Get verified" card (real tuition count, straight to
+  // PayPro). Everyone else keeps today's red "Complete your payment" prompt — an
+  // unfinished PayPro invoice (started, unpaid, still within 24h). Both are
+  // hidden once the fee is paid (ent.verified).
+  const staffNew = showNewOnboarding(await getOnboardingMode(), !!session?.profile?.admin_role)
+  const showValueCard = staffNew && !ent.verified
+  const pendingInvoice = !staffNew && !ent.verified ? await pendingPayproInvoice(userId) : null
 
   // PR71: the tutor's own city+areas scope drives both the "Tuitions for you"
   // tile and the action-bar count, so both agree with what /browse/tuitions
@@ -143,7 +150,9 @@ export default async function TutorDashboardPage() {
           publicHref={publicHref}
         />
 
-        {/* PR106-G4a §5: finish an unpaid verification invoice (all tutors). */}
+        {/* PR106-G4b §5: value-first card for owner/staff; §6: everyone else keeps
+            today's "Complete your payment" prompt. */}
+        {showValueCard && <GetVerifiedValueCard count={boardCount} city={city} />}
         {pendingInvoice && <CompletePaymentPrompt url={pendingInvoice.url} />}
 
         {/* Action bar — the main thing a tutor comes back to do (PR42 §2). */}

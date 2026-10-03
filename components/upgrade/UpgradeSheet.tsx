@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { X, Lock, ShieldAlert, BadgeCheck, ArrowRight } from 'lucide-react'
 import type { Gate } from '@/lib/gate'
@@ -72,6 +72,19 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
   // `missing` checklist (subject/city/mobile, ± fee) renders that list instead
   // (owner PR3 §1.3), never the CNIC modal.
   const tutorVerify = gate.kind === 'verify' && gate.audience === 'tutor' && !gate.missing
+
+  // PR106-G4b §3: on the verify gate, owner/staff hide bank transfer. Resolved
+  // from the staff switch via a one-off read; default false = today's screen.
+  const [hideManual, setHideManual] = useState(false)
+  useEffect(() => {
+    if (!tutorVerify) return
+    let live = true
+    fetch('/api/onboarding/mode')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (live && j?.staffNew) setHideManual(true) })
+      .catch(() => { /* default false = bank stays, unchanged */ })
+    return () => { live = false }
+  }, [tutorVerify])
   const Icon = suspended ? ShieldAlert : tutorVerify ? BadgeCheck : gate.plan ? BadgeCheck : Lock
 
   return (
@@ -116,7 +129,7 @@ export default function UpgradeSheet({ gate, onClose }: { gate: Gate; onClose: (
         </div>
 
         {tutorVerify ? (
-          <TutorVerifyGate onClose={onClose} />
+          <TutorVerifyGate onClose={onClose} hideManual={hideManual} />
         ) : (
           <>
         <p className="mt-3 text-xs leading-relaxed text-slate-700">{gate.body}</p>

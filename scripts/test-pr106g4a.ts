@@ -112,22 +112,25 @@ test('buildTaglineUser lists the facts given and omits the blanks; the system pr
 })
 
 // ---------------------------------------------------------------- STEP 4 ----
-test('Get verified: one message + one red "Complete verification" button opening the existing payment flow', () => {
+// NOTE: PR106-G4b SUPERSEDED G4a's "Complete verification" → TutorVerifyGate
+// screen. The final screen is now "Complete Your Verification" going straight to
+// PayPro (test:pr106g4b owns the full assertions). Here we only keep what still
+// holds: a clean Get-verified screen with the commission message and none of the
+// old clutter.
+test('Get verified screen is clean (no CNIC card / Continue / Pay later clutter)', () => {
   assert.match(FLOW, /function GetVerifiedStep/, 'the clean Get-verified screen')
-  assert.match(FLOW, /Complete verification/, 'one red button')
-  assert.match(FLOW, /bg-tm-red[^]*Complete verification/, 'the button is red')
-  assert.match(FLOW, /You pay no commission to <Ltr>TutorMint<\/Ltr>/, 'the single EN+Urdu message')
-  assert.match(FLOW, /<TutorVerifyGate /, 'opens the EXISTING payment flow (unchanged)')
-  // the removed clutter
+  assert.match(FLOW, /You pay no commission to TutorMint/, 'the commission message')
   for (const gone of ['being checked', 'documents received', 'Continue to become', 'Pay later']) {
     assert.ok(!new RegExp(gone).test(FLOW), `"${gone}" removed from the new flow`)
   }
 })
 
 // ---------------------------------------------------------------- STEP 5 ----
-test('the dashboard shows "Complete your payment" only for an unpaid, unexpired invoice', () => {
+// NOTE: PR106-G4b gated this card behind the staff switch; the non-staff path
+// still shows the pending-invoice prompt (test:pr106g4b owns the full gating).
+test('the dashboard still shows "Complete your payment" to non-staff for an unpaid, unexpired invoice', () => {
   const page = read('app/(site)/tutor/dashboard/page.tsx')
-  assert.match(page, /ent\.verified \? null : await pendingPayproInvoice\(userId\)/, 'hidden once the fee is paid')
+  assert.match(page, /!staffNew && !ent\.verified \? await pendingPayproInvoice\(userId\)/, 'non-staff + unverified only')
   assert.match(page, /\{pendingInvoice && <CompletePaymentPrompt url=\{pendingInvoice\.url\}/, 'rendered only when an invoice exists')
   const helper = read('lib/payments/pendingInvoice.ts')
   assert.match(helper, /status', 'pending'/, 'only pending orders')
@@ -142,6 +145,7 @@ test('CompleteProfileFlow and the shared payment UI are NOT changed by this PR',
   const cpf = read('components/tutor/CompleteProfileFlow.tsx')
   assert.ok(!/NewOnboardingFlow|CaptureButtons|NewCnicPhotos|pendingPayproInvoice|CompletePaymentPrompt/.test(cpf),
     'CompleteProfileFlow does not reference any of the new onboarding pieces')
-  // the new flow REUSES the shared gate rather than reimplementing checkout
-  assert.match(FLOW, /import TutorVerifyGate from '@\/components\/upgrade\/TutorVerifyGate'/, 'reuses the shared payment gate')
+  // NOTE: G4a reused TutorVerifyGate on the final screen; PR106-G4b SUPERSEDED
+  // that — the final screen now calls /api/payments/checkout directly, so the
+  // flow no longer imports TutorVerifyGate. (test:pr106g4b covers the new path.)
 })

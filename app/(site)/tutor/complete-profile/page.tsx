@@ -50,7 +50,7 @@ export default async function CompleteProfilePage({
   const manual = await manualInstructions()
 
   if (newFlow) {
-    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} manual={manual} />
+    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} />
   }
 
   return (

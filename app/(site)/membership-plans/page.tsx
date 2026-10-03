@@ -7,6 +7,8 @@ import { getProvider } from '@/lib/payments'
 import { checkoutVisibleFor, onlinePaymentOpen } from '@/lib/payments/paypro'
 import { manualInstructions } from '@/lib/payments/manual'
 import ManualPayDetails from '@/components/payments/ManualPayDetails'
+import { getOnboardingMode } from '@/lib/onboardingModeServer'
+import { showNewOnboarding } from '@/lib/onboardingMode'
 import PackagesTable, { type PlanRow } from '@/components/PackagesTable'
 import PackagesTabs from '@/components/membership-plans/PackagesTabs'
 import VerifiedPreview from '@/components/membership-plans/VerifiedPreview'
@@ -57,6 +59,9 @@ export default async function PackagesPage({
   // accounts can check out. Also surface a resumable pending order (Pay later).
   let checkoutOpen = onlinePaymentOpen()
   let resumeHref: string | null = null
+  // PR106-G4b §3: owner/staff (switch "Staff only") hide bank transfer + "Pay
+  // later" on this page; everyone else is unchanged. Default false (signed-out).
+  let staffNew = false
   if (ent) {
     const { data: me } = await supabase
       .from('profiles')
@@ -64,6 +69,7 @@ export default async function PackagesPage({
       .eq('id', ent.userId)
       .maybeSingle()
     checkoutOpen = checkoutOpen || (!!me && checkoutVisibleFor(me))
+    staffNew = showNewOnboarding(await getOnboardingMode(), !!me?.admin_role)
     const { data: pending } = await supabase
       .from('payments')
       .select('provider_ref, provider')
@@ -94,20 +100,30 @@ export default async function PackagesPage({
   // PR106-E §1/§2 — the payment screen's exits + the manual account details
   // (one source: app_settings), shown to a signed-in member who can check out.
   const dashHref = ent?.audience === 'parent' ? '/parent/dashboard' : '/tutor/dashboard'
-  const manual = checkoutOpen && ent ? await manualInstructions() : null
+  const manual = checkoutOpen && ent && !staffNew ? await manualInstructions() : null
+  // PR106-G4b §3: for owner/staff the bank-transfer card and the "Pay later" link
+  // are hidden; the "Back" exit stays. Everyone else keeps today's full footer.
   const payFooter =
     checkoutOpen && ent ? (
-      <div className="space-y-3">
-        <ManualPayDetails instructions={manual!} />
+      staffNew ? (
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link href={dashHref} className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700">
             Back<span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">واپس</span>
           </Link>
-          <Link href={dashHref} className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700">
-            Pay later<span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">بعد میں</span>
-          </Link>
         </div>
-      </div>
+      ) : (
+        <div className="space-y-3">
+          <ManualPayDetails instructions={manual!} />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link href={dashHref} className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700">
+              Back<span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">واپس</span>
+            </Link>
+            <Link href={dashHref} className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700">
+              Pay later<span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">بعد میں</span>
+            </Link>
+          </div>
+        </div>
+      )
     ) : null
 
   // The current plan / verified state applies to the tab that matches the
@@ -194,6 +210,7 @@ export default async function PackagesPage({
         signedIn={!!ent}
         verified={tutorVerified}
         checkoutOpen={checkoutOpen}
+        hideTransfer={staffNew}
       />
 
       {payFooter}
@@ -252,6 +269,7 @@ export default async function PackagesPage({
         signedIn={!!ent}
         verified={parentVerified}
         checkoutOpen={checkoutOpen}
+        hideTransfer={staffNew}
       />
 
       {payFooter}

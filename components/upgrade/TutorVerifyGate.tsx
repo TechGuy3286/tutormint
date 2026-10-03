@@ -44,11 +44,16 @@ export default function TutorVerifyGate({
   // the upgrade sheet (then the bank line links to /pay/manual without numbers).
   manual = null,
   payLaterHref,
+  // PR106-G4b §3 — owner/staff (switch "Staff only") hide the bank/manual
+  // transfer and the "Pay later" link on every payment surface. Default false
+  // keeps today's screen unchanged for everyone else.
+  hideManual = false,
 }: {
   onClose: () => void
   showDismiss?: boolean
   manual?: ManualInstructions | null
   payLaterHref?: string
+  hideManual?: boolean
 }) {
   const router = useRouter()
   const [cap, setCap] = useState<CnicCaptureState | null>(null)
@@ -193,8 +198,9 @@ export default function TutorVerifyGate({
       {/* Manual payment — the account details (one source: app_settings) directly
           below the PayPro button, with "Pay by bank transfer" to submit proof and
           the plain activation line (PR106-E §2). The online option above is
-          instant; a transfer is checked by staff first. */}
-      {manual ? (
+          instant; a transfer is checked by staff first. PR106-G4b §3: hidden for
+          owner/staff, who go straight to PayPro. */}
+      {!hideManual && (manual ? (
         <ManualPayDetails instructions={manual} onTransfer={() => void start('transfer')} />
       ) : (
         <button
@@ -206,10 +212,11 @@ export default function TutorVerifyGate({
           Or pay by bank transfer
           <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">یا بینک ٹرانسفر سے ادائیگی کریں</span>
         </button>
-      )}
+      ))}
 
-      {/* PR106-E §1 — Pay later returns to the dashboard with nothing lost. */}
-      {payLaterHref && (
+      {/* PR106-E §1 — Pay later returns to the dashboard with nothing lost.
+          PR106-G4b §3: hidden for owner/staff. */}
+      {!hideManual && payLaterHref && (
         <Link href={payLaterHref} className="block min-h-[40px] text-center text-[11px] font-bold text-gray-500 underline-offset-2 hover:underline">
           Pay later
           <span lang="ur" dir="rtl" className="ms-1.5 font-semibold">بعد میں ادائیگی کریں</span>

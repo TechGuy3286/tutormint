@@ -45,7 +45,7 @@ export default async function TutorOnboardingPage() {
   const manual = await manualInstructions()
 
   if (newFlow) {
-    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} manual={manual} />
+    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} />
   }
 
   return (
