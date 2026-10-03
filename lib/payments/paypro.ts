@@ -2,7 +2,7 @@ import 'server-only'
 import https from 'node:https'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile } from '@/lib/phone'
-import { onlinePaymentOpenFrom } from '@/lib/payments/paymentOpen'
+import { onlinePaymentOpenFrom, payproCardVisibleFrom } from '@/lib/payments/paymentOpen'
 
 // PayPro API v2 client (PR65). Sandbox → https://demoapi.paypro.com.pk.
 //
@@ -98,9 +98,11 @@ export function checkoutVisibleFor(profile: GateProfile): boolean {
  *  staff/seed/test-email only, so a demo gateway never takes a real member's
  *  money. Unconfigured → never. */
 export function pproVisibleFor(profile: GateProfile): boolean {
-  if (!pproConfigured()) return false
-  if (pproSandbox()) return checkoutVisibleFor(profile)
-  return true
+  return payproCardVisibleFrom(
+    profile,
+    { configured: pproConfigured(), sandbox: pproSandbox() },
+    payproTestEmails(),
+  )
 }
 
 // ── low-level transport ─────────────────────────────────────────────────────

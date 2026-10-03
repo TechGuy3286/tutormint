@@ -3,7 +3,7 @@ import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { getProvider, newPaymentReference } from '@/lib/payments'
 import { manual } from '@/lib/payments/manual'
-import { checkoutVisibleFor, pproVisibleFor, onlinePaymentOpen, startPayproCheckout, toPayproMobile } from '@/lib/payments/paypro'
+import { pproVisibleFor, startPayproCheckout, toPayproMobile } from '@/lib/payments/paypro'
 import { isSyntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, text } from '@/lib/validate'
@@ -77,17 +77,17 @@ export async function POST(request: Request) {
     .eq('id', user.id)
     .maybeSingle()
 
-  // GATE (PR106-C0 §1). ONE source of truth: checkout is open whenever the PayPro
-  // gateway is genuinely LIVE (onlinePaymentOpen) — the same fact that decides
-  // whether a card payment would actually go through. Owner/staff/seed/test-email
-  // accounts may also check out in sandbox for testing. Only a closed gateway
-  // (sandbox/unconfigured) + a normal member yields "not open yet".
-  if (!profile || (!onlinePaymentOpen() && !checkoutVisibleFor(profile))) {
-    return NextResponse.json(
-      { error: 'Online payment is not open yet. Please check back soon.', code: 'checkout_closed' },
-      { status: 403 },
-    )
+  // A member with no profile row has nothing to check out against.
+  if (!profile) {
+    return NextResponse.json({ error: 'Please complete your profile first.' }, { status: 403 })
   }
+
+  // PR106-G2 §0: the launch-phase "test emails only" gate is GONE from the
+  // top of the route. Bank TRANSFER is always available to any signed-in
+  // member (it does not depend on the gateway), and CARD is open to EVERY
+  // tutor the moment PayPro is LIVE — both decided below (pproVisibleFor /
+  // the transfer branch), through the one onlinePaymentOpen() fact. A mobile
+  // signup whose auth email is synthetic is no longer blocked.
 
   const audience = profile.role === 'tutor' ? 'tutor' : 'parent'
   if (plan.audience !== audience) {
@@ -127,9 +127,22 @@ export async function POST(request: Request) {
   // the transfer order page. Default is card → PayPro.
   const wantsTransfer = body.method === 'transfer'
 
-  // PayPro (PR65/PR98). Offered to a gated account that did NOT choose transfer.
-  // The amount is the plan price read above — never the client's.
-  if (!wantsTransfer && pproVisibleFor(profile)) {
+  // CARD via PayPro — open to EVERY tutor when the gateway is LIVE
+  // (pproVisibleFor → onlinePaymentOpen). When it is not available for this
+  // account (sandbox for a normal member / unconfigured), DO NOT fall through
+  // to a dev simulator or a mislabelled row: tell the UI to use the always-
+  // available bank transfer instead (the payment screen shows that card).
+  if (!wantsTransfer) {
+    if (!pproVisibleFor(profile)) {
+      return NextResponse.json(
+        {
+          error: 'Online card payment isn’t open yet — please pay by bank transfer.',
+          code: 'use_transfer',
+        },
+        { status: 409 },
+      )
+    }
+    // The amount is the plan price read above — never the client's.
     const rawEmail = typeof profile.email === 'string' ? profile.email : ''
     const started = await startPayproCheckout({
       userId: user.id,

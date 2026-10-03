@@ -98,6 +98,13 @@ export default function TutorVerifyGate({
       { planCode: 'verified', ...(method ? { method } : {}) },
     )
     if (!ok || !data) {
+      // Online card isn't open for this account yet (PR106-G2 §0) → go straight
+      // to the always-available bank transfer rather than showing an error.
+      if (data?.code === 'use_transfer' && method !== 'transfer') {
+        setStarting(false)
+        void start('transfer')
+        return
+      }
       // Checkout not open to this account yet (403) → its own plain notice.
       if (data?.code === 'checkout_closed') {
         setClosed(true)
