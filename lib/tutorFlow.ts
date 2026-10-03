@@ -31,6 +31,10 @@ export type FlowStepKey =
   // PR106-G3 §3.10: the NEW flow asks gender as its own first step (the current
   // flow collects it inside 'contact', so 'gender' never appears in FLOW_ORDER).
   | 'gender'
+  // PR106-G4a §3: the NEW flow collects the tagline + bio as their own step
+  // (AI-written, editable) after the CNIC photos; the current flow collects them
+  // inside 'contact', so 'tagline' never appears in FLOW_ORDER.
+  | 'tagline'
 
 // PR76 §C.1 / PR78 §C — the owner's order:
 //   1 City · 2 Areas · 3 Academic levels · 4 Subjects · 5 Job title ·
@@ -83,6 +87,7 @@ export const NEW_FLOW_ORDER: FlowStepKey[] = [
   'selfie',
   'cnic_number',
   'cnic_photos',
+  'tagline',
   'verify',
 ]
 
@@ -218,6 +223,9 @@ export function stepDone(f: FlowFacts, key: FlowStepKey): boolean {
     // PR106-G3 §3.10 — the new flow's first step.
     case 'gender':
       return nonblank(f.gender)
+    // PR106-G4a §3 — the new flow's tagline + bio step (done when both exist).
+    case 'tagline':
+      return nonblank(f.headline) && nonblank(f.bio)
   }
 }
 

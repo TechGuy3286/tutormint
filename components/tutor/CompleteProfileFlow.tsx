@@ -76,6 +76,10 @@ const TITLES: Record<FlowStepKey, string> = {
   cnic_number: 'Your CNIC number',
   cnic_photos: 'Photos of your CNIC',
   gender: 'Select your gender',
+  // Inert here: 'tagline' lives only in NEW_FLOW_ORDER (the new onboarding), not
+  // FLOW_ORDER, so this flow never renders it. Present only to satisfy the shared
+  // Record<FlowStepKey, string> — the same pattern as 'gender' above. (PR106-G4a)
+  tagline: 'About you',
 }
 
 // The Urdu sub-label under each step title (owner PR5a §1.5), the way the
@@ -98,6 +102,8 @@ const URDU: Record<FlowStepKey, string> = {
   cnic_number: 'آپ کا شناختی کارڈ نمبر',
   cnic_photos: 'شناختی کارڈ کی تصاویر',
   gender: 'اپنی جنس منتخب کریں',
+  // Inert — see the note in TITLES above (PR106-G4a).
+  tagline: 'آپ کے بارے میں',
 }
 
 type Props = {

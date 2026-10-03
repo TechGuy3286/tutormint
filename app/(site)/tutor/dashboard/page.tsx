@@ -5,6 +5,7 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import CvCard from '@/components/tutor/CvCard'
 import SavedJobsSection from '@/components/tutor/SavedJobsSection'
 import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
+import CompletePaymentPrompt from '@/components/tutor/CompletePaymentPrompt'
 import { quotaCounter } from '@/lib/tutorDashboard'
 import Link from 'next/link'
 import DashboardActionBar from '@/components/dashboard/DashboardActionBar'
@@ -20,6 +21,7 @@ import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { viewSummary } from '@/lib/profileViews'
 import { canDownloadCv } from '@/lib/cv/access'
 import { needsOnboarding } from '@/lib/onboardingGate'
+import { pendingPayproInvoice } from '@/lib/payments/pendingInvoice'
 
 // The tutor dashboard — one profile card and a few (PR19).
 //
@@ -48,6 +50,11 @@ export default async function TutorDashboardPage() {
 
   const directoryListed = directory.listed
   const city = (tutorProfile?.city as string | null) ?? null
+
+  // PR106-G4a §5: an unfinished PayPro invoice (started checkout, not yet paid,
+  // still within 24h) → a "Complete your payment" prompt. Hidden once the fee is
+  // paid (ent.verified) or the invoice expires (pendingPayproInvoice returns null).
+  const pendingInvoice = ent.verified ? null : await pendingPayproInvoice(userId)
 
   // PR71: the tutor's own city+areas scope drives both the "Tuitions for you"
   // tile and the action-bar count, so both agree with what /browse/tuitions
@@ -135,6 +142,9 @@ export default async function TutorDashboardPage() {
           completion={percent}
           publicHref={publicHref}
         />
+
+        {/* PR106-G4a §5: finish an unpaid verification invoice (all tutors). */}
+        {pendingInvoice && <CompletePaymentPrompt url={pendingInvoice.url} />}
 
         {/* Action bar — the main thing a tutor comes back to do (PR42 §2). */}
         <DashboardActionBar

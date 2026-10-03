@@ -54,10 +54,12 @@ test('the new flow order starts with Gender and both flows share the same step k
   assert.equal(NEW_FLOW_ORDER[0], 'gender', 'Gender is first')
   assert.ok(!FLOW_ORDER.includes('gender'), 'the current flow never shows gender as a step')
   assert.ok(!NEW_FLOW_ORDER.includes('name'), 'signup name is never re-asked')
-  // Every new-flow step (except the new gender) is an existing step key — same
-  // saved data, so switching flows loses nothing.
+  // Every new-flow step is an existing step key OR one of the two new-flow-only
+  // steps whose data the old flow still collects (gender + tagline/bio live on
+  // the old flow's 'contact' step), so switching flows loses nothing. (PR106-G4a
+  // added 'tagline'.)
   for (const k of NEW_FLOW_ORDER) {
-    assert.ok(k === 'gender' || FLOW_ORDER.includes(k), `${k} is a shared step`)
+    assert.ok(k === 'gender' || k === 'tagline' || FLOW_ORDER.includes(k), `${k} is a shared step`)
   }
 })
 

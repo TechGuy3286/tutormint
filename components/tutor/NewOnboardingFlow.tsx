@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Check, Loader2, Plus, Search, Upload } from 'lucide-react'
+import { Camera, Check, CreditCard, Image as ImageIcon, Loader2, Paperclip, Plus, Search, Sparkles, Upload } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
@@ -14,7 +14,6 @@ import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
 import { Ltr } from '@/components/onboarding/StepLayout'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
-import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
 import EmailCard from '@/components/account/EmailCard'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
@@ -75,6 +74,7 @@ const TITLES: Record<FlowStepKey, { en: string; ur?: string }> = {
   selfie: { en: 'Take a selfie' },
   cnic_number: { en: 'Your CNIC number', ur: 'آپ کا شناختی کارڈ نمبر' },
   cnic_photos: { en: 'Photos of your CNIC', ur: 'شناختی کارڈ کی تصاویر' },
+  tagline: { en: 'Your tagline and bio', ur: 'آپ کا تعارف' },
   verify: { en: 'Get verified', ur: 'تصدیق کروائیں' },
   name: { en: 'Your full name' },
 }
@@ -359,27 +359,27 @@ export default function NewOnboardingFlow({
     onDone={() => void advanceAfter('contact')} onRefresh={refresh} saveProfile={saveProfile} setFacts={setFacts} />
 
   // ---------- PHOTO ----------
-  if (stepKey === 'photo') return <PhotoStep seed={seed} current={facts.avatarUrl} busy={busy} shell={shell}
+  if (stepKey === 'photo') return <PhotoStep seed={seed} current={facts.avatarUrl} shell={shell}
     onSave={(url) => void saveAndNext({ tutorProfile: { avatar_url: url } }, { avatarUrl: url })} />
 
   // ---------- SELFIE ----------
   if (stepKey === 'selfie') return <SelfieStep done={facts.selfieDone} shell={shell} onDone={() => void advanceAfter('selfie')} />
 
   // ---------- CNIC NUMBER ----------
-  if (stepKey === 'cnic_number') return <CnicStep mode="number" shell={shell} onDone={() => void advanceAfter('cnic_number')} />
+  if (stepKey === 'cnic_number') return <CnicNumberStep shell={shell} onDone={() => void advanceAfter('cnic_number')} />
 
   // ---------- CNIC PHOTOS ----------
-  if (stepKey === 'cnic_photos') return <CnicStep mode="photos" shell={shell} onDone={() => void advanceAfter('cnic_photos')} />
+  if (stepKey === 'cnic_photos') return <NewCnicPhotos shell={shell} onDone={() => void advanceAfter('cnic_photos')} />
 
-  // ---------- VERIFY (fee) ----------
+  // ---------- TAGLINE & BIO (AI-written, editable) ----------
+  if (stepKey === 'tagline') return <TaglineStep facts={facts} shell={shell}
+    onSave={(headline, bio) => void saveAndNext({ tutorProfile: { headline, bio } }, { headline, bio })} />
+
+  // ---------- VERIFY (Get verified → existing payment flow) ----------
   if (stepKey === 'verify') return (
-    <StepShell heading={title.en} headingUr={TITLES.verify.ur} stepIndex={stepIndex} stepTotal={ORDER.length}
-      onBack={goBack} backDisabled={false} onFinishLater={() => void leave('/tutor/dashboard')}
-      buttonLabel="Finish" onNext={() => {}} hideButton>
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <TutorVerifyGate onClose={() => void advanceAfter('verify')} showDismiss={false} manual={manual} payLaterHref="/tutor/dashboard" />
-      </div>
-    </StepShell>
+    <GetVerifiedStep title={title.en} stepIndex={stepIndex} stepTotal={ORDER.length}
+      onBack={goBack} onFinishLater={() => void leave('/tutor/dashboard')} manual={manual}
+      onDone={() => void advanceAfter('verify')} />
   )
 
   // ---------- FINAL ----------
@@ -750,8 +750,44 @@ function MobileVerifyScreen({ facts, smsAvailable, shell, onVerified }: { facts:
   })
 }
 
+// --------------------------------------------- shared capture buttons -------
+// PR106-G4a §1: a square tile + two colour-coded buttons — "Open camera" (navy)
+// and "Choose from gallery" (deep green). The tile is itself tappable (opens the
+// camera). No labels, no explanation — the photo is the confirmation.
+function CaptureButtons({ facingMode, busy, done, preview, onPick }: {
+  facingMode: 'user' | 'environment'; busy: boolean; done: boolean; preview: React.ReactNode | null; onPick: (f: File) => void
+}) {
+  const camRef = useRef<HTMLInputElement>(null)
+  const galRef = useRef<HTMLInputElement>(null)
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) onPick(f); e.currentTarget.value = '' }
+  return (
+    <div className="mx-auto w-44 space-y-3">
+      <button type="button" onClick={() => camRef.current?.click()} disabled={busy} aria-label="Take a photo"
+        className="relative block aspect-square w-full overflow-hidden rounded-2xl border-2 border-dashed border-gray-300 bg-tm-bg">
+        {preview ?? (
+          <span className="grid h-full w-full place-items-center text-gray-500">
+            {busy ? <Loader2 size={28} className="animate-spin" aria-hidden /> : done ? <Check size={28} aria-hidden /> : <Camera size={28} aria-hidden />}
+          </span>
+        )}
+      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={() => camRef.current?.click()} disabled={busy}
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-navy px-3 text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-50">
+          <Camera size={15} aria-hidden /> Open camera
+        </button>
+        <button type="button" onClick={() => galRef.current?.click()} disabled={busy}
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-green-deep px-3 text-xs font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-50">
+          <ImageIcon size={15} aria-hidden /> Choose from gallery
+        </button>
+      </div>
+      <input ref={camRef} type="file" accept="image/*" capture={facingMode} className="hidden" onChange={pick} />
+      <input ref={galRef} type="file" accept="image/*" className="hidden" onChange={pick} />
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------- Photo -----
-function PhotoStep({ seed, current, busy, shell, onSave }: { seed: string; current: string | null; busy: boolean; shell: ShellFn; onSave: (url: string) => void }) {
+function PhotoStep({ seed, current, shell, onSave }: { seed: string; current: string | null; shell: ShellFn; onSave: (url: string) => void }) {
   const supabase = useMemo(() => createClient(), [])
   const toast = useToast()
   const [preview, setPreview] = useState<string | null>(current)
@@ -770,10 +806,10 @@ function PhotoStep({ seed, current, busy, shell, onSave }: { seed: string; curre
   return shell({
     onNext: () => {}, hideButton: !preview, nextDisabled: !preview,
     children: (
-      <div className="mx-auto w-44">
-        <PhotoCaptureTile facingMode="environment" aspectClass="aspect-square" label={preview ? 'Photo added' : 'Photo'} ariaLabel="your profile photo"
-          busy={uploading} done={!!preview} preview={preview ? (<img src={preview} alt="Your photo" className="h-full w-full object-cover" />) : null} onPick={(f) => void upload(f)} />
-        <TermsLink />
+      <div className="space-y-2">
+        <CaptureButtons facingMode="environment" busy={uploading} done={!!preview}
+          preview={preview ? (<img src={preview} alt="Your photo" className="h-full w-full object-cover" />) : null} onPick={(f) => void upload(f)} />
+        <div className="text-center"><TermsLink /></div>
       </div>
     ),
   })
@@ -801,48 +837,211 @@ function SelfieStep({ done, shell, onDone }: { done: boolean; shell: ShellFn; on
     onNext: onDone, nextDisabled: !uploaded,
     children: (
       <div className="space-y-2">
-        <div className="mx-auto w-44">
-          <PhotoCaptureTile facingMode="user" aspectClass="aspect-square" label={uploaded ? 'Selfie added' : 'Selfie'} ariaLabel="your verification selfie"
-            busy={uploading} done={uploaded} preview={preview ? (<img src={preview} alt="Your selfie" className="h-full w-full object-cover" />) : null} onPick={(f) => void upload(f)} />
-        </div>
-        <p className="text-center text-[11px] text-gray-500">Only our verification team sees your selfie.<span lang="ur" dir="rtl" className="block">آپ کی سیلفی صرف ہماری تصدیق ٹیم دیکھتی ہے۔</span></p>
+        <CaptureButtons facingMode="user" busy={uploading} done={uploaded}
+          preview={preview ? (<img src={preview} alt="Your selfie" className="h-full w-full object-cover" />) : null} onPick={(f) => void upload(f)} />
         <div className="text-center"><TermsLink /></div>
       </div>
     ),
   })
 }
 
-// ---------------------------------------------------------------- CNIC ------
-function CnicStep({ mode, shell, onDone }: { mode: 'number' | 'photos'; shell: ShellFn; onDone: () => void }) {
+// ---------------------------------------------------------- CNIC number -----
+// The number screen keeps the shared CnicCapture (number only) — it owns the
+// 5-7-1 formatting and the save-number gate the photos step then relies on.
+function CnicNumberStep({ shell, onDone }: { shell: ShellFn; onDone: () => void }) {
   const toast = useToast()
   const [cap, setCap] = useState<CnicCaptureState | null>(null)
   const [busy, setBusy] = useState(false)
   const save = async () => {
+    if (!cap?.valid) return
     setBusy(true)
     try {
-      if (mode === 'number') {
-        if (!cap?.valid) return
-        const r = await fetch('/api/identity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save-number', cnicNumber: cap.number }) })
-        if (!r.ok) { toast.error((await r.json().catch(() => ({}))).error ?? 'Could not save your CNIC number.'); return }
-      } else {
-        if (!cap?.front || !cap?.back) return
-        const r = await fetch('/api/identity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'submit' }) })
-        if (!r.ok) { toast.error((await r.json().catch(() => ({}))).error ?? 'Could not submit for checking.'); return }
-        toast.success('CNIC sent for checking.')
-      }
+      const r = await fetch('/api/identity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save-number', cnicNumber: cap.number }) })
+      if (!r.ok) { toast.error((await r.json().catch(() => ({}))).error ?? 'Could not save your CNIC number.'); return }
       onDone()
     } finally { setBusy(false) }
   }
-  const valid = mode === 'number' ? !!cap?.valid : !!(cap?.front && cap?.back)
   return shell({
-    onNext: () => void save(), nextDisabled: !valid,
+    onNext: () => void save(), nextDisabled: !cap?.valid,
     children: (
       <div className="space-y-2">
-        <CnicCapture show={mode} hideChecklist onState={setCap} />
+        <CnicCapture show="number" hideChecklist onState={setCap} />
         <div className="text-center"><TermsLink /></div>
       </div>
     ),
   })
+}
+
+// ---------------------------------------------------------- CNIC photos -----
+// PR106-G4a §2: Front and Back side by side, each with its own "Take a photo"
+// (navy) and "Upload a file" (deep green) buttons — no side labels, no
+// verification line. The CNIC number was saved on the previous step, so the
+// server's save-number-first rule is already satisfied. Both sides upload to the
+// same /api/documents/upload (kind 'cnic'), then /api/identity submit finalises.
+function NewCnicPhotos({ shell, onDone }: { shell: ShellFn; onDone: () => void }) {
+  const toast = useToast()
+  const [front, setFront] = useState(false)
+  const [back, setBack] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const submit = async () => {
+    if (!front || !back) return
+    setBusy(true)
+    try {
+      const r = await fetch('/api/identity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'submit' }) })
+      if (!r.ok) { toast.error((await r.json().catch(() => ({}))).error ?? 'Could not submit for checking.'); return }
+      toast.success('CNIC sent for checking.')
+      onDone()
+    } finally { setBusy(false) }
+  }
+  return shell({
+    onNext: () => void submit(), nextDisabled: !front || !back,
+    children: (
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <CnicSideCapture side="front" done={front} onDone={() => setFront(true)} />
+          <CnicSideCapture side="back" done={back} onDone={() => setBack(true)} />
+        </div>
+        <div className="text-center"><TermsLink /></div>
+      </div>
+    ),
+  })
+}
+
+function CnicSideCapture({ side, done, onDone }: { side: 'front' | 'back'; done: boolean; onDone: () => void }) {
+  const toast = useToast()
+  const camRef = useRef<HTMLInputElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [preview, setPreview] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const uploaded = done || !!preview
+  async function upload(file: File) {
+    setBusy(true)
+    try {
+      const img = await compressUnder1MB(file)
+      const fd = new FormData(); fd.append('kind', 'cnic'); fd.append('label', side); fd.append('file', img)
+      const res = await fetch('/api/documents/upload', { method: 'POST', body: fd })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.documentId) throw new Error(j.error ?? (res.status === 413 ? 'That photo was too large. Please try again.' : 'Upload failed.'))
+      setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
+      onDone()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not upload.') } finally { setBusy(false) }
+  }
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) void upload(f); e.currentTarget.value = '' }
+  return (
+    <div className="space-y-2">
+      <button type="button" onClick={() => camRef.current?.click()} disabled={busy} aria-label={`${side} of your CNIC`}
+        className="relative block aspect-[1.6] w-full overflow-hidden rounded-xl border-2 border-dashed border-gray-300 bg-tm-bg">
+        {preview ? (<img src={preview} alt={`CNIC ${side}`} className="h-full w-full object-cover" />) : (
+          <span className="grid h-full w-full place-items-center text-gray-500">
+            {busy ? <Loader2 size={22} className="animate-spin" aria-hidden /> : uploaded ? <Check size={22} aria-hidden /> : <Camera size={22} aria-hidden />}
+          </span>
+        )}
+      </button>
+      <div className="grid grid-cols-2 gap-1.5">
+        <button type="button" onClick={() => camRef.current?.click()} disabled={busy}
+          className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-lg bg-tm-navy px-2 text-[11px] font-bold text-white hover:bg-tm-navy-hover disabled:opacity-50">
+          <Camera size={13} aria-hidden /> Take a photo
+        </button>
+        <button type="button" onClick={() => fileRef.current?.click()} disabled={busy}
+          className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-lg bg-tm-green-deep px-2 text-[11px] font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-50">
+          <Paperclip size={13} aria-hidden /> Upload a file
+        </button>
+      </div>
+      <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={pick} />
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pick} />
+    </div>
+  )
+}
+
+// ------------------------------------------------------- Tagline & bio ------
+// PR106-G4a §3: the tagline and short bio, written by Claude from the tutor's own
+// saved answers (POST /api/tutor/tagline → fallback composer on any failure).
+// Both fields are prefilled and fully editable; nothing is published unseen, and
+// "Rewrite with AI" re-asks. Saved with the step's Finish button.
+function TaglineStep({ facts, shell, onSave }: { facts: Facts; shell: ShellFn; onSave: (headline: string, bio: string) => void }) {
+  const toast = useToast()
+  const [tagline, setTagline] = useState(facts.headline ?? '')
+  const [bio, setBio] = useState(facts.bio ?? '')
+  const [loading, setLoading] = useState(false)
+  const started = useRef(false)
+
+  const generate = useCallback(async () => {
+    setLoading(true)
+    try {
+      const r = await fetch('/api/tutor/tagline', { method: 'POST' })
+      const j = await r.json().catch(() => ({}))
+      if (r.ok && typeof j.tagline === 'string') { setTagline(j.tagline); setBio(typeof j.bio === 'string' ? j.bio : '') }
+      else toast.error('Could not write it just now. You can type your own.')
+    } catch { toast.error('Could not write it just now. You can type your own.') } finally { setLoading(false) }
+  }, [toast])
+
+  // Auto-write once on open when either field is still blank (this step only
+  // appears when one is). A tutor who already has both sees their own text.
+  useEffect(() => {
+    if (started.current) return
+    started.current = true
+    if (!tagline.trim() || !bio.trim()) void generate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return shell({
+    onNext: () => { if (tagline.trim() && bio.trim()) onSave(tagline.trim(), bio.trim()) },
+    nextDisabled: !tagline.trim() || !bio.trim(),
+    children: (
+      <div className="space-y-3">
+        <label className="block space-y-1">
+          <span className="block text-xs font-bold text-tm-navy">Tagline</span>
+          <input value={tagline} maxLength={120} onChange={(e) => setTagline(e.target.value)} aria-label="Tagline"
+            className={`min-h-[48px] w-full rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(fieldState({ value: tagline }))}`} />
+        </label>
+        <label className="block space-y-1">
+          <span className="block text-xs font-bold text-tm-navy">About you</span>
+          <textarea value={bio} rows={4} onChange={(e) => setBio(e.target.value)} aria-label="About you"
+            className={`w-full rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(fieldState({ value: bio }))}`} />
+        </label>
+        <button type="button" onClick={() => void generate()} disabled={loading}
+          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-tm-red underline-offset-2 hover:underline disabled:opacity-50">
+          {loading ? <Loader2 size={13} className="animate-spin" aria-hidden /> : <Sparkles size={13} aria-hidden />} Rewrite with AI
+          <span lang="ur" dir="rtl" className="font-semibold text-gray-500">دوبارہ لکھوائیں</span>
+        </button>
+      </div>
+    ),
+  })
+}
+
+// ------------------------------------------------------------ Get verified --
+// PR106-G4a §4: a clean intro — the heading, ONE message, and one red button
+// that opens the EXISTING payment flow (TutorVerifyGate, unchanged). The fee
+// cards, the bank panel and the pay-later link live inside that flow, which
+// opens only on the red button — they are not on this intro screen.
+function GetVerifiedStep({ title, stepIndex, stepTotal, onBack, onFinishLater, manual, onDone }: {
+  title: string; stepIndex: number; stepTotal: number; onBack: () => void; onFinishLater: () => void
+  manual: ManualInstructions | null; onDone: () => void
+}) {
+  const [pay, setPay] = useState(false)
+  return (
+    <StepShell heading={title} headingUr={TITLES.verify.ur} stepIndex={stepIndex} stepTotal={stepTotal}
+      onBack={onBack} backDisabled={false} onFinishLater={onFinishLater} buttonLabel="Finish" onNext={() => {}} hideButton>
+      {pay ? (
+        <div className="rounded-2xl border border-gray-200 bg-white p-4">
+          <TutorVerifyGate onClose={onDone} showDismiss={false} manual={manual} payLaterHref="/tutor/dashboard" />
+        </div>
+      ) : (
+        <div className="space-y-4 text-center">
+          <p className="text-sm leading-relaxed text-gray-700">
+            After verification, you can apply to tuitions and jobs and contact parents and employers directly. You pay no commission to <Ltr>TutorMint</Ltr>, and never pay anyone in <Ltr>TutorMint</Ltr>&rsquo;s name.
+          </p>
+          <p lang="ur" dir="rtl" className="text-sm leading-relaxed text-gray-700">
+            تصدیق کے بعد آپ ٹیوشنز اور نوکریوں کے لیے درخواست دے سکتے ہیں اور والدین اور اداروں سے براہِ راست رابطہ کر سکتے ہیں۔ آپ <Ltr>TutorMint</Ltr> کو کوئی کمیشن ادا نہیں کرتے، اور <Ltr>TutorMint</Ltr> کے نام پر کسی کو کچھ ادا نہیں کرتے۔
+          </p>
+          <button type="button" onClick={() => setPay(true)}
+            className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-red px-6 text-sm font-bold text-white hover:bg-tm-red-hover">
+            <CreditCard size={16} aria-hidden /> Complete verification
+          </button>
+        </div>
+      )}
+    </StepShell>
+  )
 }
 
 function TermsLink() {
