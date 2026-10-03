@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getOnboardingMode } from '@/lib/onboardingModeServer'
 import { showNewOnboarding } from '@/lib/onboardingMode'
 import CompleteProfileFlow from '@/components/tutor/CompleteProfileFlow'
+import NewOnboardingFlow from '@/components/tutor/NewOnboardingFlow'
 
 // The tutor completion flow (PR 4 §1). The old step-tab form is retired; this is
 // the SAME tap-tap gap flow /tutor/onboarding renders. A server component only so
@@ -47,6 +48,10 @@ export default async function CompleteProfilePage({
   // city/area/job-title lists inside the flow, not a broken screen.
   const facets = await onboardingFacets()
   const manual = await manualInstructions()
+
+  if (newFlow) {
+    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} manual={manual} />
+  }
 
   return (
     <CompleteProfileFlow

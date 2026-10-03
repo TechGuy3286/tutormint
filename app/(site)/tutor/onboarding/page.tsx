@@ -8,6 +8,7 @@ import { smsDeliverable } from '@/lib/sms'
 import { getOnboardingMode } from '@/lib/onboardingModeServer'
 import { showNewOnboarding } from '@/lib/onboardingMode'
 import CompleteProfileFlow from '@/components/tutor/CompleteProfileFlow'
+import NewOnboardingFlow from '@/components/tutor/NewOnboardingFlow'
 
 // The tutor onboarding flow. ONE flow for every tutor now (PR 4 §1): this route
 // (where new tutors land after verifying) and /tutor/complete-profile render the
@@ -42,6 +43,10 @@ export default async function TutorOnboardingPage() {
   )
   const facets = await onboardingFacets()
   const manual = await manualInstructions()
+
+  if (newFlow) {
+    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} manual={manual} />
+  }
 
   return (
     <CompleteProfileFlow

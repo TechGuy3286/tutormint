@@ -26,7 +26,7 @@ export default async function PaymentSettingsPage() {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <header className="space-y-1">
-        <h1 className="text-lg font-black text-tm-navy">Open payments</h1>
+        <h1 className="text-lg font-black text-tm-navy">Payment settings</h1>
         <p className="text-xs text-gray-500">
           Owner only. While a switch is off, only owner, staff, seed and test accounts can pay.
           Turning it on opens that payment to every member.

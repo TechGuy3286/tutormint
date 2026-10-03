@@ -27,6 +27,7 @@ export type AdminScreen =
   | 'team'
   | 'jobs'
   | 'payments'
+  | 'paymentsSwitches'
   | 'plans'
   | 'reports'
   | 'inbox'
@@ -90,6 +91,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/jobs', label: 'Tuitions', icon: 'clipboard', screen: 'jobs' },
       { href: '/admin/jobs/new', label: 'Post a tuition', icon: 'filePlus', screen: 'jobs' },
       { href: '/admin/payments', label: 'Payments', icon: 'wallet', screen: 'payments' },
+      { href: '/admin/payments/settings', label: 'Settings', icon: 'listChecks', screen: 'paymentsSwitches' },
       { href: '/admin/plans', label: 'Plans', icon: 'card', screen: 'plans' },
     ],
   },
