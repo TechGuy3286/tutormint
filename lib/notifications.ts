@@ -74,6 +74,8 @@ export type NotificationKind =
   // so they are told. notifications.kind is text with no CHECK constraint.
   | 'plan_revoked'
   | 'report_resolved'
+  // A refund was recorded against a payment (PR106-H4 §4.12).
+  | 'refund_recorded'
   // T-AdminJobs. An admin closing, un-featuring or removing somebody's tuition
   // is a consequential change to a thing they made; finding out by noticing it
   // gone is the worst way to learn it. No migration needed --

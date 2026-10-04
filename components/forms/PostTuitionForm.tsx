@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Sparkles, Loader2, Info, ShieldCheck, Phone, UserRound, Clock } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
@@ -16,6 +16,7 @@ import { collapseLevels } from '@/lib/levelDisplay'
 import { GENDER_PREFS } from '@/lib/genderPref'
 import { bandFor, bandRange } from '@/lib/feeBands'
 import { takeDraft, saveDraft } from '@/components/AuthGateModal'
+import { loadFormDraft, saveFormDraft, clearFormDraft } from '@/lib/formDraft'
 
 // THE ONE post-a-tuition form (owner, 11 Sep 2026). The parent's post-a-job form
 // and /admin/jobs/new were near-duplicate copies that had already drifted (two
@@ -134,6 +135,7 @@ export default function PostTuitionForm({
   initial,
   mode = 'create',
   useDraft = false,
+  draftKey,
   teamBanner = false,
   adminExtras = false,
   submitLabel,
@@ -144,6 +146,9 @@ export default function PostTuitionForm({
   initial?: Partial<PostTuitionValues>
   mode?: 'create' | 'edit'
   useDraft?: boolean
+  /** PR106-H4 §5: autosave this form (per user, per page) so a refresh/back/
+   *  closed tab reopens it exactly. Create mode only. */
+  draftKey?: string
   teamBanner?: boolean
   adminExtras?: boolean
   submitLabel: string
@@ -175,6 +180,38 @@ export default function PostTuitionForm({
     const draft = takeDraft<PostTuitionValues>('post')
     if (draft) setV({ ...EMPTY, ...draft })
   }, [useDraft, mode])
+
+  // PR106-H4 §5: autosave/restore the whole form (per user, per page). Restore
+  // runs once on mount, AFTER the sign-in draft above, and takes precedence when
+  // present (it is the fuller, more recent copy). Then every change is saved,
+  // so a refresh, a closed tab or a Back navigation reopens the form as it was.
+  const [hasDraft, setHasDraft] = useState(false)
+  const restored = useRef(false)
+  useEffect(() => {
+    if (!draftKey || mode !== 'create' || restored.current) return
+    restored.current = true
+    const saved = loadFormDraft<{ v: PostTuitionValues; scheduleSlots: DaySlot[] }>(draftKey)
+    if (saved?.v) {
+      setV({ ...EMPTY, ...saved.v })
+      if (Array.isArray(saved.scheduleSlots)) setScheduleSlots(saved.scheduleSlots)
+      setHasDraft(true)
+    }
+  }, [draftKey, mode])
+  useEffect(() => {
+    if (!draftKey || mode !== 'create' || !restored.current) return
+    const t = setTimeout(() => {
+      saveFormDraft(draftKey, { v, scheduleSlots })
+      setHasDraft(true)
+    }, 500)
+    return () => clearTimeout(t)
+  }, [draftKey, mode, v, scheduleSlots])
+
+  const discardDraft = () => {
+    if (draftKey) clearFormDraft(draftKey)
+    setV({ ...EMPTY })
+    setScheduleSlots([])
+    setHasDraft(false)
+  }
 
   // Pre-select what the job already teaches (edit).
   useEffect(() => {
@@ -307,7 +344,9 @@ export default function PostTuitionForm({
         setBusy(false)
         return
       }
-      // Success: onSubmit performs the toast and the redirect.
+      // Success: onSubmit performs the toast and the redirect. Clear the autosave
+      // draft so it does not reappear on the next post (PR106-H4 §5).
+      if (draftKey) clearFormDraft(draftKey)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not post the tuition.')
     } finally {
@@ -615,6 +654,15 @@ export default function PostTuitionForm({
         >
           {busy ? busyLabel : submitLabel}
         </button>
+        {draftKey && hasDraft && mode === 'create' && (
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="mt-2 inline-flex min-h-[40px] w-full items-center justify-center rounded-xl border border-gray-200 px-5 text-xs font-bold text-slate-700 hover:bg-tm-bg sm:ms-2 sm:mt-0 sm:w-auto"
+          >
+            Discard draft
+          </button>
+        )}
         <ChecklistStatus items={checklistItems} className="mt-2" />
       </div>
     </div>

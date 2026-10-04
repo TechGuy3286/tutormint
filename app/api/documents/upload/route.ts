@@ -5,6 +5,7 @@ import { storeDocument } from '@/lib/documents'
 import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
 import { recordTutorSelfChanges, type Step1Field } from '@/lib/fieldHistory'
+import { alertIfReupload } from '@/lib/docReupload'
 
 // Upload a CNIC scan or a degree certificate.
 //
@@ -80,6 +81,13 @@ export async function POST(request: Request) {
         /* column not there yet — fine */
       }
     }
+  }
+
+  // PR106-H4 §2.7 — if this document had been rejected, re-uploading it re-queues
+  // it (status back to pending/submitted above) and alerts staff by email; the
+  // badge stays paused until they approve (the rejection reason lingers).
+  if (kind === 'cnic' || kind === 'selfie') {
+    await alertIfReupload(user.id, kind)
   }
 
   await logActivity({

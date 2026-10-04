@@ -5,6 +5,8 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import ParentHeaderCard from '@/components/parent/ParentHeaderCard'
 import ChildrenCard, { type ChildRow } from '@/components/parent/ChildrenCard'
 import ShortlistSection from '@/components/parent/ShortlistSection'
+import PaymentsRefunds from '@/components/dashboard/PaymentsRefunds'
+import { loadPaymentsHistory } from '@/lib/paymentsHistory'
 import DashboardActionBar from '@/components/dashboard/DashboardActionBar'
 import { CountGrid, type CountTile } from '@/components/tutor/DashboardCards'
 import { type CardViewer } from '@/components/TutorCard'
@@ -33,6 +35,7 @@ export default async function ParentDashboardPage() {
   const session = await getSessionUser()
   const userId = session!.user.id
   const supabase = await createClient()
+  const paymentsHistory = await loadPaymentsHistory(userId)
 
   const [{ data: profile }, ent] = await Promise.all([
     supabase
@@ -181,6 +184,9 @@ export default async function ParentDashboardPage() {
             <ShortlistSection initial={shortlistCards} viewer={shortlistViewer} hiredIds={[...hired]} />
           </div>
         )}
+
+        {/* PR106-H4 §4.12 — payments & refunds (hidden when empty). */}
+        <PaymentsRefunds rows={paymentsHistory} />
       </div>
     </main>
   )

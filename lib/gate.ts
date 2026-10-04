@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { Entitlements } from '@/lib/entitlements'
 import { packagesHref, type Audience } from '@/lib/upgradePath'
 import { listingFixes, type ListingBlocker } from '@/lib/tutorListingStatus'
+import type { RejectedDoc } from '@/lib/badgeRule'
 
 /**
  * The "you are not listed, here is exactly what is missing" gate (owner PR3
@@ -30,6 +31,26 @@ import { listingFixes, type ListingBlocker } from '@/lib/tutorListingStatus'
  * uses it only when MORE than the fee is missing; a fee-only tutor gets the
  * existing CNIC verify modal (buildGate('tutor_verify')) instead.
  */
+/**
+ * The "a required document was rejected" block (owner, PR106-H4 §2). A paid
+ * tutor whose CNIC/photo/selfie staff rejected is blocked from new activity and
+ * sees ONE screen naming the document, with a button to re-upload. English +
+ * Urdu. No plan fixes this (kind 'blocked'); it clears on re-upload + approval.
+ */
+export function buildDocRejectedGate(doc: RejectedDoc, reuploadHref: string): Gate {
+  return {
+    kind: 'blocked',
+    title: `Please upload a correct ${doc.label} to continue.`,
+    body:
+      `Our team could not accept your ${doc.label}. Please upload a clear ${doc.label} and our team will review it again.\n\n` +
+      `ہماری ٹیم آپ کی ${doc.labelUr} قبول نہیں کر سکی۔ براہِ کرم واضح ${doc.labelUr} اپلوڈ کریں، ہماری ٹیم دوبارہ جائزہ لے گی۔`,
+    audience: 'tutor',
+    href: reuploadHref,
+    ctaLabel: 'Upload now',
+    actionable: true,
+  }
+}
+
 export function buildListingGate(blockers: ListingBlocker[]): Gate {
   const missing = listingFixes(blockers)
   return {

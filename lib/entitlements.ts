@@ -26,6 +26,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { badgesForPlan, isFeaturedPlan, type BadgeName } from '@/lib/planBadges'
+import { tutorDocStatusesFromProfile } from '@/lib/tutorDocStatus'
+import { tutorVerifiedBadgeOk, firstRejectedDoc, REUPLOAD_HREF, type RejectedDoc } from '@/lib/badgeRule'
 import { directoryBlockers, type ListingBlocker } from '@/lib/tutorListingStatus'
 import { deriveCnicStatus } from '@/lib/cnicStatus'
 
@@ -70,9 +72,17 @@ export type Entitlements = {
   searchRank: number
   badges: BadgeName[]
   tagLabel: string | null
-  /** Tutor only: fee paid but staff approvals not yet complete — the dashboard
-   *  shows "Verification pending" in place of the Verified badge (PR105-B §3). */
+  /** Tutor only: fee paid but documents not all submitted yet (rare — onboarding
+   *  requires them before payment). */
   verificationPending?: boolean
+  /** Tutor only: a required document (CNIC/photo/selfie) is currently rejected,
+   *  so the Verified badge is paused and new activity (apply/contact/message/
+   *  demo) is blocked server-side until re-upload + approval (PR106-H4 §2). */
+  docRejected?: boolean
+  /** Which document to re-upload, when docRejected (the block screen names it). */
+  rejectedDoc?: RejectedDoc | null
+  /** Where the member re-uploads it. */
+  reuploadHref?: string
   /** Badges are withheld below 100% however much was paid. */
   profileComplete: boolean
   /** The raw percentage, for a gate that says "your profile is 93% complete". */
@@ -231,12 +241,18 @@ export type EntitlementInputs = {
     /** Fixture flags — a seed or the team account is never listed (migration 87). */
     is_seed: boolean | null
     is_team_account: boolean | null
-    /** Staff-review columns for the Verified badge (PR105-B §1). */
+    /** Staff-review columns for the Verified badge (PR105-B §1 / PR106-H4). The
+     *  *_reason columns linger after a rejection until approval, keeping the
+     *  badge paused through a re-upload (§2.7). */
     verification_state?: string | null
+    verification_rejection_reason?: string | null
     cnic_number?: string | null
     cnic_image_path?: string | null
     profile_pic_status?: string | null
+    profile_pic_reason?: string | null
     selfie_status?: string | null
+    selfie_reason?: string | null
+    avatar_url?: string | null
   } | null
   tutorRow: {
     verification_status: string | null
@@ -311,21 +327,38 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
   // Apply / message / badge rights turn on the fee, not visibility.
   const verified = role === 'tutor' ? feePaid : false
 
-  // The VERIFIED badge (PR105-B §1): a tutor needs staff-approved CNIC, photo
-  // AND selfie (the fee is implied by holding a tutor plan); a parent needs CNIC
-  // verified. This replaces the old reviewed-degree rule.
-  const cnicApproved =
-    deriveCnicStatus({
+  // The VERIFIED badge (owner, PR106-H4): the team is too small to approve first,
+  // so a tutor is Verified the moment the fee is paid and CNIC + photo + selfie
+  // are SUBMITTED, with NO document currently rejected — staff approval is not
+  // required. A rejection pauses the badge and blocks activity. ONE shared rule
+  // (lib/badgeRule), so lists and the dashboard agree. A parent needs CNIC
+  // verified, as before.
+  const tutorDocs = tutorDocStatusesFromProfile(
+    {
       verification_state: profile.verification_state ?? null,
+      verification_rejection_reason: profile.verification_rejection_reason ?? null,
       cnic_verified_at: profile.cnic_verified_at,
       cnic_number: profile.cnic_number ?? null,
       cnic_image_path: profile.cnic_image_path ?? null,
-    }) === 'approved'
-  const docsApproved = cnicApproved && profile.profile_pic_status === 'approved' && profile.selfie_status === 'approved'
-  const verifiedOk = audience === 'tutor' ? docsApproved : !!profile.cnic_verified_at
-  // Fee paid but staff approvals not yet complete → the dashboard shows
-  // "Verification pending" instead of the Verified badge (PR105-B §3).
-  const verificationPending = audience === 'tutor' && feePaid && !docsApproved
+      profile_pic_status: profile.profile_pic_status ?? null,
+      profile_pic_reason: profile.profile_pic_reason ?? null,
+      selfie_status: profile.selfie_status ?? null,
+      selfie_reason: profile.selfie_reason ?? null,
+      avatar_url: profile.avatar_url ?? null,
+    },
+    // selfie file present: selfie_status is only set once a selfie is uploaded.
+    ['pending', 'approved', 'rejected'].includes((profile.selfie_status ?? '') as string),
+  )
+  const verifiedOk = audience === 'tutor' ? tutorVerifiedBadgeOk(feePaid, tutorDocs) : !!profile.cnic_verified_at
+  // A required document is currently rejected → the badge is paused AND new
+  // activity is blocked until re-upload + approval (PR106-H4 §2).
+  const rejected = audience === 'tutor' ? firstRejectedDoc(tutorDocs) : null
+  const docRejected = !!rejected
+  // Fee paid but the Verified badge is not (yet) on — either documents not all
+  // submitted (rare — onboarding requires them) or a rejection is in play. Keeps
+  // the header chip off "Get verified" for someone who has already paid; the
+  // dashboard shows the actionable detail (verified / re-upload).
+  const verificationPending = audience === 'tutor' && feePaid && !verifiedOk
 
   // BAN short-circuits everything. The login route already refuses a banned
   // account with no session; this is the backstop for a session that was live
@@ -427,6 +460,9 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
       verifiedOk,
     ),
     verificationPending,
+    docRejected,
+    rejectedDoc: rejected,
+    reuploadHref: REUPLOAD_HREF,
     tagLabel: (audience === 'tutor' ? verified : profileComplete) ? p.tag_label : null,
     profileComplete,
     profileCompletion,
@@ -451,7 +487,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
 
   const { data: profile } = await db
     .from('profiles')
-    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, is_banned, phone_verified_via, is_seed, is_team_account, verification_state, cnic_number, cnic_image_path, profile_pic_status, selfie_status')
+    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, is_banned, phone_verified_via, is_seed, is_team_account, verification_state, verification_rejection_reason, cnic_number, cnic_image_path, profile_pic_status, profile_pic_reason, selfie_status, selfie_reason, avatar_url')
     .eq('id', userId)
     .maybeSingle()
 
@@ -511,10 +547,14 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
       is_seed: (profile.is_seed as boolean | null) ?? null,
       is_team_account: (profile.is_team_account as boolean | null) ?? null,
       verification_state: (profile.verification_state as string | null) ?? null,
+      verification_rejection_reason: (profile.verification_rejection_reason as string | null) ?? null,
       cnic_number: (profile.cnic_number as string | null) ?? null,
       cnic_image_path: (profile.cnic_image_path as string | null) ?? null,
       profile_pic_status: (profile.profile_pic_status as string | null) ?? null,
+      profile_pic_reason: (profile.profile_pic_reason as string | null) ?? null,
       selfie_status: (profile.selfie_status as string | null) ?? null,
+      selfie_reason: (profile.selfie_reason as string | null) ?? null,
+      avatar_url: (profile.avatar_url as string | null) ?? null,
     },
     tutorRow: (tutorRes.data as EntitlementInputs['tutorRow']) ?? null,
     hasSubjects: ((subjRes.data ?? []) as unknown[]).length > 0,

@@ -94,6 +94,13 @@ export async function POST(request: Request) {
   // act on it until they verify. Declining is never gated (handled above). No
   // modal here — the dashboard shows this plain reason and a verify link.
   const ent = await getEntitlements(user.id)
+  // A rejected document pauses accepting demos too (PR106-H4 §2).
+  if (ent.docRejected && ent.rejectedDoc) {
+    return NextResponse.json(
+      { error: `Please upload a correct ${ent.rejectedDoc.label} to continue.`, reuploadHref: ent.reuploadHref ?? '/tutor/dashboard/settings#identity' },
+      { status: 403 },
+    )
+  }
   if (!ent.verified) {
     return NextResponse.json({ error: 'Verify your account to accept demo requests.' }, { status: 403 })
   }

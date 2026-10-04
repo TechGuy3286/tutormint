@@ -29,7 +29,8 @@ import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { logActivity } from '@/lib/activityLog'
 import { consumeQuota } from '@/lib/quota'
 import { upgradeHref } from '@/lib/upgradePath'
-import { buildGate, type Gate } from '@/lib/gate'
+import { buildGate, buildDocRejectedGate, type Gate } from '@/lib/gate'
+import { REUPLOAD_HREF } from '@/lib/badgeRule'
 import { notify } from '@/lib/notifications'
 import { deliverMessageDigest } from '@/lib/notify'
 import { previewText } from '@/lib/messagingRules'
@@ -141,6 +142,17 @@ export async function canStartThread(
   }
 
   if (ent.audience === 'tutor') {
+    // A rejected document blocks new messaging until re-upload + approval
+    // (PR106-H4 §2) — checked before the verify/tier gates so the member gets
+    // the "upload a correct {document}" screen.
+    if (ent.docRejected && ent.rejectedDoc) {
+      return {
+        ok: false,
+        status: 403,
+        error: `Please upload a correct ${ent.rejectedDoc.label} to continue.`,
+        gate: buildDocRejectedGate(ent.rejectedDoc, ent.reuploadHref ?? REUPLOAD_HREF),
+      }
+    }
     // STARTING a conversation requires the verification fee (PR16 §1.2) — the same
     // gate as apply. Replying to a parent who wrote first ALSO needs the fee now
     // (an unverified tutor cannot read or reply until they verify, §2.3) but that
@@ -338,6 +350,16 @@ export async function sendMessage(params: {
         .maybeSingle()
       if (!tp?.verified_fee_paid_at) {
         return { ok: false, status: 403, error: 'Verify your account to reply to parents.' }
+      }
+      // A rejected document pauses sending too (PR106-H4 §2).
+      const sEnt = await getEntitlements(me)
+      if (sEnt.docRejected && sEnt.rejectedDoc) {
+        return {
+          ok: false,
+          status: 403,
+          error: `Please upload a correct ${sEnt.rejectedDoc.label} to continue.`,
+          gate: buildDocRejectedGate(sEnt.rejectedDoc, sEnt.reuploadHref ?? REUPLOAD_HREF),
+        }
       }
     }
   }

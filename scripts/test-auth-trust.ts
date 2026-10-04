@@ -302,10 +302,12 @@ const baseTutor = {
   role: 'tutor', profile_completion: 100, cnic_verified_at: '2026-01-01', address_verified_at: null,
   phone_verified_at: '2026-01-01', is_suspended: false, is_banned: false, phone_verified_via: 'otp',
   is_seed: false, is_team_account: false,
-  // PR105-B §1 — the Verified badge now needs staff-approved CNIC+photo+selfie.
-  // The baseline tutor is fully approved; a dedicated test covers the pending case.
+  // PR106-H4 — the Verified badge needs the fee paid + CNIC + photo + selfie
+  // SUBMITTED (with a file) and none rejected. The baseline tutor has all three
+  // on file; dedicated tests cover the pending/rejected cases.
   verification_state: 'approved', cnic_number: '1234512345671',
   cnic_image_path: 'identity-docs/u1/cnic.jpg', profile_pic_status: 'approved', selfie_status: 'approved',
+  avatar_url: 'avatars/u1/photo.jpg',
 }
 
 // Fee paid, verification not rejected/suspended, degree on file, city+area+gender
@@ -379,15 +381,25 @@ test('entitlements: a fee-paid tutor whose docs are NOT yet staff-approved has v
   assert.deepEqual(e.badges, [], 'Verified is withheld until all three docs are approved')
 })
 
-test('entitlements: a Premium tutor whose docs are NOT approved keeps Premium but loses Verified (PR105-B §1)', () => {
+test('entitlements: a Premium tutor whose document is REJECTED keeps Premium but loses Verified and is blocked (PR106-H4 §2)', () => {
   const e = computeEntitlements(
     inputs({
-      profile: { ...baseTutor, profile_pic_status: 'submitted' },
+      profile: { ...baseTutor, profile_pic_status: 'rejected', profile_pic_reason: 'The photo is blurry.' },
       activeSubs: [{ plan_code: 'premium', expires_at: future() }],
     }),
   )
-  assert.deepEqual(e.badges, ['Premium'], 'the plan-tier badge stays, Verified is dropped')
-  assert.equal(e.verificationPending, true)
+  assert.deepEqual(e.badges, ['Premium'], 'the plan-tier badge stays, Verified is paused')
+  assert.equal(e.docRejected, true)
+  assert.equal(e.rejectedDoc?.key, 'photo')
+})
+
+test('entitlements: a fee-paid tutor whose docs are SUBMITTED but not yet approved IS Verified (PR106-H4 §1)', () => {
+  // The new rule: no staff approval needed — submitted + not rejected = Verified.
+  const e = computeEntitlements(
+    inputs({ profile: { ...baseTutor, profile_pic_status: 'pending', selfie_status: 'pending' } }),
+  )
+  assert.ok(e.badges.includes('Verified'), 'Verified the moment docs are submitted')
+  assert.equal(e.docRejected, false)
 })
 
 test('entitlements: a Premium tutor sees who viewed, gets contact, and an Unlimited-display cap', () => {

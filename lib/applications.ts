@@ -25,7 +25,8 @@ import { getEntitlements } from '@/lib/entitlements'
 import { checkQuota, consumeQuota } from '@/lib/quota'
 import { spendTuitionPool, poolExhaustedFail } from '@/lib/pool'
 import { logActivity } from '@/lib/activityLog'
-import { buildGate, type Gate } from '@/lib/gate'
+import { buildGate, buildDocRejectedGate, type Gate } from '@/lib/gate'
+import { REUPLOAD_HREF } from '@/lib/badgeRule'
 import { genderApplyBlocked, genderPrefSentence } from '@/lib/genderPref'
 import { needsOnboarding } from '@/lib/onboardingGate'
 import { notify } from '@/lib/notifications'
@@ -87,6 +88,19 @@ export async function applyToJob(params: {
       status: 403,
       error: 'Complete your profile first to apply.',
       completeProfile: true,
+    }
+  }
+
+  // 0d. REJECTED DOCUMENT (PR106-H4 §2). A paid tutor whose CNIC/photo/selfie was
+  //     rejected is blocked from new activity until they re-upload and staff
+  //     approve. Checked before the verify/quota gates so the member gets the
+  //     "upload a correct {document}" screen, not an upgrade sheet.
+  if (ent.audience === 'tutor' && ent.docRejected && ent.rejectedDoc) {
+    return {
+      ok: false,
+      status: 403,
+      error: `Please upload a correct ${ent.rejectedDoc.label} to continue.`,
+      gate: buildDocRejectedGate(ent.rejectedDoc, ent.reuploadHref ?? REUPLOAD_HREF),
     }
   }
 

@@ -2,14 +2,15 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { deriveCnicStatus } from '@/lib/cnicStatus'
+import { tutorDocStatusesFromProfile } from '@/lib/tutorDocStatus'
+import { tutorVerifiedBadgeOk } from '@/lib/badgeRule'
 
-// Who qualifies for the VERIFIED badge (PR105-B §1), in ONE batched query.
+// Who qualifies for the VERIFIED badge, in ONE batched query, through the single
+// shared rule (lib/badgeRule), so every surface agrees.
 //
-//   Tutor  → staff-approved CNIC AND photo AND selfie, each with a FILE actually
-//            present (PR106-E §5 — status 'approved' is not enough; the file must
-//            exist). CNIC file = number + image (deriveCnicStatus already checks
-//            this), photo = avatar_url, selfie = a user_documents 'selfie' row.
-//            The Rs 199 fee is implied by the plan the caller passes.
+//   Tutor  → fee paid (verified_fee_paid_at) AND CNIC + photo + selfie all
+//            SUBMITTED (with a file) AND none currently rejected. Staff approval
+//            is NOT required (owner, PR106-H4) — a rejection pauses the badge.
 //   Parent → CNIC verified (profiles.cnic_verified_at).
 //
 // Every list that shows badges fetches this ONCE for its member ids (no
@@ -23,11 +24,11 @@ export async function loadVerifiedBadgeOk(ids: string[]): Promise<Set<string>> {
 
   const { data } = await admin
     .from('profiles')
-    .select('id, role, cnic_verified_at, verification_state, cnic_number, cnic_image_path, profile_pic_status, selfie_status, avatar_url')
+    .select('id, role, cnic_verified_at, verification_state, verification_rejection_reason, cnic_number, cnic_image_path, profile_pic_status, profile_pic_reason, selfie_status, selfie_reason, avatar_url')
     .in('id', unique)
 
-  // Which tutors actually have a selfie FILE on record (§5): a status of
-  // 'approved' over no file must NOT earn the badge.
+  // Which tutors actually have a selfie FILE on record (PR106-E §5): a status
+  // without a file must NOT earn the badge.
   const { data: selfieRows } = await admin
     .from('user_documents')
     .select('user_id')
@@ -36,22 +37,22 @@ export async function loadVerifiedBadgeOk(ids: string[]): Promise<Set<string>> {
     .in('user_id', unique)
   const hasSelfieFile = new Set((selfieRows ?? []).map((r) => r.user_id as string))
 
-  const filled = (v: unknown) => typeof v === 'string' && v.trim().length > 0
+  // Fee paid, per tutor — the badge rule needs it (self-contained, not relying
+  // on the caller's plan gate).
+  const { data: feeRows } = await admin
+    .from('tutor_profiles')
+    .select('id, verified_fee_paid_at')
+    .in('id', unique)
+  const feePaid = new Set((feeRows ?? []).filter((r) => r.verified_fee_paid_at).map((r) => r.id as string))
+
   for (const p of data ?? []) {
+    const id = p.id as string
     if ((p.role as string) === 'tutor') {
-      const cnicApproved =
-        deriveCnicStatus({
-          verification_state: (p.verification_state as string) ?? null,
-          cnic_verified_at: (p.cnic_verified_at as string) ?? null,
-          cnic_number: (p.cnic_number as string) ?? null,
-          cnic_image_path: (p.cnic_image_path as string) ?? null,
-        }) === 'approved'
-      const picOk = p.profile_pic_status === 'approved' && filled(p.avatar_url)
-      const selfieOk = p.selfie_status === 'approved' && hasSelfieFile.has(p.id as string)
-      if (cnicApproved && picOk && selfieOk) out.add(p.id as string)
+      const d = tutorDocStatusesFromProfile(p, hasSelfieFile.has(id))
+      if (tutorVerifiedBadgeOk(feePaid.has(id), d)) out.add(id)
     } else {
       // Parent / academy: CNIC verified.
-      if (p.cnic_verified_at) out.add(p.id as string)
+      if (p.cnic_verified_at) out.add(id)
     }
   }
   return out

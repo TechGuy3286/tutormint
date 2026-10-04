@@ -6,6 +6,8 @@ import InfiniteFooter from '@/components/InfiniteFooter'
 import QueueSearch from '@/components/admin/QueueSearch'
 import StatusChip from '@/components/admin/StatusChip'
 import PaymentDecide from './PaymentDecide'
+import RefundControl from './RefundControl'
+import { refundState, refundLabel } from '@/lib/payments/refundCore'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
 import { dedupeById } from '@/lib/dedupe'
@@ -147,6 +149,11 @@ export default function PaymentQueue({
                   ) : (
                     <StatusChip status={p.status} />
                   )}
+                  {refundState(p.amountPkr, p.refundedAmountPkr) !== 'none' && (
+                    <span className="rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
+                      {refundLabel(refundState(p.amountPkr, p.refundedAmountPkr))}
+                    </span>
+                  )}
                 </div>
 
                 <dl className="grid grid-cols-2 gap-2 text-[11px]">
@@ -189,6 +196,24 @@ export default function PaymentQueue({
                 {canApprove && awaitingApproval(p) && (
                   <PaymentDecide paymentId={p.id} payerName={p.name} />
                 )}
+
+                {/* Mark as refunded — owner/admin, on an approved payment not yet
+                    fully refunded (PR106-H4 §4). */}
+                {canApprove && p.status === 'approved' && refundState(p.amountPkr, p.refundedAmountPkr) !== 'full' && (
+                  <RefundControl
+                    paymentId={p.id}
+                    payerName={p.name}
+                    amountPkr={p.amountPkr}
+                    alreadyRefunded={p.refundedAmountPkr ?? 0}
+                  />
+                )}
+                {p.refundedAmountPkr && p.refundedAmountPkr > 0 ? (
+                  <p className="rounded-xl bg-tm-tint-navy p-2 text-[11px] text-tm-navy">
+                    Refunded Rs {p.refundedAmountPkr.toLocaleString('en-PK')}
+                    {p.refundMethod ? ` to ${p.refundMethod}` : ''}
+                    {p.refundedAt ? ` · ${formatDateTime(p.refundedAt)}` : ''}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>

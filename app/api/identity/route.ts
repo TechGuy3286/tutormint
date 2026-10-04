@@ -6,6 +6,8 @@ import { formatCnic, isValidCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { recomputeCompletion } from '@/lib/completion'
 import { loadIdentity } from '@/lib/identity'
 import { recordTutorSelfChanges, maskCnicHistory } from '@/lib/fieldHistory'
+import { alertIfReupload } from '@/lib/docReupload'
+import { sendDuplicateCnicAlert } from '@/lib/payments/paymentAlerts'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBody, z } from '@/lib/validate'
@@ -68,6 +70,23 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
+    // PR106-H4 §3.8: a CNIC already on ANOTHER account cannot be saved. The
+    // guard is a SECURITY DEFINER function so it compares across accounts without
+    // reading anyone's number (returns only a boolean). An attempt raises a staff
+    // alert for review; nothing about the other account is disclosed to the member.
+    const digits = String(cnicNumber ?? '').replace(/\D/g, '')
+    const guard = createAdminClient()
+    if (guard) {
+      const { data: inUse } = await guard.rpc('cnic_in_use', { p_digits: digits, p_except: user.id })
+      if (inUse === true) {
+        await sendDuplicateCnicAlert({ memberId: user.id }).catch(() => {})
+        return NextResponse.json(
+          { error: 'This CNIC is already registered on TutorMint. Message us on WhatsApp 0321 5872222 if this is a mistake.', fields: { cnicNumber: 'Already registered.' } },
+          { status: 409 },
+        )
+      }
+    }
+
     // The old value, for the change history (best-effort; never blocks the save).
     const { data: before } = await supabase.from('profiles').select('cnic_number').eq('id', user.id).maybeSingle()
     // Stored in the display form, which is how every Pakistani document and
@@ -153,15 +172,22 @@ export async function POST(request: Request) {
   // after the CNIC-number and both-sides checks above (PR48 §2).
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
+  // PR106-H4 §2.7: do NOT clear verification_rejection_reason here. After a
+  // rejection the reason must LINGER so the Verified badge stays paused and
+  // activity blocked through the re-upload — only a staff approval
+  // (reviewTutorDocument) clears it and restores the badge. A first submission
+  // has no reason, so leaving it is a no-op there.
   const { error } = await admin
     .from('profiles')
     .update({
       verification_state: 'submitted',
       verification_submitted_at: new Date().toISOString(),
-      verification_rejection_reason: null,
     })
     .eq('id', user.id)
   if (error) return serverError(error, 'identity')
+
+  // If this CNIC had been rejected, re-submitting re-queues it and alerts staff.
+  await alertIfReupload(user.id, 'cnic')
 
   await recomputeCompletion(user.id)
   await logActivity({

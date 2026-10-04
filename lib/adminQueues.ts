@@ -488,6 +488,10 @@ export type QueuePaymentRow = {
   rejectionReason: string | null
   createdAt: string
   reviewedAt: string | null
+  /** PR106-H4 §4: refund state (0/null = none). */
+  refundedAmountPkr: number | null
+  refundMethod: string | null
+  refundedAt: string | null
 }
 
 export async function loadPaymentQueue({
@@ -525,7 +529,7 @@ export async function loadPaymentQueue({
     let q = admin
       .from('payments')
       .select(
-        'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign',
+        'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign, refunded_amount_pkr, refund_method, refunded_at',
         { count: 'exact' },
       )
     if (filter !== 'all') q = q.eq('status', filter)
@@ -582,6 +586,9 @@ export async function loadPaymentQueue({
     rejectionReason: (p.rejection_reason as string) ?? null,
     createdAt: p.created_at as string,
     reviewedAt: (p.reviewed_at as string) ?? null,
+    refundedAmountPkr: (p.refunded_amount_pkr as number | null) ?? null,
+    refundMethod: (p.refund_method as string | null) ?? null,
+    refundedAt: (p.refunded_at as string | null) ?? null,
   }))
 
   return { rows, nextCursor, total }

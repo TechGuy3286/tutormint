@@ -16,7 +16,7 @@ import { useToast } from '@/components/ui/Toast'
 // plain POST to /api/admin/jobs/create (no verification gate, no quota, no child
 // selector).
 
-export default function AdminJobForm() {
+export default function AdminJobForm({ draftKey }: { draftKey?: string }) {
   const router = useRouter()
   const toast = useToast()
 
@@ -64,6 +64,7 @@ export default function AdminJobForm() {
     <PostTuitionForm
       teamBanner
       adminExtras
+      draftKey={draftKey}
       submitLabel="Post team tuition"
       busyLabel="Posting…"
       onSubmit={onSubmit}

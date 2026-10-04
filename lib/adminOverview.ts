@@ -93,7 +93,7 @@ export async function loadOverview(): Promise<Overview | null> {
     // OUR price (199), never the fee-inclusive total the customer paid.
     admin
       .from('payments')
-      .select('amount_pkr, plan_code')
+      .select('amount_pkr, plan_code, refunded_amount_pkr')
       .eq('status', 'approved')
       .gte('reviewed_at', monthStart),
     // Renewals: subscriptions that ACTIVATED this month by purchase (not an
@@ -152,7 +152,8 @@ export async function loadOverview(): Promise<Overview | null> {
   for (const row of revenueRows.data ?? []) {
     const code = (row.plan_code as string) ?? 'unknown'
     const slice = byPlan.get(code) ?? { plan: planName.get(code) ?? code, amount: 0, payments: 0 }
-    slice.amount += (row.amount_pkr as number) ?? 0
+    // NET revenue (PR106-H4 §4.11): subtract any refund recorded against the row.
+    slice.amount += ((row.amount_pkr as number) ?? 0) - ((row.refunded_amount_pkr as number | null) ?? 0)
     slice.payments += 1
     byPlan.set(code, slice)
   }

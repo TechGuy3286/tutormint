@@ -25,7 +25,8 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements, isUnlimitedDisplay, type Entitlements } from '@/lib/entitlements'
-import { buildGate, type Gate } from '@/lib/gate'
+import { buildGate, buildDocRejectedGate, type Gate } from '@/lib/gate'
+import { REUPLOAD_HREF } from '@/lib/badgeRule'
 import { normalisePkMobile } from '@/lib/phone'
 import { loadJobContact } from '@/lib/jobContact'
 import { needsOnboarding } from '@/lib/onboardingGate'
@@ -84,6 +85,7 @@ export type RevealStatus = {
     | 'off'
     | 'complete'
     | 'gender'
+    | 'blocked'
   gate?: Gate
 }
 
@@ -163,6 +165,13 @@ async function tutorGate(
   // PR85 Part D: revealing needs a FINISHED profile too.
   if (await needsOnboarding(tutorId)) {
     return { ok: false, status: { eligible: false, plan: null, remaining: null, alreadyRevealed: false, reason: 'complete' } }
+  }
+  // A rejected document pauses contact reveals too (PR106-H4 §2).
+  if (ent.docRejected && ent.rejectedDoc) {
+    return {
+      ok: false,
+      status: { eligible: false, plan: null, remaining: null, alreadyRevealed: false, reason: 'blocked', gate: buildDocRejectedGate(ent.rejectedDoc, ent.reuploadHref ?? REUPLOAD_HREF) },
+    }
   }
   // No fee paid → the verify gate (the way onto contact at all).
   if (!ent.verified) {

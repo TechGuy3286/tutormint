@@ -263,6 +263,9 @@ export type TemplateInput =
   // role, what was bought, amount, provider, PKT time and an admin link only.
   | { id: 'payment_alert'; memberName: string; role: string; what: string; amountPkr: number; whenPkt: string }
   | { id: 'bank_transfer_pending'; memberName: string; role: string; amountPkr: number }
+  | { id: 'documents_reuploaded'; memberName: string; href: string }
+  | { id: 'duplicate_cnic'; memberName: string; href: string }
+  | { id: 'refund_recorded'; amountPkr: number; method: string; whenDate: string }
   // A member's document was rejected (PR106-H1 §4). Essential (a verification
   // decision they are waiting on). NEVER the CNIC number or image — the item
   // name, the reason and a link straight to the re-upload step only.
@@ -498,6 +501,45 @@ export function render(input: TemplateInput): RenderedEmail {
         ],
         true,
         { label: 'Approve in Admin → Payments', href: '/admin/payments' },
+      )
+
+    // ---------------------------------------------------------------------
+    case 'documents_reuploaded':
+      return build(
+        `Documents re-uploaded: ${input.memberName} — waiting for review`,
+        'Documents re-uploaded',
+        [
+          `${input.memberName} re-uploaded a document after it was rejected, and it is back in the Approval needed queue.`,
+          'Please review it so their Verified badge and activity can be restored.',
+        ],
+        true, // a staff alert — ignores opt-out
+        { label: 'Open their record', href: input.href },
+      )
+
+    // ---------------------------------------------------------------------
+    case 'refund_recorded':
+      return build(
+        `Refund sent: Rs ${input.amountPkr.toLocaleString('en-PK')} to your ${input.method}`,
+        'Your refund has been sent',
+        [
+          `We have sent a refund of Rs ${input.amountPkr.toLocaleString('en-PK')} to your ${input.method} on ${input.whenDate}.`,
+          'It can take a few days to reach you, depending on your bank or wallet. You can see it in Payments & refunds on your dashboard.',
+        ],
+        true, // money — essential, ignores opt-out
+        { label: 'Open my dashboard', href: '/tutor/dashboard' },
+      )
+
+    // ---------------------------------------------------------------------
+    case 'duplicate_cnic':
+      return build(
+        'A CNIC is already registered on another account',
+        'Duplicate CNIC attempt',
+        [
+          `${input.memberName} tried to save a CNIC that is already registered on another TutorMint account.`,
+          'Please check whether this is a mistake or a duplicate account. (The CNIC number is not included in this email.)',
+        ],
+        true, // a staff alert — ignores opt-out
+        { label: 'Open their record', href: input.href },
       )
 
     // ---------------------------------------------------------------------

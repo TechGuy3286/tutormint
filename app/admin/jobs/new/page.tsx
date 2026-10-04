@@ -13,7 +13,7 @@ import AdminJobForm from './AdminJobForm'
 export const dynamic = 'force-dynamic'
 
 export default async function AdminPostJobPage() {
-  await requireAdminRole(...SCREEN_ACCESS.jobsPost)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.jobsPost)
 
   const teamId = await teamParentId()
 
@@ -28,7 +28,7 @@ export default async function AdminPostJobPage() {
       </header>
 
       {teamId ? (
-        <AdminJobForm />
+        <AdminJobForm draftKey={`post-tuition:admin:${actor.id}`} />
       ) : (
         <div className="space-y-2 rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-4 text-xs leading-relaxed text-tm-gold-ink">
           <p className="font-black">The team account is not set up yet.</p>

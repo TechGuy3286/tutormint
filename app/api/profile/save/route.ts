@@ -12,6 +12,8 @@ import { ensureTutorSlug } from '@/lib/tutorSlug'
 import { recordFieldChanges, type FieldChange } from '@/lib/fieldHistory'
 import { normalisePkMobile } from '@/lib/phone'
 import { labelsForMasterIds } from '@/lib/taxonomy'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { alertIfReupload } from '@/lib/docReupload'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
 // then recomputes profiles.profile_completion so the stored percentage can
@@ -334,6 +336,23 @@ export async function POST(request: Request) {
       hist.push({ ...base, field: 'areas', oldValue: histOld.areas ?? '', newValue: areasList.slice().sort().join(', ') })
     }
     await recordFieldChanges(hist)
+
+    // PR106-H4 §2.7: a REJECTED profile photo that is re-uploaded is re-queued
+    // (status back to 'pending') but the rejection REASON is kept, so the badge
+    // stays paused and activity blocked until staff approve. No member path sets
+    // profile_pic_status otherwise, so without this a rejected photo could never
+    // return to the Approval-needed queue. profile_pic_status is a locked column
+    // → service role. Staff approval clears the reason and restores the badge.
+    if (avatarProvided) {
+      const admin = createAdminClient()
+      if (admin) {
+        const { data: cur } = await admin.from('profiles').select('profile_pic_status').eq('id', user.id).maybeSingle()
+        if (cur?.profile_pic_status === 'rejected') {
+          await admin.from('profiles').update({ profile_pic_status: 'pending' }).eq('id', user.id)
+          await alertIfReupload(user.id, 'photo')
+        }
+      }
+    }
   }
 
   // A tutor's public address, assigned or improved here.

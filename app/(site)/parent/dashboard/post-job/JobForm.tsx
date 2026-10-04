@@ -24,10 +24,12 @@ export default function JobForm({
   children,
   initial,
   mode = 'create',
+  draftKey,
 }: {
   children: { id: string; name: string; class_level: string | null }[]
   initial?: Partial<PostTuitionValues>
   mode?: 'create' | 'edit'
+  draftKey?: string
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -77,6 +79,7 @@ export default function JobForm({
       initial={initial}
       mode={mode}
       useDraft
+      draftKey={draftKey}
       submitLabel={mode === 'edit' ? 'Save changes' : 'Post this tuition'}
       busyLabel="Saving…"
       onSubmit={onSubmit}

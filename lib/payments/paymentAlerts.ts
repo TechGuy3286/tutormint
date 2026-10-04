@@ -55,3 +55,35 @@ export async function sendBankTransferPending(input: { memberName: string; role:
     if (!r.ok) console.info('[bank-transfer-alert] not sent to', email, '-', r.reason)
   }
 }
+
+/** One alert when a tutor re-uploads a previously-rejected document and it is
+ *  back in the Approval-needed queue (PR106-H4 §2.7). Never names the document
+ *  contents — the member name and a link to their record only. */
+export async function sendReuploadAlert(input: { memberName: string; memberId: string }): Promise<void> {
+  const to = await paymentAlertEmails()
+  for (const email of to) {
+    const r = await deliverEmail(
+      { email },
+      { id: 'documents_reuploaded', memberName: input.memberName || 'A member', href: `/admin/users/${input.memberId}` },
+    )
+    if (!r.ok) console.info('[reupload-alert] not sent to', email, '-', r.reason)
+  }
+}
+
+/** A staff alert when a member tries to save a CNIC already on another account
+ *  (PR106-H4 §3.8). NEVER contains a CNIC number — a link to the member only. */
+export async function sendDuplicateCnicAlert(input: { memberId: string }): Promise<void> {
+  const admin = createAdminClient()
+  const { data } = admin
+    ? await admin.from('profiles').select('full_name').eq('id', input.memberId).maybeSingle()
+    : { data: null }
+  const memberName = (data?.full_name as string) ?? 'A member'
+  const to = await paymentAlertEmails()
+  for (const email of to) {
+    const r = await deliverEmail(
+      { email },
+      { id: 'duplicate_cnic', memberName, href: `/admin/users/${input.memberId}` },
+    )
+    if (!r.ok) console.info('[duplicate-cnic-alert] not sent to', email, '-', r.reason)
+  }
+}

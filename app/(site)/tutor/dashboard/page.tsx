@@ -23,6 +23,8 @@ import { viewSummary } from '@/lib/profileViews'
 import { canDownloadCv } from '@/lib/cv/access'
 import { needsOnboarding } from '@/lib/onboardingGate'
 import { pendingPayproInvoice } from '@/lib/payments/pendingInvoice'
+import { loadPaymentsHistory } from '@/lib/paymentsHistory'
+import PaymentsRefunds from '@/components/dashboard/PaymentsRefunds'
 import { getOnboardingMode } from '@/lib/onboardingModeServer'
 import { showNewOnboarding } from '@/lib/onboardingMode'
 
@@ -53,6 +55,7 @@ export default async function TutorDashboardPage() {
 
   const directoryListed = directory.listed
   const city = (tutorProfile?.city as string | null) ?? null
+  const paymentsHistory = await loadPaymentsHistory(userId)
 
   // PR106-G4b §5/§6: for owner/staff (switch "Staff only") an unverified tutor
   // sees the value-first "Get verified" card (real tuition count, straight to
@@ -156,16 +159,34 @@ export default async function TutorDashboardPage() {
         {showValueCard && <GetVerifiedValueCard count={boardCount} city={city} />}
         {pendingInvoice && <CompletePaymentPrompt url={pendingInvoice.url} />}
 
-        {/* PR106-H3: fee paid, documents under review — one clear line in place of
-            every "Get verified" prompt (which are gone once ent.verified). */}
-        {ent.verified && ent.verificationPending && (
+        {/* PR106-H4 §2: a required document was rejected — the badge is paused and
+            new activity is blocked. ONE screen, naming the document, with a button
+            straight to the re-upload step. Takes precedence over the verified line. */}
+        {ent.docRejected && ent.rejectedDoc ? (
+          <div className="space-y-2 rounded-2xl border border-tm-red/30 bg-tm-tint-red px-4 py-3 text-center">
+            <p className="text-sm font-black text-tm-red-hover">
+              Please upload a correct {ent.rejectedDoc.label} to continue.
+            </p>
+            <p lang="ur" dir="rtl" className="text-[11px] font-semibold text-tm-red-hover/90">
+              جاری رکھنے کے لیے درست {ent.rejectedDoc.labelUr} اپلوڈ کریں۔
+            </p>
+            <Link
+              href={ent.reuploadHref ?? '/tutor/dashboard/settings#identity'}
+              className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white hover:bg-tm-red-hover"
+            >
+              Upload now
+            </Link>
+          </div>
+        ) : ent.verified ? (
+          /* PR106-H4 §1/§3: verified the moment the fee is paid (no staff
+             approval needed) — replaces the old under-review banner. */
           <div className="rounded-2xl border border-tm-green-deep/25 bg-tm-tint-green/60 px-4 py-3 text-center">
-            <p className="text-sm font-black text-tm-green-deep">✓ Payment received. Our team is reviewing your documents.</p>
+            <p className="text-sm font-black text-tm-green-deep">✓ You&rsquo;re verified! You can now apply to tuitions.</p>
             <p lang="ur" dir="rtl" className="mt-0.5 text-[11px] font-semibold text-tm-green-deep/80">
-              ادائیگی موصول ہو گئی۔ ہماری ٹیم آپ کی دستاویزات کا جائزہ لے رہی ہے۔
+              آپ کی تصدیق ہو گئی ہے! اب آپ ٹیوشنز کے لیے اپلائی کر سکتے ہیں۔
             </p>
           </div>
-        )}
+        ) : null}
 
         {/* Action bar — the main thing a tutor comes back to do (PR42 §2). */}
         <DashboardActionBar
@@ -202,6 +223,9 @@ export default async function TutorDashboardPage() {
         <div id="saved-tuitions" className="scroll-mt-3">
           <SavedJobsSection initial={savedJobs} viewerCity={city} appliedIds={appliedJobIds} />
         </div>
+
+        {/* PR106-H4 §4.12 — payments & refunds (hidden when empty). */}
+        <PaymentsRefunds rows={paymentsHistory} />
       </div>
     </main>
   )
