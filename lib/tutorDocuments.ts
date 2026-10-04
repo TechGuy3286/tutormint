@@ -69,6 +69,7 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
       .select('id')
       .eq('user_id', userId)
       .eq('kind', 'selfie')
+      .eq('status', 'active') // PR106-H3 §1.4
       .limit(1)
       .maybeSingle()
     selfieDoc = !!data
@@ -158,6 +159,7 @@ export async function reviewTutorDocument(params: {
         .select('id')
         .eq('user_id', tutorId)
         .eq('kind', 'selfie')
+        .eq('status', 'active') // PR106-H3 §1.4
         .limit(1)
         .maybeSingle()
       hasFile = !!selfieDoc

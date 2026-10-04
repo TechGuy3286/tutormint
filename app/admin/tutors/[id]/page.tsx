@@ -90,6 +90,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
       .select('id, kind, label, created_at')
       .eq('user_id', id)
       .in('kind', ['cnic', 'selfie'])
+      .eq('status', 'active') // PR106-H3 §1.4 — hide paused duplicate uploads
       .order('created_at', { ascending: false }),
     loadDocumentStatuses(id),
   ])

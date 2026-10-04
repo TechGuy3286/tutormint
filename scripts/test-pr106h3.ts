@@ -73,6 +73,25 @@ test('single-choice steps auto-advance; multi-select steps do not', () => {
   assert.match(flow, /onNext: \(\) => facts\.gender && advanceFrom\(facts, 'gender'\)/, 'gender keeps a working Next')
 })
 
+// --------------------------------------------- 1.4: duplicate uploads ------
+test('user_documents gains a status, and the display/count reads ignore paused rows', () => {
+  const mig = read('supabase/migrations/101_user_documents_status.sql')
+  assert.match(mig, /add column if not exists status text not null default 'active'/)
+  assert.match(mig, /check \(status in \('active', 'paused'\)\)/)
+  const pause = read('scripts/dataop-pause-dup-documents.sql')
+  assert.match(pause, /set status = 'paused'/)
+  assert.match(pause, /d2\.created_at > d\.created_at/, 'keeps the latest, pauses the rest')
+  // every list/count read of user_documents filters to active
+  for (const f of [
+    'lib/badgeFacts.ts', 'lib/completion.ts', 'lib/identity.ts', 'lib/tutorDocuments.ts',
+    'app/(site)/parent/verify/page.tsx', 'app/(site)/tutor/dashboard/settings/page.tsx',
+    'app/(site)/tutor/[slug]/page.tsx', 'app/admin/tutors/[id]/page.tsx',
+    'app/api/identity/route.ts', 'lib/adminQueues.ts',
+  ]) {
+    assert.match(read(f), /\.eq\('status', 'active'\)/, `${f} filters user_documents to active`)
+  }
+})
+
 // --------------------------------------------- STEP 4: hide member search ---
 test('the member search is hidden for tuitions_staff', () => {
   const layout = read('app/admin/layout.tsx')

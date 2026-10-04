@@ -219,6 +219,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     .select('id, label, preview_path, created_at')
     .eq('user_id', userId)
     .eq('kind', 'degree')
+    .eq('status', 'active') // PR106-H3 §1.4
     .order('created_at')
   const degree_documents = (docRows ?? [])
     .filter((d) => d.preview_path)

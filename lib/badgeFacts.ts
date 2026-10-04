@@ -32,6 +32,7 @@ export async function loadVerifiedBadgeOk(ids: string[]): Promise<Set<string>> {
     .from('user_documents')
     .select('user_id')
     .eq('kind', 'selfie')
+    .eq('status', 'active') // PR106-H3 §1.4 — ignore paused duplicate uploads
     .in('user_id', unique)
   const hasSelfieFile = new Set((selfieRows ?? []).map((r) => r.user_id as string))
 

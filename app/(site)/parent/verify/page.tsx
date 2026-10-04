@@ -76,7 +76,7 @@ export default function ParentVerifyPage() {
       supabase.from('profiles')
         .select('full_name, city, address, cnic_number, cnic_image_path, phone_number, phone_verified_at, verification_state, verification_rejection_reason')
         .eq('id', user.id).maybeSingle(),
-      supabase.from('user_documents').select('id, kind, label').eq('user_id', user.id).eq('kind', 'cnic'),
+      supabase.from('user_documents').select('id, kind, label').eq('user_id', user.id).eq('kind', 'cnic').eq('status', 'active'),
     ])
 
     setFullName(p?.full_name ?? '')

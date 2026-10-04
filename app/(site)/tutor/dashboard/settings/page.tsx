@@ -289,6 +289,7 @@ export default function TutorSettingsPage() {
           .select('id')
           .eq('user_id', user.id)
           .eq('kind', 'selfie')
+          .eq('status', 'active') // PR106-H3 §1.4
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();

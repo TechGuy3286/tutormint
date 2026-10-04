@@ -59,6 +59,7 @@ export async function loadIdentity(userId: string): Promise<Identity> {
       .select('id, label, created_at')
       .eq('user_id', userId)
       .eq('kind', 'cnic')
+      .eq('status', 'active') // PR106-H3 §1.4 — hide paused duplicate uploads
       // Newest first, so a member who re-uploaded a blurry side sees the
       // replacement rather than the picture they replaced.
       .order('created_at', { ascending: false }),

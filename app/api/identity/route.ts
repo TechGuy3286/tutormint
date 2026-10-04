@@ -137,6 +137,7 @@ export async function POST(request: Request) {
     .select('id, label')
     .eq('user_id', user.id)
     .eq('kind', 'cnic')
+    .eq('status', 'active') // PR106-H3 §1.4
 
   const hasFront = (docs ?? []).some((d) => (d.label as string | null) !== 'back')
   const hasBack = (docs ?? []).some((d) => (d.label as string | null) === 'back')

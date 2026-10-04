@@ -249,6 +249,7 @@ export async function loadTutorQueue({
     admin
       .from('user_documents')
       .select('id, user_id, kind, label, created_at')
+      .eq('status', 'active') // PR106-H3 §1.4 — ignore paused duplicate uploads
       .in('user_id', ids.length ? ids : [NO_MATCH]),
     admin
       .from('tutor_subjects')
@@ -437,6 +438,7 @@ export async function loadParentQueue({
     .from('user_documents')
     .select('id, user_id, kind, label, created_at')
     .eq('kind', 'cnic')
+    .eq('status', 'active') // PR106-H3 §1.4
     .in('user_id', ids.length ? ids : [NO_MATCH])
     .order('created_at', { ascending: false })
 

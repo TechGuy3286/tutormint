@@ -55,6 +55,7 @@ export async function computeCompletion(userId: string): Promise<Completion | nu
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('kind', 'degree')
+      .eq('status', 'active') // PR106-H3 §1.4 — paused duplicates don't count
 
     completion = calculateTutorCompletion({
       profile,
