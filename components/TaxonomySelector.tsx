@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { Layers, X } from 'lucide-react'
+import { Check, Layers, X } from 'lucide-react'
 import { fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
 import Select from '@/components/forms/Select'
 import { onOutsidePointerDown } from '@/lib/outsidePointer'
@@ -164,46 +164,33 @@ export default function TaxonomySelector({
             </div>
           </div>
 
-          {selectedGrades.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {selectedGrades.map((g) => (
-                <span
-                  key={g}
-                  className="inline-flex items-center gap-1 rounded-full bg-tm-red py-1 pl-2.5 pr-1 text-[11px] font-semibold text-white"
-                >
-                  <span className="max-w-[12rem] truncate">{g}</span>
-                  <button
-                    type="button"
-                    onClick={() => toggleGrade(g)}
-                    aria-label={`Remove ${g}`}
-                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-white/25 cursor-pointer"
-                  >
-                    <X size={12} aria-hidden />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          {gradesFiltered.length === 0 ? (
+          {/* PR106-G5 §2.7: grades appear ONCE — as tappable chips (no duplicate
+              checkbox list, no separate selected-chip row). Selected = light
+              green + tick + deep-green border. Selected grades stay visible even
+              while a search filters the rest. */}
+          {Array.from(new Set([...selectedGrades, ...gradesFiltered])).length === 0 ? (
             <p className="rounded-xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed text-gray-500">
               {gradesList.length === 0
                 ? 'This level has no grades to choose.'
                 : `No grades match “${gradeSearch.trim()}” — try another spelling.`}
             </p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-3 bg-white rounded-xl border border-gray-200">
-              {gradesFiltered.map((g) => (
-                <label key={g} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer hover:text-black">
-                  <input
-                    type="checkbox"
-                    checked={selectedGrades.includes(g)}
-                    onChange={() => toggleGrade(g)}
-                    className="rounded border-gray-300 text-tm-red focus:ring-0"
-                  />
-                  <span className="truncate">{g}</span>
-                </label>
-              ))}
+            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+              {Array.from(new Set([...selectedGrades, ...gradesFiltered])).map((g) => {
+                const on = selectedGrades.includes(g)
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleGrade(g)}
+                    className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold transition-colors cursor-pointer ${on ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}
+                  >
+                    {on && <Check size={13} aria-hidden />}
+                    <span className="max-w-[12rem] truncate">{g}</span>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>

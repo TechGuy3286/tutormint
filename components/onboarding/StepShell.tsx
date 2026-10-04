@@ -5,9 +5,10 @@ import { ArrowLeft } from 'lucide-react'
 
 // The ONE shell for every step of the NEW onboarding (PR106-G3c §1). Full-screen
 // overlay on EVERY size (plain ground, no site navbar/footer/bell/avatar behind
-// it), a minimal header (TutorMint logo + "Finish later"), progress dots, the
-// step heading (English, with an Urdu line only when it explains), the step's
-// fields, and ONE button pinned to the bottom.
+// it), a minimal header (TutorMint logo ONLY — the leave-midway link was removed
+// in PR106-G5 §1.1 so a tutor finishes the flow, going Back if needed, with
+// progress saved each step), progress dots, the step heading (English, with an
+// Urdu line only when it explains), the step's fields, and ONE bottom button.
 //
 // The button is position: FIXED (not sticky) and is lifted above the on-screen
 // keyboard using window.visualViewport: when the keyboard opens the visual
@@ -45,13 +46,11 @@ export function StepShell({
   stepTotal,
   onBack,
   backDisabled,
-  onFinishLater,
   children,
   buttonLabel,
   onNext,
   nextDisabled = false,
   busy = false,
-  skip,
   hideButton = false,
 }: {
   heading: string
@@ -60,13 +59,11 @@ export function StepShell({
   stepTotal: number
   onBack: () => void
   backDisabled: boolean
-  onFinishLater: () => void
   children: ReactNode
   buttonLabel: string
   onNext: () => void
   nextDisabled?: boolean
   busy?: boolean
-  skip?: ReactNode
   hideButton?: boolean
 }) {
   const kb = useKeyboardInset()
@@ -76,17 +73,10 @@ export function StepShell({
       <div className="mx-auto flex min-h-full max-w-[480px] flex-col px-4 pb-28">
         {/* header */}
         <header className="sticky top-0 z-10 -mx-4 bg-tm-bg px-4 pb-2 pt-4">
-          <div className="mb-2 flex items-center justify-between gap-3">
+          <div className="mb-2 flex items-center gap-3">
             <span className="text-base font-black text-tm-navy">
               Tutor<span className="text-tm-red">Mint</span>
             </span>
-            <button
-              type="button"
-              onClick={onFinishLater}
-              className="min-h-[36px] text-xs font-bold text-tm-navy underline-offset-2 hover:underline"
-            >
-              Finish later
-            </button>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -143,23 +133,9 @@ export function StepShell({
             >
               {busy ? '…' : buttonLabel}
             </button>
-            {skip && <div className="text-center">{skip}</div>}
           </div>
         </div>
       )}
     </div>
-  )
-}
-
-/** One shared skip text-link style for optional steps. */
-export function StepSkip({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="min-h-[40px] text-xs font-bold text-gray-500 underline-offset-2 hover:text-tm-navy hover:underline"
-    >
-      {children}
-    </button>
   )
 }

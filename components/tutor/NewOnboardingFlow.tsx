@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { compressImage, compressUnder1MB } from '@/lib/imageCompress'
 import { isSyntheticEmail, normalisePkMobile } from '@/lib/phone'
-import { StepShell, StepSkip } from '@/components/onboarding/StepShell'
+import { StepShell } from '@/components/onboarding/StepShell'
 import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
 import TaxonomySelector from '@/components/TaxonomySelector'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
@@ -25,7 +25,7 @@ import { useCityAreas } from '@/lib/cityAreas'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import { resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
-import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
+import { availabilityToSlots, slotsToAvailabilityList, COMMON_SLOTS, type DaySlot } from '@/lib/timeSlots'
 import { NEW_FLOW_ORDER, firstMissingStep, nextMissingAfter, stepDone, type FlowStepKey } from '@/lib/tutorFlow'
 
 // The NEW tutor onboarding (PR106-G3c). A SEPARATE component from the live
@@ -87,7 +87,6 @@ export default function NewOnboardingFlow({
   smsAvailable?: boolean
 }) {
   const router = useRouter()
-  const toast = useToast()
   const supabase = useMemo(() => createClient(), [])
   const { titles: jobTitles } = useJobTitles()
   const { map: cityMap } = useCityAreas()
@@ -95,6 +94,10 @@ export default function NewOnboardingFlow({
   const [facts, setFacts] = useState<Facts | null>(null)
   const [stepKey, setStepKey] = useState<FlowStepKey | 'final' | null>(null)
   const [busy, setBusy] = useState(false)
+  // PR106-G5 §3.9: step errors render as a banner at the TOP of the step, never
+  // as a bottom toast that would cover the fixed "Next" button. Cleared whenever
+  // the step changes.
+  const [flowError, setFlowError] = useState<string | null>(null)
 
   const ORDER = NEW_FLOW_ORDER
 
@@ -160,6 +163,9 @@ export default function NewOnboardingFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // A step error belongs to its step: clear it whenever the step changes.
+  useEffect(() => { setFlowError(null) }, [stepKey])
+
   const refresh = useCallback(async () => {
     const f = await load()
     if (f) setFacts(f)
@@ -176,9 +182,12 @@ export default function NewOnboardingFlow({
     setStepKey(nextMissingAfter(flowFacts(f), from, ORDER) ?? 'final')
   }, [flowFacts, ORDER])
 
-  // Save a patch, then advance to the next gap.
+  // Save a patch, then advance to the next gap. A failure shows at the top of the
+  // step (never a bottom toast over the button). "Could not save." is only the
+  // fallback — a stated server reason (e.g. a locked field) is shown as-is.
   const saveAndNext = useCallback(async (payload: Record<string, unknown>, patch: Partial<Facts>) => {
     setBusy(true)
+    setFlowError(null)
     try {
       await saveProfile(payload)
       const f = { ...(facts as Facts), ...patch }
@@ -187,11 +196,12 @@ export default function NewOnboardingFlow({
       if (stepKey && stepKey !== 'final') advanceFrom(f, stepKey)
     } catch (e) {
       setBusy(false)
-      toast.error(e instanceof Error ? e.message : 'Could not save.')
+      setFlowError(e instanceof Error ? e.message : 'We couldn’t save that. Please try again.')
     }
-  }, [saveProfile, facts, stepKey, advanceFrom, toast])
+  }, [saveProfile, facts, stepKey, advanceFrom])
 
   const goBack = useCallback(() => {
+    setFlowError(null)
     if (stepKey === 'final') { setStepKey(ORDER[ORDER.length - 1]); return }
     if (!stepKey) return
     const i = ORDER.indexOf(stepKey)
@@ -222,11 +232,12 @@ export default function NewOnboardingFlow({
   const buttonLabel = isLastBeforeVerify ? 'Finish' : 'Next'
 
   // A thin wrapper so a step can render inside the shell with the shared button.
+  // The step's error (if any) renders as a banner at the TOP of the content,
+  // above the fields and well clear of the fixed bottom button (PR106-G5 §3.9).
   const shell = (opts: {
     children: React.ReactNode
     onNext: () => void
     nextDisabled?: boolean
-    skip?: React.ReactNode
     hideButton?: boolean
     headingEn?: string
     headingUr?: string
@@ -238,14 +249,17 @@ export default function NewOnboardingFlow({
       stepTotal={ORDER.length}
       onBack={goBack}
       backDisabled={stepIndex <= 0}
-      onFinishLater={() => void leave('/tutor/dashboard')}
       buttonLabel={buttonLabel}
       onNext={opts.onNext}
       nextDisabled={opts.nextDisabled}
       busy={busy}
-      skip={opts.skip}
       hideButton={opts.hideButton}
     >
+      {flowError && (
+        <div role="alert" className="mb-4 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-semibold leading-relaxed text-tm-red-hover">
+          {flowError}
+        </div>
+      )}
       {opts.children}
     </StepShell>
   )
@@ -292,7 +306,7 @@ export default function NewOnboardingFlow({
   if (stepKey === 'jobtype') {
     const toggle = (name: string) => {
       const next = facts.jobTypes.includes(name) ? facts.jobTypes.filter((x) => x !== name) : [...facts.jobTypes, name]
-      void saveProfile({ tutorProfile: { job_types: next, teaching_mode: next[0] ?? null } }).then(() => setFacts((f) => (f ? { ...f, jobTypes: next } : f))).catch((e) => toast.error(e instanceof Error ? e.message : 'Could not save.'))
+      void saveProfile({ tutorProfile: { job_types: next, teaching_mode: next[0] ?? null } }).then(() => setFacts((f) => (f ? { ...f, jobTypes: next } : f))).catch((e) => setFlowError(e instanceof Error ? e.message : 'We couldn’t save that. Please try again.'))
     }
     return shell({
       onNext: () => advanceFrom(facts, 'jobtype'),
@@ -338,51 +352,50 @@ export default function NewOnboardingFlow({
   })
 
   // ---------- EDUCATION ----------
-  if (stepKey === 'degree') return <EducationStep initialDegrees={facts.degrees} busy={busy} shell={shell} onSaved={() => void advanceAfter('degree')} />
+  if (stepKey === 'degree') return <EducationStep initialDegrees={facts.degrees} busy={busy} shell={shell} onError={setFlowError} onSaved={() => void advanceAfter('degree')} />
 
-  // ---------- AVAILABILITY (optional) ----------
+  // ---------- AVAILABILITY (mandatory — PR106-G5 §1.3) ----------
   if (stepKey === 'availability') return <AvailabilityStep initial={facts.availability} busy={busy} shell={shell}
     onSave={async (slots) => {
       setBusy(true)
+      setFlowError(null)
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) await supabase.from('tutor_profiles').update({ availability_list: slotsToAvailabilityList(slots) }).eq('id', user.id)
         const f = { ...facts, availability: slots }; setFacts(f); setBusy(false); advanceFrom(f, 'availability')
-      } catch (e) { setBusy(false); toast.error(e instanceof Error ? e.message : 'Could not save.') }
-    }}
-    onSkip={() => advanceFrom(facts, 'availability')} />
+      } catch (e) { setBusy(false); setFlowError(e instanceof Error ? e.message : 'We couldn’t save that. Please try again.') }
+    }} />
 
   // ---------- CONTACT (per-screen, missing only) ----------
   if (stepKey === 'contact') return <ContactStep facts={facts} smsAvailable={smsAvailable} shell={shell}
-    onDone={() => void advanceAfter('contact')} onRefresh={refresh} saveProfile={saveProfile} setFacts={setFacts} />
+    onDone={() => void advanceAfter('contact')} onRefresh={refresh} saveProfile={saveProfile} setFacts={setFacts} onError={setFlowError} />
 
   // ---------- PHOTO ----------
-  if (stepKey === 'photo') return <PhotoStep seed={seed} current={facts.avatarUrl} shell={shell}
+  if (stepKey === 'photo') return <PhotoStep seed={seed} current={facts.avatarUrl} shell={shell} onError={setFlowError}
     onSave={(url) => void saveAndNext({ tutorProfile: { avatar_url: url } }, { avatarUrl: url })} />
 
   // ---------- SELFIE ----------
-  if (stepKey === 'selfie') return <SelfieStep done={facts.selfieDone} shell={shell} onDone={() => void advanceAfter('selfie')} />
+  if (stepKey === 'selfie') return <SelfieStep done={facts.selfieDone} shell={shell} onError={setFlowError} onDone={() => void advanceAfter('selfie')} />
 
   // ---------- CNIC NUMBER ----------
-  if (stepKey === 'cnic_number') return <CnicNumberStep shell={shell} onDone={() => void advanceAfter('cnic_number')} />
+  if (stepKey === 'cnic_number') return <CnicNumberStep shell={shell} onError={setFlowError} onDone={() => void advanceAfter('cnic_number')} />
 
   // ---------- CNIC PHOTOS ----------
-  if (stepKey === 'cnic_photos') return <NewCnicPhotos shell={shell} onDone={() => void advanceAfter('cnic_photos')} />
+  if (stepKey === 'cnic_photos') return <NewCnicPhotos shell={shell} onError={setFlowError} onDone={() => void advanceAfter('cnic_photos')} />
 
   // ---------- TAGLINE & BIO (AI-written, editable) ----------
-  if (stepKey === 'tagline') return <TaglineStep facts={facts} shell={shell}
+  if (stepKey === 'tagline') return <TaglineStep facts={facts} shell={shell} onError={setFlowError}
     onSave={(headline, bio) => void saveAndNext({ tutorProfile: { headline, bio } }, { headline, bio })} />
 
   // ---------- COMPLETE YOUR VERIFICATION (final screen → PayPro directly) ----
   if (stepKey === 'verify') return (
-    <GetVerifiedStep stepTotal={ORDER.length}
-      onBack={goBack} onFinishLater={() => void leave('/tutor/dashboard')} />
+    <GetVerifiedStep stepTotal={ORDER.length} onBack={goBack} />
   )
 
   // ---------- FINAL ----------
   return (
     <StepShell heading="You're almost there" stepIndex={stepIndex} stepTotal={ORDER.length}
-      onBack={goBack} backDisabled={false} onFinishLater={() => void leave('/tutor/dashboard')}
+      onBack={goBack} backDisabled={false}
       buttonLabel="Go to dashboard" onNext={() => void leave('/tutor/dashboard')}>
       <p className="text-center text-xs leading-relaxed text-gray-500">
         You can edit anything later from your dashboard.
@@ -395,7 +408,6 @@ type ShellFn = (opts: {
   children: React.ReactNode
   onNext: () => void
   nextDisabled?: boolean
-  skip?: React.ReactNode
   hideButton?: boolean
   headingEn?: string
   headingUr?: string
@@ -594,7 +606,7 @@ function FeeStep({ initialMin, initialMax, busy, shell, onSave }: { initialMin: 
 // ------------------------------------------------------------- Education ----
 type DegRow = { key: string; title: string; docId: string; preview: string | null; uploading: boolean }
 let degSeq = 0
-function EducationStep({ initialDegrees, busy, shell, onSaved }: { initialDegrees: unknown[]; busy: boolean; shell: ShellFn; onSaved: () => void }) {
+function EducationStep({ initialDegrees, busy, shell, onSaved, onError }: { initialDegrees: unknown[]; busy: boolean; shell: ShellFn; onSaved: () => void; onError: (m: string) => void }) {
   const toast = useToast()
   const [rows, setRows] = useState<DegRow[]>(() => {
     const existing = (initialDegrees ?? []).map((d) => (typeof d === 'object' && d ? (d as { title?: string; docId?: string }) : { title: String(d) }))
@@ -616,7 +628,7 @@ function EducationStep({ initialDegrees, busy, shell, onSaved }: { initialDegree
       if (!res.ok) throw new Error(j.error ?? 'Could not upload.')
       patch(key, { docId: j.documentId as string, preview: j.previewUrl as string, uploading: false })
       toast.success('Certificate added.')
-    } catch (e) { patch(key, { uploading: false }); toast.error(e instanceof Error ? e.message : 'Could not upload.') }
+    } catch (e) { patch(key, { uploading: false }); onError(e instanceof Error ? e.message : 'We couldn’t upload that. Please try again.') }
   }
 
   const named = rows.filter((r) => r.title.trim())
@@ -624,7 +636,7 @@ function EducationStep({ initialDegrees, busy, shell, onSaved }: { initialDegree
     if (named.length === 0) { setTried(true); return }
     const degrees = named.map((r) => ({ title: r.title.trim(), docId: r.docId || undefined }))
     try { await fetch('/api/profile/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tutorProfile: { degrees } }) }).then((r) => { if (!r.ok) throw new Error('save') }); onSaved() }
-    catch { toast.error('Could not save. Please try again.') }
+    catch { onError('We couldn’t save that. Please try again.') }
   }
 
   return shell({
@@ -663,20 +675,23 @@ function EducationStep({ initialDegrees, busy, shell, onSaved }: { initialDegree
 }
 
 // ---------------------------------------------------------- Availability ----
-function AvailabilityStep({ initial, busy, shell, onSave, onSkip }: { initial: DaySlot[]; busy: boolean; shell: ShellFn; onSave: (s: DaySlot[]) => void; onSkip: () => void }) {
-  const [slots, setSlots] = useState<DaySlot[]>(initial)
+// Mandatory (PR106-G5 §1.3): "Next" is enabled only with at least one slot. A
+// tutor with saved slots keeps them; a tutor with none opens on the common
+// weekday-evening default, so the usual case is a single tap.
+function AvailabilityStep({ initial, busy, shell, onSave }: { initial: DaySlot[]; busy: boolean; shell: ShellFn; onSave: (s: DaySlot[]) => void }) {
+  const [slots, setSlots] = useState<DaySlot[]>(initial.length > 0 ? initial : COMMON_SLOTS)
   return shell({
     onNext: () => onSave(slots),
     nextDisabled: slots.length === 0,
-    skip: <StepSkip onClick={onSkip}>Skip for now</StepSkip>,
     children: <TimeSlotGrid value={slots} onChange={setSlots} disabled={busy} />,
   })
 }
 
 // --------------------------------------------------------------- Contact ----
-function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfile, setFacts }: {
+function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfile, setFacts, onError }: {
   facts: Facts; smsAvailable: boolean; shell: ShellFn; onDone: () => void
   onRefresh: () => Promise<Facts | null>; saveProfile: (p: Record<string, unknown>) => Promise<void>; setFacts: (f: (p: Facts | null) => Facts | null) => void
+  onError: (m: string) => void
 }) {
   // Screens: mobile-signup (verified) → [whatsapp, email]; email-signup → [mobile, whatsapp].
   const screens = facts.phoneVerified ? (['whatsapp', 'email'] as const) : (['mobile', 'whatsapp'] as const)
@@ -684,17 +699,15 @@ function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfil
   const screen = screens[sub]
   const next = () => { if (sub + 1 < screens.length) setSub(sub + 1); else onDone() }
 
-  const toast = useToast()
   const [whatsapp, setWhatsapp] = useState(facts.whatsapp)
   const waValid = !!normalisePkMobile(whatsapp)
 
-  if (screen === 'mobile') return <MobileVerifyScreen facts={facts} smsAvailable={smsAvailable} shell={shell} onVerified={async () => { await onRefresh(); next() }} />
+  if (screen === 'mobile') return <MobileVerifyScreen facts={facts} smsAvailable={smsAvailable} shell={shell} onError={onError} onVerified={async () => { await onRefresh(); next() }} />
 
   if (screen === 'whatsapp') return shell({
     headingEn: 'Your WhatsApp number', headingUr: 'آپ کا واٹس ایپ نمبر',
-    onNext: () => { if (whatsapp.trim()) void saveProfile({ profile: { whatsapp: normalisePkMobile(whatsapp) ?? whatsapp.trim() } }).then(() => { setFacts((f) => (f ? { ...f, whatsapp } : f)); next() }).catch(() => toast.error('Could not save.')); else next() },
+    onNext: () => { if (whatsapp.trim()) void saveProfile({ profile: { whatsapp: normalisePkMobile(whatsapp) ?? whatsapp.trim() } }).then(() => { setFacts((f) => (f ? { ...f, whatsapp } : f)); next() }).catch(() => onError('We couldn’t save that. Please try again.')); else next() },
     nextDisabled: !!whatsapp.trim() && !waValid,
-    skip: <StepSkip onClick={next}>Skip</StepSkip>,
     children: (
       <div className="space-y-2">
         <MobileNumberInput value={whatsapp} onChange={setWhatsapp} ariaLabel="WhatsApp number"
@@ -705,16 +718,15 @@ function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfil
     ),
   })
 
-  // email (optional)
+  // email (optional) — no skip link; Next continues whether or not it is filled.
   return shell({
     headingEn: 'Your email', headingUr: undefined,
     onNext: next,
-    skip: <StepSkip onClick={next}>I don&rsquo;t use email</StepSkip>,
     children: <EmailCard />,
   })
 }
 
-function MobileVerifyScreen({ facts, smsAvailable, shell, onVerified }: { facts: Facts; smsAvailable: boolean; shell: ShellFn; onVerified: () => void }) {
+function MobileVerifyScreen({ facts, smsAvailable, shell, onVerified, onError }: { facts: Facts; smsAvailable: boolean; shell: ShellFn; onVerified: () => void; onError: (m: string) => void }) {
   const toast = useToast()
   const [phone, setPhone] = useState(facts.phone)
   const [otp, setOtp] = useState('')
@@ -724,7 +736,7 @@ function MobileVerifyScreen({ facts, smsAvailable, shell, onVerified }: { facts:
   const [errorUr, setErrorUr] = useState<string | null>(null)
   const [locked, setLocked] = useState(false)
 
-  async function send() { setBusy(true); setError(null); try { const r = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', phone }) }); const j = await r.json().catch(() => ({})); if (!r.ok) { toast.error(j.error ?? 'Could not send.'); return } setSent(true); toast.success(j.alreadySent ? 'We already sent a code to this number. Please use it.' : 'Code sent.') } finally { setBusy(false) } }
+  async function send() { setBusy(true); setError(null); try { const r = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', phone }) }); const j = await r.json().catch(() => ({})); if (!r.ok) { onError(j.error ?? 'We couldn’t send the code. Please try again.'); return } setSent(true); toast.success(j.alreadySent ? 'We already sent a code to this number. Please use it.' : 'Code sent.') } finally { setBusy(false) } }
   async function verify() { setBusy(true); setError(null); setErrorUr(null); try { const r = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', phone, code: otp }) }); const j = await r.json().catch(() => ({})); if (!r.ok) { setError(j.error ?? 'Could not verify.'); setErrorUr(j.errorUr ?? null); if (j.locked) setLocked(true); return } toast.success('Number verified.'); onVerified() } finally { setBusy(false) } }
 
   if (!smsAvailable) return shell({ headingEn: 'Your mobile number', headingUr: 'آپ کا موبائل نمبر', onNext: () => {}, hideButton: true, children: (
@@ -784,9 +796,8 @@ function CaptureButtons({ facingMode, busy, done, preview, onPick }: {
 }
 
 // ---------------------------------------------------------------- Photo -----
-function PhotoStep({ seed, current, shell, onSave }: { seed: string; current: string | null; shell: ShellFn; onSave: (url: string) => void }) {
+function PhotoStep({ seed, current, shell, onSave, onError }: { seed: string; current: string | null; shell: ShellFn; onSave: (url: string) => void; onError: (m: string) => void }) {
   const supabase = useMemo(() => createClient(), [])
-  const toast = useToast()
   const [preview, setPreview] = useState<string | null>(current)
   const [uploading, setUploading] = useState(false)
   async function upload(file: File) {
@@ -798,7 +809,7 @@ function PhotoStep({ seed, current, shell, onSave }: { seed: string; current: st
       if (error) throw new Error(error.message)
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
       setPreview(URL.createObjectURL(img)); onSave(data.publicUrl)
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not upload the photo.') } finally { setUploading(false) }
+    } catch (e) { onError(e instanceof Error ? e.message : 'We couldn’t upload that photo. Please try again.') } finally { setUploading(false) }
   }
   return shell({
     onNext: () => {}, hideButton: !preview, nextDisabled: !preview,
@@ -813,7 +824,7 @@ function PhotoStep({ seed, current, shell, onSave }: { seed: string; current: st
 }
 
 // ---------------------------------------------------------------- Selfie ----
-function SelfieStep({ done, shell, onDone }: { done: boolean; shell: ShellFn; onDone: () => void }) {
+function SelfieStep({ done, shell, onDone, onError }: { done: boolean; shell: ShellFn; onDone: () => void; onError: (m: string) => void }) {
   const toast = useToast()
   const [preview, setPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -828,7 +839,7 @@ function SelfieStep({ done, shell, onDone }: { done: boolean; shell: ShellFn; on
       if (!res.ok || !data?.previewUrl) throw new Error(data?.error || 'That photo could not be uploaded.')
       setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
       toast.success('Selfie uploaded.')
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not upload the selfie.') } finally { setUploading(false) }
+    } catch (e) { onError(e instanceof Error ? e.message : 'We couldn’t upload that selfie. Please try again.') } finally { setUploading(false) }
   }
   return shell({
     onNext: onDone, nextDisabled: !uploaded,
@@ -845,8 +856,7 @@ function SelfieStep({ done, shell, onDone }: { done: boolean; shell: ShellFn; on
 // ---------------------------------------------------------- CNIC number -----
 // The number screen keeps the shared CnicCapture (number only) — it owns the
 // 5-7-1 formatting and the save-number gate the photos step then relies on.
-function CnicNumberStep({ shell, onDone }: { shell: ShellFn; onDone: () => void }) {
-  const toast = useToast()
+function CnicNumberStep({ shell, onDone, onError }: { shell: ShellFn; onDone: () => void; onError: (m: string) => void }) {
   const [cap, setCap] = useState<CnicCaptureState | null>(null)
   const [busy, setBusy] = useState(false)
   const save = async () => {
@@ -854,7 +864,7 @@ function CnicNumberStep({ shell, onDone }: { shell: ShellFn; onDone: () => void 
     setBusy(true)
     try {
       const r = await fetch('/api/identity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save-number', cnicNumber: cap.number }) })
-      if (!r.ok) { toast.error((await r.json().catch(() => ({}))).error ?? 'Could not save your CNIC number.'); return }
+      if (!r.ok) { onError((await r.json().catch(() => ({}))).error ?? 'We couldn’t save your CNIC number. Please check it and try again.'); return }
       onDone()
     } finally { setBusy(false) }
   }
@@ -875,7 +885,7 @@ function CnicNumberStep({ shell, onDone }: { shell: ShellFn; onDone: () => void 
 // verification line. The CNIC number was saved on the previous step, so the
 // server's save-number-first rule is already satisfied. Both sides upload to the
 // same /api/documents/upload (kind 'cnic'), then /api/identity submit finalises.
-function NewCnicPhotos({ shell, onDone }: { shell: ShellFn; onDone: () => void }) {
+function NewCnicPhotos({ shell, onDone, onError }: { shell: ShellFn; onDone: () => void; onError: (m: string) => void }) {
   const toast = useToast()
   const [front, setFront] = useState(false)
   const [back, setBack] = useState(false)
@@ -885,7 +895,7 @@ function NewCnicPhotos({ shell, onDone }: { shell: ShellFn; onDone: () => void }
     setBusy(true)
     try {
       const r = await fetch('/api/identity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'submit' }) })
-      if (!r.ok) { toast.error((await r.json().catch(() => ({}))).error ?? 'Could not submit for checking.'); return }
+      if (!r.ok) { onError((await r.json().catch(() => ({}))).error ?? 'We couldn’t send your CNIC for checking. Please try again.'); return }
       toast.success('CNIC sent for checking.')
       onDone()
     } finally { setBusy(false) }
@@ -895,8 +905,8 @@ function NewCnicPhotos({ shell, onDone }: { shell: ShellFn; onDone: () => void }
     children: (
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          <CnicSideCapture side="front" done={front} onDone={() => setFront(true)} />
-          <CnicSideCapture side="back" done={back} onDone={() => setBack(true)} />
+          <CnicSideCapture side="front" done={front} onDone={() => setFront(true)} onError={onError} />
+          <CnicSideCapture side="back" done={back} onDone={() => setBack(true)} onError={onError} />
         </div>
         <div className="text-center"><TermsLink /></div>
       </div>
@@ -904,8 +914,7 @@ function NewCnicPhotos({ shell, onDone }: { shell: ShellFn; onDone: () => void }
   })
 }
 
-function CnicSideCapture({ side, done, onDone }: { side: 'front' | 'back'; done: boolean; onDone: () => void }) {
-  const toast = useToast()
+function CnicSideCapture({ side, done, onDone, onError }: { side: 'front' | 'back'; done: boolean; onDone: () => void; onError: (m: string) => void }) {
   const camRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -921,7 +930,7 @@ function CnicSideCapture({ side, done, onDone }: { side: 'front' | 'back'; done:
       if (!res.ok || !j.documentId) throw new Error(j.error ?? (res.status === 413 ? 'That photo was too large. Please try again.' : 'Upload failed.'))
       setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
       onDone()
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not upload.') } finally { setBusy(false) }
+    } catch (e) { onError(e instanceof Error ? e.message : 'We couldn’t upload that. Please try again.') } finally { setBusy(false) }
   }
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) void upload(f); e.currentTarget.value = '' }
   return (
@@ -955,8 +964,7 @@ function CnicSideCapture({ side, done, onDone }: { side: 'front' | 'back'; done:
 // saved answers (POST /api/tutor/tagline → fallback composer on any failure).
 // Both fields are prefilled and fully editable; nothing is published unseen, and
 // "Rewrite with AI" re-asks. Saved with the step's Finish button.
-function TaglineStep({ facts, shell, onSave }: { facts: Facts; shell: ShellFn; onSave: (headline: string, bio: string) => void }) {
-  const toast = useToast()
+function TaglineStep({ facts, shell, onSave, onError }: { facts: Facts; shell: ShellFn; onSave: (headline: string, bio: string) => void; onError: (m: string) => void }) {
   const [tagline, setTagline] = useState(facts.headline ?? '')
   const [bio, setBio] = useState(facts.bio ?? '')
   const [loading, setLoading] = useState(false)
@@ -968,9 +976,9 @@ function TaglineStep({ facts, shell, onSave }: { facts: Facts; shell: ShellFn; o
       const r = await fetch('/api/tutor/tagline', { method: 'POST' })
       const j = await r.json().catch(() => ({}))
       if (r.ok && typeof j.tagline === 'string') { setTagline(j.tagline); setBio(typeof j.bio === 'string' ? j.bio : '') }
-      else toast.error('Could not write it just now. You can type your own.')
-    } catch { toast.error('Could not write it just now. You can type your own.') } finally { setLoading(false) }
-  }, [toast])
+      else onError('We couldn’t write it just now — please type your own tagline and bio.')
+    } catch { onError('We couldn’t write it just now — please type your own tagline and bio.') } finally { setLoading(false) }
+  }, [onError])
 
   // Auto-write once on open when either field is still blank (this step only
   // appears when one is). A tutor who already has both sees their own text.
@@ -1014,15 +1022,15 @@ function TaglineStep({ facts, shell, onSave }: { facts: Facts; shell: ShellFn; o
 // open) shows one friendly line and keeps the button to retry. No CNIC card, no
 // bank/transfer, no pay-later exit, no TutorVerifyGate, no Urdu on this screen.
 // "What do I get?" opens the shared VerifyBenefitsDialog.
-function GetVerifiedStep({ stepTotal, onBack, onFinishLater }: {
-  stepTotal: number; onBack: () => void; onFinishLater: () => void
+function GetVerifiedStep({ stepTotal, onBack }: {
+  stepTotal: number; onBack: () => void
 }) {
   const { start, busy, failed } = useVerifyCheckout()
   const [benefits, setBenefits] = useState(false)
   const benefitState = verificationFeeCardState({ feePaid: false, verifiedOk: false, findable: false })
   return (
     <StepShell heading="Complete Your Verification" stepIndex={stepTotal} stepTotal={stepTotal}
-      onBack={onBack} backDisabled={false} onFinishLater={onFinishLater} buttonLabel="Finish" onNext={() => {}} hideButton>
+      onBack={onBack} backDisabled={false} buttonLabel="Finish" onNext={() => {}} hideButton>
       <div className="space-y-4 text-center">
         <p className="text-sm leading-relaxed text-gray-700">
           After verification, you can apply to tuitions and jobs and contact parents and employers directly. You pay no commission to TutorMint, and never pay anyone in TutorMint&rsquo;s name.

@@ -51,7 +51,7 @@ test('StepShell button is position: fixed with a visualViewport keyboard offset,
 test('the overlay covers the whole viewport and hides site chrome', () => {
   const s = read('components/onboarding/StepShell.tsx')
   assert.match(s, /fixed inset-0 z-\[60\]/, 'full-screen overlay above the navbar')
-  assert.match(s, /Finish later/, 'the minimal header')
+  // PR106-G5 §1.1 removed the "Finish later" link — the header is the logo only.
   assert.match(s, /Tutor<span className="text-tm-red">Mint/, 'logo, no site navbar')
 })
 

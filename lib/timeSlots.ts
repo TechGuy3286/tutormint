@@ -29,6 +29,18 @@ export const SLOTS: { key: SlotKey; en: string; ur: string; hint: string }[] = [
   { key: 'evening', en: 'Evening', ur: 'شام', hint: 'after 4 pm' },
 ]
 
+/** The one-tap default for the onboarding availability step (PR106-G5 §1.3):
+ *  weekday evenings — the usual after-school tuition time. A tutor with saved
+ *  slots keeps them; a tutor with none opens on this so one tap continues.
+ *  Availability is mandatory, so at least one slot must stay selected. */
+export const COMMON_SLOTS: DaySlot[] = [
+  { day: 'mon', slot: 'evening' },
+  { day: 'tue', slot: 'evening' },
+  { day: 'wed', slot: 'evening' },
+  { day: 'thu', slot: 'evening' },
+  { day: 'fri', slot: 'evening' },
+]
+
 const DAY_ORDER: Record<DayKey, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 }
 const SLOT_ORDER: Record<SlotKey, number> = { morning: 0, afternoon: 1, evening: 2 }
 const DAY_BY_ORDER = (['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as DayKey[])

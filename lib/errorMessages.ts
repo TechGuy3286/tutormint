@@ -14,10 +14,12 @@ export const GENERIC_ERROR = {
   ur: 'کچھ غلط ہو گیا۔ دوبارہ کوشش کریں، یا واٹس ایپ پر سپورٹ سے رابطہ کریں۔',
 } as const
 
-/** Shown when a member tries to change a locked field (PR72 §E). */
+/** Shown when a member tries to change a locked field (PR72 §E). Plain English
+ *  that says WHY it is locked and exactly what to do next, with the WhatsApp
+ *  number (PR106-G5 §3.8) — never the vague "can't be changed here". */
 export const LOCKED_FIELD_MESSAGE = {
-  en: 'This can’t be changed here. To change it, please contact support.',
-  ur: 'یہ یہاں سے تبدیل نہیں ہو سکتا۔ تبدیلی کے لیے سپورٹ سے رابطہ کریں۔',
+  en: `This is locked because your profile is approved. To change it, message us on WhatsApp ${SUPPORT_WHATSAPP_DISPLAY}.`,
+  ur: `یہ آپ کے پروفائل کی منظوری کی وجہ سے لاک ہے۔ تبدیلی کے لیے واٹس ایپ ${SUPPORT_WHATSAPP_DISPLAY} پر ہمیں پیغام کریں۔`,
 } as const
 
 export const SUPPORT_WHATSAPP_NUMBER_DISPLAY = SUPPORT_WHATSAPP_DISPLAY // "0321 5872222"
