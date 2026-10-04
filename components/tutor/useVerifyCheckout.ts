@@ -51,10 +51,11 @@ export function useVerifyCheckout() {
       }
       // Log the real outcome for staff; the member only ever sees the mapped line.
       console.error('[verify-checkout] failed', res.status, data?.code ?? '', data?.error ?? '')
-      // PayPro-side (its create-order failed or timed out) or a 5xx → "try again
-      // in a few minutes"; everything else (config, validation, rate limit) is
-      // our side → "try again or WhatsApp".
-      const payproSide = res.status >= 500 || data?.code === 'payment_failed' || data?.code === 'paypro_unavailable'
+      // HONEST mapping (HOTFIX-PAY2): only a genuine PayPro outage/timeout
+      // (`paypro_unavailable`, or a bodyless 5xx) is "PayPro is not responding".
+      // `payment_failed` means PayPro DECLINED what we sent (our bug) → our-error
+      // line with WhatsApp; so do every other code (config, validation, quota).
+      const payproSide = data?.code === 'paypro_unavailable' || (!data?.code && res.status >= 500)
       setReason(payproSide ? 'paypro' : 'ours')
       setBusy(false)
     } catch (e) {

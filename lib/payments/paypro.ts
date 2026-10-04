@@ -2,6 +2,7 @@ import 'server-only'
 import https from 'node:https'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile } from '@/lib/phone'
+import { payproCustomerName } from '@/lib/payments/payproName'
 import { onlinePaymentOpenFrom, payproCardVisibleFrom, payproModeFrom, type PayproMode } from '@/lib/payments/paymentOpen'
 
 // PayPro API v2 client (PR65). Sandbox → https://demoapi.paypro.com.pk.
@@ -205,7 +206,10 @@ export function toPayproMobile(raw: string | null | undefined): string {
 
 export type CreateOrderResult =
   | { ok: true; payProId: string; click2pay: string; isFeeApplied: string; orderAmount: number; raw: Record<string, unknown> }
-  | { ok: false; error: string }
+  // `reason` tells an honest error apart (HOTFIX-PAY2): 'unavailable' = PayPro
+  // timed out / 5xx / unreachable (retry later); 'rejected' = PayPro declined the
+  // order we sent (OUR data) — a bug, not an outage.
+  | { ok: false; error: string; reason: 'unavailable' | 'rejected' }
 
 export async function createPayproOrder(o: {
   orderNumber: string
@@ -226,7 +230,7 @@ export async function createPayproOrder(o: {
       OrderType: 'Service',
       IssueDate: ddmmyyyy(now),
       OrderExpireAfterSeconds: '0',
-      CustomerName: (o.customerName || 'Customer').slice(0, 32),
+      CustomerName: payproCustomerName(o.customerName),
       CustomerMobile: o.customerMobile || '',
       CustomerEmail: o.customerEmail || '',
       CustomerAddress: o.customerAddress || '',
@@ -238,21 +242,24 @@ export async function createPayproOrder(o: {
       rawRequest('POST', '/v2/ppro/co', { headers: { token }, body: JSON.stringify(bodyArr) }),
     )
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'PayPro create-order failed.' }
+    // rawRequest threw → a timeout or a connection failure: PayPro is unreachable.
+    return { ok: false, error: e instanceof Error ? e.message : 'PayPro create-order failed.', reason: 'unavailable' }
   }
   let parsed: unknown
   try {
     parsed = JSON.parse(res.text)
   } catch {
-    return { ok: false, error: `PayPro returned a non-JSON response (status ${res.status}).` }
+    // A 5xx is an outage; any other non-JSON is unexpected but treated as such.
+    return { ok: false, error: `PayPro returned a non-JSON response (status ${res.status}).`, reason: res.status >= 500 ? 'unavailable' : 'rejected' }
   }
   const arr = Array.isArray(parsed) ? parsed : []
   const status = (arr[0] as { Status?: string } | undefined)?.Status
   const data = (arr[1] as Record<string, unknown> | undefined) ?? {}
   const click2pay = typeof data.Click2Pay === 'string' ? data.Click2Pay : ''
   if (status !== '00' || !click2pay) {
+    // PayPro answered and DECLINED the order (bad field in what we sent). Our bug.
     const desc = typeof data.Description === 'string' ? data.Description : `status ${status ?? res.status}`
-    return { ok: false, error: `PayPro create-order failed: ${desc}` }
+    return { ok: false, error: `PayPro create-order failed: ${desc}`, reason: 'rejected' }
   }
   return {
     ok: true,
@@ -394,7 +401,9 @@ export function payproOrderNumber(): string {
 
 export type StartResult =
   | { ok: true; url: string; reference: string; paymentId: string }
-  | { ok: false; status: number; error: string }
+  // `reason` (HOTFIX-PAY2) lets the route pick an honest message: 'unavailable' =
+  // PayPro down/timeout; 'rejected' / 'ours' = our side.
+  | { ok: false; status: number; error: string; reason: 'unavailable' | 'rejected' | 'ours' }
 
 /**
  * Create the PayPro order and the pending payments row (service role), and
@@ -411,7 +420,7 @@ export async function startPayproCheckout(params: {
   utm: { source: string | null; medium: string | null; campaign: string | null; content: string | null }
 }): Promise<StartResult> {
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.', reason: 'ours' }
 
   // DUPLICATE GUARD (PR104 §3). If the member already has a pending PayPro order
   // for this same plan, do NOT create a second one (which is how two live orders
@@ -458,7 +467,7 @@ export async function startPayproCheckout(params: {
     customerEmail: params.customer.email,
     customerAddress: '',
   })
-  if (!order.ok) return { ok: false, status: 502, error: order.error }
+  if (!order.ok) return { ok: false, status: 502, error: order.error, reason: order.reason }
 
   // Correctness reads the PayProId back from `raw` (always present), so the code
   // works whether or not the paypro_id / click2pay_url columns exist yet.
@@ -488,7 +497,7 @@ export async function startPayproCheckout(params: {
     .select('id')
     .single()
 
-  if (error || !row) return { ok: false, status: 400, error: error?.message ?? 'Could not record the payment.' }
+  if (error || !row) return { ok: false, status: 400, error: error?.message ?? 'Could not record the payment.', reason: 'ours' }
 
   // Best-effort: mirror into dedicated columns for the owner's SQL. Wrapped so a
   // pre-migration deploy (columns absent) simply skips it — raw is the source.

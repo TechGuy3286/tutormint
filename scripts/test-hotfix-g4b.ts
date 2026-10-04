@@ -46,8 +46,9 @@ test('PayPro timeout vs our error map to distinct plain-English lines', () => {
   assert.notEqual(CHECKOUT_FAIL_MESSAGES.paypro, CHECKOUT_FAIL_MESSAGES.ours, 'two distinct messages')
   assert.match(CHECKOUT_FAIL_MESSAGES.paypro, /PayPro is not responding right now\. Please try again in a few minutes\./, 'PayPro-timeout line')
   assert.match(CHECKOUT_FAIL_MESSAGES.ours, /We couldn.t start the payment\. Please try again, or message us on WhatsApp 0321 5872222\./, 'our-error line with WhatsApp')
-  // 5xx / payment_failed / paypro_unavailable → PayPro; else our side
-  assert.match(HOOK, /res\.status >= 500 \|\| data\?\.code === 'payment_failed' \|\| data\?\.code === 'paypro_unavailable'/, 'PayPro-side classification')
+  // HONEST mapping (HOTFIX-PAY2): only paypro_unavailable / a bodyless 5xx is
+  // "PayPro down"; payment_failed (PayPro declined our order) is our side.
+  assert.match(HOOK, /data\?\.code === 'paypro_unavailable' \|\| \(!data\?\.code && res\.status >= 500\)/, 'PayPro-side classification')
   // a network drop / abort is treated as "not responding"
   assert.match(HOOK, /catch \(e\)[^]*setReason\('paypro'\)/, 'network/abort → PayPro-not-responding')
 })

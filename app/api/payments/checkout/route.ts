@@ -168,8 +168,12 @@ export async function POST(request: Request) {
     })
     if (!started.ok) {
       // Never surface a database or gateway message to the member (PR66 §2).
-      console.error('[paypro] checkout start failed:', started.error)
-      return NextResponse.json({ error: 'We could not start your payment.', code: 'payment_failed' }, { status: started.status })
+      // HOTFIX-PAY2: distinguish PayPro being down (retry) from PayPro DECLINING
+      // the order we sent (our bug) so the UI shows the honest line. The real
+      // reason + message are logged for staff, never shown.
+      console.error('[paypro] checkout start failed:', started.reason, started.error)
+      const code = started.reason === 'unavailable' ? 'paypro_unavailable' : 'payment_failed'
+      return NextResponse.json({ error: 'We could not start your payment.', code }, { status: started.status })
     }
     await logActivity({
       userId: user.id,

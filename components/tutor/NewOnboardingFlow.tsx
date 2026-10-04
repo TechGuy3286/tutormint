@@ -60,6 +60,9 @@ type Facts = {
   selfiePreview: string | null
   cnicFrontPreview: string | null
   cnicBackPreview: string | null
+  // PR106 HOTFIX-PAY2: the real saved CNIC number, so the gap-flow knows the
+  // cnic_number step is done and a refresh does not resume at it.
+  cnicNumber: string | null
   // PR106-G6 §1/§5: the subjects step's raw tap selection, held in the parent so
   // going back then forward keeps an in-progress (unsaved) pick. Empty on load;
   // the step prefills from the saved subjectIds on first open, then syncs here.
@@ -118,7 +121,7 @@ export default function NewOnboardingFlow({
       return null
     }
     const [{ data: p }, { data: tp }, subj, docsRes] = await Promise.all([
-      supabase.from('profiles').select('full_name, city, phone_verified_at, phone_number, whatsapp, email').eq('id', user.id).maybeSingle(),
+      supabase.from('profiles').select('full_name, city, phone_verified_at, phone_number, whatsapp, email, cnic_number').eq('id', user.id).maybeSingle(),
       supabase.from('tutor_profiles').select('city, area, gender, avatar_url, headline, bio, experience_years, fee_min_pkr, fee_max_pkr, job_types, degrees, availability_list, verified_fee_paid_at').eq('id', user.id).maybeSingle(),
       supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
       // All identity docs (selfie + CNIC front/back), newest first, so each
@@ -154,6 +157,7 @@ export default function NewOnboardingFlow({
       selfiePreview: previewUrl(selfieDoc?.id),
       cnicFrontPreview: previewUrl(latest('cnic', 'front')?.id),
       cnicBackPreview: previewUrl(latest('cnic', 'back')?.id),
+      cnicNumber: (p?.cnic_number as string) ?? null,
       subjCats: [],
       subjByCat: {},
     }
@@ -165,7 +169,10 @@ export default function NewOnboardingFlow({
     fullName: f.fullName, gender: f.gender, city: f.city, area: f.area, avatarUrl: f.avatarUrl,
     headline: f.headline, bio: f.bio, experienceYears: f.experienceYears, hourlyRate: f.feeMin,
     jobTypes: f.jobTypes, degreesCount: (f.degrees ?? []).filter((d) => d && typeof d === 'object').length || (f.degrees ?? []).length,
-    degreeDocCount: 0, degrees: f.degrees, cnicNumber: null, cnicImagePath: null, subjectCount: f.subjectIds.length,
+    // HOTFIX-PAY2: project the REAL CNIC state (was hardcoded null, which made a
+    // refresh always resume at the CNIC steps). cnic_number done = saved number;
+    // cnic_photos done = BOTH front and back documents present.
+    degreeDocCount: 0, degrees: f.degrees, cnicNumber: f.cnicNumber, cnicImagePath: (f.cnicFrontPreview && f.cnicBackPreview) ? 'y' : null, subjectCount: f.subjectIds.length,
     selfieDone: f.selfieDone, availabilityCount: f.availability.length, phoneVerified: f.phoneVerified,
     whatsapp: f.whatsapp, feePaid: f.feePaid, noDegreeYet: false, isSeed: false, isTeamAccount: false,
     isBanned: false, isSuspended: false, underReview: false, verificationStatus: null, imported: false, claimedAt: null,
