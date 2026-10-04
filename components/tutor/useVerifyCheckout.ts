@@ -3,42 +3,69 @@
 import { useCallback, useState } from 'react'
 
 // One client action for "pay the Rs 199 verification fee and go to PayPro"
-// (PR106-G4b §1/§2), shared by the final onboarding screen and the value-first
-// dashboard card so they cannot drift. It POSTs the SAME /api/payments/checkout
-// the verify flow already used — which calls startPayproCheckout and REUSES a
-// pending < 24h invoice (replacing an expired one) — then redirects to PayPro.
+// (PR106-G4b §1/§2; hardened HOTFIX-G4b), shared by the final onboarding screen
+// and the value-first dashboard card so they cannot drift. It POSTs the SAME
+// /api/payments/checkout the verify flow has always used — which calls
+// startPayproCheckout and REUSES a pending < 24h invoice (replacing an expired
+// one) — then redirects to PayPro.
 //
-// It writes nothing itself. ANY non-redirect outcome (PayPro not open →
-// `use_transfer`, closed, a failed start, or a network error) sets `failed`, so
-// the caller shows one friendly line and keeps the button to retry — never a raw
-// error, and never a silent fall-through to a bank/transfer screen.
+// It writes nothing itself. On any non-redirect outcome it does NOT show one
+// vague line: it distinguishes a PayPro-side failure/timeout (retry in a few
+// minutes) from an our-side problem (try again / WhatsApp), logs the REAL status
+// and code for staff (never shown to the member), and bounds the request so a
+// hung gateway cannot spin forever. It never falls through to a bank/transfer
+// screen — the final screen is PayPro-only by design.
+
+export type CheckoutFailReason = 'paypro' | 'ours'
+
+// The two plain-English lines (HOTFIX-G4b §1.2), one source so the final screen
+// and the dashboard card read identically. English only, with the WhatsApp
+// number on the our-side line.
+export const CHECKOUT_FAIL_MESSAGES: Record<CheckoutFailReason, string> = {
+  paypro: 'PayPro is not responding right now. Please try again in a few minutes.',
+  ours: 'We couldn’t start the payment. Please try again, or message us on WhatsApp 0321 5872222.',
+}
 
 export function useVerifyCheckout() {
   const [busy, setBusy] = useState(false)
-  const [failed, setFailed] = useState(false)
+  const [reason, setReason] = useState<CheckoutFailReason | null>(null)
 
   const start = useCallback(async () => {
     setBusy(true)
-    setFailed(false)
+    setReason(null)
+    // A touch longer than the route's maxDuration (30s) so the route's own
+    // clean error reaches us rather than the fetch aborting first.
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 32_000)
     try {
       const res = await fetch('/api/payments/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planCode: 'verified' }),
+        signal: controller.signal,
       })
-      const data = (await res.json().catch(() => null)) as { mode?: string; url?: string } | null
-      if (!res.ok || data?.mode !== 'redirect' || !data?.url) {
-        setFailed(true)
-        setBusy(false)
+      const data = (await res.json().catch(() => null)) as { mode?: string; url?: string; code?: string; error?: string } | null
+      if (res.ok && data?.mode === 'redirect' && data.url) {
+        window.location.assign(data.url) // off-origin gateway → full navigation
         return
       }
-      // A real gateway is off-origin → a full navigation.
-      window.location.assign(data.url)
-    } catch {
-      setFailed(true)
+      // Log the real outcome for staff; the member only ever sees the mapped line.
+      console.error('[verify-checkout] failed', res.status, data?.code ?? '', data?.error ?? '')
+      // PayPro-side (its create-order failed or timed out) or a 5xx → "try again
+      // in a few minutes"; everything else (config, validation, rate limit) is
+      // our side → "try again or WhatsApp".
+      const payproSide = res.status >= 500 || data?.code === 'payment_failed' || data?.code === 'paypro_unavailable'
+      setReason(payproSide ? 'paypro' : 'ours')
       setBusy(false)
+    } catch (e) {
+      // A network drop or our 32s abort — treat as "not responding, try again".
+      console.error('[verify-checkout] network/abort', e instanceof Error ? e.name : String(e))
+      setReason('paypro')
+      setBusy(false)
+    } finally {
+      clearTimeout(timer)
     }
   }, [])
 
-  return { start, busy, failed }
+  return { start, busy, reason }
 }

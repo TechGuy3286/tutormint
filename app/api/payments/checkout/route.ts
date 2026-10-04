@@ -11,6 +11,12 @@ import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 
 // node:https (PayPro) needs the Node runtime, not edge.
 export const runtime = 'nodejs'
+// PayPro's own request timeout is 15s for the token and 15s for create-order
+// (lib/payments/paypro rawRequest), so a slow gateway can need up to ~30s to
+// return a CLEAN 502 "payment_failed". Without this the function was killed at
+// the platform default and the client saw an opaque 504 → the onboarding final
+// screen's generic "unavailable" (HOTFIX-G4b). 30s lets the real outcome return.
+export const maxDuration = 30
 
 // Start a purchase.
 //

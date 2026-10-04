@@ -15,7 +15,7 @@ import TaxonomySelector from '@/components/TaxonomySelector'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
 import EmailCard from '@/components/account/EmailCard'
 import VerifyBenefitsDialog from '@/components/tutor/VerifyBenefitsDialog'
-import { useVerifyCheckout } from '@/components/tutor/useVerifyCheckout'
+import { useVerifyCheckout, CHECKOUT_FAIL_MESSAGES } from '@/components/tutor/useVerifyCheckout'
 import { verificationFeeCardState } from '@/lib/tutorDashboard'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
@@ -1025,7 +1025,7 @@ function TaglineStep({ facts, shell, onSave, onError }: { facts: Facts; shell: S
 function GetVerifiedStep({ stepTotal, onBack }: {
   stepTotal: number; onBack: () => void
 }) {
-  const { start, busy, failed } = useVerifyCheckout()
+  const { start, busy, reason } = useVerifyCheckout()
   const [benefits, setBenefits] = useState(false)
   const benefitState = verificationFeeCardState({ feePaid: false, verifiedOk: false, findable: false })
   return (
@@ -1040,10 +1040,12 @@ function GetVerifiedStep({ stepTotal, onBack }: {
         </p>
         <button type="button" onClick={() => void start()} disabled={busy}
           className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-red px-6 text-sm font-bold text-white hover:bg-tm-red-hover disabled:opacity-60">
-          <CreditCard size={16} aria-hidden /> {busy ? 'Starting…' : 'Pay Rs 199 & get verified'}
+          <CreditCard size={16} aria-hidden /> {busy ? 'Starting…' : 'Get verified now'}
         </button>
-        {failed && (
-          <p className="text-xs font-semibold text-tm-red">Payment is unavailable right now. Please try again in a few minutes.</p>
+        {reason && (
+          <p className="mx-auto max-w-xs px-2 text-center text-xs font-semibold leading-relaxed text-tm-red">
+            {CHECKOUT_FAIL_MESSAGES[reason]}
+          </p>
         )}
         <button type="button" onClick={() => setBenefits(true)}
           className="text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline">

@@ -34,10 +34,12 @@ test('the final screen is "Complete Your Verification": English-only, full progr
   assert.match(g, /heading="Complete Your Verification"/, 'heading')
   assert.match(g, /You pay no commission to TutorMint/, 'the commission message')
   assert.match(g, /Spam Free Platform Fee: Rs 199\. We keep TutorMint clean of fake and spam accounts\./, 'the fee line')
-  assert.match(g, /Pay Rs 199 & get verified/, 'the one red button label')
+  // HOTFIX-G4b: button label carries no amount; the failure line is the shared
+  // reason-based message (see the dedicated HOTFIX test).
+  assert.match(g, /Get verified now/, 'the one red button label, no amount')
   assert.match(g, /useVerifyCheckout\(\)/, 'uses the direct-PayPro hook')
   assert.match(g, /stepIndex=\{stepTotal\}/, 'progress bar is full (stepIndex === stepTotal)')
-  assert.match(g, /Payment is unavailable right now\. Please try again in a few minutes\./, 'friendly failure line')
+  assert.match(g, /CHECKOUT_FAIL_MESSAGES\[reason\]/, 'friendly reason-based failure line')
   assert.match(g, /What do I get\?/, '"What do I get?" link')
   assert.match(g, /VerifyBenefitsDialog/, 'opens the shared benefits pop-up')
   // English only on THIS screen: no Urdu, no Ltr, and none of the removed clutter.
@@ -53,7 +55,7 @@ test('the PayPro hook reuses a pending invoice via /api/payments/checkout, and f
   const h = read('components/tutor/useVerifyCheckout.ts')
   assert.match(h, /\/api\/payments\/checkout/, 'hits the checkout route')
   assert.match(h, /body: JSON\.stringify\(\{ planCode: 'verified' \}\)/, 'posts the verification fee with no payment method → the online (PayPro) path')
-  assert.match(h, /data\?\.mode !== 'redirect'[^]*setFailed\(true\)/, 'any non-redirect → failed (friendly line), never a raw error')
+  assert.match(h, /data\?\.mode === 'redirect'/, 'a redirect navigates; any non-redirect sets a reason (see the HOTFIX test), never a raw error')
   // the checkout route still routes the no-method verified path through startPayproCheckout,
   // which reuses a < 24h pending invoice.
   const route = read('app/api/payments/checkout/route.ts')

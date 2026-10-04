@@ -1,7 +1,7 @@
 'use client'
 
 import { ShieldCheck } from 'lucide-react'
-import { useVerifyCheckout } from '@/components/tutor/useVerifyCheckout'
+import { useVerifyCheckout, CHECKOUT_FAIL_MESSAGES } from '@/components/tutor/useVerifyCheckout'
 
 // The value-first dashboard card (PR106-G4b §5), shown to owner/staff in place
 // of the red prompt while the switch is "Staff only". It leads with what the
@@ -10,7 +10,7 @@ import { useVerifyCheckout } from '@/components/tutor/useVerifyCheckout'
 // directly (reusing a pending invoice). No money words appear on the card
 // itself. Shown only to an unverified tutor; hidden once verified.
 export default function GetVerifiedValueCard({ count, city }: { count: number; city: string | null }) {
-  const { start, busy, failed } = useVerifyCheckout()
+  const { start, busy, reason } = useVerifyCheckout()
 
   const tuition = count === 1 ? 'tuition' : 'tuitions'
   const title =
@@ -42,9 +42,9 @@ export default function GetVerifiedValueCard({ count, city }: { count: number; c
       >
         <ShieldCheck size={16} aria-hidden /> {busy ? 'Starting…' : 'Get verified'}
       </button>
-      {failed && (
-        <p className="mt-2 text-xs font-semibold text-tm-red">
-          This isn&rsquo;t available right now. Please try again in a few minutes.
+      {reason && (
+        <p className="mt-2 text-xs font-semibold leading-relaxed text-tm-red">
+          {CHECKOUT_FAIL_MESSAGES[reason]}
         </p>
       )}
     </div>
