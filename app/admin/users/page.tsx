@@ -9,6 +9,8 @@ import MemberRow from './MemberRow'
 import MoreMembers from './MoreMembers'
 import { memberPage } from '@/lib/memberFeed'
 import { isTipKey, resolveTipMemberIds } from '@/lib/adminTips'
+import { approvalNeeded, approvalNeededCount } from '@/lib/approvalQueue'
+import ApprovalList from './ApprovalList'
 
 const TIP_LABEL: Record<string, string> = {
   'unpaid-tutors': 'Unpaid tutors',
@@ -47,6 +49,24 @@ export default async function AdminUsersPage({
     return <CleanupClient candidates={candidates} scanned={scanned} />
   }
 
+  // PR106-H1 §3: the "Approval needed" queue — members with a document waiting
+  // for review. Visible to every role that reviews documents (admin+operations,
+  // i.e. SCREEN_ACCESS.tutors).
+  const canReview = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)
+  if (filter === 'approval' && canReview) {
+    const approvalRows = await approvalNeeded()
+    return (
+      <div className="space-y-5">
+        <header className="flex flex-wrap items-center gap-2">
+          <h1 className="text-lg font-black text-tm-navy">Approval needed ({approvalRows.length})</h1>
+          <Link href="/admin/users" className="text-xs font-bold text-tm-red hover:underline">Back to everyone</Link>
+        </header>
+        <p className="text-xs text-gray-500">Members with a document waiting for review. Fee-paid first, then oldest. Tap a row to review their identity.</p>
+        <ApprovalList rows={approvalRows} />
+      </div>
+    )
+  }
+
   const admin = createAdminClient()
   if (!admin) {
     return (
@@ -69,6 +89,8 @@ export default async function AdminUsersPage({
     limit: PAGE_SIZE,
   })
   const term = q.trim()
+  // The live "Approval needed" count for the tab (roles that review only).
+  const approvalCount = canReview ? await approvalNeededCount() : 0
 
   const exportQs = [
     term ? `q=${encodeURIComponent(term)}` : '',
@@ -143,6 +165,14 @@ export default async function AdminUsersPage({
           {chip('parent', 'Parents')}
           {chip('admin', 'Staff')}
           {chip('suspended', 'Suspended only')}
+          {canReview && (
+            <Link
+              href="/admin/users?filter=approval"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-tm-green-deep/30 bg-tm-tint-green px-4 text-xs font-bold text-tm-green-deep"
+            >
+              Approval needed{approvalCount > 0 ? ` (${approvalCount})` : ''}
+            </Link>
+          )}
           {roleSatisfies(actor.adminRole, SCREEN_ACCESS.cleanup) && (
             <Link
               href="/admin/users?filter=suspicious"

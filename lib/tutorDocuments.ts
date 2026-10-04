@@ -19,6 +19,7 @@ import type { AdminRole } from '@/lib/adminAuth'
 import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
+import { deliverEmail } from '@/lib/notify'
 import { deriveCnicStatus } from '@/lib/cnicStatus'
 
 export type DocItem = 'cnic' | 'profile_pic' | 'selfie'
@@ -212,15 +213,31 @@ export async function reviewTutorDocument(params: {
     detail: { item, decision, reason: approved ? null : reason.trim() },
   })
 
+  // PR106-H1 §4: link straight to the re-upload step (the Settings identity
+  // card, where CNIC / photo / selfie are replaced), not the generic Settings.
+  const reuploadHref = '/tutor/dashboard/settings#identity'
+  // What the member sees named — "CNIC photo" reads better than "CNIC" here.
+  const whatLabel = item === 'cnic' ? 'CNIC photo' : label
+
   await notify({
     userId: tutorId,
     kind: approved ? 'verification_approved' : 'verification_rejected',
-    title: approved ? `Your ${label} is approved` : `Your ${label} needs another look`,
+    title: approved ? `Your ${label} is approved` : `Your ${whatLabel} needs another look`,
     body: approved
       ? `Your ${label} has been approved.`
-      : `${reason.trim()} Please upload your ${label} again in Settings.`,
-    href: '/tutor/dashboard/settings',
+      : `Your ${whatLabel} was not approved: ${reason.trim()} Please upload a clear one here.`,
+    href: approved ? '/tutor/dashboard/settings' : reuploadHref,
   })
+
+  // An email too (PR106-H1 §4), with the reason and a link to the re-upload
+  // step. No CNIC number or image — the item name and reason only. Best-effort.
+  if (!approved) {
+    const mailed = await deliverEmail(
+      { userId: tutorId },
+      { id: 'verification_rejected', name: '', what: whatLabel, reason: reason.trim(), href: reuploadHref },
+    )
+    if (!mailed.ok) console.info('[review] rejection email not sent:', mailed.reason, tutorId)
+  }
 
   await logActivity({
     userId: tutorId,

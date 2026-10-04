@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
 import { logActivity } from '@/lib/activityLog'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
+import { sendBankTransferPending } from '@/lib/payments/paymentAlerts'
 
 // Submit a bank / JazzCash / Easypaisa transfer — WAITING FOR APPROVAL (PR98 §4).
 //
@@ -160,6 +161,14 @@ export async function POST(request: Request) {
     targetType: 'payment',
     targetId: payment.id as string,
     meta: { planCode: payment.plan_code, provider: 'manual', reference, awaitingApproval: true },
+  })
+
+  // STAFF alert (PR106-H1 §4): a bank transfer is waiting for approval.
+  const { data: who } = await admin.from('profiles').select('full_name, role').eq('id', user.id).maybeSingle()
+  await sendBankTransferPending({
+    memberName: (who?.full_name as string) ?? 'A member',
+    role: who?.role === 'tutor' ? 'Tutor' : 'Parent',
+    amountPkr: (payment.amount_pkr as number) ?? 0,
   })
 
   return NextResponse.json({ success: true, reference, awaitingApproval: true })

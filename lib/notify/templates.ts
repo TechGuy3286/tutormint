@@ -258,6 +258,15 @@ export type TemplateInput =
   // ABSOLUTE one-time link, so `link()` leaves it untouched.
   | { id: 'staff_invite'; name: string; role: string; url: string }
   | { id: 'tuition_paused'; title: string }
+  // STAFF-facing alerts (PR106-H1 §2). English only (no member Urdu); essential.
+  // NEVER a CNIC number, phone, card detail or document image — member name,
+  // role, what was bought, amount, provider, PKT time and an admin link only.
+  | { id: 'payment_alert'; memberName: string; role: string; what: string; amountPkr: number; whenPkt: string }
+  | { id: 'bank_transfer_pending'; memberName: string; role: string; amountPkr: number }
+  // A member's document was rejected (PR106-H1 §4). Essential (a verification
+  // decision they are waiting on). NEVER the CNIC number or image — the item
+  // name, the reason and a link straight to the re-upload step only.
+  | { id: 'verification_rejected'; name: string; what: string; reason: string; href: string }
   // A tuition matching a Premium/Featured tutor's subjects (PR54 §C). Not
   // essential — it carries a one-click unsubscribe. NEVER a parent's name or
   // contact details, and no price.
@@ -445,6 +454,48 @@ export function render(input: TemplateInput): RenderedEmail {
         ],
         true, // a receipt
         { label: 'Open your dashboard', href: '/tutor/dashboard' },
+      )
+
+    // ---------------------------------------------------------------------
+    // STAFF alerts (PR106-H1 §2). Subject carries the amount + what was bought
+    // so it reads at a glance in an inbox; the button opens Admin → Payments.
+    case 'payment_alert':
+      return build(
+        `New payment received: Rs ${input.amountPkr.toLocaleString('en-PK')} — ${input.what}`,
+        'New payment received',
+        [
+          `${input.memberName} (${input.role}) paid for: ${input.what}.`,
+          `Amount: Rs ${input.amountPkr.toLocaleString('en-PK')} · via PayPro · ${input.whenPkt} (PKT).`,
+          'Open it in Admin → Payments to review and action their documents.',
+        ],
+        true,
+        { label: 'Open in Admin → Payments', href: '/admin/payments' },
+      )
+
+    // ---------------------------------------------------------------------
+    case 'verification_rejected':
+      return build(
+        `Your ${input.what} was not approved`,
+        `Your ${input.what} needs another look`,
+        [
+          `Your ${input.what} was not approved: ${input.reason}`,
+          'Please upload a clear one to finish getting verified. Nothing else changes — your fee and the rest of your profile stay exactly as they are.',
+        ],
+        true, // a verification decision the member is waiting on
+        { label: `Re-upload your ${input.what}`, href: input.href },
+      )
+
+    // ---------------------------------------------------------------------
+    case 'bank_transfer_pending':
+      return build(
+        'Bank transfer waiting for approval',
+        'Bank transfer waiting for approval',
+        [
+          `${input.memberName} (${input.role}) submitted a bank transfer of Rs ${input.amountPkr.toLocaleString('en-PK')}.`,
+          'Check the proof and approve it in Admin → Payments to activate their account.',
+        ],
+        true,
+        { label: 'Approve in Admin → Payments', href: '/admin/payments' },
       )
 
     // ---------------------------------------------------------------------

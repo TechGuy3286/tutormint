@@ -1,4 +1,4 @@
-import { ClipboardList, Users } from 'lucide-react'
+import { ClipboardList, Eye, Users } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -72,6 +72,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
   const canReview = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)
   // Editing the tutor's locked step-1 fields (PR83) — admin + operations.
   const canFieldEdit = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutorEdit)
+  const isOwner = actor.adminRole === 'owner' // PR106-H1 §5: owner-only "View as tutor"
   // One name (PR66 §5): the canonical is profiles.full_name (what the member sees
   // on their dashboard); fall back to tutor_profiles only if it is blank.
   const name =
@@ -182,6 +183,15 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
 
       <SlugField tutorId={id} initialSlug={(tutor.slug as string | null) ?? null} canEdit={canEdit} />
 
+      {isOwner && (
+        <Link
+          href={`/admin/view-as/${id}`}
+          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-tm-navy/30 bg-tm-tint-navy px-4 text-xs font-bold text-tm-navy hover:bg-tm-tint-navy/70"
+        >
+          <Eye aria-hidden size={14} /> View as tutor
+        </Link>
+      )}
+
       <TutorDocumentReview
         tutorId={id}
         canReview={canReview}
@@ -190,6 +200,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
         cnicBackId={cnicBack?.id ?? null}
         selfieDocId={selfieDoc?.id ?? null}
         statuses={docStatuses}
+        memberWhatsapp={(profile.whatsapp as string | null) ?? (tutor.whatsapp_number as string | null) ?? (profile.phone_number as string | null) ?? null}
       />
 
       {canFieldEdit && (

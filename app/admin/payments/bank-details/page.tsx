@@ -1,7 +1,9 @@
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { SETTING_KEYS } from '@/lib/payments/manual'
+import { PAYMENT_ALERTS_KEY } from '@/lib/payments/paymentAlerts'
 import BankDetailsForm from './BankDetailsForm'
+import AlertEmailsForm from './AlertEmailsForm'
 
 // Edit the bank-transfer details members pay into (PR98 §4).
 //
@@ -12,7 +14,8 @@ import BankDetailsForm from './BankDetailsForm'
 export const dynamic = 'force-dynamic'
 
 export default async function BankDetailsPage() {
-  await requireAdminRole(...SCREEN_ACCESS.paymentsSettings)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.paymentsSettings)
+  const isOwner = actor.adminRole === 'owner'
 
   const admin = createAdminClient()
   const stored = new Map<string, string>()
@@ -20,7 +23,7 @@ export default async function BankDetailsPage() {
     const { data } = await admin
       .from('app_settings')
       .select('key, value')
-      .in('key', Object.values(SETTING_KEYS))
+      .in('key', [...Object.values(SETTING_KEYS), PAYMENT_ALERTS_KEY])
     for (const r of data ?? []) stored.set(r.key as string, (r.value as string) ?? '')
   }
 
@@ -44,6 +47,9 @@ export default async function BankDetailsPage() {
           hasQr: !!(stored.get(SETTING_KEYS.qrPath) ?? ''),
         }}
       />
+
+      {/* PR106-H1 §2: owner-only "Payment alert emails". */}
+      {isOwner && <AlertEmailsForm initial={stored.get(PAYMENT_ALERTS_KEY) ?? 'techguy3286@gmail.com'} />}
     </div>
   )
 }

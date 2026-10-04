@@ -22,6 +22,7 @@ import { logActivity } from '@/lib/activityLog'
 import { logAdminAction } from '@/lib/auditLog'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
+import { sendPaymentAlert } from '@/lib/payments/paymentAlerts'
 import type { AdminRole } from '@/lib/adminAuth'
 import { formatDate } from '@/lib/datetime'
 
@@ -204,6 +205,15 @@ export async function activatePayment(params: {
     )
     if (!feeMailed.ok) console.info('[activate] fee receipt email not sent:', feeMailed.reason, userId)
 
+    // STAFF alert (PR106-H1 §2) — once per payment (this branch runs only on a
+    // fresh activation; a replayed callback returned alreadyActive above).
+    await sendPaymentAlert({
+      memberName: (feeBuyer?.full_name as string) ?? 'A member',
+      role: 'Tutor',
+      what: 'Spam Free Platform Fee',
+      amountPkr: (payment.amount_pkr as number) ?? 0,
+    })
+
     await logActivity({
       userId,
       event: 'verification_fee_paid',
@@ -335,6 +345,14 @@ export async function activatePayment(params: {
     },
   )
   if (!mailed.ok) console.info('[activate] receipt email not sent:', mailed.reason, userId)
+
+  // STAFF alert (PR106-H1 §2) — fresh activation only, so one per payment.
+  await sendPaymentAlert({
+    memberName: (buyer?.full_name as string) ?? 'A member',
+    role: audience === 'tutor' ? 'Tutor' : 'Parent',
+    what: `${plan.name} plan`,
+    amountPkr: (payment.amount_pkr as number) ?? 0,
+  })
 
   await logActivity({
     userId,

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, X, Loader2, Maximize2 } from 'lucide-react'
+import { Check, X, Loader2, Maximize2, MessageCircle } from 'lucide-react'
+import { normalisePkMobile } from '@/lib/phone'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import Lightbox, { type LightboxImage } from '@/components/admin/Lightbox'
 import { adminFetch } from '@/components/admin/adminFetch'
@@ -34,6 +35,7 @@ export default function TutorDocumentReview({
   cnicBackId,
   selfieDocId,
   statuses,
+  memberWhatsapp,
 }: {
   tutorId: string
   canReview: boolean
@@ -42,6 +44,8 @@ export default function TutorDocumentReview({
   cnicBackId: string | null
   selfieDocId: string | null
   statuses: DocumentStatuses
+  /** The member's WhatsApp/phone for the "Send on WhatsApp" rejection message. */
+  memberWhatsapp: string | null
 }) {
   // PR106-C §3 — the related images, in a fixed order, so the viewer can page
   // CNIC front ↔ back ↔ photo ↔ selfie. Each thumbnail opens the viewer at its
@@ -66,6 +70,7 @@ export default function TutorDocumentReview({
           item="cnic"
           title="CNIC (front & back)"
           canReview={canReview}
+          memberWhatsapp={memberWhatsapp}
           state={statuses.cnic}
         >
           <div className="grid grid-cols-2 gap-2">
@@ -91,6 +96,7 @@ export default function TutorDocumentReview({
           item="profile_pic"
           title="Profile picture"
           canReview={canReview}
+          memberWhatsapp={memberWhatsapp}
           state={statuses.profilePic}
         >
           {avatarUrl ? (
@@ -108,6 +114,7 @@ export default function TutorDocumentReview({
           item="selfie"
           title="Selfie"
           canReview={canReview}
+          memberWhatsapp={memberWhatsapp}
           state={statuses.selfie}
         >
           {selfieDocId ? (
@@ -157,6 +164,7 @@ function ReviewItem({
   title,
   canReview,
   state,
+  memberWhatsapp,
   children,
 }: {
   tutorId: string
@@ -164,6 +172,7 @@ function ReviewItem({
   title: string
   canReview: boolean
   state: DocState
+  memberWhatsapp: string | null
   children: React.ReactNode
 }) {
   const toast = useToast()
@@ -179,6 +188,20 @@ function ReviewItem({
 
   const s = STATUS_LABEL[status]
   const decided = status === 'approved' || status === 'rejected'
+
+  // PR106-H1 §4: "Send on WhatsApp" — opens WhatsApp to the member with the
+  // rejection message pre-written (staff press send). English + Urdu, with the
+  // re-upload link; NEVER a CNIC number or image.
+  const whatName = item === 'cnic' ? 'CNIC photo' : item === 'profile_pic' ? 'profile picture' : 'selfie'
+  const waMsisdn = normalisePkMobile(memberWhatsapp)
+  const whatsappHref = (() => {
+    if (!waMsisdn || reason.trim().length < 3) return null
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.tutormint.org'
+    const link = `${origin}/tutor/dashboard/settings#identity`
+    const en = `Hi, your ${whatName} on TutorMint was not approved: ${reason.trim()} Please upload a clear one here: ${link}`
+    const ur = `السلام علیکم، آپ کی ${whatName} منظور نہیں ہوئی: ${reason.trim()} براہِ کرم واضح تصویر یہاں اپلوڈ کریں: ${link}`
+    return `https://wa.me/${waMsisdn}?text=${encodeURIComponent(`${en}\n\n${ur}`)}`
+  })()
 
   const act = async (decision: 'approve' | 'reject') => {
     if (decision === 'reject' && reason.trim().length < 3) {
@@ -254,6 +277,16 @@ function ReviewItem({
                 placeholder="Reason shown to the tutor"
                 className="w-full rounded-lg border border-gray-200 p-2 text-[11px] outline-none focus:border-tm-red"
               />
+              {whatsappHref && (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-[32px] items-center gap-1.5 rounded-lg border border-tm-green-deep/40 bg-tm-tint-green px-2.5 text-[11px] font-bold text-tm-green-deep"
+                >
+                  <MessageCircle size={12} aria-hidden /> Send on WhatsApp
+                </a>
+              )}
             </div>
           )}
           <div className="flex gap-2">
