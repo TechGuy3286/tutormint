@@ -26,18 +26,23 @@ function VerifiedToastInner() {
   const fired = useRef(false)
 
   const verified = params.get('verified')
+  // PR106-H3 §2: PayPro success returns the tutor to /tutor/dashboard?paid=1.
+  // The green confirmation lives here (mounted once under the root toast
+  // provider) so it covers the dashboard without a dedicated component.
+  const paid = params.get('paid') === '1'
 
   useEffect(() => {
-    if (!verified || fired.current) return
-    const message = MESSAGES[verified]
+    if (fired.current) return
+    const message = paid ? 'Payment received. Thank you!' : verified ? MESSAGES[verified] : null
     if (!message) return
     fired.current = true
     toast.success(message)
     // Strip the param so a refresh or a Back-navigation does not re-toast.
     const url = new URL(window.location.href)
     url.searchParams.delete('verified')
+    url.searchParams.delete('paid')
     router.replace(url.pathname + url.search, { scroll: false })
-  }, [verified, toast, router])
+  }, [verified, paid, toast, router])
 
   return null
 }

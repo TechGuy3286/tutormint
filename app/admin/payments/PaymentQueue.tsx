@@ -8,6 +8,7 @@ import StatusChip from '@/components/admin/StatusChip'
 import PaymentDecide from './PaymentDecide'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
+import { dedupeById } from '@/lib/dedupe'
 import type { QueuePaymentRow, QueueSubscriptionRow } from '@/lib/adminQueues'
 
 // The payments screen: the manual-transfer queue (awaiting approval) and the
@@ -79,8 +80,13 @@ export default function PaymentQueue({
     initialCursor: subscriptionsCursor,
     storageKey: 'tm:more:admin-subscriptions',
   })
-  const allPayments = [...payments, ...morePayments.items]
-  const allSubs = [...subscriptions, ...moreSubs.items]
+  // PR106-H3 §0d/1.3: the first page is server-rendered (`payments`) while
+  // useInfinite restores a window from sessionStorage; after a mutation re-renders
+  // the screen the two sources can overlap, so a payment appeared twice and the
+  // rendered count exceeded the header's exact count. De-duplicate by id — the
+  // first occurrence (the fresh server row) wins — so each payment shows once.
+  const allPayments = dedupeById([...payments, ...morePayments.items])
+  const allSubs = dedupeById([...subscriptions, ...moreSubs.items])
 
   return (
     <div className="space-y-5">

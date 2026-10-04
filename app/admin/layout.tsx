@@ -87,6 +87,11 @@ export default async function AdminLayout({
   const jar = await cookies()
   const [unread, badges] = await Promise.all([unreadCount(), navBadges()])
 
+  // The header "Find a member" box commits to /admin/users, which tuitions_staff
+  // cannot open (server-refused). Hide it for that role so it isn't offered a
+  // door that is locked (PR106-H3 §4).
+  const showMemberSearch = actor.adminRole !== 'tuitions_staff'
+
   return (
     <AdminShell
       groups={groups}
@@ -95,7 +100,7 @@ export default async function AdminLayout({
       roleLabel={actor.adminRole === 'tuitions_staff' ? 'Tuitions' : actor.adminRole}
       email={actor.email}
       pageHead={pagehead}
-      search={<AdminSearch />}
+      search={showMemberSearch ? <AdminSearch /> : null}
       bell={
         <NotificationBell
           userId={actor.id}

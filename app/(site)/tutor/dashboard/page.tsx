@@ -151,9 +151,21 @@ export default async function TutorDashboardPage() {
         />
 
         {/* PR106-G4b §5: value-first card for owner/staff; §6: everyone else keeps
-            today's "Complete your payment" prompt. */}
+            today's "Complete your payment" prompt. Both are hidden once the fee
+            is paid (ent.verified). */}
         {showValueCard && <GetVerifiedValueCard count={boardCount} city={city} />}
         {pendingInvoice && <CompletePaymentPrompt url={pendingInvoice.url} />}
+
+        {/* PR106-H3: fee paid, documents under review — one clear line in place of
+            every "Get verified" prompt (which are gone once ent.verified). */}
+        {ent.verified && ent.verificationPending && (
+          <div className="rounded-2xl border border-tm-green-deep/25 bg-tm-tint-green/60 px-4 py-3 text-center">
+            <p className="text-sm font-black text-tm-green-deep">✓ Payment received. Our team is reviewing your documents.</p>
+            <p lang="ur" dir="rtl" className="mt-0.5 text-[11px] font-semibold text-tm-green-deep/80">
+              ادائیگی موصول ہو گئی۔ ہماری ٹیم آپ کی دستاویزات کا جائزہ لے رہی ہے۔
+            </p>
+          </div>
+        )}
 
         {/* Action bar — the main thing a tutor comes back to do (PR42 §2). */}
         <DashboardActionBar

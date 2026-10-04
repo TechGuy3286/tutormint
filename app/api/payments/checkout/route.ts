@@ -103,6 +103,40 @@ export async function POST(request: Request) {
     )
   }
 
+  // The Rs 199 verification fee is a ONE-TIME, lifetime entry fee (owner,
+  // PR106-H3). Refuse a second checkout once it is paid — the flag is set by
+  // activate.ts on approval, and an already-approved fee payment is the same
+  // fact before the sweep runs. This is what stops a tutor being charged twice
+  // for it (the Annie double-pay). A PENDING fee invoice is NOT blocked:
+  // startPayproCheckout reuses a pending < 24h invoice, which is the legitimate
+  // "continue your payment" path.
+  if (audience === 'tutor' && plan.code === 'verified') {
+    const { data: tp } = await supabase
+      .from('tutor_profiles')
+      .select('verified_fee_paid_at')
+      .eq('id', user.id)
+      .maybeSingle()
+    const { data: approvedFee } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('plan_code', 'verified')
+      .eq('status', 'approved')
+      .limit(1)
+      .maybeSingle()
+    if (tp?.verified_fee_paid_at || approvedFee) {
+      return NextResponse.json(
+        {
+          error: 'You have already paid the one-time verification fee. Our team is reviewing your documents.',
+          code: 'fee_already_paid',
+          alreadyPaid: true,
+          href: '/tutor/dashboard',
+        },
+        { status: 409 },
+      )
+    }
+  }
+
   // VERIFICATION BEFORE PLAN (owner PR32 §3). A tutor cannot buy Premium or
   // Featured before the one-time Rs 199 verification fee is paid — a tutor is
   // never Premium/Featured while unverified. Send them to get verified first

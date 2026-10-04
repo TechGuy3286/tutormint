@@ -1,5 +1,6 @@
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { CheckCircle2, Clock, CreditCard, LayoutDashboard, XCircle } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
@@ -113,6 +114,17 @@ export default async function PayReturnPage({
   const ent = await getEntitlements(userId)
   const home = ent.audience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard'
   const packages = ent.audience === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents'
+
+  // PR106-H3 §2 — after the one-time VERIFICATION FEE, send the tutor straight
+  // on rather than parking them on a result card:
+  //   • paid → the dashboard, with a short green "Payment received. Thank you!"
+  //   • not paid (failed/cancelled) → the Complete Your Verification screen with
+  //     one plain line, so they can try again.
+  // Plan purchases and the parent flows keep the detailed card below.
+  if (ent.audience === 'tutor' && payment?.plan_code === 'verified') {
+    if (view === 'approved') redirect('/tutor/dashboard?paid=1')
+    if (view === 'notpaid') redirect('/tutor/complete-profile?pay=failed')
+  }
 
   return (
     <main className="min-h-screen bg-tm-bg px-4 py-10 text-slate-700 sm:px-6">

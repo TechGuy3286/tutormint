@@ -94,9 +94,13 @@ const TITLES: Record<FlowStepKey, { en: string; ur?: string }> = {
 export default function NewOnboardingFlow({
   seed,
   smsAvailable = true,
+  payFailed = false,
 }: {
   seed: string
   smsAvailable?: boolean
+  /** The tutor returned from a failed/cancelled fee payment — show one line on
+   *  the Complete Your Verification screen so they can try again (PR106-H3 §2). */
+  payFailed?: boolean
 }) {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -227,8 +231,23 @@ export default function NewOnboardingFlow({
     }
   }, [saveProfile, facts, stepKey, advanceFrom])
 
+  // PR106-H3 §3 — single-choice steps (Gender, Experience, …): one tap selects
+  // (turns green immediately) and auto-advances after ~0.3s. The fixed "Next"
+  // stays visible (the shell renders it) so a tutor who goes back can keep an
+  // earlier choice without re-tapping. Re-tapping within the window cancels the
+  // pending advance and re-picks. Multi-select steps do NOT use this.
+  const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (autoTimer.current) clearTimeout(autoTimer.current) }, [])
+  const pickSingle = useCallback((payload: Record<string, unknown>, patch: Partial<Facts>) => {
+    setFlowError(null)
+    setFacts((cur) => (cur ? { ...cur, ...patch } : cur)) // green now
+    if (autoTimer.current) clearTimeout(autoTimer.current)
+    autoTimer.current = setTimeout(() => { void saveAndNext(payload, patch) }, 300)
+  }, [saveAndNext])
+
   const goBack = useCallback(() => {
     setFlowError(null)
+    if (autoTimer.current) clearTimeout(autoTimer.current)
     if (stepKey === 'final') { setStepKey(ORDER[ORDER.length - 1]); return }
     if (!stepKey) return
     const i = ORDER.indexOf(stepKey)
@@ -306,7 +325,7 @@ export default function NewOnboardingFlow({
             const on = facts.gender === val
             return (
               <button key={val} type="button" aria-pressed={on}
-                onClick={() => void saveAndNext({ tutorProfile: { gender: val } }, { gender: val })}
+                onClick={() => pickSingle({ tutorProfile: { gender: val } }, { gender: val })}
                 className={`min-h-[44px] rounded-full border-2 px-6 text-sm font-black transition-colors ${on ? `${fill} text-white` : 'border-gray-200 bg-white text-tm-navy hover:border-gray-300'}`}>
                 {label}
               </button>
@@ -369,7 +388,7 @@ export default function NewOnboardingFlow({
           const on = facts.experienceYears === b.years
           return (
             <button key={b.label} type="button" aria-pressed={on}
-              onClick={() => void saveAndNext({ tutorProfile: { experience_years: b.years } }, { experienceYears: b.years })}
+              onClick={() => pickSingle({ tutorProfile: { experience_years: b.years } }, { experienceYears: b.years })}
               className={`min-h-[44px] rounded-full border-2 px-5 text-sm font-bold transition-colors ${on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-gray-300'}`}>
               {b.years === 0 ? 'New to teaching' : `${b.label} years`}
             </button>
@@ -417,9 +436,16 @@ export default function NewOnboardingFlow({
     onSave={(headline, bio) => void saveAndNext({ tutorProfile: { headline, bio } }, { headline, bio })} />
 
   // ---------- COMPLETE YOUR VERIFICATION (final screen → PayPro directly) ----
-  if (stepKey === 'verify') return (
-    <GetVerifiedStep stepTotal={ORDER.length} onBack={goBack} />
-  )
+  if (stepKey === 'verify') {
+    // Reopening onboarding after the fee is paid goes to the dashboard — the
+    // pay screen (and its "Get verified now" button) is never shown again
+    // (PR106-H3 §2 / urgent fix).
+    if (facts.feePaid) {
+      void leave('/tutor/dashboard')
+      return <div className="fixed inset-0 z-[60] grid place-items-center bg-tm-bg text-xs font-bold text-gray-500">Loading…</div>
+    }
+    return <GetVerifiedStep stepTotal={ORDER.length} onBack={goBack} payFailed={payFailed} />
+  }
 
   // ---------- FINAL ----------
   return (
@@ -1172,8 +1198,8 @@ function TaglineStep({ facts, shell, onSave, onError, onDraft }: { facts: Facts;
 // open) shows one friendly line and keeps the button to retry. No CNIC card, no
 // bank/transfer, no pay-later exit, no TutorVerifyGate, no Urdu on this screen.
 // "What do I get?" opens the shared VerifyBenefitsDialog.
-function GetVerifiedStep({ stepTotal, onBack }: {
-  stepTotal: number; onBack: () => void
+function GetVerifiedStep({ stepTotal, onBack, payFailed = false }: {
+  stepTotal: number; onBack: () => void; payFailed?: boolean
 }) {
   const { start, busy, reason } = useVerifyCheckout()
   const [benefits, setBenefits] = useState(false)
@@ -1182,6 +1208,11 @@ function GetVerifiedStep({ stepTotal, onBack }: {
     <StepShell heading="Complete Your Verification" stepIndex={stepTotal} stepTotal={stepTotal}
       onBack={onBack} backDisabled={false} buttonLabel="Finish" onNext={() => {}} hideButton>
       <div className="space-y-4 text-center">
+        {payFailed && (
+          <p role="alert" className="rounded-xl border border-tm-red/30 bg-tm-tint-red px-3 py-2 text-xs font-semibold leading-relaxed text-tm-red-hover">
+            Your last payment didn&rsquo;t go through. Nothing was charged — please try again.
+          </p>
+        )}
         <p className="text-sm leading-relaxed text-gray-700">
           After verification, you can apply to tuitions and jobs and contact parents and employers directly. You pay no commission to TutorMint, and never pay anyone in TutorMint&rsquo;s name.
         </p>

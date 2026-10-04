@@ -22,11 +22,11 @@ export const dynamic = 'force-dynamic'
 export default async function CompleteProfilePage({
   searchParams,
 }: {
-  searchParams: Promise<{ step?: string }>
+  searchParams: Promise<{ step?: string; pay?: string }>
 }) {
   // Preserve the full path + query in `next` so a logged-out deep link like
   // ?step=city survives the sign-in round trip (owner PR5a §1.6).
-  const { step } = await searchParams
+  const { step, pay } = await searchParams
   const self = `/tutor/complete-profile${step ? `?step=${encodeURIComponent(step)}` : ''}`
 
   const supabase = await createClient()
@@ -50,7 +50,7 @@ export default async function CompleteProfilePage({
   const manual = await manualInstructions()
 
   if (newFlow) {
-    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} />
+    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} payFailed={pay === 'failed'} />
   }
 
   return (
