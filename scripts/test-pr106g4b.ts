@@ -33,7 +33,7 @@ test('the final screen is "Complete Your Verification": English-only, full progr
   const g = fnBody(FLOW, 'GetVerifiedStep')
   assert.match(g, /heading="Complete Your Verification"/, 'heading')
   assert.match(g, /You pay no commission to TutorMint/, 'the commission message')
-  assert.match(g, /Spam Free Platform Fee: Rs 199\. We keep TutorMint clean of fake and spam accounts\./, 'the fee line')
+  assert.match(g, /Spam Free Platform Fee\. We keep TutorMint clean of fake and spam accounts\./, 'the fee line (no amount — PR106-G6)')
   // HOTFIX-G4b: button label carries no amount; the failure line is the shared
   // reason-based message (see the dedicated HOTFIX test).
   assert.match(g, /Get verified now/, 'the one red button label, no amount')

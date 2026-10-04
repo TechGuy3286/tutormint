@@ -71,10 +71,10 @@ test('the error line fits 360px and the button carries no amount', () => {
   // error line: centred, side padding, wraps (bounded width) — not cut off at the edges
   assert.match(g, /mx-auto max-w-xs px-2 text-center text-xs font-semibold leading-relaxed text-tm-red/, 'error line wraps within 360px with padding')
   assert.match(g, /CHECKOUT_FAIL_MESSAGES\[reason\]/, 'uses the shared reason message')
-  // button carries no amount; the fee line is the only "Rs 199" on the screen
+  // button carries no amount (PR106-G6 §13 removed "Rs 199" from the fee line too)
   assert.match(g, /\{busy \? 'Starting…' : 'Get verified now'\}/, 'button label has no amount')
-  assert.equal((g.match(/Rs 199/g) || []).length, 1, 'Rs 199 appears once — the fee line only')
-  assert.match(g, /Spam Free Platform Fee: Rs 199/, 'the fee line keeps the amount')
+  assert.equal((g.match(/Rs 199/g) || []).length, 0, 'no amount anywhere on the final screen')
+  assert.match(g, /Spam Free Platform Fee\. We keep TutorMint clean of fake and spam accounts\./, 'fee line without the amount')
 })
 
 test('the dashboard card uses the same hardened hook + shared messages', () => {

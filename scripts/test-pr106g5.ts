@@ -15,7 +15,6 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 import { NEW_FLOW_ORDER } from '../lib/tutorFlow'
-import { COMMON_SLOTS } from '../lib/timeSlots'
 import { LOCKED_FIELD_MESSAGE } from '../lib/errorMessages'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -35,11 +34,11 @@ test('no "Finish later" and no skip links anywhere in the new onboarding', () =>
   assert.match(SHELL, /aria-label="Back"/, 'the back arrow is kept')
 })
 
-test('availability is mandatory, with a one-tap common default', () => {
+test('availability is mandatory (PR106-G6 §2: empty by default, no preselect)', () => {
   assert.match(FLOW, /function AvailabilityStep/, 'availability step exists')
   assert.match(FLOW, /nextDisabled: slots\.length === 0/, 'Next needs at least one slot')
-  assert.match(FLOW, /initial\.length > 0 \? initial : COMMON_SLOTS/, 'preselects the common default when none saved')
-  assert.ok(COMMON_SLOTS.length >= 1, 'COMMON_SLOTS is non-empty (so it is one tap)')
+  assert.match(FLOW, /useState<DaySlot\[\]>\(initial\)/, 'opens empty — only the tutor’s own saved slots prefill it')
+  assert.ok(!/COMMON_SLOTS/.test(FLOW), 'no preselected common slots any more')
 })
 
 test('the intro video step is not in the onboarding flow', () => {

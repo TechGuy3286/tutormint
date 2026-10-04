@@ -56,6 +56,7 @@
     "test:pr106g4b": "tsx --test scripts/test-pr106g4b.ts",
     "test:pr106g5": "tsx --test scripts/test-pr106g5.ts",
     "test:hotfixg4b": "tsx --test scripts/test-hotfix-g4b.ts",
+    "test:pr106g6": "tsx --test scripts/test-pr106g6.ts",
     "test:formchecklist": "tsx --test scripts/test-formchecklist.ts",
     "test:taxonomy:live": "tsx --test scripts/test-taxonomy-live.ts",
     "test:onboarding": "tsx --test scripts/test-onboarding.ts",

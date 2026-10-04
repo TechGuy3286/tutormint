@@ -8,12 +8,10 @@ import { Camera, Check, CreditCard, Image as ImageIcon, Loader2, Paperclip, Plus
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import { compressImage, compressUnder1MB } from '@/lib/imageCompress'
-import { isSyntheticEmail, normalisePkMobile } from '@/lib/phone'
+import { isSyntheticEmail, normalisePkMobile, looksLikeEmail } from '@/lib/phone'
 import { StepShell } from '@/components/onboarding/StepShell'
 import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
-import TaxonomySelector from '@/components/TaxonomySelector'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
-import EmailCard from '@/components/account/EmailCard'
 import VerifyBenefitsDialog from '@/components/tutor/VerifyBenefitsDialog'
 import { useVerifyCheckout, CHECKOUT_FAIL_MESSAGES } from '@/components/tutor/useVerifyCheckout'
 import { verificationFeeCardState } from '@/lib/tutorDashboard'
@@ -24,8 +22,8 @@ import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
-import { resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
-import { availabilityToSlots, slotsToAvailabilityList, COMMON_SLOTS, type DaySlot } from '@/lib/timeSlots'
+import { resolveMasterIds, fetchTaxonomyTree, fetchNonLegacyMasters, type TaxonomyNode } from '@/lib/taxonomy'
+import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
 import { NEW_FLOW_ORDER, firstMissingStep, nextMissingAfter, stepDone, type FlowStepKey } from '@/lib/tutorFlow'
 
 // The NEW tutor onboarding (PR106-G3c). A SEPARATE component from the live
@@ -56,6 +54,17 @@ type Facts = {
   whatsapp: string
   email: string
   feePaid: boolean
+  // PR106-G6 §5: watermarked preview URLs for the already-uploaded documents, so
+  // going back to the photo / selfie / CNIC steps shows a thumbnail, not an empty
+  // box. null when that side has nothing uploaded yet.
+  selfiePreview: string | null
+  cnicFrontPreview: string | null
+  cnicBackPreview: string | null
+  // PR106-G6 §1/§5: the subjects step's raw tap selection, held in the parent so
+  // going back then forward keeps an in-progress (unsaved) pick. Empty on load;
+  // the step prefills from the saved subjectIds on first open, then syncs here.
+  subjCats: string[]
+  subjByCat: Record<string, string[]>
 }
 
 const TITLES: Record<FlowStepKey, { en: string; ur?: string }> = {
@@ -108,12 +117,18 @@ export default function NewOnboardingFlow({
       router.push('/login?next=/tutor/onboarding')
       return null
     }
-    const [{ data: p }, { data: tp }, subj, selfie] = await Promise.all([
+    const [{ data: p }, { data: tp }, subj, docsRes] = await Promise.all([
       supabase.from('profiles').select('full_name, city, phone_verified_at, phone_number, whatsapp, email').eq('id', user.id).maybeSingle(),
       supabase.from('tutor_profiles').select('city, area, gender, avatar_url, headline, bio, experience_years, fee_min_pkr, fee_max_pkr, job_types, degrees, availability_list, verified_fee_paid_at').eq('id', user.id).maybeSingle(),
       supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
-      supabase.from('user_documents').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('kind', 'selfie'),
+      // All identity docs (selfie + CNIC front/back), newest first, so each
+      // step can prefill a thumbnail from the latest upload (§5).
+      supabase.from('user_documents').select('id, kind, label, created_at').eq('user_id', user.id).in('kind', ['selfie', 'cnic']).order('created_at', { ascending: false }),
     ])
+    const docs = (docsRes.data ?? []) as { id: string; kind: string; label: string | null }[]
+    const latest = (kind: string, label?: string) => docs.find((d) => d.kind === kind && (label === undefined || d.label === label))
+    const previewUrl = (id?: string) => (id ? `/api/documents/${id}/preview` : null)
+    const selfieDoc = latest('selfie')
     const email = (p?.email as string) ?? ''
     return {
       fullName: (p?.full_name as string) ?? null,
@@ -129,13 +144,18 @@ export default function NewOnboardingFlow({
       jobTypes: (tp?.job_types as string[] | null) ?? [],
       degrees: Array.isArray(tp?.degrees) ? (tp.degrees as unknown[]) : [],
       subjectIds: (subj.data ?? []).map((r) => r.master_id as number),
-      selfieDone: (selfie.count ?? 0) > 0,
+      selfieDone: !!selfieDoc,
       availability: availabilityToSlots(tp?.availability_list),
       phoneVerified: !!p?.phone_verified_at,
       phone: (p?.phone_number as string) ?? '',
       whatsapp: (p?.whatsapp as string) ?? '',
       email: isSyntheticEmail(email) ? '' : email,
       feePaid: !!tp?.verified_fee_paid_at,
+      selfiePreview: previewUrl(selfieDoc?.id),
+      cnicFrontPreview: previewUrl(latest('cnic', 'front')?.id),
+      cnicBackPreview: previewUrl(latest('cnic', 'back')?.id),
+      subjCats: [],
+      subjByCat: {},
     }
   }, [supabase, router])
 
@@ -299,7 +319,8 @@ export default function NewOnboardingFlow({
 
   // ---------- SUBJECTS & LEVELS ----------
   if (stepKey === 'level' || stepKey === 'subjects')
-    return <SubjectsStep initialIds={facts.subjectIds} busy={busy} shell={shell}
+    return <SubjectsStep initialIds={facts.subjectIds} draftCats={facts.subjCats} draftByCat={facts.subjByCat} shell={shell}
+      onDraft={(cats, byCat) => setFacts((f) => (f ? { ...f, subjCats: cats, subjByCat: byCat } : f))}
       onSave={(ids) => void saveAndNext({ subjectMasterIds: ids }, { subjectIds: ids })} />
 
   // ---------- TEACHING MODE ----------
@@ -375,16 +396,17 @@ export default function NewOnboardingFlow({
     onSave={(url) => void saveAndNext({ tutorProfile: { avatar_url: url } }, { avatarUrl: url })} />
 
   // ---------- SELFIE ----------
-  if (stepKey === 'selfie') return <SelfieStep done={facts.selfieDone} shell={shell} onError={setFlowError} onDone={() => void advanceAfter('selfie')} />
+  if (stepKey === 'selfie') return <SelfieStep done={facts.selfieDone} initialPreview={facts.selfiePreview} shell={shell} onError={setFlowError} onDone={() => void advanceAfter('selfie')} />
 
   // ---------- CNIC NUMBER ----------
   if (stepKey === 'cnic_number') return <CnicNumberStep shell={shell} onError={setFlowError} onDone={() => void advanceAfter('cnic_number')} />
 
   // ---------- CNIC PHOTOS ----------
-  if (stepKey === 'cnic_photos') return <NewCnicPhotos shell={shell} onError={setFlowError} onDone={() => void advanceAfter('cnic_photos')} />
+  if (stepKey === 'cnic_photos') return <NewCnicPhotos shell={shell} onError={setFlowError} initial={{ frontPreview: facts.cnicFrontPreview, backPreview: facts.cnicBackPreview }} onDone={() => void advanceAfter('cnic_photos')} />
 
   // ---------- TAGLINE & BIO (AI-written, editable) ----------
   if (stepKey === 'tagline') return <TaglineStep facts={facts} shell={shell} onError={setFlowError}
+    onDraft={(patch) => setFacts((f) => (f ? { ...f, ...patch } : f))}
     onSave={(headline, bio) => void saveAndNext({ tutorProfile: { headline, bio } }, { headline, bio })} />
 
   // ---------- COMPLETE YOUR VERIFICATION (final screen → PayPro directly) ----
@@ -522,47 +544,130 @@ function AreaStep({ city, initial, busy, shell, onSave }: { city: string; initia
 }
 
 // --------------------------------------------------------- Subjects & levels
-function SubjectsStep({ initialIds, busy, shell, onSave }: { initialIds: number[]; busy: boolean; shell: ShellFn; onSave: (ids: number[]) => void }) {
-  const [level, setLevel] = useState('')
-  const [grades, setGrades] = useState<string[]>([])
-  const [subjects, setSubjects] = useState<string[]>([])
+// PR106-G6 §1: the OLD flow's tap-tap selection, inside StepShell — level CHIPS
+// (the academic categories, multi-select), then subject CHIPS per chosen level
+// (grades are folded in, as the old flow does — every grade of a picked level is
+// taken). No dropdown, no grade step, no helper text. Selected chip = light green
+// + tick + deep-green border (OChip). The in-progress pick is held by the parent
+// (draftCats/draftByCat) so going back then forward keeps it; a returning tutor
+// with saved subjects is prefilled from them on first open.
+function SubjectsStep({ initialIds, draftCats, draftByCat, shell, onDraft, onSave }: {
+  initialIds: number[]; draftCats: string[]; draftByCat: Record<string, string[]>; shell: ShellFn
+  onDraft: (cats: string[], byCat: Record<string, string[]>) => void
+  onSave: (ids: number[]) => void
+}) {
+  const [tree, setTree] = useState<TaxonomyNode | null>(null)
+  const [selCats, setSelCats] = useState<string[]>(draftCats)
+  const [selByCat, setSelByCat] = useState<Record<string, string[]>>(draftByCat)
+  const [levelQ, setLevelQ] = useState('')
+  const [subjQ, setSubjQ] = useState('')
   const [tried, setTried] = useState(false)
-  const [ready, setReady] = useState(false)
+  const prefilled = useRef(draftCats.length > 0)
 
-  // Prefill from the tutor's existing master ids (first category), so a returning
-  // tutor sees their selection and does not lose it.
   useEffect(() => {
     let live = true
-    void (async () => {
-      if (initialIds.length > 0) {
+    void fetchTaxonomyTree().then((t) => { if (live) setTree(t) }).catch(() => {})
+    // First open with a saved selection and no draft yet → prefill from the saved
+    // master ids, grouped by every category taught. Later opens use the draft.
+    if (!prefilled.current && initialIds.length > 0) {
+      prefilled.current = true
+      void (async () => {
         try {
-          const sel = await selectionForMasterIds(initialIds)
-          if (live && sel?.category) { setLevel(sel.category); setGrades(sel.levels); setSubjects(sel.subjects ?? []) }
+          const masters = await fetchNonLegacyMasters()
+          const byId = new Map(masters.map((m) => [m.id, m]))
+          const cats: string[] = []
+          const byCat: Record<string, string[]> = {}
+          for (const id of initialIds) {
+            const m = byId.get(id)
+            if (!m || !m.subject) continue
+            if (!byCat[m.category]) { byCat[m.category] = []; cats.push(m.category) }
+            if (!byCat[m.category].includes(m.subject)) byCat[m.category].push(m.subject)
+          }
+          if (live && cats.length > 0) { setSelCats(cats); setSelByCat(byCat); onDraft(cats, byCat) }
         } catch { /* start empty */ }
-      }
-      if (live) setReady(true)
-    })()
+      })()
+    }
     return () => { live = false }
-  }, [initialIds])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const submit = async () => {
-    if (subjects.length === 0 || grades.length === 0) { setTried(true); return }
-    const ids = await resolveMasterIds(level || grades[0], grades, subjects)
-    if (ids.length === 0) { setTried(true); return }
-    onSave(Array.from(new Set(ids)))
+  const toggleCat = (cat: string) => {
+    const nextCats = selCats.includes(cat) ? selCats.filter((c) => c !== cat) : [...selCats, cat]
+    const nextByCat = { ...selByCat }
+    if (!selCats.includes(cat)) nextByCat[cat] = nextByCat[cat] ?? []
+    else delete nextByCat[cat]
+    setSelCats(nextCats); setSelByCat(nextByCat); onDraft(nextCats, nextByCat)
   }
+  const toggleSub = (cat: string, sub: string) => {
+    const cur = selByCat[cat] ?? []
+    const nextByCat = { ...selByCat, [cat]: cur.includes(sub) ? cur.filter((x) => x !== sub) : [...cur, sub] }
+    setSelByCat(nextByCat); onDraft(selCats, nextByCat)
+  }
+
+  const total = Object.values(selByCat).reduce((n, a) => n + a.length, 0)
+  const submit = async () => {
+    if (total === 0 || !tree) { setTried(true); return }
+    const all: number[] = []
+    for (const cat of selCats) {
+      const subs = selByCat[cat] ?? []
+      if (subs.length === 0) continue
+      const ids = await resolveMasterIds(cat, Object.keys(tree[cat] ?? {}), subs)
+      all.push(...ids)
+    }
+    const ids = Array.from(new Set(all))
+    if (ids.length === 0) { setTried(true); return }
+    onSave(ids)
+  }
+
+  const cats = tree ? Object.keys(tree) : []
+  const lq = levelQ.trim().toLowerCase()
+  const shownCats = lq ? cats.filter((c) => c.toLowerCase().includes(lq)) : cats
+  const sq = subjQ.trim().toLowerCase()
 
   return shell({
     onNext: () => void submit(),
+    nextDisabled: total === 0,
     children: (
-      <div className="space-y-3">
-        {!ready ? (
+      <div className="space-y-4">
+        {!tree ? (
           <p className="flex items-center justify-center gap-2 text-sm text-gray-500"><Loader2 size={14} className="animate-spin" aria-hidden /> Loading…</p>
         ) : (
           <>
-            <TaxonomySelector selectedLevel={level} setSelectedLevel={setLevel} selectedGrades={grades} setSelectedGrades={setGrades} selectedSubjects={subjects} setSelectedSubjects={setSubjects} />
-            {tried && subjects.length === 0 && (
-              <p className="text-center text-[11px] font-bold text-tm-red">Choose a level, a grade and at least one subject.<span lang="ur" dir="rtl" className="block font-semibold text-gray-500">ایک جماعت اور کم از کم ایک مضمون منتخب کریں۔</span></p>
+            {/* Level chips (categories) */}
+            <div className="space-y-2">
+              {cats.length > 6 && (
+                <input value={levelQ} onChange={(e) => setLevelQ(e.target.value)} placeholder="Search levels" aria-label="Search levels"
+                  className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-tm-navy" />
+              )}
+              <div className="flex flex-wrap justify-center gap-2">
+                {Array.from(new Set([...selCats, ...shownCats])).map((c) => (
+                  <OChip key={c} label={c} selected={selCats.includes(c)} onClick={() => toggleCat(c)} />
+                ))}
+              </div>
+            </div>
+            {/* Subject chips per chosen level (appear once a level is tapped) */}
+            {selCats.length > 0 && (
+              <div className="space-y-3">
+                <input value={subjQ} onChange={(e) => setSubjQ(e.target.value)} placeholder="Search subjects" aria-label="Search subjects"
+                  className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-tm-navy" />
+                {selCats.map((cat) => {
+                  const subs = Array.from(new Set(Object.keys(tree[cat] ?? {}).flatMap((g) => tree[cat][g] ?? []))).sort()
+                  const shown = sq ? subs.filter((s) => s.toLowerCase().includes(sq)) : subs
+                  return (
+                    <div key={cat} className="space-y-2">
+                      {selCats.length > 1 && <p className="text-[11px] font-bold text-gray-500">{cat}</p>}
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {shown.map((sub) => (
+                          <OChip key={`${cat}:${sub}`} label={sub} selected={(selByCat[cat] ?? []).includes(sub)} onClick={() => toggleSub(cat, sub)} />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {tried && total === 0 && (
+              <p className="text-center text-[11px] font-bold text-tm-red">Choose a level and at least one subject.<span lang="ur" dir="rtl" className="block font-semibold text-gray-500">ایک جماعت اور کم از کم ایک مضمون منتخب کریں۔</span></p>
             )}
           </>
         )}
@@ -675,11 +780,11 @@ function EducationStep({ initialDegrees, busy, shell, onSaved, onError }: { init
 }
 
 // ---------------------------------------------------------- Availability ----
-// Mandatory (PR106-G5 §1.3): "Next" is enabled only with at least one slot. A
-// tutor with saved slots keeps them; a tutor with none opens on the common
-// weekday-evening default, so the usual case is a single tap.
+// Mandatory (PR106-G5 §1.3): "Next" is enabled only with at least one slot.
+// PR106-G6 §2: NO slots are preselected — it opens empty (only the tutor's own
+// saved slots prefill it), so nothing is chosen on their behalf.
 function AvailabilityStep({ initial, busy, shell, onSave }: { initial: DaySlot[]; busy: boolean; shell: ShellFn; onSave: (s: DaySlot[]) => void }) {
-  const [slots, setSlots] = useState<DaySlot[]>(initial.length > 0 ? initial : COMMON_SLOTS)
+  const [slots, setSlots] = useState<DaySlot[]>(initial)
   return shell({
     onNext: () => onSave(slots),
     nextDisabled: slots.length === 0,
@@ -699,14 +804,19 @@ function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfil
   const screen = screens[sub]
   const next = () => { if (sub + 1 < screens.length) setSub(sub + 1); else onDone() }
 
-  const [whatsapp, setWhatsapp] = useState(facts.whatsapp)
+  // §5: keep what is typed when leaving and returning — sync to the parent draft.
+  const [whatsapp, setWhatsappRaw] = useState(facts.whatsapp)
+  const setWhatsapp = (v: string) => { setWhatsappRaw(v); setFacts((f) => (f ? { ...f, whatsapp: v } : f)) }
   const waValid = !!normalisePkMobile(whatsapp)
+  const [email, setEmailRaw] = useState(facts.email)
+  const setEmail = (v: string) => { setEmailRaw(v); setFacts((f) => (f ? { ...f, email: v } : f)) }
+  const emailValid = looksLikeEmail(email.trim().toLowerCase())
 
   if (screen === 'mobile') return <MobileVerifyScreen facts={facts} smsAvailable={smsAvailable} shell={shell} onError={onError} onVerified={async () => { await onRefresh(); next() }} />
 
   if (screen === 'whatsapp') return shell({
     headingEn: 'Your WhatsApp number', headingUr: 'آپ کا واٹس ایپ نمبر',
-    onNext: () => { if (whatsapp.trim()) void saveProfile({ profile: { whatsapp: normalisePkMobile(whatsapp) ?? whatsapp.trim() } }).then(() => { setFacts((f) => (f ? { ...f, whatsapp } : f)); next() }).catch(() => onError('We couldn’t save that. Please try again.')); else next() },
+    onNext: () => { if (whatsapp.trim()) void saveProfile({ profile: { whatsapp: normalisePkMobile(whatsapp) ?? whatsapp.trim() } }).then(() => next()).catch(() => onError('We couldn’t save that. Please try again.')); else next() },
     nextDisabled: !!whatsapp.trim() && !waValid,
     children: (
       <div className="space-y-2">
@@ -718,11 +828,27 @@ function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfil
     ),
   })
 
-  // email (optional) — no skip link; Next continues whether or not it is filled.
+  // email (optional) — PR106-G6 §3/§5/§6: one box, the fixed Next only. An empty
+  // Next continues (email is optional); a valid email sends the confirmation link
+  // then continues. No card, no sub-heading, no label, no separate send button.
+  const submitEmail = async () => {
+    const e = email.trim().toLowerCase()
+    if (!e) { next(); return }
+    if (!emailValid) { onError('Enter a valid email address, or leave it blank.'); return }
+    try {
+      const res = await fetch('/api/account/email', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: e }) })
+      if (!res.ok) { onError((await res.json().catch(() => ({}))).error ?? 'We couldn’t send the confirmation link. Please try again.'); return }
+    } catch { onError('We couldn’t send the confirmation link. Please try again.'); return }
+    next()
+  }
   return shell({
     headingEn: 'Your email', headingUr: undefined,
-    onNext: next,
-    children: <EmailCard />,
+    onNext: () => void submitEmail(),
+    children: (
+      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" aria-label="Your email"
+        inputMode="email" autoCapitalize="none" autoCorrect="off"
+        className={`min-h-[48px] w-full rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(fieldState({ value: email, valid: !email.trim() || emailValid }))}`} />
+    ),
   })
 }
 
@@ -760,9 +886,10 @@ function MobileVerifyScreen({ facts, smsAvailable, shell, onVerified, onError }:
 }
 
 // --------------------------------------------- shared capture buttons -------
-// PR106-G4a §1: a square tile + two colour-coded buttons — "Open camera" (navy)
-// and "Choose from gallery" (deep green). The tile is itself tappable (opens the
-// camera). No labels, no explanation — the photo is the confirmation.
+// PR106-G6 §7: a square preview tile, then TWO full-width buttons, one per row —
+// "Open camera" (navy) above "Choose from gallery" (deep green), each on one line
+// (no wrap). Once an image is added the labels become "Retake photo" / "Choose
+// another" so it is clear how to replace it. The tile is itself tappable (camera).
 function CaptureButtons({ facingMode, busy, done, preview, onPick }: {
   facingMode: 'user' | 'environment'; busy: boolean; done: boolean; preview: React.ReactNode | null; onPick: (f: File) => void
 }) {
@@ -770,25 +897,23 @@ function CaptureButtons({ facingMode, busy, done, preview, onPick }: {
   const galRef = useRef<HTMLInputElement>(null)
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) onPick(f); e.currentTarget.value = '' }
   return (
-    <div className="mx-auto w-44 space-y-3">
+    <div className="space-y-2.5">
       <button type="button" onClick={() => camRef.current?.click()} disabled={busy} aria-label="Take a photo"
-        className="relative block aspect-square w-full overflow-hidden rounded-2xl border-2 border-dashed border-gray-300 bg-tm-bg">
+        className="relative mx-auto block aspect-square w-40 overflow-hidden rounded-2xl border-2 border-dashed border-gray-300 bg-tm-bg">
         {preview ?? (
           <span className="grid h-full w-full place-items-center text-gray-500">
             {busy ? <Loader2 size={28} className="animate-spin" aria-hidden /> : done ? <Check size={28} aria-hidden /> : <Camera size={28} aria-hidden />}
           </span>
         )}
       </button>
-      <div className="grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => camRef.current?.click()} disabled={busy}
-          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-navy px-3 text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-50">
-          <Camera size={15} aria-hidden /> Open camera
-        </button>
-        <button type="button" onClick={() => galRef.current?.click()} disabled={busy}
-          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-green-deep px-3 text-xs font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-50">
-          <ImageIcon size={15} aria-hidden /> Choose from gallery
-        </button>
-      </div>
+      <button type="button" onClick={() => camRef.current?.click()} disabled={busy}
+        className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-tm-navy px-4 text-sm font-bold text-white hover:bg-tm-navy-hover disabled:opacity-50">
+        <Camera size={16} aria-hidden /> {done ? 'Retake photo' : 'Open camera'}
+      </button>
+      <button type="button" onClick={() => galRef.current?.click()} disabled={busy}
+        className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-tm-green-deep px-4 text-sm font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-50">
+        <ImageIcon size={16} aria-hidden /> {done ? 'Choose another' : 'Choose from gallery'}
+      </button>
       <input ref={camRef} type="file" accept="image/*" capture={facingMode} className="hidden" onChange={pick} />
       <input ref={galRef} type="file" accept="image/*" className="hidden" onChange={pick} />
     </div>
@@ -824,9 +949,9 @@ function PhotoStep({ seed, current, shell, onSave, onError }: { seed: string; cu
 }
 
 // ---------------------------------------------------------------- Selfie ----
-function SelfieStep({ done, shell, onDone, onError }: { done: boolean; shell: ShellFn; onDone: () => void; onError: (m: string) => void }) {
+function SelfieStep({ done, initialPreview, shell, onDone, onError }: { done: boolean; initialPreview: string | null; shell: ShellFn; onDone: () => void; onError: (m: string) => void }) {
   const toast = useToast()
-  const [preview, setPreview] = useState<string | null>(null)
+  const [preview, setPreview] = useState<string | null>(initialPreview)
   const [uploading, setUploading] = useState(false)
   const uploaded = done || !!preview
   async function upload(file: File) {
@@ -837,7 +962,7 @@ function SelfieStep({ done, shell, onDone, onError }: { done: boolean; shell: Sh
       const res = await fetch('/api/documents/upload', { method: 'POST', body })
       const data = await res.json().catch(() => null)
       if (!res.ok || !data?.previewUrl) throw new Error(data?.error || 'That photo could not be uploaded.')
-      setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
+      setPreview((old) => { if (old && old.startsWith('blob:')) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
       toast.success('Selfie uploaded.')
     } catch (e) { onError(e instanceof Error ? e.message : 'We couldn’t upload that selfie. Please try again.') } finally { setUploading(false) }
   }
@@ -885,10 +1010,18 @@ function CnicNumberStep({ shell, onDone, onError }: { shell: ShellFn; onDone: ()
 // verification line. The CNIC number was saved on the previous step, so the
 // server's save-number-first rule is already satisfied. Both sides upload to the
 // same /api/documents/upload (kind 'cnic'), then /api/identity submit finalises.
-function NewCnicPhotos({ shell, onDone, onError }: { shell: ShellFn; onDone: () => void; onError: (m: string) => void }) {
+// PR106-G6 §8: the two sides are STACKED vertically, each with its own English
+// label, box, and two FULL-WIDTH buttons ("Take a photo" navy over "Upload a
+// file" deep green) — never four small buttons on one line. A returning tutor
+// sees the saved side as a thumbnail (§5) and the labels read "Retake photo" /
+// "Choose another".
+function NewCnicPhotos({ shell, onDone, onError, initial }: {
+  shell: ShellFn; onDone: () => void; onError: (m: string) => void
+  initial: { frontPreview: string | null; backPreview: string | null }
+}) {
   const toast = useToast()
-  const [front, setFront] = useState(false)
-  const [back, setBack] = useState(false)
+  const [front, setFront] = useState(!!initial.frontPreview)
+  const [back, setBack] = useState(!!initial.backPreview)
   const [busy, setBusy] = useState(false)
   const submit = async () => {
     if (!front || !back) return
@@ -903,23 +1036,22 @@ function NewCnicPhotos({ shell, onDone, onError }: { shell: ShellFn; onDone: () 
   return shell({
     onNext: () => void submit(), nextDisabled: !front || !back,
     children: (
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <CnicSideCapture side="front" done={front} onDone={() => setFront(true)} onError={onError} />
-          <CnicSideCapture side="back" done={back} onDone={() => setBack(true)} onError={onError} />
-        </div>
+      <div className="space-y-5">
+        <CnicSideCapture side="front" initialPreview={initial.frontPreview} onDone={() => setFront(true)} onError={onError} />
+        <CnicSideCapture side="back" initialPreview={initial.backPreview} onDone={() => setBack(true)} onError={onError} />
         <div className="text-center"><TermsLink /></div>
       </div>
     ),
   })
 }
 
-function CnicSideCapture({ side, done, onDone, onError }: { side: 'front' | 'back'; done: boolean; onDone: () => void; onError: (m: string) => void }) {
+function CnicSideCapture({ side, initialPreview, onDone, onError }: { side: 'front' | 'back'; initialPreview: string | null; onDone: () => void; onError: (m: string) => void }) {
   const camRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const [preview, setPreview] = useState<string | null>(null)
+  const [preview, setPreview] = useState<string | null>(initialPreview)
   const [busy, setBusy] = useState(false)
-  const uploaded = done || !!preview
+  const has = !!preview
+  const label = side === 'front' ? 'Front of CNIC' : 'Back of CNIC'
   async function upload(file: File) {
     setBusy(true)
     try {
@@ -928,31 +1060,30 @@ function CnicSideCapture({ side, done, onDone, onError }: { side: 'front' | 'bac
       const res = await fetch('/api/documents/upload', { method: 'POST', body: fd })
       const j = await res.json().catch(() => ({}))
       if (!res.ok || !j.documentId) throw new Error(j.error ?? (res.status === 413 ? 'That photo was too large. Please try again.' : 'Upload failed.'))
-      setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
+      setPreview((old) => { if (old && old.startsWith('blob:')) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
       onDone()
     } catch (e) { onError(e instanceof Error ? e.message : 'We couldn’t upload that. Please try again.') } finally { setBusy(false) }
   }
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) void upload(f); e.currentTarget.value = '' }
   return (
     <div className="space-y-2">
-      <button type="button" onClick={() => camRef.current?.click()} disabled={busy} aria-label={`${side} of your CNIC`}
+      <p className="text-xs font-bold text-tm-navy">{label}</p>
+      <button type="button" onClick={() => camRef.current?.click()} disabled={busy} aria-label={label}
         className="relative block aspect-[1.6] w-full overflow-hidden rounded-xl border-2 border-dashed border-gray-300 bg-tm-bg">
-        {preview ? (<img src={preview} alt={`CNIC ${side}`} className="h-full w-full object-cover" />) : (
+        {preview ? (<img src={preview} alt={label} className="h-full w-full object-cover" />) : (
           <span className="grid h-full w-full place-items-center text-gray-500">
-            {busy ? <Loader2 size={22} className="animate-spin" aria-hidden /> : uploaded ? <Check size={22} aria-hidden /> : <Camera size={22} aria-hidden />}
+            {busy ? <Loader2 size={22} className="animate-spin" aria-hidden /> : <Camera size={22} aria-hidden />}
           </span>
         )}
       </button>
-      <div className="grid grid-cols-2 gap-1.5">
-        <button type="button" onClick={() => camRef.current?.click()} disabled={busy}
-          className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-lg bg-tm-navy px-2 text-[11px] font-bold text-white hover:bg-tm-navy-hover disabled:opacity-50">
-          <Camera size={13} aria-hidden /> Take a photo
-        </button>
-        <button type="button" onClick={() => fileRef.current?.click()} disabled={busy}
-          className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-lg bg-tm-green-deep px-2 text-[11px] font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-50">
-          <Paperclip size={13} aria-hidden /> Upload a file
-        </button>
-      </div>
+      <button type="button" onClick={() => camRef.current?.click()} disabled={busy}
+        className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-tm-navy px-4 text-sm font-bold text-white hover:bg-tm-navy-hover disabled:opacity-50">
+        <Camera size={16} aria-hidden /> {has ? 'Retake photo' : 'Take a photo'}
+      </button>
+      <button type="button" onClick={() => fileRef.current?.click()} disabled={busy}
+        className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-tm-green-deep px-4 text-sm font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-50">
+        <Paperclip size={16} aria-hidden /> {has ? 'Choose another' : 'Upload a file'}
+      </button>
       <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={pick} />
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pick} />
     </div>
@@ -964,11 +1095,23 @@ function CnicSideCapture({ side, done, onDone, onError }: { side: 'front' | 'bac
 // saved answers (POST /api/tutor/tagline → fallback composer on any failure).
 // Both fields are prefilled and fully editable; nothing is published unseen, and
 // "Rewrite with AI" re-asks. Saved with the step's Finish button.
-function TaglineStep({ facts, shell, onSave, onError }: { facts: Facts; shell: ShellFn; onSave: (headline: string, bio: string) => void; onError: (m: string) => void }) {
-  const [tagline, setTagline] = useState(facts.headline ?? '')
-  const [bio, setBio] = useState(facts.bio ?? '')
+function TaglineStep({ facts, shell, onSave, onError, onDraft }: { facts: Facts; shell: ShellFn; onSave: (headline: string, bio: string) => void; onError: (m: string) => void; onDraft: (patch: Partial<Facts>) => void }) {
+  const [tagline, setTaglineRaw] = useState(facts.headline ?? '')
+  const [bio, setBioRaw] = useState(facts.bio ?? '')
   const [loading, setLoading] = useState(false)
   const started = useRef(false)
+  const bioRef = useRef<HTMLTextAreaElement>(null)
+  // Keep the parent's draft in step (§5): going back then forward restores what
+  // was typed but not yet saved.
+  const setTagline = (v: string) => { setTaglineRaw(v); onDraft({ headline: v }) }
+  const setBio = (v: string) => { setBioRaw(v); onDraft({ bio: v }) }
+
+  // §6.11: the About-you box grows to fit the whole bio — no inner scrollbar; the
+  // page scrolls if needed. min-height ~8 lines so it uses the empty space.
+  useEffect(() => {
+    const el = bioRef.current
+    if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px` }
+  }, [bio])
 
   const generate = useCallback(async () => {
     setLoading(true)
@@ -978,6 +1121,7 @@ function TaglineStep({ facts, shell, onSave, onError }: { facts: Facts; shell: S
       if (r.ok && typeof j.tagline === 'string') { setTagline(j.tagline); setBio(typeof j.bio === 'string' ? j.bio : '') }
       else onError('We couldn’t write it just now — please type your own tagline and bio.')
     } catch { onError('We couldn’t write it just now — please type your own tagline and bio.') } finally { setLoading(false) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onError])
 
   // Auto-write once on open when either field is still blank (this step only
@@ -1001,13 +1145,12 @@ function TaglineStep({ facts, shell, onSave, onError }: { facts: Facts; shell: S
         </label>
         <label className="block space-y-1">
           <span className="block text-xs font-bold text-tm-navy">About you</span>
-          <textarea value={bio} rows={4} onChange={(e) => setBio(e.target.value)} aria-label="About you"
-            className={`w-full rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(fieldState({ value: bio }))}`} />
+          <textarea ref={bioRef} value={bio} rows={8} onChange={(e) => setBio(e.target.value)} aria-label="About you"
+            className={`min-h-[12rem] w-full resize-none overflow-hidden rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(fieldState({ value: bio }))}`} />
         </label>
         <button type="button" onClick={() => void generate()} disabled={loading}
           className="inline-flex items-center gap-1.5 text-[11px] font-bold text-tm-red underline-offset-2 hover:underline disabled:opacity-50">
           {loading ? <Loader2 size={13} className="animate-spin" aria-hidden /> : <Sparkles size={13} aria-hidden />} Rewrite with AI
-          <span lang="ur" dir="rtl" className="font-semibold text-gray-500">دوبارہ لکھوائیں</span>
         </button>
       </div>
     ),
@@ -1036,7 +1179,7 @@ function GetVerifiedStep({ stepTotal, onBack }: {
           After verification, you can apply to tuitions and jobs and contact parents and employers directly. You pay no commission to TutorMint, and never pay anyone in TutorMint&rsquo;s name.
         </p>
         <p className="rounded-xl bg-tm-tint-green/60 px-3 py-2 text-[12px] font-semibold leading-snug text-tm-green-deep">
-          Spam Free Platform Fee: Rs 199. We keep TutorMint clean of fake and spam accounts.
+          Spam Free Platform Fee. We keep TutorMint clean of fake and spam accounts.
         </p>
         <button type="button" onClick={() => void start()} disabled={busy}
           className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-red px-6 text-sm font-bold text-white hover:bg-tm-red-hover disabled:opacity-60">
@@ -1059,4 +1202,15 @@ function GetVerifiedStep({ stepTotal, onBack }: {
 
 function TermsLink() {
   return <Link href="/terms#identity" className="mt-2 inline-block text-[11px] font-bold text-tm-red underline-offset-2 hover:underline">Terms</Link>
+}
+
+// A tap chip for the subjects step (PR106-G6 §1/§2): selected = light green fill +
+// tick + deep-green border, matching the shared input colours.
+function OChip({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
+  return (
+    <button type="button" aria-pressed={selected} onClick={onClick}
+      className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-4 text-sm font-bold transition-colors ${selected ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}>
+      {selected && <Check size={14} aria-hidden />}{label}
+    </button>
+  )
 }
