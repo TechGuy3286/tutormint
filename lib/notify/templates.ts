@@ -297,7 +297,9 @@ export function render(input: TemplateInput): RenderedEmail {
           ? 'Admin'
           : input.role.toLowerCase() === 'operations'
             ? 'Operations team member'
-            : input.role
+            : input.role.toLowerCase() === 'tuitions_staff'
+              ? 'Tuitions team member'
+              : input.role
       const asRole = /^[aeiou]/i.test(roleName) ? `an ${roleName}` : `a ${roleName}`
       return build(
         `You have been invited to the TutorMint team`,

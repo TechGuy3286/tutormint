@@ -24,7 +24,7 @@ export type StaffRow = {
   id: string
   name: string
   email: string
-  adminRole: 'owner' | 'admin' | 'operations'
+  adminRole: 'owner' | 'admin' | 'operations' | 'tuitions_staff'
   suspended: boolean
   suspensionReason: string | null
   mustChangePassword: boolean
@@ -40,7 +40,17 @@ export type StaffRow = {
 const ROLES = [
   { code: 'admin', label: 'Admin', blurb: 'Full access everywhere except this screen' },
   { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, verifying, assisting, marketing, SEO' },
+  { code: 'tuitions_staff', label: 'Tuitions staff', blurb: 'Tuitions only — the board, posting, and their own activity' },
 ] as const
+
+// The badge pill is uppercased by CSS, so a raw 'tuitions_staff' would read
+// "TUITIONS_STAFF". Short, readable labels keyed by role.
+const ROLE_BADGE: Record<string, string> = {
+  owner: 'Owner',
+  admin: 'Admin',
+  operations: 'Operations',
+  tuitions_staff: 'Tuitions',
+}
 
 // The invite link's lifetime — Supabase's default. Past it, the original link is
 // dead, so a pending invite older than this is shown as expired (resend it).
@@ -473,7 +483,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
             <div>
               <h2 className="text-sm font-black text-tm-navy">Grant a role to an existing member</h2>
               <p className="text-[11px] text-gray-500">
-                Search a tutor or parent by name or email and give them Admin or Operations. They
+                Search a tutor or parent by name or email and give them a staff role. They
                 keep their existing login.
               </p>
             </div>
@@ -611,7 +621,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
                       : 'bg-tm-tint-green text-tm-green-deep'
                   }`}
                 >
-                  {s.adminRole}
+                  {ROLE_BADGE[s.adminRole] ?? s.adminRole}
                 </span>
               </div>
             </div>

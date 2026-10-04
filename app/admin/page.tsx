@@ -4,7 +4,8 @@ import type { ComponentType } from 'react'
 
 import RevenueChart from '@/components/admin/charts/RevenueChart'
 import SignupsChart from '@/components/admin/charts/SignupsChart'
-import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
+import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadOverview } from '@/lib/adminOverview'
 import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
@@ -32,9 +33,15 @@ const TILE_STYLE: Record<string, { tone: TileTone; icon: ComponentType<{ size?: 
 
 export const dynamic = 'force-dynamic'
 
-export default async function AdminHome() {
-  const actor = await getAdminActor()
-  if (!actor) return null // the layout has already redirected
+export default async function AdminHome({
+  searchParams,
+}: {
+  searchParams: Promise<{ denied?: string }>
+}) {
+  // Overview figures are refused for the restricted tuitions_staff role — this
+  // guard redirects it to its own home (/admin/jobs). Full roles pass through.
+  const actor = await requireAdminRole(...SCREEN_ACCESS.overview)
+  const denied = (await searchParams).denied === '1'
 
   const overview = await loadOverview()
   if (!overview) {
@@ -61,6 +68,7 @@ export default async function AdminHome() {
 
   return (
     <div className="space-y-6">
+      {denied && <AccessDeniedNotice />}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-gray-500">
           Signed in as {actor.email} · role <strong>{actor.adminRole}</strong>

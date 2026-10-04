@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
 import { adminJobFacets, adminJobPage, type AdminJobFilters } from '@/lib/adminJobs'
 
 import JobFilters from './JobFilters'
@@ -27,11 +28,13 @@ const PAGE_SIZE = 40
 export default async function AdminJobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; city?: string; subject?: string; featured?: string; postedBy?: string }>
+  searchParams: Promise<{ q?: string; status?: string; city?: string; subject?: string; featured?: string; postedBy?: string; denied?: string }>
 }) {
   await requireAdminRole(...SCREEN_ACCESS.jobs)
 
   const sp = await searchParams
+  // Shown when a restricted role was redirected here from a screen it cannot open.
+  const denied = sp.denied === '1'
   // Two tabs, always one active (3.8): parent-posted (the default) or team-posted.
   const postedBy = sp.postedBy === 'admin' ? 'admin' : 'parent'
   const filters: AdminJobFilters = {
@@ -62,6 +65,7 @@ export default async function AdminJobsPage({
 
   return (
     <div className="space-y-4">
+      {denied && <AccessDeniedNotice />}
       <header className="flex items-start justify-between gap-3">
         <p className="text-xs text-gray-500">
           {total} {total === 1 ? 'tuition' : 'tuitions'}

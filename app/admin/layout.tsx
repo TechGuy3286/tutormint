@@ -92,7 +92,7 @@ export default async function AdminLayout({
       groups={groups}
       badges={badges}
       initialCollapsed={jar.get('tm_admin_nav')?.value === 'collapsed'}
-      roleLabel={actor.adminRole}
+      roleLabel={actor.adminRole === 'tuitions_staff' ? 'Tuitions' : actor.adminRole}
       email={actor.email}
       pageHead={pagehead}
       search={<AdminSearch />}

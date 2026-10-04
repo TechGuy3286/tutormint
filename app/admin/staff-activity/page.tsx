@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadStaffActivity } from '@/lib/staffActivity'
@@ -13,10 +14,15 @@ const ROLE_LABEL: Record<string, string> = {
   owner: 'Owner',
   admin: 'Admin',
   operations: 'Operations',
+  tuitions_staff: 'Tuitions staff',
 }
 
 export default async function StaffActivityPage() {
-  await requireAdminRole(...SCREEN_ACCESS.staffActivity)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.staffActivity)
+  // The restricted tuitions_staff role sees ONLY its own activity — not the
+  // team list. Send it straight to its own detail page, which refuses any
+  // other id for this role.
+  if (actor.adminRole === 'tuitions_staff') redirect(`/admin/staff-activity/${actor.id}`)
   const staff = await loadStaffActivity()
 
   return (

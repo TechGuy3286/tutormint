@@ -15,7 +15,10 @@ export const dynamic = 'force-dynamic'
 const Body = z.object({ code: z.string().min(1).max(20) })
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole()
+  // Any signed-in staff account uses its OWN backup code (keyed by
+  // gate.actor.id). checkAdminRole() with no args is owner-only, which wrongly
+  // denied non-owner staff the lost-phone path (PR106-H2).
+  const gate = await checkAdminRole('admin', 'operations', 'tuitions_staff')
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const limit = await rateLimit('otp_verify', `mfa-backup:${gate.actor.id}:${callerIp(request)}`)

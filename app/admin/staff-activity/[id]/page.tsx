@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -31,8 +31,13 @@ export default async function StaffDetailPage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ action?: string; period?: string; from?: string; to?: string }>
 }) {
-  await requireAdminRole(...SCREEN_ACCESS.staffActivity)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.staffActivity)
   const { id } = await params
+  // tuitions_staff may read ONLY its own activity — any other id is refused
+  // (bounced to its own), so the self-scope holds even on a direct URL.
+  if (actor.adminRole === 'tuitions_staff' && id !== actor.id) {
+    redirect(`/admin/staff-activity/${actor.id}`)
+  }
   const sp = await searchParams
 
   const admin = createAdminClient()

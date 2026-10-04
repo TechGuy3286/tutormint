@@ -18,6 +18,7 @@
 // resolving it here would mean importing the module that cannot be bundled.
 
 export type AdminScreen =
+  | 'overview'
   | 'tutors'
   | 'parents'
   | 'users'
@@ -58,7 +59,9 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Overview',
     color: 'navy', // #151E6B
     items: [
-      { href: '/admin', label: 'Overview', icon: 'gauge' },
+      // `screen: 'overview'` keeps the figures off the restricted tuitions_staff
+      // role (which cannot see Overview); every full role still has it.
+      { href: '/admin', label: 'Overview', icon: 'gauge', screen: 'overview' },
       // No `screen`: every staff member can open their own two-factor screen
       // (PR50 §2), including a non-owner who never sees the Team page.
       { href: '/admin/security', label: 'Two-factor', icon: 'shieldCheck' },

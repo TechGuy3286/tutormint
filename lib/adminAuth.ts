@@ -12,11 +12,27 @@
 // 'manager' was renamed to 'admin' and 'support' + 'finance' were deleted
 // (migrations 83, 84). 'owner' satisfies every check, so callers list the
 // specific roles that also qualify and never have to remember to add owner.
+//
+// tuitions_staff (owner, PR106-H2) — a RESTRICTED role: the tuition board, Post
+// a tuition, and Staff activity filtered to ONLY their own actions, plus their
+// own Two-factor page and sign out. Everything else is refused on the SERVER,
+// not just hidden. It is in SCREEN_ACCESS only for jobs/jobsPost/jobsMutate and
+// staffActivity (self-scoped in the page), so every other screen's guard fails
+// for it exactly as it does for a role that was never listed.
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import {
+  type AdminRole,
+  roleSatisfies,
+  adminHomeFor,
+  SCREEN_ACCESS,
+} from '@/lib/adminAccessCore'
 
-export type AdminRole = 'owner' | 'admin' | 'operations'
+// The pure access matrix lives in lib/adminAccessCore (no server imports, so it
+// is unit-testable). Re-exported here so every existing `@/lib/adminAuth`
+// importer is unchanged.
+export { type AdminRole, roleSatisfies, adminHomeFor, SCREEN_ACCESS }
 
 export type AdminActor = {
   id: string
@@ -53,20 +69,20 @@ export async function getAdminActor(): Promise<AdminActor | null> {
   }
 }
 
-export function roleSatisfies(actorRole: AdminRole, allowed: AdminRole[]): boolean {
-  return actorRole === 'owner' || allowed.includes(actorRole)
-}
-
 /**
  * For SERVER COMPONENTS. Redirects rather than returning an error:
  *   not an admin at all -> '/' (the admin area is not worth advertising)
- *   an admin without the right sub-role -> '/admin', which lands them on a
- *   screen they can actually use.
+ *   an admin without the right sub-role -> the role's home (adminHomeFor),
+ *   with ?denied=1 so the destination can say so in words.
  */
 export async function requireAdminRole(...allowed: AdminRole[]): Promise<AdminActor> {
   const actor = await getAdminActor()
   if (!actor) redirect('/')
-  if (!roleSatisfies(actor.adminRole, allowed)) redirect('/admin')
+  if (!roleSatisfies(actor.adminRole, allowed)) {
+    // Land them on a screen they CAN open (per role), and flag it so the
+    // destination can say "You don't have access to this page." in words.
+    redirect(`${adminHomeFor(actor.adminRole)}?denied=1`)
+  }
   return actor
 }
 
@@ -87,82 +103,3 @@ export async function checkAdminRole(
   return { ok: true, actor }
 }
 
-/**
- * Which screen each role may open. Drives the nav and the guards.
- *
- * The tree (owner, 14 Sep 2026): 'admin' has FULL ACCESS EVERYWHERE EXCEPT the
- * Team screen — so every entry below except `team` includes 'admin'.
- * 'operations' is office staff (posting tuitions, verifying, assisting,
- * marketing, SEO) and holds the day-to-day subset. `team` is `[]`, which
- * roleSatisfies() admits ONLY for the owner — so an Admin cannot open Team, add
- * staff, change a role or remove anyone, enforced here, not just in the nav.
- */
-export const SCREEN_ACCESS = {
-  // Verifying tutors and parents — operations' core work.
-  tutors: ['admin', 'operations'] as AdminRole[],
-  parents: ['admin', 'operations'] as AdminRole[],
-  // Money — admin (and owner) only, never operations.
-  plans: ['admin'] as AdminRole[],
-  plansMutate: ['admin'] as AdminRole[],
-  // Reading the payments screen and the subscription ledger.
-  payments: ['admin'] as AdminRole[],
-  // Approving / rejecting a manual bank transfer (PR98 §4 restores the human
-  // step). Money, so admin (and owner) only — never operations. "finance" in the
-  // owner's note maps here: that role was deleted (14 Sep), folded into admin.
-  // The route also requires a fresh password (lib/reauth) like every money action.
-  paymentsApprove: ['admin'] as AdminRole[],
-  // The bank-transfer details setting — the account members are told to pay
-  // into. Same money-level permission as approvals.
-  paymentsSettings: ['admin'] as AdminRole[],
-  // The "open payments" switches (PR105 §1) — opening checkout to ALL members is
-  // an owner decision. `[]` + roleSatisfies = owner only.
-  paymentsSwitches: [] as AdminRole[],
-  // Staff management is the ONE thing an Admin does not get. `[]` +
-  // roleSatisfies() = owner only, with no magic string.
-  team: [] as AdminRole[],
-  // Assisting — reports, the Team inbox, the member directory and its worklists.
-  reports: ['admin', 'operations'] as AdminRole[],
-  inbox: ['admin', 'operations'] as AdminRole[],
-  // The tuition board. Operations posts and works it day-to-day; MUTATE
-  // (closing/removing a tuition, which destroys its applications) stays admin.
-  jobs: ['admin', 'operations'] as AdminRole[],
-  jobsMutate: ['admin'] as AdminRole[],
-  jobsPost: ['admin', 'operations'] as AdminRole[],
-  users: ['admin', 'operations'] as AdminRole[],
-  // Staff performance across the team — a management view, so admin (and owner)
-  // only, not operations.
-  staffActivity: ['admin'] as AdminRole[],
-  orphans: ['admin', 'operations'] as AdminRole[],
-  signups: ['admin', 'operations'] as AdminRole[],
-  // Exporting the directory carries mobile numbers off the platform — admin
-  // only, and audit-logged.
-  usersExport: ['admin'] as AdminRole[],
-  audit: ['admin'] as AdminRole[],
-  // SEO — operations' work (landing pages, locations).
-  seo: ['admin', 'operations'] as AdminRole[],
-  // Publishing a tutor's video / moving a public URL are irreversible SEO
-  // decisions — admin only, above the verifying operations does.
-  videoVisibility: ['admin'] as AdminRole[],
-  tutorSlug: ['admin'] as AdminRole[],
-  // Editing a tutor's locked step-1 fields (mobile, CNIC, pictures, subjects,
-  // city, areas) from /admin/tutors/[id] — operations' verifying work, so both
-  // admin and operations (PR83 Part B). The member field-locks (PR72) stay for
-  // members; staff write via the service role, which bypasses them.
-  tutorEdit: ['admin', 'operations'] as AdminRole[],
-  // Marketing — ads, social posts and bulk onboarding are operations' work.
-  ads: ['admin', 'operations'] as AdminRole[],
-  social: ['admin', 'operations'] as AdminRole[],
-  import: ['admin', 'operations'] as AdminRole[],
-  // Permanent junk-account deletion is the one admin action with NO undo, so it
-  // is OWNER ONLY (owner PR12 §2.4, restoring the T7b rule — this supersedes the
-  // 14 Sep note that made it admin). `[]` + roleSatisfies() = owner and nobody
-  // else, the same pattern as `team`; the cleanup route and the /admin/users
-  // "suspicious" filter both read this key, so an Admin gets neither the UI nor
-  // the DELETE.
-  cleanup: [] as AdminRole[],
-  // The blog CMS — SEO/marketing content, operations' work end to end.
-  blog: ['admin', 'operations'] as AdminRole[],
-  blogPublish: ['admin', 'operations'] as AdminRole[],
-  blogQueue: ['admin', 'operations'] as AdminRole[],
-  blogGenerate: ['admin', 'operations'] as AdminRole[],
-}

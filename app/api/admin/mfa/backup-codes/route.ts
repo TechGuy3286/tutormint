@@ -16,7 +16,11 @@ import { logAdminAction } from '@/lib/auditLog'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole()
+  // Any signed-in staff account manages its OWN 2FA (keyed by gate.actor.id
+  // below). checkAdminRole() with no args is owner-only, which wrongly denied
+  // non-owner staff their backup codes (PR106-H2) — list every staff role so
+  // owner/admin/operations/tuitions_staff all qualify.
+  const gate = await checkAdminRole('admin', 'operations', 'tuitions_staff')
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   let regenerate = false
