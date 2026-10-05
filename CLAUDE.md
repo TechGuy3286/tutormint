@@ -6139,3 +6139,120 @@ number (so no SMS could be sent).
   hotfix's scope, reported. Mobile remains required.
 
 **Live checks (5 Oct 2026).** `/login` (mobile UA): exactly one "Forgot password?" link, placed between the password input and "Remember me"; the old centred line is gone; no explanation text. `/forgot-password`: heading "Reset your password", both tabs (By mobile / By email), a Mobile number field and "Send code", the old explanation paragraph and the "If that number has an account…" box gone. Screens 2 and 3 are client-rendered after a request, so they were not fetched as HTML; the three server actions behind them were driven live with a NON-MEMBER number (03001112233 — 0 profiles, confirmed by SELECT first), so no SMS could be sent: request → `{success:true}` 200 (the same next screen); five wrong codes → 4,3,2,1 attempts left, then 429 "Too many wrong tries. Please request a new code." with Urdu, and a sixth try stays locked; a new request cancels the locked code (the next wrong try is 400 with 4 left again); the fourth request in the day → 429 "You have reached today’s limit of 3 codes…" with Urdu and the wa.me/923215872222 support link. Expiry: an expired decoy row planted for a second non-member number → `check` answers 400 "This code has expired. Please request a new one." with Urdu. Every row the test left had `user_id` null (decoys — nothing dispatched; `channel=decoy`); all four test rows were deleted afterwards. **Not driven:** a real member's reset end to end (no SMS can be driven here) — the confirm path (password set, other sessions revoked, magic-link sign-in, dashboard toast) rests on tsc, the build and the identical mechanism the signup verify route uses live; the email tab was not changed and an email-only account's link is the same `resetPasswordForEmail` call as before; the onboarding email screen needs a tutor session, so its "Next with email empty" rests on the unchanged `submitEmail` (empty → `next()`) and the completion % on `test:completion`.
+
+## Google Jobs and indexing, real 404s, sitemap cleanup, email optional for parents, one listing source (owner, 5 Oct 2026)
+
+Migration 138 (additive: an `updated_at` trigger on `tutor_profiles`; applied
+live before the push). Gates at close: tsc 0 · next build 0 · check:contrast
+118 · EVERY offline suite green — 57 suites including `test:pr106e` — plus the
+new live `test:directory:live` (68 accounts, 0 disagreements). No browser was
+driven; live checks were HTML fetches.
+
+**Audit (read-only, 5 Oct 2026, before any change).**
+- Tuitions: open 582 · paused 48 (all 48 carry `paused_at`; 1 by an admin
+  action, the rest by the daily auto-pause sweep — the data-op pause touched 0)
+  · closed 34 · hired 0. Live pages: the open one (TM-1683) was 200, no robots
+  tag, JobPosting present with `datePosted` and `validThrough` = +15 days; the
+  closed (TM-1034) and paused (TM-1097) ones were 200, `noindex, follow`, no
+  JobPosting. Item 2 was therefore already as specified (PR28/PR89): confirmed,
+  not rewritten.
+- Tutors (66 tutor-role accounts): 100% complete 1 · fee paid 5 · CNIC approved
+  13 · photo approved 12 · selfie approved 12 · all three approved 11 · ALL
+  conditions (100% + fee + three approvals) 1 · in the directory 45. Sitemap
+  `/tutor/` URLs: 1, none noindex.
+- Sitemap: 938 URLs — static 9 · tutor 1 · tuition detail 582 · tuition landing
+  223 · tutor landing 119 · blog 4. Fetching every URL: 0 non-200; 11 noindex,
+  all tuition landing pages (`/tuitions/lahore/grade-4-…`, `grade-5-…`) — the
+  cached combination set said ≥ 3 while the page's own count had dropped below
+  it after the auto-pause sweep.
+- Landing combinations (live view): tutors 551 (1–2 results: 432 · 3+: 119);
+  tuitions 642 (1–2: 358 · 3+: 284). There is no 0 bucket — the view only holds
+  combinations with at least one listing.
+- Noindex emitters: the auth/dashboard/account/admin surfaces (per-page robots),
+  `/parent/[id]`, cluster-filtered `/blog`, `/membership-plans`, the two
+  not-found pages, and conditionally the tutor profile (under review / not
+  indexable), the tuition page (not open / fixture / thin) and the blog post
+  (missing).
+- SOFT 404s, the real finding: a fake tutor slug, a fake tuition slug and a
+  missing blog post all returned HTTP **200** with `noindex` and the branded
+  not-found body. Cause: `app/(site)/loading.tsx` (PR1's logo loader) is a
+  Suspense boundary over every (site) page, so the response streamed as 200
+  before `notFound()` ran (Next: "once streaming has started the status can't
+  change"). The owner's draft blog post row no longer exists (only the 4
+  published posts remain), so its URL is simply a missing post.
+
+- **2 JobPosting only on live tuitions** — verified as built: `tuitionPublicState`
+  emits JobPosting (with `datePosted` and `validThrough` = `coalesce(resumed_at,
+  created_at)` + 15 days, plus hiringOrganization / employmentType / jobLocation /
+  baseSalary) only for `open`; paused/closed/hired render 200, noindex, no
+  JobPosting, with similar open tuitions; resuming restores it with a fresh
+  validThrough. **Non-open tuitions are not in the sitemap at all** (item 6), so
+  "lastmod updates on the status change" has nothing to update — the Indexing
+  API notification (item 3) is the recrawl signal; reported, not altered.
+- **3 Indexing API** — `lib/googleIndexing.ts`: `notifyUrlUpdated(url)` posts
+  `URL_UPDATED` through `googleapis` with a service-account JWT, and
+  `queueIndexingUpdate(job)` runs it in `after()` (detached outside a request),
+  so no user action ever waits on Google. Wired at every status change:
+  `createJob`, `createTeamJob` (published), `closeJob`, `resumeJob`,
+  `hireApplicant`, the daily `pauseStaleTuitions` sweep (auto-paused) and the
+  admin close/pause/resume action. Without credentials every call is skipped
+  and ONE log line says so per process. **Setup for Alee:** (1) in Google Cloud
+  enable the "Web Search Indexing API"; (2) create a service account and a JSON
+  key; (3) in Search Console add the service account's email as an OWNER of the
+  www.tutormint.org property; (4) in Vercel set `GOOGLE_INDEXING_CLIENT_EMAIL`
+  (the service account email) and `GOOGLE_INDEXING_PRIVATE_KEY` (the JSON key's
+  `private_key`; literal `\n` is accepted) and redeploy.
+- **4 Real 404s** — `app/(site)/loading.tsx` is removed (the per-route
+  skeletons for Browse, the dashboards and the inboxes stay), so `notFound()`
+  returns a real 404 with the branded page and noindex for a missing/unpublished
+  blog post, a non-existent tuition slug and a non-existent tutor slug. Retired
+  tutor slugs keep their 308. A PAUSED (suspended), banned, hidden or unclaimed
+  tutor whose slug still exists renders the branded not-found body with **200 +
+  noindex** explicitly (`tutorSlugExists`), as before; a rejected tutor renders
+  normally with noindex.
+- **5 Tutor profile indexing rule** — unchanged and confirmed:
+  `tutorProfileIndexable` (100% + fee + CNIC/photo/selfie approved, never seed
+  or under review) drives both the page's robots and `listed_tutor_slugs()` (the
+  sitemap); paused tutors are out of the views; rejected documents delist
+  (migration 137); test accounts are seed/hidden/paused. **Lastmod:**
+  `tutor_profiles.updated_at` was never maintained (no trigger, no app write),
+  so lastmod equalled created_at — migration 138 stamps it on every update.
+- **6 Sitemap = indexable 200s only** — landing pages: a city × subject with
+  fewer than 3 results now RENDERS (no more 404) with `noindex, follow` and is
+  left out of the sitemap; at 3 it is indexable and listed, automatically. Both
+  the page and the sitemap read the LIVE combination set
+  (`resolveLandingAny` / `liveLandingPagesUncached`), which removes the cache
+  mismatch behind the 11 noindex sitemap URLs. The cached set still serves the
+  link helper and the blog block. Sitemap before: 938 (static 9 · tutor 1 ·
+  tuition 582 · tuition landing 223 · tutor landing 119 · blog 4). After:
+  940 (static 9 · tutor 1 · tuition detail 584 · tuition landing 223 · tutor landing 119 · blog 4) — every one of the 940 fetched after the deploy returned 200 with no noindex (0 exceptions). The 11 noindex landing URLs are gone from the list; the sitemap grew only by the two tuitions posted since.
+- **7 Email optional for parents** — the parent checklist drops its email item
+  (6 items; a mobile-only complete parent is 100%, pinned in `test:completion`);
+  the shared `EmailCard` heading reads "Email (optional)" (no Urdu) for parents
+  and tutors alike. Confirmed by code: posting (`createJob`) gates on CNIC +
+  address, messaging and demo requests on the free verified plan (`ent.plan`),
+  and the parent Verified badge on `cnic_verified_at` — none reads an email.
+- **8 One listing source** — `directoryBlockers` now mirrors the
+  `tutor_directory` view condition for condition (role tutor, not suspended,
+  not banned, not under review, verification not suspended/rejected, claimed if
+  imported, not seed/team, not `hidden_from_public`, no rejected document);
+  the step-1 items migration 124 removed from the view (mobile, subjects, city,
+  area, gender) moved to `profileGaps`, a separate function, so no surface can
+  mistake a nudge for a listing reason. Callers aligned: entitlements (`visible`),
+  `loadDirectoryStatus` (blockers + gaps), the admin tutor queue, the plan clock
+  (`isTutorListable` = view + no gap + fee), the onboarding verdict and fix list,
+  and the admin moderation client no longer invents a listing blocker after
+  clearing a mobile. `npm run test:directory:live` compares the mirror with the
+  view for every account that has a tutor_profiles row and fails on any
+  difference (68 checked, 0 differ).
+- **9 test:pr106e** — the failing "file-and-approved gating" test grepped
+  `picOk` / `selfieOk`, two locals PR106-H4 deleted when it moved the badge rule
+  into the shared `lib/badgeRule` + `lib/tutorDocStatus` (and, by owner
+  decision, dropped the approval requirement). The test now pins the rule where
+  it lives — a status with no file reads as 'none', `docSubmitted` requires a
+  present file, and the badge is fee + submitted + not rejected — without
+  weakening it. Three more source scans still asserted pre-hotfix wording from
+  earlier today ("Forgot your password?", "Your email", the verified line that
+  moved into `VerifiedOnceBanner`) and were updated to the owner's new wording.
+
+**Live checks (5 Oct 2026).** Open tuition TM-1683: 200, no robots tag, JobPosting with validThrough 2026-10-20 (posted 5 Oct + 15 days). Closed TM-1034 and paused TM-1097: 200, `noindex, follow`, no JobPosting. Fake tutor slug, fake tuition slug, a missing blog slug and the former scheduling-test post slug: HTTP **404** with noindex and the branded page. Rejected (Tanveer Hassan) and paused (Test Tutor) profiles: 200 + `noindex, follow`. Indexable tutor (Ali Sabeer) is the one `/tutor/` URL in the sitemap; Tanveer is absent. Landing pages with 2 results (`/tuitions/islamabad/nursery-kg-ii-urdu` and three siblings): 200 + `noindex, follow`, absent from the sitemap; `/tuitions/lahore/grade-4-mathematics` (back at 3+ live) is indexable and listed. The full sitemap (940 URLs, a sample far beyond 50) fetched: 940 × 200, 0 noindex. Parent completion without email: `test:completion` pins 100%. Full suite: every offline suite green including `test:pr106e`; `test:directory:live` 68/68 agree. **Not driven:** a real Indexing API call (no credentials are set — the skip-and-log path is what runs today), a real status change end to end through the UI, and the onboarding/Settings screens (no session).
