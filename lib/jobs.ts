@@ -53,6 +53,7 @@ async function writeScheduleSlots(
 import { tutorAtIncomingCap, refuseIncomingRequest, recordIncoming } from '@/lib/incomingRequests'
 import { sendMatchEmails } from '@/lib/matchEmail'
 import { revalidateLanding } from '@/lib/landingRevalidate'
+import { queueIndexingUpdate } from '@/lib/googleIndexing'
 import { teamParentId } from '@/lib/teamAccount'
 import { buildJobContact } from '@/lib/jobContactCore'
 import { matchVisibility, isOnlineType } from '@/lib/matchChip'
@@ -323,6 +324,8 @@ export async function createJob(
 
   // A new open tuition can open a (city, subject) tuition landing page.
   revalidateLanding()
+  // Google Indexing API (item 3): published. Never blocks; skipped without credentials.
+  queueIndexingUpdate({ public_slug: (job.public_slug as string) ?? null, city: input.city })
 
   return { ok: true, id: job.id as string, jobTxId: job.job_tx_id as string }
 }
@@ -494,6 +497,7 @@ export async function createTeamJob(
 
   await notifyMatchingTutors(job.id as string, (job.public_slug as string) ?? null, input)
   revalidateLanding()
+  queueIndexingUpdate({ public_slug: (job.public_slug as string) ?? null, city: input.city })
 
   return {
     ok: true,
@@ -709,7 +713,7 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
 
   const { data: job } = await supabase
     .from('jobs')
-    .select('id, parent_id, status, title')
+    .select('id, parent_id, status, title, public_slug, city')
     .eq('id', jobId)
     .maybeSingle()
 
@@ -759,6 +763,7 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
   // A closed tuition can close its landing pages (drop the count below the
   // threshold), so refresh the landing cache.
   revalidateLanding()
+  queueIndexingUpdate({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
 
   return { ok: true }
 }
@@ -779,7 +784,7 @@ export async function resumeJob(parentId: string, jobId: string): Promise<{ ok: 
 
   const { data: job } = await supabase
     .from('jobs')
-    .select('id, parent_id, status')
+    .select('id, parent_id, status, public_slug, city')
     .eq('id', jobId)
     .maybeSingle()
 
@@ -805,6 +810,7 @@ export async function resumeJob(parentId: string, jobId: string): Promise<{ ok: 
   // Resuming can re-open a landing page (push a city×subject count back over the
   // threshold), so refresh the landing cache.
   revalidateLanding()
+  queueIndexingUpdate({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
 
   return { ok: true }
 }
@@ -828,7 +834,7 @@ export async function hireApplicant(
 
   const { data: job } = await supabase
     .from('jobs')
-    .select('id, parent_id, status, title, job_tx_id, ref_id')
+    .select('id, parent_id, status, title, job_tx_id, ref_id, public_slug, city')
     .eq('id', application.job_id as string)
     .maybeSingle()
 
@@ -992,6 +998,7 @@ export async function hireApplicant(
 
   // Hiring closes the tuition, so it may close a landing page.
   revalidateLanding()
+  queueIndexingUpdate({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
 
   // Counted only after the hire succeeded — same order as applications.
   await recordIncoming(application.tutor_id as string)

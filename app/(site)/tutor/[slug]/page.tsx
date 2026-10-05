@@ -1,5 +1,6 @@
 import Avatar from '@/components/Avatar'
 import Breadcrumbs from '@/components/Breadcrumbs'
+import NotFoundView from '@/components/NotFoundView'
 import UpgradeTrigger from '@/components/upgrade/UpgradeTrigger'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -286,7 +287,9 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params
   const tutor = await loadTutor(slug)
-  if (!tutor) return { title: pageTitle('Tutor not found') }
+  // A hidden profile (paused/suspended/banned/unclaimed) renders 200 + noindex;
+  // an unknown slug 404s — both carry noindex either way.
+  if (!tutor) return { title: pageTitle('Tutor not found'), robots: { index: false, follow: true } }
 
   // UNDER REVIEW renders but is NEVER indexed (owner, Part 6). Keeping the URL
   // alive protects the page from a single report; it does not publish the amber
@@ -357,6 +360,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       type: 'profile',
     }),
   }
+}
+
+/** Does ANY tutor_profiles row carry this slug (public or not)? Service role —
+ *  the table is owner-or-admin under RLS. Decides 200+noindex vs a real 404. */
+async function tutorSlugExists(slug: string): Promise<boolean> {
+  const admin = createAdminClient()
+  if (!admin) return false
+  const { data } = await admin.from('tutor_profiles').select('id').eq('slug', slug).limit(1).maybeSingle()
+  return !!data
 }
 
 /**
@@ -626,6 +638,11 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   if (!tutor) {
     const moved = await currentSlugForRetired(slug)
     if (moved && moved !== slug) permanentRedirect(`/tutor/${moved}`)
+    // A PAUSED (suspended), banned, hidden or unclaimed tutor's slug exists but
+    // is not public: keep 200 + noindex with the branded not-found body (owner,
+    // 5 Oct 2026, item 4 — "as now"), so an indexed URL never flaps. A slug that
+    // exists nowhere is a REAL 404 (notFound(), no streaming boundary above).
+    if (await tutorSlugExists(slug)) return <NotFoundView />
     notFound()
   }
 

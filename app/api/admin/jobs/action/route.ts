@@ -5,6 +5,7 @@ import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { notify } from '@/lib/notifications'
+import { queueIndexingUpdate } from '@/lib/googleIndexing'
 import { parseBody, z, uuid, text } from '@/lib/validate'
 
 // Close, pause/resume, or un-feature a tuition.
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
 
   const { data: job } = await admin
     .from('jobs')
-    .select('id, job_tx_id, title, status, is_featured, parent_id')
+    .select('id, job_tx_id, title, status, is_featured, parent_id, public_slug, city')
     .eq('id', jobId)
     .maybeSingle()
 
@@ -118,6 +119,11 @@ export async function POST(request: Request) {
 
   const { error } = await admin.from('jobs').update(patch).eq('id', jobId)
   if (error) return serverError(error, 'admin/jobs/action')
+
+  // Google Indexing API (item 3): a status change → URL_UPDATED, never blocking.
+  if (action === 'close' || action === 'pause' || action === 'resume') {
+    queueIndexingUpdate({ public_slug: (job.public_slug as string | null) ?? null, city: (job.city as string | null) ?? null })
+  }
 
   await logAdminAction({
     actorId: gate.actor.id,

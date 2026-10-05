@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { directoryBlockers, type ListingBlocker } from '@/lib/tutorListingStatus'
+import { directoryBlockers, profileGaps, type ListingBlocker } from '@/lib/tutorListingStatus'
 
 // Server loader for "is this ONE tutor in the public directory, and why not?"
 // It fetches exactly the facts the tutor_directory view keys on (migration 87)
@@ -10,16 +10,18 @@ import { directoryBlockers, type ListingBlocker } from '@/lib/tutorListingStatus
 // exists to close. The dashboard uses this; the admin LIST computes the same
 // blockers in a batch (no per-row round trip).
 
-export type DirectoryStatus = { listed: boolean; blockers: ListingBlocker[] }
+/** `blockers` mirror the view (why NOT listed); `gaps` are the step-1 profile
+ *  nudges (mobile, subjects, city, area, gender) — never listing reasons. */
+export type DirectoryStatus = { listed: boolean; blockers: ListingBlocker[]; gaps: ListingBlocker[] }
 
 export async function loadDirectoryStatus(userId: string): Promise<DirectoryStatus> {
   const admin = createAdminClient()
-  if (!admin) return { listed: false, blockers: [] }
+  if (!admin) return { listed: false, blockers: [], gaps: [] }
 
   const [{ data: prof }, { data: tp }, { data: subj }] = await Promise.all([
     admin
       .from('profiles')
-      .select('phone_verified_at, is_suspended, is_banned, is_seed, is_team_account, verification_state, profile_pic_status, selfie_status')
+      .select('role, phone_verified_at, is_suspended, is_banned, is_seed, is_team_account, hidden_from_public, verification_state, profile_pic_status, selfie_status')
       .eq('id', userId)
       .maybeSingle(),
     admin
@@ -33,7 +35,9 @@ export async function loadDirectoryStatus(userId: string): Promise<DirectoryStat
   // The step-1 completeness items (verified mobile, subjects, city, area, gender)
   // — still what a tutor needs to be FOUND ON GOOGLE and to earn their badge and
   // start their plan (PR89), now surfaced as a nudge rather than a listing gate.
-  const blockers = directoryBlockers({
+  const facts = {
+    role: (prof?.role as string | null) ?? null,
+    hiddenFromPublic: (prof?.hidden_from_public as boolean | null) ?? null,
     phoneVerified: !!prof?.phone_verified_at,
     hasSubjects: (subj ?? []).length > 0,
     city: (tp?.city as string | null) ?? null,
@@ -51,13 +55,13 @@ export async function loadDirectoryStatus(userId: string): Promise<DirectoryStat
     cnicRejected: ((prof?.verification_state as string | null) ?? '').toLowerCase() === 'rejected',
     photoRejected: ((prof?.profile_pic_status as string | null) ?? '').toLowerCase() === 'rejected',
     selfieRejected: ((prof?.selfie_status as string | null) ?? '').toLowerCase() === 'rejected',
-  })
-  // PR92: "listed" now means present in the public browse directory, which lists
-  // every real tutor — so it is read from the VIEW itself, not from the step-1
-  // completeness blockers above. A seed/suspended/banned/team/rejected tutor is
-  // absent from the view and reads as not listed.
+  }
+  // ONE SOURCE (item 8): the view decides; the mirror explains WHY. The live
+  // test (scripts/test-directory-live.ts) keeps the two in step.
+  const blockers = directoryBlockers(facts)
+  const gaps = profileGaps(facts)
   const { data: inDir } = await admin.from('tutor_directory').select('id').eq('id', userId).maybeSingle()
-  return { listed: !!inDir, blockers }
+  return { listed: !!inDir, blockers, gaps }
 }
 
 /**

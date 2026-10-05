@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next'
 import { createPublicClient } from '@/lib/supabase/public'
 import { citySegment } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
-import { liveLandingPages } from '@/lib/landing'
+import { liveLandingPagesUncached } from '@/lib/landing'
 import { publishedSlugs } from '@/lib/blogFeed'
 
 // The sitemap: every listed tutor and every open tuition.
@@ -74,7 +74,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ])
     tutors = (t ?? []) as typeof tutors
     jobs = (j ?? []) as typeof jobs
-    landing = (await liveLandingPages()) as typeof landing
+    // LIVE, not the cached set (owner, 5 Oct 2026, item 6): the landing pages
+    // decide their own noindex from the same live counts, so every landing URL
+    // listed here is indexable at the moment the sitemap is served.
+    landing = (await liveLandingPagesUncached()) as typeof landing
     posts = await publishedSlugs()
   } catch {
     // Leave the arrays empty; the static pages are still worth serving.

@@ -86,13 +86,27 @@ test('the admin review UI hides the decision controls when nothing was uploaded'
   assert.ok(/Not uploaded yet/.test(src), 'says so instead of showing Approve/Reject')
 })
 
-test('the Verified badge needs the files present AND approved (not approval alone)', () => {
-  const src = read('lib/badgeFacts.ts')
-  assert.ok(/avatar_url/.test(src), 'checks the photo file')
-  assert.ok(/kind.*selfie|selfie.*kind/.test(src) || /hasSelfieFile/.test(src), 'checks a real selfie file')
-  assert.ok(/hasSelfieFile/.test(src), 'selfie file set')
-  // picOk / selfieOk must combine approval with a present file.
-  assert.ok(/picOk/.test(src) && /selfieOk/.test(src), 'file-and-approved gating')
+test('the Verified badge needs the files present — a status without a file never earns it', () => {
+  // PR106-H4 moved the gating out of badgeFacts into the ONE shared rule
+  // (lib/badgeRule + lib/tutorDocStatus): the badge needs the fee AND every
+  // required document SUBMITTED (a real file) AND none blocked by a rejection;
+  // staff approval is no longer required (owner decision). This test used to
+  // grep the old `picOk` / `selfieOk` locals; it now pins the rule where it lives.
+  const facts = read('lib/badgeFacts.ts')
+  assert.ok(/avatar_url/.test(facts), 'reads the photo file')
+  assert.ok(/kind.*selfie|selfie.*kind/.test(facts) || /hasSelfieFile/.test(facts), 'reads a real selfie file')
+  assert.ok(/hasSelfieFile/.test(facts), 'selfie file set')
+  assert.ok(/tutorDocStatusesFromProfile\(/.test(facts) && /tutorVerifiedBadgeOk\(/.test(facts), 'goes through the shared rule')
+
+  const status = read('lib/tutorDocStatus.ts')
+  // A status with NO file reads as 'none' (so it can never count as submitted).
+  assert.ok(/hasFile \? /.test(status) && /: 'none'/.test(status), "no file → 'none'")
+  assert.ok(/filled\(p\.avatar_url\)/.test(status), 'the photo file is the avatar')
+  assert.ok(/cnicHasDocuments\(/.test(status), 'the CNIC file is number + image')
+
+  const rule = read('lib/badgeRule.ts')
+  assert.ok(/function docSubmitted[\s\S]*d\.present/.test(rule), 'submitted requires a present file')
+  assert.ok(/feePaid && tutorDocsSubmitted\(docs\) && !tutorDocRejected\(docs\)/.test(rule), 'fee + submitted + not rejected')
 })
 
 // ---------------------------------------------- STEP 3: one view count ---------

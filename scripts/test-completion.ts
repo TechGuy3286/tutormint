@@ -1,22 +1,15 @@
 /**
  * scripts/test-completion.ts — npm run test:completion
  *
- * The contact-email completion item: a real (non-synthetic) email counts for a
- * PARENT, a synthetic <msisdn>@users.tutormint.org does not, and the item's link
- * goes to Settings. A TUTOR has NO email item at all (owner hotfix, 5 Oct 2026):
- * email is optional in onboarding and the percentage never depends on it.
+ * Email never counts toward completion for EITHER role (owner, 5 Oct 2026): a
+ * tutor (15 items) and a parent (6 items) with only a verified mobile reach
+ * 100%. hasRealEmail stays the one predicate for "a real, sendable address".
  */
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import {
-  calculateTutorCompletion,
-  calculateParentCompletion,
-  checklistHref,
-  hasRealEmail,
-  type ChecklistItem,
-} from '../lib/profileChecklist'
+import { calculateTutorCompletion, calculateParentCompletion, hasRealEmail } from '../lib/profileChecklist'
 
 const REAL = 'aqsa@example.com'
 const SYNTH = '923001234567@users.tutormint.org'
@@ -28,12 +21,6 @@ test('hasRealEmail: real yes, synthetic no, empty no', () => {
   assert.equal(hasRealEmail(null), false)
   assert.equal(hasRealEmail(undefined), false)
 })
-
-function emailItem(items: ChecklistItem[]): ChecklistItem {
-  const it = items.find((i) => i.key === 'email')
-  assert.ok(it, 'an email item exists in the checklist')
-  return it!
-}
 
 // Everything a tutor can fill, with NO email anywhere.
 const FULL_TUTOR = {
@@ -53,36 +40,37 @@ test('tutor: there is NO email item — 15 items, and email never changes the %'
   assert.equal(noEmail.percent, 100, 'a complete tutor with only a synthetic email is 100%')
   const withEmail = calculateTutorCompletion({ ...FULL_TUTOR, profile: { ...FULL_TUTOR.profile, email: REAL } })
   assert.equal(withEmail.percent, 100, 'adding a real email changes nothing')
-  // A single missing item is the same % with or without an email on file.
   const noBio = calculateTutorCompletion({ ...FULL_TUTOR, tutorProfile: { ...FULL_TUTOR.tutorProfile, bio: '' } })
   const noBioEmail = calculateTutorCompletion({ ...FULL_TUTOR, profile: { ...FULL_TUTOR.profile, email: REAL }, tutorProfile: { ...FULL_TUTOR.tutorProfile, bio: '' } })
   assert.equal(noBio.percent, noBioEmail.percent)
   assert.equal(noBio.percent, 93)
 })
 
-test('parent: email item done with a real email, not with a synthetic one', () => {
-  assert.equal(emailItem(calculateParentCompletion({ profile: { email: REAL } }).items).done, true)
-  assert.equal(emailItem(calculateParentCompletion({ profile: { email: SYNTH } }).items).done, false)
-})
+// A parent with ONLY a verified mobile — the synthetic login address, no inbox.
+const MOBILE_ONLY_PARENT = {
+  profile: {
+    full_name: 'Aqsa',
+    city: 'Islamabad',
+    address: 'Somewhere',
+    cnic_number: '3520212345671',
+    cnic_image_path: 'set',
+    phone_verified_at: 'set',
+    email: SYNTH,
+  },
+}
 
-test('a mobile-signup PARENT (synthetic email) is asked for an email', () => {
-  // Everything else present, only the synthetic email: the email item is what is
-  // missing — the "ask for whichever contact detail is missing" case (§4.1).
-  const missing = calculateParentCompletion({
-    profile: {
-      full_name: 'Aqsa',
-      city: 'Islamabad',
-      address: 'Somewhere',
-      cnic_number: '3520212345671',
-      cnic_image_path: 'set',
-      phone_verified_at: 'set',
-      email: SYNTH,
-    },
-  }).missing
-  assert.deepEqual(missing.map((m) => m.key), ['email'])
-})
-
-test("the parent email item's link goes to Settings (not the gap flow)", () => {
-  const item = emailItem(calculateParentCompletion({}).items)
-  assert.match(checklistHref('parent', item), /\/parent\/dashboard\/settings#email$/)
+test('parent: a mobile-only complete parent is 100% — email is not an item (item 7)', () => {
+  const c = calculateParentCompletion(MOBILE_ONLY_PARENT)
+  assert.equal(c.items.length, 6)
+  assert.equal(c.items.some((i) => i.key === 'email'), false)
+  assert.equal(c.percent, 100)
+  assert.deepEqual(c.missing, [])
+  // A real email changes nothing either way.
+  const withEmail = calculateParentCompletion({ profile: { ...MOBILE_ONLY_PARENT.profile, email: REAL } })
+  assert.equal(withEmail.percent, 100)
+  // One missing item is the same % with or without an email.
+  const noAddress = calculateParentCompletion({ profile: { ...MOBILE_ONLY_PARENT.profile, address: '' } })
+  const noAddressEmail = calculateParentCompletion({ profile: { ...MOBILE_ONLY_PARENT.profile, address: '', email: REAL } })
+  assert.equal(noAddress.percent, noAddressEmail.percent)
+  assert.deepEqual(noAddress.missing.map((m) => m.key), ['address'])
 })

@@ -192,6 +192,67 @@ export async function liveLandingPages(): Promise<LandingCombo[]> {
 }
 
 /**
+ * The combinations read LIVE — no cache (owner, 5 Oct 2026, item 6). The
+ * sitemap and each landing page's own index/noindex decision read THIS, so the
+ * two can never disagree the way a per-instance cache let them (11 sitemap URLs
+ * were noindex at fetch time). The cached set above still serves the link helper
+ * and the blog block, where a few hours of staleness is harmless now that a
+ * below-threshold page renders (noindex) instead of 404ing.
+ */
+export async function liveCombinationsAllUncached(): Promise<LandingCombo[]> {
+  const db = createPublicClient()
+  const { data } = await db.from('landing_combinations').select('kind, city, master_id, n')
+  const { byMaster } = await subjectIndex()
+  const byKey = new Map<string, LandingCombo>()
+  for (const row of data ?? []) {
+    const meta = byMaster.get(row.master_id as number)
+    if (!meta) continue
+    const city = row.city as string
+    const combo: LandingCombo = {
+      kind: row.kind as LandingKind,
+      city,
+      citySlug: citySegment(city),
+      masterId: row.master_id as number,
+      subjectSlug: meta.slug,
+      subjectName: meta.name,
+      count: row.n as number,
+    }
+    const key = `${combo.kind}:${combo.citySlug}:${combo.subjectSlug}`
+    const existing = byKey.get(key)
+    if (!existing || combo.count > existing.count) byKey.set(key, combo)
+  }
+  return [...byKey.values()]
+}
+
+/** The sitemap's list: live, and only the pages at or above the threshold. */
+export async function liveLandingPagesUncached(): Promise<LandingCombo[]> {
+  return (await liveCombinationsAllUncached()).filter((c) => c.count >= LANDING_THRESHOLD)
+}
+
+/**
+ * Resolve a landing URL to its LIVE combination at ANY count ≥ 1 (item 6): the
+ * page renders whenever the city × subject has at least one listing, and the
+ * caller marks it noindex,follow below LANDING_THRESHOLD — it becomes indexable
+ * by itself once it reaches 3. Null only when there is nothing at all (404).
+ */
+export async function resolveLandingAny(
+  kind: LandingKind,
+  citySlug: string,
+  subjectSlug: string,
+): Promise<LandingCombo | null> {
+  const all = await liveCombinationsAllUncached()
+  return (
+    all.find((p) => p.kind === kind && p.citySlug === citySlug && p.subjectSlug === subjectSlug) ??
+    null
+  )
+}
+
+/** Is this combination indexable — at or above the threshold? */
+export function landingIndexable(combo: { count: number }): boolean {
+  return combo.count >= LANDING_THRESHOLD
+}
+
+/**
  * Live landing-page paths that match a blog post's city and subject (PR16 §6.4),
  * for the "Browse listings" block. Matches on city name and subject name
  * (case-insensitive), and only returns pages that actually exist (>= threshold),

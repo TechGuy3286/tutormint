@@ -36,7 +36,7 @@ import {
   badgesForPlan,
 } from '../lib/planBadges'
 import { isFixtureTuition } from '../lib/fixtures'
-import { directoryBlockers, isDirectoryListed, tutorFixFor } from '../lib/tutorListingStatus'
+import { directoryBlockers, isDirectoryListed, profileGaps, tutorFixFor } from '../lib/tutorListingStatus'
 import { BANNED_LOGIN_MESSAGE } from '../lib/authMessages'
 import { needsPhoneGate } from '../lib/phoneGate'
 
@@ -488,18 +488,24 @@ test('entitlements: a verified tutor whose CNIC lacks documents carries no Verif
 
 // --- visibility vs apply-rights (PR16 §1) ---
 
-test('entitlements: a verified tutor with NO subjects is NOT visible', () => {
+// ONE SOURCE (owner, 5 Oct 2026, item 8): visibility IS the tutor_directory
+// view's rule, which lists every real tutor account (migration 124). Missing
+// subjects / city / area / gender are profile gaps, not visibility blockers.
+test('entitlements: a verified tutor with NO subjects is still visible (gap, not blocker)', () => {
   const e = computeEntitlements(inputs({ hasSubjects: false }))
-  assert.equal(e.visible, false, 'a tutor with no subjects is invisible in search')
+  assert.equal(e.visible, true, 'the directory lists every real tutor')
+  assert.deepEqual(e.visibilityBlockers, [])
   assert.equal(e.verified, true, 'the fee is paid, so they can still apply')
   assert.equal(e.plan, 'basic', 'they still hold Basic — the fee is paid')
-  assert.ok(e.visibilityBlockers.includes('no_subjects'))
 })
 
-test('entitlements: a verified tutor with NO city / area / gender is NOT visible', () => {
-  assert.ok(computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, city: null } })).visibilityBlockers.includes('no_city'))
-  assert.ok(computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, area: null } })).visibilityBlockers.includes('no_area'))
-  assert.ok(computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, gender: null } })).visibilityBlockers.includes('no_gender'))
+test('entitlements: NO city / area / gender never blocks visibility; hidden / suspended do', () => {
+  assert.deepEqual(computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, city: null } })).visibilityBlockers, [])
+  assert.deepEqual(computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, area: null } })).visibilityBlockers, [])
+  assert.deepEqual(computeEntitlements(inputs({ tutorRow: { ...baseTutorRow, gender: null } })).visibilityBlockers, [])
+  const hidden = computeEntitlements(inputs({ profile: { ...baseTutor, hidden_from_public: true } }))
+  assert.equal(hidden.visible, false)
+  assert.deepEqual(hidden.visibilityBlockers, ['hidden'])
 })
 
 test('entitlements: a listed tutor has no listing blockers', () => {
@@ -589,32 +595,52 @@ test('isFixtureTuition: seed parent / JOB-TRK / SEED-JOB are fixtures; a team po
 
 // ------------------------------------------ directory listing bar (mig 87) ---
 
-// PR16 §1 — visibility facts: NO fee, plus area and gender.
+// ONE SOURCE (owner, 5 Oct 2026, item 8): directoryBlockers mirrors the
+// tutor_directory VIEW (migrations 127 + 137) exactly; the step-1 items are
+// profile GAPS (profileGaps), never listing reasons.
 const listedFacts = {
+  role: 'tutor',
   phoneVerified: true, hasSubjects: true, city: 'Lahore', area: 'Johar Town', gender: 'male',
   isSuspended: false, isBanned: false, underReview: false, verificationStatus: 'verified',
-  imported: false, claimedAt: null, isSeed: false, isTeamAccount: false,
+  imported: false, claimedAt: null, isSeed: false, isTeamAccount: false, hiddenFromPublic: false,
 }
 
-test('directoryBlockers: a mobile-verified tutor with subject/city/area/gender is visible (no fee needed)', () => {
+test('directoryBlockers: a real tutor account is listed (no fee, no step-1 requirement)', () => {
   assert.deepEqual(directoryBlockers(listedFacts), [])
   assert.equal(isDirectoryListed(listedFacts), true)
+  // An EMPTY profile is still listed — migration 124 lists every real tutor.
+  assert.deepEqual(directoryBlockers({ ...listedFacts, phoneVerified: false, hasSubjects: false, city: '', area: '', gender: null }), [])
 })
 
-test('directoryBlockers: each positive gate blocks on its own', () => {
+test('directoryBlockers: exactly the view\'s conditions, in its order', () => {
+  assert.deepEqual(directoryBlockers({ ...listedFacts, role: 'parent' }), ['not_tutor'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, role: 'admin' }), ['not_tutor'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, isSuspended: true }), ['suspended'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, isBanned: true }), ['banned'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, underReview: true }), ['under_review'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, verificationStatus: 'rejected' }), ['verification_rejected'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, verificationStatus: 'suspended' }), ['verification_rejected'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, verificationStatus: 'pending' }), [], 'pending verification still lists')
   assert.deepEqual(directoryBlockers({ ...listedFacts, isSeed: true }), ['fixture'])
   assert.deepEqual(directoryBlockers({ ...listedFacts, isTeamAccount: true }), ['fixture'])
-  assert.deepEqual(directoryBlockers({ ...listedFacts, hasSubjects: false }), ['no_subjects'])
-  assert.deepEqual(directoryBlockers({ ...listedFacts, city: '' }), ['no_city'])
-  assert.deepEqual(directoryBlockers({ ...listedFacts, city: '   ' }), ['no_city'], 'whitespace-only city is no city')
-  assert.deepEqual(directoryBlockers({ ...listedFacts, area: '' }), ['no_area'])
-  assert.deepEqual(directoryBlockers({ ...listedFacts, gender: null }), ['no_gender'])
-  assert.deepEqual(directoryBlockers({ ...listedFacts, phoneVerified: false }), ['phone_unverified'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, hiddenFromPublic: true }), ['hidden'])
+  // Several at once come back in the view's order.
+  assert.deepEqual(
+    directoryBlockers({ ...listedFacts, isBanned: true, isSuspended: true, hiddenFromPublic: true }),
+    ['suspended', 'banned', 'hidden'],
+  )
 })
 
-test('directoryBlockers: the fee is NOT a visibility gate (PR16 §1)', () => {
-  // A fee flag is not even part of ListingFacts any more; visibility ignores it.
-  assert.deepEqual(directoryBlockers(listedFacts), [], 'fee-unpaid tutor is still visible')
+test('profileGaps: the step-1 nudges, each on its own, never a listing reason', () => {
+  assert.deepEqual(profileGaps(listedFacts), [])
+  assert.deepEqual(profileGaps({ ...listedFacts, hasSubjects: false }), ['no_subjects'])
+  assert.deepEqual(profileGaps({ ...listedFacts, city: '' }), ['no_city'])
+  assert.deepEqual(profileGaps({ ...listedFacts, city: '   ' }), ['no_city'], 'whitespace-only city is no city')
+  assert.deepEqual(profileGaps({ ...listedFacts, area: '' }), ['no_area'])
+  assert.deepEqual(profileGaps({ ...listedFacts, gender: null }), ['no_gender'])
+  assert.deepEqual(profileGaps({ ...listedFacts, phoneVerified: false }), ['phone_unverified'])
+  // A gap is a fix link, not a blocker: the same facts list fine.
+  assert.deepEqual(directoryBlockers({ ...listedFacts, phoneVerified: false }), [])
 })
 
 test('directoryBlockers: an unclaimed import is blocked from the directory, in view order', () => {

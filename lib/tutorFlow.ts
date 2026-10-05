@@ -164,6 +164,12 @@ export type FlowFacts = {
   verificationStatus: string | null
   imported: boolean
   claimedAt: string | null
+  /** profiles.hidden_from_public (migration 126) — part of the directory rule. */
+  hiddenFromPublic?: boolean
+  /** Staff rejected the CNIC / picture / selfie (migration 137) — delists. */
+  cnicRejected?: boolean
+  photoRejected?: boolean
+  selfieRejected?: boolean
 }
 
 const nonblank = (v: string | null | undefined): boolean => !!(v && v.trim())
@@ -266,10 +272,15 @@ export function toListingFacts(f: FlowFacts): ListingFacts {
     claimedAt: f.claimedAt,
     isSeed: f.isSeed,
     isTeamAccount: f.isTeamAccount,
+    hiddenFromPublic: f.hiddenFromPublic ?? false,
+    cnicRejected: f.cnicRejected ?? false,
+    photoRejected: f.photoRejected ?? false,
+    selfieRejected: f.selfieRejected ?? false,
   }
 }
 
-/** The final screen's verdict: VISIBLE when directoryBlockers is empty (PR16 §1). */
+/** The final screen's verdict: LISTED when the directory view's rule holds
+ *  (directoryBlockers empty — item 8, one source). Step-1 gaps are nudges. */
 export function isListed(f: FlowFacts): boolean {
   return directoryBlockers(toListingFacts(f)).length === 0
 }

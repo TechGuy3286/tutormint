@@ -42,7 +42,7 @@ import {
   type FlowFacts,
   type FlowStepKey,
 } from '@/lib/tutorFlow'
-import { directoryBlockers, listingFixItems } from '@/lib/tutorListingStatus'
+import { directoryBlockers, profileGaps, listingFixItems } from '@/lib/tutorListingStatus'
 import LogoLoader from '@/components/LogoLoader'
 import { ChipSkeletons } from '@/components/Skeletons'
 
@@ -197,7 +197,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
     }
     const [{ data: p }, { data: tp }, subj, deg, self] = await Promise.all([
       supabase.from('profiles')
-        .select('full_name, city, cnic_number, cnic_image_path, phone_verified_at, phone_number, whatsapp, email, verification_state, is_seed, is_team_account, is_banned, is_suspended')
+        .select('full_name, city, cnic_number, cnic_image_path, phone_verified_at, phone_number, whatsapp, email, verification_state, is_seed, is_team_account, is_banned, is_suspended, hidden_from_public, profile_pic_status, selfie_status')
         .eq('id', user.id).maybeSingle(),
       supabase.from('tutor_profiles')
         .select('city, area, gender, avatar_url, headline, bio, experience_years, hourly_rate_pkr, fee_min_pkr, fee_max_pkr, job_types, degrees, availability_list, video_youtube_id, video_status, verified_fee_paid_at, under_review, verification_status, imported, claimed_at')
@@ -269,6 +269,10 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
       isTeamAccount: !!p?.is_team_account,
       isBanned: !!p?.is_banned,
       isSuspended: !!p?.is_suspended,
+      hiddenFromPublic: !!p?.hidden_from_public,
+      cnicRejected: ((p?.verification_state as string | null) ?? '').toLowerCase() === 'rejected',
+      photoRejected: ((p?.profile_pic_status as string | null) ?? '').toLowerCase() === 'rejected',
+      selfieRejected: ((p?.selfie_status as string | null) ?? '').toLowerCase() === 'rejected',
       underReview: !!tp?.under_review,
       verificationStatus: (tp?.verification_status as string) ?? null,
       imported: !!tp?.imported,
@@ -2107,7 +2111,10 @@ function FinalScreen({
   next?: string | null
 }) {
   const listed = isListed(facts)
-  const blockers = directoryBlockers(toListingFacts(facts))
+  // Item 8: "listed" is the view's rule; the fix list carries both the fixable
+  // directory blockers (a rejected document) and the step-1 profile gaps.
+  const lf = toListingFacts(facts)
+  const blockers = [...directoryBlockers(lf), ...profileGaps(lf)]
   const fixes = listingFixItems(blockers)
   return (
     <div className="space-y-5 pt-6 text-center">

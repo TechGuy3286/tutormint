@@ -85,7 +85,8 @@ export default function EmailCard() {
     <section id="email" className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 scroll-mt-24">
       <div className="flex items-center gap-1.5">
         <AtSign aria-hidden size={16} className="text-tm-navy" />
-        <h2 className="text-sm font-black text-tm-navy">Email address</h2>
+        {/* Optional for every member (owner, 5 Oct 2026): nothing requires it. */}
+        <h2 className="text-sm font-black text-tm-navy">Email (optional)</h2>
       </div>
 
       {loading ? (

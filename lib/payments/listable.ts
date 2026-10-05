@@ -13,7 +13,7 @@
 // started, so asking here never waits on the very plan being started.
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { directoryBlockers } from '@/lib/tutorListingStatus'
+import { directoryBlockers, profileGaps } from '@/lib/tutorListingStatus'
 
 export async function isTutorListable(userId: string): Promise<boolean> {
   const admin = createAdminClient()
@@ -22,7 +22,7 @@ export async function isTutorListable(userId: string): Promise<boolean> {
   const [{ data: prof }, { data: tp }, { data: subj }] = await Promise.all([
     admin
       .from('profiles')
-      .select('phone_verified_at, is_suspended, is_banned, is_seed, is_team_account')
+      .select('role, phone_verified_at, is_suspended, is_banned, is_seed, is_team_account, hidden_from_public, verification_state, profile_pic_status, selfie_status')
       .eq('id', userId)
       .maybeSingle(),
     admin
@@ -37,8 +37,14 @@ export async function isTutorListable(userId: string): Promise<boolean> {
   // The fee is required for the clock (PR16 §1.5) — separately from visibility.
   if (!tp.verified_fee_paid_at) return false
 
-  return (
-    directoryBlockers({
+  // Item 8: listable = in the directory (the view's rule) AND no step-1 profile
+  // gap — the same two facts as before, read from the one mirror.
+  const facts = {
+      role: (prof.role as string | null) ?? null,
+      hiddenFromPublic: (prof.hidden_from_public as boolean | null) ?? null,
+      cnicRejected: ((prof.verification_state as string | null) ?? '').toLowerCase() === 'rejected',
+      photoRejected: ((prof.profile_pic_status as string | null) ?? '').toLowerCase() === 'rejected',
+      selfieRejected: ((prof.selfie_status as string | null) ?? '').toLowerCase() === 'rejected',
       phoneVerified: !!prof.phone_verified_at,
       hasSubjects: (subj ?? []).length > 0,
       city: (tp.city as string | null) ?? null,
@@ -52,6 +58,6 @@ export async function isTutorListable(userId: string): Promise<boolean> {
       claimedAt: tp.claimed_at as string | null,
       isSeed: prof.is_seed as boolean | null,
       isTeamAccount: prof.is_team_account as boolean | null,
-    }).length === 0
-  )
+  }
+  return directoryBlockers(facts).length === 0 && profileGaps(facts).length === 0
 }

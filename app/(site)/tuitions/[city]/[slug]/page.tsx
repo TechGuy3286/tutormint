@@ -28,7 +28,7 @@ import { jobType } from '@/lib/display'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, socialMeta } from '@/lib/seo'
 import { preferHumanTitle } from '@/lib/jobDisplayTitle'
-import { isSubjectSlug, resolveLanding, getLandingLinker } from '@/lib/landing'
+import { isSubjectSlug, resolveLandingAny, landingIndexable, getLandingLinker } from '@/lib/landing'
 import LandingView from '@/components/landing/LandingView'
 import ApplyPanel from './ApplyPanel'
 import { areaWithoutCity } from '@/lib/place'
@@ -84,7 +84,10 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
   // Landing page (a subject slug), not a tuition.
   if (await isSubjectSlug(slug)) {
-    const combo = await resolveLanding('tuitions', city, slug)
+    // LIVE count (item 6): the page renders from one open tuition up; below the
+    // threshold it is noindex, follow and out of the sitemap, which reads the
+    // same live set — so the two never disagree.
+    const combo = await resolveLandingAny('tuitions', city, slug)
     if (!combo) return { title: pageTitle('Tuitions'), robots: { index: false, follow: true } }
     const heading = `${combo.subjectName} tuitions in ${combo.city}`
     const lead = `${combo.count} open ${combo.subjectName} tuition${combo.count === 1 ? '' : 's'} in ${combo.city}`
@@ -94,6 +97,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       title,
       description,
       alternates: { canonical: `/tuitions/${combo.citySlug}/${combo.subjectSlug}` },
+      ...(landingIndexable(combo) ? {} : { robots: { index: false, follow: true } }),
       // Branded default image — a landing page has no imagery of its own.
       ...socialMeta({
         title,
@@ -167,7 +171,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // Landing page branch: a subject slug renders the city × subject landing,
   // 404 below the threshold. A tuition slug falls through to the detail page.
   if (await isSubjectSlug(slug)) {
-    const combo = await resolveLanding('tuitions', citySeg, slug)
+    const combo = await resolveLandingAny('tuitions', citySeg, slug)
     if (!combo) notFound()
     return <LandingView combo={combo} />
   }

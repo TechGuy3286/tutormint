@@ -33,7 +33,10 @@ test('sign-in page: no explanation text, outlined Create-account button, exactly
   assert.match(s, />\s*Create an account\s*</, 'Create an account present')
   assert.match(s, /aria-label="Message us on WhatsApp"/, 'the round WhatsApp icon button')
   assert.equal((s.match(/aria-label="Message us on WhatsApp"/g) || []).length, 1, 'exactly one WhatsApp icon')
-  assert.match(s, /Forgot your password\?/, 'forgot-password link kept')
+  // Owner hotfix (5 Oct 2026): the link reads "Forgot password?" and sits
+  // directly under the password field (before "Remember me"), not below the form.
+  assert.match(s, /Forgot password\?/, 'forgot-password link kept')
+  assert.ok(s.indexOf('id="password"') < s.indexOf('Forgot password?') && s.indexOf('Forgot password?') < s.indexOf('Remember me'), 'under the password field')
 })
 
 // ---------------------------------------------- STEP 2: signup -----------------

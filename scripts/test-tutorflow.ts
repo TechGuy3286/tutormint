@@ -22,8 +22,10 @@ import {
   firstMissingStep,
   nextMissingAfter,
   isListed,
+  toListingFacts,
   type FlowFacts,
 } from '../lib/tutorFlow'
+import { profileGaps } from '../lib/tutorListingStatus'
 import { calculateTutorCompletion } from '../lib/profileChecklist'
 
 // A fully-listed, fully-complete tutor.
@@ -105,7 +107,10 @@ test('a brand-new tutor opens at city and misses everything but name', () => {
   assert.equal(firstMissingStep(EMPTY), 'city')
   assert.ok(!missingSteps(EMPTY).includes('name')) // name is set at signup
   assert.ok(missingSteps(EMPTY).includes('subjects'))
-  assert.equal(isListed(EMPTY), false)
+  // Item 8 (5 Oct 2026): the directory lists every real tutor account, so even
+  // a brand-new tutor is LISTED; what they miss is reported as profile gaps.
+  assert.equal(isListed(EMPTY), true)
+  assert.deepEqual(profileGaps(toListingFacts(EMPTY)), ['phone_unverified', 'no_subjects', 'no_city', 'no_area', 'no_gender'])
 })
 
 test('firstMissingStep skips filled steps — an existing tutor sees only her gaps', () => {
@@ -144,14 +149,20 @@ test('stepDone matches the facts for each step', () => {
   assert.equal(stepDone({ ...EMPTY, cnicNumber: '1', cnicImagePath: 'p/x' }, 'cnic_photos'), true)
 })
 
-test('the "You\'re listed" verdict is exactly directoryBlockers empty', () => {
-  // PR16 §1 — visibility is mobile + subjects + city + area + gender (NO fee).
+test('the "You\'re listed" verdict is exactly directoryBlockers empty (the view\'s rule)', () => {
+  // Item 8 (5 Oct 2026): the directory lists every real tutor account — the fee
+  // and the step-1 items are NOT listing gates.
   const listable: FlowFacts = { ...EMPTY, city: 'Lahore', area: 'Gulberg', gender: 'female', subjectCount: 1, phoneVerified: true, feePaid: false, verificationStatus: 'pending' }
   assert.equal(isListed(listable), true, 'visible without the fee (PR16 §1)')
   // A seed fixture is never listed, whatever else is filled.
   assert.equal(isListed({ ...FULL, isSeed: true }), false)
-  // Missing a city un-lists.
-  assert.equal(isListed({ ...listable, city: null }), false)
+  // Hidden, suspended, banned, under review, rejected: not listed.
+  assert.equal(isListed({ ...FULL, hiddenFromPublic: true }), false)
+  assert.equal(isListed({ ...FULL, isSuspended: true }), false)
+  assert.equal(isListed({ ...FULL, selfieRejected: true }), false)
+  // Missing a city is a profile GAP (a nudge), not a listing reason.
+  assert.equal(isListed({ ...listable, city: null }), true)
+  assert.deepEqual(profileGaps(toListingFacts({ ...listable, city: null })), ['no_city'])
 })
 
 test('every completion item maps to a flow step (§1.6 links never dead-end)', () => {

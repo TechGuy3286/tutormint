@@ -53,7 +53,8 @@ test('availability opens empty — no preselected slots', () => {
 test('email step is one box + optional Next, no card / sub-heading / separate send button', () => {
   assert.ok(!/EmailCard/.test(FLOW), 'the EmailCard is gone')
   assert.match(FLOW, /placeholder="you@example\.com"/, 'one plain email box')
-  assert.match(FLOW, /headingEn: 'Your email', headingUr: undefined/, 'heading "Your email", no Urdu')
+  // Owner hotfix (5 Oct 2026): the heading reads "Email (optional)", no Urdu.
+  assert.match(FLOW, /headingEn: 'Email \(optional\)', headingUr: undefined/, 'heading "Email (optional)", no Urdu')
   assert.match(FLOW, /if \(!e\) \{ next\(\); return \}/, 'empty Next continues — email optional')
   assert.match(FLOW, /\/api\/account\/email/, 'a valid email sends the confirmation link')
   assert.ok(!/Send confirmation link/.test(FLOW), 'no separate "Send confirmation link" button')

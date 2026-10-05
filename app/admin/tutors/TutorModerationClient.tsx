@@ -141,13 +141,12 @@ export default function TutorModerationClient({
       const next = { ...prev }
       for (const r of all) {
         if (r.id === target.id) {
-          const pv: ListingBlocker = 'phone_unverified'
-          const blockers = r.blockers.includes(pv) ? r.blockers : [...r.blockers, pv]
+          // Item 8 (one source): an unverified mobile is a profile gap, not a
+          // directory reason — the listing verdict is the view's and is left to
+          // the server reload below; only the completion "missing" list changes.
           next[r.id] = {
             ...(next[r.id] ?? {}),
             duplicateMobile: false,
-            blockers,
-            listed: blockers.length === 0,
             missing: r.missing.some((m) => m.key === 'phone')
               ? r.missing
               : [...r.missing, { key: 'phone', label: 'Mobile number verified' }],

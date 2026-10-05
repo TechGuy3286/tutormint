@@ -76,7 +76,10 @@ test('every tutor activity gate is blocked server-side on a rejected document', 
 
 test('the dashboard shows verified / re-upload instead of "reviewing documents"', () => {
   const dash = read('app/(site)/tutor/dashboard/page.tsx')
-  assert.match(dash, /You&rsquo;re verified! You can now apply to tuitions\./)
+  // The verified line moved into the once-only banner (owner, 5 Oct 2026,
+  // migration 135): the dashboard renders VerifiedOnceBanner, which carries it.
+  assert.match(dash, /VerifiedOnceBanner/)
+  assert.match(read('components/tutor/VerifiedOnceBanner.tsx'), /You&rsquo;re verified! You can now apply to tuitions\./)
   assert.match(dash, /Please upload a correct \{ent\.rejectedDoc\.label\} to continue\./)
   assert.ok(!/reviewing your documents/.test(dash), 'the old "reviewing documents" line is gone')
 })

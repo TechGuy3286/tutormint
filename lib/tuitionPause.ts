@@ -15,6 +15,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 import { PAUSE_AFTER_DAYS, isPauseDue } from '@/lib/tuitionStatus'
+import { queueIndexingUpdate } from '@/lib/googleIndexing'
 
 export { PAUSE_AFTER_DAYS }
 
@@ -30,7 +31,7 @@ export async function pauseStaleTuitions(): Promise<{ paused: number; ids: strin
 
   const { data: open } = await admin
     .from('jobs')
-    .select('id, parent_id, title, created_at, resumed_at')
+    .select('id, parent_id, title, created_at, resumed_at, public_slug, city')
     .eq('status', 'open')
 
   const now = new Date().toISOString()
@@ -50,6 +51,8 @@ export async function pauseStaleTuitions(): Promise<{ paused: number; ids: strin
       .eq('status', 'open')
     if (error) continue
     ids.push(j.id as string)
+    // Google Indexing API (item 3): auto-paused → URL_UPDATED, never blocking.
+    queueIndexingUpdate({ public_slug: (j.public_slug as string | null) ?? null, city: (j.city as string | null) ?? null })
 
     const title = (j.title as string) ?? 'your tuition'
     await notify({

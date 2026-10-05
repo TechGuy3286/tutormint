@@ -173,7 +173,7 @@ export function calculateTutorCompletion(input: TutorCompletionInput): Completio
   return summarise(items)
 }
 
-/** Parent completion: name, city, address, CNIC number + image, phone verified. */
+/** Parent completion: name, city, address, CNIC number + image, phone verified — 6 items. */
 export function calculateParentCompletion(input: ParentCompletionInput): Completion {
   const p = input.profile ?? {}
 
@@ -184,8 +184,9 @@ export function calculateParentCompletion(input: ParentCompletionInput): Complet
     { key: 'cnic_number', label: 'CNIC number', done: has(p.cnic_number), step: 2, anchor: 'cnic_number' },
     { key: 'cnic_image', label: 'CNIC image', done: has(p.cnic_image_path), step: 2, anchor: 'cnic_image' },
     { key: 'phone', label: 'Mobile number verified', done: has(p.phone_verified_at), step: 3, anchor: 'phone' },
-    // The other contact channel (PR29 §4) — added and confirmed in Settings.
-    { key: 'email', label: 'Email address', done: hasRealEmail(p.email), step: 3, anchor: 'email' },
+    // NO email item (owner, 5 Oct 2026, item 7): email is optional for a parent
+    // too — a parent with only a verified mobile reaches 100%. Posting,
+    // messaging, demo requests and the parent Verified badge never read it.
   ]
 
   return summarise(items)
