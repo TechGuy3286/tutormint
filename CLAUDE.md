@@ -6256,3 +6256,36 @@ driven; live checks were HTML fetches.
   moved into `VerifiedOnceBanner`) and were updated to the owner's new wording.
 
 **Live checks (5 Oct 2026).** Open tuition TM-1683: 200, no robots tag, JobPosting with validThrough 2026-10-20 (posted 5 Oct + 15 days). Closed TM-1034 and paused TM-1097: 200, `noindex, follow`, no JobPosting. Fake tutor slug, fake tuition slug, a missing blog slug and the former scheduling-test post slug: HTTP **404** with noindex and the branded page. Rejected (Tanveer Hassan) and paused (Test Tutor) profiles: 200 + `noindex, follow`. Indexable tutor (Ali Sabeer) is the one `/tutor/` URL in the sitemap; Tanveer is absent. Landing pages with 2 results (`/tuitions/islamabad/nursery-kg-ii-urdu` and three siblings): 200 + `noindex, follow`, absent from the sitemap; `/tuitions/lahore/grade-4-mathematics` (back at 3+ live) is indexable and listed. The full sitemap (940 URLs, a sample far beyond 50) fetched: 940 × 200, 0 noindex. Parent completion without email: `test:completion` pins 100%. Full suite: every offline suite green including `test:pr106e`; `test:directory:live` 68/68 agree. **Not driven:** a real Indexing API call (no credentials are set — the skip-and-log path is what runs today), a real status change end to end through the UI, and the onboarding/Settings screens (no session).
+
+## Google Indexing API — activation attempt (owner, 5 Oct 2026)
+
+No migration. `lib/googleIndexingCore.ts` (pure, `npm run test:indexing`, 6
+tests): `normalisePrivateKey` turns literal `\n` into real line breaks, leaves
+real line breaks alone, strips wrapping quotes, and keeps only the PEM block
+when a fragment of the JSON line (`private_key": "…",`) was pasted;
+`normaliseClientEmail` extracts the address from the same paste shape;
+`describeKeyShape` reports lengths, line count and PEM markers only — never
+key material. `GET /api/internal/indexing-health` (Bearer CRON_SECRET, 401
+otherwise; JSON only; no writes) reports `configured`, `token` ("ok" or a
+short plain word), `metadata` (read-only getMetadata status for the newest
+open tuition URL), `publish` (one URL_UPDATED, only with `?publish=1`), the
+URL, Google's message, and — on a token failure — the key SHAPE.
+
+**Result on the live site (three deploys, 153627a → 5d6db1d → the shape
+diagnostic):** `configured: true`; the email variable held the JSON-line
+fragment `client_email": "tutormint-indexing@…"` (now parsed to the bare
+address); `token: "invalid key"` with `error:1E08010C:DECODER
+routines::unsupported`; the key variable is **40 characters, one line, no
+BEGIN/END markers** — not a PEM at all. A Google service-account JSON's
+`private_key_id` is exactly a 40-character hex string, so the value pasted
+into `GOOGLE_INDEXING_PRIVATE_KEY` is almost certainly `private_key_id`, not
+`private_key`. **Stopped before `?publish=1`** (a token failure cannot
+publish; the daily quota was not spent). Nothing to fix in code: once the
+real `private_key` value (the long `-----BEGIN PRIVATE KEY-----…` string,
+literal `\n` or real line breaks both fine) is set in Vercel and the project
+redeployed, the same health URL proves it. No tuition status changed between
+the first deploy (16:46Z) and this check, so no real notification path ran;
+with both variables present the "skipped, no credentials" log line no longer
+applies — a real call would log a warn with the same decoder error until the
+key is corrected. Site smoke: `/`, one tuition page and `/browse/tutors` all
+200.
