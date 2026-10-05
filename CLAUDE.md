@@ -6080,3 +6080,62 @@ still lists the step-1 gates (mobile, city, area, subjects, gender) that
 migration 124 removed from the view, and does not know `hidden_from_public`
 (migration 126) — pre-existing drift; the dashboard's "listed" flag reads the
 view itself, so it is cosmetic in the fix list only.
+
+## Hotfix — forgot password by SMS code, email optional in onboarding (owner, 5 Oct 2026)
+
+No migration. Gates at close: tsc 0 · next build 0 · check:contrast 118 ·
+test:authtrust 55 · test:completion 5 · test:tutorflow 11 · test:delivery 19 ·
+every other offline suite green except the PRE-EXISTING `test:pr106e`
+"file-and-approved gating" failure. No browser was driven; the live checks
+were HTML fetches and signed-out POSTs to the reset route with a NON-MEMBER
+number (so no SMS could be sent).
+
+- **1 "Forgot password?" on sign-in.** A small right-aligned link under the
+  password field (`LoginForm`), replacing the centred "Forgot your password?"
+  line that sat below the Sign in button. The screen keeps heading, fields and
+  buttons only.
+- **2 Reset by SMS code — three screens, separate rules.** `/forgot-password`
+  (mobile, the default; the email tab stays and both options are always
+  offered, because the form cannot know an account's channels without first
+  being told who they are): (1) Mobile number → Send code; (2) "Enter the code
+  sent to your mobile" with the shared `OtpCodeEntry` boxes → Continue; (3) New
+  password + Confirm password → Save password. `/api/auth/reset` has three
+  actions — `request`, `check` (validates WITHOUT consuming, so the code stays
+  good for screen 3 inside its 10 minutes) and `confirm` (consumes, sets the
+  password, clears `must_change_password`, calls `revoke_user_sessions` so every
+  other session on the account is signed out, then mints a session for this
+  browser with the admin magic-link token the signup verify route uses). The
+  form toasts "Password changed" and routes to the role dashboard; if a session
+  could not be minted it says so and links to sign in.
+  **Rules, in `lib/otp.ts`, keyed on purpose = 'reset' and touching nothing on
+  the signup/verify path** (one code for life, no resend — unchanged):
+  10-minute expiry (`RESET_CODE_TTL_MS`); 5 wrong tries lock it
+  (`MAX_ATTEMPTS`, same as signup) but a locked reset code is replaced by
+  requesting a new one; at most 3 reset codes per mobile per day
+  (`RESET_DAILY_MAX`, every row counts); a new code consumes the old row first
+  (the partial unique index needs that). Codes stay sha256-hashed.
+  **Never a membership oracle.** A code is SENT only to a mobile that is
+  VERIFIED on an account (`phone_verified_at` set); for any other number
+  `sendOtp({ silent: true })` stores a DECOY row (`user_id` null, random hash)
+  and dispatches nothing (`channel=decoy` in the log), so screen 2 and every
+  error — wrong, expired, too many tries, daily limit — read identically for a
+  member and a stranger, and a stranger's handset never receives anything.
+  Every error is plain English + Urdu (`RESET_MESSAGES`); the daily-limit one
+  carries a "Contact support · 0321 5872222" WhatsApp button. The existing
+  per-IP buckets (`otp_send` 8/h, `otp_verify` 10/15 min) still apply.
+- **3 Email optional in onboarding.** The tap flow's email screen reads
+  "Email (optional)" (no Urdu); Next with the box empty continues (already the
+  behaviour), a typed address is format-checked and gets the existing
+  confirmation link, and the tutor continues without verifying. The gap flow's
+  field label dropped its Urdu line (`FieldLabel` now takes an optional `ur`).
+  **Email DID count before this change:** `calculateTutorCompletion` carried a
+  16th item "Email address" (PR29 §4), so a mobile-only tutor who finished
+  everything else was held at 93% and the dashboard checklist asked for an
+  email. The item is REMOVED for tutors (15 items; `test:completion` pins that a
+  complete tutor with only the synthetic mobile address is 100% and that a real
+  email changes nothing). The Verified badge (`lib/badgeRule`: fee + CNIC +
+  photo + selfie) and listing (`tutor_directory`) never read an email. The
+  PARENT checklist still carries its email item (7 items) — outside this
+  hotfix's scope, reported. Mobile remains required.
+
+**Live checks (5 Oct 2026).** `/login` (mobile UA): exactly one "Forgot password?" link, placed between the password input and "Remember me"; the old centred line is gone; no explanation text. `/forgot-password`: heading "Reset your password", both tabs (By mobile / By email), a Mobile number field and "Send code", the old explanation paragraph and the "If that number has an account…" box gone. Screens 2 and 3 are client-rendered after a request, so they were not fetched as HTML; the three server actions behind them were driven live with a NON-MEMBER number (03001112233 — 0 profiles, confirmed by SELECT first), so no SMS could be sent: request → `{success:true}` 200 (the same next screen); five wrong codes → 4,3,2,1 attempts left, then 429 "Too many wrong tries. Please request a new code." with Urdu, and a sixth try stays locked; a new request cancels the locked code (the next wrong try is 400 with 4 left again); the fourth request in the day → 429 "You have reached today’s limit of 3 codes…" with Urdu and the wa.me/923215872222 support link. Expiry: an expired decoy row planted for a second non-member number → `check` answers 400 "This code has expired. Please request a new one." with Urdu. Every row the test left had `user_id` null (decoys — nothing dispatched; `channel=decoy`); all four test rows were deleted afterwards. **Not driven:** a real member's reset end to end (no SMS can be driven here) — the confirm path (password set, other sessions revoked, magic-link sign-in, dashboard toast) rests on tsc, the build and the identical mechanism the signup verify route uses live; the email tab was not changed and an email-only account's link is the same `resetPasswordForEmail` call as before; the onboarding email screen needs a tutor session, so its "Next with email empty" rests on the unchanged `submitEmail` (empty → `next()`) and the completion % on `test:completion`.
