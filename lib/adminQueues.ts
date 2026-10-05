@@ -482,9 +482,13 @@ export async function loadParentQueue({
 
 export type QueuePaymentRow = {
   id: string
-  userId: string
+  /** Null when the payer account was hard-deleted (the payment is kept — owner,
+   *  5 Oct 2026); `note` then says why. */
+  userId: string | null
   name: string
   email: string
+  /** payments.note — e.g. "deleted test account". */
+  note: string | null
   planCode: string
   planName: string
   amountPkr: number
@@ -539,7 +543,7 @@ export async function loadPaymentQueue({
     let q = admin
       .from('payments')
       .select(
-        'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign, refunded_amount_pkr, refund_method, refunded_at',
+        'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign, refunded_amount_pkr, refund_method, refunded_at, note',
         { count: 'exact' },
       )
     if (filter !== 'all') q = q.eq('status', filter)
@@ -580,9 +584,12 @@ export async function loadPaymentQueue({
 
   const rows: QueuePaymentRow[] = page.map((p) => ({
     id: p.id as string,
-    userId: p.user_id as string,
-    name: who.get(p.user_id as string)?.name ?? '—',
-    email: who.get(p.user_id as string)?.email ?? '—',
+    userId: (p.user_id as string | null) ?? null,
+    // A payment whose account was hard-deleted keeps its amount, reference and
+    // dates; the name line reads its note instead of a dash.
+    name: who.get(p.user_id as string)?.name ?? (p.note ? String(p.note) : '—'),
+    email: who.get(p.user_id as string)?.email ?? (p.user_id ? '—' : 'account deleted'),
+    note: (p.note as string | null) ?? null,
     planCode: (p.plan_code as string) ?? '—',
     planName: (p.plan_code as string) === 'verified' ? FEE_LABEL : (planName.get(p.plan_code as string) ?? ((p.plan_code as string) ?? '—')),
     amountPkr: p.amount_pkr as number,

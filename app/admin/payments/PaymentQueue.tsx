@@ -138,6 +138,9 @@ export default function PaymentQueue({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-tm-navy">{p.name}</p>
                     <p className="truncate text-[11px] text-gray-500">{p.email}</p>
+                    {p.note && p.userId && (
+                      <p className="truncate text-[11px] font-semibold text-tm-gold-ink">{p.note}</p>
+                    )}
                   </div>
                   {/* A submitted transfer waiting for a person reads "Waiting for
                       approval" (gold). A 'pending' row with no payer reference

@@ -4,6 +4,7 @@ import { planLabel } from '@/lib/display'
 import type { Entitlements } from '@/lib/entitlements'
 import { tuitionPath } from '@/lib/slugs'
 import { cityJobsMatchingNothing } from '@/lib/funnel'
+import { deriveCnicStatus } from '@/lib/cnicStatus'
 
 // What is BLOCKED ON THIS PERSON, and nothing else.
 //
@@ -430,7 +431,6 @@ export async function tutorNeeds({
   // proceeds, and instead the dashboard states the real cost of an unfinished
   // profile using data we already have. Each shows only when its number is real
   // — a zero count shows nothing, and no number is invented.
-  const pct = ent.profileCompletion ?? 0
 
   // No subjects → invisible to every subject search. The count is the open
   // tuitions in their city that match nothing on their profile.
@@ -452,18 +452,35 @@ export async function tutorNeeds({
     }
   }
 
-  // Verified but under 100% → searchable on-site, held out of Google until 100%.
-  // Only for a VERIFIED tutor (PR16 §1.4): an unverified profile is noindex, so
-  // "you are searchable, just not on Google yet at 100%" is only true once the
-  // fee is paid.
-  if (ent.verified && pct < 100) {
-    rows.push({
-      id: 'not-on-google',
-      title: 'Your profile is not on Google yet',
-      why: 'Parents can find you on TutorMint now. Your profile appears in Google search once it reaches 100%.',
-      action: { label: 'Finish your profile', href: '/tutor/complete-profile' },
-      tone: 'warn',
-    })
+  // Paid but not yet staff-approved → searchable on-site, held out of Google
+  // until the CNIC, profile photo and selfie are approved (the index rule, owner
+  // 5 Oct 2026 — 100% completion is no longer part of it). Only for a VERIFIED
+  // tutor: an unverified profile is noindex for the fee first.
+  if (ent.verified) {
+    const { data: me } = await supabase
+      .from('profiles')
+      .select('verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status')
+      .eq('id', userId)
+      .maybeSingle()
+    const docsApproved =
+      !!me &&
+      deriveCnicStatus({
+        verification_state: (me.verification_state as string | null) ?? null,
+        cnic_verified_at: (me.cnic_verified_at as string | null) ?? null,
+        cnic_number: (me.cnic_number as string | null) ?? null,
+        cnic_image_path: (me.cnic_image_path as string | null) ?? null,
+      }) === 'approved' &&
+      (me.profile_pic_status as string | null) === 'approved' &&
+      (me.selfie_status as string | null) === 'approved'
+    if (!docsApproved) {
+      rows.push({
+        id: 'not-on-google',
+        title: 'Your profile is not on Google yet',
+        why: 'Parents can find you on TutorMint now. Your profile appears in Google search once our team has approved your CNIC, profile photo and selfie.',
+        action: { label: 'Check your documents', href: '/tutor/dashboard/settings#identity' },
+        tone: 'warn',
+      })
+    }
   }
 
   // A paid tutor without a reviewed degree: listed and applying, but no Verified

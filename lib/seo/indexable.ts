@@ -24,9 +24,9 @@
 export type TutorIndexFacts = {
   /** The one-time Rs 199 verification fee is paid (verified_fee_paid_at is set). */
   feePaid: boolean | null | undefined
-  /** The tutor's profile completion — the SAME % shown on their dashboard
-   *  (profiles.profile_completion). Indexing needs 100. */
-  completion: number | null | undefined
+  /** profiles.profile_completion — accepted for older callers, NO LONGER part of
+   *  the rule (owner, 5 Oct 2026). */
+  completion?: number | null | undefined
   /** CNIC approved by staff — deriveCnicStatus(...) === 'approved'. */
   cnicApproved: boolean | null | undefined
   /** profiles.profile_pic_status === 'approved' (staff review). */
@@ -40,32 +40,30 @@ export type TutorIndexFacts = {
 }
 
 /**
- * A tutor profile is indexable and in the sitemap ONLY when ALL are true
- * (owner, PR100 + PR105 §3):
- *   (1) profile completion = 100% — the same figure on the tutor's dashboard,
- *   (2) the Rs 199 verification fee is paid, and
- *   (3) staff have APPROVED the CNIC, the profile photo and the selfie.
- * Otherwise the page is still VISIBLE on TutorMint (browse, search, direct
- * link) but carries noindex and stays out of the sitemap.
+ * A tutor profile is indexable and in the sitemap ONLY when BOTH are true
+ * (owner, 5 Oct 2026 — "paid + approved"; supersedes PR100's 100% requirement):
+ *   (1) the Rs 199 verification fee is paid, and
+ *   (2) staff have APPROVED the CNIC, the profile photo and the selfie.
+ * 100% profile completion is NO LONGER required (`completion` is accepted for
+ * callers that still pass it and ignored). Otherwise the page is still VISIBLE
+ * on TutorMint (browse, search, direct link) but carries noindex and stays out
+ * of the sitemap.
  *
- * A seed/fixture account and a profile under review are NEVER indexed, whatever
- * their state. The SQL mirror is listed_tutor_slugs() (built on tutor_directory,
- * which enforces moderation/mobile/city/subjects and excludes seed/suspended/
- * banned/rejected/under-review); they must stay in lockstep.
+ * NEVER indexable, whatever their state: a seed/test fixture, a profile under
+ * review, and anything the directory view excludes (paused/suspended, banned,
+ * hidden, a rejected document — those are not in tutor_directory, which the
+ * sitemap's listed_tutor_slugs() is built on). The SQL mirror is
+ * listed_tutor_slugs() (migration 139); scripts/test-directory-live.ts fails if
+ * the two ever disagree for any account.
  *
- * NOTE on completion: the dashboard % counts UPLOADED documents, not staff
- * APPROVAL (lib/profileChecklist — "by uploading a CNIC, not by having it
- * verified"); this rule uses that same %, deliberately (owner, PR100).
- *
- * (A tutor whose page does not render at all — suspended / banned / rejected /
- * unclaimed import — is handled upstream by tutor_visible_profiles; this only
- * decides index vs noindex for a page that DOES render.)
+ * (A tutor whose page does not render at all — suspended / banned / unclaimed
+ * import — is handled upstream by tutor_visible_profiles; this only decides
+ * index vs noindex for a page that DOES render.)
  */
 export function tutorProfileIndexable(f: TutorIndexFacts): boolean {
   if (f.isSeed) return false
   if (f.underReview) return false
   if (!f.feePaid) return false
-  if ((f.completion ?? 0) < 100) return false
   if (!f.cnicApproved) return false
   if (!f.profilePicApproved) return false
   if (!f.selfieApproved) return false
