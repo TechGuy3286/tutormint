@@ -1,3 +1,4 @@
+import { placeLabel } from '@/lib/place'
 // lib/jobDisplayTitle.ts
 //
 // The composed display title for a tuition (owner, 13 Sep 2026) — a natural
@@ -50,7 +51,9 @@ export function jobDisplayTitle(parts: JobTitleParts): string {
   const gender = capitaliseWord(clean(parts.gender))
   const jobType = clean(parts.jobType)
   const level = clean(parts.level)
-  const location = [clean(parts.area), clean(parts.city)].filter(Boolean).join(', ')
+  // Never repeat the city (owner, 5 Oct 2026): "Bahria Town Lahore" + "Lahore"
+  // → "Bahria Town, Lahore" — one builder, lib/place.ts.
+  const location = placeLabel(parts.area, parts.city)
 
   const who = [gender, jobType].filter(Boolean).join(' ')
 

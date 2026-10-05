@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Heart } from 'lucide-react'
 
 import JobCard, { type JobCardData } from '@/components/JobCard'
+import type { ApplyBlock } from '@/lib/applyBlock'
 
 // The tutor's own "Saved tuitions" CARD on their dashboard — the mirror of the
 // parents' ShortlistSection. Cards offer a heart everywhere; this is the home for
@@ -17,10 +18,13 @@ export default function SavedJobsSection({
   initial,
   viewerCity,
   appliedIds,
+  applyBlocks = {},
 }: {
   initial: JobCardData[]
   viewerCity: string | null
   appliedIds: string[]
+  /** Why Apply is inactive per saved tuition (owner, 5 Oct 2026). */
+  applyBlocks?: Record<string, ApplyBlock | null>
 }) {
   const [jobs, setJobs] = useState(initial)
   const applied = new Set(appliedIds)
@@ -41,6 +45,7 @@ export default function SavedJobsSection({
             signedIn
             showApply
             applied={applied.has(job.id)}
+            applyBlock={applyBlocks[job.id] ?? null}
             viewerCity={viewerCity}
             saveable
             initiallySaved

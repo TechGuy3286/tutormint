@@ -659,27 +659,59 @@ export async function markThreadRead(userId: string, threadId: string): Promise<
  * dashboard, always. Same rows as the header bell counts, for the same reason
  * the list's dots use them: one source cannot disagree with itself.
  */
-// ONE QUERY PER REQUEST (owner PR5b §2.4). The header icon (Navbar), the desktop
-// dock (SiteChrome) and the dashboard "Messages" tile all read this in the same
-// render pass; React cache() dedupes them to a single unread computation per
-// (userId, request) so the three surfaces agree and cost one query, not three.
+// ONE NUMBER EVERYWHERE (owner PR5b §2.4; tightened 5 Oct 2026). The header
+// Messages icon (Navbar), the desktop dock (SiteChrome), the dashboard Messages
+// tile's big number AND its red dot all read this; React cache() dedupes them to
+// one computation per (userId, request), so the surfaces cannot disagree.
+//
+// Counted from the MESSAGES themselves, not from notification rows (5 Oct 2026):
+// a message in one of this member's threads, sent by someone else, with no
+// read_at (markThreadRead stamps it when the member opens the thread), not
+// deleted-for-me and not withheld — AND whose sender still exists and is not
+// paused (suspended) or banned. A message from a paused or missing sender is not
+// something the member can act on, so it is not counted. The official Team
+// channel's unread is added from its own store (the pinned Team row). Service
+// role, because `profiles` is self-read-only under RLS and the sender check
+// needs the other person's row.
 export const unreadMessageCount = cache(async (userId: string): Promise<number> => {
-  const supabase = await createClient()
-  const { count } = await supabase
-    .from('notifications')
-    .select('id', { count: 'exact', head: true })
-    // The SELECT policy is `user_id = auth.uid() OR is_admin()`, so an admin
-    // reading their own dashboard would otherwise be counting the platform.
-    .eq('user_id', userId)
-    .eq('kind', 'message_received')
-    .is('read_at', null)
+  const admin = createAdminClient()
+  let peer = 0
+  if (admin) {
+    const { data: threads } = await admin
+      .from('threads')
+      .select('id')
+      .or(`participant_a.eq.${userId},participant_b.eq.${userId}`)
+    const ids = (threads ?? []).map((t) => t.id as string)
+    if (ids.length > 0) {
+      const { data: msgs } = await admin
+        .from('messages')
+        .select('sender_id, deleted_for, withheld_at')
+        .in('thread_id', ids)
+        .neq('sender_id', userId)
+        .is('read_at', null)
+      const rows = (msgs ?? []).filter((m) => {
+        const deletedFor = (m.deleted_for as string[] | null) ?? []
+        return !deletedFor.includes(userId) && !(m.withheld_at as string | null)
+      })
+      const senderIds = [...new Set(rows.map((m) => m.sender_id as string).filter(Boolean))]
+      if (senderIds.length > 0) {
+        const { data: senders } = await admin
+          .from('profiles')
+          .select('id, is_suspended, is_banned')
+          .in('id', senderIds)
+        const active = new Set(
+          (senders ?? []).filter((p) => !p.is_suspended && !p.is_banned).map((p) => p.id as string),
+        )
+        peer = rows.filter((m) => active.has(m.sender_id as string)).length
+      }
+    }
+  }
 
-  // Official TutorMint Team messages live in the same inbox now (owner, Part 5),
-  // so the dashboard "Messages" tile counts them too — "two message screens is a
-  // place official messages go unread" was the whole reason for unifying. Read
-  // from the admin_messages store, the pinned Team row's own source of truth.
+  // Official TutorMint Team messages live in the same inbox (owner, Part 5), so
+  // the one number counts them too — read from the admin_messages store, the
+  // pinned Team row's own source of truth.
   const team = await teamUnreadCount(userId)
-  return (count ?? 0) + team
+  return peer + team
 })
 
 /**

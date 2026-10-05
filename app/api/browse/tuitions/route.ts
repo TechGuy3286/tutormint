@@ -10,6 +10,7 @@ import {
   type FeedLevel,
 } from '@/lib/jobFeed'
 import { createClient } from '@/lib/supabase/server'
+import { applyBlocksFor, type ApplyBlockMap } from '@/lib/applyBlockServer'
 
 // Load-more for /browse/tuitions.
 //
@@ -87,20 +88,12 @@ async function respond(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ) {
 
-  let applied = new Set<string>()
+  // Why Apply is inactive per job (owner, 5 Oct 2026) — the same shared rule the
+  // first window used; `applied` is derived from it.
+  let blocks: ApplyBlockMap = {}
   if (userId && jobs.length > 0) {
     const ent = await getEntitlements(userId)
-    if (ent.audience === 'tutor') {
-      const { data } = await supabase
-        .from('applications')
-        .select('job_id')
-        .eq('tutor_id', userId)
-        .in(
-          'job_id',
-          jobs.map((j) => j.id),
-        )
-      applied = new Set((data ?? []).map((a) => a.job_id as string))
-    }
+    if (ent.audience === 'tutor') blocks = await applyBlocksFor(supabase, userId, ent, jobs)
   }
 
   // Merged ONTO each item, not returned beside them. useInfinite appends
@@ -108,7 +101,7 @@ async function respond(
   // `applied` array this used to send was dropped on the floor -- every card
   // after the first window offered Apply to a tutor who had already applied.
   return NextResponse.json({
-    items: jobs.map((j) => ({ ...j, applied: applied.has(j.id) })),
+    items: jobs.map((j) => ({ ...j, applied: blocks[j.id]?.kind === 'applied', applyBlock: blocks[j.id] ?? null })),
     cursor: nextCursor,
   })
 }

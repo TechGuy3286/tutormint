@@ -45,6 +45,7 @@ const SYSTEM = [
   // EXACT job type from the facts — never a different one, never dropped.
   '- The title MUST begin with the exact "Job type" from the facts, word for word. If the Job type is "Music Teacher", the title starts with "Music Teacher"; do NOT change it to "Home Tutor" or leave it out.',
   '- After the job type, add the subject(s), then the grade/level, then the area and city — e.g. "Music Teacher for Piano, Grade 6 to 8 in DHA, Lahore" or "Home Tutor for Art & Drawing, Pre Nursery / KG I in DHA, Lahore". The title is one line, under 90 characters. Use only the grades/levels in the facts.',
+  '- Write the location EXACTLY as the "Location" fact gives it. Never repeat the city: "Bahria Town, Lahore", never "Bahria Town Lahore, Lahore".',
   'Reply as JSON only, exactly: {"title": "...", "description": "..."}',
 ].join('\n')
 

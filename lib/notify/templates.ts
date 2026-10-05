@@ -21,6 +21,7 @@
 export { SITE_URL } from '@/lib/siteUrl'
 import { SITE_URL } from '@/lib/siteUrl'
 import { properName } from '@/lib/display'
+import { placeLabel } from '@/lib/place'
 
 export type TemplateId =
   | 'welcome'
@@ -607,7 +608,7 @@ export function render(input: TemplateInput): RenderedEmail {
       // area and mode; one button to the tuition page. NEVER a parent's name or
       // contact details, and no price. Not essential — a one-click unsubscribe
       // sits in the footer.
-      const where = input.area ? `${input.area}, ${input.city}` : input.city
+      const where = placeLabel(input.area, input.city) || input.city
       return build(
         'A new tuition for you on TutorMint',
         'A new tuition matching your subjects',

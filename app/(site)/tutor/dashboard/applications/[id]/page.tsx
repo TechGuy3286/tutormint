@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { tuitionPath } from '@/lib/slugs'
 import { maskTuitionText } from '@/lib/maskTuition'
+import { placeLabel } from '@/lib/place'
 
 // One application, in full.
 //
@@ -183,7 +184,7 @@ export default async function ApplicationDetailPage({ params }: { params: Params
               {(job?.class_level as string | null) || '—'}
             </Fact>
             <Fact icon={<MapPin aria-hidden size={13} />} label="Area">
-              {[job?.area as string | null, job?.city as string | null].filter(Boolean).join(', ') ||
+              {placeLabel(job?.area as string | null, job?.city as string | null) ||
                 '—'}
             </Fact>
             <Fact icon={<Wallet aria-hidden size={13} />} label="Budget">

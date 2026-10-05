@@ -31,6 +31,9 @@ import { preferHumanTitle } from '@/lib/jobDisplayTitle'
 import { isSubjectSlug, resolveLanding, getLandingLinker } from '@/lib/landing'
 import LandingView from '@/components/landing/LandingView'
 import ApplyPanel from './ApplyPanel'
+import { areaWithoutCity } from '@/lib/place'
+import { applyBlocksFor } from '@/lib/applyBlockServer'
+import type { ApplyBlock } from '@/lib/applyBlock'
 
 // THIS ROUTE SERVES TWO PAGES. Next forbids two dynamic param names at one
 // position, so /tuitions/[city]/[subject] (the T9.1 landing) cannot be its own
@@ -207,6 +210,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
   let tutorGender: string | null = null
   let isPoster = false
   let isAdmin = false
+  let applyBlock: ApplyBlock | null = null
   // PR92 Part A.3: the full tuition contact when the signed-in tutor ALREADY has
   // access (applied / viewed before) — shown on the contact line instead of the
   // masked teaser, with no spend.
@@ -226,6 +230,8 @@ export default async function TuitionPage({ params }: { params: Params }) {
       applied = !!mine
       tutorGender = (me?.gender as string | null) ?? null
       revealedContact = peeked
+      // Why Apply is inactive (owner, 5 Oct 2026) — the one shared rule.
+      applyBlock = (await applyBlocksFor(supabase, user.id, ent, [{ id: job.id, status: job.status }]))[job.id] ?? null
     }
   }
 
@@ -483,7 +489,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
           <Fact icon={<MapPin size={14} aria-hidden />} label="Where">
             {job.city ? (
               <>
-                {job.area ? `${job.area}, ` : ''}
+                {areaWithoutCity(job.area, job.city) ? `${areaWithoutCity(job.area, job.city)}, ` : ''}
                 <Link
                   href={`/browse/tuitions?city=${encodeURIComponent(job.city)}`}
                   className="font-bold text-tm-navy hover:underline"
@@ -554,6 +560,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
               underReview={!!job.under_review}
               genderBlockedNotice={genderBlockedNotice}
               city={job.city}
+              applyBlock={applyBlock}
             />
           </div>
         )}

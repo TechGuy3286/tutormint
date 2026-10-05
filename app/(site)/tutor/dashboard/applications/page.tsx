@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { appliedLabel } from '@/lib/datetime'
 import { maskTuitionText } from '@/lib/maskTuition'
+import { placeLabel } from '@/lib/place'
 
 // The tutor's own applications.
 //
@@ -129,7 +130,7 @@ export default async function TutorApplicationsPage() {
                         {job?.title ?? 'Tuition'}
                       </span>
                       <span className="block text-[11px] text-gray-500">
-                        {[job?.area, job?.city].filter(Boolean).join(', ') || '—'}
+                        {placeLabel(job?.area, job?.city) || '—'}
                       </span>
                       {/* When the tutor applied — English with Urdu underneath (§A.2). */}
                       {(() => {

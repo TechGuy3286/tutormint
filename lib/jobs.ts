@@ -59,6 +59,7 @@ import { matchVisibility, isOnlineType } from '@/lib/matchChip'
 import { collapseLevels } from '@/lib/levelDisplay'
 import type { AdminRole } from '@/lib/adminAuth'
 import { formatName } from '@/lib/formatName'
+import { placeLabel } from '@/lib/place'
 
 // Level is multi-select now (migration 79): jobs.class_levels is the array, and
 // jobs.class_level (+ the legacy `grade` mirror) hold the collapsed display run.
@@ -1134,7 +1135,7 @@ async function notifyMatchingTutors(
     }
 
     const subjectName = await subjectLabelFor(admin, input.masterIds[0])
-    const where = input.area ? `${input.area}, ${input.city}` : input.city
+    const where = placeLabel(input.area, input.city) || input.city
     // The tuition's own page. This used to be `/browse/tuitions?job=<id>` -- a
     // query parameter nothing on that page reads, so the tutor landed on the
     // unfiltered board and had to find the job the notification was about.

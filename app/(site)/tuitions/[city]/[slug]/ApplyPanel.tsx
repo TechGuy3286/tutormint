@@ -7,6 +7,8 @@ import { Search } from 'lucide-react'
 import AuthGateModal from '@/components/AuthGateModal'
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
+import ApplyReasonLine from '@/components/ApplyReasonLine'
+import type { ApplyBlock } from '@/lib/applyBlock'
 
 // Apply, from a tuition's own page.
 //
@@ -27,6 +29,7 @@ export default function ApplyPanel({
   underReview = false,
   genderBlockedNotice = null,
   city = null,
+  applyBlock = null,
 }: {
   jobId: string
   title: string
@@ -43,11 +46,22 @@ export default function ApplyPanel({
   genderBlockedNotice?: string | null
   /** The job's city, to point "find similar tuitions" at the right board. */
   city?: string | null
+  /** Why Apply is inactive for this viewer (owner, 5 Oct 2026). */
+  applyBlock?: ApplyBlock | null
 }) {
   const upgradeSheet = useUpgradeSheet()
   const [gateOpen, setGateOpen] = useState(false)
-  const [state, setState] = useState<'idle' | 'sending' | 'done'>(applied ? 'done' : 'idle')
+  const [state, setState] = useState<'idle' | 'sending' | 'done'>(
+    applied || applyBlock?.kind === 'applied' ? 'done' : 'idle',
+  )
   const [notice, setNotice] = useState<string | null>(null)
+  const [appliedNow, setAppliedNow] = useState<string | null>(null)
+  const block: ApplyBlock | null =
+    state === 'done'
+      ? applyBlock?.kind === 'applied'
+        ? applyBlock
+        : { kind: 'applied', appliedAt: appliedNow }
+      : (applyBlock ?? null)
 
   if (underReview) {
     return (
@@ -87,6 +101,7 @@ export default function ApplyPanel({
     const r = await postGated('/api/applications', { jobId }, upgradeSheet?.showGate)
     if (r.ok) {
       setState('done')
+      setAppliedNow(new Date().toISOString())
       setNotice('Application sent. The parent can see your profile and message you.')
       return
     }
@@ -99,12 +114,14 @@ export default function ApplyPanel({
       <div className="space-y-2">
         <button
           type="button"
-          onClick={apply}
-          disabled={state !== 'idle'}
-          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-5 text-sm font-bold text-white transition-colors hover:bg-tm-red-hover disabled:bg-gray-300 sm:w-auto sm:px-8"
+          onClick={block ? undefined : apply}
+          disabled={state !== 'idle' || !!block}
+          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-5 text-sm font-bold text-white transition-colors hover:bg-tm-red-hover disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-slate-800 sm:w-auto sm:px-8"
         >
           {state === 'done' ? 'Applied' : state === 'sending' ? 'Sending…' : 'Apply for this tuition'}
         </button>
+        {/* Why Apply is inactive — one small line, English + Urdu (owner, 5 Oct 2026). */}
+        <ApplyReasonLine block={block} />
 
         {notice && <p className="text-xs font-semibold leading-relaxed text-slate-700">{notice}</p>}
 

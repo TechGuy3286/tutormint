@@ -1,9 +1,9 @@
 import { FilterBarSkeleton, TutorCardSkeletons } from '@/components/Skeletons'
 
 // Browse tutors, while the server renders a new filter set (#102/#103): the
-// filter bar and three tutor-card skeletons in the real card's shape. Popular
-// searches sit directly under the search bar on the real page, so the skeleton
-// leaves that gap too.
+// filter bar and three tutor-card skeletons in the real card's shape. Directly
+// under the search bar there is nothing but the list (popular searches sit at
+// the end of the page), so the skeleton mirrors that.
 
 export default function BrowseTutorsLoading() {
   return (

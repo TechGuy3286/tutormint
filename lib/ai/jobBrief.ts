@@ -31,6 +31,7 @@
 import { jobType } from '@/lib/display'
 import { feeChipLabel } from '@/lib/feeBands'
 import { isOnlineTitle } from '@/lib/jobTitlesCore'
+import { placeLabel } from '@/lib/place'
 
 export type JobSelection = {
   /** Taxonomy level name, e.g. "O Levels". Resolved server-side from ids. */
@@ -70,8 +71,8 @@ function subjectPhrase(subjects: string[]): string {
 }
 
 export function placePhrase(sel: JobSelection): string {
-  if (sel.area && sel.city) return `${sel.area}, ${sel.city}`
-  return sel.area || sel.city || ''
+  // Never repeat the city (owner, 5 Oct 2026) — one builder, lib/place.ts.
+  return placeLabel(sel.area, sel.city)
 }
 
 export function budgetPhrase(sel: JobSelection): string {

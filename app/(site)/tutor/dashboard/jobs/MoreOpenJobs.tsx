@@ -6,6 +6,7 @@ import InfiniteFooter from '@/components/InfiniteFooter'
 import JobCard, { type JobCardData } from '@/components/JobCard'
 import { useInfinite } from '@/lib/useInfinite'
 import { JobCardSkeletons } from '@/components/Skeletons'
+import type { ApplyBlock } from '@/lib/applyBlock'
 
 // Everything below the server-rendered first window of the open-tuitions
 // board. The cards above are real HTML; these are the same component fed from
@@ -39,7 +40,7 @@ export default function MoreOpenJobs({
   const storageKey = useMemo(() => 'tm:more:tutor-open-jobs', [])
 
   const { items, state, done, loadMore, sentinel } = useInfinite<
-    JobCardData & { applied?: boolean }
+    JobCardData & { applied?: boolean; applyBlock?: ApplyBlock | null }
   >({
     endpoint: '/api/tutor/jobs',
     params: {},
@@ -58,6 +59,7 @@ export default function MoreOpenJobs({
                 signedIn
                 showApply
                 applied={!!j.applied}
+                applyBlock={j.applyBlock ?? null}
                 viewerCity={viewerCity}
                 viewerCities={viewerCities}
                 viewerJobTypes={viewerJobTypes}

@@ -21,6 +21,9 @@ import Avatar from '@/components/Avatar'
 import AuthGateModal from '@/components/AuthGateModal'
 import ReportButton from '@/components/ReportButton'
 import type { BadgeName } from '@/lib/planBadges'
+import { placeLabel } from '@/lib/place'
+import ApplyReasonLine from '@/components/ApplyReasonLine'
+import type { ApplyBlock } from '@/lib/applyBlock'
 
 // A posted tuition, in the same card language as TutorCard.
 //
@@ -121,6 +124,7 @@ export default function JobCard({
   saveable = false,
   initiallySaved = false,
   onSavedChange,
+  applyBlock = null,
 }: {
   job: JobCardData
   href?: string
@@ -129,6 +133,9 @@ export default function JobCard({
   showApply?: boolean
   /** This tutor has already applied. */
   applied?: boolean
+  /** Why Apply is inactive for this viewer (owner, 5 Oct 2026) — computed on the
+   *  server by lib/applyBlockServer; the line under the button reads it. */
+  applyBlock?: ApplyBlock | null
   /**
    * The viewing tutor's own city, when the viewer is a signed-in tutor. Used
    * only to show the "Suitable for online" chip on a cross-city online job.
@@ -151,8 +158,12 @@ export default function JobCard({
   const upgradeSheet = useUpgradeSheet()
   const toast = useToast()
   const [gateOpen, setGateOpen] = useState(false)
-  const [state, setState] = useState<'idle' | 'sending' | 'done'>(applied ? 'done' : 'idle')
+  const [state, setState] = useState<'idle' | 'sending' | 'done'>(
+    applied || applyBlock?.kind === 'applied' ? 'done' : 'idle',
+  )
   const [notice, setNotice] = useState<string | null>(null)
+  // Set the moment THIS session applies, so the reason line reads today's date.
+  const [appliedNow, setAppliedNow] = useState<string | null>(null)
   const [saved, setSaved] = useState(initiallySaved)
   const [savingBusy, setSavingBusy] = useState(false)
 
@@ -183,6 +194,13 @@ export default function JobCard({
   // which is to say, back to the page the reader was already on.
   const detailHref = href ?? tuitionPath(job)
   const underReview = !!job.under_review
+  // The reason the button is inactive, first-reason-wins (lib/applyBlock.ts).
+  const block: ApplyBlock | null =
+    state === 'done'
+      ? applyBlock?.kind === 'applied'
+        ? applyBlock
+        : { kind: 'applied', appliedAt: appliedNow }
+      : (applyBlock ?? null)
 
   const apply = async () => {
     if (!signedIn) return setGateOpen(true)
@@ -192,6 +210,7 @@ export default function JobCard({
       const r = await postGated('/api/applications', { jobId: job.id }, upgradeSheet?.showGate)
       if (r.ok) {
         setState('done')
+        setAppliedNow(new Date().toISOString())
         setNotice('Application sent.')
         toast.success('Application sent.')
       } else {
@@ -357,7 +376,7 @@ export default function JobCard({
             )}
             <p className="flex items-center gap-2 text-xs text-slate-700">
               <MapPin size={14} className="shrink-0 text-gray-500" />
-              {[job.area, job.city].filter(Boolean).join(', ') || 'Flexible'}
+              {placeLabel(job.area, job.city) || 'Flexible'}
             </p>
             {jobType(job.teaching_mode) && (
               <p className="flex flex-wrap items-center gap-2 text-xs text-slate-700">
@@ -445,11 +464,14 @@ export default function JobCard({
                             ? 'Under review'
                             : state === 'done' ? 'Applied' : state === 'sending' ? 'Sending…' : 'Apply',
                           icon: <Send aria-hidden size={14} />,
-                          className: 'bg-tm-red text-white hover:bg-tm-red-hover disabled:bg-gray-300',
+                          // Grey when disabled, with DARK text and icon (slate-800 on
+                          // gray-200, WCAG AA) so "Applied" reads in daylight on a phone.
+                          className: 'bg-tm-red text-white hover:bg-tm-red-hover disabled:bg-gray-200 disabled:text-slate-800',
+                          solidDisabled: true,
                           // Under review pauses applications — the button says so
                           // and does nothing (the server refuses regardless).
-                          onClick: underReview ? () => {} : apply,
-                          disabled: underReview || state !== 'idle',
+                          onClick: underReview || block ? () => {} : apply,
+                          disabled: underReview || state !== 'idle' || !!block,
                           tooltip: underReview ? 'This tuition is under review' : 'Apply to this tuition',
                         } as CardAction,
                       ]
@@ -457,6 +479,9 @@ export default function JobCard({
                 ] as CardAction[]
               }
             />
+            {/* Why Apply is inactive — one small line, English + Urdu (owner,
+                5 Oct 2026). Only when the button is shown and blocked. */}
+            {showApply && !underReview && <ApplyReasonLine block={block} align="right" />}
           </div>
 
           {/* Reporting a post is only meaningful once signed in -- an

@@ -7,6 +7,7 @@ import InfiniteFooter from '@/components/InfiniteFooter'
 import JobCard, { type JobCardData } from '@/components/JobCard'
 import { useInfinite } from '@/lib/useInfinite'
 import { JobCardSkeletons } from '@/components/Skeletons'
+import type { ApplyBlock } from '@/lib/applyBlock'
 
 // Everything below the server-rendered first window of /browse/tuitions.
 // The cards above are real HTML; these are the same component fed from JSON.
@@ -46,7 +47,7 @@ export default function MoreJobs({
   )
 
   const { items, state, done, loadMore, sentinel } = useInfinite<
-    JobCardData & { applied?: boolean }
+    JobCardData & { applied?: boolean; applyBlock?: ApplyBlock | null }
   >({
     endpoint: '/api/browse/tuitions',
     params,
@@ -62,7 +63,7 @@ export default function MoreJobs({
             const position = serverCount + i + 1
             return (
               <div key={j.id} className="space-y-4">
-                <JobCard job={j} signedIn={signedIn} showApply={showApply} applied={!!j.applied} viewerCity={viewerCity} viewerCities={viewerCities} viewerJobTypes={viewerJobTypes} saveable={saveable} initiallySaved={saved.has(j.id)} />
+                <JobCard job={j} signedIn={signedIn} showApply={showApply} applied={!!j.applied} applyBlock={j.applyBlock ?? null} viewerCity={viewerCity} viewerCities={viewerCities} viewerJobTypes={viewerJobTypes} saveable={saveable} initiallySaved={saved.has(j.id)} />
                 {position % adEvery === 0 && (
                   <InlineAd audience="tutors" index={Math.floor(position / adEvery)} />
                 )}

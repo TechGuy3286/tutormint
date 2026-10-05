@@ -7,8 +7,8 @@ import SavedJobsSection from '@/components/tutor/SavedJobsSection'
 import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
 import CompletePaymentPrompt from '@/components/tutor/CompletePaymentPrompt'
 import GetVerifiedValueCard from '@/components/tutor/GetVerifiedValueCard'
-import { quotaCounter } from '@/lib/tutorDashboard'
 import Link from 'next/link'
+import { quotaCounter } from '@/lib/tutorDashboard'
 import DashboardActionBar from '@/components/dashboard/DashboardActionBar'
 import { CountGrid, type CountTile } from '@/components/tutor/DashboardCards'
 
@@ -17,7 +17,7 @@ import { createClient } from '@/lib/supabase/server'
 import { computeCompletion } from '@/lib/completion'
 import { getEntitlements } from '@/lib/entitlements'
 import { savedJobsForTutor, resolveTutorScope, tutorFeedCount, feedGenderFilter, browseJobs, NO_JOB_FILTERS } from '@/lib/jobFeed'
-import { unreadMessageCount, conversationCount } from '@/lib/messaging'
+import { unreadMessageCount } from '@/lib/messaging'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { viewSummary } from '@/lib/profileViews'
 import { canDownloadCv } from '@/lib/cv/access'
@@ -27,6 +27,9 @@ import { loadPaymentsHistory } from '@/lib/paymentsHistory'
 import PaymentsRefunds from '@/components/dashboard/PaymentsRefunds'
 import { getOnboardingMode } from '@/lib/onboardingModeServer'
 import { showNewOnboarding } from '@/lib/onboardingMode'
+import VerifiedOnceBanner from '@/components/tutor/VerifiedOnceBanner'
+import { firstVerifiedVisit } from '@/lib/verifiedBanner'
+import { applyBlocksFor } from '@/lib/applyBlockServer'
 
 // The tutor dashboard — one profile card and a few (PR19).
 //
@@ -63,6 +66,9 @@ export default async function TutorDashboardPage() {
   // unfinished PayPro invoice (started, unpaid, still within 24h). Both are
   // hidden once the fee is paid (ent.verified).
   const staffNew = showNewOnboarding(await getOnboardingMode(), !!session?.profile?.admin_role)
+  // The "You're verified" banner shows ONCE — the first dashboard visit after the
+  // badge is assigned; this call records the showing (owner, 5 Oct 2026).
+  const showVerifiedOnce = await firstVerifiedVisit(userId, !!ent.verified)
   const showValueCard = staffNew && !ent.verified
   const pendingInvoice = !staffNew && !ent.verified ? await pendingPayproInvoice(userId) : null
 
@@ -72,21 +78,33 @@ export default async function TutorDashboardPage() {
   const tutorScope = await resolveTutorScope(supabase, userId)
   const viewerGender = feedGenderFilter(tutorScope?.gender)
 
-  const [views, unread, conversations, { data: apps }, { data: demos }, savedJobs, boardCount] =
+  // The applications-pool month is a UTC calendar month (lib/quota.ts).
+  const now = new Date()
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()
+
+  const [views, unread, { data: apps }, { data: demos }, savedJobs, boardCount, { count: viewedThisMonth }] =
     await Promise.all([
       viewSummary(userId, ent.canSeeViewerIdentity, 20),
       unreadMessageCount(userId),
-      conversationCount(userId),
-      supabase.from('applications').select('id, job_id, withdrawn_at').eq('tutor_id', userId),
+      supabase.from('applications').select('id, job_id, withdrawn_at, created_at').eq('tutor_id', userId),
       supabase.from('demo_requests').select('id, status').eq('tutor_id', userId),
       savedJobsForTutor(userId),
       // PR85: the count is the feed's first non-empty fallback level, gender-filtered.
       tutorScope
         ? tutorFeedCount(supabase, tutorScope, viewerGender)
         : browseJobs({ ...NO_JOB_FILTERS, viewerGender }, 1).then((r) => r.total),
+      // Numbers viewed this month — each one used an application from the pool
+      // (Terms: "viewing a number counts as one application"). Own rows only.
+      supabase
+        .from('contact_reveals')
+        .select('tutor_id', { count: 'exact', head: true })
+        .eq('tutor_id', userId)
+        .gte('created_at', monthStart),
     ])
 
   const liveApps = (apps ?? []).filter((a) => !a.withdrawn_at)
+  // Why Apply is inactive on each saved tuition (owner, 5 Oct 2026).
+  const savedApplyBlocks = await applyBlocksFor(supabase, userId, ent, savedJobs)
   const appliedJobIds = liveApps.map((a) => a.job_id as string)
   const liveDemos = (demos ?? []).filter((d) => ['requested', 'accepted'].includes(d.status as string)).length
 
@@ -114,17 +132,28 @@ export default async function TutorDashboardPage() {
   // The shared-pool applications quota (PR106-D §9): shown on the My-applications
   // tile. Basic "x of 10", Premium "x of 100", Featured "Unlimited" (never a
   // number). Only a tutor who is on a plan (fee paid) sees a count.
+  // The quota rule itself is unchanged — `q` still drives the "Get more
+  // applications" link at ~80% used (PR106-D §9).
   const q = quotaCounter({ plan: ent.plan, used: ent.quotaUsed, quota: ent.quota })
-  const quotaNote = ent.plan ? `${q.text.replace(' used this month', ' this month')}` : null
+  // Live subline (owner, 5 Oct 2026): "6 applied · 1 number viewed" — the two
+  // things that spend the pool this month, counted from their own rows. Only
+  // "6 applied" when nothing was viewed. The big number (all live applications)
+  // and the quota rule itself are unchanged.
+  const appliedThisMonth = (apps ?? []).filter((a) => String(a.created_at) >= monthStart).length
+  const viewed = viewedThisMonth ?? 0
+  const quotaNote = ent.plan
+    ? `${appliedThisMonth} applied${viewed > 0 ? ` · ${viewed} number${viewed === 1 ? '' : 's'} viewed` : ''}`
+    : null
   const findable = percent >= 100 && ent.verified && ent.badges.includes('Verified')
 
   // Seven tiles, seven distinct tones — no two share a colour (PR32 §2). The
   // seventh is the optional Intro video tile (PR76 §D.3), its own mint tint.
   const tiles: CountTile[] = [
     { key: 'apps', icon: <Send aria-hidden size={22} />, value: liveApps.length, label: 'My applications', note: quotaNote, href: '/tutor/dashboard/applications', tone: 'sky', tip: 'Tuitions you have applied to' },
-    // The number is the tutor's CONVERSATIONS (four conversations → 4); unread
-    // is the small badge, never the main number (PR44 §2).
-    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: conversations, label: 'Messages', href: '/tutor/dashboard/messages', tone: 'navy', badge: unread, tip: 'Your conversations with parents' },
+    // ONE NUMBER (owner, 5 Oct 2026): the big number is the UNREAD count — the
+    // same unreadMessageCount the header icon reads — and the red badge shows
+    // only while it is above 0. At 0 the tile reads 0 with no dot.
+    { key: 'messages', icon: <MessageSquare aria-hidden size={22} />, value: unread, label: 'Messages', note: 'unread', href: '/tutor/dashboard/messages', tone: 'navy', badge: unread, tip: 'Unread messages from parents' },
     { key: 'demos', icon: <Video aria-hidden size={22} />, value: liveDemos, label: 'Demo requests', href: '/tutor/dashboard/demos', tone: 'red', highlight: liveDemos > 0, tip: 'Demo lessons parents have asked you for' },
     { key: 'tuitions', icon: <Briefcase aria-hidden size={22} />, value: boardCount, label: 'Tuitions for you', href: '/browse/tuitions', tone: 'gold', tip: tutorScope ? 'Open tuitions in your city and areas' : 'Open tuitions — add your area in Settings to narrow this' },
     { key: 'views', icon: <Eye aria-hidden size={22} />, value: views.thisWeek, label: 'Profile views', note: 'this week', href: '/tutor/dashboard/views', tone: 'teal', tip: 'Parents who viewed your profile this week' },
@@ -177,15 +206,11 @@ export default async function TutorDashboardPage() {
               Upload now
             </Link>
           </div>
-        ) : ent.verified ? (
-          /* PR106-H4 §1/§3: verified the moment the fee is paid (no staff
-             approval needed) — replaces the old under-review banner. */
-          <div className="rounded-2xl border border-tm-green-deep/25 bg-tm-tint-green/60 px-4 py-3 text-center">
-            <p className="text-sm font-black text-tm-green-deep">✓ You&rsquo;re verified! You can now apply to tuitions.</p>
-            <p lang="ur" dir="rtl" className="mt-0.5 text-[11px] font-semibold text-tm-green-deep/80">
-              آپ کی تصدیق ہو گئی ہے! اب آپ ٹیوشنز کے لیے اپلائی کر سکتے ہیں۔
-            </p>
-          </div>
+        ) : showVerifiedOnce ? (
+          /* PR106-H4 §1/§3: verified the moment the fee is paid. Shown ONCE
+             (owner, 5 Oct 2026): fades after 3 s and collapses; the server has
+             already recorded it, so it never returns on any device. */
+          <VerifiedOnceBanner />
         ) : null}
 
         {/* Action bar — the main thing a tutor comes back to do (PR42 §2). */}
@@ -221,7 +246,7 @@ export default async function TutorDashboardPage() {
 
         {/* 3.4 Saved tuitions (hidden when empty; the count tile links here). */}
         <div id="saved-tuitions" className="scroll-mt-3">
-          <SavedJobsSection initial={savedJobs} viewerCity={city} appliedIds={appliedJobIds} />
+          <SavedJobsSection initial={savedJobs} viewerCity={city} appliedIds={appliedJobIds} applyBlocks={savedApplyBlocks} />
         </div>
 
         {/* PR106-H4 §4.12 — payments & refunds (hidden when empty). */}

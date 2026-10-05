@@ -20,6 +20,9 @@ export type CardAction = {
   href?: string
   onClick?: () => void
   disabled?: boolean
+  /** Keep the action's own `disabled:` colours instead of the default 60% dim —
+   *  for a disabled button whose label must stay readable ("Applied"). */
+  solidDisabled?: boolean
   ariaPressed?: boolean
   /** Desktop-only hover tooltip (PR27 §2), e.g. "Send a message to this tutor". */
   tooltip?: string
@@ -29,7 +32,7 @@ export type CardAction = {
 // 360px even inside a nested card (PR27 §1.2). The label never truncates — it
 // wins the space; the icon is the thing that would drop first if it had to.
 const BTN =
-  'relative inline-flex min-h-[44px] w-full min-w-0 items-center justify-center gap-1 rounded-xl px-2 text-xs font-bold transition-colors disabled:opacity-60'
+  'relative inline-flex min-h-[44px] w-full min-w-0 items-center justify-center gap-1 rounded-xl px-2 text-xs font-bold transition-colors disabled:cursor-not-allowed'
 
 function ActionButton({ a }: { a: CardAction }) {
   const content = (
@@ -52,7 +55,7 @@ function ActionButton({ a }: { a: CardAction }) {
       disabled={a.disabled}
       aria-pressed={a.ariaPressed}
       data-tip={a.tooltip}
-      className={`${BTN} ${a.className}`}
+      className={`${BTN} ${a.solidDisabled ? '' : 'disabled:opacity-60'} ${a.className}`}
     >
       {content}
     </button>

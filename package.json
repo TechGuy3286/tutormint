@@ -76,7 +76,8 @@
     "test:abuse": "tsx --test scripts/test-abuse.ts",
     "test:pklocations": "tsx --test scripts/test-pklocations.ts",
     "test:subjectmerge": "tsx --test scripts/test-subjectmerge.ts",
-    "test:cities": "tsx --conditions=react-server --test scripts/test-cities.ts"
+    "test:cities": "tsx --conditions=react-server --test scripts/test-cities.ts",
+    "test:place": "tsx --test scripts/test-place-apply.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

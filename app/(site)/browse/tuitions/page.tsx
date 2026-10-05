@@ -26,6 +26,8 @@ import AdSlot from '@/components/ads/AdSlot'
 import JobFilterBar, { type JobFilterValues } from './JobFilterBar'
 import MoreJobs from './MoreJobs'
 import PopularLandingLinks from '@/components/landing/PopularLandingLinks'
+import { applyBlocksFor, type ApplyBlockMap } from '@/lib/applyBlockServer'
+import type { Entitlements } from '@/lib/entitlements'
 
 // /browse/tuitions -- the other half of the organic-search surface.
 //
@@ -196,6 +198,8 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   let viewerPlan: string | null = null
   let tutorUnverified = false
   let appliedIds = new Set<string>()
+  let applyBlocks: ApplyBlockMap = {}
+  let tutorEnt: Entitlements | null = null
   let savedIds = new Set<string>()
   // PR71/PR85: the tutor's own cities+areas default, resolved BEFORE the query so
   // the first window is scoped (with the 3-level fallback). Applied only on a
@@ -207,6 +211,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   if (user) {
     const ent = await getEntitlements(user.id)
     isTutor = ent.audience === 'tutor'
+    if (isTutor) tutorEnt = ent
     viewerRole = ent.role
     viewerPlan = ent.plan
     // An unverified tutor has paid no fee, so holds no plan (Basic is synthesised
@@ -258,13 +263,11 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   if (user) {
-    if (isTutor && jobs.length > 0) {
-      const { data: mine } = await supabase
-        .from('applications')
-        .select('job_id')
-        .eq('tutor_id', user.id)
-        .in('job_id', jobs.map((j) => j.id))
-      appliedIds = new Set((mine ?? []).map((a) => a.job_id as string))
+    if (isTutor && tutorEnt && jobs.length > 0) {
+      // One shared rule for why Apply is inactive (owner, 5 Oct 2026); "applied"
+      // is derived from it so the two can never disagree.
+      applyBlocks = await applyBlocksFor(supabase, user.id, tutorEnt, jobs)
+      appliedIds = new Set(Object.entries(applyBlocks).filter(([, b]) => b?.kind === 'applied').map(([id]) => id))
 
       const { data: savedRows } = await supabase
         .from('saved_jobs')
@@ -393,10 +396,6 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
         )}
 
         <JobFilterBar values={filterValues} />
-        {/* Popular searches sit DIRECTLY under the search bar (#102) — never
-            mid-page. Internal links to the city × subject landing pages (PR43
-            §2), so they are not orphans; only the ones that exist (>= threshold). */}
-        <PopularLandingLinks kind="tuitions" />
 
         {/* PR90: the "Your areas / All areas / All cities" chip bar is removed.
             The default area feed still opens for a signed-in tutor (below); to
@@ -445,6 +444,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
                   signedIn={!!user}
                   showApply={showApply}
                   applied={appliedIds.has(job.id)}
+                  applyBlock={applyBlocks[job.id] ?? null}
                   viewerCity={viewerCity}
                   viewerCities={viewerCities}
                   viewerJobTypes={viewerJobTypes}
@@ -487,6 +487,11 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
           />
         )}
 
+        {/* Popular searches sit at the END of the page (owner, 5 Oct 2026) —
+            after the full list and the load-more footer. Directly under the
+            search bar there is nothing but the list. Internal links to the
+            city × subject landing pages (PR43 §2), so they are not orphans. */}
+        <PopularLandingLinks kind="tuitions" />
         {/* Record a committed search / job-ID lookup with its result count
             (PR99 §2); masked server-side before storing. */}
         {q ? <TrackSearch where="browse tuitions" query={q} resultCount={total} /> : null}

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { browseJobs, NO_JOB_FILTERS, resolveTutorScope, feedGenderFilter } from '@/lib/jobFeed'
 import { createClient } from '@/lib/supabase/server'
+import { applyBlocksFor, type ApplyBlockMap } from '@/lib/applyBlockServer'
 
 // Load-more for /tutor/dashboard/jobs.
 //
@@ -38,24 +39,15 @@ export async function GET(request: Request) {
   // appends `page.items` and reads nothing else off the response, so a
   // sibling array would be silently dropped and every appended card would
   // offer Apply to a tutor who had already applied.
-  let applied = new Set<string>()
+  // Why Apply is inactive per job (owner, 5 Oct 2026) — the shared rule.
+  let blocks: ApplyBlockMap = {}
   if (jobs.length > 0) {
     const ent = await getEntitlements(user.id)
-    if (ent.audience === 'tutor') {
-      const { data } = await supabase
-        .from('applications')
-        .select('job_id')
-        .eq('tutor_id', user.id)
-        .in(
-          'job_id',
-          jobs.map((j) => j.id),
-        )
-      applied = new Set((data ?? []).map((a) => a.job_id as string))
-    }
+    if (ent.audience === 'tutor') blocks = await applyBlocksFor(supabase, user.id, ent, jobs)
   }
 
   return NextResponse.json({
-    items: jobs.map((j) => ({ ...j, applied: applied.has(j.id) })),
+    items: jobs.map((j) => ({ ...j, applied: blocks[j.id]?.kind === 'applied', applyBlock: blocks[j.id] ?? null })),
     cursor: nextCursor,
   })
 }

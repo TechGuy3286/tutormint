@@ -9,6 +9,7 @@ import { browseJobs, NO_JOB_FILTERS, resolveTutorScope, feedGenderFilter } from 
 import JobCard from '@/components/JobCard'
 import MoreOpenJobs from './MoreOpenJobs'
 import MyApplications, { type MyApplication } from './MyApplications'
+import { applyBlocksFor } from '@/lib/applyBlockServer'
 
 // Every open tuition, featured first, plus the tutor's own applications.
 //
@@ -50,6 +51,8 @@ export default async function TutorJobsPage() {
     .order('created_at', { ascending: false })
 
   const appliedIds = new Set((mine ?? []).map((a) => a.job_id as string))
+  // Why Apply is inactive per card (owner, 5 Oct 2026) — the shared rule.
+  const applyBlocks = await applyBlocksFor(supabase, userId, ent, jobs)
 
   // Which of these the tutor has saved (hearted). Free, no plan — every card
   // gets a heart, filled for the ones already saved.
@@ -126,6 +129,7 @@ export default async function TutorJobsPage() {
                       signedIn
                       showApply
                       applied={appliedIds.has(job.id)}
+                      applyBlock={applyBlocks[job.id] ?? null}
                       viewerCity={viewerCity}
                       viewerCities={viewerCities}
                       viewerJobTypes={viewerJobTypes}
