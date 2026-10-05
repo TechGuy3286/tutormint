@@ -3,7 +3,7 @@ import { timingSafeEqual } from 'node:crypto'
 
 import { createPublicClient } from '@/lib/supabase/public'
 import { indexingConfigured, indexingClient, indexingClientEmail, tuitionUrl } from '@/lib/googleIndexing'
-import { classifyTokenError } from '@/lib/googleIndexingCore'
+import { classifyTokenError, describeKeyShape } from '@/lib/googleIndexingCore'
 
 // GET /api/internal/indexing-health — is the Google Indexing API set up?
 // (owner, 5 Oct 2026). Protected by CRON_SECRET, the same `Authorization:
@@ -96,6 +96,9 @@ export async function GET(request: Request) {
     const d = describe(e)
     out.token = classifyTokenError(d.message)
     out.error = d.message
+    // Shape facts only (lengths, markers, line count) — no key material — so a
+    // mis-pasted key can be diagnosed without anyone reading it.
+    out.keyShape = describeKeyShape(process.env.GOOGLE_INDEXING_PRIVATE_KEY)
     return NextResponse.json(out)
   }
 

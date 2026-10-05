@@ -10,7 +10,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { normalisePrivateKey, normaliseClientEmail, looksLikePem, classifyTokenError } from '../lib/googleIndexingCore'
+import { normalisePrivateKey, normaliseClientEmail, looksLikePem, classifyTokenError, describeKeyShape } from '../lib/googleIndexingCore'
 
 const PEM = '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7\nabcDEF123/+=\n-----END PRIVATE KEY-----'
 
@@ -43,6 +43,23 @@ test('normalisePrivateKey / normaliseClientEmail: a pasted JSON-line fragment yi
   assert.equal(normaliseClientEmail('client_email": "tutormint-indexing@example-project.iam.gserviceaccount.com'), 'tutormint-indexing@example-project.iam.gserviceaccount.com')
   assert.equal(normaliseClientEmail('  "svc@example.com",'), 'svc@example.com')
   assert.equal(normaliseClientEmail('svc@example.com'), 'svc@example.com')
+})
+
+test('describeKeyShape: shape facts only, never key material', () => {
+  const shape = describeKeyShape(`private_key": "${PEM.replace(/\n/g, '\\n')}",`)
+  assert.equal(shape.jsonFragment, true)
+  assert.equal(shape.literalNewlines, true)
+  assert.equal(shape.pemBlockFound, true)
+  assert.equal(shape.hasBegin && shape.hasEnd, true)
+  assert.equal(shape.lines, 4)
+  assert.equal(shape.firstLine, '-----BEGIN PRIVATE KEY-----')
+  assert.equal(shape.lastLine, '-----END PRIVATE KEY-----')
+  const json = JSON.stringify(shape)
+  assert.ok(!json.includes('MIIEvQ') && !json.includes('abcDEF'), 'no key bytes in the shape')
+  const bad = describeKeyShape('-----BEGIN PRIVATE KEY-----\nMIIEvQ')
+  assert.equal(bad.hasEnd, false)
+  assert.equal(bad.pemBlockFound, false)
+  assert.equal(bad.lastLine, '(not a PEM marker)')
 })
 
 test('classifyTokenError: short plain words, never the key or token', () => {

@@ -36,6 +36,40 @@ export function normaliseClientEmail(raw: string | null | undefined): string {
   return m ? m[0] : v.replace(/^["']|["']$/g, '')
 }
 
+/**
+ * Safe facts about the pasted key's SHAPE for the health check — lengths, line
+ * counts and which markers are present. Never a byte of key material.
+ */
+export function describeKeyShape(raw: string | null | undefined): {
+  rawLength: number
+  normalisedLength: number
+  literalNewlines: boolean
+  jsonFragment: boolean
+  hasBegin: boolean
+  hasEnd: boolean
+  pemBlockFound: boolean
+  lines: number
+  firstLine: string
+  lastLine: string
+} {
+  const v = raw ?? ''
+  const n = normalisePrivateKey(v)
+  const lines = n ? n.split('\n') : []
+  const marker = (s: string) => (/^-----[A-Z ]+-----$/.test(s.trim()) ? s.trim() : s.trim() ? '(not a PEM marker)' : '(empty)')
+  return {
+    rawLength: v.length,
+    normalisedLength: n.length,
+    literalNewlines: v.includes('\\n'),
+    jsonFragment: /private_key"?\s*:/.test(v),
+    hasBegin: /-----BEGIN (RSA )?PRIVATE KEY-----/.test(n),
+    hasEnd: /-----END (RSA )?PRIVATE KEY-----/.test(n),
+    pemBlockFound: PEM_BLOCK.test(n),
+    lines: lines.length,
+    firstLine: marker(lines[0] ?? ''),
+    lastLine: marker(lines[lines.length - 1] ?? ''),
+  }
+}
+
 /** Does this look like a PEM private key — the only shape the signer accepts? */
 export function looksLikePem(key: string): boolean {
   return /^-----BEGIN (RSA )?PRIVATE KEY-----\n[\s\S]+\n-----END (RSA )?PRIVATE KEY-----$/.test(key.trim())
