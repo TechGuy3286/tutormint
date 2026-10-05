@@ -63,8 +63,10 @@ function ActionButton({ a }: { a: CardAction }) {
 }
 
 export default function CardActions({ actions }: { actions: CardAction[] }) {
+  // A single action fills the full width (owner, 5 Oct 2026: a tutor viewing
+  // another tutor's card sees only View Profile). Two or more keep the 2-up grid.
   return (
-    <div className="relative z-10 grid grid-cols-2 gap-2">
+    <div className={`relative z-10 grid gap-2 ${actions.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
       {actions.map((a) => (
         <ActionButton key={a.key} a={a} />
       ))}

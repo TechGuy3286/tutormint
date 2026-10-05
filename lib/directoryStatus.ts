@@ -19,7 +19,7 @@ export async function loadDirectoryStatus(userId: string): Promise<DirectoryStat
   const [{ data: prof }, { data: tp }, { data: subj }] = await Promise.all([
     admin
       .from('profiles')
-      .select('phone_verified_at, is_suspended, is_banned, is_seed, is_team_account')
+      .select('phone_verified_at, is_suspended, is_banned, is_seed, is_team_account, verification_state, profile_pic_status, selfie_status')
       .eq('id', userId)
       .maybeSingle(),
     admin
@@ -47,6 +47,10 @@ export async function loadDirectoryStatus(userId: string): Promise<DirectoryStat
     claimedAt: tp?.claimed_at as string | null,
     isSeed: prof?.is_seed as boolean | null,
     isTeamAccount: prof?.is_team_account as boolean | null,
+    // §5 (migration 137): a staff-rejected identity document delists.
+    cnicRejected: ((prof?.verification_state as string | null) ?? '').toLowerCase() === 'rejected',
+    photoRejected: ((prof?.profile_pic_status as string | null) ?? '').toLowerCase() === 'rejected',
+    selfieRejected: ((prof?.selfie_status as string | null) ?? '').toLowerCase() === 'rejected',
   })
   // PR92: "listed" now means present in the public browse directory, which lists
   // every real tutor — so it is read from the VIEW itself, not from the step-1

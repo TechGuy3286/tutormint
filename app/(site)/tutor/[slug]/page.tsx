@@ -1245,8 +1245,11 @@ export default async function TutorPublicProfile({ params }: { params: Params })
 
       {/* Sticky primary actions on mobile, inline from sm. Suppressed while the
           profile is under review — apply/message/demo are exactly the
-          affordances the amber notice replaces. */}
-      {!underReview && (
+          affordances the amber notice replaces. Also absent for a TUTOR viewing
+          another tutor (owner, 5 Oct 2026): no Message, Demo or Shortlist —
+          the server refuses all three for a tutor account. The own-profile
+          locked bar (isSelf) stays. */}
+      {!underReview && !(ent?.audience === 'tutor' && !isSelf) && (
         <ProfileActions
           tutorId={tutor.id}
           tutorName={tutor.full_name}

@@ -591,6 +591,21 @@ test('directoryBlockers: an unclaimed import is blocked from the directory, in v
   assert.deepEqual(directoryBlockers(imp), ['unclaimed_import'])
 })
 
+// §5 (owner, 5 Oct 2026, migration 137): a staff-rejected CNIC, profile picture
+// or selfie delists; approval of the re-upload reverses it with no other change.
+test('directoryBlockers: a rejected identity document delists (CNIC, picture or selfie)', () => {
+  assert.deepEqual(directoryBlockers({ ...listedFacts, cnicRejected: true }), ['document_rejected'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, photoRejected: true }), ['document_rejected'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, selfieRejected: true }), ['document_rejected'])
+  assert.deepEqual(directoryBlockers({ ...listedFacts, cnicRejected: true, selfieRejected: true }), ['document_rejected'], 'one blocker, however many documents')
+  // Pending or approved is NOT rejected — nothing blocks.
+  assert.deepEqual(directoryBlockers({ ...listedFacts, cnicRejected: false, photoRejected: false, selfieRejected: false }), [])
+  // Absent facts (a caller that does not carry them) never block.
+  assert.deepEqual(directoryBlockers({ ...listedFacts, cnicRejected: null, photoRejected: undefined }), [])
+  // The fix opens the identity section of Settings (the re-upload screen).
+  assert.equal(tutorFixFor('document_rejected')?.href, '/tutor/dashboard/settings#identity')
+})
+
 test('tutorFixFor: only the tutor-fixable visibility blockers offer a screen', () => {
   // PR 4 §1.6: each opens the exact step of the tap-tap flow.
   assert.equal(tutorFixFor('no_subjects')?.href, '/tutor/complete-profile?step=subjects')

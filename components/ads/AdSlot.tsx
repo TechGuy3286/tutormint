@@ -50,6 +50,13 @@ export default async function AdSlot({
   viewerRole?: string | null
   viewerPlan?: string | null
 }) {
+  // A parents-audience slot shows NOTHING to a signed-in tutor (owner, 5 Oct
+  // 2026): the "See tutor contact details instantly … See parent packages" box
+  // between Browse-tutors cards is for parents and signed-out visitors; a tutor
+  // gets no box and no replacement. Decided here, where the ad is chosen, so no
+  // impression is recorded for a viewer the slot was never for.
+  if (audience === 'parents' && viewerRole === 'tutor') return null
+
   // The tutor dashboard carries house and promo creatives only (revenue spec),
   // so it is not offered to the paid rotation at all.
   const paid = slot === 'tutor-dashboard' ? null : await pickAd(audience)

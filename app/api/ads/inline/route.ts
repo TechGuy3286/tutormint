@@ -32,6 +32,10 @@ export async function GET(request: Request) {
   const session = await getSessionUser()
   const viewerRole = session?.profile?.role ?? null
 
+  // A parents-audience slot shows nothing to a signed-in tutor (owner, 5 Oct
+  // 2026) — same rule as AdSlot, so the appended windows agree with the first.
+  if (audience === 'parents' && viewerRole === 'tutor') return NextResponse.json({ kind: 'none' })
+
   const paid = await pickAd(audience)
   if (paid) {
     await recordImpression(paid.id, 'browse-inline', viewerRole)

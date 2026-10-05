@@ -116,12 +116,15 @@ export async function generateMetadata({
   const city = one(sp.city)
   const label = await subjectLabel(intOrNull(one(sp.subject)))
 
-  const what = label ? `${label} tutors` : 'Verified tutors'
+  // "Find tutors" (owner, 5 Oct 2026). Verified tutors are listed first, but
+  // not every listed tutor is verified yet, so neither the title nor the
+  // description claims they all are.
+  const what = label ? `Find ${label} tutors` : 'Find tutors'
   const where = city ? ` in ${city}` : ' in Pakistan'
   const title = `${what}${where} | TutorMint`
   const description = label
-    ? `Browse verified ${label} tutors${where}. Real profiles, verified identity, video introductions. Free to browse on TutorMint.`
-    : `Browse verified home and online tutors${where}. Real profiles, verified identity, video introductions. Free to browse on TutorMint.`
+    ? `Find ${label} tutors${where}. Verified tutors listed first — real profiles, identity checks, video introductions. Free to browse on TutorMint.`
+    : `Find home and online tutors${where}. Verified tutors listed first — real profiles, identity checks, video introductions. Free to browse on TutorMint.`
 
   const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
   // Identical arguments to the page body's own call, so React's cache() serves
@@ -273,7 +276,9 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   }
 
   const label = await subjectLabel(subjectId)
-  const heading = label ? `${label} tutors` : 'Verified tutors'
+  // "Find tutors" (owner, 5 Oct 2026) — the list holds verified tutors first and
+  // verification-in-progress after, so the heading no longer says "Verified".
+  const heading = label ? `${label} tutors` : 'Find tutors'
 
   const filters: FilterValues = {
     subject: subjectId ? String(subjectId) : '',
@@ -306,9 +311,11 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
             {city ? ` in ${city}` : ''}
           </h1>
           <p className="text-xs text-gray-500">
+            {/* The live count for everyone; "free to browse, no account needed"
+                only for a signed-out visitor (owner, 5 Oct 2026). */}
             {total === 0
               ? 'No tutors match these filters yet.'
-              : `${total} tutor${total === 1 ? '' : 's'} · free to browse, no account needed`}
+              : `${total} tutor${total === 1 ? '' : 's'}${viewer.signedIn ? '' : ' · free to browse, no account needed'}`}
           </p>
           {/* §4.1: when a misspelled/Roman-Urdu query resolved to a subject. */}
           {resolvedLabel && (

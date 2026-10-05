@@ -261,6 +261,8 @@ export default function TutorCard({
   // under them — the server refuses self-message / self-demo / self-shortlist
   // regardless. Other tutors' cards keep today's behaviour.
   const isOwn = viewer.signedIn && !!viewer.id && viewer.id === tutor.id
+  // A signed-in TUTOR looking at someone else's card: View Profile only.
+  const otherTutorViewer = viewer.signedIn && viewer.role === 'tutor' && !isOwn
   const messageAllowed =
     isOwn ||
     (showMessage &&
@@ -602,6 +604,13 @@ export default function TutorCard({
                     href: profileHref,
                     tooltip: `View ${tutor.full_name.split(' ')[0]}’s profile`,
                   },
+                  // A tutor viewing ANOTHER tutor's card (owner, 5 Oct 2026) sees
+                  // only View Profile, full width: no Message, Demo or Shortlist
+                  // (the server refuses all three for a tutor account). Parents,
+                  // signed-out visitors and the own-card lock are unchanged.
+                  ...(otherTutorViewer
+                    ? []
+                    : ([
                   ...(messageAllowed
                     ? [
                         {
@@ -666,6 +675,7 @@ export default function TutorCard({
                             } as CardAction),
                       ]
                     : []),
+                      ] as CardAction[])),
                 ] as CardAction[],
               )}
             />

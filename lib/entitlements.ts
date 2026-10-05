@@ -320,6 +320,10 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
           claimedAt: tutorRow?.claimed_at,
           isSeed: profile.is_seed,
           isTeamAccount: profile.is_team_account,
+          // §5 (5 Oct 2026, migration 137): a staff-rejected document delists.
+          cnicRejected: (profile.verification_state ?? '').toLowerCase() === 'rejected',
+          photoRejected: (profile.profile_pic_status ?? '').toLowerCase() === 'rejected',
+          selfieRejected: (profile.selfie_status ?? '').toLowerCase() === 'rejected',
         })
       : []
   const visible = role === 'tutor' ? visibilityBlockers.length === 0 : false

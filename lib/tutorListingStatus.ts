@@ -29,8 +29,15 @@ export type ListingBlocker =
   | 'no_city'
   | 'no_area'
   | 'no_gender'
+  | 'document_rejected'
 
 export type ListingFacts = {
+  /** §5 (owner, 5 Oct 2026): staff REJECTED the CNIC / profile picture / selfie
+   *  (profiles.verification_state / profile_pic_status / selfie_status =
+   *  'rejected'). Any one delists until the re-upload is approved (migration 137). */
+  cnicRejected?: boolean | null
+  photoRejected?: boolean | null
+  selfieRejected?: boolean | null
   phoneVerified: boolean
   hasSubjects: boolean
   city?: string | null
@@ -68,6 +75,8 @@ export function directoryBlockers(f: ListingFacts): ListingBlocker[] {
   if (!(f.city && f.city.trim())) out.push('no_city')
   if (!(f.area && f.area.trim())) out.push('no_area')
   if (!(f.gender && f.gender.trim())) out.push('no_gender')
+  // §5 — a staff rejection of any identity document delists (view order: last).
+  if (f.cnicRejected || f.photoRejected || f.selfieRejected) out.push('document_rejected')
   return out
 }
 
@@ -88,6 +97,7 @@ export const BLOCKER_LABEL: Record<ListingBlocker, string> = {
   no_city: 'No city set',
   no_area: 'No area set',
   no_gender: 'No gender set',
+  document_rejected: 'A document was rejected — awaiting a correct re-upload',
 }
 
 /**
@@ -108,6 +118,10 @@ export function tutorFixFor(b: ListingBlocker): { label: string; href: string } 
       return { label: 'Add your area', href: '/tutor/complete-profile?step=area' }
     case 'no_gender':
       return { label: 'Add your gender', href: '/tutor/complete-profile?step=gender' }
+    case 'document_rejected':
+      // The identity section of Settings — the same screen the block modal opens
+      // (lib/badgeRule REUPLOAD_HREF; this file stays import-free).
+      return { label: 'Upload a correct document', href: '/tutor/dashboard/settings#identity' }
     default:
       return null
   }

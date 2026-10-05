@@ -66,12 +66,11 @@ export default function MoreTutors({
                   showMessage={!viewer.signedIn || viewer.role !== 'tutor'}
                 />
                 {/* The same rhythm as the server-rendered window above,
-                    continued from where it stopped. */}
-                {position % adEvery === 0 && (
-                  <InlineAd
-                    audience={viewer.role === 'tutor' ? 'tutors' : 'parents'}
-                    index={Math.floor(position / adEvery)}
-                  />
+                    continued from where it stopped. A signed-in TUTOR gets no
+                    box between tutor cards at all — no upsell and no
+                    replacement (owner, 5 Oct 2026), matching the first window. */}
+                {position % adEvery === 0 && viewer.role !== 'tutor' && (
+                  <InlineAd audience="parents" index={Math.floor(position / adEvery)} />
                 )}
               </div>
             )

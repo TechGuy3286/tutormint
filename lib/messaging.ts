@@ -160,6 +160,16 @@ export async function canStartThread(
   }
 
   if (ent.audience === 'tutor') {
+    // A tutor cannot message another tutor (owner, 5 Oct 2026). Messaging is
+    // parent ↔ tutor; the card and the profile hide the button for a tutor
+    // viewer, and this is the server-side rule behind it. Checked first — it is
+    // not a plan or verification problem, so no gate is offered.
+    if (admin) {
+      const { data: other } = await admin.from('profiles').select('role').eq('id', otherId).maybeSingle()
+      if (other?.role === 'tutor') {
+        return { ok: false, status: 403, error: 'Tutor accounts cannot message other tutors.' }
+      }
+    }
     // A rejected document blocks new messaging until re-upload + approval
     // (PR106-H4 §2) — checked before the verify/tier gates so the member gets
     // the "upload a correct {document}" screen.

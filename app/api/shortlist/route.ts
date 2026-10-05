@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activityLog'
+import { getEntitlements } from '@/lib/entitlements'
 import { parseBody, z, uuid } from '@/lib/validate'
 
 // Shortlist a tutor, or remove one.
@@ -43,6 +44,13 @@ export async function POST(request: Request) {
   }
   if (tutorId === user.id) {
     return NextResponse.json({ error: 'You cannot shortlist yourself.' }, { status: 400 })
+  }
+  // A tutor account cannot shortlist other tutors (owner, 5 Oct 2026). The
+  // shortlist is a parent's tool; the card and the profile already hide the
+  // button for a tutor viewer, and this is the server-side rule behind it.
+  const ent = await getEntitlements(user.id)
+  if (ent.audience === 'tutor') {
+    return NextResponse.json({ error: 'Tutor accounts cannot shortlist tutors.' }, { status: 403 })
   }
 
   if (action === 'remove') {

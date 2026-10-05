@@ -35,17 +35,32 @@ export async function hiddenAvatarTutorIds(
 ): Promise<Set<string>> {
   const uniq = [...new Set(ids.filter((v): v is string => !!v))]
   if (!client || uniq.length === 0) return new Set()
+  const hidden = new Set<string>()
   try {
     const { data, error } = await (client as Queryable).from('tutor_profiles').select('id, show_avatar').in('id', uniq)
-    if (error || !Array.isArray(data)) return new Set()
-    const hidden = new Set<string>()
-    for (const row of data as { id: string; show_avatar: boolean | null }[]) {
-      if (row.show_avatar === false) hidden.add(row.id)
+    if (!error && Array.isArray(data)) {
+      for (const row of data as { id: string; show_avatar: boolean | null }[]) {
+        if (row.show_avatar === false) hidden.add(row.id)
+      }
     }
-    return hidden
   } catch {
-    return new Set()
+    /* tolerant: shown */
   }
+  // §5 (owner, 5 Oct 2026): a profile picture REJECTED by staff is never shown
+  // publicly — the public views (migration 137) already return NULL for it; this
+  // is the same rule for the few direct readers (inbox counterpart, social banner,
+  // CV). Tolerant like the flag above: a read error means "shown".
+  try {
+    const { data, error } = await (client as Queryable).from('profiles').select('id, profile_pic_status').in('id', uniq)
+    if (!error && Array.isArray(data)) {
+      for (const row of data as { id: string; profile_pic_status: string | null }[]) {
+        if ((row.profile_pic_status ?? '').toLowerCase() === 'rejected') hidden.add(row.id)
+      }
+    }
+  } catch {
+    /* tolerant: shown */
+  }
+  return hidden
 }
 
 /** True when this one tutor's picture should be shown (tolerant default: shown). */

@@ -37,6 +37,10 @@ export type RankedTutor = TutorCardData & {
   tier: number
   completion: number
   has_degree: boolean
+  /** Migration 137: the fee and the Verified-badge rule, as the database saw
+   *  them when it ranked — the fee is no longer inferred from the tier. */
+  fee_paid?: boolean
+  verified_ok?: boolean
   location_score: number
   score: number
   sort_hash: string
@@ -165,10 +169,14 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     p_after_completion: after?.c ?? null,
   })
 
-  // PR16 §1.2 — rank_tutors folds the verification fee into `tier` (+10), so a
-  // card is verified iff tier >= 10. Set it here so the card shows the Verified
-  // badge or the "Not verified" chip correctly.
-  const raw = ((data ?? []) as RankedTutor[]).map((t) => ({ ...t, full_name: formatName(t.full_name), verified: (t.tier ?? 0) >= 10 }))
+  // Migration 137 — rank_tutors returns `fee_paid` directly (the tier now folds
+  // the Verified-BADGE rule in, +10, so verified tutors lead and verification-
+  // in-progress follows). The "Not verified" chip keys on the fee, as before.
+  const raw = ((data ?? []) as RankedTutor[]).map((t) => ({
+    ...t,
+    full_name: formatName(t.full_name),
+    verified: t.fee_paid ?? (t.tier ?? 0) >= 10,
+  }))
   const linked = await withSubjectLinks(supabase, raw)
   // PR105-B §1 — the VERIFIED badge needs staff-approved CNIC+photo+selfie, in ONE
   // batched query for the whole window (no per-card read).
