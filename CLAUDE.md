@@ -6289,3 +6289,16 @@ with both variables present the "skipped, no credentials" log line no longer
 applies — a real call would log a warn with the same decoder error until the
 key is corrected. Site smoke: `/`, one tuition page and `/browse/tutors` all
 200.
+
+### Indexing API — ACTIVE (5 Oct 2026, later the same day)
+
+Alee's new service-account key file was read locally (never copied into the
+repo) and both Production variables were replaced through the Vercel CLI with
+the values on stdin (`vercel env add … production --force --sensitive`); an
+empty commit rebuilt the site. The health check then answered `configured
+true · token "ok" · metadata 404` (no notification history yet for the sample
+URL) and, called once with `?publish=1`, `publish 200` — one URL_UPDATED
+accepted by Google for an open tuition. The Indexing API is live: every
+tuition status change now notifies Google through `queueIndexingUpdate`. The
+used key file was deleted from Downloads. Site smoke: `/`, one tuition page
+and `/browse/tutors` all 200.
