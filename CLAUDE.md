@@ -5750,3 +5750,73 @@ were HTML fetches of tutormint.org.
   A sixth row (2d10e51c, 25 Aug) has a sender who is still a member and only a
   missing thread row — not an orphan under "sender or recipient no longer
   exists" — and was left alone. `scripts/dataop-remove-orphan-messages.ts`.
+
+## Dashboard counts, Apply-button clarity, popular searches, verified banner, city de-duplication (owner, 5 Oct 2026)
+
+Seven items. Migration 135 (additive: `tutor_profiles.verified_banner_seen_at`,
+applied live BEFORE the deploy, backfilled for every already-verified tutor).
+Gates at close: tsc 0 · next build 0 · check:contrast 118 · every offline suite
+green except the PRE-EXISTING `test:pr106e` "file-and-approved gating" failure
+(untouched `lib/badgeFacts.ts`, see the previous section). No browser was
+driven; live checks were HTML fetches.
+
+- **1 Verified banner, once.** `lib/verifiedBanner.ts` `firstVerifiedVisit()`
+  reads `verified_banner_seen_at` through the service role; null + verified →
+  the dashboard renders `components/tutor/VerifiedOnceBanner.tsx` (3 s, then a
+  350 ms fade, then the space collapses over 300 ms) and `after()` stamps the
+  column once the response is sent — so a second device never sees it. A failed
+  select (column absent) reads as "seen", so nothing repeats if the migration
+  were missing. Tutors verified before the migration were backfilled and never
+  see it.
+- **2 Popular searches at the END of both Browse pages** — after the list and
+  the load-more footer; directly under the search bar there is only the list
+  (or the skeleton cards). This reverses the previous PR's placement on the
+  owner's instruction.
+- **3 One unread number.** `unreadMessageCount` (lib/messaging, React-cached per
+  request) now counts from `messages` — in the member's threads, sent by someone
+  else, `read_at` null, not deleted-for-me, not withheld — AND only when the
+  sender still exists and is neither paused (suspended) nor banned; plus the
+  Team channel's unread. The header icon, the dashboard Messages tile's BIG
+  NUMBER (was the conversation count) and its red badge all read it; at 0 the
+  tile shows 0 and no badge/dot anywhere. Both dashboards. `conversationCount`
+  stays exported but is no longer the tile's number. **Read-only SELECT (step
+  3):** there are TWO "Ali Sabeer" tutor accounts (`bbf2587a…`,
+  alisabeer3286@gmail.com; `8127b7c1…`, info2khan@gmail.com); both had **0**
+  unread peer messages and 0 Team unread; nothing changed.
+- **4 Applications tile subline.** "N applied · M number(s) viewed" — N =
+  applications created this UTC month (withdrawn ones included; no refund), M =
+  `contact_reveals` rows this month; "N applied" alone when M = 0. The big number
+  and the quota rule (`quotaCounter`, the Get-more link, `ent.quota*`) are
+  untouched.
+- **5 Why Apply is inactive.** One pure rule, `lib/applyBlock.ts`
+  `applyBlockFor()` — applied → quota → doc-rejected → closed, first wins — and
+  one server loader, `lib/applyBlockServer.ts` `applyBlocksFor()`, used by the
+  Browse first window + its load-more route, the tutor jobs board + its route,
+  the saved-tuitions list and the tuition page. `components/ApplyReasonLine.tsx`
+  renders the line (English + Urdu): "You applied on <date>" (formatDate, the
+  cards' format), "You've used all N for this month · Upgrade" (the existing
+  upgrade sheet via `UpgradeTrigger reason="tutor_apply_quota"`, no price; an
+  "Unlimited" plan never surfaces its real cap), "Re-upload your document to
+  apply again" (link to the re-upload screen), "This tuition is closed". The
+  card and the panel pass `applyBlock`; after a successful apply in-session the
+  line reads today's date. Note: the tuition page already hides the Apply panel
+  for a non-open tuition and shows its own status banner, so the "closed" line
+  mostly appears on a stale load-more window.
+- **6 "Applied" readability.** `CardActions` no longer forces `disabled:opacity-60`
+  on every action; an action may set `solidDisabled` and keep its own disabled
+  colours. The Apply action (card) and the panel button use `bg-gray-200` +
+  `text-slate-800` when disabled (≈12.6:1, AA), so "Applied" and its icon read in
+  daylight. Other actions keep the 60% dim.
+- **7 Never repeat the city.** `lib/place.ts` `placeLabel(area, city)` strips a
+  trailing city from the area ("Bahria Town Lahore" + Lahore → "Bahria Town,
+  Lahore"; a lone direction/qualifier remainder such as "North Karachi" is kept
+  whole). Used by `jobDisplayTitle` (card titles), the card's location row, the
+  tuition page "Where" fact, both applications pages, the tuition-match
+  notification + email, the AI composer's `placePhrase`, and the AI prompt now
+  says never to repeat the city. Tested in `npm run test:place`. **Data step:**
+  36 stored tuitions carried "<City>, <City>" in the title or description (the
+  23 curated cities, case-insensitive); the exact doubled form was replaced by
+  the single city in those rows only (`scripts/dataop-dedupe-city.ts`), and the
+  re-run SELECT returned 0 rows. Slugs/URLs untouched. (No curated area, job
+  area or tutor area ends with its own city, so the builder change alters no
+  stored location field — only how text is composed from now on.)
