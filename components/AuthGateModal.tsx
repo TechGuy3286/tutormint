@@ -60,6 +60,29 @@ export function saveDraft(intent: AuthIntent, draft: unknown) {
   }
 }
 
+/** Read a draft WITHOUT clearing it — a list of cards peeks, and only the card
+ *  the draft names clears it (clearDraft) and resumes (owner hotfix, 5 Oct 2026). */
+export function peekDraft<T = unknown>(intent: AuthIntent): T | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_PREFIX + intent)
+    return raw ? (JSON.parse(raw) as T) : null
+  } catch {
+    return null
+  }
+}
+
+export function clearDraft(intent: AuthIntent) {
+  try {
+    sessionStorage.removeItem(DRAFT_PREFIX + intent)
+  } catch {
+    /* nothing to clear */
+  }
+}
+
+/** The one-shot "focus the message box" flag the thread page reads on mount
+ *  (set by the card / profile Message button before it navigates). */
+export const FOCUS_COMPOSER_KEY = 'tutormint_focus_composer'
+
 /** Read back and clear a draft saved before sign-in. */
 export function takeDraft<T = unknown>(intent: AuthIntent): T | null {
   try {

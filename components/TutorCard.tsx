@@ -5,10 +5,10 @@ import { experienceLabel } from '@/lib/experienceLabel'
 import { armEscape, submitSignal } from '@/lib/submit'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, Mail, Star, Eye, Handshake, BadgeCheck, X } from 'lucide-react'
+import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, MessageCircle, Star, Eye, Handshake, BadgeCheck, X } from 'lucide-react'
 import JobTypesChip from '@/components/JobTypesChip'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import { feeLabelOf } from '@/lib/fee'
@@ -16,7 +16,7 @@ import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
 import FeaturedTag from '@/components/badges/FeaturedTag'
-import AuthGateModal, { type AuthIntent } from '@/components/AuthGateModal'
+import AuthGateModal, { clearDraft, peekDraft, FOCUS_COMPOSER_KEY, type AuthIntent } from '@/components/AuthGateModal'
 import { badgesForPlan, isFeaturedPlan } from '@/lib/planBadges'
 
 // The tutor card, rebuilt against design/reference/tutor-card.jpeg.
@@ -88,6 +88,11 @@ export type TutorCardData = {
    * shows no Verified badge rather than claiming one it cannot back up.
    */
   verified_ok?: boolean
+  /** A paused (under review) or suspended tutor shows no Message button (owner
+   *  hotfix, 5 Oct 2026). Both are optional: the directory never carries such a
+   *  row, so the usual card is unaffected. */
+  under_review?: boolean | null
+  verification_status?: string | null
 }
 
 export type CardViewer = {
@@ -244,6 +249,15 @@ export default function TutorCard({
     setGateOpen(true)
   }
 
+  // Message (owner hotfix, 5 Oct 2026): never for a tutor viewer (another tutor's
+  // card or their own), never on a paused or suspended tutor. Callers pass
+  // `showMessage` for the surface; this is the rule that holds everywhere.
+  const messageAllowed =
+    showMessage &&
+    viewer.role !== 'tutor' &&
+    !tutor.under_review &&
+    tutor.verification_status !== 'suspended'
+
   const toggleShortlist = async () => {
     if (!viewer.signedIn) return gate('shortlist')
     setBusy(true)
@@ -312,6 +326,11 @@ export default function TutorCard({
       // would otherwise leave this button disabled with the thread already
       // created and no way to reach it.
       const href = `/messages/${r.data.threadId}`
+      try {
+        sessionStorage.setItem(FOCUS_COMPOSER_KEY, '1') // the thread page focuses the box
+      } catch {
+        /* storage unavailable — the thread still opens */
+      }
       armEscape(() => {
         setBusy(false)
         setNotice('Your conversation is ready — open Messages to continue.')
@@ -327,6 +346,18 @@ export default function TutorCard({
     }
     setBusy(false)
   }
+
+  // Resume after sign-up (owner hotfix, 5 Oct 2026): the sign-in modal kept the
+  // draft {tutorId}; back on this page, signed in, the ONE card it names reopens
+  // the message flow — peek first, so a list of cards does not consume it.
+  useEffect(() => {
+    if (!viewer.signedIn || !messageAllowed) return
+    const d = peekDraft<{ tutorId?: string }>('message')
+    if (d?.tutorId !== tutor.id) return
+    clearDraft('message')
+    void onMessage()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewer.signedIn, tutor.id])
 
   // Hire (parent shortlist card, §1.2). Non-Featured → the parent_hire upgrade
   // sheet (price on the sheet, fetched on the tap). Featured → the existing
@@ -545,13 +576,14 @@ export default function TutorCard({
                     href: profileHref,
                     tooltip: `View ${tutor.full_name.split(' ')[0]}’s profile`,
                   },
-                  ...(showMessage
+                  ...(messageAllowed
                     ? [
                         {
                           key: 'message',
                           label: 'Message',
-                          icon: <Mail size={14} aria-hidden />,
-                          className: 'bg-tm-green-deep text-white hover:bg-tm-green-deep-hover',
+                          // Navy with a chat icon (owner hotfix, 5 Oct 2026).
+                          icon: <MessageCircle size={14} aria-hidden />,
+                          className: 'bg-tm-navy text-white hover:bg-tm-navy-hover',
                           onClick: onMessage,
                           disabled: busy,
                           tooltip: 'Send a message to this tutor',

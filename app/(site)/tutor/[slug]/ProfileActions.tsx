@@ -4,9 +4,10 @@ import Link from 'next/link'
 import { postGated } from '@/lib/gatedFetch'
 import { armEscape, submitSignal } from '@/lib/submit'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
-import { useState } from 'react'
-import { Heart, Play, Mail } from 'lucide-react'
-import AuthGateModal, { type AuthIntent } from '@/components/AuthGateModal'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Heart, Play, MessageCircle } from 'lucide-react'
+import AuthGateModal, { clearDraft, peekDraft, FOCUS_COMPOSER_KEY, type AuthIntent } from '@/components/AuthGateModal'
 import HireButton from '@/components/parent/HireButton'
 
 // The transactional actions on a public profile.
@@ -53,6 +54,30 @@ export default function ProfileActions({
   const [noticeHref, setNoticeHref] = useState<string | null>(null)
   const [gateOpen, setGateOpen] = useState(false)
   const [gateIntent, setGateIntent] = useState<AuthIntent>('shortlist')
+  const searchParams = useSearchParams()
+  const resumeMessage = searchParams?.get('message') === '1'
+
+  // Resume (owner hotfix, 5 Oct 2026): after sign-up the kept draft names this
+  // tutor; after verification the return URL carries ?message=1. Either reopens
+  // the message flow once. Hooks run before the isSelf early return.
+  useEffect(() => {
+    if (!signedIn || !canMessage || isSelf) return
+    const d = peekDraft<{ tutorId?: string }>('message')
+    const fromDraft = d?.tutorId === tutorId
+    if (!fromDraft && !resumeMessage) return
+    if (fromDraft) clearDraft('message')
+    if (resumeMessage) {
+      try {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('message')
+        window.history.replaceState(null, '', url.toString())
+      } catch {
+        /* leave the URL */
+      }
+    }
+    void message()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedIn, canMessage, isSelf, tutorId])
 
   // Your own profile is not something you shortlist or book a demo with.
   if (isSelf) return null
@@ -122,6 +147,11 @@ export default function ProfileActions({
       // would otherwise leave this button disabled with the thread already
       // created and no way to reach it.
       const href = `/messages/${r.data.threadId}`
+      try {
+        sessionStorage.setItem(FOCUS_COMPOSER_KEY, '1') // the thread page focuses the box
+      } catch {
+        /* storage unavailable — the thread still opens */
+      }
       armEscape(() => {
         setBusy(false)
         setNotice('Your conversation is ready — open Messages to continue.')
@@ -179,9 +209,9 @@ export default function ProfileActions({
               type="button"
               onClick={message}
               disabled={busy}
-              className={`${btn} bg-tm-green-deep text-white hover:bg-tm-green-deep-hover`}
+              className={`${btn} bg-tm-navy text-white hover:bg-tm-navy-hover`}
             >
-              <Mail size={14} />
+              <MessageCircle size={14} />
               Message
             </button>
           )}

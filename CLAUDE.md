@@ -5918,3 +5918,37 @@ Results Test was NOT run (no browser here); the JSON-LD was parsed and checked
 locally. The admin-only surfaces (Approve, Numbers checked, the cadence,
 near-duplicate and Needs-review warnings, and a Tuitions-staff 403) rest on the
 unit tests, the role matrix and the route gates — no admin session was driven.
+
+## Hotfix — Message button on tutor cards and the tutor profile (owner, 5 Oct 2026)
+
+No migration. The card already carried four actions (View Profile · Message ·
+Demo · Shortlist, a 2×2 `CardActions` grid at every width); what changed is
+the look, the gating, and the round trips.
+
+- **Card (`components/TutorCard.tsx`).** Row 1 View Profile (black) | Message
+  (navy `tm-navy`, `MessageCircle` icon); row 2 Demo (red) | Shortlist (outline).
+  `messageAllowed` = the surface's `showMessage` AND viewer not a tutor (another
+  tutor's card or their own) AND the tutor not under review / suspended (two new
+  optional card fields; directory rows never carry them). Profile page
+  (`ProfileActions`) got the same navy button with the chat icon; it already hid
+  for a tutor viewer (`canMessage`) and for an under-review tutor (the page
+  suppresses the whole bar).
+- **Gating — same shape as Demo, one change.** Signed out → the existing
+  `AuthGateModal('message')`, which keeps the draft `{tutorId}` and returns to
+  the page after sign-up; on return the ONE card (or the profile) the draft names
+  reopens the message flow (`peekDraft`/`clearDraft` — a list of cards peeks and
+  only the matching card consumes it). Signed-in parent NOT verified →
+  `canStartThread` now returns the existing `parent_verify` gate (this supersedes
+  PR25 §4.1 for messaging only; demos unchanged) with its CTA pointing at
+  `/parent/verify?next=/tutor/<slug>?message=1`; the verify page remembers the
+  return target, shows "Back to your message" once approved (and auto-returns on
+  a later visit when approval has landed), and the profile page's `?message=1`
+  reopens the composer flow once. Verified parent → `/api/messages/thread`
+  (find-or-create, unchanged) → the inbox thread, and the composer is focused via
+  a one-shot `FOCUS_COMPOSER_KEY` flag the thread page consumes. Number masking
+  untouched.
+- **Limits stated.** Approval is a staff action later; the "back to your
+  message" return therefore relies on the same browser session (sessionStorage)
+  or the link on the verify page — the approval notification itself was not
+  changed. No browser was driven: the signed-in flows rest on tsc + build +
+  `test:messaging`/`test:authtrust`; the live checks are HTML fetches.

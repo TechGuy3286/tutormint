@@ -6,6 +6,7 @@ import { submitSignal } from '@/lib/submit'
 
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { FOCUS_COMPOSER_KEY } from '@/components/AuthGateModal'
 import { useRouter } from 'next/navigation'
 import {
   Ban,
@@ -123,6 +124,20 @@ export default function Conversation({
   const scroller = useRef<HTMLDivElement | null>(null)
   const bottom = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // "Focus the message box" (owner hotfix, 5 Oct 2026): the card / profile
+  // Message button sets a one-shot flag before navigating here; consume it and
+  // focus the composer. Nothing happens on an ordinary inbox visit.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(FOCUS_COMPOSER_KEY) !== '1') return
+      sessionStorage.removeItem(FOCUS_COMPOSER_KEY)
+    } catch {
+      return
+    }
+    const t = setTimeout(() => textareaRef.current?.focus(), 50)
+    return () => clearTimeout(t)
+  }, [])
   const fileInput = useRef<HTMLInputElement | null>(null)
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null)
 

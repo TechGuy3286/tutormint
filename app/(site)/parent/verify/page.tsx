@@ -4,7 +4,8 @@ import { Clock, MessageSquare, Save, Send } from 'lucide-react'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { submitJson, submitSignal } from '@/lib/submit'
 import { useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import IdentityCard from '@/components/identity/IdentityCard'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
@@ -63,6 +64,22 @@ export default function ParentVerifyPage() {
 
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [state, setState] = useState<'none' | 'submitted' | 'approved' | 'rejected'>('none')
+  // Where to go once verified (owner hotfix, 5 Oct 2026): the Message gate sends
+  // `?next=/tutor/<slug>?message=1`. Same-site paths only; remembered for the
+  // later visit when approval has landed.
+  const searchParams = useSearchParams()
+  const nextParam = searchParams?.get('next') ?? null
+  const [returnTo, setReturnTo] = useState<string | null>(null)
+  useEffect(() => {
+    const safe = (v: string | null) => (v && v.startsWith('/') && !v.startsWith('//') ? v : null)
+    const fromUrl = safe(nextParam)
+    try {
+      if (fromUrl) sessionStorage.setItem('tutormint_after_verify', fromUrl)
+      setReturnTo(fromUrl ?? safe(sessionStorage.getItem('tutormint_after_verify')))
+    } catch {
+      setReturnTo(fromUrl)
+    }
+  }, [nextParam])
   const [rejectionReason, setRejectionReason] = useState<string | null>(null)
 
   useEffect(() => {
@@ -92,6 +109,18 @@ export default function ParentVerifyPage() {
     setRejectionReason(p?.verification_rejection_reason ?? null)
     setDocs((dl ?? []) as Doc[])
     setLoading(false)
+    // Already approved and a return target is waiting: straight back to the
+    // composer (owner hotfix, 5 Oct 2026). The flag is cleared so it fires once.
+    if (p?.verification_state === 'approved') {
+      let dest: string | null = null
+      try {
+        dest = sessionStorage.getItem('tutormint_after_verify')
+        if (dest) sessionStorage.removeItem('tutormint_after_verify')
+      } catch {
+        dest = null
+      }
+      if (dest && dest.startsWith('/') && !dest.startsWith('//')) router.replace(dest)
+    }
   }, [router, supabase])
 
   useEffect(() => { load() }, [load])
@@ -188,8 +217,13 @@ export default function ParentVerifyPage() {
         </header>
 
         {state === 'approved' && (
-          <div className="p-4 bg-tm-tint-green border border-tm-green-deep/30 rounded-2xl">
-            <p className="text-xs font-black text-tm-green-deep">✓ Verified — you can post jobs</p>
+          <div className="p-4 bg-tm-tint-green border border-tm-green-deep/30 rounded-2xl space-y-2">
+            <p className="text-xs font-black text-tm-green-deep">✓ Verified — you can post jobs and message tutors</p>
+            {returnTo && (
+              <Link href={returnTo} className="inline-flex min-h-[40px] items-center rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover">
+                Back to your message
+              </Link>
+            )}
           </div>
         )}
         {state === 'submitted' && (
@@ -197,8 +231,14 @@ export default function ParentVerifyPage() {
             <p className="text-xs font-black text-tm-gold-ink">Awaiting review</p>
             <p className="text-[11px] text-tm-gold-ink">
               Our team is checking your details, usually within a few hours.
-              <strong> You cannot post a job until this is approved.</strong>
+              <strong> You cannot post a job or message tutors until this is approved.</strong>
             </p>
+            {returnTo && (
+              <p className="text-[11px] text-tm-gold-ink">
+                Once approved, we will take you back to your message.{' '}
+                <Link href={returnTo} className="font-bold underline underline-offset-2">Open it now</Link>
+              </p>
+            )}
           </div>
         )}
         {state === 'rejected' && (

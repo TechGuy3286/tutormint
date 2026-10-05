@@ -135,10 +135,27 @@ export async function canStartThread(
   }
 
   if (ent.audience === 'parent') {
-    // PR25 §4.1 — any signed-in parent, verified or not, may start a conversation
-    // with a tutor. The CNIC-verification gate that used to sit here is removed;
-    // verification is required only for POSTING a tuition, and Featured only for
-    // completing a hire and seeing contact details. (Suspension is handled above.)
+    // Owner hotfix (5 Oct 2026): a parent must have CNIC + address approved
+    // before STARTING a conversation (this supersedes PR25 §4.1 for messaging
+    // only; demos are unchanged). The gate's CTA opens the existing verification
+    // step and carries the way back — the tutor's page with ?message=1 — so the
+    // composer reopens once verification is complete. A verified parent holds
+    // the free parent_verified plan, which is what `ent.plan` reports.
+    if (!ent.plan) {
+      const gate = await buildGate('parent_verify', ent)
+      let returnTo = '/browse/tutors'
+      if (admin) {
+        const { data: tp } = await admin.from('tutor_profiles').select('slug').eq('id', otherId).maybeSingle()
+        if (tp?.slug) returnTo = `/tutor/${tp.slug as string}?message=1`
+      }
+      return {
+        ok: false,
+        status: 403,
+        error: 'Verify your CNIC and address to message tutors. It is free.',
+        upgrade: '/parent/verify',
+        gate: gate ? { ...gate, href: `/parent/verify?next=${encodeURIComponent(returnTo)}` } : undefined,
+      }
+    }
     return { ok: true }
   }
 
