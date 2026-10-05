@@ -54,6 +54,58 @@ export const MAX_ATTEMPTS = 5
 // WhatsApp link (0321 5872222). A locked number is never re-sent a code.
 export const LOCKED_MESSAGE = 'Too many incorrect attempts. Contact support to verify your number.'
 
+// ---------------------------------------------------------------------------
+// PASSWORD-RESET codes (owner hotfix, 5 Oct 2026) — a SEPARATE rule set from the
+// one-time signup code above, keyed on purpose = 'reset' and touching nothing on
+// the 'verify' path:
+//   • expires after 10 minutes
+//   • 5 wrong tries lock it (same as signup) — but a locked reset code can be
+//     replaced: the member simply requests a new one
+//   • at most 3 reset codes per mobile per day (every row counts, consumed or not)
+//   • a new code cancels the old one (the old row is consumed before the insert)
+// Sent ONLY to a mobile that is verified on an account; for any other number a
+// DECOY row is stored and nothing is dispatched, so screen 2 and every error read
+// identically for a member and a stranger (the screen is never a membership
+// oracle). Stored hashed like every other code.
+// ---------------------------------------------------------------------------
+export const RESET_CODE_TTL_MS = 10 * 60 * 1000
+export const RESET_DAILY_MAX = 3
+
+/** Every reset error, plain English + Urdu, never technical. The forms render
+ *  exactly these; the daily-limit one is paired with the support WhatsApp link. */
+export const RESET_MESSAGES = {
+  wrong: {
+    en: 'That code is not right. Please check it and try again.',
+    ur: 'یہ کوڈ درست نہیں ہے۔ دوبارہ چیک کر کے کوشش کریں۔',
+  },
+  expired: {
+    en: 'This code has expired. Please request a new one.',
+    ur: 'یہ کوڈ ختم ہو گیا ہے۔ براہِ کرم نیا کوڈ منگوائیں۔',
+  },
+  locked: {
+    en: 'Too many wrong tries. Please request a new code.',
+    ur: 'بہت زیادہ غلط کوششیں۔ براہِ کرم نیا کوڈ منگوائیں۔',
+  },
+  dailyLimit: {
+    en: 'You have reached today’s limit of 3 codes. Please try again tomorrow or contact support.',
+    ur: 'آج کی 3 کوڈز کی حد پوری ہو گئی ہے۔ کل دوبارہ کوشش کریں یا سپورٹ سے رابطہ کریں۔',
+  },
+} as const
+
+/** Pure: has this mobile already had its 3 reset codes today? */
+export function resetDailyCapReached(sentToday: number): boolean {
+  return sentToday >= RESET_DAILY_MAX
+}
+
+/** Pure: the state of one reset code row — what verify answers before it even
+ *  compares the hash. Expiry is checked before the lock, so a locked-and-expired
+ *  code reads as expired (the honest reason it must be replaced). */
+export function resetCodeState(o: { expiresAtMs: number; attempts: number; nowMs: number }): 'live' | 'expired' | 'locked' {
+  if (o.expiresAtMs <= o.nowMs) return 'expired'
+  if (o.attempts >= MAX_ATTEMPTS) return 'locked'
+  return 'live'
+}
+
 /** sha256 hex of a code — what is stored and compared, so plaintext is never at
  *  rest (PR16 §3.2). A 6-digit code is low-entropy, but the table is service-role
  *  only (RLS on, no policies), so the hash is defence in depth, not the barrier. */
@@ -79,7 +131,9 @@ export function hashOtp(code: string): string {
 //                  member uses the owner-distributed code
 //   'dev-bypass' — DEV_DEFAULT_OTP (non-production): nothing dispatched
 //   'existing'   — a live code already exists: NOTHING dispatched, use that one
-export type SmsSendChannel = 'provider' | 'bridge' | 'dev-bypass' | 'existing'
+//   'decoy'      — a password-reset request for a number with NO verified
+//                  account: a row is stored, NOTHING is dispatched (reset only)
+export type SmsSendChannel = 'provider' | 'bridge' | 'dev-bypass' | 'existing' | 'decoy'
 
 export type SendResult =
   // alreadySent:true means channel==='existing' — a live code was found and no
@@ -87,12 +141,13 @@ export type SendResult =
   | { ok: true; channel: SmsSendChannel; devBypassActive: boolean; provider?: string; alreadySent: boolean }
   // A failed send (provider rejected it) AND the "no provider and no bridge"
   // case both land here — the latter is the `unconfigured` provider returning
-  // ok:false, distinguishable in the logs by provider=none.
-  | { ok: false; status: number; error: string; detail?: string }
+  // ok:false, distinguishable in the logs by provider=none. `dailyLimit` marks
+  // the reset-only 3-per-day cap (owner hotfix, 5 Oct 2026).
+  | { ok: false; status: number; error: string; detail?: string; dailyLimit?: boolean }
 
 export type VerifyResult =
   | { ok: true; userId: string | null; devBypass: boolean; bridged: boolean; otpId: string | null }
-  | { ok: false; status: number; error: string; attemptsLeft?: number; locked?: boolean }
+  | { ok: false; status: number; error: string; attemptsLeft?: number; locked?: boolean; expired?: boolean }
 
 export type DeliverResult =
   | { ok: true; channel: 'provider' | 'bridge' | 'dev-bypass'; devBypassActive: boolean; provider?: string }
@@ -186,11 +241,60 @@ export async function sendOtp(opts: {
   phone: string
   purpose: OtpPurpose
   userId?: string | null
+  /** Reset only: store the row but dispatch NOTHING — the decoy for a number
+   *  with no verified account, so the request answers identically either way. */
+  silent?: boolean
 }): Promise<SendResult> {
   const admin = createAdminClient()
   if (!admin) return UNAVAILABLE
 
   const now = Date.now()
+
+  // ---------------------------------------------------------- RESET codes ---
+  // The separate rule set (owner hotfix, 5 Oct 2026): 3 per mobile per day, a
+  // new code cancels the old one, 10-minute expiry, decoy for non-members. The
+  // signup/verify path below is untouched.
+  if (opts.purpose === 'reset') {
+    const dayAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString()
+    const { count } = await admin
+      .from('phone_otps')
+      .select('id', { count: 'exact', head: true })
+      .eq('phone', opts.phone)
+      .eq('purpose', 'reset')
+      .gte('created_at', dayAgo)
+    if (resetDailyCapReached(count ?? 0)) {
+      reportSend({ purpose: 'reset', phone: opts.phone, channel: opts.silent ? 'decoy' : 'provider', ok: false, error: 'daily limit' })
+      return { ok: false, status: 429, error: RESET_MESSAGES.dailyLimit.en, dailyLimit: true }
+    }
+
+    // A new code cancels the old one — locked or not. (The partial unique index
+    // on (phone, purpose) where consumed_at is null needs this before the insert.)
+    await admin
+      .from('phone_otps')
+      .update({ consumed_at: new Date(now).toISOString() })
+      .eq('phone', opts.phone)
+      .eq('purpose', 'reset')
+      .is('consumed_at', null)
+
+    const code = String(Math.floor(100000 + Math.random() * 900000))
+    const { error: insertError } = await admin.from('phone_otps').insert({
+      phone: opts.phone,
+      code: hashOtp(code),
+      purpose: 'reset',
+      user_id: opts.userId ?? null,
+      expires_at: new Date(now + RESET_CODE_TTL_MS).toISOString(),
+      attempts: 0,
+    })
+    if (insertError) return { ok: false, status: 500, error: 'Could not send a code right now.', detail: insertError.message }
+
+    if (opts.silent) {
+      reportSend({ purpose: 'reset', phone: opts.phone, channel: 'decoy', ok: true })
+      return { ok: true, channel: 'decoy', devBypassActive: !!devOtpCode(), alreadySent: false }
+    }
+    const delivered = await deliverCode(opts.phone, code, 'reset')
+    if (!delivered.ok) return delivered
+    return { ok: true, channel: delivered.channel, devBypassActive: delivered.devBypassActive, provider: delivered.provider, alreadySent: false }
+  }
 
   // ONE CODE PER ACCOUNT, ACROSS NUMBER CHANGES (PR17 §3.1). When a signed-in
   // member changes the number they are verifying, the code for the OLD number is
@@ -374,7 +478,26 @@ export async function verifyOtp(opts: {
   }
 
   if (!otp) {
-    return { ok: false, status: 400, error: 'No code for this number. Contact support to verify.' }
+    return {
+      ok: false,
+      status: 400,
+      error: opts.purpose === 'reset' ? RESET_MESSAGES.expired.en : 'No code for this number. Contact support to verify.',
+      expired: opts.purpose === 'reset' ? true : undefined,
+    }
+  }
+
+  // RESET codes expire after 10 minutes and a locked one is simply replaced by
+  // requesting a new code (owner hotfix, 5 Oct 2026). Signup codes keep PR16 §3:
+  // no expiry, and a lock goes to support.
+  const isReset = opts.purpose === 'reset'
+  const lockedMessage = isReset ? RESET_MESSAGES.locked.en : LOCKED_MESSAGE
+  if (isReset) {
+    const state = resetCodeState({
+      expiresAtMs: new Date(otp.expires_at as string).getTime(),
+      attempts: otp.attempts ?? 0,
+      nowMs: Date.now(),
+    })
+    if (state === 'expired') return { ok: false, status: 400, error: RESET_MESSAGES.expired.en, expired: true }
   }
 
   // LOCKED (PR16 §3.3): five wrong attempts. The row is KEPT (not burned), so a
@@ -384,7 +507,7 @@ export async function verifyOtp(opts: {
     return {
       ok: false,
       status: 429,
-      error: LOCKED_MESSAGE,
+      error: lockedMessage,
       locked: true,
       attemptsLeft: 0,
     }
@@ -402,8 +525,10 @@ export async function verifyOtp(opts: {
       ok: false,
       status: locked ? 429 : 400,
       error: locked
-        ? LOCKED_MESSAGE
-        : `Incorrect code. ${MAX_ATTEMPTS - attempts} attempt(s) left.`,
+        ? lockedMessage
+        : isReset
+          ? RESET_MESSAGES.wrong.en
+          : `Incorrect code. ${MAX_ATTEMPTS - attempts} attempt(s) left.`,
       attemptsLeft: Math.max(0, MAX_ATTEMPTS - attempts),
       locked,
     }

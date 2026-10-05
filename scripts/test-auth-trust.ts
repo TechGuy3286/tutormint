@@ -16,7 +16,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { bridgeStatus, bridgeOtpCode, bridgeBanner, needsBridgeReverify } from '../lib/sms'
-import { otpMatch } from '../lib/otp'
+import { otpMatch, resetCodeState, resetDailyCapReached, RESET_CODE_TTL_MS, RESET_DAILY_MAX, RESET_MESSAGES, MAX_ATTEMPTS } from '../lib/otp'
 import {
   codeStillLive,
   pendingSendDecision,
@@ -137,6 +137,37 @@ test('bridgeBanner: counts down while active, and stays up (differently) once ex
 
   // Never configured: no banner at all.
   assert.equal(bridgeBanner({ active: false, codeSet: false, expiresAt: null, expired: false }, now).show, false)
+})
+
+// ------------------------------------------- password-reset codes (5 Oct 2026) ---
+
+test('reset code: 10-minute expiry, 5 wrong tries lock, expiry read before the lock', () => {
+  const now = Date.parse('2026-10-05T10:00:00Z')
+  assert.equal(RESET_CODE_TTL_MS, 10 * 60 * 1000)
+  const live = now + RESET_CODE_TTL_MS
+  assert.equal(resetCodeState({ expiresAtMs: live, attempts: 0, nowMs: now }), 'live')
+  assert.equal(resetCodeState({ expiresAtMs: live, attempts: MAX_ATTEMPTS - 1, nowMs: now }), 'live', 'four wrong tries: still live')
+  assert.equal(resetCodeState({ expiresAtMs: live, attempts: MAX_ATTEMPTS, nowMs: now }), 'locked', 'the fifth wrong try locks it')
+  assert.equal(resetCodeState({ expiresAtMs: live, attempts: 0, nowMs: live }), 'expired', 'exactly 10 minutes later it is expired')
+  assert.equal(resetCodeState({ expiresAtMs: live, attempts: MAX_ATTEMPTS, nowMs: live + 1 }), 'expired', 'locked AND expired reads as expired')
+})
+
+test('reset code: at most 3 per mobile per day', () => {
+  assert.equal(RESET_DAILY_MAX, 3)
+  assert.equal(resetDailyCapReached(0), false)
+  assert.equal(resetDailyCapReached(2), false, 'the third code is still allowed')
+  assert.equal(resetDailyCapReached(3), true, 'the fourth is refused')
+  assert.equal(resetDailyCapReached(7), true)
+})
+
+test('reset errors: plain English with Urdu, never technical', () => {
+  for (const k of ['wrong', 'expired', 'locked', 'dailyLimit'] as const) {
+    const m = RESET_MESSAGES[k]
+    assert.ok(m.en.length > 10 && m.ur.length > 5, `${k} has both lines`)
+    assert.doesNotMatch(m.en, /otp|sha|hash|null|undefined|\b4\d\d\b/i, `${k} is not technical`)
+  }
+  assert.match(RESET_MESSAGES.dailyLimit.en, /3 codes/)
+  assert.match(RESET_MESSAGES.dailyLimit.en, /contact support/i)
 })
 
 test('otpMatch: the dev bypass wins a tie, so a bridge value never masquerades', () => {

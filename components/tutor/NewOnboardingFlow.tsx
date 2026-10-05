@@ -876,11 +876,15 @@ function ContactStep({ facts, smsAvailable, shell, onDone, onRefresh, saveProfil
     } catch { onError('We couldn’t send the confirmation link. Please try again.'); return }
     next()
   }
+  // "Email (optional)" — plain English, no Urdu on these simple words (owner
+  // hotfix, 5 Oct 2026). Next continues with the box empty; a typed address is
+  // format-checked and gets the confirmation link, and the tutor continues
+  // without verifying it. Nothing after this step needs an email.
   return shell({
-    headingEn: 'Your email', headingUr: undefined,
+    headingEn: 'Email (optional)', headingUr: undefined,
     onNext: () => void submitEmail(),
     children: (
-      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" aria-label="Your email"
+      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" aria-label="Email (optional)"
         inputMode="email" autoCapitalize="none" autoCorrect="off"
         className={`min-h-[48px] w-full rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(fieldState({ value: email, valid: !email.trim() || emailValid }))}`} />
     ),

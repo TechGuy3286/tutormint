@@ -1932,11 +1932,11 @@ function MobileStep({
 }
 
 // A field label: English with the Urdu beneath it (PR78 §C, English + Urdu).
-function FieldLabel({ en, ur }: { en: string; ur: string }) {
+function FieldLabel({ en, ur }: { en: string; ur?: string }) {
   return (
     <div>
       <span className="text-xs font-bold text-tm-navy">{en}</span>
-      <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">{ur}</span>
+      {ur && <span lang="ur" dir="rtl" className="block text-[11px] text-gray-500">{ur}</span>}
     </div>
   )
 }
@@ -2037,7 +2037,8 @@ function ContactStep({
 
       {/* Email — optional; EmailCard sends a confirm link. "I don't use email". */}
       <section className="space-y-2">
-        <FieldLabel en="Email (optional)" ur="ای میل (اختیاری)" />
+        {/* Plain "Email (optional)", no Urdu on these simple words (owner hotfix, 5 Oct 2026). */}
+        <FieldLabel en="Email (optional)" />
         {emailChoice === 'none' ? (
           <p className="text-[11px] text-gray-500">
             No email for now.{' '}

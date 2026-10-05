@@ -237,6 +237,15 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
                 placeholder="••••••••"
                 className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-sm outline-none focus:border-tm-navy focus:bg-white"
               />
+              {/* Small link under the password field (owner hotfix, 5 Oct 2026). */}
+              <div className="flex justify-end">
+                <Link
+                  href="/forgot-password"
+                  className="inline-flex min-h-[32px] items-center text-[11px] font-bold text-tm-navy hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-xs font-bold text-tm-navy">
@@ -259,13 +268,6 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
           </form>
 
           <div className="space-y-4">
-            <Link
-              href="/forgot-password"
-              className="flex min-h-[40px] items-center justify-center text-xs font-bold text-tm-navy hover:underline"
-            >
-              Forgot your password?
-            </Link>
-
             {/* PR106-G §3: thin "or" divider, then a full-width outlined
                 "Create an account" button (white, navy border + text). */}
             <div className="flex items-center gap-3">

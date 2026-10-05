@@ -118,10 +118,10 @@ export type ParentCompletionInput = {
 }
 
 /**
- * Tutor completion. 16 equally weighted items — the gap-flow steps plus the
- * contact-email item (PR29 §4), which is fixed in Settings, not the flow. The
- * percentage floors so a finished profile is exactly 100 and nothing else ever
- * is.
+ * Tutor completion. 15 equally weighted items — the gap-flow steps. (The
+ * contact-email item was removed on 5 Oct 2026: email is optional for a tutor
+ * and never counts.) The percentage floors so a finished profile is exactly 100
+ * and nothing else ever is.
  *
  * The introduction video is NOT a completion item (PR76 §C.6/§D): it is removed
  * from onboarding and from Settings, and is offered only as an optional tile on
@@ -134,7 +134,7 @@ export function calculateTutorCompletion(input: TutorCompletionInput): Completio
   const items: ChecklistItem[] = [
     // The one-time verification fee — the flow's 'verify' step. A blocker (it is
     // in the not-listed card), so the dashboard widget hides it from the LIST,
-    // but it still counts toward "X of 16 done".
+    // but it still counts toward "X of 15 done".
     { key: 'verify', label: 'Verification fee paid', done: !!input.feePaid, step: 6, anchor: 'verify' },
     { key: 'name', label: 'Your full name', done: has(p.full_name), step: 1, anchor: 'full_name' },
     { key: 'gender', label: 'Gender', done: has(t.gender), step: 1, anchor: 'gender' },
@@ -164,11 +164,10 @@ export function calculateTutorCompletion(input: TutorCompletionInput): Completio
       anchor: 'cnic',
     },
     { key: 'phone', label: 'Mobile number verified', done: has(p.phone_verified_at), step: 6, anchor: 'phone' },
-    // The other contact channel (PR29 §4). A mobile signup carries a synthetic
-    // address, so this asks them to add and confirm a real email; an email
-    // signup already has one, so it is done. Added in Settings, confirmed by a
-    // link — checklistHref sends it there, not to a gap-flow step.
-    { key: 'email', label: 'Email address', done: hasRealEmail(p.email), step: 6, anchor: 'email' },
+    // NO email item for a tutor (owner hotfix, 5 Oct 2026): email is optional in
+    // onboarding and nothing — the completion %, the Verified badge, listing —
+    // requires one. Before this it was the 16th item (PR29 §4), so a mobile-only
+    // tutor could never pass 93%. The parent checklist below still carries it.
   ]
 
   return summarise(items)
