@@ -18,9 +18,10 @@ test('placeLabel never repeats the city', () => {
   assert.equal(placeLabel('', ''), '')
   // A city name INSIDE the area (not a suffix) is left alone.
   assert.equal(placeLabel('Lahore Cantt', 'Lahore'), 'Lahore Cantt, Lahore')
-  // The city is part of the area's own name — never mangled to "North, Karachi".
-  assert.equal(placeLabel('North Karachi', 'Karachi'), 'North Karachi, Karachi')
-  assert.equal(placeLabel('New Karachi', 'Karachi'), 'New Karachi, Karachi')
+  // The city is part of the area's own name — never "North, Karachi" and never
+  // "North Karachi, Karachi": the area stands alone.
+  assert.equal(placeLabel('North Karachi', 'Karachi'), 'North Karachi')
+  assert.equal(placeLabel('New Karachi', 'Karachi'), 'New Karachi')
   assert.equal(areaWithoutCity('Bahria Town Lahore', 'Lahore'), 'Bahria Town')
 })
 
