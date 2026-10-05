@@ -4,6 +4,7 @@ import { after } from 'next/server'
 import { google } from 'googleapis'
 import { SITE_URL } from '@/lib/siteUrl'
 import { citySegment } from '@/lib/slugs'
+import { normalisePrivateKey } from '@/lib/googleIndexingCore'
 
 // Google Indexing API — URL_UPDATED for a tuition page whenever its status
 // changes (owner, 5 Oct 2026, item 3): published, reopened, closed, paused,
@@ -35,15 +36,29 @@ let loggedMissing = false
 
 function credentials(): { email: string; key: string } | null {
   const email = (process.env.GOOGLE_INDEXING_CLIENT_EMAIL ?? '').trim()
-  const raw = (process.env.GOOGLE_INDEXING_PRIVATE_KEY ?? '').trim()
-  if (!email || !raw) return null
-  // A key pasted into Vercel often carries literal "\n" sequences.
-  const key = raw.replace(/\\n/g, '\n').replace(/^"|"$/g, '')
+  // Literal "\n" sequences → real line breaks (and a key that already has them
+  // is left alone) — lib/googleIndexingCore, unit-tested for both forms.
+  const key = normalisePrivateKey(process.env.GOOGLE_INDEXING_PRIVATE_KEY)
+  if (!email || !key) return null
   return { email, key }
 }
 
 export function indexingConfigured(): boolean {
   return credentials() !== null
+}
+
+/** The email on file (never the key) — for the health check's report. */
+export function indexingClientEmail(): string | null {
+  return credentials()?.email ?? null
+}
+
+/** An authenticated Indexing API client, or null when unconfigured. The JWT
+ *  holds the key in memory for the request only; nothing here logs it. */
+export function indexingClient() {
+  const creds = credentials()
+  if (!creds) return null
+  const auth = new google.auth.JWT({ email: creds.email, key: creds.key, scopes: [SCOPE] })
+  return { auth, indexing: google.indexing({ version: 'v3', auth }) }
 }
 
 export type IndexingResult =
@@ -65,6 +80,7 @@ export async function notifyUrlUpdated(url: string): Promise<IndexingResult> {
     const auth = new google.auth.JWT({ email: creds.email, key: creds.key, scopes: [SCOPE] })
     const indexing = google.indexing({ version: 'v3', auth })
     await indexing.urlNotifications.publish({ requestBody: { url, type: 'URL_UPDATED' } })
+    // (credentials() is non-null here, so this is never the "skipped" log line.)
     console.info(`[indexing] URL_UPDATED accepted for ${url}`)
     return { ok: true, url }
   } catch (e) {
