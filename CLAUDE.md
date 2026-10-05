@@ -6302,3 +6302,52 @@ accepted by Google for an open tuition. The Indexing API is live: every
 tuition status change now notifies Google through `queueIndexingUpdate`. The
 used key file was deleted from Downloads. Site smoke: `/`, one tuition page
 and `/browse/tutors` all 200.
+
+## Tutor index rule = paid + approved; hard-delete of two test accounts (owner, 5 Oct 2026)
+
+Migration 139 (applied live before the push): `listed_tutor_slugs()` drops the
+100% requirement; `payments.user_id` becomes nullable and `payments.note text`
+is added. Gates at close: tsc 0 · next build 0 · every offline suite green
+(58 suites, including test:pr106e) · live `test:directory:live` 2/2 (68 accounts agree with the view;
+68 tutors agree with the sitemap rule).
+
+- **1 Index rule.** `tutorProfileIndexable` (lib/seo/indexable — the one shared
+  rule the profile page's robots tag, `tutorProfileNoindex`,
+  `tutorSitemapEligible` and the sitemap all read) is now fee paid AND staff-
+  approved CNIC + profile photo + selfie; `completion` is accepted and ignored.
+  Never indexable: seed/test fixtures and under-review profiles (the rule), and
+  everything the directory view excludes — paused/suspended, banned, hidden, any
+  rejected document (the sitemap is built on `tutor_directory`). The SQL mirror
+  `listed_tutor_slugs()` matches, and `scripts/test-directory-live.ts` gained a
+  second live test: for every tutor, `in tutor_directory AND
+  tutorProfileIndexable(facts)` must equal membership in `listed_tutor_slugs()`.
+  The dashboard's "Your profile is not on Google yet" prompt now keys on the
+  approvals (not 100%) and points at the identity section. The Indexing API
+  path is untouched and still receives tuition URLs only (`queueIndexingUpdate`
+  is called with job rows alone). **Indexable tutors before: 1** (Ali Sabeer).
+  **After the migration: 4** — Ali Sabeer (100%), Nabeel Anthony (62%), Test
+  Tutor 6 (87%), Tutor Test 5 (87%); after the deletion below: **2** (Ali
+  Sabeer, Nabeel Anthony).
+- **2 Hard delete (one-time, approved by Alee).** Read-only SELECT first: exactly
+  two accounts matched — Tutor Test 5 (d69aa5e8-…, mobile …203, created 3 Oct,
+  active) and Test Tutor 6 (e48e5f40-…, mobile …501, created 4 Oct, active),
+  both fee-paid with CNIC/photo/selfie on file and NO intro video. Linked rows:
+  payments 2 (one Rs 199 PayPro fee each, approved), applications 1, messages/
+  threads 0, shortlists 0, demo requests 0, uploads 11 `user_documents` (CNIC +
+  selfie; no degree) and 24 storage objects (2 avatars, 22 identity-docs
+  originals/previews), slug history 0, notifications 8, plus activity events
+  53 / sessions 11, tuition access 4, usage counters 1, OTP 1, profile views 2,
+  field history 27, member-timeline rows 80 (+53 target references), areas 9,
+  subjects 46, auth identities 2 / session 1 / refresh token 1.
+  `scripts/dataop-delete-test-tutors.ts` refuses unless exactly those two
+  names match; with `--apply` it removes the storage objects through the
+  Storage API, then in one transaction sets the two payments' `user_id` to null
+  with `note = 'deleted test account'` (amount, `provider_ref` and dates
+  untouched), deletes every other linked row explicitly, then deletes the two
+  auth users. `admin_audit_log` rows naming the ids are KEPT (append-only by
+  construction; 6 rows). The admin Payments queue shows a payment whose account
+  is gone with the note in place of the name and "account deleted" in place of
+  the email; revenue sums `payments` alone, so finance totals are unchanged.
+  **Applied after the deploy:** 24 storage objects removed (2 avatars, 22 identity-docs); the 2 payments kept with `user_id` null and the note; 1 application, 11 documents, 8 notifications, 53 activity events, 11 sessions, 4 tuition-access rows, 1 usage counter, 1 OTP, 2 profile views, 27 field-history rows, 80 timeline rows, 9 areas, 46 subjects, the 2 tutor profiles and the 2 profiles deleted; both auth users deleted. Re-run SELECT: 0 accounts match the names and the only rows still naming the ids are the 6 kept audit-log entries. Kept payments after the change: TM-20261004093245-24066C and TM-20261004124851-86B1EB, Rs 199 each, PayPro, approved, dated 4 Oct 2026, note "deleted test account". Payment totals before and after are identical (approved 6 / Rs 1,194; pending 51 / Rs 10,949; rejected 2 / Rs 1,198; this month approved 6 / Rs 1,194).
+
+**Live checks (5 Oct 2026).** The sitemap lists exactly two tutor URLs — Ali Sabeer and Nabeel Anthony — and both profiles return 200 with no robots tag. Annie (paid, not approved) and Esha Asghar (approved, not paid): 200 + `noindex, follow`, absent from the sitemap. `/tutor/tutor-test-5` and `/tutor/test-tutor-6`: HTTP 404, absent from the sitemap, Browse and the search suggestions. `/` and `/browse/tuitions` 200. **Not driven:** the admin Payments screen itself (no admin session here) — the note rendering rests on `loadPaymentQueue` (name falls back to the note, email reads "account deleted") and the build; the totals were verified by SQL.
