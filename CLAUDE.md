@@ -6001,3 +6001,82 @@ a signed-out POST with 401; `/parent/verify?next=…demo=1` serves. Not driven
 (no browser or test accounts here): the own-card and own-profile locked view, a
 signed-in parent's demo gate and return, the dashboard counts and the verified
 banner — these rest on tsc, the build and the passing suites.
+
+## Browse tutors cleanup — viewer-specific buttons, upsell audience, test-account pause, "Find tutors", rejected tutors hidden (owner, 5 Oct 2026)
+
+Five items. Migration 137 (views + rank_tutors recreated from the LIVE
+definitions, no column, no data change; applied live BEFORE the push, dry-run
+first in a rolled-back transaction). Gates at close: tsc 0 · next build 0 ·
+check:contrast 118 · test:authtrust 52 · every other offline suite green except
+the PRE-EXISTING `test:pr106e` "file-and-approved gating" failure (untouched
+`lib/badgeFacts.ts`, reported in the previous sections). No browser was driven
+and no test account was signed in; live checks were HTML fetches.
+
+- **1 Tutor viewing another tutor.** `TutorCard`: `otherTutorViewer` (signed in,
+  role tutor, not own card) renders the View Profile action ALONE, and
+  `CardActions` lays a single action out full width (`grid-cols-1`; two or more
+  keep the 2-up grid). The profile page renders no `ProfileActions` bar for a
+  tutor viewer who is not the owner (the own-profile locked bar stays). Server:
+  `/api/shortlist` refuses a tutor account (403 "Tutor accounts cannot shortlist
+  tutors."); `canStartThread` refuses a tutor → tutor pair before any plan or
+  verification gate (403, no upgrade sheet); `/api/demo/request` already refused
+  non-parents. Parents, signed-out visitors and the own-card lock are unchanged.
+- **2 Upsell box audience.** The "See tutor contact details instantly … See
+  parent packages" box is the parents-audience house creative of the
+  `browse-inline` slot. `AdSlot` and `/api/ads/inline` now return nothing for a
+  signed-in tutor on a parents-audience slot (decided where the ad is chosen, so
+  no impression is recorded), and `MoreTutors` renders no inline box at all for a
+  tutor viewer — no replacement. Parents and guests see it as before; the
+  tutors-audience slot on /browse/tuitions is untouched.
+- **3 Test accounts — SELECT, then pause.** Whole-word "test" (PostgreSQL
+  `~* '\mtest\M'`) or exactly "New User" matched NINE: Test Parent (Tariq)
+  11111111-…, Test Parent 22222222-…, Test Tutor 461016fc-…, New User 3487fd66-…,
+  Test Ali 021c5cae-…, Test Tutor 2 cd4ba382-… (already paused 26 Sep),
+  Tutor Test 5 d69aa5e8-…, Test Tutor 6 e48e5f40-…, Parent Test 6 8692d9c0-…
+  (created 5 Oct). **Two have a successful payment and were SKIPPED, left
+  active: Tutor Test 5 and Test Tutor 6** (both verified, fee paid, on Browse).
+  `scripts/dataop-pause-test-accounts.ts` now matches the pattern, skips and
+  lists paid accounts, and pauses the rest with the existing reversible pause
+  (`is_suspended` + session revoke + tutor `verification_status='suspended'` +
+  penalties/audit/timeline rows, open tuitions → `paused`), audited under the
+  owner. RESULT (applied after the deploy, as ordered): the first --apply rolled back on a parameter-type error in the timeline insert (`$1` used as both uuid and text; fixed to a third parameter), nothing written; the re-run paused all SIX unpaid, not-yet-paused accounts — Test Parent (Tariq), Test Parent, Test Tutor, New User, Test Ali, Parent Test 6 — with 0 open tuitions to pause (none had any); the re-run SELECT shows 7 paused, 2 active (the two paid), nothing deleted.
+- **4 Heading, subline, order, metadata.** `/browse/tutors` reads "Find tutors"
+  (a subject filter keeps "<Subject> tutors"); the subline keeps the live count
+  and appends "free to browse, no account needed" only for a signed-out visitor.
+  Title "Find tutors in Pakistan | TutorMint" (or "Find <Subject> tutors …"),
+  description "Find home and online tutors … Verified tutors listed first — real
+  profiles, identity checks, video introductions …" — no claim that every tutor
+  is verified. ORDER: `rank_tutors` tiers on the Verified-BADGE rule
+  (`lib/badgeRule` mirrored in SQL: fee paid + CNIC/photo/selfie submitted + none
+  blocked by a rejection), +10, so badge-holders lead and verification-in-
+  progress follows, each group keeping the previous order (plan rank →
+  completion → location → rating → daily rotation). The keyset cursor is the same
+  shape. `rank_tutors` now RETURNS `fee_paid` and `verified_ok`; the card's
+  "Not verified" chip reads `fee_paid` instead of inferring it from the tier.
+  Dry run: SQL `verified_ok` agreed with the TS rule for 45 of 45 ranked rows.
+- **5 Rejected tutors hidden.** Read-only SELECT before the change: TWO tutors
+  carried a staff rejection — **Tanveer Hassan** (6ffe2384-…, CNIC + profile
+  picture + selfie all rejected) and **Fareeha Jawed** (a936a093-…, selfie
+  rejected); both were in the directory. Migration 137 adds to `tutor_directory`
+  `verification_state / profile_pic_status / selfie_status <> 'rejected'`, so
+  Browse, `rank_tutors`, `search_suggest`, the city × subject landing pages,
+  the blog embed, the shortlist cards and `listed_tutor_slugs` (the sitemap) all
+  drop them from the one view; `tutor_visible_profiles` keeps its WHERE (the
+  page renders) and the page's existing noindex rule already holds (a rejected
+  document is not approved). Both views return NO `avatar_url` while
+  `profile_pic_status = 'rejected'`, so every public surface shows the initials
+  avatar; `hiddenAvatarTutorIds` applies the same rule to the direct readers
+  (inbox counterpart, social banner, CV). Reverses by itself when the re-upload
+  is approved. Own dashboard/Settings and admin views read the base tables and
+  are unchanged; the admin tutor list shows "Not listed · A document was
+  rejected" via the new `document_rejected` blocker (`directoryBlockers`, fed by
+  entitlements, directoryStatus and the admin queue). Directory 47 → 45 on
+  apply; 0 rejected rows remain listed.
+
+**Live checks (HTML fetches, 5 Oct 2026).** `/browse/tutors` signed out: `<title>Find tutors in Pakistan | TutorMint</title>`, description "Find home and online tutors in Pakistan. Verified tutors listed first …", `<h1>` "Find tutors", subline "45 tutors · free to browse, no account needed", no "Verified tutors" heading; the first cards are Ali Sabeer then Annie (both Verified-badge holders, tier 10) and the first card still carries View Profile | Message | Demo | Shortlist; the parents house box ("See tutor contact details instantly") is present and `/api/ads/inline?audience=parents` returns it for a guest. Test accounts: Test Parent, Test Tutor, Test Ali, New User, Parent Test 6 absent from Browse; Tutor Test 5 and Test Tutor 6 (paid, skipped) still listed. Rejected: Tanveer Hassan and Fareeha Jawed absent from Browse; `/sitemap.xml` lists 1 tutor URL and neither of them (and no test-account slug); `/tutor/tanveer-hassan-tutor` is HTTP 200 with `robots: noindex, follow`, the branded default og:image, no `<img>` and the "TH" initials disc; `/api/search/suggest?q=tanveer` returns no suggestions. Signed-out POSTs to `/api/shortlist` and `/api/messages/thread` answer 401. **Not driven (no browser, no test session):** a signed-in tutor's view of another tutor's card (View Profile only, full width), the absent profile action bar, the absent upsell box, the count-only subline, and the 403s for a tutor's shortlist/message — these rest on tsc, the build, the role-gated code paths and the unit tests.
+
+**Reported, not changed.** The TypeScript listing mirror (`directoryBlockers`)
+still lists the step-1 gates (mobile, city, area, subjects, gender) that
+migration 124 removed from the view, and does not know `hidden_from_public`
+(migration 126) — pre-existing drift; the dashboard's "listed" flag reads the
+view itself, so it is cosmetic in the fix list only.

@@ -179,8 +179,8 @@ async function main() {
             [owner.id, owner.admin_role, owner.email, r.id, JSON.stringify({ reason: REASON, role: r.role, reportId: null, dataop: 'pause-test-accounts' })],
           )
           await client.query(
-            `insert into public.user_activity_log (user_id, event, target_type, target_id, meta) values ($1, 'suspended', 'profile', $1, $2::jsonb)`,
-            [r.id, JSON.stringify({ reason: REASON, reportId: null })],
+            `insert into public.user_activity_log (user_id, event, target_type, target_id, meta) values ($1, 'suspended', 'profile', $3, $2::jsonb)`,
+            [r.id, JSON.stringify({ reason: REASON, reportId: null }), r.id],
           )
         }
         // Their open tuitions → the tuition pause state (admin pause, PR27/PR28).
