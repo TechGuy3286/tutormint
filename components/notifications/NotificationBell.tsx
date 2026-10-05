@@ -13,6 +13,7 @@ import OnlineSuitableChip from '@/components/OnlineSuitableChip'
 import { isPlanEnding } from '@/lib/feedGrouping'
 import { createClient } from '@/lib/supabase/client'
 import type { NotificationRow } from '@/lib/notificationFeed'
+import { ListRowSkeletons } from '@/components/Skeletons'
 
 // The header bell.
 //
@@ -219,12 +220,7 @@ export default function NotificationBell({
               </div>
             </div>
 
-            {items === null && !failed && (
-              <p className="flex items-center justify-center gap-2 p-6 text-xs text-gray-500">
-                <Loader2 aria-hidden size={14} className="animate-spin" />
-                Loading…
-              </p>
-            )}
+            {items === null && !failed && <ListRowSkeletons count={3} />}
 
             {failed && (
               <p className="p-4 text-center text-xs font-bold text-tm-red">

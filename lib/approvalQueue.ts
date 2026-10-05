@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { formatName } from '@/lib/formatName'
 
 // "Approval needed" (PR106-H1 §3): tutors with at least one uploaded document
 // waiting for a staff decision. Fee-paid members first (they are waiting for
@@ -47,7 +48,7 @@ async function build(): Promise<ApprovalRow[]> {
     if (waiting.length === 0) continue
     rows.push({
       id: p.id as string,
-      name: (p.full_name as string) ?? 'Unnamed tutor',
+      name: formatName(p.full_name as string | null) || 'Unnamed tutor',
       waiting,
       paid: !!t?.verified_fee_paid_at,
       createdAt: (p.created_at as string) ?? '',

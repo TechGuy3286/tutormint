@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { formatName } from '@/lib/formatName'
 
 // Auth users with no matching profiles row — the failure class that hid 24 real
 // signups for three days when the on_auth_user_created trigger was silently
@@ -71,7 +72,7 @@ export async function loadOrphanedAccounts(): Promise<{ rows: OrphanAccount[]; o
         email: u.email ?? null,
         mobile: (u.phone && u.phone.trim()) || mobileFromEmail(u.email ?? null),
         metaRole: typeof meta.role === 'string' && meta.role ? meta.role : '(none)',
-        fullName: typeof meta.full_name === 'string' && meta.full_name ? meta.full_name : null,
+        fullName: typeof meta.full_name === 'string' && meta.full_name ? formatName(meta.full_name) : null,
         createdAt: u.created_at ?? '',
         emailConfirmed: !!u.email_confirmed_at,
       })

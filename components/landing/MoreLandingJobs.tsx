@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import JobCard, { type JobCardData } from '@/components/JobCard'
 import { useInfinite } from '@/lib/useInfinite'
+import { JobCardSkeletons } from '@/components/Skeletons'
 
 // Infinite scroll for a tuition landing page. Reuses /api/browse/tuitions and
 // renders NO ads, for the same reason as MoreLandingTutors: a landing page is
@@ -40,6 +41,8 @@ export default function MoreLandingJobs({
 
       <div ref={sentinel} aria-hidden className="h-px" />
 
+      {state === 'loading' && <JobCardSkeletons count={2} />}
+
       {!done && (
         <div className="flex justify-center py-4">
           <button
@@ -48,7 +51,7 @@ export default function MoreLandingJobs({
             disabled={state === 'loading'}
             className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-tm-navy disabled:opacity-60"
           >
-            {state === 'loading' ? 'Loading…' : 'Load more tuitions'}
+            Load more tuitions
           </button>
         </div>
       )}

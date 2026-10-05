@@ -2,6 +2,7 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { refundState, refundLabel } from '@/lib/payments/refundCore'
+import { FEE_LABEL } from '@/lib/display'
 
 // A member's own payments and refunds for the dashboard "Payments & refunds"
 // section (PR106-H4 §4.12). No wallet, no balance — a plain list: what each
@@ -34,7 +35,7 @@ export async function loadPaymentsHistory(userId: string): Promise<PaymentHistor
   const planName = new Map((plans ?? []).map((p) => [p.code as string, p.name as string]))
 
   const whatFor = (code: string) =>
-    code === 'verified' ? 'Verification fee' : `${planName.get(code) ?? code} plan`
+    code === 'verified' ? FEE_LABEL : `${planName.get(code) ?? code} plan`
 
   // Show the payments that resulted in money moving or a refund — approved
   // payments and anything with a refund. Pending/rejected attempts are noise here.

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { absoluteUrl, SITE_URL } from '@/lib/siteUrl'
 import { avatarShown } from '@/lib/showAvatar'
 import type { CvRaw, CvSubjectGroup } from '@/lib/cv/model'
+import { formatName } from '@/lib/formatName'
 
 // Reads a tutor's OWN profile into a CvRaw — the base tables, not the
 // tutor_public_page RPC, because that RPC returns nothing for a tutor under
@@ -81,7 +82,7 @@ export async function buildCvRaw(userId: string): Promise<CvRaw> {
   const showPhoto = await avatarShown(supabase, userId)
 
   return {
-    fullName: (profile?.full_name as string) || 'Tutor',
+    fullName: formatName(profile?.full_name as string | null) || 'Tutor',
     avatarUrl: showPhoto ? ((profile?.avatar_url as string | null) ?? null) : null,
     city: (profile?.city as string | null) ?? null,
     area: (tp?.area as string | null) ?? null,

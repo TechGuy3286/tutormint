@@ -23,6 +23,7 @@
 // skipTutorProfile and write it themselves.
 
 import type { createAdminClient } from '@/lib/supabase/admin'
+import { formatName } from '@/lib/formatName'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -53,7 +54,7 @@ export async function ensureProfile(
       id: opts.userId,
       role: opts.role,
       account_type: opts.role === 'parent' ? 'parent' : null,
-      full_name: opts.fullName,
+      full_name: formatName(opts.fullName),
       email: opts.email,
       phone_number: opts.phoneNumber ?? '',
       ...(opts.phoneGateRequired ? { phone_gate_required: true } : {}),
@@ -66,7 +67,7 @@ export async function ensureProfile(
 
   if (opts.role === 'tutor' && !opts.skipTutorProfile) {
     const { error: tErr } = await admin.from('tutor_profiles').upsert(
-      { id: opts.userId, full_name: opts.fullName, email: opts.email, verification_status: 'pending' },
+      { id: opts.userId, full_name: formatName(opts.fullName), email: opts.email, verification_status: 'pending' },
       { onConflict: 'id' },
     )
     if (tErr) return { ok: false, error: tErr.message }

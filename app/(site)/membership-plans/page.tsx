@@ -13,6 +13,7 @@ import PackagesTable, { type PlanRow } from '@/components/PackagesTable'
 import PackagesTabs from '@/components/membership-plans/PackagesTabs'
 import VerifiedPreview from '@/components/membership-plans/VerifiedPreview'
 import { hiresThisMonth } from '@/lib/funnel'
+import { formatName } from '@/lib/formatName'
 
 // The ONE packages page (owner PR13 §1). A Tutors tab and a Parents tab, each
 // rendering its cards from the plans table — one source, no prices or features
@@ -145,7 +146,7 @@ export default async function PackagesPage({
       .select('full_name, city')
       .eq('id', ent.userId)
       .maybeSingle()
-    viewerName = (me?.full_name as string) ?? 'Your name'
+    viewerName = formatName(me?.full_name as string | null) || 'Your name'
     viewerCity = (me?.city as string) ?? null
   }
   const hires = await hiresThisMonth()

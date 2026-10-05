@@ -104,11 +104,11 @@ const C = {
   // Two more tile hues (PR88): sky blue and soft pink chip/ink.
   skyInk: '#075985',
   pinkInk: '#9D174D',
-  // Tinted count-tile tokens (PR34 §2), light AND dark. Kept in sync with the
-  // app/globals.css @theme values and its prefers-color-scheme: dark override by
-  // hand — a mismatch shows as a failing pair below. Suffix D = the dark-mode
-  // value. The chip glyph is white on a brand hue, already covered by the
-  // symmetric "ink on white" pairs, so only the box text pairs are listed.
+  // Tinted count-tile tokens (PR34 §2). Kept in sync with the app/globals.css
+  // @theme values by hand — a mismatch shows as a failing pair below. There is
+  // no dark-mode variant any more (#57): the tiles keep their light tint in
+  // every device theme. The chip glyph is white on a brand hue, already covered
+  // by the symmetric "ink on white" pairs, so only the box text pairs are listed.
   tileNavyBg: '#E8EAF5', tileNavyInk: '#151E6B',
   tileGreenBg: '#EEFBEE', tileGreenInk: '#2E7D4F',
   tileRedBg: '#FBEAEA', tileRedInk: '#C20202',
@@ -118,15 +118,6 @@ const C = {
   tileMintBg: '#CDEEDE', tileMintInk: '#0B6B52',
   tileSkyBg: '#E0F2FE', tileSkyInk: '#075985',
   tilePinkBg: '#FCE7F3', tilePinkInk: '#9D174D',
-  tileNavyBgD: '#1E2547', tileNavyInkD: '#C6CCF2',
-  tileGreenBgD: '#14331F', tileGreenInkD: '#A6E7BF',
-  tileRedBgD: '#3B1516', tileRedInkD: '#F4B2B2',
-  tileGoldBgD: '#3A2A0E', tileGoldInkD: '#F3C77C',
-  tileTealBgD: '#0E3130', tileTealInkD: '#8EDFDD',
-  tileVioletBgD: '#241A47', tileVioletInkD: '#CEBFF5',
-  tileMintBgD: '#103326', tileMintInkD: '#8FE3C0',
-  tileSkyBgD: '#0C2B3F', tileSkyInkD: '#A8DCF5',
-  tilePinkBgD: '#3A1226', tilePinkInkD: '#F6B8D4',
 } as Record<string, string>
 
 type Pair = { fg: string; bg: string; where: string; large?: boolean }
@@ -264,9 +255,9 @@ const PAIRS: Pair[] = [
   { fg: 'violetInk', bg: 'white', where: 'count tile number, violet tone' },
 
   // The tinted count-tile boxes (PR34 §2): the number, label and helper all take
-  // the tone's ink on the tone's box tint. Light mode, then dark mode (deeper
-  // muted box, light ink). The chip glyph is white on a brand hue — covered by
-  // the symmetric ink-on-white pairs above.
+  // the tone's ink on the tone's box tint — one mode only (#57: no dark variant).
+  // The chip glyph is white on a brand hue — covered by the symmetric
+  // ink-on-white pairs above.
   { fg: 'tileNavyInk', bg: 'tileNavyBg', where: 'tinted tile text, navy — light' },
   { fg: 'tileGreenInk', bg: 'tileGreenBg', where: 'tinted tile text, green — light' },
   { fg: 'tileRedInk', bg: 'tileRedBg', where: 'tinted tile text, red — light' },
@@ -280,15 +271,6 @@ const PAIRS: Pair[] = [
   // explicitly since these two hues are new (PR88).
   { fg: 'white', bg: 'skyInk', where: 'count tile chip glyph, sky tone' },
   { fg: 'white', bg: 'pinkInk', where: 'count tile chip glyph, pink tone' },
-  { fg: 'tileNavyInkD', bg: 'tileNavyBgD', where: 'tinted tile text, navy — dark' },
-  { fg: 'tileGreenInkD', bg: 'tileGreenBgD', where: 'tinted tile text, green — dark' },
-  { fg: 'tileRedInkD', bg: 'tileRedBgD', where: 'tinted tile text, red — dark' },
-  { fg: 'tileGoldInkD', bg: 'tileGoldBgD', where: 'tinted tile text, gold — dark' },
-  { fg: 'tileTealInkD', bg: 'tileTealBgD', where: 'tinted tile text, teal — dark' },
-  { fg: 'tileVioletInkD', bg: 'tileVioletBgD', where: 'tinted tile text, violet — dark' },
-  { fg: 'tileMintInkD', bg: 'tileMintBgD', where: 'tinted tile text, mint — dark' },
-  { fg: 'tileSkyInkD', bg: 'tileSkyBgD', where: 'tinted tile text, sky — dark' },
-  { fg: 'tilePinkInkD', bg: 'tilePinkBgD', where: 'tinted tile text, pink — dark' },
 
   // The four initials-avatar pairs (lib/brand.ts AVATAR_TINTS). Named here
   // rather than left to the identical pairs above, because the avatar is the

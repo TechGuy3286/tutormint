@@ -26,6 +26,7 @@ import { ensureProfile } from '@/lib/ensureProfile'
 import { deliverEmail } from '@/lib/notify'
 import type { AdminRole } from '@/lib/adminAuth'
 import type { Actor } from '@/lib/moderation'
+import { formatName } from '@/lib/formatName'
 
 /** Roles the owner may hand out. 'owner' is absent deliberately. */
 export const ASSIGNABLE_ROLES: AdminRole[] = ['admin', 'operations', 'tuitions_staff']
@@ -87,7 +88,7 @@ export async function createStaff(params: {
   if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
 
   const email = params.email.trim().toLowerCase()
-  const fullName = params.fullName.trim()
+  const fullName = formatName(params.fullName)
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return { ok: false, status: 400, error: 'That does not look like an email address.' }
@@ -271,7 +272,7 @@ export async function resendStaffInvite(params: {
     { userId: params.userId },
     {
       id: 'staff_invite',
-      name: (target.full_name as string | null) ?? 'there',
+      name: formatName(target.full_name as string | null) || 'there',
       role: (target.admin_role as string) ?? 'staff',
       url: inviteUrl,
     },
@@ -348,7 +349,7 @@ export async function searchGrantCandidates(query: string): Promise<GrantCandida
       !(row?.verified_fee_paid_at as string | null)
     return {
       id,
-      fullName: (p.full_name as string | null) ?? null,
+      fullName: formatName(p.full_name as string | null) || null,
       email: (p.email as string | null) ?? null,
       role: (p.role as string | null) ?? null,
       listedTutor: isTutor && listed.has(id),
@@ -418,7 +419,7 @@ export async function grantStaffToExisting(params: {
       ok: false,
       needsConfirm: true,
       warning:
-        `${target.full_name ?? 'This member'} is a listed tutor. Granting a staff role gives ` +
+        `${formatName(target.full_name as string | null) || 'This member'} is a listed tutor. Granting a staff role gives ` +
         'them the admin panel on the same login while their public tutor profile stays live — ' +
         'one person holding both a tutor identity and staff access. Confirm to grant it.',
     }

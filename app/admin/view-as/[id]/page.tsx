@@ -10,6 +10,7 @@ import { getEntitlements } from '@/lib/entitlements'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { viewSummary } from '@/lib/profileViews'
 import TutorHeaderCard from '@/components/tutor/TutorHeaderCard'
+import { formatName } from '@/lib/formatName'
 
 // Owner-only "View as tutor" (PR106-H1 §5). A READ-ONLY render of what the tutor
 // sees on their dashboard. Server-enforced read-only by construction: the owner's
@@ -36,7 +37,7 @@ export default async function ViewAsTutorPage({ params }: { params: Promise<{ id
   if (!p || p.role !== 'tutor') redirect(`/admin/tutors/${id}`)
 
   const { data: tp } = await admin.from('tutor_profiles').select('slug, city').eq('id', id).maybeSingle()
-  const name = (p.full_name as string) || 'Tutor'
+  const name = formatName(p.full_name as string | null) || 'Tutor'
 
   // Every use is recorded (PR106-H1 §5).
   await logAdminAction({
@@ -100,7 +101,7 @@ export default async function ViewAsTutorPage({ params }: { params: Promise<{ id
           <dl>
             {fact('Listed in search', directory.listed ? 'Yes' : 'Not yet')}
             {fact('Plan', ent.planName ?? 'None')}
-            {fact('Verification fee', ent.verified ? 'Paid' : 'Not paid')}
+            {fact('Spam Free Platform Fee', ent.verified ? 'Paid' : 'Not paid')}
             {fact('Profile complete', `${percent}%`)}
             {fact('Profile views this week', String(views.thisWeek))}
           </dl>

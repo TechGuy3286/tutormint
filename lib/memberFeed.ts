@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
+import { formatName } from '@/lib/formatName'
 
 // One window of the member directory, shared by /admin/users and its
 // load-more route.
@@ -146,7 +147,7 @@ export async function memberPage({
     }
     return {
       id: p.id as string,
-      name: (p.full_name as string) ?? '—',
+      name: formatName(p.full_name as string | null) || '—',
       email: (p.email as string) ?? '—',
       phone: (p.phone_number as string) || null,
       whatsapp: (p.whatsapp as string) || null,

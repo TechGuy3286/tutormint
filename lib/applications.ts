@@ -31,6 +31,7 @@ import { genderApplyBlocked, genderPrefSentence } from '@/lib/genderPref'
 import { needsOnboarding } from '@/lib/onboardingGate'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
+import { formatName } from '@/lib/formatName'
 
 type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate; completeProfile?: boolean }
 
@@ -347,7 +348,7 @@ export async function setApplicationStatus(params: {
       { userId: application.tutor_id as string },
       {
         id: 'application_progress',
-        name: (tutor?.full_name as string) ?? 'there',
+        name: formatName(tutor?.full_name as string | null) || 'there',
         outcome: 'shortlisted',
         jobTitle: job.title as string,
         ref: (job.ref_id as string) ?? null,

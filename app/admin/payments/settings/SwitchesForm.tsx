@@ -12,8 +12,8 @@ const ROWS: { which: 'fee_open' | 'plans_open'; field: keyof Switches; title: st
   {
     which: 'fee_open',
     field: 'feeOpen',
-    title: 'Rs 199 verification fee open to all tutors',
-    sub: 'Lets any tutor pay the one-time verification fee.',
+    title: 'Rs 199 Spam Free Platform Fee open to all tutors',
+    sub: 'Lets any tutor pay the one-time Spam Free Platform Fee.',
   },
   {
     which: 'plans_open',

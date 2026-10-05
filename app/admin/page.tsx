@@ -103,7 +103,7 @@ export default async function AdminHome({
               <Link
                 key={t.key}
                 href={t.href}
-                className={`flex h-full min-h-[104px] flex-col gap-0.5 rounded-2xl border border-black/5 p-4 transition-shadow hover:shadow-md ${tone.card}`}
+                className={`flex h-full min-h-[104px] flex-col gap-0.5 rounded-2xl border border-black/5 p-4 transition-shadow hover:shadow-md [color-scheme:light] ${tone.card}`}
               >
                 <span className={`mb-1 grid h-9 w-9 place-items-center rounded-xl ${tone.chip}`}>
                   <Icon aria-hidden size={18} />

@@ -19,6 +19,7 @@ import { getEmailChannel } from './email'
 import { whatsappChannel } from './whatsapp'
 import { render, type TemplateInput } from './templates'
 import type { DeliveryResult } from './channel'
+import { formatName } from '@/lib/formatName'
 
 export { render, type TemplateInput } from './templates'
 export type { DeliveryChannel, OutboundMessage, DeliveryResult } from './channel'
@@ -121,7 +122,7 @@ export async function deliverMessageDigest(params: {
     { userId: params.userId },
     {
       id: 'message_digest',
-      name: (profile.full_name as string) ?? 'there',
+      name: formatName(profile.full_name as string | null) || 'there',
       count: params.count,
       from: params.from,
     },

@@ -6,6 +6,7 @@ import InlineAd from '@/components/ads/InlineAd'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import JobCard, { type JobCardData } from '@/components/JobCard'
 import { useInfinite } from '@/lib/useInfinite'
+import { JobCardSkeletons } from '@/components/Skeletons'
 
 // Everything below the server-rendered first window of /browse/tuitions.
 // The cards above are real HTML; these are the same component fed from JSON.
@@ -79,6 +80,7 @@ export default function MoreJobs({
         loadedCount={serverCount + items.length}
         total={total}
         noun="tuitions"
+        skeleton={<JobCardSkeletons count={2} />}
       />
     </>
   )

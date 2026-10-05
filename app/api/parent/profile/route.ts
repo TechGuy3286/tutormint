@@ -6,6 +6,7 @@ import { logActivity } from '@/lib/activityLog'
 import { recomputeCompletion } from '@/lib/completion'
 import { createClient } from '@/lib/supabase/server'
 import { parseBody, z } from '@/lib/validate'
+import { formatName } from '@/lib/formatName'
 
 // A parent editing their own details.
 //
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
   const { error } = await supabase
     .from('profiles')
     .update({
-      full_name: body.fullName,
+      full_name: formatName(body.fullName),
       city: body.city || null,
       area: body.area || null,
       address: body.address || null,

@@ -22,6 +22,7 @@ import { fetchTaxonomyTables } from '@/lib/taxonomyBuild'
 import { normalisePkMobile, syntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { ensureProfile } from '@/lib/ensureProfile'
+import { formatName } from '@/lib/formatName'
 
 export const TEMPLATE_HEADERS = [
   'name',
@@ -374,7 +375,7 @@ export async function createImportedTutor(params: {
     email,
     password,
     email_confirm: true, // there is no inbox to confirm; the OTP is the real check
-    user_metadata: { full_name: row.name },
+    user_metadata: { full_name: formatName(row.name) },
   })
 
   if (error || !created?.user) return fail(error?.message ?? 'Could not create the account')
@@ -411,7 +412,7 @@ export async function createImportedTutor(params: {
   const { error: tutorError } = await admin.from('tutor_profiles').upsert({
     id: userId,
     slug: provisionalSlug,
-    full_name: row.name,
+    full_name: formatName(row.name),
     email,
     phone_number: msisdn,
     city: row.city || null,

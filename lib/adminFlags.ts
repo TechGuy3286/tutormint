@@ -2,6 +2,7 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { FlagRow } from '@/lib/adminFlagsShared'
+import { formatName } from '@/lib/formatName'
 
 // The flagged-content queue (PR40 §2), read through the service role. Each open
 // abuse_flags row is shown with both members (name + whether already suspended),
@@ -41,11 +42,11 @@ export async function loadFlagQueue(limit = 200): Promise<FlagRow[]> {
       source: r.source as FlagRow['source'],
       subject: {
         id: r.subject_id as string,
-        name: (s?.full_name as string | null) ?? '—',
+        name: formatName(s?.full_name as string | null) || '—',
         suspended: !!s?.is_suspended,
       },
       recipient: r.recipient_id
-        ? { id: r.recipient_id as string, name: (rec?.full_name as string | null) ?? '—' }
+        ? { id: r.recipient_id as string, name: formatName(rec?.full_name as string | null) || '—' }
         : null,
       content: (r.content as string) ?? '',
       matched: (r.matched as string[] | null) ?? [],

@@ -185,7 +185,7 @@ export default function PackagesTable({
                     one-time verification fee — stated in words, no amount (the
                     fee's price lives only on the payment page). */}
                 {isFree && audience === 'tutor' && (
-                  <p className="text-[11px] font-semibold text-gray-500">After the one-time verification fee</p>
+                  <p className="text-[11px] font-semibold text-gray-500">After the one-time Spam Free Platform Fee</p>
                 )}
               </div>
 

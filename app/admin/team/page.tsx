@@ -1,6 +1,7 @@
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import TeamClient, { type StaffRow } from './TeamClient'
+import { formatName } from '@/lib/formatName'
 
 // Staff management. Owner only.
 //
@@ -56,7 +57,7 @@ export default async function AdminTeamPage() {
 
   const rows: StaffRow[] = (staff ?? []).map((s) => ({
     id: s.id as string,
-    name: (s.full_name as string) ?? '—',
+    name: formatName(s.full_name as string | null) || '—',
     email: (s.email as string) ?? '—',
     adminRole: s.admin_role as StaffRow['adminRole'],
     suspended: !!s.is_suspended,

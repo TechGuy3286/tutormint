@@ -91,16 +91,13 @@
      The dashboard/overview count tiles now wash the WHOLE box in a soft tint,
      with the number and label in a dark shade of the same colour and the icon
      in a white glyph on a solid brand-hue chip. These are DEDICATED tokens,
-     separate from the shared tint and ink tokens, for one reason: they carry a
-     dark-mode override (below), and the shared tints are used all over the app
-     on surfaces that are NOT dark-themed — overriding those would darken info
-     panels, avatars and inbox rows on a dark-OS device while the page around
-     them stayed light. Scoping the dark behaviour to these tile tokens keeps it
-     contained. Six tones (navy/green/red/gold/teal/violet — the ones the tiles
-     use; mint is unused). `-bg` is the box, `-ink` is the text; the chip reuses
-     the brand hue tokens (a white glyph on tm-navy / -green-deep / -red /
-     -gold-ink / -teal-ink / -violet-ink). Light values here; dark below. Every
-     text-on-box pair, in both modes, is in scripts/contrast-check.ts. */
+     separate from the shared tint and ink tokens so the tile palette can be
+     tuned without touching the info panels, avatars and inbox rows that use the
+     shared tints. `-bg` is the box, `-ink` is the text; the chip reuses the
+     brand hue tokens (a white glyph on tm-navy / -green-deep / -red / -gold-ink
+     / -teal-ink / -violet-ink). These are the ONLY values — there is no
+     dark-mode variant (#57, see the note below the @theme block). Every
+     text-on-box pair is in scripts/contrast-check.ts. */
   --color-tm-tile-navy-bg: #e8eaf5;
   --color-tm-tile-navy-ink: #151e6b;
   --color-tm-tile-green-bg: #eefbee;
@@ -124,35 +121,14 @@
   --color-tm-bg: #f8fafc;
 }
 
-/* Dark mode for the count tiles (PR34 §2): deeper, muted tints for the box and
-   a light shade of the same colour for the text. Same pattern as the tooltip
-   below — prefers-color-scheme, the only "dark mode" this codebase has. Scoped
-   to the tile tokens ONLY (see the note above): overriding the token the
-   utility already reads swaps the resolved colour in dark without renaming a
-   class or touching any shared tint. The chip stays the fixed brand hue (a
-   white glyph reads on it in both modes). Every pair is contrast-checked. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-tm-tile-navy-bg: #1e2547;
-    --color-tm-tile-navy-ink: #c6ccf2;
-    --color-tm-tile-green-bg: #14331f;
-    --color-tm-tile-green-ink: #a6e7bf;
-    --color-tm-tile-red-bg: #3b1516;
-    --color-tm-tile-red-ink: #f4b2b2;
-    --color-tm-tile-gold-bg: #3a2a0e;
-    --color-tm-tile-gold-ink: #f3c77c;
-    --color-tm-tile-teal-bg: #0e3130;
-    --color-tm-tile-teal-ink: #8edfdd;
-    --color-tm-tile-violet-bg: #241a47;
-    --color-tm-tile-violet-ink: #cebff5;
-    --color-tm-tile-mint-bg: #103326;
-    --color-tm-tile-mint-ink: #8fe3c0;
-    --color-tm-tile-sky-bg: #0c2b3f;
-    --color-tm-tile-sky-ink: #a8dcf5;
-    --color-tm-tile-pink-bg: #3a1226;
-    --color-tm-tile-pink-ink: #f6b8d4;
-  }
-}
+/* The count tiles have NO dark-mode override (#57, 5 Oct 2026). PR34 §2 gave
+   these tile tokens a prefers-color-scheme: dark block, and the result on a
+   phone in dark mode was dashboard tiles turning dark while the page around
+   them stayed light. Each tile now keeps its own light tint and dark ink
+   whatever the device theme, and the tile shell sets `color-scheme: light`
+   (lib/tileTones.ts TILE_BOX, the admin Overview card) so the browser cannot
+   recolour it either. The tooltip below keeps its own dark variant — it is a
+   floating bubble, not a tile. */
 
 /* The document ground, so a page that sets no background still sits on the
    brand surface rather than on the browser's white. */
@@ -186,6 +162,24 @@ html {
    than the English above it (PR77 §4). `.tm-ur-cap` opts an Urdu line out of the
    bump, so it renders at its own `text-*` size — matching the English it sits
    under. Body text and tile names keep the larger size. */
+
+/* The full-page logo loader (components/LogoLoader, #103): the monogram
+   breathes gently while a page's data arrives. Stopped by the reduced-motion
+   rule below like every other animation. */
+@keyframes tm-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+.tm-logo-loader {
+  animation: tm-breathe 1.2s ease-in-out infinite;
+}
 
 /* Respect a reader who has asked for less motion. Every transition in the app
    is decorative; none of them carries information. */

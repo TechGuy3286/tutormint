@@ -12,6 +12,7 @@ import { memberInboxTag } from '@/lib/inboxTags'
 import { absoluteUrl } from '@/lib/siteUrl'
 import { citySegment } from '@/lib/slugs'
 import type { AdminRole } from '@/lib/adminAuth'
+import { formatName } from '@/lib/formatName'
 
 // The official TutorMint Team ↔ member channel (owner, Sunday 6 Sep).
 //
@@ -208,7 +209,7 @@ export async function loadInboxThreads(limit = 100): Promise<InboxThread[]> {
   for (const p of people ?? []) {
     const t = byMember.get(p.id as string)
     if (!t) continue
-    t.memberName = (p.full_name as string) ?? '—'
+    t.memberName = formatName(p.full_name as string | null) || '—'
     t.memberEmail = (p.email as string) ?? '—'
 
     const tp = tutorById.get(p.id as string)

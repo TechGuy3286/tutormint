@@ -30,6 +30,7 @@ import JobTypesChip from '@/components/JobTypesChip'
 import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorJsonLd } from '@/lib/seo'
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
+import { formatName } from '@/lib/formatName'
 
 // The public tutor profile. Server component, results in the HTML.
 //
@@ -205,7 +206,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
   const { data: parents } = parentIds.length
     ? await admin.from('profiles').select('id, full_name').in('id', parentIds)
     : { data: [] as { id: string; full_name: string | null }[] }
-  const parentName = new Map((parents ?? []).map((p) => [p.id as string, (p.full_name as string) ?? 'A parent']))
+  const parentName = new Map((parents ?? []).map((p) => [p.id as string, formatName(p.full_name as string | null) || 'A parent']))
   const reviews = (reviewRows ?? []).map((r) => ({
     id: r.id as string,
     rating: r.rating as number,
@@ -249,7 +250,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
   return {
     id: tp.id as string,
     slug: tp.slug as string,
-    full_name: (tp.full_name as string) || 'Your profile',
+    full_name: formatName(tp.full_name as string | null) || 'Your profile',
     headline: (tp.headline as string) ?? null,
     bio: (tp.bio as string) ?? null,
     avatar_url: (tp.avatar_url as string) ?? null,

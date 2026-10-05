@@ -4,6 +4,7 @@ import { getSessionUser } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatPkMobile, normalisePkMobile } from '@/lib/phone'
 import ClaimFlow from './ClaimFlow'
+import { formatName } from '@/lib/formatName'
 
 // "Is this you?" — the screen an imported tutor lands on after replacing their
 // temporary password.
@@ -65,7 +66,7 @@ export default async function ClaimPage() {
         </header>
 
         <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-          <Row label="Name" value={(tutor.full_name as string) ?? '—'} />
+          <Row label="Name" value={formatName(tutor.full_name as string | null) || '—'} />
           <Row label="Mobile" value={msisdn ? formatPkMobile(msisdn) : ((profile?.phone_number as string) ?? '—')} />
           <Row label="City" value={(tutor.city as string) ?? '—'} />
           <Row label="Area" value={(tutor.area as string) ?? '—'} />

@@ -4,6 +4,7 @@ import { Loader2, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { fetchNonLegacyMasters, labelsByMasterId, type SubjectMaster } from '@/lib/taxonomy'
+import { ChipSkeletons } from '@/components/Skeletons'
 
 // The tutor's subject picker (PR 3b §2.4).
 //
@@ -141,9 +142,7 @@ export default function SubjectPicker({
       </div>
 
       {loading ? (
-        <p className="flex items-center gap-2 text-xs text-gray-500">
-          <Loader2 size={14} className="animate-spin" aria-hidden /> Loading subjects…
-        </p>
+        <ChipSkeletons count={6} />
       ) : visibleGroups.length === 0 ? (
         <p className="rounded-xl border border-dashed border-gray-200 p-3 text-center text-[11px] text-gray-500">
           {q ? `No subjects match “${query}”.` : 'Search for a subject or grade to add it.'}

@@ -25,6 +25,8 @@ import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import { resolveMasterIds, fetchTaxonomyTree, fetchNonLegacyMasters, type TaxonomyNode } from '@/lib/taxonomy'
 import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
 import { NEW_FLOW_ORDER, firstMissingStep, nextMissingAfter, stepDone, type FlowStepKey } from '@/lib/tutorFlow'
+import LogoLoader from '@/components/LogoLoader'
+import { ChipSkeletons } from '@/components/Skeletons'
 
 // The NEW tutor onboarding (PR106-G3c). A SEPARATE component from the live
 // CompleteProfileFlow (which is not touched): shown only when showNewOnboarding
@@ -267,7 +269,7 @@ export default function NewOnboardingFlow({
   }, [refresh, flowFacts, ORDER])
 
   if (!facts || !stepKey) {
-    return <div className="fixed inset-0 z-[60] grid place-items-center bg-tm-bg text-xs font-bold text-gray-500">Loading…</div>
+    return <LogoLoader fullPage />
   }
 
   const stepIndex = stepKey === 'final' ? ORDER.length : ORDER.indexOf(stepKey)
@@ -442,7 +444,7 @@ export default function NewOnboardingFlow({
     // (PR106-H3 §2 / urgent fix).
     if (facts.feePaid) {
       void leave('/tutor/dashboard')
-      return <div className="fixed inset-0 z-[60] grid place-items-center bg-tm-bg text-xs font-bold text-gray-500">Loading…</div>
+      return <LogoLoader fullPage />
     }
     return <GetVerifiedStep stepTotal={ORDER.length} onBack={goBack} payFailed={payFailed} />
   }
@@ -531,7 +533,7 @@ function AreaStep({ city, initial, busy, shell, onSave }: { city: string; initia
     children: (
       <div className="space-y-3">
         {ranked === null ? (
-          <p className="flex items-center justify-center gap-2 text-sm text-gray-500"><Loader2 size={14} className="animate-spin" aria-hidden /> Loading…</p>
+          <ChipSkeletons count={8} />
         ) : (
           <>
             <div className="flex flex-wrap justify-center gap-2">
@@ -663,7 +665,7 @@ function SubjectsStep({ initialIds, draftCats, draftByCat, shell, onDraft, onSav
     children: (
       <div className="space-y-4">
         {!tree ? (
-          <p className="flex items-center justify-center gap-2 text-sm text-gray-500"><Loader2 size={14} className="animate-spin" aria-hidden /> Loading…</p>
+          <ChipSkeletons count={8} />
         ) : (
           <>
             {/* Level chips (categories) */}

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { loadQuickReplies, messagePage, threadHeader } from '@/lib/messaging'
 import { mayAttachPhoto, DEFAULT_QUICK_REPLIES } from '@/lib/messagingRules'
+import { formatName } from '@/lib/formatName'
 
 // One conversation's data for the desktop messages dock (PR 4 §2). It reuses the
 // EXACT server functions InboxShell uses — threadHeader, messagePage,
@@ -57,7 +58,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     canShareContact: header.canShareContact,
     suspended: ent.suspended,
     canAttach: mayAttachPhoto(ent),
-    selfName: ((me?.full_name as string | null) || 'You').split(' ')[0],
+    selfName: (formatName(me?.full_name as string | null) || 'You').split(' ')[0],
     contactReason: role === 'tutor' ? 'tutor_contact' : 'parent_contact',
     quickReplies: chips,
   })

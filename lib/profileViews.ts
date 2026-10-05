@@ -13,6 +13,7 @@
 // code, after entitlements have been consulted.
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { formatName } from '@/lib/formatName'
 
 export type ViewTeaser = {
   id: string
@@ -137,7 +138,7 @@ export async function viewTeasers(
         .select('id, full_name, avatar_url')
         .in('id', viewerIds)
       for (const p of people ?? []) {
-        namesById.set(p.id as string, (p.full_name as string) ?? 'A parent')
+        namesById.set(p.id as string, formatName(p.full_name as string | null) || 'A parent')
         avatarById.set(p.id as string, (p.avatar_url as string) ?? null)
       }
     }

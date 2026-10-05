@@ -8,6 +8,7 @@ import { resolveSubjectLabels } from '@/lib/social/data'
 import { isSocialFormat } from '@/lib/social/copy'
 
 import { renderSocialBanner, type BannerTutor } from '@/app/api/admin/social/image/render'
+import { formatName } from '@/lib/formatName'
 
 // The tutor's own "You're Verified" success card, rendered on demand for the
 // authenticated tutor from their OWN listed profile.
@@ -41,6 +42,8 @@ export async function GET(request: Request) {
     .maybeSingle()
 
   if (!tutor) return new Response('Not listed yet.', { status: 404 })
+  // #46 — the name on the card goes through the one shared formatter.
+  ;(tutor as Record<string, unknown>).full_name = formatName(tutor.full_name as string | null)
 
   const [{ data: sub }, subjects] = await Promise.all([
     admin

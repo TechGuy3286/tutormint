@@ -17,6 +17,7 @@ import { GENDER_PREFS } from '@/lib/genderPref'
 import { bandFor, bandRange } from '@/lib/feeBands'
 import { takeDraft, saveDraft } from '@/components/AuthGateModal'
 import { loadFormDraft, saveFormDraft, clearFormDraft } from '@/lib/formDraft'
+import { TextLinesSkeleton } from '@/components/Skeletons'
 
 // THE ONE post-a-tuition form (owner, 11 Sep 2026). The parent's post-a-job form
 // and /admin/jobs/new were near-duplicate copies that had already drifted (two
@@ -397,9 +398,7 @@ export default function PostTuitionForm({
         {/* ---------------------------------------------------- 2. subject */}
         <Step n={2} title="What do you need taught?">
           {!ready ? (
-            <p className="rounded-xl bg-tm-bg p-3 text-[11px] text-gray-500">
-              Loading the subjects on this job…
-            </p>
+            <div className="rounded-xl bg-tm-bg p-3"><TextLinesSkeleton lines={3} /></div>
           ) : (
             /* Select-all subjects + "Select all grades" are enabled on the
                tuition form (owner PR64 §B, superseding the earlier "post-a-tuition

@@ -44,6 +44,8 @@ const mobileSupportHref = whatsappHref(
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { formatName } from '@/lib/formatName'
+import { TextLinesSkeleton } from '@/components/Skeletons'
 
 // Tutor settings — ONE SAVE PER CARD (PR 3b §2.6). Each card owns its fields and
 // its own Save button, showing "Saved." or the error inline; there is no
@@ -403,10 +405,10 @@ export default function TutorSettingsPage() {
     // PR86: WhatsApp is required, validated like the mobile.
     const wa = normalisePkMobile(formData.whatsapp);
     if (!wa) throw new Error('Add a valid WhatsApp number (Pakistani mobile format).');
-    await tutorUpdate({ full_name: formData.fullName });
+    await tutorUpdate({ full_name: formatName(formData.fullName) });
     // PR86: WhatsApp is canonical on profiles.whatsapp (onboarding + admin read
     // it), stored normalised; the legacy whatsapp_number column is left as-is.
-    const { error } = await supabase.from('profiles').update({ full_name: formData.fullName, whatsapp: wa }).eq('id', userId);
+    const { error } = await supabase.from('profiles').update({ full_name: formatName(formData.fullName), whatsapp: wa }).eq('id', userId);
     if (error) throw new Error(error.message);
     setFormData((f) => ({ ...f, whatsapp: wa }));
   };
@@ -652,7 +654,7 @@ export default function TutorSettingsPage() {
       body: identity ? (
         <IdentityCard identity={identity} role="tutor" />
       ) : (
-        <p className="text-[11px] text-gray-500">Loading…</p>
+        <TextLinesSkeleton lines={2} />
       ),
     },
     {

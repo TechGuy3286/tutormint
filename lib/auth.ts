@@ -12,6 +12,7 @@ import { homeForRole, nextForRole } from '@/lib/authRoutes'
 
 export type { Role } from '@/lib/authRoutes'
 import type { Role } from '@/lib/authRoutes'
+import { formatName } from '@/lib/formatName'
 
 export type SessionProfile = {
   id: string
@@ -72,7 +73,10 @@ export const getSessionUser = cache(async function getSessionUser(): Promise<Ses
 
   return {
     user: { id: user.id, email: user.email ?? null },
-    profile: (profile as SessionProfile | null) ?? null,
+    // #46 — the name every header/dashboard shows comes through the one formatter.
+    profile: profile
+      ? ({ ...(profile as SessionProfile), full_name: formatName((profile as SessionProfile).full_name) || null } as SessionProfile)
+      : null,
   }
 })
 

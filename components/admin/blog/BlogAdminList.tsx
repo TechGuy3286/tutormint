@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/Toast'
 import { POST_CLUSTERS, clusterLabel, postPath, statusLabel, type PostStatus } from '@/lib/blog'
 import { SITE_URL } from '@/lib/siteUrl'
 import type { AdminPostRow } from '@/lib/blogFeed'
+import { ListRowSkeletons } from '@/components/Skeletons'
 
 // The admin blog list: filters (status, cluster, title search) and infinite
 // scroll. Self-fetching — an admin screen is not an organic-search surface, so
@@ -119,9 +120,13 @@ export default function BlogAdminList({
         </select>
       </div>
 
-      {items.length === 0 ? (
+      {items.length === 0 && loading ? (
+        <div className="rounded-2xl border border-gray-200 bg-white">
+          <ListRowSkeletons count={4} />
+        </div>
+      ) : items.length === 0 ? (
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">
-          {loading ? 'Loading…' : 'No posts match.'}
+          No posts match.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
@@ -205,7 +210,7 @@ export default function BlogAdminList({
             disabled={loading}
             className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-tm-navy disabled:opacity-60"
           >
-            {loading ? 'Loading…' : 'Load more'}
+            {loading && <span aria-hidden className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />} Load more
           </button>
         </div>
       )}

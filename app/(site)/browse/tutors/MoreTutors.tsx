@@ -6,6 +6,7 @@ import InlineAd from '@/components/ads/InlineAd'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import TutorCard, { type CardViewer, type TutorCardData } from '@/components/TutorCard'
 import { useInfinite } from '@/lib/useInfinite'
+import { TutorCardSkeletons } from '@/components/Skeletons'
 
 // Everything below the server-rendered first window.
 //
@@ -86,6 +87,7 @@ export default function MoreTutors({
         loadedCount={serverCount + items.length}
         total={total}
         noun="tutors"
+        skeleton={<TutorCardSkeletons count={2} />}
       />
     </>
   )

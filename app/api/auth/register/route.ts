@@ -14,6 +14,7 @@ import { numberSavedElsewhere } from '@/lib/phoneAccount'
 import { ensureProfile } from '@/lib/ensureProfile'
 import { startPendingSignup, PENDING_COOKIE } from '@/lib/pendingSignup'
 import { CODE_TTL_MS } from '@/lib/otp'
+import { formatName } from '@/lib/formatName'
 
 // Signup.
 //
@@ -131,7 +132,7 @@ export async function POST(request: Request) {
       if (!confirmed) {
         await admin.auth.admin.updateUserById(existingEmail.id, {
           password: body.password,
-          user_metadata: { role: body.role, full_name: body.fullName },
+          user_metadata: { role: body.role, full_name: formatName(body.fullName) },
         })
         const supabaseReuse = await createClient()
         const originReuse = new URL(request.url).origin
@@ -163,7 +164,7 @@ export async function POST(request: Request) {
       email: authEmail,
       password: body.password,
       options: {
-        data: { role: body.role, full_name: body.fullName },
+        data: { role: body.role, full_name: formatName(body.fullName) },
         emailRedirectTo: `${origin}/api/auth/callback`,
       },
     })

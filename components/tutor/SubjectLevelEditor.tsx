@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchTaxonomyTree, fetchNonLegacyMasters, type TaxonomyNode, type SubjectMaster } from '@/lib/taxonomy'
 import { deriveSelections, mergeSubjectSelections } from '@/lib/subjectMerge'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { ChipSkeletons } from '@/components/Skeletons'
 
 // PR84 — the tutor Settings subject editor, level-first, matching onboarding's
 // "subjects once per level" (SubjectsPerLevelStep): pick level(s), then the
@@ -110,9 +111,7 @@ export default function SubjectLevelEditor({
 
   if (loading) {
     return (
-      <p className="flex items-center gap-2 text-xs text-gray-500">
-        <Loader2 size={14} className="animate-spin" aria-hidden /> Loading subjects…
-      </p>
+      <ChipSkeletons count={6} />
     )
   }
 

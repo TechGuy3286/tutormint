@@ -6,6 +6,7 @@ import { groupFeed } from '@/lib/feedGrouping'
 import type { NotificationGroup, NotificationRow } from '@/lib/notificationFeed'
 import { notificationsToFeed } from '@/lib/notificationsToFeed'
 import { useInfinite } from '@/lib/useInfinite'
+import { ListRowSkeletons } from '@/components/Skeletons'
 
 // Everything below the server-rendered first window. Same mechanism as the
 // browse pages and the admin lists — one hook, one footer, one Load more.
@@ -49,6 +50,7 @@ export default function MoreNotifications({
         sentinel={sentinel}
         loadedCount={serverCount + items.length}
         noun="notifications"
+        skeleton={<ListRowSkeletons count={3} padded={false} />}
         endLabel={`That’s all ${serverCount + items.length} notifications.`}
       />
     </>

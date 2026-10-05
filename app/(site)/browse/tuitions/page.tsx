@@ -393,6 +393,10 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
         )}
 
         <JobFilterBar values={filterValues} />
+        {/* Popular searches sit DIRECTLY under the search bar (#102) — never
+            mid-page. Internal links to the city × subject landing pages (PR43
+            §2), so they are not orphans; only the ones that exist (>= threshold). */}
+        <PopularLandingLinks kind="tuitions" />
 
         {/* PR90: the "Your areas / All areas / All cities" chip bar is removed.
             The default area feed still opens for a signed-in tutor (below); to
@@ -483,9 +487,6 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
           />
         )}
 
-        {/* Internal links to the city × subject landing pages (PR43 §2), so they
-            are not orphans. Only shows the ones that exist (>= threshold). */}
-        <PopularLandingLinks kind="tuitions" />
         {/* Record a committed search / job-ID lookup with its result count
             (PR99 §2); masked server-side before storing. */}
         {q ? <TrackSearch where="browse tuitions" query={q} resultCount={total} /> : null}

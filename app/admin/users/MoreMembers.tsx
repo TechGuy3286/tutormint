@@ -5,6 +5,7 @@ import type { MemberRow as Row } from '@/lib/memberFeed'
 import { useInfinite } from '@/lib/useInfinite'
 
 import MemberRow from './MemberRow'
+import { ListRowSkeletons } from '@/components/Skeletons'
 
 export default function MoreMembers({
   params,
@@ -39,6 +40,7 @@ export default function MoreMembers({
         sentinel={sentinel}
         loadedCount={serverCount + items.length}
         noun="people"
+        skeleton={<ListRowSkeletons count={3} padded={false} />}
         endLabel={`That’s everyone — ${serverCount + items.length} people.`}
       />
     </>

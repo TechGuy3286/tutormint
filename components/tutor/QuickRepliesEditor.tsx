@@ -5,6 +5,7 @@ import { Loader2, Plus, X } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { submitSignal } from '@/lib/submit'
 import { MAX_QUICK_REPLIES, DEFAULT_QUICK_REPLIES } from '@/lib/messagingRules'
+import { TextLinesSkeleton } from '@/components/Skeletons'
 
 // The tutor's quick replies — the chips above their composer. Plain text, up to
 // six, edited here and saved to tutor_quick_replies. A tutor with none saved
@@ -69,9 +70,7 @@ export default function QuickRepliesEditor() {
 
   if (!loaded) {
     return (
-      <p className="flex items-center gap-2 text-xs text-gray-500">
-        <Loader2 size={14} className="animate-spin" aria-hidden /> Loading…
-      </p>
+      <TextLinesSkeleton lines={3} />
     )
   }
 

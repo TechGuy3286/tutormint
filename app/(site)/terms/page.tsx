@@ -191,8 +191,15 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          The only thing TutorMint sells is a monthly membership. We charge no commission and no
-          per-introduction fee.
+          TutorMint sells two things: a one-time <strong>Spam Free Platform Fee</strong> that a tutor
+          pays once to be verified and listed, and optional monthly memberships. We charge no
+          commission and no per-introduction fee.
+        </p>
+        <p>
+          <strong>The Spam Free Platform Fee.</strong> It is paid once, never renews, and is what
+          keeps fake and spam accounts off the platform. It buys verification and a place in the
+          directory — never a tuition, a hire or an income. It is non-refundable (see “Paying, and
+          the no-refund policy”).
         </p>
         <p>
           Current prices are shown on the packages pages and are stated in Pakistani Rupees. A
@@ -242,8 +249,8 @@ const SECTIONS: LegalSection[] = [
         </p>
         <p>
           <strong>
-            All membership payments are final. We do not give refunds, in whole or in part, for any
-            reason.
+            All payments — the Spam Free Platform Fee and membership payments — are final. We do not
+            give refunds, in whole or in part, for any reason.
           </strong>{' '}
           That includes an unused part of a month, a change of mind, a plan bought by mistake, a
           profile that does not attract enquiries, and an account suspended for breaking these

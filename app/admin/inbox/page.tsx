@@ -7,6 +7,7 @@ import {
   markMemberRepliesRead,
 } from '@/lib/adminMessaging'
 import InboxClient from './InboxClient'
+import { formatName } from '@/lib/formatName'
 
 // The official TutorMint Team ↔ member inbox. owner / manager / support.
 //
@@ -44,7 +45,7 @@ export default async function AdminInboxPage({
     const { data } = admin
       ? await admin.from('profiles').select('full_name, phone_number, whatsapp').eq('id', selectedId).maybeSingle()
       : { data: null }
-    if (!selectedName) selectedName = (data?.full_name as string) ?? 'this member'
+    if (!selectedName) selectedName = formatName(data?.full_name as string | null) || 'this member'
     selectedHasMobile = !!((data?.phone_number as string)?.trim() || (data?.whatsapp as string)?.trim())
   }
 

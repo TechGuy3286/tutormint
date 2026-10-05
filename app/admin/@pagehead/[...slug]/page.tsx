@@ -2,6 +2,7 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { adminTrail } from '@/lib/adminNav'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { formatName } from '@/lib/formatName'
 
 // The page title and breadcrumb trail in the admin header.
 //
@@ -59,7 +60,7 @@ async function dynamicLabel(slug: string[]): Promise<string | null> {
   }
 
   const { data } = await admin.from('profiles').select('full_name').eq('id', id).maybeSingle()
-  return (data?.full_name as string) ?? null
+  return formatName(data?.full_name as string | null) || null
 }
 
 export default async function AdminPageHead({

@@ -4,6 +4,7 @@ import { resolveSubjectLabelsBatch } from '@/lib/social/data'
 import { badgesForPlan, type BadgeName } from '@/lib/planBadges'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import SocialClient, { type PickerTutor } from './SocialClient'
+import { formatName } from '@/lib/formatName'
 
 // The social post generator. owner / admin / operations.
 //
@@ -102,7 +103,7 @@ export default async function AdminSocialPage() {
 
     rows.push({
       slug: t.slug as string,
-      name: (p.full_name as string) ?? 'Tutor',
+      name: formatName(p.full_name as string | null) || 'Tutor',
       headline: (t.headline as string) ?? null,
       city: (p.city as string) ?? null,
       area: (t.area as string) ?? null,

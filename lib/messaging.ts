@@ -40,6 +40,7 @@ import { flagIfAbusive } from '@/lib/abuse/flag'
 import { detectAbuse } from '@/lib/abuse/filter'
 import { abuseWarning, type AbuseWarning } from '@/lib/abuse/warnings'
 import { SUPPORT_WHATSAPP_DISPLAY, SUPPORT_EMAIL_FALLBACK } from '@/lib/supportContacts'
+import { formatName } from '@/lib/formatName'
 
 // PR16 §2.3 — an unverified tutor (fee unpaid) may RECEIVE parent messages and
 // demo requests but cannot read or reply to them until the fee is paid. This is
@@ -329,7 +330,7 @@ export async function sendMessage(params: {
       .select('is_suspended, full_name, role')
       .eq('id', me)
       .maybeSingle()
-    senderName = (sender?.full_name as string) ?? 'a TutorMint member'
+    senderName = formatName(sender?.full_name as string | null) || 'a TutorMint member'
     if (sender?.is_suspended) {
       // One plain line for a (possibly auto-)suspended sender, with how to appeal
       // (PR40 §2). This is what a member auto-suspended for repeated abuse sees on
@@ -853,7 +854,7 @@ export async function threadPage({
   for (const p of people.data ?? []) {
     const pid = p.id as string
     names.set(pid, {
-      name: (p.full_name as string) ?? NAME_FALLBACK,
+      name: formatName(p.full_name as string | null) || NAME_FALLBACK,
       role: (p.role as string) ?? null,
       avatar: hiddenAvatars.has(pid) ? null : ((p.avatar_url as string) ?? null),
     })
@@ -1004,7 +1005,7 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
         .gt('expires_at', new Date().toISOString()),
     ])
 
-    otherName = (profile?.full_name as string) ?? otherName
+    otherName = formatName(profile?.full_name as string | null) || otherName
     otherAvatar = (profile?.avatar_url as string) ?? null
     otherRole = (profile?.role as string) ?? null
     // The counterpart tutor's hidden picture (PR70) → initials in the header too.

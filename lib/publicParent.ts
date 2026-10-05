@@ -20,6 +20,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import type { BadgeName } from '@/lib/planBadges'
+import { formatName } from '@/lib/formatName'
 
 export type PublicParentJob = {
   id: string
@@ -116,7 +117,7 @@ export async function publicParent(id: string): Promise<PublicParent | null> {
 
   return {
     id: profile.id as string,
-    name: team ? 'TutorMint' : (profile.full_name as string) || 'TutorMint member',
+    name: team ? 'TutorMint' : formatName(profile.full_name as string | null) || 'TutorMint member',
     avatarUrl: (profile.avatar_url as string) ?? null,
     city: (profile.city as string) ?? null,
     memberSince: profile.created_at as string,

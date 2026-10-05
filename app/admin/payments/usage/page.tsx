@@ -1,6 +1,7 @@
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { currentPeriod } from '@/lib/entitlements'
+import { formatName } from '@/lib/formatName'
 
 // Real quota usage, including behind the word "Unlimited".
 //
@@ -98,7 +99,7 @@ export default async function AdminUsagePage({
 
       return {
         userId: c.user_id as string,
-        name: (profile?.full_name as string) ?? '—',
+        name: formatName(profile?.full_name as string | null) || '—',
         email: (profile?.email as string) ?? '—',
         role,
         planName: plan?.name ?? null,

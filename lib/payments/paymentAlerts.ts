@@ -3,6 +3,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { deliverEmail } from '@/lib/notify'
 import { PAYMENT_ALERTS_KEY, parseAlertEmails } from '@/lib/payments/alertEmailsCore'
+import { formatName } from '@/lib/formatName'
 
 export { PAYMENT_ALERTS_KEY, parseAlertEmails }
 
@@ -77,7 +78,7 @@ export async function sendDuplicateCnicAlert(input: { memberId: string }): Promi
   const { data } = admin
     ? await admin.from('profiles').select('full_name').eq('id', input.memberId).maybeSingle()
     : { data: null }
-  const memberName = (data?.full_name as string) ?? 'A member'
+  const memberName = formatName(data?.full_name as string | null) || 'A member'
   const to = await paymentAlertEmails()
   for (const email of to) {
     const r = await deliverEmail(

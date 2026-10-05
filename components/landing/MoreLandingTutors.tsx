@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import TutorCard, { type TutorCardData, type CardViewer } from '@/components/TutorCard'
 import { useInfinite } from '@/lib/useInfinite'
+import { TutorCardSkeletons } from '@/components/Skeletons'
 
 // Infinite scroll for a tutor landing page.
 //
@@ -56,6 +57,8 @@ export default function MoreLandingTutors({
 
       <div ref={sentinel} aria-hidden className="h-px" />
 
+      {state === 'loading' && <TutorCardSkeletons count={2} />}
+
       {!done && (
         <div className="flex justify-center py-4">
           <button
@@ -64,7 +67,7 @@ export default function MoreLandingTutors({
             disabled={state === 'loading'}
             className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-tm-navy disabled:opacity-60"
           >
-            {state === 'loading' ? 'Loading…' : 'Load more tutors'}
+            Load more tutors
           </button>
         </div>
       )}

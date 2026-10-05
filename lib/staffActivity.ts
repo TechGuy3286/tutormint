@@ -9,6 +9,7 @@ import {
   type StaffCounts,
   type StaffMetricKey,
 } from '@/lib/staffActivityCore'
+import { formatName } from '@/lib/formatName'
 
 // Staff activity, read from admin_audit_log BY ACTOR (PR29 §2.2).
 //
@@ -60,7 +61,7 @@ export async function loadStaffActivity(): Promise<StaffActivityRow[]> {
 
   return rows.map((r) => ({
     id: r.id as string,
-    name: (r.full_name as string | null) ?? '—',
+    name: formatName(r.full_name as string | null) || '—',
     email: (r.email as string | null) ?? null,
     adminRole: (r.admin_role as string | null) ?? null,
     counts: counts.get(r.id as string) ?? emptyStaffCounts(),
@@ -164,7 +165,7 @@ export async function loadStaffDetail(
     admin.from('profiles').select('id, full_name').in('id', memberIds.length ? memberIds : none),
   ])
   const jobById = new Map((jobs ?? []).map((j) => [j.id as string, j]))
-  const nameById = new Map((profs ?? []).map((p) => [p.id as string, (p.full_name as string | null) ?? '—']))
+  const nameById = new Map((profs ?? []).map((p) => [p.id as string, formatName(p.full_name as string | null) || '—']))
 
   // By-city breakdown + open/paused/closed of the tuitions they posted.
   const cityMap = new Map<string, number>()

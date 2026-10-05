@@ -39,6 +39,7 @@ import { getLandingLinker } from '@/lib/landing'
 import { resolveSubjectQuery } from '@/lib/searchResolve'
 import { TEAM_DISPLAY_NAME } from '@/lib/teamAccount'
 import type { JobCardData } from '@/components/JobCard'
+import { formatName } from '@/lib/formatName'
 
 type ParentFacts = {
   name: string | null
@@ -107,7 +108,7 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
       // makes the surface independent of the row). Its badges are suppressed
       // because a team post carries the platform's OWN vetting, not a
       // CNIC-verified parent's — the "Posted by TutorMint" marker says so.
-      name: team ? TEAM_DISPLAY_NAME : ((p.full_name as string | null)?.split(' ')[0] ?? null),
+      name: team ? TEAM_DISPLAY_NAME : (formatName(p.full_name as string | null).split(' ')[0] || null),
       avatarUrl: (p.avatar_url as string | null) ?? null,
       // PR105-B §1 — a parent's Verified badge needs CNIC verified (not completion
       // alone); the plan-tier Featured badge is unaffected.
@@ -755,20 +756,52 @@ export async function browseJobs(
   // and page over it, which is obviously correct. The public keyset path below is
   // left exactly as it was. Only taken when there is no explicit subject filter
   // (an explicit filter is already subject-specific, so "matched first" is moot).
-  if (filters.tutorScope && !matchingIds && filters.tutorScope.subjectMasterIds.length > 0) {
-    const { data: links } = await supabase
-      .from('job_subjects')
-      .select('job_id')
-      .in('master_id', filters.tutorScope.subjectMasterIds)
-    const matchedSet = new Set((links ?? []).map((l) => l.job_id as string))
+  //
+  // #101 (owner, 5 Oct 2026) — for a tutor who teaches ONLINE the scope also
+  // carries online tuitions from every other city, and those used to interleave
+  // with the tutor's own city purely by subject match and date. Now, for an
+  // online tutor only: tuitions in the tutor's own city/cities come first
+  // (area match first, then subject match — the existing priority), then online
+  // tuitions in other cities. In-person (non-online) tutors keep the exact
+  // ordering they had — every in-scope row is already in their own city — and
+  // the gender filter is untouched (it narrows the set, not the order).
+  if (
+    filters.tutorScope &&
+    !matchingIds &&
+    (filters.tutorScope.subjectMasterIds.length > 0 || filters.tutorScope.includeOnline)
+  ) {
+    const scope = filters.tutorScope
+    let matchedSet = new Set<string>()
+    if (scope.subjectMasterIds.length > 0) {
+      const { data: links } = await supabase
+        .from('job_subjects')
+        .select('job_id')
+        .in('master_id', scope.subjectMasterIds)
+      matchedSet = new Set((links ?? []).map((l) => l.job_id as string))
+    }
+    const ownAreas = new Map(
+      scope.cityScopes.map((c) => [c.city.trim().toLowerCase(), new Set(c.areas.map((a) => a.trim().toLowerCase()))]),
+    )
+    const cityRank = (r: Record<string, unknown>): number => {
+      if (!scope.includeOnline) return 0 // in-person: ordering unchanged (#101)
+      const city = String(r.city ?? '').trim().toLowerCase()
+      const areas = ownAreas.get(city)
+      if (!areas) return 0 // another city (an online tuition)
+      const area = String(r.area ?? '').trim().toLowerCase()
+      return area && areas.has(area) ? 2 : 1 // own city: area match first
+    }
 
     // The whole in-scope open board (small — one tutor's city+areas), full rows.
     const { data: allRows } = await build()
     const all = (allRows ?? []) as Record<string, unknown>[]
 
-    // Rank: subject match first, then featured, then newest, id as the total
-    // tiebreaker so the order is stable across pages.
+    // Rank: own city (area first) for an online tutor, then subject match, then
+    // featured, then newest, id as the total tiebreaker so the order is stable
+    // across pages.
     const sorted = [...all].sort((a, b) => {
+      const acity = cityRank(a)
+      const bcity = cityRank(b)
+      if (acity !== bcity) return bcity - acity
       const am = matchedSet.has(a.id as string) ? 1 : 0
       const bm = matchedSet.has(b.id as string) ? 1 : 0
       if (am !== bm) return bm - am

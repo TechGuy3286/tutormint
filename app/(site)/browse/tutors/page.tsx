@@ -318,6 +318,10 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
         </header>
 
         <TutorFilterBar values={filters} />
+        {/* Popular searches sit DIRECTLY under the search bar (#102) — never
+            mid-page. Internal links to the city × subject landing pages (PR43
+            §2), so they are not orphans; only the ones that exist (>= threshold). */}
+        <PopularLandingLinks kind="tutors" />
 
         {error && (
           <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
@@ -421,9 +425,6 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
           />
         )}
 
-        {/* Internal links to the city × subject landing pages (PR43 §2), so they
-            are not orphans. Only shows the ones that exist (>= threshold). */}
-        <PopularLandingLinks kind="tutors" />
         {/* Record a committed search with its real result count (PR99 §2). The
             term is masked server-side before it is stored. */}
         {q ? <TrackSearch where="browse tutors" query={q} resultCount={total} /> : null}

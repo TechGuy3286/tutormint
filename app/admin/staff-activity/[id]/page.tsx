@@ -7,6 +7,7 @@ import { loadStaffDetail } from '@/lib/staffActivity'
 import { STAFF_METRICS, type StaffMetricKey } from '@/lib/staffActivityCore'
 import StaffActivityTable from '@/components/admin/StaffActivityTable'
 import { formatDateTime } from '@/lib/datetime'
+import { formatName } from '@/lib/formatName'
 
 // One staff member's activity in detail (PR40 §4): the counts, a by-city and
 // open/paused/closed breakdown of the tuitions they posted, and the actual
@@ -58,7 +59,7 @@ export default async function StaffDetailPage({
   const to = sp.to || undefined
 
   const detail = await loadStaffDetail(id, { metric, from, to })
-  const name = (staff.full_name as string | null) ?? '—'
+  const name = formatName(staff.full_name as string | null) || '—'
   const metricLabel = metric ? STAFF_METRICS.find((m) => m.key === metric)?.label : null
 
   const link = 'rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-bold hover:border-tm-navy'

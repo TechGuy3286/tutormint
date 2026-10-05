@@ -119,7 +119,7 @@ export default async function Navbar() {
 
   return (
     <Shell>
-      {/* Phone-only chat icon beside the bell (§3); desktop uses the dock. */}
+      {/* Messages icon beside the bell (§3, #94) — phone and desktop, members only. */}
       {isMember && <HeaderMessages href={messagesHref} initialUnread={messagesUnread} />}
       <NotificationBell
         userId={session.user.id}

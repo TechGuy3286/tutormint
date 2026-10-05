@@ -18,6 +18,7 @@ import {
   classifyPendingVerify,
   codeStillLive,
 } from '@/lib/pendingSignupCore'
+import { formatName } from '@/lib/formatName'
 
 // Nothing is persisted for an UNVERIFIED mobile signup (owner, 11 Sep 2026).
 //
@@ -113,7 +114,7 @@ export async function startPendingSignup(opts: {
   const { error: insertError } = await admin.from('pending_signups').insert({
     token,
     role: opts.role,
-    full_name: opts.fullName,
+    full_name: formatName(opts.fullName),
     mobile: opts.mobile,
     password_hash: passwordHash,
     // Stored HASHED (PR16 §3.2), like phone_otps.

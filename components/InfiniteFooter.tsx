@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
-import type { RefObject } from 'react'
+import type { ReactNode, RefObject } from 'react'
 
 import type { InfiniteState } from '@/lib/useInfinite'
 
@@ -31,6 +31,7 @@ export default function InfiniteFooter({
   /** e.g. "tutors" — used in the end-of-results line. */
   noun,
   endLabel,
+  skeleton,
 }: {
   state: InfiniteState
   done: boolean
@@ -41,6 +42,9 @@ export default function InfiniteFooter({
   noun: string
   /** Overrides the default end line when a list wants its own words. */
   endLabel?: string
+  /** Skeleton cards shaped like the list's own rows, shown while the next
+   *  window loads (#102/#103). The word "Loading…" never appears. */
+  skeleton?: ReactNode
 }) {
   if (done) {
     return (
@@ -59,6 +63,8 @@ export default function InfiniteFooter({
           thing a person interacts with. */}
       <div ref={sentinel} aria-hidden className="h-px w-full" />
 
+      {state === 'loading' && skeleton}
+
       {state === 'error' && (
         <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-3 text-center text-xs font-bold text-tm-red">
           Could not load more. Try again.
@@ -73,7 +79,7 @@ export default function InfiniteFooter({
           className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy disabled:opacity-60"
         >
           {state === 'loading' && <Loader2 aria-hidden size={14} className="animate-spin" />}
-          {state === 'loading' ? 'Loading…' : state === 'error' ? 'Try again' : `Load more ${noun}`}
+          {state === 'error' ? 'Try again' : `Load more ${noun}`}
         </button>
 
         {/* Announced to screen readers as it changes, so progress through a

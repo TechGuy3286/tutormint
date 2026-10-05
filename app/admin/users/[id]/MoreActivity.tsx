@@ -74,7 +74,7 @@ export default function MoreActivity({
           disabled={busy}
           className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60"
         >
-          {busy ? 'Loading…' : 'Load more sessions'}
+          {busy && <span aria-hidden className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />} Load more sessions
         </button>
       )}
     </>

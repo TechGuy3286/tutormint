@@ -2,6 +2,7 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isSyntheticEmail } from '@/lib/phone'
+import { formatName } from '@/lib/formatName'
 
 // Abandoned signups — accounts that started but never crossed the line.
 //
@@ -148,7 +149,7 @@ export async function loadAbandonedSignups(): Promise<{ rows: AbandonedSignup[];
         role: p.role,
         channel,
         contact,
-        fullName: p.full_name,
+        fullName: formatName(p.full_name as string | null) || null,
         completion,
         createdAt,
         templateKey: STAGE_TEMPLATE[stage],

@@ -16,6 +16,7 @@ import { jobTypesLabel } from '@/lib/display'
 import SlugField from './SlugField'
 import TutorFieldEditor from './TutorFieldEditor'
 import TutorFieldHistory from './TutorFieldHistory'
+import { formatName } from '@/lib/formatName'
 
 // One tutor, as staff.
 //
@@ -76,7 +77,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
   // One name (PR66 §5): the canonical is profiles.full_name (what the member sees
   // on their dashboard); fall back to tutor_profiles only if it is blank.
   const name =
-    ((profile.full_name as string) || '').trim() || ((tutor.full_name as string) || '').trim() || 'Tutor'
+    formatName(profile.full_name as string | null) || formatName(tutor.full_name as string | null) || 'Tutor'
   const completion = Number(profile.profile_completion ?? 0)
   // headerStatus is computed below, once the per-document statuses are loaded
   // (PR106-C §6): the pill reflects the IDENTITY REVIEW — CNIC + photo + selfie.

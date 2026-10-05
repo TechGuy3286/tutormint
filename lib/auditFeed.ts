@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import type { AuditRow } from '@/app/admin/audit/AuditEntry'
+import { formatName } from '@/lib/formatName'
 
 // One window of the audit trail, shared by the page and its load-more route.
 //
@@ -60,7 +61,7 @@ export async function auditPage({
 
   if (targetIds.length > 0) {
     const { data: people } = await admin.from('profiles').select('id, full_name').in('id', targetIds)
-    const nameById = new Map((people ?? []).map((p) => [p.id as string, p.full_name as string]))
+    const nameById = new Map((people ?? []).map((p) => [p.id as string, formatName(p.full_name as string | null)]))
     for (const e of rows) {
       e.target_name = e.target_id ? (nameById.get(e.target_id) ?? null) : null
     }

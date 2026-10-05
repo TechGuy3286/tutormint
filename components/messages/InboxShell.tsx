@@ -13,6 +13,7 @@ import { loadTeamSummary } from '@/lib/adminMessaging'
 import QuickRepliesEditor from '@/components/tutor/QuickRepliesEditor'
 import { mayAttachPhoto, DEFAULT_QUICK_REPLIES, DEFAULT_PARENT_QUICK_REPLIES } from '@/lib/messagingRules'
 import { createClient } from '@/lib/supabase/server'
+import { formatName } from '@/lib/formatName'
 
 // The inbox, both roles, one implementation.
 //
@@ -62,7 +63,7 @@ export default async function InboxShell({
     role === 'tutor' ? loadQuickReplies(userId) : Promise.resolve([] as string[]),
     loadTeamSummary(userId),
   ])
-  const selfName = ((self?.full_name as string | null) || 'You').split(' ')[0]
+  const selfName = (formatName(self?.full_name as string | null) || 'You').split(' ')[0]
   const contactReason = role === 'tutor' ? 'tutor_contact' : 'parent_contact'
   // A tutor who has saved none sees the defaults as a starting set (the spec
   // calls them defaults, editable in Settings); once they save, theirs win. A

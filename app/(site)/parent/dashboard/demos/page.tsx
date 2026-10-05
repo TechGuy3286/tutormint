@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { reviewableEngagements } from '@/lib/reviews'
 
 import DemoInbox, { type DemoRow } from '../DemoInbox'
+import { formatName } from '@/lib/formatName'
 
 // Demo requests, moved off the dashboard.
 //
@@ -44,7 +45,7 @@ export default async function ParentDemosPage() {
         .in('id', ids)
       for (const t of tutors ?? []) {
         names.set(t.id as string, {
-          name: (t.full_name as string) ?? 'Tutor',
+          name: formatName(t.full_name as string | null) || 'Tutor',
           slug: (t.slug as string) ?? null,
         })
       }

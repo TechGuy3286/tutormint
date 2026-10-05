@@ -85,8 +85,8 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
           </h1>
           {isFee ? (
             <>
-              <p className="text-xs text-gray-500">Profile verification · {amount} · one-time</p>
-              <p className="text-xs font-bold text-tm-navy">This is a one-time fee. It is non-refundable.</p>
+              <p className="text-xs text-gray-500">Spam Free Platform Fee · {amount} · one-time</p>
+              <p className="text-xs font-bold text-tm-navy">The Spam Free Platform Fee is one-time. It is non-refundable.</p>
             </>
           ) : (
             <p className="text-xs text-gray-500">

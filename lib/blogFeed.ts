@@ -16,6 +16,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { encodeCursor, decodeCursor } from '@/lib/cursor'
 import { plainText, readingTimeMinutes } from '@/lib/markdown'
 import type { PostStatus, PostAudience, PostLanguage } from '@/lib/blog'
+import { formatName } from '@/lib/formatName'
 
 export type BlogListItem = {
   id: string
@@ -320,7 +321,7 @@ export async function listAdminPosts(args: {
 
   const items: AdminPostRow[] = rows.map((r) => {
     const author = r.author as { full_name?: string } | { full_name?: string }[] | null
-    const authorName = Array.isArray(author) ? author[0]?.full_name ?? null : author?.full_name ?? null
+    const authorName = formatName(Array.isArray(author) ? author[0]?.full_name ?? null : author?.full_name ?? null) || null
     return {
       id: r.id as string,
       slug: r.slug as string,

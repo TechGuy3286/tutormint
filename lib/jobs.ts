@@ -58,6 +58,7 @@ import { buildJobContact } from '@/lib/jobContactCore'
 import { matchVisibility, isOnlineType } from '@/lib/matchChip'
 import { collapseLevels } from '@/lib/levelDisplay'
 import type { AdminRole } from '@/lib/adminAuth'
+import { formatName } from '@/lib/formatName'
 
 // Level is multi-select now (migration 79): jobs.class_levels is the array, and
 // jobs.class_level (+ the legacy `grade` mirror) hold the collapsed display run.
@@ -964,7 +965,7 @@ export async function hireApplicant(
       { userId: application.tutor_id as string },
       {
         id: 'application_progress',
-        name: (tutor?.full_name as string) ?? 'there',
+        name: formatName(tutor?.full_name as string | null) || 'there',
         outcome: 'hired',
         jobTitle: job.title as string,
         ref: (job.ref_id as string) ?? null,

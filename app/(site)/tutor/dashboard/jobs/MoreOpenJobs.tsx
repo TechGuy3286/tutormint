@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import JobCard, { type JobCardData } from '@/components/JobCard'
 import { useInfinite } from '@/lib/useInfinite'
+import { JobCardSkeletons } from '@/components/Skeletons'
 
 // Everything below the server-rendered first window of the open-tuitions
 // board. The cards above are real HTML; these are the same component fed from
@@ -76,6 +77,7 @@ export default function MoreOpenJobs({
         loadedCount={serverCount + items.length}
         total={total}
         noun="tuitions"
+        skeleton={<JobCardSkeletons count={2} />}
       />
     </>
   )

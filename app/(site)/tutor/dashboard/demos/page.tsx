@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 import DemoInbox, { type DemoRow } from '@/app/(site)/parent/dashboard/DemoInbox'
+import { formatName } from '@/lib/formatName'
 
 // Demo requests from parents, moved off the tutor dashboard for the same
 // reason as the parent side: it is an interactive queue, not a summary.
@@ -77,7 +78,7 @@ export default async function TutorDemosPage() {
     if (admin) {
       const { data: people } = await admin.from('profiles').select('id, full_name').in('id', ids)
       for (const p of people ?? []) {
-        names.set(p.id as string, ((p.full_name as string) ?? 'A parent').split(' ')[0])
+        names.set(p.id as string, (formatName(p.full_name as string | null) || 'A parent').split(' ')[0])
       }
     }
   }

@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import PostCard from '@/components/blog/PostCard'
 import { useInfinite } from '@/lib/useInfinite'
 import type { BlogListItem } from '@/lib/blogFeed'
+import { ListRowSkeletons } from '@/components/Skeletons'
 
 // The client half of the /blog index: appends more post cards below the
 // server-rendered first window. Same pattern as the browse and landing lists —
@@ -44,6 +45,8 @@ export default function MorePosts({
 
       <div ref={sentinel} aria-hidden className="h-px" />
 
+      {state === 'loading' && <ListRowSkeletons count={2} padded={false} />}
+
       {!done && (
         <div className="flex justify-center py-2">
           <button
@@ -52,7 +55,7 @@ export default function MorePosts({
             disabled={state === 'loading'}
             className="inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-tm-navy disabled:opacity-60"
           >
-            {state === 'loading' ? 'Loading…' : 'Load more posts'}
+            Load more posts
           </button>
         </div>
       )}

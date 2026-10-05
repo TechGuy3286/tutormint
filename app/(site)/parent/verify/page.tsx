@@ -14,6 +14,9 @@ import { reportSilentFailure } from '@/lib/silentFailure'
 import { calculateParentCompletion } from '@/lib/profileChecklist'
 import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist'
 import type { ChecklistItem } from '@/lib/formChecklist'
+import { formatName } from '@/lib/formatName'
+import LogoLoader from '@/components/LogoLoader'
+import { TextLinesSkeleton } from '@/components/Skeletons'
 
 // The verification parts as self-explaining actions, English + Urdu (PR80). Keyed
 // on the parent-completion item keys, so the checklist mirrors the exact server
@@ -106,7 +109,7 @@ export default function ParentVerifyPage() {
 
   const fullCompletion = calculateParentCompletion({
     profile: {
-      full_name: fullName, city, address, cnic_number: cnic,
+      full_name: formatName(fullName), city, address, cnic_number: cnic,
       cnic_image_path: docs.length > 0 ? 'set' : null,
       phone_verified_at: phoneVerified ? 'set' : null,
     },
@@ -135,7 +138,7 @@ export default function ParentVerifyPage() {
     // network and the setSaving(false) after it never ran, so Save sat on
     // "Saving…" and the verification could not be submitted at all.
     const { ok, error: failed } = await submitJson('/api/profile/save', {
-      profile: { full_name: fullName, city, address, cnic_number: cnic },
+      profile: { full_name: formatName(fullName), city, address, cnic_number: cnic },
     })
     setSaving(false)
     if (!ok) { setErr(failed ?? 'Could not save.'); return false }
@@ -170,7 +173,7 @@ export default function ParentVerifyPage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-xs font-bold text-gray-500">Loading…</div>
+    return <LogoLoader />
   }
 
   return (
@@ -234,7 +237,7 @@ export default function ParentVerifyPage() {
           {identity ? (
             <IdentityCard identity={identity} role="parent" />
           ) : (
-            <p className="text-[11px] text-gray-500">Loading your identity documents…</p>
+            <TextLinesSkeleton lines={3} />
           )}
 
           <div className="space-y-2 pt-1" id="phone">

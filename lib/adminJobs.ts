@@ -18,6 +18,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sanitizeOrTerm } from '@/lib/pgFilter'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { teamParentId } from '@/lib/teamAccount'
+import { formatName } from '@/lib/formatName'
 
 export type AdminJobRow = {
   id: string
@@ -158,7 +159,7 @@ export async function adminJobPage({
     const k = a.job_id as string
     applicants.set(k, (applicants.get(k) ?? 0) + 1)
   }
-  const parentName = new Map((parents ?? []).map((p) => [p.id as string, p.full_name as string]))
+  const parentName = new Map((parents ?? []).map((p) => [p.id as string, formatName(p.full_name as string | null)]))
 
   const last = page[page.length - 1]
   return {

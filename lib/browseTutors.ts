@@ -6,6 +6,7 @@ import { getLandingLinker } from '@/lib/landing'
 import { resolveSubjectQuery } from '@/lib/searchResolve'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import type { TutorCardData } from '@/components/TutorCard'
+import { formatName } from '@/lib/formatName'
 
 // The one place /browse/tutors is queried, shared by the page and the
 // load-more route.
@@ -167,7 +168,7 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
   // PR16 §1.2 — rank_tutors folds the verification fee into `tier` (+10), so a
   // card is verified iff tier >= 10. Set it here so the card shows the Verified
   // badge or the "Not verified" chip correctly.
-  const raw = ((data ?? []) as RankedTutor[]).map((t) => ({ ...t, verified: (t.tier ?? 0) >= 10 }))
+  const raw = ((data ?? []) as RankedTutor[]).map((t) => ({ ...t, full_name: formatName(t.full_name), verified: (t.tier ?? 0) >= 10 }))
   const linked = await withSubjectLinks(supabase, raw)
   // PR105-B §1 — the VERIFIED badge needs staff-approved CNIC+photo+selfie, in ONE
   // batched query for the whole window (no per-card read).
@@ -368,6 +369,7 @@ export async function tutorCardsByIds(ids: string[]): Promise<TutorCardData[]> {
     (d) =>
       ({
         ...d,
+        full_name: formatName(d.full_name as string | null),
         subject_labels: null,
         plan_code: null,
         has_degree: ((d as { degrees?: string[] | null }).degrees?.length ?? 0) > 0,

@@ -18,6 +18,7 @@ import { normaliseStoredContact } from '@/lib/jobContactCore'
 
 import JobActions from './JobActions'
 import NotifyContact from './NotifyContact'
+import { formatName } from '@/lib/formatName'
 
 // One tuition, as staff.
 //
@@ -97,7 +98,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
       .gt('expires_at', new Date().toISOString()),
   ])
 
-  const tutorName = new Map((tutorProfiles ?? []).map((p) => [p.id as string, p.full_name as string]))
+  const tutorName = new Map((tutorProfiles ?? []).map((p) => [p.id as string, formatName(p.full_name as string | null)]))
   const tutorAvatar = new Map(
     (tutorProfiles ?? []).map((p) => [p.id as string, (p.avatar_url as string) ?? null]),
   )
@@ -253,7 +254,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
         {parent ? (
           <div className="flex items-start gap-3">
             <Avatar
-              name={parent.full_name as string}
+              name={formatName(parent.full_name as string | null)}
               src={(parent.avatar_url as string) ?? null}
               seed={parent.id as string}
               className="h-11 w-11 shrink-0 text-xs"
@@ -269,7 +270,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
                   href={`/admin/users/${parent.id}`}
                   className="text-sm font-black text-tm-navy hover:text-tm-red hover:underline"
                 >
-                  {parent.full_name as string}
+                  {formatName(parent.full_name as string | null)}
                 </Link>
                 {parentBadges.length > 0 && <BadgeRow badges={parentBadges} size="sm" />}
                 {parent.is_suspended && (

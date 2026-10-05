@@ -14,10 +14,12 @@
 //   chip = the icon disc: a solid brand hue with a WHITE glyph (the "stronger
 //          shade" option), which reads on both the light and the dark box.
 //
-// DARK MODE. `card` and `ink` are dedicated tokens (app/globals.css) that carry a
-// prefers-color-scheme: dark override — deeper, muted box tints with a light ink.
-// The chip stays a fixed brand hue in both modes (a white glyph reads on it
-// either way). Every text-on-box pair, light and dark, is asserted by
+// DARK MODE — THERE IS NONE (#57, 5 Oct 2026). The tile tokens used to carry a
+// prefers-color-scheme: dark override, and on a phone in dark mode the tiles
+// turned dark while the page stayed light. A tile now keeps its light tint and
+// dark ink whatever the device theme: the tokens have one value, and TILE_BOX
+// (and the admin Overview card) set `color-scheme: light` so the browser cannot
+// recolour the box or its text either. Every text-on-box pair is asserted by
 // `npm run check:contrast`.
 //
 // PURE — no imports — so StatTile (a component) and the admin Overview page both
@@ -37,7 +39,7 @@ export type TileTone = 'navy' | 'green' | 'red' | 'gold' | 'mint' | 'teal' | 'vi
 // inside instead of widening the tile, and h-full keeps a row's tiles equal
 // height. It is a no-op for the already-full <a>.
 export const TILE_BOX =
-  'relative flex h-full w-full min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center transition-shadow hover:shadow-md'
+  'relative flex h-full w-full min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center transition-shadow hover:shadow-md [color-scheme:light]'
 export const TILE_CHIP = 'grid h-12 w-12 place-items-center rounded-2xl'
 export const TILE_BORDER_DEFAULT = 'border-black/5 shadow-xs'
 export const TILE_BORDER_HIGHLIGHT = 'border-tm-red shadow-[0_2px_14px_-6px_var(--color-tm-red)]'

@@ -5,6 +5,7 @@ import { useInfinite } from '@/lib/useInfinite'
 import type { AdminJobRow } from '@/lib/adminJobs'
 
 import JobRow from './JobRow'
+import { ListRowSkeletons } from '@/components/Skeletons'
 
 export default function MoreJobs({
   params,
@@ -41,6 +42,7 @@ export default function MoreJobs({
         sentinel={sentinel}
         loadedCount={serverCount + items.length}
         noun="tuitions"
+        skeleton={<ListRowSkeletons count={3} padded={false} />}
         endLabel={`That’s every one — ${total} ${total === 1 ? 'tuition' : 'tuitions'}.`}
       />
     </>

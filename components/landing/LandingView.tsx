@@ -16,6 +16,7 @@ import { absoluteUrl } from '@/lib/siteUrl'
 import { itemListJsonLd, jsonLdScript } from '@/lib/seo'
 import { buildIntro, liveLandingPages, type LandingCombo, type IntroFacts } from '@/lib/landing'
 import { article } from '@/lib/article'
+import { formatName } from '@/lib/formatName'
 
 // The city × subject landing page, one component for both kinds. It is server-
 // rendered from data: the H1, the intro sentence, the ranked list, the
@@ -107,7 +108,7 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
     }
     intro = buildIntro('tutors', subjectName, city, facts)
     itemList = tutors
-      .map((x) => (x.slug ? { name: x.full_name, url: absoluteUrl(tutorPath(x.slug) ?? '') } : null))
+      .map((x) => (x.slug ? { name: formatName(x.full_name), url: absoluteUrl(tutorPath(x.slug) ?? '') } : null))
       .filter((x): x is { name: string; url: string } => !!x)
     firstWindow = (
       <div className="space-y-4">

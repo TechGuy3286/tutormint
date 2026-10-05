@@ -104,16 +104,19 @@ export default function TutorHeaderCard({
           </Link>
         )}
 
-        {/* PR106-E §9 — a small "Complete your profile · N%" link while below 100%,
-            opening the flow at the next unfinished step. Hidden at 100%. */}
-        {completion < 100 && (
+        {/* PR106-E §9 / #56 — the completion label. Under 100%: a brand-red
+            "Complete your profile · N%" link opening the flow at the next
+            unfinished step (no Urdu line). At 100%: a deep-green
+            "✓ 100% Completed" line in its place. */}
+        {completion < 100 ? (
           <Link
             href="/tutor/complete-profile"
             className="block min-h-[32px] text-[11px] font-bold text-tm-red underline-offset-2 hover:underline"
           >
             Complete your profile · {completion}%
-            <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">پروفائل مکمل کریں</span>
           </Link>
+        ) : (
+          <p className="min-h-[32px] text-[11px] font-bold text-tm-green-deep">✓ 100% Completed</p>
         )}
       </div>
     </section>

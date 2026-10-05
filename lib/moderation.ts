@@ -25,6 +25,7 @@ import { applyPlanFlags } from '@/lib/payments/activate'
 import { addToBlocklist, removeFromBlocklistBySource } from '@/lib/blocklist'
 import { normalisePkMobile } from '@/lib/phone'
 import type { AdminRole } from '@/lib/adminAuth'
+import { formatName } from '@/lib/formatName'
 
 export type Actor = { id: string; adminRole: AdminRole; email: string | null }
 
@@ -371,7 +372,7 @@ export async function banMember(params: {
 
   await deliverEmail(
     { userId: params.userId },
-    { id: 'account_banned', name: (target.full_name as string) ?? 'there' },
+    { id: 'account_banned', name: formatName(target.full_name as string | null) || 'there' },
   )
 
   return { ok: true }

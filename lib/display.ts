@@ -1,3 +1,4 @@
+import { formatName } from '@/lib/formatName'
 // Database values, in the words a person reads.
 //
 // "in_person" reached a live job card. It is a real value in
@@ -42,25 +43,13 @@ export function humanizeKey(raw: string | null | undefined): string {
 }
 
 /**
- * A person's name in proper case for display — "ALEE SABEER" → "Alee Sabeer"
- * (PR31 §6). Only touches a word that is ALL CAPS or all lower; a name the
- * member typed with deliberate casing ("McAli", "al-Rashid") is left alone, so
- * this fixes shouty/careless input without mangling real names. Display only —
- * the stored name is never changed.
+ * A person's name for display — "ALEE SABEER" → "Alee Sabeer", "ali RAZA" →
+ * "Ali Raza". Delegates to the ONE shared formatter (lib/formatName.ts, #46):
+ * every word capitalised, the rest lower case. Display only — the stored name
+ * is never changed by this.
  */
 export function properName(raw: string | null | undefined): string {
-  const s = (raw ?? '').trim().replace(/\s+/g, ' ')
-  if (!s) return s
-  return s
-    .split(' ')
-    .map((w) =>
-      // Only normalise a word that is entirely upper or entirely lower; a word
-      // with deliberate internal caps ("McAli") is left as the member typed it.
-      w === w.toUpperCase() || w === w.toLowerCase()
-        ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
-        : w,
-    )
-    .join(' ')
+  return formatName(raw)
 }
 
 /**
@@ -313,13 +302,21 @@ export function statusLabel(raw: string | null | undefined): string {
  * rather than dropped, so a plan added by a future migration reads as itself
  * instead of vanishing from the sentence.
  */
+/**
+ * THE member-facing name of the one-time Rs 199 fee (#55, owner 5 Oct 2026):
+ * "Spam Free Platform Fee" — on the Verified badge pop-up, receipts, payment
+ * emails, the dashboard "Payments & refunds" list, admin Payments, and Terms.
+ * Never "verification fee", "platform fee" or "entry fee" in copy a member sees.
+ */
+export const FEE_LABEL = 'Spam Free Platform Fee'
+
 export function planLabel(code: string | null | undefined): string | null {
   if (!code) return null
   const known: Record<string, string> = {
     basic: 'Basic',
     // 'verified' survives only as the one-time fee marker on a payment row; a
-    // tutor never holds it as a plan. Kept so a fee payment reads "Verified".
-    verified: 'Verified',
+    // tutor never holds it as a plan. A fee payment reads as the fee (#55).
+    verified: FEE_LABEL,
     premium: 'Premium',
     featured: 'Featured',
     parent_verified: 'Verified',

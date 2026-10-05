@@ -25,6 +25,7 @@ import { deliverEmail } from '@/lib/notify'
 import { sendPaymentAlert } from '@/lib/payments/paymentAlerts'
 import type { AdminRole } from '@/lib/adminAuth'
 import { formatDate } from '@/lib/datetime'
+import { formatName } from '@/lib/formatName'
 
 export type ActivationResult =
   | { ok: true; alreadyActive: true; subscriptionId: string | null }
@@ -185,7 +186,7 @@ export async function activatePayment(params: {
       kind: 'verification_fee_paid',
       title: 'You are verified',
       body:
-        'Your verification fee is paid and your profile is now shown to parents. Complete your ' +
+        'Your Spam Free Platform Fee is paid and your profile is now shown to parents. Complete your ' +
         'profile to appear higher in search. There are no refunds.',
       href: '/tutor/dashboard',
     })
@@ -199,7 +200,7 @@ export async function activatePayment(params: {
       { userId },
       {
         id: 'verification_fee_paid',
-        name: (feeBuyer?.full_name as string) ?? 'there',
+        name: formatName(feeBuyer?.full_name as string | null) || 'there',
         amountPkr: (payment.amount_pkr as number) ?? 0,
       },
     )
@@ -208,7 +209,7 @@ export async function activatePayment(params: {
     // STAFF alert (PR106-H1 §2) — once per payment (this branch runs only on a
     // fresh activation; a replayed callback returned alreadyActive above).
     await sendPaymentAlert({
-      memberName: (feeBuyer?.full_name as string) ?? 'A member',
+      memberName: formatName(feeBuyer?.full_name as string | null) || 'A member',
       role: 'Tutor',
       what: 'Spam Free Platform Fee',
       amountPkr: (payment.amount_pkr as number) ?? 0,
@@ -338,7 +339,7 @@ export async function activatePayment(params: {
     { userId },
     {
       id: 'plan_activated',
-      name: (buyer?.full_name as string) ?? 'there',
+      name: formatName(buyer?.full_name as string | null) || 'there',
       planName: plan.name as string,
       expiresAt: formatDate(expiresAt),
       amountPkr: (payment.amount_pkr as number) ?? 0,
@@ -348,7 +349,7 @@ export async function activatePayment(params: {
 
   // STAFF alert (PR106-H1 §2) — fresh activation only, so one per payment.
   await sendPaymentAlert({
-    memberName: (buyer?.full_name as string) ?? 'A member',
+    memberName: formatName(buyer?.full_name as string | null) || 'A member',
     role: audience === 'tutor' ? 'Tutor' : 'Parent',
     what: `${plan.name} plan`,
     amountPkr: (payment.amount_pkr as number) ?? 0,

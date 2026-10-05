@@ -14,6 +14,7 @@ import { normalisePkMobile } from '@/lib/phone'
 import { labelsForMasterIds } from '@/lib/taxonomy'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { alertIfReupload } from '@/lib/docReupload'
+import { formatName } from '@/lib/formatName'
 
 // Per-step save for the profile forms. Writes only the fields the step owns,
 // then recomputes profiles.profile_completion so the stored percentage can
@@ -130,6 +131,8 @@ export async function POST(request: Request) {
     : undefined
 
   const profilePatch = pick(body.profile, PROFILE_FIELDS)
+  // #46 — names are stored capitalised-per-word from now on (one shared rule).
+  if (typeof profilePatch.full_name === 'string') profilePatch.full_name = formatName(profilePatch.full_name)
   if (role !== 'tutor' && cityWrite !== undefined) profilePatch.city = cityWrite
   // PR86: the WhatsApp number is required and validated like the mobile. When a
   // save carries `whatsapp`, it must be a valid Pakistani mobile — stored

@@ -12,6 +12,8 @@ import { maskCnicHeavy } from '@/lib/cnic'
 import { collapseTimeline } from '@/lib/timelineText'
 import type { AdminRole } from '@/lib/adminAuth'
 import { SCREEN_ACCESS } from '@/lib/adminAuth'
+import { formatName } from '@/lib/formatName'
+import { FEE_LABEL } from '@/lib/display'
 
 // The admin lists that still ended at a hard cap, on the platform's
 // infinite-scroll pattern.
@@ -284,7 +286,7 @@ export async function loadTutorQueue({
     // reads it), tutor fields from tutor_profiles.
     const completion = calculateTutorCompletion({
       profile: {
-        full_name: (p?.full_name as string) ?? (t.full_name as string) ?? null,
+        full_name: formatName((p?.full_name as string | null) ?? (t.full_name as string | null)) || null,
         // One city field for tutors: read tutor_profiles.city (what the listing
         // check on line ~284 uses), so the completion input and the directory
         // rule agree on the same value (PR 3b §0.6).
@@ -333,7 +335,7 @@ export async function loadTutorQueue({
     })
     return {
       id: t.id as string,
-      fullName: t.full_name as string,
+      fullName: formatName(t.full_name as string | null),
       email: t.email as string,
       headline: (t.headline as string) ?? null,
       city: (t.city as string) ?? null,
@@ -444,7 +446,7 @@ export async function loadParentQueue({
 
   const rows: QueueParentRow[] = page.map((p) => ({
     id: p.id as string,
-    fullName: p.full_name as string,
+    fullName: formatName(p.full_name as string | null),
     email: p.email as string,
     city: (p.city as string) ?? null,
     address: (p.address as string) ?? null,
@@ -564,7 +566,7 @@ export async function loadPaymentQueue({
   const who = new Map(
     (profiles ?? []).map((p) => [
       p.id as string,
-      { name: (p.full_name as string) ?? '—', email: (p.email as string) ?? '—' },
+      { name: formatName(p.full_name as string | null) || '—', email: (p.email as string) ?? '—' },
     ]),
   )
 
@@ -574,7 +576,7 @@ export async function loadPaymentQueue({
     name: who.get(p.user_id as string)?.name ?? '—',
     email: who.get(p.user_id as string)?.email ?? '—',
     planCode: (p.plan_code as string) ?? '—',
-    planName: planName.get(p.plan_code as string) ?? ((p.plan_code as string) ?? '—'),
+    planName: (p.plan_code as string) === 'verified' ? FEE_LABEL : (planName.get(p.plan_code as string) ?? ((p.plan_code as string) ?? '—')),
     amountPkr: p.amount_pkr as number,
     provider: p.provider as string,
     method: (p.method as string) ?? null,
@@ -661,7 +663,7 @@ export async function loadReportQueue({
     (people ?? []).map((p) => [
       p.id as string,
       {
-        name: (p.full_name as string) ?? '—',
+        name: formatName(p.full_name as string | null) || '—',
         role: p.role as string,
         suspended: !!p.is_suspended,
         banned: !!p.is_banned,
@@ -913,7 +915,7 @@ export async function loadSubscriptionLedger({
     (profiles ?? []).map((p) => [
       p.id as string,
       {
-        name: (p.full_name as string) ?? '—',
+        name: formatName(p.full_name as string | null) || '—',
         email: (p.email as string) ?? '—',
         role: p.role as string,
       },
@@ -930,7 +932,7 @@ export async function loadSubscriptionLedger({
     name: who.get(s.user_id as string)?.name ?? '—',
     email: who.get(s.user_id as string)?.email ?? '—',
     role: who.get(s.user_id as string)?.role ?? '—',
-    planName: planName.get(s.plan_code as string) ?? (s.plan_code as string),
+    planName: (s.plan_code as string) === 'verified' ? FEE_LABEL : (planName.get(s.plan_code as string) ?? (s.plan_code as string)),
     status: s.status as string,
     startsAt: s.starts_at as string,
     expiresAt: (s.expires_at as string) ?? null,
@@ -980,7 +982,7 @@ export async function loadBlockList({
     .in('id', ids.length ? ids : [NO_MATCH])
 
   const name = new Map(
-    (people ?? []).map((p) => [p.id as string, (p.full_name as string) ?? '—']),
+    (people ?? []).map((p) => [p.id as string, formatName(p.full_name as string | null) || '—']),
   )
 
   const rows: QueueBlockRow[] = page.map((b) => ({

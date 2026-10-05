@@ -12,6 +12,7 @@ import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import ApplicantList, { type Applicant } from './ApplicantList'
 import JobActions from './JobActions'
+import { formatName } from '@/lib/formatName'
 
 // One of the parent's own tuitions, with its applicants.
 //
@@ -99,7 +100,7 @@ export default async function ParentJobPage({ params }: { params: Promise<{ jobI
       return {
         id: a.id as string,
         tutorId: id,
-        tutorName: (t?.full_name as string) ?? 'TutorMint tutor',
+        tutorName: formatName(t?.full_name as string | null) || 'TutorMint tutor',
         tutorSlug: (t?.slug as string) ?? null,
         headline: (t?.headline as string) ?? null,
         city: (t?.city as string) ?? null,

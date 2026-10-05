@@ -6,6 +6,7 @@ import { AtSign, CheckCircle2, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { isSyntheticEmail, looksLikeEmail } from '@/lib/phone'
 import { useToast } from '@/components/ui/Toast'
+import { TextLinesSkeleton } from '@/components/Skeletons'
 
 // Add or change the account email (PR29 §4), for tutor and parent Settings.
 //
@@ -88,7 +89,7 @@ export default function EmailCard() {
       </div>
 
       {loading ? (
-        <p className="text-xs text-gray-500">Loading…</p>
+        <TextLinesSkeleton lines={2} />
       ) : (
         <>
           {current && (

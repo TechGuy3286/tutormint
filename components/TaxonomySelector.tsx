@@ -5,6 +5,7 @@ import { Check, Layers, X } from 'lucide-react'
 import { fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
 import Select from '@/components/forms/Select'
 import { onOutsidePointerDown } from '@/lib/outsidePointer'
+import { TextLinesSkeleton } from '@/components/Skeletons'
 
 interface TaxonomySelectorProps {
   selectedLevel: string;
@@ -112,7 +113,7 @@ export default function TaxonomySelector({
   const toggleAllGrades = () => setSelectedGrades(allGradesSelected ? [] : [...gradesList]);
 
   if (loading) {
-    return <div className="text-xs text-gray-500 py-4">Loading taxonomy structure...</div>;
+    return <div className="py-4"><TextLinesSkeleton lines={3} /></div>;
   }
 
   return (

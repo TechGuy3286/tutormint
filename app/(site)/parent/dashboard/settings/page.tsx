@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isSyntheticEmail, formatPkMobile } from '@/lib/phone'
 
 import SettingsClient, { type ParentSettings } from './SettingsClient'
+import { formatName } from '@/lib/formatName'
 
 // Parent settings.
 //
@@ -58,7 +59,7 @@ export default async function ParentSettingsPage() {
 
   const initial: ParentSettings = {
     userId,
-    fullName: (profile?.full_name as string) ?? '',
+    fullName: formatName(profile?.full_name as string | null),
     avatarUrl: (profile?.avatar_url as string) ?? null,
     // Shown as 0321 1045245 (owner PR8 §4.1); storage stays 92XXXXXXXXXX and the
     // server re-normalises on save. Change-detection compares national digits, so

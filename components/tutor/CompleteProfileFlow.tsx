@@ -43,6 +43,8 @@ import {
   type FlowStepKey,
 } from '@/lib/tutorFlow'
 import { directoryBlockers, listingFixItems } from '@/lib/tutorListingStatus'
+import LogoLoader from '@/components/LogoLoader'
+import { ChipSkeletons } from '@/components/Skeletons'
 
 // One tap-tap flow for every tutor (PR 4 §1). It replaces the long step-tab form
 // at /tutor/complete-profile and unifies with /tutor/onboarding. It computes what
@@ -491,7 +493,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   }, [supabase, facts, stepKey])
 
   if (!facts || !stepKey) {
-    return <div className="fixed inset-0 z-[60] grid place-items-center bg-tm-bg text-xs font-bold text-gray-500">Loading…</div>
+    return <LogoLoader fullPage />
   }
 
   const stepIndex = stepKey === 'final' ? ORDER.length : ORDER.indexOf(stepKey)
@@ -1082,9 +1084,7 @@ function LevelStep({
   return (
     <div className="space-y-4">
       {options.length === 0 ? (
-        <p className="flex items-center justify-center gap-2 text-sm text-gray-500">
-          <Loader2 size={14} className="animate-spin" aria-hidden /> Loading levels…
-        </p>
+        <ChipSkeletons count={6} />
       ) : (
         <>
           <input

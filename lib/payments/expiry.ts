@@ -22,6 +22,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
+import { formatName } from '@/lib/formatName'
 
 export type SweepResult = {
   remindersSent: number
@@ -121,7 +122,7 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
 
     await deliverExpiryReminder({
       userId,
-      name: (profile?.full_name as string) ?? null,
+      name: formatName(profile?.full_name as string | null) || null,
       email: (profile?.email as string) ?? null,
       phone: (profile?.phone_number as string) ?? null,
       planName,
@@ -212,7 +213,7 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
 
     const mailed = await deliverEmail(
       { userId },
-      { id: 'plan_expired', name: (profile?.full_name as string) ?? 'there', planName },
+      { id: 'plan_expired', name: formatName(profile?.full_name as string | null) || 'there', planName },
     )
     if (!mailed.ok) console.info('[expiry] expired email not sent:', mailed.reason, userId)
 

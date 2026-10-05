@@ -9,6 +9,7 @@ import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import { reviewableEngagements } from '@/lib/reviews'
 import ReviewForm from '@/components/ReviewForm'
 import { formatDate } from '@/lib/datetime'
+import { formatName } from '@/lib/formatName'
 
 // Tutors this parent has actually hired.
 //
@@ -63,7 +64,7 @@ export default async function HiredTutorsPage() {
 
     for (const t of rows ?? []) {
       tutors.set(t.id as string, {
-        name: (t.full_name as string) ?? 'Tutor',
+        name: formatName(t.full_name as string | null) || 'Tutor',
         slug: (t.slug as string) ?? null,
         plan: planBy.get(t.id as string) ?? null,
         complete: compBy.get(t.id as string) ?? false,
