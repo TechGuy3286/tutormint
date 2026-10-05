@@ -5952,3 +5952,52 @@ the look, the gating, and the round trips.
   or the link on the verify page — the approval notification itself was not
   changed. No browser was driven: the signed-in flows rest on tsc + build +
   `test:messaging`/`test:authtrust`; the live checks are HTML fetches.
+
+## Own card locked, Demo needs a verified parent, city rule on tutor cards and profiles (owner, 5 Oct 2026)
+
+Items 1–7 of this instruction had already shipped earlier the same day (see
+"Dashboard counts, Apply-button clarity, popular searches, verified banner, city
+de-duplication" above — migration 135, commits 39db31b/d86d643) and were
+re-verified live rather than redone; the read-only SELECTs were re-run: both
+"Ali Sabeer" tutor accounts have 0 unread messages; the repeated-city SELECT
+returns 0 (36 rows were fixed earlier); `demo_requests` holds 0 rows, so there
+are 0 existing demo requests from unverified parents. NO migration here.
+
+- **7, extended.** `areaWithoutCity()` now also shapes the area labels on the
+  tutor card and the public tutor profile ("Bahria Town Lahore" under Lahore
+  reads "Bahria Town"); the browse-filter hrefs keep the stored area value, so
+  no link changes.
+- **8 Own card locked.** `CardViewer` gained `id`; the Browse page and the
+  parent-dashboard shortlist set it. When the signed-in viewer IS the card's
+  tutor, `lockOwn()` renders all four actions (View Profile, Message, Demo,
+  Shortlist) greyed out and disabled (`bg-gray-200 text-slate-600`, View Profile
+  becomes a dead button) with "This is your profile, as parents see it." under
+  the grid. The public profile's own-view bar (`ProfileActions`, `isSelf`) does
+  the same for Shortlist / Request demo / Message instead of hiding the bar.
+  Server rules: shortlist and message already refused self; the demo route now
+  refuses `tutorId === user.id` too. Other tutors' cards are unchanged. Landing
+  pages render cards as a GUEST (ISR), so a tutor's own card there is not
+  locked in the UI; the server still refuses every self-action.
+- **9 Demo requires a verified parent.** `/api/demo/request` returns the
+  `parent_verify` gate (403) for a parent without the free `parent_verified`
+  plan, with the CTA `/parent/verify?next=/tutor/<slug>?demo=1` — the same shape
+  as Message. Both the card and the profile call it through `postGated`, so the
+  verification sheet opens; a signed-out visitor gets the sign-in sheet with the
+  `demo` draft kept and the one card/profile the draft names resumes the request
+  after sign-up; `?demo=1` resumes it after verification; the verify page says
+  "Back to your demo request" for that return. Verified parents are unchanged.
+  Existing demo requests from unverified parents are untouched (there are none).
+
+**Follow-up (54a89d5) and live checks.** The first deploy exposed one case the
+builder had kept: an area whose own name ends with the city ("North Karachi")
+rendered "North Karachi, Karachi" on a new tuition (TM-1654). `placeLabel()` now
+shows such an area ALONE ("North Karachi"), never with the city; `test:place`
+pins it, and the data step was re-run after the deploy: 1 row (TM-1654)
+updated, 0 remain. Live, by HTML fetch: popular searches sit after the list and
+the footer on both Browse pages; no repeated city on any tuition card; the
+tutor card renders View Profile | Message (navy, chat icon) | Demo | Shortlist;
+the profile's area list reads "Bahria Town" under Lahore; the demo route refuses
+a signed-out POST with 401; `/parent/verify?next=…demo=1` serves. Not driven
+(no browser or test accounts here): the own-card and own-profile locked view, a
+signed-in parent's demo gate and return, the dashboard counts and the verified
+banner — these rest on tsc, the build and the passing suites.
