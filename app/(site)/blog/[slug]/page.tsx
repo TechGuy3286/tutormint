@@ -18,6 +18,7 @@ import { articleJsonLd, jsonLdScript, pageTitle, pageDescription } from '@/lib/s
 import { absoluteUrl } from '@/lib/siteUrl'
 import { getCompany } from '@/lib/company'
 import { landingPathsForPost } from '@/lib/landing'
+import OpenTuitionsBlock from '@/components/blog/OpenTuitionsBlock'
 
 // /blog/[slug] — one post, server-rendered.
 //
@@ -157,6 +158,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
             <ShareButtons url={url} title={post.title} />
             <PostCta postId={post.id} audience={post.audience} />
+
+            {/* Live open tuitions matching the post's city/subject, or the newest
+                three — never empty (owner, 5 Oct 2026). */}
+            <OpenTuitionsBlock city={post.city} subject={post.subject} />
 
             {related.length > 0 && (
               <section className="space-y-3">

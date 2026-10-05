@@ -41,6 +41,9 @@ export function toEditorPost(row: Record<string, unknown>): EditorPost {
     sourceNotes: (row.source_notes as string) ?? '',
     confirmedFigures:
       (row.confirmed_figures as { figure: string; source: string }[] | null) ?? [],
+    reviewBy: (row.review_by as string | null) ?? null,
+    approvedAt: (row.approved_at as string | null) ?? null,
+    numbersChecked: !!row.numbers_checked,
   }
 }
 
@@ -68,5 +71,8 @@ export function emptyEditorPost(): EditorPost {
     publishAt: null,
     sourceNotes: '',
     confirmedFigures: [],
+    reviewBy: null,
+    approvedAt: null,
+    numbersChecked: false,
   }
 }

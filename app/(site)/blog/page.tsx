@@ -30,7 +30,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { cluster } = await searchParams
   const validCluster = cluster && isClusterSlug(cluster) ? cluster : null
-  const canonical = validCluster ? `/blog?cluster=${validCluster}` : '/blog'
+  // A cluster filter is a VIEW of the index, not a page of its own (owner,
+  // 5 Oct 2026): it keeps working for visitors, but canonicalises to /blog and
+  // is noindex,follow, so Search Console stops counting each filter as a URL.
+  const canonical = '/blog'
   const title = pageTitle(validCluster ? clusterLabel(validCluster) : 'Blog')
   const description = pageDescription(
     validCluster
@@ -41,6 +44,7 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical },
+    ...(validCluster ? { robots: { index: false, follow: true } } : {}),
     // Branded default image + Twitter card, so a shared blog-index link is not
     // a bare preview.
     ...socialMeta({ title, description, path: canonical, type: 'website' }),

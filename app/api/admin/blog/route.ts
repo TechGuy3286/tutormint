@@ -20,6 +20,7 @@ import { figureGate } from '@/lib/ai/blogBrief'
 import { invalidInternalLinks } from '@/lib/ai/platformFacts'
 import { collectBlogProblems } from '@/lib/ai/blogChecker'
 import { landingOptionsForEditor } from '@/lib/blogEditor'
+import { similarPosts, postsInWeek, cadenceWarning, type SimilarPost } from '@/lib/blogApproval'
 
 // Blog CMS mutations. Save + review is manager or support (support drafts);
 // publish, schedule, unpublish and delete stop at manager.
@@ -66,11 +67,21 @@ const SaveBody = z.object({
   // The content-queue suggestion this post was started from, if any. Marks the
   // suggestion 'drafted' on first save so it leaves the queue.
   suggestionId: z.string().max(64).optional(),
+  // Optional "Review by" date (YYYY-MM-DD) for seasonal posts (owner, 5 Oct 2026).
+  reviewBy: z.string().max(10).nullable().optional(),
 })
 
 const IdBody = z.object({
   action: z.enum(['publish', 'unpublish', 'delete']),
   id: z.string().min(1),
+})
+
+// Approval (owner, 5 Oct 2026): a manager/owner approves a reviewed post after
+// ticking "Numbers checked". Publish and schedule refuse without it.
+const ApproveBody = z.object({
+  action: z.literal('approve'),
+  id: z.string().min(1),
+  numbersChecked: z.boolean(),
 })
 
 const ScheduleBody = z.object({
@@ -79,9 +90,42 @@ const ScheduleBody = z.object({
   publishAt: z.string().min(1),
 })
 
-const Body = z.discriminatedUnion('action', [SaveBody, IdBody, ScheduleBody])
+const Body = z.discriminatedUnion('action', [SaveBody, IdBody, ScheduleBody, ApproveBody])
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+type Admin = NonNullable<ReturnType<typeof createAdminClient>>
+
+/** Posts whose title differs from `title` only by city, grade or subject —
+ *  a WARNING named back to the editor, never a block (owner, 5 Oct 2026). */
+async function findSimilar(admin: Admin, title: string, exceptId: string | null): Promise<SimilarPost[]> {
+  const [{ data: others }, { data: cities }, { data: subjects }] = await Promise.all([
+    admin.from('posts').select('id, title, slug'),
+    admin.from('location_cities').select('name'),
+    admin.from('taxonomy_subjects').select('name'),
+  ])
+  const pool = ((others ?? []) as SimilarPost[]).filter((o) => o.id !== exceptId)
+  return similarPosts(
+    title,
+    pool,
+    (cities ?? []).map((c) => c.name as string),
+    (subjects ?? []).map((x) => x.name as string),
+  )
+}
+
+/** The cadence line when `when` would be the third (or later) post of its
+ *  Pakistan-time week, counting published and scheduled posts other than this
+ *  one. Warn only — never a block. */
+async function cadenceFor(admin: Admin, exceptId: string, when: Date): Promise<string | null> {
+  const { data } = await admin
+    .from('posts')
+    .select('id, status, published_at, publish_at')
+    .in('status', ['published', 'scheduled'])
+  const others = ((data ?? []) as { id: string; status: string; published_at: string | null; publish_at: string | null }[])
+    .filter((p) => p.id !== exceptId)
+    .map((p) => ({ status: p.status, publishedAt: p.published_at, publishAt: p.publish_at }))
+  return cadenceWarning(postsInWeek(others, when) + 1)
+}
 
 export async function POST(request: Request) {
   // Any blog action needs at least draft access; publish-class actions re-check.
@@ -206,7 +250,14 @@ export async function POST(request: Request) {
       edited_by_human: true,
       reviewed,
       reviewed_by: reviewed ? gate.actor.id : null,
+      review_by: (body.reviewBy ?? '').trim() || null,
       updated_at: nowIso,
+      // A save of a post that is not live withdraws any approval: the approver
+      // approved the words they read, not the words that replaced them. A live
+      // post keeps its approval (edits to a published post stay published).
+      ...(status === 'published' || status === 'scheduled'
+        ? {}
+        : { approved_at: null, approved_by: null, numbers_checked: false }),
     }
 
     let postId = existing?.id as string | undefined
@@ -262,7 +313,18 @@ export async function POST(request: Request) {
     // If it is already live, the edit is live too.
     if (status === 'published') revalidateBlog(slug)
 
-    return NextResponse.json({ success: true, id: postId, slug, status })
+    // Near-duplicate warning (owner, 5 Oct 2026): named, never blocking.
+    const similar = await findSimilar(admin, row.title, postId ?? null)
+    const live = status === 'published' || status === 'scheduled'
+    return NextResponse.json({
+      success: true,
+      id: postId,
+      slug,
+      status,
+      similar,
+      approvedAt: live ? ((existing?.approved_at as string | null) ?? null) : null,
+      numbersChecked: live ? !!existing?.numbers_checked : false,
+    })
   }
 
   // ---- publish-class actions: manager only, re-checked here ----
@@ -298,7 +360,42 @@ export async function POST(request: Request) {
       publishedPostSlugs: otherSlugs,
       landingPaths,
     })
-    return [...statePublishReasons(gateInput), ...bodyProblems.map((p) => p.message)]
+    const reasons = [...statePublishReasons(gateInput), ...bodyProblems.map((p) => p.message)]
+    // Approval is enforced HERE, on the server (owner, 5 Oct 2026): nothing
+    // becomes published or scheduled unless a manager or owner approved it.
+    if (!post!.approved_at) reasons.unshift('A manager or owner must approve this post first.')
+    return reasons
+  }
+
+  // ---------------------------------------------------------- approve ----
+  if (body.action === 'approve') {
+    const appr = await checkAdminRole(...SCREEN_ACCESS.blogApprove)
+    if (!appr.ok) return NextResponse.json({ error: appr.error }, { status: appr.status })
+    if (!post.reviewed) {
+      return NextResponse.json({ error: 'Tick “Reviewed” and save before approving.' }, { status: 400 })
+    }
+    if (!body.numbersChecked) {
+      return NextResponse.json(
+        { error: 'Tick “Numbers checked” — every Rs amount, percentage and count in the draft must be checked before approval.' },
+        { status: 400 },
+      )
+    }
+    const { error } = await admin
+      .from('posts')
+      .update({ approved_at: nowIso, approved_by: appr.actor.id, numbers_checked: true })
+      .eq('id', post.id)
+    if (error) return serverError(error, 'admin/blog')
+    await logAdminAction({
+      actorId: appr.actor.id,
+      actorRole: appr.actor.adminRole,
+      actorEmail: appr.actor.email,
+      action: 'blog.approve',
+      targetType: 'post',
+      targetId: post.id as string,
+      detail: { slug: post.slug, title: post.title, numbersChecked: true },
+    })
+    const similar = await findSimilar(admin, (post.title as string) ?? '', post.id as string)
+    return NextResponse.json({ success: true, approvedAt: nowIso, similar })
   }
 
   // ---------------------------------------------------------- publish ----
@@ -307,6 +404,7 @@ export async function POST(request: Request) {
     if (reasons.length > 0) {
       return NextResponse.json({ error: reasons[0], reasons }, { status: 400 })
     }
+    const warning = await cadenceFor(admin, post.id as string, new Date())
     const { error } = await admin
       .from('posts')
       .update({
@@ -339,7 +437,7 @@ export async function POST(request: Request) {
     })
     revalidateBlog(post.slug as string)
     await notifySearchEngines(['/blog', postPath(post.slug as string)])
-    return NextResponse.json({ success: true, status: 'published' })
+    return NextResponse.json({ success: true, status: 'published', warning })
   }
 
   // --------------------------------------------------------- schedule ----
@@ -352,6 +450,7 @@ export async function POST(request: Request) {
     if (Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
       return NextResponse.json({ error: 'Pick a future date and time.' }, { status: 400 })
     }
+    const warning = await cadenceFor(admin, post.id as string, when)
     const { error } = await admin
       .from('posts')
       .update({ status: 'scheduled', publish_at: when.toISOString(), slug_locked: true, updated_at: nowIso })
@@ -367,7 +466,7 @@ export async function POST(request: Request) {
       targetId: post.id as string,
       detail: { slug: post.slug, publishAt: when.toISOString() },
     })
-    return NextResponse.json({ success: true, status: 'scheduled', publishAt: when.toISOString() })
+    return NextResponse.json({ success: true, status: 'scheduled', publishAt: when.toISOString(), warning })
   }
 
   // -------------------------------------------------------- unpublish ----

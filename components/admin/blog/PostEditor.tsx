@@ -34,6 +34,7 @@ import { coverImagePrompt } from '@/lib/covers/prompt'
 import { parseMarkdown } from '@/lib/markdown'
 import { slugify } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
+import { numberClaims, pakistanLocalToIso, isoToPakistanLocal } from '@/lib/blogApproval'
 
 // The blog editor. One card per task, brand tokens only.
 //
@@ -69,6 +70,12 @@ export type EditorPost = {
   sourceNotes: string
   /** Figures the manager confirmed with a written source. */
   confirmedFigures: ConfirmedFigure[]
+  /** Optional "Review by" date (YYYY-MM-DD) for seasonal posts (owner, 5 Oct 2026). */
+  reviewBy: string | null
+  /** A manager/owner approved this post — the publish gate. Cleared by a save. */
+  approvedAt: string | null
+  /** The approver ticked "Numbers checked". */
+  numbersChecked: boolean
 }
 
 type LandingOption = { path: string; label: string }
@@ -88,6 +95,7 @@ export default function PostEditor({
   publishedPosts = [],
   suggestions = [],
   canPublishCap,
+  canApproveCap = false,
   canGenerate,
   suggestionId = null,
 }: {
@@ -99,6 +107,8 @@ export default function PostEditor({
   /** The open content queue, for the "Start from a suggested title" panel. */
   suggestions?: EditorSuggestion[]
   canPublishCap: boolean
+  /** Manager + owner: may approve a reviewed post (after ticking Numbers checked). */
+  canApproveCap?: boolean
   /** Owner + manager: may call the Claude API to draft. */
   canGenerate: boolean
   /** The content-queue suggestion this editor was opened from, if any. */
@@ -121,6 +131,11 @@ export default function PostEditor({
   const [notice, setNotice] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [scheduleAt, setScheduleAt] = useState('')
+  // Approval (owner, 5 Oct 2026): "Numbers checked" must be ticked to approve;
+  // the near-duplicate and cadence lines are warnings the server sends back.
+  const [numbersOk, setNumbersOk] = useState(initial.numbersChecked)
+  const [similar, setSimilar] = useState<{ id: string; title: string; slug: string }[]>([])
+  const [cadenceNote, setCadenceNote] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [genNote, setGenNote] = useState<string | null>(null)
   // Sectioned-generation progress (owner PR14 §1.5) and the failure state that
@@ -260,8 +275,14 @@ export default function PostEditor({
   // The publish button also requires the SAVED body's link/coverage problems to
   // be clear — the server checks the same, so the button matches the route.
   const savedBodyProblems = collectBlogProblems(saved.current.body, { publishedPostSlugs, landingPaths })
+  // Approval is part of the gate (owner, 5 Oct 2026) — the server refuses
+  // publish/schedule without it, so the button follows the same rule.
+  const approved = !!saved.current.approvedAt
   const publishable =
-    canPublishCap && !dirty && gate.ok && savedBodyProblems.length === 0 && !!post.id
+    canPublishCap && !dirty && gate.ok && savedBodyProblems.length === 0 && !!post.id && approved
+  const approvable =
+    canApproveCap && !dirty && !!post.id && saved.current.reviewed && !approved && saved.current.status !== 'published'
+  const claims = useMemo(() => numberClaims(post.body), [post.body])
   const isLive = saved.current.status === 'published' || saved.current.status === 'scheduled'
 
   // The full "Before publishing" list (PR35 §4): the state checks on the current
@@ -689,15 +710,20 @@ export default function PostEditor({
       // Only meaningful on the first save; the route ignores it once the post
       // exists (it marks the suggestion drafted in the insert branch).
       suggestionId: !post.id ? linkedSuggestion ?? undefined : undefined,
+      reviewBy: post.reviewBy,
     })
     if (!data) return
+    setSimilar(data.similar ?? [])
     const next: EditorPost = {
       ...post,
       id: data.id,
       slug: data.slug ?? post.slug,
       status: data.status ?? post.status,
       editedByHuman: true,
+      approvedAt: data.approvedAt ?? null,
+      numbersChecked: !!data.numbersChecked,
     }
+    setNumbersOk(!!data.numbersChecked)
     setPost(next)
     saved.current = next
     setDirty(false)
@@ -710,6 +736,23 @@ export default function PostEditor({
     router.refresh()
   }
 
+  async function doApprove() {
+    if (!post.id) return
+    if (!numbersOk) {
+      setError('Tick “Numbers checked” first — go through every highlighted figure.')
+      return
+    }
+    const data = await post_('approve', { id: post.id, numbersChecked: true })
+    if (!data) return
+    setSimilar(data.similar ?? [])
+    const next = { ...post, approvedAt: (data.approvedAt as string) ?? new Date().toISOString(), numbersChecked: true }
+    setPost(next)
+    saved.current = next
+    setNotice('Approved. It can be published or scheduled now.')
+    toast.success('Approved.')
+    router.refresh()
+  }
+
   async function doPublish() {
     if (!post.id) return
     const data = await post_('publish', { id: post.id })
@@ -717,6 +760,7 @@ export default function PostEditor({
     const next = { ...post, status: 'published' as PostStatus, slugLocked: true }
     setPost(next)
     saved.current = next
+    setCadenceNote((data.warning as string | null) ?? null)
     setNotice('Published. It is live now.')
     toast.success('Published. It is live now.')
     router.refresh()
@@ -727,12 +771,19 @@ export default function PostEditor({
       setError('Pick a date and time to schedule.')
       return
     }
-    const data = await post_('schedule', { id: post.id, publishAt: new Date(scheduleAt).toISOString() })
+    // The field is typed in PAKISTAN time whatever the browser's zone.
+    const iso = pakistanLocalToIso(scheduleAt)
+    if (!iso) {
+      setError('Pick a valid date and time.')
+      return
+    }
+    const data = await post_('schedule', { id: post.id, publishAt: iso })
     if (!data) return
-    const next = { ...post, status: 'scheduled' as PostStatus, slugLocked: true }
+    const next = { ...post, status: 'scheduled' as PostStatus, slugLocked: true, publishAt: iso }
     setPost(next)
     saved.current = next
-    setNotice('Scheduled.')
+    setCadenceNote((data.warning as string | null) ?? null)
+    setNotice(`Scheduled for ${isoToPakistanLocal(iso).replace('T', ' ')} (Pakistan time).`)
     toast.success('Scheduled.')
     router.refresh()
   }
@@ -946,15 +997,40 @@ export default function PostEditor({
           >
             {busy ? 'Saving…' : 'Save'}
           </button>
+          {canApproveCap && !approved && post.status !== 'published' && (
+            <button
+              type="button"
+              onClick={doApprove}
+              disabled={busy || !approvable || !numbersOk}
+              title={
+                !approvable
+                  ? dirty
+                    ? 'Save your changes first.'
+                    : 'Tick “Reviewed” and save first.'
+                  : !numbersOk
+                    ? 'Tick “Numbers checked” first.'
+                    : undefined
+              }
+              className="inline-flex min-h-[44px] items-center rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-60"
+            >
+              Approve
+            </button>
+          )}
           {canPublishCap && post.status !== 'published' && (
             <button
               type="button"
               onClick={doPublish}
               disabled={busy || !publishable}
-              title={!publishable ? gate.reasons[0] ?? 'Save your changes first.' : undefined}
+              title={
+                !publishable
+                  ? !approved && !dirty && gate.ok
+                    ? 'A manager or owner must approve this post first.'
+                    : gate.reasons[0] ?? 'Save your changes first.'
+                  : undefined
+              }
               className="inline-flex min-h-[44px] items-center rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-60"
             >
-              Publish
+              Publish now
             </button>
           )}
           {canPublishCap && isLive && (
@@ -1004,6 +1080,72 @@ export default function PostEditor({
         <p className="flex items-start gap-1.5 rounded-xl bg-tm-tint-green p-3 text-xs font-semibold text-tm-green-deep">
           <CheckCircle2 aria-hidden size={14} className="mt-px shrink-0" /> {notice}
         </p>
+      )}
+
+      {/* Warnings (owner, 5 Oct 2026) — never blocks. */}
+      {cadenceNote && (
+        <p className="flex items-start gap-1.5 rounded-xl bg-tm-tint-gold p-3 text-xs font-semibold text-tm-gold-ink">
+          <AlertTriangle aria-hidden size={14} className="mt-px shrink-0" /> {cadenceNote}
+        </p>
+      )}
+      {similar.length > 0 && (
+        <div className="rounded-xl bg-tm-tint-gold p-3 text-xs text-tm-gold-ink">
+          <p className="flex items-start gap-1.5 font-bold">
+            <AlertTriangle aria-hidden size={14} className="mt-px shrink-0" />
+            This title differs only by city, grade or subject from {similar.length === 1 ? 'an existing post' : `${similar.length} existing posts`}:
+          </p>
+          <ul className="mt-1 space-y-0.5 pl-5">
+            {similar.map((p) => (
+              <li key={p.id}>
+                <a href={`/admin/blog/${p.id}`} className="font-semibold underline-offset-2 hover:underline">
+                  {p.title}
+                </a>{' '}
+                <span className="text-[11px] opacity-80">/{p.slug}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-[11px]">Templated variants rank against each other. Consider one fuller post.</p>
+        </div>
+      )}
+
+      {/* Numbers to check (owner, 5 Oct 2026): every Rs amount, percentage and
+          tutors/tuitions count in the draft, with context. The approver ticks
+          "Numbers checked" before Approve — the server requires it. */}
+      {canApproveCap && post.status !== 'published' && (
+        <div className="rounded-2xl border border-gray-200 bg-tm-bg p-4">
+          <p className="text-xs font-bold text-tm-navy">
+            Numbers in this draft
+            <span className="ml-1 font-semibold text-gray-500">
+              — {claims.length === 0 ? 'none found' : `${claims.length} to check`}
+            </span>
+          </p>
+          {claims.length > 0 && (
+            <ul className="mt-2 space-y-1.5">
+              {claims.map((c) => (
+                <li key={`${c.kind}:${c.text}`} className="rounded-xl bg-white p-2 text-[11px] text-slate-700">
+                  <mark className="rounded bg-tm-tint-gold px-1 font-black text-tm-gold-ink">{c.text}</mark>{' '}
+                  <span className="text-gray-500">{c.kind === 'rupees' ? 'amount' : c.kind === 'percent' ? 'percentage' : 'count claim'}</span>
+                  <span className="mt-0.5 block text-gray-600">{c.context}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <label className="mt-3 flex items-start gap-2 text-xs font-semibold text-tm-navy">
+            <input
+              type="checkbox"
+              checked={numbersOk}
+              disabled={approved}
+              onChange={(e) => setNumbersOk(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Numbers checked — every figure above is from the notes or a source I have seen.
+              <span className="block font-normal text-gray-500">
+                {approved ? 'Approved.' : 'Required before Approve. Never publish an invented fee, statistic, count or percentage.'}
+              </span>
+            </span>
+          </label>
+        </div>
       )}
 
       {/* Before publishing — EVERY problem at once, in plain words, each naming
@@ -1655,10 +1797,25 @@ export default function PostEditor({
               </span>
             </label>
 
+            {/* Optional seasonal "Review by" date (owner, 5 Oct 2026). After it,
+                the admin list shows "Needs review"; the post stays live. */}
+            <div className="border-t border-gray-100 pt-3">
+              <label htmlFor="review-by" className="text-[11px] font-semibold text-gray-600">
+                Review by (optional — seasonal posts)
+              </label>
+              <input
+                id="review-by"
+                type="date"
+                value={post.reviewBy ?? ''}
+                onChange={(e) => set('reviewBy', e.target.value || null)}
+                className={input}
+              />
+            </div>
+
             {canPublishCap && post.status !== 'published' && (
               <div className="border-t border-gray-100 pt-3">
                 <label htmlFor="schedule-at" className="text-[11px] font-semibold text-gray-600">
-                  Schedule for later
+                  Schedule (date and time, Pakistan time)
                 </label>
                 <input
                   id="schedule-at"
@@ -1671,7 +1828,7 @@ export default function PostEditor({
                   type="button"
                   onClick={doSchedule}
                   disabled={busy || !publishable || !scheduleAt}
-                  title={!publishable ? 'Save and clear the publish checklist first.' : undefined}
+                  title={!publishable ? (!approved ? 'A manager or owner must approve this post first.' : 'Save and clear the publish checklist first.') : undefined}
                   className="mt-2 inline-flex min-h-[40px] items-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy hover:border-tm-navy disabled:opacity-60"
                 >
                   Schedule

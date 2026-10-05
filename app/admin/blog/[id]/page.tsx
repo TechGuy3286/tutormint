@@ -26,6 +26,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
       landingOptions={landingOptions}
       publishedPosts={publishedPosts}
       canPublishCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogPublish)}
+      canApproveCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogApprove)}
       canGenerate={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogGenerate)}
     />
   )

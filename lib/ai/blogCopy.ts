@@ -67,8 +67,8 @@ const NO_META_RULE =
 
 function figureRuleFor(brief: BlogBrief): string {
   return brief.notes.trim()
-    ? 'THE HARD RULE — NEVER INVENT STATISTICS. Use ONLY numbers, fees, percentages, dates, pass rates, counts and names that appear in the facts below. If you do not have a number, write "typically" or describe it in words. A made-up statistic on a blog is quoted back as fact — do not produce one.'
-    : 'THE HARD RULE — you were given NO facts. Write with NO figures AT ALL: no numbers, no percentages, no fees, no counts, no pass rates, no dates. Describe every magnitude in words ("typically", "most", "a few", "affordable"). A single invented figure fails the draft.'
+    ? 'THE HARD RULE — NEVER INVENT STATISTICS. Use ONLY numbers, fees, percentages, dates, pass rates, counts and names that appear in the facts below. If you do not have a number, write "typically" or describe it in words. A made-up statistic on a blog is quoted back as fact — do not produce one. NEVER invent fees, statistics, counts or percentages.'
+    : 'THE HARD RULE — you were given NO facts. Write with NO figures AT ALL: no numbers, no percentages, no fees, no counts, no pass rates, no dates. Describe every magnitude in words ("typically", "most", "a few", "affordable"). A single invented figure fails the draft. NEVER invent fees, statistics, counts or percentages.'
 }
 
 function brandBrief(brief: BlogBrief): string {

@@ -76,6 +76,9 @@ export async function publishDuePosts(): Promise<{ published: number; slugs: str
     .select('id, slug, published_at')
     .eq('status', 'scheduled')
     .lte('publish_at', nowIso)
+    // Approval is the publish gate (owner, 5 Oct 2026); a scheduled row without
+    // it never goes live by itself.
+    .not('approved_at', 'is', null)
 
   if (error) return { published: 0, slugs: [], errors: [error.message] }
   const rows = (due ?? []) as { id: string; slug: string; published_at: string | null }[]

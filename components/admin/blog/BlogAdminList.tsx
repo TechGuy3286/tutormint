@@ -10,6 +10,7 @@ import { POST_CLUSTERS, clusterLabel, postPath, statusLabel, type PostStatus } f
 import { SITE_URL } from '@/lib/siteUrl'
 import type { AdminPostRow } from '@/lib/blogFeed'
 import { ListRowSkeletons } from '@/components/Skeletons'
+import { needsReview } from '@/lib/blogApproval'
 
 // The admin blog list: filters (status, cluster, title search) and infinite
 // scroll. Self-fetching — an admin screen is not an organic-search surface, so
@@ -178,6 +179,13 @@ export default function BlogAdminList({
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLES[p.status]}`}>
                       {statusLabel(p.status)}
                     </span>
+                    {/* Seasonal post past its Review-by date (owner, 5 Oct 2026) —
+                        a badge only; the post stays live. */}
+                    {needsReview(p.reviewBy) && (
+                      <span className="ml-1 rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-bold text-tm-gold-ink">
+                        Needs review
+                      </span>
+                    )}
                   </td>
                   <td className="p-3 text-gray-600">{clusterLabel(p.cluster)}</td>
                   <td className="p-3 capitalize text-gray-600">{p.audience}</td>

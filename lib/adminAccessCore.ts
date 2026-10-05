@@ -91,7 +91,12 @@ export const SCREEN_ACCESS = {
   // OWNER ONLY. `[]` = owner and nobody else.
   cleanup: [] as AdminRole[],
   blog: ['admin', 'operations'] as AdminRole[],
-  blogPublish: ['admin', 'operations'] as AdminRole[],
+  // Publish / schedule / unpublish / delete: manager (admin) + owner ONLY
+  // (owner, 5 Oct 2026). Operations drafts and ticks Reviewed; approval and
+  // publishing stop at a manager. tuitions_staff is in none of these.
+  blogPublish: ['admin'] as AdminRole[],
+  // Approve a post for publishing (and tick "Numbers checked"): manager + owner.
+  blogApprove: ['admin'] as AdminRole[],
   blogQueue: ['admin', 'operations'] as AdminRole[],
   blogGenerate: ['admin', 'operations'] as AdminRole[],
 }

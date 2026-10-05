@@ -59,6 +59,7 @@ export default async function NewPostPage({
       publishedPosts={publishedPosts}
       suggestions={suggestions}
       canPublishCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogPublish)}
+      canApproveCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogApprove)}
       canGenerate={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogGenerate)}
       suggestionId={suggestionId}
     />

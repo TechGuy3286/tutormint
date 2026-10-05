@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pproConfigured, markPayproOrderBlocked } from '@/lib/payments/paypro'
 import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
+import { publishDuePosts } from '@/lib/blogPublish'
 
 // Backup reconcile (PR65 §5). PayPro's "Mark as Paid" callback can be missed, so
 // this re-checks pending PayPro orders via the ONE confirm path (PR104:
@@ -38,7 +39,11 @@ function authorised(request: Request): boolean {
 
 export async function GET(request: Request) {
   if (!authorised(request)) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
-  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured' })
+  // Scheduled blog posts go live within five minutes (owner, 5 Oct 2026): this
+  // is the only frequent cron, so it also runs the due-post sweep, independent
+  // of PayPro being configured. The daily cron keeps its own call as a backstop.
+  const blog = await publishDuePosts().catch((e: unknown) => ({ published: 0, slugs: [], errors: [e instanceof Error ? e.message : 'failed'] }))
+  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog })
 
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ ok: true, skipped: 'no_admin_client' })

@@ -199,7 +199,8 @@ export async function publishedSlugs(): Promise<{ slug: string; updatedAt: strin
     .order('published_at', { ascending: false })
   return (data ?? []).map((r) => ({
     slug: r.slug as string,
-    updatedAt: (r.published_at as string) ?? (r.updated_at as string) ?? null,
+    // Sitemap lastmod is the last EDIT (owner, 5 Oct 2026), not the first publish.
+    updatedAt: (r.updated_at as string) ?? (r.published_at as string) ?? null,
   }))
 }
 
@@ -278,7 +279,12 @@ export type AdminPostRow = {
   views: number
   ctaClicks: number
   publishAt: string | null
+  publishedAt: string | null
   updatedAt: string
+  /** Optional seasonal "Review by" date (YYYY-MM-DD); the list badges it once past. */
+  reviewBy: string | null
+  /** A manager/owner approved it (the publish gate). */
+  approvedAt: string | null
 }
 
 type AdminCursor = { u: string; id: string }
@@ -303,7 +309,7 @@ export async function listAdminPosts(args: {
   let q = admin
     .from('posts')
     .select(
-      'id, slug, title, cluster, audience, language, status, views, cta_clicks, publish_at, updated_at, author:author_id(full_name)',
+      'id, slug, title, cluster, audience, language, status, views, cta_clicks, publish_at, published_at, updated_at, review_by, approved_at, author:author_id(full_name)',
     )
     .order('updated_at', { ascending: false })
     .order('id', { ascending: false })
@@ -334,7 +340,10 @@ export async function listAdminPosts(args: {
       views: (r.views as number) ?? 0,
       ctaClicks: (r.cta_clicks as number) ?? 0,
       publishAt: (r.publish_at as string) ?? null,
+      publishedAt: (r.published_at as string) ?? null,
       updatedAt: r.updated_at as string,
+      reviewBy: (r.review_by as string) ?? null,
+      approvedAt: (r.approved_at as string) ?? null,
     }
   })
 

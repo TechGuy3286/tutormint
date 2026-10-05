@@ -497,7 +497,7 @@ export function articleJsonLd(a: {
     '@context': 'https://schema.org',
     '@type': 'Article',
     '@id': `${a.url}#article`,
-    mainEntityOfPage: a.url,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': a.url },
     url: a.url,
     headline: a.title,
     ...(a.description ? { description: a.description } : {}),
@@ -509,7 +509,15 @@ export function articleJsonLd(a: {
     ...(about.length > 0 ? { about } : {}),
     ...(keywords ? { keywords } : {}),
     author: { '@type': 'Organization', name: a.legalName, url: SITE_URL },
-    publisher: { '@id': `${SITE_URL}/#organization` },
+    // The publisher is spelled out (owner, 5 Oct 2026) — a blog post is read on
+    // its own, without the homepage's Organization node to resolve an @id.
+    publisher: {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: 'TutorMint',
+      url: SITE_URL,
+      logo: { '@type': 'ImageObject', url: absoluteUrl('/tutormint-logo1200x630.png'), width: 1200, height: 630 },
+    },
   }
 }
 
