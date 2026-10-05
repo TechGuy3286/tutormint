@@ -11,8 +11,12 @@
 // already has real line breaks unchanged. It never logs or returns the key
 // anywhere else — callers hand it straight to the signer.
 
+const PEM_BLOCK = /-----BEGIN (?:RSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA )?PRIVATE KEY-----/
+
 /** Literal "\n" → newline; wrapping quotes and outer whitespace stripped;
- *  a key that already has real line breaks is left as it is. */
+ *  a key that already has real line breaks is left as it is. If the value
+ *  carries more than the key — a fragment of the JSON line such as
+ *  `private_key": "-----BEGIN…-----",` — only the PEM block is kept. */
 export function normalisePrivateKey(raw: string | null | undefined): string {
   let key = (raw ?? '').trim()
   if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
@@ -20,7 +24,16 @@ export function normalisePrivateKey(raw: string | null | undefined): string {
   }
   // Windows line endings → \n, then literal backslash-n → newline.
   key = key.replace(/\r\n/g, '\n').replace(/\\n/g, '\n').trim()
-  return key
+  const block = key.match(PEM_BLOCK)
+  return block ? block[0].trim() : key
+}
+
+/** The service-account email out of whatever was pasted — the bare address,
+ *  or a fragment of the JSON line (`client_email": "name@project.iam…"`). */
+export function normaliseClientEmail(raw: string | null | undefined): string {
+  const v = (raw ?? '').trim()
+  const m = v.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)
+  return m ? m[0] : v.replace(/^["']|["']$/g, '')
 }
 
 /** Does this look like a PEM private key — the only shape the signer accepts? */

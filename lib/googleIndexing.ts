@@ -4,7 +4,7 @@ import { after } from 'next/server'
 import { google } from 'googleapis'
 import { SITE_URL } from '@/lib/siteUrl'
 import { citySegment } from '@/lib/slugs'
-import { normalisePrivateKey } from '@/lib/googleIndexingCore'
+import { normalisePrivateKey, normaliseClientEmail } from '@/lib/googleIndexingCore'
 
 // Google Indexing API — URL_UPDATED for a tuition page whenever its status
 // changes (owner, 5 Oct 2026, item 3): published, reopened, closed, paused,
@@ -35,9 +35,11 @@ const SCOPE = 'https://www.googleapis.com/auth/indexing'
 let loggedMissing = false
 
 function credentials(): { email: string; key: string } | null {
-  const email = (process.env.GOOGLE_INDEXING_CLIENT_EMAIL ?? '').trim()
-  // Literal "\n" sequences → real line breaks (and a key that already has them
-  // is left alone) — lib/googleIndexingCore, unit-tested for both forms.
+  // Both values tolerate the paste shapes seen in Vercel — the bare value, a
+  // quoted value, or a fragment of the JSON line (`client_email": "…`) — and the
+  // key's literal "\n" sequences become real line breaks (a key that already has
+  // them is left alone). lib/googleIndexingCore, unit-tested for each form.
+  const email = normaliseClientEmail(process.env.GOOGLE_INDEXING_CLIENT_EMAIL)
   const key = normalisePrivateKey(process.env.GOOGLE_INDEXING_PRIVATE_KEY)
   if (!email || !key) return null
   return { email, key }

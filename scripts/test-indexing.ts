@@ -10,7 +10,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { normalisePrivateKey, looksLikePem, classifyTokenError } from '../lib/googleIndexingCore'
+import { normalisePrivateKey, normaliseClientEmail, looksLikePem, classifyTokenError } from '../lib/googleIndexingCore'
 
 const PEM = '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7\nabcDEF123/+=\n-----END PRIVATE KEY-----'
 
@@ -33,6 +33,16 @@ test('normalisePrivateKey: wrapping quotes (as pasted from JSON) are stripped', 
   assert.equal(normalisePrivateKey(''), '')
   assert.equal(normalisePrivateKey(null), '')
   assert.equal(looksLikePem('not a key'), false)
+})
+
+test('normalisePrivateKey / normaliseClientEmail: a pasted JSON-line fragment yields only the key / the address', () => {
+  // The shape seen live on 5 Oct 2026: the value is the JSON line, not the value.
+  const fragment = `private_key": "${PEM.replace(/\n/g, '\\n')}",`
+  assert.equal(normalisePrivateKey(fragment), PEM)
+  assert.equal(normalisePrivateKey(`"private_key": "${PEM}"`), PEM)
+  assert.equal(normaliseClientEmail('client_email": "tutormint-indexing@example-project.iam.gserviceaccount.com'), 'tutormint-indexing@example-project.iam.gserviceaccount.com')
+  assert.equal(normaliseClientEmail('  "svc@example.com",'), 'svc@example.com')
+  assert.equal(normaliseClientEmail('svc@example.com'), 'svc@example.com')
 })
 
 test('classifyTokenError: short plain words, never the key or token', () => {
