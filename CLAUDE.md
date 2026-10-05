@@ -5655,3 +5655,98 @@ from there.
   …)` generically).
 - **No migration** — this is display + notification-routing only; jobs.status
   already carries 'paused' (migration 96) with no CHECK to change.
+
+## Dashboard & Browse polish, test-account pause, orphan messages (owner, 5 Oct 2026)
+
+Nine items in one PR (commit 671ade6 + the docs follow-up). NO migration. Gates at
+close: tsc 0 · next build 0 · check:contrast 118 pairs · every offline suite green
+except one PRE-EXISTING failure (test:pr106e "file-and-approved gating" scans
+`lib/badgeFacts.ts` for `picOk`/`selfieOk`, which HEAD before this PR already did
+not contain — untouched here, reported). No browser was driven; the live checks
+were HTML fetches of tutormint.org.
+
+- **#56 completion label.** `TutorHeaderCard`: under 100% a brand-red
+  "Complete your profile · NN%" link (the Urdu line is gone); at 100% a
+  deep-green "✓ 100% Completed" line in its place. `test:pr106e` updated to the
+  new rule.
+- **#57 tiles in phone dark mode.** PR34's `prefers-color-scheme: dark` override
+  for the `--color-tm-tile-*` tokens is REMOVED from `app/globals.css`; the tile
+  tokens have one value. `TILE_BOX` (`lib/tileTones.ts` — every dashboard tile
+  and the Settings tiles) and the admin Overview card carry `[color-scheme:light]`
+  so the browser cannot recolour them either. The nine dark pairs left
+  `scripts/contrast-check.ts` (127 → 118 pairs).
+- **#94 header Messages icon.** `HeaderMessages` lost its `lg:hidden`: the icon
+  with its unread count now sits beside the bell on phone AND desktop. Still
+  rendered only for a signed-in tutor/parent (`Navbar` gates on role) — never in
+  admin (own bar) or signed out. The desktop messages dock is unchanged.
+- **#46 one name formatter.** `lib/formatName.ts` `formatName()` — every word
+  capitalised, the rest lower case ("ali RAZA" → "Ali Raza"; hyphen/apostrophe
+  parts each capitalised; "tutormint" keeps "TutorMint"; Urdu passes through).
+  `properName` (lib/display) now delegates to it, which CHANGES its old rule —
+  internal caps are no longer preserved ("McAli" → "Mcali"); `test:labels`
+  updated. Applied on every WRITE path (register, ensureProfile, profile save,
+  parent profile, pending signup, bulk import, staff invite, tutor settings,
+  parent verify) and at every display MAPPING point (getSessionUser, browse
+  cards, job-feed parent facts, messaging, public parent, member/audit/admin
+  queues, notifications + email `name`, CV, admin pages, social card). Stored
+  names are NOT rewritten; slugs/URLs are untouched.
+- **#55 "Spam Free Platform Fee".** `FEE_LABEL` in `lib/display.ts` is the one
+  member-facing name of the Rs 199 fee; `planLabel('verified')` returns it.
+  Changed strings: `lib/paymentsHistory.ts` (dashboard "Payments & refunds" row),
+  `lib/adminQueues.ts` (admin Payments queue + subscription ledger plan name),
+  `lib/notify/templates.ts` (fee receipt body ×2 + the re-upload line),
+  `lib/payments/activate.ts` (fee-paid notification), `app/api/payments/checkout`
+  (two refusal messages), `components/tutor/VerifyBenefitsDialog.tsx` (badge
+  pop-up body + "Pay Spam Free Platform Fee" button, Urdu line too),
+  `components/PackagesTable.tsx` ("After the one-time Spam Free Platform Fee"),
+  `app/(site)/pay/manual/[ref]` (header + non-refundable line),
+  `app/admin/payments/settings/SwitchesForm.tsx`, `app/admin/users/[id]` (Fact
+  label), `app/admin/view-as/[id]`, and `app/(site)/terms` (a new fee paragraph in
+  "Memberships, prices and quotas" — the page used to claim memberships were the
+  only thing sold — and the no-refund sentence now names the fee). The Complete
+  Your Verification screen and its Verify button still show no amount. **PayPro:**
+  the create-order payload (`lib/payments/paypro.ts`) has NO description field —
+  only OrderNumber/Amount/dates/customer — so there is no bill description to
+  set; nothing changed there.
+- **#101 online tutors' tuition order.** `lib/jobFeed.ts` ranked default feed:
+  for a tutor whose Job Types include Online Tutor, own-city tuitions first
+  (area match first, then subject match — the existing priority), then online
+  tuitions in other cities; featured/newest/id after. `cityRank()` returns 0 for a
+  non-online tutor, so in-person ordering is byte-for-byte what it was; the
+  gender filter narrows the set and is untouched. The ranked path now also runs
+  for an online tutor with no subjects yet (it used to need subjects).
+- **#102/#103 loading + layout.** `PopularLandingLinks` sits directly under the
+  filter bar on both Browse pages (confirmed in the live HTML: nav before the
+  first real card). Every "Loading…"/"Loading x…" string is gone from app/,
+  components/, lib/. `components/Skeletons.tsx` (TutorCard / JobCard / list-row /
+  tile / text / chip / filter-bar skeletons) and `components/LogoLoader.tsx` (the
+  monogram, `tm-breathe` keyframes in globals.css, reduced-motion safe) are the
+  two implementations. `InfiniteFooter` gained a `skeleton` prop (all six
+  callers pass one). New loading boundaries: `app/(site)/loading.tsx` (logo),
+  `browse/tutors` + `browse/tuitions` (filter bar + 3 cards), both dashboards
+  (header card + tiles), both inboxes (rows). Consequence worth knowing: with a
+  boundary, Browse now STREAMS — the first bytes carry the skeleton shell and the
+  real cards follow in the same response (`$RS` swap), so a raw-HTML grep sees
+  the skeleton `<article>`s first; the content is still server-rendered in the
+  one document.
+- **Step 8 — test accounts: STOPPED, nothing paused.** The gate was "exactly 6:
+  Test Parent ×2, Test Tutor, Test Ali, Test Tutor 2, New User". The SELECT
+  (case-insensitive, trimmed) matched FIVE: only one row is named "Test Parent"
+  (`22222222-…`); the other test parent is stored as **"Test Parent (Tariq)"**
+  (`11111111-…`), and "Test Tutor 2" is ALREADY paused (suspended, 26 Sep). The
+  script `scripts/dataop-pause-test-accounts.ts` refused by design. Also seen,
+  not in the owner's list: "Tutor Test 5" (3 Oct) and "Test Tutor 6" (4 Oct) are
+  live and the latter is in Browse. "Pause" here is the platform's reversible
+  account pause (`is_suspended`, mirroring `suspendMember`) + the tuition pause
+  state for their open tuitions — the script implements exactly that, audited
+  under the owner, when the owner confirms the sixth account.
+- **Step 9 — orphan messages: DONE, 5 deleted.** `messages` also carries the
+  legacy text columns `sender`/`recipient` (emails/display names, not ids); the
+  recipient of a canonical message is the thread's other participant. The rule
+  applied: sender_id not in auth.users, OR thread present and its other
+  participant missing. Exactly five August-2026 rows matched (ids b0ef514d,
+  7c5814ec, 9d1b285e, 7bf7cdbc, d14cf3be — all "sender missing", their thread
+  rows also gone); deleted by id in one transaction; the re-run SELECT returns 0.
+  A sixth row (2d10e51c, 25 Aug) has a sender who is still a member and only a
+  missing thread row — not an orphan under "sender or recipient no longer
+  exists" — and was left alone. `scripts/dataop-remove-orphan-messages.ts`.
