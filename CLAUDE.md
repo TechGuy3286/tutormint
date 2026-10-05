@@ -5820,3 +5820,101 @@ driven; live checks were HTML fetches.
   re-run SELECT returned 0 rows. Slugs/URLs untouched. (No curated area, job
   area or tutor area ends with its own city, so the builder change alters no
   stored location field — only how text is composed from now on.)
+
+## Blog publishing settings and blog SEO (owner, 5 Oct 2026)
+
+Blog only — tuition, tutor-profile and Browse SEO untouched; no post deleted or
+unpublished. Migration 136 (additive: `posts.approved_at`, `approved_by`,
+`numbers_checked`, `review_by`; applied live BEFORE the deploy; the four already-
+published posts backfilled as approved; the O/A Level Oct–Nov 2026 post given
+Review by 30 Nov 2026). Gates at close: tsc 0 · next build 0 · check:contrast
+118 · test:blogapproval 6 · test:blog 58 · the pre-existing `test:pr106e`
+failure only. No browser was driven; live checks were HTML fetches and a
+database-scheduled test post.
+
+**Audit (read-only, production, 5 Oct 2026).** Four posts, all published, none
+scheduled or draft: cost-hiring "Grade 9 & 10 - Science English tutors in
+Lahore…" (359 words, 5 internal links, 9 Sep); safety-trust "Keeping messages
+useful…" (305 w, 0 links, 14 Sep); cost-hiring "Grade 9 & 10 - Science Physics
+tutors in Islamabad…" (595 w, 4 links, 20 Sep); boards-exams "O and A Level
+October–November exam prep, 2026" (629 w, 5 links, 25 Sep). Search Console's 11
+URLs = these 4 + /blog + the cluster filter pages. **Near-duplicate pair
+(reported, unchanged):** the Lahore/English and Islamabad/Physics posts differ
+only by city + subject. **Publishing flow as it was:** `SCREEN_ACCESS.blog` and
+`blogPublish` both admitted admin AND operations, so operations could publish;
+publish required a saved human edit + the Reviewed tick (`canPublish`); AI
+drafts land as `draft` and never auto-publish; scheduling existed but the
+due-post sweep ran only in the 03:00 daily cron.
+
+- **2 Cluster pages.** `/blog?cluster=…` still works; its metadata canonicalises
+  to `/blog` and carries `robots: noindex, follow`. The sitemap never listed a
+  `?cluster=` URL (only `/blog` and the post URLs) — confirmed, nothing to remove.
+- **3 Approval on the server.** `blogPublish` is `['admin']` (owner implicit) and
+  a new `blogApprove: ['admin']`; operations keeps `blog` (draft/save/Reviewed)
+  only; `tuitions_staff` is in none, so every blog route 403s it. The route's
+  `publishProblems()` prepends "A manager or owner must approve this post first"
+  when `approved_at` is null, so publish AND schedule refuse without approval
+  regardless of the UI. `approve` requires Reviewed + `numbersChecked: true` and
+  writes `approved_at/approved_by/numbers_checked` + `blog.approve` audit. A save
+  of a non-live post clears approval (the approver approved the words they read).
+  `publishDuePosts()` only publishes scheduled rows with `approved_at`.
+- **4 Scheduling + cadence.** Editor: "Publish now" and "Schedule (date and time,
+  Pakistan time)"; the field is typed in Asia/Karachi and converted by
+  `pakistanLocalToIso`, whatever the browser zone. The 5-minute PayPro cron now
+  also runs `publishDuePosts()` (independent of PayPro config), so a scheduled
+  post goes live within ~5 minutes; the daily cron keeps its call. Sitemap:
+  `publishedSlugs()` is `status='published'` only, so scheduled posts appear
+  only once live. Admin blog page: "Published this week: N" (Pakistan-time week,
+  Monday start) and, when published + scheduled in the week reach 3, the warning
+  "Two posts a week works best for Google." — also returned by publish/schedule
+  and shown in the editor. Warn only.
+- **5 Near-duplicate warning.** `lib/blogApproval.ts` `similarPosts()` strips
+  city names (location_cities), subject names (taxonomy_subjects) and grade
+  words, and compares the skeleton; the save and approve responses carry
+  `similar: [{id,title,slug}]`, which the editor shows naming the post. Warn only.
+- **6 No invented numbers.** Both branches of the AI figure rule now end "NEVER
+  invent fees, statistics, counts or percentages." The editor's "Numbers in this
+  draft" panel (`numberClaims()`: every Rs/PKR amount, percentage, and
+  "N tutors / tuitions / parents…" claim, with context) sits above the
+  publishing checklist; "Numbers checked" must be ticked to Approve and the server
+  refuses `approve` without it.
+- **7 Review by.** Optional date in the editor sidebar; `needsReview()` (past the
+  date, Pakistan time) shows a "Needs review" badge in the admin list. The post
+  stays live. Set to 30 Nov 2026 on the exam-prep post by the migration.
+- **8 Open tuitions in every post.** `components/blog/OpenTuitionsBlock.tsx`
+  after the CTA: up to 3 open tuitions by city+subject → city → subject →
+  newest 3 (never an empty block; renders nothing only if the whole board is
+  empty), then "See all open tuitions in <city>" → `/browse/tuitions?city=`.
+  Cards use the existing gated Apply (`applyBlocksFor` for a tutor); no plan
+  prices anywhere.
+- **9 Structured data.** `articleJsonLd` now emits `mainEntityOfPage` as a
+  WebPage and an inline publisher `{Organization "TutorMint", url, logo
+  ImageObject 1200×630}`; headline, description, image, datePublished,
+  dateModified (updated_at) and the existing Organization author credit are
+  unchanged; BreadcrumbList kept; the canonical is self-referencing. Sitemap post
+  `lastmod` is `updated_at` (was published_at).
+- **10 Cluster balance.** A plain list of published posts per cluster on the admin
+  blog page (all seven clusters, no targets).
+
+**Live checks (HTML fetches, 5 Oct 2026).** `/blog?cluster=tutor-career` serves
+`<link rel="canonical" href="https://www.tutormint.org/blog">` and
+`robots: noindex, follow`; `/blog` keeps its own canonical with no noindex. The
+sitemap has 0 `?cluster=` URLs and the four post entries carry `lastmod` =
+`updated_at` (the exam-prep post: 2026-09-25T16:05:23Z, its last edit, not its
+16:02 publish). The exam-prep post's Article JSON-LD carries headline,
+description, image, datePublished, dateModified, `mainEntityOfPage` (WebPage),
+the Organization author and the inline TutorMint publisher with logo;
+BreadcrumbList has 3 items; the canonical is self-referencing. The open-tuitions
+block renders "Open tuitions in Lahore" + `/browse/tuitions?city=Lahore` on the
+Lahore post and "Newest open tuitions" + `/browse/tuitions` on the non-city
+exam-prep post. **Scheduling, end to end:** a test post was inserted as
+approved + scheduled for 10:48:17Z; at 10:48:19Z the live 5-minute cron
+(`/api/cron/paypro-reconcile`, called with the cron secret) published it, its URL
+returned 200 and it appeared in the sitemap; it was then set back to `draft`
+(row kept, as instructed) — after which its URL renders the branded "not found"
+shell with `noindex` and no content, but with HTTP **200**, a pre-existing
+behaviour of `/blog/[slug]/not-found.tsx`, reported not fixed. Google's Rich
+Results Test was NOT run (no browser here); the JSON-LD was parsed and checked
+locally. The admin-only surfaces (Approve, Numbers checked, the cadence,
+near-duplicate and Needs-review warnings, and a Tuitions-staff 403) rest on the
+unit tests, the role matrix and the route gates — no admin session was driven.
