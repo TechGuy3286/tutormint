@@ -56,31 +56,63 @@ export default function ProfileActions({
   const [gateIntent, setGateIntent] = useState<AuthIntent>('shortlist')
   const searchParams = useSearchParams()
   const resumeMessage = searchParams?.get('message') === '1'
+  const resumeDemo = searchParams?.get('demo') === '1'
 
   // Resume (owner hotfix, 5 Oct 2026): after sign-up the kept draft names this
   // tutor; after verification the return URL carries ?message=1. Either reopens
   // the message flow once. Hooks run before the isSelf early return.
   useEffect(() => {
-    if (!signedIn || !canMessage || isSelf) return
-    const d = peekDraft<{ tutorId?: string }>('message')
-    const fromDraft = d?.tutorId === tutorId
-    if (!fromDraft && !resumeMessage) return
-    if (fromDraft) clearDraft('message')
-    if (resumeMessage) {
+    if (!signedIn || isSelf) return
+    const stripParam = (name: string) => {
       try {
         const url = new URL(window.location.href)
-        url.searchParams.delete('message')
+        url.searchParams.delete(name)
         window.history.replaceState(null, '', url.toString())
       } catch {
         /* leave the URL */
       }
     }
-    void message()
+    const m = peekDraft<{ tutorId?: string }>('message')
+    if (canMessage && (m?.tutorId === tutorId || resumeMessage)) {
+      if (m?.tutorId === tutorId) clearDraft('message')
+      if (resumeMessage) stripParam('message')
+      void message()
+      return
+    }
+    // The same round trip for a demo (owner, 5 Oct 2026): the kept sign-up
+    // draft, or ?demo=1 from the verification step.
+    const d = peekDraft<{ tutorId?: string }>('demo')
+    if (d?.tutorId === tutorId || resumeDemo) {
+      if (d?.tutorId === tutorId) clearDraft('demo')
+      if (resumeDemo) stripParam('demo')
+      void requestDemo()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signedIn, canMessage, isSelf, tutorId])
 
-  // Your own profile is not something you shortlist or book a demo with.
-  if (isSelf) return null
+  // Your own profile (owner, 5 Oct 2026): the buttons stay, greyed out and
+  // disabled, with one line — so a tutor sees the page as parents see it. The
+  // server refuses self-shortlist / self-demo / self-message regardless.
+  if (isSelf) {
+    const dead =
+      'inline-flex min-h-[44px] flex-1 cursor-not-allowed items-center justify-center gap-1.5 rounded-xl bg-gray-200 px-4 text-xs font-bold text-slate-600'
+    return (
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:mx-auto sm:mt-4 sm:max-w-3xl sm:rounded-2xl sm:border sm:p-4">
+        <div className="mx-auto flex max-w-3xl flex-wrap gap-2">
+          <button type="button" disabled className={dead}>
+            <Heart size={14} /> Shortlist
+          </button>
+          <button type="button" disabled className={dead}>
+            <Play size={14} /> Request demo
+          </button>
+          <button type="button" disabled className={dead}>
+            <MessageCircle size={14} /> Message
+          </button>
+        </div>
+        <p className="pt-2 text-center text-[11px] font-semibold text-gray-500">This is your profile, as parents see it.</p>
+      </div>
+    )
+  }
 
   const gate = (intent: AuthIntent) => {
     setGateIntent(intent)
@@ -113,20 +145,17 @@ export default function ProfileActions({
     setNotice(null)
     setNoticeHref(null)
     try {
-      const res = await fetch('/api/demo/request', { signal: submitSignal(),
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tutorId }),
-      })
-      const json = await res.json()
-      if (!res.ok) {
-        setNotice(json.error ?? 'Could not send your demo request.')
-        setNoticeHref(typeof json.similarHref === 'string' ? json.similarHref : null)
+      // Same gated call as Message (owner, 5 Oct 2026): an unverified parent's
+      // refusal opens the verification gate with the way back to this tutor.
+      const r = await postGated<{ id: string }>('/api/demo/request', { tutorId }, upgradeSheet?.showGate)
+      if (!r.ok) {
+        if (!r.gated) {
+          setNotice(r.error)
+          setNoticeHref(r.similarHref ?? null)
+        }
         return
       }
       setNotice(`Demo requested. ${tutorName.split(' ')[0]} will reply with a time.`)
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : 'Could not send your demo request.')
     } finally {
       setBusy(false)
     }

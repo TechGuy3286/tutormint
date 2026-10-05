@@ -70,6 +70,8 @@ export default function ParentVerifyPage() {
   const searchParams = useSearchParams()
   const nextParam = searchParams?.get('next') ?? null
   const [returnTo, setReturnTo] = useState<string | null>(null)
+  // The way back came from Message (?message=1) or Demo (?demo=1) — say which.
+  const backNoun = returnTo?.includes('demo=1') ? 'demo request' : 'message'
   useEffect(() => {
     const safe = (v: string | null) => (v && v.startsWith('/') && !v.startsWith('//') ? v : null)
     const fromUrl = safe(nextParam)
@@ -221,7 +223,7 @@ export default function ParentVerifyPage() {
             <p className="text-xs font-black text-tm-green-deep">✓ Verified — you can post jobs and message tutors</p>
             {returnTo && (
               <Link href={returnTo} className="inline-flex min-h-[40px] items-center rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover">
-                Back to your message
+                Back to your {backNoun}
               </Link>
             )}
           </div>
@@ -235,7 +237,7 @@ export default function ParentVerifyPage() {
             </p>
             {returnTo && (
               <p className="text-[11px] text-tm-gold-ink">
-                Once approved, we will take you back to your message.{' '}
+                Once approved, we will take you back to your {backNoun}.{' '}
                 <Link href={returnTo} className="font-bold underline underline-offset-2">Open it now</Link>
               </p>
             )}

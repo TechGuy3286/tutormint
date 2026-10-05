@@ -90,6 +90,7 @@ export default async function ParentDashboardPage() {
   shortlistCards.sort((a, b) => (shortlistOrder.get(a.id) ?? 0) - (shortlistOrder.get(b.id) ?? 0))
   const shortlistViewer: CardViewer = {
     signedIn: true,
+    id: userId,
     role: ent.role,
     verifiedParent: ent.audience === 'parent' && !!ent.plan,
     canInitiateMessage: ent.canInitiateMessage,

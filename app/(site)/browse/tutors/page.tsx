@@ -225,6 +225,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
     viewerPlan = ent.plan
     viewer = {
       signedIn: true,
+      id: user.id,
       role: ent.role,
       verifiedParent: ent.audience === 'parent' && !!ent.plan,
       canInitiateMessage: ent.canInitiateMessage,

@@ -18,6 +18,7 @@ import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import AuthGateModal, { clearDraft, peekDraft, FOCUS_COMPOSER_KEY, type AuthIntent } from '@/components/AuthGateModal'
 import { badgesForPlan, isFeaturedPlan } from '@/lib/planBadges'
+import { areaWithoutCity } from '@/lib/place'
 
 // The tutor card, rebuilt against design/reference/tutor-card.jpeg.
 //
@@ -102,6 +103,9 @@ export type CardViewer = {
   /** Verified-or-better parent: may request a demo. */
   verifiedParent: boolean
   canInitiateMessage: boolean
+  /** The signed-in viewer's own user id — a tutor looking at THEIR OWN card sees
+   *  every button greyed out (owner, 5 Oct 2026). Absent = unknown, never own. */
+  id?: string | null
 }
 
 const GUEST: CardViewer = {
@@ -252,11 +256,29 @@ export default function TutorCard({
   // Message (owner hotfix, 5 Oct 2026): never for a tutor viewer (another tutor's
   // card or their own), never on a paused or suspended tutor. Callers pass
   // `showMessage` for the surface; this is the rule that holds everywhere.
+  // Own card (owner, 5 Oct 2026): the signed-in tutor IS this tutor. Every
+  // button renders greyed out and disabled (Message included), with one line
+  // under them — the server refuses self-message / self-demo / self-shortlist
+  // regardless. Other tutors' cards keep today's behaviour.
+  const isOwn = viewer.signedIn && !!viewer.id && viewer.id === tutor.id
   const messageAllowed =
-    showMessage &&
-    viewer.role !== 'tutor' &&
-    !tutor.under_review &&
-    tutor.verification_status !== 'suspended'
+    isOwn ||
+    (showMessage &&
+      viewer.role !== 'tutor' &&
+      !tutor.under_review &&
+      tutor.verification_status !== 'suspended')
+  const lockOwn = (list: CardAction[]): CardAction[] =>
+    isOwn
+      ? list.map((a) => ({
+          ...a,
+          href: undefined,
+          onClick: () => {},
+          disabled: true,
+          solidDisabled: true,
+          className: 'bg-gray-200 text-slate-600',
+          tooltip: 'This is your own profile',
+        }))
+      : list
 
   const toggleShortlist = async () => {
     if (!viewer.signedIn) return gate('shortlist')
@@ -286,26 +308,22 @@ export default function TutorCard({
     setNotice(null)
     setNoticeHref(null)
     try {
-      const res = await fetch('/api/demo/request', { signal: submitSignal(),
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tutorId: tutor.id }),
-      })
-      const json = await res.json()
-      if (!res.ok) {
-        const msg = json.error ?? 'Could not send your demo request.'
-        toast.error(msg)
-        setNotice(msg)
-        // The Basic incoming-request limit hands back a link to similar tutors.
-        setNoticeHref(typeof json.similarHref === 'string' ? json.similarHref : null)
+      // Same gated call as Message (owner, 5 Oct 2026): an unverified parent's
+      // refusal carries the verification gate, which the sheet opens with the
+      // way back to this tutor. Genuine failures land in the notice line.
+      const r = await postGated<{ id: string }>('/api/demo/request', { tutorId: tutor.id }, upgradeSheet?.showGate)
+      if (!r.ok) {
+        if (!r.gated) {
+          toast.error(r.error)
+          setNotice(r.error)
+          // The Basic incoming-request limit hands back a link to similar tutors.
+          setNoticeHref(r.similarHref ?? null)
+        }
         return
       }
       const msg = `Demo requested. ${tutor.full_name.split(' ')[0]} will reply with a time.`
       setNotice(msg)
       toast.success(msg)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not send your demo request.')
-      setNotice(e instanceof Error ? e.message : 'Could not send your demo request.')
     } finally {
       setBusy(false)
     }
@@ -351,11 +369,19 @@ export default function TutorCard({
   // draft {tutorId}; back on this page, signed in, the ONE card it names reopens
   // the message flow — peek first, so a list of cards does not consume it.
   useEffect(() => {
-    if (!viewer.signedIn || !messageAllowed) return
-    const d = peekDraft<{ tutorId?: string }>('message')
-    if (d?.tutorId !== tutor.id) return
-    clearDraft('message')
-    void onMessage()
+    if (!viewer.signedIn || isOwn) return
+    const m = peekDraft<{ tutorId?: string }>('message')
+    if (messageAllowed && m?.tutorId === tutor.id) {
+      clearDraft('message')
+      void onMessage()
+      return
+    }
+    // The same round trip for a demo (owner, 5 Oct 2026).
+    const d = peekDraft<{ tutorId?: string }>('demo')
+    if (d?.tutorId === tutor.id) {
+      clearDraft('demo')
+      void requestDemo()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewer.signedIn, tutor.id])
 
@@ -508,7 +534,7 @@ export default function TutorCard({
                               <InlineLink
                                 href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}&area=${encodeURIComponent(a)}`}
                               >
-                                {a}
+                                {areaWithoutCity(a, tutor.city) || a}
                               </InlineLink>
                             ) : (
                               a
@@ -566,7 +592,7 @@ export default function TutorCard({
                 phone, the same grid centred on desktop. A tutor viewer has three
                 (no Message). */}
             <CardActions
-              actions={
+              actions={lockOwn(
                 [
                   {
                     key: 'view',
@@ -640,9 +666,14 @@ export default function TutorCard({
                             } as CardAction),
                       ]
                     : []),
-                ] as CardAction[]
-              }
+                ] as CardAction[],
+              )}
             />
+            {isOwn && (
+              <p className="relative z-10 pt-2 text-[11px] font-semibold leading-snug text-gray-500">
+                This is your profile, as parents see it.
+              </p>
+            )}
 
             {notice && (
               <p className="relative z-10 pt-2 text-[11px] font-semibold leading-snug text-slate-700">

@@ -3,6 +3,7 @@ import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
+import { buildGate } from '@/lib/gate'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { isUnverifiedTutor } from '@/lib/messaging'
@@ -51,6 +52,11 @@ export async function POST(request: Request) {
   if (!tutorId || !/^[0-9a-f-]{36}$/i.test(tutorId)) {
     return NextResponse.json({ error: 'Missing tutor.' }, { status: 400 })
   }
+  // A tutor cannot request a demo with themselves (owner, 5 Oct 2026) — the own
+  // card is locked in the UI; this is the rule.
+  if (tutorId === user.id) {
+    return NextResponse.json({ error: 'You cannot request a demo with yourself.' }, { status: 400 })
+  }
 
   const ent = await getEntitlements(user.id)
 
@@ -69,6 +75,29 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient()
+
+  // Owner (5 Oct 2026): a demo needs CNIC + address approved, exactly like
+  // Message (this supersedes PR25 §4.1 for demos). A verified parent holds the
+  // free parent_verified plan, which is what `ent.plan` reports. The gate's CTA
+  // opens the existing verification step with the way back — the tutor's page
+  // with ?demo=1 — so the request resumes once approval has landed. Existing
+  // demo requests from unverified parents are untouched.
+  if (!ent.plan) {
+    const gate = await buildGate('parent_verify', ent)
+    let returnTo = '/browse/tutors'
+    if (admin) {
+      const { data: tp } = await admin.from('tutor_profiles').select('slug').eq('id', tutorId).maybeSingle()
+      if (tp?.slug) returnTo = `/tutor/${tp.slug as string}?demo=1`
+    }
+    return NextResponse.json(
+      {
+        error: 'Verify your CNIC and address to request a demo. It is free.',
+        gate: gate ? { ...gate, href: `/parent/verify?next=${encodeURIComponent(returnTo)}` } : undefined,
+      },
+      { status: 403 },
+    )
+  }
+
   if (admin) {
     const { data: existing } = await admin
       .from('demo_requests')

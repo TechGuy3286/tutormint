@@ -31,6 +31,7 @@ import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorJsonLd } fro
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
 import { formatName } from '@/lib/formatName'
+import { areaWithoutCity } from '@/lib/place'
 
 // The public tutor profile. Server component, results in the HTML.
 //
@@ -934,7 +935,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                                 href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}&area=${encodeURIComponent(a)}`}
                                 className="font-semibold hover:text-tm-red hover:underline"
                               >
-                                {a}
+                                {areaWithoutCity(a, tutor.city) || a}
                               </Link>
                             ) : (
                               a
