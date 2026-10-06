@@ -6839,3 +6839,55 @@ else; fresh password required; every change audit-logged as
 Tuitions-staff view, the owner screen's toggles and their audit rows, and the
 server refusal of a switched-off method for a signed-in member — these rest on
 tsc, the build, the unit suites and signed-out route checks.
+
+## Clear form on Post a tuition; settlement check per payment gateway (owner, 6 Oct 2026)
+
+Commit 0467b6f. Migration 144 (additive, applied live before the push):
+`gateway_deductions` (admin-read, server-written, soft removal) and a
+`gateway` column (default 'paypro') on `bank_transfers` and
+`reconciliation_imports`. Gates: tsc 0 · next build 0 · check:contrast 118 ·
+rls:audit 219/219 · all 64 offline suites (new: test:settlement 7; Clear form
+added to test:tuitionpost).
+
+- **Clear form** — a button at the top of the shared `PostTuitionForm` (create
+  mode, so both /admin/jobs/new and the parent form) asks "Clear all fields?"
+  (Clear / Cancel), then resets every field to `EMPTY`, clears the time slots,
+  the saved draft (`clearFormDraft`) and any sign-in draft (`takeDraft('post')`).
+  "Discard draft" stays. Nothing posted is touched.
+- **Settlement check** — on each connected gateway card at
+  `/admin/payments/settings/gateways` (owner only; `/api/admin/payments/
+  settlement` and `/settlement/export` gate on `SCREEN_ACCESS.paymentGateways`).
+  Rules in `lib/settlementCore.ts`, I/O in `lib/settlement.ts`:
+  - TutorMint collected = approved payments for the gateway whose APPROVAL day
+    (Pakistan time; `reviewed_at`) is in range; .xlsx download of date, TM
+    reference, amount, method (PayPro's `paymentVia`) — no member details.
+  - Gateway reported = MerchantShare of PAID rows (Date Paid in range) in the
+    gateway's latest uploaded file (the existing PayPro importer); flags
+    paid-not-approved, approved-not-paid, amount differences — listed only.
+  - Deductions: per payment, the line in effect on that payment's day — per
+    NAME, the latest effective date on or before it — so a new rate from a later
+    date never rewrites earlier periods. Removal is soft (stops applying
+    everywhere; row kept). Add/remove ask for a fresh password and are audited
+    (`settlement.deduction_add/remove`).
+  - Expected in bank = TutorMint collected − total deductions. Difference =
+    bank transfers − expected; red when negative (money missing).
+- **Reconciliation moved** — `/admin/payments/reconciliation` permanently
+  redirects to the gateways screen; the nav item is gone; the Payments header
+  link reads "Settlement check"; `SCREEN_ACCESS.reconciliation` is now owner
+  only (it was admin + owner), and the old API route follows it. Its tables are
+  kept (they held 0 imports and 0 transfers at the move).
+
+**Live check, 1–6 Oct 2026:** 6 approved PayPro payments, Rs 1,194 (5
+JazzCash, 1 Easypaisa); no gateway file or bank transfer stored yet, so the
+difference shows Rs 1,194 missing. With the sample PayPro file (in memory, not
+stored): reported Rs 1,549.09, 2 paid-not-approved (the sample's invented
+orders), 5 approved-not-paid. A test line "Smoke test fee 3% + Rs 2" was added
+(deductions Rs 47.82, expected Rs 1,146.18), then removed (back to Rs 1,194);
+both in the audit log. A test transfer was computed in memory only — a stored
+transfer cannot be removed and would count as real money in every later check.
+No owner/admin/staff browser session was driven.
+
+**Audit finding (item 3, read only):** "Bank transfer" was switched ON at
+2026-10-06 13:37:02 UTC (18:37 PKT) and "Show a Pay later link" ON at 13:37:14
+UTC (18:37 PKT), both by the owner account techguy3286@gmail.com ("Admin",
+role owner). Both are still on.
