@@ -243,12 +243,39 @@ export function invalidInternalLinks(body: string, allowed: string[]): string[] 
 
 // ─────────────────────────────────────────────────── link rules (§4.3) ──
 //
-// A post carries 3–5 internal links, each target at most once, with at least one
-// to a published blog post (when any exist), one to /membership-plans and one to
-// /faq, and the link TEXT must match the page type: a /tuitions page reads as
-// "open tuitions", a /browse/tutors page as "tutors". Enforced on publish.
+// A post carries 3–5 internal links, each target at most once (owner, 6 Oct
+// 2026 — supersedes the /membership-plans + /faq requirement of PR17/PR35):
+//   • at least ONE to a live tuition or a city × subject landing page
+//     (/tutors/<city>/<subject> or /tuitions/<city>/<subject-or-slug>);
+//   • at least ONE to another published blog post or an indexable tutor
+//     profile (/blog/<slug> or /tutor/<slug>);
+//   • /membership-plans is never required (pricing is never pushed from a
+//     post); /faq is optional.
+// The link TEXT must still match the page type: a /tuitions page reads as "open
+// tuitions", a /browse/tutors or /tutors page as "tutors". Enforced on publish.
 
 const LINK_TEXT_RE = /\[([^\]]+)\]\((\/[^)\s]+)\)/g
+
+/** A live tuition page or a city × subject landing page. */
+export const LANDING_OR_TUITION_RE = /^\/(tutors|tuitions)\/[^/]+\/[^/]+$/
+/** Another blog post, or a tutor profile. */
+export const POST_OR_PROFILE_RE = /^\/(blog|tutor)\/[^/]+$/
+
+export function isLandingOrTuitionLink(href: string): boolean {
+  return LANDING_OR_TUITION_RE.test(href.split('#')[0].replace(/\/$/, ''))
+}
+export function isPostOrProfileLink(href: string): boolean {
+  return POST_OR_PROFILE_RE.test(href.split('#')[0].replace(/\/$/, ''))
+}
+
+export type LinkRuleContext = {
+  /** Any published post exists (another post can satisfy the second rule). */
+  hasPublishedPosts: boolean
+  /** Any indexable tutor profile exists (a profile can satisfy the second rule). */
+  hasTutorProfiles?: boolean
+  /** Any live landing page exists; when none do, the landing rule is skipped. */
+  hasLandingPages?: boolean
+}
 
 type ParsedLink = { text: string; href: string }
 
@@ -328,7 +355,7 @@ function subjectAlias(word: string, subject: string): boolean {
   return false
 }
 
-export function linkRuleViolations(body: string, opts: { hasPublishedPosts: boolean }): string[] {
+export function linkRuleViolations(body: string, opts: LinkRuleContext): string[] {
   const links = parseLinks(body)
   const v: string[] = []
 
@@ -343,12 +370,17 @@ export function linkRuleViolations(body: string, opts: { hasPublishedPosts: bool
     if (n > 1) v.push(`Link the same page only once — "${href}" appears ${n} times.`)
   }
 
-  const hrefs = new Set(links.map((l) => l.href))
-  if (opts.hasPublishedPosts && ![...hrefs].some((h) => h.startsWith('/blog/'))) {
-    v.push('Add one link to a published blog post.')
+  const hrefs = [...new Set(links.map((l) => l.href))]
+  // One link to a live tuition or a city × subject landing page — skipped only
+  // when the site has no landing page at all (the caller says so).
+  if (opts.hasLandingPages !== false && !hrefs.some(isLandingOrTuitionLink)) {
+    v.push('Add one link to a live tuition or a city × subject landing page (a /tutors/<city>/<subject> or /tuitions/<city>/<subject> page).')
   }
-  if (![...hrefs].some((h) => h === '/membership-plans')) v.push('Add one link to /membership-plans.')
-  if (![...hrefs].some((h) => h === '/faq')) v.push('Add one link to /faq.')
+  // One link to another blog post or an indexable tutor profile — skipped only
+  // when there is neither to link.
+  if ((opts.hasPublishedPosts || opts.hasTutorProfiles) && !hrefs.some(isPostOrProfileLink)) {
+    v.push('Add one link to another blog post or an indexable tutor profile.')
+  }
 
   // Link text must match the page type.
   for (const l of links) {

@@ -194,10 +194,21 @@ export default function TutorCard({
   hired = false,
   onRemove,
   removeBusy = false,
+  headingLevel = 'h3',
+  priority = false,
 }: {
   tutor: TutorCardData
   viewer?: CardViewer
   initiallySaved?: boolean
+  /**
+   * The heading element for the tutor name. A card directly under a page h1
+   * (Browse, a landing page) is an h2; a card inside a titled section (an h2
+   * such as "More open tuitions") is an h3, the default. Keeps heading order
+   * valid on every public page (owner, 6 Oct 2026).
+   */
+  headingLevel?: 'h2' | 'h3'
+  /** True for the first card on a page: its photo is the first visible image. */
+  priority?: boolean
   /** Shown to guests and to parents; a tutor browsing tutors cannot message them. */
   showMessage?: boolean
   /**
@@ -214,6 +225,7 @@ export default function TutorCard({
   onRemove?: () => void
   removeBusy?: boolean
 }) {
+  const Heading = headingLevel
   const router = useRouter()
   const [saved, setSaved] = useState(initiallySaved)
   const [busy, setBusy] = useState(false)
@@ -447,6 +459,9 @@ export default function TutorCard({
               seed={tutor.id}
               decorative
               className="h-[72px] w-[72px] text-lg sm:h-[140px] sm:w-[140px] sm:text-3xl"
+              px={140}
+              sizes="(min-width: 640px) 140px, 72px"
+              priority={priority}
             />
           </div>
 
@@ -459,7 +474,7 @@ export default function TutorCard({
                 than wrapping the card in an <a> (a link may not contain buttons).
                 The badges are non-interactive, so the overlay sitting over them is
                 fine. */}
-            <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-black text-tm-navy sm:text-lg">
+            <Heading className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-black text-tm-navy sm:text-lg">
               <Link
                 prefetch={false}
                 href={profileHref}
@@ -469,7 +484,7 @@ export default function TutorCard({
               </Link>
               {badges.length > 0 && <BadgeRow badges={badges} size="sm" />}
               {!isVerified && <NotVerifiedBadge />}
-            </h3>
+            </Heading>
             {/* Stars / "New tutor" on their own line below the name. */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <Stars rating={rating} count={reviews} />

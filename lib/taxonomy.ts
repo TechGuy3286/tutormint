@@ -15,7 +15,7 @@
 // data, so the whole taxonomy is fetched once and cached for the lifetime of
 // the page.
 
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/clientLazy'
 import { buildTaxonomy, fetchTaxonomyTables, type TaxonomyNode, type TaxonomyRow as Row } from '@/lib/taxonomyBuild'
 
 export type { TaxonomyNode }
@@ -34,7 +34,7 @@ async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode }> {
   if (inFlight) return inFlight
 
   inFlight = (async () => {
-    const tables = await fetchTaxonomyTables(createClient())
+    const tables = await fetchTaxonomyTables(await getBrowserClient())
     if (!tables) return { rows: [], tree: {} } // do NOT cache a failed fetch
     cache = buildTaxonomy(tables)
     return cache

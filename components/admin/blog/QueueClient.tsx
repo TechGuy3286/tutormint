@@ -273,6 +273,8 @@ function sourceLabel(source: string): string {
       return 'From reports'
     case 'gsc':
       return 'Search Console'
+    case 'career':
+      return 'Tutor career'
     default:
       return source
   }

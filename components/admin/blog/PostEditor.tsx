@@ -26,8 +26,10 @@ import {
   type PostAudience,
   type PostLanguage,
   type PostStatus,
+  rankLandingOptions,
+  type LandingOption,
 } from '@/lib/blog'
-import { figureGate, promptLeakViolations, wordCount, BLOG_MIN_WORDS, type ConfirmedFigure } from '@/lib/ai/blogBrief'
+import { figureGate, promptLeakViolations, wordCount, BLOG_MIN_WORDS, BLOG_MAX_WORDS, BLOG_WARN_WORDS, type ConfirmedFigure } from '@/lib/ai/blogBrief'
 import { notesTopicMismatch, PLATFORM_LINK_MAP } from '@/lib/ai/platformFacts'
 import { collectBlogProblems, sanitizeDraft, toRelativeHref, type BlogProblem } from '@/lib/ai/blogChecker'
 import { coverImagePrompt } from '@/lib/covers/prompt'
@@ -78,7 +80,7 @@ export type EditorPost = {
   numbersChecked: boolean
 }
 
-type LandingOption = { path: string; label: string }
+type TutorProfileOption = { slug: string; name: string }
 
 const SOURCE_LABEL: Record<string, string> = {
   search_gap: 'Search demand',
@@ -86,6 +88,7 @@ const SOURCE_LABEL: Record<string, string> = {
   coverage_gap: 'Ready to rank',
   reports: 'From reports',
   gsc: 'Search Console',
+  career: 'Tutor career',
   recruitment: 'Recruitment',
 }
 
@@ -93,6 +96,7 @@ export default function PostEditor({
   initial,
   landingOptions,
   publishedPosts = [],
+  tutorProfiles = [],
   suggestions = [],
   canPublishCap,
   canApproveCap = false,
@@ -104,6 +108,9 @@ export default function PostEditor({
   /** Published posts {title, slug} — for the auto-checker's "link a real post"
    *  rule and the Link picker (PR35). */
   publishedPosts?: { title: string; slug: string }[]
+  /** Indexable tutor profiles {slug, name} — valid /tutor/<slug> link targets for
+   *  the checker and the Link picker (owner, 6 Oct 2026). */
+  tutorProfiles?: TutorProfileOption[]
   /** The open content queue, for the "Start from a suggested title" panel. */
   suggestions?: EditorSuggestion[]
   canPublishCap: boolean
@@ -255,12 +262,21 @@ export default function PostEditor({
     [publishedPosts, post.slug],
   )
   const landingPaths = useMemo(() => landingOptions.map((o) => `/${o.path}`), [landingOptions])
+  const tutorSlugs = useMemo(() => tutorProfiles.map((t) => t.slug), [tutorProfiles])
+
+  // Related landing pages RANKED by match with this post's city and subject
+  // (owner, 6 Oct 2026) — both match first, then subject, then city; never
+  // alphabetical. Recomputed as the city/subject fields change.
+  const rankedLanding = useMemo(
+    () => rankLandingOptions(landingOptions, post.city, post.subject),
+    [landingOptions, post.city, post.subject],
+  )
 
   // ALL body problems at once (PR35 §4), computed live from the CURRENT body so
   // the "Before publishing" list guides the edit in progress.
   const bodyProblems = useMemo(
-    () => collectBlogProblems(post.body, { publishedPostSlugs, landingPaths }),
-    [post.body, publishedPostSlugs, landingPaths],
+    () => collectBlogProblems(post.body, { publishedPostSlugs, landingPaths, tutorSlugs }),
+    [post.body, publishedPostSlugs, landingPaths, tutorSlugs],
   )
 
   const gate = canPublish({
@@ -274,7 +290,7 @@ export default function PostEditor({
   })
   // The publish button also requires the SAVED body's link/coverage problems to
   // be clear — the server checks the same, so the button matches the route.
-  const savedBodyProblems = collectBlogProblems(saved.current.body, { publishedPostSlugs, landingPaths })
+  const savedBodyProblems = collectBlogProblems(saved.current.body, { publishedPostSlugs, landingPaths, tutorSlugs })
   // Approval is part of the gate (owner, 5 Oct 2026) — the server refuses
   // publish/schedule without it, so the button follows the same rule.
   const approved = !!saved.current.approvedAt
@@ -403,10 +419,10 @@ export default function PostEditor({
 
       // §3 — the deterministic fixer runs BEFORE anything else: full
       // tutormint.org URLs → relative, repeated links unlinked, "free demo"
-      // stripped, and the required links (/membership-plans, /faq, one published
-      // post) added in a closing line if missing. A draft out of this passes
-      // every LINK rule by construction.
-      const opts = { blogSlugs: publishedPostSlugs, audience: post.audience, landingPaths }
+      // stripped, and the required links (one live tuition/landing page, one
+      // other post or indexable tutor profile) added in a closing line if
+      // missing. A draft out of this passes every LINK rule by construction.
+      const opts = { blogSlugs: publishedPostSlugs, audience: post.audience, landingPaths, tutorSlugs }
       let assembled = sanitizeDraft(draftAssemble(parts), opts)
 
       // §1.3: reject a draft that echoed instructions or internal data.
@@ -418,7 +434,7 @@ export default function PostEditor({
       // §3 — auto-check. If a FACT CONTRADICTION remains (the fixer cannot
       // rewrite prose) and it maps to a section, regenerate THAT one section
       // once, then re-fix and re-check. Everything else the fixer has handled.
-      let problems = collectBlogProblems(assembled, { publishedPostSlugs, landingPaths })
+      let problems = collectBlogProblems(assembled, { publishedPostSlugs, landingPaths, tutorSlugs })
       const contra = problems.find((p) => p.heading && sections.some((s) => sameHeading(s, p.heading)))
       if (contra?.heading) {
         const idx = sections.findIndex((s) => sameHeading(s, contra.heading))
@@ -433,7 +449,7 @@ export default function PostEditor({
             if (rr.ok && rd.ok && typeof rd.markdown === 'string' && rd.markdown.trim()) {
               parts[idx] = rd.markdown.trim()
               assembled = sanitizeDraft(draftAssemble(parts), opts)
-              problems = collectBlogProblems(assembled, { publishedPostSlugs, landingPaths })
+              problems = collectBlogProblems(assembled, { publishedPostSlugs, landingPaths, tutorSlugs })
             }
           } catch {
             // Keep the first assembly; the problem is reported below.
@@ -460,8 +476,8 @@ export default function PostEditor({
         toast.success('Draft ready — it passes every publish check.')
       }
       setGenNote(
-        draftWords < BLOG_MIN_WORDS
-          ? `Draft is ${draftWords} words — ${BLOG_MIN_WORDS - draftWords} under the ${BLOG_MIN_WORDS}-word target. Add more fact notes so it can cover more ground; padding it would read worse, not better.`
+        draftWords < BLOG_WARN_WORDS
+          ? `Draft is ${draftWords} words — under ${BLOG_WARN_WORDS}; aim for ${BLOG_MIN_WORDS}–${BLOG_MAX_WORDS.toLocaleString('en-PK')}. Add more fact notes so it can cover more ground; padding it would read worse, not better.`
           : problems.length > 0
             ? 'Draft ready. Clear the items in “Before publishing”, then tick Reviewed.'
             : 'Draft ready. Read it through, then tick Reviewed.',
@@ -663,7 +679,9 @@ export default function PostEditor({
 
   const linkChoices = [
     ...PLATFORM_LINK_MAP.map((l) => ({ path: l.path, label: l.intent, text: l.text })),
+    ...rankedLanding.slice(0, 12).map((o) => ({ path: `/${o.path}`, label: `Directory: ${o.label}`, text: o.kind === 'tuitions' ? `${o.subject ?? ''} tuitions in ${o.city ?? ''}`.trim() : `${o.subject ?? ''} tutors in ${o.city ?? ''}`.trim() })),
     ...publishedPosts.map((p) => ({ path: `/blog/${p.slug}`, label: `Blog: ${p.title}`, text: p.title })),
+    ...tutorProfiles.map((t) => ({ path: `/tutor/${t.slug}`, label: `Tutor profile: ${t.name}`, text: t.name })),
   ].filter((c) => {
     const q = linkQuery.trim().toLowerCase()
     return !q || `${c.label} ${c.path}`.toLowerCase().includes(q)
@@ -1380,9 +1398,16 @@ export default function PostEditor({
                 the generation note — never as a persistent warning on a
                 hand-written draft in progress. */}
             <p className="text-[11px] text-gray-500">
-              <span className="font-semibold text-tm-green-deep">
+              <span className={`font-semibold ${words > 0 && words < BLOG_WARN_WORDS ? 'text-tm-gold-ink' : 'text-tm-green-deep'}`}>
                 {words} word{words === 1 ? '' : 's'}
               </span>
+              {/* A warning, never a block (owner, 6 Oct 2026): under 800 words the
+                  line says so and names the 900–1,500 target. */}
+              {words > 0 && words < BLOG_WARN_WORDS && (
+                <span className="font-semibold text-tm-gold-ink">
+                  {' '}· under {BLOG_WARN_WORDS} — aim for {BLOG_MIN_WORDS}–{BLOG_MAX_WORDS.toLocaleString('en-PK')} words
+                </span>
+              )}
               {' · '}
               {preview.readingTime} min read · Embed a live card with <code className="rounded bg-tm-tint-navy px-1">{'{{tutor:slug}}'}</code> or{' '}
               <code className="rounded bg-tm-tint-navy px-1">{'{{job:public-slug}}'}</code> on its own line.
@@ -1521,7 +1546,18 @@ export default function PostEditor({
               <label htmlFor="post-cluster" className={label}>
                 Topic cluster
               </label>
-              <select id="post-cluster" value={post.cluster} onChange={(e) => set('cluster', e.target.value)} className={input}>
+              <select
+                id="post-cluster"
+                value={post.cluster}
+                onChange={(e) => {
+                  const v = e.target.value
+                  set('cluster', v)
+                  // A tutor-career topic is written FOR tutors (owner, 6 Oct 2026):
+                  // the audience follows the cluster; the author may still change it.
+                  if (v === 'tutor-career' && post.audience !== 'tutors') set('audience', 'tutors')
+                }}
+                className={input}
+              >
                 {POST_CLUSTERS.map((c) => (
                   <option key={c.slug} value={c.slug}>
                     {c.label}
@@ -1754,7 +1790,7 @@ export default function PostEditor({
               </p>
             ) : (
               <div className="max-h-40 space-y-1.5 overflow-y-auto">
-                {landingOptions.map((o) => (
+                {rankedLanding.map((o) => (
                   <label key={o.path} className="flex items-start gap-2 text-xs text-gray-700">
                     <input
                       type="checkbox"

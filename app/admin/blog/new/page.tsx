@@ -1,6 +1,6 @@
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import PostEditor from '@/components/admin/blog/PostEditor'
-import { landingOptionsForEditor, emptyEditorPost } from '@/lib/blogEditor'
+import { landingOptionsForEditor, tutorProfileOptionsForEditor, emptyEditorPost } from '@/lib/blogEditor'
 import { publishedPostLinks } from '@/lib/blogFeed'
 import { listEditorSuggestions } from '@/lib/contentQueue/feed'
 import { isClusterSlug, type PostAudience, type PostLanguage } from '@/lib/blog'
@@ -19,11 +19,12 @@ export default async function NewPostPage({
 }: {
   searchParams: Promise<{ suggestion?: string }>
 }) {
-  const [actor, landingOptions, suggestions, publishedPosts, { suggestion }] = await Promise.all([
+  const [actor, landingOptions, suggestions, publishedPosts, tutorProfiles, { suggestion }] = await Promise.all([
     requireAdminRole(...SCREEN_ACCESS.blog),
     landingOptionsForEditor(),
     listEditorSuggestions(),
     publishedPostLinks(),
+    tutorProfileOptionsForEditor(),
     searchParams,
   ])
 
@@ -57,6 +58,7 @@ export default async function NewPostPage({
       initial={initial}
       landingOptions={landingOptions}
       publishedPosts={publishedPosts}
+      tutorProfiles={tutorProfiles}
       suggestions={suggestions}
       canPublishCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogPublish)}
       canApproveCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogApprove)}

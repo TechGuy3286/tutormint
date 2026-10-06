@@ -23,7 +23,16 @@ type Payload =
 // The impression is recorded by the route, at the moment it chooses the ad.
 // This component never counts anything, so React re-rendering it cannot inflate
 // a number an advertiser is billed against.
-export default function InlineAd({ audience, index }: { audience: 'parents' | 'tutors'; index: number }) {
+export default function InlineAd({
+  audience,
+  index,
+  headingLevel = 'h3',
+}: {
+  audience: 'parents' | 'tutors'
+  index: number
+  /** h2 when the slot sits directly under a page h1 (the Browse lists). */
+  headingLevel?: 'h2' | 'h3'
+}) {
   const [payload, setPayload] = useState<Payload | null>(null)
 
   useEffect(() => {
@@ -49,5 +58,5 @@ export default function InlineAd({ audience, index }: { audience: 'parents' | 't
   }, [audience, index])
 
   if (!payload || payload.kind === 'none') return null
-  return <AdView ad={payload} />
+  return <AdView ad={payload} headingLevel={headingLevel} />
 }

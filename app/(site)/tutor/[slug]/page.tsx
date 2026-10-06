@@ -887,6 +887,9 @@ export default async function TutorPublicProfile({ params }: { params: Params })
               seed={tutor.id}
               decorative
               className="h-24 w-24 text-2xl sm:h-36 sm:w-36 sm:text-4xl"
+              px={144}
+              sizes="(min-width: 640px) 144px, 96px"
+              priority
             />
 
             <div className="min-w-0 flex-1 space-y-2">

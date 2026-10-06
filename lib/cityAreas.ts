@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react'
 
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/clientLazy'
 import { buildCityAreaMap, type CityAreaMap } from '@/lib/cityAreasCore'
 
 const EMPTY: CityAreaMap = { cities: [], areasByCity: {} }
@@ -22,7 +22,7 @@ export async function fetchCityAreas(): Promise<CityAreaMap> {
   if (cache) return cache
   if (inFlight) return inFlight
   inFlight = (async () => {
-    const sb = createClient()
+    const sb = await getBrowserClient()
     const [{ data: cityRows }, { data: areaRows }] = await Promise.all([
       sb.from('location_cities').select('id, name, sort_order'),
       sb.from('location_areas').select('name, city_id'),

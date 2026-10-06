@@ -34,7 +34,7 @@ export default function MoreLandingJobs({
       {items.length > 0 && (
         <div className="space-y-4">
           {items.map((j) => (
-            <JobCard key={j.id} job={j} signedIn={false} showApply={false} />
+            <JobCard key={j.id} job={j} signedIn={false} showApply={false} headingLevel="h2" />
           ))}
         </div>
       )}

@@ -61,7 +61,7 @@ export default function TutorHeaderCard({
             </span>
           </div>
         ) : (
-          <Avatar src={avatarUrl} name={name} className="h-16 w-16 text-base" />
+          <Avatar src={avatarUrl} name={name} className="h-16 w-16 text-base" px={64} priority />
         )}
       </div>
 

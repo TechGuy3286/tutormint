@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 import NotificationCta from '@/components/notifications/NotificationCta'
 import OnlineSuitableChip from '@/components/OnlineSuitableChip'
 import { isPlanEnding } from '@/lib/feedGrouping'
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/clientLazy'
 import type { NotificationRow } from '@/lib/notificationFeed'
 import { ListRowSkeletons } from '@/components/Skeletons'
 
@@ -129,13 +129,23 @@ export default function NotificationBell({
   // carries no data, a guessed channel leaks nothing. The exact count re-syncs
   // from the authenticated route whenever the panel opens.
   useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`notify:${userId}`)
-      .on('broadcast', { event: 'new' }, () => setUnread((u) => u + 1))
-      .subscribe()
+    // The client is loaded on demand (lib/supabase/clientLazy) so the public
+    // pages never ship the realtime bundle for a header that is not rendered.
+    let cancelled = false
+    let cleanup: (() => void) | null = null
+    void getBrowserClient()
+      .then((supabase) => {
+        if (cancelled) return
+        const channel = supabase
+          .channel(`notify:${userId}`)
+          .on('broadcast', { event: 'new' }, () => setUnread((u) => u + 1))
+          .subscribe()
+        cleanup = () => void supabase.removeChannel(channel)
+      })
+      .catch(() => {})
     return () => {
-      void supabase.removeChannel(channel)
+      cancelled = true
+      cleanup?.()
     }
   }, [userId])
 

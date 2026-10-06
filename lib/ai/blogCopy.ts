@@ -23,6 +23,7 @@ import { PLATFORM_FACTS_TEXT, LINK_MAP_TEXT } from './platformFacts'
 import {
   BLOG_MAX_WORDS,
   BLOG_MIN_WORDS,
+  BLOG_WARN_WORDS,
   composeBlogDraft,
   unsupportedFigures,
   withBrandTail,
@@ -36,12 +37,26 @@ import {
 const LINK_RULE =
   'Internal links: place 3 to 5 relevant internal links in the body, using the EXACT relative paths from this list and no others (never a full https://tutormint.org URL). Never invent a link, and never link to a path not in this list:'
 
-// The specific links a passing post must carry (PR35 §3), placed in the closing
-// section. The deterministic fixer guarantees these too, so the model only has
-// to try — but asking keeps the draft natural rather than bolted-on.
+// The specific links a passing post must carry (owner, 6 Oct 2026 — supersedes
+// PR35's /membership-plans + /faq), placed where they fit. The deterministic
+// fixer guarantees these too, so the model only has to try — but asking keeps
+// the draft natural rather than bolted-on.
 const REQUIRED_LINKS_RULE = [
-  'Across the whole post, include: exactly ONE link to a published blog post from the list; ONE link to /membership-plans in a tutor-facing line (for example "get verified"); and ONE link to /faq. Link each page at most once.',
+  'Across the whole post, include: at least ONE link to a live tuition or city × subject landing page from the list (a /tutors/<city>/<subject> or /tuitions/<city>/<subject> path), and at least ONE link to another published blog post or an indexable tutor profile from the list. Never link to pricing or membership pages — a post never pushes pricing. Link each page at most once.',
 ].join('\n')
+
+// Who the post is FOR (owner, 6 Oct 2026). The chosen audience decides the
+// voice: a tutor-career post speaks to a tutor, not to a parent reading about
+// tutors.
+function audienceRule(brief: BlogBrief): string {
+  if (brief.audience === 'tutors') {
+    return 'AUDIENCE: TUTORS. Write TO a tutor in Pakistan — "you" is the tutor. Write about their teaching, their students, the fee they set, how they find tuitions and present themselves. Never write as if the reader were a parent choosing a tutor.'
+  }
+  if (brief.audience === 'parents') {
+    return 'AUDIENCE: PARENTS. Write TO a parent in Pakistan — "you" is the parent. Write about their child, choosing a tutor and working with one. Never write as if the reader were a tutor.'
+  }
+  return 'AUDIENCE: BOTH parents and tutors. When a point applies to one group only, say which.'
+}
 
 // Never produced, in any step (PR35 §3): the banned demo phrasing, prices, and
 // outcome promises.
@@ -91,6 +106,7 @@ function brandBrief(brief: BlogBrief): string {
     'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
     PLATFORM_FACTS_TEXT,
     'Voice: plain, warm, specific to Pakistan. No corporate filler, no "in today\'s fast-paced world", no hype.',
+    audienceRule(brief),
     'Structure:',
     `- ${BLOG_MIN_WORDS}-${BLOG_MAX_WORDS} words, and the length must come from COVERING MORE GROUND, never from padding. Generalities repeated at length are worse than a short post — for the reader and for Google.`,
     '- Write 5 to 7 DISTINCT ## H2 sections. Each section answers ONE specific question a Pakistani parent or tutor would actually type into Google (for example: "How much does an O Level Physics tutor cost in Lahore?", "How does TutorMint verify a tutor?", "What does the Verified badge mean?", "How do I hire a tutor step by step?"). Make each section concrete: how a flow actually works, what a badge actually means, what to do step by step.',
@@ -140,7 +156,8 @@ function outlineSystem(brief: BlogBrief, terse = false): string {
   if (terse) {
     return [
       'Plan a TutorMint blog post outline. No prose.',
-      '- 5 to 7 short H2 section headings, each a specific question a Pakistani parent or tutor would search. Make the LAST heading "Frequently asked questions".',
+      audienceRule(brief),
+      '- 5 to 7 short H2 section headings, each a specific question the reader would search. Make the LAST heading "Frequently asked questions".',
       'Also an SEO title (<= 60 chars) and a meta description (<= 155 chars) ending with "No fee, no commission, no middleman.".',
       NO_META_RULE,
       brief.language === 'ur' ? 'Headings in Roman Urdu (Latin script).' : 'Headings in clear English.',
@@ -151,7 +168,8 @@ function outlineSystem(brief: BlogBrief, terse = false): string {
     'You plan a post for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
     PLATFORM_FACTS_TEXT,
     'Produce an OUTLINE only — no prose.',
-    '- 5 to 7 H2 section headings. Each answers ONE specific question a Pakistani parent or tutor would type into Google (fees, how to choose, how verification works, step by step, and so on). Make the LAST heading "Frequently asked questions".',
+    audienceRule(brief),
+    '- 5 to 7 H2 section headings. Each answers ONE specific question the reader would type into Google (fees, how to choose, how verification works, step by step, and so on). Make the LAST heading "Frequently asked questions".',
     'Also produce an SEO title (<= 60 characters) and a meta description (<= 155 characters) ending with "No fee, no commission, no middleman.".',
     BANNED_WORD_RULE,
     NO_META_RULE,
@@ -169,6 +187,7 @@ function sectionSystem(brief: BlogBrief, sections: string[], index: number, ters
     const heading = sections[index]
     return [
       'You write ONE section for the TutorMint blog. Plain, warm, specific to Pakistan. No hype.',
+      audienceRule(brief),
       `Write ONLY the section "## ${heading}"${heading.toLowerCase().includes('frequently asked') ? ' with 3-4 "### " question sub-headings and short answers' : ''}. About 120-180 words. Short paragraphs. Do not write any other heading.`,
       index === sections.length - 1
         ? 'End with a short call to action (post a tuition / join TutorMint), no price.'
@@ -194,9 +213,10 @@ function sectionSystemFull(brief: BlogBrief, sections: string[], index: number):
     'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
     PLATFORM_FACTS_TEXT,
     'Voice: plain, warm, specific to Pakistan. No corporate filler, no hype.',
+    audienceRule(brief),
     `You are writing ONE section of a post titled "${brief.title}". The full outline is:`,
     sections.map((s, i) => `${i + 1}. ${s}`).join('\n'),
-    `Write ONLY section ${index + 1}: "${heading}". Begin with the Markdown heading "## ${heading}"${heading.toLowerCase().includes('frequently asked') ? ' and give 3-4 questions as "### " sub-headings with short answers' : ''}. About 200-300 words. Short paragraphs. Do not repeat other sections and do not write any other heading.`,
+    `Write ONLY section ${index + 1}: "${heading}". Begin with the Markdown heading "## ${heading}"${heading.toLowerCase().includes('frequently asked') ? ' and give 3-4 questions as "### " sub-headings with short answers' : ''}. About 150-250 words (the whole post lands at ${BLOG_MIN_WORDS}-${BLOG_MAX_WORDS} words). Short paragraphs. Do not repeat other sections and do not write any other heading.`,
     last
       ? 'This is the last section — end with a short call to action (post a tuition / join TutorMint), no price.'
       : 'Do NOT add a call to action; this is not the last section.',
@@ -408,7 +428,7 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
     return { ...fallback, note: 'figures', reason: `the draft included unbacked figures (${untraced.join(', ')})` }
   }
 
-  // A draft under the minimum is handed back as-is (never padded), flagged so
-  // the editor asks for more fact notes rather than the model inventing filler.
-  return { body, seoTitle, seoDescription, source: 'claude', untraced, words, short: words < BLOG_MIN_WORDS }
+  // A draft under the warning line is handed back as-is (never padded), flagged
+  // so the editor asks for more fact notes rather than the model inventing filler.
+  return { body, seoTitle, seoDescription, source: 'claude', untraced, words, short: words < BLOG_WARN_WORDS }
 }

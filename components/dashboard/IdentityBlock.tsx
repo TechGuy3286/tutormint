@@ -93,6 +93,9 @@ export default function IdentityBlock({
             src={avatarUrl}
             name={name}
             className="h-16 w-16 text-base sm:h-20 sm:w-20 sm:text-lg"
+            px={80}
+            sizes="(min-width: 640px) 80px, 64px"
+            priority
           />
         )}
       </div>

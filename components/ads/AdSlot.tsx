@@ -43,12 +43,15 @@ export default async function AdSlot({
   viewerRole = null,
   /** The viewer's held plan_code, so a house upsell never pitches it or lower. */
   viewerPlan = null,
+  headingLevel = 'h3',
 }: {
   slot: AdSlotName
   audience?: AdAudience
   index?: number
   viewerRole?: string | null
   viewerPlan?: string | null
+  /** h2 when the slot sits directly under a page h1 (the Browse lists). */
+  headingLevel?: 'h2' | 'h3'
 }) {
   // A parents-audience slot shows NOTHING to a signed-in tutor (owner, 5 Oct
   // 2026): the "See tutor contact details instantly … See parent packages" box
@@ -63,7 +66,7 @@ export default async function AdSlot({
 
   if (paid) {
     await recordImpression(paid.id, slot, viewerRole)
-    return <AdView ad={{ kind: 'paid', ad: paid }} />
+    return <AdView ad={{ kind: 'paid', ad: paid }} headingLevel={headingLevel} />
   }
 
   // House fallback. For a signed-in member of this slot's audience, respect
@@ -72,8 +75,8 @@ export default async function AdSlot({
   if (viewer && matchesSlot(viewer, audience)) {
     const house = houseUpsellAd(viewer, viewerPlan)
     if (!house) return null
-    return <AdView ad={{ kind: 'house', ad: house }} />
+    return <AdView ad={{ kind: 'house', ad: house }} headingLevel={headingLevel} />
   }
 
-  return <AdView ad={{ kind: 'house', ad: houseAd(audience, index) }} />
+  return <AdView ad={{ kind: 'house', ad: houseAd(audience, index) }} headingLevel={headingLevel} />
 }

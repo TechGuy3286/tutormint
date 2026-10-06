@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { Clock } from 'lucide-react'
 
@@ -12,22 +13,39 @@ import type { BlogListItem } from '@/lib/blogFeed'
 //
 // The cover falls back to a cluster-tinted panel rather than a broken image, so
 // a post saved without a picture still reads as a card.
+//
+// The cover goes through next/image (owner, 6 Oct 2026): resized to the card's
+// width (a third of the row on a laptop, the full width on a phone), AVIF/WebP,
+// long-cached by the optimiser. It fills the fixed 16:9 box, so nothing shifts
+// when it arrives. `priority` marks the first card on the index as the first
+// visible image; the rest stay lazy.
 
-export default function PostCard({ post }: { post: BlogListItem }) {
+export default function PostCard({
+  post,
+  headingLevel = 'h3',
+  priority = false,
+}: {
+  post: BlogListItem
+  /** h2 directly under the index's h1; h3 inside a titled section (the default). */
+  headingLevel?: 'h2' | 'h3'
+  priority?: boolean
+}) {
+  const Heading = headingLevel
   const href = postPath(post.slug)
   const cover = post.coverPath ? publicBlogUrl(post.coverPath) : null
 
   return (
     <article className="group overflow-hidden rounded-2xl border border-gray-200 bg-white transition-colors hover:border-tm-navy">
       <Link href={href} className="block">
-        <div className="aspect-[16/9] w-full overflow-hidden bg-tm-tint-navy">
+        <div className="relative aspect-[16/9] w-full overflow-hidden bg-tm-tint-navy">
           {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={cover}
               alt={post.coverAlt ?? ''}
-              className="h-full w-full object-cover"
-              loading="lazy"
+              fill
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+              priority={priority}
+              className="object-cover"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center px-4 text-center">
@@ -46,9 +64,9 @@ export default function PostCard({ post }: { post: BlogListItem }) {
               </span>
             )}
           </div>
-          <h3 className="line-clamp-2 text-sm font-black text-tm-navy group-hover:underline">
+          <Heading className="line-clamp-2 text-sm font-black text-tm-navy group-hover:underline">
             {post.title}
-          </h3>
+          </Heading>
           {post.excerpt && <p className="line-clamp-2 text-xs text-gray-600">{post.excerpt}</p>}
           <div className="flex items-center gap-3 pt-0.5 text-[11px] text-gray-500">
             <span className="inline-flex items-center gap-1">

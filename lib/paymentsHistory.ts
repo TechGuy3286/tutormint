@@ -4,9 +4,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { refundState, refundLabel } from '@/lib/payments/refundCore'
 import { FEE_LABEL } from '@/lib/display'
 
-// A member's own payments and refunds for the dashboard "Payments & refunds"
-// section (PR106-H4 §4.12). No wallet, no balance — a plain list: what each
-// payment was for, how much, its status, and any refund recorded against it.
+// A member's own payments for the dashboard "Payments" section (PR106-H4
+// §4.12; relabelled 6 Oct 2026). No wallet, no balance — a plain list: what each
+// payment was for, how much, its status, and a small "Refunded" tag when one was
+// recorded against it (the refund details themselves stay in admin).
 
 export type PaymentHistoryRow = {
   id: string

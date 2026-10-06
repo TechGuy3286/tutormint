@@ -63,9 +63,9 @@ export default function MoreJobs({
             const position = serverCount + i + 1
             return (
               <div key={j.id} className="space-y-4">
-                <JobCard job={j} signedIn={signedIn} showApply={showApply} applied={!!j.applied} applyBlock={j.applyBlock ?? null} viewerCity={viewerCity} viewerCities={viewerCities} viewerJobTypes={viewerJobTypes} saveable={saveable} initiallySaved={saved.has(j.id)} />
+                <JobCard job={j} signedIn={signedIn} showApply={showApply} applied={!!j.applied} applyBlock={j.applyBlock ?? null} viewerCity={viewerCity} viewerCities={viewerCities} viewerJobTypes={viewerJobTypes} saveable={saveable} initiallySaved={saved.has(j.id)} headingLevel="h2" />
                 {position % adEvery === 0 && (
-                  <InlineAd audience="tutors" index={Math.floor(position / adEvery)} />
+                  <InlineAd audience="tutors" index={Math.floor(position / adEvery)} headingLevel="h2" />
                 )}
               </div>
             )

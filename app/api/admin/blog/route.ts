@@ -19,7 +19,7 @@ import { revalidateBlog, notifySearchEngines } from '@/lib/blogPublish'
 import { figureGate } from '@/lib/ai/blogBrief'
 import { invalidInternalLinks } from '@/lib/ai/platformFacts'
 import { collectBlogProblems } from '@/lib/ai/blogChecker'
-import { landingOptionsForEditor } from '@/lib/blogEditor'
+import { landingOptionsForEditor, tutorProfileOptionsForEditor } from '@/lib/blogEditor'
 import { similarPosts, postsInWeek, cadenceWarning, type SimilarPost } from '@/lib/blogApproval'
 
 // Blog CMS mutations. Save + review is manager or support (support drafts);
@@ -201,10 +201,12 @@ export async function POST(request: Request) {
       // is the live landing pages and published posts, plus the always-valid
       // static pages (handled inside invalidInternalLinks). A link to a page that
       // does not exist blocks the review.
-      const posts = await publishedSlugs()
+      const [posts, tutors] = await Promise.all([publishedSlugs(), tutorProfileOptionsForEditor()])
       const allowed = [
         ...landing.map((l) => `/${l.path}`),
         ...posts.map((p) => `/blog/${p.slug}`),
+        // Indexable tutor profiles may be linked (owner, 6 Oct 2026).
+        ...tutors.map((t) => `/tutor/${t.slug}`),
       ]
       const badLinks = invalidInternalLinks(body.body, allowed)
       if (badLinks.length > 0) {
@@ -353,12 +355,17 @@ export async function POST(request: Request) {
   // 3–5 link/coverage rules) from collectBlogProblems, computed against the live
   // set of landing pages and OTHER published posts.
   async function publishProblems(): Promise<string[]> {
-    const [posts, landing] = await Promise.all([publishedSlugs(), landingOptionsForEditor()])
+    const [posts, landing, tutors] = await Promise.all([
+      publishedSlugs(),
+      landingOptionsForEditor(),
+      tutorProfileOptionsForEditor(),
+    ])
     const otherSlugs = posts.filter((p) => p.slug !== (post!.slug as string)).map((p) => p.slug)
     const landingPaths = landing.map((l) => `/${l.path}`)
     const bodyProblems = collectBlogProblems(gateInput.body, {
       publishedPostSlugs: otherSlugs,
       landingPaths,
+      tutorSlugs: tutors.map((t) => t.slug),
     })
     const reasons = [...statePublishReasons(gateInput), ...bodyProblems.map((p) => p.message)]
     // Approval is enforced HERE, on the server (owner, 5 Oct 2026): nothing

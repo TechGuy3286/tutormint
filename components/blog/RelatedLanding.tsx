@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { GraduationCap, Briefcase } from 'lucide-react'
 
 import { liveLandingPages } from '@/lib/landing'
+import { rankLandingOptions } from '@/lib/blog'
 
 // The landing pages a post is linked to.
 //
@@ -11,8 +12,20 @@ import { liveLandingPages } from '@/lib/landing'
 // now 404s. This is how "a subject or city mention links through the landing
 // helper" is realised on a post — through the picker, not by scanning prose,
 // because a mislinked auto-detected word is worse than none.
+//
+// ORDER (owner, 6 Oct 2026): ranked by match with the post's own city and
+// subject — both first, then the subject, then the city — never alphabetically.
+// The same rule the editor's picker uses (lib/blog rankLandingOptions).
 
-export default async function RelatedLanding({ paths }: { paths: string[] }) {
+export default async function RelatedLanding({
+  paths,
+  city = null,
+  subject = null,
+}: {
+  paths: string[]
+  city?: string | null
+  subject?: string | null
+}) {
   if (!paths || paths.length === 0) return null
 
   const live = await liveLandingPages()
@@ -24,13 +37,27 @@ export default async function RelatedLanding({ paths }: { paths: string[] }) {
 
   if (resolved.length === 0) return null
 
+  const ranked = rankLandingOptions(
+    resolved.map((p) => ({
+      path: `${p.kind}/${p.citySlug}/${p.subjectSlug}`,
+      label: `${p.subjectName} · ${p.city}`,
+      city: p.city,
+      subject: p.subjectName,
+      kind: p.kind,
+      count: p.count,
+      page: p,
+    })),
+    city,
+    subject,
+  )
+
   return (
     <nav aria-label="Related directory pages" className="rounded-2xl border border-gray-200 bg-white p-4">
       <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-500">
         Browse verified listings
       </p>
       <ul className="flex flex-wrap gap-2">
-        {resolved.map((p) => (
+        {ranked.map(({ page: p }) => (
           <li key={`${p.kind}/${p.citySlug}/${p.subjectSlug}`}>
             <Link
               href={`/${p.kind}/${p.citySlug}/${p.subjectSlug}`}

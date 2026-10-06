@@ -17,6 +17,16 @@
 //
 // No 'use client' directive: it holds no state, so it renders on the server and
 // is equally importable from a client component.
+//
+// RESIZED, MODERN FORMAT, LONG-CACHED (owner, 6 Oct 2026). A photo stored in a
+// Supabase PUBLIC bucket goes through next/image: served at the size it is
+// drawn (and 2x for retina), as AVIF/WebP, from Vercel's image cache with a
+// 31-day max-age (next.config.ts `images`). Browse tutors was downloading 1.5 MB
+// of full-resolution JPEGs for twelve 72-px discs. Anything else -- a data: URI,
+// a signed URL, a foreign host -- keeps the plain <img>, because only the public
+// object path is allowed through the optimiser and the rest must never be.
+
+import Image from 'next/image'
 
 import { avatarTint, initialsOf } from '@/lib/brand'
 
@@ -45,6 +55,17 @@ export function normalizeStorageSrc(src: string): string {
   return m ? CURRENT_SUPABASE_ORIGIN + m[1] : src
 }
 
+/**
+ * True when next/image may optimise this source: an object in one of OUR public
+ * storage buckets on the current project host. Matches next.config.ts
+ * remotePatterns exactly, so a URL that would make next/image throw ("hostname
+ * not configured") never reaches it.
+ */
+export function isOptimisableStorageSrc(src: string): boolean {
+  if (!CURRENT_SUPABASE_ORIGIN) return false
+  return src.startsWith(`${CURRENT_SUPABASE_ORIGIN}/storage/v1/object/public/`)
+}
+
 export default function Avatar({
   name,
   src,
@@ -52,6 +73,9 @@ export default function Avatar({
   className = 'h-10 w-10 text-xs',
   ring = 'border-2 border-gray-100',
   decorative = false,
+  px = 48,
+  sizes,
+  priority = false,
 }: {
   name: string | null | undefined
   src?: string | null
@@ -66,15 +90,48 @@ export default function Avatar({
    * reader, not information.
    */
   decorative?: boolean
+  /**
+   * The LARGEST size the avatar is drawn at, in CSS pixels (the sm: breakpoint
+   * value when it grows). Decides the resized widths next/image offers; the
+   * browser picks 1x or 2x from `sizes`. Default 48 (a 40–48 px list disc).
+   */
+  px?: number
+  /** A `sizes` attribute when the drawn size changes with the viewport, e.g.
+   *  "(min-width: 640px) 140px, 72px". Defaults to `${px}px`. */
+  sizes?: string
+  /** True for the first visible photo on a page (fetchpriority=high + preload). */
+  priority?: boolean
 }) {
   if (src) {
+    const resolved = normalizeStorageSrc(src)
+    const alt = decorative ? '' : (name ?? '')
+    const cls = `shrink-0 rounded-full bg-tm-bg object-cover ${ring} ${className}`
+    if (isOptimisableStorageSrc(resolved)) {
+      return (
+        <Image
+          src={resolved}
+          alt={alt}
+          aria-hidden={decorative || undefined}
+          width={px}
+          height={px}
+          sizes={sizes ?? `${px}px`}
+          priority={priority}
+          className={cls}
+        />
+      )
+    }
     return (
-      // eslint-disable-next-line @next/next/no-img-element
+      // eslint-disable-next-line @next/next/no-img-element -- a data: URI, a
+      // signed URL or a foreign host: not ours to optimise, see above.
       <img
-        src={normalizeStorageSrc(src)}
-        alt={decorative ? '' : (name ?? '')}
+        src={resolved}
+        alt={alt}
         aria-hidden={decorative || undefined}
-        className={`shrink-0 rounded-full bg-tm-bg object-cover ${ring} ${className}`}
+        width={px}
+        height={px}
+        loading={priority ? 'eager' : 'lazy'}
+        decoding="async"
+        className={cls}
       />
     )
   }

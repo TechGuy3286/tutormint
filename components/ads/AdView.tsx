@@ -17,7 +17,15 @@ import { type HouseAd, type PaidAd } from '@/lib/ads'
 // This component records nothing: it is handed an ad that has already been
 // counted, so it cannot count one twice by re-rendering.
 
-export default function AdView({ ad }: { ad: { kind: 'paid'; ad: PaidAd } | { kind: 'house'; ad: HouseAd } }) {
+export default function AdView({
+  ad,
+  headingLevel = 'h3',
+}: {
+  ad: { kind: 'paid'; ad: PaidAd } | { kind: 'house'; ad: HouseAd }
+  /** h2 when the slot sits directly under a page h1 (the Browse lists), else h3. */
+  headingLevel?: 'h2' | 'h3'
+}) {
+  const Heading = headingLevel
   if (ad.kind === 'paid') {
     const paid = ad.ad
     return (
@@ -37,7 +45,7 @@ export default function AdView({ ad }: { ad: { kind: 'paid'; ad: PaidAd } | { ki
             <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">
               Sponsored{paid.clientName ? ` · ${paid.clientName}` : ''}
             </p>
-            <h3 className="text-sm font-black text-tm-navy">{paid.title}</h3>
+            <Heading className="text-sm font-black text-tm-navy">{paid.title}</Heading>
             {paid.description && (
               <p className="text-xs leading-relaxed text-slate-700">{paid.description}</p>
             )}
@@ -54,7 +62,7 @@ export default function AdView({ ad }: { ad: { kind: 'paid'; ad: PaidAd } | { ki
       className="rounded-2xl border border-dashed border-tm-gold/50 bg-tm-tint-gold p-4 sm:p-6"
     >
       <p className="text-[10px] font-black uppercase tracking-wider text-tm-gold-ink">TutorMint</p>
-      <h3 className="pt-1 text-sm font-black text-tm-navy">{house.title}</h3>
+      <Heading className="pt-1 text-sm font-black text-tm-navy">{house.title}</Heading>
       <p className="pt-1 text-xs leading-relaxed text-slate-700">{house.body}</p>
       <Link
         href={house.href}

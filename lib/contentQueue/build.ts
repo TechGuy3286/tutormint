@@ -29,6 +29,9 @@ import {
   priorityOf,
   type Candidate,
 } from './core'
+import { careerCandidates } from './careerTopics'
+import { balanceMix, dedupeTitles, gscCandidate } from './mix'
+import { fetchSearchConsoleRows, searchConsoleConfigured, GSC_SITE_URL } from './gsc'
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 
@@ -256,24 +259,55 @@ async function reportCandidates(admin: Admin): Promise<Candidate[]> {
   return out
 }
 
-// ------------------------------------------------- Search Console (dormant) --
+// ------------------------------------------------------ Search Console --------
 
 /**
- * GSC positions 8–20 would be a strong signal — a page one nudge from page one.
- * The module and its settings screen exist; it is DORMANT until credentials
- * exist. It never fabricates data: no key -> no candidates and a "Not connected"
- * status with the steps, never a made-up query list.
+ * GSC positions 8–20 are a strong signal — a page one nudge from page one. It
+ * runs with the SAME service account the Indexing API uses (owner, 6 Oct 2026),
+ * under the read-only Search Console scope (lib/contentQueue/gsc). It never
+ * fabricates data: no credentials or a failed read -> no GSC candidates, the
+ * queue keeps its other sources, and the failure is logged once.
  */
 export function searchConsoleStatus(): { connected: boolean; steps: string[] } {
-  const connected = !!process.env.GSC_SERVICE_ACCOUNT_JSON && !!process.env.GSC_SITE_URL
+  const connected = searchConsoleConfigured()
   return {
     connected,
     steps: [
-      'Create a Google Search Console property for tutormint.org and verify it.',
-      'Create a Google Cloud service account, enable the Search Console API, and grant the service account read access to the property.',
-      'Set GSC_SERVICE_ACCOUNT_JSON (the service-account key) and GSC_SITE_URL in the server environment.',
-      'This screen turns on and positions 8–20 begin feeding the queue.',
+      `Search Console property: ${GSC_SITE_URL} (owner-verified).`,
+      'The Google service account used for the Indexing API (GOOGLE_INDEXING_CLIENT_EMAIL / GOOGLE_INDEXING_PRIVATE_KEY in Vercel) must be an owner or full user of that property.',
+      'Enable the "Google Search Console API" for the same Google Cloud project.',
+      'The nightly rebuild (and "Rebuild now") then reads the last 28 days of queries; positions 8–20 feed the queue.',
     ],
+  }
+}
+
+let loggedGscFailure = false
+
+/** Search Console page-two queries as candidates; empty (and logged ONCE) when
+ *  Search Console is not configured or the read fails. */
+async function gscCandidates(cities: string[]): Promise<Candidate[]> {
+  if (!searchConsoleConfigured()) return []
+  try {
+    const rows = await fetchSearchConsoleRows(28)
+    return rows.map((r) => gscCandidate(r, cities)).filter((c): c is Candidate => !!c)
+  } catch (e) {
+    if (!loggedGscFailure) {
+      loggedGscFailure = true
+      console.warn('[contentQueue] Search Console unavailable — queue built from the other sources:', e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200))
+    }
+    return []
+  }
+}
+
+/** The live city and subject NAME lists the dedupe skeleton strips. */
+async function nameLists(admin: Admin): Promise<{ cities: string[]; subjects: string[] }> {
+  const [c, s] = await Promise.all([
+    admin.from('location_cities').select('name').limit(500),
+    admin.from('taxonomy_subjects').select('name').limit(2000),
+  ])
+  return {
+    cities: (c.data ?? []).map((r) => r.name as string).filter(Boolean),
+    subjects: (s.data ?? []).map((r) => r.name as string).filter(Boolean),
   }
 }
 
@@ -325,8 +359,31 @@ export async function rebuildContentQueue(now = new Date()): Promise<RebuildResu
   }
   candidates.push(...calendarCandidates(now))
 
+  // Search Console page-two queries (owner, 6 Oct 2026), and the evergreen
+  // tutor-career list that keeps the queue ≈40% for tutors.
+  const names = await nameLists(admin)
+  candidates.push(...(await gscCandidates(names.cities)))
+  candidates.push(...careerCandidates())
+
   const { data: existingRows } = await admin.from('content_suggestions').select('*').limit(5000)
   const byFp = new Map((existingRows ?? []).map((r) => [r.fingerprint as string, r]))
+
+  // NEVER suggest a title that differs from an existing post or suggestion only
+  // by city, grade or subject (owner, 6 Oct 2026). Existing = every post (any
+  // status) + every suggestion row (a dismissed template blocks its variants).
+  // Candidates are compared highest-priority first so the strongest of a
+  // templated family survives. Then the mix: ≈40% tutor-career.
+  const { data: postRows } = await admin.from('posts').select('title').limit(2000)
+  const existingTitles = [
+    ...(postRows ?? []).map((r) => ({ title: r.title as string })),
+    ...(existingRows ?? []).map((r) => ({ title: r.title as string, fingerprint: r.fingerprint as string })),
+  ]
+  const ranked = [...candidates].sort((a, b) => priorityOf(b.components) - priorityOf(a.components))
+  const deduped = dedupeTitles(ranked, existingTitles, names.cities, names.subjects)
+  const shaped = balanceMix(deduped)
+  candidates.length = 0
+  candidates.push(...shaped)
+
   const seen = new Set<string>()
 
   let inserted = 0

@@ -13,7 +13,7 @@
 import { slugify } from '@/lib/slugs'
 
 export type SuggestionCard = 'content' | 'recruitment'
-export type SuggestionSource = 'search_gap' | 'calendar' | 'coverage_gap' | 'reports' | 'gsc' | 'recruitment'
+export type SuggestionSource = 'search_gap' | 'calendar' | 'coverage_gap' | 'reports' | 'gsc' | 'recruitment' | 'career'
 export type Audience = 'parents' | 'tutors' | 'both'
 export type Language = 'en' | 'ur'
 

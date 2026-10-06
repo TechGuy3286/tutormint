@@ -49,6 +49,16 @@ export function indexingConfigured(): boolean {
   return credentials() !== null
 }
 
+/**
+ * The same service account, for the READ-ONLY Search Console query the content
+ * queue makes (owner, 6 Oct 2026). The account is already an owner of the
+ * Search Console property (that is what the Indexing API needed), so no second
+ * credential exists. The key stays in memory for the request; never logged.
+ */
+export function googleServiceCredentials(): { email: string; key: string } | null {
+  return credentials()
+}
+
 /** The email on file (never the key) — for the health check's report. */
 export function indexingClientEmail(): string | null {
   return credentials()?.email ?? null

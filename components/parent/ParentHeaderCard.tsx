@@ -39,7 +39,7 @@ export default function ParentHeaderCard({
   return (
     <section className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4">
       <div className="shrink-0">
-        <Avatar src={avatarUrl} name={name} className="h-16 w-16 text-base" />
+        <Avatar src={avatarUrl} name={name} className="h-16 w-16 text-base" px={64} priority />
       </div>
 
       <div className="min-w-0 flex-1 space-y-1.5">

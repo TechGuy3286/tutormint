@@ -1,16 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/clientLazy'
 
 export default function ChatRequestButton({ tutorId, parentId }: { tutorId: string, parentId: string }) {
   const [requestSent, setRequestSent] = useState(false)
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
-
   const handleSendChatRequest = async () => {
     setLoading(true)
     try {
+      const supabase = await getBrowserClient()
       const { error } = await supabase.from('chat_requests').insert({
         tutor_id: tutorId,
         parent_id: parentId,

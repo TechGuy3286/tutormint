@@ -73,6 +73,9 @@ export default async function PublicParentPage({ params }: { params: Params }) {
           seed={parent.id}
           className="h-16 w-16 shrink-0 text-lg sm:h-20 sm:w-20 sm:text-xl"
           decorative
+          px={80}
+          sizes="(min-width: 640px) 80px, 64px"
+          priority
         />
         <div className="min-w-0 flex-1 space-y-1.5">
           {/* PR106-D §3 — name + badges on ONE wrapping line, badges after the name. */}

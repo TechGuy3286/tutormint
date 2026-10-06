@@ -437,9 +437,10 @@ test('PR17 §4.2 contradiction: ranking/badge/all-checked/outcome claims flagged
 test('PR17 §4.3 link rules', () => {
   const good = [
     'See our [membership plans](/membership-plans) and [questions and answers](/faq).',
-    'Read [our O Level guide](/blog/o-level-guide) and browse [Physics tutors](/browse/tutors).',
+    // One live landing page and one other post — the two required links (owner, 6 Oct 2026).
+    'Read [our O Level guide](/blog/o-level-guide) and browse [Physics tutors in Lahore](/tutors/lahore/o-levels-physics).',
   ].join('\n')
-  assert.deepEqual(linkRuleViolations(good, { hasPublishedPosts: true }), [], 'a well-formed post passes')
+  assert.deepEqual(linkRuleViolations(good, { hasPublishedPosts: true, hasLandingPages: true }), [], 'a well-formed post passes')
 
   // Too few links.
   assert.ok(linkRuleViolations('[faq](/faq)', { hasPublishedPosts: false }).some((s) => /3 to 5/.test(s)))
@@ -452,9 +453,12 @@ test('PR17 §4.3 link rules', () => {
   const wrongText = '[tutors here](/browse/tuitions) [faq](/faq) [plans](/membership-plans) [post](/blog/x)'
   assert.ok(linkRuleViolations(wrongText, { hasPublishedPosts: true }).some((s) => /open tuitions/.test(s)))
 
-  // Missing /faq.
+  // /faq is OPTIONAL now (owner, 6 Oct 2026): a post without it is not flagged for it,
+  // and /membership-plans is never required.
   const noFaq = '[plans](/membership-plans) [post](/blog/x) [tutors](/browse/tutors)'
-  assert.ok(linkRuleViolations(noFaq, { hasPublishedPosts: true }).some((s) => /\/faq/.test(s)))
+  const v = linkRuleViolations(noFaq, { hasPublishedPosts: true })
+  assert.ok(!v.some((s) => /\/faq/.test(s)))
+  assert.ok(!v.some((s) => /membership-plans/.test(s)))
 })
 
 test('PR17 §4.5 notes-topic mismatch warns on a foreign subject', () => {
@@ -509,7 +513,8 @@ test('PR35 §3: sanitizeDraft makes a bare draft pass the link rules', () => {
   assert.equal((fixed.match(/\]\(\/membership-plans\)/g) || []).length, 1)
   // "free demo" lost the "free".
   assert.ok(!/free\s+demo/i.test(fixed))
-  // The required links are present, so the link rules pass.
+  // The required links are present (one other post; no landing page exists in
+  // this test, so that rule is skipped), so the link rules pass.
   const problems = collectBlogProblems(fixed, { publishedPostSlugs: ['o-level-guide'], landingPaths: [] })
   assert.deepEqual(problems, [], `a sanitized draft should have no problems, got: ${problems.map((p) => p.message).join(' | ')}`)
 })

@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { Clock } from 'lucide-react'
@@ -134,11 +135,19 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
         {cover && (
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            {/* The cover is the page's LCP element (owner, 6 Oct 2026): next/image
+                resizes it to the column width as AVIF/WebP, long-cached, and
+                `priority` preloads it with fetchpriority=high. Generated covers
+                are 1200x630; the explicit size reserves the box so the article
+                below no longer shifts when the picture arrives (CLS 0.145 → 0). */}
+            <Image
               src={cover}
               alt={post.coverAlt ?? ''}
-              className="max-h-[420px] w-full object-cover"
+              width={1200}
+              height={630}
+              sizes="(min-width: 1024px) 960px, 100vw"
+              priority
+              className="h-auto max-h-[420px] w-full object-cover"
             />
           </div>
         )}
@@ -148,7 +157,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               above the body on mobile. */}
           <aside className="mb-4 space-y-4 lg:mb-0 lg:sticky lg:top-20 lg:self-start">
             <Toc headings={headings} />
-            <RelatedLanding paths={landingPaths} />
+            <RelatedLanding paths={landingPaths} city={post.city} subject={post.subject} />
           </aside>
 
           <div className="min-w-0 space-y-6">

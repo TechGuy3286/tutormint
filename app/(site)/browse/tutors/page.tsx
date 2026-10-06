@@ -398,6 +398,8 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
                   viewer={viewer}
                   initiallySaved={saved.has(t.id)}
                   showMessage={!viewer.signedIn || viewer.role !== 'tutor'}
+                  headingLevel="h2"
+                  priority={i === 0}
                 />
                 {/* One inline slot after every 8 results, never inside the
                     ranking itself. */}
@@ -405,6 +407,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
                   <AdSlot
                     slot="browse-inline"
                     audience="parents"
+                    headingLevel="h2"
                     index={Math.floor(i / AD_EVERY)}
                     viewerRole={viewer.role ?? null}
                     viewerPlan={viewerPlan}

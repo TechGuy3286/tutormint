@@ -64,13 +64,14 @@ export default function MoreTutors({
                   viewer={viewer}
                   initiallySaved={!!t.saved}
                   showMessage={!viewer.signedIn || viewer.role !== 'tutor'}
+                  headingLevel="h2"
                 />
                 {/* The same rhythm as the server-rendered window above,
                     continued from where it stopped. A signed-in TUTOR gets no
                     box between tutor cards at all — no upsell and no
                     replacement (owner, 5 Oct 2026), matching the first window. */}
                 {position % adEvery === 0 && viewer.role !== 'tutor' && (
-                  <InlineAd audience="parents" index={Math.floor(position / adEvery)} />
+                  <InlineAd audience="parents" index={Math.floor(position / adEvery)} headingLevel="h2" />
                 )}
               </div>
             )

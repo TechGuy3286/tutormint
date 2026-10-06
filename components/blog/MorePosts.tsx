@@ -38,7 +38,7 @@ export default function MorePosts({
       {items.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((p) => (
-            <PostCard key={p.id} post={p} />
+            <PostCard key={p.id} post={p} headingLevel="h2" />
           ))}
         </div>
       )}

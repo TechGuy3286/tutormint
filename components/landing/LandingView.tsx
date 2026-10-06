@@ -112,8 +112,8 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
       .filter((x): x is { name: string; url: string } => !!x)
     firstWindow = (
       <div className="space-y-4">
-        {tutors.map((t) => (
-          <TutorCard key={t.id} tutor={t} viewer={GUEST} initiallySaved={false} showMessage />
+        {tutors.map((t, i) => (
+          <TutorCard key={t.id} tutor={t} viewer={GUEST} initiallySaved={false} showMessage headingLevel="h2" priority={i === 0} />
         ))}
       </div>
     )
@@ -142,7 +142,7 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
     firstWindow = (
       <div className="space-y-4">
         {jobs.map((j) => (
-          <JobCard key={j.id} job={j} signedIn={false} showApply={false} />
+          <JobCard key={j.id} job={j} signedIn={false} showApply={false} headingLevel="h2" />
         ))}
       </div>
     )

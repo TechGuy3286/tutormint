@@ -50,6 +50,7 @@ export default function MoreLandingTutors({
               viewer={viewer}
               initiallySaved={!!t.saved}
               showMessage={!viewer.signedIn || viewer.role !== 'tutor'}
+              headingLevel="h2"
             />
           ))}
         </div>

@@ -1,19 +1,50 @@
 import 'server-only'
 import { liveLandingPages } from '@/lib/landing'
+import { createPublicClient } from '@/lib/supabase/public'
 import type { EditorPost } from '@/components/admin/blog/PostEditor'
-import type { PostAudience, PostLanguage, PostStatus } from '@/lib/blog'
+import type { LandingOption, PostAudience, PostLanguage, PostStatus } from '@/lib/blog'
 
-// Server helpers the blog editor pages share: the related-landing options and
-// the row → editor-state conversion.
+// Server helpers the blog editor pages share: the related-landing options, the
+// indexable tutor profiles a post may link, and the row → editor-state conversion.
 
-export async function landingOptionsForEditor(): Promise<{ path: string; label: string }[]> {
+/**
+ * The live landing pages, with the city and subject each is about so the editor
+ * can rank them by match with the post (lib/blog rankLandingOptions) — ordered
+ * here by how many listings a page has, never alphabetically (owner, 6 Oct 2026).
+ */
+export async function landingOptionsForEditor(): Promise<LandingOption[]> {
   const pages = await liveLandingPages()
   return pages
     .map((p) => ({
       path: `${p.kind}/${p.citySlug}/${p.subjectSlug}`,
       label: `${p.subjectName} · ${p.city} (${p.kind === 'tutors' ? 'tutors' : 'tuitions'})`,
+      city: p.city,
+      subject: p.subjectName,
+      kind: p.kind,
+      count: p.count,
     }))
-    .sort((a, b) => a.label.localeCompare(b.label))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+}
+
+export type TutorProfileOption = { slug: string; name: string }
+
+/**
+ * The tutor profiles a post may link (owner, 6 Oct 2026): ONLY indexable ones —
+ * the same set the sitemap lists (listed_tutor_slugs(): in the directory, fee
+ * paid, CNIC + photo + selfie approved, not a fixture). A link to any other
+ * profile is flagged by the checker. Names come from tutor_directory, which the
+ * anon key may read.
+ */
+export async function tutorProfileOptionsForEditor(): Promise<TutorProfileOption[]> {
+  const db = createPublicClient()
+  const { data: rows } = await db.rpc('listed_tutor_slugs')
+  const slugs = ((rows ?? []) as { slug: string }[]).map((r) => r.slug).filter(Boolean)
+  if (slugs.length === 0) return []
+  const { data: names } = await db.from('tutor_directory').select('slug, full_name').in('slug', slugs)
+  const nameBySlug = new Map((names ?? []).map((r) => [r.slug as string, (r.full_name as string) ?? '']))
+  return slugs
+    .map((slug) => ({ slug, name: nameBySlug.get(slug) || slug }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export function toEditorPost(row: Record<string, unknown>): EditorPost {

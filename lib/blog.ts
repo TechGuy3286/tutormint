@@ -50,6 +50,46 @@ export const LANGUAGES: { value: PostLanguage; label: string }[] = [
   { value: 'ur', label: 'Urdu' },
 ]
 
+/**
+ * A live city × subject landing page as the editor offers it (owner, 6 Oct
+ * 2026): path without the leading slash, a label, and the city/subject it is
+ * about so the list can be RANKED by match with the post — never alphabetically.
+ */
+export type LandingOption = {
+  path: string
+  label: string
+  city?: string | null
+  subject?: string | null
+  kind?: 'tutors' | 'tuitions'
+  /** Listed tutors / open tuitions on the page — the tie-breaker. */
+  count?: number
+}
+
+function sameSubject(a: string, b: string): boolean {
+  if (!a || !b) return false
+  if (a === b) return true
+  // "Grade 9 & 10 - Science English" vs "Grade 9 English": either contains the other.
+  return a.includes(b) || b.includes(a)
+}
+
+/**
+ * Related landing pages ranked by match with the post's city and subject —
+ * both match first, then the subject, then the city, then the rest; ties by
+ * how many listings the page has, then by label. Never plain alphabetical.
+ */
+export function rankLandingOptions<T extends LandingOption>(options: T[], city: string | null | undefined, subject: string | null | undefined): T[] {
+  const c = (city ?? '').trim().toLowerCase()
+  const s = (subject ?? '').trim().toLowerCase()
+  const score = (o: LandingOption) => {
+    const cm = !!c && (o.city ?? '').trim().toLowerCase() === c
+    const sm = !!s && sameSubject((o.subject ?? '').trim().toLowerCase(), s)
+    return cm && sm ? 0 : sm ? 1 : cm ? 2 : 3
+  }
+  return [...options].sort(
+    (a, b) => score(a) - score(b) || (b.count ?? 0) - (a.count ?? 0) || a.label.localeCompare(b.label),
+  )
+}
+
 /** The SEO field ceilings the editor counts against. */
 export const SEO_TITLE_MAX = 60
 export const SEO_DESCRIPTION_MAX = 155

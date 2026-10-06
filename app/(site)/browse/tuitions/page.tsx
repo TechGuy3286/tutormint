@@ -450,11 +450,13 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
                   viewerJobTypes={viewerJobTypes}
                   saveable={isTutor}
                   initiallySaved={savedIds.has(job.id)}
+                  headingLevel="h2"
                 />
                 {(i + 1) % AD_EVERY === 0 && (
                   <AdSlot
                     slot="browse-inline"
                     audience="tutors"
+                    headingLevel="h2"
                     index={Math.floor(i / AD_EVERY)}
                     viewerRole={viewerRole}
                     viewerPlan={viewerPlan}

@@ -7,7 +7,6 @@
 //                          construction: full tutormint.org URLs become relative,
 //                          a link repeated after its first use is unlinked,
 //                          "free demo" loses the "free", and the required links
-//                          (/membership-plans, /faq, and one published blog post)
 //                          are added in a closing paragraph if missing. A draft
 //                          out the far side of this passes every LINK rule.
 //
@@ -16,6 +15,13 @@
 //                          the editor shows them together instead of one at a
 //                          time. It is the same set the publish route enforces,
 //                          so the editor and the server cannot disagree.
+//
+// THE REQUIRED LINKS (owner, 6 Oct 2026 — supersedes PR35's /membership-plans +
+// /faq + one post): 3–5 internal links, each once; at least ONE to a live
+// tuition or city × subject landing page; at least ONE to another blog post or
+// an indexable tutor profile. /membership-plans is never required (pricing is
+// never pushed from a post) and /faq is optional. The rule itself lives in
+// lib/ai/platformFacts linkRuleViolations; this file composes it.
 //
 // PURE — no network, no server-only import — so the editor (client), the publish
 // route (server) and the tests all read the same rules. It draws the individual
@@ -26,6 +32,8 @@ import {
   contradictionViolations,
   internalLinksIn,
   invalidInternalLinks,
+  isLandingOrTuitionLink,
+  isPostOrProfileLink,
   linkRuleViolations,
 } from './platformFacts'
 import { staticValidPaths, suggestValidPage } from './blogRoutes'
@@ -92,6 +100,9 @@ export type CheckerContext = {
   publishedPostSlugs: string[]
   /** Live landing-page paths (with the leading slash), e.g. /tutors/lahore/… */
   landingPaths: string[]
+  /** Indexable tutor profile slugs — a /tutor/<slug> link may point at any of
+   *  these (owner, 6 Oct 2026). Optional; defaults to none. */
+  tutorSlugs?: string[]
 }
 
 /**
@@ -115,20 +126,28 @@ export function collectBlogProblems(body: string, ctx: CheckerContext): BlogProb
     add(`${c.why} (in “${plainText(c.line)}”)`, c.heading)
   }
 
+  const tutorSlugs = ctx.tutorSlugs ?? []
   const allowed = [
     ...ctx.landingPaths,
     ...ctx.publishedPostSlugs.map((s) => `/blog/${s}`),
+    ...tutorSlugs.map((s) => `/tutor/${s}`),
   ]
   for (const href of invalidInternalLinks(body, allowed)) {
     const base = href.startsWith('/blog/')
       ? `This links to a blog post that is not published: ${href}`
-      : `This links to a page that does not exist: ${href}`
+      : href.startsWith('/tutor/')
+        ? `This links to a tutor profile that is not indexable: ${href}`
+        : `This links to a page that does not exist: ${href}`
     // Plain-words guidance on which page to use instead (PR36 §2).
     const hint = suggestValidPage(href)
     add(hint ? `${base} — ${hint}` : base, headingForLink(body, href))
   }
 
-  for (const v of linkRuleViolations(body, { hasPublishedPosts: ctx.publishedPostSlugs.length > 0 })) {
+  for (const v of linkRuleViolations(body, {
+    hasPublishedPosts: ctx.publishedPostSlugs.length > 0,
+    hasTutorProfiles: tutorSlugs.length > 0,
+    hasLandingPages: ctx.landingPaths.length > 0,
+  })) {
     add(plainText(v))
   }
 
@@ -155,13 +174,39 @@ function joinList(parts: string[]): string {
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
 }
 
+/** "grade-1-mathematics" → "Grade 1 Mathematics"; "lahore" → "Lahore". */
+function wordsFromSlug(slug: string): string {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+/**
+ * Link text for a landing/tuition path that passes the text rule: a /tutors/
+ * page says "tutors", a /tuitions/ page says "tuitions".
+ * "/tutors/lahore/grade-1-mathematics" → "Grade 1 Mathematics tutors in Lahore".
+ */
+export function landingLinkText(path: string): string {
+  const m = /^\/(tutors|tuitions)\/([^/]+)\/([^/]+)$/.exec(normHref(path))
+  if (!m) return path
+  const [, kind, citySlug, subjectSlug] = m
+  const city = wordsFromSlug(citySlug)
+  const subject = wordsFromSlug(subjectSlug)
+  return kind === 'tutors' ? `${subject} tutors in ${city}` : `${subject} tuitions in ${city}`
+}
+
 export type SanitizeOptions = {
-  /** Published post slugs other than this post — for the "one blog link" rule. */
+  /** Published post slugs other than this post — for the "another post" rule. */
   blogSlugs: string[]
   audience: 'parents' | 'tutors' | 'both'
   /** Live landing-page paths (with leading slash), so a valid landing link is
-   *  not stripped as unknown. Optional; defaults to none. */
+   *  not stripped as unknown, and so a missing landing link can be added. */
   landingPaths?: string[]
+  /** Indexable tutor profile slugs — valid /tutor/<slug> targets, and the
+   *  fallback for the "another post or a profile" rule when no post exists. */
+  tutorSlugs?: string[]
 }
 
 /**
@@ -169,14 +214,16 @@ export type SanitizeOptions = {
  *   1. full tutormint.org URLs → relative paths,
  *   2. "free demo" → "demo",
  *   3. an internal link repeated after its first use → unlinked (text kept),
- *   4. the required links (/membership-plans, /faq, one published /blog post,
- *      and an audience link if fewer than three) added in a closing paragraph
- *      when missing,
+ *   4. the required links (one live tuition/landing page, one other post or
+ *      indexable tutor profile, and an audience link if still fewer than three)
+ *      added in a closing paragraph when missing,
  *   5. capped at five internal links — extra non-required ones unlinked.
  * The result passes linkRuleViolations by construction.
  */
 export function sanitizeDraft(body: string, opts: SanitizeOptions): string {
   let out = body
+  const landingPaths = (opts.landingPaths ?? []).map(normHref)
+  const tutorSlugs = opts.tutorSlugs ?? []
 
   // 1. Absolute site URLs → relative. Both apex and www, in link targets.
   out = out.replace(
@@ -188,14 +235,15 @@ export function sanitizeDraft(body: string, opts: SanitizeOptions): string {
   out = out.replace(/\bfree\s+(demos?)\b/gi, '$1')
 
   // 2b. Unlink any internal link to a page that is NOT valid (PR36 §4): the
-  // shared static pages, a published /blog/<slug>, or a live landing page. An
-  // unknown page (an old /parent/dashboard/post-job typo, an invented path) is
+  // shared static pages, a published /blog/<slug>, a live landing page, or an
+  // indexable /tutor/<slug>. An unknown page (an old typo, an invented path) is
   // turned back into plain text, so a draft never carries a dead link. The
   // required links are ensured afterwards, so the post still passes the checker.
   {
     const valid = new Set<string>(staticValidPaths().map(normHref))
     for (const s of opts.blogSlugs) valid.add(`/blog/${s}`)
-    for (const p of opts.landingPaths ?? []) valid.add(normHref(p))
+    for (const p of landingPaths) valid.add(p)
+    for (const s of tutorSlugs) valid.add(`/tutor/${s}`)
     out = out.replace(INTERNAL_LINK_RE, (m, text: string, href: string) =>
       valid.has(normHref(href)) ? m : text,
     )
@@ -217,11 +265,12 @@ export function sanitizeDraft(body: string, opts: SanitizeOptions): string {
   const missing: string[] = []
   const link = (href: string, text: string) => `[${text}](${href})`
 
-  if (!present.has('/membership-plans')) missing.push(link('/membership-plans', 'membership plans'))
-  if (!present.has('/faq')) missing.push(link('/faq', 'the FAQ'))
-  const hasBlog = [...present].some((h) => h.startsWith('/blog/'))
-  if (!hasBlog && opts.blogSlugs.length > 0) {
-    missing.push(link(`/blog/${opts.blogSlugs[0]}`, 'a related guide'))
+  if (![...present].some(isLandingOrTuitionLink) && landingPaths.length > 0) {
+    missing.push(link(landingPaths[0], landingLinkText(landingPaths[0])))
+  }
+  if (![...present].some(isPostOrProfileLink)) {
+    if (opts.blogSlugs.length > 0) missing.push(link(`/blog/${opts.blogSlugs[0]}`, 'a related guide'))
+    else if (tutorSlugs.length > 0) missing.push(link(`/tutor/${tutorSlugs[0]}`, 'a tutor profile on TutorMint'))
   }
 
   // Reach at least three internal links: add an audience-appropriate link.
@@ -233,9 +282,12 @@ export function sanitizeDraft(body: string, opts: SanitizeOptions): string {
       missing.push(link('/browse/tuitions', 'open tuitions'))
     }
   }
+  if (present.size + missing.length < 3 && !present.has('/browse/tutors')) {
+    missing.push(link('/browse/tutors', 'browse tutors'))
+  }
 
   if (missing.length > 0) {
-    out = `${out.trimEnd()}\n\nMore on TutorMint: read ${joinList(missing)}.`
+    out = `${out.trimEnd()}\n\nMore on TutorMint: see ${joinList(missing)}.`
   }
 
   // 5. Cap at five internal links. Keep the required ones + the earliest others.
@@ -244,9 +296,9 @@ export function sanitizeDraft(body: string, opts: SanitizeOptions): string {
   return out
 }
 
-/** Keep at most five internal links: /membership-plans, /faq and the first
- *  /blog link always survive; the earliest remaining links fill up to five; the
- *  rest are unlinked (text kept). */
+/** Keep at most five internal links: the first landing/tuition link and the
+ *  first post/profile link always survive; the earliest remaining links fill up
+ *  to five; the rest are unlinked (text kept). */
 function capLinks(body: string): string {
   const links: { href: string; index: number }[] = []
   for (const m of body.matchAll(INTERNAL_LINK_RE)) {
@@ -255,10 +307,10 @@ function capLinks(body: string): string {
   if (links.length <= 5) return body
 
   const keep = new Set<string>()
-  const required = ['/membership-plans', '/faq']
-  for (const r of required) if (links.some((l) => l.href === r)) keep.add(r)
-  const firstBlog = links.find((l) => l.href.startsWith('/blog/'))
-  if (firstBlog) keep.add(firstBlog.href)
+  const firstLanding = links.find((l) => isLandingOrTuitionLink(l.href))
+  if (firstLanding) keep.add(firstLanding.href)
+  const firstPost = links.find((l) => isPostOrProfileLink(l.href))
+  if (firstPost) keep.add(firstPost.href)
   for (const l of links) {
     if (keep.size >= 5) break
     keep.add(l.href)

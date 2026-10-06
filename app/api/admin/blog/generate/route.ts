@@ -5,13 +5,11 @@ import { logAdminAction } from '@/lib/auditLog'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 import { parseBody, z } from '@/lib/validate'
 import { clusterLabel, isClusterSlug } from '@/lib/blog'
-import { landingOptionsForEditor } from '@/lib/blogEditor'
-import { publishedPostLinks } from '@/lib/blogFeed'
+import { buildBlogBrief } from '@/lib/blogGenerate'
 import {
   generateBlogOutline,
   generateBlogSection,
   BLOG_MODEL,
-  type BlogBrief,
 } from '@/lib/ai/blogCopy'
 import { listModels } from '@/lib/ai/anthropic'
 
@@ -64,30 +62,17 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
   const body = parsed.data
 
-  // PR16 §6.3 — give the model the LIVE set of things it may link to: the live
-  // landing pages, /membership-plans and /faq, and recently published posts. Every
-  // path here exists, so the 3-5 internal links it places resolve (the save gate
-  // re-checks). Capped so the prompt stays bounded.
-  const [landing, posts] = await Promise.all([landingOptionsForEditor(), publishedPostLinks()])
-  const linkOptions = [
-    ...landing.map((l) => ({ label: l.label, path: l.path })),
-    { label: 'Membership Plans (pricing)', path: 'membership-plans' },
-    { label: 'Questions and answers (FAQ)', path: 'faq' },
-    { label: 'Find tutors', path: 'browse/tutors' },
-    { label: 'Find tuitions (post a job)', path: 'browse/tuitions' },
-    ...posts.slice(0, 12).map((p) => ({ label: `Blog: ${p.title}`, path: `blog/${p.slug}` })),
-  ]
-  const brief: BlogBrief = {
+  // PR16 §6.3 — the model gets the LIVE set of things it may link to (landing
+  // pages, indexable tutor profiles, key pages, published posts), built in ONE
+  // place (lib/blogGenerate) so the admin route and the internal test harness
+  // cannot drift. Every path exists, so the links it places resolve.
+  const brief = await buildBlogBrief({
     title: body.title,
     clusterLabel: clusterLabel(body.cluster),
     audience: body.audience,
     language: body.language,
     notes: body.notes,
-    landingLinks: linkOptions,
-    // PR35 §3 — today's date (for timing lines) and the published posts by name.
-    today: new Date().toISOString().slice(0, 10),
-    publishedPosts: posts.slice(0, 12),
-  }
+  })
 
   // ------------------------------------------------------------- a section ---
   // No rate limit or audit per section — the outline step (once per generation)

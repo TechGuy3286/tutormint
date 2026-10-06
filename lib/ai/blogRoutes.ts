@@ -48,7 +48,11 @@ export const BLOG_ROUTES: BlogRoute[] = [
   // Login-only but graceful: logged out → /login?next=/parent/dashboard/post-job,
   // and the visitor lands on the post form after signing in. Verified in PR36 §4.
   { path: '/parent/dashboard/post-job', public: false, intent: 'A parent posting a tuition', text: 'post a tuition' },
-  { path: '/membership-plans', public: true, intent: 'Plans and pricing', text: 'membership plans' },
+  // Pricing is never pushed from a post (owner, 6 Oct 2026): /membership-plans
+  // stays a VALID page a human may link, but it is no longer offered to the AI
+  // or the Link picker, and no rule requires it.
+  { path: '/membership-plans', public: true },
+  // Optional — offered, never required.
   { path: '/faq', public: true, intent: 'Questions and answers', text: 'the FAQ' },
   { path: '/blog', public: true },
   { path: '/about', public: true },
@@ -88,14 +92,14 @@ export function suggestValidPage(href: string): string | null {
     return 'To let a parent post a tuition, link /parent/dashboard/post-job.'
   }
   if (/^\/tutor\//.test(h)) {
-    return 'To feature a tutor, embed a card with {{tutor:slug}}, or link /browse/tutors.'
+    return 'Link a tutor profile from the Link picker (only indexable profiles are offered), embed a card with {{tutor:slug}}, or link /browse/tutors.'
   }
   if (/^\/tuitions?\//.test(h)) {
     return 'To feature a tuition, embed a card with {{job:public-slug}}, or link /browse/tuitions.'
   }
   if (/find.?tutor|search.?tutor/.test(h)) return 'To find tutors, link /browse/tutors.'
   if (/find.?work|find.?tuition|jobs?\b/.test(h)) return 'For tutors finding work, link /browse/tuitions.'
-  if (/plan|pricing|price|member/.test(h)) return 'For plans and pricing, link /membership-plans.'
+  if (/plan|pricing|price|member/.test(h)) return 'Posts do not link to pricing — remove this link.'
   if (/faq|question|help/.test(h)) return 'For questions and answers, link /faq.'
   return null
 }

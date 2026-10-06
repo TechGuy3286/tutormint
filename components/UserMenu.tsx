@@ -23,7 +23,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
 import Avatar from '@/components/Avatar'
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/clientLazy'
 import type { MenuIcon, MenuItem } from '@/lib/userMenu'
 
 // The signed-in member's menu.
@@ -104,7 +104,7 @@ export default function UserMenu({
   const logout = async () => {
     setBusy(true)
     try {
-      await createClient().auth.signOut()
+      await (await getBrowserClient()).auth.signOut()
     } finally {
       // Cleared whatever happened. Sign-out is the one control a member
       // reaches for when something has already gone wrong, and leaving it

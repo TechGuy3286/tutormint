@@ -125,9 +125,16 @@ export default function JobCard({
   initiallySaved = false,
   onSavedChange,
   applyBlock = null,
+  headingLevel = 'h3',
 }: {
   job: JobCardData
   href?: string
+  /**
+   * The heading element for the title: h2 directly under a page h1 (Browse, a
+   * landing page), h3 inside a titled section (the default). Keeps heading
+   * order valid on every public page (owner, 6 Oct 2026).
+   */
+  headingLevel?: 'h2' | 'h3'
   signedIn?: boolean
   /** Rendered for tutors and guests; a parent browsing their own board has no use for it. */
   showApply?: boolean
@@ -155,6 +162,7 @@ export default function JobCard({
   /** Fired after a successful save/unsave — the saved-list uses it to drop a card. */
   onSavedChange?: (saved: boolean) => void
 }) {
+  const Heading = headingLevel
   const upgradeSheet = useUpgradeSheet()
   const toast = useToast()
   const [gateOpen, setGateOpen] = useState(false)
@@ -274,7 +282,7 @@ export default function JobCard({
             </p>
           )}
           <div className="space-y-1 pr-16 sm:pr-20">
-            <h3 className="text-base font-black leading-snug text-tm-navy sm:text-lg">
+            <Heading className="text-base font-black leading-snug text-tm-navy sm:text-lg">
               {/* min-h-[44px], not py-0.5: the title is the thing people tap on
                   a card, and at a 22px line box it was half the minimum target.
                   inline-flex rather than block so a two-line title still wraps
@@ -286,7 +294,7 @@ export default function JobCard({
               >
                 {job.title}
               </Link>
-            </h3>
+            </Heading>
             {/* Who posted it. The avatar is here because a job board of
                 identical cards gives a tutor nothing to recognise between
                 visits, and a face is what people actually remember. It is a
@@ -304,6 +312,7 @@ export default function JobCard({
                   decorative
                   ring="border border-gray-200"
                   className="h-7 w-7 text-[10px]"
+                  px={28}
                 />
               )}
               <Clock size={12} className="shrink-0" />

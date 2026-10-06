@@ -17,12 +17,15 @@
 //
 // WHAT "trace" MEANS, and its deliberate narrowness, is at unsupportedFigures().
 
-// Length target (owner, 14 Sep 2026): a real post is 1200+ words, from covering
-// MORE GROUND (5-7 distinct questions answered with specifics) — never padding.
-// The editor warns below the minimum; the model is told to ask for more notes
-// rather than invent material to reach it.
-export const BLOG_MIN_WORDS = 1200
-export const BLOG_MAX_WORDS = 1800
+// Length target (owner, 6 Oct 2026 — supersedes the 1200+ target of 14 Sep): a
+// post aims for 900–1,500 words, from covering MORE GROUND (5-7 distinct
+// questions answered with specifics) — never padding. The editor WARNS (never
+// blocks) under BLOG_WARN_WORDS; the model is told to ask for more notes rather
+// than invent material to reach a length.
+export const BLOG_MIN_WORDS = 900
+export const BLOG_MAX_WORDS = 1500
+/** Below this the editor shows a warning (not a block). */
+export const BLOG_WARN_WORDS = 800
 
 /** The brand line every generated meta description ends with. */
 export const SEO_BRAND_TAIL = 'No fee, no commission, no middleman.'
@@ -50,7 +53,7 @@ export type BlogDraft = {
   source: 'claude' | 'composed'
   /** The body's word count, for the editor's length warning. */
   words?: number
-  /** True when a claude draft came back under BLOG_MIN_WORDS — the editor asks
+  /** True when a claude draft came back under BLOG_WARN_WORDS — the editor asks
    *  for more fact notes rather than letting the model pad. */
   short?: boolean
   /** Set when a generation was attempted and did not produce usable text. */

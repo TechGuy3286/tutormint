@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react'
 
-import { createClient } from '@/lib/supabase/client'
+import { getBrowserClient } from '@/lib/supabase/clientLazy'
 import { sortJobTitles } from '@/lib/jobTitlesCore'
 
 let cache: string[] | null = null
@@ -20,7 +20,7 @@ export async function fetchJobTitles(): Promise<string[]> {
   if (cache) return cache
   if (inFlight) return inFlight
   inFlight = (async () => {
-    const sb = createClient()
+    const sb = await getBrowserClient()
     const { data } = await sb.from('job_titles').select('name, sort_order')
     const titles = sortJobTitles(
       (data ?? []).map((r) => ({ name: r.name as string, sort_order: (r.sort_order as number) ?? 100 })),

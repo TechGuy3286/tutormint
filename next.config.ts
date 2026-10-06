@@ -98,7 +98,44 @@ function contentSecurityPolicy(): string {
     .join('; ')
 }
 
+/** The Supabase project hostname (no scheme) for next/image's remotePatterns. */
+function supabaseHostname(): string {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').hostname
+  } catch {
+    return '*.supabase.co'
+  }
+}
+
 const nextConfig: NextConfig = {
+  // Images (owner, 6 Oct 2026 — site speed). Every member photo and blog cover
+  // lives in the Supabase PUBLIC buckets (avatars, blog, tutor-media, ads) and
+  // was served raw: a 180–300 KB JPEG per avatar at full resolution, drawn at
+  // 72–140 px, with Cache-Control: no-cache from storage. next/image resizes
+  // and re-encodes them on Vercel to the drawn size (AVIF, then WebP), and the
+  // optimiser's response is cached for minimumCacheTTL — 31 days — which is
+  // the long cache header the raw object never carried. Avatar filenames carry
+  // an upload timestamp, so a changed photo is a new URL and the long TTL is
+  // safe. ONLY the public object path is allowed through: a signed URL
+  // (/object/sign/...) or any other host falls back to a plain <img> in
+  // components/Avatar.tsx, so nothing private is ever handed to the optimiser.
+  //
+  // imageSizes adds 160 and 320 so the card avatar (72/140 css px) and the
+  // profile avatar (96/144 css px) land on ~160 and ~320 at 2x rather than the
+  // next default rung up (256 / 384).
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: supabaseHostname(),
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 2678400, // 31 days
+    imageSizes: [16, 32, 48, 64, 96, 128, 160, 256, 320, 384],
+  },
+
   async redirects() {
     return [
       {
