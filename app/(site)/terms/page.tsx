@@ -18,6 +18,7 @@ import LegalDoc, { entitySection, type LegalSection } from '@/components/LegalDo
 
 export const metadata: Metadata = {
   title: pageTitle('Terms of Service'),
+  alternates: { canonical: '/terms' },
   description:
     'The rules for using TutorMint: memberships and prices, the no-refund policy, quotas, verification, conduct, and how accounts are suspended.',
 }

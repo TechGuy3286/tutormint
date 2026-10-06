@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
 
   const limit = await rateLimit('password_change', user.id)
   if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'attempts')
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
   if (admin) {
     await admin.from('profiles').update({ must_change_password: false }).eq('id', user.id)
   } else {
-    return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
+    return NextResponse.json({ error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }, { status: 503 })
   }
 
   await logActivity({ userId: user.id, event: 'password_changed' })

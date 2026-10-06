@@ -16,6 +16,7 @@
 //     what the page rendered.
 
 import { createClient } from '@/lib/supabase/server'
+import { findExistingDuplicate, type ExistingTuition } from '@/lib/duplicates'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
 import { flagIfAbusive } from '@/lib/abuse/flag'
@@ -124,9 +125,34 @@ export type JobInput = {
   contactEmail?: string | null
   contactAddress?: string | null
   contactSocial?: string | null
+  /**
+   * Duplicate prevention (owner, 6 Oct 2026, item 16). Before publishing, the
+   * post is checked against open/paused tuitions with the same title or the
+   * same city + area + level + subjects + gender + budget band. When one is
+   * found the create is REFUSED with `duplicate` set, and the form offers
+   * "Reopen this one" or "Post anyway". "Post anyway" sends allowDuplicate=true
+   * (a staff post must also carry a one-line duplicateReason, which is stored).
+   */
+  allowDuplicate?: boolean
+  duplicateReason?: string | null
 }
 
-type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate; similarHref?: string }
+type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate; similarHref?: string; duplicate?: ExistingTuition }
+
+/** The fields the duplicate check compares (lib/duplicates). */
+function duplicateFacts(input: JobInput) {
+  return {
+    title: input.title,
+    city: input.city,
+    area: input.area ?? '',
+    classLevels: levelArr(input),
+    masterIds: input.masterIds,
+    genderPreference: input.genderPreference ?? null,
+    budgetPkr: bandFigure(input),
+    budgetMinPkr: input.budgetMin ?? null,
+    budgetMaxPkr: input.budgetMax ?? null,
+  }
+}
 
 function newJobTxId(): string {
   return `JOB-TX-${Math.random().toString(36).slice(2, 9).toUpperCase()}`
@@ -238,6 +264,18 @@ export async function createJob(
     if (!child) return { ok: false, status: 400, error: 'That child is not on your account.' }
   }
 
+  // Duplicate check (item 16): an open/paused tuition with the same title or the
+  // same full combination. Refused unless the parent chose "Post anyway".
+  const existing = await findExistingDuplicate(duplicateFacts(input))
+  if (existing && !input.allowDuplicate) {
+    return {
+      ok: false,
+      status: 409,
+      error: `You already have a tuition like this one (${existing.refId ?? ''}). Reopen it, or post anyway.\nآپ کی ایسی ہی ایک ٹیوشن پہلے سے موجود ہے۔ اسے دوبارہ کھولیں، یا پھر بھی پوسٹ کریں۔`,
+      duplicate: existing,
+    }
+  }
+
   const labels = await subjectLabels(input.masterIds)
   const jobTxId = newJobTxId()
 
@@ -247,7 +285,7 @@ export async function createJob(
   // with is_featured already true. parent_id is the authenticated parentId, so
   // the row still belongs to them; RLS is bypassed only for this trusted write.
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
 
   const { data: job, error } = await admin
     .from('jobs')
@@ -268,6 +306,11 @@ export async function createJob(
       child_id: input.childId,
       status: 'open',
       is_featured: !!ent.tagLabel,
+      // Browse sorts by bumped_at (migration 141); a Refresh moves it forward.
+      bumped_at: new Date().toISOString(),
+      // "Post anyway" over a detected repeat: which one, and (staff) why.
+      duplicate_of: existing && input.allowDuplicate ? existing.id : null,
+      duplicate_reason: existing && input.allowDuplicate ? (input.duplicateReason ?? null) : null,
       // Denormalised copy for listings that have not moved to job_subjects.
       subjects: labels,
       // Legacy NOT NULL columns, mirrored until T8 removes them.
@@ -375,7 +418,7 @@ export async function createTeamJob(
   if (!contact.ok) return { ok: false, status: 400, error: contact.error }
 
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
 
   const teamId = await teamParentId()
   if (!teamId) {
@@ -409,6 +452,21 @@ export async function createTeamJob(
     }
   }
 
+  // Duplicate check (item 16). A staff member who posts anyway must say why in
+  // one line; the reason is stored on the row and shows on the Duplicates view.
+  const existing = await findExistingDuplicate(duplicateFacts(input))
+  if (existing && !input.allowDuplicate) {
+    return {
+      ok: false,
+      status: 409,
+      error: `A tuition like this is already open: ${existing.refId ?? ''} — ${existing.title ?? ''}. Reopen it, or post anyway with a reason.`,
+      duplicate: existing,
+    }
+  }
+  if (existing && input.allowDuplicate && (input.duplicateReason ?? '').trim().length < 3) {
+    return { ok: false, status: 400, error: 'Give a one-line reason for posting this again (it is stored with the tuition).', duplicate: existing }
+  }
+
   const labels = await subjectLabels(input.masterIds)
   const jobTxId = newJobTxId()
 
@@ -417,6 +475,9 @@ export async function createTeamJob(
     .insert({
       job_tx_id: jobTxId,
       parent_id: teamId,
+      bumped_at: new Date().toISOString(),
+      duplicate_of: existing && input.allowDuplicate ? existing.id : null,
+      duplicate_reason: existing && input.allowDuplicate ? (input.duplicateReason ?? '').trim() : null,
       title: cleanTuitionTitle(input.title),
       class_levels: levelArr(input),
       class_level: levelDisplay(input),
@@ -538,7 +599,7 @@ export async function updateTeamJob(
   if (!contact.ok) return { ok: false, status: 400, error: contact.error }
 
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
 
   const teamId = await teamParentId()
   const { data: existing } = await admin
@@ -726,7 +787,7 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
   // status write goes through the service role — after the ownership check above
   // and re-scoped to this parent's own job (PR48 §2).
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
 
   const { error } = await admin
     .from('jobs')
@@ -796,7 +857,7 @@ export async function resumeJob(parentId: string, jobId: string): Promise<{ ok: 
   // jobs.status is locked from the member client (migration 103) — resume through
   // the service role, after the ownership check and re-scoped to this parent.
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
 
   const { error } = await admin
     .from('jobs')
@@ -889,7 +950,7 @@ export async function hireApplicant(
   // suspension and Featured checks above, re-scoped to this parent's own job
   // (PR48 §2). The applications row is not locked and stays on the member client.
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
 
   const { error: appError } = await supabase
     .from('applications')

@@ -81,7 +81,9 @@
     "test:blogapproval": "tsx --test scripts/test-blog-approval.ts",
     "test:directory:live": "tsx --test scripts/test-directory-live.ts",
     "test:indexing": "tsx --test scripts/test-indexing.ts",
-    "test:contentmix": "tsx --test scripts/test-content-mix.ts"
+    "test:contentmix": "tsx --test scripts/test-content-mix.ts",
+    "test:reconciliation": "tsx --test scripts/test-reconciliation.ts",
+    "test:duplicates": "tsx --test scripts/test-duplicates.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
@@ -97,7 +99,8 @@
     "recharts": "^3.10.1",
     "server-only": "^0.0.1",
     "sharp": "^0.35.3",
-    "zod": "^4.5.4"
+    "zod": "^4.5.4",
+    "exceljs": "^4.4.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

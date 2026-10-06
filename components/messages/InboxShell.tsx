@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Briefcase, MessagesSquare, ShieldCheck, Zap } from 'lucide-react'
+import type { TeamRow } from '@/components/messages/ConversationList'
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -8,10 +9,9 @@ import Conversation from '@/components/messages/Conversation'
 import ConversationList from '@/components/messages/ConversationList'
 import TeamPane from '@/components/messages/TeamPane'
 import { getEntitlements } from '@/lib/entitlements'
-import { loadQuickReplies, messagePage, threadHeader, threadPage } from '@/lib/messaging'
+import { messagePage, threadHeader, threadPage } from '@/lib/messaging'
 import { loadTeamSummary } from '@/lib/adminMessaging'
-import QuickRepliesEditor from '@/components/tutor/QuickRepliesEditor'
-import { mayAttachPhoto, DEFAULT_QUICK_REPLIES, DEFAULT_PARENT_QUICK_REPLIES } from '@/lib/messagingRules'
+import { mayAttachPhoto } from '@/lib/messagingRules'
 import { createClient } from '@/lib/supabase/server'
 import { formatName } from '@/lib/formatName'
 
@@ -56,25 +56,26 @@ export default async function InboxShell({
   const isTeam = threadId === 'team'
 
   const supabase = await createClient()
-  const [list, ent, { data: self }, quickReplies, teamSummary] = await Promise.all([
+  const [list, ent, { data: self }, teamSummary] = await Promise.all([
     threadPage({ userId, limit: LIST_PAGE }),
     getEntitlements(userId),
     supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
-    role === 'tutor' ? loadQuickReplies(userId) : Promise.resolve([] as string[]),
     loadTeamSummary(userId),
   ])
   const selfName = (formatName(self?.full_name as string | null) || 'You').split(' ')[0]
   const contactReason = role === 'tutor' ? 'tutor_contact' : 'parent_contact'
-  // A tutor who has saved none sees the defaults as a starting set (the spec
-  // calls them defaults, editable in Settings); once they save, theirs win. A
-  // PARENT gets the fixed parent templates (PR40 §3) — same chips, editable
-  // before sending.
-  const chips =
-    role === 'tutor'
-      ? quickReplies.length > 0
-        ? quickReplies
-        : DEFAULT_QUICK_REPLIES
-      : DEFAULT_PARENT_QUICK_REPLIES
+  // The official TutorMint Team conversation is a normal row in the list,
+  // pinned first and counted like any other (owner, 6 Oct 2026). Rendered by the
+  // list itself, UNDER the search bar, so the search is the first thing in the
+  // pane. Only when the Team has written to this member.
+  const teamRow: TeamRow | null = teamSummary.hasAny
+    ? {
+        href: `${basePath}/team`,
+        active: isTeam,
+        unread: teamSummary.unread,
+        preview: teamSummary.lastBody || 'Official messages about your account',
+      }
+    : null
 
   const header = threadId && !isTeam ? await threadHeader(userId, threadId) : null
 
@@ -157,20 +158,7 @@ export default async function InboxShell({
         </div>
       )}
 
-      {/* Quick replies management (PR61 §A3): moved here from Settings, same
-          editor and saved data. Tutors only, collapsed by default so it never
-          crowds the inbox. The tap-to-insert chips already live in the composer. */}
-      {/* PR106-E §12 — the quick-reply tap-chips live in the composer; this
-          management editor is hidden on the phone conversation view so it never
-          crowds the chat. It stays on the list view and on the desktop two-pane. */}
-      {role === 'tutor' && (
-        <details className={`${threadId ? 'hidden lg:block' : 'block'} rounded-2xl border border-gray-200 bg-white p-3`}>
-          <summary className="cursor-pointer text-xs font-black text-tm-navy">Quick replies</summary>
-          <div className="pt-3">
-            <QuickRepliesEditor />
-          </div>
-        </details>
-      )}
+      {/* The "Quick replies" block is gone from the inbox (owner, 6 Oct 2026). */}
 
       {/* PR106-E §10 — on a phone with a conversation open, the breadcrumb, the
           reply-only notice and the quick-reply editor above are hidden, so the
@@ -190,51 +178,12 @@ export default async function InboxShell({
             selected ? 'hidden' : 'flex'
           }`}
         >
-          {/* The official TutorMint Team channel, pinned above the member's own
-              conversations (owner, Part 5). Only when there is one to show — a
-              member the Team has never written to sees no empty channel. */}
-          {teamSummary.hasAny && (
-            <Link
-              href={`${basePath}/team`}
-              aria-current={isTeam ? 'true' : undefined}
-              className={`flex min-h-[72px] items-center gap-3 border-b border-l-4 border-b-gray-200 px-3 py-3 transition-colors ${
-                isTeam ? 'border-l-tm-navy bg-tm-bg' : 'border-l-transparent hover:bg-gray-50'
-              }`}
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-tm-navy text-white">
-                <ShieldCheck aria-hidden size={18} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <span
-                  className={`block truncate text-xs ${
-                    teamSummary.unread > 0 ? 'font-black text-tm-navy' : 'font-bold text-slate-700'
-                  }`}
-                >
-                  TutorMint Team
-                </span>
-                <p
-                  className={`truncate text-[11px] ${
-                    teamSummary.unread > 0 ? 'font-semibold text-slate-700' : 'text-gray-500'
-                  }`}
-                >
-                  {teamSummary.lastBody || 'Official messages about your account'}
-                </p>
-              </div>
-              {teamSummary.unread > 0 && (
-                <span
-                  className="ml-1 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-tm-red px-1.5 text-[10px] font-black text-white"
-                  aria-label={`${teamSummary.unread} unread`}
-                >
-                  {teamSummary.unread > 9 ? '9+' : teamSummary.unread}
-                </span>
-              )}
-            </Link>
-          )}
           <ConversationList
             initial={list.items}
             initialCursor={list.cursor}
             basePath={basePath}
             activeId={header?.id ?? null}
+            teamRow={teamRow}
             emptyHint={
               role === 'tutor'
                 ? ent.canInitiateMessage
@@ -247,14 +196,8 @@ export default async function InboxShell({
             emptyActions={
               role === 'tutor'
                 ? ent.verified
-                  ? [
-                      { label: 'Find tuitions to apply for', href: '/browse/tuitions' },
-                      { label: 'Check your profile is complete', href: '/tutor/complete-profile' },
-                    ]
-                  : [
-                      { label: 'Get verified', href: '/tutor/complete-profile?step=verify' },
-                      { label: 'Complete your profile', href: '/tutor/complete-profile' },
-                    ]
+                  ? []
+                  : [{ label: 'Get verified', href: '/tutor/complete-profile?step=verify' }]
                 : [
                     { label: 'Find a tutor', href: '/browse/tutors' },
                     { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
@@ -347,7 +290,7 @@ export default async function InboxShell({
                 selfName={selfName}
                 canAttach={mayAttachPhoto(ent)}
                 contactReason={contactReason}
-                quickReplies={chips}
+                quickReplies={[]}
               />
             </>
           ) : (

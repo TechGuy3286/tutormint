@@ -25,14 +25,14 @@ async function tutorOrNull() {
 
 export async function GET() {
   const { user, isTutor } = await tutorOrNull()
-  if (!user) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
   if (!isTutor) return NextResponse.json({ error: 'Tutors only.' }, { status: 403 })
   return NextResponse.json({ replies: await loadQuickReplies(user.id) })
 }
 
 export async function POST(request: Request) {
   const { user, isTutor } = await tutorOrNull()
-  if (!user) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
   if (!isTutor) return NextResponse.json({ error: 'Tutors only.' }, { status: 403 })
 
   let raw: unknown = []

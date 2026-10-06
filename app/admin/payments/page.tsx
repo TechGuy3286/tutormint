@@ -1,4 +1,4 @@
-import { Gauge, Landmark, SlidersHorizontal } from 'lucide-react'
+import { Gauge, Landmark, Scale, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
@@ -28,6 +28,7 @@ export default async function AdminPaymentsPage({
   const canApprove = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsApprove)
   const canSettings = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsSettings)
   const canSwitches = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsSwitches)
+  const canReconcile = roleSatisfies(actor.adminRole, SCREEN_ACCESS.reconciliation)
   const { filter = 'all', q = '' } = await searchParams
   const search = q.trim()
 
@@ -77,6 +78,15 @@ export default async function AdminPaymentsPage({
             <Gauge aria-hidden size={14} />
             Quota usage
           </Link>
+          {canReconcile && (
+            <Link
+              href="/admin/payments/reconciliation"
+              className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
+            >
+              <Scale aria-hidden size={14} />
+              Reconciliation
+            </Link>
+          )}
         </div>
       </header>
 

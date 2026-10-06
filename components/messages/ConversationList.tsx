@@ -3,7 +3,7 @@
 import { reportSilentFailure } from '@/lib/silentFailure'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, MessageSquare, X } from 'lucide-react'
+import { Loader2, MessageSquare, ShieldCheck, X } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import Typeahead from '@/components/search/Typeahead'
 import { useInfinite } from '@/lib/useInfinite'
@@ -21,6 +21,10 @@ import type { ThreadRow } from '@/lib/messaging'
 
 const PAGE_SIZE = 20
 
+/** The pinned official TutorMint Team conversation (owner, 6 Oct 2026): a normal
+ *  row, first in the list, counted like any other conversation. */
+export type TeamRow = { href: string; active: boolean; unread: number; preview: string }
+
 export default function ConversationList({
   initial,
   initialCursor,
@@ -28,6 +32,7 @@ export default function ConversationList({
   activeId,
   emptyHint,
   emptyActions = [],
+  teamRow = null,
   onSelect,
 }: {
   initial: ThreadRow[]
@@ -37,6 +42,7 @@ export default function ConversationList({
   activeId: string | null
   emptyHint: string
   emptyActions?: { label: string; href: string }[]
+  teamRow?: TeamRow | null
   /** When set (the desktop dock, §2), a row OPENS the conversation in place
    *  instead of navigating — same list, no duplicate logic. */
   onSelect?: (threadId: string) => void
@@ -79,6 +85,10 @@ export default function ConversationList({
   const key = query.trim()
   const rows = found ? found.items : initial
   const cursor = found ? found.cursor : initialCursor
+  // The Team row counts as a conversation: with it present the inbox is never
+  // "empty". It is hidden while a search is typed (it is not a search result).
+  const showTeam = !!teamRow && key.length === 0
+  const empty = rows.length === 0 && !showTeam
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -98,7 +108,7 @@ export default function ConversationList({
         />
       </div>
 
-      {rows.length === 0 ? (
+      {empty ? (
         <Empty
           searching={key.length > 0}
           busy={searching}
@@ -111,6 +121,35 @@ export default function ConversationList({
         />
       ) : (
         <div ref={paneRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {showTeam && teamRow && (
+            <Link
+              href={teamRow.href}
+              aria-current={teamRow.active ? 'true' : undefined}
+              className={`flex min-h-[72px] items-center gap-3 border-b border-l-4 border-b-gray-100 px-3 py-3 transition-colors ${
+                teamRow.active ? 'border-l-tm-navy bg-tm-bg' : 'border-l-transparent hover:bg-gray-50'
+              }`}
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-tm-navy text-white">
+                <ShieldCheck aria-hidden size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <span className={`block truncate text-xs ${teamRow.unread > 0 ? 'font-black text-tm-navy' : 'font-bold text-slate-700'}`}>
+                  TutorMint Team
+                </span>
+                <p className={`truncate text-[11px] ${teamRow.unread > 0 ? 'font-semibold text-slate-700' : 'text-gray-500'}`}>
+                  {teamRow.preview}
+                </p>
+              </div>
+              {teamRow.unread > 0 && (
+                <span
+                  className="ml-1 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-tm-red px-1.5 text-[10px] font-black text-white"
+                  aria-label={`${teamRow.unread} unread`}
+                >
+                  {teamRow.unread > 9 ? '9+' : teamRow.unread}
+                </span>
+              )}
+            </Link>
+          )}
           <Rows
             key={key}
             initial={rows}
@@ -315,7 +354,7 @@ function Empty({
               href={a.href}
               className={
                 i === 0
-                  ? 'flex min-h-[44px] items-center justify-center rounded-xl bg-tm-black px-4 text-xs font-bold text-white transition-colors hover:bg-slate-700'
+                  ? 'flex min-h-[44px] items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover'
                   : 'flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy'
               }
             >

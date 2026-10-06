@@ -38,10 +38,10 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
 
   const admin = createAdminClient()
-  if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
+  if (!admin) return NextResponse.json({ error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }, { status: 503 })
 
   const parsed = await parseBody(request, ClaimBody)
   if (!parsed.ok) return parsed.response
@@ -126,5 +126,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, claimed: true })
   }
 
-  return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
+  return NextResponse.json({ error: 'That request was not understood. Reload the page and try again.\nیہ درخواست سمجھ نہیں آئی۔ صفحہ دوبارہ لوڈ کر کے کوشش کریں۔' }, { status: 400 })
 }

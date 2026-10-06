@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import PostTuitionForm, {
   type PostTuitionValues,
   type PostTuitionPayload,
+  type DuplicateHit,
 } from '@/components/forms/PostTuitionForm'
 import { postGated } from '@/lib/gatedFetch'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
@@ -54,13 +55,16 @@ export default function JobForm({
         description: payload.description,
         childId: payload.childId,
         genderPreference: payload.genderPreference,
+        allowDuplicate: payload.allowDuplicate ?? false,
       },
       upgradeSheet?.showGate,
       mode === 'edit' ? 'PATCH' : 'POST',
     )
 
     if (!r.ok) {
-      return { ok: false as const, error: r.gated ? undefined : r.error, gated: r.gated }
+      // Item 16: the API names the repeat; the form shows the two choices.
+      const dup = r.gated ? null : ((r.duplicate as DuplicateHit | null | undefined) ?? null)
+      return { ok: false as const, error: r.gated ? undefined : r.error, gated: r.gated, duplicate: dup }
     }
 
     // No silent successes: confirm before landing on the job. The toast provider
@@ -83,6 +87,18 @@ export default function JobForm({
       submitLabel={mode === 'edit' ? 'Save changes' : 'Post this tuition'}
       busyLabel="Saving…"
       onSubmit={onSubmit}
+      onReopen={async (hit) => {
+        // "Reopen this one": a paused tuition is resumed first, then opened.
+        if (hit.status === 'paused') {
+          await fetch('/api/parent/jobs/resume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jobId: hit.id }),
+          })
+          toast.success('Reopened. Tutors can see and apply to it again.')
+        }
+        router.push(hit.href)
+      }}
     />
   )
 }

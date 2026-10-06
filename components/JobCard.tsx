@@ -8,7 +8,7 @@ import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
 import { useState } from 'react'
-import { Building2, Clock, FileText, GraduationCap, Heart, MapPin, ShieldCheck, Wallet, Send, UserRound } from 'lucide-react'
+import Icon from '@/components/Icon'
 import { genderPrefSentence } from '@/lib/genderPref'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import BadgeRow from '@/components/badges/BadgeRow'
@@ -82,6 +82,13 @@ export type JobCardData = {
    *  tuition auto-pauses at coalesce(resumed_at, created_at) + 15 days, which is
    *  the JobPosting validThrough. Absent for a never-resumed tuition. */
   resumed_at?: string | null
+  /** Browse order key: posted time, moved forward by a Refresh (migration 141). */
+  bumped_at?: string | null
+  refreshed_at?: string | null
+  /** Set when this tuition was merged into another (its URL 301s there). */
+  merged_into?: string | null
+  /** The selected levels (migration 79), for the city→level→subject similar list. */
+  class_levels?: string[] | null
   is_featured: boolean | null
   /** Paused while a report is checked: amber sticker, Apply disabled. */
   under_review?: boolean | null
@@ -262,7 +269,7 @@ export default function JobCard({
               saved ? 'text-tm-red' : 'text-gray-500 hover:text-tm-red'
             }`}
           >
-            <Heart aria-hidden size={20} fill={saved ? 'currentColor' : 'none'} />
+            <Icon name="heart" size={20} fill={saved ? 'currentColor' : 'none'} />
           </button>
         )}
 
@@ -277,7 +284,7 @@ export default function JobCard({
               the platform's own vetting. */}
           {job.posted_by_team && (
             <p className="inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-tm-navy">
-              <ShieldCheck aria-hidden size={12} />
+              <Icon name="shield-check" size={12} />
               Verified tuition
             </p>
           )}
@@ -315,7 +322,7 @@ export default function JobCard({
                   px={28}
                 />
               )}
-              <Clock size={12} className="shrink-0" />
+              <Icon name="clock" size={12} />
               <TimeAgo iso={job.created_at} />
               {job.ref_id && (
                 <>
@@ -379,12 +386,12 @@ export default function JobCard({
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {job.class_level && (
               <p className="flex items-center gap-2 text-xs text-slate-700">
-                <GraduationCap size={14} className="shrink-0 text-gray-500" />
+                <Icon name="graduation-cap" size={14} className="text-gray-500" />
                 {job.class_level}
               </p>
             )}
             <p className="flex items-center gap-2 text-xs text-slate-700">
-              <MapPin size={14} className="shrink-0 text-gray-500" />
+              <Icon name="map-pin" size={14} className="text-gray-500" />
               {placeLabel(job.area, job.city) || 'Flexible'}
             </p>
             {jobType(job.teaching_mode) && (
@@ -400,14 +407,14 @@ export default function JobCard({
                 ten thousand rupees. */}
             {budgetLabel(job.budget_min_pkr, job.budget_max_pkr, job.budget_pkr) ? (
               <p className="flex items-center gap-2 text-xs font-black text-tm-navy">
-                <Wallet size={14} className="shrink-0 text-gray-500" />
+                <Icon name="wallet" size={14} className="text-gray-500" />
                 {budgetLabel(job.budget_min_pkr, job.budget_max_pkr, job.budget_pkr)} / month
               </p>
             ) : null}
             {/* PR73 §A: the schedule as the short slot line. */}
             {job.schedule && (
               <p className="flex items-center gap-2 text-xs text-slate-700">
-                <Clock size={14} className="shrink-0 text-gray-500" />
+                <Icon name="clock" size={14} className="text-gray-500" />
                 {job.schedule}
               </p>
             )}
@@ -435,7 +442,7 @@ export default function JobCard({
               stopped at Apply, with this same sentence as the reason. */}
           {genderPrefSentence(job.gender_preference) && (
             <p className="flex items-center gap-2 rounded-lg bg-tm-tint-navy px-2.5 py-1.5 text-[11px] font-semibold text-tm-navy">
-              <UserRound size={13} className="shrink-0" aria-hidden />
+              <Icon name="user-round" size={13} />
               {genderPrefSentence(job.gender_preference)}
             </p>
           )}
@@ -460,7 +467,7 @@ export default function JobCard({
                   {
                     key: 'view',
                     label: 'View details',
-                    icon: <FileText aria-hidden size={14} />,
+                    icon: <Icon name="file-text" size={14} />,
                     className: 'border border-gray-200 bg-tm-bg text-slate-700 hover:bg-gray-100',
                     href: detailHref,
                     tooltip: 'See the full tuition details',
@@ -472,7 +479,7 @@ export default function JobCard({
                           label: underReview
                             ? 'Under review'
                             : state === 'done' ? 'Applied' : state === 'sending' ? 'Sending…' : 'Apply',
-                          icon: <Send aria-hidden size={14} />,
+                          icon: <Icon name="send" size={14} />,
                           // Grey when disabled, with DARK text and icon (slate-800 on
                           // gray-200, WCAG AA) so "Applied" reads in daylight on a phone.
                           className: 'bg-tm-red text-white hover:bg-tm-red-hover disabled:bg-gray-200 disabled:text-slate-800',

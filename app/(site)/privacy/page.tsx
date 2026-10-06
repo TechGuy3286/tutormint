@@ -17,6 +17,7 @@ import LegalDoc, { entitySection, type LegalSection } from '@/components/LegalDo
 
 export const metadata: Metadata = {
   title: pageTitle('Privacy Policy'),
+  alternates: { canonical: '/privacy' },
   description:
     'What TutorMint collects, who can see it, how CNICs and certificates are stored, how long we keep things, and how to get your data or have it deleted.',
 }

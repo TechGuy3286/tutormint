@@ -29,6 +29,8 @@ export type AdminScreen =
   | 'jobs'
   | 'payments'
   | 'paymentsSwitches'
+  | 'reconciliation'
+  | 'duplicates'
   | 'plans'
   | 'reports'
   | 'inbox'
@@ -93,7 +95,9 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/jobs', label: 'Tuitions', icon: 'clipboard', screen: 'jobs' },
       { href: '/admin/jobs/new', label: 'Post a tuition', icon: 'filePlus', screen: 'jobs' },
+      { href: '/admin/jobs/duplicates', label: 'Duplicates', icon: 'copy', screen: 'duplicates' },
       { href: '/admin/payments', label: 'Payments', icon: 'wallet', screen: 'payments' },
+      { href: '/admin/payments/reconciliation', label: 'Reconciliation', icon: 'scale', screen: 'reconciliation' },
       { href: '/admin/payments/settings', label: 'Settings', icon: 'listChecks', screen: 'paymentsSwitches' },
       { href: '/admin/plans', label: 'Plans', icon: 'card', screen: 'plans' },
     ],
@@ -141,6 +145,8 @@ export const SECTION_LABELS: Record<string, string> = {
   jobs: 'Tuitions',
   parents: 'Parents',
   payments: 'Payments',
+  reconciliation: 'Reconciliation',
+  duplicates: 'Duplicates',
   plans: 'Plans',
   reports: 'Reports',
   security: 'Two-factor',

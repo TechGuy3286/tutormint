@@ -33,12 +33,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .eq('id', id)
     .maybeSingle()
 
-  if (!payment?.screenshot_path) return new Response('Not found.', { status: 404 })
+  if (!payment?.screenshot_path) return new Response('This receipt is not available. It may not have been uploaded yet.', { status: 404 })
 
   if (payment.user_id !== user.id) {
     const actor = await getAdminActor()
     if (!actor || !roleSatisfies(actor.adminRole, SCREEN_ACCESS.payments)) {
-      return new Response('Not allowed.', { status: 403 })
+      return new Response('Only the person who sent this payment, or an admin, can open its receipt.', { status: 403 })
     }
   }
 
@@ -46,7 +46,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .from('payment-proofs')
     .download(payment.screenshot_path as string)
 
-  if (error || !file) return new Response('Not found.', { status: 404 })
+  if (error || !file) return new Response('This receipt is not available. It may not have been uploaded yet.', { status: 404 })
 
   return new Response(file.stream(), {
     headers: {

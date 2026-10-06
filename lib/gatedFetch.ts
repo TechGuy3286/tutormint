@@ -22,7 +22,9 @@ export type GatedResult<T> =
   // `similarHref` is carried through for a plain refusal that offers somewhere
   // else to go — the Basic incoming-request limit points a parent at similar
   // tutors (PR54 Part B) rather than leaving them at a dead end.
-  | { ok: false; gated: false; error: string; similarHref?: string }
+  // `duplicate` (owner, 6 Oct 2026, item 16): the open/paused tuition a post
+  // would repeat, so the form can offer "Reopen this one" / "Post anyway".
+  | { ok: false; gated: false; error: string; similarHref?: string; duplicate?: unknown }
 
 /** PR85 Part D: send an unfinished tutor to onboarding, then back to where they
  *  were (the tuition they tried to apply to / reveal). */
@@ -55,7 +57,7 @@ export async function postGated<T = unknown>(
     return {
       ok: false,
       gated: false,
-      error: submitError(e, 'Could not reach the server. Check your connection.'),
+      error: submitError(e, 'We could not reach TutorMint. Check your internet connection and try again.\nرابطہ نہیں ہو سکا۔ انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔'),
     }
   }
 
@@ -86,7 +88,8 @@ export async function postGated<T = unknown>(
   return {
     ok: false,
     gated: false,
-    error: json.error ?? 'That did not work. Please try again.',
+    error: json.error ?? 'That did not go through. Please try again, or message us on WhatsApp 0321 5872222.\nیہ مکمل نہیں ہوا۔ دوبارہ کوشش کریں یا واٹس ایپ پر پیغام کریں۔',
     similarHref: typeof json.similarHref === 'string' ? json.similarHref : undefined,
+    duplicate: json.duplicate ?? undefined,
   }
 }

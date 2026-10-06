@@ -105,6 +105,65 @@ export function pageTitle(page: string): string {
   return `${page} — ${TITLE_SUFFIX} | ${BRAND}`
 }
 
+/** Google's visible title length. */
+export const TITLE_MAX = 60
+/** Google's visible description length. */
+export const DESCRIPTION_MAX = 155
+
+/**
+ * A title of TITLE_MAX characters or fewer (owner, 6 Oct 2026) for tuition
+ * details, landing pages and tutor profiles: the "— verified, no commission"
+ * suffix is dropped, and " | TutorMint" is kept only when it fits. A page name
+ * longer than the limit is cut at a word boundary.
+ */
+export function seoTitle(page: string): string {
+  const base = page.replace(/\s+/g, ' ').trim()
+  const withBrand = `${base} | ${BRAND}`
+  if (withBrand.length <= TITLE_MAX) return withBrand
+  if (base.length <= TITLE_MAX) return base
+  return clampWords(base, TITLE_MAX)
+}
+
+/** Cut at a word boundary to `max` characters, with no trailing punctuation. */
+export function clampWords(text: string, max: number): string {
+  const t = text.replace(/\s+/g, ' ').trim()
+  if (t.length <= max) return t
+  const cut = t.slice(0, max + 1)
+  const at = cut.lastIndexOf(' ')
+  return (at > max * 0.5 ? cut.slice(0, at) : t.slice(0, max)).replace(/[\s,;:—–-]+$/, '')
+}
+
+/** A description of DESCRIPTION_MAX characters or fewer, cut at a word boundary. */
+export function seoDescription(text: string): string {
+  const t = text.replace(/\s+/g, ' ').trim()
+  return t.length <= DESCRIPTION_MAX ? t : clampWords(t, DESCRIPTION_MAX - 1) + '…'
+}
+
+/**
+ * A tuition's meta description built ONLY from its own fields (owner, 6 Oct
+ * 2026): level, subjects, area, city, Job Type and budget band. Never the free
+ * text, never an invented fact. Clamped to the limit at a word boundary.
+ */
+export function tuitionDescription(job: {
+  classLevel: string | null
+  subjects: string[]
+  area: string | null
+  city: string | null
+  mode: string | null
+  budget: string | null
+}): string {
+  const subjects = job.subjects.filter(Boolean).slice(0, 4).join(', ')
+  const what = [job.classLevel, subjects].filter(Boolean).join(' ')
+  const where = [job.area, job.city].filter(Boolean).join(', ')
+  const parts = [
+    `${what ? what + ' ' : ''}tuition${where ? ' in ' + where : ' in Pakistan'}.`,
+    job.mode ? `${job.mode}.` : '',
+    job.budget ? `Budget ${job.budget}.` : '',
+    'Apply free on TutorMint.',
+  ].filter(Boolean)
+  return seoDescription(parts.join(' '))
+}
+
 /**
  * "<lead> on TutorMint, Pakistan's verified tutors network. No fee, no
  * commission, no middleman."
@@ -253,12 +312,19 @@ export function tutorJsonLd(t: {
         : { '@type': 'UnitPriceSpecification', minPrice: feeLo, maxPrice: feeHi, priceCurrency: 'PKR', unitText: 'MONTH' }
       : null
 
+  // Person.jobTitle: the headline when the tutor wrote one, else built from the
+  // first subject ("Mathematics tutor") — never empty (owner, 6 Oct 2026).
+  const firstSubject = t.subjects[0] ?? null
+  const jobTitle = t.headline?.trim() || (firstSubject ? `${firstSubject} tutor` : 'Private tutor')
+  const serviceName = `${firstSubject ? firstSubject + ' tutoring' : 'Private tutoring'}${t.city ? ' in ' + t.city : ''}`
+  const serviceDescription = `${t.name} teaches ${t.subjects.length > 0 ? t.subjects.slice(0, 5).join(', ') : 'private lessons'}${areaServed ? ' in ' + areaServed : ''} — a verified tutor on TutorMint.`
+
   const person = {
     '@type': 'Person',
     '@id': `${url}#person`,
     name: t.name,
     url,
-    ...(t.headline ? { jobTitle: t.headline } : {}),
+    jobTitle,
     ...(t.avatarUrl ? { image: t.avatarUrl } : {}),
     ...(t.subjects.length > 0 ? { knowsAbout: t.subjects } : {}),
     ...(areaServed
@@ -270,6 +336,8 @@ export function tutorJsonLd(t: {
   const service = {
     '@type': 'Service',
     '@id': `${url}#service`,
+    name: serviceName,
+    description: serviceDescription,
     serviceType: t.subjects.length > 0 ? `${t.subjects.join(', ')} tutoring` : 'Private tutoring',
     provider: { '@id': `${url}#person` },
     url,
@@ -344,6 +412,10 @@ export function jobPostingJsonLd(job: {
    *  that auto-pause instant — and moves forward when a paused tuition resumes.
    *  Omitted → the pre-PR89 fallback of datePosted + 30 days. */
   validThrough?: string | null
+  /** The TM number — JobPosting.identifier (owner, 6 Oct 2026). */
+  refId?: string | null
+  /** An online tuition: jobLocationType TELECOMMUTE + applicantLocationRequirements Pakistan. */
+  online?: boolean
 }) {
   const validThrough =
     job.validThrough ??
@@ -389,6 +461,15 @@ export function jobPostingJsonLd(job: {
     validThrough,
     employmentType: 'CONTRACTOR',
     url: job.url,
+    // The TM number as the posting's identifier (owner, 6 Oct 2026).
+    ...(job.refId ? { identifier: { '@type': 'PropertyValue', name: BRAND, value: job.refId } } : {}),
+    // An online tuition is remote work from anywhere in Pakistan.
+    ...(job.online
+      ? {
+          jobLocationType: 'TELECOMMUTE',
+          applicantLocationRequirements: { '@type': 'Country', name: 'Pakistan' },
+        }
+      : {}),
     ...(job.subjects.length > 0 ? { skills: job.subjects.join(', ') } : {}),
     industry: 'Education',
     // Named inline rather than referenced by @id. The Organization node is

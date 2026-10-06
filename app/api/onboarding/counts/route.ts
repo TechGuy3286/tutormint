@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
 
   const body = (await request.json().catch(() => ({}))) as CountFilters
   const filters: CountFilters = {

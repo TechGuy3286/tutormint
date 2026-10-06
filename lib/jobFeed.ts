@@ -323,6 +323,10 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       // The auto-pause clock base for JobPosting validThrough (PR89 Part C):
       // coalesce(resumed_at, created_at) + 15 days is when the tuition auto-pauses.
       resumed_at: (j.resumed_at as string | null) ?? null,
+      bumped_at: (j.bumped_at as string | null) ?? null,
+      refreshed_at: (j.refreshed_at as string | null) ?? null,
+      merged_into: (j.merged_into as string | null) ?? null,
+      class_levels: (j.class_levels as string[] | null) ?? null,
       is_featured: (j.is_featured as boolean) ?? false,
       under_review: (j.under_review as boolean) ?? false,
       parent_id: (j.parent_id as string) ?? null,
@@ -340,7 +344,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
 }
 
 const JOB_COLUMNS =
-  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, resumed_at, is_featured, under_review, parent_id, status, gender_preference, timings'
+  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, resumed_at, bumped_at, refreshed_at, merged_into, is_featured, under_review, parent_id, status, gender_preference, timings'
 
 /**
  * Open jobs that match a tutor's subjects, their city first.
@@ -445,6 +449,10 @@ export type JobFilters = {
    *  only when it has no preference or the preference equals this. Guests/parents
    *  pass null and see every tuition. */
   viewerGender?: string | null
+  /** The city tuition-jobs pages (owner, 6 Oct 2026): an exact area, and/or the
+   *  tuitions that REQUIRE a tutor of this gender. */
+  area?: string | null
+  genderPreference?: 'male' | 'female' | 'trans' | null
 }
 
 /**
@@ -737,6 +745,8 @@ export async function browseJobs(
       q = q.or(`gender_preference.is.null,gender_preference.eq.${filters.viewerGender}`)
     }
     if (filters.city) q = q.ilike('city', filters.city)
+    if (filters.area) q = q.ilike('area', filters.area)
+    if (filters.genderPreference) q = q.eq('gender_preference', filters.genderPreference)
     if (filters.mode) {
       // A job carries exactly one Job Type title (migration 77), stored
       // verbatim, so this is a plain equality on the title the filter passed.
@@ -838,9 +848,12 @@ export async function browseJobs(
   // jobs posted in the same second would compare equal, and a keyset cursor
   // cannot say which side of a tie it is on. With the id the key is total, so
   // no row can be straddled.
+  // bumped_at, not created_at (owner, 6 Oct 2026): a Refresh moves a tuition to
+  // the top of Browse on the same URL. bumped_at is backfilled from created_at
+  // (migration 141) and written on every insert, so it is never null.
   let q = build()
     .order('is_featured', { ascending: false })
-    .order('created_at', { ascending: false })
+    .order('bumped_at', { ascending: false })
     .order('id', { ascending: false })
 
   const after = decodeCursor<JobCursor>(cursor)
@@ -852,8 +865,8 @@ export async function browseJobs(
     q = q.or(
       [
         `is_featured.lt.${f}`,
-        `and(is_featured.eq.${f},created_at.lt."${after.c}")`,
-        `and(is_featured.eq.${f},created_at.eq."${after.c}",id.lt."${after.i}")`,
+        `and(is_featured.eq.${f},bumped_at.lt."${after.c}")`,
+        `and(is_featured.eq.${f},bumped_at.eq."${after.c}",id.lt."${after.i}")`,
       ].join(','),
     )
   } else if (offset > 0) {
@@ -876,9 +889,23 @@ export async function browseJobs(
         ? null
         : encodeCursor({
             f: !!last.is_featured,
-            c: String(last.created_at),
+            c: String(last.bumped_at ?? last.created_at),
             i: String(last.id),
           } satisfies JobCursor),
+  }
+}
+
+/**
+ * The card's copy of a tuition, slimmed for the browser (owner, 6 Oct 2026,
+ * item 14): the description is cut to what the two-line clamp can show, so the
+ * list pages do not ship every tuition's full text twice (HTML + flight data).
+ * The tuition PAGE keeps the full row.
+ */
+export function slimForCard(job: JobCardData): JobCardData {
+  const d = job.description ?? null
+  return {
+    ...job,
+    description: d && d.length > 220 ? d.slice(0, 220).replace(/\s+\S*$/, '') + '…' : d,
   }
 }
 
@@ -914,10 +941,13 @@ export async function similarOpenTuitions(
   jobId: string,
   city: string | null,
   masterIds: number[],
-  limit = 3,
+  limit = 6,
   /** PR85 Part C: a signed-in tutor's gender — gender-mismatched tuitions are
    *  dropped from the "similar" list. Null for guests/parents (show all). */
   viewerGender: string | null = null,
+  /** The tuition's levels (owner, 6 Oct 2026, item 12): matched by city, then
+   *  level, then subject — the level tier sits between the other two. */
+  classLevels: string[] | null = null,
 ): Promise<JobCardData[]> {
   const supabase = await createClient()
   const collected = new Map<string, Record<string, unknown>>()
@@ -931,8 +961,23 @@ export async function similarOpenTuitions(
     }
   }
 
-  // Same city first — the most useful "instead of this one".
-  if (city) {
+  // Same city AND same level first, then same city — the most useful "instead
+  // of this one" (city → level → subject, item 12).
+  const levels = (classLevels ?? []).filter(Boolean)
+  if (city && levels.length > 0) {
+    const { data } = await supabase
+      .from('jobs')
+      .select(JOB_COLUMNS)
+      .eq('status', 'open')
+      .neq('id', jobId)
+      .ilike('city', city)
+      .overlaps('class_levels', levels)
+      .order('is_featured', { ascending: false })
+      .order('bumped_at', { ascending: false })
+      .limit(limit + 1)
+    add(data as Record<string, unknown>[])
+  }
+  if (city && collected.size < limit) {
     const { data } = await supabase
       .from('jobs')
       .select(JOB_COLUMNS)
@@ -940,7 +985,7 @@ export async function similarOpenTuitions(
       .neq('id', jobId)
       .ilike('city', city)
       .order('is_featured', { ascending: false })
-      .order('created_at', { ascending: false })
+      .order('bumped_at', { ascending: false })
       .limit(limit + 1)
     add(data as Record<string, unknown>[])
   }

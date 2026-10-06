@@ -87,7 +87,7 @@ export function isTimeout(error: unknown): boolean {
  */
 export function submitError(error: unknown, fallback: string): string {
   if (isTimeout(error)) return TIMEOUT_MESSAGE
-  if (error instanceof TypeError) return 'Could not reach the server. Check your connection.'
+  if (error instanceof TypeError) return 'We could not reach TutorMint. Check your internet connection and try again.\nرابطہ نہیں ہو سکا۔ انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔'
   return error instanceof Error && error.message ? error.message : fallback
 }
 
@@ -148,11 +148,11 @@ export async function submitJson<T = Record<string, unknown>>(
 
     const error = res.ok
       ? null
-      : ((data as { error?: string } | null)?.error ?? 'Something went wrong. Please try again.')
+      : ((data as { error?: string } | null)?.error ?? 'That did not save. Please try again, or message us on WhatsApp 0321 5872222.\nیہ محفوظ نہیں ہوا۔ دوبارہ کوشش کریں یا واٹس ایپ پر پیغام کریں۔')
 
     return { ok: res.ok, status: res.status, data, error }
   } catch (e) {
-    return { ok: false, status: 0, data: null, error: submitError(e, 'Could not reach the server.') }
+    return { ok: false, status: 0, data: null, error: submitError(e, 'We could not reach TutorMint. Check your internet connection and try again.\nرابطہ نہیں ہو سکا۔ انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔') }
   }
 }
 

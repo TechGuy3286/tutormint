@@ -32,7 +32,7 @@ export async function recordRefund(
   input: RecordRefundInput,
 ): Promise<{ ok: true; amount: number } | { ok: false; status: number; error: string }> {
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
 
   const { data: payment } = await admin
     .from('payments')

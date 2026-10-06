@@ -420,7 +420,7 @@ export async function startPayproCheckout(params: {
   utm: { source: string | null; medium: string | null; campaign: string | null; content: string | null }
 }): Promise<StartResult> {
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.', reason: 'ours' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔', reason: 'ours' }
 
   // DUPLICATE GUARD (PR104 §3). If the member already has a pending PayPro order
   // for this same plan, do NOT create a second one (which is how two live orders

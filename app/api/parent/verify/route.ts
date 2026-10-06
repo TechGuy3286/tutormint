@@ -19,7 +19,7 @@ export async function POST() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -52,7 +52,7 @@ export async function POST() {
   // a parent must not be able to self-mark verified. Written through the service
   // role, scoped to their own id, after the completeness check above (PR48 §2).
   const admin = createAdminClient()
-  if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
+  if (!admin) return NextResponse.json({ error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }, { status: 503 })
   const { error } = await admin
     .from('profiles')
     .update({

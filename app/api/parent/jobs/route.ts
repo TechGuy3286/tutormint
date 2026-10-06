@@ -38,6 +38,8 @@ const JobBody = z.object({
   jobId: z.string().max(64).nullish(),
   // Optional preferred tutor gender (migration 72). Never required.
   genderPreference: z.enum(['male', 'female', 'trans']).nullish(),
+  // Duplicate prevention (item 16): the parent chose "Post anyway".
+  allowDuplicate: z.boolean().optional(),
 })
 
 function parseInput(body: z.infer<typeof JobBody>): JobInput {
@@ -62,6 +64,7 @@ function parseInput(body: z.infer<typeof JobBody>): JobInput {
     description: str(body.description),
     childId: str(body.childId),
     genderPreference: body.genderPreference ?? null,
+    allowDuplicate: !!body.allowDuplicate,
   }
 }
 
@@ -83,7 +86,9 @@ export async function POST(request: Request) {
   const result = await createJob(user.id, parseInput(body))
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error, upgrade: result.upgrade, gate: result.gate }, { status: result.status })
+    // `duplicate` (item 16): the open/paused tuition this would repeat, for the
+    // form's "Reopen this one / Post anyway" choice.
+    return NextResponse.json({ error: result.error, upgrade: result.upgrade, gate: result.gate, duplicate: result.duplicate ?? null }, { status: result.status })
   }
 
   return NextResponse.json({ success: true, id: result.id, jobTxId: result.jobTxId })

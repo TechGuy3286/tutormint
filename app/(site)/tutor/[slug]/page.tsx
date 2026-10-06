@@ -28,7 +28,7 @@ import { formatDate } from '@/lib/datetime'
 import { levelLabel } from '@/lib/display'
 import { feeLabelOf } from '@/lib/fee'
 import JobTypesChip from '@/components/JobTypesChip'
-import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorJsonLd } from '@/lib/seo'
+import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorJsonLd, seoTitle, seoDescription } from '@/lib/seo'
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
 import { formatName } from '@/lib/formatName'
@@ -328,11 +328,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   // The page name is the tutor and what they teach; the template adds the
   // promise and the brand. A long name plus three subjects will be truncated
   // by the search engine, which is preferable to dropping the brand.
-  const title = pageTitle(`${tutor.full_name} — ${subjectText} tutor in ${city}`)
-  const description = pageDescription(
-    tutor.headline
-      ? `${tutor.headline} — ${subjectText} in ${city}`
-      : `${tutor.full_name} teaches ${subjectText} in ${city}`,
+  // ≤ 60 characters (owner, 6 Oct 2026): "Name — Subject tutor in City | TutorMint"
+  // when it fits, the brand dropped when it does not, cut at a word otherwise.
+  const title = seoTitle(`${tutor.full_name} — ${subjectText} tutor in ${city}`)
+  const description = seoDescription(
+    pageDescription(
+      tutor.headline
+        ? `${tutor.headline} — ${subjectText} in ${city}`
+        : `${tutor.full_name} teaches ${subjectText} in ${city}`,
+    ),
   )
 
   return {

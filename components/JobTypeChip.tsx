@@ -1,4 +1,4 @@
-import { Home, Wifi, Briefcase } from 'lucide-react'
+import Icon, { type IconName } from '@/components/Icon'
 import { jobType } from '@/lib/display'
 import { isOnlineTitle } from '@/lib/jobTitlesCore'
 
@@ -14,11 +14,11 @@ import { isOnlineTitle } from '@/lib/jobTitlesCore'
 // the one distinction that changes behaviour: "Online Tutor" (city-agnostic) gets
 // the wifi mark, "Home Tutor" the house, and every other title a neutral
 // briefcase.
-function iconFor(mode: string | null | undefined) {
+function iconFor(mode: string | null | undefined): IconName {
   const k = (mode ?? '').trim().toLowerCase()
-  if (isOnlineTitle(mode) || k === 'online' || k === 'remote') return Wifi
-  if (k === 'home tutor' || k === 'home' || k === 'in_person' || k === 'both' || k === 'physical') return Home
-  return Briefcase
+  if (isOnlineTitle(mode) || k === 'online' || k === 'remote') return 'wifi'
+  if (k === 'home tutor' || k === 'home' || k === 'in_person' || k === 'both' || k === 'physical') return 'house'
+  return 'briefcase'
 }
 
 export default function JobTypeChip({
@@ -30,12 +30,12 @@ export default function JobTypeChip({
 }) {
   const label = jobType(mode)
   if (!label) return null
-  const Icon = iconFor(mode)
+  const icon = iconFor(mode)
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-2.5 py-1 text-[11px] font-bold text-tm-navy ${className}`}
     >
-      <Icon size={13} aria-hidden />
+      <Icon name={icon} size={13} />
       {label}
     </span>
   )

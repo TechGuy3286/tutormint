@@ -126,7 +126,7 @@ export async function reviewTutorDocument(params: {
 }): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const { actor, tutorId, item, decision, reason } = params
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
   if (decision === 'reject' && reason.trim().length < 3) {
     return { ok: false, status: 400, error: 'A reason is required to reject.' }
   }

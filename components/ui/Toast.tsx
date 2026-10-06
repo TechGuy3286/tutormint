@@ -141,7 +141,7 @@ function ToastItem({
       ) : (
         <AlertCircle aria-hidden size={16} className="mt-0.5 shrink-0" />
       )}
-      <p className="min-w-0 flex-1 text-xs font-semibold leading-relaxed">{toast.message}</p>
+      <p className="min-w-0 flex-1 whitespace-pre-line text-xs font-semibold leading-relaxed">{toast.message}</p>
       <button
         type="button"
         onClick={onDismiss}

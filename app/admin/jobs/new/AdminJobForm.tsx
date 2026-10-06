@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation'
 
-import PostTuitionForm, { type PostTuitionPayload } from '@/components/forms/PostTuitionForm'
+import PostTuitionForm, { type PostTuitionPayload, type DuplicateHit } from '@/components/forms/PostTuitionForm'
+import { adminFetch } from '@/components/admin/adminFetch'
 import { submitSignal } from '@/lib/submit'
 import { useToast } from '@/components/ui/Toast'
 
@@ -46,9 +47,15 @@ export default function AdminJobForm({ draftKey }: { draftKey?: string }) {
         contactEmail: payload.contactEmail,
         contactAddress: payload.contactAddress,
         contactSocial: payload.contactSocial,
+        allowDuplicate: payload.allowDuplicate ?? false,
+        duplicateReason: payload.duplicateReason ?? null,
       }),
     })
-    const json = (await res.json().catch(() => ({}))) as { id?: string; error?: string }
+    const json = (await res.json().catch(() => ({}))) as { id?: string; error?: string; duplicate?: DuplicateHit | null }
+    if (!res.ok && json.duplicate) {
+      // Item 16: the repeat is shown with "Reopen this one" / "Post anyway (+reason)".
+      return { ok: false as const, duplicate: json.duplicate }
+    }
     if (!res.ok) {
       toast.error(json.error ?? 'Could not post the tuition.')
       return { ok: false as const, error: json.error }
@@ -68,6 +75,18 @@ export default function AdminJobForm({ draftKey }: { draftKey?: string }) {
       submitLabel="Post team tuition"
       busyLabel="Posting…"
       onSubmit={onSubmit}
+      staffPost
+      onReopen={async (hit) => {
+        if (hit.status === 'paused') {
+          await adminFetch('/api/admin/jobs/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jobId: hit.id, action: 'resume', reason: 'Reopened instead of posting a repeat' }),
+          })
+          toast.success('Reopened. The tuition is live again.')
+        }
+        router.push(`/admin/jobs/${hit.id}`)
+      }}
     />
   )
 }

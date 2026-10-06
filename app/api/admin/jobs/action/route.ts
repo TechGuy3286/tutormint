@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { notify } from '@/lib/notifications'
 import { queueIndexingUpdate } from '@/lib/googleIndexing'
+import { mergeTuition, refreshTuition } from '@/lib/tuitionMerge'
 import { parseBody, z, uuid, text } from '@/lib/validate'
 
 // Close, pause/resume, or un-feature a tuition.
@@ -34,10 +35,12 @@ export const dynamic = 'force-dynamic'
 
 const ActionBody = z.object({
   jobId: uuid,
-  action: z.enum(['close', 'unfeature', 'pause', 'resume'], {
-    message: 'Choose close, unfeature, pause or resume.',
+  action: z.enum(['close', 'unfeature', 'pause', 'resume', 'refresh', 'merge'], {
+    message: 'Choose close, unfeature, pause, resume, refresh or merge.',
   }),
   reason: text({ min: 0, max: 500, label: 'Reason' }).nullish(),
+  /** merge only: the tuition this one is merged INTO (the survivor). */
+  survivorId: uuid.nullish(),
 })
 
 export async function POST(request: Request) {
@@ -48,6 +51,24 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
   const { jobId, action } = parsed.data
   const reason = (parsed.data.reason ?? '').trim()
+
+  // Refresh (owner, 6 Oct 2026, item 16): same URL, top of Browse, fresh 15 days,
+  // Google told; the 3-day limit is enforced in lib/tuitionMerge.
+  if (action === 'refresh') {
+    const r = await refreshTuition(jobId, { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email, kind: 'admin' }, null)
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })
+    return NextResponse.json({ success: true })
+  }
+
+  // Merge (item 15/16): admin + owner only — it closes the repeat for good.
+  if (action === 'merge') {
+    const mergeGate = await checkAdminRole(...SCREEN_ACCESS.duplicatesMerge)
+    if (!mergeGate.ok) return NextResponse.json({ error: mergeGate.error }, { status: mergeGate.status })
+    if (!parsed.data.survivorId) return NextResponse.json({ error: 'Choose the tuition to merge into.' }, { status: 400 })
+    const r = await mergeTuition(jobId, parsed.data.survivorId, { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email, kind: 'admin' }, reason || 'admin Duplicates view')
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })
+    return NextResponse.json({ success: true, repeatRef: r.repeatRef, survivorRef: r.survivorRef })
+  }
 
   const admin = createAdminClient()
   if (!admin) {

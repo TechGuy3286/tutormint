@@ -61,14 +61,14 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
         body: JSON.stringify(payload),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Something went wrong.')
+      if (!res.ok) throw new Error(json.error ?? 'That did not save. Please try again, or message us on WhatsApp 0321 5872222.\nیہ محفوظ نہیں ہوا۔ دوبارہ کوشش کریں یا واٹس ایپ پر پیغام کریں۔')
       setOpenForm(null)
       setTime('')
       setReason('')
       setFeedback('')
       router.refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.')
+      setError(e instanceof Error ? e.message : 'That did not save. Please try again, or message us on WhatsApp 0321 5872222.\nیہ محفوظ نہیں ہوا۔ دوبارہ کوشش کریں یا واٹس ایپ پر پیغام کریں۔')
     } finally {
       setBusy(null)
     }

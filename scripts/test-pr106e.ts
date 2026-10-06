@@ -171,13 +171,11 @@ test('the breadcrumb is hidden on the phone conversation view, one ← kept in t
   assert.ok(/lg:hidden/.test(src), 'the ← is mobile-only (desktop uses the two-pane)')
 })
 
-test('the quick-reply editor panel is hidden on the phone chat; the composer keeps one scrolling chip row', () => {
+test('the Quick replies block is gone from the inbox (owner, 6 Oct 2026, item 1); the composer gets none', () => {
   const shell = read('components/messages/InboxShell.tsx')
-  assert.ok(/threadId \? 'hidden lg:block' : 'block'/.test(shell), 'editor panel hidden on mobile thread')
-  const conv = read('components/messages/Conversation.tsx')
-  // One horizontally-scrolling row (overflow-x-auto), chips do not wrap.
-  assert.ok(/overflow-x-auto/.test(conv), 'single scrolling quick-reply row')
-  assert.ok(/whitespace-nowrap/.test(conv), 'chips do not wrap')
+  assert.ok(!/QuickRepliesEditor/.test(shell), 'no quick-reply editor in the inbox shell')
+  assert.ok(shell.includes('quickReplies={[]}'), 'the conversation receives an empty quick-reply list')
+  assert.ok(!/>\s*Quick replies\s*</.test(shell), 'no rendered "Quick replies" heading (a code comment may mention it)')
 })
 
 test('the Enter-to-send hint is hidden on phones', () => {

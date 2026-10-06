@@ -1,4 +1,4 @@
-import { Briefcase } from 'lucide-react'
+import Icon from '@/components/Icon'
 import JobTypeChip from '@/components/JobTypeChip'
 import { jobType } from '@/lib/display'
 
@@ -27,7 +27,7 @@ export default function JobTypesChip({
     <span
       className={`inline-flex items-center gap-1.5 rounded-full bg-tm-tint-navy px-2.5 py-1 text-[11px] font-bold text-tm-navy ${className}`}
     >
-      <Briefcase size={13} aria-hidden />
+      <Icon name="briefcase" size={13} />
       {label}
     </span>
   )

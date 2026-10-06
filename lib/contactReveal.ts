@@ -211,7 +211,7 @@ export async function revealStatus(tutorId: string, parentId: string): Promise<R
 
 export async function revealParentContact(tutorId: string, parentId: string): Promise<RevealResult> {
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
 
   const gate = await tutorGate(tutorId)
   if (!gate.ok) return gateFail(gate.status)
@@ -323,7 +323,7 @@ export async function jobContactRevealStatus(tutorId: string, jobId: string): Pr
 
 export async function revealJobContact(tutorId: string, jobId: string): Promise<RevealResult> {
   const admin = createAdminClient()
-  if (!admin) return { ok: false, status: 503, error: 'Server is not configured.' }
+  if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
 
   const gate = await tutorGate(tutorId)
   if (!gate.ok) return gateFail(gate.status)

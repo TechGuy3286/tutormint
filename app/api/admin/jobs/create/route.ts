@@ -46,6 +46,9 @@ const TeamJobBody = z.object({
   contactEmail: z.string().max(200).nullish(),
   contactAddress: z.string().max(300).nullish(),
   contactSocial: z.string().max(200).nullish(),
+  // Duplicate prevention (item 16): "Post anyway" + the staff member's reason.
+  allowDuplicate: z.boolean().optional(),
+  duplicateReason: z.string().max(300).nullish(),
 })
 
 function parseInput(body: z.infer<typeof TeamJobBody>): JobInput {
@@ -76,6 +79,8 @@ function parseInput(body: z.infer<typeof TeamJobBody>): JobInput {
     contactEmail: str(body.contactEmail),
     contactAddress: str(body.contactAddress),
     contactSocial: str(body.contactSocial),
+    allowDuplicate: !!body.allowDuplicate,
+    duplicateReason: str(body.duplicateReason),
   }
 }
 
@@ -94,7 +99,7 @@ export async function POST(request: Request) {
   )
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status })
+    return NextResponse.json({ error: result.error , duplicate: result.duplicate ?? null }, { status: result.status })
   }
 
   return NextResponse.json({

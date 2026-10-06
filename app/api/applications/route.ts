@@ -59,7 +59,7 @@ export async function PATCH(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
 
   const parsed = await parseBody(request, WithdrawBody)
   if (!parsed.ok) return parsed.response

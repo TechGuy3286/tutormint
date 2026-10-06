@@ -1,4 +1,6 @@
 import type { MetadataRoute } from 'next'
+import { indexableCityPages, cityPagePath, CITY_PAGE_THRESHOLD } from '@/lib/cityJobs'
+import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
 import { createPublicClient } from '@/lib/supabase/public'
 import { citySegment } from '@/lib/slugs'
 import { SITE_URL } from '@/lib/siteUrl'
@@ -58,8 +60,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // arrays empty and the static pages still ship — never a 500 for a crawler.
   let tutors: { slug: string; updated_at: string }[] = []
   let jobs: { public_slug: string; city: string | null; created_at: string }[] = []
-  let landing: { kind: string; citySlug: string; subjectSlug: string }[] = []
+  let landing: { kind: string; citySlug: string; subjectSlug: string; masterId: number }[] = []
   let posts: { slug: string; updatedAt: string | null }[] = []
+  let cities: Awaited<ReturnType<typeof indexableCityPages>> = []
+  let overlap = new Map<string, unknown>()
   try {
     const supabase = createPublicClient()
     // Both reads go through SECURITY DEFINER functions that already encode what
@@ -79,6 +83,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // listed here is indexable at the moment the sitemap is served.
     landing = (await liveLandingPagesUncached()) as typeof landing
     posts = await publishedSlugs()
+    // The city tuition-jobs pages at 3+ open tuitions (owner, 6 Oct 2026, item 6),
+    // and the near-duplicate landing pages to leave out (item 13) — both LIVE.
+    cities = await indexableCityPages()
+    overlap = await liveOverlapNoindex()
   } catch {
     // Leave the arrays empty; the static pages are still worth serving.
   }
@@ -127,12 +135,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }))
 
-  const landingPages: MetadataRoute.Sitemap = landing.map((p) => ({
-    url: `${BASE}/${p.kind}/${p.citySlug}/${p.subjectSlug}`,
-    lastModified: newestListing ?? STATIC_LASTMOD,
-    changeFrequency: 'daily' as const,
-    priority: 0.7,
-  }))
+  // A landing page whose results are 80%+ identical to a broader page in the
+  // same city is noindex and NOT listed (item 13); the broader page stays.
+  const landingPages: MetadataRoute.Sitemap = landing
+    .filter((p) => !overlap.has(overlapKey(p.kind as 'tutors' | 'tuitions', p.citySlug, p.masterId)))
+    .map((p) => ({
+      url: `${BASE}/${p.kind}/${p.citySlug}/${p.subjectSlug}`,
+      lastModified: newestListing ?? STATIC_LASTMOD,
+      changeFrequency: 'daily' as const,
+      priority: 0.7,
+    }))
+
+  // "Tuition jobs in [City]" and its variants, each only at 3+ open tuitions.
+  const cityPagesList: MetadataRoute.Sitemap = cities.flatMap((c) => [
+    { url: `${BASE}${cityPagePath(c.citySlug)}`, lastModified: newestJob ?? STATIC_LASTMOD, changeFrequency: 'daily' as const, priority: 0.8 },
+    ...c.variants
+      .filter((v) => v.count >= CITY_PAGE_THRESHOLD)
+      .map((v) => ({ url: `${BASE}${cityPagePath(c.citySlug, v.slug)}`, lastModified: newestJob ?? STATIC_LASTMOD, changeFrequency: 'daily' as const, priority: 0.7 })),
+  ])
 
   const postPages: MetadataRoute.Sitemap = posts.map((p) => ({
     url: `${BASE}/blog/${p.slug}`,
@@ -141,5 +161,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.5,
   }))
 
-  return [...staticPages, ...tutorPages, ...jobPages, ...landingPages, ...postPages]
+  return [...staticPages, ...cityPagesList, ...tutorPages, ...jobPages, ...landingPages, ...postPages]
 }

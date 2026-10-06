@@ -5,7 +5,7 @@ import { submitSignal } from '@/lib/submit'
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Play } from 'lucide-react'
+import { Play, RefreshCw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -81,6 +81,28 @@ export default function JobActions({
     )
   }
 
+  // Refresh (owner, 6 Oct 2026, item 16): top of Browse, a fresh 15 days, the
+  // same URL, Google told — at most once every 3 days. The route enforces the limit.
+  const refresh = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/parent/jobs/refresh', {
+        signal: submitSignal(),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Could not refresh this tuition. Please try again.')
+      toast.success('Refreshed. Your tuition is at the top of the list again for 15 more days.')
+      router.refresh()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not refresh this tuition. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const close = async () => {
     const ok = await confirm({
       title: 'Close this tuition?',
@@ -115,6 +137,15 @@ export default function JobActions({
         <PencilLine aria-hidden size={14} />
         Edit
       </Link>
+      <button
+        type="button"
+        onClick={refresh}
+        disabled={busy}
+        className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 disabled:opacity-60"
+      >
+        <RefreshCw aria-hidden size={14} />
+        {busy ? 'Working…' : 'Refresh'}
+      </button>
       <button
         type="button"
         onClick={close}

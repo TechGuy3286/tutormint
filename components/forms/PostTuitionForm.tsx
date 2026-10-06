@@ -69,6 +69,9 @@ export type PostTuitionValues = {
 /** What a wrapper's onSubmit receives — the resolved, ready-to-send fields. */
 export type PostTuitionPayload = {
   jobId?: string
+  /** Item 16: the member chose "Post anyway" over a detected repeat. */
+  allowDuplicate?: boolean
+  duplicateReason?: string | null
   title: string
   masterIds: number[]
   classLevel: string
@@ -94,7 +97,12 @@ export type PostTuitionPayload = {
   contactSocial: string | null
 }
 
-export type PostTuitionResult = { ok: true } | { ok: false; error?: string; gated?: boolean }
+/** The open/paused tuition a post would repeat (item 16), as the API returns it. */
+export type DuplicateHit = { id: string; refId: string | null; title: string | null; href: string; status: string; createdAt: string; reasons: string[] }
+
+export type PostTuitionResult =
+  | { ok: true }
+  | { ok: false; error?: string; gated?: boolean; duplicate?: DuplicateHit | null }
 
 const EMPTY: PostTuitionValues = {
   title: '',
@@ -142,6 +150,8 @@ export default function PostTuitionForm({
   submitLabel,
   busyLabel,
   onSubmit,
+  staffPost = false,
+  onReopen,
 }: {
   children?: { id: string; name: string; class_level: string | null }[]
   initial?: Partial<PostTuitionValues>
@@ -155,10 +165,18 @@ export default function PostTuitionForm({
   submitLabel: string
   busyLabel: string
   onSubmit: (payload: PostTuitionPayload) => Promise<PostTuitionResult>
+  /** Staff (admin) variant: "Post anyway" needs a one-line reason (item 16). */
+  staffPost?: boolean
+  /** "Reopen this one": resume the existing tuition if paused, then go to it. */
+  onReopen?: (hit: DuplicateHit) => Promise<void>
 }) {
   const [v, setV] = useState<PostTuitionValues>({ ...EMPTY, ...initial })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Item 16: the detected repeat awaiting the member's choice, and the staff reason.
+  const [dup, setDup] = useState<DuplicateHit | null>(null)
+  const [dupReason, setDupReason] = useState('')
+  const [dupBusy, setDupBusy] = useState(false)
   const [levelLeaf, setLevelLeaf] = useState(false)
 
   // PR73 §A: schedule is a day+slot grid. In edit mode, pre-fill from the job's
@@ -301,7 +319,7 @@ export default function PostTuitionForm({
   }
 
   // -------------------------------------------------------------- submit ---
-  const submit = async () => {
+  const submit = async (override?: { allowDuplicate: boolean; duplicateReason: string | null }) => {
     setBusy(true)
     setError(null)
     try {
@@ -312,6 +330,8 @@ export default function PostTuitionForm({
 
       const r = await onSubmit({
         jobId: v.jobId,
+        allowDuplicate: override?.allowDuplicate ?? false,
+        duplicateReason: override?.duplicateReason ?? null,
         title: v.title,
         masterIds,
         classLevels: v.levels,
@@ -339,6 +359,13 @@ export default function PostTuitionForm({
         // Keep the draft whatever the refusal was, so nothing chosen is lost —
         // including when a parent goes off to upgrade and comes back.
         if (useDraft) saveDraft('post', v)
+        // Item 16: a repeat was found — show it with "Reopen this one" (default)
+        // and "Post anyway" instead of a red line.
+        if (r.duplicate) {
+          setDup(r.duplicate)
+          setBusy(false)
+          return
+        }
         // A gate has already been explained by the sheet; a red line repeating
         // it reads as a second, different problem.
         if (!r.gated) setError(r.error ?? 'Could not post the tuition.')
@@ -630,8 +657,74 @@ export default function PostTuitionForm({
         </Step>
       </div>
 
+      {dup && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-tm-black/50 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="A tuition like this already exists"
+        >
+          <div className="w-full space-y-3 rounded-t-3xl bg-white p-5 shadow-xl sm:max-w-md sm:rounded-3xl">
+            <p className="text-sm font-black text-tm-navy">A tuition like this is already open</p>
+            <p lang="ur" dir="rtl" className="text-xs text-gray-500">ایسی ہی ایک ٹیوشن پہلے سے کھلی ہے۔</p>
+            <div className="rounded-xl border border-gray-200 bg-tm-bg p-3">
+              <p className="text-xs font-black text-tm-navy">{dup.refId} · {dup.title}</p>
+              <p className="text-[11px] text-gray-500">
+                Posted {dup.createdAt.slice(0, 10)} · {dup.status} · {dup.reasons.join(', ')}
+              </p>
+              <a href={dup.href} target="_blank" rel="noopener noreferrer" className="text-[11px] font-bold text-tm-navy underline">
+                Open it in a new tab
+              </a>
+            </div>
+            {staffPost && (
+              <label className="block space-y-1">
+                <span className="text-[11px] font-bold text-gray-700">Why post it again? (one line, stored with the tuition)</span>
+                <input
+                  value={dupReason}
+                  onChange={(e) => setDupReason(e.target.value)}
+                  placeholder="For example: a different family in the same area"
+                  className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-xs text-tm-navy focus:border-tm-navy focus:outline-none"
+                />
+              </label>
+            )}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                disabled={dupBusy}
+                onClick={async () => {
+                  setDupBusy(true)
+                  try {
+                    if (onReopen) await onReopen(dup)
+                    else window.location.href = dup.href
+                  } finally {
+                    setDupBusy(false)
+                  }
+                }}
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover disabled:opacity-60"
+              >
+                {dupBusy ? 'Opening…' : 'Reopen this one'}
+              </button>
+              <button
+                type="button"
+                disabled={dupBusy || (staffPost && dupReason.trim().length < 3)}
+                onClick={() => {
+                  const reason = dupReason.trim() || null
+                  setDup(null)
+                  void submit({ allowDuplicate: true, duplicateReason: reason })
+                }}
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy hover:border-tm-navy disabled:opacity-50"
+              >
+                Post anyway
+              </button>
+            </div>
+            <button type="button" onClick={() => setDup(null)} className="w-full py-2 text-[11px] font-bold text-gray-500">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {error && (
-        <p className="rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
+        <p className="whitespace-pre-line rounded-2xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
           {error}
         </p>
       )}
@@ -647,7 +740,7 @@ export default function PostTuitionForm({
       <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         <button
           type="button"
-          onClick={submit}
+          onClick={() => void submit()}
           disabled={busy || !postReady}
           className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:bg-gray-300 sm:w-auto"
         >

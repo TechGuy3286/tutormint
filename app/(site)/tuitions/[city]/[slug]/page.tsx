@@ -26,7 +26,13 @@ import { citySegment } from '@/lib/slugs'
 import { formatDate } from '@/lib/datetime'
 import { jobType } from '@/lib/display'
 import { absoluteUrl } from '@/lib/siteUrl'
-import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, socialMeta } from '@/lib/seo'
+import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, seoTitle, seoDescription, tuitionDescription, socialMeta } from '@/lib/seo'
+import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
+import { repeatOfOlderOpen, tuitionHref } from '@/lib/duplicates'
+import { cityPagePath } from '@/lib/cityJobs'
+import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
+import RefreshInline from './RefreshInline'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { preferHumanTitle } from '@/lib/jobDisplayTitle'
 import { isSubjectSlug, resolveLandingAny, landingIndexable, getLandingLinker } from '@/lib/landing'
 import LandingView from '@/components/landing/LandingView'
@@ -79,6 +85,20 @@ export const dynamic = 'force-dynamic'
 
 type Params = Promise<{ city: string; slug: string }>
 
+/** The survivor's public address when this tuition was merged into another
+ *  (migration 141), else null. Service role: the column is not in the public
+ *  card data and the survivor may be in any status. */
+async function mergedSurvivorHref(jobId: string): Promise<string | null> {
+  const admin = createAdminClient()
+  if (!admin) return null
+  const { data } = await admin.from('jobs').select('merged_into').eq('id', jobId).maybeSingle()
+  const into = (data?.merged_into as string | null) ?? null
+  if (!into) return null
+  const { data: s } = await admin.from('jobs').select('public_slug, city').eq('id', into).maybeSingle()
+  if (!s?.public_slug) return null
+  return tuitionHref((s.city as string | null) ?? null, s.public_slug as string)
+}
+
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { city, slug } = await params
 
@@ -91,13 +111,16 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     if (!combo) return { title: pageTitle('Tuitions'), robots: { index: false, follow: true } }
     const heading = `${combo.subjectName} tuitions in ${combo.city}`
     const lead = `${combo.count} open ${combo.subjectName} tuition${combo.count === 1 ? '' : 's'} in ${combo.city}`
-    const title = pageTitle(heading)
-    const description = pageDescription(lead)
+    // ≤ 60 / ≤ 155 (owner, 6 Oct 2026); an 80%+ overlap with a broader page in
+    // this city is noindex, follow (item 13).
+    const title = seoTitle(heading)
+    const description = seoDescription(pageDescription(lead))
+    const overlap = (await liveOverlapNoindex()).has(overlapKey('tuitions', combo.citySlug, combo.masterId))
     return {
       title,
       description,
       alternates: { canonical: `/tuitions/${combo.citySlug}/${combo.subjectSlug}` },
-      ...(landingIndexable(combo) ? {} : { robots: { index: false, follow: true } }),
+      ...(landingIndexable(combo) && !overlap ? {} : { robots: { index: false, follow: true } }),
       // Branded default image — a landing page has no imagery of its own.
       ...socialMeta({
         title,
@@ -122,12 +145,24 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   // browser tab and a Google Jobs result. Falls back to the composed string only
   // when there is no stored title (owner, 11 Sep 2026). The CARD keeps composed.
   const pageHeadline = preferHumanTitle(job.headline, job.title)
-  const title = pageTitle(pageHeadline)
-  const description = pageDescription(
-    job.description?.trim()
-      ? job.description.trim().slice(0, 150)
-      : `${pageHeadline} — apply free`,
-  )
+  // ≤ 60 characters (owner, 6 Oct 2026): no "— verified, no commission" suffix;
+  // "| TutorMint" only when it fits. The description (≤ 155) is built from the
+  // tuition's own fields — level, subjects, area, city, Job Type, budget — never
+  // the free text and never an invented fact.
+  const title = seoTitle(pageHeadline)
+  const description = tuitionDescription({
+    classLevel: job.class_level,
+    subjects: job.subjects ?? [],
+    area: job.area,
+    city: job.city,
+    mode: jobType(job.teaching_mode),
+    budget: budgetLabel(job.budget_min_pkr, job.budget_max_pkr, job.budget_pkr) ? `${budgetLabel(job.budget_min_pkr, job.budget_max_pkr, job.budget_pkr)} a month` : null,
+  })
+  // A merged repeat's page 301s to its survivor (the body does it); its metadata
+  // is noindex so nothing lingers. Safety net (item 16): an open tuition that
+  // repeats an OLDER open one points its canonical at the original.
+  const merged = await mergedSurvivorHref(job.id)
+  const repeatOf = merged ? null : job.status === 'open' ? await repeatOfOlderOpen(job.id) : null
 
   // A FIXTURE tuition (seed parent / JOB-TRK bulk import / SEED-JOB) is noindex
   // regardless (owner, 10 Sep 2026). And a paused/closed/hired tuition is 200 +
@@ -147,10 +182,12 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     descriptionLength: job.description?.trim().length ?? 0,
   })
 
+  if (merged) return { title, robots: { index: false, follow: true } }
+
   return {
     title,
     description,
-    alternates: { canonical: `/tuitions/${citySegment(job.city)}/${job.public_slug}` },
+    alternates: { canonical: repeatOf ? repeatOf.href : `/tuitions/${citySegment(job.city)}/${job.public_slug}` },
     // Branded default image (a tuition has no imagery of its own), complete OG +
     // Twitter so the share is not a bare link. The title/description carry the
     // job title, place and (public) description only — never the posting
@@ -202,6 +239,15 @@ export default async function TuitionPage({ params }: { params: Params }) {
   if (citySeg !== canonicalCity) {
     permanentRedirect(`/tuitions/${canonicalCity}/${job.public_slug}`)
   }
+
+  // A repeat that was MERGED into another tuition (item 15): its address sends
+  // visitors to the survivor, permanently. Nothing is deleted; the row stays.
+  const mergedHref = await mergedSurvivorHref(job.id)
+  if (mergedHref) permanentRedirect(mergedHref)
+
+  // Safety net (item 16): an open tuition that repeats an OLDER open one emits
+  // no JobPosting and its canonical points at the original (set in metadata).
+  const repeatOf = job.status === 'open' ? await repeatOfOlderOpen(job.id) : null
 
   // ------------------------------------------------------------- the viewer --
   const supabase = await createClient()
@@ -258,15 +304,17 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // same city first then same subject, plus the browse links already below.
   // PR85 Part C: a signed-in tutor's "similar" list is gender-filtered.
   const similarGender = isTutor ? tutorGender : null
-  const similar = !state.isOpen
-    ? await similarOpenTuitions(
-        job.id,
-        job.city,
-        (job.subject_links ?? []).map((l) => l.masterId),
-        3,
-        similarGender,
-      )
-    : []
+  // Item 12 — EVERY tuition page carries "Similar tuitions": up to 6 open
+  // tuitions matched by city, then level, then subject. On a non-open page it
+  // doubles as the "no dead end" list.
+  const similar = await similarOpenTuitions(
+    job.id,
+    job.city,
+    (job.subject_links ?? []).map((l) => l.masterId),
+    6,
+    similarGender,
+    job.class_levels ?? null,
+  )
 
   // §3 — an OPEN tuition is cross-linked too, so the page carries more unique,
   // useful content than a single row: the matching landing page (all tuitions for
@@ -288,13 +336,8 @@ export default async function TuitionPage({ params }: { params: Params }) {
         break
       }
     }
-    relatedOpen = await similarOpenTuitions(
-      job.id,
-      job.city,
-      (job.subject_links ?? []).map((l) => l.masterId),
-      3,
-      similarGender,
-    )
+    // The cards themselves are the "Similar tuitions" block below (item 12).
+    relatedOpen = []
   }
 
   // The gender-preference sentence, shown plainly to everyone. And, for a
@@ -336,13 +379,17 @@ export default async function TuitionPage({ params }: { params: Params }) {
       <span hidden data-tm-page-label={`Viewed tuition ${job.ref_id ?? job.job_tx_id ?? ''}`.trim()} />
       {/* JobPosting structured data: OPEN, non-fixture tuitions only (§6). A
           paused/closed/hired tuition must not sit in Google's jobs results. */}
-      {!fixture && state.emitJobPosting && (
+      {!fixture && state.emitJobPosting && !repeatOf && (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={jsonLdScript(
             jobPostingJsonLd({
               url,
               title: pageHeadline,
+              // identifier (the TM number) and, for an online tuition, TELECOMMUTE +
+              // applicantLocationRequirements Pakistan (owner, 6 Oct 2026, item 11).
+              refId: job.ref_id ?? null,
+              online: job.teaching_mode === ONLINE_JOB_TITLE,
               description:
                 job.description?.trim() ||
                 `${pageHeadline}. ${
@@ -374,8 +421,9 @@ export default async function TuitionPage({ params }: { params: Params }) {
           ...(job.city
             ? [
                 {
-                  label: job.city,
-                  href: `/browse/tuitions?city=${encodeURIComponent(job.city)}`,
+                  label: `Tuition jobs in ${job.city}`,
+                  // The city page (item 6), not the filtered board.
+                  href: cityPagePath(citySegment(job.city)),
                 },
               ]
             : []),
@@ -417,6 +465,11 @@ export default async function TuitionPage({ params }: { params: Params }) {
             label never shows 0 or a negative (PR29 §B): "pauses today" covers the
             last day and the past-due-but-unswept window; it still takes
             applications until the sweep actually pauses it. */}
+        {/* Item 16 — the poster (and an admin) can Refresh an open tuition from
+            its own page: top of Browse, fresh 15 days, same URL; once every 3 days. */}
+        {(isPoster || isAdmin) && state.isOpen && (
+          <RefreshInline jobId={job.id} admin={isAdmin && !isPoster} />
+        )}
         {pauseLabel && state.isOpen && (
           <p className="rounded-xl bg-tm-bg p-3 text-[11px] font-semibold text-gray-500">
             {pauseLabel === 'pauses today'
@@ -641,11 +694,12 @@ export default async function TuitionPage({ params }: { params: Params }) {
         </section>
       )}
 
-      {/* No dead end (§3): a paused/closed/hired page offers live tuitions to go
-          to — same city first, then same subject. */}
-      {!state.isOpen && similar.length > 0 && (
+      {/* Item 12 — "Similar tuitions" on every tuition page: up to 6 open
+          tuitions, city first, then level, then subject. On a paused/closed/hired
+          page it is also the way out (§3, no dead end). */}
+      {similar.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-sm font-black text-tm-navy">Similar open tuitions</h2>
+          <h2 className="text-sm font-black text-tm-navy">Similar tuitions</h2>
           <div className="space-y-4">
             {similar.map((t) => (
               <JobCard

@@ -34,7 +34,7 @@ export default function JobActions({
   const [done, setDone] = useState<string | null>(null)
   const toast = useToast()
 
-  const act = async (action: 'close' | 'unfeature' | 'pause' | 'resume') => {
+  const act = async (action: 'close' | 'unfeature' | 'pause' | 'resume' | 'refresh') => {
     setBusy(action)
     setError(null)
     setDone(null)
@@ -53,7 +53,9 @@ export default function JobActions({
             ? 'Done. The Featured tag is removed and the parent has been told.'
             : action === 'pause'
               ? 'Done. This tuition is paused and the parent has been told.'
-              : 'Done. This tuition is live again and the parent has been told.'
+              : action === 'refresh'
+                ? 'Done. This tuition is at the top of Browse again for 15 more days, on the same address.'
+                : 'Done. This tuition is live again and the parent has been told.'
       setDone(message)
       toast.success(message)
       setReason('')
@@ -72,7 +74,7 @@ export default function JobActions({
     className,
     disabled,
   }: {
-    action: 'close' | 'unfeature' | 'pause' | 'resume'
+    action: 'close' | 'unfeature' | 'pause' | 'resume' | 'refresh'
     label: string
     className: string
     disabled?: boolean
@@ -141,6 +143,12 @@ export default function JobActions({
           disabled={!isFeatured}
           className="border border-gray-200 text-tm-navy hover:border-tm-navy"
         />
+        <Button
+          action="refresh"
+          label="Refresh (top of Browse, 15 more days)"
+          disabled={status !== 'open' && status !== 'paused'}
+          className="border border-gray-200 text-tm-navy hover:border-tm-navy"
+        />
       </div>
 
       <div className="space-y-1.5 text-[10px] leading-relaxed text-gray-500">
@@ -152,6 +160,10 @@ export default function JobActions({
           <span className="font-bold text-gray-700">Pause</span> — hide the tuition for now and bring
           it back later with “Bring it back”. Tutors cannot apply while it is paused. Use this if the
           tuition may be needed again soon.
+        </p>
+        <p>
+          <span className="font-bold text-gray-700">Refresh</span> — moves the tuition to the top of
+          Browse with a fresh 15 days on the same address, and tells Google. At most once every 3 days.
         </p>
         <p>Nothing is ever deleted. The post, its applications and its chats always stay.</p>
       </div>

@@ -13,6 +13,7 @@ import { logAnonSearch } from '@/lib/anonSearch'
 import { ANON_COOKIE, isAnonId } from '@/lib/anonSession'
 import {
   browseJobs,
+  slimForCard,
   resolveTutorScope,
   tutorFeed,
   feedGenderFilter,
@@ -26,6 +27,7 @@ import AdSlot from '@/components/ads/AdSlot'
 import JobFilterBar, { type JobFilterValues } from './JobFilterBar'
 import MoreJobs from './MoreJobs'
 import PopularLandingLinks from '@/components/landing/PopularLandingLinks'
+import CityJobsLinks from '@/components/tuitionJobs/CityJobsLinks'
 import { applyBlocksFor, type ApplyBlockMap } from '@/lib/applyBlockServer'
 import type { Entitlements } from '@/lib/entitlements'
 
@@ -257,7 +259,9 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
     defaultApplied && resolved
       ? await tutorFeed(supabase, resolved, viewerGender, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE })
       : await browseJobs(filters, PAGE_SIZE, (page - 1) * PAGE_SIZE)
-  const { jobs, total, nextCursor } = result
+  const { total, nextCursor } = result
+  // Slim card data for the browser (item 14).
+  const jobs = result.jobs.map(slimForCard)
   const feedMessage: FeedMessage = 'message' in result ? (result.message as FeedMessage) : null
   const feedLevel: 1 | 2 | 3 | null = 'level' in result ? (result.level as 1 | 2 | 3) : null
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -359,6 +363,8 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
               Showing results for &ldquo;{resolvedLabel}&rdquo;
             </p>
           )}
+          {/* The "Tuition jobs in [City]" pages (owner, 6 Oct 2026, item 6). */}
+          <CityJobsLinks />
         </header>
 
         {/* The verify prompt — shown ONLY to a logged-in tutor who has not paid

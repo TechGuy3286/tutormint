@@ -17,6 +17,7 @@
 // fold at 390x844 and 1280x800 with room to spare, rather than the second
 // button finishing 79px short of the bottom edge on a laptop.
 
+import CityJobsLinks from '@/components/tuitionJobs/CityJobsLinks'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Search, ClipboardList } from 'lucide-react'
@@ -107,6 +108,12 @@ export default async function HomePage() {
             tone="navy"
             icon={<ClipboardList aria-hidden className="h-6 w-6" />}
           />
+        </div>
+        {/* The "Tuition jobs in [City]" link row (owner, 6 Oct 2026, item 6 —
+            "link these pages from … the homepage"). Links only; layout, copy
+            and the two buttons above are untouched. */}
+        <div className="mt-4 w-full max-w-3xl">
+          <CityJobsLinks heading="Tuition jobs by city" />
         </div>
       </section>
     </div>

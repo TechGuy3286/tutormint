@@ -18,7 +18,7 @@ export const maxDuration = 30
 export async function POST() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
 
   const limit = await rateLimit('ai_generate', user.id)
   if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'requests')

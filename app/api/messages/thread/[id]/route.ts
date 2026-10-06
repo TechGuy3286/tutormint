@@ -24,13 +24,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
 
   const { data: me } = await supabase.from('profiles').select('role, full_name').eq('id', user.id).maybeSingle()
   const role = me?.role === 'tutor' ? 'tutor' : 'parent'
 
   const header = await threadHeader(user.id, id)
-  if (!header) return NextResponse.json({ error: 'Not found.' }, { status: 404 })
+  if (!header) return NextResponse.json({ error: 'This conversation is not available. It may have been removed, or it is not yours. Go back to your inbox.\nیہ گفتگو دستیاب نہیں۔ اپنے ان باکس پر واپس جائیں۔' }, { status: 404 })
 
   const [ent, history, quickReplies] = await Promise.all([
     getEntitlements(user.id),

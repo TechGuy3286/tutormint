@@ -25,16 +25,16 @@ export async function GET() {
     .select('admin_role, is_seed, email')
     .eq('id', user.id)
     .maybeSingle()
-  if (!profile || !checkoutVisibleFor(profile)) return new Response('Not allowed.', { status: 403 })
+  if (!profile || !checkoutVisibleFor(profile)) return new Response('Bank transfer is not open for your account yet. Use the payment page instead.', { status: 403 })
 
   const instructions = await manualInstructions()
-  if (!instructions.qrPath) return new Response('Not found.', { status: 404 })
+  if (!instructions.qrPath) return new Response('The bank QR code is not available right now. Use the account details on the payment page instead.', { status: 404 })
 
   const admin = createAdminClient()
   if (!admin) return new Response('Server not configured.', { status: 503 })
 
   const { data: file, error } = await admin.storage.from('payment-proofs').download(instructions.qrPath)
-  if (error || !file) return new Response('Not found.', { status: 404 })
+  if (error || !file) return new Response('The bank QR code is not available right now. Use the account details on the payment page instead.', { status: 404 })
 
   return new Response(file.stream(), {
     headers: {

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
+import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
 import { notFound } from 'next/navigation'
 
 import LandingView from '@/components/landing/LandingView'
 import { resolveLandingAny, landingIndexable } from '@/lib/landing'
-import { pageTitle, pageDescription, socialMeta } from '@/lib/seo'
+import { pageTitle, pageDescription, socialMeta, seoTitle, seoDescription } from '@/lib/seo'
 
 // /tutors/[city]/[subject] — a city × subject landing page for tutors.
 //
@@ -28,14 +29,18 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
   const heading = `${combo.subjectName} tutors in ${combo.city}`
   const lead = `${combo.count} verified ${combo.subjectName} tutor${combo.count === 1 ? '' : 's'} in ${combo.city}`
-  const title = pageTitle(heading)
-  const description = pageDescription(lead)
+  // ≤ 60 characters (owner, 6 Oct 2026); description ≤ 155.
+  const title = seoTitle(heading)
+  const description = seoDescription(pageDescription(lead))
+  // Near-duplicate of a broader page in this city (item 13): noindex, follow.
+  const overlap = (await liveOverlapNoindex()).has(overlapKey('tutors', combo.citySlug, combo.masterId))
   return {
     title,
     description,
     alternates: { canonical: `/tutors/${combo.citySlug}/${combo.subjectSlug}` },
-    // Fewer than 3 results: noindex, follow (item 6). Lifts by itself at 3.
-    ...(landingIndexable(combo) ? {} : { robots: { index: false, follow: true } }),
+    // Fewer than 3 results, or an 80%+ overlap with a broader page: noindex,
+    // follow. Both lift by themselves as the data changes.
+    ...(landingIndexable(combo) && !overlap ? {} : { robots: { index: false, follow: true } }),
     // Branded default image — a landing page has no imagery of its own.
     ...socialMeta({
       title,

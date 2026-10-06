@@ -58,6 +58,13 @@ export const SCREEN_ACCESS = {
   payments: ['admin'] as AdminRole[],
   paymentsApprove: ['admin'] as AdminRole[],
   paymentsSettings: ['admin'] as AdminRole[],
+  // PayPro reconciliation (owner, 6 Oct 2026): "owner and finance roles" — the
+  // Finance role was deleted on 14 Sep (payments are admin-only), so this is
+  // admin + owner. Read-only matching; it never changes a payment status.
+  reconciliation: ['admin'] as AdminRole[],
+  // The Duplicates view and its one-tap merge (owner, 6 Oct 2026).
+  duplicates: ['admin', 'operations'] as AdminRole[],
+  duplicatesMerge: ['admin'] as AdminRole[],
   // Opening checkout to ALL members is an owner decision. `[]` = owner only.
   paymentsSwitches: [] as AdminRole[],
   // Staff management is the ONE thing an Admin does not get. `[]` = owner only.

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadStaffActivity } from '@/lib/staffActivity'
 import StaffActivityTable from '@/components/admin/StaffActivityTable'
+import { recentRepeats } from '@/lib/duplicates'
 
 // Every staff member with their activity counts (PR29 §2.3), read from the
 // audit log by actor. Admin (and owner) only — a management view.
@@ -24,6 +25,14 @@ export default async function StaffActivityPage() {
   // other id for this role.
   if (actor.adminRole === 'tuitions_staff') redirect(`/admin/staff-activity/${actor.id}`)
   const staff = await loadStaffActivity()
+  // Repeats this week per staff member (owner, 6 Oct 2026, item 16): the
+  // Duplicates view's count, shown here too.
+  const repeats = await recentRepeats(new Date(Date.now() - 7 * 86_400_000))
+  const repeatsByName = new Map<string, number>()
+  for (const p of repeats) {
+    const k = (p.repeat.postedBy ?? '').toLowerCase()
+    repeatsByName.set(k, (repeatsByName.get(k) ?? 0) + 1)
+  }
 
   return (
     <div className="space-y-4">
@@ -52,6 +61,12 @@ export default async function StaffActivityPage() {
                 </span>
               </div>
               <StaffActivityTable counts={s.counts} staffId={s.id} />
+              <p className="text-[11px] text-gray-500">
+                Repeated tuitions this week:{' '}
+                <Link href="/admin/jobs/duplicates" className={`font-bold ${(repeatsByName.get(s.name.toLowerCase()) ?? 0) > 0 ? 'text-tm-red' : 'text-tm-navy'} hover:underline`}>
+                  {repeatsByName.get(s.name.toLowerCase()) ?? 0}
+                </Link>
+              </p>
             </section>
           ))}
         </div>

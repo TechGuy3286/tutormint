@@ -30,7 +30,7 @@ import { recordTutorSelfChanges } from '@/lib/fieldHistory'
 // instrumentation.ts, which refuses to boot a production server that has it.
 
 const OtpBody = z.object({
-  action: z.enum(['send', 'verify'], { message: 'Unknown action.' }),
+  action: z.enum(['send', 'verify'], { message: 'That request was not understood. Reload the page and try again.\nیہ درخواست سمجھ نہیں آئی۔ صفحہ دوبارہ لوڈ کر کے کوشش کریں۔' }),
   phone: pkMobile,
   // Kept loose on purpose: a wrong-length code is a wrong code, and telling
   // somebody their guess was the wrong SHAPE is a hint they did not need.
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
+    return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
   }
 
   const parsed = await parseBody(request, OtpBody)

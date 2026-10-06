@@ -37,7 +37,7 @@ export async function GET() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
   return NextResponse.json({ identity: await loadIdentity(user.id) })
 }
 
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'Please sign in first, then try again.\nپہلے سائن ان کریں، پھر دوبارہ کوشش کریں۔' }, { status: 401 })
 
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
     // (migration 103). Clearing them (a member asking to re-verify) goes through
     // the service role, scoped to their own id (PR48 §2).
     const admin = createAdminClient()
-    if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
+    if (!admin) return NextResponse.json({ error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }, { status: 503 })
     const { error } = await admin
       .from('profiles')
       .update({
@@ -171,7 +171,7 @@ export async function POST(request: Request) {
   // submitting for review goes through the service role, scoped to their own id,
   // after the CNIC-number and both-sides checks above (PR48 §2).
   const admin = createAdminClient()
-  if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
+  if (!admin) return NextResponse.json({ error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }, { status: 503 })
   // PR106-H4 §2.7: do NOT clear verification_rejection_reason here. After a
   // rejection the reason must LINGER so the Verified badge stays paused and
   // activity blocked through the re-upload — only a staff approval

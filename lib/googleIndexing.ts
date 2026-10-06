@@ -80,6 +80,15 @@ export type IndexingResult =
 
 /** Tell Google a URL changed. Resolves (never throws). */
 export async function notifyUrlUpdated(url: string): Promise<IndexingResult> {
+  return notifyUrl(url, 'URL_UPDATED')
+}
+
+/** Tell Google a URL is gone (a merged repeat, owner 6 Oct 2026). Resolves (never throws). */
+export async function notifyUrlDeleted(url: string): Promise<IndexingResult> {
+  return notifyUrl(url, 'URL_DELETED')
+}
+
+async function notifyUrl(url: string, type: 'URL_UPDATED' | 'URL_DELETED'): Promise<IndexingResult> {
   const creds = credentials()
   if (!creds) {
     if (!loggedMissing) {
@@ -91,13 +100,13 @@ export async function notifyUrlUpdated(url: string): Promise<IndexingResult> {
   try {
     const auth = new google.auth.JWT({ email: creds.email, key: creds.key, scopes: [SCOPE] })
     const indexing = google.indexing({ version: 'v3', auth })
-    await indexing.urlNotifications.publish({ requestBody: { url, type: 'URL_UPDATED' } })
+    await indexing.urlNotifications.publish({ requestBody: { url, type } })
     // (credentials() is non-null here, so this is never the "skipped" log line.)
-    console.info(`[indexing] URL_UPDATED accepted for ${url}`)
+    console.info(`[indexing] ${type} accepted for ${url}`)
     return { ok: true, url }
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)
-    console.warn(`[indexing] URL_UPDATED failed for ${url}: ${error}`)
+    console.warn(`[indexing] ${type} failed for ${url}: ${error}`)
     return { ok: false, url, skipped: false, error }
   }
 }
@@ -117,6 +126,18 @@ export function queueIndexingUpdate(job: { public_slug?: string | null; city?: s
   const url = tuitionUrl(job)
   if (!url) return
   const run = () => notifyUrlUpdated(url).catch(() => undefined)
+  try {
+    after(run)
+  } catch {
+    void run()
+  }
+}
+
+/** Queue a URL_DELETED for a merged repeat's old address (it now 301s). */
+export function queueIndexingDelete(job: { public_slug?: string | null; city?: string | null }): void {
+  const url = tuitionUrl(job)
+  if (!url) return
+  const run = () => notifyUrlDeleted(url).catch(() => undefined)
   try {
     after(run)
   } catch {

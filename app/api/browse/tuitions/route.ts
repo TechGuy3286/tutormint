@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getEntitlements } from '@/lib/entitlements'
 import {
   browseJobs,
+  slimForCard,
   resolveTutorScope,
   tutorFeed,
   feedGenderFilter,
@@ -75,9 +76,13 @@ export async function GET(request: Request) {
     q: get('q') || null,
     tutorScope: null,
     viewerGender,
+    // The city tuition-jobs pages (owner, 6 Oct 2026).
+    area: get('area') || null,
+    genderPreference: (['male', 'female', 'trans'] as const).find((g) => g === get('gender')) ?? null,
   }
 
-  const { jobs, nextCursor } = await browseJobs(filters, PAGE_SIZE, 0, get('cursor') || null)
+  const { jobs: fullJobs, nextCursor } = await browseJobs(filters, PAGE_SIZE, 0, get('cursor') || null)
+  const jobs = fullJobs.map(slimForCard)
   return respond(jobs, nextCursor, user?.id ?? null, supabase)
 }
 

@@ -28,6 +28,7 @@
 // rendered rather than shown as a dead link (CLAUDE.md rule 7).
 
 import Image from 'next/image'
+import { indexableCityPages, cityPagePath } from '@/lib/cityJobs'
 import Link from 'next/link'
 import { ChevronDown } from 'lucide-react'
 import FooterTagline from '@/components/FooterTagline'
@@ -80,8 +81,9 @@ function socialLinks(supportWhatsapp: string | null): SocialLink[] {
   return links
 }
 
-/** The two link columns whose auth links are hidden once signed in. */
-function linkColumns(signedIn: boolean): LinkColumn[] {
+/** The two link columns whose auth links are hidden once signed in. `cityLinks`
+ *  are the "Tuition jobs in [City]" pages at 3+ open tuitions (owner, 6 Oct 2026). */
+function linkColumns(signedIn: boolean, cityLinks: FooterLink[] = []): LinkColumn[] {
   const auth: FooterLink[] = signedIn ? [] : [
     { label: 'Sign Up', href: '/register' },
     { label: 'Login', href: '/login' },
@@ -93,6 +95,7 @@ function linkColumns(signedIn: boolean): LinkColumn[] {
         // The browse pages are the platform's organic-search surface and were
         // linked from no footer column at all (T-SEO2 named the footer).
         { label: 'Find Tuitions', href: '/browse/tuitions' },
+        ...cityLinks,
         ...auth,
         { label: 'Dashboard', href: '/tutor/dashboard' },
         { label: 'Membership Plans', href: '/membership-plans?for=tutors' },
@@ -124,7 +127,15 @@ export default async function Footer() {
   const support = supportContactFromEnv()
   const socials = socialLinks(support.whatsapp)
   const signedIn = !!(await getSessionUser())
-  const columns = linkColumns(signedIn)
+  // The city tuition-jobs pages (live, 3+ open tuitions) — up to five in the
+  // tutors column so they are never orphans. A read error leaves them out.
+  let cityLinks: FooterLink[] = []
+  try {
+    cityLinks = (await indexableCityPages()).slice(0, 5).map((c) => ({ label: `Tuition jobs in ${c.city}`, href: cityPagePath(c.citySlug) }))
+  } catch {
+    cityLinks = []
+  }
+  const columns = linkColumns(signedIn, cityLinks)
   const year = new Date().getFullYear()
 
   return (
@@ -140,7 +151,7 @@ export default async function Footer() {
               width={2048}
               height={752}
               sizes="87px"
-              className="h-8 w-auto object-contain"
+              className="h-8 w-[87px] object-contain"
             />
             <FooterTagline />
             <SocialRow socials={socials} />
@@ -166,7 +177,7 @@ export default async function Footer() {
                 width={2048}
                 height={752}
                 sizes="87px"
-                className="h-8 w-auto object-contain"
+                className="h-8 w-[87px] object-contain"
               />
               <FooterTagline />
               <SocialRow socials={socials} />

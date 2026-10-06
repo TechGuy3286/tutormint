@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { BookOpen, Briefcase, MapPin, Building2, Heart, Play, MessageCircle, Star, Eye, Handshake, BadgeCheck, X } from 'lucide-react'
+import Icon from '@/components/Icon'
 import JobTypesChip from '@/components/JobTypesChip'
 import CardActions, { type CardAction } from '@/components/CardActions'
 import { feeLabelOf } from '@/lib/fee'
@@ -120,12 +120,11 @@ function Stars({ rating, count }: { rating: number; count: number }) {
     <span className="flex items-center gap-1.5">
       <span className="flex" aria-hidden="true">
         {[0, 1, 2, 3, 4].map((i) => (
-          <Star
+          <Icon
             key={i}
+            name="star"
             size={14}
-            className={
-              i < Math.round(rating) ? 'fill-tm-gold stroke-tm-gold' : 'fill-gray-200 stroke-gray-200'
-            }
+            className={i < Math.round(rating) ? 'fill-tm-gold stroke-tm-gold' : 'fill-gray-200 stroke-gray-200'}
           />
         ))}
       </span>
@@ -444,7 +443,7 @@ export default function TutorCard({
             data-tip="Remove from shortlist"
             className="absolute right-2 top-2 z-20 grid h-9 w-9 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:border-tm-red hover:text-tm-red disabled:opacity-60"
           >
-            <X aria-hidden size={16} />
+            <Icon name="x" size={16} />
           </button>
         )}
 
@@ -504,7 +503,7 @@ export default function TutorCard({
                   of the directory. Falls back to plain text when there is no
                   id to link with -- a profile whose subjects predate the join
                   table, or a tutor teaching online with no city. */}
-              <DetailLine icon={<BookOpen size={14} />} label="Subjects" value={subjects}>
+              <DetailLine icon={<Icon name="book-open" size={14} />} label="Subjects" value={subjects}>
                 {links.length > 0
                   ? links.map((l, i) => (
                       <span key={l.masterId}>
@@ -523,7 +522,7 @@ export default function TutorCard({
                     ))
                   : subjects}
               </DetailLine>
-              <DetailLine icon={<Briefcase size={14} />} label="Experience" value={experience.en} />
+              <DetailLine icon={<Icon name="briefcase" size={14} />} label="Experience" value={experience.en} />
               {(() => {
                 // Up to 2 areas, then "+N more" (PR68). Falls back to the single area.
                 const list = (tutor.areas && tutor.areas.length > 0
@@ -536,7 +535,7 @@ export default function TutorCard({
                 const extra = list.length - shown.length
                 return (
                   <DetailLine
-                    icon={<MapPin size={14} />}
+                    icon={<Icon name="map-pin" size={14} />}
                     label="Area"
                     value={list.length ? list.join(', ') : 'Flexible'}
                   >
@@ -574,7 +573,7 @@ export default function TutorCard({
                 ).slice(0, 2)
                 return (
                   <DetailLine
-                    icon={<Building2 size={14} />}
+                    icon={<Icon name="building-2" size={14} />}
                     label={cityList.length > 1 ? 'Cities' : 'City'}
                     value={cityList.join(', ') || 'Online'}
                   >
@@ -614,7 +613,7 @@ export default function TutorCard({
                   {
                     key: 'view',
                     label: 'View Profile',
-                    icon: <Eye size={14} aria-hidden />,
+                    icon: <Icon name="eye" size={14} />,
                     className: 'bg-tm-black text-white hover:bg-tm-navy',
                     href: profileHref,
                     tooltip: `View ${tutor.full_name.split(' ')[0]}’s profile`,
@@ -632,7 +631,7 @@ export default function TutorCard({
                           key: 'message',
                           label: 'Message',
                           // Navy with a chat icon (owner hotfix, 5 Oct 2026).
-                          icon: <MessageCircle size={14} aria-hidden />,
+                          icon: <Icon name="message-circle" size={14} />,
                           className: 'bg-tm-navy text-white hover:bg-tm-navy-hover',
                           onClick: onMessage,
                           disabled: busy,
@@ -645,7 +644,7 @@ export default function TutorCard({
                     // A parent reads "Demo lesson" (matches the dashboard tile,
                     // §2.1); a guest or tutor keeps the short "Demo".
                     label: viewer.role === 'parent' ? 'Demo lesson' : 'Demo',
-                    icon: <Play size={14} aria-hidden />,
+                    icon: <Icon name="play" size={14} />,
                     className: 'bg-tm-red text-white hover:bg-tm-red-hover',
                     onClick: requestDemo,
                     disabled: busy,
@@ -657,7 +656,7 @@ export default function TutorCard({
                         {
                           key: 'shortlist',
                           label: saved ? 'Shortlisted' : 'Shortlist',
-                          icon: <Heart size={14} className={saved ? 'fill-tm-red' : ''} aria-hidden />,
+                          icon: <Icon name="heart" size={14} fill={saved ? 'currentColor' : 'none'} />,
                           className: 'border border-tm-red text-tm-red hover:bg-tm-tint-red',
                           onClick: toggleShortlist,
                           disabled: busy,
@@ -673,7 +672,7 @@ export default function TutorCard({
                           ? ({
                               key: 'hire',
                               label: 'Hired',
-                              icon: <BadgeCheck size={14} aria-hidden />,
+                              icon: <Icon name="badge-check" size={14} />,
                               className: 'bg-tm-tint-green text-tm-green-deep',
                               onClick: () => {},
                               disabled: true,
@@ -681,7 +680,7 @@ export default function TutorCard({
                           : ({
                               key: 'hire',
                               label: 'Hire',
-                              icon: <Handshake size={14} aria-hidden />,
+                              icon: <Icon name="handshake" size={14} />,
                               // Navy (§1.1). Gold stays reserved for Featured.
                               className: 'bg-tm-navy text-white hover:bg-tm-navy-hover',
                               onClick: onHire,

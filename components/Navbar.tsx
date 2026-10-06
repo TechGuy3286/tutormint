@@ -162,7 +162,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           height={752}
           priority
           sizes="(min-width: 640px) 153px, 120px"
-          className="h-11 w-auto object-contain sm:h-14"
+          className="h-11 w-[120px] object-contain sm:h-14 sm:w-[153px]"
         />
       </Link>
       <div className="flex shrink-0 items-center gap-2">{children}</div>

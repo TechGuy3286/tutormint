@@ -25,6 +25,7 @@ import FaqList, { type FaqGroup } from './FaqList'
 
 export const metadata: Metadata = {
   title: pageTitle('Help and support'),
+  alternates: { canonical: '/support' },
   description:
     'Answers for tutors and parents on verification, packages, refunds, messaging and hiring — plus how to reach the TutorMint team on WhatsApp or email.',
 }

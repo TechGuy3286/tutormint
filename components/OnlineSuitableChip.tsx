@@ -1,4 +1,4 @@
-import { Wifi } from 'lucide-react'
+import Icon from '@/components/Icon'
 
 // "Suitable for online" — shown beside a tuition's mode when the tuition is in
 // a different city from the tutor but can be taught online (lib/matchChip.ts).
@@ -9,7 +9,7 @@ export default function OnlineSuitableChip({ className = '' }: { className?: str
     <span
       className={`inline-flex items-center gap-1 rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy ${className}`}
     >
-      <Wifi aria-hidden size={11} />
+      <Icon name="wifi" size={11} />
       Suitable for online
     </span>
   )
