@@ -10,7 +10,9 @@
  *   npx tsx --env-file=.env.local scripts/dataop-dismiss-template-suggestions.ts --apply    # update
  */
 
-import { Client } from 'pg'
+// @ts-expect-error pg ships no bundled types; dev-only data-op script.
+import pg from 'pg'
+const { Client } = pg
 
 const TEMPLATE_RE = String.raw`tutors in .+: (fees and how to choose|a complete guide)$`
 
