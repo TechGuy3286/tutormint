@@ -83,6 +83,23 @@ test('<title> is 60 characters or fewer: school/area first, then the post type, 
   assert.ok(old.startsWith(v) && (old[v.length] === ' ' || old.length === v.length), 'never mid-word')
 })
 
+test('Clear form: confirms first, then empties every field and removes the draft (create only)', async () => {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync('components/forms/PostTuitionForm.tsx', 'utf8')
+  assert.ok(src.includes("title: 'Clear all fields?', confirmLabel: 'Clear', cancelLabel: 'Cancel'"), 'asks first')
+  const body = src.slice(src.indexOf('const clearForm = async'), src.indexOf('const discardDraft'))
+  for (const step of ['clearFormDraft(draftKey)', "takeDraft('post')", 'setV({ ...EMPTY })', 'setScheduleSlots([])', 'setHasDraft(false)']) {
+    assert.ok(body.includes(step), step)
+  }
+  assert.ok(src.includes("{mode === 'create' && (") && src.includes('Clear form'), 'shown on the create form')
+  assert.ok(src.includes('Discard draft'), 'Discard draft stays')
+  // EMPTY really is empty for every field the button must reset.
+  const empty = src.slice(src.indexOf('const EMPTY'), src.indexOf('}', src.indexOf('const EMPTY')))
+  for (const f of ['teachingMode', 'category', 'levels', 'subjects', 'city', 'area', 'budgetMin', 'budgetMax', 'schedule', 'genderPreference', 'school', 'title', 'description', 'origin', 'contactName', 'contactPhone', 'contactWhatsapp', 'contactEmail', 'contactAddress', 'contactSocial']) {
+    assert.match(empty, new RegExp(`\\b${f}: (''|\\[\\])`), f)
+  }
+})
+
 test('Select all / Clear all touch only that grade’s subjects', () => {
   const grade1 = ['English', 'Mathematics', 'Urdu']
   const grade6 = ['English', 'Physics', 'Chemistry']

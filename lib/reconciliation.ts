@@ -107,6 +107,7 @@ export async function importPayproFile(
   buffer: Buffer,
   filename: string,
   actor: Actor,
+  gateway = 'paypro',
 ): Promise<ImportResult> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, error: 'The server is not configured for admin writes.' }
@@ -150,6 +151,7 @@ export async function importPayproFile(
       period_from: periodFrom,
       period_to: periodTo,
       uploaded_by: actor.id,
+      gateway,
     })
     .select('id')
     .single()
@@ -322,6 +324,7 @@ export async function loadReconciliation(period: { from: string; to: string }): 
 export async function recordTransfer(
   input: { transferredOn: string; amountPkr: number; reference: string | null; accountLast4: string | null },
   actor: Actor,
+  gateway = 'paypro',
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, error: 'The server is not configured for admin writes.' }
@@ -335,6 +338,7 @@ export async function recordTransfer(
       account_last4: input.accountLast4,
       source: 'manual',
       recorded_by: actor.id,
+      gateway,
     })
     .select('id')
     .single()
@@ -361,6 +365,7 @@ export async function importBankCsv(
   text: string,
   filename: string,
   actor: Actor,
+  gateway = 'paypro',
 ): Promise<{ ok: true; added: number; skipped: number } | { ok: false; error: string }> {
   const admin = createAdminClient()
   if (!admin) return { ok: false, error: 'The server is not configured for admin writes.' }
@@ -380,6 +385,7 @@ export async function importBankCsv(
     .from('bank_transfers')
     .select('transferred_on, amount_pkr, reference')
     .eq('source', 'csv')
+    .eq('gateway', gateway)
     .gte('transferred_on', days[0])
     .lte('transferred_on', days[days.length - 1])
   const seen = new Set(
@@ -405,6 +411,7 @@ export async function importBankCsv(
         account_last4: t.accountLast4,
         source: 'csv',
         recorded_by: actor.id,
+        gateway,
       })),
     )
     if (error) return { ok: false, error: 'Could not save the statement rows. Please try again.' }

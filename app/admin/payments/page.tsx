@@ -80,11 +80,11 @@ export default async function AdminPaymentsPage({
           </Link>
           {canReconcile && (
             <Link
-              href="/admin/payments/reconciliation"
+              href="/admin/payments/settings/gateways"
               className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
             >
               <Scale aria-hidden size={14} />
-              Reconciliation
+              Settlement check
             </Link>
           )}
         </div>

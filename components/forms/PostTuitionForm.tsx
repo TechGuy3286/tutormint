@@ -18,6 +18,7 @@ import { bandFor, bandRange } from '@/lib/feeBands'
 import { takeDraft, saveDraft } from '@/components/AuthGateModal'
 import { loadFormDraft, saveFormDraft, clearFormDraft } from '@/lib/formDraft'
 import { TextLinesSkeleton } from '@/components/Skeletons'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 // THE ONE post-a-tuition form (owner, 11 Sep 2026). The parent's post-a-job form
 // and /admin/jobs/new were near-duplicate copies that had already drifted (two
@@ -230,6 +231,24 @@ export default function PostTuitionForm({
     return () => clearTimeout(t)
   }, [draftKey, mode, v, scheduleSlots])
 
+  // "Clear form" (owner, 6 Oct 2026): after a confirm, every field goes back to
+  // empty/default and the saved draft (and any sign-in draft) is removed, ready
+  // for the next entry. Nothing already posted is touched.
+  const confirm = useConfirm()
+  const clearForm = async () => {
+    const ok = await confirm({ title: 'Clear all fields?', confirmLabel: 'Clear', cancelLabel: 'Cancel' })
+    if (!ok) return
+    if (draftKey) clearFormDraft(draftKey)
+    if (useDraft) takeDraft('post')
+    setV({ ...EMPTY })
+    setScheduleSlots([])
+    setHasDraft(false)
+    setError(null)
+    setDup(null)
+    setDupReason('')
+    setWroteItOurselves(false)
+  }
+
   const discardDraft = () => {
     if (draftKey) clearFormDraft(draftKey)
     setV({ ...EMPTY })
@@ -392,6 +411,18 @@ export default function PostTuitionForm({
 
   return (
     <div className="space-y-4">
+      {mode === 'create' && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => void clearForm()}
+            disabled={busy}
+            className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60"
+          >
+            Clear form
+          </button>
+        </div>
+      )}
       {teamBanner && (
         // The text is ONE flex item (a single span), so the sentence stays one
         // flowing line beside the icon — a bare text-plus-<strong> in a flex

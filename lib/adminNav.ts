@@ -98,7 +98,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/jobs/new', label: 'Post a tuition', icon: 'filePlus', screen: 'jobs' },
       { href: '/admin/jobs/duplicates', label: 'Duplicates', icon: 'copy', screen: 'duplicates' },
       { href: '/admin/payments', label: 'Payments', icon: 'wallet', screen: 'payments' },
-      { href: '/admin/payments/reconciliation', label: 'Reconciliation', icon: 'scale', screen: 'reconciliation' },
       { href: '/admin/payments/settings', label: 'Settings', icon: 'listChecks', screen: 'paymentsSwitches' },
       { href: '/admin/payments/settings/gateways', label: 'Payment gateways', icon: 'card', screen: 'paymentGateways' },
       { href: '/admin/plans', label: 'Plans', icon: 'card', screen: 'plans' },

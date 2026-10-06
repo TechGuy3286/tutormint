@@ -58,10 +58,9 @@ export const SCREEN_ACCESS = {
   payments: ['admin'] as AdminRole[],
   paymentsApprove: ['admin'] as AdminRole[],
   paymentsSettings: ['admin'] as AdminRole[],
-  // PayPro reconciliation (owner, 6 Oct 2026): "owner and finance roles" — the
-  // Finance role was deleted on 14 Sep (payments are admin-only), so this is
-  // admin + owner. Read-only matching; it never changes a payment status.
-  reconciliation: ['admin'] as AdminRole[],
+  // PayPro reconciliation moved into Payment gateways → Settlement check
+  // (owner, 6 Oct 2026): owner only, like that screen. `[]` = owner only.
+  reconciliation: [] as AdminRole[],
   // The Duplicates view and its one-tap merge (owner, 6 Oct 2026).
   duplicates: ['admin', 'operations'] as AdminRole[],
   duplicatesMerge: ['admin'] as AdminRole[],
