@@ -129,18 +129,33 @@ export function tuitionPageTitle(title: string, max = TUITION_TITLE_MAX): string
 
   const segs = base.split('|').map((s) => s.trim()).filter(Boolean)
   if (segs.length >= 3) {
-    // 1. Drop the school/area (the third of four, or the third of three when the
-    //    city segment was dropped because the area carries it).
-    const withoutPlace = segs.length >= 4 ? [segs[0], segs[1], ...segs.slice(3)] : [segs[0], segs[1]]
-    const a = fit(withoutPlace.join(SEP))
+    // 1. Drop middle segments that are not the class, longest first. For the
+    //    standard "Post type | Class | School or area | City" that is exactly
+    //    the school/area; an older title with extra parts (a subject list, an
+    //    address) loses those before it would ever lose its grade.
+    const first = segs[0]
+    const last = segs[segs.length - 1]
+    let middle = segs.slice(1, -1)
+    const isClass = (x: string) => CLASS_WORDS.test(x)
+    while (middle.some((x) => !isClass(x))) {
+      const candidate = fit([first, ...middle, last].join(SEP))
+      if (candidate) return candidate
+      const drop = middle.filter((x) => !isClass(x)).sort((a, b) => b.length - a.length)[0]
+      middle = middle.filter((x) => x !== drop)
+    }
+    const kept = [first, ...middle, last]
+    const a = fit(kept.join(SEP))
     if (a) return a
     // 2. Shorten the post type.
-    for (const shorter of shorterPostTypes(withoutPlace[0])) {
-      const b = fit([shorter, ...withoutPlace.slice(1)].join(SEP))
+    for (const shorter of shorterPostTypes(first)) {
+      const b = fit([shorter, ...kept.slice(1)].join(SEP))
       if (b) return b
     }
-    const shortest = shorterPostTypes(withoutPlace[0]).pop() ?? withoutPlace[0]
-    return clampAtWord([shortest, ...withoutPlace.slice(1)].join(SEP), max)
+    const shortest = shorterPostTypes(first).pop() ?? first
+    return clampAtWord([shortest, ...kept.slice(1)].join(SEP), max)
   }
   return clampAtWord(base, max)
 }
+
+/** A segment that names the class: kept longest when trimming. */
+const CLASS_WORDS = /\b(grade|grades|class|level|levels|kg|nursery|prep|play ?group|matric|fsc|ics|semester|year|igcse|ib)\b/i

@@ -72,6 +72,11 @@ test('<title> is 60 characters or fewer: school/area first, then the post type, 
   assert.ok(!u.includes('DHA'), 'area dropped')
   assert.ok(u.startsWith('O Levels Teacher Required') || u.startsWith('Teacher Required'), u)
 
+  // An older title with extra parts keeps its grade and city; the subject list
+  // and the address go first.
+  const extra = 'Primary School Teacher Required | English, Urdu, General Science, Social Studies and Islamiat / Islamic Studies | Grade 4–5 | (C 82 block 13 near Rado Bakery Gulistan-e- Johar ) | Karachi'
+  assert.equal(tuitionPageTitle(extra), 'Primary School Teacher Required | Grade 4–5 | Karachi')
+
   const old = 'We are looking for an experienced and patient home tutor for our two children in Gulberg'
   const v = tuitionPageTitle(old)
   assert.ok(v.length <= TUITION_TITLE_MAX)
