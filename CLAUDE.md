@@ -6771,3 +6771,71 @@ Reconciliation screen, the Duplicates view and the Refresh buttons rest on tsc,
 the build, the unit suites and the live API refusals. The Indexing API calls
 were queued through `after()`; a real URL_DELETED/URL_UPDATED acceptance was
 not read back. `/tuition-jobs/<city>/part-time` was not built (no field).
+
+## Tuition posting, Staff activity for Tuitions staff, Payment gateways (owner, 6 Oct 2026)
+
+Commits c5e83e8 + 7d501ad. Migration 143 (additive, applied live before the
+push): `gateway_events` (admin-read, server-written) and four `app_settings`
+rows inserted only if missing. Gates at close: tsc 0 · next build 0 ·
+check:contrast 118 · rls:audit 217/217 · all 63 offline suites (new:
+test:tuitionpost, test:gateways; test:pr106g4b and test:pr106h2 repointed at
+the new rules they replace). No browser or member/staff session was driven.
+
+**17 Tuition posting (shared form, staff and parents).**
+- Per-grade chips: `TaxonomySelector` `perGradeBulk` (the form passes it) shows
+  "Select all" / "Clear all" for each selected grade; the rule is
+  `lib/gradeSubjectBulk.ts`. Subjects are chosen BY NAME, so a subject offered by
+  two selected grades (English in Grade 1 and Grade 2) is one choice — clearing
+  it for one grade clears it for both, as unticking by hand always has.
+- Title: `lib/tuitionTitle.ts` `buildTuitionTitle` →
+  "Post type | Class | School or area | City" (post type = gender + Job Type +
+  "Required", grades collapsed, city never repeated). "Write this for me"
+  always uses it; Claude writes only the description now. An optional
+  "School or academy name" field was added to the form; it is used to write the
+  title and is not stored on its own.
+- Page title: `tuitionPageTitle` keeps `<title>`/og:title ≤ 60 (drops the
+  longest non-class middle parts — the school/area in the standard format —
+  then shortens the post type; never mid-word). The H1 keeps the full title.
+  Live: all 596 open tuition pages ≤ 60.
+- Duplicate check: a same-title match counts only when the city AND area also
+  match (`samePlace` in `lib/duplicatesCore.ts`); the combination rule already
+  included the area. Read-only on production: 0 open/paused pairs share a title
+  today, so this rests on the unit tests.
+
+**18 Staff activity for Tuitions staff.** The role already had the menu entry.
+It now sees every staff member's tuition-posting actions only — post, edit,
+reopen, refresh, close, merge, and "Posted anyway after a duplicate warning"
+with the reason (from `jobs.duplicate_of/duplicate_reason`) — via
+`loadTuitionActivity`, whose audit-log query is bounded to
+`TUITION_ACTIVITY_ACTIONS`. Its detail URLs redirect to the feed. Owner and
+admin views are unchanged. **Aqsa Mughal's role is Operations, not Tuitions
+staff** (the only Tuitions staff account is Nabeel), and Operations has no
+Staff activity screen — reported, role not changed.
+
+**19 Payment gateways** — `/admin/payments/settings/gateways`, owner only
+(`SCREEN_ACCESS.paymentGateways = []`; the route answers 401/403 to everyone
+else; fresh password required; every change audit-logged as
+`payments.gateway`).
+- Active gateway: PayPro; AssanPay shows "Not configured" and the server
+  refuses to activate an unconfigured gateway. Switching asks for confirmation.
+- Ways to pay: PayPro's API has no payment-method field, so **JazzCash,
+  Easypaisa and card switch on and off together** as "Online payment on
+  PayPro"; bank transfer (our own page) is separate; "Pay later" is its own
+  toggle. At least one way to pay must stay on. Seeded to today's state:
+  online on, bank transfer off, Pay later off. These switches are now the one
+  authority for bank transfer and Pay later on every checkout surface (verify
+  gate, upgrade sheet, onboarding fee step, membership plans, order page),
+  replacing the staff-onboarding switch for that purpose; the checkout route
+  refuses a switched-off method.
+- Health per gateway: connected (env vars present), last successful payment,
+  last error (recorded checkout failures, wrong-credential callbacks, or a
+  declined payment), last callback (recorded from this deploy on), payments
+  pending over 1 hour.
+- Service fee: shown as "Set by PayPro" — PayPro's create-order API has no
+  fee-bearer field; it only reports `IsFeeApplied` per order, which the screen
+  shows from the latest order.
+
+**Not driven (no session):** the chips, the AI title through the form, a
+Tuitions-staff view, the owner screen's toggles and their audit rows, and the
+server refusal of a switched-off method for a signed-in member — these rest on
+tsc, the build, the unit suites and signed-out route checks.
