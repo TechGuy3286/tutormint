@@ -6351,3 +6351,171 @@ is added. Gates at close: tsc 0 · next build 0 · every offline suite green
   **Applied after the deploy:** 24 storage objects removed (2 avatars, 22 identity-docs); the 2 payments kept with `user_id` null and the note; 1 application, 11 documents, 8 notifications, 53 activity events, 11 sessions, 4 tuition-access rows, 1 usage counter, 1 OTP, 2 profile views, 27 field-history rows, 80 timeline rows, 9 areas, 46 subjects, the 2 tutor profiles and the 2 profiles deleted; both auth users deleted. Re-run SELECT: 0 accounts match the names and the only rows still naming the ids are the 6 kept audit-log entries. Kept payments after the change: TM-20261004093245-24066C and TM-20261004124851-86B1EB, Rs 199 each, PayPro, approved, dated 4 Oct 2026, note "deleted test account". Payment totals before and after are identical (approved 6 / Rs 1,194; pending 51 / Rs 10,949; rejected 2 / Rs 1,198; this month approved 6 / Rs 1,194).
 
 **Live checks (5 Oct 2026).** The sitemap lists exactly two tutor URLs — Ali Sabeer and Nabeel Anthony — and both profiles return 200 with no robots tag. Annie (paid, not approved) and Esha Asghar (approved, not paid): 200 + `noindex, follow`, absent from the sitemap. `/tutor/tutor-test-5` and `/tutor/test-tutor-6`: HTTP 404, absent from the sitemap, Browse and the search suggestions. `/` and `/browse/tuitions` 200. **Not driven:** the admin Payments screen itself (no admin session here) — the note rendering rests on `loadPaymentQueue` (name falls back to the note, email reads "account deleted") and the build; the totals were verified by SQL.
+
+
+## Payments label, site speed and images, Browse LCP, blog AI writer, SEO audit (owner, 6 Oct 2026)
+
+Migration 140 (additive: `content_suggestions.source` CHECK gains `'career'`;
+applied live before the push). Gates at close: tsc 0 · next build 0 ·
+check:contrast 118 · every offline suite green (59 suites, incl. the new
+`test:contentmix`, 9 assertions). No browser was driven; the live checks are
+HTML fetches, `curl` header reads, two CRON_SECRET harness routes and mobile
+Lighthouse 13.5 (headless Chrome, simulated 4G) run from this machine against
+production.
+
+**Read-only SEO audit (before any change; 975 URLs = the 940-URL sitemap +
+`/`, `/browse/tutors`, `/browse/tuitions`, `/blog`).** All 975 returned 200,
+none noindex. Titles/descriptions: 0 missing anywhere; duplicates only among
+tuition details (25 title groups / 54 pages, 26 description groups / 59 pages —
+the same family re-posting the same tuition, e.g. three "Home Tutor Required |
+Grade 6 | Civil Lines, Karachi" posts) and nowhere else; every tuition detail,
+landing page and tutor profile title is over 60 chars (the "— verified, no
+commission | TutorMint" suffix) and every tuition detail description is over
+155 chars (the whole public description). H1: every page has exactly one.
+Heading order: broken on BOTH Browse pages, ALL 119 tutor landing pages, ALL 253
+tuition landing pages and `/blog` (h1 → h3: the card headings) — fixed below;
+clean on tuition details, tutor profiles, blog posts, static pages.
+Canonicals: 972/975 self-referencing, 0 pointing elsewhere, 3 missing
+(`/terms`, `/support`, `/privacy` — reported, not changed). Structured data
+(975 pages): BreadcrumbList 973 instances, 0 errors; JobPosting 587 — 0
+required-field errors, recommended `identifier` and `jobLocationType` absent on
+all 587 and `baseSalary` on 16 (no budget); Article 4 — complete; FAQPage 1 —
+complete; ItemList 372 — complete; Organization/WebSite — complete; Person 2 —
+`jobTitle` absent on 1; Service 2 — no `name`/`description` (uses
+`serviceType`; reported). Internal links (inbound from the crawled set): tutor
+landing avg 54 (9 with 0), tuition landing avg 10.6 (74 with 0), tuition detail
+avg 6.6 (155 with 0), blog post avg 1.5, tutor profile avg 1.5; the 20 most
+linked are the chrome pages (974 each) then three team tuitions (~415 each,
+via the "Newest open tuitions" blocks) and the Lahore Grade 7 landing pages
+(~170); the 20 least linked are Lahore tuition landing pages at 0 (Robotics,
+STEM, ICT, Art, Geography, History across grades). Landing overlap: 253 tutor
+landing pairs share ≥80% of their cards (70 pairs 100% identical; 116 of 119
+pages are in at least one such pair — the early-years grades of one city list
+the same 4–8 tutors), 160 tuition landing pairs (20 pairs 100%; 126 of 253
+pages). Blog: 4 posts, 1,029–1,787 words, 18–30 links each, all with complete
+Article schema; the Lahore/English and Islamabad/Physics posts are a
+near-duplicate pair. Fonts: the site loads NO web font (system stack), so there
+is nothing to preload or swap. Legacy JavaScript: 0 items (Next 16's default
+browserslist is already chrome/edge/firefox 111, safari 16.4). The one JS
+finding: the 246 KB Supabase realtime client was in the initial scripts of
+EVERY public page and 100% unused when signed out.
+
+**1 Payments.** `PaymentsRefunds` heading reads "Payments" on both dashboards;
+the "Refund sent: Rs … to your … — date" line is gone and a refunded payment
+shows one small `Refunded` / `Partly refunded` tag (the existing `refundLabel`)
+beside its name. Admin "Mark as refunded" is untouched. The no-refund POLICY
+wording on Terms, FAQ, the packages page and the refund email is not the
+dashboard label and was left (reported).
+
+**3 Speed.** (a) `lib/supabase/clientLazy.ts` — the browser Supabase client is
+a dynamic `import()`; `lib/taxonomy`, `lib/cityAreas`, `lib/jobTitles`,
+`NotificationBell`, `UserMenu`, `ChatRequestButton` and the messages dock's
+`useThreadChannel` load it on demand. The first deploy missed the thread hook
+(the dock is in the (site) layout, so its static import kept the 252 KB chunk on
+every page); the second deploy removes it. (b) The two Browse `loading.tsx`
+boundaries are removed: with a boundary, Next streamed the page's metadata into
+the BODY (Lighthouse SEO 92 — "no meta description" in head) and painted a
+skeleton before the cards (the LCP swap). Without them the metadata is in
+`<head>` and the cards are the first paint; the load-more skeletons and the
+dashboard/inbox boundaries stay. (c) `browserslist` written explicitly in
+package.json (chrome 111, edge 111, firefox 111, safari 16.4 — Next's default,
+now visible). (d) Heading order: `TutorCard`, `JobCard`, `PostCard` and
+`AdView`/`AdSlot`/`InlineAd` take `headingLevel`; Browse (first window + load
+more), both landing kinds (first window + load more) and the blog index pass
+`h2`; cards inside a titled section (tuition detail's "More open tuitions", a
+post's "Newest open tuitions", dashboards) keep h3. Fonts/CSS: nothing to do
+(no web font; one 15 KB stylesheet).
+
+**4 Images.** `next.config.ts` `images`: remotePatterns = the Supabase host's
+`/storage/v1/object/public/**` only, formats AVIF then WebP, `minimumCacheTTL`
+31 days, `imageSizes` + 160 and 320. `components/Avatar.tsx` renders a PUBLIC
+storage photo through `next/image` with `px` (largest drawn size), `sizes` and
+`priority`; a data: URI, signed URL or foreign host keeps a plain `<img>` (never
+handed to the optimiser). Card avatar 140 px (72 on phones), profile 144, the
+dashboards' header 80, job-card parent 28; the first card on Browse tutors and
+landing pages, the profile hero, the dashboard header and the public parent
+card carry `priority` (preloaded). Blog cover (`[slug]`) is `next/image`
+1200×630 with `priority` + `sizes` (reserves the box — CLS 0.145 → 0);
+`PostCard` covers `fill` the fixed 16:9 box, first card `priority`. Live: the
+optimised avatar answers `image/avif`, `Cache-Control: public, max-age=2678400,
+must-revalidate`, srcset 16…1920w. Rejected photos stay hidden exactly as
+before (the view returns no `avatar_url`).
+
+**5 Browse tuitions LCP.** The first page was already server-rendered; the
+boundary removal, the JS cut and the h2 cards are what move it. Mobile Lighthouse (13.5, simulated 4G, one run per page, before → after the second deploy): /browse/tuitions LCP **2.7 s → 2.2 s** (TBT 530 → 280 ms, SEO 92 → 100, a11y 98 → 100, perf 83 → 93). **The ≤ 2.0 s target is NOT met — 2.2 s, 0.2 s short**, reported honestly. The LCP element is the first card title (text); after the fixes the remaining delay is document weight: the first window is ~300 KB of HTML (176 KB markup — roughly 11 KB per card, most of it inline lucide SVG icons — plus 125 KB of React flight data that duplicates the card props), and on simulated 4G that download, competing with the page scripts, is what holds the first paint. The next lever is an icon sprite (one <svg><use>) for the cards and trimming the card props handed to the client, both outside this PR. Full table:
+| page | perf | a11y | SEO | LCP | TBT | CLS | JS KB | images KB |
+|---|---|---|---|---|---|---|---|---|
+| / | 80 → 95 | 100 → 100 | 100 → 100 | 2.0 → 1.4 s | 770 → 260 ms | 0 → 0 | 259 → 196 | 10 → 8 |
+| open tuition | 89 → 93 | 93 → 93 | 100 → 100 | 2.1 → 2.0 s | 290 → 180 ms | 0.121 → 0.121 | 283 → 219 | 10 → 8 |
+| /browse/tuitions | 83 → 93 | 98 → 100 | 92 → 100 | 2.7 → 2.2 s | 530 → 280 ms | 0 → 0 | 275 → 277 | 10 → 2 |
+| /browse/tutors | 81 → 91 | 98 → 100 | 92 → 100 | 2.6 → 2.4 s | 610 → 320 ms | 0 → 0 | 277 → 280 | 1545 → 22 |
+| tutor profile | 98 → 100 | 92 → 92 | 100 → 100 | 1.8 → 1.4 s | 130 → 90 ms | 0 → 0 | 264 → 201 | 187 → 12 |
+| blog post | 78 → 97 | 96 → 96 | 100 → 100 | 4.2 → 2.0 s | 150 → 150 ms | 0.145 → 0.006 | 282 → 219 | 107 → 19 |
+| landing page | 96 → 93 | 98 → 100 | 100 → 100 | 2.0 → 2.1 s | 200 → 270 ms | 0 → 0 | 281 → 283 | 253 → 10 |
+The Browse pages' JS did not fall because their filter bars still fetch cities, job titles and the taxonomy through the (now lazily loaded) client on mount — the chunk is off the critical path but still downloaded during the page load; the landing page's 2.0 → 2.1 s and 96 → 93 are within single-run variance (same JS, same images). The open-tuition page's CLS 0.121 is unchanged (the <dl> facts block; its cause is not an image) and pre-existing.
+
+**6 Blog AI writer.** (a) Live test, on production, through
+`/api/internal/blog-draft-test` (CRON_SECRET; the same `buildBlogBrief`,
+`generateBlogOutline`/`generateBlogSection`, `sanitizeDraft` and
+`collectBlogProblems` the editor runs, because no admin session exists here):
+title "How to become a home tutor in Pakistan: a step-by-step start", cluster
+tutor-career, audience tutors, no notes. Result: works — outline + 6 sections
+in 78 s wall-clock (sections 6–10 s each), **1,608 words, 7 H2 sections, 5
+internal links** (`/browse/tuitions`, three `/tuitions/karachi/…` landing
+pages, one blog post), 0 untraced figures; the "Before publishing" list it
+would show: one fact contradiction in the FAQ ("Can I message parents
+directly?" — basic tutors reply only) and three link-TEXT rule hits (the
+tuition-landing links read "Grade 3 Mathematics" instead of "… tuitions"). The
+editor's own flow regenerates a contradicting section once; the harness does
+not. Saved as DRAFT (not reviewed, not approved; author = the owner account;
+audited `blog.generate_test` naming the harness): `/admin/blog/f7870866-c3d6-4a75-b746-ca29f0b2a370`.
+(b) Search Console: `lib/contentQueue/gsc.ts` reads the last 28 days of
+query×page rows for `https://www.tutormint.org/` with the Indexing service
+account under the read-only Search Console scope; rows at position 8–20 with
+≥3 impressions become topics (`lib/contentQueue/mix.ts` — cluster/audience
+inferred from the words, the query as the title, the figures as evidence never
+as notes). **Live: the API call is refused — "Google Search Console API has not
+been used in project 440435768327 before or it is disabled"**; the queue falls
+back to its other sources and logs once, as specified. OWNER ACTION: enable the
+Google Search Console API for that Cloud project (the service account is
+already an owner of the property); the next nightly rebuild then picks it up.
+(c) Mix: `lib/contentQueue/careerTopics.ts` — 20 evergreen tutor-career titles
+(distinct skeletons, numberless notes, audience tutors, source `career`);
+`balanceMix` keeps every career topic and caps the rest so career ≈40% of the
+content queue. (d) Dedupe: `dedupeTitles` drops any candidate whose
+`titleSkeleton` (city/grade/subject words stripped — the editor's existing
+near-duplicate rule) matches an existing post or suggestion, and keeps the
+first of each shape among candidates; the search-gap and coverage templates are
+therefore blocked by the rows already in the table. (e) Data step (after the
+deploy): the 29 open "… tutors in <City>: fees and how to choose" rows set to
+`dismissed`, reason `template variant` (SELECT first: 29; after: 0 open, 29
+dismissed; nothing deleted). A rebuild then produced 20 career suggestions and
+0 others (every search-gap candidate was a template variant; no calendar window
+is within 42 days; Search Console unavailable). (f) Links: `linkRuleViolations`
+requires 3–5 links each once, ≥1 to a live tuition/landing page
+(`/tutors|tuitions/<city>/<x>`), ≥1 to another post or an indexable tutor
+profile (`/blog/<slug>` or `/tutor/<slug>` — the sitemap's `listed_tutor_slugs`
+set, offered in the Link picker and to the AI); `/membership-plans` is no
+longer required, offered or steered to (still a valid page); `/faq` optional.
+`sanitizeDraft` adds the two required links when missing (`landingLinkText`
+builds text that passes the text rule). (g) Related landing pages: ranked by
+match with the post's city and subject (both, then subject, then city, then by
+listings — never alphabetical) in the editor picker and the public post block
+(`rankLandingOptions`). (h) Length: `BLOG_MIN_WORDS` 900, `BLOG_MAX_WORDS`
+1,500, `BLOG_WARN_WORDS` 800 — the editor shows an amber "under 800 — aim for
+900–1,500" beside the live count (warning, never a block); sections are asked
+for 150–250 words. (i) Audience: the Tutors option already existed; choosing
+the Tutor career cluster now sets it, and the brief carries an explicit
+AUDIENCE rule (tutor-facing "you"). The figure rules are unchanged (NEVER
+invent fees, statistics, counts or percentages).
+
+**Live checks (6 Oct 2026).** Every Browse, landing and blog page now carries h1 → h2 …; tuition details, tutor profiles and posts keep h1 → h2 → h3; the meta description is in <head> on all nine checked public pages (it was streamed into the body on both Browse pages before) and no skeleton markup is served. An optimised avatar on Browse tutors answers image/avif with Cache-Control public, max-age=2678400, must-revalidate and a 16–1920w srcset including 160w and 320w; the blog cover and the profile avatar are preloaded; the first Browse card's avatar is eager. The 252 KB Supabase realtime chunk is absent from the homepage and the Browse pages' initial scripts (deploy 2). Status codes: the nine public pages 200 on phone and desktop UAs, a fake tutor slug 404. The content queue: 29 templated rows dismissed, 20 tutor-career topics suggested (100% career until Search Console is enabled — nothing else qualified), 0 pruned. The draft test left ONE draft (above). Not driven (no member/admin session here): the "Payments" heading and the Refunded tag on a member's dashboard, the editor's ranked related-landing list, the word warning, the Tutors audience default and the publish checklist — these rest on the source, tsc, the build and the unit suites.
+
+**Reported, not changed.** The Google Search Console API is disabled in the
+Cloud project (owner action above). Tuition detail a11y 93 (`<dl>` with wrapper
+`<div>`s) and tutor profile a11y 92 (contrast/target size on existing controls)
+are pre-existing and outside this PR's items. `/terms`, `/support`, `/privacy`
+carry no canonical. Tuition titles/descriptions exceed Google's display lengths
+by construction (the suffix / the full description). The landing-page overlap
+figures above are the directory's real state (few tutors per early-years grade),
+not a bug.
