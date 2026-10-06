@@ -6519,3 +6519,255 @@ carry no canonical. Tuition titles/descriptions exceed Google's display lengths
 by construction (the suffix / the full description). The landing-page overlap
 figures above are the directory's real state (few tutors per early-years grade),
 not a bug.
+
+## Inbox cleanup, city tuition-jobs pages, plain messages, PayPro reconciliation, SEO fixes, duplicate tuitions merge + prevention (owner, 6 Oct 2026)
+
+Sixteen items in one PR (commit ff62877, follow-up 64928e4). Migrations 141 (`jobs.merged_into`,
+`merged_at`, `refreshed_at`, `bumped_at` — backfilled from
+`coalesce(resumed_at, created_at)`, 0 nulls of 690 — `duplicate_of`,
+`duplicate_reason`) and 142 (`reconciliation_imports`, `reconciliation_rows`,
+`bank_transfers`; admin-read RLS, service-role writes), both applied live
+BEFORE the deploy. Gates at close: tsc 0 · next build 0 · check:contrast 118 ·
+all 61 offline suites green (new: test:duplicates 6, test:reconciliation 9;
+test:pr106e repointed at the removed Quick-replies block). No browser was
+driven; live checks were HTML fetches, signed-out API calls, a full sitemap
+crawl and mobile Lighthouse.
+
+**Order followed, as instructed:** read-only checks → code → additive
+migrations → deploy → the data step (item 15) against production.
+
+### 1–5 Inbox
+
+`components/messages/InboxShell.tsx` + `ConversationList.tsx`: the Quick
+replies block (and its editor import) is gone and the composer receives an
+empty list; the search bar is the first thing in the pane, above every row;
+the **TutorMint Team** thread is an ordinary row pinned first under the search
+bar, inside the scroll pane, and counted (`empty = rows.length === 0 &&
+!showTeam`), so "No conversations yet" appears only when there is truly
+nothing; the black "Find tuitions to apply for" button and the "Check your
+profile is complete" card are removed (a verified tutor's empty state has no
+actions; an unverified one keeps only "Get verified"). Source-verified only
+(an inbox needs a session).
+
+### 6 City pages — `/tuition-jobs/[city]`
+
+`lib/cityJobs.ts` (server-only; `CITY_PAGE_THRESHOLD = 3`) reads every open
+tuition (paged past the 1000-row cap) and derives, per city, the count and the
+variants: `/female` (gender preference female), `/online` (job title Online
+Tutor), `/[area]` (one per area with 3+). **`/part-time` was NOT built** — no
+field on `jobs` records part-time reliably (days/times are free text), so the
+page would have been a guess; reported, not invented. Rendered by
+`components/tuitionJobs/CityJobsView.tsx`: H1 "Tuition jobs in <City>" (variant
+headings "Female tutor jobs in …", "Online tuition jobs in …", "Tuition jobs in
+<Area>, <City>"), an intro that states the LIVE count in a sentence, variant
+chips, every open tuition newest-first (`bumped_at`) with Load more
+(`MoreJobs`, no ads — `adEvery` is unreachable), ItemList + BreadcrumbList
+JSON-LD, self canonical, `seoTitle` ≤60 / `seoDescription` ≤155, `socialMeta`.
+Under 3 results the page renders with `noindex, follow` and is left out of the
+sitemap; 0 results → 404. **Linked from** the footer "For Tutors" column (up
+to 5 "Tuition jobs in X"), the `/browse/tuitions` header strip, the homepage
+under the two buttons ("Tuition jobs by city" — link targets only, the locked
+layout untouched), and every tuition page's breadcrumb (the city crumb now
+points at `/tuition-jobs/<city>`). Live: `/tuition-jobs/lahore` 200, H1
+"Tuition jobs in Lahore", ItemList present, canonical self, in the sitemap;
+`/tuition-jobs/gujranwala` (2 open) 200 + `noindex, follow`, absent from the
+sitemap; sitemap carries **57 city-page URLs** (Karachi, Lahore, Islamabad,
+Rawalpindi + their female/online/area variants).
+
+### 7 Plain messages (44 files)
+
+Every vague error, toast, empty state and blocked message a member can see is
+plain English with a short Urdu line (`Toast` renders `whitespace-pre-line`
+so the Urdu sits on its own line). Before → after:
+
+| Before | After (Urdu line follows each) |
+|---|---|
+| "Something went wrong. Please try again." | "That did not save. Please try again, or message us on WhatsApp 0321 5872222." |
+| "That did not work. Please try again." | "That did not go through. Please try again, or message us on WhatsApp 0321 5872222." |
+| "Network error. Try again." / "Could not reach the server." | "We could not reach TutorMint. Check your internet connection and try again." |
+| "Sign in first." / "You must be signed in." | "Please sign in first, then try again." |
+| "Server is not configured." | "This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222." |
+| "Unknown action." | "That request was not understood. Reload the page and try again." |
+| "Invalid request." | "Something in that request was missing. Reload the page and try again." |
+| "Something went wrong." (demo inbox) | the "did not save" line above |
+| "Not found." (conversation) | "This conversation is not available. It may have been removed, or it is not yours. Go back to your inbox." |
+| "Not allowed." (bank QR) | "Bank transfer is not open for your account yet. Use the payment page instead." |
+| "Not found." (bank QR) | "The bank QR code is not available right now. Use the account details on the payment page." |
+| "Not allowed." (receipt) | "Only the person who sent this payment, or an admin, can open its receipt." |
+| "Not found." (receipt) | "This receipt is not available. It may not have been uploaded yet." |
+
+New messages added by this PR (duplicate check, Refresh limit, merge refusal)
+were written bilingual from the start. Left as they were, being already plain:
+"Sign in to apply." and the receipt route's "Sign in required.".
+
+### 8 PayPro reconciliation — admin → Payments → Reconciliation
+
+`lib/reconciliationCore.ts` (pure, `test:reconciliation` 9) + `lib/reconciliation.ts`
+(I/O) + `/api/admin/payments/reconciliation` + `/admin/payments/reconciliation`
+(linked from the Payments header). Upload the PayPro Orders export (.xlsx sheet
+"Orders" or .csv); the eight columns are found BY NAME whatever the case or
+spacing (Order-Number, Transaction Status, Payment Via, Order-Amount,
+MerchantShare, Date Paid, Settle-Date, Settle-Status); the totals row is
+skipped; rows match our `payments.provider_ref` on Order-Number (trimmed,
+case-insensitive). Flags: **PAID in PayPro but not approved here**, **approved
+here but not PAID in PayPro**, **amount differs**. Bank transfers are recorded
+by hand (date, amount, reference, last 4 digits only) or by CSV. The period
+summary shows collected (sum of PAID Order-Amount), expected (sum of PAID
+MerchantShare), transfers received, and the difference owed — red when PayPro
+owes us. It **never changes a payment status** and **stores no customer name,
+mobile or email** (only the eight columns). **Roles:** the instruction said
+"owner and finance" — the finance role was deleted on 14 Sep (migration 83),
+so the screen is `SCREEN_ACCESS.reconciliation = ['admin']` (owner implicit);
+reported. The sample `scripts/fixtures/paypro-sample.csv` (5 orders + a totals
+row, two real TM order numbers) is what the tests parse; the screen itself was
+not driven (admin session).
+
+### 9–11 Canonicals, title/description limits, structured data
+
+- `/terms`, `/support`, `/privacy` each carry a self canonical (live-checked).
+- `lib/seo.ts`: `TITLE_MAX = 60`, `DESCRIPTION_MAX = 155`; `seoTitle()` drops
+  "— verified, no commission" everywhere and appends "| TutorMint" only when
+  it fits, else word-clamps; `tuitionDescription()` builds the description from
+  FIELDS only (level, subjects, area, city, job title, budget band), never the
+  free text. Applied to tuition details, both landing kinds, tutor profiles
+  and the new city pages. Crawl of every sitemap URL: titles over 60 **961
+  → 0**, descriptions over 155 **623 → 2 (/about and /faq, static pages outside item 10's scope)** (of 975 →
+  722 indexable pages).
+- JobPosting gains `identifier` (`PropertyValue`, name TutorMint, value the TM
+  number); an Online Tutor tuition gains `jobLocationType: TELECOMMUTE` +
+  `applicantLocationRequirements` (Country Pakistan); `baseSalary` wherever a
+  budget band exists. **16 open tuitions have no budget band and so no
+  baseSalary:** TM-1200, 1233, 1295, 1377, 1389, 1390, 1391, 1392, 1393, 1396,
+  1397, 1454, 1556, 1560, 1566, 1595. Person gains `jobTitle` (the headline,
+  else "<Subject> tutor"); Service gains `name` ("<Subject> tutoring in
+  <City>") and `description`; the tutor JSON-LD is a two-node `@graph`.
+  Live-checked on TM-1710 (identifier) and an online Karachi tuition
+  (TELECOMMUTE).
+
+### 12 Similar tuitions on every tuition page
+
+`similarOpenTuitions()` now fills up to 6 by city → city + level
+(`class_levels` overlap) → subject, on every tuition page (open or not). The
+breadcrumb city crumb and the Similar block together give every tuition page
+inbound links from other tuition pages. It is NEIGHBOUR linking: the tuition just newer and just older in the same city (by `bumped_at`) are always included, then same city + level, then the rest of the city, then subject (follow-up commit 64928e4). Indexable tuition pages with **0
+inbound links from crawled pages: 155 → 0** (target 0).
+
+### 13 Near-duplicate landing pages
+
+`lib/landingOverlapCore.ts` (pure, tested) + `lib/landingOverlap.ts`: two
+landing pages of the same kind in the same city whose results are ≥80%
+identical → the NARROWER (fewer results; ties by smaller master id) is
+`noindex, follow` and out of the sitemap; the broader stays. Computed from live
+listings on every request, so it re-checks itself. The read-only "before"
+estimate was 112 of 119 indexable tutor landing pages and 120 of 188 tuition
+landing pages affected — and that is what shipped: sitemap landing pages
+**tutors 119 → 7, tuitions 188 → 67**. This is the owner's rule applied
+exactly; the magnitude is reported so it can be revisited (most city×subject
+pages in a two-city directory share the same few tutors).
+
+### 14 CLS and LCP
+
+CLS on the open tuition page was the unsized footer logo (`<img>` with no
+dimensions); `Footer.tsx` and `Navbar.tsx` logos now carry width/height
+classes. `public/icons.svg` (25 lucide symbols, 5.4 KB, built by
+`scripts/build-icon-sprite.mjs`) + `components/Icon.tsx` replace inlined icon
+paths on the tutor and job cards; `slimForCard()` trims card descriptions to
+220 chars on list pages. Mobile Lighthouse (median of what ran):
+
+| page | before | after (run 1) | after (run 2) |
+|---|---|---|---|
+| open tuition TM-1683, CLS | 0.121 | 0 | 0 |
+| open tuition TM-1683, LCP | 2.0 s | 2.7 s | 1.8 s |
+| open tuition TM-1683, perf | 93 | 92 | 96 |
+| /browse/tuitions, LCP | 2.2 s | 2.0 s | 2.2 s |
+| /browse/tuitions, perf | 93 | 95 | 94 |
+
+CLS 0.121 → 0 met — the real cause was not the logo but the header `TimeAgo` swapping the server date for "2d ago" after hydration, which rewrapped the meta line at 360px; it now sits in a fixed-width box (follow-up commit 64928e4). **/browse/tuitions LCP ≤2.0 s: at the line, not reliably met** (2.0 s, then 2.2 s on back-to-back clean runs).
+
+### 15 Merge of the duplicate tuitions (data step, production)
+
+`scripts/dataop-merge-duplicate-tuitions.ts` read the xlsx "Repeats" sheet
+(46 pairs), fetched facts read-only, applied `shouldMerge` (same title → merge;
+combination-only with a different job-title segment → skip), and posted to
+`/api/internal/merge-duplicates` (CRON_SECRET) — dry run first, then
+`--apply`. **Search Console impressions could not be read: the Search Console
+API is disabled in Cloud project 440435768327** (owner action to enable), so
+every survivor is the OLDEST of its pair, as the rule specifies. **35 merged**
+(repeat → survivor, reason):
+
+- TM-1155 → TM-1153 (same title; survivor oldest)
+- TM-1162 → TM-1143 (same title; survivor oldest)
+- TM-1163 → TM-1143 (same title; survivor oldest)
+- TM-1302 → TM-1296 (same title; survivor oldest)
+- TM-1311 → TM-1308 (same title; survivor oldest)
+- TM-1319 → TM-1307 (same title; survivor oldest)
+- TM-1322 → TM-1142 (same title; survivor oldest)
+- TM-1336 → TM-1175 (same title; survivor oldest)
+- TM-1375 → TM-1193 (same combination; survivor oldest)
+- TM-1377 → TM-1197 (same title; survivor oldest)
+- TM-1397 → TM-1304 (same title; survivor oldest)
+- TM-1420 → TM-1400 (same combination; survivor oldest)
+- TM-1480 → TM-1459 (same title; survivor oldest)
+- TM-1483 → TM-1482 (same title + same combination; survivor oldest)
+- TM-1487 → TM-1367 (same title; survivor oldest)
+- TM-1488 → TM-1464 (same title; survivor oldest)
+- TM-1506 → TM-1441 (same title + same combination; survivor oldest)
+- TM-1515 → TM-1476 (same title; survivor oldest)
+- TM-1524 → TM-1284 (same combination; survivor oldest)
+- TM-1559 → TM-1295 (same title; survivor oldest)
+- TM-1561 → TM-1556 (same title; survivor oldest)
+- TM-1563 → TM-1308 (same title; survivor oldest)
+- TM-1564 → TM-1508 (same title; survivor oldest)
+- TM-1566 → TM-1143 (same title; survivor oldest)
+- TM-1576 → TM-1540 (same title; survivor oldest)
+- TM-1584 → TM-1367 (same title; survivor oldest)
+- TM-1605 → TM-1473 (same title; survivor oldest)
+- TM-1631 → TM-1469 (same title; survivor oldest)
+- TM-1647 → TM-1638 (same title; survivor oldest)
+- TM-1650 → TM-1649 (same title + same combination; survivor oldest)
+- TM-1651 → TM-1639 (same title + same combination; survivor oldest)
+- TM-1664 → TM-1579 (same title; survivor oldest)
+- TM-1666 → TM-1454 (same title; survivor oldest)
+- TM-1668 → TM-1463 (same title; survivor oldest)
+- TM-1673 → TM-1577 (same title; survivor oldest)
+
+Each repeat: `status = closed`, `merged_into`, `merged_at`, out of Browse and
+the sitemap, its URL a **308 permanent redirect** to the survivor
+(`permanentRedirect()` — Next emits 308, the method-preserving permanent code
+Google treats like a 301), Indexing API URL_DELETED queued. Each survivor: one
+refresh — `resumed_at`/`bumped_at`/`refreshed_at` = now (fresh 15 days, pauses
+21 Oct), URL_UPDATED queued. 35 `admin_audit_log` `job.merge` rows. Nothing
+deleted: open 610 → 575, closed 34 → 69, paused 48 unchanged. **11 skipped** —
+10 because the titles describe different jobs (combination-only matches):
+TM-1297/1191, 1250/1172, 1253/1172, 1245/1215, 1268/1240, 1401/1258,
+1402/1259, 1403/1260, 1481/1363, 1661/1653; and TM-1690/1641 is not a repeat
+under the rule. **0 skipped for applications** (no repeat had any).
+
+### 16 Prevention
+
+- **Duplicate check at Post a tuition** (parents AND staff, the shared
+  `PostTuitionForm`): `createJob`/`createTeamJob` call `findExistingDuplicate`
+  (open or paused, same title or same city+area+level+subjects+gender+budget
+  band) and answer 409 with the existing tuition; the form shows it with
+  **Reopen this one** (default — resumes it if paused and goes to it) and
+  **Post anyway** (staff must type a one-line reason, stored in
+  `duplicate_reason` with `duplicate_of`).
+- **Refresh** (`RefreshInline` on the tuition page for the poster/admin, plus
+  the parent dashboard and admin job actions): top of Browse (`bumped_at`),
+  fresh 15 days, same URL, URL_UPDATED; at most once per 3 days
+  (`refreshAllowed`, 429 with a bilingual message naming the next date).
+- **Safety net:** a repeat of an older open tuition emits no JobPosting and its
+  canonical points at the original (`repeatOfOlderOpen`).
+- **Admin → Duplicates** (`/admin/jobs/duplicates`, admin + operations;
+  merging is admin): repeats grouped per staff for 7/30/90 days with one-tap
+  "Merge into original" (refused when the repeat has applications). Staff
+  activity shows "Repeated tuitions this week: N" per person.
+- Browse ordering is now `bumped_at` (keyset cursor unchanged in shape).
+
+### Not verified / stated plainly
+
+No browser or test session was driven: the inbox, the duplicate modal, the
+Reconciliation screen, the Duplicates view and the Refresh buttons rest on tsc,
+the build, the unit suites and the live API refusals. The Indexing API calls
+were queued through `after()`; a real URL_DELETED/URL_UPDATED acceptance was
+not read back. `/tuition-jobs/<city>/part-time` was not built (no field).
