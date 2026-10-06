@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
+import { getBrowserClient } from '@/lib/supabase/clientLazy'
 
 // The thread's Realtime channel — one Supabase broadcast channel per open
 // conversation, `thread:<id>`.
@@ -13,6 +14,11 @@ import { createClient } from '@/lib/supabase/client'
 // debounced, never persisted). Nothing about the message itself crosses the
 // channel, so even a guessed channel name leaks only "someone is typing", never
 // a body — the bodies still come through the RLS-scoped server render.
+//
+// The Supabase client is loaded ON DEMAND (lib/supabase/clientLazy): this hook
+// sits behind the messages dock in the (site) layout, and a static import put
+// the 250 KB realtime bundle on every public page for visitors who never open a
+// conversation (owner, 6 Oct 2026 — site speed).
 
 type SignalEvent = 'msg' | 'seen'
 
@@ -28,7 +34,7 @@ export function useThreadChannel({
   onSeen: () => void
 }) {
   const [typingName, setTypingName] = useState<string | null>(null)
-  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const channelRef = useRef<RealtimeChannel | null>(null)
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastTypingSent = useRef(0)
 
@@ -39,25 +45,34 @@ export function useThreadChannel({
   onSeenRef.current = onSeen
 
   useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase.channel(`thread:${threadId}`, {
-      config: { broadcast: { self: false } },
-    })
-    channel
-      .on('broadcast', { event: 'msg' }, () => onMessageRef.current())
-      .on('broadcast', { event: 'seen' }, () => onSeenRef.current())
-      .on('broadcast', { event: 'typing' }, (m) => {
-        const name = (m.payload as { name?: string })?.name || 'Someone'
-        setTypingName(name)
-        if (typingTimer.current) clearTimeout(typingTimer.current)
-        typingTimer.current = setTimeout(() => setTypingName(null), 3500)
+    let cancelled = false
+    let client: SupabaseClient | null = null
+    let channel: RealtimeChannel | null = null
+    void getBrowserClient()
+      .then((supabase) => {
+        if (cancelled) return
+        client = supabase
+        channel = supabase.channel(`thread:${threadId}`, {
+          config: { broadcast: { self: false } },
+        })
+        channel
+          .on('broadcast', { event: 'msg' }, () => onMessageRef.current())
+          .on('broadcast', { event: 'seen' }, () => onSeenRef.current())
+          .on('broadcast', { event: 'typing' }, (m) => {
+            const name = (m.payload as { name?: string })?.name || 'Someone'
+            setTypingName(name)
+            if (typingTimer.current) clearTimeout(typingTimer.current)
+            typingTimer.current = setTimeout(() => setTypingName(null), 3500)
+          })
+          .subscribe()
+        channelRef.current = channel
       })
-      .subscribe()
-    channelRef.current = channel
+      .catch(() => {})
 
     return () => {
+      cancelled = true
       if (typingTimer.current) clearTimeout(typingTimer.current)
-      void supabase.removeChannel(channel)
+      if (client && channel) void client.removeChannel(channel)
       channelRef.current = null
       setTypingName(null)
     }
