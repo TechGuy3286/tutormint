@@ -948,6 +948,12 @@ export async function similarOpenTuitions(
   /** The tuition's levels (owner, 6 Oct 2026, item 12): matched by city, then
    *  level, then subject — the level tier sits between the other two. */
   classLevels: string[] | null = null,
+  /** This tuition's own position in the city (bumped_at). With it, the block is
+   *  NEIGHBOUR linking: the tuition just newer and just older in the same city
+   *  are always included, so every tuition in a city with two or more is linked
+   *  from another tuition page (item 12's "0 pages with 0 inbound links").
+   *  Without it (older callers) the tiers fall back to newest-first. */
+  bumpedAt: string | null = null,
 ): Promise<JobCardData[]> {
   const supabase = await createClient()
   const collected = new Map<string, Record<string, unknown>>()
@@ -961,33 +967,41 @@ export async function similarOpenTuitions(
     }
   }
 
-  // Same city AND same level first, then same city — the most useful "instead
-  // of this one" (city → level → subject, item 12).
-  const levels = (classLevels ?? []).filter(Boolean)
-  if (city && levels.length > 0) {
-    const { data } = await supabase
-      .from('jobs')
-      .select(JOB_COLUMNS)
-      .eq('status', 'open')
-      .neq('id', jobId)
-      .ilike('city', city)
-      .overlaps('class_levels', levels)
-      .order('is_featured', { ascending: false })
+  const openInCity = () =>
+    supabase.from('jobs').select(JOB_COLUMNS).eq('status', 'open').neq('id', jobId).ilike('city', city as string)
+
+  /** The n tuitions just newer and the n just older than this one (by bumped_at,
+   *  id as the tiebreak — the Browse keyset), with an optional extra filter. */
+  const neighbours = async (n: number, refine: (q: ReturnType<typeof openInCity>) => ReturnType<typeof openInCity>) => {
+    if (!bumpedAt) {
+      const { data } = await refine(openInCity()).order('is_featured', { ascending: false }).order('bumped_at', { ascending: false }).limit(n * 2)
+      return (data ?? []) as Record<string, unknown>[]
+    }
+    const newer = refine(openInCity())
+      .or(`bumped_at.gt."${bumpedAt}",and(bumped_at.eq."${bumpedAt}",id.gt."${jobId}")`)
+      .order('bumped_at', { ascending: true })
+      .order('id', { ascending: true })
+      .limit(n)
+    const older = refine(openInCity())
+      .or(`bumped_at.lt."${bumpedAt}",and(bumped_at.eq."${bumpedAt}",id.lt."${jobId}")`)
       .order('bumped_at', { ascending: false })
-      .limit(limit + 1)
-    add(data as Record<string, unknown>[])
+      .order('id', { ascending: false })
+      .limit(n)
+    const [a, b] = await Promise.all([newer, older])
+    return [...((a.data ?? []) as Record<string, unknown>[]), ...((b.data ?? []) as Record<string, unknown>[])]
   }
-  if (city && collected.size < limit) {
-    const { data } = await supabase
-      .from('jobs')
-      .select(JOB_COLUMNS)
-      .eq('status', 'open')
-      .neq('id', jobId)
-      .ilike('city', city)
-      .order('is_featured', { ascending: false })
-      .order('bumped_at', { ascending: false })
-      .limit(limit + 1)
-    add(data as Record<string, unknown>[])
+
+  const levels = (classLevels ?? []).filter(Boolean)
+  if (city) {
+    // City first (item 12): the immediate neighbours in the city are ALWAYS in,
+    // which is what guarantees every tuition page is linked from another one.
+    add(await neighbours(1, (q) => q))
+    // Then the same city AND level — the most useful "instead of this one".
+    if (levels.length > 0 && collected.size < limit) {
+      add(await neighbours(2, (q) => q.overlaps('class_levels', levels)))
+    }
+    // Then the rest of the city, nearest first.
+    if (collected.size < limit) add(await neighbours(Math.ceil((limit - collected.size) / 2), (q) => q))
   }
 
   // Then the same subject, wherever it is, to fill any remaining slots.

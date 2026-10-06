@@ -305,8 +305,9 @@ export default async function TuitionPage({ params }: { params: Params }) {
   // PR85 Part C: a signed-in tutor's "similar" list is gender-filtered.
   const similarGender = isTutor ? tutorGender : null
   // Item 12 — EVERY tuition page carries "Similar tuitions": up to 6 open
-  // tuitions matched by city, then level, then subject. On a non-open page it
-  // doubles as the "no dead end" list.
+  // tuitions matched by city (the immediate neighbours, always), then level,
+  // then subject — neighbour linking, so every tuition page is linked from
+  // another one. On a non-open page it doubles as the "no dead end" list.
   const similar = await similarOpenTuitions(
     job.id,
     job.city,
@@ -314,6 +315,7 @@ export default async function TuitionPage({ params }: { params: Params }) {
     6,
     similarGender,
     job.class_levels ?? null,
+    job.bumped_at ?? job.created_at ?? null,
   )
 
   // §3 — an OPEN tuition is cross-linked too, so the page carries more unique,
@@ -496,7 +498,10 @@ export default async function TuitionPage({ params }: { params: Params }) {
           <h1 className="text-xl font-black leading-snug text-tm-navy sm:text-2xl">{pageHeadline}</h1>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
             <Clock size={12} aria-hidden className="shrink-0" />
-            <TimeAgo iso={job.created_at} />
+            {/* Fixed-width box (item 14, CLS): the server renders the date and the
+                browser swaps in "2d ago" after hydration; without a fixed width
+                that swap rewrapped this line at 360px and shifted the page. */}
+            <TimeAgo iso={job.created_at} className="inline-block w-[4.75rem] whitespace-nowrap" />
             <span aria-hidden>·</span>
             <CalendarDays size={12} aria-hidden className="shrink-0" />
             Posted {formatDate(job.created_at)}
