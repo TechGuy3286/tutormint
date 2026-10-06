@@ -67,6 +67,9 @@ export const SCREEN_ACCESS = {
   duplicatesMerge: ['admin'] as AdminRole[],
   // Opening checkout to ALL members is an owner decision. `[]` = owner only.
   paymentsSwitches: [] as AdminRole[],
+  // Admin → Settings → Payment gateways (owner, 6 Oct 2026, item 19): owner
+  // ONLY, enforced on the server (an admin or staff role gets 403).
+  paymentGateways: [] as AdminRole[],
   // Staff management is the ONE thing an Admin does not get. `[]` = owner only.
   team: [] as AdminRole[],
   reports: ['admin', 'operations'] as AdminRole[],

@@ -6,6 +6,9 @@ import {
   emptyStaffCounts,
   STAFF_METRICS,
   STAFF_METRIC_ACTIONS,
+  TUITION_ACTIVITY_ACTIONS,
+  isTuitionActivityAction,
+  tuitionActionLabel,
   type StaffCounts,
   type StaffMetricKey,
 } from '@/lib/staffActivityCore'
@@ -225,4 +228,90 @@ export async function loadStaffDetail(
   }
 
   return { counts: counts.get(actorId) ?? emptyStaffCounts(), items, cityCounts, postedStatus }
+}
+
+// ───────────────────────── tuition-posting activity (owner, 6 Oct 2026) ──
+//
+// The read-only feed the Tuitions staff role sees (item 18): every staff
+// member's TUITION actions, newest first. The audit-log query is bounded to
+// TUITION_ACTIVITY_ACTIONS, so a payment, member, verification, role or
+// settings row is never read for this view — the filter is on the server, not
+// in the markup.
+
+export type TuitionActivityItem = {
+  id: string
+  at: string
+  actorId: string
+  actorName: string
+  action: string
+  label: string
+  /** The tuition's title and TM reference, when the row still exists. */
+  title: string
+  refId: string | null
+  /** The duplicate-warning reason, for a post made with "Post anyway". */
+  reason: string | null
+  href: string
+}
+
+export type TuitionActivityFeed = {
+  staff: { id: string; name: string }[]
+  items: TuitionActivityItem[]
+}
+
+export async function loadTuitionActivity(
+  filter: { person?: string | null; sinceDays?: number } = {},
+): Promise<TuitionActivityFeed> {
+  const admin = createAdminClient()
+  if (!admin) return { staff: [], items: [] }
+
+  const { data: staffRows } = await admin
+    .from('profiles')
+    .select('id, full_name')
+    .eq('role', 'admin')
+    .order('full_name', { ascending: true })
+  const staff = (staffRows ?? []).map((r) => ({ id: r.id as string, name: formatName(r.full_name as string | null) || '—' }))
+  const staffIds = staff.map((s) => s.id)
+  if (staffIds.length === 0) return { staff, items: [] }
+
+  const since = new Date(Date.now() - (filter.sinceDays ?? 30) * 86_400_000).toISOString()
+  const q = admin
+    .from('admin_audit_log')
+    .select('id, actor_id, action, created_at, target_id, detail')
+    .in('action', [...TUITION_ACTIVITY_ACTIONS])
+    .in('actor_id', filter.person && staffIds.includes(filter.person) ? [filter.person] : staffIds)
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(500)
+  const { data: rows } = await q
+  const audit = rows ?? []
+
+  const jobIds = [...new Set(audit.map((r) => r.target_id as string).filter(Boolean))]
+  const none = ['00000000-0000-0000-0000-000000000000']
+  const { data: jobs } = await admin
+    .from('jobs')
+    .select('id, title, ref_id, duplicate_of, duplicate_reason')
+    .in('id', jobIds.length ? jobIds : none)
+  const jobById = new Map((jobs ?? []).map((j) => [j.id as string, j]))
+  const nameById = new Map(staff.map((s) => [s.id, s.name]))
+
+  const items: TuitionActivityItem[] = audit
+    .filter((r) => isTuitionActivityAction(r.action as string))
+    .map((r) => {
+      const detail = (r.detail as Record<string, unknown> | null) ?? {}
+      const job = jobById.get(r.target_id as string)
+      const postedAnyway = r.action === 'job.post' && !!job?.duplicate_of
+      return {
+        id: r.id as string,
+        at: r.created_at as string,
+        actorId: r.actor_id as string,
+        actorName: nameById.get(r.actor_id as string) ?? '—',
+        action: r.action as string,
+        label: tuitionActionLabel(r.action as string, postedAnyway),
+        title: ((job?.title as string | null) ?? (detail.title as string | null) ?? 'Tuition').trim(),
+        refId: (job?.ref_id as string | null) ?? (detail.repeatRef as string | null) ?? null,
+        reason: postedAnyway ? ((job?.duplicate_reason as string | null) ?? null) : null,
+        href: `/admin/jobs/${r.target_id as string}`,
+      }
+    })
+  return { staff, items }
 }

@@ -11,7 +11,7 @@ import { ArrowLeft, Clock } from 'lucide-react'
 // goes to the dashboard and leaves the order pending — it can be resumed from
 // Membership Plans. English with Urdu underneath.
 
-export default function OrderPageNav({ dashboard }: { dashboard: string }) {
+export default function OrderPageNav({ dashboard, payLater = true }: { dashboard: string; payLater?: boolean }) {
   const router = useRouter()
 
   const back = () => {
@@ -37,6 +37,8 @@ export default function OrderPageNav({ dashboard }: { dashboard: string }) {
           <span lang="ur" dir="rtl" className="ml-1 text-[11px] font-semibold text-gray-500">واپس</span>
         </span>
       </button>
+      {/* Pay later shows only while the owner has it switched on (item 19). */}
+      {payLater && (
       <Link
         href={dashboard}
         className="gap-1.5 inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-xs font-bold text-slate-700"
@@ -47,6 +49,7 @@ export default function OrderPageNav({ dashboard }: { dashboard: string }) {
           <span lang="ur" dir="rtl" className="ml-1 text-[11px] font-semibold text-gray-500">بعد میں</span>
         </span>
       </Link>
+      )}
     </div>
   )
 }

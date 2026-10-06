@@ -111,6 +111,7 @@ export default function PackagesTable({
   verified,
   checkoutOpen,
   hideTransfer = false,
+  onlineOff = false,
 }: {
   plans: PlanRow[]
   audience: 'tutor' | 'parent'
@@ -129,6 +130,8 @@ export default function PackagesTable({
   /** PR106-G4b §3 — owner/staff (switch "Staff only") hide the "Pay by bank
    *  transfer" option on each card. Default false keeps it for everyone else. */
   hideTransfer?: boolean
+  /** Item 19: the owner switched online payment off — Buy goes to bank transfer. */
+  onlineOff?: boolean
 }) {
   const currentRank = plans.find((p) => p.code === currentPlan)?.search_rank ?? 0
   const features = audience === 'tutor' ? TUTOR_FEATURES : PARENT_FEATURES
@@ -237,6 +240,7 @@ export default function PackagesTable({
                   upgrading={!!currentPlan}
                   emphasis={spotlit}
                   showTransfer={!hideTransfer}
+                  onlineOff={onlineOff}
                 />
               ) : (
                 // Gated launch (PR98 §2): online payment is not open to this

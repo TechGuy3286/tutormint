@@ -4,6 +4,7 @@ import { getEntitlements } from '@/lib/entitlements'
 import { subjectLabels } from '@/lib/jobs'
 import { generateJobCopy, type JobSelection } from '@/lib/ai/jobCopy'
 import { parseMode } from '@/lib/locations'
+import { normaliseGenderPref } from '@/lib/genderPref'
 import { parseBody, z } from '@/lib/validate'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 
@@ -36,6 +37,10 @@ const GenerateBody = z.object({
   budgetMin: z.coerce.number().int().nonnegative().nullish(),
   budgetMax: z.coerce.number().int().nonnegative().nullish(),
   schedule: z.string().max(500).nullish(),
+  // Item 17 — the title's Class, post-type gender and School segments.
+  levels: z.array(z.string().max(120)).max(40).default([]),
+  genderPreference: z.string().max(20).nullish(),
+  school: z.string().max(120).nullish(),
 })
 
 export async function POST(request: Request) {
@@ -79,6 +84,9 @@ export async function POST(request: Request) {
     budgetMin: body.budgetMin ?? null,
     budgetMax: body.budgetMax ?? null,
     schedule: str(body.schedule),
+    levels: body.levels.map((l) => l.trim()).filter(Boolean),
+    gender: normaliseGenderPref(body.genderPreference),
+    school: str(body.school),
   }
 
   const copy = await generateJobCopy(selection)

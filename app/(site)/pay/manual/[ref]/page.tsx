@@ -8,6 +8,7 @@ import { checkoutVisibleFor } from '@/lib/payments/paypro'
 import CopyButton from '@/components/admin/CopyButton'
 import ManualPaymentForm from './ManualPaymentForm'
 import OrderPageNav from './OrderPageNav'
+import { getGatewaySettings } from '@/lib/payments/gatewaySettings'
 
 // The bank / wallet transfer order page.
 //
@@ -183,7 +184,7 @@ export default async function ManualPayPage({ params }: { params: Promise<{ ref:
           </span>
         </p>
 
-        <OrderPageNav dashboard={dashboard} />
+        <OrderPageNav dashboard={dashboard} payLater={(await getGatewaySettings()).payLater} />
       </div>
     </main>
   )

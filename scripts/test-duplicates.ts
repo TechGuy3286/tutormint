@@ -37,6 +37,21 @@ test('same title (case/space-insensitive) and same full combination are repeats'
   assert.equal(comboKey({ ...base, masterIds: [11, 10] }), comboKey(base))
 })
 
+test('a generic title in DIFFERENT areas is not a repeat; the same title in the SAME area is (item 17)', () => {
+  const generic = 'Home Tutor Required | Grade 6'
+  const johar = { ...base, id: 'j', title: generic, area: 'Johar Town', masterIds: [1], budgetMinPkr: 5000, budgetMaxPkr: 9999 }
+  const dha = { ...base, id: 'd', title: generic, area: 'DHA', masterIds: [2], budgetMinPkr: 10000, budgetMaxPkr: 14999 }
+  assert.deepEqual(duplicateReasons(johar, dha), [], 'different areas: not flagged')
+  assert.equal(shouldMerge(johar, dha).merge, false)
+  const joharAgain = { ...johar, id: 'j2', area: 'johar  town', masterIds: [9] }
+  assert.deepEqual(duplicateReasons(johar, joharAgain), ['same title'], 'same area (case/space-insensitive): flagged')
+  // Same area + level + subjects + gender + budget band is a repeat whatever the titles say.
+  const comboTwin = { ...johar, id: 'j3', title: 'Something else entirely' }
+  assert.deepEqual(duplicateReasons(johar, comboTwin), ['same combination'])
+  // ...and the same combination in a DIFFERENT area is not.
+  assert.deepEqual(duplicateReasons(johar, { ...comboTwin, id: 'j4', area: 'Model Town' }), [])
+})
+
 test('merge rule: titles match → merge; combination-only with different job titles → skip', () => {
   const sameTitle = { ...base, id: 'b' }
   assert.equal(shouldMerge(base, sameTitle).merge, true)

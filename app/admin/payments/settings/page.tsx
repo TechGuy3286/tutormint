@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { getPaymentSwitches } from '@/lib/payments/switches'
 import { payproMode } from '@/lib/payments/paypro'
@@ -42,6 +43,18 @@ export default async function PaymentSettingsPage() {
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-black ${modeTone}`}>{modeLabel}</span>
       </div>
+
+      {/* Item 19 (owner, 6 Oct 2026): the gateway, ways to pay and health. */}
+      <Link
+        href="/admin/payments/settings/gateways"
+        className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-tm-navy"
+      >
+        <span>
+          <span className="block text-sm font-bold text-tm-navy">Payment gateways</span>
+          <span className="block text-[11px] text-gray-500">Active gateway, ways to pay, Pay later and health.</span>
+        </span>
+        <span aria-hidden className="text-sm font-black text-tm-navy">→</span>
+      </Link>
 
       <SwitchesForm initial={switches} />
 

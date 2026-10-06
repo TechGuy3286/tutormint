@@ -89,33 +89,37 @@ test('the dashboard swaps the card by the switch; non-staff keep the pending-inv
 })
 
 // --------------------------------------------- STEP 3: hide bank/pay later --
-test('TutorVerifyGate hides bank transfer + "Pay later" only when hideManual (default off)', () => {
+// Superseded by Payment gateways (owner, 6 Oct 2026, item 19): bank transfer
+// and "Pay later" now follow the OWNER'S switches for everyone (they were the
+// staff-only onboarding switch), and the checkout route refuses an off method.
+test('TutorVerifyGate shows bank transfer + "Pay later" only when the owner switched them on', () => {
   const t = read('components/upgrade/TutorVerifyGate.tsx')
-  assert.match(t, /hideManual = false/, 'defaults off → non-staff unchanged')
-  assert.match(t, /\{!hideManual && \(manual \?/, 'bank/transfer gated by hideManual')
-  assert.match(t, /\{!hideManual && payLaterHref &&/, '"Pay later" gated by hideManual')
+  assert.ok(t.includes("methods = DEFAULT_CHECKOUT_METHODS"), 'defaults to today’s state')
+  assert.ok(t.includes("const showTransfer = methods.bankTransfer && !hideManual"), 'transfer follows the switch')
+  assert.ok(t.includes("const showPayLater = methods.payLater && !hideManual"), 'Pay later follows the switch')
+  assert.ok(t.includes("{showPayLater && payLaterHref &&"), 'Pay later gated')
 })
 
-test('the apply-gate modal resolves staff via /api/onboarding/mode and passes hideManual', () => {
+test('the apply-gate modal reads the switches via /api/payments/methods', () => {
   const s = read('components/upgrade/UpgradeSheet.tsx')
-  assert.match(s, /fetch\('\/api\/onboarding\/mode'\)/, 'reads the switch decision')
-  assert.match(s, /useState\(false\)/, 'defaults false = today’s screen')
-  assert.match(s, /<TutorVerifyGate onClose=\{onClose\} hideManual=\{hideManual\}/, 'passes hideManual')
+  assert.ok(s.includes("fetch('/api/payments/methods')"), 'reads the switches')
+  assert.ok(s.includes("<TutorVerifyGate onClose={onClose} methods={methods}"), 'passes them')
   const route = read('app/api/onboarding/mode/route.ts')
-  assert.match(route, /showNewOnboarding\(mode, isStaff\)/, 'the endpoint resolves the same way')
+  assert.ok(route.includes("showNewOnboarding(mode, isStaff)"), 'the onboarding endpoint is unchanged')
 })
 
-test('Membership Plans hides bank + "Pay later" for staff, keeps Back; transfer button gated', () => {
+test('Membership Plans shows bank + "Pay later" only when switched on, keeps Back; transfer button gated', () => {
   const page = read('app/(site)/membership-plans/page.tsx')
-  assert.match(page, /staffNew = showNewOnboarding\(await getOnboardingMode\(\), !!me\?\.admin_role\)/, 'staffNew on the page')
-  assert.match(page, /staffNew \? \(/, 'payFooter branches on staffNew')
-  assert.match(page, /hideTransfer=\{staffNew\}/, 'PackagesTable transfer gated')
-  // staff footer keeps Back, drops the bank card + Pay later
-  const staffFooter = page.slice(page.indexOf('staffNew ? ('), page.indexOf('const tutorCurrent'))
-  assert.match(staffFooter, /Back/, 'staff keeps the Back exit')
+  assert.ok(page.includes("checkoutMethodsOf(await getGatewaySettings())"), 'reads the switches')
+  assert.ok(page.includes("hideTransfer={!methods.bankTransfer}"), 'PackagesTable transfer gated')
+  assert.ok(page.includes("{methods.payLater && ("), 'Pay later gated')
+  assert.ok(page.includes("Back<span"), 'Back always stays')
   const pt = read('components/PackagesTable.tsx')
-  assert.match(pt, /hideTransfer = false/, 'PackagesTable default keeps transfer for everyone else')
-  assert.match(pt, /showTransfer=\{!hideTransfer\}/, 'BuyButton transfer follows hideTransfer')
+  assert.ok(pt.includes("hideTransfer = false"), 'PackagesTable default')
+  assert.ok(pt.includes("showTransfer={!hideTransfer}"), 'BuyButton transfer follows hideTransfer')
+  const checkout = read('app/api/payments/checkout/route.ts')
+  assert.ok(checkout.includes("wantsTransfer && !transferOn"), 'the server refuses an off transfer')
+  assert.ok(checkout.includes("!wantsTransfer && !onlineCheckoutOn(gateways)"), 'the server refuses off online payment')
 })
 
 test('/pay/manual still works and bank details are not deleted (staff can still share manually)', () => {

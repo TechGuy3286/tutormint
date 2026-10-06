@@ -26,6 +26,7 @@ import { citySegment } from '@/lib/slugs'
 import { formatDate } from '@/lib/datetime'
 import { jobType } from '@/lib/display'
 import { absoluteUrl } from '@/lib/siteUrl'
+import { tuitionPageTitle } from '@/lib/tuitionTitle'
 import { jobPostingJsonLd, jsonLdScript, pageDescription, pageTitle, seoTitle, seoDescription, tuitionDescription, socialMeta } from '@/lib/seo'
 import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
 import { repeatOfOlderOpen, tuitionHref } from '@/lib/duplicates'
@@ -149,7 +150,10 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   // "| TutorMint" only when it fits. The description (≤ 155) is built from the
   // tuition's own fields — level, subjects, area, city, Job Type, budget — never
   // the free text and never an invented fact.
-  const title = seoTitle(pageHeadline)
+  // Item 17: the visible H1 keeps the full title; the <title> and og:title are
+  // ≤ 60 characters — the school/area segment goes first, then the post type is
+  // shortened, never cut mid-word (lib/tuitionTitle).
+  const title = tuitionPageTitle(pageHeadline)
   const description = tuitionDescription({
     classLevel: job.class_level,
     subjects: job.subjects ?? [],

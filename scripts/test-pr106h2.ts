@@ -77,11 +77,17 @@ test('Overview figures are gated and the denied notice is shown on both homes', 
   assert.match(jobs, /denied && <AccessDeniedNotice/, 'notice on /admin/jobs (the role home)')
 })
 
-test('Staff activity is self-scoped for tuitions_staff', () => {
+// Superseded (owner, 6 Oct 2026, item 18): Tuitions staff now see the
+// TUITION-POSTING activity of every staff member — and nothing else — read on
+// the server with the tuition-only action list.
+test('Staff activity for tuitions_staff is tuition-posting only, for all staff', () => {
   const list = read('app/admin/staff-activity/page.tsx')
-  assert.match(list, /adminRole === 'tuitions_staff'\) redirect\(`\/admin\/staff-activity\/\$\{actor\.id\}`\)/, 'list → own detail')
+  assert.ok(list.includes("if (actor.adminRole === 'tuitions_staff') {"), 'its own branch')
+  assert.ok(list.includes("loadTuitionActivity("), 'the tuition-only loader')
+  const lib = read('lib/staffActivity.ts')
+  assert.ok(lib.includes(".in('action', [...TUITION_ACTIVITY_ACTIONS])"), 'the server query is bounded to tuition actions')
   const detail = read('app/admin/staff-activity/[id]/page.tsx')
-  assert.match(detail, /adminRole === 'tuitions_staff' && id !== actor\.id/, 'detail refuses any id but the actor’s')
+  assert.ok(detail.includes("redirect(`/admin/staff-activity?person="), 'detail never shows the full view')
 })
 
 test('no admin route is left without a role check (the one gap is closed)', () => {

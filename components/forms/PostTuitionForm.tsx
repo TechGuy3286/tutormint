@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Sparkles, Loader2, Info, ShieldCheck, Phone, UserRound, Clock } from 'lucide-react'
+import { Sparkles, Loader2, Info, ShieldCheck, Phone, UserRound, Clock, School } from 'lucide-react'
 
 import { submitSignal } from '@/lib/submit'
 import TaxonomySelector from '@/components/TaxonomySelector'
@@ -54,6 +54,10 @@ export type PostTuitionValues = {
   description: string
   /** Optional preferred tutor gender ('' = no preference). */
   genderPreference: string
+  /** Optional school or academy name (item 17). Used only to write the title
+   *  ("Post type | Class | School name | City"); the title itself is what is
+   *  saved, so nothing new is stored. */
+  school: string
   /** Parent-only. */
   childId: string
   /** Admin-only. */
@@ -118,6 +122,7 @@ const EMPTY: PostTuitionValues = {
   schedule: '',
   description: '',
   genderPreference: '',
+  school: '',
   childId: '',
   origin: '',
   contactName: '',
@@ -302,6 +307,9 @@ export default function PostTuitionForm({
           budgetMin: v.budgetMin || null,
           budgetMax: v.budgetMax || null,
           schedule: v.schedule,
+          levels: v.levels,
+          genderPreference: v.genderPreference || null,
+          school: v.school || null,
         }),
       })
       const json = (await res.json()) as { title?: string; description?: string; source?: string; error?: string }
@@ -438,6 +446,7 @@ export default function PostTuitionForm({
               selectedSubjects={v.subjects}
               setSelectedSubjects={(x) => set('subjects', x)}
               allowSelectAll
+              perGradeBulk
             />
           )}
           {levelLeaf && v.levels.length > 0 && (
@@ -506,6 +515,23 @@ export default function PostTuitionForm({
                 </option>
               ))}
             </select>
+          </label>
+
+          {/* Optional school or academy name (item 17): it becomes the third
+              part of the written title; with none, the area is used instead. */}
+          <label className="block space-y-1">
+            <span className={`${LABEL} flex items-center gap-1.5`}>
+              <School size={12} aria-hidden />
+              School or academy name (optional)
+            </span>
+            <input
+              type="text"
+              value={v.school}
+              maxLength={120}
+              onChange={(e) => set('school', e.target.value)}
+              placeholder="For a school job, e.g. Beaconhouse"
+              className={FIELD}
+            />
           </label>
 
         </Step>

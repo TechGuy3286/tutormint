@@ -27,6 +27,7 @@ import { EXPERIENCE_BANDS, composeHeadline, composeBio, L, type OnboardingAnswer
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import type { OnboardingFacets } from '@/lib/openJobCounts'
 import type { ManualInstructions } from '@/lib/payments/provider'
+import { DEFAULT_CHECKOUT_METHODS, type CheckoutMethods } from '@/lib/payments/gatewaySettingsCore'
 import { fetchTaxonomyTree, resolveMasterIds, fetchNonLegacyMasters, type TaxonomyNode } from '@/lib/taxonomy'
 import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
@@ -117,13 +118,15 @@ type Props = {
   smsAvailable?: boolean
   /** PR106-E §1/§2 — manual pay account details (app_settings), for the fee step. */
   manual?: ManualInstructions | null
+  /** Payment gateways (owner, 6 Oct 2026, item 19): which checkout options are on. */
+  methods?: CheckoutMethods
   /** PR106-G3 §1 — the NEW onboarding flow (gender first, re-sequenced), shown
    *  only when the staff switch routes this viewer to it. Default false = the
    *  current flow, byte-unchanged. */
   newFlow?: boolean
 }
 
-export default function CompleteProfileFlow({ facets, support, seed, smsAvailable = true, manual = null, newFlow = false }: Props) {
+export default function CompleteProfileFlow({ facets, support, seed, smsAvailable = true, manual = null, newFlow = false, methods = DEFAULT_CHECKOUT_METHODS }: Props) {
   const router = useRouter()
   const params = useSearchParams()
   const toast = useToast()
@@ -737,7 +740,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             {/* PR78 §D: no "Not now" here — the fee step is the last step and
                 stays until paid; the tutor leaves via the site nav if needed. */}
-            <TutorVerifyGate onClose={() => void advance()} showDismiss={false} manual={manual} payLaterHref="/tutor/dashboard" />
+            <TutorVerifyGate onClose={() => void advance()} showDismiss={false} manual={manual} payLaterHref="/tutor/dashboard" methods={methods} />
           </div>
         )}
 

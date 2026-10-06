@@ -95,6 +95,7 @@ export function adminActionLabel(action: string | null | undefined): string {
     'job.post': 'Posted a tuition',
     'job.edit': 'Edited a tuition',
     'job.close': 'Closed a tuition',
+    'payments.gateway': 'Changed payment gateway settings',
     'job.contact_message': 'Messaged a tuition contact',
     'video.visibility': 'Changed video visibility',
     'report.action': 'Actioned a report',

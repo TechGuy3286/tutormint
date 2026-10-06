@@ -29,6 +29,7 @@ export type AdminScreen =
   | 'jobs'
   | 'payments'
   | 'paymentsSwitches'
+  | 'paymentGateways'
   | 'reconciliation'
   | 'duplicates'
   | 'plans'
@@ -99,6 +100,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/payments', label: 'Payments', icon: 'wallet', screen: 'payments' },
       { href: '/admin/payments/reconciliation', label: 'Reconciliation', icon: 'scale', screen: 'reconciliation' },
       { href: '/admin/payments/settings', label: 'Settings', icon: 'listChecks', screen: 'paymentsSwitches' },
+      { href: '/admin/payments/settings/gateways', label: 'Payment gateways', icon: 'card', screen: 'paymentGateways' },
       { href: '/admin/plans', label: 'Plans', icon: 'card', screen: 'plans' },
     ],
   },
@@ -134,6 +136,7 @@ export const NAV_GROUPS: NavGroup[] = [
  * entries are for sub-paths that have no nav entry of their own.
  */
 export const SECTION_LABELS: Record<string, string> = {
+  gateways: 'Payment gateways',
   ads: 'Advertisements',
   audit: 'Audit',
   blog: 'Blog',

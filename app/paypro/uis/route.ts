@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { confirmPayproOrder } from '@/lib/payments/payproReconcile'
+import { recordGatewayEvent } from '@/lib/payments/gatewaySettings'
 
 // PayPro callback (PR65) — POST https://www.tutormint.org/paypro/uis
 //
@@ -91,8 +92,12 @@ export async function POST(request: Request) {
   }
 
   if (!credentialsOk(body.username, body.password)) {
+    // Health (item 19): a callback with the wrong username/password is an error.
+    await recordGatewayEvent('paypro', 'error', 'A PayPro callback arrived with the wrong username or password.')
     return NextResponse.json(BAD_CREDS)
   }
+  // Health (item 19): "last callback received".
+  await recordGatewayEvent('paypro', 'callback')
 
   const admin = createAdminClient()
   if (!admin) {

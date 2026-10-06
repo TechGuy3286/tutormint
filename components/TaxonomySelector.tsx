@@ -6,6 +6,7 @@ import { fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
 import Select from '@/components/forms/Select'
 import { onOutsidePointerDown } from '@/lib/outsidePointer'
 import { TextLinesSkeleton } from '@/components/Skeletons'
+import { selectAllForGrade, clearAllForGrade, gradeFullySelected } from '@/lib/gradeSubjectBulk'
 
 interface TaxonomySelectorProps {
   selectedLevel: string;
@@ -18,6 +19,10 @@ interface TaxonomySelectorProps {
   /** "Select all" bulk toggle. Off for post-a-tuition — nobody posts one
       tuition for every subject. On elsewhere (a tutor may teach many). */
   allowSelectAll?: boolean;
+  /** Item 17 (post a tuition): instead of one "Select all" for every subject,
+      each selected grade gets its own "Select all" / "Clear all" chips that
+      touch only that grade's subjects. */
+  perGradeBulk?: boolean;
 }
 
 export default function TaxonomySelector({
@@ -28,6 +33,7 @@ export default function TaxonomySelector({
   selectedSubjects,
   setSelectedSubjects,
   allowSelectAll = true,
+  perGradeBulk = false,
 }: TaxonomySelectorProps) {
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyNode>({});
   const [loading, setLoading] = useState<boolean>(true);
@@ -223,7 +229,7 @@ export default function TaxonomySelector({
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubjectSearch(e.target.value)}
               className="min-h-[44px] p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none flex-1 sm:w-48 text-slate-700"
             />
-            {allowSelectAll && availableSubjects.length > 0 && (
+            {allowSelectAll && !perGradeBulk && availableSubjects.length > 0 && (
               <button
                 type="button"
                 onClick={() => {
@@ -241,6 +247,42 @@ export default function TaxonomySelector({
           </div>
           )}
         </div>
+
+        {/* Item 17: one pair of chips per selected grade, touching only that
+            grade's subjects. */}
+        {perGradeBulk && !subjectsCollapsed && (
+          <div className="space-y-1.5">
+            {selectedGrades.map((g) => {
+              const gradeSubjects = taxonomyTree[selectedLevel]?.[g] ?? []
+              if (gradeSubjects.length === 0) return null
+              const full = gradeFullySelected(selectedSubjects, gradeSubjects)
+              const any = gradeSubjects.some((s) => selectedSubjects.includes(s))
+              return (
+                <div key={g} className="flex flex-wrap items-center gap-2">
+                  <span className="max-w-[10rem] truncate text-[11px] font-bold text-tm-navy">{g}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubjects(selectAllForGrade(selectedSubjects, gradeSubjects))}
+                    disabled={full}
+                    aria-label={`Select all subjects for ${g}`}
+                    className="inline-flex min-h-[36px] items-center rounded-full border border-tm-green-deep bg-tm-tint-green px-3 text-[11px] font-bold text-tm-green-deep disabled:opacity-60 cursor-pointer"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubjects(clearAllForGrade(selectedSubjects, gradeSubjects))}
+                    disabled={!any}
+                    aria-label={`Clear all subjects for ${g}`}
+                    className="inline-flex min-h-[36px] items-center rounded-full border border-gray-200 bg-white px-3 text-[11px] font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60 cursor-pointer"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {selectedSubjects.length > 0 && (
           <div className="flex flex-wrap gap-2">

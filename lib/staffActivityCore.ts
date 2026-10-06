@@ -76,3 +76,51 @@ export function tallyStaffActivity(rows: AuditRow[], now: number = Date.now()): 
   }
   return map
 }
+
+// ───────────────────────── tuition-posting activity (owner, 6 Oct 2026) ──
+//
+// What the restricted Tuitions staff role may see on Staff activity (item 18):
+// tuition-posting work ONLY — posts, edits, reopens, refreshes, closes, merges,
+// and a post made despite a duplicate warning ("Post anyway" with its reason,
+// read from the job's duplicate_of / duplicate_reason). Never payment, member,
+// verification, role or settings actions. The loader queries the audit log with
+// THIS list, so nothing else is ever read for that role.
+
+export const TUITION_ACTIVITY_ACTIONS = [
+  'job.post',
+  'job.edit',
+  'job.resume',
+  'job.refresh',
+  'job.close',
+  'job.remove',
+  'job.merge',
+] as const
+
+export type TuitionActivityAction = (typeof TUITION_ACTIVITY_ACTIONS)[number]
+
+export function isTuitionActivityAction(action: string): action is TuitionActivityAction {
+  return (TUITION_ACTIVITY_ACTIONS as readonly string[]).includes(action)
+}
+
+/** The plain-English line for one tuition action. `postedAnyway` marks a post
+ *  made after a duplicate warning. */
+export function tuitionActionLabel(action: string, postedAnyway = false): string {
+  switch (action) {
+    case 'job.post':
+      return postedAnyway ? 'Posted anyway after a duplicate warning' : 'Posted a tuition'
+    case 'job.edit':
+      return 'Edited a tuition'
+    case 'job.resume':
+      return 'Reopened a tuition'
+    case 'job.refresh':
+      return 'Refreshed a tuition'
+    case 'job.close':
+      return 'Closed a tuition'
+    case 'job.remove':
+      return 'Closed a tuition (removed)'
+    case 'job.merge':
+      return 'Merged a repeat into the original'
+    default:
+      return 'Tuition action'
+  }
+}

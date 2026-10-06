@@ -5,9 +5,12 @@
 // safety net, the admin Duplicates view, the merge data-op and the tests.
 //
 // Two tuitions are REPEATS of each other when they share
-//   • the same title (normalised: lower-case, collapsed spaces), or
 //   • the same full combination: city + area + level/grade set + subject set
-//     + gender preference + budget band.
+//     + gender preference + budget band, or
+//   • the same title (normalised: lower-case, collapsed spaces) — but ONLY when
+//     the area (and city) also match (owner, 6 Oct 2026, item 17). A generic
+//     title such as "Home Tutor Required | Grade 6" posted in two different
+//     areas is two different tuitions, never a repeat.
 // A pair matched only by the combination, where the titles describe DIFFERENT
 // jobs (the first "|" segment — "Coordinator Required" vs "Primary Teacher
 // Required"), is NOT merged; it is listed instead.
@@ -42,6 +45,11 @@ export function comboKey(f: DuplicateFacts): string {
   return [norm(f.city), norm(f.area), levels.join('|'), masters.join(','), norm(f.genderPreference) || 'any', budgetBand(f)].join('#')
 }
 
+/** Same city AND same area (normalised). Two empty areas in one city match. */
+export function samePlace(a: Pick<DuplicateFacts, 'city' | 'area'>, b: Pick<DuplicateFacts, 'city' | 'area'>): boolean {
+  return norm(a.city) === norm(b.city) && norm(a.area) === norm(b.area)
+}
+
 export function titleKey(f: Pick<DuplicateFacts, 'title'>): string {
   return norm(f.title)
 }
@@ -56,7 +64,7 @@ export type DuplicateReason = 'same title' | 'same combination'
 /** How two tuitions repeat each other, or an empty list when they do not. */
 export function duplicateReasons(a: DuplicateFacts, b: DuplicateFacts): DuplicateReason[] {
   const out: DuplicateReason[] = []
-  if (titleKey(a) && titleKey(a) === titleKey(b)) out.push('same title')
+  if (titleKey(a) && titleKey(a) === titleKey(b) && samePlace(a, b)) out.push('same title')
   const ka = comboKey(a)
   if (ka && ka === comboKey(b)) out.push('same combination')
   return out

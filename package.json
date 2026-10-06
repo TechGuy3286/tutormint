@@ -83,7 +83,9 @@
     "test:indexing": "tsx --test scripts/test-indexing.ts",
     "test:contentmix": "tsx --test scripts/test-content-mix.ts",
     "test:reconciliation": "tsx --test scripts/test-reconciliation.ts",
-    "test:duplicates": "tsx --test scripts/test-duplicates.ts"
+    "test:duplicates": "tsx --test scripts/test-duplicates.ts",
+    "test:tuitionpost": "tsx --test scripts/test-tuition-post.ts",
+    "test:gateways": "tsx --test scripts/test-gateways.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

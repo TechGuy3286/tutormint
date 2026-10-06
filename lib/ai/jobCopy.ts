@@ -11,6 +11,7 @@
 import { jobType } from '@/lib/display'
 import { complete, isConfigured } from './anthropic'
 import {
+  buildJobTitle,
   budgetSentence,
   composeJobCopy,
   modePhrase,
@@ -41,10 +42,10 @@ const SYSTEM = [
   '- No corporate filler: no "passionate", no "dynamic", no "we are seeking a highly qualified individual".',
   '- No greeting, no sign-off, no emoji, no hashtags, no markdown.',
   `- The description must be between ${MIN_WORDS} and ${MAX_WORDS} words.`,
-  // Owner PR9 §3.1 / PR50 §3: the job type LEADS the title, and it must be the
-  // EXACT job type from the facts — never a different one, never dropped.
-  '- The title MUST begin with the exact "Job type" from the facts, word for word. If the Job type is "Music Teacher", the title starts with "Music Teacher"; do NOT change it to "Home Tutor" or leave it out.',
-  '- After the job type, add the subject(s), then the grade/level, then the area and city — e.g. "Music Teacher for Piano, Grade 6 to 8 in DHA, Lahore" or "Home Tutor for Art & Drawing, Pre Nursery / KG I in DHA, Lahore". The title is one line, under 90 characters. Use only the grades/levels in the facts.',
+  // The TITLE is built from the selections in code (owner, 6 Oct 2026, item 17:
+  // "Post type | Class | School name | City"), not by the model, so the model's
+  // title is replaced. A title is still asked for to keep the reply shape.
+  '- The title can be one short line; it is replaced by a standard title built from the facts.',
   '- Write the location EXACTLY as the "Location" fact gives it. Never repeat the city: "Bahria Town, Lahore", never "Bahria Town Lahore, Lahore".',
   'Reply as JSON only, exactly: {"title": "...", "description": "..."}',
 ].join('\n')
@@ -113,7 +114,9 @@ export async function generateJobCopy(sel: JobSelection): Promise<JobCopy> {
     return { ...fallback, note: 'failed' }
   }
 
-  const title = typeof parsed.title === 'string' ? parsed.title.trim() : ''
+  // Item 17: the title is ALWAYS the standard one built from the selections.
+  const modelTitle = typeof parsed.title === 'string' ? parsed.title.trim() : ''
+  const title = modelTitle ? buildJobTitle(sel) : ''
   const description = typeof parsed.description === 'string' ? parsed.description.trim() : ''
 
   if (!title || !description) return { ...fallback, note: 'failed' }

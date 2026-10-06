@@ -8,6 +8,7 @@ import { isSyntheticEmail } from '@/lib/phone'
 import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, text } from '@/lib/validate'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
+import { bankTransferOn, getGatewaySettings, onlineCheckoutOn, recordGatewayEvent } from '@/lib/payments/gatewaySettings'
 
 // node:https (PayPro) needs the Node runtime, not edge.
 export const runtime = 'nodejs'
@@ -167,6 +168,28 @@ export async function POST(request: Request) {
   // the transfer order page. Default is card → PayPro.
   const wantsTransfer = body.method === 'transfer'
 
+  // Payment gateways (owner, 6 Oct 2026, item 19): a method the owner has turned
+  // off is refused HERE, not only hidden on the screen.
+  const gateways = await getGatewaySettings()
+  const transferOn = bankTransferOn(gateways)
+  if (wantsTransfer && !transferOn) {
+    return NextResponse.json(
+      {
+        error: 'Bank transfer is not available right now. Please pay online instead.\nبینک ٹرانسفر ابھی دستیاب نہیں۔ آن لائن ادائیگی کریں۔',
+        code: 'method_off',
+      },
+      { status: 400 },
+    )
+  }
+  if (!wantsTransfer && !onlineCheckoutOn(gateways)) {
+    return NextResponse.json(
+      transferOn
+        ? { error: 'Online payment is not available right now. Please pay by bank transfer.\nآن لائن ادائیگی ابھی دستیاب نہیں۔ بینک ٹرانسفر سے ادائیگی کریں۔', code: 'use_transfer' }
+        : { error: 'Payments are not available right now. Please try again later.\nادائیگی ابھی دستیاب نہیں۔ کچھ دیر بعد کوشش کریں۔', code: 'method_off' },
+      { status: transferOn ? 409 : 400 },
+    )
+  }
+
   // CARD via PayPro — open to EVERY tutor when the gateway is LIVE
   // (pproVisibleFor → onlinePaymentOpen). When it is not available for this
   // account (sandbox for a normal member / unconfigured), DO NOT fall through
@@ -175,10 +198,10 @@ export async function POST(request: Request) {
   if (!wantsTransfer) {
     if (!pproVisibleFor(profile)) {
       return NextResponse.json(
-        {
-          error: 'Online card payment isn’t open yet — please pay by bank transfer.',
-          code: 'use_transfer',
-        },
+        // Item 19: only point at bank transfer while it is switched on.
+        transferOn
+          ? { error: 'Online card payment isn’t open yet — please pay by bank transfer.', code: 'use_transfer' }
+          : { error: 'Online payment isn’t open yet. Please try again later.\nآن لائن ادائیگی ابھی دستیاب نہیں۔ کچھ دیر بعد کوشش کریں۔', code: 'method_off' },
         { status: 409 },
       )
     }
@@ -206,6 +229,16 @@ export async function POST(request: Request) {
       // the order we sent (our bug) so the UI shows the honest line. The real
       // reason + message are logged for staff, never shown.
       console.error('[paypro] checkout start failed:', started.reason, started.error)
+      // Health (item 19): a plain-English line only — never the gateway's raw text.
+      await recordGatewayEvent(
+        'paypro',
+        'error',
+        started.reason === 'unavailable'
+          ? 'PayPro did not respond when a member tried to pay.'
+          : started.reason === 'rejected'
+            ? 'PayPro refused to create a payment order.'
+            : 'We could not record a payment on our side.',
+      )
       const code = started.reason === 'unavailable' ? 'paypro_unavailable' : 'payment_failed'
       return NextResponse.json({ error: 'We could not start your payment.', code }, { status: started.status })
     }

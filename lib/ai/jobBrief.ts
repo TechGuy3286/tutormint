@@ -32,6 +32,7 @@ import { jobType } from '@/lib/display'
 import { feeChipLabel } from '@/lib/feeBands'
 import { isOnlineTitle } from '@/lib/jobTitlesCore'
 import { placeLabel } from '@/lib/place'
+import { buildTuitionTitle } from '@/lib/tuitionTitle'
 
 export type JobSelection = {
   /** Taxonomy level name, e.g. "O Levels". Resolved server-side from ids. */
@@ -46,6 +47,12 @@ export type JobSelection = {
   budgetMax: number | null
   /** Days and times, as picked from the schedule chips. */
   schedule: string | null
+  /** The selected grades (item 17): the title's Class segment ("Grade 1–5"). */
+  levels?: string[]
+  /** Preferred tutor gender ('male' | 'female' | 'trans'), or null. */
+  gender?: string | null
+  /** Optional school or academy name; the title uses the area when empty. */
+  school?: string | null
 }
 
 export type JobCopy = {
@@ -121,19 +128,21 @@ export function modePhrase(sel: JobSelection): string {
 }
 
 /**
- * The generated title, JOB TYPE FIRST (owner PR9 §3.1):
- *   "Home Tutor for Art & Drawing, Pre Nursery / KG I in DHA, Lahore"
- * = <Job Type> for <subjects>, <level> in <area>, <city>. Every segment is
- * optional and drops its connector with it (no "for" with nothing after, no
- * trailing "in"). Exported so the AI path and its verifier share one shape.
+ * The tuition title (owner, 6 Oct 2026, item 17): "Post type | Class | School
+ * name | City" — e.g. "Female Home Tutor Required | Grade 6 | Johar Town |
+ * Lahore". Built by lib/tuitionTitle from the poster's own selections, so it is
+ * the same whether Claude or the composer writes the description, and the city
+ * is never repeated. The poster can still edit it before posting.
  */
-export function buildJobTitle(sel: JobSelection, subject: string, place: string): string {
-  const who = jobType(sel.mode) || 'Tutor'
-  const forBit = [subject, sel.level].filter(Boolean).join(', ')
-  let title = who
-  if (forBit) title += ` for ${forBit}`
-  if (place) title += ` in ${place}`
-  return title
+export function buildJobTitle(sel: JobSelection): string {
+  return buildTuitionTitle({
+    mode: sel.mode,
+    gender: sel.gender ?? null,
+    levels: sel.levels && sel.levels.length > 0 ? sel.levels : sel.level ? [sel.level] : [],
+    school: sel.school ?? null,
+    area: sel.area,
+    city: sel.city,
+  })
 }
 
 // ------------------------------------------------------------- composed ----
@@ -152,7 +161,7 @@ export function composeJobCopy(sel: JobSelection): JobCopy {
   const mode = modePhrase(sel)
   const budget = budgetSentence(sel)
 
-  const title = buildJobTitle(sel, subject, place)
+  const title = buildJobTitle(sel)
 
   const lines: string[] = []
   lines.push(
@@ -213,6 +222,8 @@ export function unsupportedFacts(text: string, sel: JobSelection): string[] {
   addNumbers(sel.city)
   addNumbers(sel.area)
   addNumbers(sel.schedule)
+  addNumbers(sel.school)
+  ;(sel.levels ?? []).forEach(addNumbers)
   if (sel.budgetMin !== null) {
     addNumbers(String(sel.budgetMin))
     // "Rs 10,000" and "10000" are the same figure written two ways, and the

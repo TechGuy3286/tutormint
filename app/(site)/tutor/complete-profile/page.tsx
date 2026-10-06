@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getSupportContact, whatsappHref, formatSupportWhatsApp } from '@/lib/support'
 import { onboardingFacets } from '@/lib/openJobCounts'
 import { manualInstructions } from '@/lib/payments/manual'
+import { checkoutMethodsOf, getGatewaySettings } from '@/lib/payments/gatewaySettings'
 import { smsDeliverable } from '@/lib/sms'
 import { createClient } from '@/lib/supabase/server'
 import { getOnboardingMode } from '@/lib/onboardingModeServer'
@@ -48,6 +49,7 @@ export default async function CompleteProfilePage({
   // city/area/job-title lists inside the flow, not a broken screen.
   const facets = await onboardingFacets()
   const manual = await manualInstructions()
+  const methods = checkoutMethodsOf(await getGatewaySettings())
 
   if (newFlow) {
     return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} payFailed={pay === 'failed'} />
@@ -64,6 +66,7 @@ export default async function CompleteProfilePage({
       seed={user.id}
       smsAvailable={smsDeliverable()}
       manual={manual}
+      methods={methods}
       newFlow={newFlow}
     />
   )

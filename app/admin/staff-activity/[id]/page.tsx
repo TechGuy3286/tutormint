@@ -34,10 +34,11 @@ export default async function StaffDetailPage({
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.staffActivity)
   const { id } = await params
-  // tuitions_staff may read ONLY its own activity — any other id is refused
-  // (bounced to its own), so the self-scope holds even on a direct URL.
-  if (actor.adminRole === 'tuitions_staff' && id !== actor.id) {
-    redirect(`/admin/staff-activity/${actor.id}`)
+  // Tuitions staff (owner, 6 Oct 2026, item 18) never see the full per-person
+  // detail — it carries verification and message actions. Any id lands on the
+  // tuition-only feed filtered to that person, read on the server.
+  if (actor.adminRole === 'tuitions_staff') {
+    redirect(`/admin/staff-activity?person=${encodeURIComponent(id)}`)
   }
   const sp = await searchParams
 

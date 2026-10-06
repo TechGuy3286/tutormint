@@ -14,6 +14,7 @@ import Link from 'next/link'
 import ManualPayDetails from '@/components/payments/ManualPayDetails'
 import type { ManualInstructions } from '@/lib/payments/provider'
 import type { IdentityState } from '@/lib/identity'
+import { DEFAULT_CHECKOUT_METHODS, type CheckoutMethods } from '@/lib/payments/gatewaySettingsCore'
 
 // The verification gate an UNVERIFIED tutor meets when they tap Apply (owner,
 // 15 Sep 2026). Deliberately minimal — a tutor on a phone does not read paragraphs.
@@ -48,13 +49,23 @@ export default function TutorVerifyGate({
   // transfer and the "Pay later" link on every payment surface. Default false
   // keeps today's screen unchanged for everyone else.
   hideManual = false,
+  // Payment gateways (owner, 6 Oct 2026, item 19): which options the owner has
+  // switched on. Bank transfer and "Pay later" show ONLY when on; with online
+  // payment off, Verify goes to bank transfer. The checkout route enforces the
+  // same switches on the server.
+  methods = DEFAULT_CHECKOUT_METHODS,
 }: {
   onClose: () => void
   showDismiss?: boolean
   manual?: ManualInstructions | null
   payLaterHref?: string
   hideManual?: boolean
+  methods?: CheckoutMethods
 }) {
+  // `hideManual` (owner/staff) can still hide the transfer; the owner's switch
+  // decides it for everyone else.
+  const showTransfer = methods.bankTransfer && !hideManual
+  const showPayLater = methods.payLater && !hideManual
   const router = useRouter()
   const [cap, setCap] = useState<CnicCaptureState | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -105,7 +116,7 @@ export default function TutorVerifyGate({
     if (!ok || !data) {
       // Online card isn't open for this account yet (PR106-G2 §0) → go straight
       // to the always-available bank transfer rather than showing an error.
-      if (data?.code === 'use_transfer' && method !== 'transfer') {
+      if (data?.code === 'use_transfer' && method !== 'transfer' && showTransfer) {
         setStarting(false)
         void start('transfer')
         return
@@ -179,7 +190,7 @@ export default function TutorVerifyGate({
       <div className="flex flex-col gap-2 sm:flex-row-reverse">
         <button
           type="button"
-          onClick={() => void start()}
+          onClick={() => void start(methods.online ? undefined : 'transfer')}
           disabled={starting || (!hasCnic && !cap?.ready)}
           className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-60"
         >
@@ -200,7 +211,7 @@ export default function TutorVerifyGate({
           the plain activation line (PR106-E §2). The online option above is
           instant; a transfer is checked by staff first. PR106-G4b §3: hidden for
           owner/staff, who go straight to PayPro. */}
-      {!hideManual && (manual ? (
+      {showTransfer && methods.online && (manual ? (
         <ManualPayDetails instructions={manual} onTransfer={() => void start('transfer')} />
       ) : (
         <button
@@ -216,7 +227,7 @@ export default function TutorVerifyGate({
 
       {/* PR106-E §1 — Pay later returns to the dashboard with nothing lost.
           PR106-G4b §3: hidden for owner/staff. */}
-      {!hideManual && payLaterHref && (
+      {showPayLater && payLaterHref && (
         <Link href={payLaterHref} className="block min-h-[40px] text-center text-[11px] font-bold text-gray-500 underline-offset-2 hover:underline">
           Pay later
           <span lang="ur" dir="rtl" className="ms-1.5 font-semibold">بعد میں ادائیگی کریں</span>

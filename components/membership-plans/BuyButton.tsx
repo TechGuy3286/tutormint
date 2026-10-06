@@ -28,6 +28,7 @@ export default function BuyButton({
   upgrading,
   emphasis,
   showTransfer,
+  onlineOff = false,
 }: {
   planCode: string
   planName: string
@@ -36,6 +37,8 @@ export default function BuyButton({
   emphasis?: boolean
   /** Also offer "Pay by bank transfer" (gated accounts only, PR98 §4). */
   showTransfer?: boolean
+  /** Item 19: online payment is switched off — the main button pays by bank transfer. */
+  onlineOff?: boolean
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -119,7 +122,7 @@ export default function BuyButton({
     <div className="space-y-1.5">
       <button
         type="button"
-        onClick={() => start('card')}
+        onClick={() => start(onlineOff ? 'transfer' : 'card')}
         disabled={busy}
         className={`min-h-[44px] w-full rounded-xl px-4 text-xs font-bold text-white transition-colors disabled:opacity-60 ${
           emphasis ? 'bg-tm-red hover:bg-tm-red-hover' : 'bg-tm-black hover:bg-slate-800'
@@ -127,7 +130,7 @@ export default function BuyButton({
       >
         {busy ? 'Starting…' : label}
       </button>
-      {showTransfer && (
+      {showTransfer && !onlineOff && (
         <button
           type="button"
           onClick={() => start('transfer')}
