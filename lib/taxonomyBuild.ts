@@ -171,3 +171,48 @@ export function buildTaxonomy(t: TaxonomyTables): { rows: TaxonomyRow[]; tree: T
 
   return { rows, tree, core }
 }
+
+// ---------------------------------------------------------------------------
+// Pure lookups over the built rows, shared by the browser path (lib/taxonomy.ts)
+// and the server path (lib/taxonomyServer.ts) so the two can never disagree.
+
+/** Display labels for a set of master ids ("Grade 1 — Mathematics"). Reads ALL
+ *  rows by id (legacy included), so a retired saved subject still labels. */
+export function labelsFromRows(rows: TaxonomyRow[], ids: number[]): string[] {
+  const set = new Set(ids)
+  return rows.filter((r) => set.has(r.id)).map((r) => (r.subject ? `${r.level} — ${r.subject}` : r.level))
+}
+
+export type TaxonomySelection = {
+  category: string
+  levels: string[]
+  subjects: string[]
+  isLevelLeaf: boolean
+  byGrade: Record<string, string[]>
+}
+
+/** Stored master ids → the cascade selection that produced them. NON-LEGACY
+ *  only; the first row decides the category (see lib/taxonomy.ts). */
+export function selectionFromRows(rows: TaxonomyRow[], ids: number[]): TaxonomySelection {
+  const empty: TaxonomySelection = { category: '', levels: [], subjects: [], isLevelLeaf: false, byGrade: {} }
+  if (ids.length === 0) return empty
+  const set = new Set(ids)
+  const mine = rows.filter((r) => set.has(r.id) && !r.legacy)
+  if (mine.length === 0) return empty
+  const category = mine[0].category
+  const inCat = mine.filter((r) => r.category === category)
+  return {
+    category,
+    levels: Array.from(new Set(inCat.map((r) => r.level))),
+    subjects: Array.from(new Set(inCat.map((r) => r.subject).filter(Boolean))) as string[],
+    isLevelLeaf: inCat.some((r) => r.isLevelLeaf),
+    // Per grade (owner, 7 Oct 2026): each id belongs to ONE grade, so grouping
+    // the ids by their grade gives that grade's own subjects.
+    byGrade: inCat.reduce<Record<string, string[]>>((acc, r) => {
+      if (!r.subject) return acc
+      const list = acc[r.level] ?? (acc[r.level] = [])
+      if (!list.includes(r.subject)) list.push(r.subject)
+      return acc
+    }, {}),
+  }
+}

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "tsx scripts/check-server-imports.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -21,6 +22,7 @@
     "sendpk:probe": "tsx scripts/sendpk-probe.ts",
     "test:sendpk": "tsx --test scripts/test-sendpk.ts",
     "check:contrast": "tsx scripts/contrast-check.ts",
+    "check:server-imports": "tsx scripts/check-server-imports.ts",
     "test:jobcopy": "tsx --test scripts/test-jobcopy.ts",
     "test:grouping": "tsx --test scripts/test-grouping.ts",
     "migrate:avatars": "tsx scripts/migrate-data-uri-avatars.ts",
@@ -43,6 +45,7 @@
     "test:tutorflow": "tsx --test scripts/test-tutorflow.ts",
     "test:onboardingsubjects": "tsx --test scripts/test-onboarding-subjects.ts",
     "test:subjectcap": "tsx --test scripts/test-subject-cap.ts",
+    "test:serverimports": "tsx --test scripts/test-server-imports.ts",
     "test:degrees": "tsx --test scripts/test-degrees.ts",
     "test:tutordash": "tsx --test scripts/test-tutor-dashboard.ts",
     "test:paymentopen": "tsx --test scripts/test-payment-open.ts",

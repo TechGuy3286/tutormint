@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
-import { selectionForMasterIds } from '@/lib/taxonomy'
+import { selectionForMasterIdsServer } from '@/lib/taxonomyServer'
 import { EXPERIENCE_BANDS, type OnboardingAnswers } from '@/lib/onboarding/copy'
 import { generateTagline } from '@/lib/ai/taglineCopy'
 
@@ -29,7 +29,14 @@ export async function POST() {
     supabase.from('tutor_subjects').select('master_id').eq('tutor_id', user.id),
   ])
   const ids = (subj.data ?? []).map((r) => r.master_id as number)
-  const sel = ids.length ? await selectionForMasterIds(ids) : { levels: [], subjects: [] }
+  // Server-side lookup (never the browser-only lib/taxonomy). A lookup failure
+  // writes a tagline without subject names rather than failing the request.
+  const sel = ids.length
+    ? await selectionForMasterIdsServer(ids).catch((e) => {
+        console.error('[tutor/tagline] subject lookup failed:', e instanceof Error ? e.message : e)
+        return { levels: [] as string[], subjects: [] as string[] }
+      })
+    : { levels: [] as string[], subjects: [] as string[] }
 
   // Areas (fail-open if the table is missing).
   let areas: string[] = (tp?.area as string) ? [tp!.area as string] : []

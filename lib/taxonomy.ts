@@ -16,7 +16,7 @@
 // the page.
 
 import { getBrowserClient } from '@/lib/supabase/clientLazy'
-import { buildTaxonomy, fetchTaxonomyTables, type TaxonomyNode, type TaxonomyRow as Row } from '@/lib/taxonomyBuild'
+import { buildTaxonomy, fetchTaxonomyTables, labelsFromRows, selectionFromRows, type TaxonomyNode, type TaxonomyRow as Row, type TaxonomySelection } from '@/lib/taxonomyBuild'
 
 export type { TaxonomyNode }
 
@@ -172,9 +172,7 @@ export async function isLevelLeaf(category: string, level: string): Promise<bool
  *  Reads ALL rows by id (legacy included), so a job/tutor on the retired
  *  taxonomy still renders its saved subjects until it is re-picked. */
 export async function labelsForMasterIds(ids: number[]): Promise<string[]> {
-  const { rows } = await load()
-  const set = new Set(ids)
-  return rows.filter((r) => set.has(r.id)).map((r) => (r.subject ? `${r.level} — ${r.subject}` : r.level))
+  return labelsFromRows((await load()).rows, ids)
 }
 
 /**
@@ -197,34 +195,9 @@ export async function labelsForMasterIds(ids: number[]): Promise<string[]> {
  * renders its saved labels (labelsForMasterIds, by id) and still matches; the
  * person re-picks from the current dataset on their next edit.
  */
-export async function selectionForMasterIds(
-  ids: number[],
-): Promise<{ category: string; levels: string[]; subjects: string[]; isLevelLeaf: boolean; byGrade: Record<string, string[]> }> {
-  const empty = { category: '', levels: [] as string[], subjects: [] as string[], isLevelLeaf: false, byGrade: {} as Record<string, string[]> }
-  if (ids.length === 0) return empty
-
-  const { rows } = await load()
-  const set = new Set(ids)
-  const mine = rows.filter((r) => set.has(r.id) && !r.legacy)
-  if (mine.length === 0) return empty
-
-  const category = mine[0].category
-  const inCat = mine.filter((r) => r.category === category)
-
-  return {
-    category,
-    levels: Array.from(new Set(inCat.map((r) => r.level))),
-    subjects: Array.from(new Set(inCat.map((r) => r.subject).filter(Boolean))) as string[],
-    isLevelLeaf: inCat.some((r) => r.isLevelLeaf),
-    // Per grade (owner, 7 Oct 2026): each id belongs to ONE grade, so grouping
-    // the ids by their grade gives that grade's own subjects.
-    byGrade: inCat.reduce<Record<string, string[]>>((acc, r) => {
-      if (!r.subject) return acc
-      const list = acc[r.level] ?? (acc[r.level] = [])
-      if (!list.includes(r.subject)) list.push(r.subject)
-      return acc
-    }, {}),
-  }
+export async function selectionForMasterIds(ids: number[]): Promise<TaxonomySelection> {
+  if (ids.length === 0) return selectionFromRows([], ids)
+  return selectionFromRows((await load()).rows, ids)
 }
 
 /** Per-grade subject names → per-grade taxonomy ids (owner, 7 Oct 2026). A

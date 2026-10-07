@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { recomputeCompletion } from '@/lib/completion'
 import { ensureTutorSlug } from '@/lib/tutorSlug'
 import { logActivity } from '@/lib/activityLog'
-import { labelsForMasterIds } from '@/lib/taxonomy'
+import { labelsForMasterIdsServer } from '@/lib/taxonomyServer'
 
 // The tutor onboarding submit. Writes everything the tap-only flow collected —
 // city, area, gender, experience band, fee band, subjects, and the composed
@@ -122,16 +122,21 @@ export async function POST(request: Request) {
       .from('tutor_subjects')
       .insert(masterIds.map((master_id) => ({ tutor_id: user.id, master_id })))
     if (error) return serverError(error, 'tutor/onboarding')
-    // First subject set at onboarding: everything is "added" (PR100 §3).
-    const labels = await labelsForMasterIds(masterIds)
-    const added = [...new Set(labels.map((l) => (l.split(' — ').pop() ?? l).trim()).filter(Boolean))]
-    await logActivity({
-      userId: user.id,
-      event: 'subjects_changed',
-      targetType: 'tutor',
-      targetId: user.id,
-      meta: { added, removed: [], total: masterIds.length, via: 'onboarding' },
-    })
+    // First subject set at onboarding: everything is "added" (PR100 §3). The
+    // subjects are already saved, so the change log never fails the request.
+    try {
+      const labels = await labelsForMasterIdsServer(masterIds)
+      const added = [...new Set(labels.map((l) => (l.split(' — ').pop() ?? l).trim()).filter(Boolean))]
+      await logActivity({
+        userId: user.id,
+        event: 'subjects_changed',
+        targetType: 'tutor',
+        targetId: user.id,
+        meta: { added, removed: [], total: masterIds.length, via: 'onboarding' },
+      })
+    } catch (e) {
+      console.error('[tutor/onboarding] subjects change-log failed (save kept):', e instanceof Error ? e.message : e)
+    }
   }
 
   // Mark onboarding done so the sign-in gate never sends them back (no loop).

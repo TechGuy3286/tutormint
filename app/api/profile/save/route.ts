@@ -12,7 +12,7 @@ import { serverError } from '@/lib/errorResponse'
 import { ensureTutorSlug } from '@/lib/tutorSlug'
 import { recordFieldChanges, type FieldChange } from '@/lib/fieldHistory'
 import { normalisePkMobile } from '@/lib/phone'
-import { labelsForMasterIds } from '@/lib/taxonomy'
+import { labelsForMasterIdsServer } from '@/lib/taxonomyServer'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { alertIfReupload } from '@/lib/docReupload'
 import { formatName } from '@/lib/formatName'
@@ -393,14 +393,21 @@ export async function POST(request: Request) {
     const removedIds = oldIds.filter((id: number) => !newIds.includes(id))
     const names = (labels: string[]) =>
       [...new Set(labels.map((l) => (l.split(' — ').pop() ?? l).trim()).filter(Boolean))]
-    const [addedLabels, removedLabels] = await Promise.all([
-      addedIds.length ? labelsForMasterIds(addedIds) : Promise.resolve([] as string[]),
-      removedIds.length ? labelsForMasterIds(removedIds) : Promise.resolve([] as string[]),
-    ])
-    await logActivity({
-      userId: user.id, event: 'subjects_changed', targetType: 'tutor_profile', targetId: user.id,
-      meta: { added: names(addedLabels), removed: names(removedLabels), total: newIds.length },
-    })
+    // The subjects are ALREADY saved by this point, so the change log must never
+    // fail the save (hotfix, 7 Oct 2026): a lookup error is logged and the
+    // member still gets success.
+    try {
+      const [addedLabels, removedLabels] = await Promise.all([
+        addedIds.length ? labelsForMasterIdsServer(addedIds) : Promise.resolve([] as string[]),
+        removedIds.length ? labelsForMasterIdsServer(removedIds) : Promise.resolve([] as string[]),
+      ])
+      await logActivity({
+        userId: user.id, event: 'subjects_changed', targetType: 'tutor_profile', targetId: user.id,
+        meta: { added: names(addedLabels), removed: names(removedLabels), total: newIds.length },
+      })
+    } catch (e) {
+      console.error('[profile.save] subjects change-log failed (save kept):', e instanceof Error ? e.message : e)
+    }
   }
   if (changed.length > 0 || body.tutorProfile) {
     await logActivity({
