@@ -109,7 +109,8 @@ export function displayGroups(groups: GradeGroup[]): DisplayGroup[] {
     g.length > 1 && g.every((x) => x.subjects.length === g[0].subjects.length && x.subjects.every((s) => g[0].subjects.includes(s)))
   if (sameEverywhere) {
     const label = collapseLevels(g.map((x) => x.grade))
-    return [{ label: label.replace(/^Grade\s/, 'Grades '), subjects: g[0].subjects }]
+    // "Grades 1–3" for one run; a list ("Grade 1, Grade 4") reads as it is.
+    return [{ label: /^Grade \S+–\S+$/.test(label) ? label.replace(/^Grade\s/, 'Grades ') : label, subjects: g[0].subjects }]
   }
   return g.map((x) => ({ label: x.grade, subjects: x.subjects }))
 }
