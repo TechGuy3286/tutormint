@@ -1,0 +1,104 @@
+// lib/subjectsCore.ts
+//
+// Admin → Settings → Subjects (owner, 7 Oct 2026): which subjects are a level's
+// "Main subjects" — what the post-a-tuition "Main subjects" chip adds for a
+// grade. Reads and writes ONLY taxonomy_master.is_core (migration 146): this
+// screen never adds, renames or deletes a subject. Every save is audit-logged.
+
+import 'server-only'
+
+import { createAdminClient } from '@/lib/supabase/admin'
+import { logAdminAction } from '@/lib/auditLog'
+import type { AdminRole } from '@/lib/adminAuth'
+
+export type LevelOption = { slug: string; name: string; category: string; coreCount: number }
+export type LevelSubject = { masterId: number; name: string; isCore: boolean }
+
+export async function listLevels(): Promise<LevelOption[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const [{ data: cats }, { data: levels }, coreRows] = await Promise.all([
+    admin.from('taxonomy_categories').select('slug, name, sort_order'),
+    admin.from('taxonomy_levels').select('slug, name, category_slug, sort_order, legacy').eq('legacy', false),
+    admin.from('taxonomy_master').select('level_slug').eq('is_core', true).limit(5000),
+  ])
+  const cat = new Map((cats ?? []).map((c) => [c.slug as string, { name: c.name as string, order: (c.sort_order as number | null) ?? 0 }]))
+  const coreBy = new Map<string, number>()
+  for (const r of coreRows.data ?? []) coreBy.set(r.level_slug as string, (coreBy.get(r.level_slug as string) ?? 0) + 1)
+  return (levels ?? [])
+    .map((l) => ({
+      slug: l.slug as string,
+      name: l.name as string,
+      category: cat.get(l.category_slug as string)?.name ?? '',
+      coreCount: coreBy.get(l.slug as string) ?? 0,
+      _c: cat.get(l.category_slug as string)?.order ?? 0,
+      _l: (l.sort_order as number | null) ?? 0,
+    }))
+    .sort((a, b) => a._c - b._c || a._l - b._l)
+    .map(({ slug, name, category, coreCount }) => ({ slug, name, category, coreCount }))
+}
+
+export async function levelSubjects(levelSlug: string): Promise<LevelSubject[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const { data: level } = await admin.from('taxonomy_levels').select('slug, legacy').eq('slug', levelSlug).maybeSingle()
+  if (!level || level.legacy) return []
+  const { data: rows } = await admin
+    .from('taxonomy_master')
+    .select('id, subject_slug, is_core')
+    .eq('level_slug', levelSlug)
+    .not('subject_slug', 'is', null)
+    .limit(1000)
+  const slugs = [...new Set((rows ?? []).map((r) => r.subject_slug as string))]
+  const { data: subs } = slugs.length
+    ? await admin.from('taxonomy_subjects').select('slug, name').in('slug', slugs)
+    : { data: [] as { slug: string; name: string }[] }
+  const name = new Map((subs ?? []).map((s) => [s.slug as string, s.name as string]))
+  return (rows ?? [])
+    .map((r) => ({ masterId: r.id as number, name: name.get(r.subject_slug as string) ?? '', isCore: !!r.is_core }))
+    .filter((r) => r.name)
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** Set a level's main subjects to exactly `coreIds` (ids of THAT level only). */
+export async function saveLevelCore(
+  levelSlug: string,
+  coreIds: number[],
+  actor: { id: string; adminRole: AdminRole; email?: string | null },
+): Promise<{ ok: true; added: string[]; removed: string[] } | { ok: false; error: string }> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, error: 'This is not working right now. Please try again in a few minutes.' }
+  const { data: level } = await admin.from('taxonomy_levels').select('slug, name, legacy').eq('slug', levelSlug).maybeSingle()
+  if (!level || level.legacy) return { ok: false, error: 'That level was not found.' }
+
+  const current = await levelSubjects(levelSlug)
+  const known = new Map(current.map((s) => [s.masterId, s]))
+  const want = new Set(coreIds)
+  for (const id of want) if (!known.has(id)) return { ok: false, error: 'A subject in that list does not belong to this level.' }
+
+  const toOn = current.filter((s) => !s.isCore && want.has(s.masterId))
+  const toOff = current.filter((s) => s.isCore && !want.has(s.masterId))
+  if (toOn.length === 0 && toOff.length === 0) return { ok: true, added: [], removed: [] }
+
+  if (toOn.length) {
+    const { error } = await admin.from('taxonomy_master').update({ is_core: true }).in('id', toOn.map((s) => s.masterId))
+    if (error) return { ok: false, error: 'That did not save. Please try again.' }
+  }
+  if (toOff.length) {
+    const { error } = await admin.from('taxonomy_master').update({ is_core: false }).in('id', toOff.map((s) => s.masterId))
+    if (error) return { ok: false, error: 'That did not save. Please try again.' }
+  }
+
+  const added = toOn.map((s) => s.name)
+  const removed = toOff.map((s) => s.name)
+  await logAdminAction({
+    actorId: actor.id,
+    actorRole: actor.adminRole,
+    actorEmail: actor.email ?? null,
+    action: 'taxonomy.core',
+    targetType: 'taxonomy_level',
+    targetId: levelSlug,
+    detail: { level: level.name, added, removed },
+  })
+  return { ok: true, added, removed }
+}

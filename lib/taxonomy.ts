@@ -20,8 +20,8 @@ import { buildTaxonomy, fetchTaxonomyTables, type TaxonomyNode, type TaxonomyRow
 
 export type { TaxonomyNode }
 
-let cache: { rows: Row[]; tree: TaxonomyNode } | null = null
-let inFlight: Promise<{ rows: Row[]; tree: TaxonomyNode }> | null = null
+let cache: { rows: Row[]; tree: TaxonomyNode; core: TaxonomyNode } | null = null
+let inFlight: Promise<{ rows: Row[]; tree: TaxonomyNode; core: TaxonomyNode }> | null = null
 
 /**
  * Load the four taxonomy tables (paginated past the PostgREST max-rows cap —
@@ -29,13 +29,13 @@ let inFlight: Promise<{ rows: Row[]; tree: TaxonomyNode }> | null = null
  * The fetch + the pure derivation live in lib/taxonomyBuild.ts so the live test
  * exercises the same code. Cached for the page's lifetime.
  */
-async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode }> {
+async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode; core: TaxonomyNode }> {
   if (cache) return cache
   if (inFlight) return inFlight
 
   inFlight = (async () => {
     const tables = await fetchTaxonomyTables(await getBrowserClient())
-    if (!tables) return { rows: [], tree: {} } // do NOT cache a failed fetch
+    if (!tables) return { rows: [], tree: {}, core: {} } // do NOT cache a failed fetch
     cache = buildTaxonomy(tables)
     return cache
   })()
@@ -50,6 +50,12 @@ async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode }> {
 /** category -> level -> subject[] , keyed by display name. */
 export async function fetchTaxonomyTree(): Promise<TaxonomyNode> {
   return (await load()).tree
+}
+
+/** category -> level -> its MAIN subjects (migration 146), for the "Main
+ *  subjects" chip. A level with none is absent, and its chip is hidden. */
+export async function fetchCoreTree(): Promise<TaxonomyNode> {
+  return (await load()).core
 }
 
 /** Top tier: category names ("Level 1"), in the taxonomy's own order. Non-legacy

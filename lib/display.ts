@@ -96,6 +96,7 @@ export function adminActionLabel(action: string | null | undefined): string {
     'job.edit': 'Edited a tuition',
     'job.close': 'Closed a tuition',
     'payments.gateway': 'Changed payment gateway settings',
+    'taxonomy.core': 'Changed a level’s main subjects',
     'settlement.deduction_add': 'Added a settlement deduction line',
     'settlement.deduction_remove': 'Removed a settlement deduction line',
     'reconciliation.import': 'Uploaded a gateway file',

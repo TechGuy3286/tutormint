@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Check, Layers, X } from 'lucide-react'
-import { fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
+import { fetchCoreTree, fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
 import Select from '@/components/forms/Select'
 import { onOutsidePointerDown } from '@/lib/outsidePointer'
 import { TextLinesSkeleton } from '@/components/Skeletons'
@@ -20,7 +20,7 @@ interface TaxonomySelectorProps {
       tuition for every subject. On elsewhere (a tutor may teach many). */
   allowSelectAll?: boolean;
   /** Item 17 (post a tuition): instead of one "Select all" for every subject,
-      each selected grade gets its own "Select all" / "Clear all" chips that
+      each selected grade gets its own "Main subjects" / "Clear all" chips that
       touch only that grade's subjects. */
   perGradeBulk?: boolean;
   /** Item 2 (owner, 7 Oct 2026): with perGradeBulk, each grade keeps its OWN
@@ -44,6 +44,8 @@ export default function TaxonomySelector({
 }: TaxonomySelectorProps) {
   const perGrade = perGradeBulk && !!gradeSubjects && !!setGradeSubjects;
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyNode>({});
+  // Main subjects per level (migration 146), for the per-grade "Main subjects" chip.
+  const [coreTree, setCoreTree] = useState<TaxonomyNode>({});
   const [loading, setLoading] = useState<boolean>(true);
 
   const [gradeSearch, setGradeSearch] = useState<string>("");
@@ -67,8 +69,9 @@ export default function TaxonomySelector({
 
   useEffect(() => {
     async function loadTree() {
-      const tree = await fetchTaxonomyTree();
+      const [tree, core] = await Promise.all([fetchTaxonomyTree(), fetchCoreTree()]);
       setTaxonomyTree(tree);
+      setCoreTree(core);
       setLoading(false);
       // NO auto-selection (owner, 10 Sep 2026): the form opens empty so the
       // person chooses. An edit flow pre-fills from selectionForMasterIds.
@@ -220,6 +223,7 @@ export default function TaxonomySelector({
         <PerGradeSubjects
           grades={selectedGrades}
           offered={taxonomyTree[selectedLevel] ?? {}}
+          core={coreTree[selectedLevel] ?? {}}
           map={gradeSubjects!}
           setMap={setGradeSubjects!}
         />
@@ -324,17 +328,20 @@ export default function TaxonomySelector({
 
 /**
  * Subjects PER GRADE (owner, 7 Oct 2026). Each selected grade has its own list:
- * its own search box, its own chips, its own "Select all" / "Clear all". Tapping
+ * its own search box, its own chips, its own "Main subjects" / "Clear all". Tapping
  * a chip toggles it for that grade only; other grades are untouched.
  */
 function PerGradeSubjects({
   grades,
   offered,
+  core,
   map,
   setMap,
 }: {
   grades: string[]
   offered: Record<string, string[]>
+  /** Each grade's MAIN subjects; a grade with none hides its chip. */
+  core: Record<string, string[]>
   map: GradeSubjectMap
   setMap: (m: GradeSubjectMap) => void
 }) {
@@ -347,7 +354,10 @@ function PerGradeSubjects({
         const chosen = map[g] ?? []
         const q = (search[g] ?? '').trim().toLowerCase()
         const shown = list.filter((s) => s.toLowerCase().includes(q))
-        const full = list.length > 0 && list.every((s) => chosen.includes(s))
+        // "Main subjects" adds THIS grade's core subjects (migration 146) — only
+        // ones the grade offers — and is hidden when the grade has none.
+        const main = (core[g] ?? []).filter((s) => list.includes(s))
+        const mainAdded = main.length > 0 && main.every((s) => chosen.includes(s))
         return (
           <section key={g} aria-label={`Subjects for ${g}`} className="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -356,15 +366,17 @@ function PerGradeSubjects({
                 <span className="ms-1.5 font-semibold text-gray-500">· {chosen.length} chosen</span>
               </p>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMap(selectAllForGrade(map, g, list))}
-                  disabled={full || list.length === 0}
-                  aria-label={`Select all subjects for ${g}`}
-                  className="inline-flex min-h-[36px] items-center rounded-full border border-tm-green-deep bg-tm-tint-green px-3 text-[11px] font-bold text-tm-green-deep disabled:opacity-60 cursor-pointer"
-                >
-                  Select all
-                </button>
+                {main.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setMap(selectAllForGrade(map, g, main))}
+                    disabled={mainAdded}
+                    aria-label={`Add the main subjects for ${g}`}
+                    className="inline-flex min-h-[36px] items-center rounded-full border border-tm-green-deep bg-tm-tint-green px-3 text-[11px] font-bold text-tm-green-deep disabled:opacity-60 cursor-pointer"
+                  >
+                    Main subjects
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setMap(clearGrade(map, g))}

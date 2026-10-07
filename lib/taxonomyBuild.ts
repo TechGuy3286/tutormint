@@ -27,12 +27,15 @@ export type TaxonomyRow = {
    *  tree and the pickers are built from non-legacy rows only. Reachable by id
    *  for rendering saved labels. */
   legacy: boolean
+  /** A "main subject" at this level (migration 146): what the post-a-tuition
+   *  "Main subjects" chip adds for a grade. */
+  isCore: boolean
 }
 
 type CategoryRaw = { slug: string; name: string; sort_order: number | null }
 type LevelRaw = { slug: string; category_slug: string; name: string; sort_order: number | null; legacy: boolean | null }
 type SubjectRaw = { slug: string; name: string }
-type MasterRaw = { id: number; category_slug: string; level_slug: string; subject_slug: string | null; leaf_type: string | null }
+type MasterRaw = { id: number; category_slug: string; level_slug: string; subject_slug: string | null; leaf_type: string | null; is_core?: boolean | null }
 
 export type TaxonomyTables = {
   categories: CategoryRaw[]
@@ -78,7 +81,7 @@ export async function fetchTaxonomyTables(
       supabase.from('taxonomy_subjects').select('slug, name').order('slug').range(f, t),
     ),
     pageAll<MasterRaw>((f, t) =>
-      supabase.from('taxonomy_master').select('id, category_slug, level_slug, subject_slug, leaf_type').order('id').range(f, t),
+      supabase.from('taxonomy_master').select('id, category_slug, level_slug, subject_slug, leaf_type, is_core').order('id').range(f, t),
     ),
   ])
 
@@ -103,7 +106,7 @@ export async function fetchTaxonomyTables(
  * merge their subject lists. `rows` keeps ALL rows so labels/selection can look
  * a retired row up by id.
  */
-export function buildTaxonomy(t: TaxonomyTables): { rows: TaxonomyRow[]; tree: TaxonomyNode } {
+export function buildTaxonomy(t: TaxonomyTables): { rows: TaxonomyRow[]; tree: TaxonomyNode; core: TaxonomyNode } {
   const categoryName = new Map<string, string>()
   const categoryOrder = new Map<string, number>()
   for (const c of t.categories) {
@@ -143,6 +146,7 @@ export function buildTaxonomy(t: TaxonomyTables): { rows: TaxonomyRow[]; tree: T
       subject: m.subject_slug ? subjectName.get(m.subject_slug) ?? null : null,
       isLevelLeaf: m.leaf_type === 'level' || m.subject_slug === null,
       legacy: levelLegacy.get(m.level_slug) ?? false,
+      isCore: !!m.is_core,
     })
   }
 
@@ -156,5 +160,14 @@ export function buildTaxonomy(t: TaxonomyTables): { rows: TaxonomyRow[]; tree: T
     }
   }
 
-  return { rows, tree }
+  // The main subjects per level (same shape as the tree, core rows only).
+  const core: TaxonomyNode = {}
+  for (const r of rows) {
+    if (r.legacy || !r.isCore || !r.subject) continue
+    const lv = (core[r.category] ??= {})
+    const list = (lv[r.level] ??= [])
+    if (!list.includes(r.subject)) list.push(r.subject)
+  }
+
+  return { rows, tree, core }
 }

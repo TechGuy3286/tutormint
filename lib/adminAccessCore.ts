@@ -69,6 +69,9 @@ export const SCREEN_ACCESS = {
   // Admin → Settings → Payment gateways (owner, 6 Oct 2026, item 19): owner
   // ONLY, enforced on the server (an admin or staff role gets 403).
   paymentGateways: [] as AdminRole[],
+  // Admin → Settings → Subjects (owner, 7 Oct 2026): which subjects are a
+  // level's "Main subjects". Owner and admin only, enforced on the server.
+  subjectsCore: ['admin'] as AdminRole[],
   // Staff management is the ONE thing an Admin does not get. `[]` = owner only.
   team: [] as AdminRole[],
   reports: ['admin', 'operations'] as AdminRole[],

@@ -166,3 +166,48 @@ test('duplicate check compares per grade when both tuitions have it, otherwise t
   assert.deepEqual(duplicateReasons(a, otherSplit), [], 'same combined list, different split: not a repeat')
   assert.deepEqual(duplicateReasons(a, { ...base, id: 'd', title: 'D' }), ['same combination'], 'one side without per-grade data: the combined list decides')
 })
+
+test('Main subjects: the core map is per level, and the chip adds that grade’s core only (hidden when none)', async () => {
+  const { buildTaxonomy } = await import('../lib/taxonomyBuild')
+  const { core, tree } = buildTaxonomy({
+    categories: [{ slug: 'p', name: 'Primary', sort_order: 1 }],
+    levels: [
+      { slug: 'g1', category_slug: 'p', name: 'Grade 1', sort_order: 1, legacy: false },
+      { slug: 'g2', category_slug: 'p', name: 'Grade 2', sort_order: 2, legacy: false },
+      { slug: 'old', category_slug: 'p', name: 'Grade 1 to 5', sort_order: 9, legacy: true },
+    ],
+    subjects: [{ slug: 'en', name: 'English' }, { slug: 'art', name: 'Art & Drawing' }],
+    master: [
+      { id: 1, category_slug: 'p', level_slug: 'g1', subject_slug: 'en', leaf_type: null, is_core: true },
+      { id: 2, category_slug: 'p', level_slug: 'g1', subject_slug: 'art', leaf_type: null, is_core: false },
+      { id: 3, category_slug: 'p', level_slug: 'g2', subject_slug: 'en', leaf_type: null, is_core: false },
+      { id: 4, category_slug: 'p', level_slug: 'old', subject_slug: 'en', leaf_type: null, is_core: true },
+    ],
+  } as never)
+  assert.deepEqual(core, { Primary: { 'Grade 1': ['English'] } }, 'same subject core at one level and not another; legacy ignored')
+  assert.deepEqual(tree.Primary['Grade 2'], ['English'], 'every subject stays selectable')
+  // Adding Grade 1's core touches Grade 1 only.
+  let m: GradeSubjectMap = keepGrades({}, ['Grade 1', 'Grade 2', 'Grade 3'])
+  m = selectAllForGrade(m, 'Grade 1', core.Primary['Grade 1'])
+  assert.deepEqual(m, { 'Grade 1': ['English'], 'Grade 2': [], 'Grade 3': [] })
+  const { readFileSync } = await import('node:fs')
+  const sel = readFileSync('components/TaxonomySelector.tsx', 'utf8')
+  assert.ok(sel.includes('Main subjects') && sel.includes('{main.length > 0 && ('), 'the chip is "Main subjects" and hides when a grade has none')
+  assert.ok(sel.includes('setMap(selectAllForGrade(map, g, main))'), 'it adds the core list, not every subject')
+  assert.ok(!/>\s*Select all\s*</.test(sel.slice(sel.indexOf('function PerGradeSubjects'))), 'no per-grade "Select all" left')
+})
+
+test('Settings → Subjects is owner and admin only; it changes only the core flag', async () => {
+  const { SCREEN_ACCESS, roleSatisfies } = await import('../lib/adminAccessCore')
+  assert.equal(roleSatisfies('owner', SCREEN_ACCESS.subjectsCore), true)
+  assert.equal(roleSatisfies('admin', SCREEN_ACCESS.subjectsCore), true)
+  for (const r of ['operations', 'tuitions_staff'] as const) assert.equal(roleSatisfies(r, SCREEN_ACCESS.subjectsCore), false, r)
+  const { readFileSync } = await import('node:fs')
+  const route = readFileSync('app/api/admin/taxonomy/core/route.ts', 'utf8')
+  assert.ok(route.includes('checkAdminRole(...SCREEN_ACCESS.subjectsCore)'), 'the server checks the role')
+  const lib = readFileSync('lib/subjectsCore.ts', 'utf8')
+  const writes = [...lib.matchAll(/\.from\('([a-z_]+)'\)\.(update|insert|delete|upsert)\(/g)].map((x) => `${x[1]}.${x[2]}`)
+  assert.deepEqual([...new Set(writes)], ['taxonomy_master.update'], 'only taxonomy_master is updated — nothing added, renamed or deleted')
+  assert.ok(lib.includes(".update({ is_core: true })") && lib.includes(".update({ is_core: false })"))
+  assert.ok(lib.includes("action: 'taxonomy.core'"), 'audited')
+})

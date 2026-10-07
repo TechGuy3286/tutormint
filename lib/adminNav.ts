@@ -30,6 +30,7 @@ export type AdminScreen =
   | 'payments'
   | 'paymentsSwitches'
   | 'paymentGateways'
+  | 'subjectsCore'
   | 'reconciliation'
   | 'duplicates'
   | 'plans'
@@ -100,6 +101,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/payments', label: 'Payments', icon: 'wallet', screen: 'payments' },
       { href: '/admin/payments/settings', label: 'Settings', icon: 'listChecks', screen: 'paymentsSwitches' },
       { href: '/admin/payments/settings/gateways', label: 'Payment gateways', icon: 'card', screen: 'paymentGateways' },
+      { href: '/admin/settings/subjects', label: 'Subjects', icon: 'listChecks', screen: 'subjectsCore' },
       { href: '/admin/plans', label: 'Plans', icon: 'card', screen: 'plans' },
     ],
   },
@@ -136,6 +138,8 @@ export const NAV_GROUPS: NavGroup[] = [
  */
 export const SECTION_LABELS: Record<string, string> = {
   gateways: 'Payment gateways',
+  subjects: 'Subjects',
+  settings: 'Settings',
   payers: 'Recent payers',
   ads: 'Advertisements',
   audit: 'Audit',

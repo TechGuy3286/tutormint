@@ -53,6 +53,7 @@ export type AuditAction =
   // T-AdminJobs. Each of these destroys or demotes something a parent posted,
   // so each is audited and each notifies them.
   | 'payments.gateway'
+  | 'taxonomy.core'
   | 'settlement.deduction_add'
   | 'settlement.deduction_remove'
   | 'job.close'
