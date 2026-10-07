@@ -108,7 +108,10 @@ export function displayGroups(groups: GradeGroup[]): DisplayGroup[] {
   const sameEverywhere =
     g.length > 1 && g.every((x) => x.subjects.length === g[0].subjects.length && x.subjects.every((s) => g[0].subjects.includes(s)))
   if (sameEverywhere) {
-    const label = collapseLevels(g.map((x) => x.grade))
+    // Natural order first ("Grade 6, 7, 8", not the order they were ticked), so
+    // a run collapses to "Grade 6–8".
+    const sorted = g.map((x) => x.grade).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
+    const label = collapseLevels(sorted)
     // "Grades 1–3" for one run; a list ("Grade 1, Grade 4") reads as it is.
     return [{ label: /^Grade \S+–\S+$/.test(label) ? label.replace(/^Grade\s/, 'Grades ') : label, subjects: g[0].subjects }]
   }

@@ -145,6 +145,7 @@ test('display: grouped by grade, once when every grade is the same', () => {
   )
   assert.deepEqual(displayGroups([{ grade: 'Grade 6', subjects: ['Physics'] }]), [{ label: 'Grade 6', subjects: ['Physics'] }])
   assert.equal(gradeSubjectsLine([{ grade: 'Grade 1', subjects: ['English'] }, { grade: 'Grade 4', subjects: ['English'] }]), 'Grade 1, Grade 4: English', 'non-adjacent grades are not pluralised')
+  assert.equal(gradeSubjectsLine(['Grade 7', 'Grade 8', 'Grade 6'].map((grade) => ({ grade, subjects: ['Computer Science'] }))), 'Grades 6–8: Computer Science', 'grades in natural order')
 })
 
 test('backfill: each grade keeps the tuition’s current subjects; the union is unchanged', () => {
