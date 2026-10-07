@@ -309,6 +309,13 @@ const PAIRS: Pair[] = [
   { fg: 'red', bg: 'tintRed', where: 'inbox suspended composer notice' },
   { fg: 'goldInk', bg: 'tintGold', where: 'inbox masked-number notice' },
 
+  // Blog editor 'Fix with AI' before/after panel (owner, 7 Oct 2026).
+  { fg: 'slate700', bg: 'tintRed', where: 'blog fix panel, before text' },
+  { fg: 'red', bg: 'tintRed', where: 'blog fix panel, Before label' },
+  { fg: 'slate700', bg: 'tintGreen', where: 'blog fix panel, after text' },
+  { fg: 'greenDeep', bg: 'tintGreen', where: 'blog fix panel, After label' },
+  { fg: 'navy', bg: 'tintNavy', where: 'blog Fix with AI button hover' },
+
   // Own message bubbles in the conversation. Sender is told apart by
   // alignment, colour AND a squared corner -- three signals, because two of
   // them are colour-dependent and the third is not.

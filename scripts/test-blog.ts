@@ -394,9 +394,11 @@ test('contradictionViolations flags the four false claims, allows the brand slog
   assert.ok(contradictionViolations('TutorMint is completely free to join.').length > 0)
   assert.ok(contradictionViolations('We verify every tutor’s experience before listing.').length > 0)
   assert.ok(contradictionViolations('Parents hear back quickly from tutors.').length > 0)
-  assert.ok(contradictionViolations('Verified tutors can message parents directly.').length > 0)
-  // The legitimate brand line and "no commission" are NOT flagged.
-  assert.deepEqual(contradictionViolations('No fee, no commission, no middleman.'), [])
+  // Messaging rights now come from the LIVE plan rows (owner, 7 Oct 2026): every
+  // fee-paid plan can start a conversation, so this is TRUE today and not flagged.
+  assert.deepEqual(contradictionViolations('Verified tutors can message parents directly.'), [])
+  // The site tagline's "No fee" contradicts the Spam Free Platform Fee (owner, 7 Oct 2026).
+  assert.ok(contradictionViolations('No fee, no commission, no middleman.').length > 0)
   assert.deepEqual(contradictionViolations('TutorMint takes no commission on what you earn.'), [])
   // A normal factual sentence is clean.
   assert.deepEqual(contradictionViolations('A verified tutor can reply to parents and apply to tuitions.'), [])
@@ -436,7 +438,7 @@ test('PR17 §4.2 contradiction: ranking/badge/all-checked/outcome claims flagged
 
 test('PR17 §4.3 link rules', () => {
   const good = [
-    'See our [membership plans](/membership-plans) and [questions and answers](/faq).',
+    'See our [open tuitions](/browse/tuitions) and [questions and answers](/faq).',
     // One live landing page and one other post — the two required links (owner, 6 Oct 2026).
     'Read [our O Level guide](/blog/o-level-guide) and browse [Physics tutors in Lahore](/tutors/lahore/o-levels-physics).',
   ].join('\n')
@@ -449,13 +451,15 @@ test('PR17 §4.3 link rules', () => {
   const dup = '[a](/faq) [b](/faq) [c](/membership-plans) [d](/blog/x)'
   assert.ok(linkRuleViolations(dup, { hasPublishedPosts: true }).some((s) => /only once/.test(s)))
 
-  // Wrong link text for a tuitions page.
-  const wrongText = '[tutors here](/browse/tuitions) [faq](/faq) [plans](/membership-plans) [post](/blog/x)'
-  assert.ok(linkRuleViolations(wrongText, { hasPublishedPosts: true }).some((s) => /open tuitions/.test(s)))
+  // Generic link text is flagged; descriptive text is not (owner, 7 Oct 2026).
+  const wrongText = '[click here](/browse/tuitions) [faq](/faq) [tutors](/browse/tutors) [post](/blog/x)'
+  assert.ok(linkRuleViolations(wrongText, { hasPublishedPosts: true }).some((s) => /descriptive link text/.test(s)))
+  // /membership-plans is never linked from a post.
+  assert.ok(linkRuleViolations('[plans](/membership-plans) [post](/blog/x) [tutors](/browse/tutors)', { hasPublishedPosts: true }).some((s) => /membership-plans/.test(s)))
 
   // /faq is OPTIONAL now (owner, 6 Oct 2026): a post without it is not flagged for it,
   // and /membership-plans is never required.
-  const noFaq = '[plans](/membership-plans) [post](/blog/x) [tutors](/browse/tutors)'
+  const noFaq = '[open tuitions](/browse/tuitions) [post](/blog/x) [tutors](/browse/tutors)'
   const v = linkRuleViolations(noFaq, { hasPublishedPosts: true })
   assert.ok(!v.some((s) => /\/faq/.test(s)))
   assert.ok(!v.some((s) => /membership-plans/.test(s)))
@@ -490,14 +494,14 @@ test('PR35 §4: "free demo" is a contradiction (blocks publish)', () => {
 })
 
 test('PR35 §4: a question answered "No" is not a contradiction', () => {
-  const ok = '## Is TutorMint free to use?\n\nNo. Browsing is free, but tutors pay a one-time verification fee.'
+  const ok = '## Is TutorMint free to use?\n\nNo. Browsing is free, but tutors pay a one-time Spam Free Platform Fee.'
   assert.deepEqual(cv35(ok), [])
   const bad = '## Is TutorMint free to use?\n\nYes, everything is completely free.'
   assert.ok(cv35(bad).length > 0)
 })
 
 test('PR35 §4: a line that denies a false claim is not flagged', () => {
-  assert.deepEqual(cv35('TutorMint is not free to join — there is a verification fee.'), [])
+  assert.deepEqual(cv35('TutorMint is not completely free — there is a one-time Spam Free Platform Fee.'), [])
 })
 
 test('PR35 §3: sanitizeDraft makes a bare draft pass the link rules', () => {
@@ -509,8 +513,10 @@ test('PR35 §3: sanitizeDraft makes a bare draft pass the link rules', () => {
   const fixed = sanitizeDraft(raw, { blogSlugs: ['o-level-guide'], audience: 'both' })
   // Absolute URLs became relative.
   assert.ok(!/tutormint\.org/i.test(fixed), 'no absolute tutormint.org URLs remain')
-  // The repeated /membership-plans link was unlinked after the first.
-  assert.equal((fixed.match(/\]\(\/membership-plans\)/g) || []).length, 1)
+  // A post never links pricing (owner, 7 Oct 2026): both /membership-plans
+  // links became plain words.
+  assert.equal((fixed.match(/\]\(\/membership-plans\)/g) || []).length, 0)
+  assert.ok(fixed.includes('membership plans'))
   // "free demo" lost the "free".
   assert.ok(!/free\s+demo/i.test(fixed))
   // The required links are present (one other post; no landing page exists in
@@ -543,8 +549,8 @@ test('PR36 §2: the post-a-tuition link is valid for the checker', () => {
 test('PR36 §4: a draft with the post-job link has zero problems', () => {
   const body = [
     'Parents can [post a tuition](/parent/dashboard/post-job).',
-    'See [membership plans](/membership-plans) and [the FAQ](/faq).',
-    'Read [a guide](/blog/o-level-guide).',
+    'See [open tuitions](/browse/tuitions) and [the FAQ](/faq).',
+    'Read [our O Level exam guide](/blog/o-level-guide).',
   ].join('\n\n')
   const problems = collectBlogProblems(body, { publishedPostSlugs: ['o-level-guide'], landingPaths: [] })
   assert.deepEqual(problems, [], problems.map((p) => p.message).join(' | '))
@@ -553,7 +559,7 @@ test('PR36 §4: a draft with the post-job link has zero problems', () => {
 test('PR36 §4: sanitizeDraft removes a link to an unknown page (keeps the words)', () => {
   const raw = [
     'Try our [magic matcher](/parent/magic-match) today.',
-    'See [membership plans](/membership-plans) and [the FAQ](/faq).',
+    'See [open tuitions](/browse/tuitions) and [the FAQ](/faq).',
   ].join('\n\n')
   const fixed = sanitizeDraft(raw, { blogSlugs: ['o-level-guide'], audience: 'parents', landingPaths: [] })
   assert.ok(!fixed.includes('(/parent/magic-match)'), 'the unknown link is gone')

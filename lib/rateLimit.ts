@@ -35,6 +35,7 @@ export type BucketName =
   | 'anon_search'
   | 'ai_generate'
   | 'ai_blog'
+  | 'ai_blog_fix'
   | 'contact_reveal'
   | 'client_error'
   | 'activity'
@@ -99,6 +100,10 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   // the route, and twenty an hour is far more drafting than a person does and
   // nowhere near worth scripting.
   ai_blog: { windowSeconds: 3600, max: 20 },
+  // 'Fix with AI' on one checklist item (owner, 7 Oct 2026). Each call is small
+  // and a manager clears several items on one post, so it has its own bucket
+  // rather than eating the drafting allowance.
+  ai_blog_fix: { windowSeconds: 3600, max: 60 },
   // Revealing a parent's contact (PR56). The plan quota (Basic 5/month) is what
   // actually governs volume; this is a loose script-stop, sized well above any
   // real tutor working through the board.

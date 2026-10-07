@@ -19,18 +19,56 @@
 // holding the line.
 
 import { complete, isConfigured, MODEL } from './anthropic'
-import { PLATFORM_FACTS_TEXT, LINK_MAP_TEXT } from './platformFacts'
+import { PLATFORM_FACTS_TEXT, LINK_MAP_TEXT, ctaPathFor, ctaLinkTextFor, SEO_TITLE_LIMIT, SEO_DESCRIPTION_LIMIT } from './platformFacts'
 import {
   BLOG_MAX_WORDS,
   BLOG_MIN_WORDS,
   BLOG_WARN_WORDS,
   composeBlogDraft,
+  fitSeoDescription,
   unsupportedFigures,
-  withBrandTail,
   wordCount,
   type BlogBrief,
   type BlogDraft,
 } from './blogBrief'
+
+// The intro every prompt opens with. It never uses the site tagline: "No fee"
+// contradicts the Spam Free Platform Fee (owner, 7 Oct 2026).
+const INTRO =
+  'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. TutorMint takes no commission.'
+
+/** The LIVE facts sheet when the brief carries it, else the built-in one. */
+function factsFor(brief: BlogBrief): string {
+  return brief.factsText?.trim() || PLATFORM_FACTS_TEXT
+}
+
+/**
+ * EVERY rule the checker enforces, given to the writer up front (owner, 7 Oct
+ * 2026), so a draft passes on its first try instead of being fixed afterwards.
+ */
+function checklistRules(brief: BlogBrief): string {
+  return [
+    'THE PUBLISHING CHECKLIST — the draft is checked against every one of these:',
+    '- Never contradict the TutorMint facts above. Call the one-time fee the "Spam Free Platform Fee" every time. The Verified badge never needs a degree, certificate or intro video.',
+    `- Length ${BLOG_MIN_WORDS}-${BLOG_MAX_WORDS} words in total.`,
+    '- 3 to 5 internal links in the whole post, each page linked once: at least ONE to a live tuition or city page (/tuition-jobs/<city>, /tutors/<city>/<subject> or /tuitions/<city>/<subject>) and at least ONE to another blog post or a tutor profile from the list. Never link /membership-plans.',
+    '- Link text must describe the page ("open Grade 3 Mathematics tuitions in Karachi", "tuition jobs in Karachi") — never "click here", "this page", "read more" or "a related guide".',
+    '- Never write a price, a fee amount or any Rs/PKR figure.',
+    '- Never invent fees, statistics, counts or percentages.',
+    `- The closing call to action is a short paragraph with a Markdown link to ${ctaPathFor(brief.audience)} (link text like "${ctaLinkTextFor(brief.audience)}").`,
+    '- Plain English (or plain Roman Urdu when asked), in the audience voice.',
+  ].join('\n')
+}
+
+/** The closing call to action, always linked (owner, 7 Oct 2026). */
+function ctaLine(brief: BlogBrief): string {
+  const who =
+    brief.audience === 'tutors' ? 'inviting tutors to create their profile' : brief.audience === 'parents' ? 'inviting parents to find a tutor' : 'for parents and tutors'
+  return `End with a short closing call-to-action paragraph ${who}. It MUST contain a Markdown link to ${ctaPathFor(brief.audience)} (link text like "${ctaLinkTextFor(brief.audience)}"). No price.`
+}
+
+/** How the SEO fields are written (owner, 7 Oct 2026). */
+const SEO_RULE = `Also write an SEO title (at most ${SEO_TITLE_LIMIT} characters) and a meta description (at most ${SEO_DESCRIPTION_LIMIT} characters) for THIS post: say what the post covers, accurately. Never use the site tagline ("No fee, no commission, no middleman") and never contradict the post or the facts.`
 
 // PR16 §6.3 — how the internal-link list is described to the model, shared by the
 // full-draft and sectioned prompts. It must place real links from the list only.
@@ -95,16 +133,12 @@ function brandBrief(brief: BlogBrief): string {
 
   const figureRule = figureRuleFor(brief)
 
-  const cta =
-    brief.audience === 'tutors'
-      ? 'End with a short call to action inviting tutors to join TutorMint (no price).'
-      : brief.audience === 'parents'
-        ? 'End with a short call to action inviting parents to post a tuition on TutorMint (no price).'
-        : 'End with a short call to action for both parents (post a tuition) and tutors (join), no price.'
+  const cta = ctaLine(brief)
 
   return [
-    'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
-    PLATFORM_FACTS_TEXT,
+    INTRO,
+    factsFor(brief),
+    checklistRules(brief),
     'Voice: plain, warm, specific to Pakistan. No corporate filler, no "in today\'s fast-paced world", no hype.',
     audienceRule(brief),
     'Structure:',
@@ -129,7 +163,7 @@ function brandBrief(brief: BlogBrief): string {
     brief.language === 'ur'
       ? 'Write in Roman Urdu (Urdu written in the Latin alphabet), the way Pakistanis text — not formal Nastaliq Urdu, and not English.'
       : 'Write in clear English.',
-    'Also produce an SEO title (<= 60 characters) and a meta description (<= 155 characters) ending with "No fee, no commission, no middleman.".',
+    SEO_RULE,
     'Reply as JSON only, exactly: {"body": "...markdown...", "seoTitle": "...", "seoDescription": "..."}',
   ].join('\n')
 }
@@ -158,19 +192,20 @@ function outlineSystem(brief: BlogBrief, terse = false): string {
       'Plan a TutorMint blog post outline. No prose.',
       audienceRule(brief),
       '- 5 to 7 short H2 section headings, each a specific question the reader would search. Make the LAST heading "Frequently asked questions".',
-      'Also an SEO title (<= 60 chars) and a meta description (<= 155 chars) ending with "No fee, no commission, no middleman.".',
+      factsFor(brief),
+      SEO_RULE,
       NO_META_RULE,
       brief.language === 'ur' ? 'Headings in Roman Urdu (Latin script).' : 'Headings in clear English.',
       'Reply as JSON only: {"sections": ["...", "..."], "seoTitle": "...", "seoDescription": "..."}',
     ].join('\n')
   }
   return [
-    'You plan a post for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
-    PLATFORM_FACTS_TEXT,
+    'You plan a post for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. TutorMint takes no commission.',
+    factsFor(brief),
     'Produce an OUTLINE only — no prose.',
     audienceRule(brief),
     '- 5 to 7 H2 section headings. Each answers ONE specific question the reader would type into Google (fees, how to choose, how verification works, step by step, and so on). Make the LAST heading "Frequently asked questions".',
-    'Also produce an SEO title (<= 60 characters) and a meta description (<= 155 characters) ending with "No fee, no commission, no middleman.".',
+    SEO_RULE,
     BANNED_WORD_RULE,
     NO_META_RULE,
     brief.language === 'ur' ? 'Headings in Roman Urdu (Latin script).' : 'Headings in clear English.',
@@ -188,9 +223,10 @@ function sectionSystem(brief: BlogBrief, sections: string[], index: number, ters
     return [
       'You write ONE section for the TutorMint blog. Plain, warm, specific to Pakistan. No hype.',
       audienceRule(brief),
+      factsFor(brief),
       `Write ONLY the section "## ${heading}"${heading.toLowerCase().includes('frequently asked') ? ' with 3-4 "### " question sub-headings and short answers' : ''}. About 120-180 words. Short paragraphs. Do not write any other heading.`,
       index === sections.length - 1
-        ? 'End with a short call to action (post a tuition / join TutorMint), no price.'
+        ? ctaLine(brief)
         : 'Do NOT add a call to action.',
       OUTCOME_RULE,
       figureRuleFor(brief),
@@ -210,15 +246,16 @@ function sectionSystemFull(brief: BlogBrief, sections: string[], index: number):
       : '(none available — do not invent internal links)'
   const last = index === sections.length - 1
   return [
-    'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. No fee, no commission, no middleman.',
-    PLATFORM_FACTS_TEXT,
+    INTRO,
+    factsFor(brief),
+    checklistRules(brief),
     'Voice: plain, warm, specific to Pakistan. No corporate filler, no hype.',
     audienceRule(brief),
     `You are writing ONE section of a post titled "${brief.title}". The full outline is:`,
     sections.map((s, i) => `${i + 1}. ${s}`).join('\n'),
     `Write ONLY section ${index + 1}: "${heading}". Begin with the Markdown heading "## ${heading}"${heading.toLowerCase().includes('frequently asked') ? ' and give 3-4 questions as "### " sub-headings with short answers' : ''}. About 150-250 words (the whole post lands at ${BLOG_MIN_WORDS}-${BLOG_MAX_WORDS} words). Short paragraphs. Do not repeat other sections and do not write any other heading.`,
     last
-      ? 'This is the last section — end with a short call to action (post a tuition / join TutorMint), no price.'
+      ? `This is the last section — ${ctaLine(brief)}`
       : 'Do NOT add a call to action; this is not the last section.',
     brief.today ? `Today's date is ${brief.today}; make any timing reference (an exam "weeks away", a season) correct relative to it.` : '',
     LINK_MAP_TEXT,
@@ -278,7 +315,7 @@ export async function generateBlogOutline(brief: BlogBrief): Promise<OutlineResu
     if (sections.length < 3) return { ok: false, reason: 'outline had too few sections' }
     const seoTitle =
       (typeof p.seoTitle === 'string' ? p.seoTitle.trim() : '').slice(0, 60) || brief.title.slice(0, 60)
-    const seoDescription = withBrandTail(
+    const seoDescription = fitSeoDescription(
       typeof p.seoDescription === 'string' && p.seoDescription.trim() ? p.seoDescription.trim() : brief.title,
     )
     return { ok: true, sections: sections.slice(0, 8), seoTitle, seoDescription }
@@ -416,7 +453,7 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
     (typeof parsed.seoTitle === 'string' ? parsed.seoTitle.trim() : '').slice(0, 60) ||
     brief.title.slice(0, 60)
   const seoLead = typeof parsed.seoDescription === 'string' ? parsed.seoDescription.trim() : ''
-  const seoDescription = withBrandTail(seoLead || brief.title)
+  const seoDescription = fitSeoDescription(seoLead || brief.title)
 
   const untraced = unsupportedFigures(body, brief.notes, brief.title, [], brief.landingLinks)
 
@@ -432,3 +469,123 @@ export async function generateBlogDraft(brief: BlogBrief): Promise<BlogDraft> {
   // so the editor asks for more fact notes rather than the model inventing filler.
   return { body, seoTitle, seoDescription, source: 'claude', untraced, words, short: words < BLOG_WARN_WORDS }
 }
+
+// ---------------------------------------------------------- fix passages ----
+//
+// "Fix only these passages" (owner, 7 Oct 2026). Used twice:
+//   - SELF-CORRECTION: after a draft is assembled, the checker's issues go back
+//     to the writer, which rewrites only those passages (up to 2 rounds);
+//   - "FIX WITH AI": one checklist item (or all of them) rewritten on request,
+//     shown as before/after and applied only when the manager accepts.
+// The model returns EDITS — the exact passage and its rewrite — never a whole
+// new post, so nothing outside the flagged passages can change. An edit whose
+// "before" is not found verbatim in the post is dropped rather than guessed.
+
+export type FixProblem = {
+  message: string
+  kind?: string
+  /** The exact passage the problem is about, when it has one. */
+  match?: string
+  field?: 'body' | 'seoTitle' | 'seoDescription'
+}
+
+export type PassageEdit = {
+  /** Which problem (0-based) the edit answers. */
+  problem: number
+  field: 'body' | 'seoTitle' | 'seoDescription'
+  before: string
+  after: string
+}
+
+export type FixResult = { ok: true; edits: PassageEdit[] } | { ok: false; reason: string }
+
+function fixSystem(brief: BlogBrief): string {
+  const links =
+    brief.landingLinks.length > 0
+      ? brief.landingLinks.map((l) => `- ${l.label}: /${l.path}`).join('\n')
+      : '(none available — do not invent internal links)'
+  return [
+    INTRO,
+    factsFor(brief),
+    checklistRules(brief),
+    audienceRule(brief),
+    LINK_MAP_TEXT,
+    'Internal links you may use (exact relative paths only; invent no others):',
+    links,
+    publishedPostsBlock(brief),
+    OUTCOME_RULE,
+    figureRuleFor(brief),
+    BANNED_WORD_RULE,
+    'You FIX specific problems in a TutorMint blog post. For each numbered problem return ONE edit:',
+    '- "before": the exact passage copied character-for-character from the post (one sentence, one paragraph or one link — as short as fixes the problem, including any Markdown in it);',
+    '- "after": its rewrite. It fixes ONLY that problem, stays true to the facts, keeps the voice, and keeps the Markdown links that were in it unless the problem is about a link.',
+    'Change nothing else. For a problem in the SEO title or meta description, use field "seoTitle" or "seoDescription", "before" = the whole current value, "after" = the whole new value within its character limit.',
+    'For a whole-post problem (too few or too many links), choose one sentence and rewrite it with the link added or removed.',
+    brief.language === 'ur' ? 'Write in Roman Urdu (Latin script).' : 'Write in clear English.',
+    'Reply as JSON only, exactly: {"edits": [{"problem": 1, "field": "body", "before": "...", "after": "..."}]}',
+  ].join('\n')
+}
+
+/**
+ * Ask the writer to rewrite only the passages the checker flagged. Edits whose
+ * "before" is not in the post (or the field) are dropped. Never throws.
+ */
+export async function fixBlogPassages(
+  brief: BlogBrief,
+  input: { body: string; seoTitle: string; seoDescription: string; problems: FixProblem[] },
+): Promise<FixResult> {
+  if (!isConfigured()) return { ok: false, reason: 'ANTHROPIC_API_KEY is not set' }
+  const problems = input.problems.slice(0, 25)
+  if (problems.length === 0) return { ok: true, edits: [] }
+
+  const prompt = [
+    'PROBLEMS:',
+    ...problems.map((p, i) =>
+      [`${i + 1}. ${p.message}`, p.field && p.field !== 'body' ? `   (in the ${p.field === 'seoTitle' ? 'SEO title' : 'meta description'})` : '', p.match && (!p.field || p.field === 'body') ? `   Passage: ${p.match}` : '']
+        .filter(Boolean)
+        .join('\n'),
+    ),
+    '',
+    `SEO title: ${input.seoTitle}`,
+    `Meta description: ${input.seoDescription}`,
+    '',
+    'POST:',
+    input.body,
+  ].join('\n')
+
+  const result = await complete({ system: fixSystem(brief), prompt, maxTokens: 3000, timeoutMs: 50_000 })
+  if (!result.ok) return { ok: false, reason: result.reason }
+
+  let parsed: { edits?: unknown }
+  try {
+    const raw = result.text
+    const start = raw.indexOf('{')
+    const end = raw.lastIndexOf('}')
+    if (start === -1 || end <= start) throw new Error('no JSON object')
+    parsed = JSON.parse(raw.slice(start, end + 1)) as { edits?: unknown }
+  } catch (e) {
+    return { ok: false, reason: `unparseable reply: ${String(e).slice(0, 120)}` }
+  }
+
+  const edits: PassageEdit[] = []
+  for (const e of Array.isArray(parsed.edits) ? parsed.edits : []) {
+    const o = e as Record<string, unknown>
+    const field = o.field === 'seoTitle' || o.field === 'seoDescription' ? o.field : 'body'
+    const before = typeof o.before === 'string' ? o.before : ''
+    const after = typeof o.after === 'string' ? o.after.trim() : ''
+    const problem = Math.max(0, Math.min(problems.length - 1, Number(o.problem ?? 1) - 1))
+    if (!after) continue
+    if (field === 'body') {
+      if (!before || !input.body.includes(before) || before === after) continue
+      edits.push({ problem, field, before, after })
+    } else {
+      const current = field === 'seoTitle' ? input.seoTitle : input.seoDescription
+      if (after === current) continue
+      edits.push({ problem, field, before: current, after })
+    }
+  }
+  return { ok: true, edits }
+}
+
+/** Apply accepted edits to a post: each body edit replaces its passage once. */
+export { applyPassageEdits } from './passageEdits'

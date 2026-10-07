@@ -72,6 +72,7 @@ export type AuditAction =
   // Part 2: an AI-assisted draft was generated. Audited with the note size and
   // the model, because it spends money and produces words we publish.
   | 'blog.generate'
+  | 'blog.fix_ai'
 
 export async function logAdminAction(params: {
   actorId: string

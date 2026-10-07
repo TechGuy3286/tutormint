@@ -32,6 +32,9 @@ import {
 import { figureGate, promptLeakViolations, wordCount, BLOG_MIN_WORDS, BLOG_MAX_WORDS, BLOG_WARN_WORDS, type ConfirmedFigure } from '@/lib/ai/blogBrief'
 import { notesTopicMismatch, PLATFORM_LINK_MAP } from '@/lib/ai/platformFacts'
 import { collectBlogProblems, sanitizeDraft, toRelativeHref, type BlogProblem } from '@/lib/ai/blogChecker'
+import { selfCorrect, selfCheckLabel, type SelfCheckRecord } from '@/lib/ai/selfCheck'
+import { applyPassageEdits, type AppliedEdit } from '@/lib/ai/passageEdits'
+import { buildPlatformFacts, factsSheetText, type PlatformFacts } from '@/lib/ai/factsSheet'
 import { coverImagePrompt } from '@/lib/covers/prompt'
 import { parseMarkdown } from '@/lib/markdown'
 import { slugify } from '@/lib/slugs'
@@ -78,6 +81,8 @@ export type EditorPost = {
   approvedAt: string | null
   /** The approver ticked "Numbers checked". */
   numbersChecked: boolean
+  /** The writer's self-check after generation (owner, 7 Oct 2026). */
+  selfCheck: SelfCheckRecord | null
 }
 
 type TutorProfileOption = { slug: string; name: string }
@@ -102,6 +107,7 @@ export default function PostEditor({
   canApproveCap = false,
   canGenerate,
   suggestionId = null,
+  live,
 }: {
   initial: EditorPost
   landingOptions: LandingOption[]
@@ -120,6 +126,15 @@ export default function PostEditor({
   canGenerate: boolean
   /** The content-queue suggestion this editor was opened from, if any. */
   suggestionId?: string | null
+  /** The live facts sheet, noindex pages and city pages (owner, 7 Oct 2026). */
+  live?: {
+    facts: PlatformFacts
+    factsText: string
+    noindexLinks: Record<string, string>
+    cityJobPaths: string[]
+    blogTitles: Record<string, string>
+    tutorNames: Record<string, string>
+  }
 }) {
   const router = useRouter()
   // Curated cities from the DB (migration 73) as datalist suggestions — one
@@ -149,6 +164,10 @@ export default function PostEditor({
   // shows "AI draft failed — nothing was written" with Retry (§1.2).
   const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null)
   const [genFailed, setGenFailed] = useState<string | null>(null)
+  // 'Fix with AI' (owner, 7 Oct 2026): the proposed edits, shown before/after;
+  // nothing changes until Accept. 'fixing' is the item being fixed (or 'all').
+  const [fixing, setFixing] = useState<number | 'all' | null>(null)
+  const [proposal, setProposal] = useState<{ scope: number | 'all'; edits: AppliedEdit[] } | null>(null)
   const toast = useToast()
   const confirm = useConfirm()
   // The in-progress "confirm with a source" input, keyed by figure.
@@ -263,6 +282,13 @@ export default function PostEditor({
   )
   const landingPaths = useMemo(() => landingOptions.map((o) => `/${o.path}`), [landingOptions])
   const tutorSlugs = useMemo(() => tutorProfiles.map((t) => t.slug), [tutorProfiles])
+  const facts = useMemo(() => live?.facts ?? buildPlatformFacts(), [live])
+  const factsText = live?.factsText ?? factsSheetText(facts)
+  // Everything the checker compares against, shared by every call below.
+  const liveCtx = useMemo(
+    () => ({ publishedPostSlugs, landingPaths, tutorSlugs, facts, noindexLinks: live?.noindexLinks ?? {}, cityJobPaths: live?.cityJobPaths ?? [] }),
+    [publishedPostSlugs, landingPaths, tutorSlugs, facts, live],
+  )
 
   // Related landing pages RANKED by match with this post's city and subject
   // (owner, 6 Oct 2026) — both match first, then subject, then city; never
@@ -275,8 +301,13 @@ export default function PostEditor({
   // ALL body problems at once (PR35 §4), computed live from the CURRENT body so
   // the "Before publishing" list guides the edit in progress.
   const bodyProblems = useMemo(
-    () => collectBlogProblems(post.body, { publishedPostSlugs, landingPaths, tutorSlugs }),
-    [post.body, publishedPostSlugs, landingPaths, tutorSlugs],
+    () =>
+      collectBlogProblems(post.body, {
+        ...liveCtx,
+        audience: post.audience,
+        seo: { title: post.seoTitle, description: post.seoDescription },
+      }),
+    [post.body, post.audience, post.seoTitle, post.seoDescription, liveCtx],
   )
 
   const gate = canPublish({
@@ -290,7 +321,11 @@ export default function PostEditor({
   })
   // The publish button also requires the SAVED body's link/coverage problems to
   // be clear — the server checks the same, so the button matches the route.
-  const savedBodyProblems = collectBlogProblems(saved.current.body, { publishedPostSlugs, landingPaths, tutorSlugs })
+  const savedBodyProblems = collectBlogProblems(saved.current.body, {
+    ...liveCtx,
+    audience: saved.current.audience,
+    seo: { title: saved.current.seoTitle, description: saved.current.seoDescription },
+  })
   // Approval is part of the gate (owner, 5 Oct 2026) — the server refuses
   // publish/schedule without it, so the button follows the same rule.
   const approved = !!saved.current.approvedAt
@@ -317,6 +352,9 @@ export default function PostEditor({
     ...stateReasons.map((m) => ({ message: m, heading: null, blocking: true as const })),
     ...bodyProblems,
   ]
+  // The checklist items the AI can fix (owner, 7 Oct 2026): every content
+  // problem. Save / Reviewed / title-style state items are the editor's own.
+  const fixableProblems = bodyProblems.filter((p) => !!p.kind)
 
   // The Link picker (PR35 §5): captures the textarea selection, then inserts a
   // relative link chosen from published posts / key pages or a pasted URL.
@@ -348,6 +386,77 @@ export default function PostEditor({
     } finally {
       setBusy(false)
     }
+  }
+
+  // Ask the writer to rewrite ONLY the flagged passages (owner, 7 Oct 2026) —
+  // the self-check rounds and "Fix with AI". Returns the edits, or null on a
+  // failure (the caller decides what to say). Saves nothing.
+  async function requestFix(
+    common: { title: string; cluster: string; audience: string; language: string; notes: string },
+    d: { body: string; seoTitle: string; seoDescription: string },
+    problems: BlogProblem[],
+    purpose: 'self_check' | 'fix',
+  ): Promise<AppliedEdit[] | null> {
+    try {
+      const res = await fetch('/api/admin/blog/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          step: 'fix',
+          purpose,
+          ...common,
+          body: d.body,
+          seoTitle: d.seoTitle,
+          seoDescription: d.seoDescription,
+          problems: problems.slice(0, 25).map((p) => ({
+            message: p.message.slice(0, 1000),
+            kind: p.kind,
+            match: p.match?.slice(0, 4000),
+            field: p.field,
+          })),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok || !Array.isArray(data.edits)) {
+        if (purpose === 'fix') toast.error(data.error ?? data.reason ?? 'The AI could not fix that. Edit it by hand.')
+        return null
+      }
+      return data.edits as AppliedEdit[]
+    } catch {
+      if (purpose === 'fix') toast.error('Network error. Try again.')
+      return null
+    }
+  }
+
+  // "Fix with AI" on one checklist item, or "Fix all" (owner, 7 Oct 2026). The
+  // proposal is shown before/after; nothing changes until Accept.
+  async function fixWithAi(scope: number | 'all') {
+    const list = scope === 'all' ? fixableProblems : fixableProblems.filter((_, i) => i === scope)
+    if (list.length === 0) return
+    setFixing(scope)
+    setProposal(null)
+    const edits = await requestFix(
+      { title: post.title, cluster: post.cluster, audience: post.audience, language: post.language, notes: post.sourceNotes },
+      { body: post.body, seoTitle: post.seoTitle, seoDescription: post.seoDescription },
+      list,
+      'fix',
+    )
+    setFixing(null)
+    if (!edits) return
+    if (edits.length === 0) {
+      toast.error('The AI did not suggest a change for that. Edit it by hand.')
+      return
+    }
+    setProposal({ scope, edits })
+  }
+
+  function acceptProposal() {
+    if (!proposal) return
+    const next = applyPassageEdits({ body: post.body, seoTitle: post.seoTitle, seoDescription: post.seoDescription }, proposal.edits)
+    setPost((p) => ({ ...p, body: next.body, seoTitle: next.seoTitle, seoDescription: next.seoDescription }))
+    setDirty(true)
+    setProposal(null)
+    toast.success(next.applied === 1 ? 'Change applied. Save to keep it.' : `${next.applied} changes applied. Save to keep them.`)
   }
 
   // Generate a draft as a SECTIONED background job with progress (owner PR14
@@ -422,8 +531,17 @@ export default function PostEditor({
       // stripped, and the required links (one live tuition/landing page, one
       // other post or indexable tutor profile) added in a closing line if
       // missing. A draft out of this passes every LINK rule by construction.
-      const opts = { blogSlugs: publishedPostSlugs, audience: post.audience, landingPaths, tutorSlugs }
-      let assembled = sanitizeDraft(draftAssemble(parts), opts)
+      const opts = {
+        blogSlugs: publishedPostSlugs,
+        audience: post.audience,
+        landingPaths,
+        tutorSlugs,
+        blogTitles: live?.blogTitles,
+        tutorNames: live?.tutorNames,
+        cityJobPaths: live?.cityJobPaths,
+        noindexLinks: live?.noindexLinks,
+      }
+      const assembled = sanitizeDraft(draftAssemble(parts), opts)
 
       // §1.3: reject a draft that echoed instructions or internal data.
       if (promptLeakViolations(assembled).length > 0) {
@@ -431,49 +549,39 @@ export default function PostEditor({
         return
       }
 
-      // §3 — auto-check. If a FACT CONTRADICTION remains (the fixer cannot
-      // rewrite prose) and it maps to a section, regenerate THAT one section
-      // once, then re-fix and re-check. Everything else the fixer has handled.
-      let problems = collectBlogProblems(assembled, { publishedPostSlugs, landingPaths, tutorSlugs })
-      const contra = problems.find((p) => p.heading && sections.some((s) => sameHeading(s, p.heading)))
-      if (contra?.heading) {
-        const idx = sections.findIndex((s) => sameHeading(s, contra.heading))
-        if (idx >= 0) {
-          try {
-            const rr = await fetch('/api/admin/blog/generate', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ step: 'section', ...common, sections, index: idx }),
-            })
-            const rd = await rr.json()
-            if (rr.ok && rd.ok && typeof rd.markdown === 'string' && rd.markdown.trim()) {
-              parts[idx] = rd.markdown.trim()
-              assembled = sanitizeDraft(draftAssemble(parts), opts)
-              problems = collectBlogProblems(assembled, { publishedPostSlugs, landingPaths, tutorSlugs })
-            }
-          } catch {
-            // Keep the first assembly; the problem is reported below.
-          }
-        }
-      }
+      // SELF-CORRECTION (owner, 7 Oct 2026): run the checker; if issues remain,
+      // send the draft and the issue list back to the writer to fix ONLY those
+      // passages — up to 2 rounds — and record the result on the draft.
+      setGenNote('Checking the draft against the publishing checklist…')
+      const result = await selfCorrect(
+        { body: assembled, seoTitle: oData.seoTitle || post.seoTitle, seoDescription: oData.seoDescription || post.seoDescription },
+        {
+          check: (d) =>
+            collectBlogProblems(d.body, { ...liveCtx, audience: post.audience, seo: { title: d.seoTitle, description: d.seoDescription } }),
+          fix: (d, problems) => requestFix(common, d, problems, 'self_check'),
+          sanitize: (b) => sanitizeDraft(b, opts),
+        },
+      )
+      const problems = result.problems
 
       // Success — write the body and SEO fields now.
-      const draftWords = wordCount(assembled)
+      const draftWords = wordCount(result.draft.body)
       setPost((p) => ({
         ...p,
-        body: assembled,
-        seoTitle: oData.seoTitle || p.seoTitle,
-        seoDescription: oData.seoDescription || p.seoDescription,
+        body: result.draft.body,
+        seoTitle: result.draft.seoTitle,
+        seoDescription: result.draft.seoDescription,
         confirmedFigures: [],
+        selfCheck: result.record,
       }))
       setDirty(true)
       setGenProgress(null)
       // §4 — the toast summarises the auto-check; the "Before publishing" box
       // lists any remaining problems in full.
       if (problems.length > 0) {
-        toast.error(`Draft ready — ${problems.length} thing${problems.length === 1 ? '' : 's'} to fix before publishing.`)
+        toast.error(`Draft ready — ${selfCheckLabel(result.record)}. Fix the rest before publishing.`)
       } else {
-        toast.success('Draft ready — it passes every publish check.')
+        toast.success(`Draft ready — ${selfCheckLabel(result.record)}.`)
       }
       setGenNote(
         draftWords < BLOG_WARN_WORDS
@@ -729,6 +837,7 @@ export default function PostEditor({
       // exists (it marks the suggestion drafted in the insert branch).
       suggestionId: !post.id ? linkedSuggestion ?? undefined : undefined,
       reviewBy: post.reviewBy,
+      selfCheck: post.selfCheck,
     })
     if (!data) return
     setSimilar(data.similar ?? [])
@@ -1180,19 +1289,104 @@ export default function PostEditor({
               </span>
             )}
           </p>
-          <ul className="mt-1.5 space-y-1 text-xs text-gray-600">
-            {publishProblems.map((p, i) => (
-              <li key={i}>
-                • {p.message}
-                {p.heading && <span className="text-gray-500"> — in “{p.heading}”</span>}
-              </li>
-            ))}
+          {post.selfCheck && (
+            <p className="mt-1 text-[11px] font-semibold text-gray-600">{selfCheckLabel(post.selfCheck)}</p>
+          )}
+          {canGenerate && fixableProblems.length > 1 && (
+            <button
+              type="button"
+              onClick={() => void fixWithAi('all')}
+              disabled={fixing !== null || generating}
+              className="mt-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-tm-navy px-3 text-[11px] font-bold text-white hover:bg-tm-navy-hover disabled:opacity-60"
+            >
+              <Sparkles aria-hidden size={12} />
+              {fixing === 'all' ? 'Fixing…' : `Fix all ${fixableProblems.length} with AI`}
+            </button>
+          )}
+          <ul className="mt-1.5 space-y-1.5 text-xs text-gray-600">
+            {publishProblems.map((p, i) => {
+              const fi = fixableProblems.indexOf(p)
+              return (
+                <li key={i} className="flex flex-wrap items-start gap-x-2 gap-y-1">
+                  <span className="min-w-0 flex-1">
+                    • {p.message}
+                    {p.heading && <span className="text-gray-500"> — in “{p.heading}”</span>}
+                  </span>
+                  {canGenerate && fi >= 0 && (
+                    <button
+                      type="button"
+                      onClick={() => void fixWithAi(fi)}
+                      disabled={fixing !== null || generating}
+                      className="inline-flex min-h-[32px] shrink-0 items-center gap-1 rounded-lg border border-tm-navy/30 bg-white px-2.5 text-[11px] font-bold text-tm-navy hover:bg-tm-tint-navy disabled:opacity-60"
+                    >
+                      <Sparkles aria-hidden size={11} />
+                      {fixing === fi ? 'Fixing…' : 'Fix with AI'}
+                    </button>
+                  )}
+                </li>
+              )
+            })}
             {/* Cover is optional, so this is advisory, not a gate. */}
             <li className={post.coverPath ? 'font-semibold text-tm-green-deep' : ''}>
               {post.coverPath ? '✓ Cover set' : '○ Cover not set (optional, but recommended for sharing)'}
             </li>
           </ul>
         </div>
+      )}
+
+      {/* "Fix with AI" proposal — before/after for each change. Nothing is
+          changed until Accept; Reject throws it away (owner, 7 Oct 2026). */}
+      {proposal && (
+        <div className="space-y-2 rounded-2xl border border-tm-navy/30 bg-white p-4" role="region" aria-label="Suggested fix">
+          <p className="text-xs font-bold text-tm-navy">
+            Suggested fix{proposal.edits.length === 1 ? '' : `es (${proposal.edits.length})`} — check before accepting
+          </p>
+          <ul className="space-y-2">
+            {proposal.edits.map((e, i) => (
+              <li key={i} className="space-y-1 rounded-xl border border-gray-200 p-2.5 text-xs">
+                {e.field !== 'body' && (
+                  <p className="text-[11px] font-bold text-gray-600">{e.field === 'seoTitle' ? 'SEO title' : 'Meta description'}</p>
+                )}
+                <p className="rounded-lg bg-tm-tint-red px-2 py-1.5 text-slate-700">
+                  <span className="font-bold text-tm-red">Before: </span>
+                  {plainPreview(e.before)}
+                </p>
+                <p className="rounded-lg bg-tm-tint-green px-2 py-1.5 text-slate-700">
+                  <span className="font-bold text-tm-green-deep">After: </span>
+                  {plainPreview(e.after)}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={acceptProposal}
+              className="inline-flex min-h-[40px] items-center rounded-xl bg-tm-green-deep px-4 text-xs font-bold text-white hover:bg-tm-green-deep-hover"
+            >
+              Accept
+            </button>
+            <button
+              type="button"
+              onClick={() => setProposal(null)}
+              className="inline-flex min-h-[40px] items-center rounded-xl border border-gray-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-tm-bg"
+            >
+              Reject
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* The facts sheet the writer and the checker use, read-only, built from
+          the live plan settings (owner, 7 Oct 2026). */}
+      {canGenerate && (
+        <details className="rounded-2xl border border-gray-200 bg-white p-4">
+          <summary className="cursor-pointer text-xs font-bold text-tm-navy">Facts the writer uses</summary>
+          <p className="mt-1 text-[11px] text-gray-500">
+            Built from the live plan and badge settings each time. Change a plan and this changes with it.
+          </p>
+          <pre className="mt-2 whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-slate-700">{factsText}</pre>
+        </details>
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -1896,14 +2090,14 @@ function draftAssemble(parts: string[]): string {
   return parts.join('\n\n')
 }
 
-/** Whether an outline heading and a problem's section heading are the same, up
- *  to leading marks, trailing "?" and case — so a contradiction can be mapped
- *  back to the section that must be regenerated. */
-function sameHeading(outline: string, heading: string | null): boolean {
-  if (!heading) return false
-  const norm = (s: string) =>
-    s.replace(/^#{1,6}\s+/, '').replace(/[?:.]+$/, '').trim().toLowerCase()
-  return norm(outline) === norm(heading)
+/** A passage shown in the before/after panel: Markdown links read as
+ *  "text (→ /path)" so a link change is visible, other marks dropped. */
+function plainPreview(md: string): string {
+  return md
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '$1 (→ $2)')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/[*_`]/g, '')
+    .trim()
 }
 
 function Counter({ value, max }: { value: string; max: number }) {

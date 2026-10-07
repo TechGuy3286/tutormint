@@ -5,11 +5,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import { parseBody, z } from '@/lib/validate'
 import { clusterLabel, isClusterSlug } from '@/lib/blog'
-import { buildBlogBrief, checkerContextForBody } from '@/lib/blogGenerate'
-import { generateBlogOutline, generateBlogSection, BLOG_MODEL } from '@/lib/ai/blogCopy'
+import { buildBlogBrief, liveCheckerData } from '@/lib/blogGenerate'
+import { generateBlogOutline, generateBlogSection, fixBlogPassages, BLOG_MODEL } from '@/lib/ai/blogCopy'
+import { selfCorrect } from '@/lib/ai/selfCheck'
 import { collectBlogProblems, sanitizeDraft } from '@/lib/ai/blogChecker'
 import { wordCount, unsupportedFigures } from '@/lib/ai/blogBrief'
-import { internalLinksIn } from '@/lib/ai/platformFacts'
+import { internalLinksIn, closingParagraph } from '@/lib/ai/platformFacts'
 import { slugify } from '@/lib/slugs'
 
 // POST /api/internal/blog-draft-test — the "Generate draft" end-to-end test
@@ -36,7 +37,10 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const Body = z.object({
-  step: z.enum(['outline', 'section', 'save']),
+  // 'check' runs the checker on any text and writes nothing; 'fix' returns the
+  // writer's before/after edits for the given problems and writes nothing.
+  step: z.enum(['outline', 'section', 'save', 'check', 'fix']),
+  body: z.string().max(100_000).optional(),
   title: z.string().trim().min(1).max(200),
   cluster: z.string().refine(isClusterSlug, 'Choose a topic cluster.'),
   audience: z.enum(['parents', 'tutors', 'both']),
@@ -47,6 +51,7 @@ const Body = z.object({
   parts: z.array(z.string().max(20000)).max(12).optional(),
   seoTitle: z.string().max(200).optional(),
   seoDescription: z.string().max(400).optional(),
+  problemIndex: z.number().int().min(0).max(50).optional(),
 })
 
 export async function POST(request: Request) {
@@ -79,20 +84,57 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, step: 'section', index: body.index, ms, words: wordCount(res.markdown), markdown: res.markdown })
   }
 
+  // ----------------------------------------------------------------- check ----
+  if (body.step === 'check' || body.step === 'fix') {
+    const live = await liveCheckerData(null)
+    const text = body.body ?? ''
+    const seo = { title: body.seoTitle ?? '', description: body.seoDescription ?? '' }
+    const problems = collectBlogProblems(text, { ...live.ctx, audience: body.audience, seo })
+    if (body.step === 'check') {
+      return NextResponse.json({ ok: true, step: 'check', problems: problems.map((p) => ({ kind: p.kind ?? null, message: p.message, field: p.field ?? 'body' })) })
+    }
+    const pick = problems[body.problemIndex ?? 0]
+    if (!pick) return NextResponse.json({ ok: false, reason: 'no such problem' })
+    const res = await fixBlogPassages(brief, { body: text, seoTitle: seo.title, seoDescription: seo.description, problems: [pick] })
+    return NextResponse.json({ ok: res.ok, step: 'fix', problem: pick.message, ...(res.ok ? { edits: res.edits } : { reason: res.reason }) })
+  }
+
   // ------------------------------------------------------------------ save ----
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ error: 'Server is not configured.' }, { status: 503 })
   const parts = body.parts ?? []
   if (parts.length === 0) return NextResponse.json({ error: 'No sections to save.' }, { status: 400 })
 
-  const ctx = await checkerContextForBody(null)
-  const assembled = sanitizeDraft(parts.join('\n\n'), {
+  const live = await liveCheckerData(null)
+  const ctx = live.ctx
+  const opts = {
     blogSlugs: ctx.publishedPostSlugs,
     audience: body.audience,
     landingPaths: ctx.landingPaths,
     tutorSlugs: ctx.tutorSlugs,
-  })
-  const problems = collectBlogProblems(assembled, ctx)
+    blogTitles: live.blogTitles,
+    tutorNames: live.tutorNames,
+    cityJobPaths: ctx.cityJobPaths,
+    noindexLinks: ctx.noindexLinks,
+  }
+  // The SAME self-correction loop the editor runs (lib/ai/selfCheck).
+  const corrected = await selfCorrect(
+    { body: sanitizeDraft(parts.join('\n\n'), opts), seoTitle: body.seoTitle ?? '', seoDescription: body.seoDescription ?? '' },
+    {
+      check: (d) =>
+        collectBlogProblems(d.body, { ...ctx, audience: body.audience, seo: { title: d.seoTitle, description: d.seoDescription } }),
+      fix: async (d, ps) => {
+        const r = await fixBlogPassages(brief, {
+          ...d,
+          problems: ps.map((p) => ({ message: p.message, kind: p.kind, match: p.match, field: p.field })),
+        })
+        return r.ok ? r.edits : null
+      },
+      sanitize: (b) => sanitizeDraft(b, opts),
+    },
+  )
+  const assembled = corrected.draft.body
+  const problems = corrected.problems
   const words = wordCount(assembled)
   const links = internalLinksIn(assembled)
   const untraced = unsupportedFigures(assembled, body.notes, body.title, [], brief.landingLinks)
@@ -118,8 +160,9 @@ export async function POST(request: Request) {
       audience: body.audience,
       language: body.language,
       body: assembled,
-      seo_title: (body.seoTitle ?? '').slice(0, 60) || null,
-      seo_description: (body.seoDescription ?? '').slice(0, 155) || null,
+      seo_title: corrected.draft.seoTitle.slice(0, 60) || null,
+      seo_description: corrected.draft.seoDescription.slice(0, 155) || null,
+      self_check: corrected.record,
       source_notes: body.notes || null,
       status: 'draft',
       edited_by_human: false,
@@ -161,5 +204,9 @@ export async function POST(request: Request) {
     links,
     problems: problems.map((p) => p.message),
     untracedFigures: untraced,
+    selfCheck: corrected.record,
+    seoTitle: corrected.draft.seoTitle,
+    seoDescription: corrected.draft.seoDescription,
+    closing: closingParagraph(assembled),
   })
 }

@@ -1,151 +1,198 @@
 // lib/ai/platformFacts.ts
 //
-// THE PLATFORM FACTS SHEET (PR16 §6.1). One canonical statement of how TutorMint
-// actually works — fees, plans, what is checked, who can message whom, refunds,
-// visibility — passed to EVERY blog generation call so the model writes nothing
-// that contradicts the product, and used by the contradiction check (§6.2) that
-// blocks publishing a draft that does.
+// THE BLOG FACT RULES (PR16 §6, rebuilt 7 Oct 2026). What a post may say about
+// how TutorMint works comes from ONE place — the facts sheet in lib/ai/
+// factsSheet.ts, built from the live plan rows — and the rules below compare a
+// post's claims against it. Each rule flags ONLY a sentence that contradicts the
+// sheet, and quotes that sentence; a correct statement is never flagged.
 //
-// PURE — no imports — so the generation prompt, the publish gate (lib/blog.ts)
-// and the tests all read the same words. Update this when the product changes; it
-// is the single source the blog is held to.
+// Why rebuilt: the old hard-coded sheet said the Verified badge needs a degree
+// certificate and an intro video and called the fee a "verification fee". The
+// writer repeated it into a published post, and the checker — reading the same
+// wrong sheet — flagged a CORRECT messaging sentence instead. The badge rule, the
+// fee name and the messaging rights now come from the live facts.
 //
-// A published post once claimed TutorMint charges no fees, that experience claims
-// are reviewed, that parents hear back quickly, and that verified tutors can
-// message parents directly. Every one of those is false, and this sheet plus the
-// contradiction check exist to stop the next one.
+// PURE — no network, no server-only import — so the editor (client), the publish
+// route and the tests all read the same rules.
 
-// What the Verified badge means, taken from the code (lib/planBadges.badgesForPlan
-// + lib/entitlements): a tutor shows Verified when they are listed AND hold a
-// tutor plan (basic = the one-time verification fee paid) AND have a reviewed
-// degree on file; without a reviewed degree the tier badges stay but Verified is
-// stripped. The team's underlying verification is identity/CNIC + a reviewed
-// degree + an intro video (verification_status). Parents' Verified is CNIC +
-// address. One sentence the prompt and any explainer reuse — never reworded.
-export const VERIFIED_BADGE_MEANING =
-  'On a tutor, the Verified badge means they have paid the one-time verification fee and have a reviewed degree certificate on file — those two are what the code requires for the badge; the team also checks identity (CNIC) and an introduction video when verifying a tutor, but those are not what the badge itself requires, and a tutor’s experience, fees and subjects are self-declared and never checked. On a parent, Verified means their CNIC and address were approved.'
-
-export const PLATFORM_FACTS_TEXT = [
-  'TutorMint — how it actually works (do NOT contradict any of this):',
-  '',
-  'FEES AND MONEY:',
-  '- Tutors pay a ONE-TIME verification fee to become verified (this is what earns the Verified badge, ranking above unverified tutors, applying to tuitions, and reading/replying to parent messages). Do NOT state the price.',
-  '- Tutors may optionally buy a MONTHLY membership (Premium or Featured) for more reach. Parents may optionally buy Featured.',
-  '- TutorMint takes NO commission on what a tutor charges or a parent pays — "no commission, no middleman". This is NOT the same as "free": the verification fee and memberships are real charges. NEVER say TutorMint is free, charges nothing, has no fees, or is free to join.',
-  '- No refunds on any payment.',
-  '',
-  'RANKING AND BADGES (money DOES affect these — do not deny it):',
-  '- Premium and Featured tutors rank HIGHER in search than others; verified tutors rank above unverified ones. Payment DOES affect ranking. NEVER claim ranking ignores who pays, that TutorMint does not rank by payment, or that paying does not move a tutor up.',
-  '- ' + VERIFIED_BADGE_MEANING,
-  '- The Verified badge comes WITH the one-time verification fee (paid) — it is not purely a reflection of unpaid checks. NEVER claim the badge is not tied to payment or is "not a paid placement".',
-  '',
-  'WHAT IS CHECKED (verification):',
-  '- Tutors are verified by identity documents (CNIC), a reviewed DEGREE certificate, and an introduction video reviewed by the team.',
-  '- Parents are verified by CNIC and address.',
-  '- EXPERIENCE, fees and subjects a tutor states are SELF-DECLARED and are NOT verified or reviewed. Never claim TutorMint checks, verifies or reviews a tutor’s experience.',
-  '- NOT every profile is checked before it is visible. UNVERIFIED tutors CAN appear in search (marked "Not verified"). NEVER claim TutorMint checks every tutor’s identity before their profile goes live, or that all visible tutors are verified.',
-  '',
-  'WHO CAN MESSAGE WHOM:',
-  '- Any verified parent can message any tutor and request a demo. NEVER call a demo "free" — it is a demo lesson; the phrase "free demo" is banned.',
-  '- A tutor can REPLY to parents and apply to tuitions once verified. Only a tutor on the Premium or Featured membership can START a conversation with a parent. A basic (verified) tutor cannot message parents first.',
-  '- Completing a HIRE needs a Featured PARENT. A verified (free) parent can message and request demos but cannot complete a hire.',
-  '- Seeing a parent’s or tutor’s phone number is a paid power (Featured parent / Premium-or-higher tutor). Never claim ordinary verified tutors can contact parents directly.',
-  '',
-  'OUTCOMES (promise NONE of these):',
-  '- TutorMint makes tutors visible to parents searching their subject and area. It does NOT promise tuitions, replies, applications, income, hires, or that anyone will "hear back" or "hear from tutors directly". Never promise or imply a reply, a response, an application, a hire, or that a parent will start hearing from tutors.',
-  '',
-  'VISIBILITY:',
-  '- A tutor appears in search once their mobile is verified and their city, area, subjects and gender are set. The Verified badge, ranking first, and applying require the one-time fee.',
-  '',
-  'NO PRICES: never state any amount, fee, or price in the post.',
-].join('\n')
-
-// ─────────────────────────────────────────────────────────── the link map ──
-//
-// The link map and the checker's valid-page list are ONE list now (PR36 §2),
-// defined in lib/ai/blogRoutes.ts and re-exported here so the existing importers
-// (the prompt via lib/ai/blogCopy, the Link picker in PostEditor) are unchanged.
-// PLATFORM_LINK_MAP is the AI-offered subset; the checker's static allowlist is
-// staticValidPaths() from the same module (used in invalidInternalLinks below),
-// so a draft can never link a page the checker then rejects.
-export { LINK_MAP as PLATFORM_LINK_MAP, LINK_MAP_TEXT } from './blogRoutes'
+import { buildPlatformFacts, factsSheetText, type PlatformFacts } from './factsSheet'
 import { staticValidPaths } from './blogRoutes'
 
-// ─────────────────────────────────────────────── contradiction check (§6.2) ──
-//
-// Heuristic, line-scoped, and deliberately conservative to avoid catching the
-// legitimate brand line "No fee, no commission, no middleman" (which is about the
-// TUTION transaction, not membership). Each rule pairs a trigger with the true
-// fact, so the editor message says what is wrong.
+/** The facts sheet from the built-in plan rows. The LIVE sheet travels on the
+ *  brief (lib/blogGenerate) and the editor props; this default serves code that
+ *  has no request (tests, fallbacks). */
+export const PLATFORM_FACTS_TEXT = factsSheetText(buildPlatformFacts())
 
-type FactRule = { test: RegExp; why: string }
+// The link map and the checker's valid-page list are ONE list (PR36 §2), defined
+// in lib/ai/blogRoutes.ts and re-exported here for the existing importers.
+export { LINK_MAP as PLATFORM_LINK_MAP, LINK_MAP_TEXT } from './blogRoutes'
 
-const CONTRADICTIONS: FactRule[] = [
-  {
-    // PR35 §4 — a demo is never called "free". Blocks publish.
-    test: /\bfree\s+demos?\b/i,
-    why: 'A demo is never described as "free" on TutorMint — call it a demo lesson.',
-  },
-  {
-    // "free to join", "completely free", "charges no fee", "no membership fee",
-    // "does not charge", "costs nothing" — claims TutorMint takes no money.
-    // "no commission" and the exact slogan are NOT matched.
-    test: /\b(free to (join|sign ?up|use|register)|completely free|totally free|entirely free|no (membership|sign-?up|joining|registration) fee|charges? (you )?(no|nothing|zero)|does not charge|doesn'?t charge|costs? (you )?nothing|no cost to (join|use|sign))\b/i,
-    why: 'TutorMint charges a one-time verification fee and sells memberships — it is not free to join. (You may say "no commission".)',
-  },
-  {
-    // Claims experience is verified/checked/reviewed.
-    test: /\bexperience\b[^.]{0,40}\b(is|are|gets?|being)?\s*(verified|checked|reviewed|confirmed|validated)\b/i,
-    why: 'A tutor’s experience is self-declared and NOT verified. Only identity, degree and video are checked.',
-  },
-  {
-    // "verify … experience" / "check … experience" (verb before the noun, any
-    // words between: "verify every tutor’s experience").
-    test: /\b(verif(y|ies|ied|ication|ying)|check(s|ed|ing)?|review(s|ed|ing)?|confirm(s|ed|ing)?|validate(s|d)?)\b[^.]{0,30}\bexperience\b/i,
-    why: 'A tutor’s experience is self-declared and NOT verified. Only identity, degree and video are checked.',
-  },
-  {
-    // Promises a fast reply / hearing back quickly / guaranteed response.
-    test: /\b(hear back (quickly|fast|soon|within)|quick (reply|replies|response)s? (guaranteed|assured)|guaranteed (reply|response|hire)|respond within \d|replies within \d|get a (fast|quick|guaranteed) (reply|response))\b/i,
-    why: 'TutorMint promises visibility, not a fast reply or a guaranteed response.',
-  },
-  {
-    // Claims ordinary/verified tutors can message/contact parents directly.
-    test: /\b(verified tutors? can (directly )?(message|contact|call|reach)|tutors? can (directly )?contact parents|message parents directly)\b/i,
-    why: 'Only Premium/Featured tutors can start a conversation with a parent; a basic verified tutor can only reply.',
-  },
-  {
-    // PR17 §4.2 — claims that ranking is NOT influenced by payment. Premium and
-    // Featured DO rank higher.
-    test: /\b((do(es)?\s?n'?t|does not|do not|never)\s+rank[^.]{0,40}\b(pay|paid|money|more)\b|rank(ing|ed)?[^.]{0,30}\b(is|are)?\s*(not|never)\b[^.]{0,20}\b(paid|pay|money)\b|not\s+(ranked|based on|about)[^.]{0,20}who pays|pay(ing)?\s+(more\s+)?(does not|doesn'?t|will not|won'?t)[^.]{0,20}\b(rank|move you|help you rank))/i,
-    why: 'Payment DOES affect ranking — Premium and Featured tutors rank higher, and verified tutors rank above unverified.',
-  },
-  {
-    // PR17 §4.2 — claims the Verified badge is NOT tied to payment.
-    test: /\b(verified )?badge\b[^.]{0,60}\b(not|never|isn'?t|is not)\b[^.]{0,30}\b(paid|pay for|purchase|bought|buy|money|paid placement)\b/i,
-    why: 'The Verified badge comes with the one-time verification fee — it is tied to a payment, not "checks only".',
-  },
-  {
-    // PR17 §4.2 — claims EVERY tutor is checked before their profile is visible.
-    test: /\b(before[^.]{0,50}\b(profile|tutor|they)[^.]{0,20}\b(goes?|going|is|become)\s+(live|visible|listed|public)[^.]{0,50}\b(check|verif|confirm)|(check|verif\w+|confirm\w*)[^.]{0,40}\bbefore[^.]{0,20}\b(profile|they|a tutor)[^.]{0,20}\b(goes?|going|is)\s+(live|visible|listed|public)|every (tutor|profile) is (checked|verified|vetted)|all (tutors|profiles) are (checked|verified|vetted) before)/i,
-    why: 'Not every profile is checked before it is visible — unverified tutors can appear in search, marked "Not verified".',
-  },
-  {
-    // PR17 §4.2 — outcome promises (hearing from tutors, guaranteed contact).
-    test: /\b((start|begin)\s+(hearing|to hear)\s+from[^.]{0,25}\btutors?\b|hear\s+(back\s+)?from[^.]{0,25}\btutors?\s+(directly|soon|quickly|fast)|you'?ll\s+(start\s+)?(hear|get)[^.]{0,25}\b(replies|responses|tutors|applications)\b)/i,
-    why: 'TutorMint promises visibility, not that a parent will hear from tutors or get replies.',
-  },
-]
+// ───────────────────────────────────────────────────────── fact rules ──
+
+/** One flagged sentence. `match` is the sentence exactly as it appears in the
+ *  body (so "Fix with AI" can find it); `line` is the same sentence as plain
+ *  words for display. `suggestion`, when set, is a corrected version. */
+export type FactViolation = {
+  kind: string
+  line: string
+  match: string
+  why: string
+  heading: string | null
+  suggestion?: string
+}
+
+type Hit = { index: number; text: string }
+type FactRule = {
+  kind: string
+  why: string
+  find: (sentence: string) => Hit | null
+  /** A deterministic corrected sentence, when one is obvious. */
+  fix?: (sentence: string) => string
+}
+
+const re = (r: RegExp) => (s: string): Hit | null => {
+  const m = r.exec(s)
+  return m ? { index: m.index, text: m[0] } : null
+}
+
+// A negation just before the matched phrase means the sentence DENIES the false
+// claim ("TutorMint never promises tuitions") rather than making it.
+const DENIAL_BEFORE = /\b(no|not|never|isn'?t|aren'?t|doesn'?t|don'?t|won'?t|cannot|can'?t|without)\b[^.?!]{0,12}$/i
+
+const FEE_NAME_RE =
+  /\b(?:verification|verify|verified|registration|sign-?up|listing|joining|profile|badge|activation)\s+fees?\b/i
+
+const BADGE_WORD = /\b(verified badge|the badge|verified|verification|get verified|getting verified)\b/i
+const BADGE_ITEM = /\b(degree|degrees|certificate|certificates|intro(?:duction)? video|video introduction)\b/i
+const REQUIRE_WORD = /\b(requires?|required|needs?|needed|must|includes?|including|comes? with|on file|depends on|based on|proof of|by (?:uploading|submitting|adding|providing|having))\b/i
+const OPTIONAL_WORD = /\b(optional|not (?:needed|required|necessary)|(?:is|are)n'?t (?:needed|required)|(?:do|does)(?: not|n'?t) need|no need|not a requirement)\b/i
+
+function rulesFor(facts: PlatformFacts): FactRule[] {
+  const fee = facts.feeLabel
+  const order = facts.searchOrder.join(', then ')
+  const nonInitiators = facts.tutorPlans.filter((p) => !p.canInitiateMessage).map((p) => p.name.toLowerCase())
+
+  const rules: FactRule[] = [
+    {
+      kind: 'free_demo',
+      why: 'A demo is a demo lesson — never call it free.',
+      find: re(/\bfree\s+demos?\b/i),
+      fix: (s) => s.replace(/\bfree\s+(demos?)\b/gi, '$1'),
+    },
+    {
+      kind: 'fee_name',
+      why: `The one-time fee is always called the “${fee}”.`,
+      find: re(FEE_NAME_RE),
+      fix: (s) => s.replace(new RegExp(FEE_NAME_RE.source, 'gi'), fee),
+    },
+    {
+      kind: 'free_claim',
+      why: `Signing up is free, but the ${fee} and the paid plans are real charges — never say TutorMint has no fee or is completely free.`,
+      find: re(
+        /\b(?:completely free|totally free|entirely free|100% free|no fees?(?! (?:to|for) (?:browse|browsing|sign|join|regist|post|search|create|parents))|charges? (?:you )?(?:no fees?|nothing|zero)|does(?: not|n'?t) charge (?:you )?(?:anything|a fee|any fees?|fees)|costs? (?:you )?nothing|never pay anything)\b/i,
+      ),
+    },
+    {
+      kind: 'badge_rule',
+      why: `The Verified badge comes from the ${fee} plus a CNIC, a profile photo and a selfie. A degree, certificates and an intro video are optional and not needed for any badge.`,
+      find: (s) => {
+        if (!BADGE_WORD.test(s) || !BADGE_ITEM.test(s) || OPTIONAL_WORD.test(s)) return null
+        const m = REQUIRE_WORD.exec(s)
+        return m ? { index: m.index, text: m[0] } : null
+      },
+    },
+    {
+      kind: 'experience_checked',
+      why: 'A tutor’s experience is self-declared — TutorMint does not check it.',
+      find: re(/\bexperience\b[^.]{0,40}\b(?:is|are|gets?|being)?\s*(?:verified|checked|reviewed|confirmed|validated)\b/i),
+    },
+    {
+      kind: 'experience_checked',
+      why: 'A tutor’s experience is self-declared — TutorMint does not check it.',
+      find: re(/\b(?:verif(?:y|ies|ied|ying)|check(?:s|ed|ing)?|review(?:s|ed|ing)?|confirm(?:s|ed|ing)?|validate(?:s|d)?)\b[^.]{0,30}\bexperience\b/i),
+    },
+    {
+      kind: 'promise',
+      why: 'TutorMint promises visibility only — never a reply, a tuition, a hire or income.',
+      find: re(
+        /\b(?:hear back (?:quickly|fast|soon|within)|guaranteed (?:reply|replies|response|hire|tuitions?|students?|income|work)|respond within \d|replies within \d|get a (?:fast|quick|guaranteed) (?:reply|response)|(?:guarantees?|promises?) (?:you )?(?:(?:a|an|more|new|your first) )?(?:tuitions?|students?|income|hires?|jobs?|work|earnings|replies|clients)|you(?:'ll| will) (?:definitely |surely |certainly )?(?:get|receive|land) (?:(?:a|an|more|new|your first|plenty of|lots of) )?(?:tuitions?|students?|hires?|clients|replies)|(?:start|begin) (?:hearing|to hear) from[^.]{0,25}\btutors?\b)\b/i,
+      ),
+    },
+    {
+      kind: 'messaging',
+      why: `Only a tutor who has paid the ${fee} can apply to tuitions or reply to parents.`,
+      find: (s) => {
+        const a = /\b(?:unverified|non-verified|not-verified) tutors? can (?:still )?(?:reply|message|apply|contact|start|chat)\b/i.exec(s)
+        if (a) return { index: a.index, text: a[0] }
+        const b = /\bwithout (?:paying|verifying|verification|the fee)\b[^.]{0,40}\b(?:you|tutors?) can (?:still )?(?:apply|reply|message|contact)\b/i.exec(s)
+        return b ? { index: b.index, text: b[0] } : null
+      },
+    },
+    {
+      kind: 'parent_verify',
+      why: 'Parents verify their CNIC and address (free) before they can post a tuition, message a tutor or request a demo.',
+      find: re(
+        /\b(?:parents? can (?:post|message|request|contact)[^.]{0,40}\bwithout (?:verif\w*|a cnic|any verification)|no verification (?:is )?(?:needed|required) (?:for|to) (?:parents|post|message))\b/i,
+      ),
+    },
+    {
+      kind: 'ranking',
+      why: `Search order is ${order}. Paid plans do rank higher.`,
+      find: re(
+        /\b(?:(?:do(?:es)?\s?n'?t|does not|do not|never)\s+rank[^.]{0,40}\b(?:pay|paid|money|more)\b|rank(?:ing|ed)?[^.]{0,30}\b(?:is|are)?\s*(?:not|never)\b[^.]{0,20}\b(?:paid|pay|money)\b|not\s+(?:ranked|based on|about)[^.]{0,20}who pays|pay(?:ing)?\s+(?:more\s+)?(?:does not|doesn'?t|will not|won'?t)[^.]{0,20}\b(?:rank|move you|help you rank))/i,
+      ),
+    },
+    {
+      kind: 'badge_paid',
+      why: `The Verified badge comes with the ${fee} — it is tied to that payment.`,
+      find: re(/\b(?:verified )?badge\b[^.]{0,60}\b(?:not|never|isn'?t|is not)\b[^.]{0,30}\b(?:paid|pay for|purchase|bought|buy|money|paid placement)\b/i),
+    },
+    {
+      kind: 'all_checked',
+      why: 'A tutor can appear in Browse before verification — unverified tutors are shown as “Not verified”.',
+      find: re(
+        /\b(?:every (?:tutor|profile) is (?:checked|verified|vetted)|all (?:tutors|profiles) are (?:checked|verified|vetted)|before[^.]{0,50}\b(?:profile|tutor|they)[^.]{0,20}\b(?:goes?|going|is|become)\s+(?:live|visible|listed|public)[^.]{0,50}\b(?:check|verif|confirm)\w*|(?:check|verif\w+|confirm\w*)[^.]{0,40}\bbefore[^.]{0,20}\b(?:profile|they|a tutor)[^.]{0,20}\b(?:goes?|going|is)\s+(?:live|visible|listed|public))\b/i,
+      ),
+    },
+    {
+      kind: 'refund',
+      why: `Payments are not refundable — the ${fee} and plans carry no refund.`,
+      find: (s) => {
+        const m = /\b(?:refundable|money[- ]back|refunds? (?:are|is) (?:available|possible|given|offered)|get (?:a|your|a full) refund|full refund)\b/i.exec(s)
+        if (!m) return null
+        if (/non-$/i.test(s.slice(0, m.index))) return null // "non-refundable" is correct
+        return { index: m.index, text: m[0] }
+      },
+    },
+    {
+      kind: 'commission',
+      why: 'TutorMint takes no commission.',
+      find: re(/\b(?:takes?|charges?|keeps?|deducts?) (?:a |any |its )?(?:commission|cut|percentage)\b/i),
+    },
+  ]
+
+  // Starting a conversation: flag only an OVER-claim — a plan said to start
+  // conversations when the live plan cannot. A restrictive sentence ("Only
+  // Premium and Featured tutors can start a conversation") is never flagged:
+  // it sends nobody to expect a right they lack.
+  if (nonInitiators.length > 0) {
+    const names = nonInitiators.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+    rules.push({
+      kind: 'messaging',
+      why: `Only ${facts.tutorInitiators.join(' and ')} tutors can start a conversation with a parent; others reply when a parent writes first.`,
+      find: re(
+        new RegExp(
+          `\\b(?:(?:${names})(?:[- ]plan)? tutors? can (?:directly )?(?:start|initiate|begin|message|contact|reach)|any (?:verified )?tutor can (?:start|initiate|message|contact) (?:a )?(?:conversation|parents?)|message parents directly)\\b`,
+          'i',
+        ),
+      ),
+    })
+  }
+  return rules
+}
 
 const HEADING_RE = /^#{1,6}\s+/
-// A negation immediately before the matched phrase → the line DENIES the false
-// claim rather than making it ("TutorMint is not free to use"), so it is not a
-// contradiction. Checked in the ~16 chars before the match; a claim whose own
-// wording contains the "no" ("no joining fee") has nothing negating BEFORE it,
-// so it still flags.
-const DENIAL_BEFORE = /\b(no|not|never|isn'?t|aren'?t|doesn'?t|don'?t|cannot|can'?t|without)\b[^.?!]{0,16}$/i
-// An answer that correctly denies the false premise of its question heading.
-const ANSWER_DENIES = /^\s*(no\b|nope\b|not\b)|(\bis not\b|\bisn'?t\b|\bdoes not\b|\bdoesn'?t\b|\bthere is no\b|\bnot free\b|\bcharges?\s+a\b|\bone-?time\b|\bpays?\s+a\s+fee\b)/i
+const ANSWER_DENIES = /^\s*(no\b|nope\b|not\b)|(\bis not\b|\bisn'?t\b|\bdoes not\b|\bdoesn'?t\b|\bthere is no\b|\bnot free\b|\bone-?time\b|\boptional\b)/i
 
 /** The answer under a heading: the following non-empty, non-heading lines. */
 function answerUnder(lines: string[], headingIndex: number): string {
@@ -163,54 +210,166 @@ function answerUnder(lines: string[], headingIndex: number): string {
   return parts.join(' ')
 }
 
+/** A line split into sentences, each exactly as written. */
+export function sentencesOf(line: string): string[] {
+  return line
+    .split(/(?<=[.!?])\s+(?=[A-Z"“‘(*\[])/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+/** Markdown marks off, for display. */
+function plain(md: string): string {
+  return md
+    .replace(/^#{1,6}\s+/, '')
+    .replace(/^\s*(?:[-*+]|\d+\.)\s+/, '')
+    .replace(/\[([^\]]+)\]\([^)\s]*\)/g, '$1')
+    .replace(/[*_`>]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 /**
- * Lines in the draft that contradict the platform facts (PR16 §6.2, PR35 §4).
- * Empty when clean. Each entry names the offending line, why it is wrong, and the
- * section heading it sits under.
- *
- * A QUESTION heading is judged TOGETHER with its answer (PR35 §4): "Is TutorMint
- * free to use?" answered "No, it charges a one-time fee" is CORRECT, not a
- * contradiction; the same question answered "Yes" is flagged. A body line that
- * DENIES a false claim ("TutorMint is not free to use") is not flagged either.
+ * Sentences that contradict the facts sheet, each quoted (owner, 7 Oct 2026).
+ * Empty when clean. A sentence that DENIES a false claim is not flagged, and a
+ * QUESTION heading is judged with its answer ("Is the badge paid?" answered
+ * correctly is fine). Table rows are checked too — a table can make a claim.
  */
-export function contradictionViolations(
-  body: string,
-): { line: string; why: string; heading: string | null }[] {
-  const out: { line: string; why: string; heading: string | null }[] = []
+export function contradictionViolations(body: string, facts: PlatformFacts = buildPlatformFacts()): FactViolation[] {
+  const rules = rulesFor(facts)
+  const out: FactViolation[] = []
   const lines = body.split('\n')
   let heading: string | null = null
 
+  const check = (sentence: string, where: string | null) => {
+    // Curly apostrophes read as straight ones, so “doesn’t” denies like "doesn't".
+    const norm = sentence.replace(/[’‘]/g, "'")
+    const kinds = new Set<string>()
+    for (const rule of rules) {
+      if (kinds.has(rule.kind)) continue // each kind once per sentence
+      const hit = rule.find(norm)
+      if (!hit) continue
+      if (DENIAL_BEFORE.test(norm.slice(0, hit.index))) continue
+      const fixed = rule.fix ? rule.fix(sentence) : undefined
+      out.push({
+        kind: rule.kind,
+        line: plain(sentence).slice(0, 240),
+        match: sentence,
+        why: rule.why,
+        heading: where,
+        suggestion: fixed && fixed !== sentence ? plain(fixed) : undefined,
+      })
+      kinds.add(rule.kind)
+    }
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
-    if (!line || line.startsWith('|')) continue // skip blanks and table rows
-
+    if (!line) continue
     if (HEADING_RE.test(line)) {
-      heading = line.replace(HEADING_RE, '').trim()
-      // A question heading is judged with its answer, so a correctly-answered
-      // "No" is not a contradiction.
+      heading = plain(line)
       if (heading.endsWith('?')) {
-        for (const rule of CONTRADICTIONS) {
-          if (rule.test.test(heading)) {
-            const answer = answerUnder(lines, i)
-            if (!ANSWER_DENIES.test(answer)) {
-              out.push({ line: heading.slice(0, 120), why: rule.why, heading })
-            }
-            break
-          }
-        }
+        const before = out.length
+        check(line, heading)
+        // A correctly answered question is not a contradiction.
+        if (out.length > before && ANSWER_DENIES.test(answerUnder(lines, i))) out.length = before
       }
       continue
     }
-
-    for (const rule of CONTRADICTIONS) {
-      const m = rule.test.exec(line)
-      if (m) {
-        // Skip a line that denies the false claim rather than asserting it.
-        if (DENIAL_BEFORE.test(line.slice(0, m.index))) break
-        out.push({ line: line.slice(0, 120), why: rule.why, heading })
-        break
-      }
+    if (line.startsWith('|')) {
+      for (const cell of line.split('|').map((c) => c.trim()).filter(Boolean)) check(cell, heading)
+      continue
     }
+    for (const s of sentencesOf(line)) check(s, heading)
+  }
+  return out
+}
+
+// ───────────────────────────────────────────── prices, CTA, meta (§4) ──
+
+const PRICE_RE = /\b(?:Rs\.?|PKR|Rupees?)\s?\d[\d,.]*\s?(?:k\b|\/-)?|\b\d[\d,.]*\s?(?:k\s)?(?:rupees|PKR)\b|\b\d[\d,]*\s?\/-/i
+
+/** Sentences that state a price or a Rs amount — never allowed in a post. */
+export function priceViolations(body: string): { line: string; match: string; heading: string | null; amount: string }[] {
+  const out: { line: string; match: string; heading: string | null; amount: string }[] = []
+  let heading: string | null = null
+  for (const raw of body.split('\n')) {
+    const line = raw.trim()
+    if (!line) continue
+    if (HEADING_RE.test(line)) heading = plain(line)
+    const parts = line.startsWith('|') ? line.split('|').map((c) => c.trim()).filter(Boolean) : sentencesOf(line)
+    for (const s of parts) {
+      const m = PRICE_RE.exec(s)
+      if (m) out.push({ line: plain(s).slice(0, 240), match: s, heading, amount: m[0].trim() })
+    }
+  }
+  return out
+}
+
+/** Where the closing call to action links, by audience (owner, 7 Oct 2026). */
+export function ctaPathFor(audience: 'parents' | 'tutors' | 'both'): string {
+  return audience === 'tutors' ? '/apply' : audience === 'parents' ? '/browse/tutors' : '/browse/tuitions'
+}
+
+/** The link text the fixer uses for the CTA link. */
+export function ctaLinkTextFor(audience: 'parents' | 'tutors' | 'both'): string {
+  return audience === 'tutors' ? 'create your free tutor profile' : audience === 'parents' ? 'browse tutors near you' : 'see open tuitions'
+}
+
+/** The closing call-to-action paragraph: the last prose block, skipping the
+ *  "More on TutorMint" link line, headings, tables and embeds. */
+export function closingParagraph(body: string): string | null {
+  const blocks = body.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean)
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i]
+    if (/^More on TutorMint:/i.test(b)) continue
+    if (HEADING_RE.test(b) || b.startsWith('|') || b.startsWith('{{')) continue
+    return b
+  }
+  return null
+}
+
+/** The closing CTA has no link → a problem (owner, 7 Oct 2026). */
+export function ctaViolation(body: string, audience: 'parents' | 'tutors' | 'both'): { match: string; line: string; path: string } | null {
+  const p = closingParagraph(body)
+  if (p == null) return null
+  if (/\]\(\/[^)\s]*\)/.test(p)) return null
+  return { match: p, line: plain(p).slice(0, 240), path: ctaPathFor(audience) }
+}
+
+const TAGLINE_RE = /\bno fee,?\s*no commission|\bno middleman\b/i
+export const SEO_TITLE_LIMIT = 60
+export const SEO_DESCRIPTION_LIMIT = 155
+
+/** SEO title / meta description problems: length, the site tagline, and a meta
+ *  description that contradicts the facts (owner, 7 Oct 2026). */
+export function seoFieldViolations(
+  seo: { title: string; description: string },
+  facts: PlatformFacts = buildPlatformFacts(),
+): { field: 'seoTitle' | 'seoDescription'; message: string }[] {
+  const out: { field: 'seoTitle' | 'seoDescription'; message: string }[] = []
+  const t = seo.title.trim()
+  const d = seo.description.trim()
+  if (t.length > SEO_TITLE_LIMIT) out.push({ field: 'seoTitle', message: `The SEO title is ${t.length} characters — keep it to ${SEO_TITLE_LIMIT}.` })
+  if (d.length > SEO_DESCRIPTION_LIMIT) out.push({ field: 'seoDescription', message: `The meta description is ${d.length} characters — keep it to ${SEO_DESCRIPTION_LIMIT}.` })
+  if (TAGLINE_RE.test(d)) {
+    out.push({ field: 'seoDescription', message: 'The meta description uses the site tagline (“No fee, no commission, no middleman”) — describe this post instead.' })
+  } else {
+    for (const v of contradictionViolations(d, facts)) {
+      out.push({ field: 'seoDescription', message: `The meta description contradicts the facts: “${v.line}” — ${v.why}` })
+    }
+  }
+  if (TAGLINE_RE.test(t)) out.push({ field: 'seoTitle', message: 'The SEO title uses the site tagline — describe this post instead.' })
+  return out
+}
+
+/** Links to pages Google is told not to index right now, each with the page to
+ *  link instead. `noindexLinks` maps a path to its replacement. */
+export function noindexLinkViolations(body: string, noindexLinks: Record<string, string>): { href: string; instead: string }[] {
+  const out: { href: string; instead: string }[] = []
+  for (const href of internalLinksIn(body)) {
+    const instead = noindexLinks[href]
+    if (instead) out.push({ href, instead })
   }
   return out
 }
@@ -245,19 +404,19 @@ export function invalidInternalLinks(body: string, allowed: string[]): string[] 
 //
 // A post carries 3–5 internal links, each target at most once (owner, 6 Oct
 // 2026 — supersedes the /membership-plans + /faq requirement of PR17/PR35):
-//   • at least ONE to a live tuition or a city × subject landing page
-//     (/tutors/<city>/<subject> or /tuitions/<city>/<subject-or-slug>);
+//   • at least ONE to a live tuition, city or city × subject page
+//     (/tuition-jobs/<city>, /tutors/<city>/<subject>, /tuitions/<city>/<subject>);
 //   • at least ONE to another published blog post or an indexable tutor
 //     profile (/blog/<slug> or /tutor/<slug>);
 //   • /membership-plans is never required (pricing is never pushed from a
 //     post); /faq is optional.
-// The link TEXT must still match the page type: a /tuitions page reads as "open
-// tuitions", a /browse/tutors or /tutors page as "tutors". Enforced on publish.
+// Link text must be descriptive — only generic text ("click here", "this page",
+// "a related guide") is flagged (owner, 7 Oct 2026). Enforced on publish.
 
 const LINK_TEXT_RE = /\[([^\]]+)\]\((\/[^)\s]+)\)/g
 
-/** A live tuition page or a city × subject landing page. */
-export const LANDING_OR_TUITION_RE = /^\/(tutors|tuitions)\/[^/]+\/[^/]+$/
+/** A live tuition page, a city × subject landing page, or a city tuition-jobs page. */
+export const LANDING_OR_TUITION_RE = /^\/(?:(?:tutors|tuitions)\/[^/]+\/[^/]+|tuition-jobs\/[^/]+(?:\/[^/]+)?)$/
 /** Another blog post, or a tutor profile. */
 export const POST_OR_PROFILE_RE = /^\/(blog|tutor)\/[^/]+$/
 
@@ -355,6 +514,16 @@ function subjectAlias(word: string, subject: string): boolean {
   return false
 }
 
+// Link text that tells a reader nothing (owner, 7 Oct 2026). Descriptive text —
+// "open tuitions for Grade 3 Mathematics in Karachi", "Tuition jobs in Karachi" —
+// is always accepted; only these generic phrases are flagged.
+const GENERIC_LINK_TEXT =
+  /^(?:click here|here|this|this page|this link|this post|this article|this guide|a related guide|related guide|a guide|read more|learn more|see more|more|link|see here|go here|find out more)$/i
+
+export function isGenericLinkText(text: string): boolean {
+  return GENERIC_LINK_TEXT.test(text.replace(/[.!?:,"“”'‘’]/g, '').replace(/\s+/g, ' ').trim())
+}
+
 export function linkRuleViolations(body: string, opts: LinkRuleContext): string[] {
   const links = parseLinks(body)
   const v: string[] = []
@@ -371,27 +540,19 @@ export function linkRuleViolations(body: string, opts: LinkRuleContext): string[
   }
 
   const hrefs = [...new Set(links.map((l) => l.href))]
-  // One link to a live tuition or a city × subject landing page — skipped only
-  // when the site has no landing page at all (the caller says so).
   if (opts.hasLandingPages !== false && !hrefs.some(isLandingOrTuitionLink)) {
-    v.push('Add one link to a live tuition or a city × subject landing page (a /tutors/<city>/<subject> or /tuitions/<city>/<subject> page).')
+    v.push('Add one link to a live tuition, city or city × subject landing page (a /tuition-jobs/<city>, /tutors/<city>/<subject> or /tuitions/<city>/<subject> page).')
   }
-  // One link to another blog post or an indexable tutor profile — skipped only
-  // when there is neither to link.
   if ((opts.hasPublishedPosts || opts.hasTutorProfiles) && !hrefs.some(isPostOrProfileLink)) {
     v.push('Add one link to another blog post or an indexable tutor profile.')
   }
+  if (hrefs.includes('/membership-plans')) {
+    v.push('Remove the link to /membership-plans — a post never pushes pricing.')
+  }
 
-  // Link text must match the page type.
   for (const l of links) {
-    const isTuitions = l.href.startsWith('/tuitions/') || l.href === '/browse/tuitions'
-    const isTutors = l.href.startsWith('/tutors/') || l.href === '/browse/tutors'
-    const t = l.text.toLowerCase()
-    if (isTuitions && !/\b(tuition|open tuitions|job)\b/.test(t)) {
-      v.push(`Link text for a tuitions page should say "open tuitions" — "${l.text}" → ${l.href}`)
-    }
-    if (isTutors && !/\btutor/.test(t)) {
-      v.push(`Link text for a tutors page should say "tutors" — "${l.text}" → ${l.href}`)
+    if (isGenericLinkText(l.text)) {
+      v.push(`Use descriptive link text — “${l.text}” does not say where ${l.href} goes.`)
     }
   }
 

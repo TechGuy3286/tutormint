@@ -20,6 +20,7 @@ import { figureGate } from '@/lib/ai/blogBrief'
 import { invalidInternalLinks } from '@/lib/ai/platformFacts'
 import { collectBlogProblems } from '@/lib/ai/blogChecker'
 import { landingOptionsForEditor, tutorProfileOptionsForEditor } from '@/lib/blogEditor'
+import { liveCheckerData } from '@/lib/blogGenerate'
 import { similarPosts, postsInWeek, cadenceWarning, type SimilarPost } from '@/lib/blogApproval'
 
 // Blog CMS mutations. Save + review is manager or support (support drafts);
@@ -69,6 +70,17 @@ const SaveBody = z.object({
   suggestionId: z.string().max(64).optional(),
   // Optional "Review by" date (YYYY-MM-DD) for seasonal posts (owner, 5 Oct 2026).
   reviewBy: z.string().max(10).nullable().optional(),
+  // The writer's self-check after generation (owner, 7 Oct 2026). Sent only by
+  // a save that follows a generation; otherwise the stored value is kept.
+  selfCheck: z
+    .object({
+      rounds: z.number().int().min(0).max(5),
+      issuesLeft: z.number().int().min(0).max(500),
+      issuesFound: z.number().int().min(0).max(500),
+      at: z.string().max(40),
+    })
+    .nullable()
+    .optional(),
 })
 
 const IdBody = z.object({
@@ -201,12 +213,16 @@ export async function POST(request: Request) {
       // is the live landing pages and published posts, plus the always-valid
       // static pages (handled inside invalidInternalLinks). A link to a page that
       // does not exist blocks the review.
-      const [posts, tutors] = await Promise.all([publishedSlugs(), tutorProfileOptionsForEditor()])
+      const [posts, tutors, live] = await Promise.all([publishedSlugs(), tutorProfileOptionsForEditor(), liveCheckerData(null)])
       const allowed = [
         ...landing.map((l) => `/${l.path}`),
         ...posts.map((p) => `/blog/${p.slug}`),
         // Indexable tutor profiles may be linked (owner, 6 Oct 2026).
         ...tutors.map((t) => `/tutor/${t.slug}`),
+        // City tuition-jobs pages, and pages that exist but are noindex (the
+        // publish checklist flags those with the page to use instead).
+        ...live.ctx.cityJobPaths,
+        ...Object.keys(live.ctx.noindexLinks),
       ]
       const badLinks = invalidInternalLinks(body.body, allowed)
       if (badLinks.length > 0) {
@@ -253,6 +269,7 @@ export async function POST(request: Request) {
       reviewed,
       reviewed_by: reviewed ? gate.actor.id : null,
       review_by: (body.reviewBy ?? '').trim() || null,
+      ...(body.selfCheck !== undefined ? { self_check: body.selfCheck } : {}),
       updated_at: nowIso,
       // A save of a post that is not live withdraws any approval: the approver
       // approved the words they read, not the words that replaced them. A live
@@ -355,17 +372,13 @@ export async function POST(request: Request) {
   // 3–5 link/coverage rules) from collectBlogProblems, computed against the live
   // set of landing pages and OTHER published posts.
   async function publishProblems(): Promise<string[]> {
-    const [posts, landing, tutors] = await Promise.all([
-      publishedSlugs(),
-      landingOptionsForEditor(),
-      tutorProfileOptionsForEditor(),
-    ])
-    const otherSlugs = posts.filter((p) => p.slug !== (post!.slug as string)).map((p) => p.slug)
-    const landingPaths = landing.map((l) => `/${l.path}`)
+    // The live facts, noindex pages and city pages too (owner, 7 Oct 2026), and
+    // the post's audience (the CTA link) and SEO fields (length, tagline, facts).
+    const live = await liveCheckerData(post!.slug as string)
     const bodyProblems = collectBlogProblems(gateInput.body, {
-      publishedPostSlugs: otherSlugs,
-      landingPaths,
-      tutorSlugs: tutors.map((t) => t.slug),
+      ...live.ctx,
+      audience: ((post!.audience as string) ?? 'both') as 'parents' | 'tutors' | 'both',
+      seo: { title: (post!.seo_title as string) ?? '', description: (post!.seo_description as string) ?? '' },
     })
     const reasons = [...statePublishReasons(gateInput), ...bodyProblems.map((p) => p.message)]
     // Approval is enforced HERE, on the server (owner, 5 Oct 2026): nothing

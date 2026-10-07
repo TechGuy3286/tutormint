@@ -9,6 +9,7 @@ import { buildBlogBrief } from '@/lib/blogGenerate'
 import {
   generateBlogOutline,
   generateBlogSection,
+  fixBlogPassages,
   BLOG_MODEL,
 } from '@/lib/ai/blogCopy'
 import { listModels } from '@/lib/ai/anthropic'
@@ -42,8 +43,24 @@ export const maxDuration = 60
 // fields; step 'section' returns ONE section. No request writes 1200 words, so
 // none can time out — and NOTHING is composed or inserted on failure (§1.2): a
 // failure returns { ok: false, reason } and the editor keeps the notes.
+// step 'fix' (owner, 7 Oct 2026): rewrite ONLY the flagged passages — the
+// self-correction rounds after a draft (purpose 'self_check') and the "Fix with
+// AI" buttons (purpose 'fix'). It returns edits (before/after) and saves
+// nothing; the editor applies them, and for "Fix with AI" only on Accept.
+const FixProblem = z.object({
+  message: z.string().max(1000),
+  kind: z.string().max(40).optional(),
+  match: z.string().max(4000).optional(),
+  field: z.enum(['body', 'seoTitle', 'seoDescription']).optional(),
+})
+
 const Body = z.object({
-  step: z.enum(['outline', 'section']).default('outline'),
+  step: z.enum(['outline', 'section', 'fix']).default('outline'),
+  purpose: z.enum(['self_check', 'fix']).optional(),
+  body: z.string().max(100_000).optional(),
+  seoTitle: z.string().max(300).optional(),
+  seoDescription: z.string().max(600).optional(),
+  problems: z.array(FixProblem).max(25).optional(),
   title: z.string().trim().min(1, 'Give the post a title first.').max(200),
   cluster: z.string().refine(isClusterSlug, 'Choose a topic cluster.'),
   audience: z.enum(['parents', 'tutors', 'both']),
@@ -73,6 +90,40 @@ export async function POST(request: Request) {
     language: body.language,
     notes: body.notes,
   })
+
+  // ----------------------------------------------------------- fix passages ---
+  if (body.step === 'fix') {
+    const problems = body.problems ?? []
+    if (!body.body?.trim() || problems.length === 0) {
+      return NextResponse.json({ ok: false, reason: 'Nothing to fix.' }, { status: 400 })
+    }
+    const limit = await rateLimit('ai_blog_fix', gate.actor.id)
+    if (!limit.allowed) return tooManyRequests(limit.retryAfterSeconds, 'fixes')
+    const res = await fixBlogPassages(brief, {
+      body: body.body,
+      seoTitle: body.seoTitle ?? '',
+      seoDescription: body.seoDescription ?? '',
+      problems,
+    })
+    await logAdminAction({
+      actorId: gate.actor.id,
+      actorRole: gate.actor.adminRole,
+      actorEmail: gate.actor.email,
+      action: 'blog.fix_ai',
+      targetType: 'post',
+      targetId: body.title.slice(0, 120),
+      detail: {
+        model: BLOG_MODEL,
+        purpose: body.purpose ?? 'fix',
+        problems: problems.length,
+        kinds: [...new Set(problems.map((p) => p.kind ?? 'other'))],
+        edits: res.ok ? res.edits.length : 0,
+        reason: res.ok ? null : res.reason,
+      },
+    })
+    if (!res.ok) return NextResponse.json({ ok: false, reason: res.reason })
+    return NextResponse.json({ ok: true, edits: res.edits })
+  }
 
   // ------------------------------------------------------------- a section ---
   // No rate limit or audit per section — the outline step (once per generation)

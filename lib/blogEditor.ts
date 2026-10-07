@@ -75,6 +75,7 @@ export function toEditorPost(row: Record<string, unknown>): EditorPost {
     reviewBy: (row.review_by as string | null) ?? null,
     approvedAt: (row.approved_at as string | null) ?? null,
     numbersChecked: !!row.numbers_checked,
+    selfCheck: (row.self_check as EditorPost['selfCheck']) ?? null,
   }
 }
 
@@ -105,5 +106,6 @@ export function emptyEditorPost(): EditorPost {
     reviewBy: null,
     approvedAt: null,
     numbersChecked: false,
+    selfCheck: null,
   }
 }

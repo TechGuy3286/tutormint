@@ -30,14 +30,22 @@
 
 import {
   contradictionViolations,
+  ctaLinkTextFor,
+  ctaPathFor,
+  ctaViolation,
+  closingParagraph,
   internalLinksIn,
   invalidInternalLinks,
   isLandingOrTuitionLink,
   isPostOrProfileLink,
   linkRuleViolations,
+  noindexLinkViolations,
+  priceViolations,
+  seoFieldViolations,
 } from './platformFacts'
 import { staticValidPaths, suggestValidPage } from './blogRoutes'
 import { scaffoldViolations, promptLeakViolations } from './blogBrief'
+import { buildPlatformFacts, type PlatformFacts } from './factsSheet'
 
 // ─────────────────────────────────────────────────────────── plain text ──
 //
@@ -92,6 +100,15 @@ export type BlogProblem = {
   heading: string | null
   /** True when it blocks publishing (all of these do today). */
   blocking: true
+  /** What kind of problem — "Fix with AI" uses it to brief the writer. */
+  kind?: string
+  /** The exact passage as it appears in the body (or the field's value), so a
+   *  fix can replace only that. Absent for whole-post problems (link counts). */
+  match?: string
+  /** Which field the problem is in. Body unless stated. */
+  field?: 'body' | 'seoTitle' | 'seoDescription'
+  /** A corrected passage, when one is obvious. */
+  suggestion?: string
 }
 
 export type CheckerContext = {
@@ -103,32 +120,74 @@ export type CheckerContext = {
   /** Indexable tutor profile slugs — a /tutor/<slug> link may point at any of
    *  these (owner, 6 Oct 2026). Optional; defaults to none. */
   tutorSlugs?: string[]
+  /** The live facts sheet. Defaults to the built-in plan rows. */
+  facts?: PlatformFacts
+  /** Pages Google is told not to index right now → the page to link instead. */
+  noindexLinks?: Record<string, string>
+  /** Indexable /tuition-jobs/<city> pages — valid link targets. */
+  cityJobPaths?: string[]
+  /** The post's audience — decides where the closing CTA must link. When
+   *  absent the CTA check is skipped. */
+  audience?: 'parents' | 'tutors' | 'both'
+  /** The SEO fields — when given, their length, tagline and facts are checked. */
+  seo?: { title: string; description: string }
 }
 
 /**
  * Every body-level publish problem, at once, in plain words with its section.
  * (State problems — no title, not reviewed, etc. — come from canPublish and are
  * merged by the caller.) The order is: scaffold, leaked prompt, fact
- * contradictions, dead links, then the link-count/coverage rules.
+ * contradictions, prices, the closing CTA, dead and noindex links, the
+ * link-count/coverage/text rules, then the SEO fields.
  */
 export function collectBlogProblems(body: string, ctx: CheckerContext): BlogProblem[] {
   const out: BlogProblem[] = []
-  const add = (message: string, heading: string | null = null) =>
-    out.push({ message, heading, blocking: true })
+  const add = (message: string, heading: string | null = null, extra: Partial<BlogProblem> = {}) =>
+    out.push({ message, heading, blocking: true, ...extra })
+  const facts = ctx.facts ?? buildPlatformFacts()
 
   for (const line of scaffoldViolations(body)) {
-    add(`Remove the draft scaffold line: “${plainText(line)}”`, headingForText(body, line))
+    add(`Remove the draft scaffold line: “${plainText(line)}”`, headingForText(body, line), { kind: 'scaffold', match: line })
   }
   for (const line of promptLeakViolations(body)) {
-    add(`Remove this instruction/internal-data line: “${plainText(line)}”`, headingForText(body, line))
+    add(`Remove this instruction/internal-data line: “${plainText(line)}”`, headingForText(body, line), { kind: 'leak', match: line })
   }
-  for (const c of contradictionViolations(body)) {
-    add(`${c.why} (in “${plainText(c.line)}”)`, c.heading)
+  for (const c of contradictionViolations(body, facts)) {
+    add(
+      `“${c.line}” — ${c.why}${c.suggestion ? ` Suggested: “${c.suggestion}”` : ''}`,
+      c.heading,
+      { kind: c.kind, match: c.match, suggestion: c.suggestion },
+    )
+  }
+  for (const p of priceViolations(body)) {
+    add(`“${p.line}” — remove the amount “${p.amount}”. A post never states a price or a Rs amount.`, p.heading, {
+      kind: 'price',
+      match: p.match,
+    })
+  }
+  if (ctx.audience) {
+    const cta = ctaViolation(body, ctx.audience)
+    if (cta) {
+      add(`The closing call to action has no link: “${cta.line}” — link it to ${cta.path}.`, headingForText(body, cta.match.split('\n')[0]), {
+        kind: 'cta',
+        match: cta.match,
+      })
+    }
   }
 
   const tutorSlugs = ctx.tutorSlugs ?? []
+  const noindex = ctx.noindexLinks ?? {}
+  for (const n of noindexLinkViolations(body, noindex)) {
+    add(`${n.href} is not in Google right now (too few listings) — link ${n.instead} instead.`, headingForLink(body, n.href), {
+      kind: 'noindex_link',
+      match: n.href,
+      suggestion: n.instead,
+    })
+  }
   const allowed = [
     ...ctx.landingPaths,
+    ...Object.keys(noindex), // they exist; flagged above, not as dead links
+    ...(ctx.cityJobPaths ?? []),
     ...ctx.publishedPostSlugs.map((s) => `/blog/${s}`),
     ...tutorSlugs.map((s) => `/tutor/${s}`),
   ]
@@ -140,15 +199,21 @@ export function collectBlogProblems(body: string, ctx: CheckerContext): BlogProb
         : `This links to a page that does not exist: ${href}`
     // Plain-words guidance on which page to use instead (PR36 §2).
     const hint = suggestValidPage(href)
-    add(hint ? `${base} — ${hint}` : base, headingForLink(body, href))
+    add(hint ? `${base} — ${hint}` : base, headingForLink(body, href), { kind: 'dead_link', match: href })
   }
 
   for (const v of linkRuleViolations(body, {
     hasPublishedPosts: ctx.publishedPostSlugs.length > 0,
     hasTutorProfiles: tutorSlugs.length > 0,
-    hasLandingPages: ctx.landingPaths.length > 0,
+    hasLandingPages: ctx.landingPaths.length > 0 || (ctx.cityJobPaths ?? []).length > 0,
   })) {
-    add(plainText(v))
+    add(v.replace(/\s+/g, ' ').trim(), null, { kind: 'links' })
+  }
+
+  if (ctx.seo) {
+    for (const s of seoFieldViolations(ctx.seo, facts)) {
+      add(s.message, null, { kind: 'seo', field: s.field, match: s.field === 'seoTitle' ? ctx.seo.title : ctx.seo.description })
+    }
   }
 
   return out
@@ -207,6 +272,15 @@ export type SanitizeOptions = {
   /** Indexable tutor profile slugs — valid /tutor/<slug> targets, and the
    *  fallback for the "another post or a profile" rule when no post exists. */
   tutorSlugs?: string[]
+  /** Published post titles by slug — the link text for an added /blog link, so
+   *  it is descriptive rather than "a related guide". */
+  blogTitles?: Record<string, string>
+  /** Tutor names by slug — the link text for an added /tutor link. */
+  tutorNames?: Record<string, string>
+  /** Indexable /tuition-jobs/<city> pages — valid targets. */
+  cityJobPaths?: string[]
+  /** Noindex pages → the page to link instead; the fixer swaps them. */
+  noindexLinks?: Record<string, string>
 }
 
 /**
@@ -234,6 +308,16 @@ export function sanitizeDraft(body: string, opts: SanitizeOptions): string {
   // 2. A demo is never "free".
   out = out.replace(/\bfree\s+(demos?)\b/gi, '$1')
 
+  // 2a. A link to a page Google is told not to index right now points at the
+  // page the checker suggests instead (owner, 7 Oct 2026). The words stay.
+  if (opts.noindexLinks) {
+    const swap = opts.noindexLinks
+    out = out.replace(INTERNAL_LINK_RE, (m, text: string, href: string) => {
+      const instead = swap[normHref(href)]
+      return instead ? `[${text}](${instead})` : m
+    })
+  }
+
   // 2b. Unlink any internal link to a page that is NOT valid (PR36 §4): the
   // shared static pages, a published /blog/<slug>, a live landing page, or an
   // indexable /tutor/<slug>. An unknown page (an old typo, an invented path) is
@@ -243,7 +327,11 @@ export function sanitizeDraft(body: string, opts: SanitizeOptions): string {
     const valid = new Set<string>(staticValidPaths().map(normHref))
     for (const s of opts.blogSlugs) valid.add(`/blog/${s}`)
     for (const p of landingPaths) valid.add(p)
+    for (const p of opts.cityJobPaths ?? []) valid.add(normHref(p))
     for (const s of tutorSlugs) valid.add(`/tutor/${s}`)
+    // A post never links pricing (owner, 7 Oct 2026): /membership-plans is a
+    // real page, but a draft's link to it is turned back into plain words.
+    valid.delete('/membership-plans')
     out = out.replace(INTERNAL_LINK_RE, (m, text: string, href: string) =>
       valid.has(normHref(href)) ? m : text,
     )
@@ -265,12 +353,21 @@ export function sanitizeDraft(body: string, opts: SanitizeOptions): string {
   const missing: string[] = []
   const link = (href: string, text: string) => `[${text}](${href})`
 
-  if (![...present].some(isLandingOrTuitionLink) && landingPaths.length > 0) {
-    missing.push(link(landingPaths[0], landingLinkText(landingPaths[0])))
+  if (![...present].some(isLandingOrTuitionLink)) {
+    const city = (opts.cityJobPaths ?? [])[0]
+    if (landingPaths.length > 0) missing.push(link(landingPaths[0], landingLinkText(landingPaths[0])))
+    else if (city) missing.push(link(city, `tuition jobs in ${wordsFromSlug(city.split('/').pop() ?? '')}`))
   }
   if (![...present].some(isPostOrProfileLink)) {
-    if (opts.blogSlugs.length > 0) missing.push(link(`/blog/${opts.blogSlugs[0]}`, 'a related guide'))
-    else if (tutorSlugs.length > 0) missing.push(link(`/tutor/${tutorSlugs[0]}`, 'a tutor profile on TutorMint'))
+    // Descriptive text (owner, 7 Oct 2026): the post's own title, never "a related guide".
+    if (opts.blogSlugs.length > 0) {
+      const slug = opts.blogSlugs[0]
+      missing.push(link(`/blog/${slug}`, opts.blogTitles?.[slug] || wordsFromSlug(slug)))
+    } else if (tutorSlugs.length > 0) {
+      const slug = tutorSlugs[0]
+      const name = opts.tutorNames?.[slug]
+      missing.push(link(`/tutor/${slug}`, name ? `${name}'s tutor profile` : 'a tutor profile on TutorMint'))
+    }
   }
 
   // Reach at least three internal links: add an audience-appropriate link.
@@ -290,29 +387,52 @@ export function sanitizeDraft(body: string, opts: SanitizeOptions): string {
     out = `${out.trimEnd()}\n\nMore on TutorMint: see ${joinList(missing)}.`
   }
 
-  // 5. Cap at five internal links. Keep the required ones + the earliest others.
-  out = capLinks(out)
+  // 5. The closing call to action always carries a link (owner, 7 Oct 2026):
+  // when the last paragraph has none, the audience's page is linked at its end.
+  const ctaPath = ctaPathFor(opts.audience)
+  const closing = closingParagraph(out)
+  const ctaNeeded = closing != null && !/\]\(\/[^)\s]*\)/.test(closing)
+
+  // 6. Cap at five internal links (four when the CTA link is still to come).
+  out = capLinks(out, ctaNeeded ? 4 : 5, ctaPath)
+
+  if (ctaNeeded && closing) {
+    // Unlink any earlier link to the CTA page so it is linked only once.
+    out = out.replace(INTERNAL_LINK_RE, (m, text: string, href: string) => (normHref(href) === ctaPath ? text : m))
+    const linked = `${closing.replace(/[\s.!]*$/, '')}. [${capitalise(ctaLinkTextFor(opts.audience))}](${ctaPath}).`
+    const at = out.lastIndexOf(closing)
+    if (at >= 0) out = out.slice(0, at) + linked + out.slice(at + closing.length)
+  }
 
   return out
+}
+
+function capitalise(s: string): string {
+  return s ? s[0].toUpperCase() + s.slice(1) : s
 }
 
 /** Keep at most five internal links: the first landing/tuition link and the
  *  first post/profile link always survive; the earliest remaining links fill up
  *  to five; the rest are unlinked (text kept). */
-function capLinks(body: string): string {
+function capLinks(body: string, max = 5, reserved?: string): string {
   const links: { href: string; index: number }[] = []
   for (const m of body.matchAll(INTERNAL_LINK_RE)) {
-    links.push({ href: normHref(m[2]), index: m.index ?? 0 })
+    const href = normHref(m[2])
+    // A link to the CTA page is about to be moved to the closing line, so it
+    // does not count toward the cap here.
+    if (href === reserved) continue
+    links.push({ href, index: m.index ?? 0 })
   }
-  if (links.length <= 5) return body
+  if (new Set(links.map((l) => l.href)).size <= max) return body
 
   const keep = new Set<string>()
+  if (reserved) keep.add(reserved)
   const firstLanding = links.find((l) => isLandingOrTuitionLink(l.href))
   if (firstLanding) keep.add(firstLanding.href)
   const firstPost = links.find((l) => isPostOrProfileLink(l.href))
   if (firstPost) keep.add(firstPost.href)
   for (const l of links) {
-    if (keep.size >= 5) break
+    if (keep.size >= max + (reserved ? 1 : 0)) break
     keep.add(l.href)
   }
 

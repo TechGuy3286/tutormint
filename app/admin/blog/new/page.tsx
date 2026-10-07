@@ -1,5 +1,6 @@
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import PostEditor from '@/components/admin/blog/PostEditor'
+import { editorLiveData } from '@/lib/blogGenerate'
 import { landingOptionsForEditor, tutorProfileOptionsForEditor, emptyEditorPost } from '@/lib/blogEditor'
 import { publishedPostLinks } from '@/lib/blogFeed'
 import { listEditorSuggestions } from '@/lib/contentQueue/feed'
@@ -27,6 +28,7 @@ export default async function NewPostPage({
     tutorProfileOptionsForEditor(),
     searchParams,
   ])
+  const live = await editorLiveData(null)
 
   let initial = emptyEditorPost()
   let suggestionId: string | null = null
@@ -59,6 +61,7 @@ export default async function NewPostPage({
       landingOptions={landingOptions}
       publishedPosts={publishedPosts}
       tutorProfiles={tutorProfiles}
+      live={live}
       suggestions={suggestions}
       canPublishCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogPublish)}
       canApproveCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogApprove)}

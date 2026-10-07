@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import PostEditor from '@/components/admin/blog/PostEditor'
+import { editorLiveData } from '@/lib/blogGenerate'
 import { getAdminPost, publishedPostLinks } from '@/lib/blogFeed'
 import { landingOptionsForEditor, tutorProfileOptionsForEditor, toEditorPost } from '@/lib/blogEditor'
 
@@ -18,6 +19,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
     tutorProfileOptionsForEditor(),
   ])
   if (!row) notFound()
+  const live = await editorLiveData((row.slug as string) ?? null)
 
   return (
     <PostEditor
@@ -27,6 +29,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
       landingOptions={landingOptions}
       publishedPosts={publishedPosts}
       tutorProfiles={tutorProfiles}
+      live={live}
       canPublishCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogPublish)}
       canApproveCap={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogApprove)}
       canGenerate={roleSatisfies(actor.adminRole, SCREEN_ACCESS.blogGenerate)}

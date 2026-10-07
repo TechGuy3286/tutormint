@@ -79,6 +79,7 @@
     "test:cities": "tsx --conditions=react-server --test scripts/test-cities.ts",
     "test:place": "tsx --test scripts/test-place-apply.ts",
     "test:blogapproval": "tsx --test scripts/test-blog-approval.ts",
+    "test:blogfacts": "tsx --test scripts/test-blog-facts.ts",
     "test:directory:live": "tsx --test scripts/test-directory-live.ts",
     "test:indexing": "tsx --test scripts/test-indexing.ts",
     "test:contentmix": "tsx --test scripts/test-content-mix.ts",

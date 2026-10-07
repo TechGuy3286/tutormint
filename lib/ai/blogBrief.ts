@@ -17,6 +17,8 @@
 //
 // WHAT "trace" MEANS, and its deliberate narrowness, is at unsupportedFigures().
 
+import { FEE_LABEL } from '@/lib/display'
+
 // Length target (owner, 6 Oct 2026 — supersedes the 1200+ target of 14 Sep): a
 // post aims for 900–1,500 words, from covering MORE GROUND (5-7 distinct
 // questions answered with specifics) — never padding. The editor WARNS (never
@@ -27,7 +29,8 @@ export const BLOG_MAX_WORDS = 1500
 /** Below this the editor shows a warning (not a block). */
 export const BLOG_WARN_WORDS = 800
 
-/** The brand line every generated meta description ends with. */
+/** The site tagline. A blog meta description must NOT use it (owner, 7 Oct
+ *  2026) — kept only for withBrandTail, which the blog no longer calls. */
 export const SEO_BRAND_TAIL = 'No fee, no commission, no middleman.'
 
 export type BlogBrief = {
@@ -43,6 +46,8 @@ export type BlogBrief = {
   today?: string
   /** Published blog posts the draft may link to, {title, slug} (PR35 §3). */
   publishedPosts?: { title: string; slug: string }[]
+  /** The LIVE facts sheet (lib/ai/factsSheetServer), as plain text (owner, 7 Oct 2026). */
+  factsText?: string
 }
 
 export type BlogDraft = {
@@ -232,6 +237,17 @@ export function withBrandTail(lead: string, max = 155): string {
   return `${head}. ${tail}`
 }
 
+/**
+ * A meta description that fits the 155 ceiling, cut at a word (owner, 7 Oct
+ * 2026). It NEVER adds the site tagline — a description summarises its post.
+ */
+export function fitSeoDescription(text: string, max = 155): string {
+  const clean = text.trim().replace(/\s+/g, ' ')
+  if (clean.length <= max) return clean
+  const cut = clean.slice(0, max - 1).replace(/\s+\S*$/, '').replace(/[,;:\s-]+$/, '')
+  return /[.!?]$/.test(cut) ? cut : `${cut}.`
+}
+
 // ------------------------------------------------------------- composed ----
 
 function wordCount(s: string): number {
@@ -379,19 +395,19 @@ export function composeBlogDraft(brief: BlogBrief): BlogDraft {
   // A correct FAQ — never the "TutorMint is free" contradiction. Browsing is
   // free; joining and getting verified are not, and there is no commission.
   parts.push('### Does TutorMint charge a commission?')
-  parts.push('No. TutorMint takes no commission on what a tutor charges or a parent pays. Browsing is free; a tutor pays a one-time verification fee to get verified, and memberships are optional.')
+  parts.push('No. TutorMint takes no commission on what a tutor charges or a parent pays. Browsing is free; a tutor pays the one-time ' + FEE_LABEL + ' to get verified, and the Premium and Featured plans are optional.')
 
   parts.push(
     brief.audience === 'tutors'
-      ? 'Ready to teach? Join TutorMint and appear to parents searching for your subject in your area.'
-      : 'Looking for a tutor? Post what you need and let verified tutors come to you.',
+      ? 'Ready to teach? [Create your free tutor profile](/apply) and appear to parents searching for your subject in your area.'
+      : brief.audience === 'parents'
+        ? 'Looking for a tutor? [Browse tutors near you](/browse/tutors) and message the ones who fit.'
+        : 'Ready to start? [See open tuitions](/browse/tuitions) or browse tutors in your city.',
   )
 
   const body = parts.join('\n\n')
   const seoTitle = brief.title.slice(0, 60)
-  const seoDescription = withBrandTail(
-    `${brief.title} — a plain guide for ${audienceWord} on TutorMint`,
-  )
+  const seoDescription = fitSeoDescription(`${brief.title} — a plain guide for ${audienceWord} on TutorMint.`)
 
   return { body, seoTitle, seoDescription, source: 'composed', untraced: [] }
 }
