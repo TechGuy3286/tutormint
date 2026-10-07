@@ -123,8 +123,8 @@ export async function generateMetadata({
   const where = city ? ` in ${city}` : ' in Pakistan'
   const title = `${what}${where} | TutorMint`
   const description = label
-    ? `Find ${label} tutors${where}. Verified tutors listed first — real profiles, identity checks, video introductions. Free to browse on TutorMint.`
-    : `Find home and online tutors${where}. Verified tutors listed first — real profiles, identity checks, video introductions. Free to browse on TutorMint.`
+    ? `Find ${label} tutors${where}. Verified tutors listed first — real profiles with identity checks. Free to browse on TutorMint.`
+    : `Find home and online tutors${where}. Verified tutors listed first — real profiles with identity checks. Free to browse on TutorMint.`
 
   const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
   // Identical arguments to the page body's own call, so React's cache() serves

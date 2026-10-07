@@ -59,7 +59,7 @@ const GROUPS: FaqGroup[] = [
       },
       {
         q: 'Why am I not showing up in search?',
-        a: 'To be listed you need three things: an active membership, a verified mobile number, and our team’s approval of your identity. Your dashboard shows which one is still missing. Completion does not decide whether you are listed — a verified tutor with a membership is listed even below 100% — but a fuller profile ranks higher, and reaching 100% is what lets your page appear on Google.',
+        a: 'You show in search once your mobile number is verified and your city, area, subjects and gender are set. Paying the one-time Spam Free Platform Fee and sending your CNIC, profile photo and selfie earns the Verified badge, which puts you above tutors who are not verified. Your dashboard shows anything still missing.',
       },
       {
         q: 'My video was rejected. What now?',
@@ -67,11 +67,11 @@ const GROUPS: FaqGroup[] = [
       },
       {
         q: 'What does a package actually get me?',
-        a: 'A higher position in search results, the badges on your profile, a larger monthly application allowance, and — on the top plan — the ability to see a parent’s contact details and message parents first. The exact table is on the packages page.',
+        a: 'Every verified tutor, on any plan, can message parents in the app. Premium and Featured add a higher place in search, their badges, more applications and parent phone and email views each month, one-tap WhatsApp to parents, and seeing who viewed your profile. The full table is on the Membership Plans page.',
       },
       {
         q: 'Can I pay before my profile is finished?',
-        a: 'Yes. We take the payment and your plan starts the day you go live — the day your identity and mobile number are verified. You are listed and can apply from then, even below 100%, and the badge appears once a degree is on file. Nothing is lost in the meantime.',
+        a: 'Yes. Your Premium or Featured month starts the day you are verified and your profile is complete. The Verified badge comes from the Spam Free Platform Fee plus your CNIC, profile photo and selfie; a degree and an introduction video are optional. Nothing is lost in the meantime.',
       },
     ],
   },

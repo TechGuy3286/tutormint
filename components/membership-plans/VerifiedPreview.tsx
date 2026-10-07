@@ -28,8 +28,8 @@ export default function VerifiedPreview({ name, city }: { name: string; city: st
       </div>
 
       <p className="text-[11px] leading-relaxed text-gray-500">
-        The Verified badge shows once you are a verified tutor with a degree on file. Verified tutors
-        are shown to parents first.
+        The Verified badge shows once you have paid the Spam Free Platform Fee and sent your CNIC,
+        profile photo and selfie. Verified tutors are shown to parents first.
       </p>
     </section>
   )

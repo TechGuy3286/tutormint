@@ -14,16 +14,16 @@ import type { FeeBenefitKey, FeeCardState } from '@/lib/tutorDashboard'
 
 export const FEE_BENEFIT_LINES: Record<FeeBenefitKey, { en: string; ur: string }> = {
   badge: {
-    en: 'Green Verified badge — after our team approves your CNIC, photo and selfie',
-    ur: 'سبز تصدیق شدہ بیج — جب ہماری ٹیم آپ کا شناختی کارڈ، تصویر اور سیلفی منظور کر لے',
+    en: 'Green Verified badge — once the fee is paid and you send your CNIC, photo and selfie',
+    ur: 'سبز تصدیق شدہ بیج — فیس ادا کرنے اور اپنا شناختی کارڈ، تصویر اور سیلفی بھیجنے پر',
   },
   google: {
-    en: 'Your TutorMint page can be found on Google — once your profile is 100% complete and approved',
-    ur: 'آپ کا ٹیوٹرمنٹ صفحہ گوگل پر مل سکے گا — جب آپ کا پروفائل 100% مکمل اور منظور ہو جائے',
+    en: 'Your TutorMint page can be found on Google — once our team approves your CNIC, photo and selfie',
+    ur: 'آپ کا ٹیوٹرمنٹ صفحہ گوگل پر مل سکے گا — جب ہماری ٹیم آپ کا شناختی کارڈ، تصویر اور سیلفی منظور کر لے',
   },
   basic: {
-    en: 'Apply to tuitions and view parent numbers on the Basic plan',
-    ur: 'بیسک پلان پر ٹیوشنز کے لیے درخواست دیں اور والدین کے نمبر دیکھیں',
+    en: 'On the Basic plan: apply to 10 tuitions a month, see 10 parents’ phone and email, and message parents in the app',
+    ur: 'بیسک پلان پر: ہر ماہ 10 ٹیوشنز کے لیے درخواست، 10 والدین کا فون اور ای میل، اور ایپ میں والدین کو پیغام',
   },
 }
 

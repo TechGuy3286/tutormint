@@ -72,6 +72,7 @@ export function adminActionLabel(action: string | null | undefined): string {
     'staff.reactivate': 'Staff access restored',
     'plan.grant': 'Plan granted',
     'plan.revoke': 'Plan revoked',
+    'plan.settings': 'Changed a plan setting',
     'payment.approve': 'Payment approved',
     'payment.reject': 'Payment rejected',
     'member.suspend': 'Suspended',

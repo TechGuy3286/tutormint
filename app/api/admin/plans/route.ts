@@ -19,9 +19,9 @@ function planUnlocks(planCode: string): string {
     case 'basic':
       return 'You are now verified — listed in search with the Verified badge, and you can apply to tuitions and message parents.'
     case 'premium':
-      return 'You can now see who viewed your profile, view parent contact details, message parents on WhatsApp, and apply without a monthly limit.'
+      return 'You can now apply to 100 tuitions a month, see 100 parents’ phone and email, WhatsApp parents with one tap, see who viewed your profile, and get matched tuitions by email.'
     case 'featured':
-      return 'You now sit at the top of search, view parent contact details, and apply without a monthly limit.'
+      return 'You now sit at the top of search, with unlimited applications and parent phone and email views, one-tap WhatsApp, who viewed your profile, and matched tuitions by email and WhatsApp.'
     case 'parent_featured':
       return 'You can now hire tutors, see their contact details and WhatsApp, and post tuitions without a monthly limit.'
     default:
@@ -253,7 +253,7 @@ export async function POST(request: Request) {
       ? targetAudience === 'tutor'
         ? `Your ${plan.name} badge is now live on your profile. ${unlocks}`
         : unlocks
-      : `${unlocks} Your badge appears once your identity and mobile number are verified.`,
+      : `${unlocks} Your badge appears once the Spam Free Platform Fee is paid and your CNIC, profile photo and selfie are sent.`,
     href: targetAudience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard',
   })
   await deliverEmail(

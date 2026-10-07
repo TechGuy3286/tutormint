@@ -280,9 +280,14 @@ export default function PackagesTable({
         </p>
         <p>
           <strong className="text-tm-navy">Activation.</strong>{' '}
-          {instantActivation
-            ? 'Card and wallet payments activate as soon as the payment is confirmed.'
-            : 'Bank and wallet transfers are confirmed by a person, usually within a few hours. You will get a notification the moment your plan starts.'}
+          {/* One line whatever the active gateway (owner, 7 Oct 2026): online
+              payments are automatic, bank transfers are checked by the team. */}
+          Online payments (JazzCash, Easypaisa, card) activate automatically. Bank transfers are
+          confirmed by our team, usually within a few hours. You will get a notification the moment
+          your plan starts.
+          <span lang="ur" dir="rtl" className="mt-0.5 block text-gray-500">
+            آن لائن ادائیگی (جاز کیش، ایزی پیسہ، کارڈ) خود بخود فعال ہو جاتی ہے۔ بینک ٹرانسفر کی تصدیق ہماری ٹیم عموماً چند گھنٹوں میں کرتی ہے۔
+          </span>
         </p>
         {audience === 'tutor' && (
           <p>

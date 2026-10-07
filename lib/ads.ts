@@ -87,8 +87,8 @@ const HOUSE_ADS: Record<AdAudience, HouseAd[]> = {
     {
       kind: 'house',
       id: 'house-tutor-premium',
-      title: 'Message parents first',
-      body: 'Premium lets you start the conversation instead of waiting to be found.',
+      title: 'WhatsApp parents with one tap',
+      body: 'Premium adds parent phone and email views, one-tap WhatsApp and who viewed your profile.',
       cta: 'See tutor packages',
       href: '/membership-plans?for=tutors&plan=premium',
       plan: 'premium',

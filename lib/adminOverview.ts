@@ -188,7 +188,7 @@ export async function loadOverview(): Promise<Overview | null> {
     {
       key: 'unpaid-tutors',
       label: 'Unpaid tutors',
-      meaning: 'Verification fee not paid — newest first',
+      meaning: 'Spam Free Platform Fee not paid — newest first',
       href: '/admin/users?tip=unpaid-tutors',
       count: tips.unpaidTutors,
     },

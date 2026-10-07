@@ -307,7 +307,7 @@ async function buildBaseGate(
       return {
         kind: 'quota',
         title: "You have used this month's applications",
-        body: `Your allowance resets at the start of next month. ${plan.name} raises it to ${plan.displayedQuota ?? 'more'} a month and lets you message parents directly.`,
+        body: `Your allowance resets at the start of next month. ${plan.name} ${(plan.displayedQuota ?? '').toLowerCase() === 'unlimited' ? 'makes it unlimited' : `raises it to ${plan.displayedQuota ?? 'more'} a month`} and adds one-tap WhatsApp to parents.`,
         audience: 'tutor',
         plan,
         href: packagesHref('tutor', required),
@@ -322,8 +322,8 @@ async function buildBaseGate(
         body:
           'Premium shows the name and photo of every parent who opens your profile, alongside ' +
           'the subject and area they searched for — so you know who is looking before you spend ' +
-          'an application. Premium also lets you view parent contact details and message them on ' +
-          'WhatsApp.',
+          'an application. Premium also gives you 100 parent phone and email views a month and ' +
+          'one-tap WhatsApp to parents.',
         audience: 'tutor',
         plan,
         href: packagesHref('tutor', required),
@@ -365,10 +365,11 @@ async function buildBaseGate(
     case 'tutor_contact':
       return {
         kind: 'upgrade',
-        title: 'Contact details need Premium',
+        title: 'Numbers in messages need Premium',
         body:
-          "Premium tutors see a parent's phone and WhatsApp number and can message them there " +
-          'directly. Featured adds top placement above every other tutor in search.',
+          'On Basic you see 10 parents’ phone and email a month with View Contact Number. Premium ' +
+          'adds 100 a month, shows numbers inside your messages, and gives one-tap WhatsApp. ' +
+          'Featured makes them unlimited and puts you at the top of search.',
         audience: 'tutor',
         plan,
         href: packagesHref('tutor', required),

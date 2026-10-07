@@ -48,7 +48,7 @@ const e = env()
 const url = e.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = e.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-test('the picker sees all 13 live categories and 29 grades (live, paginated past the 1000-row cap)', { skip: !url || !key ? 'no anon key configured' : false }, async () => {
+test('the picker sees all 13 live categories and every live grade (live, paginated past the 1000-row cap)', { skip: !url || !key ? 'no anon key configured' : false }, async () => {
   const sb = createClient(url!, key!)
   const tables = await fetchTaxonomyTables(sb)
   assert.ok(tables, 'taxonomy fetch failed')
@@ -70,9 +70,15 @@ test('the picker sees all 13 live categories and 29 grades (live, paginated past
     `expected 13 live categories, got ${categories.length}: ${categories.sort().join(' | ')}`,
   )
 
-  // 29 grades = distinct (category, grade) across the non-legacy tree.
+  // Every live grade reaches the picker. The expected count is read from the
+  // taxonomy itself — the non-legacy levels that carry at least one subject —
+  // rather than a fixed number (29 at migration 80, 31 since migration 95 added
+  // I Com and ICS), so adding a grade does not break this guard.
   const grades = categories.reduce((n, c) => n + Object.keys(tree[c]).length, 0)
-  assert.equal(grades, 29, `expected 29 live grades, got ${grades}`)
+  const withSubjects = new Set(tables!.master.map((m) => m.level_slug))
+  const expected = tables!.levels.filter((l) => !l.legacy && withSubjects.has(l.slug)).length
+  assert.ok(expected >= 31, `expected at least 31 live grades in the taxonomy, got ${expected}`)
+  assert.equal(grades, expected, `expected ${expected} live grades in the picker, got ${grades}`)
 
   // The retired duplicate categories carry legacy rows but never leak into the
   // picker: they resolve for rendering (rows has them) but are absent from the tree.

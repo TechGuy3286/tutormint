@@ -295,7 +295,7 @@ export default async function PackagesPage({
         <header className="space-y-1">
           {/* §1.2: the title carries the asterisk the footnote under each tab
               explains (30-day term, non-refundable). */}
-          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Membership Plans*</h1>
+          <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Membership Plans</h1>
         </header>
 
         {/* Resume an order left pending (PR98 §3 "Pay later"). */}

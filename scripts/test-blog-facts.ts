@@ -38,12 +38,17 @@ test('the facts sheet states the owner’s facts, built from the plan rows', () 
   assert.ok(t.includes('Search order: Featured, then Premium, then Verified, then everyone else.'))
   assert.ok(/Parents verify their CNIC and address \(free\) before they can post a tuition, message a tutor or request a demo/.test(t))
   assert.ok(/takes no commission/.test(t) && /never promises tuitions, replies, applications, hires or income/.test(t))
-  assert.ok(!/\bRs\b|\d{3}/.test(t), 'the sheet itself carries no price')
+  assert.ok(!/\bRs\b|PKR|\b(199|499|999)\b/.test(t), 'the sheet itself carries no price')
+  // The allowances come from the plans page settings (owner, 7 Oct 2026).
+  assert.ok(t.includes('applications — Featured unlimited, Premium 100, Basic 10'))
+  assert.ok(t.includes("Seeing a parent's phone number and email — Featured unlimited, Premium 100, Basic 10"))
+  assert.ok(t.includes('every verified tutor, Basic included, can message parents in the app'))
+  assert.ok(t.includes('- Parent plans:'))
 })
 
 test('the sheet follows the live plan settings (who can start a conversation)', () => {
   // Today every fee-paid plan may start one.
-  assert.ok(factsSheetText(facts).includes('Who can start a conversation with a parent: any tutor who has paid the Spam Free Platform Fee'))
+  assert.ok(factsSheetText(facts).includes('every verified tutor, Basic included, can message parents in the app'))
   // If Basic loses that right, the sheet says so.
   const restricted = buildPlatformFacts(DEFAULT_PLANS.map((p) => (p.code === 'basic' ? { ...p, canInitiateMessage: false } : p)))
   assert.ok(factsSheetText(restricted).includes('Who can start a conversation with a parent: Featured and Premium tutors only'))

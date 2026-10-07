@@ -135,7 +135,7 @@ export function calculateTutorCompletion(input: TutorCompletionInput): Completio
     // The one-time verification fee — the flow's 'verify' step. A blocker (it is
     // in the not-listed card), so the dashboard widget hides it from the LIST,
     // but it still counts toward "X of 15 done".
-    { key: 'verify', label: 'Verification fee paid', done: !!input.feePaid, step: 6, anchor: 'verify' },
+    { key: 'verify', label: 'Spam Free Platform Fee paid', done: !!input.feePaid, step: 6, anchor: 'verify' },
     { key: 'name', label: 'Your full name', done: has(p.full_name), step: 1, anchor: 'full_name' },
     { key: 'gender', label: 'Gender', done: has(t.gender), step: 1, anchor: 'gender' },
     { key: 'city', label: 'City', done: has(p.city), step: 1, anchor: 'city' },

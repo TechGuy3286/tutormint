@@ -167,7 +167,7 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
     case 'payment_approved':
       return 'Payment approved — plan activated'
     case 'verification_fee_paid':
-      return 'Paid the verification fee'
+      return 'Paid the Spam Free Platform Fee'
     case 'plan_purchased':
       return 'Started a plan'
     case 'plan_granted':

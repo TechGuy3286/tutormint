@@ -14,7 +14,7 @@ export async function loadPlatformFacts(): Promise<PlatformFacts> {
   if (!admin) return buildPlatformFacts(DEFAULT_PLANS)
   const { data, error } = await admin
     .from('plans')
-    .select('code, audience, name, active, can_initiate_message, can_view_contact, can_hire, search_rank, monthly_quota')
+    .select('code, audience, name, active, can_initiate_message, can_view_contact, can_hire, can_whatsapp, can_see_viewer_identity, search_rank, monthly_quota, displayed_quota')
   if (error || !data?.length) return buildPlatformFacts(DEFAULT_PLANS)
   const plans: FactsPlan[] = data.map((r) => ({
     code: r.code as string,
@@ -24,8 +24,11 @@ export async function loadPlatformFacts(): Promise<PlatformFacts> {
     canInitiateMessage: !!r.can_initiate_message,
     canViewContact: !!r.can_view_contact,
     canHire: !!r.can_hire,
+    canWhatsapp: !!r.can_whatsapp,
+    canSeeViewer: !!r.can_see_viewer_identity,
     searchRank: Number(r.search_rank ?? 0),
     monthlyQuota: Number(r.monthly_quota ?? 0),
+    displayedQuota: (r.displayed_quota as string | null) ?? String(r.monthly_quota ?? ''),
   }))
   return buildPlatformFacts(plans)
 }

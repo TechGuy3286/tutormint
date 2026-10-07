@@ -57,8 +57,9 @@ export default async function AboutPage() {
           <h2 className="text-base font-black text-tm-navy">Why “Mint”?</h2>
           <p>
             A mint is where genuine coins are struck and certified. TutorMint is where genuine
-            tutors are <em>minted</em>: we verify every tutor — degrees, CNIC and an introduction
-            video — before they carry the badge, so a parent knows the person they found is real
+            tutors are <em>minted</em>: a tutor carries the Verified badge only after paying the
+            Spam Free Platform Fee and sending their CNIC, profile photo and a selfie, so a parent
+            knows the person they found is real
             before they send the first message. The two figures in our logo are a tutor and a
             parent, talking directly — no agency, no middleman between them.{' '}
             <strong>Genuine tutors, minted daily.</strong>
@@ -90,10 +91,10 @@ export default async function AboutPage() {
         <div className="space-y-2">
           <h2 className="text-base font-black text-tm-navy">What verification means here</h2>
           <p>
-            Every tutor uploads an introduction video, which goes to our own channel as a private
-            video for an administrator to review — along with their CNIC — before they are listed.
-            Tutors upload their degree certificates too, and a tutor carries the Verified badge only
-            once a degree has been checked.{' '}
+            A tutor earns the Verified badge by paying the one-time Spam Free Platform Fee and
+            sending their CNIC, a profile photo and a selfie, which our team checks. A degree,
+            certificates and an introduction video are optional extras a tutor can add to their
+            profile; none of them is needed for the badge.{' '}
             <Link href="/parent/verify" className="font-bold text-tm-red hover:underline">
               Parents verify their CNIC and a home address
             </Link>{' '}

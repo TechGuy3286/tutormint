@@ -483,18 +483,10 @@ export async function tutorNeeds({
     }
   }
 
-  // A paid tutor without a reviewed degree: listed and applying, but no Verified
-  // badge until a degree is checked (owner rule 2). Only worth saying to someone
-  // who holds a plan — the badge is what their plan is meant to earn them.
-  if (!hasDegree && (ent.plan || ent.planPaused)) {
-    rows.push({
-      id: 'no-degree',
-      title: 'Add a degree to earn your Verified badge',
-      why: 'Your Verified badge appears once a degree certificate has been reviewed. You are listed and applying without it, but the badge is what parents look for.',
-      action: { label: 'Add your degree', href: '/tutor/complete-profile?step=5' },
-      tone: 'warn',
-    })
-  }
+  // No "add a degree to earn your Verified badge" row (owner, 7 Oct 2026): the
+  // badge is the Spam Free Platform Fee + CNIC, photo and selfie; a degree is
+  // optional and never needed for any badge.
+  void hasDegree
 
   return rows
 }

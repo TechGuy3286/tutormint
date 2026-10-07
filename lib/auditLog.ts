@@ -21,6 +21,7 @@ export type AuditAction =
   | 'parent.verify.reject'
   | 'plan.grant'
   | 'plan.revoke'
+  | 'plan.settings'
   | 'payment.approve'
   | 'payment.reject'
   | 'settings.update'

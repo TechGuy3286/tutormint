@@ -94,9 +94,12 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          <strong>Tutors</strong> are verified by a person on our team, who reviews an introduction
-          video, degree or qualification certificates, and CNIC. A tutor appears in the public
-          directory once their profile is 100% complete and their account is in good standing.
+          <strong>Tutors</strong> earn the Verified badge by paying the one-time Spam Free Platform
+          Fee and sending their CNIC, a profile photo and a selfie, which a person on our team
+          checks. A degree, certificates and an introduction video are optional and are not needed
+          for any badge. A tutor appears in the public directory once their mobile number is
+          verified, their city, area, subjects and gender are set, and their account is in good
+          standing.
         </p>
         <p>
           <strong>Parents, schools and academies</strong> are verified by CNIC and address. Posting
@@ -262,10 +265,10 @@ const SECTIONS: LegalSection[] = [
           a payment for something you did not buy, tell us and we will return it.
         </p>
         <p>
-          <strong>A tutor may pay before their profile is complete.</strong> The plan starts the day
-          the tutor goes live — when their mobile number and identity are verified — and the badge
-          appears then, with a degree on file. Paying does not shorten, replace or guarantee
-          verification.
+          <strong>A tutor may pay before their profile is complete.</strong> A Premium or Featured
+          month starts the day the tutor is verified and their profile is complete. The Verified
+          badge appears once the Spam Free Platform Fee is paid and the CNIC, profile photo and
+          selfie are sent. Paying does not shorten, replace or guarantee verification.
         </p>
       </>
     ),
