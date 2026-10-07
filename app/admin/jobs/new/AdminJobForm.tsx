@@ -29,6 +29,7 @@ export default function AdminJobForm({ draftKey }: { draftKey?: string }) {
       body: JSON.stringify({
         title: payload.title,
         masterIds: payload.masterIds,
+        gradeSubjects: payload.gradeSubjects,
         classLevel: payload.classLevel,
         classLevels: payload.classLevels,
         city: payload.city,

@@ -216,6 +216,23 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
     linksByJob.set(l.job_id as string, linked)
   }
 
+  // Subjects per grade (owner, 7 Oct 2026), labelled from the same map. A
+  // tuition with no per-grade data gets null and shows its subjects as before.
+  const gradeGroupsByJob = new Map<string, { grade: string; subjects: string[] }[]>()
+  for (const j of rawJobs) {
+    const gs = j.grade_subjects as { grade?: unknown; masterIds?: unknown }[] | null | undefined
+    if (!Array.isArray(gs) || gs.length === 0) continue
+    const groups = gs
+      .map((g) => ({
+        grade: String(g.grade ?? '').trim(),
+        subjects: Array.from(
+          new Set((Array.isArray(g.masterIds) ? g.masterIds : []).map((id) => labelByMaster.get(Number(id))).filter((x): x is string => !!x)),
+        ),
+      }))
+      .filter((g) => g.grade && g.subjects.length > 0)
+    if (groups.length > 0) gradeGroupsByJob.set(j.id as string, groups)
+  }
+
   const facts = await parentFacts(
     Array.from(new Set(rawJobs.map((j) => j.parent_id as string).filter(Boolean))),
   )
@@ -305,6 +322,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       // Fall back to the legacy text column for jobs posted before the join
       // table existed, so old posts still show what they are for.
       subjects,
+      grade_groups: gradeGroupsByJob.get(j.id as string) ?? null,
       subject_links: (linksByJob.get(j.id as string) ?? []).map((l) => ({
         ...l,
         href: linker.tutorSubjectHref(l.masterId, city),
@@ -344,7 +362,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
 }
 
 const JOB_COLUMNS =
-  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, resumed_at, bumped_at, refreshed_at, merged_into, is_featured, under_review, parent_id, status, gender_preference, timings'
+  'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, resumed_at, bumped_at, refreshed_at, merged_into, grade_subjects, is_featured, under_review, parent_id, status, gender_preference, timings'
 
 /**
  * Open jobs that match a tutor's subjects, their city first.

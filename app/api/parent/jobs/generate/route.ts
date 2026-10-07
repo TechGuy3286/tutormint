@@ -29,7 +29,11 @@ import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 export const dynamic = 'force-dynamic'
 
 const GenerateBody = z.object({
-  masterIds: z.array(z.coerce.number().int().positive()).max(30).default([]),
+  masterIds: z.array(z.coerce.number().int().positive()).max(300).default([]),
+  gradeSubjects: z
+    .array(z.object({ grade: z.string().max(120), masterIds: z.array(z.coerce.number().int().positive()).max(300) }))
+    .max(40)
+    .default([]),
   level: z.string().max(200).nullish(),
   city: z.string().max(120).nullish(),
   area: z.string().max(120).nullish(),
@@ -87,6 +91,10 @@ export async function POST(request: Request) {
     levels: body.levels.map((l) => l.trim()).filter(Boolean),
     gender: normaliseGenderPref(body.genderPreference),
     school: str(body.school),
+    // The description uses the per-grade subjects (owner, 7 Oct 2026).
+    gradeSubjects: await Promise.all(
+      body.gradeSubjects.map(async (g) => ({ grade: g.grade.trim(), subjects: await subjectLabels(Array.from(new Set(g.masterIds))) })),
+    ),
   }
 
   const copy = await generateJobCopy(selection)

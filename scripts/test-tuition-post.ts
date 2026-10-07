@@ -11,7 +11,11 @@ import assert from 'node:assert/strict'
 
 import { buildTuitionTitle, postType, tuitionPageTitle, TUITION_TITLE_MAX } from '../lib/tuitionTitle'
 import { composeJobCopy, unsupportedFacts, type JobSelection } from '../lib/ai/jobBrief'
-import { selectAllForGrade, clearAllForGrade, gradeFullySelected } from '../lib/gradeSubjectBulk'
+import {
+  clearGrade, displayGroups, gradeSubjectsLine, gradesMissingSubjects, gradesWithoutIds, groupIdsByGrade, keepGrades,
+  perGradeKey, sanitizeGradeSubjects, selectAllForGrade, toggleGradeSubject, unionMasterIds, unionSubjects, type GradeSubjectMap,
+} from '../lib/gradeSubjects'
+import { duplicateReasons, type DuplicateFacts } from '../lib/duplicatesCore'
 
 test('post type comes from the Job Type and gender selections', () => {
   assert.equal(postType('Home Tutor', 'female'), 'Female Home Tutor Required')
@@ -94,24 +98,69 @@ test('Clear form: confirms first, then empties every field and removes the draft
   assert.ok(src.includes("{mode === 'create' && (") && src.includes('Clear form'), 'shown on the create form')
   assert.ok(src.includes('Discard draft'), 'Discard draft stays')
   // EMPTY really is empty for every field the button must reset.
-  const empty = src.slice(src.indexOf('const EMPTY'), src.indexOf('}', src.indexOf('const EMPTY')))
+  const empty = src.slice(src.indexOf('const EMPTY'), src.indexOf('\n}\n', src.indexOf('const EMPTY')))
+  assert.ok(empty.includes('gradeSubjects: {}'), 'per-grade subjects reset too')
   for (const f of ['teachingMode', 'category', 'levels', 'subjects', 'city', 'area', 'budgetMin', 'budgetMax', 'schedule', 'genderPreference', 'school', 'title', 'description', 'origin', 'contactName', 'contactPhone', 'contactWhatsapp', 'contactEmail', 'contactAddress', 'contactSocial']) {
     assert.match(empty, new RegExp(`\\b${f}: (''|\\[\\])`), f)
   }
 })
 
-test('Select all / Clear all touch only that grade’s subjects', () => {
-  const grade1 = ['English', 'Mathematics', 'Urdu']
-  const grade6 = ['English', 'Physics', 'Chemistry']
-  let sel = selectAllForGrade([], grade1)
-  assert.deepEqual(sel, grade1)
-  assert.equal(gradeFullySelected(sel, grade1), true)
-  assert.ok(!sel.includes('Physics'), 'never a subject from another grade')
-  sel = selectAllForGrade(sel, grade6)
-  assert.deepEqual(sel, ['English', 'Mathematics', 'Urdu', 'Physics', 'Chemistry'])
-  sel = clearAllForGrade(sel, grade6)
-  assert.deepEqual(sel, ['Mathematics', 'Urdu'], 'a shared subject (English) is one choice, cleared with the grade')
-  sel = selectAllForGrade(sel, grade1).filter((s) => s !== 'Urdu')
-  assert.deepEqual(sel, ['Mathematics', 'English'])
-  assert.equal(gradeFullySelected(sel, grade1), false)
+test('per grade: Select all on Grade 1 leaves Grades 2 and 3 untouched; a chip toggles one grade only', () => {
+  const offered = { 'Grade 1': ['English', 'Urdu', 'Mathematics'], 'Grade 2': ['English', 'Mathematics'], 'Grade 3': ['Science'] }
+  let m: GradeSubjectMap = keepGrades({}, ['Grade 1', 'Grade 2', 'Grade 3'])
+  m = selectAllForGrade(m, 'Grade 1', offered['Grade 1'])
+  assert.deepEqual(m, { 'Grade 1': ['English', 'Urdu', 'Mathematics'], 'Grade 2': [], 'Grade 3': [] })
+  m = toggleGradeSubject(m, 'Grade 2', 'Mathematics')
+  assert.deepEqual(m['Grade 2'], ['Mathematics'])
+  assert.deepEqual(m['Grade 1'], ['English', 'Urdu', 'Mathematics'], 'Grade 1 unchanged')
+  m = toggleGradeSubject(m, 'Grade 1', 'Urdu')
+  assert.deepEqual(m['Grade 1'], ['English', 'Mathematics'])
+  assert.deepEqual(m['Grade 2'], ['Mathematics'], 'Grade 2 unchanged')
+  assert.deepEqual(clearGrade(m, 'Grade 1')['Grade 2'], ['Mathematics'], 'Clear all is per grade')
+  // Validation: every selected grade needs a subject.
+  assert.deepEqual(gradesMissingSubjects(m, ['Grade 1', 'Grade 2', 'Grade 3'], offered), ['Grade 3'])
+})
+
+test('removing a grade removes its subject list, and the combined list stays in sync', () => {
+  let m: GradeSubjectMap = { 'Grade 1': ['English', 'Urdu'], 'Grade 2': ['Mathematics'] }
+  assert.deepEqual(unionSubjects(m, ['Grade 1', 'Grade 2']), ['English', 'Urdu', 'Mathematics'])
+  m = keepGrades(m, ['Grade 2'])
+  assert.deepEqual(m, { 'Grade 2': ['Mathematics'] })
+  assert.deepEqual(unionSubjects(m, ['Grade 2']), ['Mathematics'])
+  // Stored side: the union of per-grade ids is job_subjects.
+  const groups = sanitizeGradeSubjects([{ grade: 'Grade 1', masterIds: [11, 12, 12] }, { grade: 'Grade 2', masterIds: [21] }, { grade: 'Grade 9', masterIds: [99] }, { grade: 'Grade 3', masterIds: [] }], ['Grade 1', 'Grade 2', 'Grade 3'])
+  assert.deepEqual(groups, [{ grade: 'Grade 1', masterIds: [11, 12] }, { grade: 'Grade 2', masterIds: [21] }], 'only this tuition’s grades, no repeats, no empty grade')
+  assert.deepEqual(unionMasterIds(groups!), [11, 12, 21])
+  assert.deepEqual(gradesWithoutIds(groups!, ['Grade 1', 'Grade 2', 'Grade 3']), ['Grade 3'], 'the server refuses a grade with no subject')
+})
+
+test('display: grouped by grade, once when every grade is the same', () => {
+  assert.equal(
+    gradeSubjectsLine([{ grade: 'Grade 1', subjects: ['English', 'Urdu', 'Maths'] }, { grade: 'Grade 2', subjects: ['Maths'] }]),
+    'Grade 1: English, Urdu, Maths · Grade 2: Maths',
+  )
+  assert.equal(
+    gradeSubjectsLine([1, 2, 3].map((n) => ({ grade: `Grade ${n}`, subjects: ['English', 'Urdu', 'Maths'] }))),
+    'Grades 1–3: English, Urdu, Maths',
+  )
+  assert.deepEqual(displayGroups([{ grade: 'Grade 6', subjects: ['Physics'] }]), [{ label: 'Grade 6', subjects: ['Physics'] }])
+})
+
+test('backfill: each grade keeps the tuition’s current subjects; the union is unchanged', () => {
+  const gradeOf = new Map<number, string>([[11, 'Grade 1'], [12, 'Grade 1'], [21, 'Grade 2'], [22, 'Grade 2'], [90, 'Grade 1 to 5']])
+  const before = [22, 11, 21, 12, 90]
+  const g = groupIdsByGrade(before, gradeOf, ['Grade 1', 'Grade 2'])
+  assert.deepEqual(g, [{ grade: 'Grade 1', masterIds: [11, 12] }, { grade: 'Grade 2', masterIds: [21, 22] }, { grade: 'Grade 1 to 5', masterIds: [90] }])
+  assert.deepEqual(unionMasterIds(g), [...before].sort((a, b) => a - b), 'job_subjects stays exactly as it was')
+})
+
+test('duplicate check compares per grade when both tuitions have it, otherwise the combined list', () => {
+  const base: DuplicateFacts = { id: 'a', title: 'A', city: 'Lahore', area: 'DHA', classLevels: ['Grade 1', 'Grade 2'], masterIds: [11, 21], genderPreference: null, budgetPkr: 5000, budgetMinPkr: 5000, budgetMaxPkr: 9999, createdAt: '2026-10-01' }
+  const a = { ...base, gradeSubjects: [{ grade: 'Grade 1', masterIds: [11] }, { grade: 'Grade 2', masterIds: [21] }] }
+  const sameSplit = { ...base, id: 'b', title: 'B', gradeSubjects: [{ grade: 'Grade 2', masterIds: [21] }, { grade: 'Grade 1', masterIds: [11] }] }
+  assert.deepEqual(duplicateReasons(a, sameSplit), ['same combination'])
+  assert.equal(perGradeKey(a.gradeSubjects), perGradeKey(sameSplit.gradeSubjects), 'order-insensitive')
+  const otherSplit = { ...base, id: 'c', title: 'C', gradeSubjects: [{ grade: 'Grade 1', masterIds: [11, 21] }, { grade: 'Grade 2', masterIds: [21] }] }
+  assert.deepEqual(duplicateReasons(a, otherSplit), [], 'same combined list, different split: not a repeat')
+  assert.deepEqual(duplicateReasons(a, { ...base, id: 'd', title: 'D' }), ['same combination'], 'one side without per-grade data: the combined list decides')
 })

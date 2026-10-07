@@ -23,7 +23,7 @@ export type ExistingTuition = {
   href: string
 }
 
-const COLS = 'id, ref_id, title, public_slug, city, area, class_levels, class_level, gender_preference, budget_pkr, budget_min_pkr, budget_max_pkr, status, created_at, parent_id'
+const COLS = 'id, ref_id, title, public_slug, city, area, class_levels, class_level, gender_preference, budget_pkr, budget_min_pkr, budget_max_pkr, status, created_at, parent_id, grade_subjects'
 
 async function factsFor(admin: NonNullable<ReturnType<typeof createAdminClient>>, rows: Record<string, unknown>[]): Promise<(DuplicateFacts & { row: Record<string, unknown> })[]> {
   const ids = rows.map((r) => r.id as string)
@@ -50,6 +50,7 @@ async function factsFor(admin: NonNullable<ReturnType<typeof createAdminClient>>
     budgetMinPkr: (r.budget_min_pkr as number | null) ?? null,
     budgetMaxPkr: (r.budget_max_pkr as number | null) ?? null,
     createdAt: String(r.created_at),
+    gradeSubjects: (r.grade_subjects as DuplicateFacts['gradeSubjects']) ?? null,
   }))
 }
 
@@ -63,7 +64,7 @@ export function tuitionHref(city: string | null, publicSlug: string | null): str
  * edited out of its own check.
  */
 export async function findExistingDuplicate(
-  input: { title: string; city: string | null; area: string | null; classLevels: string[]; masterIds: number[]; genderPreference: string | null; budgetPkr: number | null; budgetMinPkr: number | null; budgetMaxPkr: number | null },
+  input: { title: string; city: string | null; area: string | null; classLevels: string[]; masterIds: number[]; genderPreference: string | null; budgetPkr: number | null; budgetMinPkr: number | null; budgetMaxPkr: number | null; gradeSubjects?: DuplicateFacts['gradeSubjects'] },
   excludeId: string | null = null,
 ): Promise<ExistingTuition | null> {
   const admin = createAdminClient()

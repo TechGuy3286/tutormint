@@ -33,6 +33,7 @@ import { feeChipLabel } from '@/lib/feeBands'
 import { isOnlineTitle } from '@/lib/jobTitlesCore'
 import { placeLabel } from '@/lib/place'
 import { buildTuitionTitle } from '@/lib/tuitionTitle'
+import { displayGroups, type GradeGroup } from '@/lib/gradeSubjects'
 
 export type JobSelection = {
   /** Taxonomy level name, e.g. "O Levels". Resolved server-side from ids. */
@@ -53,6 +54,9 @@ export type JobSelection = {
   gender?: string | null
   /** Optional school or academy name; the title uses the area when empty. */
   school?: string | null
+  /** Subjects per grade (owner, 7 Oct 2026), names resolved server-side. When
+   *  present the description lists each grade's own subjects. */
+  gradeSubjects?: GradeGroup[]
 }
 
 export type JobCopy = {
@@ -75,6 +79,18 @@ function subjectPhrase(subjects: string[]): string {
   if (s.length === 1) return s[0]
   if (s.length === 2) return `${s[0]} and ${s[1]}`
   return `${s.slice(0, -1).join(', ')} and ${s[s.length - 1]}`
+}
+
+/**
+ * The per-grade subjects as one clause: "Grade 1: English and Urdu; Grade 2:
+ * Mathematics" — or, when every grade has the same subjects, "Grades 1–3:
+ * English and Urdu". Empty when there is no per-grade data (or only one grade,
+ * where the plain subject list says it already).
+ */
+export function gradeSubjectsPhrase(sel: JobSelection): string {
+  const groups = displayGroups(sel.gradeSubjects ?? [])
+  if (groups.length === 0 || (groups.length === 1 && (sel.gradeSubjects ?? []).length <= 1)) return ''
+  return groups.map((g) => `${g.label}: ${subjectPhrase(g.subjects)}`).join('; ')
 }
 
 export function placePhrase(sel: JobSelection): string {
@@ -164,10 +180,13 @@ export function composeJobCopy(sel: JobSelection): JobCopy {
   const title = buildJobTitle(sel)
 
   const lines: string[] = []
+  const perGrade = gradeSubjectsPhrase(sel)
   lines.push(
-    subject
-      ? `We are looking for a tutor for ${subject}${sel.level ? ` at ${sel.level}` : ''}.`
-      : `We are looking for a tutor${sel.level ? ` for ${sel.level}` : ''}.`,
+    perGrade
+      ? `We are looking for a tutor for these subjects — ${perGrade}.`
+      : subject
+        ? `We are looking for a tutor for ${subject}${sel.level ? ` at ${sel.level}` : ''}.`
+        : `We are looking for a tutor${sel.level ? ` for ${sel.level}` : ''}.`,
   )
   if (place) lines.push(`We are in ${place}.`)
   if (mode) lines.push(`Lessons can be ${mode}.`)
@@ -219,6 +238,7 @@ export function unsupportedFacts(text: string, sel: JobSelection): string[] {
 
   addNumbers(sel.level)
   sel.subjects.forEach(addNumbers)
+  ;(sel.gradeSubjects ?? []).forEach((g) => { addNumbers(g.grade); g.subjects.forEach(addNumbers) })
   addNumbers(sel.city)
   addNumbers(sel.area)
   addNumbers(sel.schedule)

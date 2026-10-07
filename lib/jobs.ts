@@ -16,6 +16,7 @@
 //     what the page rendered.
 
 import { createClient } from '@/lib/supabase/server'
+import { sanitizeGradeSubjects, gradesWithoutIds, unionMasterIds } from '@/lib/gradeSubjects'
 import { findExistingDuplicate, type ExistingTuition } from '@/lib/duplicates'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements } from '@/lib/entitlements'
@@ -135,6 +136,26 @@ export type JobInput = {
    */
   allowDuplicate?: boolean
   duplicateReason?: string | null
+  /**
+   * Subjects PER GRADE (owner, 7 Oct 2026): [{ grade, masterIds }]. When sent,
+   * it is cleaned (only this tuition's grades, whole ids), every grade must have
+   * at least one subject, and `masterIds` is REPLACED by their union — so
+   * job_subjects, which everything else reads, is always the combined list.
+   * Stored on jobs.grade_subjects. Absent (an older client) → null, and the
+   * tuition behaves exactly as before.
+   */
+  gradeSubjects?: { grade: string; masterIds: number[] }[] | null
+}
+
+/** Clean the per-grade payload and keep masterIds as its union. */
+function prepareGradeSubjects(input: JobInput): { ok: true; input: JobInput } | { ok: false; error: string } {
+  if (input.gradeSubjects === undefined || input.gradeSubjects === null) return { ok: true, input: { ...input, gradeSubjects: null } }
+  const levels = levelArr(input)
+  const groups = sanitizeGradeSubjects(input.gradeSubjects, levels)
+  if (!groups) return { ok: false, error: 'Choose at least one subject for each grade.' }
+  const missing = gradesWithoutIds(groups, levels)
+  if (missing.length > 0) return { ok: false, error: `Choose at least one subject for ${missing.join(', ')}.` }
+  return { ok: true, input: { ...input, gradeSubjects: groups, masterIds: unionMasterIds(groups) } }
 }
 
 type Fail = { ok: false; status: number; error: string; upgrade?: string; gate?: Gate; similarHref?: string; duplicate?: ExistingTuition }
@@ -151,6 +172,7 @@ function duplicateFacts(input: JobInput) {
     budgetPkr: bandFigure(input),
     budgetMinPkr: input.budgetMin ?? null,
     budgetMaxPkr: input.budgetMax ?? null,
+    gradeSubjects: input.gradeSubjects ?? null,
   }
 }
 
@@ -192,8 +214,11 @@ function validate(input: JobInput): string | null {
 
 export async function createJob(
   parentId: string,
-  input: JobInput,
+  rawInput: JobInput,
 ): Promise<{ ok: true; id: string; jobTxId: string } | Fail> {
+  const prepared = prepareGradeSubjects(rawInput)
+  if (!prepared.ok) return { ok: false, status: 400, error: prepared.error }
+  const input = prepared.input
   const problem = validate(input)
   if (problem) return { ok: false, status: 400, error: problem }
 
@@ -294,6 +319,7 @@ export async function createJob(
       parent_id: parentId,
       title: cleanTuitionTitle(input.title),
       class_levels: levelArr(input),
+      grade_subjects: input.gradeSubjects ?? null,
       class_level: levelDisplay(input),
       city: input.city,
       area: input.area ?? '',
@@ -397,10 +423,13 @@ export type JobOrigin = 'support' | 'referral' | 'external'
  * been provisioned (scripts/provision-team-parent.ts).
  */
 export async function createTeamJob(
-  input: JobInput,
+  rawInput: JobInput,
   actor: { id: string; adminRole: AdminRole; email: string | null },
   origin: JobOrigin | null,
 ): Promise<{ ok: true; id: string; jobTxId: string; publicSlug: string | null } | Fail> {
+  const prepared = prepareGradeSubjects(rawInput)
+  if (!prepared.ok) return { ok: false, status: 400, error: prepared.error }
+  const input = prepared.input
   const problem = validate(input)
   if (problem) return { ok: false, status: 400, error: problem }
 
@@ -480,6 +509,7 @@ export async function createTeamJob(
       duplicate_reason: existing && input.allowDuplicate ? (input.duplicateReason ?? '').trim() : null,
       title: cleanTuitionTitle(input.title),
       class_levels: levelArr(input),
+      grade_subjects: input.gradeSubjects ?? null,
       class_level: levelDisplay(input),
       city: input.city,
       area: input.area ?? '',
@@ -578,10 +608,13 @@ export async function createTeamJob(
  */
 export async function updateTeamJob(
   jobId: string,
-  input: JobInput,
+  rawInput: JobInput,
   actor: { id: string; adminRole: AdminRole; email: string | null },
   reason: string,
 ): Promise<{ ok: true; publicSlug: string | null } | Fail> {
+  const prepared = prepareGradeSubjects(rawInput)
+  if (!prepared.ok) return { ok: false, status: 400, error: prepared.error }
+  const input = prepared.input
   const problem = validate(input)
   if (problem) return { ok: false, status: 400, error: problem }
   if (!reason || reason.trim().length < 3) {
@@ -621,6 +654,7 @@ export async function updateTeamJob(
   const next = {
     title: cleanTuitionTitle(input.title),
     class_levels: levelArr(input),
+      grade_subjects: input.gradeSubjects ?? null,
     class_level: levelDisplay(input),
     city: input.city,
     area: input.area ?? '',
@@ -704,8 +738,11 @@ export async function updateTeamJob(
 export async function updateJob(
   parentId: string,
   jobId: string,
-  input: JobInput,
+  rawInput: JobInput,
 ): Promise<{ ok: true } | Fail> {
+  const prepared = prepareGradeSubjects(rawInput)
+  if (!prepared.ok) return { ok: false, status: 400, error: prepared.error }
+  const input = prepared.input
   const problem = validate(input)
   if (problem) return { ok: false, status: 400, error: problem }
 
@@ -731,6 +768,7 @@ export async function updateJob(
     .update({
       title: cleanTuitionTitle(input.title),
       class_levels: levelArr(input),
+      grade_subjects: input.gradeSubjects ?? null,
       class_level: levelDisplay(input),
       city: input.city,
       area: input.area ?? '',

@@ -11,6 +11,7 @@
 import { jobType } from '@/lib/display'
 import { complete, isConfigured } from './anthropic'
 import {
+  gradeSubjectsPhrase,
   buildJobTitle,
   budgetSentence,
   composeJobCopy,
@@ -58,7 +59,10 @@ function factsBlock(sel: JobSelection): string {
   const type = jobType(sel.mode)
   if (type) facts.push(`Job type: ${type}`)
   if (sel.level) facts.push(`Level: ${sel.level}`)
-  if (sel.subjects.length > 0) facts.push(`Subjects: ${sel.subjects.join(', ')}`)
+  // Per grade when known (owner, 7 Oct 2026): each grade's own subjects.
+  const perGrade = gradeSubjectsPhrase(sel)
+  if (perGrade) facts.push(`Subjects by grade: ${perGrade}`)
+  else if (sel.subjects.length > 0) facts.push(`Subjects: ${sel.subjects.join(', ')}`)
   const place = placePhrase(sel)
   if (place) facts.push(`Location: ${place}`)
   const mode = modePhrase(sel)

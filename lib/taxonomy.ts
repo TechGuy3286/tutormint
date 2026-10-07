@@ -193,8 +193,8 @@ export async function labelsForMasterIds(ids: number[]): Promise<string[]> {
  */
 export async function selectionForMasterIds(
   ids: number[],
-): Promise<{ category: string; levels: string[]; subjects: string[]; isLevelLeaf: boolean }> {
-  const empty = { category: '', levels: [] as string[], subjects: [] as string[], isLevelLeaf: false }
+): Promise<{ category: string; levels: string[]; subjects: string[]; isLevelLeaf: boolean; byGrade: Record<string, string[]> }> {
+  const empty = { category: '', levels: [] as string[], subjects: [] as string[], isLevelLeaf: false, byGrade: {} as Record<string, string[]> }
   if (ids.length === 0) return empty
 
   const { rows } = await load()
@@ -210,5 +210,30 @@ export async function selectionForMasterIds(
     levels: Array.from(new Set(inCat.map((r) => r.level))),
     subjects: Array.from(new Set(inCat.map((r) => r.subject).filter(Boolean))) as string[],
     isLevelLeaf: inCat.some((r) => r.isLevelLeaf),
+    // Per grade (owner, 7 Oct 2026): each id belongs to ONE grade, so grouping
+    // the ids by their grade gives that grade's own subjects.
+    byGrade: inCat.reduce<Record<string, string[]>>((acc, r) => {
+      if (!r.subject) return acc
+      const list = acc[r.level] ?? (acc[r.level] = [])
+      if (!list.includes(r.subject)) list.push(r.subject)
+      return acc
+    }, {}),
   }
+}
+
+/** Per-grade subject names → per-grade taxonomy ids (owner, 7 Oct 2026). A
+ *  grade's subjects resolve against THAT grade only — never the others. */
+export async function resolveGradeSubjectIds(
+  category: string,
+  byGrade: Record<string, string[]>,
+  grades: string[],
+): Promise<{ grade: string; masterIds: number[] }[]> {
+  const out: { grade: string; masterIds: number[] }[] = []
+  for (const g of grades) {
+    const names = byGrade[g] ?? []
+    if (names.length === 0) continue
+    const ids = await resolveMasterIds(category, [g], names)
+    if (ids.length > 0) out.push({ grade: g, masterIds: ids })
+  }
+  return out
 }

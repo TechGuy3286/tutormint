@@ -20,7 +20,12 @@ import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 // error, and rejecting it teaches them nothing.
 const JobBody = z.object({
   title: text({ min: 1, max: 200, label: 'Title' }),
-  masterIds: z.array(z.coerce.number().int().positive()).max(30).default([]),
+  masterIds: z.array(z.coerce.number().int().positive()).max(300).default([]),
+  // Per-grade subjects (owner, 7 Oct 2026): [{ grade, masterIds }]; masterIds is their union.
+  gradeSubjects: z
+    .array(z.object({ grade: z.string().max(120), masterIds: z.array(z.coerce.number().int().positive()).max(300) }))
+    .max(40)
+    .optional(),
   classLevel: z.string().max(120).nullish(),
   classLevels: z.array(z.string().max(120)).max(30).default([]),
   city: z.string().max(120).nullish(),
@@ -51,6 +56,7 @@ function parseInput(body: z.infer<typeof JobBody>): JobInput {
   return {
     title: body.title,
     masterIds: Array.from(new Set(body.masterIds)),
+    gradeSubjects: body.gradeSubjects,
     classLevel: str(body.classLevel),
     classLevels: body.classLevels ?? [],
     city: str(body.city),

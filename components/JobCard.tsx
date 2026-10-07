@@ -7,6 +7,7 @@ import { tuitionPath } from '@/lib/slugs'
 import { useUpgradeSheet } from '@/components/upgrade/UpgradeProvider'
 import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
+import SubjectsByGrade from '@/components/SubjectsByGrade'
 import { useState } from 'react'
 import Icon from '@/components/Icon'
 import { genderPrefSentence } from '@/lib/genderPref'
@@ -57,6 +58,9 @@ export type JobCardData = {
    */
   headline?: string | null
   subjects: string[] | null
+  /** Subjects per grade (owner, 7 Oct 2026), or null for a tuition with no
+   *  per-grade data — it then shows the flat chips as before. */
+  grade_groups?: { grade: string; subjects: string[] }[] | null
   /**
    * The same subjects with their taxonomy_master ids, so each chip links to
    * the tutors who teach that exact level-and-subject. Empty for a job posted
@@ -353,7 +357,15 @@ export default function JobCard({
             </div>
           </div>
 
-          {job.subjects && job.subjects.length > 0 && (
+          {job.grade_groups && job.grade_groups.length > 0 ? (
+            <SubjectsByGrade
+              groups={job.grade_groups}
+              links={job.subject_links}
+              city={job.city}
+              max={4}
+              chipClass="rounded-full bg-tm-bg px-2.5 py-1 text-[11px] font-bold text-slate-700 ring-1 ring-gray-200"
+            />
+          ) : job.subjects && job.subjects.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {job.subjects.map((s) => {
                 const link = job.subject_links?.find((l) => l.label === s)

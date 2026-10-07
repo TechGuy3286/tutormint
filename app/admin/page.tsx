@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, Briefcase, GraduationCap, RefreshCw, Users, Wallet } from 'lucide-react'
+import { ArrowRight, BadgeCheck, Briefcase, GraduationCap, Users, Wallet } from 'lucide-react'
 import type { ComponentType } from 'react'
 
 import RevenueChart from '@/components/admin/charts/RevenueChart'
@@ -16,7 +16,7 @@ import { smsProviderLabel } from '@/lib/sms'
 // tone, nothing about WHAT each card counts changes.
 const TILE_STYLE: Record<string, { tone: TileTone; icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }> }> = {
   revenue: { tone: 'green', icon: Wallet },
-  resubscribed: { tone: 'teal', icon: RefreshCw },
+  paidThisMonth: { tone: 'teal', icon: BadgeCheck },
   tutors: { tone: 'navy', icon: GraduationCap },
   parents: { tone: 'violet', icon: Users },
   jobs: { tone: 'gold', icon: Briefcase },

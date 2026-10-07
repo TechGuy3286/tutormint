@@ -5,6 +5,7 @@ import { currentPeriod } from '@/lib/entitlements'
 import { pkDayKey } from '@/lib/datetime'
 import { loadTipCounts, type TipCounts } from '@/lib/adminTips'
 import type { AdminScreen } from '@/lib/adminNav'
+import { feePayerCounts } from '@/lib/feePayers'
 
 // The admin overview: how much the platform is earning, and who to nudge onto a
 // plan (owner, 14 Sep 2026). The queue tiles (videos, CNICs, reports, payments,
@@ -74,7 +75,7 @@ export async function loadOverview(): Promise<Overview | null> {
     parents,
     openJobs,
     revenueRows,
-    thisMonthPurchases,
+    feePayers,
     signupRows,
     planRows,
     tips,
@@ -96,14 +97,9 @@ export async function loadOverview(): Promise<Overview | null> {
       .select('amount_pkr, plan_code, refunded_amount_pkr')
       .eq('status', 'approved')
       .gte('reviewed_at', monthStart),
-    // Renewals: subscriptions that ACTIVATED this month by purchase (not an
-    // admin grant). A row here is a re-subscription only if the same member also
-    // held an earlier subscription (resolved below).
-    admin
-      .from('subscriptions')
-      .select('user_id, starts_at')
-      .eq('source', 'purchase')
-      .gte('starts_at', monthStart),
+    // "Paid this month" (owner, 7 Oct 2026): distinct tutors whose Rs 199 fee
+    // was approved this Pakistan-time month — replaces "Monthly re-subscribed".
+    feePayerCounts(now.getTime()),
     admin
       .from('profiles')
       .select('created_at, role')
@@ -113,23 +109,6 @@ export async function loadOverview(): Promise<Overview | null> {
     admin.from('plans').select('code, name, audience'),
     loadTipCounts(admin, nowIso),
   ])
-
-  // ----------------------------------------------------- re-subscribed --
-  // A member counts once if they bought this month AND held a subscription that
-  // started before this month's purchase. Admin grants are already excluded
-  // above (source='purchase'); the PRIOR sub may be any source.
-  const monthUserIds = Array.from(
-    new Set((thisMonthPurchases.data ?? []).map((s) => s.user_id as string)),
-  )
-  let resubscribed = 0
-  if (monthUserIds.length > 0) {
-    const { data: priors } = await admin
-      .from('subscriptions')
-      .select('user_id')
-      .lt('starts_at', monthStart)
-      .in('user_id', monthUserIds)
-    resubscribed = new Set((priors ?? []).map((s) => s.user_id as string)).size
-  }
 
   // ------------------------------------------------------------- signups --
   const buckets = new Map(emptyDays(SIGNUP_WINDOW_DAYS).map((p) => [p.day, p]))
@@ -172,11 +151,11 @@ export async function loadOverview(): Promise<Overview | null> {
       screen: 'payments',
     },
     {
-      key: 'resubscribed',
-      label: 'Monthly re-subscribed',
-      value: String(resubscribed),
-      meaning: 'Renewals this month (excl. admin grants)',
-      href: '/admin/payments',
+      key: 'paidThisMonth',
+      label: 'Paid this month',
+      value: String(feePayers.month),
+      meaning: `${feePayers.week} in the last 7 days`,
+      href: '/admin/payments/payers',
       screen: 'payments',
     },
     {

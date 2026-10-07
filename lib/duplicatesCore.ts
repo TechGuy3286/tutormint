@@ -28,7 +28,12 @@ export type DuplicateFacts = {
   budgetMinPkr: number | null
   budgetMaxPkr: number | null
   createdAt: string
+  /** Per-grade subjects (owner, 7 Oct 2026). When BOTH tuitions have them, the
+   *  combination compares them grade by grade; otherwise the combined list. */
+  gradeSubjects?: GradeSubjectIds | null
 }
+
+import { perGradeKey, type GradeSubjectIds } from './gradeSubjects'
 
 export const norm = (s: string | null | undefined): string => (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
 
@@ -66,7 +71,13 @@ export function duplicateReasons(a: DuplicateFacts, b: DuplicateFacts): Duplicat
   const out: DuplicateReason[] = []
   if (titleKey(a) && titleKey(a) === titleKey(b) && samePlace(a, b)) out.push('same title')
   const ka = comboKey(a)
-  if (ka && ka === comboKey(b)) out.push('same combination')
+  if (ka && ka === comboKey(b)) {
+    // Both tuitions carry per-grade subjects: they must match grade by grade
+    // too (same combined list, different split = different tuitions).
+    const ga = a.gradeSubjects && a.gradeSubjects.length > 0 ? a.gradeSubjects : null
+    const gb = b.gradeSubjects && b.gradeSubjects.length > 0 ? b.gradeSubjects : null
+    if (!ga || !gb || perGradeKey(ga) === perGradeKey(gb)) out.push('same combination')
+  }
   return out
 }
 

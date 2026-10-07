@@ -136,6 +136,7 @@ export const NAV_GROUPS: NavGroup[] = [
  */
 export const SECTION_LABELS: Record<string, string> = {
   gateways: 'Payment gateways',
+  payers: 'Recent payers',
   ads: 'Advertisements',
   audit: 'Audit',
   blog: 'Blog',

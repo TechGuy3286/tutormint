@@ -43,6 +43,7 @@ export default function JobForm({
         jobId: payload.jobId,
         title: payload.title,
         masterIds: payload.masterIds,
+        gradeSubjects: payload.gradeSubjects,
         classLevel: payload.classLevel,
         classLevels: payload.classLevels,
         city: payload.city,

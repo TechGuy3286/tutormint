@@ -19,6 +19,8 @@ import { normaliseStoredContact } from '@/lib/jobContactCore'
 import JobActions from './JobActions'
 import NotifyContact from './NotifyContact'
 import { formatName } from '@/lib/formatName'
+import { subjectLabels } from '@/lib/jobs'
+import { gradeSubjectsLine } from '@/lib/gradeSubjects'
 
 // One tuition, as staff.
 //
@@ -53,12 +55,19 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
   const { data: job } = await admin
     .from('jobs')
     .select(
-      'id, job_tx_id, ref_id, public_slug, parent_id, title, description, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, status, is_featured, hired_tutor_id, created_at, closed_at',
+      'id, job_tx_id, ref_id, public_slug, parent_id, title, description, subjects, class_level, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, timings, status, is_featured, hired_tutor_id, created_at, closed_at, grade_subjects',
     )
     .eq(isUuid ? 'id' : 'job_tx_id', id)
     .maybeSingle()
 
   if (!job) notFound()
+
+  // Subjects per grade (owner, 7 Oct 2026), labelled from the taxonomy ids.
+  const gradeGroupsRaw = Array.isArray(job.grade_subjects) ? (job.grade_subjects as { grade: string; masterIds: number[] }[]) : []
+  const gradeGroups = await Promise.all(
+    gradeGroupsRaw.map(async (g) => ({ grade: g.grade, subjects: await subjectLabels(g.masterIds ?? []) })),
+  )
+  const subjectsByGrade = gradeSubjectsLine(gradeGroups)
 
   const [{ data: apps }, { data: parent }, { data: reports }] = await Promise.all([
     admin
@@ -226,6 +235,12 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
           </dd>
         </dl>
 
+        {subjectsByGrade && (
+          <p className="text-xs text-slate-700">
+            <span className="font-bold text-tm-navy">Subjects by grade: </span>
+            {subjectsByGrade}
+          </p>
+        )}
         {Array.isArray(job.subjects) && (job.subjects as string[]).length > 0 && (
           <div className="flex flex-wrap gap-1">
             {(job.subjects as string[]).map((s) => (

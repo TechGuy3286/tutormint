@@ -6,7 +6,7 @@ import { fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
 import Select from '@/components/forms/Select'
 import { onOutsidePointerDown } from '@/lib/outsidePointer'
 import { TextLinesSkeleton } from '@/components/Skeletons'
-import { selectAllForGrade, clearAllForGrade, gradeFullySelected } from '@/lib/gradeSubjectBulk'
+import { clearGrade, selectAllForGrade, toggleGradeSubject, type GradeSubjectMap } from '@/lib/gradeSubjects'
 
 interface TaxonomySelectorProps {
   selectedLevel: string;
@@ -23,6 +23,11 @@ interface TaxonomySelectorProps {
       each selected grade gets its own "Select all" / "Clear all" chips that
       touch only that grade's subjects. */
   perGradeBulk?: boolean;
+  /** Item 2 (owner, 7 Oct 2026): with perGradeBulk, each grade keeps its OWN
+      subject list here (grade → subject names). The caller keeps
+      selectedSubjects as the union. */
+  gradeSubjects?: GradeSubjectMap;
+  setGradeSubjects?: (map: GradeSubjectMap) => void;
 }
 
 export default function TaxonomySelector({
@@ -34,7 +39,10 @@ export default function TaxonomySelector({
   setSelectedSubjects,
   allowSelectAll = true,
   perGradeBulk = false,
+  gradeSubjects,
+  setGradeSubjects,
 }: TaxonomySelectorProps) {
+  const perGrade = perGradeBulk && !!gradeSubjects && !!setGradeSubjects;
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyNode>({});
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -97,7 +105,7 @@ export default function TaxonomySelector({
   // chosen grades (a grade was unticked). Guarded so it never fires while the
   // tree is still loading — that would wipe an edit pre-fill.
   useEffect(() => {
-    if (loading || selectedGrades.length === 0) return;
+    if (loading || selectedGrades.length === 0 || perGrade) return;
     const keep = selectedSubjects.filter((s) => availableSubjects.includes(s));
     if (keep.length !== selectedSubjects.length) setSelectedSubjects(keep);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -208,6 +216,13 @@ export default function TaxonomySelector({
         <p className="rounded-xl border border-dashed border-gray-200 bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
           Choose a level and grade above, and the subjects will appear here.
         </p>
+      ) : perGrade ? (
+        <PerGradeSubjects
+          grades={selectedGrades}
+          offered={taxonomyTree[selectedLevel] ?? {}}
+          map={gradeSubjects!}
+          setMap={setGradeSubjects!}
+        />
       ) : (
       <div className="space-y-2">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
@@ -229,7 +244,7 @@ export default function TaxonomySelector({
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubjectSearch(e.target.value)}
               className="min-h-[44px] p-1.5 px-3 bg-white border border-gray-200 rounded-xl text-xs outline-none flex-1 sm:w-48 text-slate-700"
             />
-            {allowSelectAll && !perGradeBulk && availableSubjects.length > 0 && (
+            {allowSelectAll && !perGrade && availableSubjects.length > 0 && (
               <button
                 type="button"
                 onClick={() => {
@@ -247,42 +262,6 @@ export default function TaxonomySelector({
           </div>
           )}
         </div>
-
-        {/* Item 17: one pair of chips per selected grade, touching only that
-            grade's subjects. */}
-        {perGradeBulk && !subjectsCollapsed && (
-          <div className="space-y-1.5">
-            {selectedGrades.map((g) => {
-              const gradeSubjects = taxonomyTree[selectedLevel]?.[g] ?? []
-              if (gradeSubjects.length === 0) return null
-              const full = gradeFullySelected(selectedSubjects, gradeSubjects)
-              const any = gradeSubjects.some((s) => selectedSubjects.includes(s))
-              return (
-                <div key={g} className="flex flex-wrap items-center gap-2">
-                  <span className="max-w-[10rem] truncate text-[11px] font-bold text-tm-navy">{g}</span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedSubjects(selectAllForGrade(selectedSubjects, gradeSubjects))}
-                    disabled={full}
-                    aria-label={`Select all subjects for ${g}`}
-                    className="inline-flex min-h-[36px] items-center rounded-full border border-tm-green-deep bg-tm-tint-green px-3 text-[11px] font-bold text-tm-green-deep disabled:opacity-60 cursor-pointer"
-                  >
-                    Select all
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedSubjects(clearAllForGrade(selectedSubjects, gradeSubjects))}
-                    disabled={!any}
-                    aria-label={`Clear all subjects for ${g}`}
-                    className="inline-flex min-h-[36px] items-center rounded-full border border-gray-200 bg-white px-3 text-[11px] font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60 cursor-pointer"
-                  >
-                    Clear all
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        )}
 
         {selectedSubjects.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -341,4 +320,100 @@ export default function TaxonomySelector({
       )}
     </div>
   );
+}
+
+/**
+ * Subjects PER GRADE (owner, 7 Oct 2026). Each selected grade has its own list:
+ * its own search box, its own chips, its own "Select all" / "Clear all". Tapping
+ * a chip toggles it for that grade only; other grades are untouched.
+ */
+function PerGradeSubjects({
+  grades,
+  offered,
+  map,
+  setMap,
+}: {
+  grades: string[]
+  offered: Record<string, string[]>
+  map: GradeSubjectMap
+  setMap: (m: GradeSubjectMap) => void
+}) {
+  const [search, setSearch] = useState<Record<string, string>>({})
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-bold text-tm-navy">Subjects for each grade</p>
+      {grades.map((g) => {
+        const list = offered[g] ?? []
+        const chosen = map[g] ?? []
+        const q = (search[g] ?? '').trim().toLowerCase()
+        const shown = list.filter((s) => s.toLowerCase().includes(q))
+        const full = list.length > 0 && list.every((s) => chosen.includes(s))
+        return (
+          <section key={g} aria-label={`Subjects for ${g}`} className="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-black text-tm-navy">
+                {g}
+                <span className="ms-1.5 font-semibold text-gray-500">· {chosen.length} chosen</span>
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMap(selectAllForGrade(map, g, list))}
+                  disabled={full || list.length === 0}
+                  aria-label={`Select all subjects for ${g}`}
+                  className="inline-flex min-h-[36px] items-center rounded-full border border-tm-green-deep bg-tm-tint-green px-3 text-[11px] font-bold text-tm-green-deep disabled:opacity-60 cursor-pointer"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMap(clearGrade(map, g))}
+                  disabled={chosen.length === 0}
+                  aria-label={`Clear all subjects for ${g}`}
+                  className="inline-flex min-h-[36px] items-center rounded-full border border-gray-200 bg-white px-3 text-[11px] font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60 cursor-pointer"
+                >
+                  Clear all
+                </button>
+              </div>
+            </div>
+            {list.length > 8 && (
+              <input
+                type="text"
+                placeholder={`Search ${g} subjects...`}
+                value={search[g] ?? ''}
+                onChange={(e) => setSearch({ ...search, [g]: e.target.value })}
+                className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-xs text-slate-700 outline-none"
+              />
+            )}
+            {list.length === 0 ? (
+              <p className="text-[11px] text-gray-500">This grade has no subject list.</p>
+            ) : shown.length === 0 ? (
+              <p className="text-[11px] text-gray-500">No subjects match &ldquo;{search[g]}&rdquo; for {g}.</p>
+            ) : (
+              <div className="flex max-h-48 flex-wrap gap-1.5 overflow-y-auto">
+                {shown.map((s) => {
+                  const on = chosen.includes(s)
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setMap(toggleGradeSubject(map, g, s))}
+                      className={`inline-flex min-h-[36px] items-center gap-1 rounded-full border px-3 text-[11px] font-bold cursor-pointer ${on ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}
+                    >
+                      {on && <Check size={12} aria-hidden />}
+                      <span className="max-w-[12rem] truncate">{s}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {list.length > 0 && chosen.length === 0 && (
+              <p className="text-[11px] text-gray-500">Choose at least one subject for {g}.</p>
+            )}
+          </section>
+        )
+      })}
+    </div>
+  )
 }

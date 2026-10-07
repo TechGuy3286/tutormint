@@ -21,6 +21,7 @@ import { tuitionPublicState, pauseCountdownLabel, pauseDueAtMs } from '@/lib/tui
 import { isFixtureTuition } from '@/lib/fixtures'
 import { tuitionIndexable } from '@/lib/seo/indexable'
 import JobCard from '@/components/JobCard'
+import SubjectsByGrade from '@/components/SubjectsByGrade'
 import ResumeInline from './ResumeInline'
 import { citySegment } from '@/lib/slugs'
 import { formatDate } from '@/lib/datetime'
@@ -518,7 +519,16 @@ export default async function TuitionPage({ params }: { params: Params }) {
           </p>
         </header>
 
-        {job.subjects && job.subjects.length > 0 && (
+        {/* Subjects grouped by grade (owner, 7 Oct 2026), every subject shown;
+            a tuition without per-grade data keeps the flat chips below. */}
+        {job.grade_groups && job.grade_groups.length > 0 ? (
+          <SubjectsByGrade
+            groups={job.grade_groups}
+            links={job.subject_links}
+            city={job.city}
+            chipClass="rounded-full bg-tm-bg px-2.5 py-1 text-xs font-bold text-slate-700 ring-1 ring-gray-200"
+          />
+        ) : job.subjects && job.subjects.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {job.subjects.map((s) => {
               const link = job.subject_links?.find((l) => l.label === s)

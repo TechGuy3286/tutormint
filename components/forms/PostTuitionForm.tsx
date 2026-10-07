@@ -11,7 +11,8 @@ import { FormChecklist, ChecklistStatus } from '@/components/forms/FormChecklist
 import { checklistReady, type ChecklistItem } from '@/lib/formChecklist'
 import { parseTimings, formatSlots, type DaySlot } from '@/lib/timeSlots'
 import { useJobTitles } from '@/lib/jobTitles'
-import { isLevelLeaf, resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
+import { isLevelLeaf, resolveGradeSubjectIds, resolveMasterIds, selectionForMasterIds } from '@/lib/taxonomy'
+import { keepGrades, unionMasterIds, unionSubjects, type GradeSubjectMap } from '@/lib/gradeSubjects'
 import { collapseLevels } from '@/lib/levelDisplay'
 import { GENDER_PREFS } from '@/lib/genderPref'
 import { bandFor, bandRange } from '@/lib/feeBands'
@@ -45,6 +46,9 @@ export type PostTuitionValues = {
   /** The selected grade/level names — MULTI-SELECT now (migration 79). */
   levels: string[]
   subjects: string[]
+  /** Subjects PER GRADE (owner, 7 Oct 2026): grade → subject names. `subjects`
+   *  is kept as the union of these. */
+  gradeSubjects: GradeSubjectMap
   classLevel: string
   city: string
   area: string
@@ -79,6 +83,8 @@ export type PostTuitionPayload = {
   duplicateReason?: string | null
   title: string
   masterIds: number[]
+  /** Per-grade taxonomy ids (owner, 7 Oct 2026); masterIds is their union. */
+  gradeSubjects?: { grade: string; masterIds: number[] }[]
   classLevel: string
   /** The selected levels (migration 79). Stored as jobs.class_levels. */
   classLevels: string[]
@@ -114,6 +120,7 @@ const EMPTY: PostTuitionValues = {
   category: '',
   levels: [],
   subjects: [],
+  gradeSubjects: {},
   classLevel: '',
   city: '',
   area: '',
@@ -264,7 +271,9 @@ export default function PostTuitionForm({
     selectionForMasterIds(ids)
       .then((sel) => {
         if (cancelled) return
-        setV((prev) => ({ ...prev, category: sel.category, levels: sel.levels, subjects: sel.subjects }))
+        // Per-grade subjects come straight from the ids: each id belongs to one
+        // grade, so a tuition's own per-grade picks load as they were saved.
+        setV((prev) => ({ ...prev, category: sel.category, levels: sel.levels, subjects: sel.subjects, gradeSubjects: keepGrades(sel.byGrade, sel.levels) }))
         setReady(true)
       })
       .catch(() => !cancelled && setReady(true))
@@ -297,7 +306,9 @@ export default function PostTuitionForm({
   const { titles: jobTitles } = useJobTitles()
 
   const band = useMemo(() => bandFor(v.budgetMin, v.budgetMax), [v.budgetMin, v.budgetMax])
-  const hasSelection = !!(v.category && v.levels.length > 0 && (levelLeaf || v.subjects.length > 0))
+  // Every selected grade needs at least one subject (owner, 7 Oct 2026).
+  const gradesWithNone = levelLeaf ? [] : v.levels.filter((g) => (v.gradeSubjects[g] ?? []).length === 0)
+  const hasSelection = !!(v.category && v.levels.length > 0 && (levelLeaf || (v.subjects.length > 0 && gradesWithNone.length === 0)))
 
   // Self-explaining checklist (PR80). The two parts that actually gate a post.
   const checklistItems: ChecklistItem[] = [
@@ -312,7 +323,8 @@ export default function PostTuitionForm({
     setError(null)
     setWroteItOurselves(false)
     try {
-      const masterIds = await resolveMasterIds(v.category, v.levels, levelLeaf ? [] : v.subjects)
+      const perGrade = levelLeaf ? [] : await resolveGradeSubjectIds(v.category, v.gradeSubjects, v.levels)
+      const masterIds = perGrade.length > 0 ? unionMasterIds(perGrade) : await resolveMasterIds(v.category, v.levels, levelLeaf ? [] : v.subjects)
       const res = await fetch('/api/parent/jobs/generate', {
         signal: submitSignal(),
         method: 'POST',
@@ -327,6 +339,7 @@ export default function PostTuitionForm({
           budgetMax: v.budgetMax || null,
           schedule: v.schedule,
           levels: v.levels,
+          gradeSubjects: perGrade,
           genderPreference: v.genderPreference || null,
           school: v.school || null,
         }),
@@ -350,7 +363,13 @@ export default function PostTuitionForm({
     setBusy(true)
     setError(null)
     try {
-      const masterIds = await resolveMasterIds(v.category, v.levels, levelLeaf ? [] : v.subjects)
+      if (!levelLeaf && gradesWithNone.length > 0) {
+        throw new Error(`Choose at least one subject for ${gradesWithNone.join(', ')}.`)
+      }
+      // Per grade (owner, 7 Oct 2026): each grade's subjects resolve against that
+      // grade only; the combined list (job_subjects) is their union.
+      const perGrade = levelLeaf ? [] : await resolveGradeSubjectIds(v.category, v.gradeSubjects, v.levels)
+      const masterIds = perGrade.length > 0 ? unionMasterIds(perGrade) : await resolveMasterIds(v.category, v.levels, levelLeaf ? [] : v.subjects)
       if (masterIds.length === 0) {
         throw new Error('Choose a level, a grade and at least one subject.')
       }
@@ -361,6 +380,7 @@ export default function PostTuitionForm({
         duplicateReason: override?.duplicateReason ?? null,
         title: v.title,
         masterIds,
+        gradeSubjects: perGrade.length > 0 ? perGrade : undefined,
         classLevels: v.levels,
         classLevel: collapseLevels(v.levels) || v.classLevel,
         city: v.city,
@@ -471,9 +491,17 @@ export default function PostTuitionForm({
                drops Select all" note). */
             <TaxonomySelector
               selectedLevel={v.category}
-              setSelectedLevel={(x) => setV((p) => ({ ...p, category: x, levels: [], subjects: [] }))}
+              setSelectedLevel={(x) => setV((p) => ({ ...p, category: x, levels: [], subjects: [], gradeSubjects: {} }))}
               selectedGrades={v.levels}
-              setSelectedGrades={(x) => set('levels', x)}
+              // Removing a grade removes its subject list; the union follows.
+              setSelectedGrades={(x) =>
+                setV((p) => {
+                  const gs = keepGrades(p.gradeSubjects, x)
+                  return { ...p, levels: x, gradeSubjects: gs, subjects: unionSubjects(gs, x) }
+                })
+              }
+              gradeSubjects={v.gradeSubjects}
+              setGradeSubjects={(m) => setV((p) => ({ ...p, gradeSubjects: m, subjects: unionSubjects(m, p.levels) }))}
               selectedSubjects={v.subjects}
               setSelectedSubjects={(x) => set('subjects', x)}
               allowSelectAll
