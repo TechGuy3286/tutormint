@@ -143,6 +143,18 @@ function captureAnon(request: NextRequest, response: NextResponse): void {
 }
 
 export async function proxy(request: NextRequest) {
+  // /apply — the short link on "Hiring tutors" posts (owner, 7 Oct 2026). Any
+  // capitalisation (/Apply, /APPLY) sends a TEMPORARY 307 to /register with
+  // every query parameter kept, so utm_* reach /register and the signup records
+  // them as usual. Temporary so /register stays the URL Google knows; /apply is
+  // never in the sitemap. Handled here because next.config redirects match
+  // case-sensitively.
+  if (request.nextUrl.pathname.toLowerCase() === '/apply') {
+    const target = request.nextUrl.clone()
+    target.pathname = '/register'
+    return NextResponse.redirect(target, 307)
+  }
+
   const forwarded = withTuitionCity(request) ?? request
   let response = NextResponse.next({ request: forwarded })
   captureUtm(request, response)
