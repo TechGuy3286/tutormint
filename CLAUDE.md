@@ -6938,3 +6938,36 @@ at close: tsc 0 · next build 0 · check:contrast 118 · rls:audit 219/219 · al
   with grouped subjects; four have listed tutors sharing a subject id. No admin
   or parent session was driven, so the Overview tile and the form's chips were
   not seen in a browser.
+
+## "Main subjects" chip; core subjects per level; Settings → Subjects (owner, 7 Oct 2026)
+
+Commit 9c448e1. Migration 146 (additive, applied before the code):
+`taxonomy_master.is_core boolean default false` — a flag on the
+subject-per-level link, so one subject can be core at one level and not
+another. Seeded by EXACT name on non-legacy levels: Pre-primary ×3 → 5;
+Grades 1–8 → 7; Grade 9/10 - Science → 8; Grade 9/10 - Arts → 5; O Levels → 6;
+FSC Part I & Part II → 7; AS & A Levels → 6 (116 flags). Skipped (name not at
+that level): Arts — Physics, Chemistry, Biology, "Islamiat / Islamic Studies";
+Science — "Islamiat / Islamic Studies" (taxonomy: "Islamiyat / Islamic
+Studies"); O Levels — English, Urdu, Islamiat ("English Language", "Urdu as a
+First/Second Language", "Islamiyat"/"Islamic Studies" exist); AS & A Levels —
+English. "FSc / Intermediate" was read as the FSc level only; FA, ICS and
+I Com have no defaults. 13 levels have none and hide the chip.
+
+- `lib/taxonomyBuild` loads `is_core` and builds a `core` map beside the tree
+  (`fetchCoreTree()` in lib/taxonomy). Each grade's "Select all" chip in the
+  per-grade picker is now **"Main subjects"**: it adds that grade's core
+  subjects (only ones the grade offers) to that grade only, and is hidden when
+  the grade has none. Clear all and one-by-one selection are unchanged.
+- **Admin → Settings → Subjects** (`/admin/settings/subjects`,
+  `SCREEN_ACCESS.subjectsCore = ['admin']` — owner + admin, enforced by
+  `/api/admin/taxonomy/core`): pick a level, tick "Main subject" per subject,
+  save. `lib/subjectsCore.ts` only updates `taxonomy_master.is_core` (no add,
+  rename or delete) and audits `taxonomy.core` with the added/removed names.
+- Live checks: Grade 1's chip adds the 7 primary subjects to Grade 1 with
+  Grades 2–3 untouched; Grade 9 - Science adds 8, Grade 9 - Arts 5; IGCSE Core,
+  FA, ICS, I Com hide it. A Settings toggle (Art & Drawing on Grade 1) moved
+  the chip to 8 then back to 7, with two audit rows. job_subjects (5,142) and
+  every jobs.grade_subjects were fingerprinted identical before and after. No
+  browser session was driven; the operations/staff 403 rests on the role test
+  and the route's role check.
