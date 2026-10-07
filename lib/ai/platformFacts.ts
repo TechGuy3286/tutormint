@@ -88,9 +88,14 @@ function rulesFor(facts: PlatformFacts): FactRule[] {
     {
       kind: 'free_claim',
       why: `Signing up is free, but the ${fee} and the paid plans are real charges — never say TutorMint has no fee or is completely free.`,
-      find: re(
-        /\b(?:completely free|totally free|entirely free|100% free|no fees?(?! (?:to|for) (?:browse|browsing|sign|join|regist|post|search|create|parents))|charges? (?:you )?(?:no fees?|nothing|zero)|does(?: not|n'?t) charge (?:you )?(?:anything|a fee|any fees?|fees)|costs? (?:you )?nothing|never pay anything)\b/i,
-      ),
+      find: (s) => {
+        // Browsing, signing up, posting and a parent's CNIC check really are
+        // free — "Browsing tutors and tuitions is completely free" is correct.
+        if (/\b(?:brows\w*|sign(?:ing)? ?up|register\w*|join\w*|posting|post a tuition)\b/i.test(s)) return null
+        const m =
+          /\b(?:completely free|totally free|entirely free|100% free|no fees?(?! (?:to|for) (?:browse|browsing|sign|join|regist|post|search|create|parents))|charges? (?:you )?(?:no fees?|nothing|zero)|does(?: not|n'?t) charge (?:you )?(?:anything|a fee|any fees?|fees)|costs? (?:you )?nothing|never pay anything)\b/i.exec(s)
+        return m ? { index: m.index, text: m[0] } : null
+      },
     },
     {
       kind: 'badge_rule',
@@ -167,7 +172,14 @@ function rulesFor(facts: PlatformFacts): FactRule[] {
     {
       kind: 'commission',
       why: 'TutorMint takes no commission.',
-      find: re(/\b(?:takes?|charges?|keeps?|deducts?) (?:a |any |its )?(?:commission|cut|percentage)\b/i),
+      find: (s) => {
+        const m = /\b(?:takes?|charges?|keeps?|deducts?) (?:a |any |its )?(?:commission|cut|percentage)\b/i.exec(s)
+        if (!m) return null
+        // "We do not set fees, … or take a commission" denies it, however far
+        // the "not" sits from the verb.
+        if (/\b(?:no|not|never|without)\b|n't\b/i.test(s.slice(0, m.index))) return null
+        return { index: m.index, text: m[0] }
+      },
     },
   ]
 
@@ -241,9 +253,12 @@ export function contradictionViolations(body: string, facts: PlatformFacts = bui
   const lines = body.split('\n')
   let heading: string | null = null
 
-  const check = (sentence: string, where: string | null) => {
+  const check = (sentence: string, where: string | null, isHeading = false) => {
     // Curly apostrophes read as straight ones, so “doesn’t” denies like "doesn't".
     const norm = sentence.replace(/[’‘]/g, "'")
+    // A question in the body ASKS, it claims nothing ("Are memberships
+    // refundable?"). Question HEADINGS are judged with their answer below.
+    if (!isHeading && /\?\s*$/.test(plain(norm))) return
     const kinds = new Set<string>()
     for (const rule of rules) {
       if (kinds.has(rule.kind)) continue // each kind once per sentence
@@ -270,7 +285,7 @@ export function contradictionViolations(body: string, facts: PlatformFacts = bui
       heading = plain(line)
       if (heading.endsWith('?')) {
         const before = out.length
-        check(line, heading)
+        check(line, heading, true)
         // A correctly answered question is not a contradiction.
         if (out.length > before && ANSWER_DENIES.test(answerUnder(lines, i))) out.length = before
       }

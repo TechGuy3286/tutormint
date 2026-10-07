@@ -114,6 +114,7 @@ export function adminActionLabel(action: string | null | undefined): string {
     'social.generate': 'Generated a social post',
     'blog.generate': 'Generated a blog draft',
     'blog.fix_ai': 'Asked the AI to fix a blog draft',
+    'blog.fix_published': 'Corrected a published blog post',
     'blog.publish': 'Published a post',
     'blog.schedule': 'Scheduled a post',
     'blog.unpublish': 'Unpublished a post',

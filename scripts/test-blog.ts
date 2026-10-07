@@ -391,7 +391,10 @@ import {
 
 test('contradictionViolations flags the four false claims, allows the brand slogan', () => {
   // The exact false claims the observed post made.
-  assert.ok(contradictionViolations('TutorMint is completely free to join.').length > 0)
+  // Joining IS free (the facts sheet: signing up is free), so this is correct now;
+  // a blanket "completely free" about the platform is still a false claim.
+  assert.deepEqual(contradictionViolations('TutorMint is completely free to join.'), [])
+  assert.ok(contradictionViolations('TutorMint is completely free for tutors.').length > 0)
   assert.ok(contradictionViolations('We verify every tutor’s experience before listing.').length > 0)
   assert.ok(contradictionViolations('Parents hear back quickly from tutors.').length > 0)
   // Messaging rights now come from the LIVE plan rows (owner, 7 Oct 2026): every

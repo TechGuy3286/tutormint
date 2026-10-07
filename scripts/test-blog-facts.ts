@@ -102,6 +102,12 @@ test('correct statements from the published post are never flagged', () => {
     'Signing up is free, and parents can browse tutors without an account.',
     'TutorMint takes no commission on what you charge.',
     'Payments are non-refundable.',
+    // From the live Terms and Support pages (7 Oct 2026) — correct, never flagged.
+    'We do not set fees, supervise lessons, guarantee results, or take a commission on anything you earn or pay.',
+    'Do you take a commission on my earnings or my fees?',
+    'Are memberships refundable?',
+    'Browsing tutors and tuitions is completely free and always will be, with no account needed.',
+    'Every verified tutor can message parents in the app.',
   ]) {
     assert.deepEqual(contradictionViolations(s, facts), [], s)
   }

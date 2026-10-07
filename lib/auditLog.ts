@@ -74,6 +74,7 @@ export type AuditAction =
   // the model, because it spends money and produces words we publish.
   | 'blog.generate'
   | 'blog.fix_ai'
+  | 'blog.fix_published'
 
 export async function logAdminAction(params: {
   actorId: string
