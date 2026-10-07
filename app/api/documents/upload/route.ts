@@ -6,6 +6,7 @@ import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
 import { recordTutorSelfChanges, type Step1Field } from '@/lib/fieldHistory'
 import { alertIfReupload } from '@/lib/docReupload'
+import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 
 // Upload a CNIC scan or a degree certificate.
 //
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
   try {
     form = await request.formData()
   } catch {
-    return NextResponse.json({ error: 'Invalid upload.' }, { status: 400 })
+    return NextResponse.json({ error: 'We could not read that file. Please choose it again.\nیہ فائل پڑھی نہیں جا سکی۔ براہِ کرم دوبارہ منتخب کریں۔' }, { status: 400 })
   }
 
   const kind = form.get('kind')
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
   const label = form.get('label')
 
   if (kind !== 'cnic' && kind !== 'degree' && kind !== 'selfie') {
-    return NextResponse.json({ error: 'Unknown document type.' }, { status: 400 })
+    return NextResponse.json({ error: RELOAD_AND_RETRY }, { status: 400 })
   }
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ error: 'Choose a file to upload.' }, { status: 400 })

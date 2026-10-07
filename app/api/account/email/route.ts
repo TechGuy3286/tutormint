@@ -7,6 +7,7 @@ import { logActivity } from '@/lib/activityLog'
 import { parseBody, z } from '@/lib/validate'
 import { looksLikeEmail, isSyntheticEmail } from '@/lib/phone'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
+import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 
 // Add or change the member's email (PR29 §4).
 //
@@ -26,7 +27,10 @@ import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const Body = z.object({ email: z.string().trim().max(320) })
+const Body = z.object(
+  { email: z.string({ message: RELOAD_AND_RETRY }).trim().max(320, { message: 'Enter a valid email address.\nدرست ای میل ایڈریس لکھیں۔' }) },
+  { message: RELOAD_AND_RETRY },
+)
 
 export async function POST(request: Request) {
   // Sending mail costs and can be abused; the same bucket the OTP send uses.

@@ -11,6 +11,7 @@ import { sendDuplicateCnicAlert } from '@/lib/payments/paymentAlerts'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBody, z } from '@/lib/validate'
+import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 
 // The identity card's three writes, for either role.
 //
@@ -42,9 +43,12 @@ export async function GET() {
 }
 
 const Body = z.object({
-  action: z.enum(['save-number', 'submit', 'reopen']),
-  cnicNumber: z.string().max(40).optional(),
-})
+  action: z.enum(['save-number', 'submit', 'reopen'], { message: RELOAD_AND_RETRY }),
+  cnicNumber: z
+    .string({ message: RELOAD_AND_RETRY })
+    .max(40, { message: 'Enter your 13-digit CNIC number, like 35202-1234567-1.\nاپنا 13 ہندسوں کا شناختی کارڈ نمبر لکھیں۔' })
+    .optional(),
+}, { message: RELOAD_AND_RETRY })
 
 export async function POST(request: Request) {
   const supabase = await createClient()

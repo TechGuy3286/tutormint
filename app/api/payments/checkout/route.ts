@@ -9,6 +9,7 @@ import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, text } from '@/lib/validate'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 import { bankTransferOn, getGatewaySettings, onlineCheckoutOn, recordGatewayEvent } from '@/lib/payments/gatewaySettings'
+import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 
 // node:https (PayPro) needs the Node runtime, not edge.
 export const runtime = 'nodejs'
@@ -38,8 +39,8 @@ export const maxDuration = 30
 const CheckoutBody = z.object({
   planCode: text({ min: 1, max: 64, label: 'Plan' }),
   // 'card' (default) → PayPro; 'transfer' → the bank/wallet transfer order page.
-  method: z.enum(['card', 'transfer']).optional(),
-})
+  method: z.enum(['card', 'transfer'], { message: RELOAD_AND_RETRY }).optional(),
+}, { message: RELOAD_AND_RETRY })
 
 export async function POST(request: Request) {
   const supabase = await createClient()

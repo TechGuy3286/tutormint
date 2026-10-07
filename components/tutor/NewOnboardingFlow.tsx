@@ -308,7 +308,7 @@ export default function NewOnboardingFlow({
       hideButton={opts.hideButton}
     >
       {flowError && (
-        <div role="alert" className="mb-4 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 text-xs font-semibold leading-relaxed text-tm-red-hover">
+        <div role="alert" className="mb-4 rounded-xl border border-tm-red/30 bg-tm-tint-red p-3 whitespace-pre-line text-xs font-semibold leading-relaxed text-tm-red-hover">
           {flowError}
         </div>
       )}

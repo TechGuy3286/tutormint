@@ -10,6 +10,7 @@ import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE } from '@/lib/phoneAccount'
 import { normalisePkMobile, formatPkMobile, syntheticEmail, isSyntheticEmail } from '@/lib/phone'
 import { isValidCnic, formatCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { recordFieldChanges, maskCnicHistory, type Step1Field } from '@/lib/fieldHistory'
+import { TUTOR_SUBJECT_CAP, TOO_MANY_SUBJECTS } from '@/lib/tutorSubjectCap'
 
 // PR83 (Part B) — staff edits of a tutor's step-1 TEXT/SET fields from
 // /admin/tutors/[id]: mobile, CNIC number, subjects, city, areas. Images
@@ -139,6 +140,8 @@ export async function POST(request: Request) {
   if (action === 'set-subjects') {
     const ids = Array.from(new Set((body.subjectMasterIds ?? []).filter((n) => Number.isInteger(n) && n > 0)))
     if (ids.length === 0) return NextResponse.json({ error: 'Choose at least one subject.' }, { status: 400 })
+    // The same cap the tutor's own onboarding and Settings use (lib/tutorSubjectCap).
+    if (ids.length > TUTOR_SUBJECT_CAP) return NextResponse.json({ error: TOO_MANY_SUBJECTS }, { status: 400 })
     const { data: oldRows } = await admin.from('tutor_subjects').select('master_id').eq('tutor_id', tutorId)
     const oldIds = (oldRows ?? []).map((r) => r.master_id as number).sort((a, b) => a - b)
     const del = await admin.from('tutor_subjects').delete().eq('tutor_id', tutorId)

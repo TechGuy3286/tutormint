@@ -11,6 +11,7 @@ import { activatePausedIfListed } from '@/lib/payments/goLive'
 import { normalisePkMobile, formatPkMobile, syntheticEmail, isSyntheticEmail } from '@/lib/phone'
 import { numberSavedElsewhere, NUMBER_TAKEN_MESSAGE, NUMBER_TAKEN_MESSAGE_UR } from '@/lib/phoneAccount'
 import { recordTutorSelfChanges } from '@/lib/fieldHistory'
+import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 
 // Phone / SMS OTP for the SIGNED-IN account.
 //
@@ -34,8 +35,8 @@ const OtpBody = z.object({
   phone: pkMobile,
   // Kept loose on purpose: a wrong-length code is a wrong code, and telling
   // somebody their guess was the wrong SHAPE is a hint they did not need.
-  code: z.string().max(32).optional(),
-})
+  code: z.string({ message: RELOAD_AND_RETRY }).max(32, { message: 'That code is not right. Please check it and try again.\nیہ کوڈ درست نہیں۔ دوبارہ چیک کر کے کوشش کریں۔' }).optional(),
+}, { message: RELOAD_AND_RETRY })
 
 export async function POST(request: Request) {
   const supabase = await createClient()

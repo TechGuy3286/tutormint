@@ -7,6 +7,7 @@ import { recomputeCompletion } from '@/lib/completion'
 import { logActivity } from '@/lib/activityLog'
 import { BAD_AVATAR_MESSAGE, isOurStorageUrl } from '@/lib/avatarUrl'
 import { parseBody, z } from '@/lib/validate'
+import { RELOAD_AND_RETRY, subjectIdsSchema } from '@/lib/tutorSubjectCap'
 import { serverError } from '@/lib/errorResponse'
 import { ensureTutorSlug } from '@/lib/tutorSlug'
 import { recordFieldChanges, type FieldChange } from '@/lib/fieldHistory'
@@ -42,6 +43,10 @@ type Body = {
 // profiles.city in the same save; for a PARENT it stays profiles.city. Both are
 // handled below by role, so a blanket profiles.city write here would send the
 // tutor's city to the wrong column — the exact split PR 3b closes.
+const TOO_MANY_AREAS =
+  'You picked a lot of areas. Please keep only the ones you teach in.\nآپ نے بہت زیادہ علاقے چنے ہیں۔ صرف وہ رکھیں جہاں آپ پڑھاتے ہیں۔'
+const AREA_TOO_LONG = 'That area name is too long. Please shorten it.\nعلاقے کا نام بہت لمبا ہے۔ اسے مختصر کریں۔'
+
 const PROFILE_FIELDS = new Set(['full_name', 'province', 'address', 'cnic_number', 'whatsapp'])
 const TUTOR_FIELDS = new Set([
   'gender', 'area', 'avatar_url', 'headline', 'bio',
@@ -54,17 +59,25 @@ function pick(src: Record<string, unknown> | undefined, allowed: Set<string>) {
   return out
 }
 
+// Every member-facing message here is plain English + Urdu (hotfix, 7 Oct
+// 2026) — never Zod's "<Field name> is too long." built from the key.
+const AREA = z.string({ message: RELOAD_AND_RETRY }).max(120, { message: AREA_TOO_LONG })
 const ProfileBody = z.object({
-  profile: z.record(z.string(), z.unknown()).optional(),
-  tutorProfile: z.record(z.string(), z.unknown()).optional(),
-  subjectMasterIds: z.array(z.number().int().positive()).max(60).optional(),
+  profile: z.record(z.string(), z.unknown(), { message: RELOAD_AND_RETRY }).optional(),
+  tutorProfile: z.record(z.string(), z.unknown(), { message: RELOAD_AND_RETRY }).optional(),
+  // Duplicates are removed BEFORE the cap is checked, so a repeated id never
+  // counts twice; the cap is the one shared with Settings and admin
+  // (lib/tutorSubjectCap — 400, sized from the live taxonomy).
+  subjectMasterIds: subjectIdsSchema.optional(),
   /** PR68: a tutor's areas (all in their MAIN city). Replaces the tutor_areas set. */
-  areas: z.array(z.string().max(120)).max(40).optional(),
+  areas: z.array(AREA, { message: RELOAD_AND_RETRY }).max(40, { message: TOO_MANY_AREAS }).optional(),
   /** PR85 (Part A): up to 2 cities, each with its own areas. When present it
    *  supersedes `areas`, and the FIRST key must be the main city (profile.city). */
-  areasByCity: z.record(z.string().max(120), z.array(z.string().max(120)).max(40)).optional(),
-  step: z.string().max(64).optional(),
-})
+  areasByCity: z
+    .record(z.string().max(120, { message: AREA_TOO_LONG }), z.array(AREA, { message: RELOAD_AND_RETRY }).max(40, { message: TOO_MANY_AREAS }), { message: RELOAD_AND_RETRY })
+    .optional(),
+  step: z.string({ message: RELOAD_AND_RETRY }).max(64, { message: RELOAD_AND_RETRY }).optional(),
+}, { message: RELOAD_AND_RETRY })
 
 export async function POST(request: Request) {
   const supabase = await createClient()

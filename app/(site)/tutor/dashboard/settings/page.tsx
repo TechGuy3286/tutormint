@@ -1266,7 +1266,7 @@ function SaveBar({
           </p>
         )}
         {state === 'error' && (
-          <p role="alert" className="rounded-xl border border-tm-red/30 bg-tm-tint-red px-3 py-2 text-[11px] font-bold text-tm-red">
+          <p role="alert" className="rounded-xl border border-tm-red/30 bg-tm-tint-red px-3 py-2 text-[11px] whitespace-pre-line font-bold text-tm-red">
             {msg}
           </p>
         )}
