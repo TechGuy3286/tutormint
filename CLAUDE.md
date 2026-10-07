@@ -6891,3 +6891,50 @@ No owner/admin/staff browser session was driven.
 2026-10-06 13:37:02 UTC (18:37 PKT) and "Show a Pay later link" ON at 13:37:14
 UTC (18:37 PKT), both by the owner account techguy3286@gmail.com ("Admin",
 role owner). Both are still on.
+
+## "Paid this month" tile; subjects per grade on Post a tuition (owner, 7 Oct 2026)
+
+Commits b397da5 + 59fdd20 + bf4ce05. Migration 145 (additive, applied live
+before the code): `jobs.grade_subjects jsonb` = `[{grade, masterIds}]`. Gates
+at close: tsc 0 · next build 0 · check:contrast 118 · rls:audit 219/219 · all
+64 offline suites (test:tuitionpost now 11).
+
+- **Paid this month** replaces "Monthly re-subscribed" on Overview (same
+  `payments` screen gate as the revenue tile). Distinct tutors whose fee
+  (`plan_code='verified'`) was approved (`reviewed_at`) this Pakistan-time
+  month; refunded rows and deleted accounts (`user_id` null) excluded; subline
+  "N in the last 7 days". Rules in `lib/feePayersCore.ts`. It opens
+  `/admin/payments/payers`: newest first, one row per tutor — name (→
+  `/admin/users/[id]`), date paid, TM reference, document status (approved /
+  waiting / rejected from CNIC + photo + selfie) and "Review documents" (→
+  `/admin/tutors/[id]`). October at the time: **4** (Rida Saeed, Annie — paid
+  twice, counted once — Nabeel Anthony, Ali Sabeer), all 4 in the last 7 days.
+- **Subjects per grade** (`lib/gradeSubjects.ts`). In the shared form each
+  selected grade gets its own section (search, chips, Select all, Clear all);
+  removing a grade drops its list; every grade needs a subject (form, and the
+  server in `lib/jobs` `prepareGradeSubjects`). Each grade's names resolve to
+  that grade's own taxonomy ids; `job_subjects` = their UNION, written on every
+  save, so matching, notifications, Browse, landing/city pages, JobPosting,
+  Similar tuitions are unchanged. Display (`components/SubjectsByGrade`): card
+  (4 per grade + "+N more"), tuition page (all), admin job detail;
+  identical grades merge once ("Grades 1–3: …", natural order; a non-adjacent
+  list reads "Grade 1, Grade 4: …"). A tuition with no per-grade data shows the
+  flat chips as before. The AI description lists subjects per grade; the title
+  format is unchanged. The duplicate check compares per grade when BOTH
+  tuitions have it. Edit loads per-grade subjects by grouping the tuition's ids
+  by their own grade. The id limit on posting routes rose 30 → 300 so "Select
+  all" on a large grade (Grade 1 has 57 subjects) posts.
+- **Backfill** (`scripts/dataop-backfill-grade-subjects.ts`, run after the
+  deploy): **759** tuitions filled (14 with no subjects left NULL) by grouping
+  each tuition's current ids by grade. Titles, URLs, statuses, dates and
+  `job_subjects` (5,082 rows) were fingerprinted before and after: identical.
+- **Live checks:** test tuition TM-1794 (Grades 1–3; Grade 1 Select all = 57,
+  Grade 2 Mathematics, Grade 3 General Science — Grade 3 needed one because a
+  grade with none is refused) was created directly as the team account in the
+  form's saved shape (to avoid notifying real tutors), shown grouped on the
+  card (+53 more) and page at phone and desktop widths, edited (English added
+  to Grade 2 only), then closed (200, closed banner, noindex). Five backfilled
+  tuitions (TM-1710, 1711, 1789, 1785, 1119) return 200 at unchanged URLs
+  with grouped subjects; four have listed tutors sharing a subject id. No admin
+  or parent session was driven, so the Overview tile and the form's chips were
+  not seen in a browser.
