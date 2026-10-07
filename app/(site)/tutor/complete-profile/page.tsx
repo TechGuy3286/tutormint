@@ -52,7 +52,7 @@ export default async function CompleteProfilePage({
   const methods = checkoutMethodsOf(await getGatewaySettings())
 
   if (newFlow) {
-    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} payFailed={pay === 'failed'} />
+    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} helpWaHref={whatsappHref(support.whatsapp, "Assalam-o-Alaikum, I need help choosing my subjects on TutorMint.")} payFailed={pay === 'failed'} />
   }
 
   return (

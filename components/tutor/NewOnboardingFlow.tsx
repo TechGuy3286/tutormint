@@ -22,7 +22,8 @@ import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
-import { resolveMasterIds, fetchTaxonomyTree, fetchNonLegacyMasters, type TaxonomyNode } from '@/lib/taxonomy'
+import { resolveMasterIds, fetchTaxonomyTree, fetchCoreTree, fetchNonLegacyMasters, type TaxonomyNode } from '@/lib/taxonomy'
+import { subjectGroups, filterMore } from '@/lib/onboarding/subjectGroups'
 import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
 import { NEW_FLOW_ORDER, firstMissingStep, nextMissingAfter, stepDone, type FlowStepKey } from '@/lib/tutorFlow'
 import LogoLoader from '@/components/LogoLoader'
@@ -97,9 +98,12 @@ export default function NewOnboardingFlow({
   seed,
   smsAvailable = true,
   payFailed = false,
+  helpWaHref = null,
 }: {
   seed: string
   smsAvailable?: boolean
+  /** WhatsApp support link for the subjects step's "Need help?" line. */
+  helpWaHref?: string | null
   /** The tutor returned from a failed/cancelled fee payment — show one line on
    *  the Complete Your Verification screen so they can try again (PR106-H3 §2). */
   payFailed?: boolean
@@ -347,7 +351,7 @@ export default function NewOnboardingFlow({
 
   // ---------- SUBJECTS & LEVELS ----------
   if (stepKey === 'level' || stepKey === 'subjects')
-    return <SubjectsStep initialIds={facts.subjectIds} draftCats={facts.subjCats} draftByCat={facts.subjByCat} shell={shell}
+    return <SubjectsStep initialIds={facts.subjectIds} draftCats={facts.subjCats} draftByCat={facts.subjByCat} shell={shell} helpWaHref={helpWaHref}
       onDraft={(cats, byCat) => setFacts((f) => (f ? { ...f, subjCats: cats, subjByCat: byCat } : f))}
       onSave={(ids) => void saveAndNext({ subjectMasterIds: ids }, { subjectIds: ids })} />
 
@@ -586,22 +590,59 @@ function AreaStep({ city, initial, busy, shell, onSave }: { city: string; initia
 // + tick + deep-green border (OChip). The in-progress pick is held by the parent
 // (draftCats/draftByCat) so going back then forward keeps it; a returning tutor
 // with saved subjects is prefilled from them on first open.
-function SubjectsStep({ initialIds, draftCats, draftByCat, shell, onDraft, onSave }: {
+function SubjectsStep({ initialIds, draftCats, draftByCat, shell, helpWaHref, onDraft, onSave }: {
   initialIds: number[]; draftCats: string[]; draftByCat: Record<string, string[]>; shell: ShellFn
+  /** WhatsApp support link (app_settings), shown after 60s with nothing picked. */
+  helpWaHref?: string | null
   onDraft: (cats: string[], byCat: Record<string, string[]>) => void
   onSave: (ids: number[]) => void
 }) {
   const [tree, setTree] = useState<TaxonomyNode | null>(null)
+  const [core, setCore] = useState<TaxonomyNode>({})
   const [selCats, setSelCats] = useState<string[]>(draftCats)
   const [selByCat, setSelByCat] = useState<Record<string, string[]>>(draftByCat)
   const [levelQ, setLevelQ] = useState('')
-  const [subjQ, setSubjQ] = useState('')
   const [tried, setTried] = useState(false)
+  // Hotfix (7 Oct 2026): a level's main subjects show first; the rest sit
+  // behind "More subjects", with a search box per level.
+  const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({})
+  const [moreQ, setMoreQ] = useState<Record<string, string>>({})
+  const [suggested, setSuggested] = useState<Record<string, string[]>>({})
+  const [helpVisible, setHelpVisible] = useState(false)
   const prefilled = useRef(draftCats.length > 0)
+
+  // A tutor still on this step after 60 seconds gets a small WhatsApp help link
+  // (shown only while nothing is picked).
+  useEffect(() => {
+    const t = setTimeout(() => setHelpVisible(true), 60_000)
+    return () => clearTimeout(t)
+  }, [])
+
+  // The platform's typo-tolerant + Roman-Urdu matching (/api/search/suggest —
+  // "fizics" → Physics, "hisab" → Mathematics), debounced per open search box.
+  useEffect(() => {
+    const ctrl = new AbortController()
+    const timers = Object.entries(moreQ).map(([cat, q]) => {
+      const term = q.trim()
+      if (term.length < 2) return null
+      return setTimeout(() => {
+        fetch(`/api/search/suggest?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((j: { suggestions?: { group: string; label: string }[] } | null) => {
+            const labels = (j?.suggestions ?? []).filter((x) => x.group === 'subject').map((x) => x.label)
+            setSuggested((cur) => ({ ...cur, [cat]: labels }))
+          })
+          .catch(() => {})
+      }, 250)
+    })
+    return () => { ctrl.abort(); for (const t of timers) if (t) clearTimeout(t) }
+  }, [moreQ])
 
   useEffect(() => {
     let live = true
-    void fetchTaxonomyTree().then((t) => { if (live) setTree(t) }).catch(() => {})
+    void Promise.all([fetchTaxonomyTree(), fetchCoreTree()])
+      .then(([t, c]) => { if (live) { setTree(t); setCore(c) } })
+      .catch(() => {})
     // First open with a saved selection and no draft yet → prefill from the saved
     // master ids, grouped by every category taught. Later opens use the draft.
     if (!prefilled.current && initialIds.length > 0) {
@@ -657,7 +698,6 @@ function SubjectsStep({ initialIds, draftCats, draftByCat, shell, onDraft, onSav
   const cats = tree ? Object.keys(tree) : []
   const lq = levelQ.trim().toLowerCase()
   const shownCats = lq ? cats.filter((c) => c.toLowerCase().includes(lq)) : cats
-  const sq = subjQ.trim().toLowerCase()
 
   return shell({
     onNext: () => void submit(),
@@ -680,29 +720,63 @@ function SubjectsStep({ initialIds, draftCats, draftByCat, shell, onDraft, onSav
                 ))}
               </div>
             </div>
-            {/* Subject chips per chosen level (appear once a level is tapped) */}
-            {selCats.length > 0 && (
-              <div className="space-y-3">
-                <input value={subjQ} onChange={(e) => setSubjQ(e.target.value)} placeholder="Search subjects" aria-label="Search subjects"
-                  className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-tm-navy" />
-                {selCats.map((cat) => {
-                  const subs = Array.from(new Set(Object.keys(tree[cat] ?? {}).flatMap((g) => tree[cat][g] ?? []))).sort()
-                  const shown = sq ? subs.filter((s) => s.toLowerCase().includes(sq)) : subs
-                  return (
-                    <div key={cat} className="space-y-2">
-                      {selCats.length > 1 && <p className="text-[11px] font-bold text-gray-500">{cat}</p>}
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {shown.map((sub) => (
-                          <OChip key={`${cat}:${sub}`} label={sub} selected={(selByCat[cat] ?? []).includes(sub)} onClick={() => toggleSub(cat, sub)} />
+            {/* One subject list per chosen LEVEL (never per grade): the main
+                subjects first, the rest behind "More subjects" — opened straight
+                away when the level has no main subjects. A picked subject shows
+                once, ticked, with the main chips. */}
+            {selCats.map((cat) => {
+              const picked = selByCat[cat] ?? []
+              const g = subjectGroups(tree, core, cat, picked)
+              const open = g.noMain || !!moreOpen[cat]
+              const q = moreQ[cat] ?? ''
+              const moreShown = filterMore(g.more, q, suggested[cat] ?? [])
+              return (
+                <section key={cat} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-3">
+                  <p className="text-sm font-black text-tm-navy">{cat}</p>
+                  {g.main.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {g.main.map((sub) => (
+                        <OChip key={sub} large label={sub} selected={picked.includes(sub)} onClick={() => toggleSub(cat, sub)} />
+                      ))}
+                    </div>
+                  )}
+                  {!g.noMain && g.more.length > 0 && (
+                    <button type="button" aria-expanded={open} onClick={() => setMoreOpen((m) => ({ ...m, [cat]: !m[cat] }))}
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-tm-navy px-4 text-sm font-bold text-tm-navy hover:bg-tm-tint-navy">
+                      {open ? 'Fewer subjects' : <><Plus size={14} aria-hidden />More subjects</>}
+                    </button>
+                  )}
+                  {open && g.more.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" aria-hidden />
+                        <input value={q} onChange={(e) => setMoreQ((m) => ({ ...m, [cat]: e.target.value }))}
+                          placeholder="Search subjects" aria-label={`Search ${cat} subjects`}
+                          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-tm-bg p-3 pl-9 text-sm outline-none focus:border-tm-navy" />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {moreShown.map((sub) => (
+                          <OChip key={sub} large label={sub} selected={false} onClick={() => toggleSub(cat, sub)} />
                         ))}
                       </div>
+                      {moreShown.length === 0 && (
+                        <p className="text-center text-xs text-gray-500">No subject matches “{q.trim()}”.</p>
+                      )}
                     </div>
-                  )
-                })}
-              </div>
-            )}
+                  )}
+                </section>
+              )
+            })}
             {tried && total === 0 && (
               <p className="text-center text-[11px] font-bold text-tm-red">Choose a level and at least one subject.<span lang="ur" dir="rtl" className="block font-semibold text-gray-500">ایک جماعت اور کم از کم ایک مضمون منتخب کریں۔</span></p>
+            )}
+            {helpVisible && total === 0 && helpWaHref && (
+              <p className="text-center">
+                <a href={helpWaHref} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex min-h-[44px] items-center text-xs font-bold text-tm-green-deep underline-offset-2 hover:underline">
+                  Need help? WhatsApp us
+                </a>
+              </p>
             )}
           </>
         )}
@@ -1250,10 +1324,10 @@ function TermsLink() {
 
 // A tap chip for the subjects step (PR106-G6 §1/§2): selected = light green fill +
 // tick + deep-green border, matching the shared input colours.
-function OChip({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
+function OChip({ label, selected, onClick, large = false }: { label: string; selected: boolean; onClick: () => void; large?: boolean }) {
   return (
     <button type="button" aria-pressed={selected} onClick={onClick}
-      className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-4 text-sm font-bold transition-colors ${selected ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}>
+      className={`inline-flex ${large ? 'min-h-[48px] px-5 text-base' : 'min-h-[44px] px-4 text-sm'} items-center gap-1.5 rounded-full border font-bold transition-colors ${selected ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}>
       {selected && <Check size={14} aria-hidden />}{label}
     </button>
   )

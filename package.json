@@ -41,6 +41,7 @@
     "test:levels": "tsx --test scripts/test-levels.ts",
     "test:taxonomy": "tsx --test scripts/test-taxonomy.ts",
     "test:tutorflow": "tsx --test scripts/test-tutorflow.ts",
+    "test:onboardingsubjects": "tsx --test scripts/test-onboarding-subjects.ts",
     "test:degrees": "tsx --test scripts/test-degrees.ts",
     "test:tutordash": "tsx --test scripts/test-tutor-dashboard.ts",
     "test:paymentopen": "tsx --test scripts/test-payment-open.ts",

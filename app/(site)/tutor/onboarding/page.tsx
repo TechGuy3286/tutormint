@@ -45,7 +45,7 @@ export default async function TutorOnboardingPage() {
   const manual = await manualInstructions()
 
   if (newFlow) {
-    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} />
+    return <NewOnboardingFlow seed={user.id} smsAvailable={smsDeliverable()} helpWaHref={whatsappHref(support.whatsapp, "Assalam-o-Alaikum, I need help choosing my subjects on TutorMint.")} />
   }
 
   return (

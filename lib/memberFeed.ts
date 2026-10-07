@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { formatName } from '@/lib/formatName'
+import { stoppedAtByTutor } from '@/lib/onboardingStop'
 
 // One window of the member directory, shared by /admin/users and its
 // load-more route.
@@ -32,6 +33,8 @@ export type MemberRow = {
   phoneVerifiedVia: string | null
   plan: string | null
   createdAt: string
+  /** An incomplete tutor's first unfinished onboarding step ("Subjects"). */
+  stoppedAt: string | null
 }
 
 export type MemberFilters = {
@@ -132,6 +135,12 @@ export async function memberPage({
     admin.from('plans').select('code, name'),
   ])
 
+  // "Stopped at: <step>" for every incomplete tutor on this page (hotfix 7 Oct).
+  const incompleteTutors = (profiles ?? [])
+    .filter((p) => p.role === 'tutor' && ((p.profile_completion as number) ?? 0) < 100)
+    .map((p) => p.id as string)
+  const stoppedAt = await stoppedAtByTutor(admin, incompleteTutors).catch(() => new Map<string, string>())
+
   const slugById = new Map((tutorRows ?? []).map((t) => [t.id as string, t.slug as string]))
   const tutorCityById = new Map((tutorRows ?? []).map((t) => [t.id as string, (t.city as string | null) ?? null]))
   const planByUser = new Map((subs ?? []).map((s) => [s.user_id as string, s.plan_code as string]))
@@ -165,6 +174,7 @@ export async function memberPage({
       phoneVerifiedVia: (p.phone_verified_via as string) ?? null,
       plan: planCode ? (planName.get(planCode) ?? planCode) : null,
       createdAt: p.created_at as string,
+      stoppedAt: stoppedAt.get(p.id as string) ?? null,
     }
   })
 

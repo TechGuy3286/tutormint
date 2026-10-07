@@ -55,6 +55,7 @@ export default function MemberRow({ row: r }: { row: Row }) {
 
         <p className="text-[11px] text-gray-500">
           {r.plan ?? 'No plan'} · {r.completion}% complete
+          {r.stoppedAt && <span className="font-bold text-tm-red"> · Stopped at: {r.stoppedAt}</span>}
           {r.city ? ` · ${r.city}` : ''} · joined {formatDate(r.createdAt)}
         </p>
       </div>
