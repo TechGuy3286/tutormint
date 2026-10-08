@@ -13,16 +13,18 @@ test('tuitions pause after 7 days', () => {
   assert.equal(pauseDueAtMs(base(0)) - now, 7 * DAY)
 })
 
-test('a recently-due tuition pauses the same night; the backlog goes 150 at a time, oldest first', () => {
+test('a tuition due after the cutoff pauses the same night; everything due before it is backlog, 150 at a time, oldest first', () => {
+  const cutoff = now - 0.5 * DAY
   const open = [
-    { id: 'fresh', clockBase: base(7.2) }, // due 5h ago → ordinary
+    { id: 'fresh', clockBase: base(7.2) }, // due 5h ago, after the cutoff → ordinary
+    { id: 'just-before', clockBase: base(7.6) }, // due 14h ago, before the cutoff → backlog
     { id: 'young', clockBase: base(3) }, // not due
     ...Array.from({ length: 378 }, (_, i) => ({ id: `old-${String(i).padStart(3, '0')}`, clockBase: base(9 + i * 0.05) })),
   ]
-  const p = planPauseBatch(open, now)
+  const p = planPauseBatch(open, now, BACKLOG_BATCH, cutoff)
   assert.deepEqual(p.regular.map((j) => j.id), ['fresh'])
   assert.equal(p.backlog.length, BACKLOG_BATCH)
-  assert.equal(p.backlogLeft, 378 - 150)
+  assert.equal(p.backlogLeft, 379 - 150)
   // oldest first
   assert.equal(p.backlog[0].id, 'old-377')
   assert.ok(!p.backlog.some((j) => j.id === 'young'))

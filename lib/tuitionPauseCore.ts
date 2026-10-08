@@ -4,18 +4,18 @@
 //
 // A tuition pauses 7 days after it was posted or last resumed. When the rule
 // moved from 15 days to 7, hundreds of open tuitions were already past 7 days at
-// once. Those are the BACKLOG: they are paused 150 a night, oldest first, never
-// all at once. A tuition that became due recently (inside FRESH_WINDOW) is a
-// normal pause and always goes the same night, so the backlog never delays the
-// ordinary rule. When nothing older than the window is left, the backlog is
-// cleared and every night is an ordinary night.
+// once. Those are the BACKLOG — every tuition already due when the 7-day rule
+// went live (BACKLOG_CUTOFF) — paused 150 a night, oldest first, never all at
+// once. A tuition that crosses day 7 AFTER the cutoff is an ordinary pause and
+// goes the same night, so the backlog never delays the ordinary rule. When no
+// tuition due before the cutoff is left open, the backlog is cleared.
 
 import { pauseDueAtMs } from '@/lib/tuitionStatus'
 
 export const BACKLOG_BATCH = 150
-/** A due date inside this window is an ordinary pause (the cron runs daily;
- *  36h absorbs a late or skipped run). Older due dates are backlog. */
-export const FRESH_WINDOW_MS = 36 * 3600_000
+/** The moment the 7-day rule went live (deploy of 8 Oct 2026, 20:40 UTC). A
+ *  tuition already due by then is backlog; one due later is an ordinary pause. */
+export const BACKLOG_CUTOFF_MS = Date.parse('2026-10-08T20:40:00Z')
 
 export type PauseCandidate = { id: string; clockBase: string }
 
@@ -23,11 +23,12 @@ export function planPauseBatch<T extends PauseCandidate>(
   open: T[],
   now = Date.now(),
   batch = BACKLOG_BATCH,
+  cutoffMs = BACKLOG_CUTOFF_MS,
 ): { regular: T[]; backlog: T[]; backlogLeft: number } {
   const due = open.filter((j) => pauseDueAtMs(j.clockBase) <= now)
-  const regular = due.filter((j) => now - pauseDueAtMs(j.clockBase) <= FRESH_WINDOW_MS)
+  const regular = due.filter((j) => pauseDueAtMs(j.clockBase) > cutoffMs)
   const old = due
-    .filter((j) => now - pauseDueAtMs(j.clockBase) > FRESH_WINDOW_MS)
+    .filter((j) => pauseDueAtMs(j.clockBase) <= cutoffMs)
     .sort((a, b) => pauseDueAtMs(a.clockBase) - pauseDueAtMs(b.clockBase) || a.id.localeCompare(b.id))
   const backlog = old.slice(0, batch)
   return { regular, backlog, backlogLeft: old.length - backlog.length }
