@@ -186,7 +186,7 @@ test('figureGate is active and flags with notes present', () => {
 test('withBrandTail ends with the brand line and fits 155', () => {
   const d = withBrandTail('A short lead about O Level Physics tutors in Lahore')
   assert.ok(d.length <= 155, `length ${d.length} must be <= 155`)
-  assert.ok(d.includes('No fee, no commission, no middleman.'), 'brand line present')
+  assert.ok(d.includes('Free to join, no commission, no middleman.'), 'brand line present')
 })
 
 test('withBrandTail does not double the brand line', () => {

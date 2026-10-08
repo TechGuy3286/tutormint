@@ -22,8 +22,10 @@ const KEYS = Object.keys(SCREEN_ACCESS) as Key[]
 const satisfiedKeys = (role: AdminRole) => KEYS.filter((k) => roleSatisfies(role, SCREEN_ACCESS[k])).sort()
 
 // -------------------------------------------- the access matrix (STEP 1) ----
-test('tuitions_staff may open ONLY jobs, jobsPost, jobsMutate and staffActivity', () => {
-  assert.deepEqual(satisfiedKeys('tuitions_staff'), ['jobs', 'jobsMutate', 'jobsPost', 'staffActivity'])
+// Owner, 8 Oct 2026: Tuitions staff also work the two People outreach tabs
+// (Unpaid signups, Featured WhatsApp) — the owner named all four roles.
+test('tuitions_staff may open ONLY jobs, jobsPost, jobsMutate, staffActivity and the two outreach tabs', () => {
+  assert.deepEqual(satisfiedKeys('tuitions_staff'), ['featuredWhatsapp', 'jobs', 'jobsMutate', 'jobsPost', 'staffActivity', 'unpaidSignups'])
 })
 
 test('every other screen is refused for tuitions_staff', () => {

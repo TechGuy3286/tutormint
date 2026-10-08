@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 
 // The footer's brand tagline — rendered on every page EXCEPT the homepage.
 //
-// The homepage's locked, partner-approved hero already carries "No Fee · No
+// The homepage's locked, partner-approved hero already carries "Free to Join · No
 // Commission · No Middleman", so repeating it in the footer would put the word
 // "commission" on the page twice — one more than the brand rule allows (owner,
 // 10 Sep 2026). Every other page has no such line in its body, so the footer
@@ -20,7 +20,7 @@ export default function FooterTagline() {
   if (pathname === '/') return null
   return (
     <p className="mt-2 max-w-xs text-xs leading-snug text-slate-400">
-      No fee. No commission. No middleman.
+      Free to join. No commission. No middleman.
     </p>
   )
 }

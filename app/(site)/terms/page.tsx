@@ -167,7 +167,7 @@ const SECTIONS: LegalSection[] = [
           present and we do not supervise them.
         </p>
         <ul>
-          <li>Use the free demo class before committing to anything.</li>
+          <li>Use the demo lesson before committing to anything.</li>
           <li>
             For a first in-person meeting, choose somewhere sensible and let somebody know where you
             are going.

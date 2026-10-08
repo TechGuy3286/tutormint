@@ -31,7 +31,7 @@ export const BLOG_WARN_WORDS = 800
 
 /** The site tagline. A blog meta description must NOT use it (owner, 7 Oct
  *  2026) — kept only for withBrandTail, which the blog no longer calls. */
-export const SEO_BRAND_TAIL = 'No fee, no commission, no middleman.'
+export const SEO_BRAND_TAIL = 'Free to join, no commission, no middleman.'
 
 export type BlogBrief = {
   title: string

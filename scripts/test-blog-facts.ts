@@ -164,6 +164,9 @@ test('any price or Rs amount is flagged', () => {
 test('SEO fields: length, the tagline, and a contradicting meta description', () => {
   const tagline = seoFieldViolations({ title: 'How to become a home tutor', description: 'Learn how to start tutoring. No fee, no commission, no middleman' }, facts)
   assert.ok(tagline.some((s) => s.field === 'seoDescription' && /tagline/.test(s.message)))
+  // The CURRENT tagline (owner, 8 Oct 2026) is true and allowed.
+  const current = seoFieldViolations({ title: 'How to become a home tutor', description: 'Learn how to start tutoring. Free to join. No commission. No middleman.' }, facts)
+  assert.deepEqual(current, [])
   const long = seoFieldViolations({ title: 'x'.repeat(61), description: 'y '.repeat(80) }, facts)
   assert.ok(long.some((s) => s.field === 'seoTitle' && /61 characters/.test(s.message)))
   assert.ok(long.some((s) => s.field === 'seoDescription' && /characters/.test(s.message)))

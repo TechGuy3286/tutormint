@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { saveLevelCore } from '@/lib/subjectsCore'
+import { saveLevelCore, saveUrduNames } from '@/lib/subjectsCore'
 import { parseBody, z } from '@/lib/validate'
 
 // Admin → Settings → Subjects: save a level's "Main subjects" (owner, 7 Oct
@@ -14,6 +14,8 @@ export const runtime = 'nodejs'
 const Body = z.object({
   levelSlug: z.string().min(1).max(200),
   coreMasterIds: z.array(z.coerce.number().int().positive()).max(1000),
+  /** Short Urdu names by subject slug (migration 149); '' clears one. */
+  urduNames: z.record(z.string().max(200), z.string().max(120).nullable()).optional(),
 })
 
 export async function POST(request: Request) {
@@ -29,5 +31,11 @@ export async function POST(request: Request) {
     email: gate.actor.email,
   })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
-  return NextResponse.json({ ok: true, added: result.added, removed: result.removed })
+  const urdu = await saveUrduNames(parsed.data.urduNames ?? {}, {
+    id: gate.actor.id,
+    adminRole: gate.actor.adminRole,
+    email: gate.actor.email,
+  })
+  if (!urdu.ok) return NextResponse.json({ error: urdu.error }, { status: 400 })
+  return NextResponse.json({ ok: true, added: result.added, removed: result.removed, urduChanged: urdu.changed.length })
 }

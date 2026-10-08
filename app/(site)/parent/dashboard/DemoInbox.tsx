@@ -82,7 +82,7 @@ export default function DemoInbox({ role, demos }: { role: 'parent' | 'tutor'; d
           icon={<CalendarCheck aria-hidden size={18} />}
           title={
             role === 'parent'
-              ? 'No demo requests yet. Request one free demo from any tutor you are considering.'
+              ? 'No demo requests yet. Request one demo lesson from any tutor you are considering.'
               : 'No demo requests yet. Parents can ask you for one demo each.'
           }
           action={

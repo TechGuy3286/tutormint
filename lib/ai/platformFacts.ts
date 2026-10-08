@@ -352,7 +352,10 @@ export function ctaViolation(body: string, audience: 'parents' | 'tutors' | 'bot
   return { match: p, line: plain(p).slice(0, 240), path: ctaPathFor(audience) }
 }
 
-const TAGLINE_RE = /\bno fee,?\s*no commission|\bno middleman\b/i
+// The RETIRED tagline ("No fee, no commission, no middleman") contradicts the
+// Spam Free Platform Fee and is still flagged. The current tagline, "Free to
+// join. No commission. No middleman." (owner, 8 Oct 2026), is TRUE and allowed.
+const TAGLINE_RE = /\bno fees?[.,]?\s*no commission/i
 export const SEO_TITLE_LIMIT = 60
 export const SEO_DESCRIPTION_LIMIT = 155
 
@@ -368,7 +371,7 @@ export function seoFieldViolations(
   if (t.length > SEO_TITLE_LIMIT) out.push({ field: 'seoTitle', message: `The SEO title is ${t.length} characters — keep it to ${SEO_TITLE_LIMIT}.` })
   if (d.length > SEO_DESCRIPTION_LIMIT) out.push({ field: 'seoDescription', message: `The meta description is ${d.length} characters — keep it to ${SEO_DESCRIPTION_LIMIT}.` })
   if (TAGLINE_RE.test(d)) {
-    out.push({ field: 'seoDescription', message: 'The meta description uses the site tagline (“No fee, no commission, no middleman”) — describe this post instead.' })
+    out.push({ field: 'seoDescription', message: 'The meta description uses the retired tagline (“No fee, no commission, no middleman”) — it contradicts the Spam Free Platform Fee. Describe this post instead.' })
   } else {
     for (const v of contradictionViolations(d, facts)) {
       out.push({ field: 'seoDescription', message: `The meta description contradicts the facts: “${v.line}” — ${v.why}` })

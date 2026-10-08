@@ -183,3 +183,115 @@ export function deductionProblem(d: { name: string; percent: number | null; fixe
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d.effectiveFrom)) return 'Choose the date the deduction starts.'
   return null
 }
+
+// ---------------------------------------------------------------------------
+// Settlement PER ORDER (owner, 8 Oct 2026). When the gateway file carries a
+// Settle-Date, the PAID orders are grouped by that date and each group's
+// MerchantShare total is compared with ONE bank transfer: the nearest transfer
+// within ±2 days of the settle date, preferring one on or after it (the owner's
+// decision — PayPro's Settle-Date can trail the bank credit by a day, as in the
+// 5 Oct transfer that pays the 6 Oct group). A transfer pays one group only.
+//   difference ≤ Rs 2 short   → "bank charge" (matched), not missing
+//   more than Rs 2 short      → "missing"
+//   more than Rs 2 over       → "over"
+//   no transfer in the window → "missing"
+// PAID orders with no settlement yet are "Due from PayPro", with their age;
+// over 3 days is overdue (shown red). Listed only — nothing is changed.
+
+export const SETTLE_WINDOW_DAYS = 2
+export const BANK_CHARGE_TOLERANCE_PKR = 2
+export const DUE_OVERDUE_DAYS = 3
+
+export type SettleGroupStatus = 'matched' | 'bank_charge' | 'missing' | 'over'
+
+export type SettleGroup = {
+  settleDate: string
+  orderCount: number
+  orderNumbers: string[]
+  merchantShare: number
+  transfer: { transferredOn: string; amountPkr: number; reference: string | null } | null
+  /** transfer − MerchantShare total (negative = short). Null with no transfer. */
+  difference: number | null
+  status: SettleGroupStatus
+  /** Rupees kept by the bank, when status is bank_charge. */
+  bankCharge: number
+}
+
+export type DueOrder = { orderNumber: string; merchantShare: number | null; datePaid: string | null; ageDays: number | null; overdue: boolean }
+
+const dayNum = (d: string) => Math.round(Date.parse(`${d}T00:00:00Z`) / 86_400_000)
+
+/** True when a PAID order has been settled by the gateway. */
+export function isSettled(r: PayproRow): boolean {
+  if (!r.settleDate) return false
+  return !/\b(pending|unsettled|not|due|hold)\b/i.test(r.settleStatus ?? '')
+}
+
+export function settleByDate(
+  rows: PayproRow[],
+  transfers: Transfer[],
+  nowIso: string,
+): { groups: SettleGroup[]; due: DueOrder[] } {
+  const paid = rows.filter((r) => isPaid(r.transactionStatus))
+  const byDate = new Map<string, PayproRow[]>()
+  for (const r of paid) {
+    if (!isSettled(r)) continue
+    const list = byDate.get(r.settleDate!) ?? []
+    list.push(r)
+    byDate.set(r.settleDate!, list)
+  }
+
+  const used = new Set<number>()
+  const groups: SettleGroup[] = [...byDate.keys()].sort().map((settleDate) => {
+    const orders = byDate.get(settleDate)!
+    const share = round2(orders.reduce((s, r) => s + (r.merchantShare ?? 0), 0))
+    // Nearest unused transfer within the window; on/after wins a tie, then the
+    // amount closest to the share.
+    let best = -1
+    let bestKey: [number, number, number] | null = null
+    transfers.forEach((t, i) => {
+      if (used.has(i)) return
+      const gap = dayNum(t.transferredOn) - dayNum(settleDate)
+      if (Math.abs(gap) > SETTLE_WINDOW_DAYS) return
+      const key: [number, number, number] = [Math.abs(gap), gap >= 0 ? 0 : 1, Math.abs(t.amountPkr - share)]
+      if (!bestKey || key[0] < bestKey[0] || (key[0] === bestKey[0] && (key[1] < bestKey[1] || (key[1] === bestKey[1] && key[2] < bestKey[2])))) {
+        best = i
+        bestKey = key
+      }
+    })
+    const t = best >= 0 ? transfers[best] : null
+    if (best >= 0) used.add(best)
+    const difference = t ? round2(t.amountPkr - share) : null
+    let status: SettleGroupStatus = 'missing'
+    let bankCharge = 0
+    if (difference !== null) {
+      if (Math.abs(difference) < 0.005) status = 'matched'
+      else if (difference < 0 && -difference <= BANK_CHARGE_TOLERANCE_PKR + 0.005) {
+        status = 'bank_charge'
+        bankCharge = round2(-difference)
+      } else if (difference > BANK_CHARGE_TOLERANCE_PKR) status = 'over'
+      else if (difference > 0) status = 'matched'
+      else status = 'missing'
+    }
+    return {
+      settleDate,
+      orderCount: orders.length,
+      orderNumbers: orders.map((r) => r.orderNumber),
+      merchantShare: share,
+      transfer: t ? { transferredOn: t.transferredOn, amountPkr: t.amountPkr, reference: t.reference } : null,
+      difference,
+      status,
+      bankCharge,
+    }
+  })
+
+  const today = dayNum(pkDay(nowIso))
+  const due: DueOrder[] = paid
+    .filter((r) => !isSettled(r))
+    .map((r) => {
+      const ageDays = r.datePaid ? Math.max(0, today - dayNum(r.datePaid)) : null
+      return { orderNumber: r.orderNumber, merchantShare: r.merchantShare, datePaid: r.datePaid, ageDays, overdue: ageDays !== null && ageDays > DUE_OVERDUE_DAYS }
+    })
+    .sort((a, b) => (b.ageDays ?? 0) - (a.ageDays ?? 0))
+  return { groups, due }
+}

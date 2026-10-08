@@ -301,6 +301,57 @@ export default function SettlementCheck({ view, gatewayName }: { view: Settlemen
         </div>
       </div>
 
+      {/* Per settle date (owner, 8 Oct 2026) — only when the file has Settle-Dates. */}
+      {view.perSettle && (
+        <div className={SUB}>
+          <p className="text-xs font-black text-tm-navy">By settle date</p>
+          <p className="text-[11px] text-gray-600">
+            Each settle date&rsquo;s MerchantShare total against the nearest bank transfer within 2 days. A shortfall of Rs 2 or
+            less is a bank charge, not missing money.
+          </p>
+          {view.perSettle.groups.length === 0 ? (
+            <p className="text-[11px] text-gray-500">No orders settled in this range.</p>
+          ) : (
+            <ul className="divide-y divide-gray-200">
+              {view.perSettle.groups.map((g) => (
+                <li key={g.settleDate} className="flex flex-wrap items-baseline justify-between gap-2 py-1.5 text-xs text-slate-700">
+                  <span>
+                    <span className="font-bold">Settled {formatDate(g.settleDate)}</span> · {g.orderCount} order{g.orderCount === 1 ? '' : 's'} ·{' '}
+                    {pkr(g.merchantShare)}
+                    {g.transfer ? ` · transfer ${formatDate(g.transfer.transferredOn)} ${pkr(g.transfer.amountPkr)}` : ' · no transfer within 2 days'}
+                  </span>
+                  <span
+                    className={`font-black ${
+                      g.status === 'missing' ? 'text-tm-red' : g.status === 'over' ? 'text-tm-navy' : 'text-tm-green-deep'
+                    }`}
+                  >
+                    {g.status === 'matched' && 'Matched'}
+                    {g.status === 'bank_charge' && `Matched · ${pkr(g.bankCharge)} bank charge`}
+                    {g.status === 'over' && `${pkr(g.difference ?? 0)} more than expected`}
+                    {g.status === 'missing' && (g.difference === null ? 'Missing' : `${pkr(-(g.difference ?? 0))} missing`)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="pt-1 text-xs font-black text-tm-navy">Due from {gatewayName}</p>
+          {view.perSettle.due.length === 0 ? (
+            <p className="text-[11px] font-bold text-tm-green-deep">Every paid order has been settled.</p>
+          ) : (
+            <ul className="space-y-0.5 text-[11px]">
+              {view.perSettle.due.map((d) => (
+                <li key={d.orderNumber} className={d.overdue ? 'font-bold text-tm-red' : 'text-slate-700'}>
+                  {d.orderNumber} · {d.merchantShare !== null ? pkr(d.merchantShare) : '—'}
+                  {d.datePaid ? ` · paid ${formatDate(d.datePaid)}` : ''}
+                  {d.ageDays !== null ? ` · ${d.ageDays} day${d.ageDays === 1 ? '' : 's'} old` : ''}
+                  {d.overdue ? ' · overdue' : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {/* The result for the range. */}
       <dl className="space-y-1 rounded-xl border border-gray-200 bg-white p-3 text-xs">
         <div className="flex justify-between gap-3"><dt className="text-gray-600">TutorMint collected</dt><dd className="font-bold text-slate-800">{pkr(r.ourTotal)}</dd></div>

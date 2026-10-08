@@ -88,6 +88,12 @@ export const SCREEN_ACCESS = {
   // ITS OWN activity only — the page and detail route force the id to the actor
   // for this role, so it can never read another staff member's.
   staffActivity: ['admin', 'tuitions_staff'] as AdminRole[],
+  // Staff outreach under People (owner, 8 Oct 2026): Unpaid signups (call /
+  // WhatsApp new tutors who have not paid) and Featured WhatsApp (send Featured
+  // tutors their new matches). Owner, admin, Operations AND Tuitions staff — the
+  // owner named all four. These are the only People screens tuitions_staff opens.
+  unpaidSignups: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
+  featuredWhatsapp: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
   orphans: ['admin', 'operations'] as AdminRole[],
   signups: ['admin', 'operations'] as AdminRole[],
   usersExport: ['admin'] as AdminRole[],

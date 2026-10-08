@@ -23,7 +23,6 @@ export default function VerifiedBadge({
       showUrdu={showUrdu}
       colour={BRAND.greenDeep}
       label="Verified"
-      urdu="تصدیق شدہ"
       title="Verified member"
     >
       <path

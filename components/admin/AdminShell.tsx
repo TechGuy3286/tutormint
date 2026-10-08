@@ -4,6 +4,8 @@ import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
+  Phone,
+  MessageCircle,
   Activity,
   Camera,
   ChevronDown,
@@ -85,6 +87,8 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; className?: str
   copy: Copy,
   mail: Mail,
   userPlus: UserPlus,
+  phone: Phone,
+  messageCircle: MessageCircle,
   userX: UserX,
   shieldAlert: ShieldAlert,
   shieldCheck: ShieldCheck,

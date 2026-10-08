@@ -2,11 +2,10 @@ import Link from 'next/link'
 import { ArrowRight, BadgeCheck, Briefcase, GraduationCap, Users, Wallet } from 'lucide-react'
 import type { ComponentType } from 'react'
 
-import RevenueChart from '@/components/admin/charts/RevenueChart'
-import SignupsChart from '@/components/admin/charts/SignupsChart'
 import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadOverview } from '@/lib/adminOverview'
+import { loadFunnel, loadTodo } from '@/lib/adminTodo'
 import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
 
@@ -22,28 +21,30 @@ const TILE_STYLE: Record<string, { tone: TileTone; icon: ComponentType<{ size?: 
   jobs: { tone: 'gold', icon: Briefcase },
 }
 
-// The admin landing: how much the platform is earning, and who to nudge onto a
-// plan (owner, 14 Sep 2026). The queue tiles and the "Needs attention" block
-// were removed — each queue has its own screen and its own count. The tiles are
-// money and headcount; the Tips block is real, clickable conversion worklists.
+// The admin landing (redesign, owner 8 Oct 2026): the 5 money/headcount cards,
+// then "Today's to-do" — one row per job waiting, with a count and a one-tap
+// link, hidden at 0 — then "Signup to payment" for the last 7 or 30 days. The
+// Signups-by-role and Revenue-by-plan charts and the "Tutors to nudge" tips were
+// removed. Every row is filtered to the screens this role may open.
 //
-// NO INVENTED DELTAS. Not a percentage or an arrow anywhere — against seed data
-// a comparison would be an artefact. A role only sees tiles/tips for screens it
-// may open.
+// NO INVENTED DELTAS. The funnel's "% lost" is computed from the same cohort's
+// real counts, step to step — never a comparison against another period.
 
 export const dynamic = 'force-dynamic'
 
 export default async function AdminHome({
   searchParams,
 }: {
-  searchParams: Promise<{ denied?: string }>
+  searchParams: Promise<{ denied?: string; funnel?: string }>
 }) {
   // Overview figures are refused for the restricted tuitions_staff role — this
   // guard redirects it to its own home (/admin/jobs). Full roles pass through.
   const actor = await requireAdminRole(...SCREEN_ACCESS.overview)
-  const denied = (await searchParams).denied === '1'
+  const sp = await searchParams
+  const denied = sp.denied === '1'
+  const funnelDays: 7 | 30 = sp.funnel === '30' ? 30 : 7
 
-  const overview = await loadOverview()
+  const [overview, todoAll, funnel] = await Promise.all([loadOverview(), loadTodo(), loadFunnel(funnelDays)])
   if (!overview) {
     return (
       <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
@@ -57,10 +58,10 @@ export default async function AdminHome({
     !screen || roleSatisfies(actor.adminRole, SCREEN_ACCESS[screen])
 
   const tiles = overview.tiles.filter((t) => may(t.screen))
-  // Tips are the conversion worklists (member lists + the signups page). A role
-  // that cannot open the member directory is not shown them.
+  // The funnel is member data: shown to roles that may open the member directory.
   const seesMembers = may('users')
-  const seesMoney = may('payments')
+  // Today's to-do: only rows whose screen this role may open.
+  const todo = todoAll.filter((row) => may(row.screen))
   // The SMS/OTP delivery provider (owner PR5b §1.1) — owner and admin only, and
   // only ever the provider NAME, never a credential. `['admin']` admits owner too.
   const seesDelivery = roleSatisfies(actor.adminRole, ['admin'])
@@ -117,32 +118,26 @@ export default async function AdminHome({
         </div>
       )}
 
-      {/* ------------------------------------------------------------- tips */}
-      {seesMembers && (
+      {/* ------------------------------------------------------ today's to-do */}
+      {todo.length > 0 && (
         <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="border-b border-gray-200 px-4 py-3 sm:px-5">
-            <h2 className="text-sm font-black text-tm-navy">Tutors to nudge to get verified</h2>
-            <p className="mt-0.5 text-[11px] text-gray-500">
-              Each row opens the exact list.
-            </p>
+            <h2 className="text-sm font-black text-tm-navy">Today&rsquo;s to-do</h2>
+            <p className="mt-0.5 text-[11px] text-gray-500">Each row opens the exact list. Rows with nothing to do are hidden.</p>
           </div>
           <ul>
-            {overview.tips.map((tip) => (
-              <li key={tip.key} className="border-b border-gray-200 last:border-0">
+            {todo.map((row) => (
+              <li key={row.key} className="border-b border-gray-200 last:border-0">
                 <Link
-                  href={tip.href}
+                  href={row.href}
                   className="flex min-h-[56px] items-center gap-3 px-4 py-3 transition-colors hover:bg-tm-bg sm:px-5"
                 >
-                  <span
-                    className={`grid h-8 min-w-8 shrink-0 place-items-center rounded-full px-1.5 text-xs font-black ${
-                      tip.count > 0 ? 'bg-tm-tint-navy text-tm-navy' : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {tip.count}
+                  <span className="grid h-8 min-w-8 shrink-0 place-items-center rounded-full bg-tm-tint-red px-1.5 text-xs font-black text-tm-red">
+                    {row.count}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-xs font-bold text-tm-navy">{tip.label}</span>
-                    <span className="block text-[11px] text-gray-500">{tip.meaning}</span>
+                    <span className="block text-xs font-bold text-tm-navy">{row.label}</span>
+                    {row.detail && <span className="block text-[11px] text-gray-600">{row.detail}</span>}
                   </span>
                   <ArrowRight aria-hidden size={16} className="shrink-0 text-tm-red" />
                 </Link>
@@ -151,18 +146,54 @@ export default async function AdminHome({
           </ul>
         </section>
       )}
+      {seesMembers && todo.length === 0 && (
+        <p className="rounded-2xl border border-gray-200 bg-white p-4 text-center text-xs font-bold text-tm-green-deep">
+          Nothing waiting on you today.
+        </p>
+      )}
 
-      {/* --------------------------------------------------------- the charts */}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        {seesMembers && <SignupsChart data={overview.signups} days={overview.signupDays} />}
-        {seesMoney && (
-          <RevenueChart
-            data={overview.revenue}
-            period={overview.revenuePeriod}
-            total={overview.revenueTotal}
-          />
-        )}
-      </div>
+      {/* --------------------------------------------------- signup to payment */}
+      {seesMembers && (
+        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-black text-tm-navy">Signup to payment</h2>
+              <p className="mt-0.5 text-[11px] text-gray-500">
+                Tutors who signed up in the last {funnelDays} days. Paused and test accounts are left out.
+              </p>
+            </div>
+            <div className="flex gap-1" role="group" aria-label="Period">
+              {([7, 30] as const).map((d) => (
+                <Link
+                  key={d}
+                  href={d === 7 ? '/admin' : '/admin?funnel=30'}
+                  aria-current={d === funnelDays ? 'page' : undefined}
+                  className={`inline-flex min-h-[36px] items-center rounded-full border px-3 text-[11px] font-bold ${
+                    d === funnelDays ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+                  }`}
+                >
+                  {d} days
+                </Link>
+              ))}
+            </div>
+          </div>
+          <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {funnel.map((step, i) => (
+              <li key={step.label} className="rounded-xl bg-tm-bg p-3">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                  {i + 1}. {step.label}
+                </p>
+                <p className="text-2xl font-black text-tm-navy">{step.count}</p>
+                {step.lostPct !== null && (
+                  <p className={`text-[11px] font-bold ${step.lostPct > 0 ? 'text-tm-red' : 'text-tm-green-deep'}`}>
+                    {step.lostPct > 0 ? `${step.lostPct}% lost` : 'None lost'}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
     </div>
   )
 }

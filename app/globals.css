@@ -274,3 +274,49 @@ input:disabled,
 [aria-disabled='true'] {
   cursor: not-allowed;
 }
+
+/* Hover lift on cards and boxes, site-wide (owner, 8 Oct 2026). Every card and
+   box on the site is drawn with the same shape — `rounded-2xl` / `rounded-3xl`
+   plus `border` (Browse cards, profile sections, dashboard tiles, plan cards,
+   blog cards, admin boxes) — so ONE rule covers them all, with no per-component
+   class and no JavaScript. transform + box-shadow only: neither moves layout,
+   so CLS is unaffected. Only the OUTERMOST card lifts (a box inside a card stays
+   put), and dialogs, fixed/sticky bars and form fields are left alone.
+   Kept in @layer components with :where() so any explicit utility on a card
+   (its own hover:shadow, a translate) still wins. Touch screens get the same
+   shadow while the finger is down (:active), briefly, with no lift. */
+@layer components {
+  :where(.rounded-2xl.border, .rounded-3xl.border):not(
+      :where(.fixed, .sticky, [role='dialog'], input, select, textarea),
+      :where([role='dialog'] *, .rounded-2xl.border *, .rounded-3xl.border *)
+    ) {
+    transition:
+      transform 160ms ease-out,
+      box-shadow 160ms ease-out;
+  }
+  @media (hover: hover) {
+    :where(.rounded-2xl.border, .rounded-3xl.border):not(
+        :where(.fixed, .sticky, [role='dialog'], input, select, textarea),
+        :where([role='dialog'] *, .rounded-2xl.border *, .rounded-3xl.border *)
+      ):hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px -12px rgb(10 10 10 / 0.22);
+    }
+  }
+  @media (hover: none) {
+    :where(.rounded-2xl.border, .rounded-3xl.border):not(
+        :where(.fixed, .sticky, [role='dialog'], input, select, textarea),
+        :where([role='dialog'] *, .rounded-2xl.border *, .rounded-3xl.border *)
+      ):active {
+      box-shadow: 0 10px 24px -12px rgb(10 10 10 / 0.22);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :where(.rounded-2xl.border, .rounded-3xl.border) {
+      transition: none;
+    }
+    :where(.rounded-2xl.border, .rounded-3xl.border):hover {
+      transform: none;
+    }
+  }
+}

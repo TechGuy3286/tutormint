@@ -34,7 +34,7 @@ export type TaxonomyRow = {
 
 type CategoryRaw = { slug: string; name: string; sort_order: number | null }
 type LevelRaw = { slug: string; category_slug: string; name: string; sort_order: number | null; legacy: boolean | null }
-type SubjectRaw = { slug: string; name: string }
+type SubjectRaw = { slug: string; name: string; name_ur?: string | null }
 type MasterRaw = { id: number; category_slug: string; level_slug: string; subject_slug: string | null; leaf_type: string | null; is_core?: boolean | null }
 
 export type TaxonomyTables = {
@@ -78,7 +78,7 @@ export async function fetchTaxonomyTables(
       supabase.from('taxonomy_levels').select('slug, category_slug, name, sort_order, legacy').order('slug').range(f, t),
     ),
     pageAll<SubjectRaw>((f, t) =>
-      supabase.from('taxonomy_subjects').select('slug, name').order('slug').range(f, t),
+      supabase.from('taxonomy_subjects').select('slug, name, name_ur').order('slug').range(f, t),
     ),
     pageAll<MasterRaw>((f, t) =>
       supabase.from('taxonomy_master').select('id, category_slug, level_slug, subject_slug, leaf_type, is_core').order('id').range(f, t),
@@ -106,7 +106,7 @@ export async function fetchTaxonomyTables(
  * merge their subject lists. `rows` keeps ALL rows so labels/selection can look
  * a retired row up by id.
  */
-export function buildTaxonomy(t: TaxonomyTables): { rows: TaxonomyRow[]; tree: TaxonomyNode; core: TaxonomyNode } {
+export function buildTaxonomy(t: TaxonomyTables): { rows: TaxonomyRow[]; tree: TaxonomyNode; core: TaxonomyNode; urdu: Record<string, string> } {
   const categoryName = new Map<string, string>()
   const categoryOrder = new Map<string, number>()
   for (const c of t.categories) {
@@ -169,7 +169,15 @@ export function buildTaxonomy(t: TaxonomyTables): { rows: TaxonomyRow[]; tree: T
     if (!list.includes(r.subject)) list.push(r.subject)
   }
 
-  return { rows, tree, core }
+  // English subject name → its short Urdu name (migration 149), where one is set.
+  // Shown under the English name on the onboarding subject chips.
+  const urdu: Record<string, string> = {}
+  for (const s of t.subjects) {
+    const ur = (s.name_ur ?? '').trim()
+    if (ur) urdu[s.name] = ur
+  }
+
+  return { rows, tree, core, urdu }
 }
 
 // ---------------------------------------------------------------------------

@@ -49,7 +49,7 @@ export default async function TutorDemosPage() {
               {count ? `${count} demo request${count === 1 ? '' : 's'} waiting` : 'Demo requests'}
             </h1>
             <p className="text-sm leading-relaxed text-slate-700">
-              Parents can ask you for a free demo. Verify your account to see who asked and reply.
+              Parents can ask you for a demo lesson. Verify your account to see who asked and reply.
             </p>
             <Link
               href="/tutor/complete-profile?step=verify"

@@ -22,7 +22,7 @@ import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
-import { resolveMasterIds, fetchTaxonomyTree, fetchCoreTree, fetchNonLegacyMasters, type TaxonomyNode } from '@/lib/taxonomy'
+import { resolveMasterIds, fetchTaxonomyTree, fetchCoreTree, fetchNonLegacyMasters, fetchSubjectUrdu, type TaxonomyNode } from '@/lib/taxonomy'
 import { subjectGroups, filterMore } from '@/lib/onboarding/subjectGroups'
 import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
 import { NEW_FLOW_ORDER, firstMissingStep, nextMissingAfter, stepDone, type FlowStepKey } from '@/lib/tutorFlow'
@@ -599,6 +599,8 @@ function SubjectsStep({ initialIds, draftCats, draftByCat, shell, helpWaHref, on
 }) {
   const [tree, setTree] = useState<TaxonomyNode | null>(null)
   const [core, setCore] = useState<TaxonomyNode>({})
+  // Short Urdu subject names (migration 149), shown under the English name.
+  const [urdu, setUrdu] = useState<Record<string, string>>({})
   const [selCats, setSelCats] = useState<string[]>(draftCats)
   const [selByCat, setSelByCat] = useState<Record<string, string[]>>(draftByCat)
   const [levelQ, setLevelQ] = useState('')
@@ -640,8 +642,8 @@ function SubjectsStep({ initialIds, draftCats, draftByCat, shell, helpWaHref, on
 
   useEffect(() => {
     let live = true
-    void Promise.all([fetchTaxonomyTree(), fetchCoreTree()])
-      .then(([t, c]) => { if (live) { setTree(t); setCore(c) } })
+    void Promise.all([fetchTaxonomyTree(), fetchCoreTree(), fetchSubjectUrdu()])
+      .then(([t, c, u]) => { if (live) { setTree(t); setCore(c); setUrdu(u) } })
       .catch(() => {})
     // First open with a saved selection and no draft yet → prefill from the saved
     // master ids, grouped by every category taught. Later opens use the draft.
@@ -736,7 +738,7 @@ function SubjectsStep({ initialIds, draftCats, draftByCat, shell, helpWaHref, on
                   {g.main.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {g.main.map((sub) => (
-                        <OChip key={sub} large label={sub} selected={picked.includes(sub)} onClick={() => toggleSub(cat, sub)} />
+                        <OChip key={sub} large label={sub} sub={urdu[sub]} selected={picked.includes(sub)} onClick={() => toggleSub(cat, sub)} />
                       ))}
                     </div>
                   )}
@@ -756,7 +758,7 @@ function SubjectsStep({ initialIds, draftCats, draftByCat, shell, helpWaHref, on
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {moreShown.map((sub) => (
-                          <OChip key={sub} large label={sub} selected={false} onClick={() => toggleSub(cat, sub)} />
+                          <OChip key={sub} large label={sub} sub={urdu[sub]} selected={false} onClick={() => toggleSub(cat, sub)} />
                         ))}
                       </div>
                       {moreShown.length === 0 && (
@@ -1324,11 +1326,19 @@ function TermsLink() {
 
 // A tap chip for the subjects step (PR106-G6 §1/§2): selected = light green fill +
 // tick + deep-green border, matching the shared input colours.
-function OChip({ label, selected, onClick, large = false }: { label: string; selected: boolean; onClick: () => void; large?: boolean }) {
+function OChip({ label, selected, onClick, large = false, sub }: { label: string; selected: boolean; onClick: () => void; large?: boolean; sub?: string }) {
+  // `sub` = the short Urdu name, under the English one (owner, 8 Oct 2026). A
+  // two-line chip is a pill with rounded corners rather than a full circle end.
   return (
     <button type="button" aria-pressed={selected} onClick={onClick}
-      className={`inline-flex ${large ? 'min-h-[48px] px-5 text-base' : 'min-h-[44px] px-4 text-sm'} items-center gap-1.5 rounded-full border font-bold transition-colors ${selected ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}>
-      {selected && <Check size={14} aria-hidden />}{label}
+      className={`inline-flex ${large ? 'min-h-[48px] px-5 text-base' : 'min-h-[44px] px-4 text-sm'} ${sub ? 'rounded-[18px] py-1.5' : 'rounded-full'} items-center gap-1.5 border font-bold transition-colors ${selected ? 'border-tm-green-deep bg-tm-tint-green text-tm-green-deep' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'}`}>
+      {selected && <Check size={14} aria-hidden />}
+      {sub ? (
+        <span className="flex flex-col items-start leading-tight">
+          <span>{label}</span>
+          <span lang="ur" dir="rtl" className="text-[13px] font-semibold">{sub}</span>
+        </span>
+      ) : label}
     </button>
   )
 }

@@ -612,6 +612,7 @@ Finishing the AssanPay integration is a fill-in job, not a rewrite. Everything t
 - Built from design/reference/homepage.png, not recovered from git: the approved design was never committed to this repository and production has never served it. See the T-UI1 note below. NO new sections, no ads slot, no featured-tutor strip, no copy changes without an explicit owner instruction in the prompt.
 - The earlier "homepage featured strip" idea is dropped; featured prominence lives on /browse/tutors ranking only.
 - **Hero pill text colour is `tm-navy` (#151E6B).** Explicit owner authorisation dated 2 Sep 2026, and the only permitted change to this page in that pass. The pill's background (`tm-tint-green`) and border (`tm-green-deep/20`) are unchanged. Recorded here so it is not reverted as a stray edit to a locked file.
+- **Hero line reads "Free to Join • No Commission • No Middleman • Live Demo"** (was "No Fee • …"). Explicit owner authorisation dated 8 Oct 2026 (the tagline change, confirmed for the locked hero). Recorded here so it is not reverted as a stray edit to a locked file.
 
 ## Graceful handling of unknown input (T8 polish checklist)
 
@@ -6999,3 +7000,55 @@ Commits 8841774 + e140500. Migration 148 (applied live before the push): `plans.
 - **The 5 published posts** (owner-approved, `scripts/dataop-fix-published-posts.ts`, exact-match edits, a `post_revisions` row and a `blog.fix_published` audit row each): badge/degree/video claims corrected, the fee renamed, "no fee" lines → "TutorMint takes no commission on any tuition.", the home-tutor FAQ messaging answer set as given, every closing CTA linked (/apply, /browse/tutors, /browse/tuitions for both-audience posts), "a related guide" → the post title, /membership-plans links removed, the 4 dead links + the noindex link → /tuition-jobs/lahore (linked once; repeat mentions kept as plain words), Keeping messages useful given 4 internal links, a meta description ≤155 without the tagline on each. URL, title, publish date, approval and headings unchanged; updated_at set. Live checker: **0 issues on all 5**; every link 200 (/apply 307 → /register).
 
 **Reported, not changed:** the site tagline "No fee." (footer on every page, the About heading) is flagged by the blog rule but is the site's brand line; "free demo" on /faq, /terms, /support; example tuition fees (Rs 20,000 academy example, Rs 5,000–20,000 filter bands) on /faq and /about — tuition amounts, not TutorMint prices. Not driven (no session): a Basic tutor's message POST end to end — `getEntitlements` for a real Basic tutor returns `verified true, canInitiateMessage true`, which is every gate `canStartThread` applies.
+
+## Overview redesign, outreach tabs, settlement per order, Urdu subject names, wording (owner, 8 Oct 2026)
+
+Migration 149 (additive, applied live before the code): `taxonomy_subjects.name_ur`
+(seeded for the 13 main subjects), `tutor_contact_logs`, `featured_whatsapp_sends`
+(unique per tutor + tuition). Both new tables are admin-read, server-written.
+
+- **Hover lift, site-wide.** One rule in `app/globals.css` (`@layer components`):
+  every `rounded-2xl`/`rounded-3xl` + `border` box lifts 2px with a soft shadow
+  on hover, and shows the shadow while pressed on touch. Outermost card only;
+  dialogs, fixed/sticky bars and form fields excluded; reduced motion respected.
+  transform + box-shadow only — no layout shift, no JavaScript.
+- **Verified badge** no longer carries the Urdu label "تصدیق شدہ" (green tick +
+  "Verified" stay). Full Urdu sentences elsewhere are unchanged.
+- **Tagline** is "Free to join. No commission. No middleman." (`SLOGAN`,
+  `TAGLINE`, `SEO_BRAND_TAIL`, footer, manifest, homepage meta + hero — see the
+  dated authorisation in "Homepage is LOCKED"). The blog checker still flags the
+  RETIRED "No fee, no commission" (it contradicts the fee) and allows the new one.
+  "Free demo" is "demo lesson" everywhere. The /faq parents' academy fee example
+  (Rs 20,000 first month, English + Roman Urdu) is removed; the fee bands and the
+  tutor-side academy/ad-spend comparisons stay.
+- **Admin → People → Unpaid signups** (`/admin/users/unpaid-signups`) and
+  **Featured WhatsApp** (`/admin/users/featured-whatsapp`):
+  `SCREEN_ACCESS.unpaidSignups` / `featuredWhatsapp` = owner, admin, Operations
+  AND Tuitions staff (the only People screens tuitions_staff opens). Rules in
+  `lib/staffOutreachCore.ts`, I/O in `lib/staffOutreach.ts`. Unpaid = tutors
+  joined in the last 30 days without the fee, paused/test accounts out (test =
+  whole-word "test" or "New User"); "Stopped at" reuses `stoppedAtByTutor`; the
+  outcome log writes `tutor_contact_logs` + `admin_audit_log`. Featured
+  WhatsApp matches with `tutorMatchesJob` — the same rule as the in-app/email
+  match alerts — against tuitions posted after the tutor's last send (first
+  time: 7 days) up to the day's 10:00 PKT cut-off (computed, no cron). The send
+  is recorded BEFORE wa.me opens; the unique (tutor, tuition) pair refuses a
+  second send. The message has up to 5 tuitions (title, area, city, link), no
+  parent contact.
+- **Settlement per order:** when the PayPro file has Settle-Dates, PAID orders
+  are grouped by settle date and each group's MerchantShare total is matched to
+  the nearest unused bank transfer within ±2 days, preferring on/after (owner
+  decision, 8 Oct — the written "on or after" rule contradicted the owner's own
+  5 Oct / 6 Oct sample). Short by ≤ Rs 2 = "bank charge"; PAID but unsettled =
+  "Due from PayPro" with age, red after 3 days (`settleByDate`).
+- **Urdu subject names** show under the English name on the onboarding chips,
+  and are editable per subject in Settings → Subjects (audited
+  `taxonomy.urdu_name`).
+- **Overview:** the 5 cards stay; Signups by role, Revenue by plan (components
+  deleted) and Tutors to nudge are gone. "Today's to-do" (`lib/adminTodo.ts`)
+  rows each carry their screen key and are hidden at 0; "Signup to payment"
+  (7/30 days) counts real tutors through Signed up → Mobile verified →
+  Onboarding done → Paid (nested) with % lost.
+- **Data (item 8):** Rida Saeed and Ayesha Waqar Khan — every step done, fee
+  paid, `onboarded_at` empty after the 6 Oct save error — set onboarded. The
+  sweep found no others.

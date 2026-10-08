@@ -109,3 +109,50 @@ test('the settlement check (and the old reconciliation) is owner only', () => {
   const old = readFileSync(join(__dirname, '..', 'app', 'admin', 'payments', 'reconciliation', 'page.tsx'), 'utf8')
   assert.ok(old.includes("permanentRedirect(`/admin/payments/settings/gateways"), 'the old URL redirects')
 })
+
+// --- per settle date (owner, 8 Oct 2026) -----------------------------------
+import { settleByDate } from '../lib/settlementCore'
+
+const order = (n: number, share: number, settleDate: string | null, datePaid = '2026-10-05') => ({
+  orderNumber: `TM-S${n}`,
+  transactionStatus: 'PAID',
+  paymentVia: 'JazzCash',
+  orderAmount: 199,
+  merchantShare: share,
+  datePaid,
+  settleDate,
+  settleStatus: settleDate ? 'Settled' : null,
+})
+
+test('the owner sample: 5 JazzCash orders settled 6 Oct (Rs 1,000) vs the Rs 999 transfer of 5 Oct = matched, Re 1 bank charge', () => {
+  const rows = [1, 2, 3, 4, 5].map((n) => order(n, 200, '2026-10-06'))
+  const { groups } = settleByDate(rows, [{ transferredOn: '2026-10-05', amountPkr: 999, reference: null, accountLast4: null }], '2026-10-08T05:00:00Z')
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0].merchantShare, 1000)
+  assert.equal(groups[0].status, 'bank_charge')
+  assert.equal(groups[0].bankCharge, 1)
+})
+
+test('more than Rs 2 short is missing; no transfer within 2 days is missing', () => {
+  const rows = [order(1, 1000, '2026-10-06')]
+  assert.equal(settleByDate(rows, [{ transferredOn: '2026-10-06', amountPkr: 990, reference: null, accountLast4: null }], '2026-10-08T05:00:00Z').groups[0].status, 'missing')
+  assert.equal(settleByDate(rows, [{ transferredOn: '2026-10-10', amountPkr: 1000, reference: null, accountLast4: null }], '2026-10-11T05:00:00Z').groups[0].status, 'missing')
+})
+
+test('a transfer pays one settle-date group only; on/after wins a tie', () => {
+  const rows = [order(1, 500, '2026-10-06'), order(2, 700, '2026-10-07')]
+  const t = [
+    { transferredOn: '2026-10-07', amountPkr: 700, reference: 'b', accountLast4: null },
+    { transferredOn: '2026-10-06', amountPkr: 500, reference: 'a', accountLast4: null },
+  ]
+  const { groups } = settleByDate(rows, t, '2026-10-08T05:00:00Z')
+  assert.equal(groups[0].transfer?.reference, 'a')
+  assert.equal(groups[1].transfer?.reference, 'b')
+  assert.ok(groups.every((g) => g.status === 'matched'))
+})
+
+test('PAID but not settled = Due from PayPro with its age; red (overdue) after 3 days', () => {
+  const rows = [order(1, 200, null, '2026-10-06'), order(2, 200, null, '2026-10-02')]
+  const { due } = settleByDate(rows, [], '2026-10-08T05:00:00Z')
+  assert.deepEqual(due.map((d) => [d.orderNumber, d.ageDays, d.overdue]), [['TM-S2', 6, true], ['TM-S1', 2, false]])
+})

@@ -85,7 +85,7 @@ const GROUPS: FaqGroup[] = [
       },
       {
         q: 'Why can I not hire the tutor I chose?',
-        a: 'Completing a hire is a Featured plan feature. You can post tuitions, receive applications, message any tutor and request a free demo on the free verified plan; marking someone as hired, and seeing contact numbers, is on Featured.',
+        a: 'Completing a hire is a Featured plan feature. You can post tuitions, receive applications, message any tutor and request a demo lesson on the free verified plan; marking someone as hired, and seeing contact numbers, is on Featured.',
       },
       {
         q: 'Can I see a tutor’s phone number?',
@@ -93,7 +93,7 @@ const GROUPS: FaqGroup[] = [
       },
       {
         q: 'How do demo classes work?',
-        a: 'Ask any tutor for a free demo, online or in person. They propose a time, you meet off the platform — Zoom, WhatsApp, or at home — and afterwards you leave feedback. One demo per tutor.',
+        a: 'Ask any tutor for a demo lesson, online or in person. They propose a time, you meet off the platform — Zoom, WhatsApp, or at home — and afterwards you leave feedback. One demo per tutor.',
       },
     ],
   },

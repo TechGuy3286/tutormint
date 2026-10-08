@@ -10,7 +10,7 @@ import { isUnverifiedTutor } from '@/lib/messaging'
 import { tutorAtIncomingCap, refuseIncomingRequest, recordIncoming } from '@/lib/incomingRequests'
 import { parseBody, z, uuid } from '@/lib/validate'
 
-// A parent asks a tutor for a free demo lesson.
+// A parent asks a tutor for a demo lesson.
 //
 // Gate (PR25 §4.1): any signed-in PARENT may request a demo, verified or not.
 // The old CNIC-verification gate is gone — verification gates POSTING a tuition,
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
     title: 'New demo request',
     body: locked
       ? 'A parent requested a demo. Verify your account to see it.'
-      : 'A parent has asked you for a free demo class.',
+      : 'A parent has asked you for a demo lesson.',
     href: locked ? '/tutor/complete-profile?step=verify' : '/tutor/dashboard/demos',
   })
 

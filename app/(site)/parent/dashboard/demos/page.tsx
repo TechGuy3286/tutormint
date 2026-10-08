@@ -79,7 +79,7 @@ export default async function ParentDemosPage() {
         <header className="space-y-1">
           <h1 className="text-xl font-black text-tm-navy sm:text-2xl">Demo lessons</h1>
           <p className="text-xs text-gray-500">
-            One free demo per tutor. You agree the time with them directly.
+            One demo lesson per tutor. You agree the time with them directly.
           </p>
         </header>
 

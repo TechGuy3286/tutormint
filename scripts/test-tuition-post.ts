@@ -197,7 +197,7 @@ test('Main subjects: the core map is per level, and the chip adds that grade’s
   assert.ok(!/>\s*Select all\s*</.test(sel.slice(sel.indexOf('function PerGradeSubjects'))), 'no per-grade "Select all" left')
 })
 
-test('Settings → Subjects is owner and admin only; it changes only the core flag', async () => {
+test('Settings → Subjects is owner and admin only; it changes only the core flag and the Urdu name', async () => {
   const { SCREEN_ACCESS, roleSatisfies } = await import('../lib/adminAccessCore')
   assert.equal(roleSatisfies('owner', SCREEN_ACCESS.subjectsCore), true)
   assert.equal(roleSatisfies('admin', SCREEN_ACCESS.subjectsCore), true)
@@ -207,7 +207,11 @@ test('Settings → Subjects is owner and admin only; it changes only the core fl
   assert.ok(route.includes('checkAdminRole(...SCREEN_ACCESS.subjectsCore)'), 'the server checks the role')
   const lib = readFileSync('lib/subjectsCore.ts', 'utf8')
   const writes = [...lib.matchAll(/\.from\('([a-z_]+)'\)\.(update|insert|delete|upsert)\(/g)].map((x) => `${x[1]}.${x[2]}`)
-  assert.deepEqual([...new Set(writes)], ['taxonomy_master.update'], 'only taxonomy_master is updated — nothing added, renamed or deleted')
+  // Owner, 8 Oct 2026: the short Urdu subject name is editable here too — the
+  // ONLY other write, and only that one column. Nothing added, renamed (the
+  // English name) or deleted.
+  assert.deepEqual([...new Set(writes)].sort(), ['taxonomy_master.update', 'taxonomy_subjects.update'], 'core flag + Urdu name only')
   assert.ok(lib.includes(".update({ is_core: true })") && lib.includes(".update({ is_core: false })"))
-  assert.ok(lib.includes("action: 'taxonomy.core'"), 'audited')
+  assert.ok(lib.includes(".from('taxonomy_subjects').update({ name_ur: after })"), 'subjects: only name_ur changes')
+  assert.ok(lib.includes("action: 'taxonomy.core'") && lib.includes("action: 'taxonomy.urdu_name'"), 'both audited')
 })

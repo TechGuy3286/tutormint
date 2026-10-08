@@ -43,6 +43,8 @@ export type AdminScreen =
   | 'seo'
   | 'blog'
   | 'blogQueue'
+  | 'unpaidSignups'
+  | 'featuredWhatsapp'
 
 export type NavItem = {
   href: string
@@ -87,6 +89,8 @@ export const NAV_GROUPS: NavGroup[] = [
       // Orphaned accounts folded into Abandoned signups as a second section
       // (owner, 14 Sep 2026) — /admin/orphans now redirects there.
       { href: '/admin/signups', label: 'Abandoned signups', icon: 'userPlus', screen: 'signups' },
+      { href: '/admin/users/unpaid-signups', label: 'Unpaid signups', icon: 'phone', screen: 'unpaidSignups' },
+      { href: '/admin/users/featured-whatsapp', label: 'Featured WhatsApp', icon: 'messageCircle', screen: 'featuredWhatsapp' },
       { href: '/admin/staff-activity', label: 'Staff activity', icon: 'activity', screen: 'staffActivity' },
       { href: '/admin/team', label: 'Team', icon: 'key', screen: 'team' },
     ],
@@ -169,6 +173,8 @@ export const SECTION_LABELS: Record<string, string> = {
   // "Members" → "People" everywhere admin reads it (owner PR32 §6). The URL stays
   // /admin/users — only the label changes.
   users: 'People',
+  'unpaid-signups': 'Unpaid signups',
+  'featured-whatsapp': 'Featured WhatsApp',
 }
 
 export type Crumb = { label: string; href?: string }

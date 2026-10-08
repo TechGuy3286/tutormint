@@ -28,7 +28,7 @@ import { jsonLdScript, organizationJsonLd, socialMeta, webSiteJsonLd } from '@/l
 export async function generateMetadata(): Promise<Metadata> {
   const title = "Hire Trusted, Verified Tutors & Teachers | TutorMint"
   const description =
-    'Pakistan’s largest verified tutors and teachers network. No fee, no commission, no middleman — book a live demo and hire directly.'
+    'Pakistan’s largest verified tutors and teachers network. Free to join, no commission, no middleman — book a live demo and hire directly.'
 
   return {
     title,
@@ -83,7 +83,7 @@ export default async function HomePage() {
         </h1>
 
         <p className="mt-3 text-sm font-bold italic text-tm-red sm:mt-4 sm:text-base">
-          No Fee &bull; No Commission &bull; No Middleman &bull; Live Demo
+          Free to Join &bull; No Commission &bull; No Middleman &bull; Live Demo
         </p>
         {/* The same line in Urdu, directly below the English (owner PR2 §6):
             right-to-left, one step smaller, the system Urdu font via lang="ur".

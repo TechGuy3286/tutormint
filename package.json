@@ -46,6 +46,7 @@
     "test:onboardingsubjects": "tsx --test scripts/test-onboarding-subjects.ts",
     "test:subjectcap": "tsx --test scripts/test-subject-cap.ts",
     "test:serverimports": "tsx --test scripts/test-server-imports.ts",
+    "test:outreach": "tsx --test scripts/test-outreach.ts",
     "test:degrees": "tsx --test scripts/test-degrees.ts",
     "test:tutordash": "tsx --test scripts/test-tutor-dashboard.ts",
     "test:paymentopen": "tsx --test scripts/test-payment-open.ts",

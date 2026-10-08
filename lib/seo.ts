@@ -22,7 +22,7 @@ import { formatSupportPhoneSchema } from '@/lib/supportContacts'
 import { provinceForCity, postcodeFor } from '@/lib/pkLocations'
 
 export const BRAND = 'TutorMint'
-export const SLOGAN = 'No fee, no commission, no middleman'
+export const SLOGAN = 'Free to join, no commission, no middleman'
 
 // The branded share image every page falls back to when it has no imagery of
 // its own — the 1200×630 logo card in the brand palette, already in public/.
@@ -90,7 +90,7 @@ export function socialMeta(opts: {
 
 const TITLE_SUFFIX = 'verified, no commission'
 const DESCRIPTION_TAIL =
-  "on TutorMint, Pakistan's verified tutors network. No fee, no commission, no middleman."
+  "on TutorMint, Pakistan's verified tutors network. Free to join, no commission, no middleman."
 
 /**
  * "<page> — verified, no commission | TutorMint"

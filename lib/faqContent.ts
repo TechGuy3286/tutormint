@@ -17,10 +17,9 @@
 // their money back and be told no. Visibility is what is actually sold, so
 // visibility is what is described.
 //
-// The comparisons are the argument. An academy taking half of a first month is
-// the real alternative a Pakistani parent is weighing, and Meta ad spend is
-// the real alternative a tutor is weighing. Both are stated in rupees, because
-// "great value" persuades nobody who is doing the arithmetic.
+// The parents' academy fee comparison example (the Rs 20,000 first-month
+// figure, English and Roman Urdu) was removed by the owner on 8 Oct 2026. The
+// fee filter bands stay, as does the tutor-side Meta ad-spend comparison.
 
 export type FaqLink = { label: string; href: string }
 
@@ -49,19 +48,11 @@ export const FAQ_GROUPS: FaqGroup[] = [
     blurb: 'Finding and hiring a tutor.',
     items: [
       {
-        q: 'What does "no fee, no commission, no middleman" mean?',
+        q: 'What does "free to join, no commission, no middleman" mean?',
         a: 'It means the fee you agree with a tutor is the fee. TutorMint takes nothing from it — not a placement fee, not a percentage of the first month, not a cut of anything afterwards. We never handle the money between you and the tutor, and we do not need to know what you pay. Our only income is a monthly membership, and only from people who choose to buy one.',
         links: [
           { label: 'Browse tutors', href: '/browse/tutors' },
           { label: 'The Terms', href: '/terms' },
-        ],
-      },
-      {
-        q: 'An academy takes half the first month’s fee. What do you take?',
-        a: 'Nothing from the fee. A home-tuition academy in Lahore or Karachi typically keeps 50% of the first month, so on a Rs 20,000 tuition that is Rs 10,000 gone before the first class, and many keep a share every month after that. On TutorMint you keep every rupee of what you pay the tutor. If you never buy a membership you can still browse, message tutors and post jobs once you are verified.',
-        links: [
-          { label: 'Parent memberships', href: '/membership-plans?for=parents' },
-          { label: 'Browse tutors', href: '/browse/tutors' },
         ],
       },
       {
@@ -245,13 +236,13 @@ export const FAQ_GROUPS: FaqGroup[] = [
         q: 'How many hours a week does a Grade 9 student need?',
         a: 'Most families start with two to four hours a week per subject and adjust after the first month, which is the only figure worth trusting because it comes from the child rather than from a table. Two hours suits a student who is keeping up and wants to stay there; four suits one who is behind or preparing for board exams. More than that is usually a sign the problem is not time — it is the subject basics, or the timing of the session. Agree the hours with the tutor after a demo rather than before it, and change them when the result says to.',
         links: [
-          { label: 'Request a free demo', href: '/browse/tutors' },
+          { label: 'Request a demo lesson', href: '/browse/tutors' },
           { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
         ],
       },
       {
         q: 'What should I ask a tutor before hiring?',
-        a: 'Five things, and they take one conversation. Which exact syllabus and board have you taught — not "science", but "Grade 9 Punjab Board Physics" or "Cambridge O Level Physics". How many students at this level have you taught, and how did they do. What will the first month look like, week by week. What happens when my child misses a class. And what is your fee, monthly, including everything. Then ask for a free demo before you commit to anything: a demo tells you in forty minutes what a profile cannot tell you at all.',
+        a: 'Five things, and they take one conversation. Which exact syllabus and board have you taught — not "science", but "Grade 9 Punjab Board Physics" or "Cambridge O Level Physics". How many students at this level have you taught, and how did they do. What will the first month look like, week by week. What happens when my child misses a class. And what is your fee, monthly, including everything. Then ask for a demo lesson before you commit to anything: a demo tells you in forty minutes what a profile cannot tell you at all.',
         links: [
           { label: 'Browse tutors', href: '/browse/tutors' },
           { label: 'Parent memberships', href: '/membership-plans?for=parents' },
@@ -289,15 +280,6 @@ export const FAQ_GROUPS: FaqGroup[] = [
         links: [
           { label: 'Parent membership', href: '/membership-plans?for=parents' },
           { label: 'Sharait (Terms)', href: '/terms' },
-        ],
-      },
-      {
-        q: 'Academy pehle mahine ki aadhi fee le leti hai. Aap kitna lete hain?',
-        lang: 'ur',
-        a: 'Fee mein se kuch nahi. Lahore ya Karachi ki home-tuition academy aam taur par pehle mahine ka 50% rakhti hai — Rs 20,000 ki tuition par Rs 10,000 pehli class se pehle hi chala jata hai, aur kai baar har mahine bhi hissa jata hai. TutorMint par tutor ko di gayi har rupee aap ki apni hai. Membership na bhi lein, tab bhi verification ke baad browse kar sakte hain, tutors ko message bhej sakte hain aur tuition post kar sakte hain.',
-        links: [
-          { label: 'Parent membership', href: '/membership-plans?for=parents' },
-          { label: 'Tutors dekhein', href: '/browse/tutors' },
         ],
       },
       {

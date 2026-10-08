@@ -48,7 +48,7 @@ export type SocialData = {
 // ---- the band -------------------------------------------------------------
 
 export const WORDMARK = 'TutorMint'
-export const TAGLINE = 'No fee. No commission. No middleman.'
+export const TAGLINE = 'Free to join. No commission. No middleman.'
 export const SITE = 'tutormint.org'
 export const HANDLE = '@tutormint.official'
 export const X_HANDLE = 'X: @TutorMint5'

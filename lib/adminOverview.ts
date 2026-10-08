@@ -2,8 +2,6 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { currentPeriod } from '@/lib/entitlements'
-import { pkDayKey } from '@/lib/datetime'
-import { loadTipCounts, type TipCounts } from '@/lib/adminTips'
 import type { AdminScreen } from '@/lib/adminNav'
 import { feePayerCounts } from '@/lib/feePayers'
 
@@ -35,29 +33,13 @@ export type Tip = {
   count: number
 }
 
-export type SignupPoint = { day: string; tutors: number; parents: number }
 export type RevenueSlice = { plan: string; amount: number; payments: number }
 
 export type Overview = {
   tiles: Tile[]
-  tips: Tip[]
-  signups: SignupPoint[]
-  signupDays: number
   revenue: RevenueSlice[]
   revenuePeriod: string
   revenueTotal: number
-}
-
-const SIGNUP_ROW_CEILING = 5000
-const SIGNUP_WINDOW_DAYS = 30
-
-function emptyDays(days: number): SignupPoint[] {
-  const out: SignupPoint[] = []
-  const now = Date.now()
-  for (let i = days - 1; i >= 0; i--) {
-    out.push({ day: pkDayKey(new Date(now - i * 86_400_000)), tutors: 0, parents: 0 })
-  }
-  return out
 }
 
 export async function loadOverview(): Promise<Overview | null> {
@@ -65,10 +47,8 @@ export async function loadOverview(): Promise<Overview | null> {
   if (!admin) return null
 
   const now = new Date()
-  const nowIso = now.toISOString()
   const period = currentPeriod(now)
   const monthStart = `${period}-01T00:00:00.000Z`
-  const windowStart = new Date(now.getTime() - SIGNUP_WINDOW_DAYS * 86_400_000).toISOString()
 
   const [
     tutors,
@@ -76,9 +56,7 @@ export async function loadOverview(): Promise<Overview | null> {
     openJobs,
     revenueRows,
     feePayers,
-    signupRows,
     planRows,
-    tips,
   ] = await Promise.all([
     admin.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'tutor'),
     admin
@@ -100,25 +78,8 @@ export async function loadOverview(): Promise<Overview | null> {
     // "Paid this month" (owner, 7 Oct 2026): distinct tutors whose Rs 199 fee
     // was approved this Pakistan-time month — replaces "Monthly re-subscribed".
     feePayerCounts(now.getTime()),
-    admin
-      .from('profiles')
-      .select('created_at, role')
-      .in('role', ['tutor', 'parent', 'academy'])
-      .gte('created_at', windowStart)
-      .limit(SIGNUP_ROW_CEILING),
     admin.from('plans').select('code, name, audience'),
-    loadTipCounts(admin, nowIso),
   ])
-
-  // ------------------------------------------------------------- signups --
-  const buckets = new Map(emptyDays(SIGNUP_WINDOW_DAYS).map((p) => [p.day, p]))
-  for (const row of signupRows.data ?? []) {
-    const point = buckets.get(pkDayKey(row.created_at as string))
-    if (!point) continue
-    if (row.role === 'tutor') point.tutors += 1
-    else point.parents += 1
-  }
-  const signups = [...buckets.values()]
 
   // ------------------------------------------------------------- revenue --
   const planName = new Map(
@@ -184,46 +145,11 @@ export async function loadOverview(): Promise<Overview | null> {
     },
   ]
 
-  const tipRows: Tip[] = [
-    {
-      key: 'unpaid-tutors',
-      label: 'Unpaid tutors',
-      meaning: 'Spam Free Platform Fee not paid — newest first',
-      href: '/admin/users?tip=unpaid-tutors',
-      count: tips.unpaidTutors,
-    },
-    {
-      key: 'listed-unpaid',
-      label: 'Listed but unpaid',
-      meaning: 'Shown in Browse, fee not paid — closest to converting',
-      href: '/admin/users?tip=listed-unpaid',
-      count: tips.listedUnpaid,
-    },
-    {
-      key: 'never-filled',
-      label: 'Signed up, never filled',
-      meaning: 'Verified number, profile under 25%',
-      href: '/admin/users?tip=never-filled',
-      count: tips.neverFilled,
-    },
-    {
-      key: 'never-verified',
-      label: 'Never verified',
-      meaning: 'Signup drafts that expired unverified',
-      href: '/admin/signups',
-      count: tips.neverVerified,
-    },
-  ]
-
   return {
     tiles,
-    tips: tipRows,
-    signups,
-    signupDays: SIGNUP_WINDOW_DAYS,
     revenue,
     revenuePeriod: period,
     revenueTotal,
   }
 }
 
-export type { TipCounts }

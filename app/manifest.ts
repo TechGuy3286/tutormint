@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'TutorMint',
     short_name: 'TutorMint',
-    description: "Pakistan's verified tutors network. No fee, no commission, no middleman.",
+    description: "Pakistan's verified tutors network. Free to join, no commission, no middleman.",
     start_url: '/',
     display: 'standalone',
     background_color: '#F8FAFC',

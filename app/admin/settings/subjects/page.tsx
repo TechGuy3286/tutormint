@@ -27,7 +27,9 @@ export default async function SubjectsSettingsPage({
         <p className="text-xs text-gray-500">
           Choose which subjects are a level&rsquo;s &ldquo;Main subjects&rdquo;. On Post a tuition, the &ldquo;Main
           subjects&rdquo; chip adds these to that grade. A level with none hides the chip. Subjects cannot be added,
-          renamed or deleted here. Every change is recorded in the audit log.
+          renamed or deleted here. The box under each subject is its short Urdu name, shown under the English name on
+          the tutor onboarding chips — one name per subject, shared by every level it is offered at. Every change is
+          recorded in the audit log.
         </p>
       </header>
 

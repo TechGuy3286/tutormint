@@ -12,7 +12,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import type { AdminRole } from '@/lib/adminAuth'
 
 export type LevelOption = { slug: string; name: string; category: string; coreCount: number }
-export type LevelSubject = { masterId: number; name: string; isCore: boolean }
+export type LevelSubject = { masterId: number; slug: string; name: string; isCore: boolean; nameUr: string | null }
 
 export async function listLevels(): Promise<LevelOption[]> {
   const admin = createAdminClient()
@@ -51,11 +51,18 @@ export async function levelSubjects(levelSlug: string): Promise<LevelSubject[]> 
     .limit(1000)
   const slugs = [...new Set((rows ?? []).map((r) => r.subject_slug as string))]
   const { data: subs } = slugs.length
-    ? await admin.from('taxonomy_subjects').select('slug, name').in('slug', slugs)
-    : { data: [] as { slug: string; name: string }[] }
+    ? await admin.from('taxonomy_subjects').select('slug, name, name_ur').in('slug', slugs)
+    : { data: [] as { slug: string; name: string; name_ur: string | null }[] }
   const name = new Map((subs ?? []).map((s) => [s.slug as string, s.name as string]))
+  const ur = new Map((subs ?? []).map((s) => [s.slug as string, ((s.name_ur as string | null) ?? '').trim() || null]))
   return (rows ?? [])
-    .map((r) => ({ masterId: r.id as number, name: name.get(r.subject_slug as string) ?? '', isCore: !!r.is_core }))
+    .map((r) => ({
+      masterId: r.id as number,
+      slug: r.subject_slug as string,
+      name: name.get(r.subject_slug as string) ?? '',
+      isCore: !!r.is_core,
+      nameUr: ur.get(r.subject_slug as string) ?? null,
+    }))
     .filter((r) => r.name)
     .sort((a, b) => a.name.localeCompare(b.name))
 }
@@ -101,4 +108,47 @@ export async function saveLevelCore(
     detail: { level: level.name, added, removed },
   })
   return { ok: true, added, removed }
+}
+
+/** Normalise a typed Urdu name: trimmed, inner spaces collapsed, '' → null. */
+export function cleanUrduName(v: string | null | undefined): string | null {
+  const t = (v ?? '').replace(/\s+/g, ' ').trim()
+  return t ? t.slice(0, 60) : null
+}
+
+/**
+ * Set short Urdu subject names (migration 149). The name belongs to the SUBJECT,
+ * so it shows at every level that subject is offered. Only names that actually
+ * change are written, and each change is audited with its before and after.
+ */
+export async function saveUrduNames(
+  names: Record<string, string | null>,
+  actor: { id: string; adminRole: AdminRole; email?: string | null },
+): Promise<{ ok: true; changed: { subject: string; from: string | null; to: string | null }[] } | { ok: false; error: string }> {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, error: 'This is not working right now. Please try again in a few minutes.' }
+  const slugs = Object.keys(names)
+  if (slugs.length === 0) return { ok: true, changed: [] }
+  const { data: subs } = await admin.from('taxonomy_subjects').select('slug, name, name_ur').in('slug', slugs)
+  const changed: { subject: string; from: string | null; to: string | null }[] = []
+  for (const sub of subs ?? []) {
+    const before = ((sub.name_ur as string | null) ?? '').trim() || null
+    const after = cleanUrduName(names[sub.slug as string])
+    if (before === after) continue
+    const { error } = await admin.from('taxonomy_subjects').update({ name_ur: after }).eq('slug', sub.slug as string)
+    if (error) return { ok: false, error: 'That did not save. Please try again.' }
+    changed.push({ subject: sub.name as string, from: before, to: after })
+  }
+  if (changed.length) {
+    await logAdminAction({
+      actorId: actor.id,
+      actorRole: actor.adminRole,
+      actorEmail: actor.email ?? null,
+      action: 'taxonomy.urdu_name',
+      targetType: 'taxonomy_subject',
+      targetId: slugs.length === 1 ? slugs[0] : 'multiple',
+      detail: { changed },
+    })
+  }
+  return { ok: true, changed }
 }

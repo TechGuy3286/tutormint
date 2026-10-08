@@ -15,7 +15,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import type { AdminRole } from '@/lib/adminAuth'
 import type { PayproRow, Transfer } from '@/lib/reconciliationCore'
-import { settle, deductionProblem, dayInRange, pkDay, type Deduction, type OurPayment, type SettlementResult } from '@/lib/settlementCore'
+import { settle, settleByDate, deductionProblem, dayInRange, pkDay, type Deduction, type DueOrder, type OurPayment, type SettleGroup, type SettlementResult } from '@/lib/settlementCore'
 
 export type Actor = { id: string; adminRole: AdminRole; email?: string | null }
 
@@ -25,6 +25,10 @@ export type SettlementView = {
   latestImport: { filename: string | null; rowCount: number; periodFrom: string | null; periodTo: string | null; createdAt: string } | null
   transfers: (Transfer & { id: string; source: string })[]
   deductions: Deduction[]
+  /** Per settle date (owner, 8 Oct 2026) — only when the gateway file carries
+   *  Settle-Dates. Groups whose settle date is in the range, plus every PAID
+   *  order not yet settled ("Due from PayPro"). */
+  perSettle: { groups: SettleGroup[]; due: DueOrder[] } | null
 }
 
 const num = (v: unknown): number | null => {
@@ -138,6 +142,15 @@ export async function loadSettlement(gateway: string, from: string, to: string):
 
   const result = settle({ from, to, approved, gatewayRows, transfers: allTransfers, deductions })
 
+  // Per settle date: matched against ALL recorded transfers (the window can reach
+  // a day either side of the range), then shown for groups inside the range.
+  const hasSettleDates = (gatewayRows ?? []).some((r) => !!r.settleDate)
+  let perSettle: SettlementView['perSettle'] = null
+  if (gatewayRows && hasSettleDates) {
+    const all = settleByDate(gatewayRows, allTransfers, new Date().toISOString())
+    perSettle = { groups: all.groups.filter((g) => dayInRange(g.settleDate, from, to)), due: all.due }
+  }
+
   return {
     gateway,
     result,
@@ -152,6 +165,7 @@ export async function loadSettlement(gateway: string, from: string, to: string):
       : null,
     transfers: allTransfers.filter((t) => dayInRange(t.transferredOn, from, to)),
     deductions,
+    perSettle,
   }
 }
 
