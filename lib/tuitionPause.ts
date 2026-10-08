@@ -21,7 +21,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 import { PAUSE_AFTER_DAYS } from '@/lib/tuitionStatus'
-import { enqueueIndexing, drainIndexingQueue, tuitionUrl } from '@/lib/googleIndexing'
+import { enqueueIndexing, tuitionUrl } from '@/lib/googleIndexing'
 import { pageAll } from '@/lib/pageAll'
 import { planPauseBatch, nextBatchAt } from '@/lib/tuitionPauseCore'
 
@@ -56,10 +56,10 @@ export async function pauseStaleTuitions(now = new Date()): Promise<{
   backlogPaused: number
   backlogLeft: number
   ids: string[]
-  indexing: { sent: number; failed: number; left: number }
+  queuedForGoogle: number
 }> {
   const admin = createAdminClient()
-  const empty = { paused: 0, backlogPaused: 0, backlogLeft: 0, ids: [], indexing: { sent: 0, failed: 0, left: 0 } }
+  const empty = { paused: 0, backlogPaused: 0, backlogLeft: 0, ids: [], queuedForGoogle: 0 }
   if (!admin) return empty
 
   const plan = planPauseBatch(await openTuitions(), now.getTime())
@@ -94,11 +94,19 @@ export async function pauseStaleTuitions(now = new Date()): Promise<{
     await deliverEmail({ userId: j.parent_id }, { id: 'tuition_paused', title }).catch(() => {})
   }
 
-  for (const j of plan.regular) await run(j, 'auto')
-  for (const j of plan.backlog) await run(j, 'backlog')
+  // Ten at a time: each pause sends a notification and an email, and 150 of
+  // them one after another do not fit in a cron run.
+  const work: [OpenRow, 'auto' | 'backlog'][] = [
+    ...plan.regular.map((j) => [j, 'auto'] as [OpenRow, 'auto']),
+    ...plan.backlog.map((j) => [j, 'backlog'] as [OpenRow, 'backlog']),
+  ]
+  for (let i = 0; i < work.length; i += 10) {
+    await Promise.all(work.slice(i, i + 10).map(([j, src]) => run(j, src).catch(() => undefined)))
+  }
 
+  // Google is told through the queue, which the 5-minute cron drains within
+  // 200 a day (lib/googleIndexing.drainIndexingQueue).
   await enqueueIndexing(urls)
-  const indexing = await drainIndexingQueue().catch(() => ({ sent: 0, failed: 0, left: 0 }))
 
-  return { paused: ids.length, backlogPaused, backlogLeft: plan.backlogLeft, ids, indexing }
+  return { paused: ids.length, backlogPaused, backlogLeft: plan.backlogLeft, ids, queuedForGoogle: urls.length }
 }

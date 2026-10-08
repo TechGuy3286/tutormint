@@ -141,7 +141,8 @@ export async function indexingQueueStatus(): Promise<{ sentToday: number; pendin
  * UTC day — the rest wait for the next day's run. Each row is CLAIMED (sent_at
  * set where it was null) before the call, so two drains never send one twice.
  */
-export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT): Promise<{ sent: number; failed: number; left: number }> {
+export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 40_000): Promise<{ sent: number; failed: number; left: number }> {
+  const started = Date.now()
   const admin = createAdminClient()
   if (!admin || !indexingConfigured()) return { sent: 0, failed: 0, left: 0 }
   const { sentToday } = await indexingQueueStatus()
@@ -157,6 +158,8 @@ export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT): Promise<{ 
       .order('id')
       .limit(room)
     for (const r of rows ?? []) {
+      // Stop before the function's time limit; the next run picks up the rest.
+      if (Date.now() - started > budgetMs) break
       const { data: claimed } = await admin
         .from('indexing_queue')
         .update({ sent_at: new Date().toISOString() })

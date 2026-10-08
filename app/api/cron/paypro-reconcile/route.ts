@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { drainIndexingQueue, INDEXING_DAILY_LIMIT } from '@/lib/googleIndexing'
 import { timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pproConfigured, markPayproOrderBlocked } from '@/lib/payments/paypro'
@@ -43,7 +44,10 @@ export async function GET(request: Request) {
   // is the only frequent cron, so it also runs the due-post sweep, independent
   // of PayPro being configured. The daily cron keeps its own call as a backstop.
   const blog = await publishDuePosts().catch((e: unknown) => ({ published: 0, slugs: [], errors: [e instanceof Error ? e.message : 'failed'] }))
-  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog })
+  // Google Indexing API notices (owner, 8 Oct 2026): drained here, a few at a
+  // time, never past 200 in a UTC day; anything over waits for the next day.
+  const indexing = await drainIndexingQueue(INDEXING_DAILY_LIMIT, 20_000).catch(() => ({ sent: 0, failed: 0, left: -1 }))
+  if (!pproConfigured()) return NextResponse.json({ ok: true, skipped: 'paypro_not_configured', blog, indexing })
 
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ ok: true, skipped: 'no_admin_client' })

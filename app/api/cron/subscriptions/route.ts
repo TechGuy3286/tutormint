@@ -8,6 +8,7 @@ import { runConversionSweep } from '@/lib/conversionSweep'
 import { expirePendingSignups } from '@/lib/pendingSignup'
 import { sweepAbandonedVideos } from '@/lib/videoCleanup'
 import { pauseStaleTuitions } from '@/lib/tuitionPause'
+import { drainIndexingQueue, INDEXING_DAILY_LIMIT } from '@/lib/googleIndexing'
 
 // Daily subscription sweep: remind at T-3, expire at zero.
 //
@@ -26,7 +27,9 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 // The nightly content-queue rebuild reads several tables and upserts dozens of
 // rows on top of the billing sweep; 60s gives the whole tick room.
-export const maxDuration = 60
+// 300 s (owner, 8 Oct 2026): the tuition pause backlog (150 a night, each with
+// a notification and an email) does not fit in 60.
+export const maxDuration = 300
 
 function authorised(request: Request): boolean {
   const secret = process.env.CRON_SECRET
@@ -86,6 +89,7 @@ async function handle(request: Request) {
   const tuitions = await pauseStaleTuitions().catch(
     (e) => ({ paused: 0, ids: [] as string[], error: String(e) }),
   )
+  const indexing = await drainIndexingQueue(INDEXING_DAILY_LIMIT, 60_000).catch(() => ({ sent: 0, failed: 0, left: -1 }))
 
   // Errors are reported, not swallowed: a sweep that silently half-ran is how
   // a member keeps a plan they stopped paying for.
@@ -107,6 +111,7 @@ async function handle(request: Request) {
       pending,
       videos,
       tuitions,
+      indexing,
     },
     { status },
   )
