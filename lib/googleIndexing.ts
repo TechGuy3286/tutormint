@@ -170,8 +170,16 @@ export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT, budgetMs = 
       const res = r.kind === 'URL_DELETED' ? await notifyUrlDeleted(r.url as string) : await notifyUrlUpdated(r.url as string)
       if (res.ok) sent++
       else {
+        const err = 'error' in res ? res.error : 'skipped'
+        // Google's own daily quota (counted in Pacific time, and including
+        // notices sent outside this queue): put the row back and stop — the
+        // next run tries again once the quota has reset.
+        if (/quota/i.test(err)) {
+          await admin.from('indexing_queue').update({ sent_at: null, last_error: err }).eq('id', r.id as number)
+          break
+        }
         failed++
-        await admin.from('indexing_queue').update({ last_error: 'error' in res ? res.error : 'skipped' }).eq('id', r.id as number)
+        await admin.from('indexing_queue').update({ last_error: err }).eq('id', r.id as number)
       }
     }
   }
