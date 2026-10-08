@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleBadge, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadStaffActivity, loadTuitionActivity } from '@/lib/staffActivity'
 import { formatDateTime } from '@/lib/datetime'
 import StaffActivityTable from '@/components/admin/StaffActivityTable'
@@ -10,13 +10,6 @@ import { recentRepeats } from '@/lib/duplicates'
 // audit log by actor. Admin (and owner) only — a management view.
 
 export const dynamic = 'force-dynamic'
-
-const ROLE_LABEL: Record<string, string> = {
-  owner: 'Owner',
-  admin: 'Admin',
-  operations: 'Operations',
-  tuitions_staff: 'Tuitions staff',
-}
 
 export default async function StaffActivityPage({
   searchParams,
@@ -66,7 +59,8 @@ export default async function StaffActivityPage({
                 <span className="flex items-center gap-2 text-[11px]">
                   {s.email && <span className="text-gray-500">{s.email}</span>}
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 font-bold uppercase text-slate-700">
-                    {ROLE_LABEL[s.adminRole ?? ''] ?? s.adminRole ?? '—'}
+                    {/* The real role only for the owner and the Partner (owner, 8 Oct 2026). */}
+                    {roleBadge(s.adminRole, actor.adminRole) || '—'}
                   </span>
                 </span>
               </div>

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { GATEWAYS, methodChangeError, type GatewayId, type GatewaySettings, type MethodKey } from '@/lib/payments/gatewaySettingsCore'
 
 // The controls on Admin → Settings → Payment gateways (owner, 6 Oct 2026, item
@@ -55,7 +56,10 @@ export default function GatewaysClient({
   const toast = useToast()
   const confirm = useConfirm()
   const [s, setS] = useState<GatewaySettings>(initial)
-  const [busy, setBusy] = useState<string | null>(null)
+  // The Partner sees the settings and cannot change them (owner, 8 Oct 2026):
+  // every control is shown in its state but locked; the route refuses anyway.
+  const readOnly = useAdminReadOnly()
+  const [busy, setBusy] = useState<string | null>(readOnly ? 'read-only' : null)
 
   const send = async (key: string, body: Record<string, unknown>): Promise<boolean> => {
     setBusy(key)
@@ -154,7 +158,7 @@ export default function GatewaysClient({
               <p className="text-sm font-bold text-tm-navy">{m.title}</p>
               <p className="text-[11px] text-gray-500">{m.sub}</p>
             </div>
-            <Switch on={s.methods[m.key]} label={m.title} busy={busy === m.key} onClick={() => void toggleMethod(m.key)} />
+            <Switch on={s.methods[m.key]} label={m.title} busy={readOnly || busy === m.key} onClick={() => void toggleMethod(m.key)} />
           </div>
         ))}
         <p className="text-[11px] text-gray-500">
@@ -170,7 +174,7 @@ export default function GatewaysClient({
             <p className="text-sm font-bold text-tm-navy">Show a &ldquo;Pay later&rdquo; link</p>
             <p className="text-[11px] text-gray-500">Lets a member leave the payment step and come back to it later.</p>
           </div>
-          <Switch on={s.payLater} label="Pay later" busy={busy === 'pay_later'} onClick={() => void togglePayLater()} />
+          <Switch on={s.payLater} label="Pay later" busy={readOnly || busy === 'pay_later'} onClick={() => void togglePayLater()} />
         </div>
       </section>
     </div>

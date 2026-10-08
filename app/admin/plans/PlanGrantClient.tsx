@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import Typeahead from '@/components/search/Typeahead'
 import { formatDate } from '@/lib/datetime'
 
@@ -32,13 +33,16 @@ export type AccountRow = {
 export default function PlanGrantClient({
   plans,
   accounts,
-  canMutate,
+  canMutate: canMutateProp,
 }: {
   plans: PlanRow[]
   accounts: AccountRow[]
   canMutate: boolean
 }) {
   const router = useRouter()
+  // A view-only (Partner) session sees the list but cannot open the grant dialog.
+  const readOnly = useAdminReadOnly()
+  const canMutate = canMutateProp && !readOnly
   const [q, setQ] = useState('')
   const [open, setOpen] = useState<AccountRow | null>(null)
   const [planCode, setPlanCode] = useState('')

@@ -99,7 +99,8 @@ test('a re-upload returns the member to the queue (the statuses it writes are th
 test('View as tutor is owner-only, read-only and audited', () => {
   const page = read('app/admin/view-as/[id]/page.tsx')
   assert.match(page, /requireAdminRole\(\) \/\/ no roles → owner only/, 'owner-only gate')
-  assert.match(page, /actor\.adminRole !== 'owner'\) redirect/, 'non-owner redirected')
+  // The view-only Partner (owner, 8 Oct 2026) views it too; everyone else is redirected.
+  assert.match(page, /actor\.adminRole !== 'owner' && actor\.adminRole !== 'partner'\) redirect/, 'non-owner redirected')
   assert.match(page, /action: 'view_as_tutor'/, 'every open is audit-logged')
   assert.match(page, /Viewing as \{name\} — read-only/, 'the fixed read-only banner')
   assert.match(page, /Exit/, 'an Exit button')

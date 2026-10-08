@@ -22,6 +22,7 @@ import { UTM_COOKIE, UTM_MAX_AGE_SECONDS, encodeUtm, readUtmFromUrl } from '@/li
 import { ANON_COOKIE, ANON_MAX_AGE_SECONDS, newAnonId } from '@/lib/anonSession'
 import { PERSIST_COOKIE, persistOffFrom, applySessionPersistence } from '@/lib/sessionCookies'
 import { needsPhoneGate } from '@/lib/phoneGate'
+import { METHOD_HEADER } from '@/lib/requestMethod'
 
 // /pay/* is the checkout journey (gateway hand-off, transfer instructions,
 // return screen). Every page under it reads the signed-in member's own
@@ -85,13 +86,24 @@ function matches(pathname: string, list: string[]): boolean {
  */
 const TUITION_CITY_HEADER = 'x-tm-tuition-city'
 
-function withTuitionCity(request: NextRequest): { headers: Headers } | undefined {
-  const { pathname } = request.nextUrl
-  if (!pathname.startsWith('/tuitions/')) return undefined
-  const city = pathname.split('/')[2]
-  if (!city) return undefined
+/*
+ * `x-tm-method` — the request's HTTP method, stamped on EVERY request (owner,
+ * 8 Oct 2026). A route handler cannot read its own method through
+ * next/headers, and checkAdminRole() needs it to refuse every write by the
+ * view-only Partner role. Always OVERWRITTEN from the real method, so a client
+ * that sends its own `x-tm-method` gets nothing.
+ */
+function forwardHeaders(request: NextRequest): { headers: Headers } {
   const headers = new Headers(request.headers)
-  headers.set(TUITION_CITY_HEADER, city)
+  headers.set(METHOD_HEADER, request.method)
+  const { pathname } = request.nextUrl
+  if (pathname.startsWith('/tuitions/')) {
+    const city = pathname.split('/')[2]
+    if (city) headers.set(TUITION_CITY_HEADER, city)
+    else headers.delete(TUITION_CITY_HEADER)
+  } else {
+    headers.delete(TUITION_CITY_HEADER)
+  }
   return { headers }
 }
 
@@ -155,7 +167,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(target, 307)
   }
 
-  const forwarded = withTuitionCity(request) ?? request
+  // Rebuilt after a token refresh (setAll below) so the page sees the NEW
+  // session cookies, not the copy taken here.
+  let forwarded = forwardHeaders(request)
   let response = NextResponse.next({ request: forwarded })
   captureUtm(request, response)
   captureAnon(request, response)
@@ -177,6 +191,7 @@ export async function proxy(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+        forwarded = forwardHeaders(request)
         response = NextResponse.next({ request: forwarded })
         // Re-applied because this REBUILDS the response, and anything set on
         // the old one is gone. Dropping it here would lose attribution on

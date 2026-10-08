@@ -7,6 +7,7 @@ import { Copy, KeyRound, Mail, Send, ShieldAlert, ShieldCheck, ShieldOff, Undo2 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 
 // The Team screen.
 //
@@ -24,7 +25,7 @@ export type StaffRow = {
   id: string
   name: string
   email: string
-  adminRole: 'owner' | 'admin' | 'operations' | 'tuitions_staff'
+  adminRole: 'owner' | 'admin' | 'operations' | 'tuitions_staff' | 'partner'
   suspended: boolean
   suspensionReason: string | null
   mustChangePassword: boolean
@@ -41,6 +42,7 @@ const ROLES = [
   { code: 'admin', label: 'Admin', blurb: 'Full access everywhere except this screen' },
   { code: 'operations', label: 'Operations', blurb: 'Posting tuitions, verifying, assisting, marketing, SEO' },
   { code: 'tuitions_staff', label: 'Tuitions staff', blurb: 'Tuitions only — the board, posting, and their own activity' },
+  { code: 'partner', label: 'Partner', blurb: 'Views every page, including Finance; changes nothing; two-factor required' },
 ] as const
 
 // The badge pill is uppercased by CSS, so a raw 'tuitions_staff' would read
@@ -50,6 +52,7 @@ const ROLE_BADGE: Record<string, string> = {
   admin: 'Admin',
   operations: 'Operations',
   tuitions_staff: 'Tuitions',
+  partner: 'Partner',
 }
 
 // The invite link's lifetime — Supabase's default. Past it, the original link is
@@ -70,6 +73,9 @@ function inviteState(s: StaffRow): 'accepted' | 'invited' | 'expired' {
 }
 
 export default function TeamClient({ staff }: { staff: StaffRow[] }) {
+  // A Partner sees the roster and every real role, and changes nothing
+  // (owner, 8 Oct 2026); the server refuses their writes regardless.
+  const readOnly = useAdminReadOnly()
   const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -399,7 +405,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
       )}
 
       {/* -------------------------------------------------- add a member --- */}
-      {creating ? (
+      {readOnly ? null : creating ? (
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
           <h2 className="text-sm font-black text-tm-navy">Add a staff member</h2>
 
@@ -477,7 +483,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
       )}
 
       {/* ------------------------------------- grant to an existing member --- */}
-      {grantOpen ? (
+      {readOnly ? null : grantOpen ? (
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
           <div className="flex items-start justify-between gap-2">
             <div>
@@ -636,7 +642,7 @@ export default function TeamClient({ staff }: { staff: StaffRow[] }) {
               </Link>
             )}
 
-            {s.adminRole === 'owner' ? (
+            {readOnly ? null : s.adminRole === 'owner' ? (
               <p className="flex items-start gap-2 rounded-xl bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
                 <ShieldAlert size={14} className="mt-px shrink-0" />
                 The owner cannot be demoted or removed, including by themselves. Transferring

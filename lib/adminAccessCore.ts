@@ -13,14 +13,55 @@
 //                   activity filtered to ONLY their own actions, plus their own
 //                   Two-factor page and sign out. Everything else is refused on
 //                   the server, not just hidden.
+//   partner         VIEW-ONLY (owner, 8 Oct 2026): opens every page the owner
+//                   opens — Finance, revenue, Team, Audit, Plans included — and
+//                   changes nothing. checkAdminRole() answers 403 to a Partner
+//                   on every request that is not a GET/HEAD, the database write
+//                   policies exclude the role (migration 150), and two-factor
+//                   is always required. Downloads (GET) stay allowed.
 //
 // 'owner' satisfies every check, so callers list the OTHER roles that qualify
-// and never have to remember to add owner.
+// and never have to remember to add owner. 'partner' satisfies every check too —
+// for VIEWING; writes are refused separately (see lib/adminAuth checkAdminRole).
 
-export type AdminRole = 'owner' | 'admin' | 'operations' | 'tuitions_staff'
+export type AdminRole = 'owner' | 'admin' | 'operations' | 'tuitions_staff' | 'partner'
 
 export function roleSatisfies(actorRole: AdminRole, allowed: AdminRole[]): boolean {
-  return actorRole === 'owner' || allowed.includes(actorRole)
+  return actorRole === 'owner' || actorRole === 'partner' || allowed.includes(actorRole)
+}
+
+/** A role that may change nothing (owner, 8 Oct 2026). */
+export function isReadOnlyRole(role: AdminRole | null | undefined): boolean {
+  return role === 'partner'
+}
+
+/** The owner and the Partner see the real staff roles; everyone else sees the
+ *  one word "Admin" for every staff member (owner, 8 Oct 2026, item 2). */
+export function seesRealRoles(viewer: AdminRole | null | undefined): boolean {
+  return viewer === 'owner' || viewer === 'partner'
+}
+
+/** The real role, in words — for the owner and the Partner (Team page). */
+export const ROLE_LABEL: Record<AdminRole, string> = {
+  owner: 'Owner',
+  partner: 'Partner',
+  admin: 'Admin',
+  operations: 'Operations',
+  tuitions_staff: 'Tuitions staff',
+}
+
+/**
+ * The badge a staff member wears (header, Overview, People pages). Owner and
+ * Partner show as themselves; Admin, Operations and Tuitions staff all show as
+ * "Admin". The owner and the Partner see the real role (pass their role as
+ * `viewer`); rights never depend on this word.
+ */
+export function roleBadge(role: string | null | undefined, viewer?: AdminRole | null): string {
+  if (!role) return ''
+  if (seesRealRoles(viewer ?? null)) return ROLE_LABEL[role as AdminRole] ?? role
+  if (role === 'owner') return 'Owner'
+  if (role === 'partner') return 'Partner'
+  return 'Admin'
 }
 
 /**
@@ -52,11 +93,22 @@ export const SCREEN_ACCESS = {
   // Verifying tutors and parents — operations' core work.
   tutors: ['admin', 'operations'] as AdminRole[],
   parents: ['admin', 'operations'] as AdminRole[],
-  // Money — admin (and owner) only, never operations.
-  plans: ['admin'] as AdminRole[],
-  plansMutate: ['admin'] as AdminRole[],
-  payments: ['admin'] as AdminRole[],
+  // OWNER-ONLY AREAS (owner, 8 Oct 2026, item 3): `[]` = the owner changes,
+  // the Partner views (roleSatisfies admits both), everyone else gets 403 and
+  // no menu item. Finance, the Overview revenue figure, payment amounts and
+  // totals, Plans and prices, Payment gateways + the settlement check, Team and
+  // the Audit log.
+  finance: [] as AdminRole[],
+  revenue: [] as AdminRole[],
+  paymentAmounts: [] as AdminRole[],
+  plans: [] as AdminRole[],
+  plansMutate: [] as AdminRole[],
+  // Payments: admin and operations see each payment's STATUS (to help tutors),
+  // never an amount or a total — the amounts are removed on the server.
+  payments: ['admin', 'operations'] as AdminRole[],
   paymentsApprove: ['admin'] as AdminRole[],
+  // Marking a payment refunded is money in rupees: owner only.
+  paymentsRefund: [] as AdminRole[],
   paymentsSettings: ['admin'] as AdminRole[],
   // PayPro reconciliation moved into Payment gateways → Settlement check
   // (owner, 6 Oct 2026): owner only, like that screen. `[]` = owner only.
@@ -97,7 +149,8 @@ export const SCREEN_ACCESS = {
   orphans: ['admin', 'operations'] as AdminRole[],
   signups: ['admin', 'operations'] as AdminRole[],
   usersExport: ['admin'] as AdminRole[],
-  audit: ['admin'] as AdminRole[],
+  // The audit log is owner-only (owner, 8 Oct 2026, item 3).
+  audit: [] as AdminRole[],
   seo: ['admin', 'operations'] as AdminRole[],
   videoVisibility: ['admin'] as AdminRole[],
   tutorSlug: ['admin'] as AdminRole[],

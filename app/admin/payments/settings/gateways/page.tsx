@@ -1,18 +1,18 @@
 import Link from 'next/link'
+import { permanentRedirect } from 'next/navigation'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { gatewayConfigured, getGatewaySettings, loadGatewayHealth } from '@/lib/payments/gatewaySettings'
 import { formatDateTime } from '@/lib/datetime'
 import GatewaysClient from './GatewaysClient'
-import SettlementCheck from './SettlementCheck'
-import { loadSettlement, type SettlementView } from '@/lib/settlement'
-import { pkDayKey } from '@/lib/datetime'
 
 // Admin → Settings → Payment gateways (owner, 6 Oct 2026, item 19).
 //
 // OWNER ONLY, enforced on the server: SCREEN_ACCESS.paymentGateways is `[]`, so
-// requireAdminRole admits the owner alone and the change route answers 403 to
-// everyone else. Credentials are never shown, entered or stored here — they
+// requireAdminRole admits the owner (and the view-only Partner) and the change
+// route answers 403 to everyone else. The settlement check moved to Admin →
+// Finance → Settlement check (owner, 8 Oct 2026); this page keeps the gateway
+// settings and health only. Credentials are never shown, entered or stored here — they
 // stay in Vercel; "connected" only means the gateway's variables are present.
 
 export const dynamic = 'force-dynamic'
@@ -21,29 +21,22 @@ function when(v: string | null): string {
   return v ? formatDateTime(v) : 'Never'
 }
 
-const ISO_DAY = /^d{4}-d{2}-d{2}$/
-
 export default async function PaymentGatewaysPage({
   searchParams,
 }: {
   searchParams: Promise<{ from?: string; to?: string }>
 }) {
   await requireAdminRole(...SCREEN_ACCESS.paymentGateways)
+  // An old settlement-check link (it carried ?from&to) goes to its new home.
+  const sp = await searchParams
+  if (sp.from || sp.to) {
+    const q = new URLSearchParams()
+    if (sp.from) q.set('from', sp.from)
+    if (sp.to) q.set('to', sp.to)
+    permanentRedirect(`/admin/finance/settlement?${q.toString()}`)
+  }
   const [settings, health] = await Promise.all([getGatewaySettings(), loadGatewayHealth()])
   const configured = gatewayConfigured()
-
-  // Settlement check range (Pakistan time). Default: this month to today.
-  const sp = await searchParams
-  const today = pkDayKey(new Date())
-  let from = sp.from && ISO_DAY.test(sp.from) ? sp.from : `${today.slice(0, 7)}-01`
-  let to = sp.to && ISO_DAY.test(sp.to) ? sp.to : today
-  if (from > to) [from, to] = [to, from]
-  const settlements = new Map<string, SettlementView>()
-  for (const g of health.gateways) {
-    if (!g.connected) continue
-    const v = await loadSettlement(g.id, from, to)
-    if (v) settlements.set(g.id, v)
-  }
 
   const card = 'space-y-2 rounded-2xl border border-gray-200 bg-white p-4'
 
@@ -56,6 +49,10 @@ export default async function PaymentGatewaysPage({
           the{' '}
           <Link href="/admin/audit" className="font-bold text-tm-navy hover:underline">
             audit log
+          </Link>
+          . The settlement check is under{' '}
+          <Link href="/admin/finance/settlement" className="font-bold text-tm-navy hover:underline">
+            Finance
           </Link>
           .
         </p>
@@ -97,7 +94,6 @@ export default async function PaymentGatewaysPage({
                 <dd className={g.pendingOverHour > 0 ? 'font-bold text-tm-red' : 'text-slate-700'}>{g.pendingOverHour}</dd>
               </div>
             </dl>
-            {settlements.has(g.id) && <SettlementCheck view={settlements.get(g.id)!} gatewayName={g.name} />}
           </div>
         ))}
         <p className="text-[11px] text-gray-500">

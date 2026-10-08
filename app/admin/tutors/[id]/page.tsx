@@ -73,7 +73,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
   const canReview = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)
   // Editing the tutor's locked step-1 fields (PR83) — admin + operations.
   const canFieldEdit = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutorEdit)
-  const isOwner = actor.adminRole === 'owner' // PR106-H1 §5: owner-only "View as tutor"
+  const isOwner = actor.adminRole === 'owner' || actor.adminRole === 'partner' // PR106-H1 §5: owner-only "View as tutor" (Partner views too)
   // One name (PR66 §5): the canonical is profiles.full_name (what the member sees
   // on their dashboard); fall back to tutor_profiles only if it is blank.
   const name =

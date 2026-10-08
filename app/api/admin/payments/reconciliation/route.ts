@@ -38,7 +38,7 @@ const TransferBody = z.object({
 })
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole(...SCREEN_ACCESS.reconciliation)
+  const gate = await checkAdminRole(...SCREEN_ACCESS.finance)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
   const actor = { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email }
 

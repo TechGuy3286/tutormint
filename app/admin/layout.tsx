@@ -7,7 +7,8 @@ import { approvalNeededCount } from '@/lib/approvalQueue'
 import AdminSignOut from '@/components/admin/AdminSignOut'
 import BridgeBanner from '@/components/admin/BridgeBanner'
 import NotificationBell from '@/components/notifications/NotificationBell'
-import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { getAdminActor, isReadOnlyRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { AdminReadOnlyProvider } from '@/components/admin/ReadOnly'
 import { NAV_GROUPS, type NavGroup } from '@/lib/adminNav'
 import { unreadCount } from '@/lib/notificationFeed'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -75,7 +76,10 @@ export default async function AdminLayout({
   const supabase = await createClient()
   const mfa = await mfaState(supabase)
   if (mfa === 'unverified') return <MfaGate mode="verify" email={actor.email} />
-  if (mfa === 'none' && !inMfaGrace()) return <MfaGate mode="setup" email={actor.email} />
+  // A Partner (view-only, owner 8 Oct 2026) ALWAYS needs two-factor — never a
+  // grace window: until it is set up, every admin page shows the setup screen.
+  const readOnly = isReadOnlyRole(actor.adminRole)
+  if (mfa === 'none' && (readOnly || !inMfaGrace())) return <MfaGate mode="setup" email={actor.email} />
 
   const groups: NavGroup[] = NAV_GROUPS.map((g) => ({
     ...g,
@@ -97,7 +101,9 @@ export default async function AdminLayout({
       groups={groups}
       badges={badges}
       initialCollapsed={jar.get('tm_admin_nav')?.value === 'collapsed'}
-      roleLabel={actor.adminRole === 'tuitions_staff' ? 'Tuitions' : actor.adminRole}
+      // The badge: "Owner", "Partner", or "Admin" for every other staff role
+      // (owner, 8 Oct 2026, item 2). Rights never depend on this word.
+      roleLabel={roleBadge(actor.adminRole)}
       email={actor.email}
       pageHead={pagehead}
       search={showMemberSearch ? <AdminSearch /> : null}
@@ -110,9 +116,18 @@ export default async function AdminLayout({
         />
       }
       signOut={<AdminSignOut tone="light" />}
-      banner={<BridgeBanner />}
+      banner={
+        <>
+          <BridgeBanner />
+          {readOnly && (
+            <p className="border-b border-tm-navy/10 bg-tm-tint-navy px-4 py-2 text-center text-[11px] font-bold text-tm-navy">
+              View-only Partner account — you can open every page and download reports; nothing can be changed.
+            </p>
+          )}
+        </>
+      }
     >
-      {children}
+      <AdminReadOnlyProvider readOnly={readOnly}>{children}</AdminReadOnlyProvider>
     </AdminShell>
   )
 }

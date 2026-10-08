@@ -7,6 +7,7 @@ import { MessageCircle, Phone } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { CONTACT_OUTCOMES, OUTCOME_LABEL, type ContactOutcome } from '@/lib/staffOutreachCore'
 import type { UnpaidRow } from '@/lib/staffOutreach'
@@ -17,6 +18,7 @@ import type { UnpaidRow } from '@/lib/staffOutreach'
 export default function UnpaidSignupRow({ row }: { row: UnpaidRow }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [outcome, setOutcome] = useState<ContactOutcome | ''>('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
@@ -93,7 +95,7 @@ export default function UnpaidSignupRow({ row }: { row: UnpaidRow }) {
         )}
       </p>
 
-      <div className="flex flex-wrap items-end gap-2">
+      {!readOnly && <div className="flex flex-wrap items-end gap-2">
         <label className="min-w-[150px] flex-1">
           <span className="mb-1 block text-[11px] font-bold text-gray-600">Outcome</span>
           <select
@@ -126,7 +128,7 @@ export default function UnpaidSignupRow({ row }: { row: UnpaidRow }) {
         >
           {busy ? 'Saving…' : 'Log contact'}
         </button>
-      </div>
+      </div>}
     </li>
   )
 }

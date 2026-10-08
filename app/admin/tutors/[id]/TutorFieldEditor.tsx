@@ -10,6 +10,7 @@ import TaxonomySelector from '@/components/TaxonomySelector'
 import LocationInput from '@/components/forms/LocationInput'
 import TutorCitiesEditor, { type CitiesState } from '@/components/tutor/TutorCitiesEditor'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import { resolveMasterIds } from '@/lib/taxonomy'
@@ -102,6 +103,7 @@ export default function TutorFieldEditor({
 }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const { map } = useCityAreas()
   const cities = map.cities
   const [open, setOpen] = useState<string | null>(null)
@@ -184,6 +186,8 @@ export default function TutorFieldEditor({
       setBusy(null)
     }
   }
+
+  if (readOnly) return null
 
   return (
     <section className="space-y-3 rounded-2xl border border-tm-navy/20 bg-tm-tint-navy/30 p-3">

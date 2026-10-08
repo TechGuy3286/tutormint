@@ -123,13 +123,16 @@ test('refund math: state, label and amount resolution', () => {
 
 test('refunds are owner/admin + fresh password, audited, net revenue, paid status kept', () => {
   const route = read('app/api/admin/payments/refund/route.ts')
-  assert.match(route, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.paymentsApprove\)/, 'owner/admin only')
+  // Owner only since 8 Oct 2026 (item 3: money is an owner area).
+  assert.match(route, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.paymentsRefund\)/, 'owner only')
   assert.match(route, /requireFreshAuth/, 'fresh password')
   const fn = read('lib/payments/refund.ts')
   assert.match(fn, /logAdminAction\([^]*payment\.refund/, 'audited')
   assert.match(fn, /event: 'refund_recorded'/, 'on the member history')
   assert.ok(!/verified_fee_paid_at:/.test(fn), 'a refund never writes paid status')
-  assert.match(read('lib/adminOverview.ts'), /- \(\(row\.refunded_amount_pkr/, 'net revenue subtracts refunds')
+  // Revenue (8 Oct 2026, Finance): a refunded payment is left out of every
+  // total and listed on its own — never netted into revenue.
+  assert.match(read('lib/financeCore.ts'), /if \(\(p\.refundedAmountPkr \?\? 0\) > 0 \|\| p\.refundedAt\) return 'refunded'/, 'refunds kept out of revenue')
 })
 
 test('Payments & refunds section + notification wired', () => {

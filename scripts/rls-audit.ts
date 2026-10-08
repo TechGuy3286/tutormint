@@ -251,7 +251,7 @@ async function probeReads(names: string[]) {
 
 /** Does this policy expression tie the row to a specific caller? */
 function isScoped(expr: string): boolean {
-  return /auth\.uid\(\)|auth\.jwt\(\)|is_admin\s*\(|is_admin_with\s*\(|owns_thread\s*\(|can_review_tutor\s*\(/i.test(
+  return /auth\.uid\(\)|auth\.jwt\(\)|is_admin\s*\(|is_admin_writer\s*\(|is_admin_with\s*\(|owns_thread\s*\(|can_review_tutor\s*\(/i.test(
     expr,
   )
 }

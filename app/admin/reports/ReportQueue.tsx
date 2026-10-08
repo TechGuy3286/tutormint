@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle, Ban, Lock, MessageSquare, X } from 'lucide-react'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
 import type { QueueBlockRow, QueueReportRow } from '@/lib/adminQueues'
@@ -53,6 +54,7 @@ export default function ReportQueue({
 }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const moreReports = useInfinite<QueueReport>({
     endpoint: '/api/admin/queues/reports',
     params: { filter },
@@ -239,7 +241,7 @@ export default function ReportQueue({
               )}
 
               {/* ------------------------------------------------- actions --- */}
-              {r.status === 'open' &&
+              {r.status === 'open' && !readOnly &&
                 (acting?.id === r.id ? (
                   <div className="space-y-2">
                     <input

@@ -7,7 +7,7 @@ import { addDeduction, removeDeduction } from '@/lib/settlement'
 import { parseBody, rupees, z } from '@/lib/validate'
 
 // Settlement check writes (owner, 6 Oct 2026). OWNER ONLY — the same gate as
-// the Payment gateways screen (SCREEN_ACCESS.paymentGateways = []), so an
+// Admin → Finance → Settlement check (SCREEN_ACCESS.finance = []), so an
 // admin or any staff role gets 403 here whatever a screen shows.
 //
 //   multipart/form-data  file + kind ('gateway' = the gateway's own export —
@@ -65,7 +65,7 @@ const Body = z.discriminatedUnion('action', [
 ])
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole(...SCREEN_ACCESS.paymentGateways)
+  const gate = await checkAdminRole(...SCREEN_ACCESS.finance)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
   const actor = { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email }
 

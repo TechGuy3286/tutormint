@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 
 // Owner-only "Payment alert emails" (PR106-H1 §2). One or more addresses that
 // get an email on every confirmed payment. Saves through adminFetch (the
 // fresh-password prompt is handled there) to the owner-only route.
 export default function AlertEmailsForm({ initial }: { initial: string }) {
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [value, setValue] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -49,13 +51,14 @@ export default function AlertEmailsForm({ initial }: { initial: string }) {
       <textarea
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        readOnly={readOnly}
         rows={3}
         placeholder="techguy3286@gmail.com"
         autoCapitalize="none"
         autoCorrect="off"
         className="min-h-[88px] w-full rounded-xl border border-gray-200 p-3 text-sm text-slate-700 focus:border-tm-navy focus:outline-none"
       />
-      <div className="flex flex-wrap gap-2">
+      {!readOnly && <div className="flex flex-wrap gap-2">
         <button
           type="submit"
           disabled={busy}
@@ -71,7 +74,7 @@ export default function AlertEmailsForm({ initial }: { initial: string }) {
         >
           {testing ? 'Sending…' : 'Send a test'}
         </button>
-      </div>
+      </div>}
     </form>
   )
 }

@@ -7,6 +7,7 @@ import { Check, X } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 
 // Approve / reject a bank-or-wallet transfer that is waiting for approval
 // (PR98 §4). Approval activates the plan via the audited admin path; rejection
@@ -24,6 +25,7 @@ export default function PaymentDecide({
   const toast = useToast()
   const confirm = useConfirm()
   const [busy, setBusy] = useState(false)
+  const readOnly = useAdminReadOnly()
 
   const approve = async () => {
     const ok = await confirm({
@@ -69,6 +71,7 @@ export default function PaymentDecide({
     }
   }
 
+  if (readOnly) return null
   return (
     <div className="flex flex-wrap gap-2">
       <button

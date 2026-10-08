@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import type { LevelSubject } from '@/lib/subjectsCore'
 
 // The "Main subject" checkboxes for one level (owner, 7 Oct 2026). Save sends
@@ -22,6 +23,7 @@ export default function SubjectsCoreClient({
 }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [ticked, setTicked] = useState<Set<number>>(() => new Set(subjects.filter((s) => s.isCore).map((s) => s.masterId)))
   const [busy, setBusy] = useState(false)
   const saved = new Set(subjects.filter((s) => s.isCore).map((s) => s.masterId))
@@ -79,6 +81,7 @@ export default function SubjectsCoreClient({
                   type="checkbox"
                   checked={ticked.has(s.masterId)}
                   onChange={() => toggle(s.masterId)}
+                  disabled={readOnly}
                   className="h-4 w-4 rounded border-gray-300"
                   aria-label={`Main subject: ${s.name}`}
                 />
@@ -92,6 +95,7 @@ export default function SubjectsCoreClient({
                 onChange={(e) => setUr((m) => ({ ...m, [s.slug]: e.target.value }))}
                 placeholder="اردو نام"
                 maxLength={60}
+                readOnly={readOnly}
                 aria-label={`Urdu name for ${s.name}`}
                 className="mx-2 mb-1 min-h-[36px] w-[calc(100%-1rem)] rounded-lg border border-gray-200 px-2 text-sm outline-none focus:border-tm-navy"
               />
@@ -99,14 +103,14 @@ export default function SubjectsCoreClient({
           ))}
         </ul>
       )}
-      <button
+      {!readOnly && <button
         type="button"
         onClick={() => void save()}
         disabled={busy || !dirty}
         className="inline-flex min-h-[44px] items-center rounded-xl bg-tm-red px-5 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-60"
       >
         {busy ? 'Saving…' : 'Save subjects'}
-      </button>
+      </button>}
     </section>
   )
 }

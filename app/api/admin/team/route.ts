@@ -27,7 +27,7 @@ const TeamBody = z.object({
   userId: uuid.optional(),
   email: z.string().email('Enter a valid email address.').max(320).optional(),
   fullName: z.string().max(200).optional(),
-  adminRole: z.enum(['owner', 'admin', 'operations', 'tuitions_staff']).optional(),
+  adminRole: z.enum(['owner', 'admin', 'operations', 'tuitions_staff', 'partner']).optional(),
   reason: z.string().max(1000).optional(),
   /** grant: the owner has acknowledged the dual-identity warning for a listed tutor. */
   confirmListedTutor: z.boolean().optional(),

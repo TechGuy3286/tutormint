@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function ViewAsTutorPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireAdminRole() // no roles → owner only
-  if (actor.adminRole !== 'owner') redirect('/admin')
+  if (actor.adminRole !== 'owner' && actor.adminRole !== 'partner') redirect('/admin') // Partner views too
   const { id } = await params
 
   const admin = createAdminClient()

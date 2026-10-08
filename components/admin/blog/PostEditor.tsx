@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AlertCircle, AlertTriangle, CheckCircle2, Copy, Eye, Image as ImageIcon, Lightbulb, Lock, Pencil, Shuffle, Sparkles, X } from 'lucide-react'
 
 import FileUpload from '@/components/FileUpload'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { compressImage } from '@/lib/imageCompress'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -103,9 +104,9 @@ export default function PostEditor({
   publishedPosts = [],
   tutorProfiles = [],
   suggestions = [],
-  canPublishCap,
-  canApproveCap = false,
-  canGenerate,
+  canPublishCap: canPublishCapProp,
+  canApproveCap: canApproveCapProp = false,
+  canGenerate: canGenerateProp,
   suggestionId = null,
   live,
 }: {
@@ -137,6 +138,12 @@ export default function PostEditor({
   }
 }) {
   const router = useRouter()
+  // A view-only (Partner) session may read a post here, and is offered nothing
+  // that saves, approves, publishes, schedules, deletes, generates or uploads.
+  const readOnly = useAdminReadOnly()
+  const canPublishCap = canPublishCapProp && !readOnly
+  const canApproveCap = canApproveCapProp && !readOnly
+  const canGenerate = canGenerateProp && !readOnly
   // Curated cities from the DB (migration 73) as datalist suggestions — one
   // source. The field stays free-text (a blog post may target any city).
   const cityOptions = useCityAreas().map.cities
@@ -1032,7 +1039,7 @@ export default function PostEditor({
       )}
 
       {/* Start from a suggested title — new posts only. */}
-      {!post.id && openSuggestions.length > 0 && (
+      {!readOnly && !post.id && openSuggestions.length > 0 && (
         <div className="rounded-2xl border border-tm-navy/15 bg-tm-tint-navy/40 p-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
@@ -1115,7 +1122,7 @@ export default function PostEditor({
             View live ↗
           </a>
         )}
-        <div className="ml-auto flex flex-wrap gap-2">
+        {!readOnly && <div className="ml-auto flex flex-wrap gap-2">
           <button
             type="button"
             onClick={save}
@@ -1170,7 +1177,7 @@ export default function PostEditor({
               Unpublish
             </button>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* The live URL, ready to paste into Google Search Console (owner, 14 Sep
@@ -1845,7 +1852,7 @@ export default function PostEditor({
             {/* Three composed variants (seeds base..base+2) built from the brand
                 asset library — pick one, or Shuffle for three more. A picked
                 cover derives its own alt text. */}
-            {pv.title.trim() ? (
+            {readOnly ? null : pv.title.trim() ? (
               <>
                 <div className="grid grid-cols-3 gap-2">
                   {[0, 1, 2].map((i) => {
@@ -1937,8 +1944,8 @@ export default function PostEditor({
               </figure>
             )}
 
-            <p className="text-[11px] text-gray-500">or upload your own:</p>
-            <FileUpload
+            {!readOnly && <p className="text-[11px] text-gray-500">or upload your own:</p>}
+            {!readOnly && <FileUpload
               label="Cover image"
               acceptLabel="JPG or PNG"
               onFile={async (file) => {
@@ -1959,7 +1966,7 @@ export default function PostEditor({
                 setDirty(true)
                 toast.success('Cover uploaded.')
               }}
-            />
+            />}
             <div>
               <label htmlFor="cover-alt" className="text-[11px] font-semibold text-gray-600">
                 Alt text {post.coverPath && <span className="text-tm-red">(required)</span>}

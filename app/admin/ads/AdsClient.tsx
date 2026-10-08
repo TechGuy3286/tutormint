@@ -12,6 +12,7 @@ import { formatDate } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import type { QueueAdRow } from '@/lib/adminQueues'
 
 // The ads screen: a create form and a list with per-ad analytics.
@@ -81,6 +82,7 @@ export default function AdsClient({
   const [error, setError] = useState<string | null>(null)
   const toast = useToast()
   const confirm = useConfirm()
+  const readOnly = useAdminReadOnly()
 
   const post = async (body: FormData, id: string) => {
     setBusy(id)
@@ -156,7 +158,7 @@ export default function AdsClient({
         </p>
       )}
 
-      {creating ? (
+      {readOnly ? null : creating ? (
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
           <h2 className="text-sm font-black text-tm-navy">New advertisement</h2>
 
@@ -337,7 +339,7 @@ export default function AdsClient({
                   {a.targetUrl ? ` · ${a.targetUrl}` : ''}
                 </p>
 
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {!readOnly && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {a.status !== 'active' ? (
                     <button
                       type="button"
@@ -367,7 +369,7 @@ export default function AdsClient({
                     <Trash2 aria-hidden size={13} />
                     Delete
                   </button>
-                </div>
+                </div>}
               </li>
             )
           })}

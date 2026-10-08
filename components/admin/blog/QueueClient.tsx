@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { AlarmClock, PenLine, Sparkles, Upload, X } from 'lucide-react'
 
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { clusterLabel } from '@/lib/blog'
 import type { Suggestion } from '@/lib/contentQueue/feed'
 
@@ -28,6 +29,7 @@ export default function QueueClient({
 }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [busy, setBusy] = useState<string | null>(null)
   const [dismissing, setDismissing] = useState<string | null>(null)
   const [reason, setReason] = useState('')
@@ -65,14 +67,14 @@ export default function QueueClient({
             What to publish next, from live site data. Rebuilt nightly; nothing publishes on its own.
           </p>
         </div>
-        <button
+        {!readOnly && <button
           type="button"
           onClick={() => act('rebuild', {}, 'Queue rebuilt.')}
           disabled={busy === 'rebuild'}
           className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy hover:border-tm-navy disabled:opacity-60"
         >
           {busy === 'rebuild' ? 'Rebuilding…' : 'Rebuild now'}
-        </button>
+        </button>}
       </header>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -102,7 +104,7 @@ export default function QueueClient({
                   ))}
                 </ul>
 
-                {dismissing === s.id ? (
+                {readOnly ? null : dismissing === s.id ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <input
                       value={reason}
@@ -178,14 +180,14 @@ export default function QueueClient({
                     >
                       <Upload aria-hidden size={12} /> Bulk import
                     </Link>
-                    <button
+                    {!readOnly && <button
                       type="button"
                       onClick={() => act('snooze', { id: s.id }, 'Snoozed.')}
                       disabled={busy === s.id}
                       className="inline-flex min-h-[40px] items-center rounded-xl border border-tm-gold/40 bg-white px-3 text-[11px] font-bold text-tm-gold-ink disabled:opacity-60"
                     >
                       Snooze
-                    </button>
+                    </button>}
                   </div>
                 </article>
               ))

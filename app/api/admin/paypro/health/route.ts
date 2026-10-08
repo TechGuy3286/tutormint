@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const actor = await getAdminActor()
-  if (!actor || actor.adminRole !== 'owner') {
+  if (!actor || (actor.adminRole !== 'owner' && actor.adminRole !== 'partner')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const health = await pproAuthHealth()

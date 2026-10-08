@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 
 // The bank-transfer details form. Text fields + an optional QR image. Saves
 // through adminFetch (so the fresh-password prompt is handled in one place).
@@ -29,6 +30,7 @@ const FIELDS: { name: keyof Omit<Initial, 'hasQr'>; label: string }[] = [
 export default function BankDetailsForm({ initial }: { initial: Initial }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [busy, setBusy] = useState(false)
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -57,6 +59,7 @@ export default function BankDetailsForm({ initial }: { initial: Initial }) {
             name={f.name}
             defaultValue={initial[f.name]}
             autoComplete="off"
+            readOnly={readOnly}
             className="min-h-[44px] w-full rounded-xl border border-gray-200 px-3 text-sm text-slate-700 focus:border-tm-navy focus:outline-none"
           />
         </label>
@@ -67,13 +70,13 @@ export default function BankDetailsForm({ initial }: { initial: Initial }) {
         <p className="text-[11px] text-gray-500">
           {initial.hasQr ? 'A QR image is set.' : 'No QR image set — the QR block is hidden on checkout.'}
         </p>
-        <input
+        {!readOnly && <input
           type="file"
           name="qr"
           accept="image/*"
           className="block w-full text-xs text-slate-700 file:mr-3 file:min-h-[44px] file:rounded-xl file:border file:border-gray-200 file:bg-white file:px-4 file:text-xs file:font-bold file:text-slate-700"
-        />
-        {initial.hasQr && (
+        />}
+        {initial.hasQr && !readOnly && (
           <label className="mt-1 flex items-center gap-2 text-[11px] text-gray-500">
             <input type="checkbox" name="removeQr" value="1" className="h-4 w-4" />
             Remove the current QR image
@@ -81,13 +84,13 @@ export default function BankDetailsForm({ initial }: { initial: Initial }) {
         )}
       </div>
 
-      <button
+      {!readOnly && <button
         type="submit"
         disabled={busy}
         className="min-h-[44px] w-full rounded-xl bg-tm-black px-4 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-60"
       >
         {busy ? 'Saving…' : 'Save details'}
-      </button>
+      </button>}
     </form>
   )
 }

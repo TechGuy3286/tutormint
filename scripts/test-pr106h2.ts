@@ -50,7 +50,8 @@ test('tuitions_staff can act on tuitions: post (jobsPost), close/reopen (jobsMut
 test('the restriction does not widen operations or admin', () => {
   // operations is unchanged (no tuitions-mutate, no money, no team).
   assert.equal(roleSatisfies('operations', SCREEN_ACCESS.jobsMutate), false)
-  assert.equal(roleSatisfies('operations', SCREEN_ACCESS.payments), false)
+  // Operations sees payment STATUS since 8 Oct 2026 (item 3) — never amounts.
+  assert.equal(roleSatisfies('operations', SCREEN_ACCESS.paymentAmounts), false)
   assert.equal(roleSatisfies('operations', SCREEN_ACCESS.team), false)
   // admin keeps everything except team; owner keeps everything.
   assert.equal(roleSatisfies('admin', SCREEN_ACCESS.team), false)
@@ -98,17 +99,19 @@ test('no admin route is left without a role check (the one gap is closed)', () =
   // self-service 2FA admits every staff role (was owner-only) so the role’s
   // Two-factor page works.
   for (const f of ['app/api/admin/mfa/backup/route.ts', 'app/api/admin/mfa/backup-codes/route.ts']) {
-    assert.match(read(f), /checkAdminRole\('admin', 'operations', 'tuitions_staff'\)/, `${f} admits all staff`)
+    // checkAdminSelf (8 Oct 2026): every staff role, the Partner included, may
+    // manage its OWN two-factor.
+    assert.match(read(f), /checkAdminSelf\('admin', 'operations', 'tuitions_staff'\)/, `${f} admits all staff`)
   }
 })
 
 // -------------------------------------------- Team + notification (STEP 2/3) -
 test('tuitions_staff is assignable in Team, everywhere the role list is read', () => {
-  assert.match(read('lib/staff.ts'), /ASSIGNABLE_ROLES: AdminRole\[\] = \['admin', 'operations', 'tuitions_staff'\]/)
-  assert.match(read('app/api/admin/team/route.ts'), /z\.enum\(\['owner', 'admin', 'operations', 'tuitions_staff'\]\)/)
+  assert.match(read('lib/staff.ts'), /ASSIGNABLE_ROLES: AdminRole\[\] = \['admin', 'operations', 'tuitions_staff', 'partner'\]/)
+  assert.match(read('app/api/admin/team/route.ts'), /z\.enum\(\['owner', 'admin', 'operations', 'tuitions_staff', 'partner'\]\)/)
   const client = read('app/admin/team/TeamClient.tsx')
   assert.match(client, /code: 'tuitions_staff', label: 'Tuitions staff'/, 'selectable with a plain label')
-  assert.match(client, /'owner' \| 'admin' \| 'operations' \| 'tuitions_staff'/, 'the row type allows it')
+  assert.match(client, /'owner' \| 'admin' \| 'operations' \| 'tuitions_staff' \| 'partner'/, 'the row type allows it')
 })
 
 test('a role change stays SILENT — no email, no in-app notification (STEP 2)', () => {

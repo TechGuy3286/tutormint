@@ -95,19 +95,20 @@ test('a deduction line needs a name, and a percent or a fixed amount', () => {
 })
 
 test('the settlement check (and the old reconciliation) is owner only', () => {
-  for (const key of ['paymentGateways', 'reconciliation'] as const) {
+  for (const key of ['paymentGateways', 'reconciliation', 'finance'] as const) {
     assert.equal(roleSatisfies('owner', SCREEN_ACCESS[key]), true)
     for (const r of ['admin', 'operations', 'tuitions_staff'] as const) assert.equal(roleSatisfies(r, SCREEN_ACCESS[key]), false, `${key} ${r}`)
   }
   const route = readFileSync(join(__dirname, '..', 'app', 'api', 'admin', 'payments', 'settlement', 'route.ts'), 'utf8')
-  assert.ok(route.includes('checkAdminRole(...SCREEN_ACCESS.paymentGateways)'))
+  assert.ok(route.includes('checkAdminRole(...SCREEN_ACCESS.finance)'))
   const exp = readFileSync(join(__dirname, '..', 'app', 'api', 'admin', 'payments', 'settlement', 'export', 'route.ts'), 'utf8')
-  assert.ok(exp.includes('checkAdminRole(...SCREEN_ACCESS.paymentGateways)'))
+  assert.ok(exp.includes('checkAdminRole(...SCREEN_ACCESS.finance)'))
   const lib = readFileSync(join(__dirname, '..', 'lib', 'settlement.ts'), 'utf8')
   assert.ok(lib.includes(".select('provider_ref, amount_pkr, reviewed_at, updated_at, created_at, method, raw')"), 'payments are read by reference, amount, dates and method only')
   assert.ok(!/select\('[^']*(full_name|email|phone)/.test(lib), 'no personal column is selected')
   const old = readFileSync(join(__dirname, '..', 'app', 'admin', 'payments', 'reconciliation', 'page.tsx'), 'utf8')
-  assert.ok(old.includes("permanentRedirect(`/admin/payments/settings/gateways"), 'the old URL redirects')
+  // Moved to Admin → Finance → Settlement check (owner, 8 Oct 2026).
+  assert.ok(old.includes("permanentRedirect(`/admin/finance/settlement"), 'the old URL redirects')
 })
 
 // --- per settle date (owner, 8 Oct 2026) -----------------------------------

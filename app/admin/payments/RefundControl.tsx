@@ -6,6 +6,7 @@ import { RotateCcw } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { REFUND_METHODS, REFUND_REASONS } from '@/lib/payments/refundCore'
 
 // "Mark as refunded" on an approved payment (PR106-H4 §4). Owner/admin only
@@ -25,6 +26,7 @@ export default function RefundControl({
 }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const remaining = amountPkr - (alreadyRefunded ?? 0)
@@ -58,6 +60,8 @@ export default function RefundControl({
       toast.error(data?.error ?? 'Could not record the refund.')
     }
   }
+
+  if (readOnly) return null
 
   if (!open) {
     return (

@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { AlertTriangle, Check, Download } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 
 type Verdict = { line: number; name: string; mobile: string; ok: boolean; errors: string[] }
 type Result = {
@@ -40,6 +41,7 @@ export default function ImportClient() {
 
   const toast = useToast()
   const confirm = useConfirm()
+  const readOnly = useAdminReadOnly()
 
   const post = async (action: 'validate' | 'apply') => {
     if (!file) return
@@ -191,7 +193,7 @@ export default function ImportClient() {
             ))}
           </ul>
 
-          {summary && summary.clean > 0 && (
+          {summary && summary.clean > 0 && !readOnly && (
             <div className="space-y-2 rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4">
               <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-tm-gold-ink">
                 <AlertTriangle size={16} className="mt-px shrink-0" />

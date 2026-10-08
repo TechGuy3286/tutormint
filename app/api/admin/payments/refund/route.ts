@@ -5,8 +5,8 @@ import { requireFreshAuth } from '@/lib/reauth'
 import { recordRefund } from '@/lib/payments/refund'
 import { REFUND_METHODS, REFUND_REASONS, type RefundMethod } from '@/lib/payments/refundCore'
 
-// Record a refund against an approved payment (PR106-H4 §4). Owner + admin only
-// (SCREEN_ACCESS.paymentsApprove — the same money-level permission as approving a
+// Record a refund against an approved payment (PR106-H4 §4). Owner only
+// (SCREEN_ACCESS.paymentsRefund — owner only since 8 Oct 2026; was the same as approving a
 // transfer), and a fresh password, because it moves money. Accepts multipart so
 // an optional proof screenshot can ride along; it is stored in the PRIVATE
 // payment-proofs bucket and never exposed. The amount, method, reference and
@@ -15,7 +15,7 @@ import { REFUND_METHODS, REFUND_REASONS, type RefundMethod } from '@/lib/payment
 export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole(...SCREEN_ACCESS.paymentsApprove)
+  const gate = await checkAdminRole(...SCREEN_ACCESS.paymentsRefund)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const fresh = await requireFreshAuth(gate.actor.id)

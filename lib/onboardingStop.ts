@@ -23,6 +23,7 @@ export async function stoppedAtByTutor(admin: SupabaseClient, ids: string[]): Pr
     admin.from('user_documents').select('user_id, kind, label').in('user_id', ids).in('kind', ['selfie', 'cnic']),
   ])
   const tpById = new Map((tps ?? []).map((t) => [t.id as string, t]))
+  const unconfirmed = await unconfirmedEmails(admin, new Set(ids))
   const subjCount = new Map<string, number>()
   for (const r of subj ?? []) subjCount.set(r.tutor_id as string, (subjCount.get(r.tutor_id as string) ?? 0) + 1)
   const docsBy = new Map<string, { kind: string; label: string | null }[]>()
@@ -64,8 +65,23 @@ export async function stoppedAtByTutor(admin: SupabaseClient, ids: string[]): Pr
       isSeed: false, isTeamAccount: false, isBanned: false, isSuspended: false, underReview: false,
       verificationStatus: null, imported: false, claimedAt: null,
     } satisfies FlowFacts
-    const label = stoppedAtLabel(facts)
+    const label = stoppedAtLabel(facts, { emailConfirmed: !unconfirmed.has(id) })
     if (label) out.set(id, label)
+  }
+  return out
+}
+
+/** Ids (of `want`) whose auth email was never confirmed — an email signup that
+ *  never clicked its link. Read through the Auth admin API, page by page. A
+ *  failure reads as "confirmed", so a hiccup never invents a stop. */
+async function unconfirmedEmails(admin: SupabaseClient, want: Set<string>): Promise<Set<string>> {
+  const out = new Set<string>()
+  if (want.size === 0) return out
+  for (let page = 1; page <= 50; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error || !data) break
+    for (const u of data.users) if (want.has(u.id) && !u.email_confirmed_at) out.add(u.id)
+    if (data.users.length < 1000) break
   }
   return out
 }

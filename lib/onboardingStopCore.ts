@@ -29,8 +29,19 @@ export const STEP_LABEL: Record<FlowStepKey, string> = {
   name: 'Name',
 }
 
-/** The label of the step this tutor stopped at, or null when every step is done. */
-export function stoppedAtLabel(f: FlowFacts): string | null {
+/** Stops that come BEFORE the onboarding flow (owner, 8 Oct 2026, items 7–8).
+ *  An email signup that never clicked its confirmation link never reached the
+ *  flow at all; a tutor who never verified their mobile is called and verified
+ *  by staff. Without these, both read as "Gender" — the flow's first step —
+ *  which is where 27 tutors appeared to be stuck. */
+export const EMAIL_NOT_CONFIRMED = 'Email not confirmed'
+export const MOBILE_NOT_VERIFIED = 'Mobile not verified'
+
+/** The label of the step this tutor stopped at, or null when every step is done.
+ *  `account.emailConfirmed` false = an email signup that never confirmed. */
+export function stoppedAtLabel(f: FlowFacts, account: { emailConfirmed?: boolean } = {}): string | null {
+  if (account.emailConfirmed === false) return EMAIL_NOT_CONFIRMED
+  if (!f.phoneVerified) return MOBILE_NOT_VERIFIED
   const k = firstMissingStep(f, NEW_FLOW_ORDER)
   return k ? STEP_LABEL[k] : null
 }

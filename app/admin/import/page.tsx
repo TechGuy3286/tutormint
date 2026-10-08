@@ -1,4 +1,5 @@
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, isReadOnlyRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { ViewOnlyNotice } from '@/components/admin/ReadOnly'
 import ImportClient from './ImportClient'
 
 // Bulk tutor import. owner / manager.
@@ -11,6 +12,7 @@ import ImportClient from './ImportClient'
 export const dynamic = 'force-dynamic'
 
 export default async function AdminImportPage() {
-  await requireAdminRole(...SCREEN_ACCESS.import)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.import)
+  if (isReadOnlyRole(actor.adminRole)) return <ViewOnlyNotice what="Bulk import" />
   return <ImportClient />
 }

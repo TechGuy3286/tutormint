@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 
 export async function GET(request: Request) {
-  const gate = await checkAdminRole(...SCREEN_ACCESS.paymentGateways)
+  const gate = await checkAdminRole(...SCREEN_ACCESS.finance)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const url = new URL(request.url)

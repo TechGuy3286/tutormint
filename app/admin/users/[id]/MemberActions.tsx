@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 
 // Quick actions on a member page.
 //
@@ -50,6 +51,7 @@ export default function MemberActions({
 }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [open, setOpen] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   const [confirmWord, setConfirmWord] = useState('')
@@ -101,6 +103,8 @@ export default function MemberActions({
 
   const firstName = name.split(' ')[0]
   const banGate = open === 'ban' && confirmWord.trim().toUpperCase() !== 'BAN'
+
+  if (readOnly) return null
 
   return (
     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">

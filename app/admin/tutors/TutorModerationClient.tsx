@@ -13,6 +13,7 @@ import { useInfinite } from '@/lib/useInfinite'
 import { submitJson, submitSignal } from '@/lib/submit'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import WhatsappChatButton from '@/components/admin/WhatsappChatButton'
 import type { QueueTutorRow } from '@/lib/adminQueues'
 import { BLOCKER_LABEL, type ListingBlocker } from '@/lib/tutorListingStatus'
@@ -39,9 +40,9 @@ export default function TutorModerationClient({
   tutors,
   filter,
   search,
-  canSetVisibility,
-  canRevealCnic,
-  canClearMobile,
+  canSetVisibility: canSetVisibilityProp,
+  canRevealCnic: canRevealCnicProp,
+  canClearMobile: canClearMobileProp,
   initialCursor,
   total,
 }: {
@@ -58,6 +59,12 @@ export default function TutorModerationClient({
   total: number
 }) {
   const router = useRouter()
+  // A view-only (Partner) session sees the queue and every tutor's details, and
+  // none of the controls that change them.
+  const readOnly = useAdminReadOnly()
+  const canSetVisibility = canSetVisibilityProp && !readOnly
+  const canRevealCnic = canRevealCnicProp && !readOnly
+  const canClearMobile = canClearMobileProp && !readOnly
   // The server rendered the first window; this only ever appends to it. The
   // filter AND the search term are part of the storage key and the load-more
   // params, so returning to a DIFFERENT tab or query never restores the
@@ -570,7 +577,7 @@ export default function TutorModerationClient({
               )
             })()}
 
-            <div className="space-y-1 pt-1">
+            {!readOnly && <div className="space-y-1 pt-1">
               <label htmlFor="reason" className="text-[11px] font-bold text-tm-navy">
                 Reason (required — recorded and shown to the tutor)
               </label>
@@ -581,7 +588,7 @@ export default function TutorModerationClient({
                 onChange={(e) => setReason(e.target.value)}
                 className="w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy"
               />
-            </div>
+            </div>}
 
             {err && <p className="text-[11px] font-bold text-tm-red">{err}</p>}
 
@@ -591,7 +598,7 @@ export default function TutorModerationClient({
               </p>
             )}
 
-            <div className="grid grid-cols-3 gap-2">
+            {!readOnly && <div className="grid grid-cols-3 gap-2">
               <button onClick={() => act('approve')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
                 <Check aria-hidden size={13} />
                 Approve
@@ -611,7 +618,7 @@ export default function TutorModerationClient({
                   Suspend
                 </button>
               )}
-            </div>
+            </div>}
           </div>
         </div>
       )}

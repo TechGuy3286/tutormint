@@ -1,4 +1,5 @@
-import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, isReadOnlyRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { ViewOnlyNotice } from '@/components/admin/ReadOnly'
 import PostEditor from '@/components/admin/blog/PostEditor'
 import { editorLiveData } from '@/lib/blogGenerate'
 import { landingOptionsForEditor, tutorProfileOptionsForEditor, emptyEditorPost } from '@/lib/blogEditor'
@@ -28,6 +29,7 @@ export default async function NewPostPage({
     tutorProfileOptionsForEditor(),
     searchParams,
   ])
+  if (isReadOnlyRole(actor.adminRole)) return <ViewOnlyNotice what="New post" />
   const live = await editorLiveData(null)
 
   let initial = emptyEditorPost()

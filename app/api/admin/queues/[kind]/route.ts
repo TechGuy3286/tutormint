@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 
-import { checkAdminRole } from '@/lib/adminAuth'
+import { checkAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import {
   loadAdList,
   loadBlockList,
   loadParentQueue,
   loadPaymentQueue,
+  withoutAmounts,
   loadMemberTimeline,
   loadReportQueue,
   loadSubscriptionLedger,
@@ -80,5 +81,10 @@ export async function GET(
     params: url.searchParams,
   })
 
-  return NextResponse.json({ items: rows, cursor: nextCursor })
+  // Payment amounts only for the owner and the Partner (owner, 8 Oct 2026).
+  const items =
+    queue === 'payments' && !roleSatisfies(gate.actor.adminRole, SCREEN_ACCESS.paymentAmounts)
+      ? withoutAmounts(rows as Parameters<typeof withoutAmounts>[0])
+      : rows
+  return NextResponse.json({ items, cursor: nextCursor })
 }

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Send, Pencil, ShieldCheck, MessageCircle } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDateTime } from '@/lib/datetime'
 import type { AdminMessage, AdminTemplate, InboxThread } from '@/lib/adminMessaging'
 import { INBOX_TAG_CLASS, type InboxTag } from '@/lib/inboxTags'
@@ -55,6 +56,7 @@ export default function InboxClient({
 }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
 
   // Preselect the template that matches this member's status tag (PR105 §6). The
   // component remounts on each member navigation (the page is force-dynamic), so
@@ -126,7 +128,7 @@ export default function InboxClient({
           <h1 className="text-lg font-black text-tm-navy">Team inbox</h1>
           <p className="text-xs text-gray-500">Official messages to members, and their replies.</p>
         </div>
-        {canEditTemplates && (
+        {canEditTemplates && !readOnly && (
           <button
             type="button"
             onClick={() => setShowTemplates((s) => !s)}
@@ -227,7 +229,7 @@ export default function InboxClient({
               </ol>
 
               {/* ----------------------------------------------- compose --- */}
-              <div className="space-y-2 border-t border-gray-100 pt-3">
+              {!readOnly && <div className="space-y-2 border-t border-gray-100 pt-3">
                 <select
                   value={templateKey}
                   onChange={(e) => applyTemplate(e.target.value)}
@@ -301,7 +303,7 @@ export default function InboxClient({
                   Sent as {TEAM}. WhatsApp opens a pre-filled chat you send yourself; every send is
                   recorded in this thread and the audit log.
                 </p>
-              </div>
+              </div>}
             </>
           )}
         </section>

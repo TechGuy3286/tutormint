@@ -6,6 +6,7 @@ import { AlertTriangle, ExternalLink } from 'lucide-react'
 
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDateTime } from '@/lib/datetime'
 import { flagSourceLabel, type FlagRow } from '@/lib/adminFlagsShared'
 import { flagStageLabel } from '@/lib/abuse/warnings'
@@ -20,6 +21,7 @@ export default function FlagQueue({ initial }: { initial: FlagRow[] }) {
   const [busy, setBusy] = useState<string | null>(null)
   const toast = useToast()
   const confirm = useConfirm()
+  const readOnly = useAdminReadOnly()
 
   async function act(
     action: 'clear' | 'suspend' | 'reinstate',
@@ -131,7 +133,7 @@ export default function FlagQueue({ initial }: { initial: FlagRow[] }) {
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-2">
+          {!readOnly && <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-2">
             <button
               type="button"
               onClick={() => act('clear', f)}
@@ -159,7 +161,7 @@ export default function FlagQueue({ initial }: { initial: FlagRow[] }) {
                 Suspend member
               </button>
             )}
-          </div>
+          </div>}
         </li>
       ))}
     </ul>

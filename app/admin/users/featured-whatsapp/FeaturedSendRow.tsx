@@ -6,6 +6,7 @@ import { MessageCircle } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDateTime } from '@/lib/datetime'
 import type { FeaturedRow } from '@/lib/staffOutreach'
 
@@ -17,6 +18,7 @@ import type { FeaturedRow } from '@/lib/staffOutreach'
 export default function FeaturedSendRow({ row }: { row: FeaturedRow }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState<string | null>(null)
 
@@ -66,7 +68,7 @@ export default function FeaturedSendRow({ row }: { row: FeaturedRow }) {
             ? `Last sent ${formatDateTime(row.lastSent.at)} by ${row.lastSent.byEmail ?? 'staff'}`
             : 'Never sent on WhatsApp.'}
       </p>
-      {row.msisdn ? (
+      {readOnly ? null : row.msisdn ? (
         <button
           type="button"
           onClick={() => void send()}

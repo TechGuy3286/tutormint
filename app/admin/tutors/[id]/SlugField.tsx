@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { slugify } from '@/lib/slugs'
 
 // The one place a tutor's public address can be changed.
@@ -29,6 +30,7 @@ export default function SlugField({
   canEdit: boolean
 }) {
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [slug, setSlug] = useState(initialSlug ?? '')
   const [saved, setSaved] = useState(initialSlug ?? '')
   const [busy, setBusy] = useState<'idle' | 'suggesting' | 'saving'>('idle')
@@ -113,7 +115,7 @@ export default function SlugField({
         <input
           value={slug}
           onChange={(e) => setSlug(e.target.value)}
-          disabled={!canEdit || busy !== 'idle'}
+          disabled={!canEdit || readOnly || busy !== 'idle'}
           spellCheck={false}
           aria-label="Profile address"
           className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-slate-700 disabled:bg-tm-bg"
@@ -126,7 +128,7 @@ export default function SlugField({
         </p>
       )}
 
-      {canEdit ? (
+      {canEdit && !readOnly ? (
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"

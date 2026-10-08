@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 
 type Switches = { feeOpen: boolean; plansOpen: boolean }
 
@@ -26,6 +27,7 @@ const ROWS: { which: 'fee_open' | 'plans_open'; field: keyof Switches; title: st
 export default function SwitchesForm({ initial }: { initial: Switches }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [state, setState] = useState<Switches>(initial)
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -62,7 +64,7 @@ export default function SwitchesForm({ initial }: { initial: Switches }) {
               role="switch"
               aria-checked={on}
               aria-label={r.title}
-              disabled={busy === r.which}
+              disabled={busy === r.which || readOnly}
               onClick={() => toggle(r.which, r.field)}
               className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
                 on ? 'bg-tm-green-deep' : 'bg-slate-300'

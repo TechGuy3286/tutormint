@@ -2,16 +2,17 @@ import { Gauge, Landmark, Scale, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 
 import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { loadPaymentQueue, loadSubscriptionLedger } from '@/lib/adminQueues'
+import { loadPaymentQueue, loadSubscriptionLedger, withoutAmounts } from '@/lib/adminQueues'
 import { createAdminClient } from '@/lib/supabase/admin'
 import PaymentQueue from './PaymentQueue'
 
 // Payments: the manual-transfer approval queue and the subscription ledger.
 //
-// owner / admin only (Finance was removed, 14 Sep 2026). An operations admin is
-// bounced by requireAdminRole here and by checkAdminRole in the decide route, so
-// the separation holds whether they use the screen or curl. Approving a transfer
-// additionally requires a fresh password (PR98 §4).
+// Owner, Partner (view-only), admin and operations (owner, 8 Oct 2026, item 3).
+// Admin and operations see each payment's STATUS to help tutors, never an
+// amount or a total: withoutAmounts() strips the rupees on the server, here and
+// in the load-more route. Approving stays admin; marking refunded is owner
+// only. Approving a transfer additionally requires a fresh password (PR98 §4).
 //
 // Both lists page independently through lib/adminQueues.ts, which is also what
 // the load-more route calls -- one definition of the query, so the first
@@ -28,7 +29,9 @@ export default async function AdminPaymentsPage({
   const canApprove = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsApprove)
   const canSettings = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsSettings)
   const canSwitches = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsSwitches)
-  const canReconcile = roleSatisfies(actor.adminRole, SCREEN_ACCESS.reconciliation)
+  const canReconcile = roleSatisfies(actor.adminRole, SCREEN_ACCESS.finance)
+  const canRefund = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsRefund)
+  const seesAmounts = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentAmounts)
   const { filter = 'all', q = '' } = await searchParams
   const search = q.trim()
 
@@ -80,7 +83,7 @@ export default async function AdminPaymentsPage({
           </Link>
           {canReconcile && (
             <Link
-              href="/admin/payments/settings/gateways"
+              href="/admin/finance/settlement"
               className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
             >
               <Scale aria-hidden size={14} />
@@ -91,7 +94,8 @@ export default async function AdminPaymentsPage({
       </header>
 
       <PaymentQueue
-        payments={payments.rows}
+        payments={seesAmounts ? payments.rows : withoutAmounts(payments.rows)}
+        canRefund={canRefund}
         subscriptions={subscriptions.rows}
         filter={filter}
         search={search}

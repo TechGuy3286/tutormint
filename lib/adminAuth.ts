@@ -20,19 +20,28 @@
 // staffActivity (self-scoped in the page), so every other screen's guard fails
 // for it exactly as it does for a role that was never listed.
 
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import {
   type AdminRole,
   roleSatisfies,
   adminHomeFor,
+  isReadOnlyRole,
+  roleBadge,
+  seesRealRoles,
+  ROLE_LABEL,
   SCREEN_ACCESS,
 } from '@/lib/adminAccessCore'
+import { METHOD_HEADER, isReadMethod } from '@/lib/requestMethod'
 
 // The pure access matrix lives in lib/adminAccessCore (no server imports, so it
 // is unit-testable). Re-exported here so every existing `@/lib/adminAuth`
 // importer is unchanged.
-export { type AdminRole, roleSatisfies, adminHomeFor, SCREEN_ACCESS }
+export { type AdminRole, roleSatisfies, adminHomeFor, isReadOnlyRole, roleBadge, seesRealRoles, ROLE_LABEL, SCREEN_ACCESS }
+
+/** The words a Partner sees when a write is refused. */
+export const PARTNER_READ_ONLY = 'Partner accounts are view-only. This change was not made.'
 
 export type AdminActor = {
   id: string
@@ -95,10 +104,51 @@ export async function requireAdminRole(...allowed: AdminRole[]): Promise<AdminAc
 export async function checkAdminRole(
   ...allowed: AdminRole[]
 ): Promise<{ ok: true; actor: AdminActor } | { ok: false; status: 401 | 403; error: string }> {
+  return checkAdmin(allowed, { self: false })
+}
+
+/**
+ * For the routes where a staff member manages their OWN two-factor (backup
+ * codes, the lost-phone path). A Partner must be able to set up two-factor —
+ * it is required of them — so these are the only writes a Partner may make,
+ * and they need no verified session (they are how one becomes verified).
+ */
+export async function checkAdminSelf(
+  ...allowed: AdminRole[]
+): Promise<{ ok: true; actor: AdminActor } | { ok: false; status: 401 | 403; error: string }> {
+  return checkAdmin(allowed, { self: true })
+}
+
+/** Was this request a GET or HEAD? proxy.ts stamps the real method on every
+ *  request (overwriting anything the client sent); a missing stamp reads as a
+ *  write, so the Partner rule fails closed. */
+async function isReadRequest(): Promise<boolean> {
+  try {
+    return isReadMethod((await headers()).get(METHOD_HEADER))
+  } catch {
+    return false
+  }
+}
+
+async function checkAdmin(
+  allowed: AdminRole[],
+  opts: { self: boolean },
+): Promise<{ ok: true; actor: AdminActor } | { ok: false; status: 401 | 403; error: string }> {
   const actor = await getAdminActor()
   if (!actor) return { ok: false, status: 401, error: 'Admin access required.' }
   if (!roleSatisfies(actor.adminRole, allowed)) {
     return { ok: false, status: 403, error: 'Your admin role cannot perform this action.' }
+  }
+  if (isReadOnlyRole(actor.adminRole) && !opts.self) {
+    // Partner (owner, 8 Oct 2026): view-only everywhere, and only with
+    // two-factor on. Reads (GET/HEAD — pages' data, downloads) pass; every
+    // other method is refused here, whatever the route.
+    if (!(await isReadRequest())) return { ok: false, status: 403, error: PARTNER_READ_ONLY }
+    const { mfaState } = await import('@/lib/adminMfa')
+    const supabase = await createClient()
+    if ((await mfaState(supabase)) !== 'verified') {
+      return { ok: false, status: 403, error: 'Set up two-factor first, then try again.' }
+    }
   }
   return { ok: true, actor }
 }

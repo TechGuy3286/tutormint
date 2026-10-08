@@ -30,6 +30,9 @@ export type AdminScreen =
   | 'payments'
   | 'paymentsSwitches'
   | 'paymentGateways'
+  | 'finance'
+  | 'revenue'
+  | 'paymentAmounts'
   | 'subjectsCore'
   | 'reconciliation'
   | 'duplicates'
@@ -103,6 +106,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/jobs/new', label: 'Post a tuition', icon: 'filePlus', screen: 'jobs' },
       { href: '/admin/jobs/duplicates', label: 'Duplicates', icon: 'copy', screen: 'duplicates' },
       { href: '/admin/payments', label: 'Payments', icon: 'wallet', screen: 'payments' },
+      // Owner only, plus the view-only Partner (owner, 8 Oct 2026, item 4).
+      { href: '/admin/finance', label: 'Finance', icon: 'scale', screen: 'finance' },
       { href: '/admin/payments/settings', label: 'Settings', icon: 'listChecks', screen: 'paymentsSwitches' },
       { href: '/admin/payments/settings/gateways', label: 'Payment gateways', icon: 'card', screen: 'paymentGateways' },
       { href: '/admin/settings/subjects', label: 'Subjects', icon: 'listChecks', screen: 'subjectsCore' },
@@ -142,6 +147,9 @@ export const NAV_GROUPS: NavGroup[] = [
  */
 export const SECTION_LABELS: Record<string, string> = {
   gateways: 'Payment gateways',
+  finance: 'Finance',
+  settlement: 'Settlement check',
+  overview: 'Overview',
   subjects: 'Subjects',
   settings: 'Settings',
   payers: 'Recent payers',

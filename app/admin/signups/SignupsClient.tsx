@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { Mail, MessageCircle, Send, X, AlertTriangle } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { formatDate } from '@/lib/datetime'
@@ -40,6 +41,7 @@ export default function SignupsClient({
   templateBodies: Record<string, string>
 }) {
   const { success, error } = useToast()
+  const readOnly = useAdminReadOnly()
   const [selected, setSelected] = useState<AbandonedSignup | null>(null)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
@@ -167,7 +169,7 @@ export default function SignupsClient({
                     <td className="p-3 text-right">
                       {sent.has(r.userId) ? (
                         <span className="text-[10px] font-bold text-tm-green-deep">Messaged</span>
-                      ) : (
+                      ) : readOnly ? null : (
                         <button
                           type="button"
                           onClick={() => open(r)}
@@ -185,7 +187,7 @@ export default function SignupsClient({
         </>
       )}
 
-      {selected && (
+      {selected && !readOnly && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-tm-black/40 p-0 sm:items-center sm:p-4"
           role="dialog"

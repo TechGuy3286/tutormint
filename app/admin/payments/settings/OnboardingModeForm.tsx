@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import type { OnboardingMode } from '@/lib/onboardingMode'
 
 // PR106-G3 §1: the owner-only "New onboarding" rollout switch. Off / Staff only
@@ -21,6 +22,7 @@ const ROWS: { value: OnboardingMode; title: string; sub: string }[] = [
 export default function OnboardingModeForm({ initial }: { initial: OnboardingMode }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [mode, setMode] = useState<OnboardingMode>(initial)
   const [busy, setBusy] = useState(false)
 
@@ -57,7 +59,7 @@ export default function OnboardingModeForm({ initial }: { initial: OnboardingMod
               type="button"
               role="radio"
               aria-checked={on}
-              disabled={busy}
+              disabled={busy || readOnly}
               onClick={() => void pick(r.value)}
               className={`flex w-full items-start gap-3 rounded-2xl border-2 p-4 text-left transition-colors disabled:opacity-60 ${
                 on ? 'border-tm-navy bg-tm-tint-navy' : 'border-gray-200 bg-white hover:border-gray-300'

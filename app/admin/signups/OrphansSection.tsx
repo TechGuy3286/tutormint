@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { AlertTriangle, UserCheck } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDate } from '@/lib/datetime'
 import type { OrphanAccount } from '@/lib/adminOrphans'
 
@@ -24,6 +25,7 @@ export default function OrphansSection({
   ok: boolean
 }) {
   const { success, error } = useToast()
+  const readOnly = useAdminReadOnly()
   const [busy, setBusy] = useState<string | null>(null)
   const [done, setDone] = useState<Set<string>>(new Set())
 
@@ -119,7 +121,7 @@ export default function OrphansSection({
                           <span className="text-[10px] font-semibold text-gray-500">
                             {r.metaRole === 'admin' ? 'Use the Team screen' : 'No role — backfill manually'}
                           </span>
-                        ) : (
+                        ) : readOnly ? null : (
                           <button
                             type="button"
                             disabled={busy === r.id}

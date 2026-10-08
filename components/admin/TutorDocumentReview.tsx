@@ -7,6 +7,7 @@ import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import Lightbox, { type LightboxImage } from '@/components/admin/Lightbox'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import type { DocumentStatuses, DocItem, DocState } from '@/lib/tutorDocuments'
 
 // Per-item identity review (PR60): CNIC front/back, profile picture and selfie
@@ -162,7 +163,7 @@ function ReviewItem({
   tutorId,
   item,
   title,
-  canReview,
+  canReview: canReviewProp,
   state,
   memberWhatsapp,
   children,
@@ -176,6 +177,9 @@ function ReviewItem({
   children: React.ReactNode
 }) {
   const toast = useToast()
+  // A view-only (Partner) session sees each document and its status, never Approve/Reject.
+  const readOnly = useAdminReadOnly()
+  const canReview = canReviewProp && !readOnly
   const [status, setStatus] = useState(state.status)
   const [reason, setReason] = useState('')
   const [rejecting, setRejecting] = useState(false)

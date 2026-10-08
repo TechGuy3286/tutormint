@@ -7,12 +7,14 @@ import { Download, Upload } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { pkr } from '@/lib/reconciliationCore'
 import type { SettlementFlag } from '@/lib/settlementCore'
 import type { SettlementView } from '@/lib/settlement'
 
-// Settlement check for one connected gateway (owner, 6 Oct 2026). Everything
+// Settlement check for one connected gateway (owner, 6 Oct 2026; moved to
+// Admin → Finance → Settlement check on 8 Oct 2026). Everything
 // shown is computed on the server (lib/settlementCore) for the chosen range,
 // Pakistan time. Uploads post multipart; the rest goes through adminFetch. Nothing
 // here changes a payment's status — mismatches are listed only.
@@ -52,6 +54,10 @@ export default function SettlementCheck({ view, gatewayName }: { view: Settlemen
   const toast = useToast()
   const confirm = useConfirm()
   const r = view.result
+  // The Partner views the settlement check and changes nothing (owner, 8 Oct
+  // 2026): uploads, deduction lines and transfers are hidden; the server refuses
+  // them anyway.
+  const readOnly = useAdminReadOnly()
   const [from, setFrom] = useState(r.from)
   const [to, setTo] = useState(r.to)
   const [busy, setBusy] = useState<string | null>(null)
@@ -66,7 +72,7 @@ export default function SettlementCheck({ view, gatewayName }: { view: Settlemen
       toast.error('Choose both dates.')
       return
     }
-    router.push(`/admin/payments/settings/gateways?from=${from}&to=${to}`)
+    router.push(`/admin/finance/settlement?from=${from}&to=${to}`)
   }
 
   const upload = async (kind: 'gateway' | 'bank', input: HTMLInputElement | null) => {
@@ -194,12 +200,12 @@ export default function SettlementCheck({ view, gatewayName }: { view: Settlemen
             {r.gatewayCount} paid order{r.gatewayCount === 1 ? '' : 's'} in the range · reported {pkr(r.gatewayReported)} (MerchantShare)
           </p>
         )}
-        <div className="flex flex-wrap items-center gap-2">
+        {!readOnly && <div className="flex flex-wrap items-center gap-2">
           <input ref={gatewayFile} type="file" accept=".xlsx,.xlsm,.csv" className="max-w-full text-xs" aria-label={`${gatewayName} file`} />
           <button type="button" onClick={() => void upload('gateway', gatewayFile.current)} disabled={busy !== null} className={GHOST}>
             <Upload aria-hidden size={14} /> {busy === 'gateway' ? 'Uploading…' : 'Upload gateway file'}
           </button>
-        </div>
+        </div>}
         <FlagList title={`Paid at ${gatewayName}, not approved on TutorMint`} rows={r.paidNotApproved} />
         <FlagList title={`Approved on TutorMint, not paid at ${gatewayName}`} rows={r.approvedNotPaid} />
         <FlagList title="Amounts that differ" rows={r.amountDifferences} />
@@ -226,14 +232,14 @@ export default function SettlementCheck({ view, gatewayName }: { view: Settlemen
                   {d.percent !== null ? ` · ${d.percent}%` : ''}
                   {d.fixedPkr !== null ? ` · ${pkr(d.fixedPkr)} per payment` : ''} · from {formatDate(d.effectiveFrom)}
                 </span>
-                <button type="button" onClick={() => void removeLine(d.id, d.name)} disabled={busy !== null} className="min-h-[36px] text-[11px] font-bold text-tm-red hover:underline">
+                {!readOnly && <button type="button" onClick={() => void removeLine(d.id, d.name)} disabled={busy !== null} className="min-h-[36px] text-[11px] font-bold text-tm-red hover:underline">
                   Remove
-                </button>
+                </button>}
               </li>
             ))}
           </ul>
         )}
-        <form onSubmit={saveDeduction} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {!readOnly && <form onSubmit={saveDeduction} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <label className="col-span-2 sm:col-span-1">
             <span className={LABEL}>Name</span>
             <input value={ded.name} onChange={(e) => setDed({ ...ded, name: e.target.value })} placeholder="PayPro fee" className={INPUT} />
@@ -253,7 +259,7 @@ export default function SettlementCheck({ view, gatewayName }: { view: Settlemen
           <button type="submit" disabled={busy !== null} className={`${BUTTON} col-span-2 sm:col-span-4`}>
             {busy === 'deduction' ? 'Saving…' : 'Add deduction line'}
           </button>
-        </form>
+        </form>}
       </div>
 
       {/* Bank transfers — the existing records, entered or uploaded here. */}
@@ -272,7 +278,7 @@ export default function SettlementCheck({ view, gatewayName }: { view: Settlemen
             ))}
           </ul>
         )}
-        <form onSubmit={saveTransfer} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {!readOnly && <form onSubmit={saveTransfer} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <label>
             <span className={LABEL}>Date</span>
             <input type="date" value={transfer.transferredOn} onChange={(e) => setTransfer({ ...transfer, transferredOn: e.target.value })} className={INPUT} />
@@ -292,13 +298,13 @@ export default function SettlementCheck({ view, gatewayName }: { view: Settlemen
           <button type="submit" disabled={busy !== null} className={`${BUTTON} col-span-2 sm:col-span-4`}>
             {busy === 'transfer' ? 'Saving…' : 'Record transfer'}
           </button>
-        </form>
-        <div className="flex flex-wrap items-center gap-2">
+        </form>}
+        {!readOnly && <div className="flex flex-wrap items-center gap-2">
           <input ref={bankFile} type="file" accept=".csv,.txt" className="max-w-full text-xs" aria-label="Bank statement CSV" />
           <button type="button" onClick={() => void upload('bank', bankFile.current)} disabled={busy !== null} className={GHOST}>
             <Upload aria-hidden size={14} /> {busy === 'bank' ? 'Uploading…' : 'Upload bank statement'}
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Per settle date (owner, 8 Oct 2026) — only when the file has Settle-Dates. */}

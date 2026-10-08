@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function BankDetailsPage() {
   const actor = await requireAdminRole(...SCREEN_ACCESS.paymentsSettings)
-  const isOwner = actor.adminRole === 'owner'
+  const isOwner = actor.adminRole === 'owner' || actor.adminRole === 'partner' // Partner views (read-only)
 
   const admin = createAdminClient()
   const stored = new Map<string, string>()

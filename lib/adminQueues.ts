@@ -14,6 +14,7 @@ import type { AdminRole } from '@/lib/adminAuth'
 import { SCREEN_ACCESS } from '@/lib/adminAuth'
 import { formatName } from '@/lib/formatName'
 import { FEE_LABEL } from '@/lib/display'
+import { refundState, type RefundState } from '@/lib/payments/refundCore'
 
 // The admin lists that still ended at a hard cap, on the platform's
 // infinite-scroll pattern.
@@ -491,7 +492,9 @@ export type QueuePaymentRow = {
   note: string | null
   planCode: string
   planName: string
-  amountPkr: number
+  /** Null when the viewer may not see amounts (owner, 8 Oct 2026, item 3:
+   *  only the owner and the Partner see rupees; other staff see the status). */
+  amountPkr: number | null
   provider: string
   method: string | null
   ourReference: string | null
@@ -502,8 +505,10 @@ export type QueuePaymentRow = {
   rejectionReason: string | null
   createdAt: string
   reviewedAt: string | null
-  /** PR106-H4 §4: refund state (0/null = none). */
+  /** PR106-H4 §4: refund state (0/null = none). Null when amounts are hidden. */
   refundedAmountPkr: number | null
+  /** Refund state in words-free form, kept even when amounts are hidden. */
+  refund: RefundState
   refundMethod: string | null
   refundedAt: string | null
 }
@@ -604,6 +609,7 @@ export async function loadPaymentQueue({
     createdAt: p.created_at as string,
     reviewedAt: (p.reviewed_at as string) ?? null,
     refundedAmountPkr: (p.refunded_amount_pkr as number | null) ?? null,
+    refund: refundState(p.amount_pkr as number, (p.refunded_amount_pkr as number | null) ?? null),
     refundMethod: (p.refund_method as string | null) ?? null,
     refundedAt: (p.refunded_at as string | null) ?? null,
   }))
@@ -1079,4 +1085,14 @@ export async function loadMemberTimeline({
   const rows = collapseTimeline(raw) as TimelineRowData[]
 
   return { rows, nextCursor, total }
+}
+
+/**
+ * Remove every rupee figure from payment rows for a viewer who may not see
+ * amounts (owner, 8 Oct 2026, item 3). Done on the SERVER — the page and the
+ * load-more route both call it — so an amount never reaches that browser.
+ * The status and the refund state stay: staff use them to help tutors.
+ */
+export function withoutAmounts(rows: QueuePaymentRow[]): QueuePaymentRow[] {
+  return rows.map((r) => ({ ...r, amountPkr: null, refundedAmountPkr: null }))
 }

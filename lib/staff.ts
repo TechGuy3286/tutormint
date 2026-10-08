@@ -29,7 +29,7 @@ import type { Actor } from '@/lib/moderation'
 import { formatName } from '@/lib/formatName'
 
 /** Roles the owner may hand out. 'owner' is absent deliberately. */
-export const ASSIGNABLE_ROLES: AdminRole[] = ['admin', 'operations', 'tuitions_staff']
+export const ASSIGNABLE_ROLES: AdminRole[] = ['admin', 'operations', 'tuitions_staff', 'partner']
 
 export type StaffResult =
   | {

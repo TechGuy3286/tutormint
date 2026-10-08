@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 
 // "Message parent on WhatsApp" for a seeded tuition. POSTs to the notify route
 // (which audits + timelines the action) and opens the returned wa.me link for
@@ -10,6 +11,7 @@ import { useToast } from '@/components/ui/Toast'
 export default function NotifyContact({ jobId }: { jobId: string }) {
   const { success, error } = useToast()
   const [busy, setBusy] = useState(false)
+  const readOnly = useAdminReadOnly()
 
   async function notify() {
     setBusy(true)
@@ -29,6 +31,7 @@ export default function NotifyContact({ jobId }: { jobId: string }) {
     }
   }
 
+  if (readOnly) return null
   return (
     <button
       type="button"

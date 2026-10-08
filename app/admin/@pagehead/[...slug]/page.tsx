@@ -3,6 +3,7 @@ import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { adminTrail } from '@/lib/adminNav'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatName } from '@/lib/formatName'
+import { OVERVIEW_ITEMS, isOverviewItemKey } from '@/lib/overviewItemsCore'
 
 // The page title and breadcrumb trail in the admin header.
 //
@@ -34,6 +35,8 @@ const LABEL_SCREEN = {
 async function dynamicLabel(slug: string[]): Promise<string | null> {
   const [section, id] = slug
   if (!id || slug.length !== 2) return null
+  // /admin/overview/<key>: the item's own title, from the pure list of items.
+  if (section === 'overview') return isOverviewItemKey(id) ? OVERVIEW_ITEMS[id].title : null
   if (section !== 'jobs' && section !== 'users' && section !== 'tutors' && section !== 'blog') {
     return null
   }

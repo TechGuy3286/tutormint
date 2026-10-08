@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
-import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, isReadOnlyRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { ViewOnlyNotice } from '@/components/admin/ReadOnly'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { teamParentId } from '@/lib/teamAccount'
 import type { PostTuitionValues } from '@/components/forms/PostTuitionForm'
@@ -14,7 +15,7 @@ import AdminJobEditForm from './AdminJobEditForm'
 export const dynamic = 'force-dynamic'
 
 export default async function AdminJobEditPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminRole(...SCREEN_ACCESS.jobsPost)
+  const actor = await requireAdminRole(...SCREEN_ACCESS.jobsPost)
   const { id } = await params
 
   const admin = createAdminClient()
@@ -85,7 +86,11 @@ export default async function AdminJobEditPage({ params }: { params: Promise<{ i
         </p>
       </header>
 
-      <AdminJobEditForm jobId={job.id as string} initial={initial} />
+      {isReadOnlyRole(actor.adminRole) ? (
+        <ViewOnlyNotice what="Edit team tuition" />
+      ) : (
+        <AdminJobEditForm jobId={job.id as string} initial={initial} />
+      )}
     </div>
   )
 }

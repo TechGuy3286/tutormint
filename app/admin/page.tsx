@@ -3,32 +3,44 @@ import { ArrowRight, BadgeCheck, Briefcase, GraduationCap, Users, Wallet } from 
 import type { ComponentType } from 'react'
 
 import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
-import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { loadOverview } from '@/lib/adminOverview'
-import { loadFunnel, loadTodo } from '@/lib/adminTodo'
+import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { loadOverviewList, type OverviewList } from '@/lib/overviewItems'
+import { OVERVIEW_ITEMS, type OverviewItemKey } from '@/lib/overviewItemsCore'
+import { funnelSteps } from '@/lib/staffOutreachCore'
 import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
+import { pkr } from '@/lib/reconciliationCore'
 
-// Each Overview card a distinct colour (PR32 §2) — keyed on the tile's own key,
-// so the tones do not drift if the order changes. Five keys, five distinct tones
-// (the same shared palette the dashboards use); the icon and the number wear the
-// tone, nothing about WHAT each card counts changes.
-const TILE_STYLE: Record<string, { tone: TileTone; icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }> }> = {
-  revenue: { tone: 'green', icon: Wallet },
-  paidThisMonth: { tone: 'teal', icon: BadgeCheck },
-  tutors: { tone: 'navy', icon: GraduationCap },
-  parents: { tone: 'violet', icon: Users },
-  jobs: { tone: 'gold', icon: Briefcase },
+// Each Overview card a distinct colour (PR32 §2), keyed on the item key.
+const TILE_STYLE: Record<string, { tone: TileTone; icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>; meaning: string }> = {
+  revenue: { tone: 'green', icon: Wallet, meaning: 'Approved this month, not refunded' },
+  'paid-this-month': { tone: 'teal', icon: BadgeCheck, meaning: '' },
+  tutors: { tone: 'navy', icon: GraduationCap, meaning: 'Registered accounts' },
+  parents: { tone: 'violet', icon: Users, meaning: 'Registered accounts' },
+  'open-tuitions': { tone: 'gold', icon: Briefcase, meaning: 'Live on the board for tutors to apply to' },
 }
 
-// The admin landing (redesign, owner 8 Oct 2026): the 5 money/headcount cards,
-// then "Today's to-do" — one row per job waiting, with a count and a one-tap
-// link, hidden at 0 — then "Signup to payment" for the last 7 or 30 days. The
-// Signups-by-role and Revenue-by-plan charts and the "Tutors to nudge" tips were
-// removed. Every row is filtered to the screens this role may open.
-//
-// NO INVENTED DELTAS. The funnel's "% lost" is computed from the same cohort's
-// real counts, step to step — never a comparison against another period.
+const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-this-month', 'tutors', 'parents', 'open-tuitions']
+const TODO_KEYS: OverviewItemKey[] = [
+  'todo-docs',
+  'todo-uncontacted',
+  'todo-stuck',
+  'todo-payments',
+  'todo-due',
+  'todo-flagged',
+  'todo-pausing',
+  'todo-featured',
+]
+const STEP_KEYS: OverviewItemKey[] = ['funnel-signed-up', 'funnel-mobile', 'funnel-onboarded', 'funnel-paid']
+const LOST_KEYS: (OverviewItemKey | null)[] = [null, 'lost-mobile', 'lost-onboarding', 'lost-payment']
+
+// The admin landing (owner, 8 Oct 2026). COUNTS MATCH THEIR LISTS: every card,
+// to-do row and funnel step (and each "lost" figure) is one item of
+// lib/overviewItems — the number shown is the length of that item's list (the
+// revenue card, its sum), and clicking it opens /admin/overview/<key>, which
+// renders the same rows. Every item is filtered to the screens this role may
+// open (OVERVIEW_ITEMS[key].screen), and a role never loads an item it cannot
+// see. Revenue is owner-only (plus the view-only Partner).
 
 export const dynamic = 'force-dynamic'
 
@@ -44,26 +56,32 @@ export default async function AdminHome({
   const denied = sp.denied === '1'
   const funnelDays: 7 | 30 = sp.funnel === '30' ? 30 : 7
 
-  const [overview, todoAll, funnel] = await Promise.all([loadOverview(), loadTodo(), loadFunnel(funnelDays)])
-  if (!overview) {
-    return (
-      <p className="rounded-xl border border-tm-red/30 bg-tm-tint-red p-4 text-xs font-bold text-tm-red">
-        SUPABASE_SERVICE_ROLE_KEY is not configured on the server, so the dashboard cannot be
-        loaded.
-      </p>
-    )
-  }
+  const may = (key: OverviewItemKey) => roleSatisfies(actor.adminRole, SCREEN_ACCESS[OVERVIEW_ITEMS[key].screen])
+  const keys = [...CARD_KEYS, ...TODO_KEYS, ...STEP_KEYS, ...(LOST_KEYS.filter(Boolean) as OverviewItemKey[])].filter(may)
+  const lists = new Map<OverviewItemKey, OverviewList>(
+    await Promise.all(keys.map(async (k) => [k, await loadOverviewList(k, { days: funnelDays })] as const)),
+  )
+  const href = (k: OverviewItemKey) =>
+    `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
 
-  const may = (screen?: keyof typeof SCREEN_ACCESS) =>
-    !screen || roleSatisfies(actor.adminRole, SCREEN_ACCESS[screen])
+  const tiles = CARD_KEYS.filter((k) => lists.has(k)).map((k) => {
+    const l = lists.get(k)!
+    return {
+      key: k,
+      label: OVERVIEW_ITEMS[k].title,
+      value: k === 'revenue' ? pkr(l.amount ?? 0) : String(l.rows.length),
+      meaning: l.extra ?? TILE_STYLE[k]?.meaning ?? '',
+    }
+  })
+  const todo = TODO_KEYS.filter((k) => lists.has(k))
+    .map((k) => ({ key: k, label: OVERVIEW_ITEMS[k].title, count: lists.get(k)!.rows.length, detail: lists.get(k)!.extra ?? null }))
+    .filter((r) => r.count > 0)
+  const seesMembers = STEP_KEYS.every((k) => lists.has(k))
+  const counts = STEP_KEYS.map((k) => lists.get(k)?.rows.length ?? 0)
+  const funnel = funnelSteps(counts, STEP_KEYS.map((k) => OVERVIEW_ITEMS[k].title))
 
-  const tiles = overview.tiles.filter((t) => may(t.screen))
-  // The funnel is member data: shown to roles that may open the member directory.
-  const seesMembers = may('users')
-  // Today's to-do: only rows whose screen this role may open.
-  const todo = todoAll.filter((row) => may(row.screen))
-  // The SMS/OTP delivery provider (owner PR5b §1.1) — owner and admin only, and
-  // only ever the provider NAME, never a credential. `['admin']` admits owner too.
+  // The SMS/OTP delivery provider (owner PR5b §1.1) — owner, Partner and admin,
+  // and only ever the provider NAME, never a credential.
   const seesDelivery = roleSatisfies(actor.adminRole, ['admin'])
   const smsProvider = seesDelivery ? smsProviderLabel() : null
 
@@ -72,7 +90,7 @@ export default async function AdminHome({
       {denied && <AccessDeniedNotice />}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-gray-500">
-          Signed in as {actor.email} · role <strong>{actor.adminRole}</strong>
+          Signed in as {actor.email} · role <strong>{roleBadge(actor.adminRole)}</strong>
         </p>
         {smsProvider && (
           <p className="text-xs text-gray-500">
@@ -103,7 +121,7 @@ export default async function AdminHome({
               // in the tone's dark ink shade.
               <Link
                 key={t.key}
-                href={t.href}
+                href={href(t.key)}
                 className={`flex h-full min-h-[104px] flex-col gap-0.5 rounded-2xl border border-black/5 p-4 transition-shadow hover:shadow-md [color-scheme:light] ${tone.card}`}
               >
                 <span className={`mb-1 grid h-9 w-9 place-items-center rounded-xl ${tone.chip}`}>
@@ -123,13 +141,13 @@ export default async function AdminHome({
         <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="border-b border-gray-200 px-4 py-3 sm:px-5">
             <h2 className="text-sm font-black text-tm-navy">Today&rsquo;s to-do</h2>
-            <p className="mt-0.5 text-[11px] text-gray-500">Each row opens the exact list. Rows with nothing to do are hidden.</p>
+            <p className="mt-0.5 text-[11px] text-gray-500">Each number opens exactly that list. Rows with nothing to do are hidden.</p>
           </div>
           <ul>
             {todo.map((row) => (
               <li key={row.key} className="border-b border-gray-200 last:border-0">
                 <Link
-                  href={row.href}
+                  href={href(row.key)}
                   className="flex min-h-[56px] items-center gap-3 px-4 py-3 transition-colors hover:bg-tm-bg sm:px-5"
                 >
                   <span className="grid h-8 min-w-8 shrink-0 place-items-center rounded-full bg-tm-tint-red px-1.5 text-xs font-black text-tm-red">
@@ -178,19 +196,28 @@ export default async function AdminHome({
             </div>
           </div>
           <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {funnel.map((step, i) => (
-              <li key={step.label} className="rounded-xl bg-tm-bg p-3">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-600">
-                  {i + 1}. {step.label}
-                </p>
-                <p className="text-2xl font-black text-tm-navy">{step.count}</p>
-                {step.lostPct !== null && (
-                  <p className={`text-[11px] font-bold ${step.lostPct > 0 ? 'text-tm-red' : 'text-tm-green-deep'}`}>
-                    {step.lostPct > 0 ? `${step.lostPct}% lost` : 'None lost'}
-                  </p>
-                )}
-              </li>
-            ))}
+            {funnel.map((step, i) => {
+              const lost = LOST_KEYS[i]
+              const lostCount = lost ? (lists.get(lost)?.rows.length ?? 0) : 0
+              return (
+                <li key={step.label} className="rounded-xl bg-tm-bg p-3">
+                  <Link href={href(STEP_KEYS[i])} className="block hover:underline">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                      {i + 1}. {step.label}
+                    </p>
+                    <p className="text-2xl font-black text-tm-navy">{step.count}</p>
+                  </Link>
+                  {lost && step.lostPct !== null && (
+                    <Link
+                      href={href(lost)}
+                      className={`text-[11px] font-bold hover:underline ${lostCount > 0 ? 'text-tm-red' : 'text-tm-green-deep'}`}
+                    >
+                      {lostCount > 0 ? `${lostCount} lost (${step.lostPct}%)` : 'None lost'}
+                    </Link>
+                  )}
+                </li>
+              )
+            })}
           </ol>
         </section>
       )}

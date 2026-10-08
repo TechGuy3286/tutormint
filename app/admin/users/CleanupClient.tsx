@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDate } from '@/lib/datetime'
 
 export type Candidate = {
@@ -35,6 +36,7 @@ export default function CleanupClient({
 }) {
   const router = useRouter()
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -126,12 +128,12 @@ export default function CleanupClient({
                     selected.has(c.id) ? 'border-tm-red' : 'border-gray-200'
                   }`}
                 >
-                  <input
+                  {!readOnly && <input
                     type="checkbox"
                     checked={selected.has(c.id)}
                     onChange={() => toggle(c.id)}
                     className="mt-0.5 h-5 w-5 shrink-0"
-                  />
+                  />}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-black text-tm-navy">
                       {c.email ?? '(no email)'}
@@ -148,7 +150,7 @@ export default function CleanupClient({
             ))}
           </ul>
 
-          <section className="space-y-2 rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4">
+          {!readOnly && <section className="space-y-2 rounded-2xl border border-tm-gold/30 bg-tm-tint-gold p-4">
             <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-tm-gold-ink">
               <AlertTriangle size={16} className="mt-px shrink-0" />
               {selected.size === 0
@@ -172,7 +174,7 @@ export default function CleanupClient({
             >
               {busy ? 'Deleting…' : `Delete ${selected.size || ''} selected`}
             </button>
-          </section>
+          </section>}
         </>
       )}
     </div>

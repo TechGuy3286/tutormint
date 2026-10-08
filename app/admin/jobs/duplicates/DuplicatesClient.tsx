@@ -8,6 +8,7 @@ import { Copy, GitMerge, Loader2 } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import type { RepeatPair } from '@/lib/duplicates'
 
 // The Duplicates screen (owner, 6 Oct 2026). One card per repeat, grouped by
@@ -20,6 +21,7 @@ export default function DuplicatesClient({ pairs, days, canMerge }: { pairs: Rep
   const router = useRouter()
   const toast = useToast()
   const confirm = useConfirm()
+  const readOnly = useAdminReadOnly()
   const [busy, setBusy] = useState<string | null>(null)
 
   const groups = useMemo(() => {
@@ -99,7 +101,7 @@ export default function DuplicatesClient({ pairs, days, canMerge }: { pairs: Rep
                     <p className="text-[11px] text-gray-500">{p.original.createdAt.slice(0, 10)} · {p.original.status}</p>
                   </div>
                   <div>
-                    {canMerge ? (
+                    {readOnly ? null : canMerge ? (
                       <button
                         type="button"
                         onClick={() => merge(p)}

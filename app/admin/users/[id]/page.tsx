@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { describeUtm } from '@/lib/utm'
 import { applicationStatus, jobStatus, adminActionLabel } from '@/lib/display'
@@ -198,7 +198,7 @@ export default async function AdminMemberPage({
               </span>
             )}
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700">
-              {profile.admin_role ?? (profile.role as string)}
+              {profile.admin_role ? roleBadge(profile.admin_role as string, actor.adminRole) : (profile.role as string)}
             </span>
           </div>
         </div>

@@ -7,7 +7,7 @@ import QueueSearch from '@/components/admin/QueueSearch'
 import StatusChip from '@/components/admin/StatusChip'
 import PaymentDecide from './PaymentDecide'
 import RefundControl from './RefundControl'
-import { refundState, refundLabel } from '@/lib/payments/refundCore'
+import { refundLabel } from '@/lib/payments/refundCore'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { useInfinite } from '@/lib/useInfinite'
 import { dedupeById } from '@/lib/dedupe'
@@ -50,6 +50,7 @@ export default function PaymentQueue({
   filter,
   search,
   canApprove,
+  canRefund,
   paymentsCursor,
   paymentsTotal,
   subscriptionsCursor,
@@ -60,6 +61,8 @@ export default function PaymentQueue({
   filter: string
   search: string
   canApprove: boolean
+  /** Marking refunded is owner only (owner, 8 Oct 2026). */
+  canRefund: boolean
   paymentsCursor: string | null
   paymentsTotal: number
   subscriptionsCursor: string | null
@@ -152,16 +155,20 @@ export default function PaymentQueue({
                   ) : (
                     <StatusChip status={p.status} />
                   )}
-                  {refundState(p.amountPkr, p.refundedAmountPkr) !== 'none' && (
+                  {p.refund !== 'none' && (
                     <span className="rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
-                      {refundLabel(refundState(p.amountPkr, p.refundedAmountPkr))}
+                      {refundLabel(p.refund)}
                     </span>
                   )}
                 </div>
 
                 <dl className="grid grid-cols-2 gap-2 text-[11px]">
                   <Cell label="Plan" value={p.planName} />
-                  <Cell label="Amount" value={`Rs. ${p.amountPkr.toLocaleString('en-PK')}`} />
+                  {/* Amounts reach only the owner and the Partner; for other
+                      staff the server sends null and the cell is left out. */}
+                  {p.amountPkr !== null && (
+                    <Cell label="Amount" value={`Rs. ${p.amountPkr.toLocaleString('en-PK')}`} />
+                  )}
                   {/* One consistent value for every manual transfer — "transfer"
                       — regardless of the stored method (bank/easypaisa/null on
                       older rows). Display mapping; the rows are not rewritten. */}
@@ -202,7 +209,7 @@ export default function PaymentQueue({
 
                 {/* Mark as refunded — owner/admin, on an approved payment not yet
                     fully refunded (PR106-H4 §4). */}
-                {canApprove && p.status === 'approved' && refundState(p.amountPkr, p.refundedAmountPkr) !== 'full' && (
+                {canRefund && p.amountPkr !== null && p.status === 'approved' && p.refund !== 'full' && (
                   <RefundControl
                     paymentId={p.id}
                     payerName={p.name}

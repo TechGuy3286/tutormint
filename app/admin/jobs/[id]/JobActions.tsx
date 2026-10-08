@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
+import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 
 // Close, pause/resume, un-feature.
 //
@@ -33,6 +34,7 @@ export default function JobActions({
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const toast = useToast()
+  const readOnly = useAdminReadOnly()
 
   const act = async (action: 'close' | 'unfeature' | 'pause' | 'resume' | 'refresh') => {
     setBusy(action)
@@ -90,6 +92,7 @@ export default function JobActions({
     </button>
   )
 
+  if (readOnly) return null
   return (
     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
       <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">Actions</h2>
