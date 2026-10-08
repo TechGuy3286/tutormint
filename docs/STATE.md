@@ -570,3 +570,30 @@ one production DB).
   title numbers credited only with notes); checklist "Cover set" line.
 - **Gates**: tsc 0 · build 0 · check:contrast 89 · rls:audit 168/168 ·
   test:covers 16 · test:blog 35 · all others pass.
+
+## Admission Test Prep — a no-grade level (owner, 8 Oct 2026)
+
+Migration 153 (additive, idempotent — dry-run applied twice in one rolled-back
+transaction: +1 level, +1 implicit grade, +10 subjects, +10 combinations;
+job_subjects 5,463 and tutor_subjects 1,904 unchanged; then applied before the
+code). A new level (taxonomy_categories `admission-test-prep`, sort_order 14)
+with the owner's 10 choices in order: Aitchison College, Crescent Model School
+Lahore, Beaconhouse School, Lahore Grammar School, Karachi Grammar School, Cadet
+Colleges, NSSE, Sadiq Public School Bahawalpur, Cadet College Hasanabdal, Other
+(last). Subject slugs are the plain slugs (`aitchison-college` … `other`).
+
+- **No grade.** `taxonomy_categories.no_grade boolean default false`; true only
+  for this level. The master needs a level, so it carries ONE implicit grade
+  (`taxonomy_levels` `admission-test-prep`, same name). `buildTaxonomy()` returns
+  `noGrade`; `TaxonomySelector` (tutor profile/settings, post a tuition — parent
+  and admin) and both browse filter bars auto-select the implicit grade and do
+  not render the grade selector (no "None" option). Saving with no hand-picked
+  grade therefore passes the existing validation, for this level only.
+- **Order.** Subjects are alphabetical everywhere as before, except a no-grade
+  level keeps its authored order (`orderSubjectsForPicker`).
+- Cards, profiles, admin, CV, search suggestions, landing pages and the sitemap
+  read the same taxonomy by id, so they pick the level up with no extra code.
+  A city × subject landing page appears once a listing exists (3+ to index).
+- Tests: `test:taxonomy` (ordering + no grade selector), `test:taxonomy:live`
+  (14 categories; the level is no-grade with exactly one implicit grade and the
+  10 choices in order).

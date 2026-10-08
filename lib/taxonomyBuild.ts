@@ -32,7 +32,7 @@ export type TaxonomyRow = {
   isCore: boolean
 }
 
-type CategoryRaw = { slug: string; name: string; sort_order: number | null }
+type CategoryRaw = { slug: string; name: string; sort_order: number | null; no_grade?: boolean | null }
 type LevelRaw = { slug: string; category_slug: string; name: string; sort_order: number | null; legacy: boolean | null }
 type SubjectRaw = { slug: string; name: string; name_ur?: string | null }
 type MasterRaw = { id: number; category_slug: string; level_slug: string; subject_slug: string | null; leaf_type: string | null; is_core?: boolean | null }
@@ -72,7 +72,7 @@ export async function fetchTaxonomyTables(
 ): Promise<TaxonomyTables | null> {
   const [categories, levels, subjects, master] = await Promise.all([
     pageAll<CategoryRaw>((f, t) =>
-      supabase.from('taxonomy_categories').select('slug, name, sort_order').order('slug').range(f, t),
+      supabase.from('taxonomy_categories').select('slug, name, sort_order, no_grade').order('slug').range(f, t),
     ),
     pageAll<LevelRaw>((f, t) =>
       supabase.from('taxonomy_levels').select('slug, category_slug, name, sort_order, legacy').order('slug').range(f, t),
@@ -106,7 +106,16 @@ export async function fetchTaxonomyTables(
  * merge their subject lists. `rows` keeps ALL rows so labels/selection can look
  * a retired row up by id.
  */
-export function buildTaxonomy(t: TaxonomyTables): { rows: TaxonomyRow[]; tree: TaxonomyNode; core: TaxonomyNode; urdu: Record<string, string> } {
+export function buildTaxonomy(t: TaxonomyTables): {
+  rows: TaxonomyRow[]
+  tree: TaxonomyNode
+  core: TaxonomyNode
+  urdu: Record<string, string>
+  /** Level (category) names with NO grade step (migration 153 — e.g. Admission
+   *  Test Prep). Each carries one implicit grade; pickers auto-select it and hide
+   *  the grade selector, and keep its subjects in the authored order. */
+  noGrade: string[]
+} {
   const categoryName = new Map<string, string>()
   const categoryOrder = new Map<string, number>()
   for (const c of t.categories) {
@@ -177,7 +186,18 @@ export function buildTaxonomy(t: TaxonomyTables): { rows: TaxonomyRow[]; tree: T
     if (ur) urdu[s.name] = ur
   }
 
-  return { rows, tree, core, urdu }
+  const noGrade = t.categories.filter((c) => !!c.no_grade).map((c) => c.name)
+
+  return { rows, tree, core, urdu, noGrade }
+}
+
+/**
+ * The subject list a picker shows for one grade. Alphabetical as before — EXCEPT
+ * a no-grade level (migration 153), whose list keeps the owner's authored order
+ * (e.g. "Other" last). Pure; shared by every picker.
+ */
+export function orderSubjectsForPicker(subjects: string[], category: string, noGrade: string[]): string[] {
+  return noGrade.includes(category) ? [...subjects] : [...subjects].sort()
 }
 
 // ---------------------------------------------------------------------------

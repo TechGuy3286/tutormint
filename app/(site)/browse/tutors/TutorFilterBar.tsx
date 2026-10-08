@@ -12,6 +12,7 @@ import { FEE_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
 import {
   fetchLevels,
   fetchGradesForLevel,
+  fetchNoGradeLevels,
   fetchSubjectsForGrade,
   isLevelLeaf,
   resolveMasterIds,
@@ -54,8 +55,13 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
   const [category, setCategory] = useState('')
   const [level, setLevel] = useState('')
 
+  // Levels with no grade step (migration 153): the level's one implicit grade
+  // is chosen automatically and the grade select is not shown.
+  const [noGrade, setNoGrade] = useState<string[]>([])
+
   useEffect(() => {
     fetchLevels().then(setCategories).catch(() => setCategories([]))
+    fetchNoGradeLevels().then(setNoGrade).catch(() => setNoGrade([]))
   }, [])
 
   useEffect(() => {
@@ -64,8 +70,13 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
       setLevel('')
       return
     }
-    fetchGradesForLevel(category).then(setLevels).catch(() => setLevels([]))
-  }, [category])
+    fetchGradesForLevel(category)
+      .then((ls) => {
+        setLevels(ls)
+        if (noGrade.includes(category) && ls[0]) setLevel(ls[0])
+      })
+      .catch(() => setLevels([]))
+  }, [category, noGrade])
 
   useEffect(() => {
     if (!category || !level) {
@@ -165,6 +176,7 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
           </select>
         </label>
 
+        {!noGrade.includes(category) && (
         <label className="block">
           <span className="sr-only">Level</span>
           <select
@@ -181,6 +193,7 @@ export default function TutorFilterBar({ values }: { values: FilterValues }) {
             ))}
           </select>
         </label>
+        )}
 
         <label className="block">
           <span className="sr-only">Subject</span>

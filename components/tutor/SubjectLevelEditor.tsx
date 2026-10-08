@@ -3,7 +3,8 @@
 import { Loader2, Plus, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
-import { fetchTaxonomyTree, fetchNonLegacyMasters, type TaxonomyNode, type SubjectMaster } from '@/lib/taxonomy'
+import { fetchTaxonomyTree, fetchNonLegacyMasters, loadedNoGradeLevels, type TaxonomyNode, type SubjectMaster } from '@/lib/taxonomy'
+import { orderSubjectsForPicker } from '@/lib/taxonomyBuild'
 import { deriveSelections, mergeSubjectSelections } from '@/lib/subjectMerge'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { ChipSkeletons } from '@/components/Skeletons'
@@ -80,7 +81,7 @@ export default function SubjectLevelEditor({
   const query = q.trim().toLowerCase()
   const subjectsFor = (cat: string): string[] => {
     if (!tree || !tree[cat]) return []
-    const union = Array.from(new Set(Object.keys(tree[cat]).flatMap((g) => tree[cat][g] ?? []))).sort()
+    const union = orderSubjectsForPicker(Array.from(new Set(Object.keys(tree[cat]).flatMap((g) => tree[cat][g] ?? []))), cat, loadedNoGradeLevels())
     return query ? union.filter((s) => s.toLowerCase().includes(query)) : union
   }
 

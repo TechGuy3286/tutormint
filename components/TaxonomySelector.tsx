@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Check, Layers, X } from 'lucide-react'
-import { fetchCoreTree, fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
+import { fetchCoreTree, fetchNoGradeLevels, fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
+import { orderSubjectsForPicker } from '@/lib/taxonomyBuild'
 import Select from '@/components/forms/Select'
 import { onOutsidePointerDown } from '@/lib/outsidePointer'
 import { TextLinesSkeleton } from '@/components/Skeletons'
@@ -46,6 +47,8 @@ export default function TaxonomySelector({
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyNode>({});
   // Main subjects per level (migration 146), for the per-grade "Main subjects" chip.
   const [coreTree, setCoreTree] = useState<TaxonomyNode>({});
+  // Levels with NO grade step (migration 153, e.g. Admission Test Prep).
+  const [noGrade, setNoGrade] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   const [gradeSearch, setGradeSearch] = useState<string>("");
@@ -69,9 +72,10 @@ export default function TaxonomySelector({
 
   useEffect(() => {
     async function loadTree() {
-      const [tree, core] = await Promise.all([fetchTaxonomyTree(), fetchCoreTree()]);
+      const [tree, core, ng] = await Promise.all([fetchTaxonomyTree(), fetchCoreTree(), fetchNoGradeLevels()]);
       setTaxonomyTree(tree);
       setCoreTree(core);
+      setNoGrade(ng);
       setLoading(false);
       // NO auto-selection (owner, 10 Sep 2026): the form opens empty so the
       // person chooses. An edit flow pre-fills from selectionForMasterIds.
@@ -89,6 +93,18 @@ export default function TaxonomySelector({
     return Object.keys(taxonomyTree[selectedLevel]);
   }, [taxonomyTree, selectedLevel]);
 
+  // A no-grade level carries ONE implicit grade: it is selected for the person
+  // and the grade selector is not shown at all (no "None" option). Saving is
+  // then valid with no grade chosen by hand, for this level only.
+  const isNoGrade = !!selectedLevel && noGrade.includes(selectedLevel);
+  useEffect(() => {
+    if (loading || !isNoGrade || gradesList.length === 0) return;
+    const same =
+      selectedGrades.length === gradesList.length && gradesList.every((g) => selectedGrades.includes(g));
+    if (!same) setSelectedGrades([...gradesList]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, isNoGrade, gradesList]);
+
   const gradesFiltered = useMemo(
     () => gradesList.filter((g) => g.toLowerCase().includes(gradeSearch.toLowerCase())),
     [gradesList, gradeSearch],
@@ -101,8 +117,8 @@ export default function TaxonomySelector({
     for (const g of selectedGrades) {
       for (const s of taxonomyTree[selectedLevel]?.[g] ?? []) set.add(s);
     }
-    return Array.from(set).sort();
-  }, [taxonomyTree, selectedLevel, selectedGrades]);
+    return orderSubjectsForPicker(Array.from(set), selectedLevel, noGrade);
+  }, [taxonomyTree, selectedLevel, selectedGrades, noGrade]);
 
   // Once the tree is loaded, drop any selected subject no longer offered by the
   // chosen grades (a grade was unticked). Guarded so it never fires while the
@@ -156,7 +172,7 @@ export default function TaxonomySelector({
       {/* Grade or specialisation — MULTI-SELECT now (owner, 11 Sep 2026). Search
           + checkbox grid + chips, the same shape as subjects, so the larger
           split set stays searchable and reads cleanly at 360px. */}
-      {selectedLevel && (
+      {selectedLevel && !isNoGrade && (
         <div className="space-y-2">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <label className="text-xs font-bold text-tm-navy block">Grade or specialisation</label>
@@ -217,7 +233,9 @@ export default function TaxonomySelector({
       {/* Subjects — hidden until a level AND at least one grade are chosen. */}
       {(!selectedLevel || selectedGrades.length === 0) ? (
         <p className="rounded-xl border border-dashed border-gray-200 bg-tm-bg p-3 text-[11px] leading-relaxed text-gray-500">
-          Choose a level and grade above, and the subjects will appear here.
+          {isNoGrade
+            ? 'The choices for this level will appear here.'
+            : 'Choose a level and grade above, and the subjects will appear here.'}
         </p>
       ) : perGrade ? (
         <PerGradeSubjects
@@ -226,6 +244,7 @@ export default function TaxonomySelector({
           core={coreTree[selectedLevel] ?? {}}
           map={gradeSubjects!}
           setMap={setGradeSubjects!}
+          hideGradeName={isNoGrade}
         />
       ) : (
       <div className="space-y-2">
@@ -337,6 +356,7 @@ function PerGradeSubjects({
   core,
   map,
   setMap,
+  hideGradeName = false,
 }: {
   grades: string[]
   offered: Record<string, string[]>
@@ -344,11 +364,13 @@ function PerGradeSubjects({
   core: Record<string, string[]>
   map: GradeSubjectMap
   setMap: (m: GradeSubjectMap) => void
+  /** A no-grade level (migration 153): its one implicit grade is never named. */
+  hideGradeName?: boolean
 }) {
   const [search, setSearch] = useState<Record<string, string>>({})
   return (
     <div className="space-y-3">
-      <p className="text-xs font-bold text-tm-navy">Subjects for each grade</p>
+      <p className="text-xs font-bold text-tm-navy">{hideGradeName ? 'Subjects' : 'Subjects for each grade'}</p>
       {grades.map((g) => {
         const list = offered[g] ?? []
         const chosen = map[g] ?? []
@@ -362,7 +384,7 @@ function PerGradeSubjects({
           <section key={g} aria-label={`Subjects for ${g}`} className="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-black text-tm-navy">
-                {g}
+                {hideGradeName ? 'Choose' : g}
                 <span className="ms-1.5 font-semibold text-gray-500">· {chosen.length} chosen</span>
               </p>
               <div className="flex gap-2">
@@ -421,7 +443,7 @@ function PerGradeSubjects({
               </div>
             )}
             {list.length > 0 && chosen.length === 0 && (
-              <p className="text-[11px] text-gray-500">Choose at least one subject for {g}.</p>
+              <p className="text-[11px] text-gray-500">{hideGradeName ? 'Choose at least one.' : `Choose at least one subject for ${g}.`}</p>
             )}
           </section>
         )

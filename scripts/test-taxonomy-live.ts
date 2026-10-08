@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 
-import { fetchTaxonomyTables, buildTaxonomy } from '../lib/taxonomyBuild'
+import { fetchTaxonomyTables, buildTaxonomy, orderSubjectsForPicker } from '../lib/taxonomyBuild'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '..')
@@ -48,7 +48,7 @@ const e = env()
 const url = e.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = e.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-test('the picker sees all 13 live categories and every live grade (live, paginated past the 1000-row cap)', { skip: !url || !key ? 'no anon key configured' : false }, async () => {
+test('the picker sees all 14 live categories and every live grade (live, paginated past the 1000-row cap)', { skip: !url || !key ? 'no anon key configured' : false }, async () => {
   const sb = createClient(url!, key!)
   const tables = await fetchTaxonomyTables(sb)
   assert.ok(tables, 'taxonomy fetch failed')
@@ -66,8 +66,8 @@ test('the picker sees all 13 live categories and every live grade (live, paginat
   const categories = Object.keys(tree)
   assert.equal(
     categories.length,
-    13,
-    `expected 13 live categories, got ${categories.length}: ${categories.sort().join(' | ')}`,
+    14,
+    `expected 14 live categories (13 + Admission Test Prep, migration 153), got ${categories.length}: ${categories.sort().join(' | ')}`,
   )
 
   // Every live grade reaches the picker. The expected count is read from the
@@ -121,3 +121,22 @@ test('the browse filters/typeahead never offer a retired subject (live RPCs)', {
     assert.equal(legacyById.get(Number(p.ref)), false, `popular listed a retired subject: ${p.label} (${p.ref})`)
   }
 })
+
+test('Admission Test Prep: a no-grade level with its 10 choices in order (live, migration 153)', { skip: !url || !key ? 'no anon key configured' : false }, async () => {
+  const tables = await fetchTaxonomyTables(createClient(url!, key!))
+  assert.ok(tables, 'taxonomy fetch failed')
+  const { tree, noGrade } = buildTaxonomy(tables!)
+  assert.ok(noGrade.includes('Admission Test Prep'), 'flagged no_grade')
+  assert.deepEqual(noGrade, ['Admission Test Prep'], 'no other level lost its grades')
+  const grades = Object.keys(tree['Admission Test Prep'] ?? {})
+  assert.equal(grades.length, 1, 'exactly one implicit grade')
+  assert.deepEqual(
+    orderSubjectsForPicker(tree['Admission Test Prep'][grades[0]], 'Admission Test Prep', noGrade),
+    [
+      'Aitchison College', 'Crescent Model School Lahore', 'Beaconhouse School', 'Lahore Grammar School',
+      'Karachi Grammar School', 'Cadet Colleges', 'NSSE', 'Sadiq Public School Bahawalpur',
+      'Cadet College Hasanabdal', 'Other',
+    ],
+  )
+})
+

@@ -16,12 +16,13 @@
 // the page.
 
 import { getBrowserClient } from '@/lib/supabase/clientLazy'
-import { buildTaxonomy, fetchTaxonomyTables, labelsFromRows, selectionFromRows, type TaxonomyNode, type TaxonomyRow as Row, type TaxonomySelection } from '@/lib/taxonomyBuild'
+import { buildTaxonomy, fetchTaxonomyTables, orderSubjectsForPicker, labelsFromRows, selectionFromRows, type TaxonomyNode, type TaxonomyRow as Row, type TaxonomySelection } from '@/lib/taxonomyBuild'
 
 export type { TaxonomyNode }
 
-let cache: { rows: Row[]; tree: TaxonomyNode; core: TaxonomyNode; urdu: Record<string, string> } | null = null
-let inFlight: Promise<{ rows: Row[]; tree: TaxonomyNode; core: TaxonomyNode; urdu: Record<string, string> }> | null = null
+type Loaded = { rows: Row[]; tree: TaxonomyNode; core: TaxonomyNode; urdu: Record<string, string>; noGrade: string[] }
+let cache: Loaded | null = null
+let inFlight: Promise<Loaded> | null = null
 
 /**
  * Load the four taxonomy tables (paginated past the PostgREST max-rows cap —
@@ -29,13 +30,13 @@ let inFlight: Promise<{ rows: Row[]; tree: TaxonomyNode; core: TaxonomyNode; urd
  * The fetch + the pure derivation live in lib/taxonomyBuild.ts so the live test
  * exercises the same code. Cached for the page's lifetime.
  */
-async function load(): Promise<{ rows: Row[]; tree: TaxonomyNode; core: TaxonomyNode; urdu: Record<string, string> }> {
+async function load(): Promise<Loaded> {
   if (cache) return cache
   if (inFlight) return inFlight
 
   inFlight = (async () => {
     const tables = await fetchTaxonomyTables(await getBrowserClient())
-    if (!tables) return { rows: [], tree: {}, core: {}, urdu: {} } // do NOT cache a failed fetch
+    if (!tables) return { rows: [], tree: {}, core: {}, urdu: {}, noGrade: [] } // do NOT cache a failed fetch
     cache = buildTaxonomy(tables)
     return cache
   })()
@@ -56,6 +57,18 @@ export async function fetchTaxonomyTree(): Promise<TaxonomyNode> {
  *  subjects" chip. A level with none is absent, and its chip is hidden. */
 export async function fetchCoreTree(): Promise<TaxonomyNode> {
   return (await load()).core
+}
+
+/** Level (category) names that have NO grade step (migration 153). Pickers
+ *  auto-select the level's one implicit grade and hide the grade selector. */
+export async function fetchNoGradeLevels(): Promise<string[]> {
+  return (await load()).noGrade
+}
+
+/** The no-grade level names once the taxonomy has loaded (e.g. after
+ *  fetchTaxonomyTree resolved) — for synchronous ordering in render. */
+export function loadedNoGradeLevels(): string[] {
+  return cache?.noGrade ?? []
 }
 
 /** English subject name → short Urdu name (migration 149), where one is set. */
@@ -80,14 +93,15 @@ export async function fetchGradesForLevel(level1: string): Promise<string[]> {
 /** Third tier: subject names ("Level 3") for one category + level. Non-legacy
  *  only — a fresh pick sees exactly the current dataset's subjects. */
 export async function fetchSubjectsForGrade(level1: string, level2: string): Promise<string[]> {
-  const { rows } = await load()
-  return Array.from(
+  const { rows, noGrade } = await load()
+  const list = Array.from(
     new Set(
       rows
         .filter((r) => !r.legacy && r.category === level1 && r.level === level2 && r.subject)
         .map((r) => r.subject as string),
     ),
-  ).sort()
+  )
+  return orderSubjectsForPicker(list, level1, noGrade)
 }
 
 /** Every subject name in the CURRENT taxonomy (non-legacy). */

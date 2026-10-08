@@ -22,7 +22,7 @@ export type SubjectGroups = {
   noMain: boolean
 }
 
-export function subjectGroups(tree: Tree, core: Tree, category: string, selected: string[] = []): SubjectGroups {
+export function subjectGroups(tree: Tree, core: Tree, category: string, selected: string[] = [], keepOrder = false): SubjectGroups {
   const grades = tree[category] ?? {}
   const all = new Set<string>()
   for (const g of Object.keys(grades)) for (const s of grades[g] ?? []) all.add(s)
@@ -37,7 +37,9 @@ export function subjectGroups(tree: Tree, core: Tree, category: string, selected
   // the selection is visible once and never repeated in "More".
   for (const s of selected) if (all.has(s) && !main.includes(s)) main.push(s)
 
-  const more = Array.from(all).filter((s) => !main.includes(s)).sort((a, b) => a.localeCompare(b))
+  // A no-grade level (migration 153) keeps the owner's authored order.
+  const rest = Array.from(all).filter((s) => !main.includes(s))
+  const more = keepOrder ? rest : rest.sort((a, b) => a.localeCompare(b))
   return { main, more, noMain }
 }
 

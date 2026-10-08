@@ -10,6 +10,7 @@ import { BUDGET_BANDS, bandFor, bandRange, feeChipLabel } from '@/lib/feeBands'
 import {
   fetchLevels,
   fetchGradesForLevel,
+  fetchNoGradeLevels,
   fetchSubjectsForGrade,
   isLevelLeaf,
   resolveMasterIds,
@@ -48,8 +49,13 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
   const [category, setCategory] = useState('')
   const [level, setLevel] = useState('')
 
+  // Levels with no grade step (migration 153): the level's one implicit grade
+  // is chosen automatically and the grade select is not shown.
+  const [noGrade, setNoGrade] = useState<string[]>([])
+
   useEffect(() => {
     fetchLevels().then(setCategories).catch(() => setCategories([]))
+    fetchNoGradeLevels().then(setNoGrade).catch(() => setNoGrade([]))
   }, [])
 
   useEffect(() => {
@@ -58,8 +64,13 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
       setLevel('')
       return
     }
-    fetchGradesForLevel(category).then(setLevels).catch(() => setLevels([]))
-  }, [category])
+    fetchGradesForLevel(category)
+      .then((ls) => {
+        setLevels(ls)
+        if (noGrade.includes(category) && ls[0]) setLevel(ls[0])
+      })
+      .catch(() => setLevels([]))
+  }, [category, noGrade])
 
   useEffect(() => {
     if (!category || !level) {
@@ -135,6 +146,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             ))}
           </select>
         </label>
+        {!noGrade.includes(category) && (
         <label className="block">
           <span className="sr-only">Level</span>
           <select className={FIELD} value={level} disabled={!category} onChange={(e) => chooseLevel(e.target.value)}>
@@ -144,6 +156,7 @@ export default function JobFilterBar({ values }: { values: JobFilterValues }) {
             ))}
           </select>
         </label>
+        )}
         <label className="block">
           <span className="sr-only">Subject</span>
           <select

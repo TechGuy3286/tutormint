@@ -28,7 +28,8 @@ import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
 import type { OnboardingFacets } from '@/lib/openJobCounts'
 import type { ManualInstructions } from '@/lib/payments/provider'
 import { DEFAULT_CHECKOUT_METHODS, type CheckoutMethods } from '@/lib/payments/gatewaySettingsCore'
-import { fetchTaxonomyTree, resolveMasterIds, fetchNonLegacyMasters, type TaxonomyNode } from '@/lib/taxonomy'
+import { fetchTaxonomyTree, resolveMasterIds, fetchNonLegacyMasters, loadedNoGradeLevels, type TaxonomyNode } from '@/lib/taxonomy'
+import { orderSubjectsForPicker } from '@/lib/taxonomyBuild'
 import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
 import TimeSlotGrid from '@/components/forms/TimeSlotGrid'
 import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
@@ -1160,7 +1161,7 @@ function SubjectsPerLevelStep({
   const query = q.trim().toLowerCase()
   const groups = cats.map((cat) => {
     const grades = Object.keys(tree[cat] ?? {})
-    const subs = Array.from(new Set(grades.flatMap((g) => tree[cat][g] ?? []))).sort()
+    const subs = orderSubjectsForPicker(Array.from(new Set(grades.flatMap((g) => tree[cat][g] ?? []))), cat, loadedNoGradeLevels())
     return { cat, subs: query ? subs.filter((s) => s.toLowerCase().includes(query)) : subs }
   })
   const total = Object.values(selByCat).reduce((n, arr) => n + arr.length, 0)

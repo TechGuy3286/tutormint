@@ -22,7 +22,7 @@ import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { EXPERIENCE_BANDS, composeHeadline, composeBio } from '@/lib/onboarding/copy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange } from '@/lib/fee'
-import { resolveMasterIds, fetchTaxonomyTree, fetchCoreTree, fetchNonLegacyMasters, fetchSubjectUrdu, type TaxonomyNode } from '@/lib/taxonomy'
+import { resolveMasterIds, fetchTaxonomyTree, fetchCoreTree, fetchNonLegacyMasters, fetchSubjectUrdu, loadedNoGradeLevels, type TaxonomyNode } from '@/lib/taxonomy'
 import { subjectGroups, filterMore } from '@/lib/onboarding/subjectGroups'
 import { availabilityToSlots, slotsToAvailabilityList, type DaySlot } from '@/lib/timeSlots'
 import { NEW_FLOW_ORDER, firstMissingStep, nextMissingAfter, stepDone, type FlowStepKey } from '@/lib/tutorFlow'
@@ -728,7 +728,7 @@ function SubjectsStep({ initialIds, draftCats, draftByCat, shell, helpWaHref, on
                 once, ticked, with the main chips. */}
             {selCats.map((cat) => {
               const picked = selByCat[cat] ?? []
-              const g = subjectGroups(tree, core, cat, picked)
+              const g = subjectGroups(tree, core, cat, picked, loadedNoGradeLevels().includes(cat))
               const open = g.noMain || !!moreOpen[cat]
               const q = moreQ[cat] ?? ''
               const moreShown = filterMore(g.more, q, suggested[cat] ?? [])
