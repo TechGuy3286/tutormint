@@ -7,6 +7,7 @@ import { logActivity } from '@/lib/activityLog'
 import { parseBody, z } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { needsBridgeReverify } from '@/lib/sms'
+import { restoreSelfPauseOnSignIn } from '@/lib/selfPause'
 import { PERSIST_COOKIE } from '@/lib/sessionCookies'
 import { BANNED_LOGIN_MESSAGE } from '@/lib/authMessages'
 import { needsPhoneGate } from '@/lib/phoneGate'
@@ -123,6 +124,11 @@ export async function POST(request: Request) {
 
   await logActivity({ userId: data.user.id, event: 'login', meta: { via: looksLikeEmail(identifier) ? 'email' : 'mobile' } })
 
+  // "Pause my account" (owner, 8 Oct 2026): a successful sign-in brings a
+  // self-paused account back — never one staff suspended or banned (the rule
+  // is in lib/selfPauseCore shouldRestoreOnSignIn).
+  const restored = await restoreSelfPauseOnSignIn(data.user.id)
+
   // Bridge re-verification: a number proved by the BRIDGE_OTP stopgap must be
   // re-verified once the real provider lands (owner, Sunday 6 Sep). We detect
   // that here — bridge-verified account, bridge no longer configured — and
@@ -157,6 +163,7 @@ export async function POST(request: Request) {
     suspended: !!profile?.is_suspended,
     reverify,
     needsPhoneVerify,
+    restored,
   })
 }
 

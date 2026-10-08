@@ -14,13 +14,13 @@ import { pkr } from '@/lib/reconciliationCore'
 // Each Overview card a distinct colour (PR32 §2), keyed on the item key.
 const TILE_STYLE: Record<string, { tone: TileTone; icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>; meaning: string }> = {
   revenue: { tone: 'green', icon: Wallet, meaning: 'Approved this month, not refunded' },
-  'paid-this-month': { tone: 'teal', icon: BadgeCheck, meaning: '' },
+  'paid-today': { tone: 'teal', icon: BadgeCheck, meaning: '' },
   tutors: { tone: 'navy', icon: GraduationCap, meaning: 'Registered accounts' },
   parents: { tone: 'violet', icon: Users, meaning: 'Registered accounts' },
   'open-tuitions': { tone: 'gold', icon: Briefcase, meaning: 'Live on the board for tutors to apply to' },
 }
 
-const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-this-month', 'tutors', 'parents', 'open-tuitions']
+const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-today', 'tutors', 'parents', 'open-tuitions']
 const TODO_KEYS: OverviewItemKey[] = [
   'todo-docs',
   'todo-uncontacted',

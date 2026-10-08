@@ -34,6 +34,10 @@ export default function MemberRow({ row: r }: { row: Row }) {
                 here, which is the tint reserved for "waiting on somebody". */}
             {r.suspended && <StatusChip status="suspended" />}
             {r.verified && !r.suspended && <StatusChip status="verified" />}
+            {/* Paused by the member themselves (owner, 8 Oct 2026) — not a staff state. */}
+            {r.pausedByUserAt && (
+              <StatusChip status="paused" label={`Paused by user · ${formatDate(r.pausedByUserAt)}`} tone="info" />
+            )}
             <StatusChip status={r.role} tone="neutral" />
           </span>
         </div>

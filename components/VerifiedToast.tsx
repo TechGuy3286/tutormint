@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useToast } from '@/components/ui/Toast'
+import { WELCOME_BACK, WELCOME_BACK_UR } from '@/lib/selfPauseCore'
 
 // No silent transitions (owner, 9 Sep). Verifying an email happens server-side
 // in /api/auth/callback, so there is no verification screen to confirm it on —
@@ -30,10 +31,20 @@ function VerifiedToastInner() {
   // The green confirmation lives here (mounted once under the root toast
   // provider) so it covers the dashboard without a dedicated component.
   const paid = params.get('paid') === '1'
+  // "Pause my account" (owner, 8 Oct 2026): a sign-in that brought the account
+  // back lands with ?welcome=back.
+  const welcome = params.get('welcome') === 'back'
 
   useEffect(() => {
     if (fired.current) return
-    const message = paid ? 'Payment received. Thank you!' : verified ? MESSAGES[verified] : null
+    const message = welcome
+      ? `${WELCOME_BACK}
+${WELCOME_BACK_UR}`
+      : paid
+        ? 'Payment received. Thank you!'
+        : verified
+          ? MESSAGES[verified]
+          : null
     if (!message) return
     fired.current = true
     toast.success(message)
@@ -41,8 +52,9 @@ function VerifiedToastInner() {
     const url = new URL(window.location.href)
     url.searchParams.delete('verified')
     url.searchParams.delete('paid')
+    url.searchParams.delete('welcome')
     router.replace(url.pathname + url.search, { scroll: false })
-  }, [verified, paid, toast, router])
+  }, [verified, paid, welcome, toast, router])
 
   return null
 }

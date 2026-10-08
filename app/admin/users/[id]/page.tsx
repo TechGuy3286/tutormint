@@ -54,7 +54,7 @@ export default async function AdminMemberPage({
   const { data: profile } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content',
+      'id, full_name, email, phone_number, whatsapp, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content',
     )
     .eq('id', id)
     .maybeSingle()
@@ -190,6 +190,13 @@ export default async function AdminMemberPage({
             {profile.is_suspended && (
               <span className="rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-black uppercase text-tm-gold-ink">
                 suspended
+              </span>
+            )}
+            {profile.paused_by_user_at && (
+              // Self-pause (owner, 8 Oct 2026): the member hid their own account;
+              // signing in brings it back. Separate from a staff suspension.
+              <span className="rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
+                Paused by user · {formatDate(profile.paused_by_user_at as string)}
               </span>
             )}
             {profile.phone_verified_via === 'bridge' && (

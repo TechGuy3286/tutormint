@@ -243,6 +243,8 @@ export type EntitlementInputs = {
     is_team_account: boolean | null
     /** profiles.hidden_from_public (migration 126) — out of the directory. */
     hidden_from_public?: boolean | null
+    /** profiles.paused_by_user_at (migration 151) — out of the directory. */
+    paused_by_user_at?: string | null
     /** Staff-review columns for the Verified badge (PR105-B §1 / PR106-H4). The
      *  *_reason columns linger after a rejection until approval, keeping the
      *  badge paused through a re-upload (§2.7). */
@@ -326,6 +328,7 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
           // role + hidden_from_public included; step-1 items are profile gaps.
           role,
           hiddenFromPublic: profile.hidden_from_public ?? null,
+          pausedByUser: !!profile.paused_by_user_at,
           // §5 (5 Oct 2026, migration 137): a staff-rejected document delists.
           cnicRejected: (profile.verification_state ?? '').toLowerCase() === 'rejected',
           photoRejected: (profile.profile_pic_status ?? '').toLowerCase() === 'rejected',
@@ -497,7 +500,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
 
   const { data: profile } = await db
     .from('profiles')
-    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, is_banned, phone_verified_via, is_seed, is_team_account, hidden_from_public, verification_state, verification_rejection_reason, cnic_number, cnic_image_path, profile_pic_status, profile_pic_reason, selfie_status, selfie_reason, avatar_url')
+    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, is_banned, phone_verified_via, is_seed, is_team_account, hidden_from_public, paused_by_user_at, verification_state, verification_rejection_reason, cnic_number, cnic_image_path, profile_pic_status, profile_pic_reason, selfie_status, selfie_reason, avatar_url')
     .eq('id', userId)
     .maybeSingle()
 

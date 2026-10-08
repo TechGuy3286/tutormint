@@ -899,7 +899,7 @@ export async function resumeJob(parentId: string, jobId: string): Promise<{ ok: 
 
   const { error } = await admin
     .from('jobs')
-    .update({ status: 'open', resumed_at: new Date().toISOString(), paused_at: null })
+    .update({ status: 'open', resumed_at: new Date().toISOString(), paused_at: null, self_paused_at: null })
     .eq('id', jobId)
     .eq('parent_id', parentId)
     .eq('status', 'paused')

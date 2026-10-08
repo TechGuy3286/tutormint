@@ -12,6 +12,7 @@ import { CountGrid, type CountTile } from '@/components/tutor/DashboardCards'
 import { type CardViewer } from '@/components/TutorCard'
 
 import { getSessionUser } from '@/lib/auth'
+import ResumeInline from '@/app/(site)/tuitions/[city]/[slug]/ResumeInline'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
 import { unreadMessageCount } from '@/lib/messaging'
@@ -52,7 +53,7 @@ export default async function ParentDashboardPage() {
 
   const [{ data: jobs }, unread, { data: demos }, { data: children }, { data: shortlisted }, tutorCount] =
     await Promise.all([
-      supabase.from('jobs').select('id, status, hired_tutor_id').eq('parent_id', userId),
+      supabase.from('jobs').select('id, status, hired_tutor_id, title, ref_id, self_paused_at').eq('parent_id', userId),
       unreadMessageCount(userId),
       supabase.from('demo_requests').select('id, status').eq('parent_id', userId),
       supabase.from('children').select('id, name, class_level').eq('parent_id', userId).order('created_at'),
@@ -62,6 +63,9 @@ export default async function ParentDashboardPage() {
 
   const allJobs = jobs ?? []
   const openJobs = allJobs.filter((j) => j.status === 'open')
+  // Tuitions the parent's own "Pause my account" paused (owner, 8 Oct 2026).
+  // They stay paused after sign-in; each gets a one-tap Reopen here.
+  const selfPausedJobs = allJobs.filter((j) => j.status === 'paused' && !!j.self_paused_at)
   const hired = new Set(
     allJobs.map((j) => j.hired_tutor_id as string | null).filter((x): x is string => !!x),
   )
@@ -141,6 +145,26 @@ export default async function ParentDashboardPage() {
           featured={featured}
           publicHref={`/parent/${userId}`}
         />
+
+        {selfPausedJobs.length > 0 && (
+          <section className="space-y-2 rounded-2xl border border-tm-gold/40 bg-tm-tint-gold p-4">
+            <p className="text-sm font-black text-tm-gold-ink">Tuitions paused while your account was paused</p>
+            <p lang="ur" dir="rtl" className="text-[11px] text-tm-gold-ink">
+              یہ ٹیوشنز آپ کا اکاؤنٹ رکنے کے دوران رک گئی تھیں۔ دوبارہ کھولنے کے لیے ٹیپ کریں۔
+            </p>
+            <ul className="space-y-2">
+              {selfPausedJobs.map((j) => (
+                <li key={j.id as string} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3">
+                  <span className="min-w-0 flex-1 truncate text-xs font-bold text-tm-navy">
+                    {(j.ref_id as string | null) ? `${j.ref_id as string} · ` : ''}
+                    {(j.title as string | null) ?? 'Tuition'}
+                  </span>
+                  <ResumeInline jobId={j.id as string} label="Reopen" />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* Action bar — the main thing a parent comes back to do (PR42 §3).
             Navy (parent-side), mirrored from the tutor bar so the two dashboards

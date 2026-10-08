@@ -11,7 +11,7 @@ import { submitSignal } from '@/lib/submit'
 // /api/parent/jobs/resume — the same route the dashboard uses — so the resume
 // logic (ownership check, fresh 15-day clock) is not duplicated.
 
-export default function ResumeInline({ jobId }: { jobId: string }) {
+export default function ResumeInline({ jobId, label = 'Resume this tuition' }: { jobId: string; label?: string }) {
   const router = useRouter()
   const toast = useToast()
   const [busy, setBusy] = useState(false)
@@ -44,7 +44,7 @@ export default function ResumeInline({ jobId }: { jobId: string }) {
       className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-red px-4 text-xs font-bold text-white transition-colors hover:bg-tm-red-hover disabled:opacity-60"
     >
       <Play aria-hidden size={14} className="fill-white" />
-      {busy ? 'Resuming…' : 'Resume this tuition'}
+      {busy ? 'Resuming…' : label}
     </button>
   )
 }

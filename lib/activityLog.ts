@@ -75,6 +75,8 @@ export type ActivityEvent =
   | 'report_resolved'
   | 'staff_created'
   | 'staff_role_changed'
+  | 'account_self_paused'
+  | 'account_self_restored'
   | 'staff_suspended'
   | 'staff_reactivated'
   // Suspending a staff member now revokes the role and returns them to an

@@ -247,7 +247,7 @@ export async function loadTutorQueue({
   const [{ data: profiles }, { data: docs }, { data: subjectRows }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, role, full_name, city, email, profile_completion, cnic_number, cnic_image_path, phone_number, phone_verified_at, whatsapp, is_seed, is_team_account, is_suspended, is_banned, hidden_from_public, verification_state, profile_pic_status, selfie_status')
+      .select('id, role, full_name, city, email, profile_completion, cnic_number, cnic_image_path, phone_number, phone_verified_at, whatsapp, is_seed, is_team_account, is_suspended, is_banned, hidden_from_public, paused_by_user_at, verification_state, profile_pic_status, selfie_status')
       .in('id', ids.length ? ids : [NO_MATCH]),
     admin
       .from('user_documents')
@@ -336,6 +336,7 @@ export async function loadTutorQueue({
       // ONE SOURCE (item 8): the view's own conditions, role + hidden included.
       role: (p?.role as string | null) ?? null,
       hiddenFromPublic: (p?.hidden_from_public as boolean | null) ?? null,
+      pausedByUser: !!(p?.paused_by_user_at as string | null),
       // §5 (migration 137): a staff-rejected identity document delists — the
       // admin row reads "Not listed · A document was rejected …".
       cnicRejected: ((p?.verification_state as string | null) ?? '').toLowerCase() === 'rejected',

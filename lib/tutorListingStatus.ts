@@ -24,6 +24,7 @@ export type ListingBlocker =
   | 'unclaimed_import'
   | 'fixture'
   | 'hidden'
+  | 'paused_by_user'
   | 'document_rejected'
   // --- profile gaps (profileGaps) — nudges, never listing reasons ---
   | 'phone_unverified'
@@ -46,6 +47,8 @@ export type ListingFacts = {
   isTeamAccount?: boolean | null
   /** profiles.hidden_from_public (migration 126). */
   hiddenFromPublic?: boolean | null
+  /** profiles.paused_by_user_at (migration 151) — the member paused themselves. */
+  pausedByUser?: boolean | null
   /** §5 (migration 137): staff REJECTED the CNIC / profile picture / selfie. */
   cnicRejected?: boolean | null
   photoRejected?: boolean | null
@@ -76,6 +79,7 @@ export function directoryBlockers(f: ListingFacts): ListingBlocker[] {
   if (f.imported && !f.claimedAt) out.push('unclaimed_import')
   if (f.isSeed || f.isTeamAccount) out.push('fixture')
   if (f.hiddenFromPublic) out.push('hidden')
+  if (f.pausedByUser) out.push('paused_by_user')
   if (f.cnicRejected || f.photoRejected || f.selfieRejected) out.push('document_rejected')
   return out
 }
@@ -109,6 +113,7 @@ export const BLOCKER_LABEL: Record<ListingBlocker, string> = {
   unclaimed_import: 'Imported profile not claimed',
   fixture: 'Seed / fixture account',
   hidden: 'Hidden from the public directory',
+  paused_by_user: 'Paused by the member',
   document_rejected: 'A document was rejected — awaiting a correct re-upload',
   phone_unverified: 'Mobile number not verified',
   no_subjects: 'No subjects added',

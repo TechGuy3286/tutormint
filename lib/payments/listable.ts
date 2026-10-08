@@ -22,7 +22,7 @@ export async function isTutorListable(userId: string): Promise<boolean> {
   const [{ data: prof }, { data: tp }, { data: subj }] = await Promise.all([
     admin
       .from('profiles')
-      .select('role, phone_verified_at, is_suspended, is_banned, is_seed, is_team_account, hidden_from_public, verification_state, profile_pic_status, selfie_status')
+      .select('role, phone_verified_at, is_suspended, is_banned, is_seed, is_team_account, hidden_from_public, paused_by_user_at, verification_state, profile_pic_status, selfie_status')
       .eq('id', userId)
       .maybeSingle(),
     admin
@@ -42,6 +42,7 @@ export async function isTutorListable(userId: string): Promise<boolean> {
   const facts = {
       role: (prof.role as string | null) ?? null,
       hiddenFromPublic: (prof.hidden_from_public as boolean | null) ?? null,
+      pausedByUser: !!(prof.paused_by_user_at as string | null),
       cnicRejected: ((prof.verification_state as string | null) ?? '').toLowerCase() === 'rejected',
       photoRejected: ((prof.profile_pic_status as string | null) ?? '').toLowerCase() === 'rejected',
       selfieRejected: ((prof.selfie_status as string | null) ?? '').toLowerCase() === 'rejected',

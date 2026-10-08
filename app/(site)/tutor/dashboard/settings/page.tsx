@@ -1,5 +1,7 @@
 "use client";
 
+import PauseAccountCard from '@/components/account/PauseAccountCard'
+import { PauseCircle } from 'lucide-react'
 import FileUpload from '@/components/FileUpload';
 import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile';
 import { compressUnder1MB } from '@/lib/imageCompress';
@@ -1074,6 +1076,13 @@ export default function TutorSettingsPage() {
           </form>
         </div>
       ),
+    },
+    {
+      // "Pause my account" (owner, 8 Oct 2026) — beside Change password.
+      key: 'pause',
+      status: 'neutral',
+      icon: <PauseCircle size={20} aria-hidden />,
+      body: <PauseAccountCard />,
     },
   ];
 

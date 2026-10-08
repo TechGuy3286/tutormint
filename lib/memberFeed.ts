@@ -29,6 +29,8 @@ export type MemberRow = {
   verified: boolean
   suspended: boolean
   banned: boolean
+  /** The member paused their own account (migration 151), or null. */
+  pausedByUserAt: string | null
   /** How the mobile was proved: 'otp' | 'bridge' | null. */
   phoneVerifiedVia: string | null
   plan: string | null
@@ -68,7 +70,7 @@ export async function memberPage({
   let query = admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, city, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended, is_banned, phone_verified_via, created_at',
+      'id, full_name, email, phone_number, whatsapp, city, role, profile_completion, cnic_verified_at, address_verified_at, is_suspended, is_banned, paused_by_user_at, phone_verified_via, created_at',
       { count: 'exact' },
     )
     .order('created_at', { ascending: false })
@@ -171,6 +173,7 @@ export async function memberPage({
       verified,
       suspended: !!p.is_suspended,
       banned: !!p.is_banned,
+      pausedByUserAt: (p.paused_by_user_at as string | null) ?? null,
       phoneVerifiedVia: (p.phone_verified_via as string) ?? null,
       plan: planCode ? (planName.get(planCode) ?? planCode) : null,
       createdAt: p.created_at as string,

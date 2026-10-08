@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { restoreSelfPauseOnSignIn } from '@/lib/selfPause'
 import type { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -113,6 +114,12 @@ export async function GET(request: NextRequest) {
   const verifiedParam = !safeExplicit && firstConfirmation
   const url = new URL(`${origin}${dest}`)
   if (verifiedParam) url.searchParams.set('verified', 'email')
+  // A link sign-in (magic link, password-recovery email) brings a self-paused
+  // member back too (owner, 8 Oct 2026) — never a staff-suspended one.
+  {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user && (await restoreSelfPauseOnSignIn(user.id))) url.searchParams.set('welcome', 'back')
+  }
 
   return NextResponse.redirect(url.toString())
 }

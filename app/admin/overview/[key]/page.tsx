@@ -74,6 +74,33 @@ export default async function OverviewListPage({
                 {r.amount !== undefined && <span className="shrink-0 text-xs font-bold text-slate-700">{pkr(r.amount)}</span>}
               </span>
             )
+            // A row with extra links (e.g. "Review documents") keeps each link
+            // separate — never one anchor inside another.
+            if (r.badge || r.actions?.length) {
+              return (
+                <li key={r.id} className="flex min-h-[52px] flex-wrap items-center gap-3 px-4 py-2.5">
+                  <span className="w-8 shrink-0 text-right text-[11px] font-bold text-gray-500">{i + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    {r.href ? (
+                      <Link href={r.href} className="block truncate text-xs font-bold text-tm-navy hover:underline">
+                        {r.title}
+                      </Link>
+                    ) : (
+                      <span className="block truncate text-xs font-bold text-tm-navy">{r.title}</span>
+                    )}
+                    {r.detail && <span className="block truncate text-[11px] text-gray-600">{r.detail}</span>}
+                  </span>
+                  {r.badge && (
+                    <span className="shrink-0 rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">{r.badge}</span>
+                  )}
+                  {r.actions?.map((a) => (
+                    <Link key={a.href} href={a.href} className="shrink-0 text-[11px] font-bold text-tm-red hover:underline">
+                      {a.label}
+                    </Link>
+                  ))}
+                </li>
+              )
+            }
             return (
               <li key={r.id}>
                 {r.href ? (

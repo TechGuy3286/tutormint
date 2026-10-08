@@ -13,6 +13,8 @@ import { areasForCity } from '@/lib/cityAreasCore'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import EmailCard from '@/components/account/EmailCard'
+import PauseAccountCard from '@/components/account/PauseAccountCard'
+import { PauseCircle } from 'lucide-react'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
@@ -429,6 +431,16 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
       titleUr: 'ای میل',
       status: 'neutral',
       body: <EmailCard />,
+    },
+    {
+      // "Pause my account" (owner, 8 Oct 2026). Parents have no Change password
+      // tile, so it sits after Email, the last account tile.
+      key: 'pause',
+      icon: <PauseCircle aria-hidden size={20} />,
+      title: 'Pause my account',
+      titleUr: 'اپنا اکاؤنٹ روکیں',
+      status: 'neutral',
+      body: <PauseAccountCard />,
     },
   ]
 

@@ -6,6 +6,7 @@ import { logActivity } from '@/lib/activityLog'
 import { parseBody, z, pkMobile } from '@/lib/validate'
 import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { sendOtp, verifyOtp, RESET_MESSAGES, type VerifyResult } from '@/lib/otp'
+import { restoreSelfPauseOnSignIn } from '@/lib/selfPause'
 import { homeForRole, type Role } from '@/lib/authRoutes'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 
@@ -169,6 +170,9 @@ export async function POST(request: Request) {
       if (!verifyError) signedIn = true
     }
   }
+  // A self-paused member who resets their password and is signed in here is
+  // back (owner, 8 Oct 2026) — never a staff-suspended or banned one.
+  const restored = signedIn ? await restoreSelfPauseOnSignIn(userId) : false
 
   const { data: prof } = await admin.from('profiles').select('role').eq('id', userId).maybeSingle()
   const role = ((prof?.role as string | null) ?? null) as Role | null
@@ -177,6 +181,7 @@ export async function POST(request: Request) {
     success: true,
     signedIn,
     role,
-    next: signedIn ? homeForRole(role) : '/login',
+    restored,
+    next: signedIn ? (restored ? `${homeForRole(role)}?welcome=back` : homeForRole(role)) : '/login',
   })
 }

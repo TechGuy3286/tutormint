@@ -150,6 +150,10 @@ export const CARDS: Record<string, { title: Bilingual; hint?: Bilingual }> = {
     title: { en: 'Change password', ur: 'پاس ورڈ تبدیل کریں' },
     hint: { en: 'Update your account password.', ur: 'اپنا اکاؤنٹ پاس ورڈ تبدیل کریں۔' },
   },
+  pause: {
+    title: { en: 'Pause my account', ur: 'اپنا اکاؤنٹ روکیں' },
+    hint: { en: 'Hide your profile for a while.', ur: 'کچھ وقت کے لیے اپنی پروفائل چھپائیں۔' },
+  },
 }
 
 // Read-only status lines (fee, experience) — the item is done elsewhere, so the

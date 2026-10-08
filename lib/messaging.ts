@@ -17,6 +17,8 @@
 //
 // Bodies are stored verbatim and masked on the way out -- see lib/masking.ts.
 
+import { memberUnavailable } from '@/lib/selfPause'
+import { NOT_AVAILABLE, NOT_AVAILABLE_UR } from '@/lib/selfPauseCore'
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { tuitionPath } from '@/lib/slugs'
@@ -118,6 +120,13 @@ export async function canStartThread(
       // blocked, and the blocker is not named.
       return { ok: false, status: 403, error: 'You cannot message this member.' }
     }
+  }
+
+  // A member who paused their own account (owner, 8 Oct 2026) takes no new
+  // conversations until they sign in again.
+  if (await memberUnavailable(otherId)) {
+    return { ok: false, status: 403, error: `${NOT_AVAILABLE}
+${NOT_AVAILABLE_UR}` }
   }
 
   const ent = await getEntitlements(actorId)
@@ -343,6 +352,11 @@ export async function sendMessage(params: {
     if (blocked) {
       return { ok: false, status: 403, error: 'You cannot message this member.' }
     }
+  }
+  // Self-paused recipient (owner, 8 Oct 2026): no new messages reach them.
+  if (await memberUnavailable(other)) {
+    return { ok: false, status: 403, error: `${NOT_AVAILABLE}
+${NOT_AVAILABLE_UR}` }
   }
 
   // Replying is always allowed on every plan, including none: only OPENING a

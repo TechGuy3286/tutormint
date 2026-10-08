@@ -12,6 +12,8 @@ import { homeForRole, nextForRole, type Role } from '@/lib/authRoutes'
 import { armEscape, STUCK_MESSAGE, submitError, submitJson } from '@/lib/submit'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
 import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
+import { useToast } from '@/components/ui/Toast'
+import { WELCOME_BACK, WELCOME_BACK_UR } from '@/lib/selfPauseCore'
 
 // The support WhatsApp link shown under the form (§3.4). The number is the one
 // constant from lib/support(Contacts); a client component cannot read the
@@ -58,6 +60,7 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
   const [resendMsg, setResendMsg] = useState('')
 
   const router = useRouter()
+  const toast = useToast()
 
   const go = (href: string) => {
     // The escape is armed BEFORE the push, not after: if the push throws
@@ -93,6 +96,7 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
       supportHref?: string
       reverify?: boolean
       needsPhoneVerify?: boolean
+      restored?: boolean
       errorUr?: string
       ref?: string
     }>('/api/auth/login', { identifier, password, rememberMe })
@@ -112,6 +116,11 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
     }
 
     if (data.suspended) return go('/suspended')
+
+    // A self-paused account was brought back by this sign-in (owner, 8 Oct
+    // 2026). The toast is mounted at the root, so it survives the navigation.
+    if (data.restored) toast.success(`${WELCOME_BACK}
+${WELCOME_BACK_UR}`)
 
     // Verification before the dashboard (owner, 9 Sep): a mobile-first account
     // that has not verified its number — or a bridge number whose bridge was

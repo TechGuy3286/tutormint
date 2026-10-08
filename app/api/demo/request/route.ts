@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { memberUnavailable } from '@/lib/selfPause'
+import { NOT_AVAILABLE, NOT_AVAILABLE_UR } from '@/lib/selfPauseCore'
 import { serverError } from '@/lib/errorResponse'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -56,6 +58,12 @@ export async function POST(request: Request) {
   // card is locked in the UI; this is the rule.
   if (tutorId === user.id) {
     return NextResponse.json({ error: 'You cannot request a demo with yourself.' }, { status: 400 })
+  }
+  // A tutor who paused their own account (owner, 8 Oct 2026) takes no new demo
+  // requests until they sign in again.
+  if (await memberUnavailable(tutorId)) {
+    return NextResponse.json({ error: `${NOT_AVAILABLE}
+${NOT_AVAILABLE_UR}` }, { status: 403 })
   }
 
   const ent = await getEntitlements(user.id)

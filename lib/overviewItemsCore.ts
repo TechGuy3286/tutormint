@@ -13,7 +13,7 @@ import type { AdminScreen } from './adminNav'
 export const OVERVIEW_ITEM_KEYS = [
   // top cards
   'revenue',
-  'paid-this-month',
+  'paid-today',
   'tutors',
   'parents',
   'open-tuitions',
@@ -55,7 +55,7 @@ export type OverviewItemMeta = {
 
 export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   revenue: { title: 'Revenue this month', screen: 'revenue', noun: ['payment', 'payments'] },
-  'paid-this-month': { title: 'Paid this month', screen: 'payments', noun: ['tutor', 'tutors'] },
+  'paid-today': { title: 'Paid today', screen: 'payments', noun: ['tutor', 'tutors'] },
   tutors: { title: 'Tutors', screen: 'users', noun: ['tutor', 'tutors'] },
   parents: { title: 'Parents', screen: 'users', noun: ['parent', 'parents'] },
   'open-tuitions': { title: 'Open tuitions', screen: 'jobs', noun: ['tuition', 'tuitions'] },
@@ -136,4 +136,52 @@ export function funnelSets<T extends FunnelTutor>(cohort: T[]): FunnelSets<T> {
     lostOnboarding: without(mobile, onboarded),
     lostPayment: without(onboarded, paid),
   }
+}
+
+// ------------------------------------------------------------- paid today
+const PK_OFFSET_MS = 5 * 60 * 60 * 1000
+
+/** The instant today began in Pakistan time (00:00 PKT). */
+export function pkDayStartMs(nowMs: number): number {
+  const shifted = new Date(nowMs + PK_OFFSET_MS)
+  return Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()) - PK_OFFSET_MS
+}
+
+export type FeePayment = {
+  userId: string | null
+  approvedAt: string | null
+  refundedAmountPkr: number | null
+  refundedAt: string | null
+  ref?: string | null
+}
+
+/**
+ * "Paid today" (owner, 8 Oct 2026): tutors whose Spam Free Platform Fee was
+ * approved since 00:00 Pakistan time — refunded and deleted-account payments
+ * left out, each tutor once (their latest fee payment today). Also the month
+ * and 7-day counts for the card's subline, from the SAME rows.
+ */
+export function feePayersSince<T extends FeePayment>(
+  rows: T[],
+  nowMs: number,
+  monthStartMs: number,
+): { today: (T & { at: string })[]; month: number; week: number } {
+  const dayStart = pkDayStartMs(nowMs)
+  const weekStart = nowMs - 7 * 86_400_000
+  const latest = new Map<string, T & { at: string }>()
+  const month = new Set<string>()
+  const week = new Set<string>()
+  for (const r of rows) {
+    if (!r.userId || !r.approvedAt) continue
+    if ((r.refundedAmountPkr ?? 0) > 0 || r.refundedAt) continue
+    const t = Date.parse(r.approvedAt)
+    if (!Number.isFinite(t) || t > nowMs) continue
+    if (t >= monthStartMs) month.add(r.userId)
+    if (t >= weekStart) week.add(r.userId)
+    if (t < dayStart) continue
+    const cur = latest.get(r.userId)
+    if (!cur || cur.at < r.approvedAt) latest.set(r.userId, { ...r, at: r.approvedAt })
+  }
+  const today = [...latest.values()].sort((a, b) => b.at.localeCompare(a.at))
+  return { today, month: month.size, week: week.size }
 }

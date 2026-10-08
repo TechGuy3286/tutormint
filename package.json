@@ -88,6 +88,8 @@
     "test:blogfacts": "tsx --test scripts/test-blog-facts.ts",
     "test:directory:live": "tsx --test scripts/test-directory-live.ts",
     "test:partnerfinance": "tsx --test scripts/test-partner-finance.ts",
+    "test:selfpause": "tsx --test scripts/test-self-pause.ts",
+    "test:selfpause:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-self-pause-live.ts",
     "test:overview:live": "tsx --conditions=react-server --env-file=.env.local --test scripts/test-overview-live.ts",
     "test:indexing": "tsx --test scripts/test-indexing.ts",
     "test:contentmix": "tsx --test scripts/test-content-mix.ts",

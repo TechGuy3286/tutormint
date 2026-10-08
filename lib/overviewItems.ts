@@ -22,12 +22,14 @@ import { settleByDate } from '@/lib/settlementCore'
 import type { PayproRow } from '@/lib/reconciliationCore'
 import { loadFinancePayments } from '@/lib/finance'
 import { countedInMonth, monthRangeLabel, pkMonth } from '@/lib/financeCore'
-import { countsAsFeePayment, pkMonthStartMs } from '@/lib/feePayersCore'
+import { docOverall, pkMonthStartMs, type DocOverall } from '@/lib/feePayersCore'
+import { tutorDocStatusesFromProfile } from '@/lib/tutorDocStatus'
 import { formatName } from '@/lib/formatName'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { FEE_LABEL } from '@/lib/display'
 import {
   OVERVIEW_ITEMS,
+  feePayersSince,
   funnelSets,
   isWaitingPayment,
   nounFor,
@@ -42,6 +44,10 @@ export type OverviewRow = {
   href?: string | null
   /** Rupees, only on the revenue list (owner + Partner). */
   amount?: number
+  /** A short status word beside the row (e.g. "Documents waiting"). */
+  badge?: string
+  /** Extra links on the row (e.g. "Review documents"). */
+  actions?: { label: string; href: string }[]
 }
 
 export type OverviewList = {
@@ -153,46 +159,56 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
       }
     }
 
-    case 'paid-this-month': {
+    case 'paid-today': {
       const nowMs = now.getTime()
-      const monthStart = pkMonthStartMs(nowMs)
-      const weekStart = nowMs - 7 * 86_400_000
       const { data } = await admin
         .from('payments')
-        .select('user_id, status, plan_code, reviewed_at, updated_at, refunded_amount_pkr, refunded_at, provider_ref')
+        .select('user_id, reviewed_at, updated_at, refunded_amount_pkr, refunded_at, provider_ref')
         .eq('plan_code', 'verified')
         .eq('status', 'approved')
         .not('user_id', 'is', null)
         .order('reviewed_at', { ascending: false, nullsFirst: false })
         .limit(20000)
-      const latest = new Map<string, { at: string; ref: string | null }>()
-      for (const p of data ?? []) {
-        const row = {
+      const { today, month, week } = feePayersSince(
+        (data ?? []).map((p) => ({
           userId: p.user_id as string | null,
-          status: p.status as string,
-          planCode: p.plan_code as string | null,
           approvedAt: (p.reviewed_at as string | null) ?? (p.updated_at as string | null),
           refundedAmountPkr: p.refunded_amount_pkr as number | null,
           refundedAt: p.refunded_at as string | null,
-        }
-        if (!countsAsFeePayment(row)) continue
-        const t = Date.parse(row.approvedAt as string)
-        if (t < monthStart || t > nowMs) continue
-        const cur = latest.get(row.userId as string)
-        if (!cur || cur.at < (row.approvedAt as string)) latest.set(row.userId as string, { at: row.approvedAt as string, ref: (p.provider_ref as string | null) ?? null })
-      }
-      const ids = [...latest.keys()]
-      const { data: profs } = ids.length ? await admin.from('profiles').select('id, full_name').in('id', ids) : { data: [] }
-      const names = new Map((profs ?? []).map((p) => [p.id as string, formatName(p.full_name as string | null) || '—']))
-      const rows = [...latest.entries()]
-        .sort((a, b) => b[1].at.localeCompare(a[1].at))
-        .map(([id, v]) => ({ id, title: names.get(id) ?? '—', detail: `Paid ${formatDateTime(v.at)}${v.ref ? ` · ${v.ref}` : ''}`, href: `/admin/users/${id}` }))
-      const week = [...latest.values()].filter((v) => Date.parse(v.at) >= weekStart).length
+          ref: (p.provider_ref as string | null) ?? null,
+        })),
+        nowMs,
+        pkMonthStartMs(nowMs),
+      )
+      const ids = today.map((r) => r.userId as string)
+      const [{ data: profs }, { data: selfies }] = ids.length
+        ? await Promise.all([
+            admin
+              .from('profiles')
+              .select('id, full_name, cnic_verified_at, verification_state, verification_rejection_reason, cnic_number, cnic_image_path, profile_pic_status, profile_pic_reason, selfie_status, selfie_reason, avatar_url')
+              .in('id', ids),
+            admin.from('user_documents').select('user_id').eq('kind', 'selfie').in('user_id', ids),
+          ])
+        : [{ data: [] as Record<string, unknown>[] }, { data: [] as Record<string, unknown>[] }]
+      const hasSelfie = new Set((selfies ?? []).map((r) => r.user_id as string))
+      const byId = new Map((profs ?? []).map((p) => [p.id as string, p]))
+      const DOC_WORD: Record<DocOverall, string> = { approved: 'Documents approved', waiting: 'Documents waiting', rejected: 'Documents rejected' }
       return {
         key,
-        rows,
-        filter: `paid the ${FEE_LABEL} this month (${monthRangeLabel(pkMonth(now.toISOString()))})`,
-        extra: `${week} in the last 7 days`,
+        rows: today.map((r) => {
+          const p = byId.get(r.userId as string)
+          const docs: DocOverall = p ? docOverall(tutorDocStatusesFromProfile(p, hasSelfie.has(r.userId as string))) : 'waiting'
+          return {
+            id: r.userId as string,
+            title: formatName((p?.full_name as string | null) ?? null) || '—',
+            detail: `Paid ${formatDateTime(r.at)}${r.ref ? ` · ${r.ref}` : ''}`,
+            href: `/admin/users/${r.userId}`,
+            badge: DOC_WORD[docs],
+            actions: [{ label: 'Review documents', href: `/admin/tutors/${r.userId}` }],
+          }
+        }),
+        filter: `paid the ${FEE_LABEL} today (since 00:00 Pakistan time)`,
+        extra: `${month} this month · ${week} in the last 7 days`,
         workHref: '/admin/payments/payers',
       }
     }

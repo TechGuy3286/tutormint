@@ -122,7 +122,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                   {pending.options.title}
                 </h2>
                 {pending.options.body && (
-                  <p className="text-xs leading-relaxed text-gray-600">{pending.options.body}</p>
+                  <p className="whitespace-pre-line text-xs leading-relaxed text-gray-600">{pending.options.body}</p>
                 )}
               </div>
             </div>

@@ -391,6 +391,15 @@ async function tutorUnderReview(tutorId: string): Promise<boolean> {
   return !!data?.under_review
 }
 
+/** Self-paused (owner, 8 Oct 2026): noindex and no structured data, like under
+ *  review, but no amber notice. */
+async function tutorSelfPaused(tutorId: string): Promise<boolean> {
+  const admin = createAdminClient()
+  if (!admin) return false
+  const { data } = await admin.from('profiles').select('paused_by_user_at').eq('id', tutorId).maybeSingle()
+  return !!data?.paused_by_user_at
+}
+
 /**
  * Flags generateMetadata needs that are not in tutor_public_page's allowlist,
  * in one service-role read: whether the profile is under review (→ noindex) and
@@ -426,11 +435,14 @@ async function tutorMetaFlags(tutorId: string): Promise<TutorMetaFlags> {
       .maybeSingle(),
     admin
       .from('profiles')
-      .select('is_seed, profile_completion, verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status')
+      .select('is_seed, profile_completion, verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status, paused_by_user_at')
       .eq('id', tutorId)
       .maybeSingle(),
   ])
-  const underReview = !!tp?.under_review
+  // A tutor who paused their own account (owner, 8 Oct 2026) is held out of
+  // Google exactly like one under review: the page renders, noindex. Folded into
+  // the under-review INPUT of the index rule only — no amber notice is shown.
+  const underReview = !!tp?.under_review || !!(prof?.paused_by_user_at as string | null)
   const unclaimed = !!tp?.imported && !tp?.claimed_at
   const cnicApproved =
     deriveCnicStatus({
@@ -660,6 +672,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   // report is checked, and it is noindex (generateMetadata) so it renders for a
   // person following the link but is never indexed. Same helper as the metadata.
   const underReview = await tutorUnderReview(tutor.id)
+  const selfPaused = await tutorSelfPaused(tutor.id)
 
   await recordView(tutor.id, user?.id ?? null, ent?.role ?? null)
 
@@ -768,7 +781,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
   // Person/Service structured data below, same as the page's noindex — so a
   // crawler is never handed schema for a page held out of Google.
   const indexable = tutorProfileIndexable({
-    feePaid, completion, isSeed: isSeedAcct, underReview,
+    feePaid, completion, isSeed: isSeedAcct, underReview: underReview || selfPaused,
     cnicApproved, profilePicApproved, selfieApproved,
   })
   const effectivePlan = tutor.plan_code ?? (feePaid ? 'basic' : null)
