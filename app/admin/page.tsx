@@ -159,7 +159,7 @@ export default async function AdminHome({
             <div>
               <h2 className="text-sm font-black text-tm-navy">Signup to payment</h2>
               <p className="mt-0.5 text-[11px] text-gray-500">
-                Tutors who signed up in the last {funnelDays} days. Paused and test accounts are left out.
+                Tutors who signed up in the last {funnelDays} days. Paused, test and staff accounts are left out.
               </p>
             </div>
             <div className="flex gap-1" role="group" aria-label="Period">

@@ -34,7 +34,7 @@ export default async function UnpaidSignupsPage({ searchParams }: { searchParams
         <h1 className="text-lg font-black text-tm-navy">Unpaid signups</h1>
         <p className="text-xs text-gray-500">
           Tutors who joined in the last {UNPAID_WINDOW_DAYS} days and have not paid the Spam Free Platform Fee, newest
-          first. Paused and test accounts are left out. Log every call so nobody is rung twice.
+          first. Paused, test and staff accounts are left out. Log every call so nobody is rung twice.
         </p>
       </header>
 

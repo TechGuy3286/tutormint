@@ -55,13 +55,14 @@ export async function loadUnpaidSignups(now = new Date()): Promise<UnpaidRow[]> 
   const since = new Date(now.getTime() - UNPAID_WINDOW_DAYS * 86_400_000).toISOString()
   const { data: profiles } = await admin
     .from('profiles')
-    .select('id, full_name, city, created_at, profile_completion, phone_number, whatsapp, is_suspended, is_banned, is_seed, is_team_account')
+    .select('id, full_name, city, created_at, profile_completion, phone_number, whatsapp, is_suspended, is_banned, is_seed, is_team_account, admin_role')
     .eq('role', 'tutor')
     .gte('created_at', since)
     .order('created_at', { ascending: false })
     .limit(2000)
   const candidates = (profiles ?? []).filter(
-    (p) => !p.is_suspended && !p.is_banned && !p.is_seed && !p.is_team_account && !isTestName(p.full_name as string | null),
+    // Staff accounts (any admin_role) are TutorMint's own people, not leads.
+    (p) => !p.is_suspended && !p.is_banned && !p.is_seed && !p.is_team_account && !p.admin_role && !isTestName(p.full_name as string | null),
   )
   const ids = candidates.map((p) => p.id as string)
   if (ids.length === 0) return []

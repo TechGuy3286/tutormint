@@ -48,9 +48,13 @@ export async function loadTodo(now = new Date()): Promise<TodoRow[]> {
     admin.from('reconciliation_imports').select('id').eq('gateway', 'paypro').order('created_at', { ascending: false }).limit(1),
   ])
 
+  // Compare instants, never ISO strings: the database writes "+00:00" and
+  // JavaScript writes "Z", which do not sort the same as text.
+  const fromMs = Date.parse(pauseFrom)
+  const toMs = Date.parse(pauseTo)
   const pausing = (openJobs.data ?? []).filter((j) => {
-    const base = (j.resumed_at as string | null) ?? (j.created_at as string)
-    return base > pauseFrom && base <= pauseTo
+    const base = Date.parse((j.resumed_at as string | null) ?? (j.created_at as string))
+    return base > fromMs && base <= toMs
   }).length
 
   let duePaypro = 0
@@ -109,12 +113,12 @@ export async function loadFunnel(days: 7 | 30, now = new Date()): Promise<Funnel
   const since = new Date(now.getTime() - days * 86_400_000).toISOString()
   const { data: profs } = await admin
     .from('profiles')
-    .select('id, full_name, phone_verified_at, is_suspended, is_banned, is_seed, is_team_account')
+    .select('id, full_name, phone_verified_at, is_suspended, is_banned, is_seed, is_team_account, admin_role')
     .eq('role', 'tutor')
     .gte('created_at', since)
     .limit(5000)
   const real = (profs ?? []).filter(
-    (p) => !p.is_suspended && !p.is_banned && !p.is_seed && !p.is_team_account && !isTestName(p.full_name as string | null),
+    (p) => !p.is_suspended && !p.is_banned && !p.is_seed && !p.is_team_account && !p.admin_role && !isTestName(p.full_name as string | null),
   )
   const ids = real.map((p) => p.id as string)
   const { data: tps } = ids.length
