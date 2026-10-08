@@ -1,5 +1,6 @@
 "use client";
 
+import ChangePasswordCard from '@/components/account/ChangePasswordCard'
 import PauseAccountCard from '@/components/account/PauseAccountCard'
 import { PauseCircle } from 'lucide-react'
 import FileUpload from '@/components/FileUpload';
@@ -1030,52 +1031,9 @@ export default function TutorSettingsPage() {
       key: 'password',
       status: 'neutral',
       icon: <Lock size={20} aria-hidden />,
-      body: (
-        <div className="space-y-3">
-          {passwordMsg && (
-            <p
-              className={`rounded-xl p-3 text-xs font-bold ${
-                passwordMsg.startsWith('✅')
-                  ? 'border border-tm-green-deep/30 bg-tm-tint-green text-tm-green-deep'
-                  : 'border border-tm-red/30 bg-tm-tint-red text-tm-red'
-              }`}
-            >
-              {passwordMsg}
-            </p>
-          )}
-          <form onSubmit={handlePasswordChange} className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="sr-only">New password</span>
-                <PasswordInput
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="New password"
-                  className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-                  required
-                />
-              </label>
-              <label className="block">
-                <span className="sr-only">Confirm new password</span>
-                <PasswordInput
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  className="w-full rounded-xl border border-gray-200 bg-tm-bg p-3 text-xs font-medium"
-                  required
-                />
-              </label>
-            </div>
-            <button
-              type="submit"
-              disabled={passwordLoading}
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-tm-black px-6 text-xs font-extrabold text-white disabled:opacity-60"
-            >
-              <Save aria-hidden size={15} /> {passwordLoading ? 'Updating…' : 'Update password'}
-            </button>
-          </form>
-        </div>
-      ),
+      // The shared card (owner, 8 Oct 2026): it asks for the CURRENT password,
+      // which the project requires to set a new one.
+      body: <ChangePasswordCard />,
     },
     {
       // "Pause my account" (owner, 8 Oct 2026) — beside Change password.
