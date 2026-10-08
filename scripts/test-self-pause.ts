@@ -53,7 +53,7 @@ test('a self-paused tutor is out of the directory (TS mirror and the view)', () 
 test('pausing hides, pauses a parent’s open tuitions, logs, and signs out everywhere', () => {
   const lib = readFileSync('lib/selfPause.ts', 'utf8')
   assert.ok(lib.includes(".update({ paused_by_user_at: now })"))
-  assert.ok(lib.includes(".update({ status: 'paused', paused_at: now, self_paused_at: now })"))
+  assert.ok(lib.includes(".update({ status: 'paused', paused_at: now, self_paused_at: now, pause_source: 'self' })"))
   assert.ok(lib.includes(".eq('status', 'open')"))
   assert.ok(lib.includes("rpc('revoke_user_sessions'"))
   assert.ok(lib.includes("action: 'member.self_pause'") && lib.includes("action: 'member.self_restore'"))

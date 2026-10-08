@@ -8,6 +8,7 @@
 //
 // Rules are pure in lib/parentDocsCore.ts.
 
+import { pageAll } from '@/lib/pageAll'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -114,12 +115,16 @@ export async function loadParentDocs(parentId: string): Promise<ParentDocs | nul
 export async function parentsAwaitingReview(): Promise<ParentDocs[]> {
   const admin = createAdminClient()
   if (!admin) return []
-  const { data } = await admin
-    .from('profiles')
-    .select(PROFILE_COLS)
-    .in('role', ['parent', 'academy'])
-    .or('verification_state.eq.submitted,address_status.eq.pending')
-  const live = (data ?? []).filter((p) => !p.is_seed && !p.is_banned && !p.is_suspended && !p.is_team_account)
+  const data = await pageAll((from, to) =>
+    admin
+      .from('profiles')
+      .select(PROFILE_COLS)
+      .in('role', ['parent', 'academy'])
+      .or('verification_state.eq.submitted,address_status.eq.pending')
+      .order('id')
+      .range(from, to),
+  )
+  const live = (data as unknown as Record<string, unknown>[]).filter((p) => !p.is_seed && !p.is_banned && !p.is_suspended && !p.is_team_account)
   const docs = await cnicDocsFor(live.map((p) => p.id as string))
   const rows = live.map((p) => toDocs(p as Record<string, unknown>, docs)).filter((r) => r.waiting.length > 0)
   const key = (r: ParentDocs, p?: Record<string, unknown>) => r.submittedAt ?? (p?.created_at as string) ?? ''
@@ -226,7 +231,7 @@ export async function reviewParentDocument(params: {
       userId: parentId,
       kind: 'verification_approved',
       title: 'You are verified',
-      body: 'Your CNIC and address are approved. You can now message tutors, request demos and post tuitions.',
+      body: 'Your CNIC and address are approved. Your green Verified badge is now on your profile.',
       href: '/browse/tutors',
     })
     const mailed = await deliverEmail(

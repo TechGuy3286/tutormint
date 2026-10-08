@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { linkedRoles } from '@/lib/secondRole'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile } from '@/lib/phone'
@@ -140,6 +141,12 @@ export async function POST(request: Request) {
   // A temporary password that has now been replaced is no longer temporary.
   await admin.from('profiles').update({ must_change_password: false }).eq('id', userId)
 
+  // A linked second-role account on the same mobile (owner, 8 Oct 2026) gets
+  // the same new password, so either account opens with it.
+  const { data: linkRow } = await admin.from('profiles').select('linked_account_id').eq('id', userId).maybeSingle()
+  const linkedId = (linkRow?.linked_account_id as string | null) ?? null
+  if (linkedId) await admin.auth.admin.updateUserById(linkedId, { password: body.password }).catch(() => undefined)
+
   // Sign out every other session on the account BEFORE minting this one.
   try {
     await admin.rpc('revoke_user_sessions', { uid: userId })
@@ -177,9 +184,13 @@ export async function POST(request: Request) {
   const { data: prof } = await admin.from('profiles').select('role').eq('id', userId).maybeSingle()
   const role = ((prof?.role as string | null) ?? null) as Role | null
 
+  const roles = signedIn ? await linkedRoles(userId) : null
+
   return NextResponse.json({
     success: true,
     signedIn,
+    chooseRole: !!roles,
+    roles: roles ?? undefined,
     role,
     restored,
     next: signedIn ? (restored ? `${homeForRole(role)}?welcome=back` : homeForRole(role)) : '/login',

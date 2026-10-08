@@ -8,6 +8,8 @@
 // Every caller checks the item's SCREEN_ACCESS key first (OVERVIEW_ITEMS[key]
 // .screen) — the same key the Overview filters its cards and rows by.
 
+import { testAccountIds } from '@/lib/testAccounts'
+import { pageAll } from '@/lib/pageAll'
 import 'server-only'
 
 import { cache } from 'react'
@@ -65,17 +67,6 @@ export type OverviewList = {
 
 const PK_DATE = (iso: string) => formatDate(iso)
 
-/** Read every row past PostgREST's 1,000-row cap. */
-async function pageAll<T>(fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null }>): Promise<T[]> {
-  const out: T[] = []
-  for (let from = 0; from < 100_000; from += 1000) {
-    const { data } = await fetchPage(from, from + 999)
-    const rows = data ?? []
-    out.push(...rows)
-    if (rows.length < 1000) break
-  }
-  return out
-}
 
 const unpaid = cache(async () => loadUnpaidSignups(new Date()))
 const featured = cache(async () => loadFeaturedWhatsapp(new Date()))
@@ -121,8 +112,16 @@ function tutorRows(list: CohortTutor[]): OverviewRow[] {
 }
 
 async function profilesByRole(admin: SupabaseClient, roles: string[]): Promise<OverviewRow[]> {
+  // Test-named accounts (owner, 8 Oct 2026) are left out of every Overview count.
   const rows = await pageAll((a, b) =>
-    admin.from('profiles').select('id, full_name, created_at').in('role', roles).order('created_at', { ascending: false }).range(a, b),
+    admin
+      .from('profiles')
+      .select('id, full_name, created_at')
+      .in('role', roles)
+      .eq('is_test_name', false)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(a, b),
   )
   return rows.map((p) => ({
     id: p.id as string,
@@ -161,14 +160,17 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
 
     case 'paid-today': {
       const nowMs = now.getTime()
-      const { data } = await admin
-        .from('payments')
-        .select('user_id, reviewed_at, updated_at, refunded_amount_pkr, refunded_at, provider_ref')
-        .eq('plan_code', 'verified')
-        .eq('status', 'approved')
-        .not('user_id', 'is', null)
-        .order('reviewed_at', { ascending: false, nullsFirst: false })
-        .limit(20000)
+      const data = await pageAll((from, to) =>
+        admin
+          .from('payments')
+          .select('id, user_id, reviewed_at, updated_at, refunded_amount_pkr, refunded_at, provider_ref')
+          .eq('plan_code', 'verified')
+          .eq('status', 'approved')
+          .not('user_id', 'is', null)
+          .order('reviewed_at', { ascending: false, nullsFirst: false })
+          .order('id')
+          .range(from, to),
+      )
       const { today, month, week } = feePayersSince(
         (data ?? []).map((p) => ({
           userId: p.user_id as string | null,
@@ -225,9 +227,13 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
       }
 
     case 'open-tuitions': {
-      const jobs = await pageAll((a, b) =>
-        admin.from('jobs').select('id, ref_id, title, city, created_at').eq('status', 'open').order('created_at', { ascending: false }).range(a, b),
-      )
+      // Tuitions posted by test-named accounts are not counted (owner, 8 Oct 2026).
+      const testIds = new Set(await testAccountIds())
+      const jobs = (
+        await pageAll((a, b) =>
+          admin.from('jobs').select('id, ref_id, title, city, created_at, parent_id').eq('status', 'open').order('created_at', { ascending: false }).order('id').range(a, b),
+        )
+      ).filter((j) => !testIds.has(j.parent_id as string))
       return {
         key,
         rows: jobs.map((j) => ({
@@ -280,13 +286,16 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
 
     case 'todo-payments': {
       const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
-      const { data } = await admin
-        .from('payments')
-        .select('id, provider_ref, plan_code, provider, status, created_at')
-        .eq('status', 'pending')
-        .gte('created_at', since)
-        .order('created_at', { ascending: false })
-        .limit(5000)
+      const data = await pageAll((from, to) =>
+        admin
+          .from('payments')
+          .select('id, provider_ref, plan_code, provider, status, created_at')
+          .eq('status', 'pending')
+          .gte('created_at', since)
+          .order('created_at', { ascending: false })
+          .order('id')
+          .range(from, to),
+      )
       const rows = (data ?? []).filter((p) => isWaitingPayment({ status: p.status as string, createdAt: p.created_at as string }, now.getTime()))
       return {
         key,
@@ -312,11 +321,14 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
       const id = (imp ?? [])[0]?.id as string | undefined
       let due: ReturnType<typeof settleByDate>['due'] = []
       if (id) {
-        const { data } = await admin
-          .from('reconciliation_rows')
-          .select('order_number, transaction_status, payment_via, order_amount, merchant_share, date_paid, settle_date, settle_status')
-          .eq('import_id', id)
-          .limit(20000)
+        const data = await pageAll((from, to) =>
+          admin
+            .from('reconciliation_rows')
+            .select('id, order_number, transaction_status, payment_via, order_amount, merchant_share, date_paid, settle_date, settle_status')
+            .eq('import_id', id)
+            .order('id')
+            .range(from, to),
+        )
         const n = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number(v))
         const rows: PayproRow[] = ((data ?? []) as Record<string, unknown>[]).map((r) => ({
           orderNumber: String(r.order_number ?? ''),
@@ -345,9 +357,9 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
     }
 
     case 'todo-flagged': {
-      const [{ data: flags }, { data: reports }] = await Promise.all([
-        admin.from('abuse_flags').select('id, source, matched, created_at').eq('status', 'open').order('created_at', { ascending: false }).limit(5000),
-        admin.from('reports').select('id, target_type, reason, created_at').eq('status', 'open').order('created_at', { ascending: false }).limit(5000),
+      const [flags, reports] = await Promise.all([
+        pageAll((from, to) => admin.from('abuse_flags').select('id, source, matched, created_at').eq('status', 'open').order('created_at', { ascending: false }).order('id').range(from, to)),
+        pageAll((from, to) => admin.from('reports').select('id, target_type, reason, created_at').eq('status', 'open').order('created_at', { ascending: false }).order('id').range(from, to)),
       ])
       const rows: OverviewRow[] = [
         ...(flags ?? []).map((f) => ({
@@ -372,9 +384,65 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
       }
     }
 
+    case 'todo-unmet': {
+      // Every "nothing found" search of the last 7 days (owner, 8 Oct 2026),
+      // grouped by what was typed — one row per distinct search, so the count is
+      // the list's length. The extra line names the top cities and subjects.
+      const since = new Date(now.getTime() - 7 * 86_400_000).toISOString()
+      const raw = await pageAll((a, b) =>
+        admin.from('search_unmet').select('id, query, surface, city, subject, level, school, role, created_at').gte('created_at', since).order('id').range(a, b),
+      )
+      const groups = new Map<string, { q: string; n: number; surfaces: Set<string>; roles: Set<string>; city: string | null; subject: string | null; level: string | null; school: string | null; last: string }>()
+      for (const r of raw) {
+        const key = String(r.query ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
+        if (!key) continue
+        const g = groups.get(key) ?? { q: String(r.query), n: 0, surfaces: new Set(), roles: new Set(), city: null, subject: null, level: null, school: null, last: String(r.created_at) }
+        g.n++
+        g.surfaces.add(String(r.surface))
+        g.roles.add((r.role as string | null) ?? 'guest')
+        g.city = g.city ?? ((r.city as string | null) ?? null)
+        g.subject = g.subject ?? ((r.subject as string | null) ?? null)
+        g.level = g.level ?? ((r.level as string | null) ?? null)
+        g.school = g.school ?? ((r.school as string | null) ?? null)
+        if (String(r.created_at) > g.last) g.last = String(r.created_at)
+        groups.set(key, g)
+      }
+      const list = [...groups.values()].sort((a, b) => b.n - a.n || b.last.localeCompare(a.last))
+      const tally = (pick: (g: (typeof list)[number]) => string | null) => {
+        const m = new Map<string, number>()
+        for (const g of list) {
+          const v = pick(g)
+          if (v) m.set(v, (m.get(v) ?? 0) + g.n)
+        }
+        return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([v, n]) => `${v} (${n})`).join(', ')
+      }
+      const topCities = tally((g) => g.city)
+      const topSubjects = tally((g) => g.subject ?? g.school)
+      return {
+        key,
+        rows: list.map((g, i) => ({
+          id: `unmet-${i}`,
+          title: `“${g.q}”`,
+          detail: [
+            `${g.n} time${g.n === 1 ? '' : 's'}`,
+            g.city ? `City ${g.city}` : null,
+            g.level ? `Level ${g.level}` : null,
+            g.subject ? `Subject ${g.subject}` : null,
+            g.school ? `School ${g.school}` : null,
+            [...g.surfaces].join(' + '),
+            [...g.roles].join(', '),
+          ].filter(Boolean).join(' · '),
+          href: `/browse/${g.surfaces.has('tuitions') && !g.surfaces.has('tutors') ? 'tuitions' : 'tutors'}?q=${encodeURIComponent(g.q)}`,
+        })),
+        filter: 'searches that found nothing in the last 7 days',
+        extra: [topCities ? `Top cities: ${topCities}` : null, topSubjects ? `Top subjects: ${topSubjects}` : null].filter(Boolean).join(' · ') || null,
+        workHref: '/admin/blog/queue',
+      }
+    }
+
     case 'todo-pausing': {
-      // A tuition pauses 15 days after coalesce(resumed_at, created_at); "in the
-      // next 2 days" = that base falls in (now − 15d, now − 13d]. Instants, never
+      // A tuition pauses 7 days after coalesce(resumed_at, created_at); "in the
+      // next 2 days" = that base falls in (now − 7d, now − 5d]. Instants, never
       // ISO strings ("+00:00" and "Z" do not sort alike).
       const fromMs = now.getTime() - PAUSE_AFTER_DAYS * 86_400_000
       const toMs = now.getTime() - (PAUSE_AFTER_DAYS - 2) * 86_400_000

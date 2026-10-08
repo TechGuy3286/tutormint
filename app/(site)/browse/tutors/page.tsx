@@ -17,7 +17,9 @@ import TutorFilterBar, { type FilterValues } from './TutorFilterBar'
 import MoreTutors from './MoreTutors'
 import PopularLandingLinks from '@/components/landing/PopularLandingLinks'
 import { rankedTutors, tutorFiltersFrom, tutorFiltersToParams } from '@/lib/browseTutors'
-import { resolveSubjectQuery } from '@/lib/searchResolve'
+import SearchChips from '@/components/search/SearchChips'
+import { tutorFallback } from '@/lib/searchFallback'
+import { logUnmetSearch } from '@/lib/smartSearch'
 
 // /browse/tutors -- a server component, on purpose.
 //
@@ -193,13 +195,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   // filters by it — the resolution itself happens inside rankedTutors (so the
   // first window and load-more agree); here we only compute the label for the
   // "Showing results for …" line.
-  let resolvedLabel: string | null = null
-  if (!listFilters.masterId && listFilters.q) {
-    const resolved = await resolveSubjectQuery(listFilters.q, city || null)
-    if (resolved) resolvedLabel = resolved.label
-  }
-
-  const { tutors, total, nextCursor, error } = await rankedTutors({
+  const { tutors, total, nextCursor, error, parsed } = await rankedTutors({
     filters: listFilters,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
@@ -275,6 +271,14 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
     }
   }
 
+  // Nothing found (owner, 8 Oct 2026): log it, then show the nearest match with
+  // a clear line — never an unrelated subject, never a blank page.
+  let fallback: Awaited<ReturnType<typeof tutorFallback>> = null
+  if (tutors.length === 0 && !error && (q || city)) {
+    if (q) await logUnmetSearch({ query: q, surface: 'tutors', parsed, role: viewer.role ?? null })
+    fallback = await tutorFallback(listFilters, parsed, PAGE_SIZE)
+  }
+
   const label = await subjectLabel(subjectId)
   // "Find tutors" (owner, 5 Oct 2026) — the list holds verified tutors first and
   // verification-in-progress after, so the heading no longer says "Verified".
@@ -317,12 +321,8 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
               ? 'No tutors match these filters yet.'
               : `${total} tutor${total === 1 ? '' : 's'}${viewer.signedIn ? '' : ' · free to browse, no account needed'}`}
           </p>
-          {/* §4.1: when a misspelled/Roman-Urdu query resolved to a subject. */}
-          {resolvedLabel && (
-            <p className="text-xs font-bold text-tm-navy">
-              Showing results for &ldquo;{resolvedLabel}&rdquo;
-            </p>
-          )}
+          {/* What the smart search read, as removable chips (owner, 8 Oct 2026). */}
+          <SearchChips parsed={parsed} q={q} basePath="/browse/tutors" params={{ subject: filters.subject, city, area, mode, gender, feeMin, feeMax, q }} />
         </header>
 
         <TutorFilterBar values={filters} />
@@ -333,7 +333,25 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
           </p>
         )}
 
-        {tutors.length === 0 && !error ? (
+        {tutors.length === 0 && !error && fallback ? (
+          <div className="space-y-4">
+            <p className="rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-3 text-xs font-bold text-tm-navy">
+              {fallback.line.en}
+              <span lang="ur" dir="rtl" className="mt-1 block font-semibold">{fallback.line.ur}</span>
+            </p>
+            {fallback.tutors.map((t, i) => (
+              <TutorCard
+                key={t.id}
+                tutor={t}
+                viewer={viewer}
+                initiallySaved={saved.has(t.id)}
+                showMessage={!viewer.signedIn || viewer.role !== 'tutor'}
+                headingLevel="h2"
+                priority={i === 0}
+              />
+            ))}
+          </div>
+        ) : tutors.length === 0 && !error ? (
           /*
             A no-results screen with three specific ways forward rather than
             one "clear filters" button. The filters that most often produce an

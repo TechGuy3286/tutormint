@@ -63,6 +63,7 @@ function ActionButton({ a }: { a: CardAction }) {
 }
 
 export default function CardActions({ actions }: { actions: CardAction[] }) {
+  if (actions.length === 0) return null
   // A single action fills the full width (owner, 5 Oct 2026: a tutor viewing
   // another tutor's card sees only View Profile). Two or more keep the 2-up grid.
   return (

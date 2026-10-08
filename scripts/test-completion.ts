@@ -72,5 +72,11 @@ test('parent: a mobile-only complete parent is 100% — email is not an item (it
   const noAddress = calculateParentCompletion({ profile: { ...MOBILE_ONLY_PARENT.profile, address: '' } })
   const noAddressEmail = calculateParentCompletion({ profile: { ...MOBILE_ONLY_PARENT.profile, address: '', email: REAL } })
   assert.equal(noAddress.percent, noAddressEmail.percent)
-  assert.deepEqual(noAddress.missing.map((m) => m.key), ['address'])
+  // Address and CNIC are OPTIONAL now (owner, 8 Oct 2026): a suggestion, never missing.
+  assert.equal(noAddress.percent, 100)
+  assert.deepEqual(noAddress.missing.map((m) => m.key), [])
+  assert.deepEqual(noAddress.suggestions.map((m) => m.key), ['address'])
+  // Without a verified mobile the parent is NOT complete.
+  const noMobile = calculateParentCompletion({ profile: { ...MOBILE_ONLY_PARENT.profile, phone_verified_at: null } })
+  assert.deepEqual(noMobile.missing.map((m) => m.key), ['phone'])
 })

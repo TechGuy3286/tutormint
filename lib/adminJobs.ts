@@ -14,6 +14,7 @@
 // descending, with the id as tiebreaker because created_at alone is not unique
 // and two jobs posted in the same millisecond are ordinary on a busy board.
 
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sanitizeOrTerm } from '@/lib/pgFilter'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
@@ -193,9 +194,10 @@ export async function adminJobFacets(): Promise<{ cities: string[]; subjects: { 
   const admin = createAdminClient()
   if (!admin) return { cities: [], subjects: [] }
 
-  const [{ data: jobs }, { data: links }] = await Promise.all([
-    admin.from('jobs').select('city'),
-    admin.from('job_subjects').select('master_id'),
+  // PAGED (owner, 8 Oct 2026): job_subjects is thousands of rows.
+  const [jobs, links] = await Promise.all([
+    pageAll((from, to) => admin.from('jobs').select('id, city').order('id').range(from, to)),
+    pageAll((from, to) => admin.from('job_subjects').select('job_id, master_id').order('job_id').order('master_id').range(from, to)),
   ])
 
   const cities = Array.from(
@@ -205,10 +207,9 @@ export async function adminJobFacets(): Promise<{ cities: string[]; subjects: { 
   const masterIds = Array.from(new Set((links ?? []).map((l) => l.master_id as number)))
   if (masterIds.length === 0) return { cities, subjects: [] }
 
-  const { data: master } = await admin
-    .from('taxonomy_master')
-    .select('subject_slug')
-    .in('id', masterIds)
+  const master = await pageAllIn(masterIds, (ids, from, to) =>
+    admin.from('taxonomy_master').select('id, subject_slug').in('id', ids).order('id').range(from, to),
+  )
   const slugs = Array.from(
     new Set((master ?? []).map((m) => m.subject_slug as string | null).filter(Boolean) as string[]),
   )

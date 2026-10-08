@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import SecondRoleCard from './SecondRoleCard'
+import { secondRoleState } from '@/lib/secondRole'
 import { notFound } from 'next/navigation'
 import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { formatDate, formatDateTime } from '@/lib/datetime'
@@ -58,7 +60,7 @@ export default async function AdminMemberPage({
   const { data: profile } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content',
+      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content, linked_account_id',
     )
     .eq('id', id)
     .maybeSingle()
@@ -178,6 +180,7 @@ export default async function AdminMemberPage({
   // photo and selfie (the same review the tutor record uses). Images are served
   // only through /api/documents/[id]/preview (owner or staff, never public).
   const isParent = profile.role === 'parent' || profile.role === 'academy'
+  const secondRole = await secondRoleState(id)
   const canReviewParent = roleSatisfies(actor.adminRole, SCREEN_ACCESS.parents)
   const canReviewTutor = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)
   const parentDocs = isParent ? await loadParentDocs(id) : null
@@ -389,6 +392,16 @@ export default async function AdminMemberPage({
         mobileVerified={!!profile.phone_verified_at}
         hasMobile={!!profile.phone_number}
       />
+
+      {roleSatisfies(actor.adminRole, SCREEN_ACCESS.secondRole) && profile.role !== 'admin' && (
+        <SecondRoleCard
+          memberId={id}
+          role={secondRole.canCreate ? secondRole.role : null}
+          defaultName={formatName(profile.full_name as string | null)}
+          linkedId={(profile.linked_account_id as string | null) ?? null}
+          reason={secondRole.canCreate ? null : secondRole.reason}
+        />
+      )}
 
       {/* ---------------------------------------------- staff activity --- */}
       {staffCounts && (

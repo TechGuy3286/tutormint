@@ -52,7 +52,7 @@ type Props = {
 
 const CONSEQUENCE: Record<Props['role'], string> = {
   parent:
-    'Your CNIC is checked once. Until it is approved you cannot post a tuition, message a tutor or request a demo.',
+    'Optional. Your CNIC is checked once; with your address approved too, you get the green Verified badge. You can post, message and request demos without it.',
   tutor:
     'Your CNIC is checked once, and it is part of what makes your profile a verified one. Only you and our verification team can see it.',
 }

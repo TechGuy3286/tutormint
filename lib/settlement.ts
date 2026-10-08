@@ -9,6 +9,7 @@
 // No member name, mobile or email is read: payments are read by reference,
 // amount, approval time and payment method only.
 
+import { pageAll } from '@/lib/pageAll'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -50,12 +51,15 @@ type PaymentRow = {
 async function approvedPayments(gateway: string): Promise<OurPayment[]> {
   const admin = createAdminClient()
   if (!admin) return []
-  const { data } = await admin
-    .from('payments')
-    .select('provider_ref, amount_pkr, reviewed_at, updated_at, created_at, method, raw')
-    .eq('provider', gateway)
-    .eq('status', 'approved')
-    .limit(20000)
+  const data = await pageAll((from, to) =>
+    admin
+      .from('payments')
+      .select('id, provider_ref, amount_pkr, reviewed_at, updated_at, created_at, method, raw')
+      .eq('provider', gateway)
+      .eq('status', 'approved')
+      .order('id')
+      .range(from, to),
+  )
   return ((data ?? []) as PaymentRow[])
     .filter((p) => !!p.provider_ref)
     .map((p) => {
@@ -100,12 +104,15 @@ export async function loadSettlement(gateway: string, from: string, to: string):
       .eq('gateway', gateway)
       .order('created_at', { ascending: false })
       .limit(1),
-    admin
-      .from('bank_transfers')
-      .select('id, transferred_on, amount_pkr, reference, account_last4, source')
-      .eq('gateway', gateway)
-      .order('transferred_on', { ascending: false })
-      .limit(5000),
+    pageAll((from, to) =>
+      admin
+        .from('bank_transfers')
+        .select('id, transferred_on, amount_pkr, reference, account_last4, source')
+        .eq('gateway', gateway)
+        .order('transferred_on', { ascending: false })
+        .order('id')
+        .range(from, to),
+    ).then((data) => ({ data })),
   ])
 
   const latest = (impRes.data ?? [])[0] as
@@ -114,11 +121,14 @@ export async function loadSettlement(gateway: string, from: string, to: string):
 
   let gatewayRows: PayproRow[] | null = null
   if (latest) {
-    const { data } = await admin
-      .from('reconciliation_rows')
-      .select('order_number, transaction_status, payment_via, order_amount, merchant_share, date_paid, settle_date, settle_status')
-      .eq('import_id', latest.id)
-      .limit(20000)
+    const data = await pageAll((from, to) =>
+      admin
+        .from('reconciliation_rows')
+        .select('id, order_number, transaction_status, payment_via, order_amount, merchant_share, date_paid, settle_date, settle_status')
+        .eq('import_id', latest.id)
+        .order('id')
+        .range(from, to),
+    )
     gatewayRows = ((data ?? []) as Record<string, unknown>[]).map((r) => ({
       orderNumber: String(r.order_number ?? ''),
       transactionStatus: (r.transaction_status as string | null) ?? null,

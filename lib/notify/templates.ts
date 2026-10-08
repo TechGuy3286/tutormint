@@ -326,7 +326,7 @@ export function render(input: TemplateInput): RenderedEmail {
       // channel is unverified so uploads fail. Subjects, area and photo stay.
       const next = isTutor
         ? 'Complete your profile so parents can find you — add your subjects, area and a photo. Finishing your profile is what puts you in search and on Google.'
-        : 'Verify your CNIC and address, then you can post a tuition and message tutors directly.'
+        : 'Post a tuition and message tutors as soon as your mobile number is verified. Adding your CNIC and address is optional and earns the green Verified badge.'
       const cta = isTutor
         ? { label: 'Complete your profile', href: '/tutor/complete-profile' }
         : { label: 'Post a tuition', href: '/parent/dashboard/post-job' }
@@ -486,7 +486,7 @@ export function render(input: TemplateInput): RenderedEmail {
         [
           `Your ${input.what} was not approved: ${input.reason}`,
           input.audience === 'parent'
-            ? 'Please correct it on your verification page. Once your CNIC and address are approved you can message tutors and request demos.'
+            ? 'Please correct it on your verification page to get the green Verified badge. You can keep posting, messaging tutors and requesting demos meanwhile.'
             : 'Please upload a clear one to finish getting verified. Nothing else changes — your Spam Free Platform Fee and the rest of your profile stay exactly as they are.',
         ],
         true, // a verification decision the member is waiting on
@@ -600,8 +600,8 @@ export function render(input: TemplateInput): RenderedEmail {
         'Your tuition is paused',
         'Your tuition is paused',
         [
-          `Your tuition “${input.title}” has been paused automatically, 15 days after it was posted. Tutors can no longer see it in search or apply to it.`,
-          'Nothing is lost — its applications, conversations and page all stay in your dashboard. Resume it to show it to tutors again for another 15 days.',
+          `Your tuition “${input.title}” has been paused automatically because it has been open for 7 days. Tutors can no longer see it in search or apply to it.`,
+          'Nothing is lost — its applications, conversations and page all stay in your dashboard. Resume it to show it to tutors again for another 7 days.',
         ],
         true, // loss of visibility, like plan_expired — delivered regardless of opt-out
         { label: 'Resume your tuition', href: '/parent/dashboard/jobs' },

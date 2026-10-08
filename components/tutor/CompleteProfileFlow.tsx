@@ -1,5 +1,6 @@
 'use client'
 
+import { matchSubject, useSubjectWords } from '@/lib/searchWords'
 import { ArrowLeft, Camera, Check, CheckCircle2, Clock, Loader2, MessageCircle, Mail, Plus, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -1143,6 +1144,7 @@ function SubjectsPerLevelStep({
   onBackToLevel: () => void
   onNext: () => void
 }) {
+  const subjectWords = useSubjectWords()
   const [q, setQ] = useState('')
   if (!tree || cats.length === 0) {
     return (
@@ -1162,7 +1164,7 @@ function SubjectsPerLevelStep({
   const groups = cats.map((cat) => {
     const grades = Object.keys(tree[cat] ?? {})
     const subs = orderSubjectsForPicker(Array.from(new Set(grades.flatMap((g) => tree[cat][g] ?? []))), cat, loadedNoGradeLevels())
-    return { cat, subs: query ? subs.filter((s) => s.toLowerCase().includes(query)) : subs }
+    return { cat, subs: query ? subs.filter((s) => matchSubject(query, s, subjectWords)) : subs }
   })
   const total = Object.values(selByCat).reduce((n, arr) => n + arr.length, 0)
   const toggle = (cat: string, sub: string) => {

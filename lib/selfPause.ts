@@ -67,7 +67,7 @@ export async function pauseMyAccount(
   if (f.role !== 'tutor') {
     const { data } = await admin
       .from('jobs')
-      .update({ status: 'paused', paused_at: now, self_paused_at: now })
+      .update({ status: 'paused', paused_at: now, self_paused_at: now, pause_source: 'self' })
       .eq('parent_id', userId)
       .eq('status', 'open')
       .select('id, public_slug, city')

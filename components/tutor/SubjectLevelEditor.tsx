@@ -1,5 +1,6 @@
 'use client'
 
+import { matchSubject, useSubjectWords } from '@/lib/searchWords'
 import { Loader2, Plus, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -34,6 +35,7 @@ export default function SubjectLevelEditor({
   /** Called with the final merged master ids whenever the selection changes. */
   onChange: (finalIds: number[]) => void
 }) {
+  const subjectWords = useSubjectWords()
   const confirm = useConfirm()
   const [tree, setTree] = useState<TaxonomyNode | null>(null)
   const [masters, setMasters] = useState<SubjectMaster[]>([])
@@ -82,7 +84,7 @@ export default function SubjectLevelEditor({
   const subjectsFor = (cat: string): string[] => {
     if (!tree || !tree[cat]) return []
     const union = orderSubjectsForPicker(Array.from(new Set(Object.keys(tree[cat]).flatMap((g) => tree[cat][g] ?? []))), cat, loadedNoGradeLevels())
-    return query ? union.filter((s) => s.toLowerCase().includes(query)) : union
+    return query ? union.filter((s) => matchSubject(query, s, subjectWords)) : union
   }
 
   const toggle = (cat: string, sub: string) => {

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 
 import SubmitEscape from '@/components/SubmitEscape'
 import PasswordInput from '@/components/ui/PasswordInput'
+import RolePicker from '@/components/auth/RolePicker'
 import { createClient } from '@/lib/supabase/client'
 import { homeForRole, nextForRole, type Role } from '@/lib/authRoutes'
 import { armEscape, STUCK_MESSAGE, submitError, submitJson } from '@/lib/submit'
@@ -58,6 +59,7 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
   const [needsConfirm, setNeedsConfirm] = useState<string | null>(null)
   const [supportHref, setSupportHref] = useState<string | null>(null)
   const [resendMsg, setResendMsg] = useState('')
+  const [choosing, setChoosing] = useState(false)
 
   const router = useRouter()
   const toast = useToast()
@@ -97,6 +99,7 @@ export default function LoginForm({ next, role }: { next: string | null; role?: 
       reverify?: boolean
       needsPhoneVerify?: boolean
       restored?: boolean
+      chooseRole?: boolean
       errorUr?: string
       ref?: string
     }>('/api/auth/login', { identifier, password, rememberMe })
@@ -127,6 +130,13 @@ ${WELCOME_BACK_UR}`)
     // removed — is held at /verify-phone, never landed on a dashboard first.
     if (data.needsPhoneVerify || data.reverify) return go('/verify-phone')
 
+    // Two linked accounts on this mobile (owner, 8 Oct 2026): ask which role.
+    if (data.chooseRole) {
+      setLoading(false)
+      setChoosing(true)
+      return
+    }
+
     if (data.mustChangePassword) {
       // A temporary password is good for exactly one sign-in.
       const after = nextForRole(next, (data.role as Role | null) ?? null)
@@ -151,6 +161,16 @@ ${WELCOME_BACK_UR}`)
     } catch (e) {
       setResendMsg(submitError(e, 'Could not resend the confirmation email.'))
     }
+  }
+
+  if (choosing) {
+    return (
+      <main className="flex min-h-screen flex-col bg-tm-bg p-4 text-slate-700 sm:p-6">
+        <div className="mx-auto mt-4 w-full max-w-sm rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+          <RolePicker onDone={(href) => go(href)} />
+        </div>
+      </main>
+    )
   }
 
   return (

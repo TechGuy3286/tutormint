@@ -4,8 +4,8 @@ import { resumeJob } from '@/lib/jobs'
 import { parseBody, z } from '@/lib/validate'
 
 // Resume a paused tuition (PR27 §3.3). Ownership is checked in lib/jobs.ts, and
-// resuming sets a fresh 15-day clock (resumed_at = now) so the daily sweep waits
-// another 15 days before pausing it again.
+// resuming sets a fresh 7-day clock (resumed_at = now) so the daily sweep waits
+// another 7 days before pausing it again.
 
 const ResumeBody = z.object({
   jobId: z.string().min(1, 'Missing tuition.').max(64),

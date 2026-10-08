@@ -4,6 +4,7 @@
 // half. Reads the fee payments through the service role; the rules are in
 // lib/feePayersCore.ts.
 
+import { pageAll } from '@/lib/pageAll'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -25,14 +26,17 @@ type PaymentRecord = {
 async function feePayments(limit = 5000): Promise<(FeePaymentRow & { ref: string | null })[]> {
   const admin = createAdminClient()
   if (!admin) return []
-  const { data } = await admin
-    .from('payments')
-    .select('user_id, status, plan_code, reviewed_at, updated_at, refunded_amount_pkr, refunded_at, provider_ref')
-    .eq('plan_code', 'verified')
-    .eq('status', 'approved')
-    .not('user_id', 'is', null)
-    .order('reviewed_at', { ascending: false, nullsFirst: false })
-    .limit(limit)
+  const data = (await pageAll((from, to) =>
+    admin
+      .from('payments')
+      .select('id, user_id, status, plan_code, reviewed_at, updated_at, refunded_amount_pkr, refunded_at, provider_ref')
+      .eq('plan_code', 'verified')
+      .eq('status', 'approved')
+      .not('user_id', 'is', null)
+      .order('reviewed_at', { ascending: false, nullsFirst: false })
+      .order('id')
+      .range(from, to),
+  )).slice(0, limit)
   return ((data ?? []) as PaymentRecord[]).map((p) => ({
     userId: p.user_id,
     status: p.status,

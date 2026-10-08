@@ -73,11 +73,12 @@ test('an unknown / missing status defaults to open (a real row still renders 200
 test('PART B — pauseCountdownLabel never shows 0 or a negative, and counts down', () => {
   const now = Date.parse('2026-01-20T00:00:00Z')
   const at = (iso: string) => pauseCountdownLabel(iso, now)
-  assert.equal(at('2026-01-15T00:00:00Z'), 'pauses in 10 days') // base 5d ago → 10 days left
-  assert.equal(at('2026-01-06T12:00:00Z'), 'pauses in 1 day')   // 1.5 days left → floor 1, singular
+  // 7-day life (owner, 8 Oct 2026; was 15).
+  assert.equal(at('2026-01-18T00:00:00Z'), 'pauses in 5 days') // base 2d ago → 5 days left
+  assert.equal(at('2026-01-14T12:00:00Z'), 'pauses in 1 day')   // 1.5 days left → floor 1, singular
   // Under a day left, exactly due, and past due (unswept) all read "pauses today"
-  assert.equal(at('2026-01-05T12:00:00Z'), 'pauses today')      // 0.5 day left
-  assert.equal(at('2026-01-05T00:00:00Z'), 'pauses today')      // exactly due
+  assert.equal(at('2026-01-13T12:00:00Z'), 'pauses today')      // 0.5 day left
+  assert.equal(at('2026-01-13T00:00:00Z'), 'pauses today')      // exactly due
   assert.equal(at('2025-12-31T00:00:00Z'), 'pauses today')      // past due
   // The strict guard: it never emits a "0" or a minus sign.
   for (const iso of ['2026-01-15T00:00:00Z', '2026-01-05T12:00:00Z', '2026-01-05T00:00:00Z', '2025-12-31T00:00:00Z']) {
@@ -85,7 +86,7 @@ test('PART B — pauseCountdownLabel never shows 0 or a negative, and counts dow
     assert.doesNotMatch(label, /\b0\b/, `no zero in "${label}"`)
     assert.doesNotMatch(label, /-/, `no negative in "${label}"`)
   }
-  assert.equal(PAUSE_AFTER_DAYS, 15)
+  assert.equal(PAUSE_AFTER_DAYS, 7)
 })
 
 test('PART B — a past-due-but-unswept OPEN tuition reads "pauses today" and still accepts applications', () => {
@@ -108,8 +109,12 @@ test('PART B — the sweep and the display share ONE expression (pauseDueAtMs)',
   const status = readFileSync(join(root, 'lib/tuitionStatus.ts'), 'utf8')
   assert.ok(/export function isPauseDue[\s\S]*?pauseDueAtMs/.test(status), 'isPauseDue uses pauseDueAtMs')
   assert.ok(/export function pauseCountdownLabel[\s\S]*?pauseDueAtMs/.test(status), 'the display uses pauseDueAtMs')
+  // The sweep batches through lib/tuitionPauseCore (owner, 8 Oct 2026), whose
+  // due test is pauseDueAtMs — the same expression as the display.
   const sweep = readFileSync(join(root, 'lib/tuitionPause.ts'), 'utf8')
-  assert.ok(/isPauseDue/.test(sweep), 'the sweep reads isPauseDue (not its own cutoff)')
+  assert.ok(/planPauseBatch/.test(sweep), 'the sweep reads planPauseBatch (not its own cutoff)')
+  const core = readFileSync(join(root, 'lib/tuitionPauseCore.ts'), 'utf8')
+  assert.ok(/pauseDueAtMs/.test(core), 'the batch rule uses pauseDueAtMs')
   assert.ok(!/cutoffIso/.test(sweep), 'the sweep no longer has a second cutoff implementation')
 })
 

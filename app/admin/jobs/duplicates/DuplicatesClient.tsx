@@ -36,7 +36,7 @@ export default function DuplicatesClient({ pairs, days, canMerge }: { pairs: Rep
   const merge = async (p: RepeatPair) => {
     const ok = await confirm({
       title: `Merge ${p.repeat.refId ?? 'this tuition'} into ${p.original.refId ?? 'the original'}?`,
-      body: 'The repeat is closed and its address will send visitors to the original. Nothing is deleted. The original moves to the top of Browse with a fresh 15 days.',
+      body: 'The repeat is closed and its address will send visitors to the original. Nothing is deleted. The original moves to the top of Browse with a fresh 7 days.',
       confirmLabel: 'Merge into original',
     })
     if (!ok) return

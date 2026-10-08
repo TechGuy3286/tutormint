@@ -14,7 +14,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
 import EmailCard from '@/components/account/EmailCard'
 import PauseAccountCard from '@/components/account/PauseAccountCard'
-import { PauseCircle } from 'lucide-react'
+import ChangePasswordCard from '@/components/account/ChangePasswordCard'
+import { Lock, PauseCircle } from 'lucide-react'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
 import { whatsappHref, SUPPORT_WHATSAPP_FALLBACK } from '@/lib/supportContacts'
@@ -81,6 +82,11 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
   // PR77: parent Settings uses the same tile grid + in-place expansion as the
   // tutor side. One tile open at a time; Save or the × shrinks it back.
   const [openKey, setOpenKey] = useState<string | null>(null)
+  // ?open=mobile (the "verify your mobile" gate links here) opens that tile.
+  useEffect(() => {
+    const k = new URLSearchParams(window.location.search).get('open')
+    if (k) setOpenKey(k)
+  }, [])
   const openRef = useRef<HTMLLIElement | null>(null)
   useEffect(() => {
     if (openKey && openRef.current) openRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -433,8 +439,17 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
       body: <EmailCard />,
     },
     {
-      // "Pause my account" (owner, 8 Oct 2026). Parents have no Change password
-      // tile, so it sits after Email, the last account tile.
+      // Change password (owner, 8 Oct 2026) — the same card tutors have, before
+      // "Pause my account".
+      key: 'password',
+      icon: <Lock aria-hidden size={20} />,
+      title: 'Change password',
+      titleUr: 'پاس ورڈ تبدیل کریں',
+      status: 'neutral',
+      body: <ChangePasswordCard />,
+    },
+    {
+      // "Pause my account" (owner, 8 Oct 2026), after Change password.
       key: 'pause',
       icon: <PauseCircle aria-hidden size={20} />,
       title: 'Pause my account',

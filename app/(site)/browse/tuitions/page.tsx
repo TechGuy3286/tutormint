@@ -21,7 +21,9 @@ import {
   type ResolvedTutor,
   type FeedMessage,
 } from '@/lib/jobFeed'
-import { resolveSubjectQuery } from '@/lib/searchResolve'
+import SearchChips from '@/components/search/SearchChips'
+import { jobFallback } from '@/lib/searchFallback'
+import { logUnmetSearch, resolveSmartQuery } from '@/lib/smartSearch'
 import JobCard from '@/components/JobCard'
 import AdSlot from '@/components/ads/AdSlot'
 import JobFilterBar, { type JobFilterValues } from './JobFilterBar'
@@ -172,20 +174,11 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   const q = one(sp.q)
   const page = Math.max(1, intOrNull(one(sp.page)) ?? 1)
 
-  // §4.1/§3: a committed free-text query (a misspelling or a Roman-Urdu
-  // spelling) resolves to the subject the typeahead would suggest, ACROSS EVERY
-  // LEVEL of it (or to one level when the query names one), and we filter by
-  // those masters rather than a literal title match that finds nothing. Only
-  // when no explicit subject is already chosen.
-  let resolvedLabel: string | null = null
-  let resolvedMasterIds: number[] | null = null
-  if (!subjectId && q) {
-    const resolved = await resolveSubjectQuery(q, city || null)
-    if (resolved) {
-      resolvedMasterIds = resolved.masterIds
-      resolvedLabel = resolved.label
-    }
-  }
+  // The ONE smart search (owner, 8 Oct 2026): "sahiwal tuition for primary
+  // beaconhouse" is read into City · Level · Subject/School; a query it does not
+  // understand stays a title search. Only when no explicit subject is chosen.
+  const smart = !subjectId && q ? await resolveSmartQuery(q) : null
+  const parsed = smart?.understood ? smart.parsed : null
 
   const supabase = await createClient()
   const {
@@ -239,14 +232,15 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
 
   const filters: JobFilters = {
     masterId: subjectId,
-    masterIds: resolvedMasterIds,
-    city: city || null,
+    masterIds: parsed ? smart!.masterIds : null,
+    levels: parsed && !smart!.masterIds ? smart!.levelNames : null,
+    city: city || parsed?.city || null,
     mode: mode || null,
     budgetMin: intOrNull(budgetMin),
     budgetMax: intOrNull(budgetMax),
     // When the query resolved to subject(s), the literal title filter is dropped
     // (it would AND with the subject and empty the board again).
-    q: resolvedLabel ? null : q || null,
+    q: parsed ? null : q || null,
     tutorScope: null,
     viewerGender,
   }
@@ -264,6 +258,12 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   const jobs = result.jobs.map(slimForCard)
   const feedMessage: FeedMessage = 'message' in result ? (result.message as FeedMessage) : null
   const feedLevel: 1 | 2 | 3 | null = 'level' in result ? (result.level as 1 | 2 | 3) : null
+  // Nothing found (owner, 8 Oct 2026): log it, then show the nearest match.
+  let fallback: Awaited<ReturnType<typeof jobFallback>> = null
+  if (jobs.length === 0 && !defaultApplied && (q || city)) {
+    if (q) await logUnmetSearch({ query: q, surface: 'tuitions', parsed, role: viewerRole })
+    fallback = await jobFallback(filters, parsed, PAGE_SIZE)
+  }
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   if (user) {
@@ -357,12 +357,8 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
               ? 'No open tuitions match these filters yet.'
               : `${total} open tuition${total === 1 ? '' : 's'} · free to browse, no account needed`}
           </p>
-          {/* §4.1: when a misspelled/Roman-Urdu query resolved to a subject. */}
-          {resolvedLabel && (
-            <p className="text-xs font-bold text-tm-navy">
-              Showing results for &ldquo;{resolvedLabel}&rdquo;
-            </p>
-          )}
+          {/* What the smart search read, as removable chips (owner, 8 Oct 2026). */}
+          <SearchChips parsed={parsed} q={q} basePath="/browse/tuitions" params={{ subject: subjectId ? String(subjectId) : '', city, mode, budgetMin, budgetMax, q }} />
           {/* The "Tuition jobs in [City]" pages (owner, 6 Oct 2026, item 6). */}
           <CityJobsLinks />
         </header>
@@ -427,7 +423,27 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
           </p>
         )}
 
-        {jobs.length === 0 ? (
+        {jobs.length === 0 && fallback ? (
+          <div className="space-y-4">
+            <p className="rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-3 text-xs font-bold text-tm-navy">
+              {fallback.line.en}
+              <span lang="ur" dir="rtl" className="mt-1 block font-semibold">{fallback.line.ur}</span>
+            </p>
+            {fallback.jobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={slimForCard(job)}
+                signedIn={!!user}
+                showApply={showApply}
+                viewerCity={viewerCity}
+                viewerCities={viewerCities}
+                viewerJobTypes={viewerJobTypes}
+                saveable={isTutor}
+                headingLevel="h2"
+              />
+            ))}
+          </div>
+        ) : jobs.length === 0 ? (
           <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-8 text-center">
             <p className="text-sm font-black text-tm-navy">Nothing matches those filters</p>
             <p className="mx-auto max-w-sm text-xs leading-relaxed text-gray-500">

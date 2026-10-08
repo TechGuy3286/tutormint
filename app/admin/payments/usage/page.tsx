@@ -1,4 +1,5 @@
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { currentPeriod } from '@/lib/entitlements'
 import { formatName } from '@/lib/formatName'
@@ -46,11 +47,10 @@ export default async function AdminUsagePage({
     )
   }
 
-  const [{ data: counters }, { data: plans }] = await Promise.all([
-    admin
-      .from('usage_counters')
-      .select('user_id, jobs_applied, jobs_posted, messages_initiated')
-      .eq('period', period),
+  const [counters, { data: plans }] = await Promise.all([
+    pageAll((from, to) =>
+      admin.from('usage_counters').select('user_id, jobs_applied, jobs_posted, messages_initiated').eq('period', period).order('user_id').range(from, to),
+    ),
     admin.from('plans').select('code, name, monthly_quota, displayed_quota'),
   ])
 

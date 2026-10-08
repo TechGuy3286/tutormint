@@ -1,5 +1,6 @@
 'use client'
 
+import { matchSubject, useSubjectWords } from '@/lib/searchWords'
 import { Loader2, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -26,6 +27,7 @@ export default function SubjectPicker({
   value: number[]
   onChange: (ids: number[]) => void
 }) {
+  const subjectWords = useSubjectWords()
   const [masters, setMasters] = useState<SubjectMaster[]>([])
   const [demand, setDemand] = useState<Record<number, number>>({})
   const [labels, setLabels] = useState<Map<number, string>>(new Map())
@@ -90,7 +92,7 @@ export default function SubjectPicker({
       .map((g) => {
         const items = q
           ? g.items.filter(
-              (it) => it.label.toLowerCase().includes(q) || g.level.toLowerCase().includes(q),
+              (it) => matchSubject(q, it.label, subjectWords) || g.level.toLowerCase().includes(q),
             )
           : // default view: in-demand subjects, plus anything already selected
             g.items.filter((it) => it.demand > 0 || selected.has(it.id))

@@ -11,8 +11,9 @@ import { AlertCircle, CheckCircle2, X } from 'lucide-react'
 // tell a save that worked from one that did nothing. One component, one place,
 // wired to every mutation — success in green, failure in red WITH THE REASON.
 //
-// PLACEMENT. Bottom-centre on a phone (thumb reach, out of the way of the
-// sticky action bars), bottom-right on a laptop. Fixed, above everything.
+// PLACEMENT (owner, 8 Oct 2026). Top centre, just below the header, on a phone
+// AND a laptop — newest on top, each one gone after 4 seconds or closed with ×.
+// Never over the Messages dock (bottom-right) or the sticky action bars.
 //
 // ANNOUNCED. Each toast carries role="status" (success) or role="alert"
 // (error), inside an aria-live region, so a screen-reader user hears the same
@@ -40,7 +41,7 @@ export function useToast(): ToastApi {
   return ctx ?? noop.current
 }
 
-const DURATION: Record<ToastKind, number> = { success: 4000, error: 7000 }
+const DURATION: Record<ToastKind, number> = { success: 4000, error: 4000 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -94,9 +95,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-4 z-[100] flex flex-col items-center gap-2 px-4 sm:inset-x-auto sm:right-4 sm:items-end"
+        className="pointer-events-none fixed inset-x-0 top-[76px] z-[100] flex flex-col items-center gap-2 px-4 sm:top-[92px]"
       >
-        {toasts.map((t) => (
+        {[...toasts].reverse().map((t) => (
           <ToastItem
             key={t.id}
             toast={t}

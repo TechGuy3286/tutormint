@@ -81,11 +81,11 @@ const GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'Why can I not post a tuition yet?',
-        a: 'Posting requires a verified CNIC and address. It is the single thing that keeps fake and abusive job posts off the platform, and it is what tutors are relying on when they apply to yours. Upload both from your dashboard and our team reviews them by hand.',
+        a: 'Posting needs a verified mobile number, and nothing else. Verify it from Settings with a one-time code. Your CNIC and home address are optional: send them from your dashboard and, once our team approves them, you get the green Verified badge tutors look for.',
       },
       {
         q: 'Why can I not hire the tutor I chose?',
-        a: 'Completing a hire is a Featured plan feature. You can post tuitions, receive applications, message any tutor and request a demo lesson on the free verified plan; marking someone as hired, and seeing contact numbers, is on Featured.',
+        a: 'Completing a hire is a Featured plan feature. You can post tuitions, receive applications, message any tutor and request a demo lesson for free once your mobile number is verified; marking someone as hired, and seeing contact numbers, is on Featured.',
       },
       {
         q: 'Can I see a tutor’s phone number?',

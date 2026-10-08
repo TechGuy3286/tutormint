@@ -10,7 +10,7 @@ import { adminFetch } from '@/components/admin/adminFetch'
 
 // Refresh, on the tuition's own page (owner, 6 Oct 2026, item 16): the poster
 // through /api/parent/jobs/refresh, an admin through the admin action route —
-// the same lib/tuitionMerge.refreshTuition behind both (fresh 15 days, top of
+// the same lib/tuitionMerge.refreshTuition behind both (fresh 7 days, top of
 // Browse, same URL, Google told, once every 3 days).
 
 export default function RefreshInline({ jobId, admin = false }: { jobId: string; admin?: boolean }) {

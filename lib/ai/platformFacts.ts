@@ -135,9 +135,9 @@ function rulesFor(facts: PlatformFacts): FactRule[] {
     },
     {
       kind: 'parent_verify',
-      why: 'Parents verify their CNIC and address (free) before they can post a tuition, message a tutor or request a demo.',
+      why: 'A parent needs only a verified mobile number to post a tuition, message a tutor or request a demo. CNIC and address are optional and earn the Verified badge.',
       find: re(
-        /\b(?:parents? can (?:post|message|request|contact)[^.]{0,40}\bwithout (?:verif\w*|a cnic|any verification)|no verification (?:is )?(?:needed|required) (?:for|to) (?:parents|post|message))\b/i,
+        /\b(?:parents? (?:must|need to|have to|should) (?:first )?(?:verify|upload|submit|send) (?:their |your )?(?:cnic|identity|id card)[^.]{0,60}\b(?:before|to) (?:they |you )?(?:can )?(?:post|message|request|contact)|(?:cnic|identity) (?:verification )?(?:is )?(?:required|needed|mandatory) (?:for parents |)(?:to|before) (?:post|message|request)|parents? can (?:post|message|request|contact)[^.]{0,40}\bwithout (?:verifying anything|any verification|verifying their (?:mobile|number|phone)))\b/i,
       ),
     },
     {

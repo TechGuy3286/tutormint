@@ -44,6 +44,8 @@ export type TutorCardData = {
   headline: string | null
   avatar_url: string | null
   city: string | null
+  /** Smart-search fallback (owner, 8 Oct 2026): "87 km away" / "Teaches online". */
+  distance_note?: string | null
   /** PR85: the tutor's cities (up to 2). Falls back to [city] when absent. */
   cities?: string[] | null
   area: string | null
@@ -495,7 +497,14 @@ export default function TutorCard({
 
           <div className="col-span-2 space-y-2 sm:col-span-1 sm:col-start-2 sm:row-start-2">
             {/* Job type on its own line (§2.2). */}
-            <JobTypesChip types={tutor.job_types} />
+            <div className="flex flex-wrap items-center gap-1.5">
+              <JobTypesChip types={tutor.job_types} />
+              {tutor.distance_note && (
+                <span className="inline-flex items-center rounded-full bg-tm-tint-navy px-2 py-0.5 text-[11px] font-bold text-tm-navy">
+                  {tutor.distance_note}
+                </span>
+              )}
+            </div>
 
             <div className="space-y-1.5 pt-0.5">
               {/* Every mention of a thing links to the thing: each subject to
@@ -607,17 +616,34 @@ export default function TutorCard({
                 Message, Demo, Shortlist as a 2×2 grid — two rows of two on a
                 phone, the same grid centred on desktop. A tutor viewer has three
                 (no Message). */}
+            {/* View Profile is a small outline button now (owner, 8 Oct 2026) —
+                the whole card already opens the profile (the name link's
+                overlay), so it no longer needs a black full-width bar. */}
+            <div className="relative z-10 mb-2 flex justify-end">
+              {isOwn ? (
+                <span
+                  aria-disabled="true"
+                  data-tip="This is your own profile"
+                  className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-gray-200 bg-gray-200 px-3 text-xs font-bold text-slate-600"
+                >
+                  <Icon name="eye" size={14} />
+                  View Profile
+                </span>
+              ) : (
+                <Link
+                  prefetch={false}
+                  href={profileHref}
+                  data-tip={`View ${tutor.full_name.split(' ')[0]}’s profile`}
+                  className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-tm-navy bg-white px-3 text-xs font-bold text-tm-navy transition-colors hover:bg-tm-tint-navy"
+                >
+                  <Icon name="eye" size={14} />
+                  View Profile
+                </Link>
+              )}
+            </div>
             <CardActions
               actions={lockOwn(
                 [
-                  {
-                    key: 'view',
-                    label: 'View Profile',
-                    icon: <Icon name="eye" size={14} />,
-                    className: 'bg-tm-black text-white hover:bg-tm-navy',
-                    href: profileHref,
-                    tooltip: `View ${tutor.full_name.split(' ')[0]}’s profile`,
-                  },
                   // A tutor viewing ANOTHER tutor's card (owner, 5 Oct 2026) sees
                   // only View Profile, full width: no Message, Demo or Shortlist
                   // (the server refuses all three for a tutor account). Parents,

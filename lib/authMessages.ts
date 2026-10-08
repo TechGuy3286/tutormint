@@ -21,8 +21,8 @@ export const AUTH_MSG = {
     ur: 'اس ای میل کا پہلے سے اکاؤنٹ موجود ہے۔ اس کے بجائے سائن اِن کریں۔',
   },
   mobileTaken: {
-    en: 'This mobile number already has an account. Sign in instead.',
-    ur: 'اس موبائل نمبر کا پہلے سے اکاؤنٹ موجود ہے۔ اس کے بجائے سائن اِن کریں۔',
+    en: 'This number is already on TutorMint. To use it for a second role, contact support on WhatsApp 0321 5872222.',
+    ur: 'یہ نمبر پہلے سے TutorMint پر ہے۔ اسے دوسرے کردار کے لیے استعمال کرنے کے لیے واٹس ایپ 0321 5872222 پر سپورٹ سے رابطہ کریں۔',
   },
   weakPassword: {
     en: 'Please choose a stronger password — at least 8 characters, and not a common or easily guessed one.',

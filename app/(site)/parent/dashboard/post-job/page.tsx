@@ -28,7 +28,7 @@ export default async function PostJobPage() {
   const [{ data: profile }, { data: children }, ent] = await Promise.all([
     supabase
       .from('profiles')
-      .select('cnic_verified_at, address_verified_at, verification_state')
+      .select('phone_verified_at')
       .eq('id', userId)
       .maybeSingle(),
     supabase
@@ -39,14 +39,11 @@ export default async function PostJobPage() {
     getEntitlements(userId),
   ])
 
-  const verified = !!profile?.cnic_verified_at && !!profile?.address_verified_at
-
-  // PR25 §4.3 — an unverified parent who reaches here (e.g. tapped the dashboard
-  // "Post a tuition" card) goes to the VERIFICATION step, not silently back to
-  // the dashboard. Posting still requires CNIC + address; this just makes the
-  // next step obvious instead of a dead bounce.
-  if (!verified) {
-    redirect('/parent/verify')
+  // A verified MOBILE is all posting needs (owner, 8 Oct 2026). A parent
+  // without one goes to the mobile tile in Settings, not a dead bounce. CNIC
+  // and address are optional (they earn the Verified badge).
+  if (!profile?.phone_verified_at) {
+    redirect('/parent/dashboard/settings?open=mobile')
   }
 
   const outOfQuota = !ent.plan || ent.quotaLeft <= 0

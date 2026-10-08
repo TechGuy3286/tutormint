@@ -1,4 +1,5 @@
 import 'server-only'
+import { pageAll } from '@/lib/pageAll'
 import { liveLandingPages } from '@/lib/landing'
 import { createPublicClient } from '@/lib/supabase/public'
 import type { EditorPost } from '@/components/admin/blog/PostEditor'
@@ -37,7 +38,7 @@ export type TutorProfileOption = { slug: string; name: string }
  */
 export async function tutorProfileOptionsForEditor(): Promise<TutorProfileOption[]> {
   const db = createPublicClient()
-  const { data: rows } = await db.rpc('listed_tutor_slugs')
+  const rows = await pageAll((from, to) => db.rpc('listed_tutor_slugs').order('slug').range(from, to))
   const slugs = ((rows ?? []) as { slug: string }[]).map((r) => r.slug).filter(Boolean)
   if (slugs.length === 0) return []
   const { data: names } = await db.from('tutor_directory').select('slug, full_name').in('slug', slugs)

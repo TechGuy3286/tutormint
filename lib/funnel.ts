@@ -287,10 +287,6 @@ export async function jobsThisWeek(
   const ids = (subs ?? []).map((s) => s.master_id as number)
   if (ids.length === 0) return []
 
-  const { data: js } = await db.from('job_subjects').select('job_id').in('master_id', ids)
-  const jobIds = [...new Set((js ?? []).map((j) => j.job_id as string))]
-  if (jobIds.length === 0) return []
-
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
 
   // No city filter in SQL. A same-city job matches; a cross-city job matches
@@ -302,8 +298,10 @@ export async function jobsThisWeek(
     .from('jobs')
     // gender_preference + class_levels/class_level so the strip title is the SAME
     // composed phrase the browse card shows (owner PR2 §4.5) — see decorate().
-    .select('id, job_tx_id, title, city, area, created_at, teaching_mode, gender_preference, class_levels, class_level')
-    .in('id', jobIds)
+    // The subject match is an inner JOIN (owner, 8 Oct 2026) — the old job-id
+    // list from job_subjects stopped at 1,000 rows.
+    .select('id, job_tx_id, title, city, area, created_at, teaching_mode, gender_preference, class_levels, class_level, js_match:job_subjects!inner(master_id)')
+    .in('js_match.master_id', ids)
     .eq('status', 'open')
     .gte('created_at', weekAgo)
     .order('created_at', { ascending: false })
@@ -422,16 +420,15 @@ export async function matchingTuitionsInCity(userId: string, city: string | null
   const masterIds = (subs ?? []).map((s) => s.master_id as number)
   if (masterIds.length === 0) return 0
 
-  const { data: jobs } = await db.from('jobs').select('id').eq('status', 'open').ilike('city', city)
-  const open = (jobs ?? []).map((j) => j.id as string)
-  if (open.length === 0) return 0
-
-  const { data: matched } = await db
-    .from('job_subjects')
-    .select('job_id')
-    .in('master_id', masterIds)
-    .in('job_id', open)
-  return new Set((matched ?? []).map((m) => m.job_id as string)).size
+  // A COUNT with an inner join (owner, 8 Oct 2026) — never a row list that
+  // stops at 1,000.
+  const { count } = await db
+    .from('jobs')
+    .select('id, js_match:job_subjects!inner(master_id)', { count: 'exact', head: true })
+    .eq('status', 'open')
+    .ilike('city', city)
+    .in('js_match.master_id', masterIds)
+  return count ?? 0
 }
 
 /**
@@ -449,19 +446,23 @@ export async function cityJobsMatchingNothing(userId: string, city: string | nul
   if (!city) return 0
   const db = createAdminClient() ?? (await createClient())
 
-  const { data: jobs } = await db.from('jobs').select('id').eq('status', 'open').ilike('city', city)
-  const open = new Set((jobs ?? []).map((j) => j.id as string))
-  if (open.size === 0) return 0
+  // Two COUNTS (owner, 8 Oct 2026): every open tuition in the city, minus the
+  // ones a subject they teach matches (inner join) — no 1,000-row list.
+  const { count: total } = await db
+    .from('jobs')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'open')
+    .ilike('city', city)
+  if (!total) return 0
 
   const { data: subs } = await db.from('tutor_subjects').select('master_id').eq('tutor_id', userId)
   const masterIds = (subs ?? []).map((s) => s.master_id as number)
-  if (masterIds.length > 0) {
-    const { data: matched } = await db
-      .from('job_subjects')
-      .select('job_id')
-      .in('master_id', masterIds)
-      .in('job_id', [...open])
-    for (const m of matched ?? []) open.delete(m.job_id as string)
-  }
-  return open.size
+  if (masterIds.length === 0) return total
+  const { count: matched } = await db
+    .from('jobs')
+    .select('id, js_match:job_subjects!inner(master_id)', { count: 'exact', head: true })
+    .eq('status', 'open')
+    .ilike('city', city)
+    .in('js_match.master_id', masterIds)
+  return Math.max(0, total - (matched ?? 0))
 }

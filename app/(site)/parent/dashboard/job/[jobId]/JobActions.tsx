@@ -32,7 +32,7 @@ export default function JobActions({
   const [busy, setBusy] = useState(false)
 
   // Paused (PR27 §3.3): tutors cannot see it or apply until the poster resumes,
-  // which sets a fresh 15 days. Everything about it is kept.
+  // which sets a fresh 7 days. Everything about it is kept.
   if (status === 'paused') {
     const resume = async () => {
       setBusy(true)
@@ -81,7 +81,7 @@ export default function JobActions({
     )
   }
 
-  // Refresh (owner, 6 Oct 2026, item 16): top of Browse, a fresh 15 days, the
+  // Refresh (owner, 6 Oct 2026, item 16): top of Browse, a fresh 7 days, the
   // same URL, Google told — at most once every 3 days. The route enforces the limit.
   const refresh = async () => {
     setBusy(true)

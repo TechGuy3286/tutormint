@@ -245,6 +245,8 @@ export type EntitlementInputs = {
     hidden_from_public?: boolean | null
     /** profiles.paused_by_user_at (migration 151) — out of the directory. */
     paused_by_user_at?: string | null
+    /** profiles.is_test_name (migration 154) — out of the directory. */
+    is_test_name?: boolean | null
     /** Staff-review columns for the Verified badge (PR105-B §1 / PR106-H4). The
      *  *_reason columns linger after a rejection until approval, keeping the
      *  badge paused through a re-upload (§2.7). */
@@ -329,6 +331,7 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
           role,
           hiddenFromPublic: profile.hidden_from_public ?? null,
           pausedByUser: !!profile.paused_by_user_at,
+          isTestName: !!profile.is_test_name,
           // §5 (5 Oct 2026, migration 137): a staff-rejected document delists.
           cnicRejected: (profile.verification_state ?? '').toLowerCase() === 'rejected',
           photoRejected: (profile.profile_pic_status ?? '').toLowerCase() === 'rejected',
@@ -362,7 +365,12 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
     // selfie file present: selfie_status is only set once a selfie is uploaded.
     ['pending', 'approved', 'rejected'].includes((profile.selfie_status ?? '') as string),
   )
-  const verifiedOk = audience === 'tutor' ? tutorVerifiedBadgeOk(feePaid, tutorDocs) : !!profile.cnic_verified_at
+  // A parent's green Verified badge = CNIC AND address approved (owner, 8 Oct
+  // 2026: both are optional, and the badge is what approving them earns).
+  const verifiedOk =
+    audience === 'tutor'
+      ? tutorVerifiedBadgeOk(feePaid, tutorDocs)
+      : !!profile.cnic_verified_at && !!profile.address_verified_at
   // A required document is currently rejected → the badge is paused AND new
   // activity is blocked until re-upload + approval (PR106-H4 §2).
   const rejected = audience === 'tutor' ? firstRejectedDoc(tutorDocs) : null
@@ -414,8 +422,11 @@ export function computeEntitlements(input: EntitlementInputs): Entitlements {
     }
   }
 
-  // The free tier a verified parent gets without paying anything.
-  if (!best && audience === 'parent' && profile.cnic_verified_at && profile.address_verified_at) {
+  // The free tier a parent gets without paying anything: a VERIFIED MOBILE is
+  // all it takes (owner, 8 Oct 2026). It is what posting, messaging and demo
+  // requests check, server-side. CNIC + address are optional now; approved,
+  // they add the Verified badge (verifiedOk above), nothing else.
+  if (!best && audience === 'parent' && profile.phone_verified_at) {
     const free = plans.get('parent_verified')
     if (free) best = { plan: free, expiresAt: null }
   }
@@ -500,7 +511,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
 
   const { data: profile } = await db
     .from('profiles')
-    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, is_banned, phone_verified_via, is_seed, is_team_account, hidden_from_public, paused_by_user_at, verification_state, verification_rejection_reason, cnic_number, cnic_image_path, profile_pic_status, profile_pic_reason, selfie_status, selfie_reason, avatar_url')
+    .select('id, role, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, is_banned, phone_verified_via, is_seed, is_team_account, is_test_name, hidden_from_public, paused_by_user_at, verification_state, verification_rejection_reason, cnic_number, cnic_image_path, profile_pic_status, profile_pic_reason, selfie_status, selfie_reason, avatar_url')
     .eq('id', userId)
     .maybeSingle()
 
@@ -559,6 +570,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
       phone_verified_via: (profile.phone_verified_via as string | null) ?? null,
       is_seed: (profile.is_seed as boolean | null) ?? null,
       is_team_account: (profile.is_team_account as boolean | null) ?? null,
+      is_test_name: (profile.is_test_name as boolean | null) ?? null,
       verification_state: (profile.verification_state as string | null) ?? null,
       verification_rejection_reason: (profile.verification_rejection_reason as string | null) ?? null,
       cnic_number: (profile.cnic_number as string | null) ?? null,

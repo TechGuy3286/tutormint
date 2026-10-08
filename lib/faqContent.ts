@@ -56,10 +56,10 @@ export const FAQ_GROUPS: FaqGroup[] = [
         ],
       },
       {
-        q: 'Why must I verify my CNIC before I can post a job?',
-        a: 'Because a tutor is being asked to travel to a stranger’s house, often a woman travelling alone, and often to an address they have only seen in a message. A CNIC and an address mean the person who posted the job is a real, identifiable household. It is the single thing that most reduces the risk a tutor is taking, and it is why tutors are willing to reply at all. Browsing needs no verification — only posting does.',
+        q: 'What do I need before I can post a job?',
+        a: 'Only a verified mobile number. Verify it with a one-time code and you can post tuitions, message tutors and request demo lessons straight away. Sending your CNIC and home address is optional: once our team approves both, you get the green Verified badge, which tells a tutor — often a woman travelling alone to a stranger’s house — that the person who posted is a real, identifiable household. Browsing needs nothing at all.',
         links: [
-          { label: 'Verify your account', href: '/parent/verify' },
+          { label: 'Verify your mobile', href: '/parent/dashboard/settings?open=mobile' },
           { label: 'Post a tuition', href: '/parent/dashboard/post-job' },
         ],
       },
@@ -81,7 +81,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'Why can I message tutors but not hire until I am Featured?',
-        a: 'Messaging, browsing, viewing full profiles, requesting a demo and posting up to five jobs a month are all free once your CNIC and address are approved. Featured adds three things: the tutor’s phone and WhatsApp, marking an applicant as hired, and priority placement for your jobs. Hiring is the paid step because it is the point at which the platform has actually done its job.',
+        a: 'Messaging, browsing, viewing full profiles, requesting a demo and posting up to five jobs a month are all free once your mobile number is verified. Featured adds three things: the tutor’s phone and WhatsApp, marking an applicant as hired, and priority placement for your jobs. Hiring is the paid step because it is the point at which the platform has actually done its job.',
         links: [
           { label: 'Parent memberships', href: '/membership-plans?for=parents' },
           { label: 'Verify your account', href: '/parent/verify' },
@@ -198,7 +198,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How much does a home tutor cost in Islamabad?',
-        a: 'Again, the level and the sector matter more than the city. Filter by your subject and area and you will see the real asking fees in the four bands the site uses, from under Rs 5,000 to over Rs 20,000 a month. If you would rather have tutors come to you with their own figure, post the tuition with a budget band and let them apply — that is free once your CNIC and address are verified.',
+        a: 'Again, the level and the sector matter more than the city. Filter by your subject and area and you will see the real asking fees in the four bands the site uses, from under Rs 5,000 to over Rs 20,000 a month. If you would rather have tutors come to you with their own figure, post the tuition with a budget band and let them apply — that is free once your mobile number is verified.',
         links: [
           { label: 'Tutors in Islamabad', href: '/browse/tutors?city=Islamabad' },
           { label: 'Verify your account', href: '/parent/verify' },
@@ -283,11 +283,11 @@ export const FAQ_GROUPS: FaqGroup[] = [
         ],
       },
       {
-        q: 'Job post karne se pehle CNIC verify karna kyun zaroori hai?',
+        q: 'Job post karne se pehle kya chahiye?',
         lang: 'ur',
-        a: 'Kyunke tutor ko ek ajnabi ke ghar jana hota hai — aksar akeli khatoon, aur aksar aisay pate par jo sirf ek message mein dekha hai. CNIC aur address ka matlab hai ke post karne wala ek asli, pehchane jaane wala ghar hai. Yehi wo cheez hai jo tutor ka khatra sab se ziyada kam karti hai, aur isi liye tutors jawab dete hain. Sirf browse karne ke liye koi verification nahi chahiye — sirf post karne ke liye.',
+        a: 'Sirf verified mobile number. Ek code se number verify karein aur foran tuitions post karein, tutors ko message karein aur demo maangein. CNIC aur ghar ka address bhejna ikhtiyari hai: dono approve hone par aap ko hara Verified badge milta hai, jo tutor ko batata hai ke post karne wala ek asli, pehchane jaane wala ghar hai. Browse karne ke liye kuch nahi chahiye.',
         links: [
-          { label: 'Account verify karein', href: '/parent/verify' },
+          { label: 'Mobile verify karein', href: '/parent/dashboard/settings?open=mobile' },
           { label: 'Tuition post karein', href: '/parent/dashboard/post-job' },
         ],
       },
@@ -303,7 +303,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Message to kar sakta hoon, hire kyun nahi?',
         lang: 'ur',
-        a: 'Browse karna, poora profile dekhna, message bhejna, demo maangna aur mahine mein paanch tuitions post karna — CNIC aur address approve hone ke baad yeh sab muft hai. Featured teen cheezein deta hai: tutor ka number aur WhatsApp, kisi applicant ko hired mark karna, aur aap ki tuitions ko ooper dikhana. Hire karna paid qadam is liye hai ke wahi wo lamha hai jab platform ne apna kaam kar diya hota hai.',
+        a: 'Browse karna, poora profile dekhna, message bhejna, demo maangna aur mahine mein paanch tuitions post karna — mobile number verify hone ke baad yeh sab muft hai. Featured teen cheezein deta hai: tutor ka number aur WhatsApp, kisi applicant ko hired mark karna, aur aap ki tuitions ko ooper dikhana. Hire karna paid qadam is liye hai ke wahi wo lamha hai jab platform ne apna kaam kar diya hota hai.',
         links: [
           { label: 'Parent membership', href: '/membership-plans?for=parents' },
           { label: 'Account verify karein', href: '/parent/verify' },

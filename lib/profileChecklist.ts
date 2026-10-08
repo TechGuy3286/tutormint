@@ -31,12 +31,18 @@ export type ChecklistItem = {
   step: number
   /** Anchor within that step, for deep links. */
   anchor: string
+  /** A suggestion, not a requirement (owner, 8 Oct 2026): a parent's CNIC and
+   *  address earn the Verified badge but block nothing, so they do not count
+   *  toward the percentage and are never "missing". */
+  optional?: boolean
 }
 
 export type Completion = {
   percent: number
   items: ChecklistItem[]
   missing: ChecklistItem[]
+  /** Optional items not done yet — shown as suggestions, never as blockers. */
+  suggestions: ChecklistItem[]
 }
 
 /**
@@ -173,16 +179,19 @@ export function calculateTutorCompletion(input: TutorCompletionInput): Completio
   return summarise(items)
 }
 
-/** Parent completion: name, city, address, CNIC number + image, phone verified — 6 items. */
+/** Parent completion: name, city and a verified mobile are REQUIRED (owner,
+ *  8 Oct 2026 — a verified mobile is all a parent needs to post, message and
+ *  request demos). Home address, CNIC number and CNIC image are OPTIONAL
+ *  suggestions: approved, they earn the green Verified badge. */
 export function calculateParentCompletion(input: ParentCompletionInput): Completion {
   const p = input.profile ?? {}
 
   const items: ChecklistItem[] = [
     { key: 'name', label: 'Your full name', done: has(p.full_name), step: 1, anchor: 'full_name' },
     { key: 'city', label: 'City', done: has(p.city), step: 1, anchor: 'city' },
-    { key: 'address', label: 'Home address', done: has(p.address), step: 1, anchor: 'address' },
-    { key: 'cnic_number', label: 'CNIC number', done: has(p.cnic_number), step: 2, anchor: 'cnic_number' },
-    { key: 'cnic_image', label: 'CNIC image', done: has(p.cnic_image_path), step: 2, anchor: 'cnic_image' },
+    { key: 'address', label: 'Home address (optional)', done: has(p.address), step: 1, anchor: 'address', optional: true },
+    { key: 'cnic_number', label: 'CNIC number (optional)', done: has(p.cnic_number), step: 2, anchor: 'cnic_number', optional: true },
+    { key: 'cnic_image', label: 'CNIC image (optional)', done: has(p.cnic_image_path), step: 2, anchor: 'cnic_image', optional: true },
     { key: 'phone', label: 'Mobile number verified', done: has(p.phone_verified_at), step: 3, anchor: 'phone' },
     // NO email item (owner, 5 Oct 2026, item 7): email is optional for a parent
     // too — a parent with only a verified mobile reaches 100%. Posting,
@@ -193,11 +202,17 @@ export function calculateParentCompletion(input: ParentCompletionInput): Complet
 }
 
 function summarise(items: ChecklistItem[]): Completion {
-  const done = items.filter((i) => i.done).length
-  // Exactly 100 only when everything is done; never round up to 100 early.
-  const raw = (done / items.length) * 100
-  const percent = done === items.length ? 100 : Math.min(99, Math.floor(raw))
-  return { percent, items, missing: items.filter((i) => !i.done) }
+  const required = items.filter((i) => !i.optional)
+  const done = required.filter((i) => i.done).length
+  // Exactly 100 only when every REQUIRED item is done; never round up early.
+  const raw = required.length ? (done / required.length) * 100 : 100
+  const percent = done === required.length ? 100 : Math.min(99, Math.floor(raw))
+  return {
+    percent,
+    items,
+    missing: required.filter((i) => !i.done),
+    suggestions: items.filter((i) => i.optional && !i.done),
+  }
 }
 
 // ---------------------------------------------------------------------------

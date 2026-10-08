@@ -16,6 +16,7 @@
 //   gone          -> a 'suggested'/'snoozed' row whose evidence has vanished is
 //                    deleted, so the queue reflects current reality
 
+import { pageAll } from '@/lib/pageAll'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -60,18 +61,12 @@ async function searchGapCandidates(admin: Admin, covered: Set<string>): Promise<
   // on a "feels free" site). Counted into one map so demand reflects everyone,
   // not only the signed-in minority.
   const [members, anon] = await Promise.all([
-    admin
-      .from('user_activity_log')
-      .select('meta')
-      .eq('event', 'search_performed')
-      .gte('created_at', since)
-      .limit(5000),
-    admin
-      .from('anon_search_events')
-      .select('surface, master_id, city')
-      .eq('surface', 'tutors')
-      .gte('created_at', since)
-      .limit(5000),
+    pageAll((from, to) =>
+      admin.from('user_activity_log').select('id, meta').eq('event', 'search_performed').gte('created_at', since).order('id').range(from, to),
+    ).then((data) => ({ data })),
+    pageAll((from, to) =>
+      admin.from('anon_search_events').select('id, surface, master_id, city').eq('surface', 'tutors').gte('created_at', since).order('id').range(from, to),
+    ).then((data) => ({ data })),
   ])
 
   // Count searches per (master_id, city), tutors surface only.
@@ -225,11 +220,7 @@ const REASON_TOPIC: Record<string, { label: string; title: string; notes: string
 /** Open report reasons clustered — a trust topic parents are running into. */
 async function reportCandidates(admin: Admin): Promise<Candidate[]> {
   const since = new Date(Date.now() - 60 * 86_400_000).toISOString()
-  const { data } = await admin
-    .from('reports')
-    .select('reason')
-    .gte('created_at', since)
-    .limit(2000)
+  const data = await pageAll((from, to) => admin.from('reports').select('id, reason').gte('created_at', since).order('id').range(from, to))
 
   const counts = new Map<string, number>()
   for (const r of data ?? []) {
@@ -303,7 +294,7 @@ async function gscCandidates(cities: string[]): Promise<Candidate[]> {
 async function nameLists(admin: Admin): Promise<{ cities: string[]; subjects: string[] }> {
   const [c, s] = await Promise.all([
     admin.from('location_cities').select('name').limit(500),
-    admin.from('taxonomy_subjects').select('name').limit(2000),
+    pageAll((from, to) => admin.from('taxonomy_subjects').select('slug, name').order('slug').range(from, to)).then((data) => ({ data })),
   ])
   return {
     cities: (c.data ?? []).map((r) => r.name as string).filter(Boolean),
@@ -324,11 +315,9 @@ export type RebuildResult = {
 
 /** The set of landing paths a published post already links to. */
 async function coveredPaths(admin: Admin): Promise<Set<string>> {
-  const { data } = await admin
-    .from('posts')
-    .select('related_landing_pages')
-    .eq('status', 'published')
-    .limit(2000)
+  const data = await pageAll((from, to) =>
+    admin.from('posts').select('id, related_landing_pages').eq('status', 'published').order('id').range(from, to),
+  )
   const set = new Set<string>()
   for (const row of data ?? []) {
     for (const p of (row.related_landing_pages as string[] | null) ?? []) {
@@ -365,7 +354,7 @@ export async function rebuildContentQueue(now = new Date()): Promise<RebuildResu
   candidates.push(...(await gscCandidates(names.cities)))
   candidates.push(...careerCandidates())
 
-  const { data: existingRows } = await admin.from('content_suggestions').select('*').limit(5000)
+  const existingRows = await pageAll((from, to) => admin.from('content_suggestions').select('*').order('id').range(from, to))
   const byFp = new Map((existingRows ?? []).map((r) => [r.fingerprint as string, r]))
 
   // NEVER suggest a title that differs from an existing post or suggestion only
@@ -373,7 +362,7 @@ export async function rebuildContentQueue(now = new Date()): Promise<RebuildResu
   // status) + every suggestion row (a dismissed template blocks its variants).
   // Candidates are compared highest-priority first so the strongest of a
   // templated family survives. Then the mix: ≈40% tutor-career.
-  const { data: postRows } = await admin.from('posts').select('title').limit(2000)
+  const postRows = await pageAll((from, to) => admin.from('posts').select('id, title').order('id').range(from, to))
   const existingTitles = [
     ...(postRows ?? []).map((r) => ({ title: r.title as string })),
     ...(existingRows ?? []).map((r) => ({ title: r.title as string, fingerprint: r.fingerprint as string })),

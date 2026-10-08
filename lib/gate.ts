@@ -253,15 +253,18 @@ async function buildBaseGate(
       }
 
     case 'parent_verify':
+      // A verified MOBILE is all a parent needs (owner, 8 Oct 2026). CNIC and
+      // address are optional — approved, they earn the green Verified badge.
       return {
         kind: 'verify',
-        title: 'Verify your identity first',
+        title: 'Verify your mobile number · اپنا موبائل نمبر تصدیق کریں',
         body:
-          'Posting a job and messaging tutors need your CNIC and address approved. It is free, ' +
-          'and it is what earns the Verified badge tutors look for.',
+          'Posting a tuition, messaging tutors and requesting a demo need a verified mobile number. ' +
+          'It is free and takes a minute.\n\n' +
+          'ٹیوشن پوسٹ کرنے، ٹیوٹرز کو پیغام بھیجنے اور ڈیمو مانگنے کے لیے تصدیق شدہ موبائل نمبر ضروری ہے۔ یہ مفت ہے۔',
         audience: 'parent',
-        href: '/parent/verify',
-        ctaLabel: 'Start verification',
+        href: '/parent/dashboard/settings?open=mobile',
+        ctaLabel: 'Verify mobile',
         actionable: true,
       }
 

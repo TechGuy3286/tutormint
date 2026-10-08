@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   const { jobId, action } = parsed.data
   const reason = (parsed.data.reason ?? '').trim()
 
-  // Refresh (owner, 6 Oct 2026, item 16): same URL, top of Browse, fresh 15 days,
+  // Refresh (owner, 6 Oct 2026, item 16): same URL, top of Browse, fresh 7 days,
   // Google told; the 3-day limit is enforced in lib/tuitionMerge.
   if (action === 'refresh') {
     const r = await refreshTuition(jobId, { id: gate.actor.id, adminRole: gate.actor.adminRole, email: gate.actor.email, kind: 'admin' }, null)
@@ -121,6 +121,7 @@ export async function POST(request: Request) {
     }
     patch.status = 'paused'
     patch.paused_at = new Date().toISOString()
+    patch.pause_source = 'admin'
     kind = 'tuition_paused'
     title = 'Your tuition is paused'
     body = `Your tuition “${job.title}” is paused for now. Tutors cannot apply while it is paused.${reason ? ` Reason: ${reason}` : ''}`
@@ -132,7 +133,10 @@ export async function POST(request: Request) {
     }
     patch.status = 'open'
     patch.resumed_at = new Date().toISOString()
+    patch.bumped_at = patch.resumed_at
     patch.paused_at = null
+    patch.self_paused_at = null
+    patch.pause_source = null
     kind = 'tuition_resumed'
     title = 'Your tuition is live again'
     body = `Your tuition “${job.title}” is live again. Tutors can apply.${reason ? ` Reason: ${reason}` : ''}`

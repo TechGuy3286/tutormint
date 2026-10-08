@@ -18,6 +18,7 @@
 // Both halves are idempotent: reminders are guarded by reminded_at, expiry by
 // status. Running twice in one day changes nothing the second time.
 
+import { pageAll } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
@@ -92,13 +93,18 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
   // ------------------------------------------------------------ reminders --
   const reminderCutoff = new Date(now.getTime() + REMINDER_DAYS * 86_400_000)
 
-  const { data: expiringSoon } = await admin
-    .from('subscriptions')
-    .select('id, user_id, plan_code, expires_at')
-    .eq('status', 'active')
-    .is('reminded_at', null)
-    .gt('expires_at', now.toISOString())
-    .lte('expires_at', reminderCutoff.toISOString())
+  // Read in full BEFORE the loop changes any row (owner, 8 Oct 2026: paged).
+  const expiringSoon = await pageAll((from, to) =>
+    admin
+      .from('subscriptions')
+      .select('id, user_id, plan_code, expires_at')
+      .eq('status', 'active')
+      .is('reminded_at', null)
+      .gt('expires_at', now.toISOString())
+      .lte('expires_at', reminderCutoff.toISOString())
+      .order('id')
+      .range(from, to),
+  )
 
   for (const sub of expiringSoon ?? []) {
     const plan = plans.get(sub.plan_code as string)
@@ -149,12 +155,16 @@ export async function runSubscriptionSweep(now = new Date()): Promise<SweepResul
   }
 
   // --------------------------------------------------------------- expiry --
-  const { data: lapsed } = await admin
-    .from('subscriptions')
-    .select('id, user_id, plan_code, expires_at')
-    .eq('status', 'active')
-    .not('expires_at', 'is', null)
-    .lte('expires_at', now.toISOString())
+  const lapsed = await pageAll((from, to) =>
+    admin
+      .from('subscriptions')
+      .select('id, user_id, plan_code, expires_at')
+      .eq('status', 'active')
+      .not('expires_at', 'is', null)
+      .lte('expires_at', now.toISOString())
+      .order('id')
+      .range(from, to),
+  )
 
   for (const sub of lapsed ?? []) {
     const userId = sub.user_id as string

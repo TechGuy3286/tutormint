@@ -48,6 +48,8 @@ export type AdminScreen =
   | 'blogQueue'
   | 'unpaidSignups'
   | 'featuredWhatsapp'
+  | 'pausedTuitions'
+  | 'jobsPost'
 
 export type NavItem = {
   href: string
@@ -103,11 +105,14 @@ export const NAV_GROUPS: NavGroup[] = [
     color: 'red', // #C20202
     items: [
       { href: '/admin/jobs', label: 'Tuitions', icon: 'clipboard', screen: 'jobs' },
-      { href: '/admin/jobs/new', label: 'Post a tuition', icon: 'filePlus', screen: 'jobs' },
+      { href: '/admin/jobs/new', label: 'Post a tuition', icon: 'filePlus', screen: 'jobsPost' },
+      // Auto-paused tuitions with Resume (owner, 8 Oct 2026): the roles that post.
+      { href: '/admin/jobs/paused', label: 'Paused tuitions', icon: 'pause', screen: 'pausedTuitions' },
       { href: '/admin/jobs/duplicates', label: 'Duplicates', icon: 'copy', screen: 'duplicates' },
       { href: '/admin/payments', label: 'Payments', icon: 'wallet', screen: 'payments' },
       // Owner only, plus the view-only Partner (owner, 8 Oct 2026, item 4).
       { href: '/admin/finance', label: 'Finance', icon: 'scale', screen: 'finance' },
+      { href: '/admin/finance/settlement', label: 'Settlement check', icon: 'scale', screen: 'reconciliation' },
       { href: '/admin/payments/settings', label: 'Settings', icon: 'listChecks', screen: 'paymentsSwitches' },
       { href: '/admin/payments/settings/gateways', label: 'Payment gateways', icon: 'card', screen: 'paymentGateways' },
       { href: '/admin/settings/subjects', label: 'Subjects', icon: 'listChecks', screen: 'subjectsCore' },
@@ -166,6 +171,7 @@ export const SECTION_LABELS: Record<string, string> = {
   payments: 'Payments',
   reconciliation: 'Reconciliation',
   duplicates: 'Duplicates',
+  paused: 'Paused tuitions',
   plans: 'Plans',
   reports: 'Reports',
   security: 'Two-factor',

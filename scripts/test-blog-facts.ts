@@ -36,7 +36,9 @@ test('the facts sheet states the owner’s facts, built from the plan rows', () 
   assert.ok(/degree, certificates and an introduction video are OPTIONAL/.test(t))
   assert.ok(t.includes('Tutor plans: Featured, Premium and Basic'))
   assert.ok(t.includes('Search order: Featured, then Premium, then Verified, then everyone else.'))
-  assert.ok(/Parents verify their CNIC and address \(free\) before they can post a tuition, message a tutor or request a demo/.test(t))
+  // A verified mobile is all a parent needs (owner, 8 Oct 2026).
+  assert.ok(/A parent needs only a verified mobile number \(free\) to post a tuition, message a tutor or request a demo/.test(t))
+  assert.ok(/CNIC and home address are optional/.test(t))
   assert.ok(/takes no commission/.test(t) && /never promises tuitions, replies, applications, hires or income/.test(t))
   assert.ok(!/\bRs\b|PKR|\b(199|499|999)\b/.test(t), 'the sheet itself carries no price')
   // The allowances come from the plans page settings (owner, 7 Oct 2026).

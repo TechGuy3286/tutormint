@@ -1,4 +1,5 @@
 import 'server-only'
+import { pageAll } from '@/lib/pageAll'
 import { parentsAwaitingReview } from '@/lib/parentDocuments'
 import {
   type ParentDocFacts,
@@ -256,7 +257,7 @@ export async function loadTutorQueue({
   const [{ data: profiles }, { data: docs }, { data: subjectRows }] = await Promise.all([
     admin
       .from('profiles')
-      .select('id, role, full_name, city, email, profile_completion, cnic_number, cnic_image_path, phone_number, phone_verified_at, whatsapp, is_seed, is_team_account, is_suspended, is_banned, hidden_from_public, paused_by_user_at, verification_state, profile_pic_status, selfie_status')
+      .select('id, role, full_name, city, email, profile_completion, cnic_number, cnic_image_path, phone_number, phone_verified_at, whatsapp, is_seed, is_team_account, is_test_name, is_suspended, is_banned, hidden_from_public, paused_by_user_at, verification_state, profile_pic_status, selfie_status')
       .in('id', ids.length ? ids : [NO_MATCH]),
     admin
       .from('user_documents')
@@ -279,9 +280,11 @@ export async function loadTutorQueue({
   // Every mobile number verified on MORE than one account (owner PR8 §1.5), so a
   // row can be flagged "Duplicate mobile" without a per-row query. Normalised to
   // the canonical MSISDN so number variants collide.
-  const { data: allVerified } = await admin.from('profiles').select('phone_number, phone_verified_at')
+  const allVerified = await pageAll((from, to) =>
+    admin.from('profiles').select('id, phone_number, phone_verified_at, role').not('phone_verified_at', 'is', null).order('id').range(from, to),
+  )
   const verifiedNumberCount = new Map<string, number>()
-  for (const r of allVerified ?? []) {
+  for (const r of allVerified) {
     if (!r.phone_verified_at) continue
     const n = normalisePkMobile(r.phone_number as string)
     if (n) verifiedNumberCount.set(n, (verifiedNumberCount.get(n) ?? 0) + 1)
@@ -345,6 +348,7 @@ export async function loadTutorQueue({
       // ONE SOURCE (item 8): the view's own conditions, role + hidden included.
       role: (p?.role as string | null) ?? null,
       hiddenFromPublic: (p?.hidden_from_public as boolean | null) ?? null,
+      isTestName: (p?.is_test_name as boolean | null) ?? null,
       pausedByUser: !!(p?.paused_by_user_at as string | null),
       // §5 (migration 137): a staff-rejected identity document delists — the
       // admin row reads "Not listed · A document was rejected …".

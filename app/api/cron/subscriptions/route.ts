@@ -80,7 +80,7 @@ async function handle(request: Request) {
     (e) => ({ ok: false, scanned: 0, deleted: 0, failed: 0, error: String(e) }),
   )
 
-  // Auto-pause tuitions 15 days after they were posted or last resumed (PR27
+  // Auto-pause tuitions 7 days after they were posted or last resumed (PR27
   // §3.5). Rides this same daily cron; wrapped so a pause-sweep error cannot
   // fail the billing sweep. Idempotent (guarded on status='open').
   const tuitions = await pauseStaleTuitions().catch(

@@ -37,7 +37,10 @@ export async function POST() {
   // mobile-signup parent has no real email yet. Gating verification on it would
   // lock them out of posting jobs, so it is excluded from this gate.
   const completion = calculateParentCompletion({ profile })
-  const missing = completion.missing.filter((m) => m.key !== 'email')
+  // CNIC + address are optional for posting (owner, 8 Oct 2026) but this IS the
+  // CNIC/address submission, so every item — optional ones included — must be
+  // filled before it goes to review.
+  const missing = completion.items.filter((m) => !m.done && m.key !== 'email')
   if (missing.length > 0) {
     return NextResponse.json(
       {

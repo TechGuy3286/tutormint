@@ -183,15 +183,15 @@ export async function parentNeeds({
   const rows: NeedRow[] = []
   const supabase = await createClient()
 
-  // Verification first. Until this clears a parent cannot post at all, so
-  // every other row would be advice about a door that is still locked.
+  // CNIC + address are OPTIONAL now (owner, 8 Oct 2026): they earn the Verified
+  // badge, nothing else. A gentle suggestion, never an urgent blocker.
   if (!cnicVerified || !addressVerified) {
     rows.push(
       verificationState === 'submitted'
         ? {
             id: 'verify-pending',
             title: 'Your CNIC and address are being checked',
-            why: 'You can post a job as soon as our team approves them. Nothing else is needed from you right now.',
+            why: 'Once our team approves them you get the green Verified badge. You can already post, message and request demos.',
             action: { label: 'Check status', href: '/parent/verify' },
             tone: 'warn',
           }
@@ -201,13 +201,13 @@ export async function parentNeeds({
               verificationState === 'rejected'
                 ? 'Your verification was not accepted'
                 : !cnicVerified && !addressVerified
-                  ? 'Your CNIC and address are not verified'
+                  ? 'Get the green Verified badge (optional)'
                   : !cnicVerified
-                    ? 'Your CNIC is not verified'
-                    : 'Your address is not verified',
-            why: 'Until both are approved you cannot post a job, message a tutor or request a demo.',
-            action: { label: 'Verify now', href: '/parent/verify' },
-            tone: 'urgent',
+                    ? 'Add your CNIC for the Verified badge (optional)'
+                    : 'Add your address for the Verified badge (optional)',
+            why: 'Tutors look for the Verified badge. It is optional — you can post, message and request demos without it.',
+            action: { label: 'Get verified', href: '/parent/verify' },
+            tone: 'warn',
           },
     )
   }

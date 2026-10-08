@@ -13,6 +13,8 @@
 // The pure half (`overlapNoindexSet`) is unit-tested; the loader reads the same
 // anon-readable views the landing pages themselves read.
 
+import { pageAll, pageAllIn } from '@/lib/pageAll'
+import { testAccountIds } from '@/lib/testAccounts'
 import 'server-only'
 
 import { createPublicClient } from '@/lib/supabase/public'
@@ -34,32 +36,26 @@ export async function loadLandingMembers(): Promise<PageMembers[]> {
     if (!p.ids.includes(id)) p.ids.push(id)
   }
 
-  // Tutors: listed tutors × their subjects.
-  const { data: tutors } = await db.from('tutor_directory').select('id, city').limit(5000)
-  const tutorCity = new Map((tutors ?? []).map((t) => [t.id as string, (t.city as string | null) ?? null]))
-  if (tutorCity.size > 0) {
-    for (let from = 0; ; from += 1000) {
-      const { data } = await db.from('tutor_subjects').select('tutor_id, master_id').in('tutor_id', [...tutorCity.keys()]).range(from, from + 999)
-      const rows = data ?? []
-      for (const r of rows) add('tutors', tutorCity.get(r.tutor_id as string) ?? null, r.master_id as number, r.tutor_id as string)
-      if (rows.length < 1000) break
-    }
-  }
+  // Tutors: listed tutors × their subjects. Every read PAGED (owner, 8 Oct 2026).
+  const tutors = await pageAll((from, to) => db.from('tutor_directory').select('id, city').order('id').range(from, to))
+  const tutorCity = new Map(tutors.map((t) => [t.id as string, (t.city as string | null) ?? null]))
+  const tutorLinks = await pageAllIn([...tutorCity.keys()], (ids, from, to) =>
+    db.from('tutor_subjects').select('tutor_id, master_id').in('tutor_id', ids).order('tutor_id').order('master_id').range(from, to),
+  )
+  for (const r of tutorLinks) add('tutors', tutorCity.get(r.tutor_id as string) ?? null, r.master_id as number, r.tutor_id as string)
 
-  // Tuitions: open jobs × their subjects.
+  // Tuitions: open jobs × their subjects (test-named posters excluded, as in
+  // landing_combinations).
+  const testIds = new Set(await testAccountIds())
+  const jobs = await pageAll((from, to) =>
+    db.from('jobs').select('id, city, parent_id').eq('status', 'open').order('id').range(from, to),
+  )
   const jobCity = new Map<string, string | null>()
-  for (let from = 0; ; from += 1000) {
-    const { data } = await db.from('jobs').select('id, city').eq('status', 'open').range(from, from + 999)
-    const rows = data ?? []
-    for (const r of rows) jobCity.set(r.id as string, (r.city as string | null) ?? null)
-    if (rows.length < 1000) break
-  }
-  const jobIds = [...jobCity.keys()]
-  for (let i = 0; i < jobIds.length; i += 300) {
-    const chunk = jobIds.slice(i, i + 300)
-    const { data } = await db.from('job_subjects').select('job_id, master_id').in('job_id', chunk).limit(5000)
-    for (const r of data ?? []) add('tuitions', jobCity.get(r.job_id as string) ?? null, r.master_id as number, r.job_id as string)
-  }
+  for (const r of jobs) if (!testIds.has(r.parent_id as string)) jobCity.set(r.id as string, (r.city as string | null) ?? null)
+  const jobLinks = await pageAllIn([...jobCity.keys()], (ids, from, to) =>
+    db.from('job_subjects').select('job_id, master_id').in('job_id', ids).order('job_id').order('master_id').range(from, to),
+  )
+  for (const r of jobLinks) add('tuitions', jobCity.get(r.job_id as string) ?? null, r.master_id as number, r.job_id as string)
   return [...out.values()]
 }
 

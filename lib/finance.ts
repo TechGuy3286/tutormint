@@ -9,6 +9,7 @@
 // Every caller checks SCREEN_ACCESS.finance (or .revenue) first: owner, plus
 // the view-only Partner.
 
+import { pageAll } from '@/lib/pageAll'
 import 'server-only'
 
 import { cache } from 'react'
@@ -44,13 +45,16 @@ const num = (v: unknown): number => {
 export const loadFinancePayments = cache(async (): Promise<FinancePayment[]> => {
   const admin = createAdminClient()
   if (!admin) return []
-  const [{ data }, { data: plans }] = await Promise.all([
-    admin
-      .from('payments')
-      .select('id, provider_ref, user_id, plan_code, amount_pkr, refunded_amount_pkr, refunded_at, reviewed_at, updated_at, created_at, provider, method, note, raw')
-      .eq('status', 'approved')
-      .order('reviewed_at', { ascending: false, nullsFirst: false })
-      .limit(20000),
+  const [data, { data: plans }] = await Promise.all([
+    pageAll((from, to) =>
+      admin
+        .from('payments')
+        .select('id, provider_ref, user_id, plan_code, amount_pkr, refunded_amount_pkr, refunded_at, reviewed_at, updated_at, created_at, provider, method, note, raw')
+        .eq('status', 'approved')
+        .order('reviewed_at', { ascending: false, nullsFirst: false })
+        .order('id')
+        .range(from, to),
+    ),
     admin.from('plans').select('code, audience'),
   ])
   const audience = new Map((plans ?? []).map((p) => [p.code as string, (p.audience as string | null) ?? null]))
@@ -76,7 +80,7 @@ export const loadFinancePayments = cache(async (): Promise<FinancePayment[]> => 
 async function loadTransfers(): Promise<FinanceTransfer[]> {
   const admin = createAdminClient()
   if (!admin) return []
-  const { data } = await admin.from('bank_transfers').select('gateway, transferred_on, amount_pkr').limit(20000)
+  const data = await pageAll((from, to) => admin.from('bank_transfers').select('id, gateway, transferred_on, amount_pkr').order('id').range(from, to))
   return (data ?? []).map((t) => ({
     gateway: String(t.gateway ?? 'paypro'),
     transferredOn: String(t.transferred_on),

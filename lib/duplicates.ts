@@ -4,6 +4,7 @@
 // service role (jobs is public-read for open rows only; the check needs paused
 // ones too). The RULES are in lib/duplicatesCore.ts.
 
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -29,8 +30,10 @@ async function factsFor(admin: NonNullable<ReturnType<typeof createAdminClient>>
   const ids = rows.map((r) => r.id as string)
   const masters = new Map<string, number[]>()
   if (ids.length > 0) {
-    const { data } = await admin.from('job_subjects').select('job_id, master_id').in('job_id', ids)
-    for (const l of data ?? []) {
+    const data = await pageAllIn(ids, (part, from, to) =>
+      admin.from('job_subjects').select('job_id, master_id').in('job_id', part).order('job_id').order('master_id').range(from, to),
+    )
+    for (const l of data) {
       const arr = masters.get(l.job_id as string) ?? []
       arr.push(l.master_id as number)
       masters.set(l.job_id as string, arr)
@@ -161,8 +164,8 @@ export type RepeatPair = {
 export async function recentRepeats(since: Date): Promise<RepeatPair[]> {
   const admin = createAdminClient()
   if (!admin) return []
-  const { data: all } = await admin.from('jobs').select(COLS).in('status', ['open', 'paused']).limit(3000)
-  const facts = await factsFor(admin, (all ?? []) as Record<string, unknown>[])
+  const all = await pageAll((from, to) => admin.from('jobs').select(COLS).in('status', ['open', 'paused']).order('id').range(from, to))
+  const facts = await factsFor(admin, all as Record<string, unknown>[])
   const byTitle = new Map<string, typeof facts>()
   const byCombo = new Map<string, typeof facts>()
   for (const f of facts) {

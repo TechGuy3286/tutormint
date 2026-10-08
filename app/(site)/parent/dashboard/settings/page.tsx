@@ -108,7 +108,7 @@ export default async function ParentSettingsPage() {
           <p className="text-[11px] leading-relaxed text-gray-500">
             {verified
               ? 'Your CNIC and address are verified. Contact support if any of it needs to change.'
-              : 'Your CNIC and address are checked separately before you can post a tuition.'}
+              : 'Optional. Add your CNIC and home address to earn the green Verified badge. A verified mobile is all you need to post tuitions, message tutors and request demos.'}
           </p>
           <Link
             href="/parent/verify"

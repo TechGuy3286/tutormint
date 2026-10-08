@@ -41,6 +41,8 @@ import type { ApplyBlock } from '@/lib/applyBlock'
 
 export type JobCardData = {
   id: string
+  /** Smart-search fallback (owner, 8 Oct 2026): "87 km away" / "Online". */
+  distance_note?: string | null
   job_tx_id: string | null
   /** The human-readable reference (TM-1001), shown so a tutor can quote it over
    *  the phone. Generated server-side, never editable (migration 82). */
@@ -83,7 +85,7 @@ export type JobCardData = {
   contactTeaser?: string | null
   created_at: string
   /** The auto-pause clock base, when resumed at least once (PR89 Part C). The
-   *  tuition auto-pauses at coalesce(resumed_at, created_at) + 15 days, which is
+   *  tuition auto-pauses at coalesce(resumed_at, created_at) + 7 days, which is
    *  the JobPosting validThrough. Absent for a never-resumed tuition. */
   resumed_at?: string | null
   /** Browse order key: posted time, moved forward by a Refresh (migration 141). */
@@ -405,6 +407,9 @@ export default function JobCard({
             <p className="flex items-center gap-2 text-xs text-slate-700">
               <Icon name="map-pin" size={14} className="text-gray-500" />
               {placeLabel(job.area, job.city) || 'Flexible'}
+              {job.distance_note && (
+                <span className="ml-1 rounded-full bg-tm-tint-navy px-2 py-0.5 text-[11px] font-bold text-tm-navy">{job.distance_note}</span>
+              )}
             </p>
             {jobType(job.teaching_mode) && (
               <p className="flex flex-wrap items-center gap-2 text-xs text-slate-700">

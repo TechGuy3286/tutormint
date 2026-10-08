@@ -45,6 +45,8 @@ export type ListingFacts = {
   claimedAt?: string | null
   isSeed?: boolean | null
   isTeamAccount?: boolean | null
+  /** profiles.is_test_name (migration 154): a test-named account is a fixture. */
+  isTestName?: boolean | null
   /** profiles.hidden_from_public (migration 126). */
   hiddenFromPublic?: boolean | null
   /** profiles.paused_by_user_at (migration 151) — the member paused themselves. */
@@ -66,7 +68,7 @@ export type ListingFacts = {
  * Empty means the view returns them. Mirrors, exactly:
  *   role = 'tutor' AND NOT suspended AND NOT banned AND NOT under_review
  *   AND verification_status NOT IN (suspended, rejected) AND (not imported OR claimed)
- *   AND NOT is_seed AND NOT is_team_account AND NOT hidden_from_public
+ *   AND NOT is_seed AND NOT is_team_account AND NOT is_test_name AND NOT hidden_from_public
  *   AND verification_state / profile_pic_status / selfie_status <> 'rejected'
  */
 export function directoryBlockers(f: ListingFacts): ListingBlocker[] {
@@ -77,7 +79,7 @@ export function directoryBlockers(f: ListingFacts): ListingBlocker[] {
   if (f.underReview) out.push('under_review')
   if (f.verificationStatus === 'suspended' || f.verificationStatus === 'rejected') out.push('verification_rejected')
   if (f.imported && !f.claimedAt) out.push('unclaimed_import')
-  if (f.isSeed || f.isTeamAccount) out.push('fixture')
+  if (f.isSeed || f.isTeamAccount || f.isTestName) out.push('fixture')
   if (f.hiddenFromPublic) out.push('hidden')
   if (f.pausedByUser) out.push('paused_by_user')
   if (f.cnicRejected || f.photoRejected || f.selfieRejected) out.push('document_rejected')

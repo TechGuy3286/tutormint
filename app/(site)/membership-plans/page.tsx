@@ -274,7 +274,7 @@ export default async function PackagesPage({
         </Link>
         {' · '}
         <Link href="/parent/verify" className="font-bold text-tm-red hover:underline">
-          Verify your CNIC and address (free)
+          Get the Verified badge (optional, free)
         </Link>
         {' · '}
         <Link href="/browse/tutors" className="font-bold text-tm-red hover:underline">

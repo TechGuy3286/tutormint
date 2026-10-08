@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // The live open-tuition counts behind the tutor onboarding counter, and the
@@ -54,12 +55,10 @@ function bandOf(pkr: number | null): string | null {
 }
 
 async function openJobs(admin: Admin): Promise<OpenJob[]> {
-  const { data } = await admin
-    .from('jobs')
-    .select('id, city, area, budget_pkr, budget_min_pkr')
-    .eq('status', 'open')
-    .limit(5000)
-  return (data ?? []).map((j) => ({
+  const data = await pageAll((from, to) =>
+    admin.from('jobs').select('id, city, area, budget_pkr, budget_min_pkr').eq('status', 'open').order('id').range(from, to),
+  )
+  return data.map((j) => ({
     id: j.id as string,
     city: ((j.city as string) ?? '').trim(),
     area: ((j.area as string) ?? '').trim(),
@@ -77,11 +76,9 @@ async function jobTaxonomy(
   const out = new Map<string, { subjects: Set<string>; levels: Set<string> }>()
   if (jobIds.length === 0) return out
 
-  const { data: links } = await admin
-    .from('job_subjects')
-    .select('job_id, master_id')
-    .in('job_id', jobIds)
-  const rows = links ?? []
+  const rows = await pageAllIn(jobIds, (ids, from, to) =>
+    admin.from('job_subjects').select('job_id, master_id').in('job_id', ids).order('job_id').order('master_id').range(from, to),
+  )
   const masterIds = Array.from(new Set(rows.map((r) => r.master_id as number)))
   if (masterIds.length === 0) return out
 
@@ -223,12 +220,9 @@ export async function tutorDemand(): Promise<{
   const admin = createAdminClient()
   if (!admin) return { jobTypeDemand: {}, subjectDemand: {} }
 
-  const { data: jobs } = await admin
-    .from('jobs')
-    .select('id, teaching_mode')
-    .eq('status', 'open')
-    .limit(5000)
-  const jobList = jobs ?? []
+  const jobList = await pageAll((from, to) =>
+    admin.from('jobs').select('id, teaching_mode').eq('status', 'open').order('id').range(from, to),
+  )
 
   const jobTypeDemand: Record<string, number> = {}
   for (const j of jobList) {
@@ -238,10 +232,11 @@ export async function tutorDemand(): Promise<{
 
   const ids = jobList.map((j) => j.id as string)
   const subjectDemand: Record<number, number> = {}
-  for (let i = 0; i < ids.length; i += 500) {
-    const chunk = ids.slice(i, i + 500)
-    const { data: links } = await admin.from('job_subjects').select('master_id').in('job_id', chunk)
-    for (const l of links ?? []) {
+  {
+    const links = await pageAllIn(ids, (part, from, to) =>
+      admin.from('job_subjects').select('job_id, master_id').in('job_id', part).order('job_id').order('master_id').range(from, to),
+    )
+    for (const l of links) {
       const m = l.master_id as number
       subjectDemand[m] = (subjectDemand[m] ?? 0) + 1
     }

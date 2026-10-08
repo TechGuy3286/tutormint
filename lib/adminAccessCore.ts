@@ -124,6 +124,9 @@ export const SCREEN_ACCESS = {
   // Admin → Settings → Subjects (owner, 7 Oct 2026): which subjects are a
   // level's "Main subjects". Owner and admin only, enforced on the server.
   subjectsCore: ['admin'] as AdminRole[],
+  // A second-role account for a member, created by support (owner, 8 Oct 2026):
+  // owner and Admin only.
+  secondRole: ['admin'] as AdminRole[],
   // Staff management is the ONE thing an Admin does not get. `[]` = owner only.
   team: [] as AdminRole[],
   reports: ['admin', 'operations'] as AdminRole[],
@@ -135,6 +138,9 @@ export const SCREEN_ACCESS = {
   jobs: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
   jobsMutate: ['admin', 'tuitions_staff'] as AdminRole[],
   jobsPost: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
+  // Marketplace → Paused tuitions (owner, 8 Oct 2026): every role that can post
+  // tuitions sees the auto-paused list and may Resume (one or many).
+  pausedTuitions: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
   users: ['admin', 'operations'] as AdminRole[],
   // Staff performance. Management view (admin/owner), plus tuitions_staff for
   // ITS OWN activity only — the page and detail route force the id to the actor

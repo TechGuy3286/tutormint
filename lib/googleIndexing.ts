@@ -3,6 +3,7 @@ import 'server-only'
 import { after } from 'next/server'
 import { google } from 'googleapis'
 import { SITE_URL } from '@/lib/siteUrl'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { citySegment } from '@/lib/slugs'
 import { normalisePrivateKey, normaliseClientEmail } from '@/lib/googleIndexingCore'
 
@@ -117,15 +118,88 @@ export function tuitionUrl(job: { public_slug?: string | null; city?: string | n
   return `${SITE_URL}/tuitions/${citySegment(job.city)}/${job.public_slug}`
 }
 
+/** Google's Indexing API quota we keep to (owner, 8 Oct 2026): 200 a day. */
+export const INDEXING_DAILY_LIMIT = 200
+
+function utcDayStart(now = new Date()): string {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
+}
+
+/** How many notifications went out today (UTC), and how many are waiting. */
+export async function indexingQueueStatus(): Promise<{ sentToday: number; pending: number }> {
+  const admin = createAdminClient()
+  if (!admin) return { sentToday: 0, pending: 0 }
+  const [{ count: sentToday }, { count: pending }] = await Promise.all([
+    admin.from('indexing_queue').select('id', { count: 'exact', head: true }).gte('sent_at', utcDayStart()),
+    admin.from('indexing_queue').select('id', { count: 'exact', head: true }).is('sent_at', null),
+  ])
+  return { sentToday: sentToday ?? 0, pending: pending ?? 0 }
+}
+
+/**
+ * Send waiting notifications, oldest first, never past INDEXING_DAILY_LIMIT in a
+ * UTC day — the rest wait for the next day's run. Each row is CLAIMED (sent_at
+ * set where it was null) before the call, so two drains never send one twice.
+ */
+export async function drainIndexingQueue(max = INDEXING_DAILY_LIMIT): Promise<{ sent: number; failed: number; left: number }> {
+  const admin = createAdminClient()
+  if (!admin || !indexingConfigured()) return { sent: 0, failed: 0, left: 0 }
+  const { sentToday } = await indexingQueueStatus()
+  const room = Math.max(0, Math.min(max, INDEXING_DAILY_LIMIT - sentToday))
+  let sent = 0
+  let failed = 0
+  if (room > 0) {
+    const { data: rows } = await admin
+      .from('indexing_queue')
+      .select('id, url, kind')
+      .is('sent_at', null)
+      .order('created_at')
+      .order('id')
+      .limit(room)
+    for (const r of rows ?? []) {
+      const { data: claimed } = await admin
+        .from('indexing_queue')
+        .update({ sent_at: new Date().toISOString() })
+        .eq('id', r.id as number)
+        .is('sent_at', null)
+        .select('id')
+      if (!claimed || claimed.length === 0) continue
+      const res = r.kind === 'URL_DELETED' ? await notifyUrlDeleted(r.url as string) : await notifyUrlUpdated(r.url as string)
+      if (res.ok) sent++
+      else {
+        failed++
+        await admin.from('indexing_queue').update({ last_error: 'error' in res ? res.error : 'skipped' }).eq('id', r.id as number)
+      }
+    }
+  }
+  const { pending } = await indexingQueueStatus()
+  return { sent, failed, left: pending }
+}
+
+/** Put a URL on the queue, then send what today's allowance still covers. */
+async function enqueueAndDrain(url: string, kind: 'URL_UPDATED' | 'URL_DELETED'): Promise<void> {
+  const admin = createAdminClient()
+  if (!admin) return
+  if (!indexingConfigured()) {
+    // No credentials: nothing would ever send, so nothing is queued.
+    await notifyUrl(url, kind)
+    return
+  }
+  await admin.from('indexing_queue').insert({ url, kind })
+  // A user action sends a few at most; the nightly job sends the rest.
+  await drainIndexingQueue(5)
+}
+
 /**
  * Queue a URL_UPDATED notification for a tuition without ever blocking the
  * caller: through `after()` when inside a request, else detached. A tuition
- * with no public slug has no URL to notify.
+ * with no public slug has no URL to notify. Sent within 200 a day; the rest wait
+ * in indexing_queue for the next day (owner, 8 Oct 2026).
  */
 export function queueIndexingUpdate(job: { public_slug?: string | null; city?: string | null }): void {
   const url = tuitionUrl(job)
   if (!url) return
-  const run = () => notifyUrlUpdated(url).catch(() => undefined)
+  const run = () => enqueueAndDrain(url, 'URL_UPDATED').catch(() => undefined)
   try {
     after(run)
   } catch {
@@ -137,10 +211,17 @@ export function queueIndexingUpdate(job: { public_slug?: string | null; city?: s
 export function queueIndexingDelete(job: { public_slug?: string | null; city?: string | null }): void {
   const url = tuitionUrl(job)
   if (!url) return
-  const run = () => notifyUrlDeleted(url).catch(() => undefined)
+  const run = () => enqueueAndDrain(url, 'URL_DELETED').catch(() => undefined)
   try {
     after(run)
   } catch {
     void run()
   }
+}
+
+/** Enqueue for a batch job (the nightly sweep) — no drain per row. */
+export async function enqueueIndexing(urls: string[], kind: 'URL_UPDATED' | 'URL_DELETED' = 'URL_UPDATED'): Promise<void> {
+  const admin = createAdminClient()
+  if (!admin || urls.length === 0 || !indexingConfigured()) return
+  await admin.from('indexing_queue').insert(urls.map((url) => ({ url, kind })))
 }

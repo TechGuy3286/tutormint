@@ -102,9 +102,9 @@ const SECTIONS: LegalSection[] = [
           standing.
         </p>
         <p>
-          <strong>Parents, schools and academies</strong> are verified by CNIC and address. Posting
-          a tuition requires that verification to have been approved — it is what protects tutors
-          from fake postings.
+          <strong>Parents, schools and academies</strong> post tuitions, message tutors and request
+          demo lessons once their mobile number is verified. Sending a CNIC and home address is
+          optional; when our team approves both, the account shows the Verified badge.
         </p>
         <p>
           A video may be submitted at most three times. After a third unsuccessful review the upload

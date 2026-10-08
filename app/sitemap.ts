@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { indexableCityPages, cityPagePath, CITY_PAGE_THRESHOLD } from '@/lib/cityJobs'
 import { liveOverlapNoindex, overlapKey } from '@/lib/landingOverlap'
 import { createPublicClient } from '@/lib/supabase/public'
@@ -72,12 +73,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // (seed parent / JOB-TRK / SEED-JOB) unless a genuine team post. These are
     // the SQL mirror of lib/seo/indexable (PR37). `jobs` is public-read but
     // `profiles` is not, so the fixture rule needs definer rights here.
-    const [{ data: t }, { data: j }] = await Promise.all([
-      supabase.rpc('listed_tutor_slugs'),
-      supabase.rpc('indexable_job_slugs'),
+    // PAGED (owner, 8 Oct 2026): a set-returning RPC is capped at 1,000 rows
+    // too — open tuitions pass that.
+    const [t, j] = await Promise.all([
+      pageAll((from, to) => supabase.rpc('listed_tutor_slugs').order('slug').range(from, to)),
+      pageAll((from, to) => supabase.rpc('indexable_job_slugs').order('public_slug').range(from, to)),
     ])
-    tutors = (t ?? []) as typeof tutors
-    jobs = (j ?? []) as typeof jobs
+    tutors = t as typeof tutors
+    jobs = j as typeof jobs
     // LIVE, not the cached set (owner, 5 Oct 2026, item 6): the landing pages
     // decide their own noindex from the same live counts, so every landing URL
     // listed here is indexable at the moment the sitemap is served.

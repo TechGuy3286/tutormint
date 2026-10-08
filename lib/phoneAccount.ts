@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { pageAll } from '@/lib/pageAll'
 import type { createAdminClient } from '@/lib/supabase/admin'
 import { normalisePkMobile } from '@/lib/phone'
 
@@ -17,11 +18,11 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>
 /** The exact member-facing message (owner PR8 §1.2). It never reveals which
  *  account holds the number. */
 export const NUMBER_TAKEN_MESSAGE =
-  'This number is already linked to another TutorMint account. Use a different number, or contact support.'
+  'This number is already on TutorMint. To use it for a second role, contact support on WhatsApp 0321 5872222.'
 
 /** The Urdu line shown beneath NUMBER_TAKEN_MESSAGE (PR79 §1). */
 export const NUMBER_TAKEN_MESSAGE_UR =
-  'یہ موبائل نمبر پہلے سے کسی دوسرے اکاؤنٹ پر استعمال ہو رہا ہے۔ واٹس ایپ پر سپورٹ سے رابطہ کریں۔'
+  'یہ نمبر پہلے سے TutorMint پر ہے۔ اسے دوسرے کردار کے لیے استعمال کرنے کے لیے واٹس ایپ 0321 5872222 پر سپورٹ سے رابطہ کریں۔'
 
 /**
  * True when a DIFFERENT account already has this number VERIFIED
@@ -36,12 +37,15 @@ export async function numberVerifiedElsewhere(
   const target = normalisePkMobile(rawNumber)
   if (!target) return false
 
-  const { data } = await admin
-    .from('profiles')
-    .select('id, phone_number, phone_verified_at')
+  // PAGED (owner, 8 Oct 2026): a plain select stopped at 1,000 profiles and let
+  // duplicates through. The member's own linked second-role account (same
+  // mobile, other role) is not "elsewhere".
+  const data = await pageAll((from, to) =>
+    admin.from('profiles').select('id, phone_number, phone_verified_at, linked_account_id').order('id').range(from, to),
+  )
 
-  for (const p of data ?? []) {
-    if (exceptUserId && p.id === exceptUserId) continue
+  for (const p of data) {
+    if (exceptUserId && (p.id === exceptUserId || p.linked_account_id === exceptUserId)) continue
     if (!p.phone_verified_at) continue
     if (normalisePkMobile(p.phone_number as string) === target) return true
   }
@@ -66,10 +70,12 @@ export async function numberSavedElsewhere(
   const target = normalisePkMobile(rawNumber)
   if (!target) return false
 
-  const { data } = await admin.from('profiles').select('id, phone_number, whatsapp')
+  const data = await pageAll((from, to) =>
+    admin.from('profiles').select('id, phone_number, whatsapp, linked_account_id').order('id').range(from, to),
+  )
 
-  for (const p of data ?? []) {
-    if (exceptUserId && p.id === exceptUserId) continue
+  for (const p of data) {
+    if (exceptUserId && (p.id === exceptUserId || p.linked_account_id === exceptUserId)) continue
     if (normalisePkMobile(p.phone_number as string) === target) return true
     if (normalisePkMobile(p.whatsapp as string) === target) return true
   }

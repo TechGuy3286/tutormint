@@ -1,5 +1,6 @@
 'use client'
 
+import { matchSubject, useSubjectWords } from '@/lib/searchWords'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Check, Layers, X } from 'lucide-react'
 import { fetchCoreTree, fetchNoGradeLevels, fetchTaxonomyTree, TaxonomyNode } from '@/lib/taxonomy'
@@ -43,6 +44,7 @@ export default function TaxonomySelector({
   gradeSubjects,
   setGradeSubjects,
 }: TaxonomySelectorProps) {
+  const subjectWords = useSubjectWords()
   const perGrade = perGradeBulk && !!gradeSubjects && !!setGradeSubjects;
   const [taxonomyTree, setTaxonomyTree] = useState<TaxonomyNode>({});
   // Main subjects per level (migration 146), for the per-grade "Main subjects" chip.
@@ -131,7 +133,7 @@ export default function TaxonomySelector({
   }, [availableSubjects, loading]);
 
   const filteredSubjects = useMemo(() => {
-    return availableSubjects.filter((sub: string) => sub.toLowerCase().includes(subjectSearch.toLowerCase()));
+    return availableSubjects.filter((sub: string) => matchSubject(subjectSearch, sub, subjectWords));
   }, [availableSubjects, subjectSearch]);
 
   const toggleGrade = (g: string) => {
@@ -367,6 +369,7 @@ function PerGradeSubjects({
   /** A no-grade level (migration 153): its one implicit grade is never named. */
   hideGradeName?: boolean
 }) {
+  const subjectWords = useSubjectWords()
   const [search, setSearch] = useState<Record<string, string>>({})
   return (
     <div className="space-y-3">
@@ -375,7 +378,7 @@ function PerGradeSubjects({
         const list = offered[g] ?? []
         const chosen = map[g] ?? []
         const q = (search[g] ?? '').trim().toLowerCase()
-        const shown = list.filter((s) => s.toLowerCase().includes(q))
+        const shown = list.filter((s) => matchSubject(q, s, subjectWords))
         // "Main subjects" adds THIS grade's core subjects (migration 146) — only
         // ones the grade offers — and is hidden when the grade has none.
         const main = (core[g] ?? []).filter((s) => list.includes(s))

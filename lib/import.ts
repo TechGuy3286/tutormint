@@ -17,6 +17,7 @@
 // nothing and the imported tutor is invisible to the search that should find
 // them.
 
+import { pageAll } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchTaxonomyTables } from '@/lib/taxonomyBuild'
 import { normalisePkMobile, syntheticEmail } from '@/lib/phone'
@@ -197,7 +198,7 @@ export async function validateRows(rows: ImportRow[]): Promise<RowVerdict[]> {
   // before anything is created rather than by a unique-constraint error.
   const existingMobiles = new Set<string>()
   if (admin) {
-    const { data: profiles } = await admin.from('profiles').select('phone_number, email').limit(5000)
+    const profiles = await pageAll((from, to) => admin.from('profiles').select('id, phone_number, email').order('id').range(from, to))
     for (const p of profiles ?? []) {
       const m = normalisePkMobile(p.phone_number as string)
       if (m) existingMobiles.add(m)

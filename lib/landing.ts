@@ -16,6 +16,7 @@
 // from its level+subject display names; a city is the display string, slugged
 // with citySegment().
 
+import { pageAll } from '@/lib/pageAll'
 import { unstable_cache } from 'next/cache'
 import { createPublicClient } from '@/lib/supabase/public'
 import { fetchTaxonomyTables } from '@/lib/taxonomyBuild'
@@ -144,6 +145,63 @@ export { citySegment }
 // --- the live combinations --------------------------------------------------
 
 /**
+ * One page per (kind, city, subject slug). City names are folded case- and
+ * space-insensitively (owner, 8 Oct 2026): "lahore" and "Lahore" are ONE page
+ * and their counts ADD UP (they are different rows of the same master). Two
+ * different masters that share a slug (a legacy and a live row) keep the busier
+ * one, as before, so the URL resolves to the fuller page.
+ */
+function foldCombos(
+  data: { kind: string; city: string; master_id: number; n: number }[],
+  byMaster: Map<number, SubjectMeta>,
+): LandingCombo[] {
+  const byKey = new Map<string, LandingCombo>()
+  for (const row of data) {
+    const meta = byMaster.get(row.master_id as number)
+    if (!meta) continue
+    const raw = String(row.city ?? '').trim().replace(/\s+/g, ' ')
+    if (!raw) continue
+    const combo: LandingCombo = {
+      kind: row.kind as LandingKind,
+      city: raw,
+      citySlug: citySegment(raw),
+      masterId: row.master_id as number,
+      subjectSlug: meta.slug,
+      subjectName: meta.name,
+      count: row.n as number,
+    }
+    const key = `${combo.kind}:${combo.citySlug}:${combo.subjectSlug}`
+    const existing = byKey.get(key)
+    if (!existing) {
+      byKey.set(key, combo)
+    } else if (existing.masterId === combo.masterId) {
+      // Same subject, the city spelt two ways: one page, counts summed, the
+      // capitalised spelling shown.
+      existing.count += combo.count
+      if (/^[A-Z]/.test(combo.city) && !/^[A-Z]/.test(existing.city)) existing.city = combo.city
+    } else if (combo.count > existing.count) {
+      byKey.set(key, combo)
+    }
+  }
+  return [...byKey.values()]
+}
+
+/** Every landing_combinations row — PAGED (the view is past 1,000 rows; a plain
+ *  select silently dropped combinations and 404'd live landing pages). */
+async function readLandingCombinations(): Promise<{ kind: string; city: string; master_id: number; n: number }[]> {
+  const db = createPublicClient()
+  return pageAll((from, to) =>
+    db
+      .from('landing_combinations')
+      .select('kind, city, master_id, n')
+      .order('kind')
+      .order('city')
+      .order('master_id')
+      .range(from, to),
+  )
+}
+
+/**
  * Every (kind, city, subject) with its count, from the landing_combinations
  * view. Cached for a few hours and tagged so a listing change can revalidate
  * it on demand. Includes counts BELOW the threshold too — the admin view wants
@@ -151,36 +209,7 @@ export { citySegment }
  */
 export const liveCombinationsAll = unstable_cache(
   async (): Promise<LandingCombo[]> => {
-    const db = createPublicClient()
-    const { data } = await db
-      .from('landing_combinations')
-      .select('kind, city, master_id, n')
-    const { byMaster } = await subjectIndex()
-
-    // One page per (kind, city, subject slug). Two masters can share a slug (a
-    // legacy and a live row for the same subject name); if both have listings in
-    // the same city, keep the busier one so the URL resolves to the fuller page
-    // rather than doubling the entry. In practice legacy masters have no live
-    // listings, so this only ever fires as a safety net.
-    const byKey = new Map<string, LandingCombo>()
-    for (const row of data ?? []) {
-      const meta = byMaster.get(row.master_id as number)
-      if (!meta) continue
-      const city = row.city as string
-      const combo: LandingCombo = {
-        kind: row.kind as LandingKind,
-        city,
-        citySlug: citySegment(city),
-        masterId: row.master_id as number,
-        subjectSlug: meta.slug,
-        subjectName: meta.name,
-        count: row.n as number,
-      }
-      const key = `${combo.kind}:${combo.citySlug}:${combo.subjectSlug}`
-      const existing = byKey.get(key)
-      if (!existing || combo.count > existing.count) byKey.set(key, combo)
-    }
-    return [...byKey.values()]
+    return foldCombos(await readLandingCombinations(), (await subjectIndex()).byMaster)
   },
   ['landing-combinations'],
   { revalidate: LANDING_REVALIDATE, tags: [LANDING_TAG] },
@@ -200,28 +229,7 @@ export async function liveLandingPages(): Promise<LandingCombo[]> {
  * below-threshold page renders (noindex) instead of 404ing.
  */
 export async function liveCombinationsAllUncached(): Promise<LandingCombo[]> {
-  const db = createPublicClient()
-  const { data } = await db.from('landing_combinations').select('kind, city, master_id, n')
-  const { byMaster } = await subjectIndex()
-  const byKey = new Map<string, LandingCombo>()
-  for (const row of data ?? []) {
-    const meta = byMaster.get(row.master_id as number)
-    if (!meta) continue
-    const city = row.city as string
-    const combo: LandingCombo = {
-      kind: row.kind as LandingKind,
-      city,
-      citySlug: citySegment(city),
-      masterId: row.master_id as number,
-      subjectSlug: meta.slug,
-      subjectName: meta.name,
-      count: row.n as number,
-    }
-    const key = `${combo.kind}:${combo.citySlug}:${combo.subjectSlug}`
-    const existing = byKey.get(key)
-    if (!existing || combo.count > existing.count) byKey.set(key, combo)
-  }
-  return [...byKey.values()]
+  return foldCombos(await readLandingCombinations(), (await subjectIndex()).byMaster)
 }
 
 /** The sitemap's list: live, and only the pages at or above the threshold. */

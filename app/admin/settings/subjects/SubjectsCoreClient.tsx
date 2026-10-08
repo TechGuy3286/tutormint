@@ -32,7 +32,13 @@ export default function SubjectsCoreClient({
   const savedUr = Object.fromEntries(subjects.map((s) => [s.slug, s.nameUr ?? '']))
   const [ur, setUr] = useState<Record<string, string>>(savedUr)
   const urChanged = Object.keys(ur).filter((k) => (ur[k] ?? '').trim() !== (savedUr[k] ?? '').trim())
-  const dirty = ticked.size !== saved.size || [...ticked].some((id) => !saved.has(id)) || urChanged.length > 0
+  // "Search words" (owner, 8 Oct 2026), comma-separated, per SUBJECT slug.
+  const savedWords = Object.fromEntries(subjects.map((s) => [s.slug, s.searchWords.join(', ')]))
+  const [words, setWords] = useState<Record<string, string>>(savedWords)
+  const norm = (v: string) => v.split(',').map((w) => w.trim().toLowerCase()).filter(Boolean).sort().join(',')
+  const wordsChanged = Object.keys(words).filter((k) => norm(words[k] ?? '') !== norm(savedWords[k] ?? ''))
+  const dirty =
+    ticked.size !== saved.size || [...ticked].some((id) => !saved.has(id)) || urChanged.length > 0 || wordsChanged.length > 0
 
   const toggle = (id: number) =>
     setTicked((prev) => {
@@ -51,6 +57,9 @@ export default function SubjectsCoreClient({
         levelSlug,
         coreMasterIds: [...ticked],
         urduNames: Object.fromEntries(urChanged.map((k) => [k, ur[k].trim() || null])),
+        searchWords: Object.fromEntries(
+          wordsChanged.map((k) => [k, (words[k] ?? '').split(',').map((w) => w.trim()).filter(Boolean)]),
+        ),
       }),
     })
     setBusy(false)
@@ -98,6 +107,16 @@ export default function SubjectsCoreClient({
                 readOnly={readOnly}
                 aria-label={`Urdu name for ${s.name}`}
                 className="mx-2 mb-1 min-h-[36px] w-[calc(100%-1rem)] rounded-lg border border-gray-200 px-2 text-sm outline-none focus:border-tm-navy"
+              />
+              <input
+                type="text"
+                value={words[s.slug] ?? ''}
+                onChange={(e) => setWords((m) => ({ ...m, [s.slug]: e.target.value }))}
+                placeholder="Search words, e.g. math, maths, hisab"
+                maxLength={400}
+                readOnly={readOnly}
+                aria-label={`Search words for ${s.name}`}
+                className="mx-2 mb-2 min-h-[36px] w-[calc(100%-1rem)] rounded-lg border border-gray-200 px-2 text-xs outline-none focus:border-tm-navy"
               />
             </li>
           ))}

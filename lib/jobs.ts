@@ -4,7 +4,8 @@
 //
 // The gates, all server-side:
 //
-//   * Only a VERIFIED parent (CNIC + address approved) may post. That is the
+//   * Only a parent with a VERIFIED MOBILE may post (owner, 8 Oct 2026; was
+//     CNIC + address approved, which is now optional). That is the
 //     owner's rule and it is checked here, not in the form.
 //   * Quota comes from the plan: 5/month free-verified, 100/month featured
 //     shown as "Unlimited". Spent only after the insert succeeds.
@@ -15,6 +16,8 @@
 //     path, never a disabled button -- and the route refuses regardless of
 //     what the page rendered.
 
+import { PARENT_MOBILE_GATE_MESSAGE, PARENT_MOBILE_HREF } from '@/lib/parentGate'
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createClient } from '@/lib/supabase/server'
 import { sanitizeGradeSubjects, gradesWithoutIds, unionMasterIds } from '@/lib/gradeSubjects'
 import { findExistingDuplicate, type ExistingTuition } from '@/lib/duplicates'
@@ -224,21 +227,20 @@ export async function createJob(
 
   const supabase = await createClient()
 
+  // A verified MOBILE is all a parent needs to post (owner, 8 Oct 2026). CNIC
+  // and address are optional and only earn the Verified badge.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('cnic_verified_at, address_verified_at, verification_state')
+    .select('phone_verified_at')
     .eq('id', parentId)
     .maybeSingle()
 
-  if (!profile?.cnic_verified_at || !profile?.address_verified_at) {
+  if (!profile?.phone_verified_at) {
     return {
       ok: false,
       status: 403,
-      error:
-        profile?.verification_state === 'submitted'
-          ? 'Your verification is still being reviewed. You can post once it is approved.'
-          : 'Verify your CNIC and address before posting a job.',
-      upgrade: '/parent/verify',
+      error: PARENT_MOBILE_GATE_MESSAGE,
+      upgrade: PARENT_MOBILE_HREF,
     }
   }
 
@@ -874,7 +876,7 @@ export async function closeJob(parentId: string, jobId: string): Promise<{ ok: t
  * so the check is here, in the code path, and the UI merely reflects it.
  */
 /**
- * Resume a paused tuition (PR27 §3.3). Poster-owned; sets a fresh 15-day clock
+ * Resume a paused tuition (PR27 §3.3). Poster-owned; sets a fresh 7-day clock
  * (resumed_at = now) and clears the pause. A no-op on a tuition that is not
  * paused, so a double tap does nothing.
  */
@@ -899,7 +901,7 @@ export async function resumeJob(parentId: string, jobId: string): Promise<{ ok: 
 
   const { error } = await admin
     .from('jobs')
-    .update({ status: 'open', resumed_at: new Date().toISOString(), paused_at: null, self_paused_at: null })
+    .update({ status: 'open', resumed_at: new Date().toISOString(), bumped_at: new Date().toISOString(), paused_at: null, self_paused_at: null, pause_source: null })
     .eq('id', jobId)
     .eq('parent_id', parentId)
     .eq('status', 'paused')
@@ -1184,12 +1186,12 @@ async function notifyMatchingTutors(
     // nationwide fan-out is not what this is for.
     if (!admin || input.masterIds.length === 0 || !input.city) return
 
-    const { data: matches } = await admin
-      .from('tutor_subjects')
-      .select('tutor_id')
-      .in('master_id', input.masterIds)
+    // PAGED (owner, 8 Oct 2026): a common subject has 1,000+ tutor links.
+    const matches = await pageAllIn(input.masterIds, (ids, from, to) =>
+      admin.from('tutor_subjects').select('tutor_id, master_id').in('master_id', ids).order('tutor_id').order('master_id').range(from, to),
+    )
 
-    const tutorIds = [...new Set((matches ?? []).map((m) => m.tutor_id as string))]
+    const tutorIds = [...new Set(matches.map((m) => m.tutor_id as string))]
     if (tutorIds.length === 0) return
 
     // Job Type aligns both sides (lib/matchChip.ts): a job matches tutors whose

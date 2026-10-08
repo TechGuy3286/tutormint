@@ -4,7 +4,7 @@ import { refreshTuition } from '@/lib/tuitionMerge'
 import { parseBody, z } from '@/lib/validate'
 
 // Refresh the poster's own tuition (owner, 6 Oct 2026, item 16): to the top of
-// Browse with a fresh 15 days, same URL, Indexing API URL_UPDATED — at most once
+// Browse with a fresh 7 days, same URL, Indexing API URL_UPDATED — at most once
 // every 3 days per tuition. Ownership and the limit are checked in
 // lib/tuitionMerge.refreshTuition.
 

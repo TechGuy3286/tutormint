@@ -14,13 +14,13 @@
 // "expired" never appears in copy.
 
 /** A tuition auto-pauses this many days after it is posted or last resumed. */
-export const PAUSE_AFTER_DAYS = 15
+export const PAUSE_AFTER_DAYS = 7
 
 const DAY_MS = 86_400_000
 
 /**
  * The instant an OPEN tuition auto-pauses: its clock base
- * (coalesce(resumed_at, created_at)) + 15 days. This is the ONE expression the
+ * (coalesce(resumed_at, created_at)) + 7 days. This is the ONE expression the
  * sweep (isPauseDue) and the display (pauseCountdownLabel) both derive from, so
  * "pauses in N days" and "what the sweep writes" can never drift (PR29 §B).
  */
@@ -28,7 +28,7 @@ export function pauseDueAtMs(clockBaseIso: string): number {
   return new Date(clockBaseIso).getTime() + PAUSE_AFTER_DAYS * DAY_MS
 }
 
-/** True once the 15-day clock has run out — exactly what the sweep pauses on. */
+/** True once the 7-day clock has run out — exactly what the sweep pauses on. */
 export function isPauseDue(clockBaseIso: string, now = Date.now()): boolean {
   return pauseDueAtMs(clockBaseIso) <= now
 }

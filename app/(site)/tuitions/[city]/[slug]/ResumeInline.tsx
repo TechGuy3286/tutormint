@@ -9,7 +9,7 @@ import { submitSignal } from '@/lib/submit'
 
 // The poster's inline Resume, on their own paused tuition page (PR28 §5). Reuses
 // /api/parent/jobs/resume — the same route the dashboard uses — so the resume
-// logic (ownership check, fresh 15-day clock) is not duplicated.
+// logic (ownership check, fresh 7-day clock) is not duplicated.
 
 export default function ResumeInline({ jobId, label = 'Resume this tuition' }: { jobId: string; label?: string }) {
   const router = useRouter()

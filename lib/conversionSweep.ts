@@ -27,6 +27,7 @@ import 'server-only'
 // notification of that kind, exactly as the per-day `profile_viewed` and
 // `rank_dropped` throttles do. There is nothing to keep in step.
 
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlements, currentPeriod } from '@/lib/entitlements'
 import { notify } from '@/lib/notifications'
@@ -59,13 +60,20 @@ async function deliverViewTeasers(admin: Admin): Promise<{ sent: number; errors:
   // PARENT / academy viewers only, never the tutor themselves, so the teaser's "N
   // parents viewed your profile this week" equals the tile and is never inflated
   // by tutor/staff/anonymous views.
-  const { data: views, error } = await admin
-    .from('profile_views')
-    .select('tutor_id, viewer_id, viewer_role')
-    .in('viewer_role', PARENT_VIEWER_ROLES as unknown as string[])
-    .gte('created_at', since)
-    .limit(20000)
-  if (error) return { sent: 0, errors: [`views: ${error.message}`] }
+  let views: { tutor_id: unknown; viewer_id: unknown; viewer_role: unknown }[]
+  try {
+    views = await pageAll((from, to) =>
+      admin
+        .from('profile_views')
+        .select('id, tutor_id, viewer_id, viewer_role')
+        .in('viewer_role', PARENT_VIEWER_ROLES as unknown as string[])
+        .gte('created_at', since)
+        .order('id')
+        .range(from, to),
+    )
+  } catch (e) {
+    return { sent: 0, errors: [`views: ${(e as Error).message}`] }
+  }
 
   const counts = new Map<string, number>()
   for (const v of views ?? []) {
@@ -124,25 +132,23 @@ async function deliverQuotaNudges(admin: Admin): Promise<{ sent: number; errors:
   const period = currentPeriod()
 
   // Everyone with usage this period; entitlements then say what their cap is.
-  const { data: counters, error } = await admin
-    .from('usage_counters')
-    .select('user_id')
-    .eq('period', period)
-  if (error) return { sent: 0, errors: [`counters: ${error.message}`] }
-  if (!counters || counters.length === 0) return { sent: 0, errors }
+  let counters: { user_id: unknown }[]
+  try {
+    counters = await pageAll((from, to) => admin.from('usage_counters').select('user_id').eq('period', period).order('user_id').range(from, to))
+  } catch (e) {
+    return { sent: 0, errors: [`counters: ${(e as Error).message}`] }
+  }
+  if (counters.length === 0) return { sent: 0, errors }
 
   const userIds = counters.map((c) => c.user_id as string)
 
   // Once a period: skip anyone already nudged this calendar month. `period` is
   // YYYY-MM, so its first day is the month boundary in UTC.
   const monthStart = `${period}-01T00:00:00.000Z`
-  const { data: nudged } = await admin
-    .from('notifications')
-    .select('user_id')
-    .eq('kind', 'quota_nudge')
-    .gte('created_at', monthStart)
-    .in('user_id', userIds)
-  const already = new Set((nudged ?? []).map((r) => r.user_id as string))
+  const nudged = await pageAllIn(userIds, (ids, from, to) =>
+    admin.from('notifications').select('id, user_id').eq('kind', 'quota_nudge').gte('created_at', monthStart).in('user_id', ids).order('id').range(from, to),
+  )
+  const already = new Set(nudged.map((r) => r.user_id as string))
 
   let sent = 0
   for (const userId of userIds) {

@@ -1,5 +1,6 @@
 'use client'
 
+import { useSubjectWords } from '@/lib/searchWords'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -608,6 +609,7 @@ function SubjectsStep({ initialIds, draftCats, draftByCat, shell, helpWaHref, on
   // Hotfix (7 Oct 2026): a level's main subjects show first; the rest sit
   // behind "More subjects", with a search box per level.
   const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({})
+  const subjectWords = useSubjectWords()
   const [moreQ, setMoreQ] = useState<Record<string, string>>({})
   const [suggested, setSuggested] = useState<Record<string, string[]>>({})
   const [helpVisible, setHelpVisible] = useState(false)
@@ -731,7 +733,7 @@ function SubjectsStep({ initialIds, draftCats, draftByCat, shell, helpWaHref, on
               const g = subjectGroups(tree, core, cat, picked, loadedNoGradeLevels().includes(cat))
               const open = g.noMain || !!moreOpen[cat]
               const q = moreQ[cat] ?? ''
-              const moreShown = filterMore(g.more, q, suggested[cat] ?? [])
+              const moreShown = filterMore(g.more, q, suggested[cat] ?? [], subjectWords)
               return (
                 <section key={cat} className="space-y-3 rounded-2xl border border-gray-200 bg-white p-3">
                   <p className="text-sm font-black text-tm-navy">{cat}</p>

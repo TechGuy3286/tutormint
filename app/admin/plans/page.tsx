@@ -1,4 +1,5 @@
 import { requireAdminRole, roleSatisfies, getAdminActor, SCREEN_ACCESS } from '@/lib/adminAuth'
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import PlanGrantClient, { type PlanRow, type AccountRow } from './PlanGrantClient'
 
@@ -25,7 +26,9 @@ export default async function AdminPlansPage() {
   const [{ data: plans }, { data: accounts }, { data: subs }] = await Promise.all([
     admin.from('plans').select('code, name, audience, price_pkr, monthly_quota, displayed_quota').order('audience').order('price_pkr'),
     admin.from('profiles').select('id, full_name, email, role').in('role', ['tutor', 'parent', 'academy']).order('full_name').limit(200),
-    admin.from('subscriptions').select('id, user_id, plan_code, status, starts_at, expires_at, source, note').eq('status', 'active'),
+    pageAll((from, to) =>
+      admin.from('subscriptions').select('id, user_id, plan_code, status, starts_at, expires_at, source, note').eq('status', 'active').order('id').range(from, to),
+    ).then((data) => ({ data })),
   ])
 
   const rows: AccountRow[] = (accounts ?? []).map((a) => {

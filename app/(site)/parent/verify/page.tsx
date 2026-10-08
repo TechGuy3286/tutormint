@@ -225,13 +225,13 @@ export default function ParentVerifyPage() {
         <header className="space-y-1">
           <h1 className="text-xl sm:text-2xl font-black text-tm-navy">Verify your account</h1>
           <p className="text-xs text-gray-500">
-            We verify every parent before they can post a job. It keeps tutors safe and gets you better responses.
+            Optional. Send your CNIC and home address and, once both are approved, you get the green Verified badge tutors look for. You can post, message and request demos with a verified mobile number.
           </p>
         </header>
 
         {state === 'approved' && (
           <div className="p-4 bg-tm-tint-green border border-tm-green-deep/30 rounded-2xl space-y-2">
-            <p className="text-xs font-black text-tm-green-deep">✓ Verified — you can post jobs and message tutors</p>
+            <p className="text-xs font-black text-tm-green-deep">✓ Verified — your green Verified badge is on your profile</p>
             {returnTo && (
               <Link href={returnTo} className="inline-flex min-h-[40px] items-center rounded-xl bg-tm-navy px-4 text-xs font-bold text-white hover:bg-tm-navy-hover">
                 Back to your {backNoun}
@@ -244,7 +244,7 @@ export default function ParentVerifyPage() {
             <p className="text-xs font-black text-tm-gold-ink">Awaiting review</p>
             <p className="text-[11px] text-tm-gold-ink">
               Our team is checking your details, usually within a few hours.
-              <strong> You cannot post a job or message tutors until this is approved.</strong>
+              <strong> You can keep posting, messaging tutors and requesting demos meanwhile.</strong>
             </p>
             {returnTo && (
               <p className="text-[11px] text-tm-gold-ink">
@@ -264,7 +264,7 @@ export default function ParentVerifyPage() {
         {state === 'none' && (
           <div className="p-4 bg-tm-black text-white rounded-2xl space-y-1">
             <p className="text-xs font-black">Not verified yet</p>
-            <p className="text-[11px] text-gray-200">You cannot post a job until your CNIC and address are approved.</p>
+            <p className="text-[11px] text-gray-200">This is optional — it earns the green Verified badge. Posting, messaging and demos only need a verified mobile.</p>
           </div>
         )}
 

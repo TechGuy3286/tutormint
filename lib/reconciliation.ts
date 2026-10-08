@@ -10,6 +10,7 @@
 // Nothing here ever changes a payment's status — that stays with the payments
 // queue and its own audited approve/reject.
 
+import { pageAll } from '@/lib/pageAll'
 import 'server-only'
 
 import { Workbook, type CellValue } from 'exceljs'
@@ -235,12 +236,15 @@ const num = (v: number | string | null): number | null => {
 async function loadTransfers(): Promise<TransferRow[]> {
   const admin = createAdminClient()
   if (!admin) return []
-  const { data } = await admin
-    .from('bank_transfers')
-    .select('id, transferred_on, amount_pkr, reference, account_last4, source, created_at')
-    .order('transferred_on', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(2000)
+  const data = await pageAll((from, to) =>
+    admin
+      .from('bank_transfers')
+      .select('id, transferred_on, amount_pkr, reference, account_last4, source, created_at')
+      .order('transferred_on', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, to),
+  )
   return ((data ?? []) as TransferRecord[]).map((t) => ({
     id: t.id,
     transferredOn: t.transferred_on,
@@ -265,11 +269,15 @@ export async function loadReconciliation(period: { from: string; to: string }): 
 
   let rows: PayproRow[] = []
   if (latest) {
-    const { data } = await admin
-      .from('reconciliation_rows')
-      .select('order_number, transaction_status, payment_via, order_amount, merchant_share, date_paid, settle_date, settle_status')
-      .eq('import_id', latest.id)
-      .limit(MAX_ROWS)
+    const data = await pageAll((from, to) =>
+      admin
+        .from('reconciliation_rows')
+        .select('id, order_number, transaction_status, payment_via, order_amount, merchant_share, date_paid, settle_date, settle_status')
+        .eq('import_id', latest.id)
+        .order('id')
+        .range(from, to),
+      MAX_ROWS,
+    )
     rows = ((data ?? []) as RowRecord[]).map((r) => ({
       orderNumber: r.order_number,
       transactionStatus: r.transaction_status,
@@ -283,12 +291,10 @@ export async function loadReconciliation(period: { from: string; to: string }): 
   }
 
   // Our side: every PayPro payment. Only the three columns the comparison needs.
-  const { data: payData } = await admin
-    .from('payments')
-    .select('provider_ref, status, amount_pkr, created_at')
-    .eq('provider', 'paypro')
-    .order('created_at', { ascending: false })
-    .limit(MAX_ROWS)
+  const payData = await pageAll((from, to) =>
+    admin.from('payments').select('id, provider_ref, status, amount_pkr, created_at').eq('provider', 'paypro').order('created_at', { ascending: false }).order('id').range(from, to),
+    MAX_ROWS,
+  )
   const payments: PaymentRef[] = ((payData ?? []) as { provider_ref: string | null; status: string; amount_pkr: number | string | null }[])
     .filter((p) => !!p.provider_ref)
     .map((p) => ({ providerRef: p.provider_ref as string, status: p.status, amountPkr: num(p.amount_pkr) }))
@@ -381,13 +387,17 @@ export async function importBankCsv(
   }
 
   const days = transfers.map((t) => t.transferredOn).sort()
-  const { data: existing } = await admin
-    .from('bank_transfers')
-    .select('transferred_on, amount_pkr, reference')
-    .eq('source', 'csv')
-    .eq('gateway', gateway)
-    .gte('transferred_on', days[0])
-    .lte('transferred_on', days[days.length - 1])
+  const existing = await pageAll((from, to) =>
+    admin
+      .from('bank_transfers')
+      .select('id, transferred_on, amount_pkr, reference')
+      .eq('source', 'csv')
+      .eq('gateway', gateway)
+      .gte('transferred_on', days[0])
+      .lte('transferred_on', days[days.length - 1])
+      .order('id')
+      .range(from, to),
+  )
   const seen = new Set(
     ((existing ?? []) as { transferred_on: string; amount_pkr: number | string; reference: string | null }[]).map(
       (e) => `${e.transferred_on}|${num(e.amount_pkr)}|${(e.reference ?? '').trim()}`,

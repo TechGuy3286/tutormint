@@ -3,7 +3,8 @@ import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { encodeCursor, decodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
-import { resolveSubjectQuery } from '@/lib/searchResolve'
+import { resolveSmartQuery } from '@/lib/smartSearch'
+import type { Parsed } from '@/lib/smartSearchCore'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import type { TutorCardData } from '@/components/TutorCard'
 import { formatName } from '@/lib/formatName'
@@ -17,6 +18,8 @@ import { formatName } from '@/lib/formatName'
 
 export type TutorFilters = {
   masterId: number | null
+  /** A set of masters (the smart-search fallback): wins over masterId and q. */
+  masterIds?: number[] | null
   city: string
   area: string
   mode: string
@@ -111,6 +114,8 @@ export type RankArgs = {
 }
 
 export type RankResult = {
+  /** What the smart search read out of `q` (null when it read nothing). */
+  parsed: Parsed | null
   tutors: RankedTutor[]
   total: number
   nextCursor: string | null
@@ -138,12 +143,20 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
   // no tutor for a subject typo like "hisab"). Done here so the page's first
   // window and the load-more route (both call rankedTutors with the same `q`)
   // resolve identically.
-  let masterIds: number[] | null = filters.masterId != null ? [filters.masterId] : null
+  let masterIds: number[] | null =
+    filters.masterIds && filters.masterIds.length > 0 ? filters.masterIds : filters.masterId != null ? [filters.masterId] : null
   let queryText = filters.q || null
+  let city = filters.city || null
+  let parsed: Parsed | null = null
+  // The ONE smart search (owner, 8 Oct 2026): "sahiwal tutor for primary" is
+  // read into City · Level · Subject/School and filters by them; a query it does
+  // not understand (a tutor's name) stays a name search.
   if ((!masterIds || masterIds.length === 0) && filters.q) {
-    const resolved = await resolveSubjectQuery(filters.q, filters.city || null)
-    if (resolved) {
-      masterIds = resolved.masterIds
+    const smart = await resolveSmartQuery(filters.q)
+    if (smart.understood) {
+      parsed = smart.parsed
+      masterIds = smart.masterIds ?? smart.levelMasterIds
+      if (!city && smart.parsed.city) city = smart.parsed.city
       queryText = null
     }
   }
@@ -151,7 +164,7 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
   const { data, error } = await supabase.rpc('rank_tutors', {
     p_master_id: null,
     p_master_ids: masterIds && masterIds.length > 0 ? masterIds : null,
-    p_city: filters.city || null,
+    p_city: city,
     p_area: filters.area || null,
     p_teaching_mode: filters.mode || null,
     p_gender: filters.gender || null,
@@ -186,6 +199,7 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
   const seen = (after ? 0 : offset) + tutors.length
 
   return {
+    parsed,
     tutors,
     total,
     // Null means "that was the end", which is what the footer renders as a

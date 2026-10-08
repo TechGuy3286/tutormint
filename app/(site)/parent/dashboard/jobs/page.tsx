@@ -32,8 +32,8 @@ export default async function ParentJobsPage() {
     .eq('parent_id', userId)
     .order('created_at', { ascending: false })
 
-  const verified =
-    !!session?.profile?.cnic_verified_at && !!session?.profile?.address_verified_at
+  // Posting needs a verified MOBILE only (owner, 8 Oct 2026).
+  const verified = !!session?.profile?.phone_verified_at
 
   // Applicant counts: applications are readable by the job's parent, so the
   // member's own client is enough here.
@@ -87,12 +87,12 @@ export default async function ParentJobsPage() {
             title={
               verified
                 ? 'You have not posted a tuition yet. Post what you need and tutors will apply.'
-                : 'You have not posted a tuition yet. Once your CNIC and address are approved you can post a tuition.'
+                : 'You have not posted a tuition yet. Verify your mobile number and you can post one straight away.'
             }
             action={
               verified
                 ? { label: 'Post a tuition', href: '/parent/dashboard/post-job' }
-                : { label: 'Verify now', href: '/parent/verify' }
+                : { label: 'Verify mobile', href: '/parent/dashboard/settings?open=mobile' }
             }
           />
         ) : (

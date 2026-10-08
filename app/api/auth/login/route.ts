@@ -11,6 +11,7 @@ import { restoreSelfPauseOnSignIn } from '@/lib/selfPause'
 import { PERSIST_COOKIE } from '@/lib/sessionCookies'
 import { BANNED_LOGIN_MESSAGE } from '@/lib/authMessages'
 import { needsPhoneGate } from '@/lib/phoneGate'
+import { accountsOnMobile, linkedRoles } from '@/lib/secondRole'
 
 // The exact banned-login message (owner, Sunday 6 Sep). Shown verbatim, and no
 // session is created — the account is signed out again before this returns.
@@ -73,8 +74,12 @@ export async function POST(request: Request) {
   const password = parsed.data.password
   const rememberMe = parsed.data.rememberMe
 
-  const email = await resolveEmail(identifier)
-  if (!email) return NextResponse.json({ error: GENERIC, errorUr: GENERIC_UR }, { status: 400 })
+  // A mobile can hold up to two LINKED accounts (one tutor, one parent — owner,
+  // 8 Oct 2026). Each candidate is tried with the typed password; the first that
+  // signs in wins, and the picker below offers the other role.
+  const candidates = await resolveEmails(identifier)
+  if (candidates.length === 0) return NextResponse.json({ error: GENERIC, errorUr: GENERIC_UR }, { status: 400 })
+  let email = candidates[0]
 
   // Remember the member's choice for later refreshes (proxy + server client
   // read this), and set it BEFORE sign-in so the flag is on the same response
@@ -87,7 +92,14 @@ export async function POST(request: Request) {
   // The @supabase/ssr server client writes the session cookies onto the
   // response; sessionOnly strips their maxAge when remember-me is off.
   const supabase = await createClient({ sessionOnly: !rememberMe })
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  let { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  for (const next of candidates.slice(1)) {
+    if (!error) break
+    const m = error.message.toLowerCase()
+    if (m.includes('confirm')) break
+    email = next
+    ;({ data, error } = await supabase.auth.signInWithPassword({ email, password }))
+  }
 
   if (error) {
     const msg = error.message.toLowerCase()
@@ -103,11 +115,13 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: GENERIC, errorUr: GENERIC_UR }, { status: 400 })
   }
+  if (!data.user) return NextResponse.json({ error: GENERIC, errorUr: GENERIC_UR }, { status: 400 })
+  const signedIn = data.user
 
   const { data: profile } = await supabase
     .from('profiles')
     .select('role, must_change_password, is_suspended, is_banned, phone_verified_via, phone_gate_required, phone_verified_at')
-    .eq('id', data.user.id)
+    .eq('id', signedIn.id)
     .maybeSingle()
 
   // BANNED blocks login with NO session. signInWithPassword already wrote the
@@ -122,12 +136,12 @@ export async function POST(request: Request) {
     )
   }
 
-  await logActivity({ userId: data.user.id, event: 'login', meta: { via: looksLikeEmail(identifier) ? 'email' : 'mobile' } })
+  await logActivity({ userId: signedIn.id, event: 'login', meta: { via: looksLikeEmail(identifier) ? 'email' : 'mobile' } })
 
   // "Pause my account" (owner, 8 Oct 2026): a successful sign-in brings a
   // self-paused account back — never one staff suspended or banned (the rule
   // is in lib/selfPauseCore shouldRestoreOnSignIn).
-  const restored = await restoreSelfPauseOnSignIn(data.user.id)
+  const restored = await restoreSelfPauseOnSignIn(signedIn.id)
 
   // Bridge re-verification: a number proved by the BRIDGE_OTP stopgap must be
   // re-verified once the real provider lands (owner, Sunday 6 Sep). We detect
@@ -141,7 +155,7 @@ export async function POST(request: Request) {
       await admin
         .from('profiles')
         .update({ phone_verified_at: null, phone_gate_required: true, phone_verified_via: null })
-        .eq('id', data.user.id)
+        .eq('id', signedIn.id)
       reverify = true
     }
   }
@@ -153,8 +167,13 @@ export async function POST(request: Request) {
   // reverify (a bridge number whose bridge was removed) is the same destination.
   const needsPhoneVerify = needsPhoneGate(profile) || reverify
 
+  // Two linked accounts on this mobile → "Continue as Tutor or Parent?".
+  const roles = await linkedRoles(signedIn.id)
+
   return NextResponse.json({
     success: true,
+    chooseRole: !!roles && !needsPhoneVerify && !profile?.must_change_password,
+    roles: roles ?? undefined,
     role: (profile?.role as string) ?? null,
     // The client routes on these rather than guessing: a temporary password
     // has to be replaced before anything else, and a suspended member belongs
@@ -168,42 +187,33 @@ export async function POST(request: Request) {
 }
 
 /**
- * What to hand signInWithPassword.
+ * What to hand signInWithPassword, in order.
  *
  * An email is used as typed. A mobile becomes the synthetic address when such
- * an account exists, and otherwise the real address of whoever holds that
- * number. Returns null when it is neither -- and the caller answers with the
- * same message it uses for a wrong password.
+ * an account exists, then the address of every account holding that number
+ * (oldest first — up to one tutor and one parent, linked). An empty list is
+ * answered with the same message as a wrong password.
  */
-async function resolveEmail(identifier: string): Promise<string | null> {
-  if (looksLikeEmail(identifier)) return identifier.toLowerCase()
+async function resolveEmails(identifier: string): Promise<string[]> {
+  if (looksLikeEmail(identifier)) return [identifier.toLowerCase()]
 
   const msisdn = normalisePkMobile(identifier)
-  if (!msisdn) return null
+  if (!msisdn) return []
 
   const synthetic = syntheticEmail(msisdn)
 
   const admin = createAdminClient()
-  if (!admin) return synthetic
+  if (!admin) return [synthetic]
 
-  // An imported account, keyed by the number itself.
-  const { data: imported } = await admin
-    .from('profiles')
-    .select('email')
-    .eq('email', synthetic)
-    .maybeSingle()
-  if (imported) return synthetic
+  const out: string[] = []
+  // An imported / mobile-first account, keyed by the number itself.
+  const { data: imported } = await admin.from('profiles').select('email').eq('email', synthetic).maybeSingle()
+  if (imported) out.push(synthetic)
 
-  // Otherwise: somebody who registered normally and is signing in with the
-  // number they gave us. Matched on the canonical form and on the way it is
-  // usually stored locally, since phone_number is free text from T3.
-  const national = `0${msisdn.slice(2)}`
-  const { data: byPhone } = await admin
-    .from('profiles')
-    .select('email')
-    .or(`phone_number.eq.${msisdn},phone_number.eq.${national},phone_number.eq.+${msisdn}`)
-    .limit(1)
-    .maybeSingle()
-
-  return (byPhone?.email as string) ?? synthetic
+  // Everyone else holding the number (canonical and local shapes).
+  for (const a of await accountsOnMobile(msisdn)) {
+    if (a.email && !out.includes(a.email)) out.push(a.email)
+  }
+  if (out.length === 0) out.push(synthetic)
+  return out.slice(0, 3)
 }

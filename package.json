@@ -98,7 +98,10 @@
     "test:duplicates": "tsx --test scripts/test-duplicates.ts",
     "test:tuitionpost": "tsx --test scripts/test-tuition-post.ts",
     "test:gateways": "tsx --test scripts/test-gateways.ts",
-    "test:settlement": "tsx --test scripts/test-settlement.ts"
+    "test:settlement": "tsx --test scripts/test-settlement.ts",
+    "test:smartsearch": "tsx --test scripts/test-smart-search.ts",
+    "test:pagecap": "tsx --test scripts/test-page-cap.ts",
+    "test:pause": "tsx --test scripts/test-tuition-pause.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

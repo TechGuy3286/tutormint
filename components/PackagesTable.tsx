@@ -225,11 +225,11 @@ export default function PackagesTable({
                 // through free CNIC + address verification.
                 !verified ? (
                   <Link
-                    href={audience === 'tutor' ? '/tutor/complete-profile?step=verify' : '/parent/verify'}
+                    href={audience === 'tutor' ? '/tutor/complete-profile?step=verify' : '/parent/dashboard/settings?open=mobile'}
                     className="gap-1.5 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
                   >
                     <ShieldCheck aria-hidden size={14} />
-                    {audience === 'tutor' ? 'Get verified' : 'Verify your CNIC (free)'}
+                    {audience === 'tutor' ? 'Get verified' : 'Verify your mobile (free)'}
                   </Link>
                 ) : null
               ) : checkoutOpen ? (

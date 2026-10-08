@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatName } from '@/lib/formatName'
 import { parentsAwaitingReview } from '@/lib/parentDocuments'
@@ -41,16 +42,23 @@ async function build(): Promise<ApprovalRow[]> {
   const admin = createAdminClient()
   if (!admin) return []
 
-  const { data: profiles } = await admin
-    .from('profiles')
-    .select('id, full_name, created_at, is_seed, is_banned, is_suspended, is_team_account, verification_state, profile_pic_status, selfie_status')
-    .eq('role', 'tutor')
-  const live = (profiles ?? []).filter((p) => !p.is_seed && !p.is_banned && !p.is_suspended && !p.is_team_account)
+  const profiles = await pageAll((from, to) =>
+    admin
+      .from('profiles')
+      .select('id, full_name, created_at, is_seed, is_banned, is_suspended, is_team_account, verification_state, profile_pic_status, selfie_status')
+      .eq('role', 'tutor')
+      .order('id')
+      .range(from, to),
+  )
+  const live = profiles.filter((p) => !p.is_seed && !p.is_banned && !p.is_suspended && !p.is_team_account)
 
   const ids = live.map((p) => p.id as string)
   const NO_MATCH = '00000000-0000-0000-0000-000000000000'
-  const { data: tps } = await admin.from('tutor_profiles').select('id, video_status, verified_fee_paid_at').in('id', ids.length ? ids : [NO_MATCH])
-  const tp = new Map((tps ?? []).map((t) => [t.id as string, t]))
+  void NO_MATCH
+  const tps = await pageAllIn(ids, (part, from, to) =>
+    admin.from('tutor_profiles').select('id, video_status, verified_fee_paid_at').in('id', part).order('id').range(from, to),
+  )
+  const tp = new Map(tps.map((t) => [t.id as string, t]))
 
   const rows: ApprovalRow[] = []
   for (const p of live) {

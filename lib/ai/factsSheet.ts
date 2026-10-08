@@ -119,7 +119,7 @@ export function factsSheetText(facts: PlatformFacts = buildPlatformFacts()): str
       : '',
     `- Matched tuitions by email: ${list(facts.tutorPlans.filter((p) => p.canViewContact).map((p) => p.name))} tutors; by WhatsApp: ${list(facts.tutorPlans.filter((p) => p.searchRank >= 3).map((p) => p.name))} tutors.`,
     `- Search order: ${facts.searchOrder.join(', then ')}.`,
-    '- Parents verify their CNIC and address (free) before they can post a tuition, message a tutor or request a demo.',
+    '- A parent needs only a verified mobile number (free) to post a tuition, message a tutor or request a demo. CNIC and home address are optional; once both are approved the parent gets the green Verified badge.',
     `- Parent plans: ${facts.parentPlans
       .map((p) => {
         const powers = [

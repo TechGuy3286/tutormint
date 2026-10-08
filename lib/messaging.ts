@@ -17,6 +17,8 @@
 //
 // Bodies are stored verbatim and masked on the way out -- see lib/masking.ts.
 
+import { PARENT_MOBILE_GATE_MESSAGE, PARENT_MOBILE_HREF } from '@/lib/parentGate'
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { memberUnavailable } from '@/lib/selfPause'
 import { NOT_AVAILABLE, NOT_AVAILABLE_UR } from '@/lib/selfPauseCore'
 import { cache } from 'react'
@@ -144,25 +146,18 @@ ${NOT_AVAILABLE_UR}` }
   }
 
   if (ent.audience === 'parent') {
-    // Owner hotfix (5 Oct 2026): a parent must have CNIC + address approved
-    // before STARTING a conversation (this supersedes PR25 §4.1 for messaging
-    // only; demos are unchanged). The gate's CTA opens the existing verification
-    // step and carries the way back — the tutor's page with ?message=1 — so the
-    // composer reopens once verification is complete. A verified parent holds
-    // the free parent_verified plan, which is what `ent.plan` reports.
+    // A VERIFIED MOBILE is all a parent needs to start a conversation (owner,
+    // 8 Oct 2026 — supersedes the 5 Oct CNIC + address rule; CNIC and address
+    // are optional and only earn the Verified badge). The free parent_verified
+    // plan is synthesised from phone_verified_at, which is what `ent.plan` says.
     if (!ent.plan) {
       const gate = await buildGate('parent_verify', ent)
-      let returnTo = '/browse/tutors'
-      if (admin) {
-        const { data: tp } = await admin.from('tutor_profiles').select('slug').eq('id', otherId).maybeSingle()
-        if (tp?.slug) returnTo = `/tutor/${tp.slug as string}?message=1`
-      }
       return {
         ok: false,
         status: 403,
-        error: 'Verify your CNIC and address to message tutors. It is free.',
-        upgrade: '/parent/verify',
-        gate: gate ? { ...gate, href: `/parent/verify?next=${encodeURIComponent(returnTo)}` } : undefined,
+        error: PARENT_MOBILE_GATE_MESSAGE,
+        upgrade: PARENT_MOBILE_HREF,
+        gate: gate ?? undefined,
       }
     }
     return { ok: true }
@@ -724,13 +719,18 @@ export const unreadMessageCount = cache(async (userId: string): Promise<number> 
       .or(`participant_a.eq.${userId},participant_b.eq.${userId}`)
     const ids = (threads ?? []).map((t) => t.id as string)
     if (ids.length > 0) {
-      const { data: msgs } = await admin
-        .from('messages')
-        .select('sender_id, deleted_for, withheld_at')
-        .in('thread_id', ids)
-        .neq('sender_id', userId)
-        .is('read_at', null)
-      const rows = (msgs ?? []).filter((m) => {
+      // PAGED (owner, 8 Oct 2026) — never stops at 1,000 rows.
+      const msgs = await pageAllIn(ids, (part, from, to) =>
+        admin
+          .from('messages')
+          .select('id, sender_id, deleted_for, withheld_at')
+          .in('thread_id', part)
+          .neq('sender_id', userId)
+          .is('read_at', null)
+          .order('id')
+          .range(from, to),
+      )
+      const rows = msgs.filter((m) => {
         const deletedFor = (m.deleted_for as string[] | null) ?? []
         return !deletedFor.includes(userId) && !(m.withheld_at as string | null)
       })
@@ -791,13 +791,12 @@ export async function conversationCount(userId: string): Promise<number> {
   // The member's own client may read the messages of its own threads
   // (owns_thread). Withheld/deleted filtering is application-level (RLS does not
   // hide them), so it is applied here, exactly as threadPage does for the list.
-  const { data: msgs } = await supabase
-    .from('messages')
-    .select('thread_id, sender_id, withheld_at, deleted_for')
-    .in('thread_id', ids)
+  const msgs = await pageAllIn(ids, (part, from, to) =>
+    supabase.from('messages').select('id, thread_id, sender_id, withheld_at, deleted_for').in('thread_id', part).order('id').range(from, to),
+  )
 
   const visible = new Set<string>()
-  for (const m of msgs ?? []) {
+  for (const m of msgs) {
     const deletedFor = (m.deleted_for as string[] | null) ?? []
     if (deletedFor.includes(userId)) continue
     // A withheld message is visible only to its own sender.
@@ -909,11 +908,15 @@ export async function threadPage({
       ? supabase.from('jobs').select('id, title, job_tx_id').in('id', jobIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     admin
-      ? admin
-          .from('messages')
-          .select('thread_id, sender_id, body, created_at, attachment_path, deleted_for, withheld_at')
-          .in('thread_id', threadIds)
-          .order('created_at', { ascending: false })
+      ? pageAllIn(threadIds, (part, from, to) =>
+          admin
+            .from('messages')
+            .select('id, thread_id, sender_id, body, created_at, attachment_path, deleted_for, withheld_at')
+            .in('thread_id', part)
+            .order('created_at', { ascending: false })
+            .order('id')
+            .range(from, to),
+        ).then((data) => ({ data: (data as Record<string, unknown>[]).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))) }))
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     unreadByThread(userId),
   ])

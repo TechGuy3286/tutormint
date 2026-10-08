@@ -1,5 +1,6 @@
 'use client'
 
+import RolePicker from '@/components/auth/RolePicker'
 import { ArrowLeft, Smartphone } from 'lucide-react'
 
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -78,6 +79,7 @@ export default function ForgotPasswordForm() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [fallbackLogin, setFallbackLogin] = useState(false)
+  const [choosing, setChoosing] = useState(false)
 
   async function submitEmail(e: React.FormEvent) {
     e.preventDefault()
@@ -138,7 +140,7 @@ export default function ForgotPasswordForm() {
       return
     }
     setBusy(true)
-    const { ok, data, error: failed } = await submitJson<Failure & { signedIn?: boolean; next?: string }>(
+    const { ok, data, error: failed } = await submitJson<Failure & { signedIn?: boolean; next?: string; chooseRole?: boolean }>(
       '/api/auth/reset',
       { action: 'confirm', mobile, code, password },
     )
@@ -149,6 +151,13 @@ export default function ForgotPasswordForm() {
         setScreen('number')
         setCode('')
       }
+      setBusy(false)
+      return
+    }
+    // Two linked accounts on this mobile (owner, 8 Oct 2026): ask which role.
+    if (data?.signedIn && data.chooseRole) {
+      toast.success('Password changed')
+      setChoosing(true)
       setBusy(false)
       return
     }
@@ -213,6 +222,19 @@ export default function ForgotPasswordForm() {
       Contact support · {SUPPORT_WHATSAPP_DISPLAY}
     </a>
   ) : null
+
+  if (choosing) {
+    return (
+      <div className="mx-auto w-full max-w-sm rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <RolePicker
+          onDone={(href) => {
+            router.push(href)
+            router.refresh()
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-tm-bg p-4 text-slate-700 sm:p-6">

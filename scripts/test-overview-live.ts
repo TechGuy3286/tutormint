@@ -60,12 +60,17 @@ for (const days of [7, 30] as const) {
 test('lists agree with independent counts', { skip: !live }, async () => {
   const admin = createAdminClient()!
   const head = async (q: PromiseLike<{ count: number | null }>) => (await q).count ?? 0
-  assert.equal((await loadOverviewList('tutors')).rows.length, await head(admin.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'tutor')))
+  assert.equal((await loadOverviewList('tutors')).rows.length, await head(admin.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'tutor').eq('is_test_name', false)))
   assert.equal(
     (await loadOverviewList('parents')).rows.length,
-    await head(admin.from('profiles').select('id', { count: 'exact', head: true }).in('role', ['parent', 'academy'])),
+    await head(admin.from('profiles').select('id', { count: 'exact', head: true }).in('role', ['parent', 'academy']).eq('is_test_name', false)),
   )
-  assert.equal((await loadOverviewList('open-tuitions')).rows.length, await head(admin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'open')))
+  // Test-named accounts and their tuitions are not counted (owner, 8 Oct 2026).
+  const { data: testRows } = await admin.from('profiles').select('id').eq('is_test_name', true)
+  const testIds = (testRows ?? []).map((r) => r.id as string)
+  let openQ = admin.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'open')
+  if (testIds.length) openQ = openQ.not('parent_id', 'in', `(${testIds.join(',')})`)
+  assert.equal((await loadOverviewList('open-tuitions')).rows.length, await head(openQ))
   // Item 6: pending, started in the last 24 hours, waiting over 1 hour.
   const now = Date.now()
   const waiting = await head(

@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   tallyStaffActivity,
@@ -48,14 +49,12 @@ export async function loadStaffActivity(): Promise<StaffActivityRow[]> {
   if (rows.length === 0) return []
 
   const ids = rows.map((r) => r.id as string)
-  const { data: audit } = await admin
-    .from('admin_audit_log')
-    .select('actor_id, action, created_at')
-    .in('actor_id', ids)
-    .in('action', STAFF_METRIC_ACTIONS)
+  const audit = await pageAll((from, to) =>
+    admin.from('admin_audit_log').select('id, actor_id, action, created_at').in('actor_id', ids).in('action', STAFF_METRIC_ACTIONS).order('id').range(from, to),
+  )
 
   const counts = tallyStaffActivity(
-    (audit ?? []).map((a) => ({
+    audit.map((a) => ({
       actorId: a.actor_id as string | null,
       action: a.action as string,
       createdAt: a.created_at as string,
@@ -75,13 +74,11 @@ export async function loadStaffActivity(): Promise<StaffActivityRow[]> {
 export async function loadStaffCountsFor(actorId: string): Promise<StaffCounts> {
   const admin = createAdminClient()
   if (!admin) return emptyStaffCounts()
-  const { data: audit } = await admin
-    .from('admin_audit_log')
-    .select('actor_id, action, created_at')
-    .eq('actor_id', actorId)
-    .in('action', STAFF_METRIC_ACTIONS)
+  const audit = await pageAll((from, to) =>
+    admin.from('admin_audit_log').select('id, actor_id, action, created_at').eq('actor_id', actorId).in('action', STAFF_METRIC_ACTIONS).order('id').range(from, to),
+  )
   const counts = tallyStaffActivity(
-    (audit ?? []).map((a) => ({
+    audit.map((a) => ({
       actorId: a.actor_id as string | null,
       action: a.action as string,
       createdAt: a.created_at as string,
@@ -144,13 +141,16 @@ export async function loadStaffDetail(
   const admin = createAdminClient()
   if (!admin) return { counts: emptyStaffCounts(), items: [], cityCounts: [], postedStatus: { open: 0, paused: 0, closed: 0 } }
 
-  const { data: audit } = await admin
-    .from('admin_audit_log')
-    .select('id, action, created_at, target_id, detail')
-    .eq('actor_id', actorId)
-    .in('action', STAFF_METRIC_ACTIONS)
-    .order('created_at', { ascending: false })
-  const rows = audit ?? []
+  const rows = await pageAll((from, to) =>
+    admin
+      .from('admin_audit_log')
+      .select('id, action, created_at, target_id, detail')
+      .eq('actor_id', actorId)
+      .in('action', STAFF_METRIC_ACTIONS)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, to),
+  )
 
   const counts = tallyStaffActivity(
     rows.map((a) => ({ actorId, action: a.action as string, createdAt: a.created_at as string })),

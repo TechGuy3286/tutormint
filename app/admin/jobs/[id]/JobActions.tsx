@@ -166,7 +166,7 @@ export default function JobActions({
         </p>
         <p>
           <span className="font-bold text-gray-700">Refresh</span> — moves the tuition to the top of
-          Browse with a fresh 15 days on the same address, and tells Google. At most once every 3 days.
+          Browse with a fresh 7 days on the same address, and tells Google. At most once every 3 days.
         </p>
         <p>Nothing is ever deleted. The post, its applications and its chats always stay.</p>
       </div>

@@ -6,6 +6,7 @@ import { rateLimit, callerIp, tooManyRequests } from '@/lib/rateLimit'
 import { maskTuitionText } from '@/lib/maskTuition'
 import { parseJobRef } from '@/lib/jobRef'
 import { citySegment } from '@/lib/slugs'
+import { resolveSmartQuery } from '@/lib/smartSearch'
 
 // GET /api/search/suggest?q=…&city=…
 //
@@ -159,6 +160,23 @@ export async function GET(request: Request) {
   }))
 
   let suggestions = withAllLevels(mapped).map((s) => ({ ...s, href: retarget(s.href) }))
+
+  // The ONE smart search (owner, 8 Oct 2026): a sentence that names two or more
+  // things ("sahiwal tutor for primary beaconhouse") leads with what it was read
+  // as — City · Level · School — and runs the full search on Enter.
+  const smart = await resolveSmartQuery(q).catch(() => null)
+  if (smart?.understood && smart.parsed.spans.length >= 2) {
+    suggestions = [
+      {
+        group: 'subject' as SuggestGroup,
+        ref: 'smart',
+        label: smart.parsed.spans.map((x) => x.label).join(' · '),
+        sublabel: 'Search for all of these',
+        href: retarget(`/browse/tutors?q=${encodeURIComponent(q)}`),
+      },
+      ...suggestions,
+    ]
+  }
 
   // PR92 Part B: put the exact job-reference hit FIRST (deduped against any the
   // text search already returned).

@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // The overview's conversion tips (owner, 14 Sep 2026; reworked PR32 §4 for the
@@ -54,19 +55,17 @@ type TutorFacts = {
  * migration 94), so "listed but unpaid" is a real, coherent set.
  */
 async function tutorFacts(admin: Admin): Promise<TutorFacts[]> {
-  const { data: profs } = await admin
-    .from('profiles')
-    .select('id, profile_completion, phone_verified_at, created_at')
-    .eq('role', 'tutor')
-  const rows = profs ?? []
+  // PAGED (owner, 8 Oct 2026). Test-named accounts are left out of the tips.
+  const rows = await pageAll((from, to) =>
+    admin.from('profiles').select('id, profile_completion, phone_verified_at, created_at').eq('role', 'tutor').eq('is_test_name', false).order('id').range(from, to),
+  )
   const ids = rows.map((p) => p.id as string)
-  const none = ['00000000-0000-0000-0000-000000000000']
-  const [{ data: tp }, { data: listedRows }] = await Promise.all([
-    admin.from('tutor_profiles').select('id, verified_fee_paid_at').in('id', ids.length ? ids : none),
-    admin.from('tutor_directory').select('id').in('id', ids.length ? ids : none),
+  const [tp, listedRows] = await Promise.all([
+    pageAllIn(ids, (part, from, to) => admin.from('tutor_profiles').select('id, verified_fee_paid_at').in('id', part).order('id').range(from, to)),
+    pageAllIn(ids, (part, from, to) => admin.from('tutor_directory').select('id').in('id', part).order('id').range(from, to)),
   ])
-  const feeById = new Map((tp ?? []).map((t) => [t.id as string, !!t.verified_fee_paid_at]))
-  const listed = new Set((listedRows ?? []).map((r) => r.id as string))
+  const feeById = new Map(tp.map((t) => [t.id as string, !!t.verified_fee_paid_at]))
+  const listed = new Set(listedRows.map((r) => r.id as string))
   return rows.map((p) => ({
     id: p.id as string,
     completion: (p.profile_completion as number) ?? 0,

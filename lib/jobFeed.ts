@@ -21,6 +21,8 @@
 //    profile it comes from is one a tutor may already open from an applicant
 //    thread. Phone, WhatsApp and email stay behind canViewContact as before.
 
+import { pageAll, pageAllIn } from '@/lib/pageAll'
+import { testAccountIds } from '@/lib/testAccounts'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
@@ -36,7 +38,7 @@ import { collapseLevels } from '@/lib/levelDisplay'
 import { badgesForPlan, type BadgeName } from '@/lib/entitlements'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { getLandingLinker } from '@/lib/landing'
-import { resolveSubjectQuery } from '@/lib/searchResolve'
+import { resolveSmartQuery } from '@/lib/smartSearch'
 import { TEAM_DISPLAY_NAME } from '@/lib/teamAccount'
 import type { JobCardData } from '@/components/JobCard'
 import { formatName } from '@/lib/formatName'
@@ -112,7 +114,7 @@ async function parentFacts(ids: string[]): Promise<Map<string, ParentFacts>> {
       avatarUrl: (p.avatar_url as string | null) ?? null,
       // PR105-B §1 — a parent's Verified badge needs CNIC verified (not completion
       // alone); the plan-tier Featured badge is unaffected.
-      badges: team ? [] : badgesForPlan(code, (p.profile_completion ?? 0) >= 100, !!p.cnic_verified_at),
+      badges: team ? [] : badgesForPlan(code, (p.profile_completion ?? 0) >= 100, !!p.cnic_verified_at && !!p.address_verified_at),
       canHire: !!(code && planByCode.get(code)?.can_hire),
       team,
       isSeed: !!(p.is_seed as boolean | null),
@@ -161,10 +163,11 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
   const jobContacts = await jobContactRaw(jobIds)
 
   // Subject labels for the chips, resolved from the join table.
-  const { data: links } = await supabase
-    .from('job_subjects')
-    .select('job_id, master_id')
-    .in('job_id', jobIds)
+  // PAGED (owner, 8 Oct 2026): a window of tuitions with "Select all"
+  // subjects passes 1,000 links.
+  const links = await pageAllIn(jobIds, (ids, from, to) =>
+    supabase.from('job_subjects').select('job_id, master_id').in('job_id', ids).order('job_id').order('master_id').range(from, to),
+  )
 
   const masterIds = Array.from(new Set((links ?? []).map((l) => l.master_id as number)))
   const labelByMaster = new Map<number, string>()
@@ -339,7 +342,7 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
       description: maskedDescription.masked ? maskedDescription.text : ((j.description as string) ?? null),
       created_at: (j.created_at as string) ?? new Date().toISOString(),
       // The auto-pause clock base for JobPosting validThrough (PR89 Part C):
-      // coalesce(resumed_at, created_at) + 15 days is when the tuition auto-pauses.
+      // coalesce(resumed_at, created_at) + 7 days is when the tuition auto-pauses.
       resumed_at: (j.resumed_at as string | null) ?? null,
       bumped_at: (j.bumped_at as string | null) ?? null,
       refreshed_at: (j.refreshed_at as string | null) ?? null,
@@ -360,6 +363,9 @@ async function decorate(rawJobs: Record<string, unknown>[]): Promise<JobCardData
     }
   })
 }
+
+/** Inner-join filter on a job's subjects: `.in('js_match.master_id', ids)`. */
+const SUBJECT_MATCH = 'js_match:job_subjects!inner(master_id)'
 
 const JOB_COLUMNS =
   'id, job_tx_id, ref_id, public_slug, title, subjects, class_level, class_levels, city, area, teaching_mode, budget_pkr, budget_min_pkr, budget_max_pkr, description, created_at, resumed_at, bumped_at, refreshed_at, merged_into, grade_subjects, is_featured, under_review, parent_id, status, gender_preference, timings'
@@ -386,22 +392,14 @@ export async function matchingJobsForTutor(
 
   const masterIds = (mine ?? []).map((m) => m.master_id as number)
 
-  let jobIds: string[] = []
-  if (masterIds.length > 0) {
-    const { data: links } = await supabase
-      .from('job_subjects')
-      .select('job_id')
-      .in('master_id', masterIds)
-    jobIds = Array.from(new Set((links ?? []).map((l) => l.job_id as string)))
-  }
-
-  let query = supabase.from('jobs').select(JOB_COLUMNS).eq('status', 'open')
-
-  if (jobIds.length > 0) {
-    query = query.in('id', jobIds)
-  } else if (city) {
-    query = query.ilike('city', city)
-  }
+  // The subject match is a JOIN in the database (owner, 8 Oct 2026) — never a
+  // job-id list read from job_subjects, which stopped at 1,000 rows and then
+  // made a URL too long to send.
+  let query =
+    masterIds.length > 0
+      ? supabase.from('jobs').select(`${JOB_COLUMNS}, ${SUBJECT_MATCH}`).eq('status', 'open').in('js_match.master_id', masterIds)
+      : supabase.from('jobs').select(JOB_COLUMNS).eq('status', 'open')
+  if (masterIds.length === 0 && city) query = query.ilike('city', city)
 
   // Over-fetch so the visibility filter below cannot leave a short window.
   const { data } = await query
@@ -471,6 +469,9 @@ export type JobFilters = {
    *  tuitions that REQUIRE a tutor of this gender. */
   area?: string | null
   genderPreference?: 'male' | 'female' | 'trans' | null
+  /** Smart search (owner, 8 Oct 2026): a named level ("primary", "matric") with
+   *  no subject — tuitions whose class_levels overlap these level names. */
+  levels?: string[] | null
 }
 
 /**
@@ -565,9 +566,13 @@ export async function nearbyCitiesWithTuitions(
   r: ResolvedTutor,
   viewerGender: string | null,
 ): Promise<string[]> {
-  let q = supabase.from('jobs').select('city').eq('status', 'open')
-  if (viewerGender) q = q.or(`gender_preference.is.null,gender_preference.eq.${viewerGender}`)
-  const { data } = await q
+  // PAGED (owner, 8 Oct 2026): open jobs pass 1,000 rows; a plain select
+  // silently dropped cities from the nearby fallback.
+  const data = await pageAll((from, to) => {
+    let q = supabase.from('jobs').select('city, id').eq('status', 'open').order('id')
+    if (viewerGender) q = q.or(`gender_preference.is.null,gender_preference.eq.${viewerGender}`)
+    return q.range(from, to)
+  })
   const cities = [...new Set(((data ?? []).map((j) => ((j.city as string | null) ?? '').trim()).filter(Boolean)))]
   return orderCitiesByDistance(r.cities, cities).slice(0, 3)
 }
@@ -717,29 +722,37 @@ export async function browseJobs(
     }
   }
 
+  // The ONE smart search (owner, 8 Oct 2026): city · level · subject/school out
+  // of a sentence; a query it does not understand stays a title search.
+  let smartCity: string | null = null
+  let smartLevels: string[] | null = null
   if (!refId && (!masterIds || masterIds.length === 0) && filters.q) {
-    const resolved = await resolveSubjectQuery(filters.q, filters.city)
-    if (resolved) {
-      masterIds = resolved.masterIds
+    const smart = await resolveSmartQuery(filters.q)
+    if (smart.understood) {
+      masterIds = smart.masterIds
+      smartLevels = smart.levelNames
+      if (!filters.city && !filters.tutorScope && smart.parsed.city) smartCity = smart.parsed.city
       literalQ = null
     }
   }
 
-  let matchingIds: string[] | null = null
-  if (masterIds && masterIds.length > 0) {
-    const { data: links } = await supabase
-      .from('job_subjects')
-      .select('job_id')
-      .in('master_id', masterIds)
-    matchingIds = Array.from(new Set((links ?? []).map((l) => l.job_id as string)))
-    if (matchingIds.length === 0) return { jobs: [], total: 0, nextCursor: null }
-  }
+  // The subject filter is an inner JOIN on job_subjects (owner, 8 Oct 2026):
+  // reading the matching job ids first stopped at 1,000 links and then sent
+  // hundreds of ids in the URL.
+  const matchingIds: number[] | null = masterIds && masterIds.length > 0 ? masterIds : null
+  const testIds = await testAccountIds()
 
   const build = () => {
-    let q = supabase.from('jobs').select(JOB_COLUMNS, { count: 'exact' }).eq('status', 'open')
+    let q = matchingIds
+      ? supabase.from('jobs').select(`${JOB_COLUMNS}, ${SUBJECT_MATCH}`, { count: 'exact' }).eq('status', 'open').in('js_match.master_id', matchingIds)
+      : supabase.from('jobs').select(JOB_COLUMNS, { count: 'exact' }).eq('status', 'open')
     // PR92 Part B: a resolved job reference is the whole filter.
     if (refId) return q.eq('ref_id', refId)
-    if (matchingIds) q = q.in('id', matchingIds)
+    // Tuitions posted by test-named accounts never reach Browse (owner, 8 Oct 2026).
+    if (testIds.length > 0) q = q.not('parent_id', 'in', `(${testIds.join(',')})`)
+    const levels = filters.levels && filters.levels.length > 0 ? filters.levels : smartLevels
+    if (levels && levels.length > 0) q = q.overlaps('class_levels', levels)
+    if (smartCity) q = q.ilike('city', smartCity)
     // The tutor's own city+areas default (PR71). One PostgREST OR group:
     //   (city = tutor's city AND (area ∈ areas OR area is null))
     //   OR teaching_mode = 'Online Tutor'   (only when the tutor teaches online)
@@ -801,11 +814,10 @@ export async function browseJobs(
     const scope = filters.tutorScope
     let matchedSet = new Set<string>()
     if (scope.subjectMasterIds.length > 0) {
-      const { data: links } = await supabase
-        .from('job_subjects')
-        .select('job_id')
-        .in('master_id', scope.subjectMasterIds)
-      matchedSet = new Set((links ?? []).map((l) => l.job_id as string))
+      const links = await pageAllIn(scope.subjectMasterIds, (ids, from, to) =>
+        supabase.from('job_subjects').select('job_id, master_id').in('master_id', ids).order('job_id').order('master_id').range(from, to),
+      )
+      matchedSet = new Set(links.map((l) => l.job_id as string))
     }
     const ownAreas = new Map(
       scope.cityScopes.map((c) => [c.city.trim().toLowerCase(), new Set(c.areas.map((a) => a.trim().toLowerCase()))]),
@@ -819,9 +831,9 @@ export async function browseJobs(
       return area && areas.has(area) ? 2 : 1 // own city: area match first
     }
 
-    // The whole in-scope open board (small — one tutor's city+areas), full rows.
-    const { data: allRows } = await build()
-    const all = (allRows ?? []) as Record<string, unknown>[]
+    // The whole in-scope open board, full rows — PAGED: an online tutor's scope
+    // holds every online tuition in every city.
+    const all = (await pageAll((from, to) => build().order('id').range(from, to))) as Record<string, unknown>[]
 
     // Rank: own city (area first) for an online tutor, then subject match, then
     // featured, then newest, id as the total tiebreaker so the order is stable

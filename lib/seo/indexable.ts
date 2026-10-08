@@ -90,7 +90,7 @@ export type TuitionIndexFacts = {
 /**
  * A tuition is indexable ONLY when it is OPEN, not a fixture, AND carries enough
  * unique requirement text to stand alone (PR37 §1, PR43 §3). A paused
- * (auto-paused after 15 days) or closed/hired tuition, any seed/example tuition,
+ * (auto-paused after 7 days) or closed/hired tuition, any seed/example tuition,
  * and any one-line post below MIN_TUITION_DESC is noindex and out of the
  * sitemap; a genuine team post is not a fixture (decided by isFixtureTuition
  * before this is called). `descriptionLength` is optional so an existing caller

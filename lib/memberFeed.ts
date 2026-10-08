@@ -1,4 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { pageAll } from '@/lib/pageAll'
+import { fuzzyEq, norm } from '@/lib/smartSearchCore'
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { formatName } from '@/lib/formatName'
 import { stoppedAtByTutor } from '@/lib/onboardingStop'
@@ -95,6 +97,10 @@ export async function memberPage({
       `phone_number.ilike.%${escaped}%`,
     ]
     if (slugIds.length > 0) clauses.push(`id.in.(${slugIds.join(',')})`)
+    // Typo tolerance (owner, 8 Oct 2026): "aqsa mugal" still finds Aqsa Mughal —
+    // the same edit-distance rule the public search uses, over every name.
+    const fuzzyIds = await fuzzyNameIds(admin, term)
+    if (fuzzyIds.length > 0) clauses.push(`id.in.(${fuzzyIds.join(',')})`)
     query = query.or(clauses.join(','))
   }
 
@@ -216,4 +222,21 @@ export async function allMembersForExport(filters: MemberFilters, cap = 5000): P
     cursor = nextCursor
   }
   return out.slice(0, cap)
+}
+
+/** Members whose name matches the typed words allowing small typos. Every word
+ *  of the search must be close to some word of the name. Capped at 100 ids. */
+async function fuzzyNameIds(admin: NonNullable<ReturnType<typeof createAdminClient>>, term: string): Promise<string[]> {
+  const words = norm(term).split(' ').filter((w) => w.length >= 3 && /[a-z]/.test(w))
+  if (words.length === 0) return []
+  const rows = await pageAll((from, to) => admin.from('profiles').select('id, full_name').order('id').range(from, to))
+  const out: string[] = []
+  for (const r of rows) {
+    const nameWords = norm((r.full_name as string | null) ?? '').split(' ').filter(Boolean)
+    if (nameWords.length === 0) continue
+    const ok = words.every((w) => nameWords.some((n) => n.startsWith(w) || fuzzyEq(w, n) != null))
+    if (ok) out.push(r.id as string)
+    if (out.length >= 100) break
+  }
+  return out
 }

@@ -408,7 +408,7 @@ export function jobPostingJsonLd(job: {
   budgetMin: number | null
   budgetMax: number | null
   /** When the posting stops accepting applications (PR89 Part C). A tuition
-   *  auto-pauses 15 days after it was posted or last resumed, so validThrough is
+   *  auto-pauses 7 days after it was posted or last resumed, so validThrough is
    *  that auto-pause instant — and moves forward when a paused tuition resumes.
    *  Omitted → the pre-PR89 fallback of datePosted + 30 days. */
   validThrough?: string | null

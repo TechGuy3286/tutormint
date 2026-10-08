@@ -19,6 +19,8 @@
 // the domain, "farooq@g") or is a near-miss of a common provider
 // ("jameel@gmail.con"), or when it has sat unconfirmed for over a month.
 
+import type { User } from '@supabase/supabase-js'
+import { pageAll } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const PROTECTED_EMAIL_PREFIX = 'seed+'
@@ -105,8 +107,14 @@ export async function findJunkAccounts(): Promise<{ candidates: Candidate[]; sca
   const admin = createAdminClient()
   if (!admin) return { candidates: [], scanned: 0 }
 
-  const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
-  const users = list?.users ?? []
+  // Every page of auth users (owner, 8 Oct 2026) — one page stopped at 1,000.
+  const users: User[] = []
+  for (let page = 1; page < 200; page++) {
+    const { data: list } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
+    const batch = list?.users ?? []
+    users.push(...batch)
+    if (batch.length < 1000) break
+  }
 
   const ids = users.map((u) => u.id)
   const chunk = <T,>(arr: T[], n: number) =>
@@ -120,16 +128,21 @@ export async function findJunkAccounts(): Promise<{ candidates: Candidate[]; sca
   }
 
   for (const group of chunk(ids, 200)) {
+    // Every read PAGED (owner, 8 Oct 2026): one busy member with 1,000+
+    // messages used to hide the rest of the group, which then looked like junk.
+    const paged = (table: string, col: string, extra = '') =>
+      pageAll((from, to) => admin.from(table).select(extra ? `${col}, ${extra}` : col).in(col, group).order(col).range(from, to))
+        .then((data) => ({ data: data as unknown as Record<string, unknown>[] }))
     const [jobs, apps, pays, subs, msgs, reports, reviews, demos, profiles] = await Promise.all([
-      admin.from('jobs').select('parent_id').in('parent_id', group),
-      admin.from('applications').select('tutor_id').in('tutor_id', group),
-      admin.from('payments').select('user_id').in('user_id', group),
-      admin.from('subscriptions').select('user_id').in('user_id', group),
-      admin.from('messages').select('sender_id').in('sender_id', group),
-      admin.from('reports').select('reporter_id').in('reporter_id', group),
-      admin.from('reviews').select('parent_id').in('parent_id', group),
-      admin.from('demo_requests').select('parent_id').in('parent_id', group),
-      admin.from('profiles').select('id, role, admin_role').in('id', group),
+      paged('jobs', 'parent_id'),
+      paged('applications', 'tutor_id'),
+      paged('payments', 'user_id'),
+      paged('subscriptions', 'user_id'),
+      paged('messages', 'sender_id'),
+      paged('reports', 'reporter_id'),
+      paged('reviews', 'parent_id'),
+      paged('demo_requests', 'parent_id'),
+      paged('profiles', 'id', 'role, admin_role'),
     ])
     collect(jobs.data, 'parent_id')
     collect(apps.data, 'tutor_id')
@@ -146,8 +159,8 @@ export async function findJunkAccounts(): Promise<{ candidates: Candidate[]; sca
     }
   }
 
-  const { data: allProfiles } = await admin.from('profiles').select('id, role')
-  const profileById = new Map((allProfiles ?? []).map((p) => [p.id as string, p.role as string]))
+  const allProfiles = await pageAll((from, to) => admin.from('profiles').select('id, role').order('id').range(from, to))
+  const profileById = new Map(allProfiles.map((p) => [p.id as string, p.role as string]))
 
   const thirtyDaysAgo = Date.now() - 30 * 86_400_000
   const candidates: Candidate[] = []

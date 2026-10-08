@@ -16,6 +16,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export type ActivityEvent =
   | 'registered'
+  | 'second_role_created'
   | 'login'
   | 'otp_verified'
   | 'profile_updated'

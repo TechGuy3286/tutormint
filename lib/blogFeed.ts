@@ -11,6 +11,7 @@
 // answers that without a row shifting under it between requests. published_at
 // is not unique, so id is the tiebreaker that makes the key total.
 
+import { pageAll } from '@/lib/pageAll'
 import { createPublicClient } from '@/lib/supabase/public'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { encodeCursor, decodeCursor } from '@/lib/cursor'
@@ -192,12 +193,10 @@ export async function unpublishedPostExists(slug: string): Promise<boolean> {
 /** Every published slug, for the sitemap. */
 export async function publishedSlugs(): Promise<{ slug: string; updatedAt: string | null }[]> {
   const db = createPublicClient()
-  const { data } = await db
-    .from('posts')
-    .select('slug, published_at, updated_at')
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-  return (data ?? []).map((r) => ({
+  const data = await pageAll((from, to) =>
+    db.from('posts').select('id, slug, published_at, updated_at').eq('status', 'published').order('published_at', { ascending: false }).order('id').range(from, to),
+  )
+  return data.map((r) => ({
     slug: r.slug as string,
     // Sitemap lastmod is the last EDIT (owner, 5 Oct 2026), not the first publish.
     updatedAt: (r.updated_at as string) ?? (r.published_at as string) ?? null,

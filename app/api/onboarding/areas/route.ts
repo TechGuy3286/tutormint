@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { pageAll } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // Demand-ordered areas for a city (PR106-G3c §9). Returns the city's areas with
@@ -26,9 +27,9 @@ export async function GET(request: Request) {
   const all = (areaRows ?? []).map((r) => r.name as string)
 
   // Demand counts for this city.
-  const [{ data: tutors }, { data: jobs }] = await Promise.all([
-    admin.from('tutor_profiles').select('area, city').ilike('city', city).not('area', 'is', null),
-    admin.from('jobs').select('area, city, status').ilike('city', city).eq('status', 'open').not('area', 'is', null),
+  const [tutors, jobs] = await Promise.all([
+    pageAll((from, to) => admin.from('tutor_profiles').select('id, area, city').ilike('city', city).not('area', 'is', null).order('id').range(from, to)),
+    pageAll((from, to) => admin.from('jobs').select('id, area, city, status').ilike('city', city).eq('status', 'open').not('area', 'is', null).order('id').range(from, to)),
   ])
   const demand = new Map<string, number>()
   for (const row of [...(tutors ?? []), ...(jobs ?? [])]) {

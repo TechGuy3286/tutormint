@@ -435,7 +435,7 @@ async function tutorMetaFlags(tutorId: string): Promise<TutorMetaFlags> {
       .maybeSingle(),
     admin
       .from('profiles')
-      .select('is_seed, profile_completion, verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status, paused_by_user_at')
+      .select('is_seed, is_test_name, profile_completion, verification_state, cnic_verified_at, cnic_number, cnic_image_path, profile_pic_status, selfie_status, paused_by_user_at')
       .eq('id', tutorId)
       .maybeSingle(),
   ])
@@ -454,7 +454,9 @@ async function tutorMetaFlags(tutorId: string): Promise<TutorMetaFlags> {
   return {
     underReview,
     shareHidden: underReview || unclaimed,
-    isSeed: !!(prof?.is_seed as boolean | null),
+    // A test-named account (owner, 8 Oct 2026) is a fixture for search engines:
+    // it still works, but is never indexed.
+    isSeed: !!(prof?.is_seed as boolean | null) || !!(prof?.is_test_name as boolean | null),
     // PR100 — the one-time verification fee. Unpaid → noindex.
     verified: !!(tp?.verified_fee_paid_at as string | null),
     completion: (prof?.profile_completion as number | null) ?? 0,

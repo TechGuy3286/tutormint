@@ -9,6 +9,8 @@
 // PURE — no React, no I/O — so the grouping and the search filter are unit-tested
 // (scripts/test-onboarding-subjects.ts).
 
+import { subjectMatches } from '@/lib/smartSearchCore'
+
 /** category -> grade -> subject[] (the shape lib/taxonomyBuild produces). */
 export type Tree = Record<string, Record<string, string[]>>
 
@@ -46,9 +48,15 @@ export function subjectGroups(tree: Tree, core: Tree, category: string, selected
 /** Filter the "More" list by a typed query: a plain substring match, OR a name
  *  the platform's typo-tolerant / Roman-Urdu search returned for that query
  *  (/api/search/suggest — "fizics" → Physics, "hisab" → Mathematics). */
-export function filterMore(more: string[], query: string, suggested: string[] = []): string[] {
+export function filterMore(
+  more: string[],
+  query: string,
+  suggested: string[] = [],
+  /** Search words per subject name (lowercase) — the ONE smart search (owner, 8 Oct 2026). */
+  words: Record<string, string[]> = {},
+): string[] {
   const q = query.trim().toLowerCase()
   if (!q) return more
   const hits = new Set(suggested.map((s) => s.toLowerCase()))
-  return more.filter((s) => s.toLowerCase().includes(q) || hits.has(s.toLowerCase()))
+  return more.filter((s) => subjectMatches(q, s, words[s.toLowerCase()] ?? []) || hits.has(s.toLowerCase()))
 }

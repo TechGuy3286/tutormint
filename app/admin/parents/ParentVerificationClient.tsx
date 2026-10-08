@@ -41,7 +41,8 @@ export default function ParentVerificationClient({
     <div className="space-y-4">
       <p className="text-xs text-gray-500">
         Each parent&apos;s CNIC and address are approved or rejected on their own. Approving both
-        verifies the parent at once, so they can message tutors, request demos and post tuitions.
+        gives the parent the green Verified badge. Posting, messaging and demos need only a verified
+        mobile, so nothing waits on this queue.
         Awaiting review lists the oldest submission first.
       </p>
 

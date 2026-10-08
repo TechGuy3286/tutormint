@@ -7,12 +7,12 @@
 //   repeat   → status closed, merged_into = survivor, merged_at, closed_at;
 //              301 at /tuitions/<city>/<slug> (the page reads merged_into);
 //              out of Browse and the sitemap by status; Indexing API URL_DELETED
-//   survivor → one refresh: fresh 15-day clock (resumed_at), top of Browse
+//   survivor → one refresh: fresh 7-day clock (resumed_at), top of Browse
 //              (bumped_at), Indexing API URL_UPDATED
 // Nothing is deleted. A repeat with applications is NOT merged (skipped).
 //
 // REFRESH moves an open/paused-and-open tuition to the top of Browse with a
-// fresh 15 days, same URL, Indexing API URL_UPDATED — at most once every 3 days.
+// fresh 7 days, same URL, Indexing API URL_UPDATED — at most once every 3 days.
 
 import 'server-only'
 

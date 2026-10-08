@@ -1,4 +1,5 @@
 import { Filter } from 'lucide-react'
+import { pageAll } from '@/lib/pageAll'
 import Link from 'next/link'
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -46,7 +47,7 @@ export default async function AdminAuditPage({
 
   // Which action families actually exist, so the chips reflect reality rather
   // than a hardcoded list that drifts.
-  const { data: allActions } = await admin.from('admin_audit_log').select('action').limit(2000)
+  const allActions = await pageAll((from, to) => admin.from('admin_audit_log').select('id, action').order('id').range(from, to))
   const families = Array.from(
     new Set((allActions ?? []).map((a) => (a.action as string).split('.')[0])),
   ).sort()

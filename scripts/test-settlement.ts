@@ -104,7 +104,7 @@ test('the settlement check (and the old reconciliation) is owner only', () => {
   const exp = readFileSync(join(__dirname, '..', 'app', 'api', 'admin', 'payments', 'settlement', 'export', 'route.ts'), 'utf8')
   assert.ok(exp.includes('checkAdminRole(...SCREEN_ACCESS.finance)'))
   const lib = readFileSync(join(__dirname, '..', 'lib', 'settlement.ts'), 'utf8')
-  assert.ok(lib.includes(".select('provider_ref, amount_pkr, reviewed_at, updated_at, created_at, method, raw')"), 'payments are read by reference, amount, dates and method only')
+  assert.ok(lib.includes(".select('id, provider_ref, amount_pkr, reviewed_at, updated_at, created_at, method, raw')"), 'payments are read by reference, amount, dates and method only')
   assert.ok(!/select\('[^']*(full_name|email|phone)/.test(lib), 'no personal column is selected')
   const old = readFileSync(join(__dirname, '..', 'app', 'admin', 'payments', 'reconciliation', 'page.tsx'), 'utf8')
   // Moved to Admin → Finance → Settlement check (owner, 8 Oct 2026).

@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { pageAll } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
 import { logAdminAction } from '@/lib/auditLog'
@@ -166,11 +167,9 @@ export async function loadInboxThreads(limit = 100): Promise<InboxThread[]> {
   if (!admin) return []
 
   // Small volume; pull recent messages and fold to one row per member.
-  const { data: rows } = await admin
-    .from('admin_messages')
-    .select('member_id, direction, body, created_at, read_at')
-    .order('created_at', { ascending: false })
-    .limit(2000)
+  const rows = await pageAll((from, to) =>
+    admin.from('admin_messages').select('id, member_id, direction, body, created_at, read_at').order('created_at', { ascending: false }).order('id').range(from, to),
+  )
   if (!rows || rows.length === 0) return []
 
   const byMember = new Map<string, InboxThread>()

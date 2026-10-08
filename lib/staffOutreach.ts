@@ -5,6 +5,7 @@
 // lib/staffOutreachCore.ts. Service role; every route that calls this checks
 // SCREEN_ACCESS.unpaidSignups / featuredWhatsapp first.
 
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -53,14 +54,17 @@ export async function loadUnpaidSignups(now = new Date()): Promise<UnpaidRow[]> 
   const admin = createAdminClient()
   if (!admin) return []
   const since = new Date(now.getTime() - UNPAID_WINDOW_DAYS * 86_400_000).toISOString()
-  const { data: profiles } = await admin
-    .from('profiles')
-    .select('id, full_name, city, created_at, profile_completion, phone_number, whatsapp, is_suspended, is_banned, is_seed, is_team_account, admin_role')
-    .eq('role', 'tutor')
-    .gte('created_at', since)
-    .order('created_at', { ascending: false })
-    .limit(2000)
-  const candidates = (profiles ?? []).filter(
+  const profiles = await pageAll((from, to) =>
+    admin
+      .from('profiles')
+      .select('id, full_name, city, created_at, profile_completion, phone_number, whatsapp, is_suspended, is_banned, is_seed, is_team_account, admin_role')
+      .eq('role', 'tutor')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, to),
+  )
+  const candidates = profiles.filter(
     // Staff accounts (any admin_role) are TutorMint's own people, not leads.
     (p) => !p.is_suspended && !p.is_banned && !p.is_seed && !p.is_team_account && !p.admin_role && !isTestName(p.full_name as string | null),
   )
@@ -221,21 +225,24 @@ export async function loadFeaturedWhatsapp(now = new Date()): Promise<{ cutoff: 
   // Candidate tuitions: open, posted before today's cut-off and inside the
   // widest look-back any tutor needs.
   const earliest = new Date(cutoff.getTime() - FEATURED_FIRST_LOOKBACK_DAYS * 86_400_000).toISOString()
-  const { data: jobs } = await admin
-    .from('jobs')
-    .select('id, ref_id, title, city, area, teaching_mode, gender_preference, public_slug, created_at')
-    .eq('status', 'open')
-    .gt('created_at', earliest)
-    .lte('created_at', cutoff.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(2000)
-  const jobList = (jobs ?? []) as JobRow[]
+  const jobs = await pageAll((from, to) =>
+    admin
+      .from('jobs')
+      .select('id, ref_id, title, city, area, teaching_mode, gender_preference, public_slug, created_at')
+      .eq('status', 'open')
+      .gt('created_at', earliest)
+      .lte('created_at', cutoff.toISOString())
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, to),
+  )
+  const jobList = jobs as JobRow[]
   const jobIds = jobList.map((j) => j.id)
-  const { data: jsub } = jobIds.length
-    ? await admin.from('job_subjects').select('job_id, master_id').in('job_id', jobIds)
-    : { data: [] as { job_id: string; master_id: number }[] }
+  const jsub = await pageAllIn(jobIds, (ids, from, to) =>
+    admin.from('job_subjects').select('job_id, master_id').in('job_id', ids).order('job_id').order('master_id').range(from, to),
+  )
   const jobMasters = new Map<string, number[]>()
-  for (const r of jsub ?? []) {
+  for (const r of jsub) {
     const k = r.job_id as string
     jobMasters.set(k, [...(jobMasters.get(k) ?? []), r.master_id as number])
   }

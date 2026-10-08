@@ -15,6 +15,7 @@ import 'server-only'
 // city/area string in use minus the curated set". Read through the service-role
 // client (profiles is not public-readable), so it is admin-only by construction.
 
+import { pageAll, pageAllIn } from '@/lib/pageAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   buildCityAreaMap,
@@ -57,12 +58,12 @@ export async function unmappedLocations(): Promise<UnmappedLocation[]> {
 
   const map = await loadCuratedMap(admin)
 
-  const [{ data: jobs }, { data: tutors }, { data: profs }] = await Promise.all([
-    admin.from('jobs').select('city, area'),
-    admin.from('tutor_profiles').select('city, area'),
-    admin.from('profiles').select('city, area'),
+  const [jobs, tutors, profs] = await Promise.all([
+    pageAll((from, to) => admin.from('jobs').select('id, city, area').order('id').range(from, to)),
+    pageAll((from, to) => admin.from('tutor_profiles').select('id, city, area').order('id').range(from, to)),
+    pageAll((from, to) => admin.from('profiles').select('id, city, area').order('id').range(from, to)),
   ])
-  const rows = [...(jobs ?? []), ...(tutors ?? []), ...(profs ?? [])] as {
+  const rows = [...jobs, ...tutors, ...profs] as {
     city: string | null
     area: string | null
   }[]

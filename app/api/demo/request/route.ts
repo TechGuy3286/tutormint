@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { PARENT_MOBILE_GATE_MESSAGE } from '@/lib/parentGate'
 import { memberUnavailable } from '@/lib/selfPause'
 import { NOT_AVAILABLE, NOT_AVAILABLE_UR } from '@/lib/selfPauseCore'
 import { serverError } from '@/lib/errorResponse'
@@ -84,26 +85,12 @@ ${NOT_AVAILABLE_UR}` }, { status: 403 })
 
   const admin = createAdminClient()
 
-  // Owner (5 Oct 2026): a demo needs CNIC + address approved, exactly like
-  // Message (this supersedes PR25 §4.1 for demos). A verified parent holds the
-  // free parent_verified plan, which is what `ent.plan` reports. The gate's CTA
-  // opens the existing verification step with the way back — the tutor's page
-  // with ?demo=1 — so the request resumes once approval has landed. Existing
-  // demo requests from unverified parents are untouched.
+  // A VERIFIED MOBILE is all a parent needs to request a demo (owner, 8 Oct
+  // 2026 — supersedes the 5 Oct CNIC + address rule). The free parent_verified
+  // plan is synthesised from phone_verified_at, which is what `ent.plan` says.
   if (!ent.plan) {
     const gate = await buildGate('parent_verify', ent)
-    let returnTo = '/browse/tutors'
-    if (admin) {
-      const { data: tp } = await admin.from('tutor_profiles').select('slug').eq('id', tutorId).maybeSingle()
-      if (tp?.slug) returnTo = `/tutor/${tp.slug as string}?demo=1`
-    }
-    return NextResponse.json(
-      {
-        error: 'Verify your CNIC and address to request a demo. It is free.',
-        gate: gate ? { ...gate, href: `/parent/verify?next=${encodeURIComponent(returnTo)}` } : undefined,
-      },
-      { status: 403 },
-    )
+    return NextResponse.json({ error: PARENT_MOBILE_GATE_MESSAGE, gate: gate ?? undefined }, { status: 403 })
   }
 
   if (admin) {

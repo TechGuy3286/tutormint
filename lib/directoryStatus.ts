@@ -21,7 +21,7 @@ export async function loadDirectoryStatus(userId: string): Promise<DirectoryStat
   const [{ data: prof }, { data: tp }, { data: subj }] = await Promise.all([
     admin
       .from('profiles')
-      .select('role, phone_verified_at, is_suspended, is_banned, is_seed, is_team_account, hidden_from_public, paused_by_user_at, verification_state, profile_pic_status, selfie_status')
+      .select('role, phone_verified_at, is_suspended, is_banned, is_seed, is_team_account, is_test_name, hidden_from_public, paused_by_user_at, verification_state, profile_pic_status, selfie_status')
       .eq('id', userId)
       .maybeSingle(),
     admin
@@ -38,6 +38,7 @@ export async function loadDirectoryStatus(userId: string): Promise<DirectoryStat
   const facts = {
     role: (prof?.role as string | null) ?? null,
     hiddenFromPublic: (prof?.hidden_from_public as boolean | null) ?? null,
+    isTestName: (prof?.is_test_name as boolean | null) ?? null,
     pausedByUser: !!(prof?.paused_by_user_at as string | null),
     phoneVerified: !!prof?.phone_verified_at,
     hasSubjects: (subj ?? []).length > 0,

@@ -30,6 +30,7 @@ const TODO_KEYS: OverviewItemKey[] = [
   'todo-flagged',
   'todo-pausing',
   'todo-featured',
+  'todo-unmet',
 ]
 const STEP_KEYS: OverviewItemKey[] = ['funnel-signed-up', 'funnel-mobile', 'funnel-onboarded', 'funnel-paid']
 const LOST_KEYS: (OverviewItemKey | null)[] = [null, 'lost-mobile', 'lost-onboarding', 'lost-payment']

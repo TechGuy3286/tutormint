@@ -24,6 +24,7 @@ export type SessionProfile = {
   avatar_url: string | null
   profile_completion: number | null
   cnic_verified_at: string | null
+  phone_verified_at?: string | null
   address_verified_at: string | null
   /** Set by the reports queue or the member page. Gates the dashboards. */
   is_suspended: boolean | null
@@ -66,7 +67,7 @@ export const getSessionUser = cache(async function getSessionUser(): Promise<Ses
   const { data: profile } = await supabase
     .from('profiles')
     .select(
-      'id, role, account_type, full_name, email, city, avatar_url, profile_completion, cnic_verified_at, address_verified_at, is_suspended, suspension_reason, admin_role',
+      'id, role, account_type, full_name, email, city, avatar_url, profile_completion, cnic_verified_at, address_verified_at, phone_verified_at, is_suspended, suspension_reason, admin_role',
     )
     .eq('id', user.id)
     .maybeSingle()

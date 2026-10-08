@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { pageAll } from '@/lib/pageAll'
 import { cleanupAbandonedVideos, youtubeConfigured } from '@/lib/youtube'
 
 // Delete abandoned YouTube introduction placeholders (owner PR13 §2.2).
@@ -11,9 +12,13 @@ import { cleanupAbandonedVideos, youtubeConfigured } from '@/lib/youtube'
 async function keptVideoIds(): Promise<Set<string>> {
   const admin = createAdminClient()
   if (!admin) return new Set()
-  const { data } = await admin.from('tutor_profiles').select('video_youtube_id')
+  // PAGED (owner, 8 Oct 2026): past 1,000 tutors a plain select would leave
+  // real videos out of the KEEP set — and the sweep would delete them.
+  const data = await pageAll((from, to) =>
+    admin.from('tutor_profiles').select('id, video_youtube_id').not('video_youtube_id', 'is', null).order('id').range(from, to),
+  )
   const ids = new Set<string>()
-  for (const r of data ?? []) {
+  for (const r of data) {
     const id = r.video_youtube_id as string | null
     if (id) ids.add(id)
   }

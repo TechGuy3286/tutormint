@@ -53,6 +53,7 @@ test('directoryBlockers agrees with tutor_directory for every account (live)', {
              coalesce(tp.imported,false) as imported, tp.claimed_at,
              coalesce(p.is_seed,false) as is_seed, coalesce(p.is_team_account,false) as is_team_account,
              coalesce(p.hidden_from_public,false) as hidden_from_public,
+             coalesce(p.is_test_name,false) as is_test_name,
              (p.paused_by_user_at is not null) as paused_by_user,
              p.verification_state, p.profile_pic_status, p.selfie_status,
              exists (select 1 from public.tutor_directory d where d.id = p.id) as in_view
@@ -74,6 +75,7 @@ test('directoryBlockers agrees with tutor_directory for every account (live)', {
           isSeed: r.is_seed,
           isTeamAccount: r.is_team_account,
           hiddenFromPublic: r.hidden_from_public,
+          isTestName: r.is_test_name,
           pausedByUser: r.paused_by_user,
           cnicRejected: (r.verification_state ?? '').toLowerCase() === 'rejected',
           photoRejected: (r.profile_pic_status ?? '').toLowerCase() === 'rejected',
