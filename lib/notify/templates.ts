@@ -270,7 +270,7 @@ export type TemplateInput =
   // A member's document was rejected (PR106-H1 §4). Essential (a verification
   // decision they are waiting on). NEVER the CNIC number or image — the item
   // name, the reason and a link straight to the re-upload step only.
-  | { id: 'verification_rejected'; name: string; what: string; reason: string; href: string }
+  | { id: 'verification_rejected'; name: string; what: string; reason: string; href: string; audience?: 'tutor' | 'parent' }
   // A tuition matching a Premium/Featured tutor's subjects (PR54 §C). Not
   // essential — it carries a one-click unsubscribe. NEVER a parent's name or
   // contact details, and no price.
@@ -485,10 +485,15 @@ export function render(input: TemplateInput): RenderedEmail {
         `Your ${input.what} needs another look`,
         [
           `Your ${input.what} was not approved: ${input.reason}`,
-          'Please upload a clear one to finish getting verified. Nothing else changes — your Spam Free Platform Fee and the rest of your profile stay exactly as they are.',
+          input.audience === 'parent'
+            ? 'Please correct it on your verification page. Once your CNIC and address are approved you can message tutors and request demos.'
+            : 'Please upload a clear one to finish getting verified. Nothing else changes — your Spam Free Platform Fee and the rest of your profile stay exactly as they are.',
         ],
         true, // a verification decision the member is waiting on
-        { label: `Re-upload your ${input.what}`, href: input.href },
+        {
+          label: input.audience === 'parent' ? 'Open your verification page' : `Re-upload your ${input.what}`,
+          href: input.href,
+        },
       )
 
     // ---------------------------------------------------------------------

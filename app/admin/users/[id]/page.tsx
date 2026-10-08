@@ -16,6 +16,10 @@ import { flagSourceLabel } from '@/lib/adminFlagsShared'
 import Timeline from './Timeline'
 import MemberActivity from './MemberActivity'
 import { formatName } from '@/lib/formatName'
+import { loadParentDocs } from '@/lib/parentDocuments'
+import { loadDocumentStatuses } from '@/lib/tutorDocuments'
+import ParentDocumentReview from '@/components/admin/ParentDocumentReview'
+import TutorDocumentReview from '@/components/admin/TutorDocumentReview'
 
 // One member, everything about them in one place.
 //
@@ -54,7 +58,7 @@ export default async function AdminMemberPage({
   const { data: profile } = await admin
     .from('profiles')
     .select(
-      'id, full_name, email, phone_number, whatsapp, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content',
+      'id, full_name, email, phone_number, whatsapp, avatar_url, role, admin_role, city, profile_completion, cnic_verified_at, address_verified_at, verification_state, is_suspended, suspension_reason, suspended_at, suspended_by, is_banned, banned_reason, paused_by_user_at, phone_verified_via, phone_verified_at, created_at, utm_source, utm_medium, utm_campaign, utm_content',
     )
     .eq('id', id)
     .maybeSingle()
@@ -168,6 +172,46 @@ export default async function AdminMemberPage({
 
   const verified = !!profile.cnic_verified_at && !!profile.address_verified_at
 
+  // ---- Documents box (owner, 8 Oct 2026): every member's submitted identity
+  // documents, each approved or rejected on its own, right under the summary.
+  // Parents: CNIC front + back and the typed address. Tutors: CNIC, profile
+  // photo and selfie (the same review the tutor record uses). Images are served
+  // only through /api/documents/[id]/preview (owner or staff, never public).
+  const isParent = profile.role === 'parent' || profile.role === 'academy'
+  const canReviewParent = roleSatisfies(actor.adminRole, SCREEN_ACCESS.parents)
+  const canReviewTutor = roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutors)
+  const parentDocs = isParent ? await loadParentDocs(id) : null
+  let tutorDocs: {
+    cnicFrontId: string | null
+    cnicBackId: string | null
+    selfieId: string | null
+    statuses: Awaited<ReturnType<typeof loadDocumentStatuses>>
+  } | null = null
+  if (isTutor) {
+    const [{ data: idDocs }, statuses] = await Promise.all([
+      admin
+        .from('user_documents')
+        .select('id, kind, label, created_at')
+        .eq('user_id', id)
+        .in('kind', ['cnic', 'selfie'])
+        .eq('status', 'active')
+        .order('created_at', { ascending: false }),
+      loadDocumentStatuses(id),
+    ])
+    const d = (idDocs ?? []) as { id: string; kind: string; label: string | null }[]
+    tutorDocs = {
+      cnicFrontId: d.find((x) => x.kind === 'cnic' && (x.label ?? 'front') !== 'back')?.id ?? null,
+      cnicBackId: d.find((x) => x.kind === 'cnic' && x.label === 'back')?.id ?? null,
+      selfieId: d.find((x) => x.kind === 'selfie')?.id ?? null,
+      statuses,
+    }
+  }
+  const documentsLabel = verified
+    ? 'Approved'
+    : parentDocs && parentDocs.waiting.length > 0
+      ? 'Submitted'
+      : ((profile.verification_state as string) ?? 'none')
+
   return (
     <div className="space-y-5">
       <header className="space-y-2">
@@ -238,7 +282,8 @@ export default async function AdminMemberPage({
             read as a contradiction (PR99 §3). */}
         <Fact
           label="Documents"
-          value={verified ? 'Approved' : (profile.verification_state as string) ?? 'none'}
+          value={documentsLabel}
+          href={parentDocs || tutorDocs ? '#documents' : undefined}
         />
         <Fact label="City" value={(profile.city as string) ?? '—'} />
         <Fact
@@ -276,6 +321,41 @@ export default async function AdminMemberPage({
           </>
         )}
       </section>
+
+      {(parentDocs || tutorDocs) && (
+        <section id="documents" className="scroll-mt-20 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+          <h2 className="text-xs font-black uppercase tracking-wide text-gray-500">Documents</h2>
+          {parentDocs && (
+            <ParentDocumentReview
+              canReview={canReviewParent}
+              docs={{
+                parentId: parentDocs.parentId,
+                cnicFrontId: parentDocs.cnicFrontId,
+                cnicBackId: parentDocs.cnicBackId,
+                cnicNumber: parentDocs.cnicNumber,
+                address: parentDocs.address,
+                city: parentDocs.city,
+                cnic: parentDocs.cnic,
+                addressItem: parentDocs.addressItem,
+                verified: parentDocs.verified,
+                whatsapp: parentDocs.whatsapp,
+              }}
+            />
+          )}
+          {tutorDocs && (
+            <TutorDocumentReview
+              tutorId={id}
+              canReview={canReviewTutor}
+              avatarUrl={(profile.avatar_url as string | null) ?? null}
+              cnicFrontId={tutorDocs.cnicFrontId}
+              cnicBackId={tutorDocs.cnicBackId}
+              selfieDocId={tutorDocs.selfieId}
+              statuses={tutorDocs.statuses}
+              memberWhatsapp={(profile.whatsapp as string | null) ?? (profile.phone_number as string | null) ?? null}
+            />
+          )}
+        </section>
+      )}
 
       {isTutor && (
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -436,9 +516,12 @@ function Fact({
   label,
   value,
   verbatim = false,
+  href,
 }: {
   label: string
   value: string
+  /** Makes the value a link (e.g. "Documents: Submitted" → the Documents box). */
+  href?: string
   /**
    * Render the value exactly as stored.
    *
@@ -452,9 +535,15 @@ function Fact({
   return (
     <div className="min-w-0">
       <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
-      <p className={`truncate text-sm font-black text-tm-navy ${verbatim ? '' : 'capitalize'}`}>
-        {value}
-      </p>
+      {href ? (
+        <a href={href} className={`block truncate text-sm font-black text-tm-red underline-offset-2 hover:underline ${verbatim ? '' : 'capitalize'}`}>
+          {value}
+        </a>
+      ) : (
+        <p className={`truncate text-sm font-black text-tm-navy ${verbatim ? '' : 'capitalize'}`}>
+          {value}
+        </p>
+      )}
     </div>
   )
 }

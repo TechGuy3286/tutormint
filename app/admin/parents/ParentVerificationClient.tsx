@@ -1,16 +1,12 @@
 'use client'
-import { Check, X } from 'lucide-react'
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { submitJson } from '@/lib/submit'
 import InfiniteFooter from '@/components/InfiniteFooter'
-import SecureDocumentPreview from '@/components/SecureDocumentPreview'
 import StatusChip from '@/components/admin/StatusChip'
+import ParentDocumentReview from '@/components/admin/ParentDocumentReview'
 import { useInfinite } from '@/lib/useInfinite'
-import { useToast } from '@/components/ui/Toast'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { formatDateTime } from '@/lib/datetime'
 import type { QueueParentRow } from '@/lib/adminQueues'
 
 export type QueueParent = QueueParentRow
@@ -18,7 +14,7 @@ export type QueueParent = QueueParentRow
 const FILTERS = [
   { key: 'submitted', label: 'Awaiting review' },
   { key: 'all', label: 'All' },
-  { key: 'approved', label: 'Approved' },
+  { key: 'approved', label: 'Verified' },
 ]
 
 export default function ParentVerificationClient({
@@ -32,7 +28,6 @@ export default function ParentVerificationClient({
   initialCursor: string | null
   total: number
 }) {
-  const router = useRouter()
   const more = useInfinite<QueueParent>({
     endpoint: '/api/admin/queues/parents',
     params: { filter },
@@ -41,63 +36,13 @@ export default function ParentVerificationClient({
   })
   const all = [...parents, ...more.items]
   const [open, setOpen] = useState<QueueParent | null>(null)
-  const [reason, setReason] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const [msg, setMsg] = useState('')
-  const toast = useToast()
-  const confirm = useConfirm()
-
-  async function act(action: 'approve' | 'reject') {
-    if (!open) return
-    if (reason.trim().length < 3) {
-      setErr('Write a reason — it is recorded, and a rejection reason is shown to the parent.')
-      return
-    }
-    if (action === 'reject') {
-      const ok = await confirm({
-        title: `Reject ${open.fullName}'s verification?`,
-        body: 'They cannot post jobs until they correct and resubmit. Your reason is shown to them.',
-        confirmLabel: 'Reject',
-      })
-      if (!ok) return
-    }
-    setBusy(true)
-    setErr('')
-    setMsg('')
-
-    // submitJson rather than a bare fetch: `await res.json()` on a dead
-    // network or an HTML error page throws, and the setBusy(false) below it
-    // never ran -- the queue's button stayed on "Working…" until the tab was
-    // reloaded, with the decision neither made nor reported.
-    const { ok, error: failed } = await submitJson('/api/admin/parents/verify', {
-      parentId: open.id,
-      action,
-      reason: reason.trim(),
-    })
-    setBusy(false)
-
-    if (!ok) {
-      setErr(failed ?? 'Action failed.')
-      toast.error(failed ?? 'Action failed.')
-      return
-    }
-
-    const message =
-      action === 'approve'
-        ? `${open.fullName} approved — they can now post jobs.`
-        : `${open.fullName} rejected. They can correct and resubmit.`
-    setMsg(message)
-    toast.success(message)
-    setReason('')
-    setOpen(null)
-    router.refresh()
-  }
 
   return (
     <div className="space-y-4">
       <p className="text-xs text-gray-500">
-        Approving sets CNIC and address verified, which is what unblocks job posting.
+        Each parent&apos;s CNIC and address are approved or rejected on their own. Approving both
+        verifies the parent at once, so they can message tutors, request demos and post tuitions.
+        Awaiting review lists the oldest submission first.
       </p>
 
       <nav className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Filter">
@@ -117,12 +62,6 @@ export default function ParentVerificationClient({
         ))}
       </nav>
 
-      {msg && (
-        <p className="p-3 bg-tm-tint-green border border-tm-green-deep/30 text-tm-green-deep text-xs font-bold rounded-xl">
-          {msg}
-        </p>
-      )}
-
       {all.length === 0 ? (
         <p className="bg-white border border-gray-200 rounded-2xl p-6 text-center text-xs font-bold text-gray-500">
           Nothing in this queue.
@@ -132,25 +71,26 @@ export default function ParentVerificationClient({
           {all.map((p) => (
             <li key={p.id}>
               <button
-                onClick={() => {
-                  setOpen(p)
-                  setReason('')
-                  setErr('')
-                }}
+                onClick={() => setOpen(p)}
                 className="w-full text-left bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 hover:border-tm-navy transition-colors flex items-center gap-3 min-h-[44px]"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-black text-tm-navy truncate">{p.fullName}</p>
                   <p className="text-[11px] text-gray-500 truncate">
-                    {p.city ?? '—'} · {p.completion}% ·{' '}
-                    {p.cnicFrontId && p.cnicBackId
-                      ? 'both sides uploaded'
-                      : p.cnicFrontId || p.cnicBackId
-                        ? 'one side only'
-                        : 'no CNIC'}
+                    {p.city ?? '—'}
+                    {p.submittedAt ? ` · submitted ${formatDateTime(p.submittedAt)}` : ''}
                   </p>
+                  {p.waiting.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {p.waiting.map((w) => (
+                        <span key={w} className="rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">
+                          {w} waiting
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <StatusChip status={p.state} />
+                <StatusChip status={p.verified ? 'approved' : p.state} />
               </button>
             </li>
           ))}
@@ -192,71 +132,30 @@ export default function ParentVerificationClient({
             </div>
 
             <dl className="grid grid-cols-2 gap-2 text-[11px]">
-              <Info label="State" value={open.state} />
-              <Info label="Completion" value={`${open.completion}%`} />
-              <Info label="CNIC no." value={open.cnicNumber ?? '—'} />
               <Info label="Mobile" value={open.phoneVerified ? `${open.phone} ✓` : (open.phone ?? '—')} />
+              <Info label="Submitted" value={open.submittedAt ? formatDateTime(open.submittedAt) : '—'} />
             </dl>
 
-            <div className="space-y-1">
-              <p className="text-[11px] font-bold text-tm-navy">Address</p>
-              <p className="text-xs text-gray-600 bg-tm-bg border border-gray-100 rounded-xl p-3">
-                {open.address || 'Not provided'}
-              </p>
-            </div>
+            <ParentDocumentReview
+              key={open.id}
+              canReview
+              docs={{
+                parentId: open.id,
+                cnicFrontId: open.cnicFrontId,
+                cnicBackId: open.cnicBackId,
+                cnicNumber: open.cnicNumber,
+                address: open.address,
+                city: open.city,
+                cnic: open.cnic,
+                addressItem: open.addressItem,
+                verified: open.verified,
+                whatsapp: open.whatsapp,
+              }}
+            />
 
-            {/* THE NUMBER SITS WITH THE IMAGES, in full and monospaced.
-                Checking a card IS comparing the typed digits against the ones
-                in the photograph, and the number was three rows up in a
-                two-column grid of chips while the image was down here -- so
-                the one comparison this screen exists for was the one thing it
-                did not put side by side. Full, not masked: masking it would
-                make the check impossible, and this screen is already restricted
-                to admins who may work the queue. */}
-            {open.cnicFrontId || open.cnicBackId ? (
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-[11px] font-bold text-tm-navy">CNIC — watermarked previews</p>
-                  <p className="font-mono text-xs font-black text-tm-navy">
-                    {open.cnicNumber ?? 'no number typed'}
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <DocSide id={open.cnicFrontId} label="Front" />
-                  <DocSide id={open.cnicBackId} label="Back" />
-                </div>
-              </div>
-            ) : (
-              <p className="text-[11px] font-bold text-tm-gold-ink bg-tm-tint-gold border border-tm-gold/30 rounded-xl p-2.5">
-                No CNIC image uploaded.
-              </p>
-            )}
-
-            <div className="space-y-1 pt-1">
-              <label htmlFor="preason" className="text-[11px] font-bold text-tm-navy">
-                Reason (required — a rejection reason is shown to the parent)
-              </label>
-              <textarea
-                id="preason"
-                rows={2}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                className="w-full min-h-[44px] p-3 bg-tm-bg border border-gray-200 rounded-xl text-sm outline-none focus:border-tm-navy"
-              />
-            </div>
-
-            {err && <p className="text-[11px] font-bold text-tm-red">{err}</p>}
-
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => act('approve')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-green-deep hover:bg-tm-green-deep-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
-                <Check aria-hidden size={13} />
-                Approve
-              </button>
-              <button onClick={() => act('reject')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 min-h-[44px] py-3 bg-tm-red hover:bg-tm-red-hover text-white text-xs font-bold rounded-xl disabled:opacity-50">
-                <X aria-hidden size={13} />
-                Reject
-              </button>
-            </div>
+            <Link href={`/admin/users/${open.id}#documents`} className="inline-flex min-h-[40px] items-center text-xs font-bold text-tm-red hover:underline">
+              Open member page
+            </Link>
           </div>
         </div>
       )}
@@ -269,22 +168,6 @@ function Info({ label, value }: { label: string; value: string }) {
     <div className="bg-tm-bg border border-gray-100 rounded-xl p-2">
       <dt className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">{label}</dt>
       <dd className="text-[11px] font-bold text-tm-navy capitalize truncate">{value}</dd>
-    </div>
-  )
-}
-
-/** One side of the card, or an honest gap where it should be. */
-function DocSide({ id, label }: { id: string | null; label: string }) {
-  return (
-    <div className="space-y-1">
-      <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">{label}</p>
-      {id ? (
-        <SecureDocumentPreview documentId={id} alt={`CNIC ${label.toLowerCase()}`} />
-      ) : (
-        <p className="grid min-h-[72px] place-items-center rounded-xl border border-dashed border-gray-200 bg-tm-bg text-[11px] font-bold text-gray-500">
-          Not uploaded
-        </p>
-      )}
     </div>
   )
 }

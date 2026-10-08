@@ -23,7 +23,7 @@ export async function POST() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name, city, address, cnic_number, cnic_image_path, phone_verified_at, verification_state')
+    .select('role, full_name, city, address, cnic_number, cnic_image_path, phone_verified_at, verification_state, cnic_verified_at, address_verified_at')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -56,9 +56,14 @@ export async function POST() {
   const { error } = await admin
     .from('profiles')
     .update({
-      verification_state: 'submitted',
+      // An already-approved CNIC stays approved (owner, 8 Oct 2026): a parent
+      // re-submitting to fix a rejected address must not lose it.
+      ...(profile.cnic_verified_at
+        ? {}
+        : { verification_state: 'submitted', verification_rejection_reason: null }),
       verification_submitted_at: new Date().toISOString(),
-      verification_rejection_reason: null,
+      // The typed address waits for its own decision unless already approved.
+      ...(profile.address_verified_at ? {} : { address_status: 'pending', address_reason: null }),
     })
     .eq('id', user.id)
 

@@ -1,4 +1,13 @@
 import 'server-only'
+import { parentsAwaitingReview } from '@/lib/parentDocuments'
+import {
+  type ParentDocFacts,
+  type ParentItemState,
+  parentCnicState,
+  parentAddressState,
+  parentVerified,
+  parentWaiting,
+} from '@/lib/parentDocsCore'
 
 import { decodeCursor, encodeCursor } from '@/lib/cursor'
 import { publicAdUrl } from '@/lib/ads'
@@ -409,6 +418,13 @@ export type QueueParentRow = {
    */
   cnicFrontId: string | null
   cnicBackId: string | null
+  /** Per-item review state (owner, 8 Oct 2026) — the same shape the member
+   *  page's Documents box renders, so the two places agree. */
+  cnic: ParentItemState
+  addressItem: ParentItemState
+  verified: boolean
+  waiting: string[]
+  whatsapp: string | null
 }
 
 export async function loadParentQueue({
@@ -423,16 +439,53 @@ export async function loadParentQueue({
   const admin = createAdminClient()
   if (!admin) return { rows: [] as QueueParentRow[], nextCursor: null, total: 0 }
 
+  // "Awaiting review" is EVERY parent with an item waiting, oldest submission
+  // first — the same list the Overview "Documents to approve" row counts
+  // (parentsAwaitingReview), not a page of verification_state='submitted'.
+  if (filter === 'submitted') {
+    if (cursor) return { rows: [] as QueueParentRow[], nextCursor: null, total: 0 }
+    const waiting = await parentsAwaitingReview()
+    const ids = waiting.map((w) => w.parentId)
+    const { data: extra } = await admin
+      .from('profiles')
+      .select('id, email, phone_number, phone_verified_at, verification_state, profile_completion')
+      .in('id', ids.length ? ids : [NO_MATCH])
+    const ex = new Map((extra ?? []).map((e) => [e.id as string, e]))
+    const rows: QueueParentRow[] = waiting.map((w) => {
+      const e = ex.get(w.parentId)
+      return {
+        id: w.parentId,
+        fullName: w.name,
+        email: (e?.email as string) ?? '',
+        city: w.city,
+        address: w.address,
+        cnicNumber: w.cnicNumber,
+        phone: (e?.phone_number as string) ?? null,
+        phoneVerified: Boolean(e?.phone_verified_at),
+        state: (e?.verification_state as string) ?? 'none',
+        submittedAt: w.submittedAt,
+        completion: (e?.profile_completion as number) ?? 0,
+        cnicFrontId: w.cnicFrontId,
+        cnicBackId: w.cnicBackId,
+        cnic: w.cnic,
+        addressItem: w.addressItem,
+        verified: w.verified,
+        waiting: w.waiting,
+        whatsapp: w.whatsapp,
+      }
+    })
+    return { rows, nextCursor: null, total: rows.length }
+  }
+
   const build = () => {
     let q = admin
       .from('profiles')
       .select(
-        'id, full_name, email, city, address, cnic_number, phone_number, phone_verified_at, verification_state, verification_submitted_at, cnic_verified_at, address_verified_at, profile_completion, created_at',
+        'id, full_name, email, city, address, cnic_number, phone_number, whatsapp, phone_verified_at, verification_state, verification_rejection_reason, verification_submitted_at, cnic_verified_at, address_status, address_reason, address_verified_at, profile_completion, created_at',
         { count: 'exact' },
       )
       .in('role', ['parent', 'academy'])
-    if (filter === 'submitted') q = q.eq('verification_state', 'submitted')
-    else if (filter === 'approved') q = q.eq('verification_state', 'approved')
+    if (filter === 'approved') q = q.not('cnic_verified_at', 'is', null).not('address_verified_at', 'is', null)
     return q
   }
 
@@ -475,9 +528,32 @@ export async function loadParentQueue({
     cnicBackId:
       (docs?.find((d) => d.user_id === p.id && (d.label as string | null) === 'back')
         ?.id as string) ?? null,
+    ...parentItemsFor(p, docs ?? []),
   }))
 
   return { rows, nextCursor, total }
+}
+
+function parentItemsFor(p: Record<string, unknown>, docs: Record<string, unknown>[]) {
+  const mine = docs.filter((d) => d.user_id === p.id)
+  const facts: ParentDocFacts = {
+    verification_state: p.verification_state as string | null,
+    verification_rejection_reason: p.verification_rejection_reason as string | null,
+    cnic_verified_at: p.cnic_verified_at as string | null,
+    address: p.address as string | null,
+    address_status: p.address_status as string | null,
+    address_reason: p.address_reason as string | null,
+    address_verified_at: p.address_verified_at as string | null,
+    hasCnicFront: mine.some((d) => (d.label as string | null) !== 'back'),
+    hasCnicBack: mine.some((d) => (d.label as string | null) === 'back'),
+  }
+  return {
+    cnic: parentCnicState(facts),
+    addressItem: parentAddressState(facts),
+    verified: parentVerified(facts),
+    waiting: parentWaiting(facts),
+    whatsapp: (p.whatsapp as string | null) ?? (p.phone_number as string | null) ?? null,
+  }
 }
 
 // -------------------------------------------------------------- payments ---

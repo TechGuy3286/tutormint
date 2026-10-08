@@ -18,6 +18,7 @@ import type { ChecklistItem } from '@/lib/formChecklist'
 import { formatName } from '@/lib/formatName'
 import LogoLoader from '@/components/LogoLoader'
 import { TextLinesSkeleton } from '@/components/Skeletons'
+import { parentShownState } from '@/lib/parentDocsCore'
 
 // The verification parts as self-explaining actions, English + Urdu (PR80). Keyed
 // on the parent-completion item keys, so the checklist mirrors the exact server
@@ -96,7 +97,7 @@ export default function ParentVerifyPage() {
 
     const [{ data: p }, { data: dl }] = await Promise.all([
       supabase.from('profiles')
-        .select('full_name, city, address, cnic_number, cnic_image_path, phone_number, phone_verified_at, verification_state, verification_rejection_reason')
+        .select('full_name, city, address, cnic_number, cnic_image_path, phone_number, phone_verified_at, verification_state, verification_rejection_reason, cnic_verified_at, address_verified_at, address_status, address_reason')
         .eq('id', user.id).maybeSingle(),
       supabase.from('user_documents').select('id, kind, label').eq('user_id', user.id).eq('kind', 'cnic').eq('status', 'active'),
     ])
@@ -107,13 +108,23 @@ export default function ParentVerifyPage() {
     setCnic(p?.cnic_number ?? '')
     setPhone(p?.phone_number ?? '')
     setPhoneVerified(Boolean(p?.phone_verified_at))
-    setState((p?.verification_state as typeof state) ?? 'none')
-    setRejectionReason(p?.verification_rejection_reason ?? null)
+    // CNIC and address are reviewed separately (owner, 8 Oct 2026): verified
+    // only when BOTH are approved; a rejection of either is shown with its reason.
+    const shown = parentShownState({
+      verification_state: p?.verification_state ?? null,
+      cnic_verified_at: p?.cnic_verified_at ?? null,
+      address_verified_at: p?.address_verified_at ?? null,
+      address_status: p?.address_status ?? null,
+      verification_rejection_reason: p?.verification_rejection_reason ?? null,
+      address_reason: p?.address_reason ?? null,
+    })
+    setState(shown.state as typeof state)
+    setRejectionReason(shown.reason)
     setDocs((dl ?? []) as Doc[])
     setLoading(false)
     // Already approved and a return target is waiting: straight back to the
     // composer (owner hotfix, 5 Oct 2026). The flag is cleared so it fires once.
-    if (p?.verification_state === 'approved') {
+    if (shown.state === 'approved') {
       let dest: string | null = null
       try {
         dest = sessionStorage.getItem('tutormint_after_verify')

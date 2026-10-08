@@ -13,6 +13,19 @@
 
 export type DocumentKind = 'cnic' | 'degree' | 'selfie' | string
 
+/**
+ * Is this profile staff who may see identity documents? Any admin role except
+ * the restricted Tuitions staff (owner, 8 Oct 2026: "Tuitions staff cannot see
+ * documents"), and never a suspended staff account. The Partner may view.
+ */
+export function isDocumentStaff(
+  me: { role?: unknown; admin_role?: unknown; is_suspended?: unknown } | null | undefined,
+): boolean {
+  if (!me || me.role !== 'admin' || !me.admin_role) return false
+  if (me.is_suspended) return false
+  return me.admin_role !== 'tuitions_staff'
+}
+
 export function documentServable(
   kind: DocumentKind,
   ctx: { isOwner: boolean; isAdmin: boolean },

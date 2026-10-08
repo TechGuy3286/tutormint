@@ -65,6 +65,7 @@
     "test:pr106g6": "tsx --test scripts/test-pr106g6.ts",
     "test:hotfixpay2": "tsx --test scripts/test-hotfix-pay2.ts",
     "test:pr106h1": "tsx --test scripts/test-pr106h1.ts",
+    "test:parentdocs": "tsx --test scripts/test-parentdocs.ts",
     "test:pr106h2": "tsx --test scripts/test-pr106h2.ts",
     "test:pr106h3": "tsx --test scripts/test-pr106h3.ts",
     "test:pr106h4": "tsx --test scripts/test-pr106h4.ts",

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DOCS_BUCKET } from '@/lib/documents'
-import { documentServable } from '@/lib/documentAccess'
+import { documentServable, isDocumentStaff } from '@/lib/documentAccess'
 
 // The ONLY way bytes leave the private identity-docs bucket.
 //
@@ -64,8 +64,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // the one kind widened to any signed-in viewer. Decided in lib/documentAccess.
   let isAdmin = false
   if (!isOwner) {
-    const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-    isAdmin = me?.role === 'admin'
+    const { data: me } = await supabase
+      .from('profiles')
+      .select('role, admin_role, is_suspended')
+      .eq('id', user.id)
+      .maybeSingle()
+    // Staff who review documents only (owner, 8 Oct 2026): every admin role
+    // EXCEPT the restricted Tuitions staff, and never a suspended staff account.
+    // The view-only Partner may see them.
+    isAdmin = isDocumentStaff(me)
   }
   if (!documentServable(doc.kind as string, { isOwner, isAdmin })) return deny()
 

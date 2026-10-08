@@ -18,11 +18,14 @@ export default function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
       {rows.map((r) => (
         <li key={r.id}>
           <Link
-            href={`/admin/tutors/${r.id}`}
+            href={r.href}
             className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-tm-navy"
           >
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-tm-navy">{r.name}</p>
+              <p className="truncate text-sm font-bold text-tm-navy">
+                {r.name}
+                {r.kind === 'parent' && <span className="ml-1.5 text-[11px] font-semibold text-gray-500">· Parent</span>}
+              </p>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {r.waiting.map((w) => (
                   <span key={w} className="rounded-full bg-tm-tint-navy px-2 py-0.5 text-[11px] font-bold text-tm-navy">

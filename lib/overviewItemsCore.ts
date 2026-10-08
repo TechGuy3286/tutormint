@@ -59,7 +59,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   tutors: { title: 'Tutors', screen: 'users', noun: ['tutor', 'tutors'] },
   parents: { title: 'Parents', screen: 'users', noun: ['parent', 'parents'] },
   'open-tuitions': { title: 'Open tuitions', screen: 'jobs', noun: ['tuition', 'tuitions'] },
-  'todo-docs': { title: 'Documents to approve', screen: 'tutors', noun: ['tutor', 'tutors'] },
+  'todo-docs': { title: 'Documents to approve', screen: 'tutors', noun: ['member', 'members'] },
   'todo-uncontacted': { title: 'Unpaid signups not yet contacted', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-stuck': { title: 'Stuck in onboarding', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-payments': { title: 'Payments waiting over 1 hour', screen: 'payments', noun: ['payment', 'payments'] },

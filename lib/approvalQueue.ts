@@ -2,6 +2,7 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatName } from '@/lib/formatName'
+import { parentsAwaitingReview } from '@/lib/parentDocuments'
 
 // "Approval needed" (PR106-H1 §3): tutors with at least one uploaded document
 // waiting for a staff decision. Fee-paid members first (they are waiting for
@@ -19,8 +20,22 @@ import { formatName } from '@/lib/formatName'
 // on file", not a pending flag), so there is nothing to mark as waiting.
 //
 // Fixtures, banned and suspended accounts are excluded.
+//
+// PARENTS (owner, 8 Oct 2026): a parent with their CNIC or address waiting
+// (lib/parentDocuments parentsAwaitingReview — the Verification → Parents
+// queue's own list) is a row here too, so the Overview "Documents to approve"
+// count, its list and the People badge all include waiting parents.
 
-export type ApprovalRow = { id: string; name: string; waiting: string[]; paid: boolean; createdAt: string }
+export type ApprovalRow = {
+  id: string
+  name: string
+  waiting: string[]
+  paid: boolean
+  createdAt: string
+  kind: 'tutor' | 'parent'
+  /** Where to review this member's documents. */
+  href: string
+}
 
 async function build(): Promise<ApprovalRow[]> {
   const admin = createAdminClient()
@@ -31,10 +46,10 @@ async function build(): Promise<ApprovalRow[]> {
     .select('id, full_name, created_at, is_seed, is_banned, is_suspended, is_team_account, verification_state, profile_pic_status, selfie_status')
     .eq('role', 'tutor')
   const live = (profiles ?? []).filter((p) => !p.is_seed && !p.is_banned && !p.is_suspended && !p.is_team_account)
-  if (live.length === 0) return []
 
   const ids = live.map((p) => p.id as string)
-  const { data: tps } = await admin.from('tutor_profiles').select('id, video_status, verified_fee_paid_at').in('id', ids)
+  const NO_MATCH = '00000000-0000-0000-0000-000000000000'
+  const { data: tps } = await admin.from('tutor_profiles').select('id, video_status, verified_fee_paid_at').in('id', ids.length ? ids : [NO_MATCH])
   const tp = new Map((tps ?? []).map((t) => [t.id as string, t]))
 
   const rows: ApprovalRow[] = []
@@ -52,12 +67,28 @@ async function build(): Promise<ApprovalRow[]> {
       waiting,
       paid: !!t?.verified_fee_paid_at,
       createdAt: (p.created_at as string) ?? '',
+      kind: 'tutor',
+      href: `/admin/tutors/${p.id as string}`,
     })
   }
 
   // Fee-paid first; oldest account first within each group (a proxy for oldest
   // upload, deterministic and index-friendly).
   rows.sort((a, b) => (a.paid === b.paid ? a.createdAt.localeCompare(b.createdAt) : a.paid ? -1 : 1))
+
+  // Waiting parents after the tutors, oldest submission first.
+  const parents = await parentsAwaitingReview()
+  for (const p of parents) {
+    rows.push({
+      id: p.parentId,
+      name: p.name,
+      waiting: p.waiting,
+      paid: false,
+      createdAt: p.submittedAt ?? '',
+      kind: 'parent',
+      href: `/admin/users/${p.parentId}#documents`,
+    })
+  }
   return rows
 }
 

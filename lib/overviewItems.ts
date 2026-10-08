@@ -248,8 +248,8 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
         rows: rows.map((r) => ({
           id: r.id,
           title: r.name,
-          detail: `Waiting: ${r.waiting.join(', ')}${r.paid ? ' · fee paid' : ''}`,
-          href: `/admin/tutors/${r.id}`,
+          detail: `${r.kind === 'parent' ? 'Parent · ' : ''}Waiting: ${r.waiting.join(', ')}${r.paid ? ' · fee paid' : ''}`,
+          href: r.href,
         })),
         filter: 'with a document waiting for a decision',
         workHref: '/admin/users?filter=approval',
