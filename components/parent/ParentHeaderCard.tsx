@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import Avatar from '@/components/Avatar'
+import AccountLinks from '@/components/dashboard/AccountLinks'
 import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
 
 // The parent dashboard's minimal profile card (PR24 §1) — the same shape and
@@ -78,6 +79,9 @@ export default function ParentHeaderCard({
         >
           View your public card
         </Link>
+
+        {/* Settings + Help & Support, always visible (owner, 9 Oct 2026). */}
+        <AccountLinks settingsHref="/parent/dashboard/settings" />
       </div>
     </section>
   )

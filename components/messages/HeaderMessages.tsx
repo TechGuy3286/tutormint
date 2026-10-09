@@ -35,7 +35,7 @@ export default function HeaderMessages({ href, initialUnread }: { href: string; 
     <Link
       href={href}
       aria-label={unread > 0 ? `Messages, ${unread} unread` : 'Messages'}
-      className="relative grid h-11 w-11 place-items-center rounded-full text-tm-navy transition-colors hover:bg-gray-100"
+      className="relative grid h-11 w-10 place-items-center sm:w-11 rounded-full text-tm-navy transition-colors hover:bg-gray-100"
     >
       <MessageSquare size={20} aria-hidden />
       {unread > 0 && (

@@ -46,30 +46,17 @@ export type MenuItem = {
 /** An admin screen the actor may actually open, resolved by the caller. */
 export type AdminEntry = { label: string; href: string }
 
-// The signed-in member's menu is DELIBERATELY SHORT (owner, PR22 §1): Settings,
-// Help & Support, and Logout — nothing else. Tapping the avatar or name opens the
-// dashboard (UserMenu links it), and every destination that used to live here —
-// applications, open tuitions, demo requests, membership plans, get verified,
-// hired tutors, children, notifications, browse — is reached from the dashboard
-// itself, the header bell, or the messages dock. A long dropdown of doors was a
-// second navigation competing with the dashboard; this is the account menu, not a
-// site map. Logout is rendered by UserMenu, not listed here.
-const TUTOR: MenuItem[] = [
-  { label: 'Settings', href: '/tutor/dashboard/settings', icon: 'settings' },
-  { label: 'Help & Support', href: '/support', icon: 'help' },
-]
-
-const PARENT: MenuItem[] = [
-  { label: 'Settings', href: '/parent/dashboard/settings', icon: 'settings' },
-  { label: 'Help & Support', href: '/support', icon: 'help' },
-]
+// Tutors and parents NO LONGER have an account menu (owner, 9 Oct 2026):
+// Settings and Logout are always-visible header controls
+// (components/MemberHeaderNav.tsx) and Help & Support sits on the dashboard
+// profile card. This menu now serves admins (and a role-less session) only.
 
 /**
  * The menu for this member.
  *
- * Tutors and parents get the short account menu (Settings, Help & Support);
- * Logout is added by the UI. Admins keep their screen list — the admin panel is
- * where they work, not a member dashboard.
+ * Admins keep their screen list — the admin panel is where they work. Tutors
+ * and parents are never given this menu (see MemberHeaderNav); Logout is added
+ * by the UI.
  *
  * `adminScreens` is already filtered by SCREEN_ACCESS by the caller, so a
  * verifier never sees Payments here even though the entry exists in the nav.
@@ -92,10 +79,6 @@ export function menuForRole({
       { label: 'Help & Support', href: '/support', icon: 'help' },
     ]
   }
-
-  if (role === 'tutor') return [...TUTOR]
-
-  if (role === 'parent' || role === 'academy') return [...PARENT]
 
   // No silent parent default (owner, 9 Sep). A session with no role is a broken
   // profile (the dropped-trigger orphan), not a parent. Show only the account

@@ -26,7 +26,9 @@ import Avatar from '@/components/Avatar'
 import { getBrowserClient } from '@/lib/supabase/clientLazy'
 import type { MenuIcon, MenuItem } from '@/lib/userMenu'
 
-// The signed-in member's menu.
+// The account menu for ADMINS (and a role-less session) on the site header.
+// Tutors and parents do not get it any more (owner, 9 Oct 2026): their Settings
+// and Logout are always visible — see components/MemberHeaderNav.tsx.
 //
 // It replaced a single Dashboard button, and the reason is not decoration:
 // /parent/dashboard/messages and /tutor/dashboard/messages were built, wired

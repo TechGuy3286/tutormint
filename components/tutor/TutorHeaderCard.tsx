@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import Avatar from '@/components/Avatar'
+import AccountLinks from '@/components/dashboard/AccountLinks'
 import BadgeRow from '@/components/badges/BadgeRow'
 import VerifyBadgeControl from '@/components/tutor/VerifyBadgeControl'
 import type { BadgeName } from '@/lib/planBadges'
@@ -103,6 +104,9 @@ export default function TutorHeaderCard({
             View your public page
           </Link>
         )}
+
+        {/* Settings + Help & Support, always visible (owner, 9 Oct 2026). */}
+        <AccountLinks settingsHref="/tutor/dashboard/settings" />
 
         {/* PR106-E §9 / #56 — the completion label. Under 100%: a brand-red
             "Complete your profile · N%" link opening the flow at the next

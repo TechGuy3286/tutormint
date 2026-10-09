@@ -39,6 +39,7 @@ export default function NotificationBell({
   emptyHint,
   emptyAction,
   tone = 'light',
+  compact = false,
 }: {
   /** The viewer, for the Realtime subscription filter. */
   userId: string
@@ -54,6 +55,8 @@ export default function NotificationBell({
    * there is one set of contrast pairs to keep passing rather than two.
    */
   tone?: 'light' | 'dark'
+  /** Member header: 40px wide below sm so six controls fit at 320px. */
+  compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [unread, setUnread] = useState(initialUnread)
@@ -178,7 +181,7 @@ export default function NotificationBell({
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
-        className={`relative inline-flex h-11 min-h-[44px] w-11 items-center justify-center rounded-xl border transition-colors ${
+        className={`relative inline-flex h-11 min-h-[44px] ${compact ? 'w-10 sm:w-11' : 'w-11'} items-center justify-center rounded-xl border transition-colors ${
           tone === 'dark'
             ? 'border-white/20 bg-white/10 text-tm-mint hover:border-tm-mint'
             : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'

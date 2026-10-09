@@ -5,6 +5,8 @@ import AuthCTA from '@/components/AuthCTA'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import HeaderMessages from '@/components/messages/HeaderMessages'
 import UserMenu from '@/components/UserMenu'
+import MemberHeaderNav, { MEMBER_SETTINGS_HREF } from '@/components/MemberHeaderNav'
+import Avatar from '@/components/Avatar'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { getSessionUser } from '@/lib/auth'
 import { unreadCount } from '@/lib/notificationFeed'
@@ -117,10 +119,44 @@ export default async function Navbar() {
             action: { label: 'Browse tutors', href: '/browse/tutors' },
           }
 
+  // Tutors and parents (owner, 9 Oct 2026): no dropdown. The avatar and first
+  // name are a plain link to the dashboard, then Messages, Notifications,
+  // Settings and Logout, every one visible. Admins (and a role-less session)
+  // keep the account menu below — the admin header is not part of this change.
+  if (isMember) {
+    const firstName = name.split(' ')[0] || name
+    return (
+      <Shell member>
+        <Link
+          href={dashboardHref}
+          aria-label="Open your dashboard"
+          className="flex min-h-[44px] items-center gap-2 rounded-xl px-0.5 text-xs font-bold text-tm-navy hover:underline sm:px-1"
+        >
+          <Avatar
+            name={name}
+            src={session.profile?.avatar_url ?? null}
+            seed={session.user.id}
+            decorative
+            ring="border border-gray-200"
+            className="h-8 w-8 text-[10px]"
+          />
+          <span className="hidden max-w-[10ch] truncate sm:inline">{firstName}</span>
+        </Link>
+        <HeaderMessages href={messagesHref} initialUnread={messagesUnread} />
+        <NotificationBell
+          userId={session.user.id}
+          initialUnread={unread}
+          emptyHint={empty.hint}
+          emptyAction={empty.action}
+          compact
+        />
+        <MemberHeaderNav settingsHref={MEMBER_SETTINGS_HREF[role]} />
+      </Shell>
+    )
+  }
+
   return (
     <Shell>
-      {/* Messages icon beside the bell (§3, #94) — phone and desktop, members only. */}
-      {isMember && <HeaderMessages href={messagesHref} initialUnread={messagesUnread} />}
       <NotificationBell
         userId={session.user.id}
         initialUnread={unread}
@@ -138,9 +174,16 @@ export default async function Navbar() {
   )
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, member = false }: { children: React.ReactNode; member?: boolean }) {
+  // The member header has six controls on the right; below 400px the logo and
+  // the gaps shrink so they fit one row at 320px. Every other header keeps the
+  // sizes it always had.
   return (
-    <header className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 shadow-xs sm:px-12">
+    <header
+      className={`sticky top-0 z-50 flex items-center justify-between border-b border-gray-200 bg-white py-3 shadow-xs sm:px-12 ${
+        member ? 'gap-2 px-3 min-[360px]:px-4 sm:gap-3' : 'gap-3 px-4'
+      }`}
+    >
       <Link href="/" className="flex shrink-0 items-center">
         {/* next/image, not a raw <img>, and the reason is one number:
             /logo.png is a 2048x752 PNG weighing 997KB, rendered at 153px
@@ -162,10 +205,16 @@ function Shell({ children }: { children: React.ReactNode }) {
           height={752}
           priority
           sizes="(min-width: 640px) 153px, 120px"
-          className="h-11 w-[120px] object-contain sm:h-14 sm:w-[153px]"
+          className={
+            member
+              ? 'h-8 w-[72px] object-contain min-[360px]:h-9 min-[360px]:w-[88px] min-[400px]:h-11 min-[400px]:w-[120px] sm:h-14 sm:w-[153px]'
+              : 'h-11 w-[120px] object-contain sm:h-14 sm:w-[153px]'
+          }
         />
       </Link>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+      <div className={`flex shrink-0 items-center ${member ? 'gap-0.5 min-[400px]:gap-1 sm:gap-2' : 'gap-2'}`}>
+        {children}
+      </div>
     </header>
   )
 }
