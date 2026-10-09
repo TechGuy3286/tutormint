@@ -1,5 +1,6 @@
 'use client'
 
+import { mergeUnique, snapshotUsable } from '@/lib/infiniteMerge'
 import { reportSilentFailure } from '@/lib/silentFailure'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
@@ -36,6 +37,7 @@ export function useInfinite<T>({
   initialCursor,
   storageKey,
   scrollRoot,
+  serverIds,
 }: {
   /** An API route that takes the params below plus `cursor` and returns Page<T>. */
   endpoint: string
@@ -58,6 +60,12 @@ export function useInfinite<T>({
    * observer root and the thing whose scroll offset is remembered.
    */
   scrollRoot?: React.RefObject<HTMLElement | null>
+  /**
+   * The ids the SERVER already rendered above this list. A loaded or restored
+   * row with one of these ids is never shown again, and a saved snapshot that
+   * overlaps them is stale (the ranking moved) and is not restored.
+   */
+  serverIds?: string[]
 }) {
   const [items, setItems] = useState<T[]>([])
   const [cursor, setCursor] = useState<string | null>(initialCursor)
@@ -68,6 +76,9 @@ export function useInfinite<T>({
   const busy = useRef(false)
   const restored = useRef(false)
   const sentinel = useRef<HTMLDivElement | null>(null)
+  // A ref, so a new array identity on each render does not re-run the effects.
+  const serverIdsRef = useRef<string[]>(serverIds ?? [])
+  serverIdsRef.current = serverIds ?? []
 
   const done = cursor === null
 
@@ -81,7 +92,13 @@ export function useInfinite<T>({
       if (!raw) return
       const s = JSON.parse(raw) as Stored<T>
       if (!Array.isArray(s.items) || s.items.length === 0) return
-      setItems(s.items)
+      // The ranking moved since this was saved (a row is now in the server
+      // window too) — rows and cursor are stale; continue from the server's.
+      if (!snapshotUsable(s.items, serverIdsRef.current)) {
+        sessionStorage.removeItem(storageKey)
+        return
+      }
+      setItems(mergeUnique([], s.items, serverIdsRef.current))
       setCursor(s.cursor)
       // The rows have to be in the DOM before the offset means anything.
       requestAnimationFrame(() => {
@@ -137,7 +154,7 @@ export function useInfinite<T>({
       const r = await fetch(`${endpoint}?${qs}`, { headers: { accept: 'application/json' } })
       if (!r.ok) throw new Error(String(r.status))
       const page = (await r.json()) as Page<T>
-      setItems((prev) => [...prev, ...page.items])
+      setItems((prev) => mergeUnique(prev, page.items, serverIdsRef.current))
       setCursor(page.cursor)
       setState('idle')
     } catch (e) {

@@ -14,9 +14,12 @@ type Row = JobCardData & { applied?: boolean }
 export default function MoreLandingJobs({
   params,
   initialCursor,
+  serverIds,
 }: {
   params: Record<string, string>
   initialCursor: string | null
+  /** Ids the server already rendered above — never shown again below. */
+  serverIds?: string[]
 }) {
   const storageKey = useMemo(
     () => `tm:landing:tuitions:${new URLSearchParams(params).toString()}`,
@@ -27,6 +30,7 @@ export default function MoreLandingJobs({
     params,
     initialCursor,
     storageKey,
+    serverIds,
   })
 
   return (

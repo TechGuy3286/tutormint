@@ -23,10 +23,13 @@ export default function MoreLandingTutors({
   params,
   initialCursor,
   viewer,
+  serverIds,
 }: {
   params: Record<string, string>
   initialCursor: string | null
   viewer: CardViewer
+  /** Ids the server already rendered above — never shown again below. */
+  serverIds?: string[]
 }) {
   const storageKey = useMemo(
     () => `tm:landing:tutors:${new URLSearchParams(params).toString()}`,
@@ -37,6 +40,7 @@ export default function MoreLandingTutors({
     params,
     initialCursor,
     storageKey,
+    serverIds,
   })
 
   return (

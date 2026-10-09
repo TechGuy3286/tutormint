@@ -20,6 +20,7 @@ import { rankedTutors, tutorFiltersFrom, tutorFiltersToParams } from '@/lib/brow
 import SearchChips from '@/components/search/SearchChips'
 import { tutorFallback } from '@/lib/searchFallback'
 import { logUnmetSearch } from '@/lib/smartSearch'
+import { uniqueById } from '@/lib/infiniteMerge'
 
 // /browse/tutors -- a server component, on purpose.
 //
@@ -195,11 +196,13 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   // filters by it — the resolution itself happens inside rankedTutors (so the
   // first window and load-more agree); here we only compute the label for the
   // "Showing results for …" line.
-  const { tutors, total, nextCursor, error, parsed } = await rankedTutors({
+  const { tutors: rankedRows, total, nextCursor, error, parsed } = await rankedTutors({
     filters: listFilters,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   })
+  // One card per tutor, whatever the source returned (owner, 10 Oct 2026).
+  const tutors = uniqueById(rankedRows)
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   // Who is looking. Guests get the full page -- browsing never asks for an
@@ -446,6 +449,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
             serverCount={(page - 1) * PAGE_SIZE + tutors.length}
             viewer={viewer}
             adEvery={AD_EVERY}
+            serverIds={tutors.map((t) => t.id)}
           />
         )}
 

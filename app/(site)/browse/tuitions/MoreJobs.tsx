@@ -25,6 +25,7 @@ export default function MoreJobs({
   viewerJobTypes = null,
   saveable = false,
   savedIds = [],
+  serverIds,
 }: {
   params: Record<string, string>
   initialCursor: string | null
@@ -38,11 +39,13 @@ export default function MoreJobs({
   viewerJobTypes?: readonly string[] | null
   saveable?: boolean
   savedIds?: string[]
+  /** Ids the server already rendered above — never shown again below. */
+  serverIds?: string[]
 }) {
   const saved = useMemo(() => new Set(savedIds), [savedIds])
   const storageKey = useMemo(
     // v2 (PR96): bust stale caches so no pre-masking/pre-hide list is re-served.
-    () => `tm:more:tuitions:v2:${new URLSearchParams(params).toString()}`,
+    () => `tm:more:tuitions:v3:${new URLSearchParams(params).toString()}`,
     [params],
   )
 
@@ -53,6 +56,7 @@ export default function MoreJobs({
     params,
     initialCursor,
     storageKey,
+    serverIds,
   })
 
   return (

@@ -32,6 +32,7 @@ import PopularLandingLinks from '@/components/landing/PopularLandingLinks'
 import CityJobsLinks from '@/components/tuitionJobs/CityJobsLinks'
 import { applyBlocksFor, type ApplyBlockMap } from '@/lib/applyBlockServer'
 import type { Entitlements } from '@/lib/entitlements'
+import { uniqueById } from '@/lib/infiniteMerge'
 
 // /browse/tuitions -- the other half of the organic-search surface.
 //
@@ -255,7 +256,8 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
       : await browseJobs(filters, PAGE_SIZE, (page - 1) * PAGE_SIZE)
   const { total, nextCursor } = result
   // Slim card data for the browser (item 14).
-  const jobs = result.jobs.map(slimForCard)
+  // One card per tuition, whatever the source returned (owner, 10 Oct 2026).
+  const jobs = uniqueById(result.jobs).map(slimForCard)
   const feedMessage: FeedMessage = 'message' in result ? (result.message as FeedMessage) : null
   const feedLevel: 1 | 2 | 3 | null = 'level' in result ? (result.level as 1 | 2 | 3) : null
   // Nothing found (owner, 8 Oct 2026): log it, then show the nearest match.
@@ -497,6 +499,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
               ...(page > 1 ? { page: String(page) } : {}),
             }}
             initialCursor={nextCursor}
+            serverIds={jobs.map((j) => j.id)}
             total={total}
             serverCount={(page - 1) * PAGE_SIZE + jobs.length}
             signedIn={!!user}

@@ -17,6 +17,7 @@ import { itemListJsonLd, jsonLdScript } from '@/lib/seo'
 import { buildIntro, liveLandingPages, type LandingCombo, type IntroFacts } from '@/lib/landing'
 import { article } from '@/lib/article'
 import { formatName } from '@/lib/formatName'
+import { uniqueById } from '@/lib/infiniteMerge'
 
 // The city × subject landing page, one component for both kinds. It is server-
 // rendered from data: the H1, the intro sentence, the ranked list, the
@@ -90,14 +91,17 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
   let firstWindow: React.ReactNode
   let initialCursor: string | null
   let total: number
+  let serverIds: string[] = []
 
   if (isTutors) {
-    const { tutors, total: t, nextCursor } = await rankedTutors({
+    const { tutors: rankedRows, total: t, nextCursor } = await rankedTutors({
       filters: { masterId, city, area: '', mode: '', gender: '', feeMin: '', feeMax: '', q: '' },
       limit: PAGE_SIZE,
     })
     total = t
     initialCursor = nextCursor
+    const tutors = uniqueById(rankedRows)
+    serverIds = tutors.map((x) => x.id)
     const fees = tutors.map((x) => x.hourly_rate_pkr).filter((n): n is number => typeof n === 'number' && n > 0)
     const facts: IntroFacts = {
       count: total,
@@ -118,12 +122,14 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
       </div>
     )
   } else {
-    const { jobs, total: t, nextCursor } = await browseJobs(
+    const { jobs: jobRows, total: t, nextCursor } = await browseJobs(
       { masterId, city, mode: null, budgetMin: null, budgetMax: null, q: null },
       PAGE_SIZE,
     )
     total = t
     initialCursor = nextCursor
+    const jobs = uniqueById(jobRows)
+    serverIds = jobs.map((x) => x.id)
     const mins = jobs
       .map((j) => j.budget_min_pkr ?? j.budget_pkr)
       .filter((n): n is number => typeof n === 'number' && n > 0)
@@ -182,9 +188,9 @@ export default async function LandingView({ combo }: { combo: LandingCombo }) {
         {firstWindow}
 
         {isTutors ? (
-          <MoreLandingTutors params={params} initialCursor={initialCursor} viewer={GUEST} />
+          <MoreLandingTutors params={params} initialCursor={initialCursor} viewer={GUEST} serverIds={serverIds} />
         ) : (
-          <MoreLandingJobs params={params} initialCursor={initialCursor} />
+          <MoreLandingJobs params={params} initialCursor={initialCursor} serverIds={serverIds} />
         )}
 
         {/* CTAs. No price on either — a public page never signals a paywall. */}

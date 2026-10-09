@@ -24,6 +24,7 @@ export default function MoreTutors({
   serverCount,
   viewer,
   adEvery,
+  serverIds,
 }: {
   params: Record<string, string>
   initialCursor: string | null
@@ -32,6 +33,8 @@ export default function MoreTutors({
   serverCount: number
   viewer: CardViewer
   adEvery: number
+  /** Ids the server already rendered above — never shown again below. */
+  serverIds?: string[]
 }) {
   // The storage key carries the filters, so coming back to a different search
   // never restores the previous one's rows.
@@ -40,7 +43,7 @@ export default function MoreTutors({
   // account was hidden or a card component changed. Bump it whenever the public
   // tutor set or the card markup changes.
   const storageKey = useMemo(
-    () => `tm:more:tutors:v3:${new URLSearchParams(params).toString()}`,
+    () => `tm:more:tutors:v4:${new URLSearchParams(params).toString()}`,
     [params],
   )
 
@@ -49,6 +52,7 @@ export default function MoreTutors({
     params,
     initialCursor,
     storageKey,
+    serverIds,
   })
 
   return (

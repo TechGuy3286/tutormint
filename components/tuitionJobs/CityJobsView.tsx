@@ -12,6 +12,7 @@ import { ONLINE_JOB_TITLE } from '@/lib/jobTitlesCore'
 import { CITY_PAGE_THRESHOLD, cityPagePath, type CityPage, type CityVariant } from '@/lib/cityJobs'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlements } from '@/lib/entitlements'
+import { uniqueById } from '@/lib/infiniteMerge'
 
 // "Tuition jobs in [City]" (owner, 6 Oct 2026, item 6) — the city page and its
 // variants (female / online / an area), one server-rendered component.
@@ -56,7 +57,7 @@ export default async function CityJobsView({
 }) {
   const filters = variantFilters(page.citySlug, page.city, variant)
   const { jobs: fullJobs, total, nextCursor } = await browseJobs(filters, CITY_PAGE_SIZE, (pageNo - 1) * CITY_PAGE_SIZE)
-  const jobs = fullJobs.map(slimForCard)
+  const jobs = uniqueById(fullJobs).map(slimForCard)
   const path = cityPagePath(page.citySlug, variant?.slug ?? null)
   const heading = variantHeading(page.city, variant)
 
@@ -148,6 +149,7 @@ export default async function CityJobsView({
                 ...(pageNo > 1 ? { page: String(pageNo) } : {}),
               }}
               initialCursor={nextCursor}
+              serverIds={jobs.map((j) => j.id)}
               total={total}
               serverCount={(pageNo - 1) * CITY_PAGE_SIZE + jobs.length}
               signedIn={!!user}
