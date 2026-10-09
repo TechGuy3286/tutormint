@@ -5,6 +5,8 @@ import { CheckCircle2, Clock, AlertCircle, CircleDashed, Camera, Loader2 } from 
 import { compressImage } from '@/lib/imageCompress'
 import { useToast } from '@/components/ui/Toast'
 import type { DocumentStatuses, DocState } from '@/lib/tutorDocuments'
+import { canPick } from '@/lib/docLockCore'
+import DocLockNotice from '@/components/identity/DocLockNotice'
 
 // The tutor's verification status for CNIC, profile picture and selfie (PR60),
 // English with Urdu underneath, plus a selfie upload. This does NOT change who is
@@ -118,6 +120,12 @@ export default function IdentityDocsStatus() {
         <StatusRow title="Selfie" titleUr="سیلفی" state={statuses.selfie} />
       </div>
 
+      {/* Approved selfie is LOCKED (owner, 9 Oct 2026). */}
+      {!canPick(statuses.locks?.selfie ?? 'open') ? (
+        <DocLockNotice view={statuses.locks?.selfie ?? 'locked'} />
+      ) : (
+      <>
+      {statuses.locks?.selfie === 'unlocked' && <DocLockNotice view="unlocked" />}
       <input
         ref={fileRef}
         type="file"
@@ -140,6 +148,8 @@ export default function IdentityDocsStatus() {
           اپنی سیلفی اپلوڈ کریں — چہرہ صاف نظر آنا چاہیے۔
         </span>
       </Urdu>
+      </>
+      )}
     </section>
   )
 }

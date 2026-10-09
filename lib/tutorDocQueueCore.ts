@@ -23,7 +23,17 @@
 import { deriveCnicStatus } from '@/lib/cnicStatus'
 
 export type CardDocStatus = 'none' | 'pending' | 'approved' | 'rejected'
-export type CardDocState = { status: CardDocStatus; reason: string | null; hasUpload: boolean }
+export type CardDocState = {
+  status: CardDocStatus
+  reason: string | null
+  hasUpload: boolean
+  /** A NEW upload of an already-approved document is waiting (owner, 9 Oct
+   *  2026): an unlocked CNIC/selfie re-upload, a missing CNIC side, or a
+   *  profile photo changed after approval. The card shows it Pending and the
+   *  queue lists it, while the approval itself — the Verified badge and
+   *  indexability — stays exactly as it was. */
+  rereview?: boolean
+}
 export type CardStatuses = { cnic: CardDocState; profilePic: CardDocState; selfie: CardDocState }
 
 export type TutorDocFacts = {
@@ -41,6 +51,12 @@ export type TutorDocFacts = {
   hasSelfieFile: boolean
   /** tutor_profiles.video_status. */
   video_status?: string | null
+  /** A CNIC upload waiting as user_documents.status='review'. */
+  hasCnicReview?: boolean
+  /** A selfie upload waiting as user_documents.status='review'. */
+  hasSelfieReview?: boolean
+  /** profiles.profile_pic_rereview_at — the photo changed after approval. */
+  profile_pic_rereview_at?: string | null
 }
 
 function norm(v: unknown): CardDocStatus {
@@ -57,12 +73,23 @@ export function tutorCardStatuses(f: TutorDocFacts): CardStatuses {
     cnic_image_path: f.cnic_image_path ?? null,
   })
   const cnic: CardDocStatus = single === 'submitted' ? 'pending' : single
+  const pic = norm(f.profile_pic_status)
+  const selfie = norm(f.selfie_status)
+  const cnicRe = cnic === 'approved' && !!f.hasCnicReview
+  const picRe = pic === 'approved' && filled(f.profile_pic_rereview_at) && filled(f.avatar_url)
+  const selfieRe = selfie === 'approved' && !!f.hasSelfieReview
   return {
     // The CNIC's upload state is carried by verification_state; anything past
     // 'none' means it has been submitted.
-    cnic: { status: cnic, reason: f.verification_rejection_reason ?? null, hasUpload: cnic !== 'none' },
-    profilePic: { status: norm(f.profile_pic_status), reason: f.profile_pic_reason ?? null, hasUpload: filled(f.avatar_url) },
-    selfie: { status: norm(f.selfie_status), reason: f.selfie_reason ?? null, hasUpload: f.hasSelfieFile },
+    cnic: cnicRe
+      ? { status: 'pending', reason: null, hasUpload: true, rereview: true }
+      : { status: cnic, reason: f.verification_rejection_reason ?? null, hasUpload: cnic !== 'none' },
+    profilePic: picRe
+      ? { status: 'pending', reason: null, hasUpload: true, rereview: true }
+      : { status: pic, reason: f.profile_pic_reason ?? null, hasUpload: filled(f.avatar_url) },
+    selfie: selfieRe
+      ? { status: 'pending', reason: null, hasUpload: true, rereview: true }
+      : { status: selfie, reason: f.selfie_reason ?? null, hasUpload: f.hasSelfieFile },
   }
 }
 

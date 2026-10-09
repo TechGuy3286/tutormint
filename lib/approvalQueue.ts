@@ -45,7 +45,7 @@ async function build(): Promise<ApprovalRow[]> {
   const profiles = await pageAll((from, to) =>
     admin
       .from('profiles')
-      .select('id, full_name, created_at, is_seed, is_banned, is_suspended, is_team_account, verification_state, cnic_verified_at, cnic_number, cnic_image_path, avatar_url, profile_pic_status, selfie_status')
+      .select('id, full_name, created_at, is_seed, is_banned, is_suspended, is_team_account, verification_state, cnic_verified_at, cnic_number, cnic_image_path, avatar_url, profile_pic_status, profile_pic_rereview_at, selfie_status')
       .eq('role', 'tutor')
       .order('id')
       .range(from, to),
@@ -62,6 +62,12 @@ async function build(): Promise<ApprovalRow[]> {
     admin.from('user_documents').select('id, user_id').eq('kind', 'selfie').eq('status', 'active').in('user_id', part).order('id').range(from, to),
   )
   const hasSelfie = new Set(selfies.map((d) => d.user_id as string))
+  // Re-uploads of approved documents waiting for staff (status 'review').
+  const reviews = await pageAllIn(ids, (part, from, to) =>
+    admin.from('user_documents').select('id, user_id, kind').eq('status', 'review').in('kind', ['cnic', 'selfie']).in('user_id', part).order('id').range(from, to),
+  )
+  const cnicReview = new Set(reviews.filter((d) => d.kind === 'cnic').map((d) => d.user_id as string))
+  const selfieReview = new Set(reviews.filter((d) => d.kind === 'selfie').map((d) => d.user_id as string))
 
   const rows: ApprovalRow[] = []
   for (const p of live) {
@@ -75,6 +81,9 @@ async function build(): Promise<ApprovalRow[]> {
       profile_pic_status: p.profile_pic_status as string | null,
       selfie_status: p.selfie_status as string | null,
       hasSelfieFile: hasSelfie.has(p.id as string),
+      hasCnicReview: cnicReview.has(p.id as string),
+      hasSelfieReview: selfieReview.has(p.id as string),
+      profile_pic_rereview_at: (p.profile_pic_rereview_at as string | null) ?? null,
       video_status: (t?.video_status as string | null) ?? null,
     })
     if (waiting.length === 0) continue

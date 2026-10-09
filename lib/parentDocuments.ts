@@ -18,6 +18,7 @@ import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
 import { formatName } from '@/lib/formatName'
+import { closeOpenUnlocks, promoteReview, rejectReview } from '@/lib/docLocks'
 import {
   type ParentDocFacts,
   type ParentDocItem,
@@ -41,6 +42,9 @@ export type ParentDocs = {
   cnicNumber: string | null
   cnicFrontId: string | null
   cnicBackId: string | null
+  /** A new upload waiting for review of an approved CNIC (null when none). */
+  cnicFrontReviewId: string | null
+  cnicBackReviewId: string | null
   cnic: ParentItemState
   addressItem: ParentItemState
   verified: boolean
@@ -49,10 +53,11 @@ export type ParentDocs = {
   whatsapp: string | null
 }
 
-type CnicDoc = { id: string; user_id: string; label: string | null }
+type CnicDoc = { id: string; user_id: string; label: string | null; status?: string }
 
-function toDocs(p: Record<string, unknown>, docs: CnicDoc[]): ParentDocs {
-  const mine = docs.filter((d) => d.user_id === p.id)
+function toDocs(p: Record<string, unknown>, allDocs: CnicDoc[]): ParentDocs {
+  const mine = allDocs.filter((d) => d.user_id === p.id && d.status !== 'review')
+  const waiting = allDocs.filter((d) => d.user_id === p.id && d.status === 'review')
   // A row written before the front/back split has no label and is the front.
   const front = mine.find((d) => d.label !== 'back') ?? null
   const back = mine.find((d) => d.label === 'back') ?? null
@@ -66,6 +71,7 @@ function toDocs(p: Record<string, unknown>, docs: CnicDoc[]): ParentDocs {
     address_verified_at: p.address_verified_at as string | null,
     hasCnicFront: !!front,
     hasCnicBack: !!back,
+    hasCnicReview: waiting.length > 0,
   }
   return {
     parentId: p.id as string,
@@ -75,6 +81,8 @@ function toDocs(p: Record<string, unknown>, docs: CnicDoc[]): ParentDocs {
     cnicNumber: (p.cnic_number as string | null) ?? null,
     cnicFrontId: front?.id ?? null,
     cnicBackId: back?.id ?? null,
+    cnicFrontReviewId: waiting.find((d) => d.label !== 'back')?.id ?? null,
+    cnicBackReviewId: waiting.find((d) => d.label === 'back')?.id ?? null,
     cnic: parentCnicState(facts),
     addressItem: parentAddressState(facts),
     verified: parentVerified(facts),
@@ -89,12 +97,12 @@ async function cnicDocsFor(ids: string[]): Promise<CnicDoc[]> {
   if (!admin || ids.length === 0) return []
   const { data } = await admin
     .from('user_documents')
-    .select('id, user_id, label, created_at')
+    .select('id, user_id, label, status, created_at')
     .eq('kind', 'cnic')
-    .eq('status', 'active')
+    .in('status', ['active', 'review'])
     .in('user_id', ids)
     .order('created_at', { ascending: false })
-  return (data ?? []).map((d) => ({ id: d.id as string, user_id: d.user_id as string, label: (d.label as string | null) ?? null }))
+  return (data ?? []).map((d) => ({ id: d.id as string, user_id: d.user_id as string, label: (d.label as string | null) ?? null, status: d.status as string }))
 }
 
 /** One parent's documents, or null when the account is not a parent. */
@@ -124,7 +132,16 @@ export async function parentsAwaitingReview(): Promise<ParentDocs[]> {
       .order('id')
       .range(from, to),
   )
-  const live = (data as unknown as Record<string, unknown>[]).filter((p) => !p.is_seed && !p.is_banned && !p.is_suspended && !p.is_team_account)
+  // Parents with a NEW upload of an approved CNIC waiting (status 'review').
+  const { data: rev } = await admin.from('user_documents').select('user_id').eq('kind', 'cnic').eq('status', 'review')
+  const seen = new Set((data as unknown as Record<string, unknown>[]).map((p) => p.id as string))
+  const extraIds = [...new Set((rev ?? []).map((r) => r.user_id as string))].filter((id) => !seen.has(id))
+  let extra: Record<string, unknown>[] = []
+  if (extraIds.length > 0) {
+    const { data: more } = await admin.from('profiles').select(PROFILE_COLS).in('role', ['parent', 'academy']).in('id', extraIds)
+    extra = (more ?? []) as unknown as Record<string, unknown>[]
+  }
+  const live = [...(data as unknown as Record<string, unknown>[]), ...extra].filter((p) => !p.is_seed && !p.is_banned && !p.is_suspended && !p.is_team_account)
   const docs = await cnicDocsFor(live.map((p) => p.id as string))
   const rows = live.map((p) => toDocs(p as Record<string, unknown>, docs)).filter((r) => r.waiting.length > 0)
   const key = (r: ParentDocs, p?: Record<string, unknown>) => r.submittedAt ?? (p?.created_at as string) ?? ''
@@ -159,6 +176,11 @@ export async function reviewParentDocument(params: {
   const before = await loadParentDocs(parentId)
   if (!before) return { ok: false, status: 404, error: 'That account is not a parent.' }
 
+  // A new upload of the approved CNIC is waiting (owner, 9 Oct 2026).
+  if (item === 'cnic' && before.cnic.rereview) {
+    return decideParentCnicRereview({ actor, parentId, decision, reason, before, admin })
+  }
+
   const facts: ParentDocFacts = {
     address: before.address,
     hasCnicFront: !!before.cnicFrontId,
@@ -188,6 +210,7 @@ export async function reviewParentDocument(params: {
   }
   const { error } = await admin.from('profiles').update(patch).eq('id', parentId)
   if (error) return { ok: false, status: 400, error: error.message }
+  if (item === 'cnic') await closeOpenUnlocks(parentId, 'cnic', decision === 'approve' ? 'approved' : 'rejected')
 
   const after = await loadParentDocs(parentId)
   const verified = !!after?.verified
@@ -253,4 +276,64 @@ export async function reviewParentDocument(params: {
   }
 
   return { ok: true, verified }
+}
+
+/**
+ * A decision on a NEW upload of a parent's already-approved CNIC (owner, 9 Oct
+ * 2026). Approve: the new images become the ones on record and the CNIC locks
+ * again. Reject: the new images are hidden (kept for history) and the previous
+ * approved CNIC stays on record. The approval — and the parent's Verified
+ * badge — is untouched either way.
+ */
+async function decideParentCnicRereview(params: {
+  actor: { id: string; adminRole: AdminRole; email: string | null }
+  parentId: string
+  decision: 'approve' | 'reject'
+  reason: string
+  before: ParentDocs
+  admin: NonNullable<ReturnType<typeof createAdminClient>>
+}): Promise<{ ok: true; verified: boolean } | { ok: false; status: number; error: string }> {
+  const { actor, parentId, decision, reason, before, admin } = params
+  const approved = decision === 'approve'
+  const now = new Date().toISOString()
+  const patch: Record<string, unknown> = { cnic_reviewed_by: actor.id, cnic_reviewed_at: now }
+  if (approved) {
+    const path = await promoteReview(parentId, 'cnic')
+    patch.verification_state = 'approved'
+    patch.verification_rejection_reason = null
+    patch.cnic_verified_at = now
+    if (path) patch.cnic_image_path = path
+  } else {
+    await rejectReview(parentId, 'cnic')
+  }
+  const { error } = await admin.from('profiles').update(patch).eq('id', parentId)
+  if (error) return { ok: false, status: 400, error: error.message }
+  await closeOpenUnlocks(parentId, 'cnic', approved ? 'approved' : 'rejected')
+
+  await logAdminAction({
+    actorId: actor.id,
+    actorRole: actor.adminRole,
+    actorEmail: actor.email,
+    action: approved ? 'parent.verify.approve' : 'parent.verify.reject',
+    targetType: 'profile',
+    targetId: parentId,
+    detail: { item: 'cnic', decision, rereview: true, reason: approved ? null : reason, verified: before.verified },
+  })
+  await logActivity({
+    userId: parentId,
+    event: 'verification_decision_received',
+    targetType: 'profile',
+    targetId: parentId,
+    meta: { item: 'cnic', decision, rereview: true, reason: approved ? null : reason },
+  })
+  await notify({
+    userId: parentId,
+    kind: approved ? 'verification_approved' : 'verification_rejected',
+    title: approved ? 'Your new CNIC is approved' : 'Your new CNIC was not approved',
+    body: approved
+      ? 'Your new CNIC photos are approved and are now the ones on record.'
+      : `Your new CNIC photos were not approved: ${reason} Your earlier approved CNIC stays on record.`,
+    href: '/parent/verify',
+  })
+  return { ok: true, verified: before.verified }
 }

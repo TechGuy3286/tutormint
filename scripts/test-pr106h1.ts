@@ -86,7 +86,12 @@ test('reject requires a reason and sends email + in-app + WhatsApp with NO CNIC 
   const ui = read('components/admin/TutorDocumentReview.tsx')
   assert.match(ui, /Send on WhatsApp/, 'the WhatsApp button exists')
   assert.match(ui, /wa\.me\/\$\{waMsisdn\}\?text=/, 'opens WhatsApp to the member with a pre-written message')
-  assert.ok(!/cnic_number|cnicNumber/.test(ui), 'no CNIC number in the WhatsApp message/UI')
+  // The WhatsApp message itself never carries a CNIC number. (The card shows the
+  // number box since 9 Oct 2026 — heavily masked, XXXXX-XXXXXXX-4 — but nothing
+  // of it reaches the message.)
+  const wa = ui.slice(ui.indexOf('const whatsappHref = (() => {'), ui.indexOf('})()', ui.indexOf('const whatsappHref = (() => {')))
+  assert.ok(wa.length > 0 && !/cnic_number|cnicNumber|Masked/.test(wa), 'no CNIC number in the WhatsApp message')
+  assert.match(read('app/admin/tutors/[id]/page.tsx'), /cnicNumberMasked=\{maskCnicHeavy\(/, 'the card only ever gets the heavily masked number')
   assert.match(ui, /REJECT_PRESETS/, 'reason picker: short list')
   assert.match(ui, /<textarea/, 'reason picker: Other free text')
 })

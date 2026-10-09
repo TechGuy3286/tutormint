@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/errorResponse'
 
 import { logActivity } from '@/lib/activityLog'
-import { formatCnic, isValidCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
+import { formatCnic, isValidCnic, normaliseCnic, CNIC_FORMAT_HINT } from '@/lib/cnic'
 import { recomputeCompletion } from '@/lib/completion'
 import { loadIdentity } from '@/lib/identity'
 import { recordTutorSelfChanges, maskCnicHistory } from '@/lib/fieldHistory'
@@ -12,6 +12,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseBody, z } from '@/lib/validate'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
+import { cnicApprovedMarker } from '@/lib/docLocks'
+import { LOCKED_ERROR } from '@/lib/docLockCore'
 
 // The identity card's three writes, for either role.
 //
@@ -61,6 +63,16 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response
   const { action, cnicNumber } = parsed.data
 
+  // An APPROVED CNIC is locked (owner, 9 Oct 2026): its number cannot change and
+  // it cannot be re-opened from the member side. Staff unlock a re-upload of
+  // the images; the number stays as approved.
+  const { data: lockRow } = await supabase
+    .from('profiles')
+    .select('cnic_number, cnic_verified_at, verification_state')
+    .eq('id', user.id)
+    .maybeSingle()
+  const cnicLocked = cnicApprovedMarker(lockRow ?? {})
+
   // An identity document is replaced, never removed (Replace is the only action
   // on the card), so there is no remove-image branch here — the previous one is
   // gone with the button. The private identity-docs objects are retained; a
@@ -68,6 +80,14 @@ export async function POST(request: Request) {
 
   // ------------------------------------------------------- save-number ----
   if (action === 'save-number') {
+    if (cnicLocked) {
+      // The same number (the capture control saves it before each image) is a
+      // harmless no-op; a different one is refused.
+      if (normaliseCnic(cnicNumber) === normaliseCnic(lockRow?.cnic_number as string | null)) {
+        return NextResponse.json({ success: true, cnicNumber: formatCnic(lockRow?.cnic_number as string) })
+      }
+      return NextResponse.json({ error: LOCKED_ERROR, locked: true }, { status: 403 })
+    }
     if (!isValidCnic(cnicNumber)) {
       return NextResponse.json(
         { error: CNIC_FORMAT_HINT, fields: { cnicNumber: CNIC_FORMAT_HINT } },
@@ -118,6 +138,7 @@ export async function POST(request: Request) {
   // images underneath it change would mean the badge is vouching for a
   // document no human has seen.
   if (action === 'reopen') {
+    if (cnicLocked) return NextResponse.json({ error: LOCKED_ERROR, locked: true }, { status: 403 })
     // cnic_verified_at / verification_state are locked from the member client
     // (migration 103). Clearing them (a member asking to re-verify) goes through
     // the service role, scoped to their own id (PR48 §2).
@@ -145,6 +166,12 @@ export async function POST(request: Request) {
   }
 
   // ------------------------------------------------------------ submit ----
+  // An approved CNIC is never put back to 'submitted': a re-upload after a staff
+  // unlock waits as a 'review' document and reaches the queue that way, while
+  // the approval (badge, indexability) stays as it is.
+  if (cnicLocked) {
+    return NextResponse.json({ success: true, state: 'approved' })
+  }
   const { data: profile } = await supabase
     .from('profiles')
     .select('cnic_number, cnic_image_path')

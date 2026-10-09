@@ -8,6 +8,9 @@ import Link from 'next/link'
 
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
+import { useDocLocks, refreshDocLocks } from '@/lib/useDocLocks'
+import { canPick } from '@/lib/docLockCore'
+import DocLockNotice from '@/components/identity/DocLockNotice'
 import { compressImage, compressUnder1MB } from '@/lib/imageCompress'
 import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
@@ -1340,6 +1343,8 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
   const uploaded = done || !!preview
+  // An approved selfie is LOCKED (owner, 9 Oct 2026).
+  const selfieView = useDocLocks()?.selfie ?? 'open'
 
   async function upload(file: File) {
     setBusy(true)
@@ -1352,6 +1357,7 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
       const data = await res.json().catch(() => null)
       if (!res.ok || !data?.previewUrl) throw new Error(data?.error || 'That photo could not be uploaded. Try a JPG or PNG.')
       setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
+      refreshDocLocks()
       toast.success('Selfie uploaded.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not upload the selfie.')
@@ -1366,6 +1372,8 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
   const [showWhy, setShowWhy] = useState(false)
   return (
     <div className="space-y-4">
+      {selfieView !== 'open' && <DocLockNotice view={selfieView} />}
+      {canPick(selfieView) && (
       <div className="mx-auto w-40">
         <PhotoCaptureTile
           facingMode="user"
@@ -1383,6 +1391,7 @@ function SelfieStep({ done, onDone }: { done: boolean; onDone: () => void }) {
           onPick={(f) => void upload(f)}
         />
       </div>
+      )}
       <div className="text-center">
         <p className="text-[11px] leading-relaxed text-gray-500">Only our verification team sees your selfie.</p>
         <p lang="ur" dir="rtl" className="text-[11px] leading-relaxed text-gray-500">

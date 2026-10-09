@@ -20,6 +20,8 @@ import MemberActivity from './MemberActivity'
 import { formatName } from '@/lib/formatName'
 import { loadParentDocs } from '@/lib/parentDocuments'
 import { loadDocumentStatuses } from '@/lib/tutorDocuments'
+import { loadAdminLockInfo, type AdminLockInfo } from '@/lib/docLocks'
+import { maskCnicHeavy } from '@/lib/cnic'
 import ParentDocumentReview from '@/components/admin/ParentDocumentReview'
 import TutorDocumentReview from '@/components/admin/TutorDocumentReview'
 
@@ -189,8 +191,13 @@ export default async function AdminMemberPage({
     cnicBackId: string | null
     selfieId: string | null
     statuses: Awaited<ReturnType<typeof loadDocumentStatuses>>
+    cnicNumberMasked: string | null
   } | null = null
+  // Approved-document locks (owner, 9 Oct 2026) for whichever card renders.
+  const lockInfo: AdminLockInfo | null = isTutor || isParent ? await loadAdminLockInfo(id) : null
+  const canUnlock = roleSatisfies(actor.adminRole, SCREEN_ACCESS.documentUnlock)
   if (isTutor) {
+    const { data: numRow } = await admin.from('profiles').select('cnic_number').eq('id', id).maybeSingle()
     const [{ data: idDocs }, statuses] = await Promise.all([
       admin
         .from('user_documents')
@@ -207,6 +214,7 @@ export default async function AdminMemberPage({
       cnicBackId: d.find((x) => x.kind === 'cnic' && x.label === 'back')?.id ?? null,
       selfieId: d.find((x) => x.kind === 'selfie')?.id ?? null,
       statuses,
+      cnicNumberMasked: maskCnicHeavy((numRow?.cnic_number as string | null) ?? null),
     }
   }
   const documentsLabel = verified
@@ -342,7 +350,12 @@ export default async function AdminMemberPage({
                 addressItem: parentDocs.addressItem,
                 verified: parentDocs.verified,
                 whatsapp: parentDocs.whatsapp,
+                cnicFrontReviewId: parentDocs.cnicFrontReviewId,
+                cnicBackReviewId: parentDocs.cnicBackReviewId,
               }}
+              lockable={!!lockInfo?.lockable.cnic}
+              unlockOpen={!!lockInfo?.unlockOpen.cnic}
+              canUnlock={canUnlock}
             />
           )}
           {tutorDocs && (
@@ -355,6 +368,10 @@ export default async function AdminMemberPage({
               selfieDocId={tutorDocs.selfieId}
               statuses={tutorDocs.statuses}
               memberWhatsapp={(profile.whatsapp as string | null) ?? (profile.phone_number as string | null) ?? null}
+              lockInfo={lockInfo ?? undefined}
+              canUnlock={canUnlock}
+              cnicNumberMasked={tutorDocs.cnicNumberMasked}
+              canEditNumber={roleSatisfies(actor.adminRole, SCREEN_ACCESS.tutorEdit)}
             />
           )}
         </section>

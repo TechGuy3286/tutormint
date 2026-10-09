@@ -25,9 +25,19 @@ export type ParentDocFacts = {
   /** Active CNIC images on file (front/back). */
   hasCnicFront: boolean
   hasCnicBack: boolean
+  /** A new CNIC upload of an approved CNIC is waiting (user_documents
+   *  status='review' — owner, 9 Oct 2026). */
+  hasCnicReview?: boolean
 }
 
-export type ParentItemState = { status: ParentDocStatus; reason: string | null; hasUpload: boolean }
+export type ParentItemState = {
+  status: ParentDocStatus
+  reason: string | null
+  hasUpload: boolean
+  /** A new upload of the already-approved CNIC waits for staff; the approval
+   *  (and the Verified badge) stays until they decide. */
+  rereview?: boolean
+}
 
 const filled = (v: unknown) => typeof v === 'string' && v.trim().length > 0
 
@@ -35,7 +45,10 @@ export function parentCnicState(f: ParentDocFacts): ParentItemState {
   const vs = (f.verification_state ?? '').toLowerCase()
   const hasUpload = f.hasCnicFront || f.hasCnicBack
   let status: ParentDocStatus = 'none'
-  if (filled(f.cnic_verified_at)) status = 'approved'
+  if (filled(f.cnic_verified_at)) {
+    if (f.hasCnicReview) return { status: 'pending', reason: null, hasUpload: true, rereview: true }
+    status = 'approved'
+  }
   else if (vs === 'rejected') status = 'rejected'
   else if (vs === 'submitted' && hasUpload) status = 'pending'
   return { status, reason: status === 'rejected' ? (f.verification_rejection_reason ?? null) : null, hasUpload }

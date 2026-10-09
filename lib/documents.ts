@@ -77,6 +77,11 @@ export async function storeDocument(
   kind: DocumentKind,
   file: File,
   label?: string,
+  /** The row is written through this client when given (the upload route
+   *  passes the service role for CNIC/selfie — members cannot insert those rows
+   *  themselves, migration 158) and with this status ('review' = a re-upload of
+   *  an approved document, waiting for staff; migration 157). */
+  opts?: { db?: SupabaseClient; status?: 'active' | 'review' },
 ): Promise<{ ok: true; doc: StoredDocument } | { ok: false; error: string }> {
   const bytes = Buffer.from(await file.arrayBuffer())
 
@@ -108,9 +113,16 @@ export async function storeDocument(
     return { ok: false, error: up2.error.message }
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (opts?.db ?? supabase)
     .from('user_documents')
-    .insert({ user_id: userId, kind, label: label ?? null, original_path: originalPath, preview_path: previewPath })
+    .insert({
+      user_id: userId,
+      kind,
+      label: label ?? null,
+      original_path: originalPath,
+      preview_path: previewPath,
+      ...(opts?.status ? { status: opts.status } : {}),
+    })
     .select('id')
     .single()
 

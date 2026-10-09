@@ -7,6 +7,8 @@ import type { ChecklistItem } from '@/lib/formChecklist'
 import { formatCnic, isValidCnic, CNIC_FORMAT_HINT, CNIC_FORMAT_HINT_UR_LEAD, CNIC_EXAMPLE } from '@/lib/cnic'
 import { Ltr } from '@/components/onboarding/StepLayout'
 import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
+import { useDocLocks } from '@/lib/useDocLocks'
+import DocLockNotice, { combinedView } from '@/components/identity/DocLockNotice'
 
 // The ONE shared CNIC entry (PR81), used everywhere a CNIC is typed and
 // photographed: the tutor onboarding CNIC step, the tutor Settings identity card,
@@ -96,6 +98,17 @@ export default function CnicCapture({
   const valid = isValidCnic(number)
   const ready = valid && front && back
 
+  // Approved documents are locked (owner, 9 Oct 2026). Only the member's own
+  // upload path reads the lock; the staff editor (a custom uploadUrl) is not
+  // locked — staff can always replace a document.
+  const memberUpload = !uploadUrl || uploadUrl === '/api/documents/upload'
+  const locks = useDocLocks(memberUpload)
+  const frontView = locks?.cnicFront ?? 'open'
+  const backView = locks?.cnicBack ?? 'open'
+  const sidesView = combinedView([frontView, backView])
+  // An approved CNIC's number is locked with it.
+  const numberLocked = frontView !== 'open' || backView !== 'open'
+
   useEffect(() => {
     onState?.({ number, valid, front, back, ready })
     // onState is a plain callback the parent recreates each render; depending on
@@ -148,6 +161,7 @@ export default function CnicCapture({
             value={number}
             inputMode="numeric"
             onChange={(e) => setNumber(formatCnic(e.target.value))}
+            readOnly={numberLocked}
             placeholder="CNIC number, e.g. 35201-1234567-1"
             aria-label="CNIC number"
             className={`min-h-[48px] w-full rounded-xl border p-3 text-sm outline-none ${fieldStateClasses(
@@ -178,6 +192,7 @@ export default function CnicCapture({
           onError={(m) => setError(m || null)}
           uploadUrl={uploadUrl}
           uploadExtra={uploadExtra}
+          lockView={frontView}
         />
         <CnicCameraField
           side="back"
@@ -189,9 +204,11 @@ export default function CnicCapture({
           onError={(m) => setError(m || null)}
           uploadUrl={uploadUrl}
           uploadExtra={uploadExtra}
+          lockView={backView}
         />
       </div>
       )}
+      {show !== 'number' && memberUpload && <DocLockNotice view={sidesView} />}
       {show !== 'number' && (
         <>
           <p className="text-[11px] leading-relaxed text-gray-500">

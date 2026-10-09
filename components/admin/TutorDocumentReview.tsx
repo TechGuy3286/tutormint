@@ -10,6 +10,16 @@ import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import type { DocumentStatuses, DocItem, DocState } from '@/lib/tutorDocuments'
 import { cnicSideNote } from '@/lib/tutorDocQueueCore'
+import { CNIC_NUMBER_MISSING } from '@/lib/docLockCore'
+import UnlockDocButton from '@/components/admin/UnlockDocButton'
+import AdminCnicNumberBox, { CNIC_NUMBER_BOX_ID } from '@/components/admin/AdminCnicNumberBox'
+
+/** The admin lock facts for the card (lib/docLocks loadAdminLockInfo). */
+export type ReviewLockInfo = {
+  review: { cnicFrontId: string | null; cnicBackId: string | null; selfieId: string | null }
+  unlockOpen: { cnic: boolean; selfie: boolean }
+  lockable: { cnic: boolean; selfie: boolean }
+}
 
 // Per-item identity review (PR60): CNIC front/back, profile picture and selfie
 // side by side, each approved or rejected on its own. A reject needs a reason
@@ -38,6 +48,10 @@ export default function TutorDocumentReview({
   selfieDocId,
   statuses,
   memberWhatsapp,
+  lockInfo,
+  canUnlock = false,
+  cnicNumberMasked = null,
+  canEditNumber = false,
 }: {
   tutorId: string
   canReview: boolean
@@ -48,7 +62,18 @@ export default function TutorDocumentReview({
   statuses: DocumentStatuses
   /** The member's WhatsApp/phone for the "Send on WhatsApp" rejection message. */
   memberWhatsapp: string | null
+  /** Approved-document locks (owner, 9 Oct 2026): waiting re-uploads, open
+   *  unlocks, and which documents can be unlocked. */
+  lockInfo?: ReviewLockInfo
+  /** Owner, admin, operations may unlock (SCREEN_ACCESS.documentUnlock). */
+  canUnlock?: boolean
+  /** XXXXX-XXXXXXX-4, or null when no CNIC number is on file. */
+  cnicNumberMasked?: string | null
+  /** Staff who may type the CNIC number here (SCREEN_ACCESS.tutorEdit). */
+  canEditNumber?: boolean
 }) {
+  const [numberHighlight, setNumberHighlight] = useState(false)
+  const rv = lockInfo?.review
   // PR106-C §3 — the related images, in a fixed order, so the viewer can page
   // CNIC front ↔ back ↔ photo ↔ selfie. Each thumbnail opens the viewer at its
   // index. Only the present images are included.
@@ -58,6 +83,9 @@ export default function TutorDocumentReview({
   if (cnicBackId) { at.cnicBack = images.length; images.push({ src: `/api/documents/${cnicBackId}/preview`, alt: 'CNIC back' }) }
   if (avatarUrl) { at.pic = images.length; images.push({ src: avatarUrl, alt: 'Profile picture' }) }
   if (selfieDocId) { at.selfie = images.length; images.push({ src: `/api/documents/${selfieDocId}/preview`, alt: 'Selfie' }) }
+  if (rv?.cnicFrontId) { at.newFront = images.length; images.push({ src: `/api/documents/${rv.cnicFrontId}/preview`, alt: 'New CNIC front' }) }
+  if (rv?.cnicBackId) { at.newBack = images.length; images.push({ src: `/api/documents/${rv.cnicBackId}/preview`, alt: 'New CNIC back' }) }
+  if (rv?.selfieId) { at.newSelfie = images.length; images.push({ src: `/api/documents/${rv.selfieId}/preview`, alt: 'New selfie' }) }
   const [lbIndex, setLbIndex] = useState<number | null>(null)
 
   return (
@@ -74,6 +102,12 @@ export default function TutorDocumentReview({
           canReview={canReview}
           memberWhatsapp={memberWhatsapp}
           state={statuses.cnic}
+          onNumberMissing={() => {
+            setNumberHighlight(true)
+            const box = document.getElementById(CNIC_NUMBER_BOX_ID)
+            box?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            box?.querySelector('input')?.focus()
+          }}
         >
           <div className="grid grid-cols-2 gap-2">
             {cnicFrontId ? (
@@ -93,6 +127,26 @@ export default function TutorDocumentReview({
           </div>
           {cnicSideNote(!!cnicFrontId, !!cnicBackId) && (
             <p className="text-[11px] font-semibold text-tm-gold-ink">{cnicSideNote(!!cnicFrontId, !!cnicBackId)}</p>
+          )}
+          {(rv?.cnicFrontId || rv?.cnicBackId) && (
+            <NewUpload>
+              <div className="grid grid-cols-2 gap-2">
+                {rv?.cnicFrontId ? (
+                  <Zoomable onOpen={() => setLbIndex(at.newFront)}>
+                    <SecureDocumentPreview documentId={rv.cnicFrontId} alt="New CNIC front" />
+                  </Zoomable>
+                ) : <NoImage label="Front unchanged" />}
+                {rv?.cnicBackId ? (
+                  <Zoomable onOpen={() => setLbIndex(at.newBack)}>
+                    <SecureDocumentPreview documentId={rv.cnicBackId} alt="New CNIC back" />
+                  </Zoomable>
+                ) : <NoImage label="Back unchanged" />}
+              </div>
+            </NewUpload>
+          )}
+          <AdminCnicNumberBox tutorId={tutorId} maskedNumber={cnicNumberMasked} canEdit={canEditNumber} highlight={numberHighlight} />
+          {lockInfo?.lockable.cnic && !rv?.cnicFrontId && !rv?.cnicBackId && (
+            <UnlockDocButton memberId={tutorId} item="cnic" unlockOpen={lockInfo.unlockOpen.cnic} canUnlock={canUnlock} />
           )}
         </ReviewItem>
 
@@ -129,6 +183,16 @@ export default function TutorDocumentReview({
           ) : (
             <NoImage label="No selfie" />
           )}
+          {rv?.selfieId && (
+            <NewUpload>
+              <Zoomable onOpen={() => setLbIndex(at.newSelfie)}>
+                <SecureDocumentPreview documentId={rv.selfieId} alt="New selfie" />
+              </Zoomable>
+            </NewUpload>
+          )}
+          {lockInfo?.lockable.selfie && !rv?.selfieId && (
+            <UnlockDocButton memberId={tutorId} item="selfie" unlockOpen={lockInfo.unlockOpen.selfie} canUnlock={canUnlock} />
+          )}
         </ReviewItem>
       </div>
 
@@ -155,6 +219,16 @@ function Zoomable({ onOpen, children }: { onOpen: () => void; children: React.Re
   )
 }
 
+/** A new upload of an approved document, waiting for this decision. */
+function NewUpload({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="space-y-1 rounded-lg border border-tm-navy/30 bg-tm-tint-navy p-2">
+      <p className="text-[11px] font-bold text-tm-navy">New upload — waiting. The approved one above stays on record until you decide.</p>
+      {children}
+    </div>
+  )
+}
+
 function NoImage({ label }: { label: string }) {
   return (
     <div className="grid h-32 place-items-center rounded-xl border border-dashed border-gray-200 text-[11px] text-gray-500">
@@ -170,6 +244,7 @@ function ReviewItem({
   canReview: canReviewProp,
   state,
   memberWhatsapp,
+  onNumberMissing,
   children,
 }: {
   tutorId: string
@@ -178,6 +253,8 @@ function ReviewItem({
   canReview: boolean
   state: DocState
   memberWhatsapp: string | null
+  /** Approve was refused because the CNIC number is missing. */
+  onNumberMissing?: () => void
   children: React.ReactNode
 }) {
   const toast = useToast()
@@ -232,6 +309,7 @@ function ReviewItem({
       toast.success(decision === 'approve' ? 'Approved. The tutor was notified.' : 'Rejected. The tutor was notified.')
     } else {
       toast.error(data?.error ?? 'Could not save that.')
+      if (data?.error === CNIC_NUMBER_MISSING) onNumberMissing?.()
     }
   }
 
@@ -239,7 +317,9 @@ function ReviewItem({
     <div className="space-y-2 rounded-xl border border-gray-200 p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] font-black text-tm-navy">{title}</p>
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${s.cls}`}>{s.text}</span>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${s.cls}`}>
+          {state.rereview && status === 'pending' ? (item === 'profile_pic' ? 'Changed photo — waiting' : 'New upload — waiting') : s.text}
+        </span>
       </div>
       {children}
       {state.reason && status === 'rejected' && (

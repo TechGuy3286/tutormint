@@ -422,6 +422,9 @@ export type QueueParentRow = {
    */
   cnicFrontId: string | null
   cnicBackId: string | null
+  /** A new upload of an approved CNIC waiting for review (owner, 9 Oct 2026). */
+  cnicFrontReviewId?: string | null
+  cnicBackReviewId?: string | null
   /** Per-item review state (owner, 8 Oct 2026) — the same shape the member
    *  page's Documents box renders, so the two places agree. */
   cnic: ParentItemState
@@ -471,6 +474,8 @@ export async function loadParentQueue({
         completion: (e?.profile_completion as number) ?? 0,
         cnicFrontId: w.cnicFrontId,
         cnicBackId: w.cnicBackId,
+        cnicFrontReviewId: w.cnicFrontReviewId,
+        cnicBackReviewId: w.cnicBackReviewId,
         cnic: w.cnic,
         addressItem: w.addressItem,
         verified: w.verified,

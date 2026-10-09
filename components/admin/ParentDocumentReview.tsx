@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { PARENT_REJECT_PRESETS, type ParentDocItem, type ParentItemState } from '@/lib/parentDocsCore'
 import { cnicSideNote } from '@/lib/tutorDocQueueCore'
+import UnlockDocButton from '@/components/admin/UnlockDocButton'
 
 // A parent's documents (owner, 8 Oct 2026): CNIC front + back and the typed
 // address, each approved or rejected on its own. The member page's Documents
@@ -36,13 +37,32 @@ export type ParentDocsView = {
   addressItem: ParentItemState
   verified: boolean
   whatsapp: string | null
+  /** A new upload of the approved CNIC waiting for review (owner, 9 Oct 2026). */
+  cnicFrontReviewId?: string | null
+  cnicBackReviewId?: string | null
 }
 
-export default function ParentDocumentReview({ docs, canReview }: { docs: ParentDocsView; canReview: boolean }) {
+export default function ParentDocumentReview({
+  docs,
+  canReview,
+  lockable = false,
+  unlockOpen = false,
+  canUnlock = false,
+}: {
+  docs: ParentDocsView
+  canReview: boolean
+  /** The CNIC is approved and on record, so it can be unlocked for re-upload. */
+  lockable?: boolean
+  unlockOpen?: boolean
+  canUnlock?: boolean
+}) {
   const images: LightboxImage[] = []
   const at: Record<string, number> = {}
   if (docs.cnicFrontId) { at.front = images.length; images.push({ src: `/api/documents/${docs.cnicFrontId}/preview`, alt: 'CNIC front' }) }
   if (docs.cnicBackId) { at.back = images.length; images.push({ src: `/api/documents/${docs.cnicBackId}/preview`, alt: 'CNIC back' }) }
+  if (docs.cnicFrontReviewId) { at.newFront = images.length; images.push({ src: `/api/documents/${docs.cnicFrontReviewId}/preview`, alt: 'New CNIC front' }) }
+  if (docs.cnicBackReviewId) { at.newBack = images.length; images.push({ src: `/api/documents/${docs.cnicBackReviewId}/preview`, alt: 'New CNIC back' }) }
+  const hasNew = !!docs.cnicFrontReviewId || !!docs.cnicBackReviewId
   const [lbIndex, setLbIndex] = useState<number | null>(null)
   const [verified, setVerified] = useState(docs.verified)
 
@@ -74,8 +94,28 @@ export default function ParentDocumentReview({ docs, canReview }: { docs: Parent
           {cnicSideNote(!!docs.cnicFrontId, !!docs.cnicBackId) && (
             <p className="text-[11px] font-semibold text-tm-gold-ink">{cnicSideNote(!!docs.cnicFrontId, !!docs.cnicBackId)}</p>
           )}
+          {hasNew && (
+            <div className="space-y-1 rounded-lg border border-tm-navy/30 bg-tm-tint-navy p-2">
+              <p className="text-[11px] font-bold text-tm-navy">New upload — waiting. The approved card above stays on record until you decide.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {docs.cnicFrontReviewId ? (
+                  <Zoomable onOpen={() => setLbIndex(at.newFront)}>
+                    <SecureDocumentPreview documentId={docs.cnicFrontReviewId} alt="New CNIC front" />
+                  </Zoomable>
+                ) : <NoImage label="Front unchanged" />}
+                {docs.cnicBackReviewId ? (
+                  <Zoomable onOpen={() => setLbIndex(at.newBack)}>
+                    <SecureDocumentPreview documentId={docs.cnicBackReviewId} alt="New CNIC back" />
+                  </Zoomable>
+                ) : <NoImage label="Back unchanged" />}
+              </div>
+            </div>
+          )}
           {/* The typed number sits with the images: checking a card IS comparing the two. */}
           <p className="font-mono text-xs font-black text-tm-navy">{docs.cnicNumber ?? 'No number typed'}</p>
+          {lockable && !hasNew && (
+            <UnlockDocButton memberId={docs.parentId} item="cnic" unlockOpen={unlockOpen} canUnlock={canUnlock} />
+          )}
         </ReviewItem>
 
         <ReviewItem parentId={docs.parentId} item="address" title="Home address" canReview={canReview} state={docs.addressItem} whatsapp={docs.whatsapp} onVerified={setVerified}>

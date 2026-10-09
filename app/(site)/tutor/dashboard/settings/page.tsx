@@ -19,6 +19,8 @@ import {
   GraduationCap, Award, Briefcase, Mail, Tags, CalendarDays, Lock, UserRound, Wallet,
 } from 'lucide-react'
 import IdentityCard from '@/components/identity/IdentityCard'
+import DocLockNotice, { combinedView } from '@/components/identity/DocLockNotice'
+import { canPick } from '@/lib/docLockCore'
 import { StatusCard, StepHeader, SettingsTile, Urdu } from '@/components/tutor/SettingsPieces'
 import { READONLY_LINES, type CardStatus } from '@/lib/tutorSettingsCopy'
 import { FEE_MIN_DEFAULT, FEE_MAX_DEFAULT, validateFeeRange, feeLabelOf } from '@/lib/fee'
@@ -572,6 +574,13 @@ export default function TutorSettingsPage() {
   const cnicStatus: CardStatus = docCard(statuses?.cnic, false);
   const profilePicStatus: CardStatus = docCard(statuses?.profilePic, !!formData.profileImage);
   const selfieStatus: CardStatus = docCard(statuses?.selfie, !!selfiePreviewUrl);
+  // Approved CNIC / selfie are LOCKED (owner, 9 Oct 2026) unless staff unlocked
+  // one for re-upload (or a CNIC side was never uploaded). The profile photo is
+  // never locked — a change after approval goes back to photo review.
+  const lockViews = statuses?.locks ?? null;
+  const cnicViews = [lockViews?.cnicFront ?? 'open', lockViews?.cnicBack ?? 'open'] as const;
+  const cnicReupload = cnicStatus === 'completed' && cnicViews.some((v) => canPick(v));
+  const selfieView = lockViews?.selfie ?? 'open';
   const subjectsStatus: CardStatus = subjectIds.length > 0 ? 'completed' : 'missing';
   const locationStatus: CardStatus =
     formData.city.trim() && areas.length > 0 ? 'completed' : 'missing';
@@ -649,8 +658,9 @@ export default function TutorSettingsPage() {
     {
       key: 'cnic',
       status: cnicStatus,
-      locked: cnicStatus === 'completed',
+      locked: cnicStatus === 'completed' && !cnicReupload,
       lockedValue: 'Verified',
+      lockedNote: lockViews ? <DocLockNotice view={combinedView([...cnicViews])} /> : undefined,
       reason: statuses?.cnic.reason,
       bare: true,
       icon: <CreditCard size={20} aria-hidden />,
@@ -667,20 +677,8 @@ export default function TutorSettingsPage() {
       icon: <ImageIcon size={20} aria-hidden />,
       body: (
         <div className="space-y-3">
-          {/* PR72 §E: once the picture is approved it is locked — read-only, a
-              lock note, no Change. The show-picture toggle below stays editable. */}
-          {profilePicStatus === 'completed' ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3">
-                <Avatar name={formData.fullName} src={formData.profileImage || null} decorative ring="" className="h-14 w-14 rounded-xl text-lg" />
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500">
-                  <Lock aria-hidden size={13} /> Approved
-                </span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-gray-600">To change this, contact support.</p>
-              <p className="text-[11px] leading-relaxed text-gray-600" lang="ur" dir="rtl">تبدیلی کے لیے سپورٹ سے رابطہ کریں۔</p>
-            </div>
-          ) : (
+          {/* The profile photo is NOT locked (owner, 9 Oct 2026): a change after
+              approval goes back to photo review; the badge stays meanwhile. */}
             <FileUpload
               label="Profile photo"
               acceptLabel="JPG or PNG"
@@ -698,7 +696,6 @@ export default function TutorSettingsPage() {
                 />
               }
             />
-          )}
           {/* The picture/selfie instruction (PR70 §4). */}
           <div className="rounded-xl bg-tm-tint-navy p-3">
             <p className="text-[11px] leading-relaxed text-tm-navy">{L.pictureNote.en}</p>
@@ -734,8 +731,9 @@ export default function TutorSettingsPage() {
     {
       key: 'selfie',
       status: selfieStatus,
-      locked: selfieStatus === 'completed',
+      locked: selfieStatus === 'completed' && !canPick(selfieView),
       lockedValue: 'Approved',
+      lockedNote: lockViews ? <DocLockNotice view={selfieView} /> : undefined,
       reason: statuses?.selfie.reason,
       icon: <Camera size={20} aria-hidden />,
       body: (
@@ -746,6 +744,7 @@ export default function TutorSettingsPage() {
             Only TutorMint’s verification team sees your selfie.
             <span lang="ur" dir="rtl" className="ms-1">آپ کی سیلفی صرف ٹیوٹرمنٹ کی تصدیقی ٹیم دیکھتی ہے۔</span>
           </p>
+          {selfieView === 'unlocked' && <DocLockNotice view="unlocked" />}
           <div className="w-40">
             <PhotoCaptureTile
               facingMode="user"
@@ -1062,6 +1061,7 @@ export default function TutorSettingsPage() {
       onClose={onClose}
       locked={c.locked}
       lockedValue={c.lockedValue}
+      lockedNote={c.lockedNote}
     >
       {c.body}
     </StatusCard>
@@ -1156,6 +1156,7 @@ type CardDesc = {
   /** PR72 §E: the field is locked — read-only, lock icon, no Edit. */
   locked?: boolean;
   lockedValue?: string | null;
+  lockedNote?: React.ReactNode;
   icon: React.ReactNode;
   body: React.ReactNode;
 };

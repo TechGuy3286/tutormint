@@ -86,7 +86,9 @@ test('one-sided CNIC: a note, never a block', () => {
   assert.equal(cnicSideNote(false, false), null)
   // The tutor approve check needs a CNIC image on file, not both sides.
   const src = read('lib/tutorDocuments.ts')
-  assert.match(src, /hasFile = filled\(current\?\.cnic_number\) && filled\(current\?\.cnic_image_path\)/)
+  // (9 Oct 2026: the check moved to lib/docLockCore cnicApprovalProblem, which
+  // names the missing number plainly — still a number + an image, never two sides.)
+  assert.match(src, /cnicApprovalProblem\(\{ number: current\?\.cnic_number as string \| null, imagePath: current\?\.cnic_image_path as string \| null \}\)/)
   assert.doesNotMatch(src, /cnicBack|hasCnicBack/)
   // Both review cards render the note.
   assert.match(read('components/admin/TutorDocumentReview.tsx'), /cnicSideNote\(/)

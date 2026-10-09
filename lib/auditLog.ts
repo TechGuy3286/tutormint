@@ -14,6 +14,9 @@ import type { AdminRole } from '@/lib/adminAuth'
 
 export type AuditAction =
   | 'tutor.approve'
+  // Approved documents are locked; staff unlock one for re-upload (9 Oct 2026).
+  | 'document.unlock'
+  | 'document.restore_side'
   | 'tutor.hold'
   | 'tutor.suspend'
   | 'tutor.unsuspend'

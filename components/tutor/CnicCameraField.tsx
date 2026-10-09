@@ -2,8 +2,11 @@
 
 import { useState, type ReactNode } from 'react'
 
+import { Lock, Clock } from 'lucide-react'
 import PhotoCaptureTile from '@/components/tutor/PhotoCaptureTile'
 import { compressUnder1MB } from '@/lib/imageCompress'
+import { canPick, type LockView } from '@/lib/docLockCore'
+import { refreshDocLocks } from '@/lib/useDocLocks'
 
 // The ONE CNIC capture control (PR 3b §2.1, PR22 §3), behind the apply-gate /
 // verify flow (TutorVerifyGate), the onboarding CNIC step and the Settings
@@ -33,6 +36,7 @@ export default function CnicCameraField({
   onError,
   uploadUrl = '/api/documents/upload',
   uploadExtra,
+  lockView = 'open',
 }: {
   side: 'front' | 'back'
   label: string
@@ -50,6 +54,9 @@ export default function CnicCameraField({
   uploadUrl?: string
   /** Extra form fields (e.g. the target tutorId + reason on the staff route). */
   uploadExtra?: Record<string, string>
+  /** The member's lock on this side (owner, 9 Oct 2026). 'locked' / 'waiting'
+   *  show the stored card read-only — no camera, no picker. */
+  lockView?: LockView
 }) {
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -81,6 +88,7 @@ export default function CnicCameraField({
         return URL.createObjectURL(img)
       })
       onUploaded?.(json.documentId as string)
+      refreshDocLocks()
     } catch (e) {
       onError?.(e instanceof Error ? e.message : 'That upload did not go through.')
     } finally {
@@ -95,6 +103,23 @@ export default function CnicCameraField({
     (storedPreview ?? null)
   )
   const done = !!localPreview || storedPreview != null
+
+  if (!canPick(lockView)) {
+    // Approved ✓ locked (or a new upload is waiting): the card on record, read
+    // only. The full notice sits under both sides (CnicCapture).
+    return (
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="relative aspect-[1.6] overflow-hidden rounded-xl border border-gray-200 bg-tm-bg">
+          {shown}
+          <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-tm-green-deep">
+            {lockView === 'waiting' ? <Clock aria-hidden size={11} /> : <Lock aria-hidden size={11} />}
+            {lockView === 'waiting' ? 'New upload sent' : 'Approved'}
+          </span>
+        </div>
+        <p className="text-center text-[11px] font-bold text-tm-navy">{label}</p>
+      </div>
+    )
+  }
 
   return (
     <PhotoCaptureTile

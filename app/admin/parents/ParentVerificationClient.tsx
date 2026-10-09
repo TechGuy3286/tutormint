@@ -151,6 +151,8 @@ export default function ParentVerificationClient({
                 addressItem: open.addressItem,
                 verified: open.verified,
                 whatsapp: open.whatsapp,
+                cnicFrontReviewId: open.cnicFrontReviewId ?? null,
+                cnicBackReviewId: open.cnicBackReviewId ?? null,
               }}
             />
 

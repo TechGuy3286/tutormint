@@ -12,6 +12,9 @@ import { CNIC_FORMAT_HINT, maskCnic } from '@/lib/cnic'
 import { formatDate } from '@/lib/datetime'
 import type { Identity } from '@/lib/identity'
 import { submitJson } from '@/lib/submit'
+import { useDocLocks } from '@/lib/useDocLocks'
+import { canPick } from '@/lib/docLockCore'
+import DocLockNotice, { combinedView } from '@/components/identity/DocLockNotice'
 
 // The identity card. ONE component, both roles.
 //
@@ -77,12 +80,30 @@ export default function IdentityCard({ identity, role }: Props) {
   const masked = maskCnic(identity.cnicNumber)
   const showForm = editing || state === 'none' || state === 'rejected'
 
+  // An approved CNIC is LOCKED (owner, 9 Oct 2026): no "Request a change". The
+  // member sees the lock notice, or — once staff unlock it, or for a side never
+  // uploaded — an "Upload a new photo" that sends the new side for review while
+  // the approved card stays on record.
+  const locks = useDocLocks()
+  const sideViews = [locks?.cnicFront ?? 'open', locks?.cnicBack ?? 'open'] as const
+  const approvedLocked = state === 'approved'
+  const canReupload = approvedLocked && !!locks && sideViews.some((v) => canPick(v))
+
   // A stored identity document is REPLACED, never removed — the file is
   // retained privately either way, and "delete then re-upload before you can
   // submit" is a worse flow than replacing in place. So there is no remove
   // path here (and none in /api/identity): Replace is the only action.
 
   function onUploaded(side: 'front' | 'back', documentId: string) {
+    if (approvedLocked) {
+      // A new upload of an approved card waits for review; the approved
+      // images stay the ones shown here until staff approve the new one.
+      setError('')
+      setNotice('New photo sent. Our team will check it.')
+      toast.success('New photo sent. Our team will check it.')
+      router.refresh()
+      return
+    }
     const doc = { id: documentId, side, uploadedAt: new Date().toISOString() }
     if (side === 'back') setBack(doc)
     else setFront(doc)
@@ -204,6 +225,15 @@ export default function IdentityCard({ identity, role }: Props) {
 
           {error && <p role="alert" className="text-[11px] font-bold text-tm-red">{error}</p>}
 
+          {approvedLocked ? (
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 px-4 text-[11px] font-bold text-tm-navy transition-colors hover:border-tm-navy"
+            >
+              Done
+            </button>
+          ) : (
           <button
             type="button"
             onClick={() => void submit()}
@@ -213,7 +243,8 @@ export default function IdentityCard({ identity, role }: Props) {
             <Send aria-hidden size={14} />
             Send for checking
           </button>
-          {!busy && cap && <ChecklistStatus items={cnicChecklistItems(cap)} />}
+          )}
+          {!busy && cap && !approvedLocked && <ChecklistStatus items={cnicChecklistItems(cap)} />}
         </div>
       ) : (
         <div className="space-y-3">
@@ -227,6 +258,22 @@ export default function IdentityCard({ identity, role }: Props) {
               Our team is checking these, usually within a few hours. Nothing else is needed from
               you.
             </p>
+          ) : approvedLocked ? (
+            canReupload ? (
+              <div className="space-y-2">
+                <DocLockNotice view={combinedView([...sideViews])} />
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 px-4 text-[11px] font-bold text-tm-navy transition-colors hover:border-tm-navy"
+                >
+                  <Upload aria-hidden size={13} />
+                  Upload a new photo
+                </button>
+              </div>
+            ) : locks ? (
+              <DocLockNotice view={combinedView([...sideViews])} />
+            ) : null
           ) : (
             <button
               type="button"

@@ -161,6 +161,9 @@ export const SCREEN_ACCESS = {
   videoVisibility: ['admin'] as AdminRole[],
   tutorSlug: ['admin'] as AdminRole[],
   tutorEdit: ['admin', 'operations'] as AdminRole[],
+  // Unlock an approved, locked CNIC / selfie for ONE re-upload (owner, 9 Oct
+  // 2026). Owner, admin and operations; a Partner is refused by checkAdminRole.
+  documentUnlock: ['admin', 'operations'] as AdminRole[],
   ads: ['admin', 'operations'] as AdminRole[],
   social: ['admin', 'operations'] as AdminRole[],
   import: ['admin', 'operations'] as AdminRole[],

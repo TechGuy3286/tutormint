@@ -104,6 +104,7 @@ export function StatusCard({
   onClose,
   locked = false,
   lockedValue,
+  lockedNote,
   children,
 }: {
   cardKey: string
@@ -125,6 +126,9 @@ export function StatusCard({
    *  "contact support" note. `lockedValue` is the value shown read-only. */
   locked?: boolean
   lockedValue?: string | null
+  /** Replaces the default "contact support" block under a locked value (the
+   *  approved-document lock notice, owner 9 Oct 2026). */
+  lockedNote?: ReactNode
   children: ReactNode
 }) {
   const meta = STATUS_META[status]
@@ -176,6 +180,7 @@ export function StatusCard({
           {lockedValue && lockedValue.trim() !== '' && (
             <p className="rounded-xl bg-white p-3 text-xs font-semibold text-tm-navy">{lockedValue}</p>
           )}
+          {lockedNote ?? (<>
           <p className="text-[11px] leading-relaxed text-gray-600">To change this, contact support.</p>
           <Urdu className="text-[11px] leading-relaxed text-gray-600">تبدیلی کے لیے سپورٹ سے رابطہ کریں۔</Urdu>
           <a
@@ -186,6 +191,7 @@ export function StatusCard({
           >
             <MessageCircle aria-hidden size={13} /> WhatsApp 0321 5872222
           </a>
+          </>)}
         </div>
       ) : showBody ? (
         <div className="pt-1">

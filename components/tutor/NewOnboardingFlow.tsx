@@ -8,6 +8,9 @@ import { Camera, Check, CreditCard, Image as ImageIcon, Loader2, Paperclip, Plus
 
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/Toast'
+import { useDocLocks, refreshDocLocks } from '@/lib/useDocLocks'
+import { canPick } from '@/lib/docLockCore'
+import DocLockNotice from '@/components/identity/DocLockNotice'
 import { compressImage, compressUnder1MB } from '@/lib/imageCompress'
 import { isSyntheticEmail, normalisePkMobile, looksLikeEmail } from '@/lib/phone'
 import { StepShell } from '@/components/onboarding/StepShell'
@@ -1071,6 +1074,8 @@ function SelfieStep({ done, initialPreview, shell, onDone, onError }: { done: bo
   const [preview, setPreview] = useState<string | null>(initialPreview)
   const [uploading, setUploading] = useState(false)
   const uploaded = done || !!preview
+  // An approved selfie is LOCKED (owner, 9 Oct 2026).
+  const selfieView = useDocLocks()?.selfie ?? 'open'
   async function upload(file: File) {
     setUploading(true)
     try {
@@ -1080,6 +1085,7 @@ function SelfieStep({ done, initialPreview, shell, onDone, onError }: { done: bo
       const data = await res.json().catch(() => null)
       if (!res.ok || !data?.previewUrl) throw new Error(data?.error || 'That photo could not be uploaded.')
       setPreview((old) => { if (old && old.startsWith('blob:')) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
+      refreshDocLocks()
       toast.success('Selfie uploaded.')
     } catch (e) { onError(e instanceof Error ? e.message : 'We couldn’t upload that selfie. Please try again.') } finally { setUploading(false) }
   }
@@ -1087,8 +1093,11 @@ function SelfieStep({ done, initialPreview, shell, onDone, onError }: { done: bo
     onNext: onDone, nextDisabled: !uploaded,
     children: (
       <div className="space-y-2">
+        {selfieView !== 'open' && <DocLockNotice view={selfieView} />}
+        {canPick(selfieView) && (
         <CaptureButtons facingMode="user" busy={uploading} done={uploaded}
           preview={preview ? (<img src={preview} alt="Your selfie" className="h-full w-full object-cover" />) : null} onPick={(f) => void upload(f)} />
+        )}
         <div className="text-center"><TermsLink /></div>
       </div>
     ),
@@ -1169,6 +1178,9 @@ function CnicSideCapture({ side, initialPreview, onDone, onError }: { side: 'fro
   const [busy, setBusy] = useState(false)
   const has = !!preview
   const label = side === 'front' ? 'Front of CNIC' : 'Back of CNIC'
+  // An approved CNIC side is LOCKED (owner, 9 Oct 2026).
+  const locks = useDocLocks()
+  const view = (side === 'front' ? locks?.cnicFront : locks?.cnicBack) ?? 'open'
   async function upload(file: File) {
     setBusy(true)
     try {
@@ -1178,13 +1190,26 @@ function CnicSideCapture({ side, initialPreview, onDone, onError }: { side: 'fro
       const j = await res.json().catch(() => ({}))
       if (!res.ok || !j.documentId) throw new Error(j.error ?? (res.status === 413 ? 'That photo was too large. Please try again.' : 'Upload failed.'))
       setPreview((old) => { if (old && old.startsWith('blob:')) URL.revokeObjectURL(old); return URL.createObjectURL(img) })
+      refreshDocLocks()
       onDone()
     } catch (e) { onError(e instanceof Error ? e.message : 'We couldn’t upload that. Please try again.') } finally { setBusy(false) }
   }
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) void upload(f); e.currentTarget.value = '' }
+  if (!canPick(view)) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-bold text-tm-navy">{label}</p>
+        <div className="relative block aspect-[1.6] w-full overflow-hidden rounded-xl border border-gray-200 bg-tm-bg">
+          {preview ? (<img src={preview} alt={label} className="h-full w-full object-cover" />) : null}
+        </div>
+        <DocLockNotice view={view} />
+      </div>
+    )
+  }
   return (
     <div className="space-y-2">
       <p className="text-xs font-bold text-tm-navy">{label}</p>
+      {view === 'unlocked' && <DocLockNotice view="unlocked" />}
       <button type="button" onClick={() => camRef.current?.click()} disabled={busy} aria-label={label}
         className="relative block aspect-[1.6] w-full overflow-hidden rounded-xl border-2 border-dashed border-gray-300 bg-tm-bg">
         {preview ? (<img src={preview} alt={label} className="h-full w-full object-cover" />) : (

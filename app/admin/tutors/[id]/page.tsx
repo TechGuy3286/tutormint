@@ -10,6 +10,8 @@ import { requireAdminRole, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loadDirectoryStatus } from '@/lib/directoryStatus'
 import { loadDocumentStatuses } from '@/lib/tutorDocuments'
+import { loadAdminLockInfo } from '@/lib/docLocks'
+import { maskCnicHeavy } from '@/lib/cnic'
 import TutorDocumentReview from '@/components/admin/TutorDocumentReview'
 import { formatDate } from '@/lib/datetime'
 import { jobTypesLabel } from '@/lib/display'
@@ -85,7 +87,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
   // Identity documents for review (PR60): the newest CNIC front/back and selfie,
   // plus each item's approval status. Read-resilient (statuses default to none
   // before the migration).
-  const [{ data: idDocs }, docStatuses] = await Promise.all([
+  const [{ data: idDocs }, docStatuses, lockInfo] = await Promise.all([
     admin
       .from('user_documents')
       .select('id, kind, label, created_at')
@@ -94,6 +96,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
       .eq('status', 'active') // PR106-H3 §1.4 — hide paused duplicate uploads
       .order('created_at', { ascending: false }),
     loadDocumentStatuses(id),
+    loadAdminLockInfo(id),
   ])
   const docs = (idDocs ?? []) as { id: string; kind: string; label: string | null }[]
   const cnicFront = docs.find((d) => d.kind === 'cnic' && (d.label ?? 'front') !== 'back')
@@ -203,6 +206,10 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
         selfieDocId={selfieDoc?.id ?? null}
         statuses={docStatuses}
         memberWhatsapp={(profile.whatsapp as string | null) ?? (tutor.whatsapp_number as string | null) ?? (profile.phone_number as string | null) ?? null}
+        lockInfo={lockInfo}
+        canUnlock={roleSatisfies(actor.adminRole, SCREEN_ACCESS.documentUnlock)}
+        cnicNumberMasked={maskCnicHeavy(profile.cnic_number as string | null)}
+        canEditNumber={canFieldEdit}
       />
 
       {canFieldEdit && (

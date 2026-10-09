@@ -20,13 +20,22 @@ import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
-import { tutorCardStatuses } from '@/lib/tutorDocQueueCore'
+import { tutorCardStatuses, type CardDocState } from '@/lib/tutorDocQueueCore'
+import { closeOpenUnlocks, promoteReview, rejectReview, reviewDocs } from '@/lib/docLocks'
+import { cnicApprovalProblem } from '@/lib/docLockCore'
+import type { DocLockViews } from '@/lib/docLockCore'
 
 export type DocItem = 'cnic' | 'profile_pic' | 'selfie'
 export type DocStatus = 'none' | 'pending' | 'approved' | 'rejected'
 
-export type DocState = { status: DocStatus; reason: string | null; hasUpload: boolean }
-export type DocumentStatuses = { cnic: DocState; profilePic: DocState; selfie: DocState }
+export type DocState = CardDocState
+export type DocumentStatuses = {
+  cnic: DocState
+  profilePic: DocState
+  selfie: DocState
+  /** Only on the member's own /api/tutor/document-status response. */
+  locks?: DocLockViews
+}
 
 
 /**
@@ -50,7 +59,7 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
   try {
     const { data, error } = await db
       .from('profiles')
-      .select('profile_pic_status, profile_pic_reason, selfie_status, selfie_reason')
+      .select('profile_pic_status, profile_pic_reason, profile_pic_rereview_at, selfie_status, selfie_reason')
       .eq('id', userId)
       .maybeSingle()
     if (!error) newCols = (data as Record<string, unknown> | null) ?? null
@@ -74,6 +83,22 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
     /* ignore */
   }
 
+  // Re-uploads of approved documents waiting for staff (owner, 9 Oct 2026).
+  let cnicReview = false
+  let selfieReview = false
+  try {
+    const { data } = await db
+      .from('user_documents')
+      .select('kind')
+      .eq('user_id', userId)
+      .in('kind', ['cnic', 'selfie'])
+      .eq('status', 'review')
+    cnicReview = (data ?? []).some((d) => d.kind === 'cnic')
+    selfieReview = (data ?? []).some((d) => d.kind === 'selfie')
+  } catch {
+    /* ignore */
+  }
+
   // ONE rule with the approval queue (lib/tutorDocQueueCore).
   return tutorCardStatuses({
     verification_state: (base?.verification_state as string) ?? null,
@@ -87,6 +112,9 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
     selfie_status: (newCols?.selfie_status as string) ?? null,
     selfie_reason: (newCols?.selfie_reason as string) ?? null,
     hasSelfieFile: selfieDoc,
+    hasCnicReview: cnicReview,
+    hasSelfieReview: selfieReview,
+    profile_pic_rereview_at: (newCols?.profile_pic_rereview_at as string) ?? null,
   })
 }
 
@@ -119,34 +147,51 @@ export async function reviewTutorDocument(params: {
   // logs happen only when the decision actually changes state.
   const { data: current } = await admin
     .from('profiles')
-    .select('verification_state, cnic_verified_at, profile_pic_status, selfie_status, cnic_number, cnic_image_path, avatar_url')
+    .select('verification_state, cnic_verified_at, profile_pic_status, profile_pic_rereview_at, selfie_status, cnic_number, cnic_image_path, avatar_url')
     .eq('id', tutorId)
     .maybeSingle()
+
+  // A NEW upload of an already-approved document waiting for this decision
+  // (owner, 9 Oct 2026): an unlocked CNIC/selfie re-upload ('review' rows) or a
+  // profile photo changed after approval. Deciding it never touches the
+  // approval the badge and indexability read until the new file is approved.
+  const filledS = (v: unknown) => typeof v === 'string' && v.trim().length > 0
+  const waiting = item === 'profile_pic' ? [] : await reviewDocs(tutorId, item)
+  const rereview =
+    item === 'cnic'
+      ? waiting.length > 0 && (current?.verification_state === 'approved' || filledS(current?.cnic_verified_at))
+      : item === 'selfie'
+        ? waiting.length > 0 && current?.selfie_status === 'approved'
+        : current?.profile_pic_status === 'approved' && filledS(current?.profile_pic_rereview_at)
+  if (rereview) return decideRereview({ actor, tutorId, item, decision, reason, admin })
 
   // PR106-E §3 — staff cannot APPROVE a document with no uploaded file. A missing
   // file means there is nothing to review; approving it would mint a Verified
   // badge over nothing (the Javeria case). The UI hides Approve for a missing
   // document too; this is the server backstop.
   if (decision === 'approve') {
-    const filled = (v: unknown) => typeof v === 'string' && v.trim().length > 0
-    let hasFile = false
     if (item === 'cnic') {
-      hasFile = filled(current?.cnic_number) && filled(current?.cnic_image_path)
-    } else if (item === 'profile_pic') {
-      hasFile = filled(current?.avatar_url)
+      // The CNIC number stays required (owner rule); say exactly what is missing.
+      const problem = cnicApprovalProblem({ number: current?.cnic_number as string | null, imagePath: current?.cnic_image_path as string | null })
+      if (problem) return { ok: false, status: 400, error: problem }
     } else {
-      const { data: selfieDoc } = await admin
-        .from('user_documents')
-        .select('id')
-        .eq('user_id', tutorId)
-        .eq('kind', 'selfie')
-        .eq('status', 'active') // PR106-H3 §1.4
-        .limit(1)
-        .maybeSingle()
-      hasFile = !!selfieDoc
-    }
-    if (!hasFile) {
-      return { ok: false, status: 400, error: 'That document has not been uploaded yet, so it cannot be approved.' }
+      let hasFile = false
+      if (item === 'profile_pic') {
+        hasFile = filledS(current?.avatar_url)
+      } else {
+        const { data: selfieDoc } = await admin
+          .from('user_documents')
+          .select('id')
+          .eq('user_id', tutorId)
+          .eq('kind', 'selfie')
+          .eq('status', 'active') // PR106-H3 §1.4
+          .limit(1)
+          .maybeSingle()
+        hasFile = !!selfieDoc
+      }
+      if (!hasFile) {
+        return { ok: false, status: 400, error: 'That document has not been uploaded yet, so it cannot be approved.' }
+      }
     }
   }
 
@@ -173,6 +218,7 @@ export async function reviewTutorDocument(params: {
   } else if (item === 'profile_pic') {
     patch.profile_pic_status = approved ? 'approved' : 'rejected'
     patch.profile_pic_reason = approved ? null : reason.trim()
+    patch.profile_pic_rereview_at = null
     patch.profile_pic_reviewed_by = actor.id
     patch.profile_pic_reviewed_at = now
   } else {
@@ -184,6 +230,8 @@ export async function reviewTutorDocument(params: {
 
   const { error } = await admin.from('profiles').update(patch).eq('id', tutorId)
   if (error) return { ok: false, status: 400, error: error.message }
+  // A decision on the item ends any open staff unlock for it.
+  if (item !== 'profile_pic') await closeOpenUnlocks(tutorId, item, approved ? 'approved' : 'rejected')
 
   const label = item === 'cnic' ? 'CNIC' : item === 'profile_pic' ? 'profile picture' : 'selfie'
   await logAdminAction({
@@ -230,5 +278,97 @@ export async function reviewTutorDocument(params: {
     meta: { item, decision, reason: approved ? null : reason.trim() },
   })
 
+  return { ok: true }
+}
+
+/**
+ * A decision on a NEW upload of an already-approved document (owner, 9 Oct
+ * 2026). Approve: the new file becomes the one on record and the document is
+ * locked again. Reject: the new file is hidden (kept for history) and the
+ * previous approved file stays on record — the approval, badge and
+ * indexability are untouched either way. For a changed profile photo, a
+ * reject is the ordinary photo rejection (no earlier photo is kept).
+ */
+async function decideRereview(params: {
+  actor: { id: string; adminRole: AdminRole; email: string | null }
+  tutorId: string
+  item: DocItem
+  decision: ReviewDecision
+  reason: string
+  admin: NonNullable<ReturnType<typeof createAdminClient>>
+}): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const { actor, tutorId, item, decision, admin } = params
+  const reason = params.reason.trim()
+  const approved = decision === 'approve'
+  const now = new Date().toISOString()
+  const patch: Record<string, unknown> = {}
+
+  if (item === 'profile_pic') {
+    patch.profile_pic_rereview_at = null
+    patch.profile_pic_reviewed_by = actor.id
+    patch.profile_pic_reviewed_at = now
+    if (!approved) {
+      patch.profile_pic_status = 'rejected'
+      patch.profile_pic_reason = reason
+    }
+  } else if (approved) {
+    const path = await promoteReview(tutorId, item)
+    if (item === 'cnic') {
+      patch.verification_state = 'approved'
+      patch.verification_rejection_reason = null
+      patch.cnic_verified_at = now
+      patch.cnic_reviewed_by = actor.id
+      patch.cnic_reviewed_at = now
+      if (path) patch.cnic_image_path = path
+    } else {
+      patch.selfie_status = 'approved'
+      patch.selfie_reason = null
+      patch.selfie_reviewed_by = actor.id
+      patch.selfie_reviewed_at = now
+      if (path) await admin.from('tutor_profiles').update({ selfie_url: path }).eq('id', tutorId)
+    }
+  } else {
+    await rejectReview(tutorId, item)
+    if (item === 'cnic') {
+      patch.cnic_reviewed_by = actor.id
+      patch.cnic_reviewed_at = now
+    } else {
+      patch.selfie_reviewed_by = actor.id
+      patch.selfie_reviewed_at = now
+    }
+  }
+  const { error } = await admin.from('profiles').update(patch).eq('id', tutorId)
+  if (error) return { ok: false, status: 400, error: error.message }
+  if (item !== 'profile_pic') await closeOpenUnlocks(tutorId, item, approved ? 'approved' : 'rejected')
+
+  const label = item === 'cnic' ? 'CNIC' : item === 'profile_pic' ? 'profile picture' : 'selfie'
+  await logAdminAction({
+    actorId: actor.id,
+    actorRole: actor.adminRole,
+    actorEmail: actor.email,
+    action: approved ? 'tutor.approve' : 'tutor.hold',
+    targetType: 'tutor_profile',
+    targetId: tutorId,
+    detail: { item, decision, rereview: true, reason: approved ? null : reason },
+  })
+  const keepsOld = !approved && item !== 'profile_pic'
+  await notify({
+    userId: tutorId,
+    kind: approved ? 'verification_approved' : 'verification_rejected',
+    title: approved ? `Your new ${label} is approved` : `Your new ${label} was not approved`,
+    body: approved
+      ? `Your new ${label} has been approved and is now the one on record.`
+      : keepsOld
+        ? `Your new ${label} was not approved: ${reason} Your earlier approved ${label} stays on record.`
+        : `Your new ${label} was not approved: ${reason} Please upload a clear one here.`,
+    href: '/tutor/dashboard/settings#identity',
+  })
+  await logActivity({
+    userId: tutorId,
+    event: 'verification_decision_received',
+    targetType: 'tutor_profile',
+    targetId: tutorId,
+    meta: { item, decision, rereview: true, reason: approved ? null : reason },
+  })
   return { ok: true }
 }

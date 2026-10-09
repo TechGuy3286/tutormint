@@ -23,6 +23,8 @@ export type ActivityEvent =
   | 'completion_changed'
   | 'subjects_changed'
   | 'document_uploaded'
+  // Staff unlocked an approved CNIC / selfie for one re-upload (9 Oct 2026).
+  | 'document_unlocked'
   | 'video_submitted'
   | 'verification_submitted'
   | 'verification_decision_received'
