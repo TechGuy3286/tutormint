@@ -337,7 +337,6 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
           <div className="space-y-4">
             <p className="rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-3 text-xs font-bold text-tm-navy">
               {fallback.line.en}
-              <span lang="ur" dir="rtl" className="mt-1 block font-semibold">{fallback.line.ur}</span>
             </p>
             {fallback.tutors.map((t, i) => (
               <TutorCard

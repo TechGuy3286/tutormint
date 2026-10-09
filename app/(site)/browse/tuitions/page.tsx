@@ -427,7 +427,6 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
           <div className="space-y-4">
             <p className="rounded-2xl border border-tm-navy/20 bg-tm-tint-navy p-3 text-xs font-bold text-tm-navy">
               {fallback.line.en}
-              <span lang="ur" dir="rtl" className="mt-1 block font-semibold">{fallback.line.ur}</span>
             </p>
             {fallback.jobs.map((job) => (
               <JobCard
