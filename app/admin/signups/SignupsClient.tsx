@@ -1,6 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { MarkFollowedUp } from '@/components/admin/FollowUpActions'
+import { adminFetch } from '@/components/admin/adminFetch'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { Mail, MessageCircle, Send, X, AlertTriangle } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
@@ -35,12 +38,35 @@ export default function SignupsClient({
   rows,
   ok,
   templateBodies,
+  followUps = {},
 }: {
   rows: AbandonedSignup[]
   ok: boolean
   templateBodies: Record<string, string>
+  /** The shared follow-up record (owner, 9 Oct 2026), per member. */
+  followUps?: Record<string, { sent: boolean; line: string | null; tag: string | null }>
 }) {
   const { success, error } = useToast()
+  const router = useRouter()
+  // Two tabs: still stuck, and followed up in the last 7 days.
+  const [tab, setTab] = useState<'stuck' | 'sent'>('stuck')
+  const [moved, setMoved] = useState<Set<string>>(new Set())
+  const isSent = (id: string) => !!followUps[id]?.sent
+  const stuckRows = rows.filter((r) => !isSent(r.userId) && !moved.has(r.userId))
+  const sentRows = rows.filter((r) => isSent(r.userId))
+  const shownRows = tab === 'stuck' ? stuckRows : sentRows
+  const onMoved = (id: string) => {
+    if (tab === 'stuck') setMoved((prev) => new Set(prev).add(id))
+    router.refresh()
+  }
+  const onRestored = (id: string) => {
+    setMoved((prev) => {
+      const n = new Set(prev)
+      n.delete(id)
+      return n
+    })
+    router.refresh()
+  }
   const readOnly = useAdminReadOnly()
   const [selected, setSelected] = useState<AbandonedSignup | null>(null)
   const [body, setBody] = useState('')
@@ -81,11 +107,27 @@ export default function SignupsClient({
       }
       if (selected.channel === 'whatsapp') {
         if (data.waHref) window.open(data.waHref, '_blank', 'noopener,noreferrer')
-        success('WhatsApp opened — send the message there to deliver it.')
-      } else {
-        success('Message sent by email and in-app.')
       }
+      // The message is a follow-up: record it on the shared record so the
+      // member moves to Follow-up sent (owner, 9 Oct 2026).
+      const fu = await adminFetch<{ id?: string }>('/api/admin/follow-ups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'record',
+          memberId: selected.userId,
+          channel: selected.channel === 'whatsapp' ? 'whatsapp' : 'email',
+          templateKey: selected.templateKey,
+          source: 'abandoned',
+        }),
+      })
+      success(
+        selected.channel === 'whatsapp'
+          ? 'WhatsApp opened. Send the message there to deliver it. Moved to Follow-up sent.'
+          : 'Message sent by email and in-app. Moved to Follow-up sent.',
+      )
       setSent((prev) => new Set(prev).add(selected.userId))
+      if (fu.ok) onMoved(selected.userId)
       setSelected(null)
     } catch {
       error('Could not send. Please try again.')
@@ -124,6 +166,25 @@ export default function SignupsClient({
             official TutorMint Team, is audit-logged and appears on the member’s timeline.
           </p>
 
+          <nav aria-label="Tabs" className="flex flex-wrap gap-2">
+            {([
+              ['stuck', 'Stuck', stuckRows.length],
+              ['sent', 'Follow-up sent', sentRows.length],
+            ] as const).map(([k, label, n]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setTab(k)}
+                aria-pressed={tab === k}
+                className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
+                  tab === k ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+                }`}
+              >
+                {label} <span className={tab === k ? 'text-white' : 'text-gray-500'}>{n}</span>
+              </button>
+            ))}
+          </nav>
+
           <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
             <table className="w-full text-left text-[11px]">
               <thead className="border-b border-gray-200 text-gray-500">
@@ -137,11 +198,24 @@ export default function SignupsClient({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {rows.map((r) => (
+                {shownRows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-6 text-center text-gray-500">Nobody here right now.</td>
+                  </tr>
+                )}
+                {shownRows.map((r) => (
                   <tr key={r.userId} className="align-middle">
                     <td className="p-3">
                       <span className="block font-semibold text-tm-navy">{r.contact}</span>
                       {r.fullName && <span className="block text-gray-500">{r.fullName}</span>}
+                      {followUps[r.userId]?.tag && tab === 'stuck' && (
+                        <span className="mt-1 inline-block rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-bold text-tm-gold-ink">
+                          {followUps[r.userId].tag}
+                        </span>
+                      )}
+                      {tab === 'sent' && followUps[r.userId]?.line && (
+                        <span className="mt-1 block font-semibold text-tm-green-deep">{followUps[r.userId].line}</span>
+                      )}
                     </td>
                     <td className="p-3">
                       <span className="inline-block rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-bold text-tm-gold-ink">
@@ -166,8 +240,8 @@ export default function SignupsClient({
                     <td className="p-3 text-gray-500">
                       {r.createdAt ? formatDate(r.createdAt) : '—'}
                     </td>
-                    <td className="p-3 text-right">
-                      {sent.has(r.userId) ? (
+                    <td className="space-y-1 p-3 text-right">
+                      {sent.has(r.userId) && tab === 'stuck' ? (
                         <span className="text-[10px] font-bold text-tm-green-deep">Messaged</span>
                       ) : readOnly ? null : (
                         <button
@@ -175,9 +249,12 @@ export default function SignupsClient({
                           onClick={() => open(r)}
                           className="inline-flex min-h-[36px] items-center gap-1 rounded-full bg-tm-red px-3 py-1.5 text-[11px] font-bold text-white hover:bg-tm-red-hover"
                         >
-                          <Send aria-hidden size={12} /> Message
+                          <Send aria-hidden size={12} /> {tab === 'sent' ? 'Send again' : 'Message'}
                         </button>
                       )}
+                      <div>
+                        <MarkFollowedUp memberId={r.userId} source="abandoned" templateKey={null} tab={tab} onMoved={onMoved} onRestored={onRestored} />
+                      </div>
                     </td>
                   </tr>
                 ))}

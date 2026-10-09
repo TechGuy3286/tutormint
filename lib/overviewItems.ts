@@ -18,7 +18,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { approvalNeeded } from '@/lib/approvalQueue'
 import { loadUnpaidSignups, loadFeaturedWhatsapp } from '@/lib/staffOutreach'
-import { isTestName, PAYMENT_STEP_LABEL, stuckBreakdown } from '@/lib/staffOutreachCore'
+import { isTestName, PAYMENT_STEP_LABEL, stuckBreakdown, firstNameOf } from '@/lib/staffOutreachCore'
+import { continueLink, loadFollowUpStates, loadStuckTemplate } from '@/lib/followUps'
+import { followUpLine, followUpText, followUpWaLink, splitFollowUpTabs, STUCK_TEMPLATE_KEY, type FollowUpSource } from '@/lib/followUpCore'
 import { PAUSE_AFTER_DAYS } from '@/lib/tuitionStatus'
 import { settleByDate } from '@/lib/settlementCore'
 import type { PayproRow } from '@/lib/reconciliationCore'
@@ -55,6 +57,18 @@ export type OverviewRow = {
   memberId?: string
   /** Where staff review this member's documents (document lists only). */
   reviewHref?: string
+  /** One-tap follow-up (Stuck in onboarding / Follow-up sent, 9 Oct 2026). */
+  followUp?: {
+    source: FollowUpSource
+    templateKey: string | null
+    waHref: string | null
+    telHref: string | null
+    tab: 'stuck' | 'sent'
+    /** "Follow-up sent 2 days ago by Aqsa". */
+    line: string | null
+    /** "Followed up once" — back on the Stuck tab after 7 days. */
+    tag: string | null
+  }
 }
 
 export type OverviewList = {
@@ -75,6 +89,51 @@ const PK_DATE = (iso: string) => formatDate(iso)
 
 const unpaid = cache(async () => loadUnpaidSignups(new Date()))
 const featured = cache(async () => loadFeaturedWhatsapp(new Date()))
+
+/**
+ * Stuck in onboarding, split into its two tabs by the shared follow-up record
+ * (owner, 9 Oct 2026). The Overview number is the Stuck tab's length; each
+ * card carries the prefilled WhatsApp link built from the stored template.
+ */
+const stuckTabs = cache(async () => {
+  const now = new Date()
+  const all = await unpaid()
+  const stuckRows = all.filter((r) => r.stoppedAt && r.stoppedAt !== PAYMENT_STEP_LABEL)
+  const [states, template] = await Promise.all([loadFollowUpStates(stuckRows.map((r) => r.id), now), loadStuckTemplate()])
+  const link = continueLink()
+  const toRow = (r: (typeof stuckRows)[number], tab: 'stuck' | 'sent'): OverviewRow => {
+    const st = states.get(r.id)
+    const text = template ? followUpText(template.body, { name: firstNameOf(r.name), step: r.stoppedAt, link }) : null
+    return {
+      id: r.id,
+      title: r.name,
+      detail: `Stopped at ${r.stoppedAt} · joined ${PK_DATE(r.joinedAt)}`,
+      href: `/admin/users/${r.id}`,
+      memberId: r.id,
+      followUp: {
+        source: 'stuck',
+        templateKey: template?.key ?? STUCK_TEMPLATE_KEY,
+        waHref: r.msisdn && text ? followUpWaLink(r.msisdn, text) : null,
+        telHref: r.msisdn ? `tel:+${r.msisdn}` : null,
+        tab,
+        line: st ? followUpLine(st, now.getTime()) : null,
+        tag: st?.tag ?? null,
+      },
+    }
+  }
+  const split = splitFollowUpTabs(stuckRows, states)
+  return {
+    all,
+    stuck: split.stuck.map((r) => toRow(r, 'stuck')),
+    sent: split.sent.map((r) => toRow(r, 'sent')),
+  }
+})
+
+/** Both tab counts, for the tabs on the list page. */
+export async function stuckTabCounts(): Promise<{ stuck: number; sent: number }> {
+  const t = await stuckTabs()
+  return { stuck: t.stuck.length, sent: t.sent.length }
+}
 
 // ---------------------------------------------------------------- funnel
 type CohortTutor = FunnelTutor & { name: string; createdAt: string }
@@ -283,14 +342,23 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
     }
 
     case 'todo-stuck': {
-      const all = await unpaid()
-      const rows = all.filter((r) => r.stoppedAt && r.stoppedAt !== PAYMENT_STEP_LABEL)
+      const t = await stuckTabs()
       return {
         key,
-        rows: rows.map((r) => ({ id: r.id, title: r.name, detail: `Stopped at ${r.stoppedAt} · joined ${PK_DATE(r.joinedAt)}`, href: `/admin/users/${r.id}`, memberId: r.id })),
+        rows: t.stuck,
         filter: 'who joined in the last 30 days and stopped before the payment step',
-        extra: stuckBreakdown(all.map((r) => r.stoppedAt)).detail,
+        extra: stuckBreakdown(t.all.map((r) => r.stoppedAt)).detail,
         workHref: '/admin/users/unpaid-signups?filter=onboarding',
+      }
+    }
+
+    case 'todo-stuck-sent': {
+      const t = await stuckTabs()
+      return {
+        key,
+        rows: t.sent,
+        filter: 'stuck in onboarding, followed up in the last 7 days',
+        workHref: '/admin/users/unpaid-signups?filter=followed',
       }
     }
 

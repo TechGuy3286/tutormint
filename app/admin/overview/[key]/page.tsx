@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowRight } from 'lucide-react'
 
 import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
-import { listHeader, loadOverviewList } from '@/lib/overviewItems'
+import { listHeader, loadOverviewList, stuckTabCounts } from '@/lib/overviewItems'
 import { OVERVIEW_ITEMS, isOverviewItemKey, parseFunnelDays } from '@/lib/overviewItemsCore'
 import { pkr } from '@/lib/reconciliationCore'
 import { loadMemberCards } from '@/lib/overviewCards'
@@ -46,7 +46,12 @@ export default async function OverviewListPage({
     memberId: r.memberId ?? null,
     reviewHref: r.reviewHref ?? null,
     member: (r.memberId && members.get(r.memberId)) || null,
+    followUp: r.followUp ?? null,
   }))
+  // Stuck in onboarding and Follow-up sent are two tabs of one list (owner,
+  // 9 Oct 2026), each with its own count.
+  const tabbed = key === 'todo-stuck' || key === 'todo-stuck-sent'
+  const tabCounts = tabbed ? await stuckTabCounts() : null
 
   return (
     <div className="space-y-4">
@@ -76,6 +81,29 @@ export default async function OverviewListPage({
           )}
         </div>
       </header>
+
+      {tabCounts && (
+        <nav aria-label="Tabs" className="flex flex-wrap gap-2">
+          {([
+            ['todo-stuck', 'Stuck in onboarding', tabCounts.stuck],
+            ['todo-stuck-sent', 'Follow-up sent', tabCounts.sent],
+          ] as const).map(([k, label, n]) => {
+            const on = k === key
+            return (
+              <Link
+                key={k}
+                href={`/admin/overview/${k}`}
+                aria-current={on ? 'page' : undefined}
+                className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
+                  on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+                }`}
+              >
+                {label} <span className={on ? 'text-white' : 'text-gray-500'}>{n}</span>
+              </Link>
+            )
+          })}
+        </nav>
+      )}
 
       <OverviewCardGrid items={items} />
     </div>

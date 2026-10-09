@@ -24,11 +24,13 @@ import { AlertCircle, CheckCircle2, X } from 'lucide-react'
 // is not snatched away mid-read.
 
 export type ToastKind = 'success' | 'error'
-type Toast = { id: number; kind: ToastKind; message: string }
+/** An optional button on the toast, e.g. Undo (owner, 9 Oct 2026). */
+export type ToastAction = { label: string; onClick: () => void }
+type Toast = { id: number; kind: ToastKind; message: string; action?: ToastAction }
 
 type ToastApi = {
-  toast: (kind: ToastKind, message: string) => void
-  success: (message: string) => void
+  toast: (kind: ToastKind, message: string, action?: ToastAction) => void
+  success: (message: string, action?: ToastAction) => void
   error: (message: string) => void
 }
 
@@ -58,27 +60,28 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const arm = useCallback(
-    (id: number, kind: ToastKind) => {
-      const timer = setTimeout(() => dismiss(id), DURATION[kind])
+    (id: number, kind: ToastKind, long = false) => {
+      // A toast with a button (Undo) stays twice as long, so it can be reached.
+      const timer = setTimeout(() => dismiss(id), long ? DURATION[kind] * 2 : DURATION[kind])
       timers.current.set(id, timer)
     },
     [dismiss],
   )
 
   const toast = useCallback(
-    (kind: ToastKind, message: string) => {
+    (kind: ToastKind, message: string, action?: ToastAction) => {
       const id = nextId.current++
       // Cap the stack: three at once is plenty, and an unbounded pile from a
       // loop of failures would cover the page.
-      setToasts((prev) => [...prev.slice(-2), { id, kind, message }])
-      arm(id, kind)
+      setToasts((prev) => [...prev.slice(-2), { id, kind, message, action }])
+      arm(id, kind, !!action)
     },
     [arm],
   )
 
   const api: ToastApi = {
     toast,
-    success: (m) => toast('success', m),
+    success: (m, action) => toast('success', m, action),
     error: (m) => toast('error', m),
   }
 
@@ -106,7 +109,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               const timer = timers.current.get(t.id)
               if (timer) clearTimeout(timer)
             }}
-            onResume={() => arm(t.id, t.kind)}
+            onResume={() => arm(t.id, t.kind, !!t.action)}
           />
         ))}
       </div>
@@ -143,6 +146,18 @@ function ToastItem({
         <AlertCircle aria-hidden size={16} className="mt-0.5 shrink-0" />
       )}
       <p className="min-w-0 flex-1 whitespace-pre-line text-xs font-semibold leading-relaxed">{toast.message}</p>
+      {toast.action && (
+        <button
+          type="button"
+          onClick={() => {
+            toast.action?.onClick()
+            onDismiss()
+          }}
+          className="-my-1 min-h-[32px] shrink-0 rounded-lg border border-current px-2.5 text-xs font-bold"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         type="button"
         onClick={onDismiss}

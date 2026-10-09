@@ -3,6 +3,8 @@ import { loadAbandonedSignups } from '@/lib/abandonedSignups'
 import { loadOrphanedAccounts } from '@/lib/adminOrphans'
 import { loadTemplates } from '@/lib/adminMessaging'
 import SignupsClient from './SignupsClient'
+import { loadFollowUpStates } from '@/lib/followUps'
+import { followUpLine } from '@/lib/followUpCore'
 import OrphansSection from './OrphansSection'
 
 // Abandoned signups AND orphaned accounts, on one page (owner, 14 Sep 2026).
@@ -36,9 +38,18 @@ export default async function AdminSignupsPage() {
     if ((SIGNUP_TEMPLATE_KEYS as readonly string[]).includes(t.key)) bodies[t.key] = t.body
   }
 
+  // The shared follow-up record (owner, 9 Oct 2026).
+  const now = Date.now()
+  const states = await loadFollowUpStates(rows.map((r) => r.userId))
+  const followUps: Record<string, { sent: boolean; line: string | null; tag: string | null }> = {}
+  for (const r of rows) {
+    const st = states.get(r.userId)
+    if (st) followUps[r.userId] = { sent: st.sent, line: followUpLine(st, now), tag: st.tag }
+  }
+
   return (
     <div className="space-y-8">
-      <SignupsClient rows={rows} ok={ok} templateBodies={bodies} />
+      <SignupsClient rows={rows} ok={ok} templateBodies={bodies} followUps={followUps} />
       <OrphansSection rows={orphans.rows} ok={orphans.ok} />
     </div>
   )

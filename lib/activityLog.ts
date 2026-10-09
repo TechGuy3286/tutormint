@@ -25,6 +25,9 @@ export type ActivityEvent =
   | 'document_uploaded'
   // Staff unlocked an approved CNIC / selfie for one re-upload (9 Oct 2026).
   | 'document_unlocked'
+  // Staff followed up a stuck sign-up on WhatsApp / by call (9 Oct 2026).
+  | 'follow_up_sent'
+  | 'follow_up_undone'
   | 'video_submitted'
   | 'verification_submitted'
   | 'verification_decision_received'

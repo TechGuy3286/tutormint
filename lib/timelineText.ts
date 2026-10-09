@@ -224,6 +224,13 @@ export function timelineSentence(event: string, meta: TimelineMeta = {}): string
       return 'Added by bulk import'
     case 'cv_downloaded':
       return 'Downloaded their CV'
+    case 'follow_up_sent': {
+      // The shared follow-up record (owner, 9 Oct 2026).
+      const ch = meta.channel === 'whatsapp' ? 'on WhatsApp' : meta.channel === 'email' ? 'by email' : 'by call'
+      return `Followed up by staff ${ch}${typeof meta.templateKey === 'string' && meta.templateKey ? ` (template: ${meta.templateKey})` : ''}`
+    }
+    case 'follow_up_undone':
+      return 'A staff follow-up was undone'
     default:
       // Never raw: a code like "some_new_event" becomes "Some new event".
       return event.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())

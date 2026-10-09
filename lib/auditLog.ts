@@ -17,6 +17,9 @@ export type AuditAction =
   // Approved documents are locked; staff unlock one for re-upload (9 Oct 2026).
   | 'document.unlock'
   | 'document.restore_side'
+  // One-tap follow-up for stuck sign-ups (9 Oct 2026).
+  | 'member.follow_up'
+  | 'member.follow_up_undo'
   | 'tutor.hold'
   | 'tutor.suspend'
   | 'tutor.unsuspend'

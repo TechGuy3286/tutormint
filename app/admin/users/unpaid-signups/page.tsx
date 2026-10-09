@@ -4,6 +4,8 @@ import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadUnpaidSignups } from '@/lib/staffOutreach'
 import { parseUnpaidFilter, unpaidRowMatches, UNPAID_WINDOW_DAYS, type UnpaidFilter } from '@/lib/staffOutreachCore'
 import UnpaidSignupRow from './UnpaidSignupRow'
+import { loadFollowUpStates } from '@/lib/followUps'
+import { followUpLine } from '@/lib/followUpCore'
 
 // Admin → People → Unpaid signups (owner, 8 Oct 2026). Tutors who signed up in
 // the last 30 days and have not paid the Spam Free Platform Fee, newest first —
@@ -18,15 +20,24 @@ const FILTERS: { key: UnpaidFilter; label: string }[] = [
   { key: 'payment', label: 'Stopped at payment' },
   { key: 'onboarding', label: 'Stuck in onboarding' },
   { key: 'uncontacted', label: 'Not contacted yet' },
+  { key: 'followed', label: 'Follow-up sent' },
 ]
 
 export default async function UnpaidSignupsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   await requireAdminRole(...SCREEN_ACCESS.unpaidSignups)
   const filter = parseUnpaidFilter((await searchParams).filter)
   const all = await loadUnpaidSignups()
-  const rows = all.filter((r) => unpaidRowMatches({ stoppedAt: r.stoppedAt, lastContactAt: r.lastContact?.at ?? null }, filter))
-  const count = (f: UnpaidFilter) =>
-    all.filter((r) => unpaidRowMatches({ stoppedAt: r.stoppedAt, lastContactAt: r.lastContact?.at ?? null }, f)).length
+  // The shared follow-up record (owner, 9 Oct 2026): followed up in the last 7
+  // days → the Follow-up sent tab; older → back, tagged "Followed up once".
+  const now = Date.now()
+  const states = await loadFollowUpStates(all.map((r) => r.id))
+  const facts = (r: (typeof all)[number]) => ({
+    stoppedAt: r.stoppedAt,
+    lastContactAt: r.lastContact?.at ?? null,
+    followUpSent: !!states.get(r.id)?.sent,
+  })
+  const rows = all.filter((r) => unpaidRowMatches(facts(r), filter))
+  const count = (f: UnpaidFilter) => all.filter((r) => unpaidRowMatches(facts(r), f)).length
 
   return (
     <div className="space-y-4">
@@ -63,7 +74,15 @@ export default async function UnpaidSignupsPage({ searchParams }: { searchParams
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
-            <UnpaidSignupRow key={r.id} row={r} />
+            <UnpaidSignupRow
+              key={r.id}
+              row={r}
+              followUp={{
+                tab: states.get(r.id)?.sent ? 'sent' : 'stuck',
+                line: states.get(r.id) ? followUpLine(states.get(r.id)!, now) : null,
+                tag: states.get(r.id)?.tag ?? null,
+              }}
+            />
           ))}
         </ul>
       )}

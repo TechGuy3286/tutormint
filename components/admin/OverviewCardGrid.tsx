@@ -2,12 +2,15 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ExternalLink, FileCheck2, MessageCircle, Phone, Search } from 'lucide-react'
 
 import Avatar from '@/components/Avatar'
 import BadgeRow from '@/components/badges/BadgeRow'
 import { formatDate } from '@/lib/datetime'
 import type { BadgeName } from '@/lib/planBadges'
+import FollowUpActions, { MarkFollowedUp } from '@/components/admin/FollowUpActions'
+import type { FollowUpSource } from '@/lib/followUpCore'
 
 // The list behind one Overview number, as a grid of cards (owner, 9 Oct 2026):
 // 4 per row on desktop, 2 on tablet, 1 on phone. Every row the loader returned
@@ -39,6 +42,16 @@ export type GridItem = {
   memberId: string | null
   reviewHref: string | null
   member: GridMember | null
+  /** One-tap follow-up (Stuck in onboarding / Follow-up sent). */
+  followUp?: {
+    source: FollowUpSource
+    templateKey: string | null
+    waHref: string | null
+    telHref: string | null
+    tab: 'stuck' | 'sent'
+    line: string | null
+    tag: string | null
+  } | null
 }
 
 const STEP = 48
@@ -49,14 +62,30 @@ const BTN = 'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5
 export default function OverviewCardGrid({ items }: { items: GridItem[] }) {
   const [q, setQ] = useState('')
   const [shown, setShown] = useState(STEP)
+  const router = useRouter()
+  // A card followed up from this tab leaves it at once; Undo brings it back.
+  const [moved, setMoved] = useState<Set<string>>(new Set())
+  const onMoved = (id: string) => {
+    setMoved((s) => new Set(s).add(id))
+    router.refresh()
+  }
+  const onRestored = (id: string) => {
+    setMoved((s) => {
+      const n = new Set(s)
+      n.delete(id)
+      return n
+    })
+    router.refresh()
+  }
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    if (!needle) return items
-    return items.filter((it) =>
+    const pool = items.filter((it) => !(it.memberId && moved.has(it.memberId) && it.followUp?.tab === 'stuck'))
+    if (!needle) return pool
+    return pool.filter((it) =>
       [it.title, it.detail, it.member?.name, it.member?.city, it.badge].some((v) => (v ?? '').toLowerCase().includes(needle)),
     )
-  }, [items, q])
+  }, [items, q, moved])
 
   const visible = filtered.slice(0, shown)
   const left = filtered.length - visible.length
@@ -88,7 +117,7 @@ export default function OverviewCardGrid({ items }: { items: GridItem[] }) {
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-card-count={filtered.length}>
           {visible.map((it) => (
             <li key={it.id} className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4">
-              {it.member ? <MemberBody it={it} m={it.member} /> : <PlainBody it={it} />}
+              {it.member ? <MemberBody it={it} m={it.member} onMoved={onMoved} onRestored={onRestored} /> : <PlainBody it={it} />}
             </li>
           ))}
         </ul>
@@ -107,8 +136,19 @@ export default function OverviewCardGrid({ items }: { items: GridItem[] }) {
   )
 }
 
-function MemberBody({ it, m }: { it: GridItem; m: GridMember }) {
+function MemberBody({
+  it,
+  m,
+  onMoved,
+  onRestored,
+}: {
+  it: GridItem
+  m: GridMember
+  onMoved: (id: string) => void
+  onRestored: (id: string) => void
+}) {
   const openHref = `/admin/users/${it.memberId}`
+  const fu = it.followUp ?? null
   return (
     <>
       <div className="flex items-start gap-3">
@@ -143,12 +183,31 @@ function MemberBody({ it, m }: { it: GridItem; m: GridMember }) {
       {it.badge && (
         <span className="self-start rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">{it.badge}</span>
       )}
+      {fu?.tag && (
+        <span className="self-start rounded-full bg-tm-tint-gold px-2 py-0.5 text-[10px] font-bold text-tm-gold-ink">{fu.tag}</span>
+      )}
+      {fu?.tab === 'sent' && fu.line && (
+        <p className="text-[11px] font-semibold text-tm-green-deep">{fu.line}</p>
+      )}
 
       <div className="mt-auto flex flex-wrap gap-2">
         <Link href={openHref} className={`${BTN} bg-tm-navy text-white hover:bg-tm-navy-hover`}>
           <ExternalLink aria-hidden size={13} /> Open
         </Link>
-        {m.msisdn && (
+        {fu && it.memberId && (
+          <FollowUpActions
+            memberId={it.memberId}
+            source={fu.source}
+            templateKey={fu.templateKey}
+            waHref={fu.waHref}
+            telHref={fu.telHref}
+            tab={fu.tab}
+            onMoved={onMoved}
+            onRestored={onRestored}
+            btnClass={BTN}
+          />
+        )}
+        {!fu && m.msisdn && (
           <a
             href={`https://wa.me/${m.msisdn}`}
             target="_blank"
@@ -158,7 +217,7 @@ function MemberBody({ it, m }: { it: GridItem; m: GridMember }) {
             <MessageCircle aria-hidden size={13} /> WhatsApp
           </a>
         )}
-        {m.msisdn && (
+        {!fu && m.msisdn && (
           <a href={`tel:+${m.msisdn}`} className={`${BTN} border border-gray-200 text-slate-700 hover:border-tm-navy`}>
             <Phone aria-hidden size={13} /> Call
           </a>
@@ -169,6 +228,9 @@ function MemberBody({ it, m }: { it: GridItem; m: GridMember }) {
           </Link>
         )}
       </div>
+      {fu && it.memberId && (
+        <MarkFollowedUp memberId={it.memberId} source={fu.source} templateKey={fu.templateKey} tab={fu.tab} onMoved={onMoved} onRestored={onRestored} />
+      )}
     </>
   )
 }

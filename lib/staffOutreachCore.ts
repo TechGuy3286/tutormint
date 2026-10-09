@@ -36,18 +36,22 @@ export const OUTCOME_LABEL: Record<ContactOutcome, string> = {
 /** The onboarding step label the fee step carries (lib/onboardingStopCore). */
 export const PAYMENT_STEP_LABEL = 'Verification fee'
 
-export type UnpaidFilter = 'all' | 'payment' | 'onboarding' | 'uncontacted'
+export type UnpaidFilter = 'all' | 'payment' | 'onboarding' | 'uncontacted' | 'followed'
 
 export function parseUnpaidFilter(v: string | null | undefined): UnpaidFilter {
-  return v === 'payment' || v === 'onboarding' || v === 'uncontacted' ? v : 'all'
+  return v === 'payment' || v === 'onboarding' || v === 'uncontacted' || v === 'followed' ? v : 'all'
 }
 
 /** Does a row pass the chosen filter? `stoppedAt` is null when every onboarding
  *  step is done (only the fee is left would read 'Verification fee'). */
 export function unpaidRowMatches(
-  row: { stoppedAt: string | null; lastContactAt: string | null },
+  row: { stoppedAt: string | null; lastContactAt: string | null; followUpSent?: boolean },
   filter: UnpaidFilter,
 ): boolean {
+  // Followed up in the last 7 days → only the "Follow-up sent" tab (owner,
+  // 9 Oct 2026, the shared lib/followUpCore rule).
+  if (filter === 'followed') return !!row.followUpSent
+  if (row.followUpSent) return false
   if (filter === 'payment') return row.stoppedAt === PAYMENT_STEP_LABEL || row.stoppedAt === null
   if (filter === 'onboarding') return row.stoppedAt !== null && row.stoppedAt !== PAYMENT_STEP_LABEL
   if (filter === 'uncontacted') return row.lastContactAt === null

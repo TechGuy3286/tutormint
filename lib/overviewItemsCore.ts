@@ -21,6 +21,9 @@ export const OVERVIEW_ITEM_KEYS = [
   'todo-docs',
   'todo-uncontacted',
   'todo-stuck',
+  // The "Follow-up sent" tab beside Stuck in onboarding (owner, 9 Oct 2026) —
+  // a list page only, never an Overview row.
+  'todo-stuck-sent',
   'todo-payments',
   'todo-due',
   'todo-flagged',
@@ -63,6 +66,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   'todo-docs': { title: 'Documents to approve', screen: 'tutors', noun: ['member', 'members'] },
   'todo-uncontacted': { title: 'Unpaid signups not yet contacted', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-stuck': { title: 'Stuck in onboarding', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
+  'todo-stuck-sent': { title: 'Follow-up sent', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   'todo-payments': { title: 'Payments waiting over 1 hour', screen: 'payments', noun: ['payment', 'payments'] },
   'todo-due': { title: 'Due from PayPro', screen: 'finance', noun: ['order', 'orders'] },
   'todo-flagged': { title: 'Flagged messages and reports', screen: 'reports', noun: ['item', 'items'] },
