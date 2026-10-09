@@ -6,6 +6,8 @@
  * either column), or the same email local part (real addresses only). Each pair
  * says what matched; NEW marks a pair where either account joined after
  * SINCE (default: the last run, 9 Oct 2026 07:13 UTC; override with --since=ISO).
+ * A pair where BOTH accounts are test accounts (profiles.hidden_from_public —
+ * the test-account flag — or a test name, is_test_name) is not reported.
  * Masked contact. Changes nothing.
  *   npx tsx --env-file=.env.local scripts/report-duplicate-members.ts
  */
@@ -30,6 +32,7 @@ async function main() {
              nullif(right(regexp_replace(coalesce(p.whatsapp,''), '\D', '', 'g'), 10), '') as m2,
              case when p.email ilike '%@users.tutormint.org' then null else nullif(lower(split_part(p.email, '@', 1)), '') end as local,
              (tp.verified_fee_paid_at is not null) as fee_paid,
+             (coalesce(p.hidden_from_public,false) or coalesce(p.is_test_name,false)) as is_test,
              (select count(*) from user_activity_log a where a.user_id=p.id) +
              (select count(*) from applications x where x.tutor_id=p.id) +
              (select count(*) from jobs j where j.parent_id=p.id) +
@@ -46,6 +49,7 @@ async function main() {
              case when a.local = b.local then 'email local part' end) as matched,
            greatest(a.created_at, b.created_at) >= $1::timestamptz as is_new
     from m a join m b on a.role=b.role and a.id<b.id and abs(extract(epoch from a.created_at-b.created_at)) <= 14*86400
+      and not (a.is_test and b.is_test)
       and (a.key=b.key or a.photo=b.photo or a.m1 in (b.m1,b.m2) or a.m2 in (b.m1,b.m2) or a.local=b.local)
     order by greatest(a.created_at, b.created_at) desc`, [SINCE])
   for (const r of rows) {
