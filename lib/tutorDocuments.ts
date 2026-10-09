@@ -20,7 +20,7 @@ import { logAdminAction } from '@/lib/auditLog'
 import { logActivity } from '@/lib/activityLog'
 import { notify } from '@/lib/notifications'
 import { deliverEmail } from '@/lib/notify'
-import { deriveCnicStatus } from '@/lib/cnicStatus'
+import { tutorCardStatuses } from '@/lib/tutorDocQueueCore'
 
 export type DocItem = 'cnic' | 'profile_pic' | 'selfie'
 export type DocStatus = 'none' | 'pending' | 'approved' | 'rejected'
@@ -28,9 +28,6 @@ export type DocStatus = 'none' | 'pending' | 'approved' | 'rejected'
 export type DocState = { status: DocStatus; reason: string | null; hasUpload: boolean }
 export type DocumentStatuses = { cnic: DocState; profilePic: DocState; selfie: DocState }
 
-function normStatus(v: unknown): DocStatus {
-  return v === 'pending' || v === 'approved' || v === 'rejected' ? v : 'none'
-}
 
 /**
  * The three items' status for a tutor. Reads through the service role where
@@ -77,36 +74,20 @@ export async function loadDocumentStatuses(userId: string): Promise<DocumentStat
     /* ignore */
   }
 
-  const avatar = base?.avatar_url as string | null
-  // ONE CNIC source (PR66 §4): approved only with the marker AND the documents.
-  const cnicSingle = deriveCnicStatus({
+  // ONE rule with the approval queue (lib/tutorDocQueueCore).
+  return tutorCardStatuses({
     verification_state: (base?.verification_state as string) ?? null,
+    verification_rejection_reason: (base?.verification_rejection_reason as string) ?? null,
     cnic_verified_at: (base?.cnic_verified_at as string) ?? null,
     cnic_number: (base?.cnic_number as string) ?? null,
     cnic_image_path: (base?.cnic_image_path as string) ?? null,
+    avatar_url: (base?.avatar_url as string) ?? null,
+    profile_pic_status: (newCols?.profile_pic_status as string) ?? null,
+    profile_pic_reason: (newCols?.profile_pic_reason as string) ?? null,
+    selfie_status: (newCols?.selfie_status as string) ?? null,
+    selfie_reason: (newCols?.selfie_reason as string) ?? null,
+    hasSelfieFile: selfieDoc,
   })
-  // Map the CNIC vocabulary ('submitted') onto the shared DocStatus ('pending').
-  const cnic: DocStatus = cnicSingle === 'submitted' ? 'pending' : cnicSingle
-
-  return {
-    cnic: {
-      status: cnic,
-      reason: (base?.verification_rejection_reason as string) ?? null,
-      // The CNIC's upload state is carried by verification_state; anything past
-      // 'none' means it has been submitted.
-      hasUpload: cnic !== 'none',
-    },
-    profilePic: {
-      status: normStatus(newCols?.profile_pic_status),
-      reason: (newCols?.profile_pic_reason as string) ?? null,
-      hasUpload: !!(avatar && avatar.trim()),
-    },
-    selfie: {
-      status: normStatus(newCols?.selfie_status),
-      reason: (newCols?.selfie_reason as string) ?? null,
-      hasUpload: selfieDoc,
-    },
-  }
 }
 
 export type ReviewDecision = 'approve' | 'reject'

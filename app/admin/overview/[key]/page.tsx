@@ -6,11 +6,14 @@ import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { listHeader, loadOverviewList } from '@/lib/overviewItems'
 import { OVERVIEW_ITEMS, isOverviewItemKey, parseFunnelDays } from '@/lib/overviewItemsCore'
 import { pkr } from '@/lib/reconciliationCore'
+import { loadMemberCards } from '@/lib/overviewCards'
+import OverviewCardGrid, { type GridItem } from '@/components/admin/OverviewCardGrid'
 
 // The list behind one Overview number (owner, 8 Oct 2026, item 5). It reads the
 // SAME loader the Overview counted with (lib/overviewItems), so the header's
 // count is the number of rows below and equals the number on the Overview.
 // Guarded by the item's own SCREEN_ACCESS key — the key the Overview filters by.
+// Rows render as a grid of cards (components/admin/OverviewCardGrid).
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +32,21 @@ export default async function OverviewListPage({
   const days = parseFunnelDays(sp.days)
 
   const list = await loadOverviewList(key, { days })
+  // Member facts for the cards (owner, 9 Oct 2026) — added to the loader's own
+  // rows, never adding or dropping one, so the cards equal the header count.
+  const members = await loadMemberCards(list.rows.map((r) => r.memberId ?? '').filter(Boolean))
+  const items: GridItem[] = list.rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    detail: r.detail ?? null,
+    href: r.href ?? null,
+    amount: r.amount !== undefined ? pkr(r.amount) : null,
+    badge: r.badge ?? null,
+    actions: r.actions ?? [],
+    memberId: r.memberId ?? null,
+    reviewHref: r.reviewHref ?? null,
+    member: (r.memberId && members.get(r.memberId)) || null,
+  }))
 
   return (
     <div className="space-y-4">
@@ -59,62 +77,7 @@ export default async function OverviewListPage({
         </div>
       </header>
 
-      {list.rows.length === 0 ? (
-        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-500">Nothing here right now.</p>
-      ) : (
-        <ol className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white">
-          {list.rows.map((r, i) => {
-            const body = (
-              <span className="flex min-h-[52px] items-center gap-3 px-4 py-2.5">
-                <span className="w-8 shrink-0 text-right text-[11px] font-bold text-gray-500">{i + 1}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-bold text-tm-navy">{r.title}</span>
-                  {r.detail && <span className="block truncate text-[11px] text-gray-600">{r.detail}</span>}
-                </span>
-                {r.amount !== undefined && <span className="shrink-0 text-xs font-bold text-slate-700">{pkr(r.amount)}</span>}
-              </span>
-            )
-            // A row with extra links (e.g. "Review documents") keeps each link
-            // separate — never one anchor inside another.
-            if (r.badge || r.actions?.length) {
-              return (
-                <li key={r.id} className="flex min-h-[52px] flex-wrap items-center gap-3 px-4 py-2.5">
-                  <span className="w-8 shrink-0 text-right text-[11px] font-bold text-gray-500">{i + 1}</span>
-                  <span className="min-w-0 flex-1">
-                    {r.href ? (
-                      <Link href={r.href} className="block truncate text-xs font-bold text-tm-navy hover:underline">
-                        {r.title}
-                      </Link>
-                    ) : (
-                      <span className="block truncate text-xs font-bold text-tm-navy">{r.title}</span>
-                    )}
-                    {r.detail && <span className="block truncate text-[11px] text-gray-600">{r.detail}</span>}
-                  </span>
-                  {r.badge && (
-                    <span className="shrink-0 rounded-full bg-tm-tint-navy px-2 py-0.5 text-[10px] font-bold text-tm-navy">{r.badge}</span>
-                  )}
-                  {r.actions?.map((a) => (
-                    <Link key={a.href} href={a.href} className="shrink-0 text-[11px] font-bold text-tm-red hover:underline">
-                      {a.label}
-                    </Link>
-                  ))}
-                </li>
-              )
-            }
-            return (
-              <li key={r.id}>
-                {r.href ? (
-                  <Link href={r.href} className="block hover:bg-tm-bg">
-                    {body}
-                  </Link>
-                ) : (
-                  body
-                )}
-              </li>
-            )
-          })}
-        </ol>
-      )}
+      <OverviewCardGrid items={items} />
     </div>
   )
 }

@@ -16,19 +16,14 @@ import { createClient } from '@/lib/supabase/server'
 import { mfaState, inMfaGrace } from '@/lib/adminMfa'
 import MfaGate from '@/components/admin/MfaGate'
 
-// Small sidebar count badges (owner PR9 §6.5): tutors with a CNIC pending review,
+// Small sidebar count badges (owner PR9 §6.5): tutors with a document waiting,
 // and open reports. Cheap head-count reads; a zero shows no badge (the shell
 // omits it). Payments no longer carries a count — transfers activate on submit,
 // so there is no pending queue to flag (PR30).
 async function navBadges(): Promise<Record<string, number>> {
   const admin = createAdminClient()
   if (!admin) return {}
-  const [tutors, reports, approvalRows] = await Promise.all([
-    admin
-      .from('profiles')
-      .select('id', { count: 'exact', head: true })
-      .eq('role', 'tutor')
-      .eq('verification_state', 'submitted'),
+  const [reports, approvalRows] = await Promise.all([
     admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     // PR106-H1 §3.7: the "Approval needed" count beside People (one source of
     // truth with the tab). Only roles that can open /admin/users see the badge.
@@ -36,7 +31,9 @@ async function navBadges(): Promise<Record<string, number>> {
   ])
   const approvals = approvalRows.length
   return {
-    '/admin/tutors': tutors.count ?? 0,
+    // Tutors with a document waiting — the same list as the queue and the
+    // review card (owner, 9 Oct 2026), not a raw verification_state count.
+    '/admin/tutors': approvalRows.filter((r) => r.kind === 'tutor').length,
     '/admin/reports': reports.count ?? 0,
     '/admin/users': approvals,
     // Parents with their CNIC or address waiting (owner, 8 Oct 2026).

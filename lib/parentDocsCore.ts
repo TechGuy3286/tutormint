@@ -66,9 +66,11 @@ export function parentVerified(f: Pick<ParentDocFacts, 'cnic_verified_at' | 'add
   return filled(f.cnic_verified_at) && filled(f.address_verified_at)
 }
 
-/** Can staff approve this item? Never over a missing file / empty address. */
+/** Can staff approve this item? Never over a missing file / empty address.
+ *  A CNIC with ONE side on file can be approved (owner, 9 Oct 2026) — the card
+ *  shows "Front/Back side missing" and nothing is blocked. */
 export function canApproveParentItem(item: ParentDocItem, f: ParentDocFacts): boolean {
-  return item === 'cnic' ? f.hasCnicFront && f.hasCnicBack : filled(f.address)
+  return item === 'cnic' ? f.hasCnicFront || f.hasCnicBack : filled(f.address)
 }
 
 /** The profiles patch for one decision (pure; the caller adds reviewer + time). */

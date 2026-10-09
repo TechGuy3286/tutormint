@@ -53,7 +53,10 @@ test('verified only when BOTH are approved', () => {
 })
 
 test('approve is refused over a missing file or empty address', () => {
-  assert.equal(canApproveParentItem('cnic', { hasCnicFront: true, hasCnicBack: false }), false)
+  // One side is enough to approve (owner, 9 Oct 2026); no side is not.
+  assert.equal(canApproveParentItem('cnic', { hasCnicFront: true, hasCnicBack: false }), true)
+  assert.equal(canApproveParentItem('cnic', { hasCnicFront: false, hasCnicBack: true }), true)
+  assert.equal(canApproveParentItem('cnic', { hasCnicFront: false, hasCnicBack: false }), false)
   assert.equal(canApproveParentItem('cnic', base), true)
   assert.equal(canApproveParentItem('address', { ...base, address: '  ' }), false)
   assert.equal(canApproveParentItem('address', { ...base, address: 'Gulberg' }), true)

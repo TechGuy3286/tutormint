@@ -10,6 +10,7 @@ import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { PARENT_REJECT_PRESETS, type ParentDocItem, type ParentItemState } from '@/lib/parentDocsCore'
+import { cnicSideNote } from '@/lib/tutorDocQueueCore'
 
 // A parent's documents (owner, 8 Oct 2026): CNIC front + back and the typed
 // address, each approved or rejected on its own. The member page's Documents
@@ -70,6 +71,9 @@ export default function ParentDocumentReview({ docs, canReview }: { docs: Parent
               <NoImage label="No back" />
             )}
           </div>
+          {cnicSideNote(!!docs.cnicFrontId, !!docs.cnicBackId) && (
+            <p className="text-[11px] font-semibold text-tm-gold-ink">{cnicSideNote(!!docs.cnicFrontId, !!docs.cnicBackId)}</p>
+          )}
           {/* The typed number sits with the images: checking a card IS comparing the two. */}
           <p className="font-mono text-xs font-black text-tm-navy">{docs.cnicNumber ?? 'No number typed'}</p>
         </ReviewItem>

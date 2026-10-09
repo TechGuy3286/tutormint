@@ -8,6 +8,7 @@
  * scans. No browser/DB/network.
  */
 import { test } from 'node:test'
+import { tutorWaiting } from '../lib/tutorDocQueueCore'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -56,11 +57,16 @@ test('a bank transfer submitted alerts staff', () => {
 
 // --------------------------------------------- STEP 3: approval queue -------
 test('approval queue: waiting conditions, order (paid first then oldest), chips', () => {
+  // Since 9 Oct 2026 the waiting set is the review card's own statuses
+  // (lib/tutorDocQueueCore tutorWaiting) — same four items, one rule.
   const q = read('lib/approvalQueue.ts')
-  assert.match(q, /verification_state === 'submitted'[^]*waiting\.push\('CNIC'\)/, 'CNIC submitted waits')
-  assert.match(q, /profile_pic_status === 'pending'[^]*waiting\.push\('Photo'\)/, 'photo pending waits')
-  assert.match(q, /selfie_status === 'pending'[^]*waiting\.push\('Selfie'\)/, 'selfie pending waits')
-  assert.match(q, /video_status === 'uploaded'[^]*waiting\.push\('Video'\)/, 'video uploaded waits')
+  assert.match(q, /tutorWaiting\(/, 'the queue reads the shared rule')
+  const all = tutorWaiting({
+    verification_state: 'submitted', cnic_number: '1', cnic_image_path: 'p',
+    avatar_url: 'a', profile_pic_status: 'pending',
+    selfie_status: 'pending', hasSelfieFile: true, video_status: 'uploaded',
+  })
+  assert.deepEqual(all, ['CNIC', 'Photo', 'Selfie', 'Video'], 'CNIC submitted, photo/selfie pending, video uploaded all wait')
   assert.match(q, /a\.paid === b\.paid \? a\.createdAt\.localeCompare\(b\.createdAt\) : a\.paid \? -1 : 1/, 'fee-paid first, then oldest')
   assert.match(q, /!p\.is_seed && !p\.is_banned && !p\.is_suspended/, 'fixtures/banned/suspended excluded')
   const page = read('app/admin/users/page.tsx')
@@ -88,9 +94,12 @@ test('reject requires a reason and sends email + in-app + WhatsApp with NO CNIC 
 test('a re-upload returns the member to the queue (the statuses it writes are the waiting ones)', () => {
   // CNIC re-submit → verification_state 'submitted'; selfie upload → selfie_status
   // 'pending' — both are the queue's "waiting" conditions, so a re-upload re-queues.
-  const q = read('lib/approvalQueue.ts')
-  assert.match(q, /verification_state === 'submitted'/)
-  assert.match(q, /selfie_status === 'pending'/)
+  // A rejected CNIC re-submitted (verification_state back to 'submitted', no
+  // approval marker) and a selfie set back to 'pending' both wait again.
+  assert.deepEqual(
+    tutorWaiting({ verification_state: 'submitted', cnic_verified_at: null, cnic_number: '1', cnic_image_path: 'p', selfie_status: 'pending', hasSelfieFile: true }),
+    ['CNIC', 'Selfie'],
+  )
   const upload = read('app/api/documents/upload/route.ts')
   assert.match(upload, /selfie_status: 'pending'/, 'a selfie re-upload sets it back to pending')
 })

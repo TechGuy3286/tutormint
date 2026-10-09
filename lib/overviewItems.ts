@@ -50,6 +50,11 @@ export type OverviewRow = {
   badge?: string
   /** Extra links on the row (e.g. "Review documents"). */
   actions?: { label: string; href: string }[]
+  /** The member this row is about — the list page shows a member card for it
+   *  (lib/overviewCards). Rows about tuitions, payments or searches have none. */
+  memberId?: string
+  /** Where staff review this member's documents (document lists only). */
+  reviewHref?: string
 }
 
 export type OverviewList = {
@@ -108,7 +113,7 @@ const funnelCohort = cache(async (days: 7 | 30): Promise<CohortTutor[]> => {
 })
 
 function tutorRows(list: CohortTutor[]): OverviewRow[] {
-  return list.map((t) => ({ id: t.id, title: t.name, detail: `Joined ${PK_DATE(t.createdAt)}`, href: `/admin/users/${t.id}` }))
+  return list.map((t) => ({ id: t.id, title: t.name, detail: `Joined ${PK_DATE(t.createdAt)}`, href: `/admin/users/${t.id}`, memberId: t.id }))
 }
 
 async function profilesByRole(admin: SupabaseClient, roles: string[]): Promise<OverviewRow[]> {
@@ -128,6 +133,7 @@ async function profilesByRole(admin: SupabaseClient, roles: string[]): Promise<O
     title: formatName(p.full_name as string | null) || '—',
     detail: `Joined ${PK_DATE(p.created_at as string)}`,
     href: `/admin/users/${p.id}`,
+    memberId: p.id as string,
   }))
 }
 
@@ -207,6 +213,8 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
             href: `/admin/users/${r.userId}`,
             badge: DOC_WORD[docs],
             actions: [{ label: 'Review documents', href: `/admin/tutors/${r.userId}` }],
+            memberId: r.userId as string,
+            reviewHref: `/admin/tutors/${r.userId}`,
           }
         }),
         filter: `paid the ${FEE_LABEL} today (since 00:00 Pakistan time)`,
@@ -256,6 +264,8 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
           title: r.name,
           detail: `${r.kind === 'parent' ? 'Parent · ' : ''}Waiting: ${r.waiting.join(', ')}${r.paid ? ' · fee paid' : ''}`,
           href: r.href,
+          memberId: r.id,
+          reviewHref: r.href,
         })),
         filter: 'with a document waiting for a decision',
         workHref: '/admin/users?filter=approval',
@@ -266,7 +276,7 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
       const rows = (await unpaid()).filter((r) => !r.lastContact)
       return {
         key,
-        rows: rows.map((r) => ({ id: r.id, title: r.name, detail: `Joined ${PK_DATE(r.joinedAt)} · stopped at ${r.stoppedAt ?? 'payment'}`, href: `/admin/users/${r.id}` })),
+        rows: rows.map((r) => ({ id: r.id, title: r.name, detail: `Joined ${PK_DATE(r.joinedAt)} · stopped at ${r.stoppedAt ?? 'payment'}`, href: `/admin/users/${r.id}`, memberId: r.id })),
         filter: 'who joined in the last 30 days, have not paid, and nobody has contacted yet',
         workHref: '/admin/users/unpaid-signups?filter=uncontacted',
       }
@@ -277,7 +287,7 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
       const rows = all.filter((r) => r.stoppedAt && r.stoppedAt !== PAYMENT_STEP_LABEL)
       return {
         key,
-        rows: rows.map((r) => ({ id: r.id, title: r.name, detail: `Stopped at ${r.stoppedAt} · joined ${PK_DATE(r.joinedAt)}`, href: `/admin/users/${r.id}` })),
+        rows: rows.map((r) => ({ id: r.id, title: r.name, detail: `Stopped at ${r.stoppedAt} · joined ${PK_DATE(r.joinedAt)}`, href: `/admin/users/${r.id}`, memberId: r.id })),
         filter: 'who joined in the last 30 days and stopped before the payment step',
         extra: stuckBreakdown(all.map((r) => r.stoppedAt)).detail,
         workHref: '/admin/users/unpaid-signups?filter=onboarding',
@@ -485,6 +495,7 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
           title: r.name,
           detail: `${r.matches.length} new matching tuition${r.matches.length === 1 ? '' : 's'}`,
           href: '/admin/users/featured-whatsapp',
+          memberId: r.tutorId,
         })),
         filter: 'on Featured with new matching tuitions not yet sent',
         workHref: '/admin/users/featured-whatsapp',

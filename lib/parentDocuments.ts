@@ -170,7 +170,7 @@ export async function reviewParentDocument(params: {
       status: 400,
       error:
         item === 'cnic'
-          ? 'Both sides of the CNIC must be uploaded before it can be approved.'
+          ? 'No CNIC photo has been uploaded yet, so it cannot be approved.'
           : 'No address has been entered yet, so it cannot be approved.',
     }
   }

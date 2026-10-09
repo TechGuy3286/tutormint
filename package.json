@@ -101,7 +101,8 @@
     "test:settlement": "tsx --test scripts/test-settlement.ts",
     "test:smartsearch": "tsx --test scripts/test-smart-search.ts",
     "test:pagecap": "tsx --test scripts/test-page-cap.ts",
-    "test:pause": "tsx --test scripts/test-tuition-pause.ts"
+    "test:pause": "tsx --test scripts/test-tuition-pause.ts",
+    "test:approvalqueue": "tsx --test scripts/test-approval-queue.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

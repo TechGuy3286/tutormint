@@ -9,6 +9,7 @@ import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import type { DocumentStatuses, DocItem, DocState } from '@/lib/tutorDocuments'
+import { cnicSideNote } from '@/lib/tutorDocQueueCore'
 
 // Per-item identity review (PR60): CNIC front/back, profile picture and selfie
 // side by side, each approved or rejected on its own. A reject needs a reason
@@ -90,6 +91,9 @@ export default function TutorDocumentReview({
               <NoImage label="No back" />
             )}
           </div>
+          {cnicSideNote(!!cnicFrontId, !!cnicBackId) && (
+            <p className="text-[11px] font-semibold text-tm-gold-ink">{cnicSideNote(!!cnicFrontId, !!cnicBackId)}</p>
+          )}
         </ReviewItem>
 
         <ReviewItem
