@@ -47,6 +47,7 @@ export default function ErrorShell({
 
         {detail}
 
+        {actions.length > 0 && (
         <div className="space-y-2 pt-1">
           {actions.map((a) => (
             <Link
@@ -62,6 +63,7 @@ export default function ErrorShell({
             </Link>
           ))}
         </div>
+        )}
       </div>
     </div>
   )

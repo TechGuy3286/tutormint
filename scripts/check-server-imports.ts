@@ -68,6 +68,58 @@ function importsOf(f: string): string[] {
   return out
 }
 
+// The NAMED value imports of one import statement (types skipped). `default` /
+// namespace imports are components by convention and are not returned.
+function namedValueImports(f: string, dep: string): string[] {
+  const s = src(f)
+  const out: string[] = []
+  const re = /(?:^|\n)\s*import\s+(?!type\s)(?:[A-Za-z_$][\w$]*\s*,\s*)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(s))) {
+    if (resolveImport(f, m[2]) !== dep) continue
+    for (const part of m[1].split(',')) {
+      const t = part.trim()
+      if (!t || t.startsWith('type ')) continue
+      out.push(t.split(/\s+as\s+/)[0].trim())
+    }
+  }
+  return out
+}
+
+// A 'use client' .tsx module is a render boundary for COMPONENTS only. Any other
+// value imported from it into server code (a constant, a helper) is a client
+// reference on the server: calling it throws, and READING it gives a proxy that
+// becomes undefined in the browser render. That is how MEMBER_SETTINGS_HREF
+// (an object in components/MemberHeaderNav.tsx) reached <Link href={undefined}>
+// and 500'd every signed-in member page on 9 Oct 2026 — tsc and next build pass.
+const isComponentName = (n: string) => /^[A-Z][a-z0-9]/.test(n) || /^[A-Z]$/.test(n)
+
+export function findValueImports(): { file: string; dep: string; names: string[] }[] {
+  const entries = walk(join(ROOT, 'app'))
+    .filter((f) => SERVER_ENTRY.test(f.split(sep).pop()!) && !isClient(f))
+  for (const extra of ['proxy.ts', 'instrumentation.ts']) {
+    const p = join(ROOT, extra)
+    if (existsSync(p)) entries.push(p)
+  }
+  const out: { file: string; dep: string; names: string[] }[] = []
+  const seen = new Set<string>(entries)
+  const stack = [...entries]
+  while (stack.length) {
+    const f = stack.pop()!
+    for (const dep of importsOf(f)) {
+      if (isClient(dep)) {
+        if (dep.endsWith('.tsx')) {
+          const names = namedValueImports(f, dep).filter((n) => !isComponentName(n))
+          if (names.length) out.push({ file: f, dep, names })
+        }
+        continue
+      }
+      if (!seen.has(dep)) { seen.add(dep); stack.push(dep) }
+    }
+  }
+  return out
+}
+
 export function findViolations(): { entry: string; chain: string[] }[] {
   const entries = walk(join(ROOT, 'app'))
     .filter((f) => SERVER_ENTRY.test(f.split(sep).pop()!) && !isClient(f))
@@ -102,6 +154,16 @@ export function findViolations(): { entry: string; chain: string[] }[] {
 
 if (require.main === module) {
   const bad = findViolations()
+  const values = findValueImports()
+  if (values.length) {
+    console.error(`FAIL — ${values.length} server file(s) import a non-component value from a 'use client' .tsx module:`)
+    for (const v of values) {
+      console.error(`  ${relative(ROOT, v.file).split(sep).join('/')} ← ${relative(ROOT, v.dep).split(sep).join('/')}: ${v.names.join(', ')}`)
+    }
+    process.exitCode = 1
+  } else {
+    console.log('PASS — no server code imports a non-component value from a \'use client\' .tsx module.')
+  }
   if (bad.length === 0) {
     console.log('PASS — no server code reaches a browser-only (\'use client\') .ts module.')
   } else {

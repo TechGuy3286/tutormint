@@ -1,9 +1,10 @@
 'use client'
 import { RotateCcw, MessageCircle } from 'lucide-react'
 
+import Link from 'next/link'
 import { useEffect } from 'react'
 import ErrorShell from '@/components/ErrorShell'
-import { GENERIC_ERROR, supportWhatsappHref } from '@/lib/errorMessages'
+import { supportWhatsappHref } from '@/lib/errorMessages'
 
 // An unhandled error inside the app shell — the body of every error boundary
 // on the site.
@@ -33,29 +34,37 @@ export default function AppErrorView({
   return (
     <ErrorShell
       title="Something went wrong at our end"
-      message="This is our fault, not yours. Nothing you had saved has been lost — try again, and if it keeps happening let us know."
+      message="Please try again. If it keeps happening, contact us on WhatsApp."
       detail={
         <div className="space-y-2">
-          {/* The plain bilingual line (PR72 §B), the same one forms and toasts use. */}
-          <p className="text-[11px] text-gray-500">{GENERIC_ERROR.en}</p>
-          <p lang="ur" dir="rtl" className="text-[11px] text-gray-500">{GENERIC_ERROR.ur}</p>
-          <button
-            type="button"
-            onClick={reset}
-            className="inline-flex items-center gap-1.5 min-h-[44px] w-full rounded-xl bg-tm-black px-4 text-xs font-bold text-white transition-colors hover:bg-slate-700"
+          <p lang="ur" dir="rtl" className="text-sm leading-relaxed text-slate-700">
+            براہ کرم دوبارہ کوشش کریں۔ اگر یہ مسئلہ بار بار ہو تو واٹس ایپ پر ہم سے رابطہ کریں۔
+          </p>
+          <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={reset}
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-navy px-4 text-xs font-bold text-white transition-colors hover:bg-tm-navy-hover"
+            >
+              <RotateCcw aria-hidden size={14} />
+              Try again
+            </button>
+            <a
+              href={supportWhatsappHref(error.digest)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
+            >
+              <MessageCircle aria-hidden size={14} />
+              Contact support on WhatsApp
+            </a>
+          </div>
+          <Link
+            href="/"
+            className="inline-flex min-h-[44px] items-center justify-center text-xs font-bold text-tm-navy underline-offset-2 hover:underline"
           >
-            <RotateCcw aria-hidden size={14} />
-            Try again
-          </button>
-          <a
-            href={supportWhatsappHref(error.digest)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 min-h-[44px] w-full rounded-xl border border-gray-200 px-4 text-xs font-bold text-tm-navy transition-colors hover:border-tm-navy"
-          >
-            <MessageCircle aria-hidden size={14} />
-            Contact support on WhatsApp
-          </a>
+            Go to the homepage
+          </Link>
           {error.digest && (
             <p className="text-[11px] text-gray-500">
               Reference: <span className="font-mono">{error.digest}</span>
@@ -63,10 +72,7 @@ export default function AppErrorView({
           )}
         </div>
       }
-      actions={[
-        { label: 'Get help', href: '/support', tone: 'quiet' },
-        { label: 'Go to the homepage', href: '/', tone: 'quiet' },
-      ]}
+      actions={[]}
     />
   )
 }

@@ -3,10 +3,8 @@ import Link from 'next/link'
 import AuthCTA from '@/components/AuthCTA'
 
 import NotificationBell from '@/components/notifications/NotificationBell'
-import HeaderMessages from '@/components/messages/HeaderMessages'
 import UserMenu from '@/components/UserMenu'
-import MemberHeaderNav, { MEMBER_SETTINGS_HREF } from '@/components/MemberHeaderNav'
-import Avatar from '@/components/Avatar'
+import MemberHeader from '@/components/MemberHeader'
 import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { getSessionUser } from '@/lib/auth'
 import { unreadCount } from '@/lib/notificationFeed'
@@ -93,7 +91,6 @@ export default async function Navbar() {
   ])
 
   const items = menuForRole({ role, adminScreens })
-  const messagesHref = role === 'tutor' ? '/tutor/dashboard/messages' : '/parent/dashboard/messages'
   // Tapping the avatar or name opens the dashboard (owner, PR22 §1.3). Admins
   // land on the admin panel — their "dashboard".
   const dashboardHref =
@@ -124,33 +121,17 @@ export default async function Navbar() {
   // Settings and Logout, every one visible. Admins (and a role-less session)
   // keep the account menu below — the admin header is not part of this change.
   if (isMember) {
-    const firstName = name.split(' ')[0] || name
     return (
       <Shell member>
-        <Link
-          href={dashboardHref}
-          aria-label="Open your dashboard"
-          className="flex min-h-[44px] items-center gap-2 rounded-xl px-0.5 text-xs font-bold text-tm-navy hover:underline sm:px-1"
-        >
-          <Avatar
-            name={name}
-            src={session.profile?.avatar_url ?? null}
-            seed={session.user.id}
-            decorative
-            ring="border border-gray-200"
-            className="h-8 w-8 text-[10px]"
-          />
-          <span className="hidden max-w-[10ch] truncate sm:inline">{firstName}</span>
-        </Link>
-        <HeaderMessages href={messagesHref} initialUnread={messagesUnread} />
-        <NotificationBell
+        <MemberHeader
+          role={role}
+          name={name}
+          avatarUrl={session.profile?.avatar_url ?? null}
           userId={session.user.id}
-          initialUnread={unread}
-          emptyHint={empty.hint}
-          emptyAction={empty.action}
-          compact
+          messagesUnread={messagesUnread}
+          unread={unread}
+          empty={empty}
         />
-        <MemberHeaderNav settingsHref={MEMBER_SETTINGS_HREF[role]} />
       </Shell>
     )
   }

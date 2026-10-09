@@ -17,11 +17,6 @@ import { getBrowserClient } from '@/lib/supabase/clientLazy'
 // the icon and label sit side by side, the same 44px height and bordered style
 // as the notification bell.
 
-export const MEMBER_SETTINGS_HREF = {
-  tutor: '/tutor/dashboard/settings',
-  parent: '/parent/dashboard/settings',
-} as const
-
 const BOX =
   'inline-flex h-11 min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-xl border bg-white px-1 text-[9px] font-bold leading-none transition-colors sm:flex-row sm:gap-1.5 sm:px-3 sm:text-xs'
 
