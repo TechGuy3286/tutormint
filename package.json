@@ -103,7 +103,8 @@
     "test:pagecap": "tsx --test scripts/test-page-cap.ts",
     "test:pause": "tsx --test scripts/test-tuition-pause.ts",
     "test:approvalqueue": "tsx --test scripts/test-approval-queue.ts",
-    "test:doclocks": "tsx --test scripts/test-doc-locks.ts"
+    "test:doclocks": "tsx --test scripts/test-doc-locks.ts",
+    "test:tutorcard": "tsx --test scripts/test-tutor-card.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

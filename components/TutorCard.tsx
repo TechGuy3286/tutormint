@@ -295,6 +295,16 @@ export default function TutorCard({
         }))
       : list
 
+  // View Profile — a tile in the action grid, outlined in navy (owner, 9 Oct 2026).
+  const viewProfile: CardAction = {
+    key: 'profile',
+    label: 'View Profile',
+    icon: <Icon name="eye" size={14} />,
+    className: 'border border-tm-navy text-tm-navy hover:bg-tm-tint-navy',
+    href: profileHref,
+    tooltip: `View ${tutor.full_name.split(' ')[0]}’s profile`,
+  }
+
   const toggleShortlist = async () => {
     if (!viewer.signedIn) return gate('shortlist')
     setBusy(true)
@@ -612,35 +622,11 @@ export default function TutorCard({
                 Without it the overlay swallows Shortlist, Demo and Send
                 Message, and all four buttons would silently become "open the
                 profile" — the exact failure this pattern is known for. */}
-            {/* Four visible actions, no hidden menu (PR25 §3): View Profile,
-                Message, Demo, Shortlist as a 2×2 grid — two rows of two on a
-                phone, the same grid centred on desktop. A tutor viewer has three
-                (no Message). */}
-            {/* View Profile is a small outline button now (owner, 8 Oct 2026) —
-                the whole card already opens the profile (the name link's
-                overlay), so it no longer needs a black full-width bar. */}
-            <div className="relative z-10 mb-2 flex justify-end">
-              {isOwn ? (
-                <span
-                  aria-disabled="true"
-                  data-tip="This is your own profile"
-                  className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-gray-200 bg-gray-200 px-3 text-xs font-bold text-slate-600"
-                >
-                  <Icon name="eye" size={14} />
-                  View Profile
-                </span>
-              ) : (
-                <Link
-                  prefetch={false}
-                  href={profileHref}
-                  data-tip={`View ${tutor.full_name.split(' ')[0]}’s profile`}
-                  className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-tm-navy bg-white px-3 text-xs font-bold text-tm-navy transition-colors hover:bg-tm-tint-navy"
-                >
-                  <Icon name="eye" size={14} />
-                  View Profile
-                </Link>
-              )}
-            </div>
+            {/* Every action is a tile in ONE 2-column grid (owner, 9 Oct 2026):
+                Message | Demo, then Shortlist | View Profile. View Profile is
+                outlined in navy the way Shortlist is outlined in red. Fewer
+                actions fill left to right; a leftover tile stays one column
+                (CardActions' grid) — only a lone action spans full width. */}
             <CardActions
               actions={lockOwn(
                 [
@@ -649,7 +635,7 @@ export default function TutorCard({
                   // (the server refuses all three for a tutor account). Parents,
                   // signed-out visitors and the own-card lock are unchanged.
                   ...(otherTutorViewer
-                    ? []
+                    ? [viewProfile]
                     : ([
                   ...(messageAllowed
                     ? [
@@ -690,6 +676,7 @@ export default function TutorCard({
                           tooltip: saved ? 'Remove from your shortlist' : 'Save to your shortlist',
                         } as CardAction,
                       ]),
+                  viewProfile,
                   // Hire, inside the grid (§1.2). Red, never gold (§1.4). A tutor
                   // already hired reads "Hired".
                   ...(showHire
