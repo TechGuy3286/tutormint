@@ -70,7 +70,6 @@ export default async function PublicParentPage({ params }: { params: Params }) {
         <Avatar
           name={parent.name}
           src={parent.avatarUrl}
-          seed={parent.id}
           className="h-16 w-16 shrink-0 text-lg sm:h-20 sm:w-20 sm:text-xl"
           decorative
           px={80}

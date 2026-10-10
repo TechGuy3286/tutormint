@@ -233,7 +233,7 @@ export default async function InboxShell({
                 <Avatar
                   name={header.otherName}
                   src={header.otherAvatar}
-                  seed={header.otherId}
+                  gender={header.otherGender}
                   className="h-12 w-12 shrink-0 text-sm"
                   decorative
                 />
@@ -283,6 +283,7 @@ export default async function InboxShell({
                 otherId={header.otherId}
                 otherName={header.otherName}
                 otherAvatar={header.otherAvatar}
+                otherGender={header.otherGender}
                 initial={history.items}
                 initialCursor={history.cursor}
                 canShareContact={header.canShareContact}

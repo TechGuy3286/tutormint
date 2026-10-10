@@ -36,7 +36,7 @@ export default async function ViewAsTutorPage({ params }: { params: Promise<{ id
     .maybeSingle()
   if (!p || p.role !== 'tutor') redirect(`/admin/tutors/${id}`)
 
-  const { data: tp } = await admin.from('tutor_profiles').select('slug, city').eq('id', id).maybeSingle()
+  const { data: tp } = await admin.from('tutor_profiles').select('slug, city, gender').eq('id', id).maybeSingle()
   const name = formatName(p.full_name as string | null) || 'Tutor'
 
   // Every use is recorded (PR106-H1 §5).
@@ -86,6 +86,7 @@ export default async function ViewAsTutorPage({ params }: { params: Promise<{ id
         <TutorHeaderCard
           name={name}
           avatarUrl={(p.avatar_url as string | null) ?? null}
+          gender={(tp?.gender as string | null) ?? null}
           city={(tp?.city as string | null) ?? null}
           verified={ent.verified}
           planName={ent.planName}

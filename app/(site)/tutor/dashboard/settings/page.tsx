@@ -133,6 +133,8 @@ export default function TutorSettingsPage() {
   // "Show my picture to parents" (PR70). Default on; read tolerantly from the
   // select('*') load so a not-yet-applied migration means "shown".
   const [showAvatar, setShowAvatar] = useState(true);
+  // Picks the default avatar while there is no photo (lib/defaultAvatar).
+  const [gender, setGender] = useState<string | null>(null);
 
   // Subjects are the tutor's taxonomy_master ids. `subjectIds` is the FINAL set
   // to save (the merge output); `existingSubjectIds` is the IMMUTABLE saved
@@ -290,6 +292,7 @@ export default function TutorSettingsPage() {
         // Tolerant: `select('*')` simply omits show_avatar before the migration,
         // so undefined → shown (the default). Only an explicit false hides it.
         setShowAvatar((tp as { show_avatar?: boolean | null }).show_avatar !== false);
+        setGender((tp as { gender?: string | null }).gender ?? null);
 
         const { data: selfieDoc } = await supabase
           .from('user_documents')
@@ -690,6 +693,7 @@ export default function TutorSettingsPage() {
                 <Avatar
                   name={formData.fullName}
                   src={formData.profileImage || null}
+                  gender={gender}
                   decorative
                   ring=""
                   className="h-full w-full rounded-none text-2xl"

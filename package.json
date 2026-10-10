@@ -107,7 +107,8 @@
     "test:tutorcard": "tsx --test scripts/test-tutor-card.ts",
     "test:followups": "tsx --test scripts/test-follow-ups.ts",
     "test:memberheader": "tsx --test scripts/test-member-header.ts",
-    "test:infinitemerge": "tsx --test scripts/test-infinite-merge.ts"
+    "test:infinitemerge": "tsx --test scripts/test-infinite-merge.ts",
+    "test:defaultavatar": "tsx --test scripts/test-default-avatar.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",

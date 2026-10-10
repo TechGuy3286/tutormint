@@ -30,6 +30,7 @@ type ThreadData = {
     otherId: string
     otherName: string
     otherAvatar: string | null
+    otherGender?: string | null
     otherRole: string | null
     otherSlug: string | null
     jobTitle: string | null
@@ -235,7 +236,7 @@ export default function MessagesDock({
                     <Avatar
                       name={thread.header.otherName}
                       src={thread.header.otherAvatar}
-                      seed={thread.header.otherId}
+                      gender={thread.header.otherGender}
                       className="h-8 w-8 shrink-0 text-[10px]"
                       decorative
                     />
@@ -272,6 +273,7 @@ export default function MessagesDock({
                     otherId={thread.header.otherId}
                     otherName={thread.header.otherName}
                     otherAvatar={thread.header.otherAvatar}
+                    otherGender={thread.header.otherGender}
                     initial={thread.items as never}
                     initialCursor={thread.cursor}
                     canShareContact={thread.canShareContact}

@@ -69,6 +69,7 @@ export default function Conversation({
   otherId,
   otherName,
   otherAvatar,
+  otherGender = null,
   initial,
   initialCursor,
   canShareContact,
@@ -82,6 +83,7 @@ export default function Conversation({
   otherId: string
   otherName: string
   otherAvatar: string | null
+  otherGender?: string | null
   initial: ThreadMessage[]
   initialCursor: string | null
   canShareContact: boolean
@@ -446,7 +448,7 @@ export default function Conversation({
                         <Avatar
                           name={otherName}
                           src={otherAvatar}
-                          seed={otherId}
+                          gender={otherGender}
                           className="h-7 w-7 shrink-0 text-[10px]"
                           ring=""
                           decorative

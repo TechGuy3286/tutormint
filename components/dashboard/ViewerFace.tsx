@@ -3,8 +3,8 @@ import { avatarTint } from '@/lib/brand'
 
 // The face beside a profile-view teaser.
 //
-// Identified (Premium and up): the parent's real picture, or their initials on
-// a brand tint when they have none — the same Avatar every other surface uses,
+// Identified (Premium and up): the parent's real picture, or the grey default
+// avatar when they have none — the same Avatar every other surface uses,
 // so a parent looks like themselves everywhere.
 //
 // Not identified (free): a blurred disc that IS NOT THE PARENT'S PHOTOGRAPH.
@@ -35,7 +35,6 @@ export default function ViewerFace({
       <Avatar
         name={name}
         src={avatarUrl}
-        seed={seed}
         decorative
         ring="border border-gray-200"
         className="h-8 w-8 shrink-0 text-[10px]"

@@ -21,6 +21,7 @@ import type { FollowUpSource } from '@/lib/followUpCore'
 export type GridMember = {
   name: string
   avatarUrl: string | null
+  gender?: string | null
   role: 'tutor' | 'parent' | 'other'
   city: string | null
   joinedAt: string | null
@@ -152,7 +153,7 @@ function MemberBody({
   return (
     <>
       <div className="flex items-start gap-3">
-        <Avatar name={m.name} src={m.avatarUrl} seed={it.memberId} decorative className="h-12 w-12 shrink-0 text-sm" px={48} />
+        <Avatar name={m.name} src={m.avatarUrl} gender={m.gender} decorative className="h-12 w-12 shrink-0 text-sm" px={48} />
         <div className="min-w-0 flex-1 space-y-1">
           <p className="truncate text-sm font-black text-tm-navy">{m.name}</p>
           {m.badges.length > 0 && <BadgeRow badges={m.badges} size="sm" showUrdu={false} />}

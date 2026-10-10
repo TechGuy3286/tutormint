@@ -63,13 +63,11 @@ const ICONS: Record<MenuIcon, typeof Bell> = {
 export default function UserMenu({
   name,
   avatarUrl,
-  userId,
   dashboardHref,
   items,
 }: {
   name: string
   avatarUrl: string | null
-  userId: string
   /** Tapping the avatar or name opens this — the member's dashboard (§1.3). */
   dashboardHref: string
   items: MenuItem[]
@@ -133,7 +131,6 @@ export default function UserMenu({
           <Avatar
             name={name}
             src={avatarUrl}
-            seed={userId}
             decorative
             ring="border border-gray-200"
             className="h-8 w-8 text-[10px]"

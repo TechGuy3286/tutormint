@@ -22,6 +22,8 @@ import { normalisePkMobile } from '@/lib/phone'
 export type MemberCardFacts = {
   name: string
   avatarUrl: string | null
+  /** Tutors only — picks the default avatar when there is no photo. */
+  gender: string | null
   role: 'tutor' | 'parent' | 'other'
   city: string | null
   joinedAt: string | null
@@ -62,7 +64,7 @@ export async function loadMemberCards(ids: string[]): Promise<Map<string, Member
     pageAllIn(unique, (part, from, to) =>
       admin
         .from('tutor_profiles')
-        .select('id, city, avatar_url, whatsapp_number, verified_fee_paid_at, onboarded_at')
+        .select('id, city, gender, avatar_url, whatsapp_number, verified_fee_paid_at, onboarded_at')
         .in('id', part)
         .order('id')
         .range(from, to),
@@ -100,6 +102,7 @@ export async function loadMemberCards(ids: string[]): Promise<Map<string, Member
     out.set(id, {
       name: formatName(p.full_name as string | null) || '—',
       avatarUrl: ((t?.avatar_url as string | null) || (p.avatar_url as string | null)) ?? null,
+      gender: (t?.gender as string | null) ?? null,
       role,
       city: ((t?.city as string | null) || (p.city as string | null)) ?? null,
       joinedAt: (p.created_at as string | null) ?? null,

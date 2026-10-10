@@ -9,6 +9,8 @@ import { getAdminActor, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { getSessionUser } from '@/lib/auth'
 import { unreadCount } from '@/lib/notificationFeed'
 import { unreadMessageCount } from '@/lib/messaging'
+import { tutorGender } from '@/lib/memberGender'
+import { createClient } from '@/lib/supabase/server'
 import { menuForRole, type AdminEntry } from '@/lib/userMenu'
 
 // The site header. A SERVER component, deliberately.
@@ -84,10 +86,13 @@ export default async function Navbar() {
   const name = session.profile?.full_name ?? session.user.email?.split('@')[0] ?? 'there'
 
   const isMember = role === 'tutor' || role === 'parent'
-  const [unread, adminScreens, messagesUnread] = await Promise.all([
+  const [unread, adminScreens, messagesUnread, gender] = await Promise.all([
     unreadCount(),
     role === 'admin' ? adminScreensFor() : Promise.resolve([]),
     isMember ? unreadMessageCount(session.user.id) : Promise.resolve(0),
+    // The default avatar is picked by gender, recorded for tutors only; read
+    // alongside the counts, so the header gains no extra round-trip time.
+    role === 'tutor' ? createClient().then((c) => tutorGender(c, session.user.id)) : Promise.resolve(null),
   ])
 
   const items = menuForRole({ role, adminScreens })
@@ -127,6 +132,7 @@ export default async function Navbar() {
           role={role}
           name={name}
           avatarUrl={session.profile?.avatar_url ?? null}
+          gender={gender}
           userId={session.user.id}
           messagesUnread={messagesUnread}
           unread={unread}
@@ -147,7 +153,6 @@ export default async function Navbar() {
       <UserMenu
         name={name}
         avatarUrl={session.profile?.avatar_url ?? null}
-        userId={session.user.id}
         dashboardHref={dashboardHref}
         items={items}
       />

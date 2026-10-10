@@ -212,7 +212,7 @@ function Rows({
               <Avatar
                 name={t.otherName}
                 src={t.otherAvatar}
-                seed={t.otherId}
+                gender={t.otherGender}
                 className="h-11 w-11 shrink-0 text-xs"
                 decorative
               />

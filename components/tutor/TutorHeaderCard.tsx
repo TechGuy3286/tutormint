@@ -21,6 +21,7 @@ import type { BadgeName } from '@/lib/planBadges'
 export default function TutorHeaderCard({
   name,
   avatarUrl,
+  gender = null,
   city,
   verified,
   planName,
@@ -32,6 +33,8 @@ export default function TutorHeaderCard({
 }: {
   name: string
   avatarUrl: string | null
+  /** Picks the default avatar when there is no photo. */
+  gender?: string | null
   city: string | null
   /** The one-time verification fee is paid. */
   verified: boolean
@@ -58,11 +61,11 @@ export default function TutorHeaderCard({
         {incomplete ? (
           <div className="grid h-16 w-16 place-items-center rounded-full p-[3px]" style={{ background: ring }}>
             <span className="grid h-full w-full place-items-center overflow-hidden rounded-full bg-white p-[2px]">
-              <Avatar src={avatarUrl} name={name} className="h-full w-full text-base" ring="" />
+              <Avatar src={avatarUrl} gender={gender} name={name} className="h-full w-full text-base" ring="" />
             </span>
           </div>
         ) : (
-          <Avatar src={avatarUrl} name={name} className="h-16 w-16 text-base" px={64} priority />
+          <Avatar src={avatarUrl} gender={gender} name={name} className="h-16 w-16 text-base" px={64} priority />
         )}
       </div>
 

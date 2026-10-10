@@ -26,6 +26,7 @@ import { createClient } from '@/lib/supabase/server'
 import { tuitionPath } from '@/lib/slugs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { hiddenAvatarTutorIds } from '@/lib/showAvatar'
+import { tutorGenders } from '@/lib/memberGender'
 import { getEntitlements, badgesForPlan } from '@/lib/entitlements'
 import { verifiedBadgeOkOne } from '@/lib/badgeFacts'
 import { renderMessageBody } from '@/lib/masking'
@@ -558,6 +559,8 @@ export type ThreadRow = {
   otherId: string
   otherName: string
   otherAvatar: string | null
+  /** The other member's gender (tutors only) — picks their default avatar. */
+  otherGender: string | null
   otherRole: string | null
   lastMessageAt: string
   /** Server-formatted stamp (today → time, this week → weekday, else date), so
@@ -572,6 +575,7 @@ export type ThreadHeader = {
   otherId: string
   otherName: string
   otherAvatar: string | null
+  otherGender: string | null
   otherRole: string | null
   otherSlug: string | null
   otherBadges: ReturnType<typeof badgesForPlan>
@@ -921,10 +925,10 @@ export async function threadPage({
     unreadByThread(userId),
   ])
 
-  // A tutor who hid their picture (PR70) shows initials to the parent in the
+  // A tutor who hid their picture (PR70) shows the default avatar to the parent in the
   // inbox too. The other party's photo is nulled when they are a tutor with
   // show_avatar=false; a parent has no such flag and is never affected.
-  const hiddenAvatars = await hiddenAvatarTutorIds(admin, otherIds)
+  const [hiddenAvatars, genders] = await Promise.all([hiddenAvatarTutorIds(admin, otherIds), tutorGenders(admin, otherIds)])
 
   const names = new Map<string, { name: string; role: string | null; avatar: string | null }>()
   for (const p of people.data ?? []) {
@@ -1009,6 +1013,7 @@ export async function threadPage({
         otherId,
         otherName: names.get(otherId)?.name ?? NAME_FALLBACK,
         otherAvatar: names.get(otherId)?.avatar ?? null,
+        otherGender: genders.get(otherId) ?? null,
         otherRole: names.get(otherId)?.role ?? null,
         lastMessageAt,
         lastMessageLabel: messageListTime(lastMessageAt),
@@ -1061,6 +1066,7 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
 
   let otherName = NAME_FALLBACK
   let otherAvatar: string | null = null
+  let otherGender: string | null = null
   let otherRole: string | null = null
   let otherSlug: string | null = null
   let otherBadges: ReturnType<typeof badgesForPlan> = []
@@ -1072,7 +1078,7 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
         .select('full_name, role, avatar_url, profile_completion')
         .eq('id', otherId)
         .maybeSingle(),
-      admin.from('tutor_profiles').select('slug').eq('id', otherId).maybeSingle(),
+      admin.from('tutor_profiles').select('slug, gender').eq('id', otherId).maybeSingle(),
       admin
         .from('subscriptions')
         .select('plan_code')
@@ -1084,12 +1090,13 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
     otherName = formatName(profile?.full_name as string | null) || otherName
     otherAvatar = (profile?.avatar_url as string) ?? null
     otherRole = (profile?.role as string) ?? null
-    // The counterpart tutor's hidden picture (PR70) → initials in the header too.
+    // The counterpart tutor's hidden picture (PR70) → the default avatar in the header too.
     if (otherAvatar) {
       const hidden = await hiddenAvatarTutorIds(admin, [otherId])
       if (hidden.has(otherId)) otherAvatar = null
     }
     otherSlug = (tutor?.slug as string) ?? null
+    otherGender = (tutor?.gender as string) ?? null
     // PR105-B §1 — the Verified badge needs staff-approved CNIC+photo+selfie for a
     // tutor, CNIC verified for a parent; verifiedBadgeOkOne decides by role.
     otherBadges = badgesForPlan(
@@ -1125,6 +1132,7 @@ export async function threadHeader(userId: string, threadId: string): Promise<Th
     otherId,
     otherName,
     otherAvatar,
+    otherGender,
     otherRole,
     otherSlug,
     otherBadges,

@@ -311,7 +311,7 @@ export default function TutorModerationClient({
                 <Avatar
                   name={t.fullName}
                   src={t.avatarUrl}
-                  seed={t.id}
+                  gender={t.gender}
                   decorative
                   ring="border border-gray-200"
                   className="h-11 w-11 text-xs"

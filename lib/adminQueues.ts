@@ -183,6 +183,7 @@ export type QueueTutorRow = {
   city: string | null
   area: string | null
   avatarUrl: string | null
+  gender: string | null
   videoYoutubeId: string | null
   videoStatus: string
   videoVisibility: string
@@ -364,6 +365,7 @@ export async function loadTutorQueue({
       city: (t.city as string) ?? null,
       area: (t.area as string) ?? null,
       avatarUrl: (t.avatar_url as string) ?? null,
+      gender: (t.gender as string | null) ?? null,
       videoYoutubeId: (t.video_youtube_id as string) ?? null,
       videoStatus: (t.video_status as string) ?? 'none',
       videoVisibility: (t.video_visibility as string) ?? 'private',

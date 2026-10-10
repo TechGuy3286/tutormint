@@ -46,6 +46,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       otherId: header.otherId,
       otherName: header.otherName,
       otherAvatar: header.otherAvatar,
+      otherGender: header.otherGender ?? null,
       // The other person's role and (for a tutor) slug, so the dock's
       // conversation header can link the name to their public profile/card —
       // a tutor to /tutor/[slug], a parent to /parent/[id] (§2.1).

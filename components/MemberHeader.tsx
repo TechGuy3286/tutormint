@@ -16,6 +16,7 @@ export default function MemberHeader({
   role,
   name,
   avatarUrl,
+  gender = null,
   userId,
   messagesUnread,
   unread,
@@ -24,6 +25,8 @@ export default function MemberHeader({
   role: 'tutor' | 'parent'
   name: string
   avatarUrl: string | null
+  /** A tutor's gender, for the default avatar; a parent has none. */
+  gender?: string | null
   userId: string
   messagesUnread: number
   unread: number
@@ -40,7 +43,7 @@ export default function MemberHeader({
         <Avatar
           name={name}
           src={avatarUrl}
-          seed={userId}
+          gender={gender}
           decorative
           ring="border border-gray-200"
           className="h-8 w-8 text-[10px]"

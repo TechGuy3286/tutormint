@@ -903,7 +903,7 @@ export default async function TutorPublicProfile({ params }: { params: Params })
             <Avatar
               name={tutor.full_name}
               src={tutor.avatar_url}
-              seed={tutor.id}
+              gender={tutor.gender}
               decorative
               className="h-24 w-24 text-2xl sm:h-36 sm:w-36 sm:text-4xl"
               px={144}

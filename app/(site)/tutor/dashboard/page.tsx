@@ -50,7 +50,7 @@ export default async function TutorDashboardPage() {
   const supabase = await createClient()
 
   const [{ data: tutorProfile }, completion, ent, directory] = await Promise.all([
-    supabase.from('tutor_profiles').select('slug, city').eq('id', userId).maybeSingle(),
+    supabase.from('tutor_profiles').select('slug, city, gender').eq('id', userId).maybeSingle(),
     computeCompletion(userId),
     getEntitlements(userId),
     loadDirectoryStatus(userId),
@@ -172,6 +172,7 @@ export default async function TutorDashboardPage() {
         <TutorHeaderCard
           name={session?.profile?.full_name ?? 'Your profile'}
           avatarUrl={session?.profile?.avatar_url ?? null}
+          gender={(tutorProfile?.gender as string | null) ?? null}
           city={city}
           verified={ent.verified}
           planName={ent.planName}

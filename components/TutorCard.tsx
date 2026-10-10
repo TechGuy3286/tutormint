@@ -43,6 +43,8 @@ export type TutorCardData = {
   full_name: string
   headline: string | null
   avatar_url: string | null
+  /** Picks the default avatar when there is no photo (lib/defaultAvatar). */
+  gender?: string | null
   city: string | null
   /** Smart-search fallback (owner, 8 Oct 2026): "87 km away" / "Teaches online". */
   distance_note?: string | null
@@ -467,7 +469,7 @@ export default function TutorCard({
             <Avatar
               name={tutor.full_name}
               src={tutor.avatar_url}
-              seed={tutor.id}
+              gender={tutor.gender}
               decorative
               className="h-[72px] w-[72px] text-lg sm:h-[140px] sm:w-[140px] sm:text-3xl"
               px={140}

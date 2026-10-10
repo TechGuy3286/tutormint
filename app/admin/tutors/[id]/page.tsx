@@ -51,7 +51,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
     admin
       .from('tutor_profiles')
       .select(
-        'id, slug, full_name, headline, city, area, teaching_mode, job_types, verification_status, video_status, rating_avg, rating_count, imported, claimed_at, created_at, whatsapp_number',
+        'id, slug, full_name, headline, city, area, gender, teaching_mode, job_types, verification_status, video_status, rating_avg, rating_count, imported, claimed_at, created_at, whatsapp_number',
       )
       .eq('id', id)
       .maybeSingle(),
@@ -141,7 +141,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
         <Avatar
           name={name}
           src={profile.avatar_url as string | null}
-          seed={id}
+          gender={tutor.gender as string | null}
           decorative
           className="h-14 w-14 shrink-0 text-base"
         />

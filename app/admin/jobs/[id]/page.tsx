@@ -97,7 +97,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
       ? admin.from('profiles').select('id, full_name, avatar_url').in('id', tutorIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     tutorIds.length > 0
-      ? admin.from('tutor_profiles').select('id, slug').in('id', tutorIds)
+      ? admin.from('tutor_profiles').select('id, slug, gender').in('id', tutorIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     admin
       .from('subscriptions')
@@ -111,6 +111,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
   const tutorAvatar = new Map(
     (tutorProfiles ?? []).map((p) => [p.id as string, (p.avatar_url as string) ?? null]),
   )
+  const tutorGenderOf = new Map((tutorRows ?? []).map((t) => [t.id as string, (t.gender as string | null) ?? null]))
   const tutorSlug = new Map((tutorRows ?? []).map((t) => [t.id as string, t.slug as string]))
   // Which applicants are actually LISTED (PR39): a "View public profile" link is
   // shown only for these, so it never 404s on an unlisted applicant. One query.
@@ -271,7 +272,6 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
             <Avatar
               name={formatName(parent.full_name as string | null)}
               src={(parent.avatar_url as string) ?? null}
-              seed={parent.id as string}
               className="h-11 w-11 shrink-0 text-xs"
               decorative
             />
@@ -384,7 +384,7 @@ export default async function AdminJobDetailPage({ params }: { params: Promise<{
                   <Avatar
                     name={tutorName.get(tid) ?? 'Tutor'}
                     src={tutorAvatar.get(tid) ?? null}
-                    seed={tid}
+                    gender={tutorGenderOf.get(tid)}
                     className="h-9 w-9 shrink-0 text-[10px]"
                     decorative
                   />

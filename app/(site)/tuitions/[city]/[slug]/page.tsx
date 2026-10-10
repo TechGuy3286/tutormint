@@ -659,7 +659,6 @@ export default async function TuitionPage({ params }: { params: Params }) {
             <Avatar
               name={job.parent_name}
               src={job.parent_avatar_url}
-              seed={job.parent_id}
               decorative
               className="h-12 w-12 shrink-0 text-sm"
             />

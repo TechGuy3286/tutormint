@@ -244,7 +244,6 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
             <Avatar
               name={fullName || 'You'}
               src={avatarUrl}
-              seed={initial.userId}
               decorative
               ring=""
               className="h-full w-full rounded-none text-xl"

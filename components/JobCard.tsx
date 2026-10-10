@@ -321,7 +321,6 @@ export default function JobCard({
                 <Avatar
                   name={job.parent_name}
                   src={job.parent_avatar_url}
-                  seed={job.parent_id}
                   decorative
                   ring="border border-gray-200"
                   className="h-7 w-7 text-[10px]"
