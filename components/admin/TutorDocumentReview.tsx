@@ -81,7 +81,7 @@ export default function TutorDocumentReview({
   const at: Record<string, number> = {}
   if (cnicFrontId) { at.cnicFront = images.length; images.push({ src: `/api/documents/${cnicFrontId}/preview`, alt: 'CNIC front', documentId: cnicFrontId }) }
   if (cnicBackId) { at.cnicBack = images.length; images.push({ src: `/api/documents/${cnicBackId}/preview`, alt: 'CNIC back', documentId: cnicBackId }) }
-  if (avatarUrl) { at.pic = images.length; images.push({ src: avatarUrl, alt: 'Profile picture' }) }
+  if (avatarUrl) { at.pic = images.length; images.push({ src: avatarUrl, alt: 'Profile picture', profileId: tutorId }) }
   if (selfieDocId) { at.selfie = images.length; images.push({ src: `/api/documents/${selfieDocId}/preview`, alt: 'Selfie', documentId: selfieDocId }) }
   if (rv?.cnicFrontId) { at.newFront = images.length; images.push({ src: `/api/documents/${rv.cnicFrontId}/preview`, alt: 'New CNIC front', documentId: rv.cnicFrontId }) }
   if (rv?.cnicBackId) { at.newBack = images.length; images.push({ src: `/api/documents/${rv.cnicBackId}/preview`, alt: 'New CNIC back', documentId: rv.cnicBackId }) }

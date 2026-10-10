@@ -6,7 +6,7 @@ import { formatDateTime } from '@/lib/datetime'
 import type { DocOverall } from '@/lib/feePayersCore'
 
 // "Recent payers" (owner, 7 Oct 2026): opened from the Overview "Paid this month"
-// tile. Tutors whose Rs 199 Spam Free Platform Fee was approved, newest first —
+// tile. Tutors whose Rs 199 Verification Fee was approved, newest first —
 // one row per tutor (their latest fee payment). Refunded payments and deleted
 // accounts are left out. Same access as the Overview revenue tile.
 
@@ -27,7 +27,7 @@ export default async function RecentPayersPage() {
       <header className="space-y-1">
         <h1 className="text-lg font-black text-tm-navy">Recent payers</h1>
         <p className="text-xs text-gray-500">
-          Tutors who paid the Rs 199 Spam Free Platform Fee, newest first. Refunded payments and deleted accounts are not shown.
+          Tutors who paid the Rs 199 Verification Fee, newest first. Refunded payments and deleted accounts are not shown.
         </p>
       </header>
 

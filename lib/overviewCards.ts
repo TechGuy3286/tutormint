@@ -30,7 +30,7 @@ export type MemberCardFacts = {
   completion: number
   /** Tutors only, while onboarding is unfinished. */
   stoppedAt: string | null
-  /** Tutors only: the Spam Free Platform Fee is paid. Null for parents. */
+  /** Tutors only: the Verification Fee is paid. Null for parents. */
   paid: boolean | null
   badges: BadgeName[]
   /** Canonical 92… number for wa.me / tel:, WhatsApp first then mobile. */

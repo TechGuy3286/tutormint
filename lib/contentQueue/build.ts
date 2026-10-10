@@ -201,7 +201,7 @@ const REASON_TOPIC: Record<string, { label: string; title: string; notes: string
     label: 'fake or impersonated profiles',
     title: 'How TutorMint verifies tutors — and how to spot a fake',
     notes:
-      'Explain how tutor verification works on TutorMint (the Spam Free Platform Fee plus CNIC, profile photo and selfie; degree and video optional) and the signs of a fake profile, so parents know what a verified tutor means.',
+      'Explain how tutor verification works on TutorMint (the Verification Fee plus CNIC, profile photo and selfie; degree and video optional) and the signs of a fake profile, so parents know what a verified tutor means.',
   },
   harassment: {
     label: 'harassment or abuse',

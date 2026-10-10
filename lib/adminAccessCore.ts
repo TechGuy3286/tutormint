@@ -141,6 +141,10 @@ export const SCREEN_ACCESS = {
   // Marketplace → Paused tuitions (owner, 8 Oct 2026): every role that can post
   // tuitions sees the auto-paused list and may Resume (one or many).
   pausedTuitions: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
+  // Marketplace → Applicants to forward (owner, 10 Oct 2026): tell a tuition's
+  // parent which paid tutors applied. Owner, admin, operations and tuitions
+  // staff act; the Partner views (refused on every write by checkAdminRole).
+  applicantForwards: ['admin', 'operations', 'tuitions_staff'] as AdminRole[],
   users: ['admin', 'operations'] as AdminRole[],
   // Staff performance. Management view (admin/owner), plus tuitions_staff for
   // ITS OWN activity only — the page and detail route force the id to the actor

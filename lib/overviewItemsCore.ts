@@ -162,7 +162,7 @@ export type FeePayment = {
 }
 
 /**
- * "Paid today" (owner, 8 Oct 2026): tutors whose Spam Free Platform Fee was
+ * "Paid today" (owner, 8 Oct 2026): tutors whose Verification Fee was
  * approved since 00:00 Pakistan time — refunded and deleted-account payments
  * left out, each tutor once (their latest fee payment today). Also the month
  * and 7-day counts for the card's subline, from the SAME rows.

@@ -253,7 +253,7 @@ export async function POST(request: Request) {
       ? targetAudience === 'tutor'
         ? `Your ${plan.name} badge is now live on your profile. ${unlocks}`
         : unlocks
-      : `${unlocks} Your badge appears once the Spam Free Platform Fee is paid and your CNIC, profile photo and selfie are sent.`,
+      : `${unlocks} Your badge appears once the Verification Fee is paid and your CNIC, profile photo and selfie are sent.`,
     href: targetAudience === 'tutor' ? '/tutor/dashboard' : '/parent/dashboard',
   })
   await deliverEmail(

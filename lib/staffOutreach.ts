@@ -48,8 +48,8 @@ export type UnpaidRow = {
   lastContact: { outcome: ContactOutcome; note: string | null; staffEmail: string | null; at: string } | null
 }
 
-/** Tutors who signed up in the last 30 days and have not paid the Spam Free
- *  Platform Fee — newest first, paused (suspended/banned) and test accounts out. */
+/** Tutors who signed up in the last 30 days and have not paid the
+ *  Verification Fee — newest first, paused (suspended/banned) and test accounts out. */
 export async function loadUnpaidSignups(now = new Date()): Promise<UnpaidRow[]> {
   const admin = createAdminClient()
   if (!admin) return []

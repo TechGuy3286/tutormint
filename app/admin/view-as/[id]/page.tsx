@@ -102,7 +102,7 @@ export default async function ViewAsTutorPage({ params }: { params: Promise<{ id
           <dl>
             {fact('Listed in search', directory.listed ? 'Yes' : 'Not yet')}
             {fact('Plan', ent.planName ?? 'None')}
-            {fact('Spam Free Platform Fee', ent.verified ? 'Paid' : 'Not paid')}
+            {fact('Verification Fee', ent.verified ? 'Paid' : 'Not paid')}
             {fact('Profile complete', `${percent}%`)}
             {fact('Profile views this week', String(views.thisWeek))}
           </dl>

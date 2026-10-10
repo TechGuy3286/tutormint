@@ -322,7 +322,7 @@ export default async function AdminMemberPage({
             <Fact label="Tutor status" value={(tutor.verification_status as string) ?? '—'} />
             {/* The one-time Rs 199 verification fee — the status the owner reads
                 as "paid or not" (PR99 §3). */}
-            <Fact label="Spam Free Platform Fee" value={tutor.verified_fee_paid_at ? 'Paid' : 'Not paid'} />
+            <Fact label="Verification Fee" value={tutor.verified_fee_paid_at ? 'Paid' : 'Not paid'} />
             <Fact label="Video" value={(tutor.video_status as string) ?? 'none'} />
             <Fact label="Video visibility" value={(tutor.video_visibility as string) ?? 'private'} />
             <Fact

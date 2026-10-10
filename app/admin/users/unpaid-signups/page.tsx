@@ -8,7 +8,7 @@ import { loadFollowUpStates } from '@/lib/followUps'
 import { followUpLine } from '@/lib/followUpCore'
 
 // Admin → People → Unpaid signups (owner, 8 Oct 2026). Tutors who signed up in
-// the last 30 days and have not paid the Spam Free Platform Fee, newest first —
+// the last 30 days and have not paid the Verification Fee, newest first —
 // paused and test accounts left out. Each row: where they stopped, a WhatsApp
 // and a Call button, and the last contact. Owner, admin, Operations and
 // Tuitions staff (SCREEN_ACCESS.unpaidSignups).
@@ -44,7 +44,7 @@ export default async function UnpaidSignupsPage({ searchParams }: { searchParams
       <header className="space-y-1">
         <h1 className="text-lg font-black text-tm-navy">Unpaid signups</h1>
         <p className="text-xs text-gray-500">
-          Tutors who joined in the last {UNPAID_WINDOW_DAYS} days and have not paid the Spam Free Platform Fee, newest
+          Tutors who joined in the last {UNPAID_WINDOW_DAYS} days and have not paid the Verification Fee, newest
           first. Paused, test and staff accounts are left out. Log every call so nobody is rung twice.
         </p>
       </header>

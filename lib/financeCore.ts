@@ -64,11 +64,11 @@ export function methodLabel(via: string | null | undefined, method: string | nul
   return 'Other'
 }
 
-export const TYPE_LABELS = ['Spam Free Platform Fee', 'Premium', 'Featured', 'Parent plans', 'Other'] as const
+export const TYPE_LABELS = ['Verification Fee', 'Premium', 'Featured', 'Parent plans', 'Other'] as const
 export type TypeLabel = (typeof TYPE_LABELS)[number]
 
 export function typeLabel(planCode: string | null, audience: string | null): TypeLabel {
-  if (planCode === 'verified') return 'Spam Free Platform Fee'
+  if (planCode === 'verified') return 'Verification Fee'
   if (audience === 'parent' || (planCode ?? '').startsWith('parent_')) return 'Parent plans'
   if (planCode === 'premium') return 'Premium'
   if (planCode === 'featured') return 'Featured'

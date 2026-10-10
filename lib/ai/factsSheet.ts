@@ -9,7 +9,7 @@
 //
 // Why this exists: the published post "How to become a home tutor in Pakistan"
 // said the Verified badge needs a degree certificate and an intro video, called
-// the fee a "verification fee" and ended its meta description with the site
+// the fee by an old name and ended its meta description with the site
 // tagline. The old hard-coded facts text said the same wrong things, so the
 // writer was faithfully repeating them.
 //
@@ -101,7 +101,7 @@ export function factsSheetText(facts: PlatformFacts = buildPlatformFacts()): str
     'TUTORMINT FACTS — state only these about how TutorMint works, and never contradict them.',
     '- Signing up is free for tutors and for parents.',
     '- A tutor appears in Browse once their mobile number is verified and their city, area, subjects and gender are set.',
-    `- The one-time fee is ALWAYS called the "${fee}". Never call it a "verification fee" or any other name. Never write any amount or price anywhere in a post.`,
+    `- The one-time fee is ALWAYS called the "${fee}". Never call it a "platform fee", a "registration fee" or any other name. Never write any amount or price anywhere in a post.`,
     `- The Verified badge comes from the ${fee} plus submitting a CNIC, a profile photo and a selfie. A degree, certificates and an introduction video are OPTIONAL and are not needed for any badge.`,
     "- A tutor's experience, subjects and fee are self-declared. TutorMint does not check them.",
     `- Tutor plans: ${list(planNames)}. Name them, never price them.`,

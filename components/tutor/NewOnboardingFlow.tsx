@@ -1326,7 +1326,7 @@ function GetVerifiedStep({ stepTotal, onBack, payFailed = false }: {
           After verification, you can apply to tuitions and jobs and contact parents and employers directly. You pay no commission to TutorMint, and never pay anyone in TutorMint&rsquo;s name.
         </p>
         <p className="rounded-xl bg-tm-tint-green/60 px-3 py-2 text-[12px] font-semibold leading-snug text-tm-green-deep">
-          Spam Free Platform Fee. We keep TutorMint clean of fake and spam accounts.
+          Verification Fee. We keep TutorMint clean of fake and spam accounts.
         </p>
         <button type="button" onClick={() => void start()} disabled={busy}
           className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-red px-6 text-sm font-bold text-white hover:bg-tm-red-hover disabled:opacity-60">

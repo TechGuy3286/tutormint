@@ -13,16 +13,19 @@ import DocumentViewer, { ViewerThumb } from '@/components/admin/DocumentViewer'
 export default function DocumentThumb({
   documentId,
   src,
+  profileId,
   alt,
   className = '',
 }: {
   documentId?: string
   src?: string
+  /** The member whose profile photo `src` is — makes it rotatable in the viewer. */
+  profileId?: string
   alt: string
   className?: string
 }) {
   const [open, setOpen] = useState(false)
-  const image = documentId ? { src: `/api/documents/${documentId}/preview`, alt, documentId } : src ? { src, alt } : null
+  const image = documentId ? { src: `/api/documents/${documentId}/preview`, alt, documentId } : src ? { src, alt, profileId } : null
   if (!image) return null
   return (
     <div className={className}>

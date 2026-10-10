@@ -400,7 +400,7 @@ test('contradictionViolations flags the four false claims, allows the brand slog
   // Messaging rights now come from the LIVE plan rows (owner, 7 Oct 2026): every
   // fee-paid plan can start a conversation, so this is TRUE today and not flagged.
   assert.deepEqual(contradictionViolations('Verified tutors can message parents directly.'), [])
-  // The site tagline's "No fee" contradicts the Spam Free Platform Fee (owner, 7 Oct 2026).
+  // The site tagline's "No fee" contradicts the Verification Fee (owner, 7 Oct 2026).
   assert.ok(contradictionViolations('No fee, no commission, no middleman.').length > 0)
   assert.deepEqual(contradictionViolations('TutorMint takes no commission on what you earn.'), [])
   // A normal factual sentence is clean.
@@ -497,14 +497,14 @@ test('PR35 §4: "free demo" is a contradiction (blocks publish)', () => {
 })
 
 test('PR35 §4: a question answered "No" is not a contradiction', () => {
-  const ok = '## Is TutorMint free to use?\n\nNo. Browsing is free, but tutors pay a one-time Spam Free Platform Fee.'
+  const ok = '## Is TutorMint free to use?\n\nNo. Browsing is free, but tutors pay a one-time Verification Fee.'
   assert.deepEqual(cv35(ok), [])
   const bad = '## Is TutorMint free to use?\n\nYes, everything is completely free.'
   assert.ok(cv35(bad).length > 0)
 })
 
 test('PR35 §4: a line that denies a false claim is not flagged', () => {
-  assert.deepEqual(cv35('TutorMint is not completely free — there is a one-time Spam Free Platform Fee.'), [])
+  assert.deepEqual(cv35('TutorMint is not completely free — there is a one-time Verification Fee.'), [])
 })
 
 test('PR35 §3: sanitizeDraft makes a bare draft pass the link rules', () => {

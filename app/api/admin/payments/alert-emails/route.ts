@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     await sendPaymentAlert({
       memberName: 'TEST — no real payment, please ignore',
       role: 'Tutor',
-      what: 'TEST payment alert (Spam Free Platform Fee)',
+      what: 'TEST payment alert (Verification Fee)',
       amountPkr: 199,
     })
     const to = await paymentAlertEmails()

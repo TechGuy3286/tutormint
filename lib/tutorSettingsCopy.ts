@@ -105,7 +105,7 @@ export const CARDS: Record<string, { title: Bilingual; hint?: Bilingual }> = {
     hint: { en: 'Your city and area.', ur: 'آپ کا شہر اور علاقہ۔' },
   },
   fee: {
-    title: { en: 'Spam Free Platform Fee', ur: 'اسپام فری پلیٹ فارم فیس' },
+    title: { en: 'Verification Fee', ur: 'تصدیقی فیس' },
     hint: { en: 'A one-time fee to verify your profile.', ur: 'آپ کی پروفائل کی تصدیق کے لیے ایک بار کی فیس۔' },
   },
   jobType: {
@@ -160,8 +160,8 @@ export const CARDS: Record<string, { title: Bilingual; hint?: Bilingual }> = {
 // card only shows where it stands and a link to the right place.
 export const READONLY_LINES: Record<string, { done: Bilingual; todo: Bilingual; cta: Bilingual }> = {
   fee: {
-    done: { en: 'Your Spam Free Platform Fee is paid.', ur: 'آپ کی اسپام فری پلیٹ فارم فیس ادا ہو چکی ہے۔' },
-    todo: { en: 'Your Spam Free Platform Fee is not paid yet.', ur: 'آپ کی اسپام فری پلیٹ فارم فیس ابھی ادا نہیں ہوئی۔' },
+    done: { en: 'Your Verification Fee is paid.', ur: 'آپ کی تصدیقی فیس ادا ہو چکی ہے۔' },
+    todo: { en: 'Your Verification Fee is not paid yet.', ur: 'آپ کی تصدیقی فیس ابھی ادا نہیں ہوئی۔' },
     cta: { en: 'Go to verification', ur: 'تصدیق کی طرف جائیں' },
   },
   experience: {

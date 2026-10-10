@@ -67,8 +67,8 @@ test('the viewer opens steady: a full-screen dialog sized from the viewport, wit
   assert.match(out, /class="fixed inset-0 /)
   assert.match(out, /aria-label="Close"/)
   // The picture is limited by the viewport, never by a measured box.
-  assert.match(out, /max-width:calc\(100vw - 16px\)/)
-  assert.match(out, /max-height:calc\(100dvh - \d+px\)/)
+  assert.match(out, /container-type:size/)
+  assert.match(out, /width:calc\(100cqw - 16px\);height:calc\(100cqh - 16px\)/)
   assert.doesNotMatch(out, /transition/)
   // The stage takes the pinch itself, so the page under it does not also move.
   assert.match(out, /touch-none/)
@@ -91,10 +91,9 @@ test('the viewer opens steady: a full-screen dialog sized from the viewport, wit
 
 test('a quarter turn swaps which side of the screen limits the picture, so it still fits', () => {
   const turned = frame({ turns: 90 })
-  assert.match(turned, /max-width:calc\(100dvh - \d+px\)/)
-  assert.match(turned, /max-height:calc\(100vw - 16px\)/)
+  assert.match(turned, /width:calc\(100cqh - 16px\);height:calc\(100cqw - 16px\)/)
   assert.match(turned, /rotate\(90deg\)/)
-  assert.match(frame({ turns: 180 }), /max-width:calc\(100vw - 16px\)/)
+  assert.match(frame({ turns: 180 }), /width:calc\(100cqw - 16px\)/)
 })
 
 test('one shared viewer for every admin document image; the old one is gone', () => {
@@ -191,10 +190,10 @@ test('the Partner (view-only) can neither rotate nor read', () => {
   // And the UI does not offer either control.
   const noTools = frame({ canRotate: false })
   assert.doesNotMatch(noTools, /Rotate left|Rotate right|Save rotation/)
-  assert.match(frame(), /Rotate left ⟲/)
-  assert.match(frame(), /Rotate right ⟳/)
+  assert.match(frame(), /Rotate left/)
+  assert.match(frame(), /Rotate right/)
   assert.match(frame(), /Save rotation/)
-  assert.match(code('components/admin/DocumentViewer.tsx'), /const canRotate = !!img\.documentId && !readOnly/)
+  assert.match(code('components/admin/DocumentViewer.tsx'), /const canRotate = \(!!img\.documentId \|\| !!img\.profileId\) && !readOnly/)
   const box = code('components/admin/AdminCnicNumberBox.tsx')
   assert.match(box, /const mayWrite = canEdit && !readOnly/)
   assert.match(box, /\) : mayWrite \? \(/)

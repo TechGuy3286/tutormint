@@ -186,7 +186,7 @@ export async function activatePayment(params: {
       kind: 'verification_fee_paid',
       title: 'You are verified',
       body:
-        'Your Spam Free Platform Fee is paid and your profile is now shown to parents. Complete your ' +
+        'Your Verification Fee is paid and your profile is now shown to parents. Complete your ' +
         'profile to appear higher in search. There are no refunds.',
       href: '/tutor/dashboard',
     })
@@ -211,7 +211,7 @@ export async function activatePayment(params: {
     await sendPaymentAlert({
       memberName: formatName(feeBuyer?.full_name as string | null) || 'A member',
       role: 'Tutor',
-      what: 'Spam Free Platform Fee',
+      what: 'Verification Fee',
       amountPkr: (payment.amount_pkr as number) ?? 0,
     })
 

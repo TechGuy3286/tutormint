@@ -40,12 +40,12 @@ export type FlowStepKey =
 //   1 City · 2 Areas · 3 Academic levels · 4 Subjects · 5 Job title ·
 //   6 Time slots · 7 Contact and about you · 8 Education & certifications ·
 //   9 Experience · 10 Expected fee · 11 Photo · 12 Selfie · 13 CNIC ·
-//   14 Platform fee.
+//   14 Verification Fee.
 // Step 7 "Contact and about you" is now ONE screen (PR78 §C): the 'contact' step
 // carries the mobile (verified/read-only or verify-by-SMS), WhatsApp, email,
 // gender, tagline and bio together — replacing the old separate mobile/gender/
 // tagline/bio steps. 'name' (set at signup) stays its own step, before it, and is
-// skipped when already filled. The platform fee ('verify') is LAST — a tutor
+// skipped when already filled. The Verification Fee ('verify') is LAST — a tutor
 // answers everything before paying. The gap flow opens at the first missing step
 // and skips filled ones.
 export const FLOW_ORDER: FlowStepKey[] = [

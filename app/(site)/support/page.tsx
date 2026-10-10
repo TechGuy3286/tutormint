@@ -59,7 +59,7 @@ const GROUPS: FaqGroup[] = [
       },
       {
         q: 'Why am I not showing up in search?',
-        a: 'You show in search once your mobile number is verified and your city, area, subjects and gender are set. Paying the one-time Spam Free Platform Fee and sending your CNIC, profile photo and selfie earns the Verified badge, which puts you above tutors who are not verified. Your dashboard shows anything still missing.',
+        a: 'You show in search once your mobile number is verified and your city, area, subjects and gender are set. Paying the one-time Verification Fee and sending your CNIC, profile photo and selfie earns the Verified badge, which puts you above tutors who are not verified. Your dashboard shows anything still missing.',
       },
       {
         q: 'My video was rejected. What now?',
@@ -71,7 +71,7 @@ const GROUPS: FaqGroup[] = [
       },
       {
         q: 'Can I pay before my profile is finished?',
-        a: 'Yes. Your Premium or Featured month starts the day you are verified and your profile is complete. The Verified badge comes from the Spam Free Platform Fee plus your CNIC, profile photo and selfie; a degree and an introduction video are optional. Nothing is lost in the meantime.',
+        a: 'Yes. Your Premium or Featured month starts the day you are verified and your profile is complete. The Verified badge comes from the Verification Fee plus your CNIC, profile photo and selfie; a degree and an introduction video are optional. Nothing is lost in the meantime.',
       },
     ],
   },

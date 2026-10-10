@@ -49,6 +49,7 @@ export type AdminScreen =
   | 'unpaidSignups'
   | 'featuredWhatsapp'
   | 'pausedTuitions'
+  | 'applicantForwards'
   | 'jobsPost'
 
 export type NavItem = {
@@ -108,6 +109,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/jobs/new', label: 'Post a tuition', icon: 'filePlus', screen: 'jobsPost' },
       // Auto-paused tuitions with Resume (owner, 8 Oct 2026): the roles that post.
       { href: '/admin/jobs/paused', label: 'Paused tuitions', icon: 'pause', screen: 'pausedTuitions' },
+      // Paid tutors who applied or viewed a number — one card per tuition (owner, 10 Oct 2026).
+      { href: '/admin/jobs/applicants', label: 'Applicants to forward', icon: 'userPlus', screen: 'applicantForwards' },
       { href: '/admin/jobs/duplicates', label: 'Duplicates', icon: 'copy', screen: 'duplicates' },
       { href: '/admin/payments', label: 'Payments', icon: 'wallet', screen: 'payments' },
       // Owner only, plus the view-only Partner (owner, 8 Oct 2026, item 4).

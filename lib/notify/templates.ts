@@ -454,9 +454,9 @@ export function render(input: TemplateInput): RenderedEmail {
         'You are verified on TutorMint',
         `You are verified, ${properName(input.name)}`,
         [
-          `Payment of Rs. ${input.amountPkr.toLocaleString('en-PK')} received for the Spam Free Platform Fee. Your profile is now shown to parents.`,
+          `Payment of Rs. ${input.amountPkr.toLocaleString('en-PK')} received for the Verification Fee. Your profile is now shown to parents.`,
           'Complete your profile to appear higher in search. Verified tutors are shown to parents first.',
-          'The Spam Free Platform Fee is one-time and non-refundable, as set out in our Terms.',
+          'The Verification Fee is one-time and non-refundable, as set out in our Terms.',
         ],
         true, // a receipt
         { label: 'Open your dashboard', href: '/tutor/dashboard' },
@@ -487,7 +487,7 @@ export function render(input: TemplateInput): RenderedEmail {
           `Your ${input.what} was not approved: ${input.reason}`,
           input.audience === 'parent'
             ? 'Please correct it on your verification page to get the green Verified badge. You can keep posting, messaging tutors and requesting demos meanwhile.'
-            : 'Please upload a clear one to finish getting verified. Nothing else changes — your Spam Free Platform Fee and the rest of your profile stay exactly as they are.',
+            : 'Please upload a clear one to finish getting verified. Nothing else changes — your Verification Fee and the rest of your profile stay exactly as they are.',
         ],
         true, // a verification decision the member is waiting on
         {

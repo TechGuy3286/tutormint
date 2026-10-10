@@ -1,3 +1,4 @@
+import { applicantsToForwardCount } from '@/lib/applicantForwards'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
@@ -23,7 +24,9 @@ import MfaGate from '@/components/admin/MfaGate'
 async function navBadges(): Promise<Record<string, number>> {
   const admin = createAdminClient()
   if (!admin) return {}
-  const [reports, approvalRows] = await Promise.all([
+  const [toForward, reports, approvalRows] = await Promise.all([
+    // Marketplace → Applicants to forward: the "To forward" tab's count.
+    applicantsToForwardCount(),
     admin.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     // PR106-H1 §3.7: the "Approval needed" count beside People (one source of
     // truth with the tab). Only roles that can open /admin/users see the badge.
@@ -35,6 +38,7 @@ async function navBadges(): Promise<Record<string, number>> {
     // review card (owner, 9 Oct 2026), not a raw verification_state count.
     '/admin/tutors': approvalRows.filter((r) => r.kind === 'tutor').length,
     '/admin/reports': reports.count ?? 0,
+    '/admin/jobs/applicants': toForward,
     '/admin/users': approvals,
     // Parents with their CNIC or address waiting (owner, 8 Oct 2026).
     '/admin/parents': approvalRows.filter((r) => r.kind === 'parent').length,

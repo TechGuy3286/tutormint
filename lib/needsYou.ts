@@ -484,7 +484,7 @@ export async function tutorNeeds({
   }
 
   // No "add a degree to earn your Verified badge" row (owner, 7 Oct 2026): the
-  // badge is the Spam Free Platform Fee + CNIC, photo and selfie; a degree is
+  // badge is the Verification Fee + CNIC, photo and selfie; a degree is
   // optional and never needed for any badge.
   void hasDegree
 

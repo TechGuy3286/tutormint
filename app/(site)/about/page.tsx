@@ -58,7 +58,7 @@ export default async function AboutPage() {
           <p>
             A mint is where genuine coins are struck and certified. TutorMint is where genuine
             tutors are <em>minted</em>: a tutor carries the Verified badge only after paying the
-            Spam Free Platform Fee and sending their CNIC, profile photo and a selfie, so a parent
+            Verification Fee and sending their CNIC, profile photo and a selfie, so a parent
             knows the person they found is real
             before they send the first message. The two figures in our logo are a tutor and a
             parent, talking directly — no agency, no middleman between them.{' '}
@@ -91,7 +91,7 @@ export default async function AboutPage() {
         <div className="space-y-2">
           <h2 className="text-base font-black text-tm-navy">What verification means here</h2>
           <p>
-            A tutor earns the Verified badge by paying the one-time Spam Free Platform Fee and
+            A tutor earns the Verified badge by paying the one-time Verification Fee and
             sending their CNIC, a profile photo and a selfie, which our team checks. A degree,
             certificates and an introduction video are optional extras a tutor can add to their
             profile; none of them is needed for the badge.{' '}

@@ -7,7 +7,7 @@
 // sheet, and quotes that sentence; a correct statement is never flagged.
 //
 // Why rebuilt: the old hard-coded sheet said the Verified badge needs a degree
-// certificate and an intro video and called the fee a "verification fee". The
+// certificate and an intro video and used an old name for the fee. The
 // writer repeated it into a published post, and the checker — reading the same
 // wrong sheet — flagged a CORRECT messaging sentence instead. The badge rule, the
 // fee name and the messaging rights now come from the live facts.
@@ -59,8 +59,10 @@ const re = (r: RegExp) => (s: string): Hit | null => {
 // claim ("TutorMint never promises tuitions") rather than making it.
 const DENIAL_BEFORE = /\b(no|not|never|isn'?t|aren'?t|doesn'?t|don'?t|won'?t|cannot|can'?t|without)\b[^.?!]{0,12}$/i
 
+// The fee is the "Verification Fee" (owner, 10 Oct 2026 — renamed from "Spam
+// Free Platform Fee", which is now one of the WRONG names below).
 const FEE_NAME_RE =
-  /\b(?:verification|verify|verified|registration|sign-?up|listing|joining|profile|badge|activation)\s+fees?\b/i
+  /\b(?:spam[- ]free\s+platform|platform|verify|verified|registration|sign-?up|listing|joining|profile|badge|activation|entry)\s+fees?\b/i
 
 const BADGE_WORD = /\b(verified badge|the badge|verified|verification|get verified|getting verified)\b/i
 const BADGE_ITEM = /\b(degree|degrees|certificate|certificates|intro(?:duction)? video|video introduction)\b/i
@@ -353,7 +355,7 @@ export function ctaViolation(body: string, audience: 'parents' | 'tutors' | 'bot
 }
 
 // The RETIRED tagline ("No fee, no commission, no middleman") contradicts the
-// Spam Free Platform Fee and is still flagged. The current tagline, "Free to
+// Verification Fee and is still flagged. The current tagline, "Free to
 // join. No commission. No middleman." (owner, 8 Oct 2026), is TRUE and allowed.
 const TAGLINE_RE = /\bno fees?[.,]?\s*no commission/i
 export const SEO_TITLE_LIMIT = 60
@@ -371,7 +373,7 @@ export function seoFieldViolations(
   if (t.length > SEO_TITLE_LIMIT) out.push({ field: 'seoTitle', message: `The SEO title is ${t.length} characters — keep it to ${SEO_TITLE_LIMIT}.` })
   if (d.length > SEO_DESCRIPTION_LIMIT) out.push({ field: 'seoDescription', message: `The meta description is ${d.length} characters — keep it to ${SEO_DESCRIPTION_LIMIT}.` })
   if (TAGLINE_RE.test(d)) {
-    out.push({ field: 'seoDescription', message: 'The meta description uses the retired tagline (“No fee, no commission, no middleman”) — it contradicts the Spam Free Platform Fee. Describe this post instead.' })
+    out.push({ field: 'seoDescription', message: 'The meta description uses the retired tagline (“No fee, no commission, no middleman”) — it contradicts the Verification Fee. Describe this post instead.' })
   } else {
     for (const v of contradictionViolations(d, facts)) {
       out.push({ field: 'seoDescription', message: `The meta description contradicts the facts: “${v.line}” — ${v.why}` })

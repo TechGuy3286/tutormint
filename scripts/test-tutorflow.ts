@@ -59,13 +59,13 @@ test('PR86: the contact step requires a WhatsApp number', () => {
   assert.equal(isListed(noWa), true) // WhatsApp does NOT block listing
 })
 
-test('the flow follows the owner order with the platform fee last (PR78 §C)', () => {
+test('the flow follows the owner order with the Verification Fee last (PR78 §C)', () => {
   assert.deepEqual(FLOW_ORDER, [
     'city', 'area', 'level', 'subjects', 'jobtype', 'availability',
     'name', 'contact',
     'degree', 'experience', 'fee', 'photo', 'selfie', 'cnic_number', 'cnic_photos', 'verify',
   ])
-  // The platform fee moves to LAST — everything is answered before paying.
+  // The Verification Fee moves to LAST — everything is answered before paying.
   assert.equal(FLOW_ORDER[FLOW_ORDER.length - 1], 'verify')
   // Step 7 "Contact and about you" is ONE screen (PR78 §C) — the old separate
   // mobile / gender / tagline / bio steps are gone.

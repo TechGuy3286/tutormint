@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCcw, RotateCw, Save, Loader2, Maximize2 } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
@@ -31,16 +32,29 @@ import { DOC_ROTATED_EVENT, rotateBy, swapsAspect } from '@/lib/docRotation'
 //     follow-up click land on the thumbnail underneath and reopen it; and the
 //     scrollbar's width is held while the page scroll is locked.
 //
-// ROTATE. "Rotate left ⟲" / "Rotate right ⟳" turn the picture on screen; "Save
-// rotation" stores the turn on the document's row (lib/docRotation). The stored
-// file is never changed. Offered only for a stored document (not the profile
-// picture, which has no document record) and never to a view-only Partner.
+// ROTATE. "Rotate left" / "Rotate right" turn the picture on screen; "Save
+// rotation" stores the turn — on the document's row (lib/docRotation) or, for a
+// profile photo, as the member's saved rotation (lib/avatarRotationCore). The
+// uploaded file is never changed. Never offered to a view-only Partner.
+//
+// FOLLOW-UP FIXES (owner, 10 Oct 2026):
+//   - the backdrop is OPAQUE and covers the whole page — at 90% the red Warn /
+//     Suspend / Reject buttons of the page behind showed through the rotate bar;
+//   - the picture is sized from its STAGE with container units (cqw / cqh), so
+//     it always fits between the top bar and the rotate bar, at any aspect, on
+//     phone and desktop, before and after a quarter turn. (Sized from the
+//     viewport with a guessed bar height, a tall profile photo ran off the
+//     bottom.) Still nothing is measured in script, so there is no resize loop;
+//   - the rotate buttons use the admin's own rotate icons, not the ⟲ ⟳ text
+//     glyphs, which drew as small circles.
 
 export type ViewerImage = {
   src: string
   alt: string
   /** The user_documents id, when the image is a stored document (rotatable). */
   documentId?: string
+  /** The member's id, when the image is their PROFILE PHOTO (rotatable). */
+  profileId?: string
 }
 
 const subscribeNoop = () => () => {}
@@ -62,6 +76,7 @@ export default function DocumentViewer({
   const inBrowser = useSyncExternalStore(subscribeNoop, () => true, () => false)
   const readOnly = useAdminReadOnly()
   const toast = useToast()
+  const router = useRouter()
 
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -70,6 +85,8 @@ export default function DocumentViewer({
   const [saving, setSaving] = useState(false)
   /** Per document: bumped after a save so the picture is fetched again. */
   const [versions, setVersions] = useState<Record<string, number>>({})
+  /** Per member: the profile photo's address after a saved rotation. */
+  const [photoSrc, setPhotoSrc] = useState<Record<string, string>>({})
 
   // The parent passes fresh callbacks on every render; refs keep the keyboard
   // effect below tied to `open` alone, so it does not re-run (and re-lock the
@@ -128,32 +145,56 @@ export default function DocumentViewer({
 
   if (!open || !inBrowser) return null
   const img = images[index as number]
-  const canRotate = !!img.documentId && !readOnly
+  const canRotate = (!!img.documentId || !!img.profileId) && !readOnly
 
   const saveRotation = async () => {
-    if (!img.documentId || turns === 0 || saving) return
+    if (turns === 0 || saving) return
     setSaving(true)
-    const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/documents/rotate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ documentId: img.documentId, delta: turns }),
-    })
-    setSaving(false)
-    if (!ok) {
-      toast.error(data?.error ?? 'The rotation did not save. Please try again.')
+    if (img.documentId) {
+      const { ok, data } = await adminFetch<{ error?: string }>('/api/admin/documents/rotate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId: img.documentId, delta: turns }),
+      })
+      setSaving(false)
+      if (!ok) {
+        toast.error(data?.error ?? 'The rotation did not save. Please try again.')
+        return
+      }
+      const id = img.documentId
+      setVersions((v) => ({ ...v, [id]: (v[id] ?? 0) + 1 }))
+      setTurns(0)
+      window.dispatchEvent(new CustomEvent(DOC_ROTATED_EVENT, { detail: { id } }))
+      toast.success('Rotation saved. The original file is unchanged.')
       return
     }
-    const id = img.documentId
-    setVersions((v) => ({ ...v, [id]: (v[id] ?? 0) + 1 }))
-    setTurns(0)
-    window.dispatchEvent(new CustomEvent(DOC_ROTATED_EVENT, { detail: { id } }))
-    toast.success('Rotation saved. The original file is unchanged.')
+    if (img.profileId) {
+      const { ok, data } = await adminFetch<{ error?: string; avatarUrl?: string }>('/api/admin/profile-photo/rotate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: img.profileId, delta: turns }),
+      })
+      setSaving(false)
+      if (!ok || !data?.avatarUrl) {
+        toast.error(data?.error ?? 'The rotation did not save. Please try again.')
+        return
+      }
+      const id = img.profileId
+      const url = data.avatarUrl
+      setPhotoSrc((m) => ({ ...m, [id]: url }))
+      setTurns(0)
+      toast.success('Rotation saved. The uploaded photo is unchanged.')
+      // The page's own thumbnails and every other screen read the new address.
+      router.refresh()
+      return
+    }
+    setSaving(false)
   }
 
   const version = img.documentId ? versions[img.documentId] : undefined
   return createPortal(
     <ViewerFrame
-      image={{ ...img, src: version ? `${img.src}?r=${version}` : img.src }}
+      image={{ ...img, src: img.profileId && photoSrc[img.profileId] ? photoSrc[img.profileId] : version ? `${img.src}?r=${version}` : img.src }}
       position={images.length > 1 ? { at: (index as number) + 1, of: images.length } : null}
       zoom={zoom}
       pan={pan}
@@ -175,12 +216,10 @@ const BAR_BTN = 'grid h-11 w-11 place-items-center rounded-lg text-white hover:b
 const TOOL_BTN =
   'inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-white/30 px-3 text-xs font-bold text-white hover:bg-white/10 disabled:opacity-40'
 
-/** Room kept for the top bar and (when shown) the rotate bar, in px. */
-const CHROME_PX = { plain: 84, tools: 148 }
-
 /**
  * The viewer's markup, with no effects and no measuring — exported so the
- * render test can draw it. Everything is sized from the viewport.
+ * render test can draw it. The picture is sized from its stage (container
+ * units), so the bars above and below can never cover it.
  */
 export function ViewerFrame({
   image,
@@ -240,17 +279,30 @@ export function ViewerFrame({
     }
     onClose()
   }
+  // The picture's box fills the stage (the picture itself is letterboxed inside
+  // it), so a tap on the dark margin lands on the box. Read once, at the tap:
+  // outside the drawn picture closes, like a tap on the backdrop.
+  const closeIfMargin = (e: React.MouseEvent<HTMLImageElement>) => {
+    if (moved.current) {
+      moved.current = false
+      return
+    }
+    const el = e.currentTarget
+    if (!el.naturalWidth || !el.naturalHeight) return
+    const scale = Math.min(el.clientWidth / el.naturalWidth, el.clientHeight / el.naturalHeight)
+    const padX = (el.clientWidth - el.naturalWidth * scale) / 2
+    const padY = (el.clientHeight - el.naturalHeight * scale) / 2
+    const { offsetX, offsetY } = e.nativeEvent
+    if (offsetX < padX || offsetX > el.clientWidth - padX || offsetY < padY || offsetY > el.clientHeight - padY) onClose()
+  }
 
-  // The picture fits the screen from the viewport alone. A quarter turn swaps
-  // which viewport side limits which side of the picture.
-  const chrome = canRotate ? CHROME_PX.tools : CHROME_PX.plain
-  const wide = 'calc(100vw - 16px)'
-  const tall = `calc(100dvh - ${chrome}px)`
+  // The picture's box is the stage's own size (container units), swapped for a
+  // quarter turn so the turned picture still fits. Nothing is measured.
   const quarter = swapsAspect(turns)
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col bg-tm-black/90"
+      className="fixed inset-0 z-[99] flex h-dvh w-screen flex-col bg-tm-black"
       role="dialog"
       aria-modal="true"
       aria-label="Document viewer"
@@ -279,7 +331,9 @@ export function ViewerFrame({
           zoomed picture, two fingers pinch-zoom it, and the page underneath
           neither scrolls nor zooms. */}
       <div
-        className="relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden p-2"
+        className="relative min-h-0 flex-1 touch-none overflow-hidden"
+        style={{ containerType: 'size' }}
+        data-viewer-stage=""
         onClick={closeIfOutside}
         onMouseDown={(e) => startDrag(e.clientX, e.clientY)}
         onMouseMove={(e) => moveDrag(e.clientX, e.clientY)}
@@ -311,11 +365,12 @@ export function ViewerFrame({
           alt={image.alt}
           draggable={false}
           onContextMenu={(e) => e.preventDefault()}
-          className="select-none object-contain"
+          onClick={closeIfMargin}
+          className="absolute left-1/2 top-1/2 max-w-none select-none object-contain"
           style={{
-            maxWidth: quarter ? tall : wide,
-            maxHeight: quarter ? wide : tall,
-            transform: `translate(${pan.x}px, ${pan.y}px) rotate(${turns}deg) scale(${zoom})`,
+            width: quarter ? 'calc(100cqh - 16px)' : 'calc(100cqw - 16px)',
+            height: quarter ? 'calc(100cqw - 16px)' : 'calc(100cqh - 16px)',
+            transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) rotate(${turns}deg) scale(${zoom})`,
             cursor: zoom > 1 ? 'grab' : 'default',
             WebkitTouchCallout: 'none',
           }}
@@ -344,12 +399,12 @@ export function ViewerFrame({
       </div>
 
       {canRotate && (
-        <div className="flex shrink-0 flex-wrap items-center justify-center gap-2 p-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
+        <div className="flex shrink-0 flex-wrap items-center justify-center gap-2 bg-tm-black p-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
           <button type="button" onClick={() => onTurn(270)} className={TOOL_BTN}>
-            <RotateCcw size={16} aria-hidden /> Rotate left ⟲
+            <RotateCcw size={16} aria-hidden /> Rotate left
           </button>
           <button type="button" onClick={() => onTurn(90)} className={TOOL_BTN}>
-            <RotateCw size={16} aria-hidden /> Rotate right ⟳
+            <RotateCw size={16} aria-hidden /> Rotate right
           </button>
           <button
             type="button"

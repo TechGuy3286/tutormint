@@ -15,7 +15,7 @@ import { normaliseCnic } from '@/lib/cnic'
 
 // The ONE shared CNIC entry (PR81), used everywhere a CNIC is typed and
 // photographed: the tutor onboarding CNIC step, the tutor Settings identity card,
-// the apply/platform-fee verify gate, and (via IdentityCard) parent verification.
+// the apply / Verification Fee gate, and (via IdentityCard) parent verification.
 //
 // It owns exactly the parts that were duplicated across those surfaces:
 //   • the number input, with automatic 5-7-1 dashes (formatCnic) and the one

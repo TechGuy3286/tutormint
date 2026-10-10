@@ -4,7 +4,7 @@
 // 8 Oct 2026). No I/O, so the rules are unit-tested (scripts/test-outreach.ts).
 //
 //   Unpaid signups     tutors in their first 30 days who have not paid the
-//                      Spam Free Platform Fee — who to call, and what happened.
+//                      Verification Fee — who to call, and what happened.
 //   Featured WhatsApp  Featured tutors with new matching open tuitions since
 //                      their last WhatsApp send, and the prefilled message.
 

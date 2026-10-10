@@ -313,12 +313,13 @@ export function statusLabel(raw: string | null | undefined): string {
  * instead of vanishing from the sentence.
  */
 /**
- * THE member-facing name of the one-time Rs 199 fee (#55, owner 5 Oct 2026):
- * "Spam Free Platform Fee" — on the Verified badge pop-up, receipts, payment
- * emails, the dashboard "Payments & refunds" list, admin Payments, and Terms.
- * Never "verification fee", "platform fee" or "entry fee" in copy a member sees.
+ * THE name of the one-time Rs 199 tutor fee, for members and staff (owner,
+ * 10 Oct 2026): "Verification Fee" — on the Verified badge pop-up, receipts,
+ * payment emails, the dashboard "Payments" list, admin screens and Terms.
+ * It replaced the 5 Oct name; never "platform fee" or "entry fee" anywhere.
+ * Our own screens still never show the amount beside it.
  */
-export const FEE_LABEL = 'Spam Free Platform Fee'
+export const FEE_LABEL = 'Verification Fee'
 
 export function planLabel(code: string | null | undefined): string | null {
   if (!code) return null

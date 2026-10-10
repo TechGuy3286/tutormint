@@ -94,8 +94,7 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          <strong>Tutors</strong> earn the Verified badge by paying the one-time Spam Free Platform
-          Fee and sending their CNIC, a profile photo and a selfie, which a person on our team
+          <strong>Tutors</strong> earn the Verified badge by paying the one-time Verification Fee and sending their CNIC, a profile photo and a selfie, which a person on our team
           checks. A degree, certificates and an introduction video are optional and are not needed
           for any badge. A tutor appears in the public directory once their mobile number is
           verified, their city, area, subjects and gender are set, and their account is in good
@@ -195,12 +194,12 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          TutorMint sells two things: a one-time <strong>Spam Free Platform Fee</strong> that a tutor
+          TutorMint sells two things: a one-time <strong>Verification Fee</strong> that a tutor
           pays once to be verified and listed, and optional monthly memberships. We charge no
           commission and no per-introduction fee.
         </p>
         <p>
-          <strong>The Spam Free Platform Fee.</strong> It is paid once, never renews, and is what
+          <strong>The Verification Fee.</strong> It is paid once, never renews, and is what
           keeps fake and spam accounts off the platform. It buys verification and a place in the
           directory — never a tuition, a hire or an income. It is non-refundable (see “Paying, and
           the no-refund policy”).
@@ -253,7 +252,7 @@ const SECTIONS: LegalSection[] = [
         </p>
         <p>
           <strong>
-            All payments — the Spam Free Platform Fee and membership payments — are final. We do not
+            All payments — the Verification Fee and membership payments — are final. We do not
             give refunds, in whole or in part, for any reason.
           </strong>{' '}
           That includes an unused part of a month, a change of mind, a plan bought by mistake, a
@@ -267,7 +266,7 @@ const SECTIONS: LegalSection[] = [
         <p>
           <strong>A tutor may pay before their profile is complete.</strong> A Premium or Featured
           month starts the day the tutor is verified and their profile is complete. The Verified
-          badge appears once the Spam Free Platform Fee is paid and the CNIC, profile photo and
+          badge appears once the Verification Fee is paid and the CNIC, profile photo and
           selfie are sent. Paying does not shorten, replace or guarantee verification.
         </p>
       </>

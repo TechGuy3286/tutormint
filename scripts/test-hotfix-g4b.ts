@@ -75,7 +75,7 @@ test('the error line fits 360px and the button carries no amount', () => {
   // button carries no amount (PR106-G6 §13 removed "Rs 199" from the fee line too)
   assert.match(g, /\{busy \? 'Starting…' : 'Get verified now'\}/, 'button label has no amount')
   assert.equal((g.match(/Rs 199/g) || []).length, 0, 'no amount anywhere on the final screen')
-  assert.match(g, /Spam Free Platform Fee\. We keep TutorMint clean of fake and spam accounts\./, 'fee line without the amount')
+  assert.match(g, /Verification Fee\. We keep TutorMint clean of fake and spam accounts\./, 'fee line without the amount')
 })
 
 test('the dashboard card uses the same hardened hook + shared messages', () => {

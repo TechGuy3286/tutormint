@@ -33,7 +33,7 @@ import {
 } from './blogBrief'
 
 // The intro every prompt opens with. It never uses the RETIRED tagline: "No fee"
-// contradicts the Spam Free Platform Fee (owner, 7 Oct 2026). The current one,
+// contradicts the Verification Fee (owner, 7 Oct 2026). The current one,
 // "Free to join. No commission. No middleman." (owner, 8 Oct 2026), is true.
 const INTRO =
   'You write for the TutorMint blog. TutorMint is a Pakistani platform where parents find verified tutors and tutors find tuitions. TutorMint takes no commission.'
@@ -50,7 +50,7 @@ function factsFor(brief: BlogBrief): string {
 function checklistRules(brief: BlogBrief): string {
   return [
     'THE PUBLISHING CHECKLIST — the draft is checked against every one of these:',
-    '- Never contradict the TutorMint facts above. Call the one-time fee the "Spam Free Platform Fee" every time. The Verified badge never needs a degree, certificate or intro video.',
+    '- Never contradict the TutorMint facts above. Call the one-time fee the "Verification Fee" every time. The Verified badge never needs a degree, certificate or intro video.',
     `- Length ${BLOG_MIN_WORDS}-${BLOG_MAX_WORDS} words in total.`,
     '- 3 to 5 internal links in the whole post, each page linked once: at least ONE to a live tuition or city page (/tuition-jobs/<city>, /tutors/<city>/<subject> or /tuitions/<city>/<subject>) and at least ONE to another blog post or a tutor profile from the list. Never link /membership-plans.',
     '- Link text must describe the page ("open Grade 3 Mathematics tuitions in Karachi", "tuition jobs in Karachi") — never "click here", "this page", "read more" or "a related guide".',
@@ -69,7 +69,7 @@ function ctaLine(brief: BlogBrief): string {
 }
 
 /** How the SEO fields are written (owner, 7 Oct 2026). */
-const SEO_RULE = `Also write an SEO title (at most ${SEO_TITLE_LIMIT} characters) and a meta description (at most ${SEO_DESCRIPTION_LIMIT} characters) for THIS post: say what the post covers, accurately. Never use the retired tagline ("No fee, no commission, no middleman" — it contradicts the Spam Free Platform Fee); the current tagline "Free to join. No commission. No middleman." is true and may be used. Never contradict the post or the facts.`
+const SEO_RULE = `Also write an SEO title (at most ${SEO_TITLE_LIMIT} characters) and a meta description (at most ${SEO_DESCRIPTION_LIMIT} characters) for THIS post: say what the post covers, accurately. Never use the retired tagline ("No fee, no commission, no middleman" — it contradicts the Verification Fee); the current tagline "Free to join. No commission. No middleman." is true and may be used. Never contradict the post or the facts.`
 
 // PR16 §6.3 — how the internal-link list is described to the model, shared by the
 // full-draft and sectioned prompts. It must place real links from the list only.

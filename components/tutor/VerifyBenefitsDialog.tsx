@@ -86,7 +86,7 @@ export default function VerifyBenefitsDialog({
         </ul>
 
         <p className="rounded-lg bg-tm-tint-green/60 px-3 py-2 text-[11px] leading-snug text-tm-green-deep">
-          The one-time Spam Free Platform Fee keeps fake and spam accounts off TutorMint, so parents can trust verified tutors.
+          The one-time Verification Fee keeps fake and spam accounts off TutorMint, so parents can trust verified tutors.
           <span lang="ur" dir="rtl" className="mt-0.5 block text-gray-500">
             یہ ایک بار کی فیس جعلی اور اسپام اکاؤنٹس کو ٹیوٹرمنٹ سے دور رکھتی ہے، تاکہ والدین تصدیق شدہ ٹیوٹرز پر بھروسہ کر سکیں۔
           </span>
@@ -97,8 +97,8 @@ export default function VerifyBenefitsDialog({
             href={payHref}
             className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover"
           >
-            Pay Spam Free Platform Fee
-            <span lang="ur" dir="rtl" className="ms-1.5 text-[11px] font-semibold opacity-90">اسپام فری پلیٹ فارم فیس ادا کریں</span>
+            Pay Verification Fee
+            <span lang="ur" dir="rtl" className="ms-1.5 text-[11px] font-semibold opacity-90">تصدیقی فیس ادا کریں</span>
           </Link>
         )}
       </div>

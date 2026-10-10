@@ -129,7 +129,7 @@ export async function POST(request: Request) {
     if (tp?.verified_fee_paid_at || approvedFee) {
       return NextResponse.json(
         {
-          error: 'You have already paid the one-time Spam Free Platform Fee. Our team is reviewing your documents.',
+          error: 'You have already paid the one-time Verification Fee. Our team is reviewing your documents.',
           code: 'fee_already_paid',
           alreadyPaid: true,
           href: '/tutor/dashboard',
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
     if (!tp?.verified_fee_paid_at) {
       return NextResponse.json(
         {
-          error: `Get verified first. ${plan.name} is for verified tutors — pay the one-time Spam Free Platform Fee, then choose ${plan.name}.`,
+          error: `Get verified first. ${plan.name} is for verified tutors — pay the one-time Verification Fee, then choose ${plan.name}.`,
           needsVerify: true,
           planCode: plan.code,
           verifyHref: '/tutor/complete-profile?step=verify',

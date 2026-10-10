@@ -175,7 +175,7 @@ export default function CompleteProfileFlow({ facets, support, seed, smsAvailabl
   const [jobOrder, setJobOrder] = useState<string[] | null>(null)
   const [busy, setBusy] = useState(false)
   // PR78 §D.2: onboarded_at is stamped once the tutor reaches the LAST step (the
-  // platform fee) or the final screen — i.e. every other step is answered
+  // Verification Fee) or the final screen — i.e. every other step is answered
   // (photo/selfie/CNIC count as answered once uploaded, since they precede the
   // fee in the order). The fee step stays last until paid, but the tutor is no
   // longer force-routed back into onboarding. Fired once per session.

@@ -65,7 +65,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'What does the Verified badge on a tutor mean?',
-        a: 'It means the tutor paid the one-time Spam Free Platform Fee and sent a CNIC, a profile photo and a selfie that our team checked. A degree, certificates and an introduction video are optional and not needed for the badge. It does not mean we have watched them teach or that we guarantee results. It means the person in the profile is the person in the documents.',
+        a: 'It means the tutor paid the one-time Verification Fee and sent a CNIC, a profile photo and a selfie that our team checked. A degree, certificates and an introduction video are optional and not needed for the badge. It does not mean we have watched them teach or that we guarantee results. It means the person in the profile is the person in the documents.',
         links: [
           { label: 'Verified tutors', href: '/browse/tutors' },
           { label: 'How verification works', href: '/faq#choosing' },
@@ -73,7 +73,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How are degrees and videos actually checked?',
-        a: 'Both are optional. A tutor who adds an introduction video uploads it to our own YouTube channel as a private video, and an administrator reviews it before anything is shown to you; a tutor gets three attempts. A tutor who adds degree certificates uploads them as images, and you see watermarked, downscaled previews — never the original file, which stays in private storage. Neither is needed for the Verified badge, which comes from the Spam Free Platform Fee plus a CNIC, profile photo and selfie.',
+        a: 'Both are optional. A tutor who adds an introduction video uploads it to our own YouTube channel as a private video, and an administrator reviews it before anything is shown to you; a tutor gets three attempts. A tutor who adds degree certificates uploads them as images, and you see watermarked, downscaled previews — never the original file, which stays in private storage. Neither is needed for the Verified badge, which comes from the Verification Fee plus a CNIC, profile photo and selfie.',
         links: [
           { label: 'Browse verified tutors', href: '/browse/tutors' },
           { label: 'Privacy Policy', href: '/privacy' },
@@ -89,7 +89,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'Do you give refunds?',
-        a: 'No. The Spam Free Platform Fee and memberships are not refundable, in whole or in part, and that is stated in the Terms before you pay. A membership buys a month of access, and access is delivered the moment it activates. If a payment was taken in error or activated the wrong plan, contact support and we will correct it — that is a mistake, not a refund.',
+        a: 'No. The Verification Fee and memberships are not refundable, in whole or in part, and that is stated in the Terms before you pay. A membership buys a month of access, and access is delivered the moment it activates. If a payment was taken in error or activated the wrong plan, contact support and we will correct it — that is a mistake, not a refund.',
         links: [
           { label: 'The Terms', href: '/terms' },
           { label: 'Contact support', href: '/support' },
@@ -120,7 +120,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'What do I get for getting verified?',
-        a: 'Getting verified is a one-time step — you pay the Spam Free Platform Fee once, with no renewal and no monthly charge for it. It makes you a verified tutor with a Verified badge, on the free Basic plan: you can apply to ten tuitions a month, see ten parents’ phone and email, message parents in the app and download your CV. That puts your profile in front of parents who are already searching for your subject in your area — that is what is being sold. It is not a guarantee of work: whether a parent chooses you depends on your profile, your reply and your experience, and no honest platform can promise otherwise. Premium and Featured are optional monthly plans: Premium adds 100 applications and parent contact views a month, one-tap WhatsApp to parents and who viewed your profile; Featured makes those unlimited and puts you at the top of search.',
+        a: 'Getting verified is a one-time step — you pay the Verification Fee once, with no renewal and no monthly charge for it. It makes you a verified tutor with a Verified badge, on the free Basic plan: you can apply to ten tuitions a month, see ten parents’ phone and email, message parents in the app and download your CV. That puts your profile in front of parents who are already searching for your subject in your area — that is what is being sold. It is not a guarantee of work: whether a parent chooses you depends on your profile, your reply and your experience, and no honest platform can promise otherwise. Premium and Featured are optional monthly plans: Premium adds 100 applications and parent contact views a month, one-tap WhatsApp to parents and who viewed your profile; Featured makes those unlimited and puts you at the top of search.',
         links: [
           { label: 'Tutor memberships', href: '/membership-plans?for=tutors' },
           { label: 'Open tuitions', href: '/browse/tuitions' },
@@ -143,7 +143,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How do I get Verified?',
-        a: 'Pay the one-time Spam Free Platform Fee and send your CNIC, a profile photo and a selfie. That is all the Verified badge needs. A degree, certificates and an introduction video are optional extras that help parents trust you, but none of them is needed for any badge.',
+        a: 'Pay the one-time Verification Fee and send your CNIC, a profile photo and a selfie. That is all the Verified badge needs. A degree, certificates and an introduction video are optional extras that help parents trust you, but none of them is needed for any badge.',
         links: [
           { label: 'Complete your profile', href: '/tutor/complete-profile' },
           { label: 'Tutor memberships', href: '/membership-plans?for=tutors' },
@@ -151,7 +151,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'Why is my profile not appearing in search?',
-        a: 'You show in search once your mobile number is verified and your city, area, subjects and gender are set. Paying the Spam Free Platform Fee and sending your CNIC, profile photo and selfie earns the Verified badge, which puts you above tutors who are not verified. Your dashboard names anything still missing at the top of the page. A fuller profile ranks higher.',
+        a: 'You show in search once your mobile number is verified and your city, area, subjects and gender are set. Paying the Verification Fee and sending your CNIC, profile photo and selfie earns the Verified badge, which puts you above tutors who are not verified. Your dashboard names anything still missing at the top of the page. A fuller profile ranks higher.',
         links: [
           { label: 'Your dashboard', href: '/tutor/dashboard' },
           { label: 'Complete your profile', href: '/tutor/complete-profile' },
@@ -206,7 +206,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         q: 'How do I check a tutor’s degree is genuine?',
-        a: 'The Verified badge means the tutor paid the Spam Free Platform Fee and sent a CNIC, profile photo and selfie that our team checked. A degree is optional: when a tutor adds certificates, you can see watermarked previews on their profile — the originals stay in private storage and are never handed out. We do not contact universities to confirm a degree, and we will not claim otherwise. If something looks wrong, report the profile and a person looks at it.',
+        a: 'The Verified badge means the tutor paid the Verification Fee and sent a CNIC, profile photo and selfie that our team checked. A degree is optional: when a tutor adds certificates, you can see watermarked previews on their profile — the originals stay in private storage and are never handed out. We do not contact universities to confirm a degree, and we will not claim otherwise. If something looks wrong, report the profile and a person looks at it.',
         links: [
           { label: 'Verified tutors', href: '/browse/tutors' },
           { label: 'Contact support', href: '/support' },
@@ -294,7 +294,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Verified badge ka kya matlab hai?',
         lang: 'ur',
-        a: 'Iska matlab hai ke tutor ne ek baar ki Spam Free Platform Fee ada ki aur apna CNIC, profile photo aur selfie bheja, jo hamari team ne check kiya. Degree, certificates aur taaruf wali video ikhtiyari hain aur badge ke liye zaroori nahi. Iska matlab yeh nahi ke humne unhein parhate hue dekha hai ya nateeje ki zamanat dete hain. Matlab sirf itna hai: profile wala shakhs wohi hai jo dastavezaat mein hai.',
+        a: 'Iska matlab hai ke tutor ne ek baar ki Verification Fee ada ki aur apna CNIC, profile photo aur selfie bheja, jo hamari team ne check kiya. Degree, certificates aur taaruf wali video ikhtiyari hain aur badge ke liye zaroori nahi. Iska matlab yeh nahi ke humne unhein parhate hue dekha hai ya nateeje ki zamanat dete hain. Matlab sirf itna hai: profile wala shakhs wohi hai jo dastavezaat mein hai.',
         links: [
           { label: 'Verified tutors', href: '/browse/tutors' },
           { label: 'Madad chahiye', href: '/support' },
@@ -312,7 +312,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Kya paise wapas milte hain?',
         lang: 'ur',
-        a: 'Nahi. Spam Free Platform Fee aur membership ki raqam wapas nahi hoti, na poori na thori, aur yeh baat paise dene se pehle Sharait mein likhi hai. Membership ek mahine ki rasai khareedti hai, aur rasai activate hote hi mil jati hai. Agar ghalti se payment li gayi ya ghalat plan chala, to support se rabta karein — hum theek kar denge. Woh ghalti ki durusti hai, refund nahi.',
+        a: 'Nahi. Verification Fee aur membership ki raqam wapas nahi hoti, na poori na thori, aur yeh baat paise dene se pehle Sharait mein likhi hai. Membership ek mahine ki rasai khareedti hai, aur rasai activate hote hi mil jati hai. Agar ghalti se payment li gayi ya ghalat plan chala, to support se rabta karein — hum theek kar denge. Woh ghalti ki durusti hai, refund nahi.',
         links: [
           { label: 'Sharait (Terms)', href: '/terms' },
           { label: 'Support se rabta', href: '/support' },
@@ -321,7 +321,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Verified hone se tutor ko kya milta hai?',
         lang: 'ur',
-        a: 'Verification ek baar ka kaam hai — aap Spam Free Platform Fee sirf ek dafa ada karte hain, na koi renewal, na koi mahana charge. Is se aap Verified badge ke sath verified tutor ban jate hain, muft Basic plan par: mahine mein das tuitions par apply, das walidain ka phone aur email dekhna, app mein walidain ko message aur apni CV download. Isse aap ka profile un walidain ke saamne aata hai jo pehle se aap ke subject aur ilaqay mein tutor dhoond rahe hain — yehi cheez bechi ja rahi hai. Yeh kaam milne ki zamanat nahi hai: kaun chuna jayega yeh aap ke profile, aap ke jawab aur tajurbe par hai. Premium aur Featured ikhtiyari mahana plans hain: Premium mahine mein 100 applications aur 100 contact views, ek tap WhatsApp aur profile dekhne walon ke naam deta hai; Featured yeh sab unlimited karta hai aur search mein sab se ooper rakhta hai.',
+        a: 'Verification ek baar ka kaam hai — aap Verification Fee sirf ek dafa ada karte hain, na koi renewal, na koi mahana charge. Is se aap Verified badge ke sath verified tutor ban jate hain, muft Basic plan par: mahine mein das tuitions par apply, das walidain ka phone aur email dekhna, app mein walidain ko message aur apni CV download. Isse aap ka profile un walidain ke saamne aata hai jo pehle se aap ke subject aur ilaqay mein tutor dhoond rahe hain — yehi cheez bechi ja rahi hai. Yeh kaam milne ki zamanat nahi hai: kaun chuna jayega yeh aap ke profile, aap ke jawab aur tajurbe par hai. Premium aur Featured ikhtiyari mahana plans hain: Premium mahine mein 100 applications aur 100 contact views, ek tap WhatsApp aur profile dekhne walon ke naam deta hai; Featured yeh sab unlimited karta hai aur search mein sab se ooper rakhta hai.',
         links: [
           { label: 'Tutor membership', href: '/membership-plans?for=tutors' },
           { label: 'Khuli tuitions', href: '/browse/tuitions' },
@@ -330,7 +330,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         q: 'Mera profile search mein kyun nahi aa raha?',
         lang: 'ur',
-        a: 'Search mein aane ke liye aap ka mobile number verified ho aur shehar, ilaqa, subjects aur gender set hon. Spam Free Platform Fee ada karna aur CNIC, profile photo aur selfie bhejna Verified badge deta hai, jo aap ko ghair verified tutors se ooper rakhta hai. Jo cheez baqi ho, dashboard sab se ooper bata deta hai. Zyada mukammal profile behtar rank hota hai.',
+        a: 'Search mein aane ke liye aap ka mobile number verified ho aur shehar, ilaqa, subjects aur gender set hon. Verification Fee ada karna aur CNIC, profile photo aur selfie bhejna Verified badge deta hai, jo aap ko ghair verified tutors se ooper rakhta hai. Jo cheez baqi ho, dashboard sab se ooper bata deta hai. Zyada mukammal profile behtar rank hota hai.',
         links: [
           { label: 'Dashboard', href: '/tutor/dashboard' },
           { label: 'Profile mukammal karein', href: '/tutor/complete-profile' },

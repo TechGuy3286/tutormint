@@ -132,7 +132,7 @@ test('Finance: method and type words', () => {
   assert.equal(methodLabel('JazzCash', null, 'paypro'), 'JazzCash')
   assert.equal(methodLabel('Visa Card', null, 'paypro'), 'Card')
   assert.equal(methodLabel(null, null, 'manual'), 'Bank transfer')
-  assert.equal(typeLabel('verified', 'tutor'), 'Spam Free Platform Fee')
+  assert.equal(typeLabel('verified', 'tutor'), 'Verification Fee')
   assert.equal(typeLabel('parent_featured', 'parent'), 'Parent plans')
   assert.equal(typeLabel('featured', 'tutor'), 'Featured')
 })

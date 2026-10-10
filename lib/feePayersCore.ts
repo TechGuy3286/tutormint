@@ -1,7 +1,7 @@
 // lib/feePayersCore.ts
 //
 // "Paid this month" on Admin → Overview (owner, 7 Oct 2026) — the PURE half:
-// which Rs 199 Spam Free Platform Fee payments count, and a tutor's overall
+// which Rs 199 Verification Fee payments count, and a tutor's overall
 // document status. No I/O, so the counting rule is unit-tested.
 //
 // A payment counts when it is the fee (plan_code 'verified'), approved, still

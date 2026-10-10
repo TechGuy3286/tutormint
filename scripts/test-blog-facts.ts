@@ -30,9 +30,9 @@ test('the facts sheet states the owner’s facts, built from the plan rows', () 
   const t = factsSheetText(facts)
   assert.ok(t.includes('Signing up is free'))
   assert.ok(t.includes('mobile number is verified and their city, area, subjects and gender are set'))
-  assert.ok(t.includes('“Spam Free Platform Fee”') || t.includes('"Spam Free Platform Fee"'))
+  assert.ok(t.includes('“Verification Fee”') || t.includes('"Verification Fee"'))
   assert.ok(/Never write any amount or price/.test(t))
-  assert.ok(/Verified badge comes from the Spam Free Platform Fee plus submitting a CNIC, a profile photo and a selfie/.test(t))
+  assert.ok(/Verified badge comes from the Verification Fee plus submitting a CNIC, a profile photo and a selfie/.test(t))
   assert.ok(/degree, certificates and an introduction video are OPTIONAL/.test(t))
   assert.ok(t.includes('Tutor plans: Featured, Premium and Basic'))
   assert.ok(t.includes('Search order: Featured, then Premium, then Verified, then everyone else.'))
@@ -84,12 +84,12 @@ test('regression: “Only Premium and Featured tutors can start a conversation�
   assert.ok(contradictionViolations('Basic tutors can start a conversation with any parent.', restricted).length > 0)
 })
 
-test('regression: “one-time verification fee” is flagged with the suggested name', () => {
-  const v = contradictionViolations('You pay a one-time verification fee to apply.', facts)
+test('regression: an old fee name is flagged with the suggested name', () => {
+  const v = contradictionViolations('You pay a one-time Spam Free Platform Fee to apply.', facts)
   assert.equal(v[0]?.kind, 'fee_name')
-  assert.equal(v[0]?.suggestion, 'You pay a one-time Spam Free Platform Fee to apply.')
-  const p = collectBlogProblems('You pay a one-time verification fee to apply.', { publishedPostSlugs: [], landingPaths: [], facts })
-  assert.ok(p.some((x) => x.message.includes('Suggested: “You pay a one-time Spam Free Platform Fee to apply.”')))
+  assert.equal(v[0]?.suggestion, 'You pay a one-time Verification Fee to apply.')
+  const p = collectBlogProblems('You pay a one-time Spam Free Platform Fee to apply.', { publishedPostSlugs: [], landingPaths: [], facts })
+  assert.ok(p.some((x) => x.message.includes('Suggested: “You pay a one-time Verification Fee to apply.”')))
 })
 
 test('correct statements from the published post are never flagged', () => {
@@ -97,7 +97,7 @@ test('correct statements from the published post are never flagged', () => {
     'To get verified, you submit your CNIC, a profile photo and a selfie, which the team checks.',
     'Adding your degree and a short introduction video is optional, but both help parents trust you before they get in touch.',
     'A verified tutor on the Basic plan can reply to any parent who messages first.',
-    'From there, most tutors choose to pay the one-time Spam Free Platform Fee.',
+    'From there, most tutors choose to pay the one-time Verification Fee.',
     'That’s visibility, not a guarantee — TutorMint doesn’t promise replies, applications or hires.',
     'Yes — Premium and Featured tutors rank above others, and verified tutors rank above unverified ones.',
     'Keep in mind that the subjects and grades you list are self-declared — TutorMint doesn’t check them.',
@@ -219,15 +219,15 @@ test('selfCorrect: up to 2 rounds, recorded; 0 rounds when the first check is cl
   assert.equal(selfCheckLabel(clean.record), 'Self-checked: 0 rounds, 0 issues left')
   // A fixer that corrects the passage → 1 round, 0 left.
   const one = await selfCorrect(
-    { body: 'You pay a one-time verification fee.', seoTitle: '', seoDescription: '' },
-    { check, fix: async (_d, ps) => ps.map((p) => ({ field: 'body' as const, before: p.match!, after: 'You pay the one-time Spam Free Platform Fee.' })) },
+    { body: 'You pay a one-time registration fee.', seoTitle: '', seoDescription: '' },
+    { check, fix: async (_d, ps) => ps.map((p) => ({ field: 'body' as const, before: p.match!, after: 'You pay the one-time Verification Fee.' })) },
   )
   assert.equal(one.record.rounds, 1)
   assert.equal(one.record.issuesLeft, 0)
   // A fixer that never manages it → stops after 2 rounds, issue reported.
   let calls = 0
   const stuck = await selfCorrect(
-    { body: 'You pay a one-time verification fee.', seoTitle: '', seoDescription: '' },
+    { body: 'You pay a one-time registration fee.', seoTitle: '', seoDescription: '' },
     {
       check,
       fix: async (d) => {
