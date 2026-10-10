@@ -18,7 +18,7 @@ import NotVerifiedBadge from '@/components/badges/NotVerifiedBadge'
 import FeaturedTag from '@/components/badges/FeaturedTag'
 import AuthGateModal, { clearDraft, peekDraft, FOCUS_COMPOSER_KEY, type AuthIntent } from '@/components/AuthGateModal'
 import { badgesForPlan, isFeaturedPlan } from '@/lib/planBadges'
-import { areaWithoutCity } from '@/lib/place'
+import { distinctAreaLabels } from '@/lib/place'
 
 // The tutor card, rebuilt against design/reference/tutor-card.jpeg.
 //
@@ -53,6 +53,8 @@ export type TutorCardData = {
   area: string | null
   /** All the areas the tutor serves (PR68). Falls back to [area] when absent. */
   areas?: string[] | null
+  /** The city of each entry in `areas`, when known (lib/tutorAreaCities). */
+  area_cities?: (string | null)[] | null
   teaching_mode: string | null
   job_types: string[] | null
   hourly_rate_pkr: number | null
@@ -546,35 +548,36 @@ export default function TutorCard({
               <DetailLine icon={<Icon name="briefcase" size={14} />} label="Experience" value={experience.en} />
               {(() => {
                 // Up to 2 areas, then "+N more" (PR68). Falls back to the single area.
-                const list = (tutor.areas && tutor.areas.length > 0
-                  ? tutor.areas
-                  : tutor.area
-                    ? [tutor.area]
-                    : []
-                ).filter(Boolean) as string[]
+                // DISTINCT labels only (owner, 10 Oct 2026): "DHA" and "DHA Lahore"
+                // are one area on the card, and "+N more" counts distinct areas.
+                const hasList = !!tutor.areas && tutor.areas.length > 0
+                const list = distinctAreaLabels(hasList ? tutor.areas : tutor.area ? [tutor.area] : [], tutor.city, {
+                  cities: tutor.cities,
+                  areaCities: hasList ? tutor.area_cities : null,
+                })
                 const shown = list.slice(0, 2)
                 const extra = list.length - shown.length
                 return (
                   <DetailLine
                     icon={<Icon name="map-pin" size={14} />}
                     label="Area"
-                    value={list.length ? list.join(', ') : 'Flexible'}
+                    value={list.length ? list.map((a) => a.label).join(', ') : 'Flexible'}
                   >
                     {list.length === 0 ? (
                       'Flexible'
                     ) : (
                       <>
                         {shown.map((a, i) => (
-                          <span key={a}>
+                          <span key={a.label}>
                             {i > 0 && ', '}
-                            {tutor.city ? (
+                            {a.city ? (
                               <InlineLink
-                                href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}&area=${encodeURIComponent(a)}`}
+                                href={`/browse/tutors?city=${encodeURIComponent(a.city)}&area=${encodeURIComponent(a.area)}`}
                               >
-                                {areaWithoutCity(a, tutor.city) || a}
+                                {a.label}
                               </InlineLink>
                             ) : (
-                              a
+                              a.label
                             )}
                           </span>
                         ))}

@@ -66,3 +66,63 @@ export function dedupeCityInText(text: string, city: string): string {
   const esc = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return text.replace(new RegExp(`\\b${esc},\\s*${esc}\\b`, 'gi'), c)
 }
+
+export type AreaLabel = {
+  /** What is shown: "DHA", or "DHA (Lahore)" when the same name is in two cities. */
+  label: string
+  /** The first saved area behind the label — the value the Browse filter link uses. */
+  area: string
+  /** The area's city when it is known or can be read off the area's own name. */
+  city: string | null
+}
+
+/**
+ * A tutor's areas as DISTINCT labels (owner, 10 Oct 2026 — "DHA, DHA +1 more").
+ *
+ * The curated list holds "DHA Lahore" while members also pick or type "DHA";
+ * once the city is taken off the label both read "DHA". Display only — nothing
+ * saved is changed. The rule:
+ *   - an area's city is `areaCities[i]` when given, else whichever of the
+ *     tutor's `cities` the area's own name ends with ("DHA Karachi"), else the
+ *     main city;
+ *   - the same name in the same city is shown once;
+ *   - the same name in two different cities is shown as "DHA (Lahore)" and
+ *     "DHA (Karachi)".
+ * Order is first appearance. "+N more" must be counted on this list's length.
+ */
+export function distinctAreaLabels(
+  areas: (string | null | undefined)[] | null | undefined,
+  mainCity: string | null | undefined,
+  opts: { cities?: (string | null | undefined)[] | null; areaCities?: (string | null | undefined)[] | null } = {},
+): AreaLabel[] {
+  const main = norm(mainCity)
+  const known = [main, ...(opts.cities ?? []).map(norm)].filter(Boolean)
+  type Entry = { name: string; area: string; city: string }
+  const groups = new Map<string, Entry[]>()
+  ;(areas ?? []).forEach((raw, i) => {
+    const area = norm(raw)
+    if (!area) return
+    const given = norm(opts.areaCities?.[i])
+    const suffix = known.find((c) => {
+      const s = areaWithoutCity(area, c)
+      return s !== '' && s !== area
+    })
+    const city = given || suffix || main
+    const name = areaWithoutCity(area, city) || area
+    const key = name.toLowerCase()
+    const group = groups.get(key) ?? []
+    if (!group.some((e) => e.city.toLowerCase() === city.toLowerCase())) group.push({ name, area, city })
+    groups.set(key, group)
+  })
+  const out: AreaLabel[] = []
+  for (const group of groups.values()) {
+    for (const e of group) {
+      out.push({
+        label: group.length > 1 && e.city ? `${e.name} (${e.city})` : e.name,
+        area: e.area,
+        city: e.city || null,
+      })
+    }
+  }
+  return out
+}

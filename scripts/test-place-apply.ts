@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { areaWithoutCity, dedupeCityInText, placeLabel } from '../lib/place'
+import { readFileSync } from 'node:fs'
+
+import { areaWithoutCity, dedupeCityInText, distinctAreaLabels, placeLabel } from '../lib/place'
+import { repeatsAreaName } from '../lib/tutorAreaCities'
 import { applyBlockFor } from '../lib/applyBlock'
 
 // owner, 5 Oct 2026 — "never repeat the city" and "why Apply is inactive".
@@ -47,4 +50,50 @@ test('applyBlockFor: first reason wins, in the fixed order', () => {
   assert.equal(applyBlockFor({ ...base, hasPlan: false, quotaLeft: 0 }), null)
   // "Unlimited" plans never surface the real cap.
   assert.deepEqual(applyBlockFor({ ...base, quotaLeft: 0, quota: 100, unlimitedDisplay: true }), { kind: 'quota', quota: 100, unlimited: true })
+})
+
+// owner, 10 Oct 2026 — "Area: DHA, DHA +1 more" on a tutor card.
+test('tutor area labels are distinct, and "+N more" counts distinct areas', () => {
+  const labels = (...a: Parameters<typeof distinctAreaLabels>) => distinctAreaLabels(...a).map((x) => x.label)
+  // The live case: "DHA" and the curated "DHA Lahore" under Lahore are one area.
+  const zuha = distinctAreaLabels(['DHA', 'DHA Lahore', 'Cantt'], 'Lahore')
+  assert.deepEqual(zuha.map((x) => x.label), ['DHA', 'Cantt'])
+  assert.equal(zuha.length - zuha.slice(0, 2).length, 0, 'no "+1 more" for a repeat')
+  assert.equal(zuha[0].area, 'DHA', 'the link keeps the first saved value')
+  assert.equal(zuha[0].city, 'Lahore')
+  // An exact repeat, in any case or spacing, is shown once.
+  assert.deepEqual(labels(['Gulberg', 'gulberg ', 'GULBERG', 'Johar Town', 'Model Town'], 'Lahore'), ['Gulberg', 'Johar Town', 'Model Town'])
+  const four = distinctAreaLabels(['Gulberg', 'Gulberg', 'Johar Town', 'Model Town'], 'Lahore')
+  assert.equal(four.length - 2, 1, '"+1 more": Model Town only')
+  // Same name in two cities, city known per area.
+  assert.deepEqual(
+    labels(['DHA', 'DHA', 'Clifton'], 'Lahore', { cities: ['Lahore', 'Karachi'], areaCities: ['Lahore', 'Karachi', 'Karachi'] }),
+    ['DHA (Lahore)', 'DHA (Karachi)', 'Clifton'],
+  )
+  // Same name in two cities, read off the curated names.
+  const two = distinctAreaLabels(['DHA Lahore', 'DHA Karachi'], 'Lahore', { cities: ['Lahore', 'Karachi'] })
+  assert.deepEqual(two.map((x) => x.label), ['DHA (Lahore)', 'DHA (Karachi)'])
+  assert.deepEqual(two.map((x) => x.city), ['Lahore', 'Karachi'])
+  assert.deepEqual(two.map((x) => x.area), ['DHA Lahore', 'DHA Karachi'])
+  // Different areas are untouched; an area that carries the city stays whole.
+  assert.deepEqual(labels(['DHA', 'Bahria Town Lahore', 'Cantt'], 'Lahore'), ['DHA', 'Bahria Town', 'Cantt'])
+  assert.deepEqual(labels(['North Karachi', 'Clifton'], 'Karachi'), ['North Karachi', 'Clifton'])
+  // Blanks and empties.
+  assert.deepEqual(labels([null, '', '  '], 'Lahore'), [])
+  assert.deepEqual(labels(null, 'Lahore'), [])
+  assert.deepEqual(labels(['DHA', 'DHA'], null), ['DHA'])
+  // No label is ever shown twice.
+  for (const list of [zuha, four, two]) assert.equal(new Set(list.map((x) => x.label)).size, list.length)
+})
+
+test('the city lookup runs only for a list that repeats a name; the card and profile use the one rule', () => {
+  assert.equal(repeatsAreaName(['DHA', 'dha ']), true)
+  assert.equal(repeatsAreaName(['DHA', 'DHA Lahore', 'Cantt']), false)
+  assert.equal(repeatsAreaName(null), false)
+  for (const p of ['components/TutorCard.tsx', 'app/(site)/tutor/[slug]/page.tsx']) {
+    const src = readFileSync(p, 'utf8')
+    assert.match(src, /distinctAreaLabels\(/, p + ' uses distinctAreaLabels')
+    assert.doesNotMatch(src, /areaWithoutCity/, p + ' builds no area label of its own')
+  }
+  assert.match(readFileSync('components/TutorCard.tsx', 'utf8'), /const extra = list\.length - shown\.length/)
 })

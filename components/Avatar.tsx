@@ -46,6 +46,11 @@ const CURRENT_SUPABASE_ORIGIN = (() => {
   }
 })()
 
+// Bumped whenever a drawing in public/avatars/ changes, so browsers and the CDN
+// fetch the new file at once instead of a cached old one. v2 (10 Oct 2026): plain
+// male and female silhouettes, no headscarf.
+const DEFAULT_AVATAR_VERSION = 2
+
 export function normalizeStorageSrc(src: string): string {
   if (!CURRENT_SUPABASE_ORIGIN) return src
   const m = src.match(/^https:\/\/[a-z0-9]+\.supabase\.co(\/storage\/.*)$/i)
@@ -141,7 +146,7 @@ export default function Avatar({
     // eslint-disable-next-line @next/next/no-img-element -- a static SVG under
     // 2 KB in public/: nothing for the optimiser to do, and next/image refuses SVG.
     <img
-      src={defaultAvatarSrc(gender)}
+      src={`${defaultAvatarSrc(gender)}?v=${DEFAULT_AVATAR_VERSION}`}
       alt={decorative ? '' : (name ?? '')}
       aria-hidden={decorative || undefined}
       data-default-avatar=""

@@ -32,7 +32,8 @@ import { jsonLdScript, pageDescription, pageTitle, socialMeta, tutorJsonLd, seoT
 import { getLandingLinker } from '@/lib/landing'
 import { currentSlugForRetired } from '@/lib/tutorSlug'
 import { formatName } from '@/lib/formatName'
-import { areaWithoutCity } from '@/lib/place'
+import { distinctAreaLabels } from '@/lib/place'
+import { withAreaCities } from '@/lib/tutorAreaCities'
 
 // The public tutor profile. Server component, results in the HTML.
 //
@@ -61,6 +62,8 @@ type PublicTutor = {
   cities: string[] | null
   area: string | null
   areas: string[] | null
+  /** The city of each entry in `areas`, when known (lib/tutorAreaCities). */
+  area_cities?: (string | null)[] | null
   teaching_mode: string | null
   job_types: string[] | null
   online_platforms: string[] | null
@@ -87,7 +90,9 @@ async function loadTutor(slug: string): Promise<PublicTutor | null> {
   const supabase = await createClient()
   const { data } = await supabase.rpc('tutor_public_page', { p_slug: slug })
   const row = (data as PublicTutor[] | null)?.[0]
-  return row ?? null
+  if (!row) return null
+  // Only reads anything when the area list repeats a name (lib/tutorAreaCities).
+  return (await withAreaCities([row]))[0]
 }
 
 /**
@@ -231,6 +236,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
   // The tutor's areas (PR68), for the owner's own preview. Fail-open to the single
   // area if the table is not there yet (pre-migration).
   let previewAreas: string[] | null = tp.area ? [tp.area as string] : null
+  let previewAreaCities: (string | null)[] | null = null
   // PR85: the tutor's cities for the owner preview (main + any area cities).
   let previewCities: string[] | null = tp.city ? [tp.city as string] : null
   try {
@@ -241,6 +247,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
       .order('created_at')
     if (areaRows && areaRows.length > 0) {
       previewAreas = areaRows.map((r) => r.area as string)
+      previewAreaCities = areaRows.map((r) => (r.city as string | null) ?? null)
       const cs = [((tp.city as string) ?? '').trim(), ...areaRows.map((r) => ((r.city as string) ?? '').trim())]
       const uniq = [...new Set(cs.filter(Boolean))]
       if (uniq.length > 0) previewCities = uniq
@@ -260,6 +267,7 @@ async function loadTutorPreview(userId: string): Promise<PublicTutor | null> {
     cities: previewCities,
     area: (tp.area as string) ?? null,
     areas: previewAreas,
+    area_cities: previewAreaCities,
     teaching_mode: (tp.teaching_mode as string) ?? null,
     job_types: (tp.job_types as string[] | null) ?? null,
     online_platforms: (tp.online_platforms as string[] | null) ?? null,
@@ -957,27 +965,27 @@ export default async function TutorPublicProfile({ params }: { params: Params })
                   <MapPin size={14} className="mt-0.5 shrink-0 text-gray-500" />
                   {/* All the tutor's areas (PR68). */}
                   {(() => {
-                    const list = (tutor.areas && tutor.areas.length > 0
-                      ? tutor.areas
-                      : tutor.area
-                        ? [tutor.area]
-                        : []
-                    ).filter(Boolean) as string[]
+                    // Distinct labels only (owner, 10 Oct 2026): never the same area twice.
+                    const hasList = !!tutor.areas && tutor.areas.length > 0
+                    const list = distinctAreaLabels(hasList ? tutor.areas : tutor.area ? [tutor.area] : [], tutor.city, {
+                      cities: tutor.cities,
+                      areaCities: hasList ? tutor.area_cities : null,
+                    })
                     if (list.length === 0) return <span>Area not set</span>
                     return (
                       <span>
                         {list.map((a, i) => (
-                          <span key={a}>
+                          <span key={a.label}>
                             {i > 0 && ', '}
-                            {tutor.city ? (
+                            {a.city ? (
                               <Link
-                                href={`/browse/tutors?city=${encodeURIComponent(tutor.city)}&area=${encodeURIComponent(a)}`}
+                                href={`/browse/tutors?city=${encodeURIComponent(a.city)}&area=${encodeURIComponent(a.area)}`}
                                 className="font-semibold hover:text-tm-red hover:underline"
                               >
-                                {areaWithoutCity(a, tutor.city) || a}
+                                {a.label}
                               </Link>
                             ) : (
-                              a
+                              a.label
                             )}
                           </span>
                         ))}

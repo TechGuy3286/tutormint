@@ -8,6 +8,7 @@ import type { Parsed } from '@/lib/smartSearchCore'
 import { loadVerifiedBadgeOk } from '@/lib/badgeFacts'
 import type { TutorCardData } from '@/components/TutorCard'
 import { formatName } from '@/lib/formatName'
+import { withAreaCities } from '@/lib/tutorAreaCities'
 
 // The one place /browse/tutors is queried, shared by the page and the
 // load-more route.
@@ -190,7 +191,8 @@ const rankedTutorsCached = cache(async (key: string): Promise<RankResult> => {
     full_name: formatName(t.full_name),
     verified: t.fee_paid ?? (t.tier ?? 0) >= 10,
   }))
-  const linked = await withSubjectLinks(supabase, raw)
+  // Only reads anything when a tutor's area list repeats a name (lib/tutorAreaCities).
+  const linked = await withAreaCities(await withSubjectLinks(supabase, raw))
   // PR105-B §1 — the VERIFIED badge needs staff-approved CNIC+photo+selfie, in ONE
   // batched query for the whole window (no per-card read).
   const okSet = await loadVerifiedBadgeOk(linked.map((t) => t.id))
@@ -333,7 +335,7 @@ export async function tutorCardBySlug(slug: string): Promise<TutorCardData | nul
     total_count: 0,
   } as RankedTutor
 
-  const [withLinks] = await withSubjectLinks(supabase, [base])
+  const [withLinks] = await withAreaCities(await withSubjectLinks(supabase, [base]))
   const links = withLinks.subject_links ?? []
 
   // The active plan, for badges. Service role, because subscriptions is owner-
@@ -403,7 +405,7 @@ export async function tutorCardsByIds(ids: string[]): Promise<TutorCardData[]> {
         total_count: 0,
       }) as RankedTutor,
   )
-  const withLinks = await withSubjectLinks(supabase, base)
+  const withLinks = await withAreaCities(await withSubjectLinks(supabase, base))
 
   // Active plan per tutor, batched. Service role — subscriptions is owner/admin
   // only under RLS. A missing key just means no badge, never a broken card.
