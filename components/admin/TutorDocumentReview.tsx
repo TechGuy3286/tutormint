@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, X, Loader2, Maximize2, MessageCircle } from 'lucide-react'
+import { Check, X, Loader2, MessageCircle } from 'lucide-react'
 import { normalisePkMobile } from '@/lib/phone'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
-import Lightbox, { type LightboxImage } from '@/components/admin/Lightbox'
+import DocumentViewer, { ViewerThumb as Zoomable, type ViewerImage } from '@/components/admin/DocumentViewer'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
@@ -77,15 +77,15 @@ export default function TutorDocumentReview({
   // PR106-C §3 — the related images, in a fixed order, so the viewer can page
   // CNIC front ↔ back ↔ photo ↔ selfie. Each thumbnail opens the viewer at its
   // index. Only the present images are included.
-  const images: LightboxImage[] = []
+  const images: ViewerImage[] = []
   const at: Record<string, number> = {}
-  if (cnicFrontId) { at.cnicFront = images.length; images.push({ src: `/api/documents/${cnicFrontId}/preview`, alt: 'CNIC front' }) }
-  if (cnicBackId) { at.cnicBack = images.length; images.push({ src: `/api/documents/${cnicBackId}/preview`, alt: 'CNIC back' }) }
+  if (cnicFrontId) { at.cnicFront = images.length; images.push({ src: `/api/documents/${cnicFrontId}/preview`, alt: 'CNIC front', documentId: cnicFrontId }) }
+  if (cnicBackId) { at.cnicBack = images.length; images.push({ src: `/api/documents/${cnicBackId}/preview`, alt: 'CNIC back', documentId: cnicBackId }) }
   if (avatarUrl) { at.pic = images.length; images.push({ src: avatarUrl, alt: 'Profile picture' }) }
-  if (selfieDocId) { at.selfie = images.length; images.push({ src: `/api/documents/${selfieDocId}/preview`, alt: 'Selfie' }) }
-  if (rv?.cnicFrontId) { at.newFront = images.length; images.push({ src: `/api/documents/${rv.cnicFrontId}/preview`, alt: 'New CNIC front' }) }
-  if (rv?.cnicBackId) { at.newBack = images.length; images.push({ src: `/api/documents/${rv.cnicBackId}/preview`, alt: 'New CNIC back' }) }
-  if (rv?.selfieId) { at.newSelfie = images.length; images.push({ src: `/api/documents/${rv.selfieId}/preview`, alt: 'New selfie' }) }
+  if (selfieDocId) { at.selfie = images.length; images.push({ src: `/api/documents/${selfieDocId}/preview`, alt: 'Selfie', documentId: selfieDocId }) }
+  if (rv?.cnicFrontId) { at.newFront = images.length; images.push({ src: `/api/documents/${rv.cnicFrontId}/preview`, alt: 'New CNIC front', documentId: rv.cnicFrontId }) }
+  if (rv?.cnicBackId) { at.newBack = images.length; images.push({ src: `/api/documents/${rv.cnicBackId}/preview`, alt: 'New CNIC back', documentId: rv.cnicBackId }) }
+  if (rv?.selfieId) { at.newSelfie = images.length; images.push({ src: `/api/documents/${rv.selfieId}/preview`, alt: 'New selfie', documentId: rv.selfieId }) }
   const [lbIndex, setLbIndex] = useState<number | null>(null)
 
   return (
@@ -196,26 +196,8 @@ export default function TutorDocumentReview({
         </ReviewItem>
       </div>
 
-      <Lightbox images={images} index={lbIndex} onIndex={setLbIndex} onClose={() => setLbIndex(null)} />
+      <DocumentViewer images={images} index={lbIndex} onIndex={setLbIndex} onClose={() => setLbIndex(null)} />
     </section>
-  )
-}
-
-/** A thumbnail wrapper that opens the admin image viewer on tap/click, with a
- *  small expand hint. Keeps SecureDocumentPreview's own drag/right-click guard. */
-function Zoomable({ onOpen, children }: { onOpen: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label="Open larger"
-      className="group relative block w-full cursor-zoom-in overflow-hidden rounded-xl"
-    >
-      {children}
-      <span className="pointer-events-none absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-lg bg-tm-black/55 text-white opacity-80 group-hover:opacity-100">
-        <Maximize2 size={14} aria-hidden />
-      </span>
-    </button>
   )
 }
 

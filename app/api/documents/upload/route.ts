@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { storeDocument } from '@/lib/documents'
@@ -8,6 +8,8 @@ import { recordTutorSelfChanges, type Step1Field } from '@/lib/fieldHistory'
 import { alertIfReupload } from '@/lib/docReupload'
 import { RELOAD_AND_RETRY } from '@/lib/tutorSubjectCap'
 import { decideUpload, spendUnlock } from '@/lib/docLocks'
+import { readCnicFromDocument } from '@/lib/cnicReader'
+import { isValidCnic } from '@/lib/cnic'
 
 // Upload a CNIC scan or a degree certificate.
 //
@@ -123,6 +125,20 @@ export async function POST(request: Request) {
   if (kind === 'cnic' || kind === 'selfie') {
     const field: Step1Field = kind === 'selfie' ? 'selfie' : label === 'back' ? 'cnic_back' : 'cnic_front'
     await recordTutorSelfChanges(user.id, [{ field, oldValue: null, newValue: `doc:${result.doc.id}` }])
+  }
+
+  // A CNIC FRONT from a member with no number typed: read the number from the
+  // photo in the background (owner, 10 Oct 2026). The result is cached on the
+  // document as a SUGGESTION for the CNIC number screen and the review card —
+  // it is never saved as the member's number here.
+  if (kind === 'cnic' && label !== 'back') {
+    const { data: numRow } = await supabase.from('profiles').select('cnic_number').eq('id', user.id).maybeSingle()
+    if (!isValidCnic(numRow?.cnic_number as string | null)) {
+      const documentId = result.doc.id
+      after(async () => {
+        await readCnicFromDocument(documentId)
+      })
+    }
   }
 
   const completion = await recomputeCompletion(user.id)

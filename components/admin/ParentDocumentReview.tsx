@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, X, Loader2, Maximize2, MessageCircle, BadgeCheck } from 'lucide-react'
+import { Check, X, Loader2, MessageCircle, BadgeCheck } from 'lucide-react'
 import { normalisePkMobile } from '@/lib/phone'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
-import Lightbox, { type LightboxImage } from '@/components/admin/Lightbox'
+import DocumentViewer, { ViewerThumb as Zoomable, type ViewerImage } from '@/components/admin/DocumentViewer'
+import { SavedCnicDuplicate } from '@/components/admin/AdminCnicNumberBox'
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
@@ -56,12 +57,12 @@ export default function ParentDocumentReview({
   unlockOpen?: boolean
   canUnlock?: boolean
 }) {
-  const images: LightboxImage[] = []
+  const images: ViewerImage[] = []
   const at: Record<string, number> = {}
-  if (docs.cnicFrontId) { at.front = images.length; images.push({ src: `/api/documents/${docs.cnicFrontId}/preview`, alt: 'CNIC front' }) }
-  if (docs.cnicBackId) { at.back = images.length; images.push({ src: `/api/documents/${docs.cnicBackId}/preview`, alt: 'CNIC back' }) }
-  if (docs.cnicFrontReviewId) { at.newFront = images.length; images.push({ src: `/api/documents/${docs.cnicFrontReviewId}/preview`, alt: 'New CNIC front' }) }
-  if (docs.cnicBackReviewId) { at.newBack = images.length; images.push({ src: `/api/documents/${docs.cnicBackReviewId}/preview`, alt: 'New CNIC back' }) }
+  if (docs.cnicFrontId) { at.front = images.length; images.push({ src: `/api/documents/${docs.cnicFrontId}/preview`, alt: 'CNIC front', documentId: docs.cnicFrontId }) }
+  if (docs.cnicBackId) { at.back = images.length; images.push({ src: `/api/documents/${docs.cnicBackId}/preview`, alt: 'CNIC back', documentId: docs.cnicBackId }) }
+  if (docs.cnicFrontReviewId) { at.newFront = images.length; images.push({ src: `/api/documents/${docs.cnicFrontReviewId}/preview`, alt: 'New CNIC front', documentId: docs.cnicFrontReviewId }) }
+  if (docs.cnicBackReviewId) { at.newBack = images.length; images.push({ src: `/api/documents/${docs.cnicBackReviewId}/preview`, alt: 'New CNIC back', documentId: docs.cnicBackReviewId }) }
   const hasNew = !!docs.cnicFrontReviewId || !!docs.cnicBackReviewId
   const [lbIndex, setLbIndex] = useState<number | null>(null)
   const [verified, setVerified] = useState(docs.verified)
@@ -113,6 +114,8 @@ export default function ParentDocumentReview({
           )}
           {/* The typed number sits with the images: checking a card IS comparing the two. */}
           <p className="font-mono text-xs font-black text-tm-navy">{docs.cnicNumber ?? 'No number typed'}</p>
+          {/* Staff only: the same number on another account (a warning, never a block). */}
+          {docs.cnicNumber && <SavedCnicDuplicate memberId={docs.parentId} />}
           {lockable && !hasNew && (
             <UnlockDocButton memberId={docs.parentId} item="cnic" unlockOpen={unlockOpen} canUnlock={canUnlock} />
           )}
@@ -125,19 +128,8 @@ export default function ParentDocumentReview({
           </p>
         </ReviewItem>
       </div>
-      <Lightbox images={images} index={lbIndex} onIndex={setLbIndex} onClose={() => setLbIndex(null)} />
+      <DocumentViewer images={images} index={lbIndex} onIndex={setLbIndex} onClose={() => setLbIndex(null)} />
     </div>
-  )
-}
-
-function Zoomable({ onOpen, children }: { onOpen: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onOpen} aria-label="Open full size" className="group relative block w-full cursor-zoom-in overflow-hidden rounded-xl">
-      {children}
-      <span className="pointer-events-none absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-lg bg-tm-black/55 text-white opacity-80 group-hover:opacity-100">
-        <Maximize2 size={14} aria-hidden />
-      </span>
-    </button>
   )
 }
 

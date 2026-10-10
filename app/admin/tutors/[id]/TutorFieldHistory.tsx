@@ -1,6 +1,6 @@
 import { History } from 'lucide-react'
 
-import SecureDocumentPreview from '@/components/SecureDocumentPreview'
+import DocumentThumb from '@/components/admin/DocumentThumb'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchTaxonomyTables, buildTaxonomy } from '@/lib/taxonomyBuild'
 import { loadFieldHistory, type Step1Field } from '@/lib/fieldHistory'
@@ -9,7 +9,7 @@ import { formatDateTime } from '@/lib/datetime'
 // PR83 (Part C) — the change history for a tutor's step-1 fields, on the admin
 // tutor page. Newest first; NEVER deletes. CNIC numbers are already stored
 // masked (last 4). Image changes are stored as a file reference and rendered as
-// a staff-only watermarked thumbnail (SecureDocumentPreview / the avatar URL) —
+// a staff-only watermarked thumbnail (DocumentThumb: the watermarked preview / the avatar URL, opening the shared viewer) —
 // the raw image never reaches a public URL. Subject changes are stored as a
 // master-id list and resolved to labels here (server-side).
 
@@ -47,10 +47,9 @@ function ValueCell({
 
   if (IMAGE_FIELDS.has(field)) {
     const docId = docIdOf(value)
-    if (docId) return <SecureDocumentPreview documentId={docId} alt={FIELD_LABEL[field]} className="h-16 w-24" />
+    if (docId) return <DocumentThumb documentId={docId} alt={FIELD_LABEL[field]} className="w-24" />
     // profile_picture stores a URL.
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={value} alt={FIELD_LABEL[field]} className="h-16 w-16 rounded-xl border border-gray-200 object-cover" />
+    return <DocumentThumb src={value} alt={FIELD_LABEL[field]} className="w-16" />
   }
 
   if (field === 'subjects') {

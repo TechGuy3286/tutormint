@@ -164,6 +164,11 @@ export const SCREEN_ACCESS = {
   // Unlock an approved, locked CNIC / selfie for ONE re-upload (owner, 9 Oct
   // 2026). Owner, admin and operations; a Partner is refused by checkAdminRole.
   documentUnlock: ['admin', 'operations'] as AdminRole[],
+  // Save a document's display rotation, and read a CNIC number from the photo
+  // (owner, 10 Oct 2026). Owner, admin and operations; a Partner is refused by
+  // checkAdminRole (both are POSTs).
+  documentRotate: ['admin', 'operations'] as AdminRole[],
+  cnicRead: ['admin', 'operations'] as AdminRole[],
   ads: ['admin', 'operations'] as AdminRole[],
   social: ['admin', 'operations'] as AdminRole[],
   import: ['admin', 'operations'] as AdminRole[],

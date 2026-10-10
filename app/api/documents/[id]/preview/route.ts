@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DOCS_BUCKET } from '@/lib/documents'
+import sharp from 'sharp'
 import { documentServable, isDocumentStaff } from '@/lib/documentAccess'
+import { normaliseRotation } from '@/lib/docRotation'
 
 // The ONLY way bytes leave the private identity-docs bucket.
 //
@@ -24,6 +26,12 @@ import { documentServable, isDocumentStaff } from '@/lib/documentAccess'
 // viewing a tutor's degree could never fetch the bytes with their own client.
 // This route is the authority on access; the bucket stays closed to everyone
 // else. Rights are therefore checked BEFORE any privileged call is made.
+//
+// ROTATION (owner, 10 Oct 2026). Staff can save a display rotation on a
+// document uploaded sideways or upside down (user_documents.rotation). It is
+// applied HERE, to the bytes on their way out, so every screen that shows the
+// document — staff and the member's own — gets it the right way up with the
+// right aspect. The stored preview and original are never modified.
 //
 // A refusal is always 404, never 403: whether a document exists is itself
 // information we do not owe an unauthorised caller.
@@ -51,7 +59,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { data: doc } = await admin
     .from('user_documents')
-    .select('id, user_id, kind, preview_path')
+    .select('id, user_id, kind, preview_path, rotation')
     .eq('id', id)
     .maybeSingle()
 
@@ -79,7 +87,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { data: file, error } = await admin.storage.from(DOCS_BUCKET).download(doc.preview_path)
   if (error || !file) return deny()
 
-  return new NextResponse(await file.arrayBuffer(), {
+  let bytes: Uint8Array = new Uint8Array(await file.arrayBuffer())
+  const rotation = normaliseRotation(doc.rotation)
+  if (rotation !== 0) {
+    try {
+      bytes = new Uint8Array(await sharp(Buffer.from(bytes)).rotate(rotation).jpeg({ quality: 82 }).toBuffer())
+    } catch {
+      /* serve it as stored rather than fail the preview */
+    }
+  }
+
+  return new NextResponse(bytes as BodyInit, {
     status: 200,
     headers: {
       'Content-Type': 'image/jpeg',

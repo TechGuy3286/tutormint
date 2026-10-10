@@ -36,6 +36,8 @@ export type BucketName =
   | 'ai_generate'
   | 'ai_blog'
   | 'ai_blog_fix'
+  | 'cnic_read'
+  | 'cnic_read_member'
   | 'contact_reveal'
   | 'client_error'
   | 'activity'
@@ -104,6 +106,11 @@ const BUDGETS: Record<BucketName, { windowSeconds: number; max: number }> = {
   // and a manager clears several items on one post, so it has its own bucket
   // rather than eating the drafting allowance.
   ai_blog_fix: { windowSeconds: 3600, max: 60 },
+  // Reading a CNIC number from the photo (a billable vision call). Staff: 10 a
+  // minute each. A member's own screen asks at most once per uploaded image
+  // (the result is cached on the document), so 6 an hour is a script-stop.
+  cnic_read: { windowSeconds: 60, max: 10 },
+  cnic_read_member: { windowSeconds: 3600, max: 6 },
   // Revealing a parent's contact (PR56). The plan quota (Basic 5/month) is what
   // actually governs volume; this is a loose script-stop, sized well above any
   // real tutor working through the board.

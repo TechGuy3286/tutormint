@@ -137,6 +137,71 @@ export async function complete({
   }
 }
 
+/**
+ * One completion with ONE image in the user turn (vision). Same key, model,
+ * endpoint and never-throws contract as complete(). The image is sent as
+ * base64 in the request body and nowhere else; nothing about it — and nothing
+ * the model says about it — is ever logged here. A failure reason carries the
+ * HTTP status and the API's own error text only.
+ */
+export async function completeWithImage({
+  system,
+  prompt,
+  image,
+  maxTokens = 40,
+  timeoutMs = TIMEOUT_MS,
+}: {
+  system: string
+  prompt: string
+  image: { mediaType: 'image/jpeg' | 'image/png' | 'image/webp'; base64: string }
+  maxTokens?: number
+  timeoutMs?: number
+}): Promise<CompletionResult> {
+  const key = process.env.ANTHROPIC_API_KEY
+  if (!key) return { ok: false, reason: 'ANTHROPIC_API_KEY is not set' }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': API_VERSION },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: maxTokens,
+        system,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.base64 } },
+              { type: 'text', text: prompt },
+            ],
+          },
+        ],
+      }),
+    })
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      return { ok: false, reason: `anthropic ${res.status}: ${detail.slice(0, 300)}` }
+    }
+    const json = (await res.json()) as { content?: { type: string; text?: string }[]; stop_reason?: string | null }
+    const text = (json.content ?? [])
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text ?? '')
+      .join('')
+      .trim()
+    if (!text) return { ok: false, reason: `anthropic returned no text (stop_reason=${json.stop_reason ?? 'unknown'})` }
+    return { ok: true, text }
+  } catch (e) {
+    const aborted = e instanceof Error && e.name === 'AbortError'
+    return { ok: false, reason: aborted ? `timed out after ${timeoutMs}ms` : String(e) }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export type ModelsResult =
   | { ok: true; ids: string[] }
   | { ok: false; reason: string }

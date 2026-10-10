@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import InfiniteFooter from '@/components/InfiniteFooter'
 import QueueSearch from '@/components/admin/QueueSearch'
 import SecureDocumentPreview from '@/components/SecureDocumentPreview'
+import DocumentViewer, { ViewerThumb, type ViewerImage } from '@/components/admin/DocumentViewer'
 import StatusChip from '@/components/admin/StatusChip'
 import { useInfinite } from '@/lib/useInfinite'
 import { submitJson, submitSignal } from '@/lib/submit'
@@ -88,6 +89,8 @@ export default function TutorModerationClient({
   )
   const [open, setOpen] = useState<QueueTutor | null>(null)
   const [reason, setReason] = useState('')
+  // The shared document viewer: which of the open tutor's documents is full size.
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   // A dedicated inline error for the clear-mobile action, shown beside its own
@@ -521,6 +524,11 @@ export default function TutorModerationClient({
               // "Earlier uploads" (owner PR8 §3.2), so a re-uploaded side does
               // not show the card twice.
               const { latest, earlier } = dedupeDocs(open.documents)
+              const viewerImages: ViewerImage[] = [...latest, ...earlier].map((d) => ({
+                src: `/api/documents/${d.id}/preview`,
+                alt: docLabel(d),
+                documentId: d.id,
+              }))
               return (
                 <div className="space-y-2">
                   {/* THE NUMBER SITS WITH THE IMAGES — checking a card is comparing
@@ -547,12 +555,14 @@ export default function TutorModerationClient({
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {latest.map((d) => (
+                    {latest.map((d, i) => (
                       <div key={d.id} className="space-y-1">
                         <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
                           {docLabel(d)}
                         </p>
-                        <SecureDocumentPreview documentId={d.id} alt={`${d.kind} preview`} />
+                        <ViewerThumb onOpen={() => setViewerIndex(i)}>
+                          <SecureDocumentPreview documentId={d.id} alt={`${d.kind} preview`} />
+                        </ViewerThumb>
                       </div>
                     ))}
                   </div>
@@ -562,17 +572,20 @@ export default function TutorModerationClient({
                         Earlier uploads ({earlier.length})
                       </summary>
                       <div className="mt-2 grid grid-cols-2 gap-2">
-                        {earlier.map((d) => (
+                        {earlier.map((d, i) => (
                           <div key={d.id} className="space-y-1">
                             <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
                               {docLabel(d)}
                             </p>
-                            <SecureDocumentPreview documentId={d.id} alt={`${d.kind} preview`} />
+                            <ViewerThumb onOpen={() => setViewerIndex(latest.length + i)}>
+                              <SecureDocumentPreview documentId={d.id} alt={`${d.kind} preview`} />
+                            </ViewerThumb>
                           </div>
                         ))}
                       </div>
                     </details>
                   )}
+                  <DocumentViewer images={viewerImages} index={viewerIndex} onIndex={setViewerIndex} onClose={() => setViewerIndex(null)} />
                 </div>
               )
             })()}

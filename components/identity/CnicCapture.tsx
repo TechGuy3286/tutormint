@@ -9,6 +9,9 @@ import { Ltr } from '@/components/onboarding/StepLayout'
 import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
 import { useDocLocks } from '@/lib/useDocLocks'
 import DocLockNotice, { combinedView } from '@/components/identity/DocLockNotice'
+import { useCnicSuggestion } from '@/lib/useCnicSuggestion'
+import { CNIC_SUGGESTED_MEMBER, CNIC_SUGGESTED_MEMBER_UR } from '@/lib/cnicReaderCore'
+import { normaliseCnic } from '@/lib/cnic'
 
 // The ONE shared CNIC entry (PR81), used everywhere a CNIC is typed and
 // photographed: the tutor onboarding CNIC step, the tutor Settings identity card,
@@ -109,6 +112,19 @@ export default function CnicCapture({
   // An approved CNIC's number is locked with it.
   const numberLocked = frontView !== 'open' || backView !== 'open'
 
+  // READ FROM THE PHOTO (owner, 10 Oct 2026). A member who uploaded a CNIC
+  // front without typing the number gets the box PRE-FILLED with the number
+  // read from that photo, and a line asking them to check it. It is only a
+  // suggestion in the box: it is saved when THEY press Next / Save, through the
+  // same save-number path as a typed number — never silently.
+  const suggestion = useCnicSuggestion(memberUpload && show !== 'photos' && !formatCnic(initialNumber))
+  const [suggestionUsed, setSuggestionUsed] = useState(false)
+  if (suggestion && !suggestionUsed) {
+    setSuggestionUsed(true)
+    if (!number && !numberLocked) setNumber(formatCnic(suggestion))
+  }
+  const showsSuggestion = !!suggestion && normaliseCnic(number) === normaliseCnic(suggestion)
+
   useEffect(() => {
     onState?.({ number, valid, front, back, ready })
     // onState is a plain callback the parent recreates each render; depending on
@@ -168,6 +184,12 @@ export default function CnicCapture({
               fieldState({ value: number, valid }),
             )}`}
           />
+          {showsSuggestion && (
+            <p role="status" className="-mt-1.5 rounded-lg bg-tm-tint-gold p-2 text-[11px] font-semibold text-tm-gold-ink">
+              {CNIC_SUGGESTED_MEMBER}
+              <span lang="ur" dir="rtl" className="mt-0.5 block">{CNIC_SUGGESTED_MEMBER_UR}</span>
+            </p>
+          )}
           {/* PR106-B §12 / PR106-F §5: the format hint, English with Urdu under it.
               The example number is kept in an LTR isolate so it reads
               42101-1234567-1 inside the RTL Urdu line, not reversed. */}

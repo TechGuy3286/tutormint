@@ -108,7 +108,8 @@
     "test:followups": "tsx --test scripts/test-follow-ups.ts",
     "test:memberheader": "tsx --test scripts/test-member-header.ts",
     "test:infinitemerge": "tsx --test scripts/test-infinite-merge.ts",
-    "test:defaultavatar": "tsx --test scripts/test-default-avatar.ts"
+    "test:defaultavatar": "tsx --test scripts/test-default-avatar.ts",
+    "test:docreview": "tsx --test scripts/test-document-review.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
