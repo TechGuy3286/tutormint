@@ -196,11 +196,12 @@ export function deductionProblem(d: { name: string; percent: number | null; fixe
 //   more than Rs 2 over       → "over"
 //   no transfer in the window → "missing"
 // PAID orders with no settlement yet are "Due from PayPro", with their age;
-// over 3 days is overdue (shown red). Listed only — nothing is changed.
+// over 5 days is overdue (shown red; owner, 11 Oct 2026 — was 3). Listed only —
+// nothing is changed.
 
 export const SETTLE_WINDOW_DAYS = 2
 export const BANK_CHARGE_TOLERANCE_PKR = 2
-export const DUE_OVERDUE_DAYS = 3
+export const DUE_OVERDUE_DAYS = 5
 
 export type SettleGroupStatus = 'matched' | 'bank_charge' | 'missing' | 'over'
 

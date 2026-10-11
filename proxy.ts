@@ -217,7 +217,7 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
+  const { pathname, search } = request.nextUrl
 
   // NOTHING TO DO WITH SLUGS OR TUITIONS HAPPENS HERE ANY MORE.
   //
@@ -243,7 +243,9 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.search = ''
-    url.searchParams.set('next', pathname)
+    // The whole address, query string included: /pay/choose?plan=premium has
+    // to come back as that, not as a bare /pay/choose with no package.
+    url.searchParams.set('next', pathname + search)
     return NextResponse.redirect(url)
   }
 
@@ -276,7 +278,7 @@ export async function proxy(request: NextRequest) {
       url.search = ''
       // Preserved so a guest who was mid-action -- the AuthGateModal journey --
       // is returned to what they were doing, not dropped on a dashboard.
-      url.searchParams.set('next', pathname)
+      url.searchParams.set('next', pathname + search)
       return NextResponse.redirect(url)
     }
   }

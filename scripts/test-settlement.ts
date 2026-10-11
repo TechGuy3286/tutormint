@@ -152,8 +152,8 @@ test('a transfer pays one settle-date group only; on/after wins a tie', () => {
   assert.ok(groups.every((g) => g.status === 'matched'))
 })
 
-test('PAID but not settled = Due from PayPro with its age; red (overdue) after 3 days', () => {
-  const rows = [order(1, 200, null, '2026-10-06'), order(2, 200, null, '2026-10-02')]
+test('PAID but not settled = Due from PayPro with its age; red (overdue) after 5 days', () => {
+  const rows = [order(1, 200, null, '2026-10-03'), order(2, 200, null, '2026-10-02')]
   const { due } = settleByDate(rows, [], '2026-10-08T05:00:00Z')
-  assert.deepEqual(due.map((d) => [d.orderNumber, d.ageDays, d.overdue]), [['TM-S2', 6, true], ['TM-S1', 2, false]])
+  assert.deepEqual(due.map((d) => [d.orderNumber, d.ageDays, d.overdue]), [['TM-S2', 6, true], ['TM-S1', 5, false]])
 })

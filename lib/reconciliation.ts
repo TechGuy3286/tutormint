@@ -32,6 +32,7 @@ import {
   type Summary,
   type Transfer,
 } from '@/lib/reconciliationCore'
+import { feeOf, payMethod, planUpsert } from '@/lib/settlementMatchCore'
 
 export type Actor = { id: string; adminRole: AdminRole; email?: string | null }
 
@@ -96,13 +97,19 @@ async function readXlsx(buffer: Buffer): Promise<{ sheet: string; rows: PayproRo
 }
 
 export type ImportResult =
-  | { ok: true; importId: string; rowCount: number; sheet: string | null }
+  | { ok: true; importId: string; rowCount: number; sheet: string | null; newCount: number; updatedCount: number; unknownOrders: string[] }
   | { ok: false; error: string }
 
 /**
- * Store a PayPro Orders export. Only the eight mapped columns are kept; the
- * export's customer name / mobile / email columns are never read past the
- * parser. Returns a plain error when the file has no recognisable header.
+ * Store a PayPro Orders export. Only the eight mapped columns are kept (plus
+ * the method and fee worked out from them); the export's customer name / mobile
+ * / email columns are never read past the parser. Returns a plain error when
+ * the file has no recognisable header.
+ *
+ * ONE current row per order number (owner, 11 Oct 2026): an order already
+ * stored is UPDATED in place and moved to this upload, so the same or an
+ * overlapping export never duplicates it. The result says how many orders were
+ * new, how many were updated, and which order numbers we have no payment for.
  */
 export async function importPayproFile(
   buffer: Buffer,
@@ -115,29 +122,44 @@ export async function importPayproFile(
 
   const lower = filename.toLowerCase()
   let sheet: string | null = null
-  let rows: PayproRow[]
+  let parsed: PayproRow[]
   try {
     if (lower.endsWith('.xlsx') || lower.endsWith('.xlsm')) {
       const read = await readXlsx(buffer)
       sheet = read.sheet || null
-      rows = read.rows
+      parsed = read.rows
     } else {
-      rows = parsePayproCsv(buffer.toString('utf8'))
+      parsed = parsePayproCsv(buffer.toString('utf8'))
     }
   } catch {
     return { ok: false, error: 'We could not read that file. Upload the PayPro Orders export as .xlsx or .csv.' }
   }
 
-  if (rows.length === 0) {
+  if (parsed.length === 0) {
     return {
       ok: false,
       error:
         'No orders were found. The file needs the PayPro columns Order-Number, Transaction Status, Order-Amount, MerchantShare, Date Paid.',
     }
   }
-  if (rows.length > MAX_ROWS) {
+  if (parsed.length > MAX_ROWS) {
     return { ok: false, error: `That file has more than ${MAX_ROWS.toLocaleString('en-PK')} orders. Export one month at a time.` }
   }
+
+  const [existing, ours] = await Promise.all([
+    pageAll((from, to) =>
+      admin.from('reconciliation_rows').select('id, order_number').eq('gateway', gateway).eq('is_current', true).order('id').range(from, to),
+    ),
+    pageAll((from, to) => admin.from('payments').select('id, provider_ref').eq('provider', gateway).order('id').range(from, to)),
+  ])
+  const existingRows = (existing ?? []) as { id: string; order_number: string }[]
+  const plan = planUpsert(
+    parsed,
+    existingRows.map((r) => r.order_number),
+    ((ours ?? []) as { provider_ref: string | null }[]).map((p) => p.provider_ref ?? '').filter(Boolean),
+  )
+  const rows = plan.rows
+  const idByOrder = new Map(existingRows.map((r) => [r.order_number.trim().toUpperCase(), r.id]))
 
   const dates = rows.map((r) => r.datePaid).filter((d): d is string => !!d).sort()
   const periodFrom = dates[0] ?? null
@@ -158,10 +180,12 @@ export async function importPayproFile(
     .single()
   if (impErr || !imp) return { ok: false, error: 'Could not save the import. Please try again.' }
 
-  const CHUNK = 500
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const slice = rows.slice(i, i + CHUNK).map((r) => ({
+  const now = new Date().toISOString()
+  const record = (r: PayproRow) => {
+    const method = payMethod(r.paymentVia)
+    return {
       import_id: imp.id,
+      gateway,
       order_number: r.orderNumber.slice(0, 120),
       transaction_status: r.transactionStatus,
       payment_via: r.paymentVia,
@@ -170,13 +194,28 @@ export async function importPayproFile(
       date_paid: r.datePaid,
       settle_date: r.settleDate,
       settle_status: r.settleStatus,
-    }))
-    const { error } = await admin.from('reconciliation_rows').insert(slice)
-    if (error) {
-      // Half an import is worse than none: remove the header row (cascades).
-      await admin.from('reconciliation_imports').delete().eq('id', imp.id)
-      return { ok: false, error: 'Could not save the orders. Nothing was kept — please try again.' }
+      method: method === 'Other' ? r.paymentVia : method,
+      fee: feeOf(r),
+      is_current: true,
+      updated_at: now,
     }
+  }
+  // Uploading again is safe, so a failure part-way leaves what was saved in
+  // place (the upload row is NOT removed — that would cascade to older orders).
+  const FAILED = 'Some orders were not saved. Upload the same file again — orders already saved are not duplicated.'
+  const fresh = rows.filter((r) => !idByOrder.has(r.orderNumber.trim().toUpperCase()))
+  const known = rows.filter((r) => idByOrder.has(r.orderNumber.trim().toUpperCase()))
+
+  const CHUNK = 500
+  for (let i = 0; i < fresh.length; i += CHUNK) {
+    const { error } = await admin.from('reconciliation_rows').insert(fresh.slice(i, i + CHUNK).map(record))
+    if (error) return { ok: false, error: FAILED }
+  }
+  for (let i = 0; i < known.length; i += 25) {
+    const results = await Promise.all(
+      known.slice(i, i + 25).map((r) => admin.from('reconciliation_rows').update(record(r)).eq('id', idByOrder.get(r.orderNumber.trim().toUpperCase())!)),
+    )
+    if (results.some((x) => x.error)) return { ok: false, error: FAILED }
   }
 
   await logAdminAction({
@@ -186,10 +225,10 @@ export async function importPayproFile(
     action: 'reconciliation.import',
     targetType: 'reconciliation_import',
     targetId: imp.id,
-    detail: { filename: filename.slice(0, 200), sheet, rowCount: rows.length, periodFrom, periodTo },
+    detail: { filename: filename.slice(0, 200), sheet, rowCount: rows.length, periodFrom, periodTo, new: fresh.length, updated: known.length, unknown: plan.unknownOrders.length },
   })
 
-  return { ok: true, importId: imp.id, rowCount: rows.length, sheet }
+  return { ok: true, importId: imp.id, rowCount: rows.length, sheet, newCount: fresh.length, updatedCount: known.length, unknownOrders: plan.unknownOrders }
 }
 
 // ---------------------------------------------------------------------------

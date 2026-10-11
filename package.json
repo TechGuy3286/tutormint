@@ -99,6 +99,7 @@
     "test:tuitionpost": "tsx --test scripts/test-tuition-post.ts",
     "test:gateways": "tsx --test scripts/test-gateways.ts",
     "test:settlement": "tsx --test scripts/test-settlement.ts",
+    "test:settlements": "tsx --test scripts/test-settlements.ts",
     "test:smartsearch": "tsx --test scripts/test-smart-search.ts",
     "test:pagecap": "tsx --test scripts/test-page-cap.ts",
     "test:pause": "tsx --test scripts/test-tuition-pause.ts",

@@ -160,7 +160,7 @@ export default function SettlementCheck({ view, gatewayName }: { view: Settlemen
 
   return (
     <div className="space-y-3 border-t border-gray-100 pt-3">
-      <h3 className="text-sm font-black text-tm-navy">Settlement check</h3>
+      <h3 className="text-sm font-black text-tm-navy">Range check</h3>
 
       <form onSubmit={showRange} className="flex flex-wrap items-end gap-2">
         <label className="min-w-[140px] flex-1">

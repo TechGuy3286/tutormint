@@ -104,7 +104,7 @@ export async function POST(request: Request) {
     }
     const result = await importPayproFile(Buffer.from(await file.arrayBuffer()), file.name, actor, gateway)
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
-    return NextResponse.json({ ok: true, rowCount: result.rowCount })
+    return NextResponse.json({ ok: true, rowCount: result.rowCount, newCount: result.newCount, updatedCount: result.updatedCount, unknownOrders: result.unknownOrders })
   }
 
   const parsed = await parseBody(request, Body)

@@ -63,6 +63,12 @@ export type AuditAction =
   | 'taxonomy.core'
   | 'settlement.deduction_add'
   | 'settlement.deduction_remove'
+  // Settlements (owner, 11 Oct 2026): a bank credit added, and the owner's
+  // manual link / unlink / back-to-automatic for one credit.
+  | 'settlement.credit_add'
+  | 'settlement.link'
+  | 'settlement.unlink'
+  | 'settlement.link_reset'
   | 'job.close'
   | 'job.unfeature'
   | 'job.remove'
