@@ -1,7 +1,7 @@
 // lib/reconciliation.ts
 //
-// PayPro reconciliation — the I/O half. Reads the PayPro export (xlsx via
-// exceljs, csv via the core parser), stores the eight columns we keep, loads
+// PayPro reconciliation — the I/O half. Reads the PayPro export (through
+// lib/payproExport: xlsx or csv), stores the eight columns we keep, loads
 // our own `payments` rows and the bank transfers, and hands everything to the
 // pure core (lib/reconciliationCore.ts) for matching and sums.
 //
@@ -13,25 +13,21 @@
 import { pageAll } from '@/lib/pageAll'
 import 'server-only'
 
-import { Workbook, type CellValue } from 'exceljs'
-
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import type { AdminRole } from '@/lib/adminAuth'
 import {
   matchRows,
   parseBankCsv,
-  parsePayproCsv,
-  rowsFromSheet,
   summarise,
   type MatchResult,
   type PaymentRef,
   type PayproRow,
   type Period,
-  type SheetCell,
   type Summary,
   type Transfer,
 } from '@/lib/reconciliationCore'
+import { readPayproExport } from '@/lib/payproExport'
 import { feeOf, payMethod, planUpsert } from '@/lib/settlementMatchCore'
 
 export type Actor = { id: string; adminRole: AdminRole; email?: string | null }
@@ -64,38 +60,6 @@ const MAX_ROWS = 20000
 // Reading the file
 // ---------------------------------------------------------------------------
 
-/** exceljs cell → the plain value the core understands. */
-function plainCell(v: CellValue): SheetCell {
-  if (v === null || v === undefined) return null
-  if (v instanceof Date || typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') return v
-  if (typeof v === 'object') {
-    if ('richText' in v && Array.isArray(v.richText)) return v.richText.map((t) => t.text).join('')
-    if ('result' in v) return plainCell(v.result as CellValue)
-    if ('text' in v && typeof v.text === 'string') return v.text
-    if ('text' in v && v.text && typeof v.text === 'object' && 'richText' in v.text) {
-      return (v.text as { richText: { text: string }[] }).richText.map((t) => t.text).join('')
-    }
-    if ('error' in v) return null
-  }
-  return String(v)
-}
-
-async function readXlsx(buffer: Buffer): Promise<{ sheet: string; rows: PayproRow[] }> {
-  const wb = new Workbook()
-  // exceljs declares its own Buffer type; a Node Buffer satisfies it at runtime.
-  await wb.xlsx.load(buffer as unknown as Parameters<typeof wb.xlsx.load>[0])
-  const ws = wb.getWorksheet('Orders') ?? wb.worksheets[0]
-  if (!ws) return { sheet: '', rows: [] }
-
-  const cells: SheetCell[][] = []
-  ws.eachRow({ includeEmpty: false }, (row) => {
-    // row.values is 1-indexed (index 0 is always empty).
-    const values = (row.values as CellValue[]).slice(1)
-    cells.push(values.map(plainCell))
-  })
-  return { sheet: ws.name, rows: rowsFromSheet(cells) }
-}
-
 export type ImportResult =
   | { ok: true; importId: string; rowCount: number; sheet: string | null; newCount: number; updatedCount: number; unknownOrders: string[] }
   | { ok: false; error: string }
@@ -120,28 +84,12 @@ export async function importPayproFile(
   const admin = createAdminClient()
   if (!admin) return { ok: false, error: 'The server is not configured for admin writes.' }
 
-  const lower = filename.toLowerCase()
-  let sheet: string | null = null
-  let parsed: PayproRow[]
-  try {
-    if (lower.endsWith('.xlsx') || lower.endsWith('.xlsm')) {
-      const read = await readXlsx(buffer)
-      sheet = read.sheet || null
-      parsed = read.rows
-    } else {
-      parsed = parsePayproCsv(buffer.toString('utf8'))
-    }
-  } catch {
-    return { ok: false, error: 'We could not read that file. Upload the PayPro Orders export as .xlsx or .csv.' }
-  }
-
-  if (parsed.length === 0) {
-    return {
-      ok: false,
-      error:
-        'No orders were found. The file needs the PayPro columns Order-Number, Transaction Status, Order-Amount, MerchantShare, Date Paid.',
-    }
-  }
+  // lib/payproExport reads the real export (prefixed OpenXML, 22 columns, two
+  // sheets) and the same report as .csv, and names a missing column.
+  const read = await readPayproExport(buffer, filename)
+  if (!read.ok) return { ok: false, error: read.error }
+  const sheet = read.sheet
+  const parsed = read.rows
   if (parsed.length > MAX_ROWS) {
     return { ok: false, error: `That file has more than ${MAX_ROWS.toLocaleString('en-PK')} orders. Export one month at a time.` }
   }

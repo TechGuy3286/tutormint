@@ -123,6 +123,31 @@ function mapPayproHeader(row: SheetCell[]): Partial<Record<keyof PayproRow, numb
   return map.orderNumber === undefined ? null : map
 }
 
+/** The eight columns an Orders export must carry, as PayPro spells them. */
+export const PAYPRO_REQUIRED_COLUMNS: { key: keyof PayproRow; label: string }[] = [
+  { key: 'orderNumber', label: 'Order-Number' },
+  { key: 'transactionStatus', label: 'Transaction Status' },
+  { key: 'paymentVia', label: 'Payment Via' },
+  { key: 'orderAmount', label: 'Order-Amount' },
+  { key: 'merchantShare', label: 'MerchantShare' },
+  { key: 'datePaid', label: 'Date Paid' },
+  { key: 'settleDate', label: 'Settle-Date' },
+  { key: 'settleStatus', label: 'Settle-Status' },
+]
+
+/**
+ * Which required columns a table lacks, by PayPro's own names. The header row
+ * is the first of the first ten rows that has Order-Number; with none, that is
+ * the one column reported. Empty when the table can be read.
+ */
+export function missingPayproColumns(cells: SheetCell[][]): string[] {
+  for (let i = 0; i < Math.min(cells.length, 10); i++) {
+    const map = mapPayproHeader(cells[i] ?? [])
+    if (map) return PAYPRO_REQUIRED_COLUMNS.filter((c) => map[c.key] === undefined).map((c) => c.label)
+  }
+  return ['Order-Number']
+}
+
 // ---------------------------------------------------------------------------
 // Cells
 // ---------------------------------------------------------------------------
