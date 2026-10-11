@@ -43,6 +43,7 @@ export default function TutorDocumentReview({
   tutorId,
   canReview,
   avatarUrl,
+  avatarOriginalUrl = null,
   cnicFrontId,
   cnicBackId,
   selfieDocId,
@@ -56,6 +57,9 @@ export default function TutorDocumentReview({
   tutorId: string
   canReview: boolean
   avatarUrl: string | null
+  /** The photo as the member uploaded it, when the one in use is a cropped or
+   *  turned copy (lib/avatarCrop avatarOriginalUrl). */
+  avatarOriginalUrl?: string | null
   cnicFrontId: string | null
   cnicBackId: string | null
   selfieDocId: string | null
@@ -165,6 +169,11 @@ export default function TutorDocumentReview({
             </Zoomable>
           ) : (
             <NoImage label="No picture" />
+          )}
+          {avatarUrl && avatarOriginalUrl && (
+            <a href={avatarOriginalUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-[44px] items-center text-xs font-bold text-tm-red underline">
+              View original
+            </a>
           )}
         </ReviewItem>
 

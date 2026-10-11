@@ -17,8 +17,9 @@ export type Dict = {
   levels: { slug: string; name: string; category: string }[]
   /** Subjects: name + slug; `school` marks the Admission Test Prep schools. */
   subjects: { slug: string; name: string; school?: boolean }[]
-  /** Search words: kind subject → subject slug, kind level → level slug. */
-  aliases: { kind: 'subject' | 'level'; slug: string; alias: string }[]
+  /** Search words: kind subject → subject slug, kind level → level slug, kind
+   *  city → the city's name (owner, 11 Oct 2026: "swl" → Sahiwal). */
+  aliases: { kind: 'subject' | 'level' | 'city'; slug: string; alias: string }[]
   /** Merge the built-in words too (default true). The server passes false: its
    *  list is the editable table, which the built-ins were seeded into. */
   builtin?: boolean
@@ -186,7 +187,10 @@ function entries(dict: Dict): Entry[] {
       : Object.entries(BUILTIN_SUBJECT_WORDS).flatMap(([slug, words]) => words.map((alias) => ({ kind: 'subject' as const, slug, alias })))),
   ]
   for (const a of aliasRows) {
-    if (a.kind === 'subject') {
+    if (a.kind === 'city') {
+      const c = dict.cities.find((x) => norm(x) === norm(a.slug))
+      if (c) out.push({ kind: 'city', key: norm(a.alias), label: c, value: c })
+    } else if (a.kind === 'subject') {
       const s = subjBySlug.get(a.slug)
       if (s) out.push({ kind: s.school ? 'school' : 'subject', key: norm(a.alias), label: s.name, value: s.slug })
     } else {

@@ -51,6 +51,13 @@ export type FileUploadProps = {
   /** Called with a validated file. Throw or reject to surface an error. */
   onFile: (file: File) => Promise<void> | void
   /**
+   * Drop the local preview of the picked file once onFile settles, so the tile
+   * shows `currentPreview` again. For a profile photo, where what is stored is
+   * the square the member framed in the crop step (or nothing new, if they
+   * closed it) — not the file as picked.
+   */
+  clearAfterUpload?: boolean
+  /**
    * Remove the STORED file. When set, the Remove button deletes what is stored
    * (the caller does the server delete, confirmation and toast, then clears its
    * own `currentPreview`) rather than only clearing the local preview — which is
@@ -111,6 +118,7 @@ export default function FileUpload({
   changeLabel = 'Change photo',
   hint,
   disabled = false,
+  clearAfterUpload = false,
   className = '',
 }: FileUploadProps) {
   const inputId = useId()
@@ -158,13 +166,18 @@ export default function FileUpload({
       setUploading(true)
       try {
         await onFile(file)
+        if (clearAfterUpload) {
+          if (url) URL.revokeObjectURL(url)
+          setChosen(null)
+          if (input.current) input.current.value = ''
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'That upload did not go through.')
       } finally {
         setUploading(false)
       }
     },
-    [accepts, disabled, onFile],
+    [accepts, clearAfterUpload, disabled, onFile],
   )
 
   const clearLocal = () => {

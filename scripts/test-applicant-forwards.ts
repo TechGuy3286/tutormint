@@ -254,18 +254,18 @@ const COPY = `${ORIGIN}/storage/v1/object/public/avatars/11111111-1111-1111-1111
 test('a profile-photo rotation is a saved setting made from the uploaded original', () => {
   // First turn: nothing saved yet, so the original is what is shown.
   const first = planAvatarRotation(ORIGINAL, null, 90)
-  assert.deepEqual(first, { previous: 0, rotation: 90, originalUrl: ORIGINAL, makeCopy: true, restoreUrl: null })
+  assert.deepEqual(first, { previous: 0, rotation: 90, originalUrl: ORIGINAL, makeCopy: true, restoreUrl: null, dropsCrop: false })
   // Turned again from the saved state: still made from the ORIGINAL, not the copy.
   const saved = { rotation: 90, original_url: ORIGINAL, rotated_url: COPY }
-  assert.deepEqual(currentAvatarState(COPY, saved), { originalUrl: ORIGINAL, rotation: 90 })
+  assert.deepEqual(currentAvatarState(COPY, saved), { originalUrl: ORIGINAL, rotation: 90, crop: null, byMember: false })
   const second = planAvatarRotation(COPY, saved, 90)
   assert.deepEqual([second.previous, second.rotation, second.originalUrl, second.makeCopy], [90, 180, ORIGINAL, true])
   // "Rotate left" from 90 comes back to 0: no copy, the original is restored.
   const back = planAvatarRotation(COPY, saved, 270)
-  assert.deepEqual(back, { previous: 90, rotation: 0, originalUrl: ORIGINAL, makeCopy: false, restoreUrl: ORIGINAL })
+  assert.deepEqual(back, { previous: 90, rotation: 0, originalUrl: ORIGINAL, makeCopy: false, restoreUrl: ORIGINAL, dropsCrop: false })
   // The member uploaded a NEW photo since: the saved row no longer applies.
   const NEW_PHOTO = `${ORIGIN}/storage/v1/object/public/avatars/11111111-1111-1111-1111-111111111111/new.jpg`
-  assert.deepEqual(currentAvatarState(NEW_PHOTO, saved), { originalUrl: NEW_PHOTO, rotation: 0 })
+  assert.deepEqual(currentAvatarState(NEW_PHOTO, saved), { originalUrl: NEW_PHOTO, rotation: 0, crop: null, byMember: false })
   assert.equal(planAvatarRotation(NEW_PHOTO, saved, 90).originalUrl, NEW_PHOTO)
 
   // The copy is a NEW object beside the original — never the original's own path.

@@ -145,9 +145,9 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
           data.openReceipts.filter((r) => pickReceipts.includes(r.id)).reduce((s, r) => s + r.amountPkr, 0)
         : 0
     return (
-      <li key={c.id} className={CARD}>
+      <li key={c.id} className={c.state === 'ignored' ? CARD.replace('bg-white', 'bg-tm-bg') : CARD}>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-sm font-black text-tm-navy">{pkr(c.amountPkr)}</p>
+          <p className={`text-sm font-black ${c.state === 'ignored' ? 'text-gray-600 line-through' : 'text-tm-navy'}`}>{pkr(c.amountPkr)}</p>
           {c.state === 'matched' ? (
             m!.status === 'amount_mismatch' ? (
               <span className={`${CHIP} bg-tm-tint-red text-tm-red`}>⚠️ Amount mismatch</span>
@@ -155,7 +155,7 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
               <span className={`${CHIP} bg-tm-tint-green text-tm-green-deep`}>✅ Matched{m!.status === 'manual' ? ' by hand' : ''}</span>
             )
           ) : c.state === 'ignored' ? (
-            <span className={`${CHIP} bg-tm-bg text-gray-600`}>Ignored (not a sale)</span>
+            <span className={`${CHIP} bg-white text-gray-600`}>Ignored (not a sale)</span>
           ) : (
             <span className={`${CHIP} bg-tm-tint-red text-tm-red`}>❓ Not matched</span>
           )}
@@ -187,7 +187,7 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
         {c.state === 'held' && <p className="text-[11px] text-slate-700">Unlinked by hand — it is not matched automatically.</p>}
         {c.state === 'ignored' && (
           <p className="text-[11px] text-slate-700">
-            Ignored (not a sale) — it is not matched and not counted as unmatched.{c.ignoreNote ? ` Note: ${c.ignoreNote}` : ''}
+            Ignored (not a sale) — it is not matched, not counted as unmatched, and not in any money total or the CSV.{c.ignoreNote ? ` Note: ${c.ignoreNote}` : ''}
           </p>
         )}
         {!readOnly && !open && (

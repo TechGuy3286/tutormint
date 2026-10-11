@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { avatarOriginalUrl } from '@/lib/avatarCrop'
 import SecondRoleCard from './SecondRoleCard'
 import { secondRoleState } from '@/lib/secondRole'
 import { notFound } from 'next/navigation'
@@ -363,6 +364,7 @@ export default async function AdminMemberPage({
               tutorId={id}
               canReview={canReviewTutor}
               avatarUrl={(profile.avatar_url as string | null) ?? null}
+              avatarOriginalUrl={await avatarOriginalUrl(id, (profile.avatar_url as string | null) ?? null)}
               cnicFrontId={tutorDocs.cnicFrontId}
               cnicBackId={tutorDocs.cnicBackId}
               selfieDocId={tutorDocs.selfieId}

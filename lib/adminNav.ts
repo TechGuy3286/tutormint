@@ -44,6 +44,7 @@ export type AdminScreen =
   | 'social'
   | 'import'
   | 'seo'
+  | 'unmetSearches'
   | 'blog'
   | 'blogQueue'
   | 'unpaidSignups'

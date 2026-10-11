@@ -11,6 +11,7 @@ import FileUpload from '@/components/FileUpload'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
 import { createClient } from '@/lib/supabase/client'
+import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 import { useToast } from '@/components/ui/Toast'
 import EmailCard from '@/components/account/EmailCard'
 import PauseAccountCard from '@/components/account/PauseAccountCard'
@@ -139,13 +140,14 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
     }
   }
 
+  // The crop step (owner, 11 Oct 2026): the photo and the framed square are both
+  // stored; the profile uses the square. Closing the step changes nothing.
+  const { dialog: photoCropDialog, cropAndUpload } = usePhotoCropUpload()
+
   const uploadAvatar = async (file: File) => {
-    const path = `${initial.userId}/${Date.now()}-${file.name.replace(/[^\w.-]/g, '_')}`
-    const { error: upErr } = await supabase.storage
-      .from('avatars')
-      .upload(path, file, { upsert: true })
-    if (upErr) throw new Error(upErr.message)
-    const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+    const url = await cropAndUpload(file)
+    if (!url) return
+    const data = { publicUrl: url }
 
     // Saved immediately rather than waiting for the Save button. A picture is
     // not part of the form the way a name is — somebody who uploads one and
@@ -233,11 +235,14 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
       status: pictureStatus,
       hint: 'Tutors see this on the tuitions you post. It is not contact information.',
       body: (
+        <>
+        {photoCropDialog}
         <FileUpload
           label="Profile picture"
           acceptLabel="JPG or PNG"
           shape="square"
-          maxBytes={5 * 1024 * 1024}
+          maxBytes={15 * 1024 * 1024}
+          clearAfterUpload
           onFile={uploadAvatar}
           hint="A clear photo of your face helps tutors recognise you."
           currentPreview={
@@ -250,6 +255,7 @@ export default function SettingsClient({ initial }: { initial: ParentSettings })
             />
           }
         />
+        </>
       ),
     },
     {

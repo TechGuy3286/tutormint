@@ -1,4 +1,5 @@
 import { ClipboardList, Eye, Users } from 'lucide-react'
+import { avatarOriginalUrl } from '@/lib/avatarCrop'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -201,6 +202,7 @@ export default async function AdminTutorPage({ params }: { params: Promise<{ id:
         tutorId={id}
         canReview={canReview}
         avatarUrl={(profile.avatar_url as string | null) ?? null}
+        avatarOriginalUrl={await avatarOriginalUrl(id, (profile.avatar_url as string | null) ?? null)}
         cnicFrontId={cnicFront?.id ?? null}
         cnicBackId={cnicBack?.id ?? null}
         selfieDocId={selfieDoc?.id ?? null}

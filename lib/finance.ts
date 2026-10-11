@@ -16,6 +16,8 @@ import { cache } from 'react'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loadDeductions } from '@/lib/settlement'
+import { ignoredCreditIds } from '@/lib/ignoredCredits'
+import { withoutIgnored } from '@/lib/settlementMatchCore'
 import { methodLabel, summarise, type FinancePayment, type FinanceSummary, type FinanceTransfer } from '@/lib/financeCore'
 
 type Row = {
@@ -80,8 +82,12 @@ export const loadFinancePayments = cache(async (): Promise<FinancePayment[]> => 
 async function loadTransfers(): Promise<FinanceTransfer[]> {
   const admin = createAdminClient()
   if (!admin) return []
-  const data = await pageAll((from, to) => admin.from('bank_transfers').select('id, gateway, transferred_on, amount_pkr').order('id').range(from, to))
-  return (data ?? []).map((t) => ({
+  const [data, ignored] = await Promise.all([
+    pageAll((from, to) => admin.from('bank_transfers').select('id, gateway, transferred_on, amount_pkr').order('id').range(from, to)),
+    ignoredCreditIds(),
+  ])
+  // "Received in bank" never counts a credit marked "Ignore (not a sale)".
+  return withoutIgnored((data ?? []).map((t) => ({ ...t, id: String(t.id) })), ignored).map((t) => ({
     gateway: String(t.gateway ?? 'paypro'),
     transferredOn: String(t.transferred_on),
     amountPkr: num(t.amount_pkr),

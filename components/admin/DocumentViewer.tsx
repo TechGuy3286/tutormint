@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCcw, RotateCw, Save, Loader2, Maximize2 } from 'lucide-react'
+import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Crop, RotateCcw, RotateCw, Save, Loader2, Maximize2 } from 'lucide-react'
 
 import { adminFetch } from '@/components/admin/adminFetch'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { useToast } from '@/components/ui/Toast'
 import { DOC_ROTATED_EVENT, rotateBy, swapsAspect } from '@/lib/docRotation'
+import PhotoCropper from '@/components/photo/PhotoCropper'
+import type { CropRect } from '@/lib/photoCropCore'
 
 // THE admin document viewer — the one full-size view for every document image
 // in admin (CNIC front/back, selfie, profile picture, degree certificates): the
@@ -36,6 +38,13 @@ import { DOC_ROTATED_EVENT, rotateBy, swapsAspect } from '@/lib/docRotation'
 // rotation" stores the turn — on the document's row (lib/docRotation) or, for a
 // profile photo, as the member's saved rotation (lib/avatarRotationCore). The
 // uploaded file is never changed. Never offered to a view-only Partner.
+//
+// CROP / ADJUST (owner, 11 Oct 2026) — profile pictures only, next to Rotate.
+// It shows the member's UPLOADED photo (turned by the saved rotation) behind a
+// round frame: drag to move, slider or pinch to zoom, then Save crop. The server
+// stores a square copy beside the upload and points the profile at it
+// (lib/avatarCrop); "Reset to original" points it back. The uploaded file is
+// never changed. Same access as rotate; never offered to a view-only Partner.
 //
 // FOLLOW-UP FIXES (owner, 10 Oct 2026):
 //   - the backdrop is OPAQUE and covers the whole page — at 90% the red Warn /
@@ -89,8 +98,12 @@ export default function DocumentViewer({
   const [saving, setSaving] = useState(false)
   /** Per document: bumped after a save so the picture is fetched again. */
   const [versions, setVersions] = useState<Record<string, number>>({})
-  /** Per member: the profile photo's address after a saved rotation. */
+  /** Per member: the profile photo's address after a saved rotation or crop. */
   const [photoSrc, setPhotoSrc] = useState<Record<string, string>>({})
+  /** The crop frame is open (profile pictures only). */
+  const [cropping, setCropping] = useState(false)
+  /** Bumped after each save so the crop frame fetches the picture again. */
+  const [cropVersion, setCropVersion] = useState(0)
 
   // The parent passes fresh callbacks on every render; refs keep the keyboard
   // effect below tied to `open` alone, so it does not re-run (and re-lock the
@@ -111,6 +124,7 @@ export default function DocumentViewer({
     setZoom(1)
     setPan({ x: 0, y: 0 })
     setTurns(0)
+    setCropping(false)
   }
 
   const go = (delta: number) => {
@@ -197,6 +211,51 @@ export default function DocumentViewer({
     setSaving(false)
   }
 
+  const openCrop = () => {
+    if (turns !== 0) {
+      toast.error('Save the rotation first, then crop.')
+      return
+    }
+    setCropping(true)
+  }
+
+  /** Save crop, or (with no crop) Reset to original. */
+  const saveCrop = async (crop: CropRect | null) => {
+    if (!img.profileId || saving) return
+    setSaving(true)
+    const { ok, data } = await adminFetch<{ error?: string; avatarUrl?: string }>('/api/admin/profile-photo/crop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(crop ? { memberId: img.profileId, crop } : { memberId: img.profileId, reset: true }),
+    })
+    setSaving(false)
+    if (!ok || !data?.avatarUrl) {
+      toast.error(data?.error ?? 'That did not save. Please try again.')
+      return
+    }
+    const id = img.profileId
+    const url = data.avatarUrl
+    setPhotoSrc((m) => ({ ...m, [id]: url }))
+    setCropVersion((v) => v + 1)
+    setCropping(false)
+    toast.success(crop ? 'Crop saved. The uploaded photo is unchanged.' : 'Back to the uploaded photo.')
+    router.refresh()
+  }
+
+  if (cropping && img.profileId && canRotate) {
+    return createPortal(
+      <CropPanel
+        title={img.alt}
+        src={`/api/admin/profile-photo/source?memberId=${img.profileId}&v=${cropVersion}`}
+        saving={saving}
+        onSave={(c) => void saveCrop(c)}
+        onReset={() => void saveCrop(null)}
+        onCancel={() => setCropping(false)}
+      />,
+      document.body,
+    )
+  }
+
   const version = img.documentId ? versions[img.documentId] : undefined
   return createPortal(
     <ViewerFrame
@@ -212,6 +271,7 @@ export default function DocumentViewer({
       onPan={setPan}
       onTurn={(delta) => setTurns((t) => rotateBy(t, delta))}
       onSave={() => void saveRotation()}
+      onCrop={img.profileId && canRotate ? openCrop : undefined}
       onStep={go}
       onClose={onClose}
     />,
@@ -241,6 +301,7 @@ export function ViewerFrame({
   onPan,
   onTurn,
   onSave,
+  onCrop,
   onStep,
   onClose,
 }: {
@@ -257,6 +318,8 @@ export function ViewerFrame({
   onPan: (p: { x: number; y: number }) => void
   onTurn: (delta: number) => void
   onSave: () => void
+  /** Present for a profile picture staff may change: shows "Crop / adjust". */
+  onCrop?: () => void
   onStep: (delta: number) => void
   onClose: () => void
 }) {
@@ -426,8 +489,80 @@ export function ViewerFrame({
               {saving ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Save size={16} aria-hidden />} Save rotation
             </button>
           )}
+          {onCrop && (
+            <button type="button" onClick={onCrop} className={TOOL_BTN}>
+              <Crop size={16} aria-hidden /> Crop / adjust
+            </button>
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * The crop frame for a profile picture — exported so the render test can draw
+ * it. Save crop sends the framing; Reset to original points the profile back at
+ * the uploaded file; Cancel changes nothing.
+ */
+export function CropPanel({
+  title,
+  src,
+  saving,
+  onSave,
+  onReset,
+  onCancel,
+}: {
+  title: string
+  src: string
+  saving: boolean
+  onSave: (crop: CropRect) => void
+  onReset: () => void
+  onCancel: () => void
+}) {
+  const crop = useRef<CropRect | null>(null)
+  const [failed, setFailed] = useState(false)
+  return (
+    <div className="fixed inset-0 z-[99] flex h-dvh w-screen flex-col bg-tm-black" role="dialog" aria-modal="true" aria-label="Crop profile picture" data-photo-crop="">
+      <div className="flex shrink-0 items-center justify-between gap-2 p-3 text-white">
+        <span className="min-w-0 truncate text-xs font-bold">{title} · Crop / adjust</span>
+        <button type="button" aria-label="Cancel" onClick={onCancel} className={BAR_BTN}>
+          <X size={22} />
+        </button>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto p-3">
+        {failed ? (
+          <p className="max-w-xs text-center text-xs font-bold text-white">This photo could not be opened for cropping. It may not be stored in TutorMint storage.</p>
+        ) : (
+          <>
+            <PhotoCropper
+              dark
+              src={src}
+              onChange={(c) => {
+                crop.current = c
+              }}
+              onError={() => setFailed(true)}
+            />
+            <p className="text-center text-xs text-white">Drag to move. Use the slider, or pinch, to zoom. The uploaded photo is kept.</p>
+          </>
+        )}
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-center gap-2 bg-tm-black p-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
+        <button
+          type="button"
+          disabled={saving || failed}
+          onClick={() => crop.current && onSave(crop.current)}
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-white px-3 text-xs font-bold text-tm-navy disabled:opacity-40"
+        >
+          {saving ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Save size={16} aria-hidden />} Save crop
+        </button>
+        <button type="button" disabled={saving} onClick={onReset} className={TOOL_BTN}>
+          Reset to original
+        </button>
+        <button type="button" disabled={saving} onClick={onCancel} className={TOOL_BTN}>
+          Cancel
+        </button>
+      </div>
     </div>
   )
 }

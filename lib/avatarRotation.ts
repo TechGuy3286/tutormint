@@ -39,7 +39,7 @@ export async function saveAvatarRotation(args: { actor: AdminActor; memberId: st
   const avatarUrl = (profile?.avatar_url as string | null) ?? null
   if (!profile || !avatarUrl) return { ok: false, status: 404, error: 'This member has no profile photo to rotate.' }
 
-  const { data: saved } = await admin.from('avatar_rotations').select('rotation, original_url, rotated_url').eq('user_id', args.memberId).maybeSingle()
+  const { data: saved } = await admin.from('avatar_rotations').select('rotation, original_url, rotated_url, crop, source').eq('user_id', args.memberId).maybeSingle()
   const plan = planAvatarRotation(avatarUrl, saved as AvatarRotationRow | null, args.delta)
   if (plan.rotation === plan.previous) return { ok: true, rotation: plan.rotation, previous: plan.previous, avatarUrl }
 
@@ -73,7 +73,8 @@ export async function saveAvatarRotation(args: { actor: AdminActor; memberId: st
   const { error: rowError } = await admin
     .from('avatar_rotations')
     .upsert(
-      { user_id: args.memberId, rotation: plan.rotation, original_url: plan.originalUrl, rotated_url: rotatedUrl, updated_by: args.actor.id, updated_at: new Date().toISOString() },
+      // A new turn drops any saved crop: its numbers belonged to the old turn.
+      { user_id: args.memberId, rotation: plan.rotation, original_url: plan.originalUrl, rotated_url: rotatedUrl, crop: null, source: 'staff', updated_by: args.actor.id, updated_at: new Date().toISOString() },
       { onConflict: 'user_id' },
     )
   if (rowError) return { ok: false, status: 400, error: 'The rotation did not save. Please try again.' }
@@ -91,7 +92,7 @@ export async function saveAvatarRotation(args: { actor: AdminActor; memberId: st
     action: 'profile_photo.rotate',
     targetType: 'profile',
     targetId: args.memberId,
-    detail: { oldRotation: plan.previous, newRotation: plan.rotation, originalKept: true },
+    detail: { oldRotation: plan.previous, newRotation: plan.rotation, cropDropped: plan.dropsCrop, originalKept: true },
   })
   return { ok: true, rotation: plan.rotation, previous: plan.previous, avatarUrl: newUrl }
 }

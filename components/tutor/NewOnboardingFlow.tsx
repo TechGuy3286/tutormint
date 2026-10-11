@@ -11,7 +11,8 @@ import { useToast } from '@/components/ui/Toast'
 import { useDocLocks, refreshDocLocks } from '@/lib/useDocLocks'
 import { canPick } from '@/lib/docLockCore'
 import DocLockNotice from '@/components/identity/DocLockNotice'
-import { compressImage, compressUnder1MB } from '@/lib/imageCompress'
+import { compressUnder1MB } from '@/lib/imageCompress'
+import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 import { isSyntheticEmail, normalisePkMobile, looksLikeEmail } from '@/lib/phone'
 import { StepShell } from '@/components/onboarding/StepShell'
 import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
@@ -1041,24 +1042,25 @@ function CaptureButtons({ facingMode, busy, done, preview, onPick }: {
 
 // ---------------------------------------------------------------- Photo -----
 function PhotoStep({ seed, current, shell, onSave, onError }: { seed: string; current: string | null; shell: ShellFn; onSave: (url: string) => void; onError: (m: string) => void }) {
-  const supabase = useMemo(() => createClient(), [])
+  // The crop step (owner, 11 Oct 2026): the member frames their face in the
+  // circle; the photo and the framed square are both stored, the profile uses
+  // the square.
+  const { dialog, cropAndUpload } = usePhotoCropUpload()
   const [preview, setPreview] = useState<string | null>(current)
   const [uploading, setUploading] = useState(false)
   async function upload(file: File) {
     setUploading(true)
     try {
-      const img = await compressImage(file)
-      const path = `${seed}/${Date.now()}-${img.name.replace(/[^\w.-]/g, '_')}`
-      const { error } = await supabase.storage.from('avatars').upload(path, img, { upsert: true })
-      if (error) throw new Error(error.message)
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-      setPreview(URL.createObjectURL(img)); onSave(data.publicUrl)
+      const url = await cropAndUpload(file)
+      if (!url) return
+      setPreview(url); onSave(url)
     } catch (e) { onError(e instanceof Error ? e.message : 'We couldn’t upload that photo. Please try again.') } finally { setUploading(false) }
   }
   return shell({
     onNext: () => {}, hideButton: !preview, nextDisabled: !preview,
     children: (
       <div className="space-y-2">
+        {dialog}
         <CaptureButtons facingMode="environment" busy={uploading} done={!!preview}
           preview={preview ? (<img src={preview} alt="Your photo" className="h-full w-full object-cover" />) : null} onPick={(f) => void upload(f)} />
         <div className="text-center"><TermsLink /></div>

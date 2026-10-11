@@ -278,7 +278,7 @@ export default async function BrowseTutorsPage({ searchParams }: { searchParams:
   // a clear line — never an unrelated subject, never a blank page.
   let fallback: Awaited<ReturnType<typeof tutorFallback>> = null
   if (tutors.length === 0 && !error && (q || city)) {
-    if (q) await logUnmetSearch({ query: q, surface: 'tutors', parsed, role: viewer.role ?? null })
+    if (q) await logUnmetSearch({ query: q, surface: 'tutors', parsed, role: viewer.role ?? null, userId: viewer.id ?? null })
     fallback = await tutorFallback(listFilters, parsed, PAGE_SIZE)
   }
 

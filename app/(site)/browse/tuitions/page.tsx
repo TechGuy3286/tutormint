@@ -263,7 +263,7 @@ export default async function BrowseTuitionsPage({ searchParams }: { searchParam
   // Nothing found (owner, 8 Oct 2026): log it, then show the nearest match.
   let fallback: Awaited<ReturnType<typeof jobFallback>> = null
   if (jobs.length === 0 && !defaultApplied && (q || city)) {
-    if (q) await logUnmetSearch({ query: q, surface: 'tuitions', parsed, role: viewerRole })
+    if (q) await logUnmetSearch({ query: q, surface: 'tuitions', parsed, role: viewerRole, userId: user?.id ?? null })
     fallback = await jobFallback(filters, parsed, PAGE_SIZE)
   }
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))

@@ -238,6 +238,15 @@ export function isPayproSender(name: string | null | undefined): boolean {
 
 const alnum = (s: string | null | undefined) => (s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 
+/**
+ * Money totals leave out a credit marked "Ignore (not a sale)" (owner, 11 Oct
+ * 2026). Every reader of bank credits that ADDS AMOUNTS UP passes its rows
+ * through this with lib/ignoredCredits ignoredCreditIds().
+ */
+export function withoutIgnored<T extends { id: string }>(credits: T[], ignoredIds: ReadonlySet<string>): T[] {
+  return ignoredIds.size === 0 ? credits : credits.filter((c) => !ignoredIds.has(c.id))
+}
+
 /** A reference with case, spaces and punctuation removed — how two are compared. */
 export const refKey = alnum
 
@@ -704,7 +713,9 @@ export function monthCsv(view: MonthView): string {
     lines.push(['Bank transfer', r.approvedDay, r.ref, 'Bank transfer', r.amountPkr, r.amountPkr, 0, '', r.state === 'matched' ? 'Matched' : 'No bank credit yet' + (r.overdue ? ' (overdue)' : ''), ...credit(r.creditId)])
   }
   for (const c of view.credits) {
-    const status = c.state === 'matched' ? (c.match!.status === 'amount_mismatch' ? 'Amount mismatch' : c.match!.status === 'manual' ? 'Matched by hand' : 'Matched') : c.state === 'ignored' ? 'Ignored (not a sale)' : 'Not matched'
+    // An ignored credit is not a sale: it is listed on the page, never exported.
+    if (c.state === 'ignored') continue
+    const status = c.state === 'matched' ? (c.match!.status === 'amount_mismatch' ? 'Amount mismatch' : c.match!.status === 'manual' ? 'Matched by hand' : 'Matched') : 'Not matched'
     lines.push(['Bank credit', c.date, c.reference, c.isPaypro ? 'PayPro payout' : 'Bank transfer', c.amountPkr, '', '', '', status, c.date, c.reference, c.amountPkr])
   }
   return lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n'

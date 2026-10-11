@@ -102,6 +102,8 @@
     "test:settlements": "tsx --test scripts/test-settlements.ts",
     "test:payproexport": "tsx --test scripts/test-paypro-export.ts",
     "test:bankalerts": "tsx --test scripts/test-bankalerts.ts",
+    "test:photocrop": "tsx --test scripts/test-photo-crop.ts",
+    "test:unmetsearches": "tsx --test scripts/test-unmet-searches.ts",
     "test:smartsearch": "tsx --test scripts/test-smart-search.ts",
     "test:pagecap": "tsx --test scripts/test-page-cap.ts",
     "test:pause": "tsx --test scripts/test-tuition-pause.ts",

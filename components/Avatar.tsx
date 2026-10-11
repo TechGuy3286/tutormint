@@ -28,6 +28,17 @@
 import Image from 'next/image'
 
 import { defaultAvatarSrc } from '@/lib/defaultAvatar'
+import { isCroppedAvatarUrl } from '@/lib/photoCropCore'
+
+// FACE-FIRST FRAMING (owner, 11 Oct 2026). Members upload full-length and
+// off-centre portraits; cut from the MIDDLE, the round avatar showed a dress and
+// half a face. A photo with no saved crop is now framed centred left to right
+// and about 22% down from the top (lib/photoCropCore FACE_TOP), where a face
+// usually is. A cropped copy (staff "Crop / adjust", or the member's crop step
+// at upload) is already a framed square and is shown as it is. The class is
+// spelled out because Tailwind only sees whole class names; the test pins it to
+// FACE_TOP.
+export const AVATAR_FACE_FIRST = 'object-[50%_22%]'
 
 // Defensive host normalisation. Some avatar_url values are stored as ABSOLUTE
 // URLs (the seed script did this), which pins a Supabase project HOST into the
@@ -111,7 +122,7 @@ export default function Avatar({
   if (src) {
     const resolved = normalizeStorageSrc(src)
     const alt = decorative ? '' : (name ?? '')
-    const cls = `shrink-0 rounded-full bg-tm-bg object-cover ${ring} ${className}`
+    const cls = `shrink-0 rounded-full bg-tm-bg object-cover ${isCroppedAvatarUrl(resolved) ? '' : AVATAR_FACE_FIRST} ${ring} ${className}`
     if (isOptimisableStorageSrc(resolved)) {
       return (
         <Image

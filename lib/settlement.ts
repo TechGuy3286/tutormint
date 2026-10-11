@@ -15,6 +15,8 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAdminAction } from '@/lib/auditLog'
 import type { AdminRole } from '@/lib/adminAuth'
+import { ignoredCreditIds } from '@/lib/ignoredCredits'
+import { withoutIgnored } from '@/lib/settlementMatchCore'
 import type { PayproRow, Transfer } from '@/lib/reconciliationCore'
 import { settle, settleByDate, deductionProblem, dayInRange, pkDay, type Deduction, type DueOrder, type OurPayment, type SettleGroup, type SettlementResult } from '@/lib/settlementCore'
 
@@ -141,14 +143,18 @@ export async function loadSettlement(gateway: string, from: string, to: string):
     }))
   }
 
-  const allTransfers = ((trRes.data ?? []) as Record<string, unknown>[]).map((t) => ({
-    id: String(t.id),
-    source: String(t.source ?? ''),
-    transferredOn: String(t.transferred_on),
-    amountPkr: num(t.amount_pkr) ?? 0,
-    reference: (t.reference as string | null) ?? null,
-    accountLast4: (t.account_last4 as string | null) ?? null,
-  }))
+  // A credit marked "Ignore (not a sale)" is in no figure of this check.
+  const allTransfers = withoutIgnored(
+    ((trRes.data ?? []) as Record<string, unknown>[]).map((t) => ({
+      id: String(t.id),
+      source: String(t.source ?? ''),
+      transferredOn: String(t.transferred_on),
+      amountPkr: num(t.amount_pkr) ?? 0,
+      reference: (t.reference as string | null) ?? null,
+      accountLast4: (t.account_last4 as string | null) ?? null,
+    })),
+    await ignoredCreditIds(),
+  )
 
   const result = settle({ from, to, approved, gatewayRows, transfers: allTransfers, deductions })
 

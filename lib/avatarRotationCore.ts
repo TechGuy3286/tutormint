@@ -21,23 +21,38 @@
 //
 // Pure: the plan below is everything the server does, decided without I/O.
 
-import { normaliseRotation, rotateBy, type Rotation } from '@/lib/docRotation'
+// CROP (owner, 11 Oct 2026). The same record also holds a crop: the copy in use
+// is the original, turned by the saved rotation, then cut to the saved square.
+// Staff crop in the admin viewer; a member crops at upload (then original_url is
+// the photo they uploaded and the copy is their square). Changing the rotation
+// drops the crop — its numbers were measured on the picture as it was turned
+// then. "Reset to original" points avatar_url back at the uploaded file.
 
-export type AvatarRotationRow = { rotation: number; original_url: string; rotated_url: string | null }
+import { normaliseRotation, rotateBy, type Rotation } from './docRotation'
+import { validCrop, type CropRect } from './photoCropCore'
+
+export type AvatarRotationRow = { rotation: number; original_url: string; rotated_url: string | null; crop?: unknown; source?: string | null }
 
 export type AvatarState = {
-  /** The picture the member uploaded — what a rotation is always made from. */
+  /** The picture the member uploaded — what a rotation or crop is always made from. */
   originalUrl: string
   /** The rotation currently shown. */
   rotation: Rotation
+  /** The crop currently shown, or null. */
+  crop: CropRect | null
+  /** True when the copy in use was framed by the member at upload. */
+  byMember: boolean
 }
 
 /** The current state: a saved row applies only while avatar_url is still its copy. */
 export function currentAvatarState(avatarUrl: string, row: AvatarRotationRow | null | undefined): AvatarState {
-  if (row && row.rotated_url && row.rotated_url === avatarUrl && normaliseRotation(row.rotation) !== 0) {
-    return { originalUrl: row.original_url, rotation: normaliseRotation(row.rotation) }
+  if (row && row.rotated_url && row.rotated_url === avatarUrl) {
+    const rotation = normaliseRotation(row.rotation)
+    const crop = validCrop(row.crop) ? row.crop : null
+    const byMember = row.source === 'member'
+    if (rotation !== 0 || crop || byMember) return { originalUrl: row.original_url, rotation, crop, byMember }
   }
-  return { originalUrl: avatarUrl, rotation: 0 }
+  return { originalUrl: avatarUrl, rotation: 0, crop: null, byMember: false }
 }
 
 export type AvatarPlan = {
@@ -48,9 +63,11 @@ export type AvatarPlan = {
   makeCopy: boolean
   /** What avatar_url becomes when no copy is needed (rotation 0): the original. */
   restoreUrl: string | null
+  /** True when a saved crop is dropped by this turn. */
+  dropsCrop: boolean
 }
 
-/** Turn by `delta` quarter turns from what is shown now. */
+/** Turn by `delta` quarter turns from what is shown now. A saved crop is dropped. */
 export function planAvatarRotation(avatarUrl: string, row: AvatarRotationRow | null | undefined, delta: number): AvatarPlan {
   const state = currentAvatarState(avatarUrl, row)
   const rotation = rotateBy(state.rotation, delta)
@@ -60,7 +77,29 @@ export function planAvatarRotation(avatarUrl: string, row: AvatarRotationRow | n
     originalUrl: state.originalUrl,
     makeCopy: rotation !== 0,
     restoreUrl: rotation === 0 ? state.originalUrl : null,
+    dropsCrop: state.crop !== null || state.byMember,
   }
+}
+
+export type AvatarCropPlan = {
+  /** Always the uploaded original — a crop is never cut from an earlier copy. */
+  originalUrl: string
+  /** The saved rotation the crop is cut on top of. */
+  rotation: Rotation
+  crop: CropRect
+  previousCrop: CropRect | null
+}
+
+/** Cut a square from the original as currently turned. */
+export function planAvatarCrop(avatarUrl: string, row: AvatarRotationRow | null | undefined, crop: CropRect): AvatarCropPlan {
+  const state = currentAvatarState(avatarUrl, row)
+  return { originalUrl: state.originalUrl, rotation: state.rotation, crop, previousCrop: state.crop }
+}
+
+/** "Reset to original": avatar_url goes back to the uploaded file, nothing saved on top. */
+export function planAvatarReset(avatarUrl: string, row: AvatarRotationRow | null | undefined): { originalUrl: string; changed: boolean } {
+  const state = currentAvatarState(avatarUrl, row)
+  return { originalUrl: state.originalUrl, changed: state.originalUrl !== avatarUrl }
 }
 
 /** Our PUBLIC storage buckets that hold profile photos. */

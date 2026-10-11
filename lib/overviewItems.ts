@@ -8,6 +8,7 @@
 // Every caller checks the item's SCREEN_ACCESS key first (OVERVIEW_ITEMS[key]
 // .screen) — the same key the Overview filters its cards and rows by.
 
+import { loadUnmetBoard } from '@/lib/unmetSearches'
 import { testAccountIds } from '@/lib/testAccounts'
 import { pageAll } from '@/lib/pageAll'
 import 'server-only'
@@ -463,34 +464,18 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
     }
 
     case 'todo-unmet': {
-      // Every "nothing found" search of the last 7 days (owner, 8 Oct 2026),
-      // grouped by what was typed — one row per distinct search, so the count is
-      // the list's length. The extra line names the top cities and subjects.
-      const since = new Date(now.getTime() - 7 * 86_400_000).toISOString()
-      const raw = await pageAll((a, b) =>
-        admin.from('search_unmet').select('id, query, surface, city, subject, level, school, role, created_at').gte('created_at', since).order('id').range(a, b),
-      )
-      const groups = new Map<string, { q: string; n: number; surfaces: Set<string>; roles: Set<string>; city: string | null; subject: string | null; level: string | null; school: string | null; last: string }>()
-      for (const r of raw) {
-        const key = String(r.query ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
-        if (!key) continue
-        const g = groups.get(key) ?? { q: String(r.query), n: 0, surfaces: new Set(), roles: new Set(), city: null, subject: null, level: null, school: null, last: String(r.created_at) }
-        g.n++
-        g.surfaces.add(String(r.surface))
-        g.roles.add((r.role as string | null) ?? 'guest')
-        g.city = g.city ?? ((r.city as string | null) ?? null)
-        g.subject = g.subject ?? ((r.subject as string | null) ?? null)
-        g.level = g.level ?? ((r.level as string | null) ?? null)
-        g.school = g.school ?? ((r.school as string | null) ?? null)
-        if (String(r.created_at) > g.last) g.last = String(r.created_at)
-        groups.set(key, g)
-      }
-      const list = [...groups.values()].sort((a, b) => b.n - a.n || b.last.localeCompare(a.last))
+      // The To review cards of Overview → Unmet searches (owner, 11 Oct 2026):
+      // searches of the last 7 days that found nothing, identical ones merged,
+      // staff / test-account / test-text searches left out, and searches already
+      // marked done left out. The SAME loader as the screen, so this number is
+      // its To review tab.
+      const board = await loadUnmetBoard(now)
+      const list = board.toReview
       const tally = (pick: (g: (typeof list)[number]) => string | null) => {
         const m = new Map<string, number>()
         for (const g of list) {
           const v = pick(g)
-          if (v) m.set(v, (m.get(v) ?? 0) + g.n)
+          if (v) m.set(v, (m.get(v) ?? 0) + g.count)
         }
         return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([v, n]) => `${v} (${n})`).join(', ')
       }
@@ -500,21 +485,21 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
         key,
         rows: list.map((g, i) => ({
           id: `unmet-${i}`,
-          title: `“${g.q}”`,
+          title: `“${g.query}”`,
           detail: [
-            `${g.n} time${g.n === 1 ? '' : 's'}`,
+            `${g.count} time${g.count === 1 ? '' : 's'}`,
             g.city ? `City ${g.city}` : null,
             g.level ? `Level ${g.level}` : null,
             g.subject ? `Subject ${g.subject}` : null,
             g.school ? `School ${g.school}` : null,
-            [...g.surfaces].join(' + '),
-            [...g.roles].join(', '),
+            g.surfaces.join(' + '),
+            g.roles.join(', '),
           ].filter(Boolean).join(' · '),
-          href: `/browse/${g.surfaces.has('tuitions') && !g.surfaces.has('tutors') ? 'tuitions' : 'tutors'}?q=${encodeURIComponent(g.q)}`,
+          href: `/browse/${g.surfaces.includes('tuitions') && !g.surfaces.includes('tutors') ? 'tuitions' : 'tutors'}?q=${encodeURIComponent(g.query)}`,
         })),
         filter: 'searches that found nothing in the last 7 days',
-        extra: [topCities ? `Top cities: ${topCities}` : null, topSubjects ? `Top subjects: ${topSubjects}` : null].filter(Boolean).join(' · ') || null,
-        workHref: '/admin/blog/queue',
+        extra: [topCities ? `Top cities: ${topCities}` : null, topSubjects ? `Top subjects: ${topSubjects}` : null, `${board.excluded} left out (staff or test)`].filter(Boolean).join(' · ') || null,
+        workHref: '/admin/overview/todo-unmet',
       }
     }
 

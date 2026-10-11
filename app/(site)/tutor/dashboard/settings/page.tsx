@@ -51,6 +51,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { formatName } from '@/lib/formatName'
 import { TextLinesSkeleton } from '@/components/Skeletons'
+import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 
 // Tutor settings — ONE SAVE PER CARD (PR 3b §2.6). Each card owns its fields and
 // its own Save button, showing "Saved." or the error inline; there is no
@@ -348,10 +349,14 @@ export default function TutorSettingsPage() {
     return publicUrl;
   };
 
+  // The crop step (owner, 11 Oct 2026): the photo and the framed square are both
+  // stored; the profile uses the square. Closing the step changes nothing.
+  const { dialog: photoCropDialog, cropAndUpload } = usePhotoCropUpload();
+
   const handleProfileImageChange = async (file: File) => {
     setUploading(true);
     try {
-      const publicUrl = await uploadFileToCloud(file);
+      const publicUrl = await cropAndUpload(file);
       if (publicUrl) {
         setFormData((prev) => ({ ...prev, profileImage: publicUrl }));
         const { error } = await supabase.from('tutor_profiles').update({ avatar_url: publicUrl }).eq('id', userId);
@@ -680,6 +685,7 @@ export default function TutorSettingsPage() {
       icon: <ImageIcon size={20} aria-hidden />,
       body: (
         <div className="space-y-3">
+          {photoCropDialog}
           {/* The profile photo is NOT locked (owner, 9 Oct 2026): a change after
               approval goes back to photo review; the badge stays meanwhile. */}
             <FileUpload
@@ -688,6 +694,8 @@ export default function TutorSettingsPage() {
               shape="square"
               changeLabel="Change photo"
               busy={uploading}
+              clearAfterUpload
+              maxBytes={15 * 1024 * 1024}
               onFile={handleProfileImageChange}
               currentPreview={
                 <Avatar

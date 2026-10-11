@@ -23,8 +23,9 @@ type Loaded = Dict & {
   master: { id: number; level: string; subject: string | null }[]
 }
 
-export const loadSearchDict = unstable_cache(
-  async (): Promise<Loaded> => {
+/** The dictionary read straight from the database — for a search re-run right
+ *  after a Search word was added, when the cached copy is still the old one. */
+export async function loadSearchDictFresh(): Promise<Loaded> {
     const admin = createAdminClient()
     if (!admin) return { cities: Object.keys(CITY_COORDS), levels: [], subjects: [], aliases: [], master: [], builtin: true }
     const [tables, cityRows, aliasRows] = await Promise.all([
@@ -55,14 +56,13 @@ export const loadSearchDict = unstable_cache(
       levels,
       subjects,
       aliases: aliasRows
-        .filter((a) => a.kind === 'subject' || a.kind === 'level')
-        .map((a) => ({ kind: a.kind as 'subject' | 'level', slug: a.slug as string, alias: a.alias as string })),
+        .filter((a) => a.kind === 'subject' || a.kind === 'level' || a.kind === 'city')
+        .map((a) => ({ kind: a.kind as 'subject' | 'level' | 'city', slug: a.slug as string, alias: a.alias as string })),
       master: liveMaster.map((m) => ({ id: m.id, level: levelBySlug.get(m.level_slug)!.name, subject: m.subject_slug })),
     }
-  },
-  ['smart-search-dict-v1'],
-  { revalidate: 600, tags: [SMART_SEARCH_TAG] },
-)
+}
+
+export const loadSearchDict = unstable_cache(loadSearchDictFresh, ['smart-search-dict-v2'], { revalidate: 600, tags: [SMART_SEARCH_TAG] })
 
 export type SmartResolved = {
   parsed: Parsed
@@ -103,7 +103,7 @@ export async function resolveSmartQuery(q: string): Promise<SmartResolved> {
 }
 
 /** Every "nothing found" search, for the Overview to-do. Never throws. */
-export async function logUnmetSearch(input: { query: string; surface: string; parsed: Parsed | null; role: string | null }): Promise<void> {
+export async function logUnmetSearch(input: { query: string; surface: string; parsed: Parsed | null; role: string | null; userId?: string | null }): Promise<void> {
   try {
     const admin = createAdminClient()
     if (!admin) return
@@ -120,7 +120,16 @@ export async function logUnmetSearch(input: { query: string; surface: string; pa
       .eq('surface', input.surface)
       .gte('created_at', since)
     if ((count ?? 0) > 0) return
+    // Who searched (owner, 11 Oct 2026), so staff and test accounts can be left
+    // out of "Unmet searches". A guest has no account.
+    let isTest = false
+    if (input.userId) {
+      const { data: who } = await admin.from('profiles').select('is_test_name, hidden_from_public, is_seed').eq('id', input.userId).maybeSingle()
+      isTest = !!(who?.is_test_name || who?.hidden_from_public || who?.is_seed)
+    }
     await admin.from('search_unmet').insert({
+      user_id: input.userId ?? null,
+      is_test: isTest,
       query: q,
       surface: input.surface,
       city: input.parsed?.city ?? null,

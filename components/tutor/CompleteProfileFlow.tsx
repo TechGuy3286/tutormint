@@ -11,7 +11,8 @@ import { useToast } from '@/components/ui/Toast'
 import { useDocLocks, refreshDocLocks } from '@/lib/useDocLocks'
 import { canPick } from '@/lib/docLockCore'
 import DocLockNotice from '@/components/identity/DocLockNotice'
-import { compressImage, compressUnder1MB } from '@/lib/imageCompress'
+import { compressUnder1MB } from '@/lib/imageCompress'
+import { usePhotoCropUpload } from '@/components/photo/usePhotoCropUpload'
 import { useJobTitles } from '@/lib/jobTitles'
 import { useCityAreas } from '@/lib/cityAreas'
 import { areasForCity } from '@/lib/cityAreasCore'
@@ -1246,7 +1247,9 @@ function AvailabilityStep({
 }
 
 function PhotoStep({ seed, currentUrl, onUploaded }: { seed: string; currentUrl: string | null; onUploaded: (url: string) => void }) {
-  const supabase = useMemo(() => createClient(), [])
+  // The crop step (owner, 11 Oct 2026): the photo and the framed square are both
+  // stored; the profile uses the square.
+  const { dialog, cropAndUpload } = usePhotoCropUpload()
   const toast = useToast()
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
@@ -1256,13 +1259,10 @@ function PhotoStep({ seed, currentUrl, onUploaded }: { seed: string; currentUrl:
   async function upload(file: File) {
     setBusy(true)
     try {
-      const img = await compressImage(file)
-      const path = `${seed}/${Date.now()}-${img.name.replace(/[^\w.-]/g, '_')}`
-      const { error } = await supabase.storage.from('avatars').upload(path, img, { upsert: true })
-      if (error) throw new Error(error.message)
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-      setPreview(URL.createObjectURL(img))
-      onUploaded(data.publicUrl)
+      const url = await cropAndUpload(file)
+      if (!url) return
+      setPreview(url)
+      onUploaded(url)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not upload the photo.')
     } finally {
@@ -1272,6 +1272,7 @@ function PhotoStep({ seed, currentUrl, onUploaded }: { seed: string; currentUrl:
 
   return (
     <div className="flex flex-col items-center gap-3">
+      {dialog}
       <div className={`relative grid h-40 w-40 place-items-center overflow-hidden rounded-2xl border-2 ${preview ? 'border-tm-green-deep' : 'border-dashed border-gray-300 bg-white'}`}>
         {preview ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -1281,8 +1282,8 @@ function PhotoStep({ seed, currentUrl, onUploaded }: { seed: string; currentUrl:
         )}
         {busy && <span className="absolute inset-0 grid place-items-center bg-tm-black/40"><Loader2 size={24} className="animate-spin text-white" aria-hidden /></span>}
       </div>
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f) }} />
-      <input ref={galleryRef} type="file" accept="image/*" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f) }} />
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void upload(f) }} />
+      <input ref={galleryRef} type="file" accept="image/*" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void upload(f) }} />
       <button type="button" disabled={busy} onClick={() => cameraRef.current?.click()}
         className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-tm-navy px-4 text-sm font-black text-white disabled:opacity-60">
         <Camera size={18} aria-hidden /> Open camera

@@ -164,6 +164,10 @@ export const SCREEN_ACCESS = {
   // The audit log is owner-only (owner, 8 Oct 2026, item 3).
   audit: [] as AdminRole[],
   seo: ['admin', 'operations'] as AdminRole[],
+  // Overview → Unmet searches (owner, 11 Oct 2026): add a Search word, copy a
+  // hiring post, mark done. The roles that could already open the list; the
+  // Partner views and changes nothing.
+  unmetSearches: ['admin', 'operations'] as AdminRole[],
   videoVisibility: ['admin'] as AdminRole[],
   tutorSlug: ['admin'] as AdminRole[],
   tutorEdit: ['admin', 'operations'] as AdminRole[],

@@ -13,7 +13,7 @@ import { join } from 'node:path'
 
 import { alertNote, missingFields, parseBankAlerts, planAlerts, unreadableText } from '../lib/bankAlertCore'
 import { parsePayproCsv } from '../lib/reconciliationCore'
-import { buildBoard, matchSummary, monthCsv, monthView, NOT_A_SALE, type Credit } from '../lib/settlementMatchCore'
+import { buildBoard, matchSummary, monthCsv, monthView, NOT_A_SALE, withoutIgnored, type Credit } from '../lib/settlementMatchCore'
 import { isReadOnlyRole, roleSatisfies, SCREEN_ACCESS } from '../lib/adminAccessCore'
 
 const root = join(__dirname, '..')
@@ -177,7 +177,18 @@ test('"Ignore (not a sale)": unlinked, not counted as unmatched, never deleted, 
   assert.equal(after.cards.unmatched, before.cards.unmatched - 1)
   assert.equal(after.cards.netSettled, 0)
   assert.equal(after.credits.length, 2, 'still on record')
-  assert.ok(monthCsv(after).includes('Ignored (not a sale)'))
+  // Excluded from every money total and from the CSV; still listed on the page.
+  assert.ok(!monthCsv(after).includes('R1') && !monthCsv(after).includes('R2'), 'not in the CSV export')
+  assert.ok(monthCsv(before).includes('Bank credit,2026-10-09,R1'))
+  assert.deepEqual(withoutIgnored([c, stray], new Set(['c2'])).map((x) => x.id), ['c1'])
+  assert.deepEqual(withoutIgnored([c, stray], new Set()).length, 2, '"Back to automatic" counts it again')
+  for (const f of ['finance.ts', 'settlement.ts']) {
+    const src = read('lib', f)
+    assert.ok(src.includes('ignoredCreditIds()') && src.includes('withoutIgnored('), `lib/${f} leaves ignored credits out of its totals`)
+  }
+  const ig = read('lib', 'ignoredCredits.ts')
+  assert.ok(ig.includes(".eq('kind', 'none').eq('target', NOT_A_SALE).is('removed_at', null)"))
+  assert.ok(read('app', 'admin', 'finance', 'settlement', 'SettlementsBoard.tsx').includes("c.state === 'ignored' ? CARD.replace('bg-white', 'bg-tm-bg') : CARD"), 'greyed, still listed')
   // A plain unlink is still a hold that DOES count as unmatched.
   const held = monthView(build([{ transferId: 'c2', kind: 'none', target: null, note: 'checking' }]), [], '2026-10')
   assert.ok(held.attention.some((a) => a.kind === 'credit_unmatched' && a.creditId === 'c2'))

@@ -72,7 +72,7 @@ export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   'todo-flagged': { title: 'Flagged messages and reports', screen: 'reports', noun: ['item', 'items'] },
   'todo-pausing': { title: 'Tuitions auto-pausing in the next 2 days', screen: 'jobs', noun: ['tuition', 'tuitions'] },
   'todo-featured': { title: 'Featured tutors with new matches', screen: 'featuredWhatsapp', noun: ['tutor', 'tutors'] },
-  'todo-unmet': { title: 'Unmet searches this week', screen: 'seo', noun: ['search', 'searches'] },
+  'todo-unmet': { title: 'Unmet searches this week', screen: 'unmetSearches', noun: ['search', 'searches'] },
   'funnel-signed-up': { title: 'Signed up', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
   'funnel-mobile': { title: 'Mobile verified', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
   'funnel-onboarded': { title: 'Onboarding done', screen: 'users', noun: ['tutor', 'tutors'], funnel: true },
