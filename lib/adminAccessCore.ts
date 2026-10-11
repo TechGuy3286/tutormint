@@ -106,7 +106,9 @@ export const SCREEN_ACCESS = {
   // Payments: admin and operations see each payment's STATUS (to help tutors),
   // never an amount or a total — the amounts are removed on the server.
   payments: ['admin', 'operations'] as AdminRole[],
-  paymentsApprove: ['admin'] as AdminRole[],
+  // Approving or rejecting a bank-transfer receipt: owner, admin and operations
+  // (owner, 11 Oct 2026). The Partner views; the server refuses their POST.
+  paymentsApprove: ['admin', 'operations'] as AdminRole[],
   // Marking a payment refunded is money in rupees: owner only.
   paymentsRefund: [] as AdminRole[],
   paymentsSettings: ['admin'] as AdminRole[],

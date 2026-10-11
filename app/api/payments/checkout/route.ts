@@ -342,6 +342,6 @@ export async function POST(request: Request) {
     mode: 'manual',
     reference,
     paymentId: payment.id,
-    next: `/pay/manual/${encodeURIComponent(reference)}`,
+    next: `/pay/choose?plan=${encodeURIComponent(plan.code as string)}`,
   })
 }

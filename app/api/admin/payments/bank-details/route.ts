@@ -7,7 +7,8 @@ import { SETTING_KEYS } from '@/lib/payments/manual'
 
 // Save the bank-transfer details members are told to pay into (PR98 §4).
 //
-// owner + admin only (SCREEN_ACCESS.paymentsSettings), fresh password required.
+// OWNER ONLY (SCREEN_ACCESS.paymentGateways — owner, 11 Oct 2026: these details
+// are shown to members on the payment choice screen), fresh password required.
 // Text fields land in app_settings (the pay.* keys lib/payments/manual reads);
 // an optional QR image goes to the PRIVATE payment-proofs bucket and only its
 // storage path is stored, never a URL — it is served solely through the gated
@@ -26,7 +27,7 @@ const TEXT_FIELDS: { field: string; key: string }[] = [
 ]
 
 export async function POST(request: Request) {
-  const gate = await checkAdminRole(...SCREEN_ACCESS.paymentsSettings)
+  const gate = await checkAdminRole(...SCREEN_ACCESS.paymentGateways)
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const fresh = await requireFreshAuth(gate.actor.id)

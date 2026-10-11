@@ -1,16 +1,25 @@
 'use client'
 
+import Link from 'next/link'
 import { ShieldCheck } from 'lucide-react'
-import { useVerifyCheckout, CHECKOUT_FAIL_MESSAGES } from '@/components/tutor/useVerifyCheckout'
 
 // The value-first dashboard card (PR106-G4b §5), shown to owner/staff in place
 // of the red prompt while the switch is "Staff only". It leads with what the
 // tutor GAINS — the real count of tuitions in their city (the same number as
-// "Find tuitions", 0c) — not with a charge. The deep-green button starts PayPro
-// directly (reusing a pending invoice). No money words appear on the card
-// itself. Shown only to an unverified tutor; hidden once verified.
-export default function GetVerifiedValueCard({ count, city }: { count: number; city: string | null }) {
-  const { start, busy, reason } = useVerifyCheckout()
+// "Find tuitions", 0c) — not with a charge. The deep-green button opens the
+// choice screen (owner, 11 Oct 2026), where the tutor picks how to go on. No
+// money words appear on the card itself. Shown only to an unverified tutor;
+// hidden once verified, and while a receipt of theirs is under review.
+export default function GetVerifiedValueCard({
+  count,
+  city,
+  underReview = false,
+}: {
+  count: number
+  city: string | null
+  underReview?: boolean
+}) {
+  if (underReview) return null
 
   const tuition = count === 1 ? 'tuition' : 'tuitions'
   const title =
@@ -34,19 +43,12 @@ export default function GetVerifiedValueCard({ count, city }: { count: number; c
           تصدیق کروائیں تاکہ آپ درخواست دے سکیں اور والدین سے براہِ راست رابطہ کر سکیں۔
         </span>
       </p>
-      <button
-        type="button"
-        onClick={() => void start()}
-        disabled={busy}
-        className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-green-deep px-5 text-sm font-bold text-white hover:bg-tm-green-deep-hover disabled:opacity-60"
+      <Link
+        href="/pay/choose?plan=verified"
+        className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-tm-green-deep px-5 text-sm font-bold text-white hover:bg-tm-green-deep-hover"
       >
-        <ShieldCheck size={16} aria-hidden /> {busy ? 'Starting…' : 'Get verified'}
-      </button>
-      {reason && (
-        <p className="mt-2 text-xs font-semibold leading-relaxed text-tm-red">
-          {CHECKOUT_FAIL_MESSAGES[reason]}
-        </p>
-      )}
+        <ShieldCheck size={16} aria-hidden /> Get verified
+      </Link>
     </div>
   )
 }

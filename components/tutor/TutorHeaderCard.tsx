@@ -30,6 +30,7 @@ export default function TutorHeaderCard({
   findable = false,
   completion,
   publicHref,
+  paymentUnderReview = false,
 }: {
   name: string
   avatarUrl: string | null
@@ -51,6 +52,8 @@ export default function TutorHeaderCard({
   completion: number
   /** The tutor's public page, when it is live; null otherwise. */
   publicHref: string | null
+  /** A bank-transfer receipt for the fee is with staff — no pay button meanwhile. */
+  paymentUnderReview?: boolean
 }) {
   const incomplete = completion < 100
   const ring = `conic-gradient(var(--color-tm-green-deep) ${completion * 3.6}deg, var(--color-gray-200) 0deg)`
@@ -81,6 +84,7 @@ export default function TutorHeaderCard({
             verificationPending={verificationPending}
             findable={findable}
             payHref="/tutor/complete-profile?step=verify"
+            paymentUnderReview={paymentUnderReview}
           />
           {/* Plan-tier badges (Premium/Featured) after the name — icon + label,
               no Urdu. Verified is shown by the control above, so it is dropped. */}

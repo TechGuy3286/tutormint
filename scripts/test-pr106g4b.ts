@@ -29,7 +29,10 @@ function fnBody(src: string, name: string): string {
 }
 
 // --------------------------------------------- STEP 1: the final screen -----
-test('the final screen is "Complete Your Verification": English-only, full progress, direct PayPro', () => {
+// Repointed (owner, 11 Oct 2026): every paid checkout now opens the payment
+// choice screen (/pay/choose) first — JazzCash (PayPro) or a bank transfer with
+// a receipt — so the button no longer starts PayPro itself.
+test('the final screen is "Complete Your Verification": English-only, full progress, opens the choice screen', () => {
   const g = fnBody(FLOW, 'GetVerifiedStep')
   assert.match(g, /heading="Complete Your Verification"/, 'heading')
   assert.match(g, /You pay no commission to TutorMint/, 'the commission message')
@@ -37,9 +40,9 @@ test('the final screen is "Complete Your Verification": English-only, full progr
   // HOTFIX-G4b: button label carries no amount; the failure line is the shared
   // reason-based message (see the dedicated HOTFIX test).
   assert.match(g, /Get verified now/, 'the one red button label, no amount')
-  assert.match(g, /useVerifyCheckout\(\)/, 'uses the direct-PayPro hook')
+  assert.match(g, /<Link href=\{PAY_CHOICE_HREF\}/, 'opens the payment choice screen')
+  assert.match(FLOW, /const PAY_CHOICE_HREF = '\/pay\/choose\?plan=verified'/, 'for the fee')
   assert.match(g, /stepIndex=\{stepTotal\}/, 'progress bar is full (stepIndex === stepTotal)')
-  assert.match(g, /CHECKOUT_FAIL_MESSAGES\[reason\]/, 'friendly reason-based failure line')
   assert.match(g, /What do I get\?/, '"What do I get?" link')
   assert.match(g, /VerifyBenefitsDialog/, 'opens the shared benefits pop-up')
   // English only on THIS screen: no Urdu, no Ltr, and none of the removed clutter.
@@ -54,7 +57,8 @@ test('the final screen is "Complete Your Verification": English-only, full progr
 test('the PayPro hook reuses a pending invoice via /api/payments/checkout, and fails friendly', () => {
   const h = read('components/tutor/useVerifyCheckout.ts')
   assert.match(h, /\/api\/payments\/checkout/, 'hits the checkout route')
-  assert.match(h, /body: JSON\.stringify\(\{ planCode: 'verified' \}\)/, 'posts the verification fee with no payment method → the online (PayPro) path')
+  assert.match(h, /useVerifyCheckout\(planCode: string = 'verified'\)/, 'the fee by default')
+  assert.match(h, /body: JSON\.stringify\(\{ planCode \}\)/, 'posts the package with no payment method → the online (PayPro) path')
   assert.match(h, /data\?\.mode === 'redirect'/, 'a redirect navigates; any non-redirect sets a reason (see the HOTFIX test), never a raw error')
   // the checkout route still routes the no-method verified path through startPayproCheckout,
   // which reuses a < 24h pending invoice.
@@ -74,7 +78,7 @@ test('the value-first card uses the real count + city and carries no money words
   assert.match(c, /bg-tm-tint-green/, 'light mint background')
   assert.match(c, /border-tm-green-deep/, 'deep green border')
   assert.match(c, /bg-tm-green-deep[^]*Get verified/, 'deep green "Get verified" button')
-  assert.match(c, /useVerifyCheckout\(\)/, 'straight to PayPro')
+  assert.match(c, /href="\/pay\/choose\?plan=verified"/, 'opens the choice screen')
   // no "payment"/"fee" words anywhere the card renders (comment reworded to avoid them)
   assert.ok(!/payment|\bfee\b/i.test(c), 'no money words on the card')
 })
@@ -92,10 +96,10 @@ test('the dashboard swaps the card by the switch; non-staff keep the pending-inv
 // Superseded by Payment gateways (owner, 6 Oct 2026, item 19): bank transfer
 // and "Pay later" now follow the OWNER'S switches for everyone (they were the
 // staff-only onboarding switch), and the checkout route refuses an off method.
-test('TutorVerifyGate shows bank transfer + "Pay later" only when the owner switched them on', () => {
+test('TutorVerifyGate shows "Pay later" only when the owner switched it on; bank transfer follows the switch on the choice screen', () => {
   const t = read('components/upgrade/TutorVerifyGate.tsx')
   assert.ok(t.includes("methods = DEFAULT_CHECKOUT_METHODS"), 'defaults to today’s state')
-  assert.ok(t.includes("const showTransfer = methods.bankTransfer && !hideManual"), 'transfer follows the switch')
+  assert.ok(read('lib/payments/receipt.ts').includes('bankTransferVisible(bankTransferOn(settings), details)'), 'transfer follows the switch')
   assert.ok(t.includes("const showPayLater = methods.payLater && !hideManual"), 'Pay later follows the switch')
   assert.ok(t.includes("{showPayLater && payLaterHref &&"), 'Pay later gated')
 })
@@ -111,7 +115,7 @@ test('the apply-gate modal reads the switches via /api/payments/methods', () => 
 test('Membership Plans shows bank + "Pay later" only when switched on, keeps Back; transfer button gated', () => {
   const page = read('app/(site)/membership-plans/page.tsx')
   assert.ok(page.includes("checkoutMethodsOf(await getGatewaySettings())"), 'reads the switches')
-  assert.ok(page.includes("hideTransfer={!methods.bankTransfer}"), 'PackagesTable transfer gated')
+  assert.ok(page.includes("hideTransfer={!methods.bankTransfer}"), 'PackagesTable still receives the switch')
   assert.ok(page.includes("{methods.payLater && ("), 'Pay later gated')
   assert.ok(page.includes("Back<span"), 'Back always stays')
   const pt = read('components/PackagesTable.tsx')

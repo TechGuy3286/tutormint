@@ -17,7 +17,6 @@ import { StepShell } from '@/components/onboarding/StepShell'
 import { fieldState, fieldStateClasses } from '@/lib/onboarding/fieldState'
 import CnicCapture, { type CnicCaptureState } from '@/components/identity/CnicCapture'
 import VerifyBenefitsDialog from '@/components/tutor/VerifyBenefitsDialog'
-import { useVerifyCheckout, CHECKOUT_FAIL_MESSAGES } from '@/components/tutor/useVerifyCheckout'
 import { verificationFeeCardState } from '@/lib/tutorDashboard'
 import MobileNumberInput from '@/components/auth/MobileNumberInput'
 import OtpCodeEntry from '@/components/auth/OtpCodeEntry'
@@ -1301,16 +1300,17 @@ function TaglineStep({ facts, shell, onSave, onError, onDraft }: { facts: Facts;
 
 // ------------------------------------------------- Complete Your Verification
 // PR106-G4b §1: ONE final screen. The progress bar is full (stepIndex ===
-// stepTotal) and there is no step after it. English only. The red button starts
-// PayPro DIRECTLY (useVerifyCheckout → /api/payments/checkout 'verified', which
-// reuses a pending < 24h invoice) and redirects; any failure (incl. PayPro not
-// open) shows one friendly line and keeps the button to retry. No CNIC card, no
-// bank/transfer, no pay-later exit, no TutorVerifyGate, no Urdu on this screen.
+// stepTotal) and there is no step after it. English only. The red button opens
+// the CHOICE SCREEN (owner, 11 Oct 2026 — /pay/choose?plan=verified), where the
+// tutor picks JazzCash (PayPro) or the other method; nothing is charged and no
+// redirect happens from this screen. No CNIC card, no pay-later exit, no
+// TutorVerifyGate, no Urdu and no amount on this screen.
 // "What do I get?" opens the shared VerifyBenefitsDialog.
+const PAY_CHOICE_HREF = '/pay/choose?plan=verified'
+
 function GetVerifiedStep({ stepTotal, onBack, payFailed = false }: {
   stepTotal: number; onBack: () => void; payFailed?: boolean
 }) {
-  const { start, busy, reason } = useVerifyCheckout()
   const [benefits, setBenefits] = useState(false)
   const benefitState = verificationFeeCardState({ feePaid: false, verifiedOk: false, findable: false })
   return (
@@ -1328,15 +1328,10 @@ function GetVerifiedStep({ stepTotal, onBack, payFailed = false }: {
         <p className="rounded-xl bg-tm-tint-green/60 px-3 py-2 text-[12px] font-semibold leading-snug text-tm-green-deep">
           Verification Fee. We keep TutorMint clean of fake and spam accounts.
         </p>
-        <button type="button" onClick={() => void start()} disabled={busy}
-          className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-red px-6 text-sm font-bold text-white hover:bg-tm-red-hover disabled:opacity-60">
-          <CreditCard size={16} aria-hidden /> {busy ? 'Starting…' : 'Get verified now'}
-        </button>
-        {reason && (
-          <p className="mx-auto max-w-xs px-2 text-center text-xs font-semibold leading-relaxed text-tm-red">
-            {CHECKOUT_FAIL_MESSAGES[reason]}
-          </p>
-        )}
+        <Link href={PAY_CHOICE_HREF}
+          className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl bg-tm-red px-6 text-sm font-bold text-white hover:bg-tm-red-hover">
+          <CreditCard size={16} aria-hidden /> Get verified now
+        </Link>
         <button type="button" onClick={() => setBenefits(true)}
           className="text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline">
           What do I get?

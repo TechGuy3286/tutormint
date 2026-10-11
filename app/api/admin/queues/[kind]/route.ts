@@ -84,7 +84,9 @@ export async function GET(
   // Payment amounts only for the owner and the Partner (owner, 8 Oct 2026).
   const items =
     queue === 'payments' && !roleSatisfies(gate.actor.adminRole, SCREEN_ACCESS.paymentAmounts)
-      ? withoutAmounts(rows as Parameters<typeof withoutAmounts>[0])
+      ? withoutAmounts(rows as Parameters<typeof withoutAmounts>[0], {
+          keepAwaiting: roleSatisfies(gate.actor.adminRole, SCREEN_ACCESS.paymentsApprove),
+        })
       : rows
   return NextResponse.json({ items, cursor: nextCursor })
 }

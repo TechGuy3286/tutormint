@@ -86,8 +86,11 @@ test('onlinePaymentOpen() is derived from the live-gateway facts, so it matches 
   assert.ok(src.includes('return payproCardVisibleFrom('), 'pproVisibleFor delegates to the pure helper')
 })
 
-test('the verify/fee step still shows the closed notice only on checkout_closed, and offers bank transfer', () => {
+// Repointed (owner, 11 Oct 2026): every paid checkout now opens the payment
+// choice screen (/pay/choose) first — JazzCash (PayPro) or a bank transfer with
+// a receipt — so the button no longer starts PayPro itself.
+test('the verify/fee step opens the choice screen, where bank transfer is the second option', () => {
   const src = read('components/upgrade/TutorVerifyGate.tsx')
-  assert.ok(src.includes("data?.code === 'checkout_closed'"), 'closed notice only on a genuine checkout_closed')
-  assert.ok(src.includes("start('transfer')"), 'bank transfer is offered as the second option')
+  assert.ok(src.includes("const PAY_CHOICE_HREF = '/pay/choose?plan=verified'"), 'Verify opens the choice screen')
+  assert.ok(read('app/(site)/pay/choose/PayChoice.tsx').includes('Other method: bank transfer'), 'bank transfer is offered as the second option')
 })

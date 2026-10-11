@@ -446,7 +446,11 @@ export async function rejectPayment(params: {
     kind: 'payment_rejected',
     title: 'We could not confirm your payment',
     body: params.reason,
-    href: profile?.role === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents',
+    // A refused bank-transfer receipt (a staff decision) goes back to the choice
+    // screen, which shows the reason and takes a new receipt.
+    href: params.actor && payment.plan_code
+      ? `/pay/choose?plan=${encodeURIComponent(payment.plan_code as string)}`
+      : profile?.role === 'tutor' ? '/membership-plans?for=tutors' : '/membership-plans?for=parents',
   })
 
   if (params.actor) {

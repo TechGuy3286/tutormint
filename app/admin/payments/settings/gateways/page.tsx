@@ -5,6 +5,12 @@ import { requireAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { gatewayConfigured, getGatewaySettings, loadGatewayHealth } from '@/lib/payments/gatewaySettings'
 import { formatDateTime } from '@/lib/datetime'
 import GatewaysClient from './GatewaysClient'
+import BankDetailsForm from '../../bank-details/BankDetailsForm'
+import AlertEmailsForm from '../../bank-details/AlertEmailsForm'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { SETTING_KEYS } from '@/lib/payments/manual'
+import { PAYMENT_ALERTS_KEY } from '@/lib/payments/paymentAlerts'
+import { bankDetailsComplete } from '@/lib/payments/receiptCore'
 
 // Admin → Settings → Payment gateways (owner, 6 Oct 2026, item 19).
 //
@@ -38,6 +44,25 @@ export default async function PaymentGatewaysPage({
   const [settings, health] = await Promise.all([getGatewaySettings(), loadGatewayHealth()])
   const configured = gatewayConfigured()
 
+  // Bank transfer details (owner, 11 Oct 2026): entered here, shown to members
+  // on the payment choice screen. Read with the service role for the form.
+  const stored = new Map<string, string>()
+  const admin = createAdminClient()
+  if (admin) {
+    const { data } = await admin
+      .from('app_settings')
+      .select('key, value')
+      .in('key', [...Object.values(SETTING_KEYS), PAYMENT_ALERTS_KEY])
+    for (const r of data ?? []) stored.set(r.key as string, (r.value as string) ?? '')
+  }
+  const bank = {
+    bankName: stored.get(SETTING_KEYS.bankName) ?? '',
+    accountTitle: stored.get(SETTING_KEYS.accountTitle) ?? '',
+    accountNumber: stored.get(SETTING_KEYS.accountNumber) ?? '',
+    iban: stored.get(SETTING_KEYS.iban) ?? '',
+  }
+  const bankReady = bankDetailsComplete(bank)
+
   const card = 'space-y-2 rounded-2xl border border-gray-200 bg-white p-4'
 
   return (
@@ -59,6 +84,34 @@ export default async function PaymentGatewaysPage({
       </header>
 
       <GatewaysClient initial={settings} configured={configured} />
+
+      <section id="bank-details" className="scroll-mt-24 space-y-2">
+        <h2 className="text-sm font-black text-tm-navy">Bank transfer details</h2>
+        <p className="text-[11px] text-gray-500">
+          Members see these on the payment choice screen under &ldquo;Other method: bank transfer&rdquo;, each with a Copy
+          button. Saving needs your password.
+        </p>
+        <p
+          className={`rounded-xl p-3 text-[11px] font-bold ${
+            bankReady && settings.methods.bank_transfer ? 'bg-tm-tint-green text-tm-green-deep' : 'bg-tm-tint-gold text-tm-gold-ink'
+          }`}
+        >
+          {!bankReady
+            ? 'Bank transfer is hidden from members: fill in the bank, the account title and an account number or IBAN.'
+            : settings.methods.bank_transfer
+              ? 'Bank transfer is showing to members.'
+              : 'Bank transfer is hidden from members: the switch above is off.'}
+        </p>
+        <BankDetailsForm
+          initial={{
+            ...bank,
+            bankBranch: stored.get(SETTING_KEYS.bankBranch) ?? '',
+            hasQr: !!(stored.get(SETTING_KEYS.qrPath) ?? ''),
+          }}
+        />
+      </section>
+
+      <AlertEmailsForm initial={stored.get(PAYMENT_ALERTS_KEY) ?? 'techguy3286@gmail.com'} />
 
       <section className="space-y-3">
         <h2 className="text-sm font-black text-tm-navy">Health</h2>

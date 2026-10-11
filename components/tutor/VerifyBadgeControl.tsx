@@ -24,6 +24,7 @@ export default function VerifyBadgeControl({
   verificationPending,
   findable,
   payHref,
+  paymentUnderReview = false,
 }: {
   feePaid: boolean
   /** Staff approved CNIC + photo + selfie (the Verified badge is earned). */
@@ -34,6 +35,9 @@ export default function VerifyBadgeControl({
   findable: boolean
   /** Where "Pay verification fee" goes (the verify flow → payment page). */
   payHref: string
+  /** A bank-transfer receipt is with staff: the chip reads "Payment under
+   *  review" and the pop-up offers no pay button (owner, 11 Oct 2026). */
+  paymentUnderReview?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -62,6 +66,16 @@ export default function VerifyBadgeControl({
         <span className="text-[11px] font-bold leading-none">Verification pending</span>
         <span lang="ur" dir="rtl" className="mt-0.5 text-[10px] font-semibold leading-none opacity-90">تصدیق زیرِ عمل</span>
       </button>
+    ) : paymentUnderReview ? (
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex flex-col rounded-full bg-tm-tint-gold px-2.5 py-0.5 align-middle leading-none text-tm-gold-ink"
+      >
+        <span className="text-[11px] font-bold leading-none">Payment under review</span>
+        <span lang="ur" dir="rtl" className="mt-0.5 text-[10px] font-semibold leading-none opacity-90">ادائیگی زیرِ جائزہ</span>
+      </button>
     ) : (
       <button
         ref={triggerRef}
@@ -76,7 +90,7 @@ export default function VerifyBadgeControl({
   return (
     <>
       {trigger}
-      <VerifyBenefitsDialog open={open} onClose={() => setOpen(false)} state={state} payHref={payHref} />
+      <VerifyBenefitsDialog open={open} onClose={() => setOpen(false)} state={state} payHref={paymentUnderReview ? undefined : payHref} />
     </>
   )
 }

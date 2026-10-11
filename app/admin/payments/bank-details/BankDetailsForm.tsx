@@ -20,9 +20,9 @@ type Initial = {
 }
 
 const FIELDS: { name: keyof Omit<Initial, 'hasQr'>; label: string }[] = [
+  { name: 'bankName', label: 'Bank name' },
   { name: 'accountTitle', label: 'Account title' },
-  { name: 'bankName', label: 'Bank' },
-  { name: 'bankBranch', label: 'Branch' },
+  { name: 'bankBranch', label: 'Branch (optional, not shown to members)' },
   { name: 'accountNumber', label: 'Account number' },
   { name: 'iban', label: 'IBAN' },
 ]
@@ -66,7 +66,7 @@ export default function BankDetailsForm({ initial }: { initial: Initial }) {
       ))}
 
       <div className="space-y-1">
-        <span className="text-xs font-bold text-tm-navy">QR image (optional)</span>
+        <span className="text-xs font-bold text-tm-navy">QR image (optional, not shown to members)</span>
         <p className="text-[11px] text-gray-500">
           {initial.hasQr ? 'A QR image is set.' : 'No QR image set — the QR block is hidden on checkout.'}
         </p>

@@ -28,9 +28,13 @@ function fnBody(src: string, name: string): string {
   return src.slice(start, after === -1 ? undefined : after)
 }
 
-test('the final-screen request matches the working checkout contract', () => {
+// Repointed (owner, 11 Oct 2026): every paid checkout now opens the payment
+// choice screen (/pay/choose) first — JazzCash (PayPro) or a bank transfer with
+// a receipt — so the button no longer starts PayPro itself.
+test('the PayPro request (now sent from the choice screen) matches the working checkout contract', () => {
   assert.match(HOOK, /fetch\('\/api\/payments\/checkout'/, 'same endpoint as the verify flow')
-  assert.match(HOOK, /body: JSON\.stringify\(\{ planCode: 'verified' \}\)/, "planCode 'verified', no payment method → the online path")
+  assert.match(HOOK, /body: JSON\.stringify\(\{ planCode \}\)/, 'the package, no payment method → the online path')
+  assert.match(read('app/(site)/pay/choose/PayChoice.tsx'), /useVerifyCheckout\(planCode\)/, 'the choice screen is the caller')
   // reuse/replace of a pending invoice is the route's job (unchanged, proven)
   assert.match(ROUTE, /startPayproCheckout\(/, 'routes through startPayproCheckout (reuses a < 24h pending invoice)')
 })
@@ -69,18 +73,18 @@ test('the checkout route has room for a slow PayPro (no opaque 504)', () => {
 
 test('the error line fits 360px and the button carries no amount', () => {
   const g = fnBody(FLOW, 'GetVerifiedStep')
-  // error line: centred, side padding, wraps (bounded width) — not cut off at the edges
-  assert.match(g, /mx-auto max-w-xs px-2 text-center text-xs font-semibold leading-relaxed text-tm-red/, 'error line wraps within 360px with padding')
-  assert.match(g, /CHECKOUT_FAIL_MESSAGES\[reason\]/, 'uses the shared reason message')
+  // error line (now on the choice screen): centred, side padding, wraps
+  const choice = read('app/(site)/pay/choose/PayChoice.tsx')
+  assert.match(choice, /px-2 text-center text-xs font-semibold leading-relaxed text-tm-red/, 'error line wraps within 360px with padding')
+  assert.match(choice, /CHECKOUT_FAIL_MESSAGES\[reason\]/, 'uses the shared reason message')
   // button carries no amount (PR106-G6 §13 removed "Rs 199" from the fee line too)
-  assert.match(g, /\{busy \? 'Starting…' : 'Get verified now'\}/, 'button label has no amount')
+  assert.match(g, /Get verified now/, 'button label has no amount')
   assert.equal((g.match(/Rs 199/g) || []).length, 0, 'no amount anywhere on the final screen')
   assert.match(g, /Verification Fee\. We keep TutorMint clean of fake and spam accounts\./, 'fee line without the amount')
 })
 
-test('the dashboard card uses the same hardened hook + shared messages', () => {
+test('the dashboard card opens the choice screen (the hardened hook + shared messages live there)', () => {
   const c = read('components/tutor/GetVerifiedValueCard.tsx')
-  assert.match(c, /useVerifyCheckout\(\)/, 'same hook')
-  assert.match(c, /CHECKOUT_FAIL_MESSAGES\[reason\]/, 'same reason-based message')
+  assert.match(c, /href="\/pay\/choose\?plan=verified"/, 'opens the choice screen, which uses the hardened hook')
   assert.ok(!/payment|\bfee\b/i.test(c), 'still no money words in the card file itself')
 })

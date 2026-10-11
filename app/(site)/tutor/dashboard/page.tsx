@@ -23,6 +23,8 @@ import { viewSummary } from '@/lib/profileViews'
 import { canDownloadCv } from '@/lib/cv/access'
 import { needsOnboarding } from '@/lib/onboardingGate'
 import { pendingPayproInvoice } from '@/lib/payments/pendingInvoice'
+import { loadReceiptState } from '@/lib/payments/receipt'
+import PaymentReviewNotice from '@/components/payments/PaymentReviewNotice'
 import { loadPaymentsHistory } from '@/lib/paymentsHistory'
 import PaymentsRefunds from '@/components/dashboard/PaymentsRefunds'
 import { getOnboardingMode } from '@/lib/onboardingModeServer'
@@ -70,7 +72,13 @@ export default async function TutorDashboardPage() {
   // badge is assigned; this call records the showing (owner, 5 Oct 2026).
   const showVerifiedOnce = await firstVerifiedVisit(userId, !!ent.verified)
   const showValueCard = staffNew && !ent.verified
-  const pendingInvoice = !staffNew && !ent.verified ? await pendingPayproInvoice(userId) : null
+  // A bank-transfer receipt for the fee is with staff (owner, 11 Oct 2026): the
+  // dashboard says "Payment under review" in place of every pay prompt, and a
+  // refused receipt shows its reason with a way to send a new one.
+  const feeReceipt = ent.verified ? null : await loadReceiptState(userId, 'verified')
+  const feeUnderReview = feeReceipt?.state === 'under_review'
+  const openInvoice = !staffNew && !ent.verified ? await pendingPayproInvoice(userId) : null
+  const pendingInvoice = feeUnderReview ? null : openInvoice
 
   // PR71: the tutor's own city+areas scope drives both the "Tuitions for you"
   // tile and the action-bar count, so both agree with what /browse/tuitions
@@ -181,12 +189,15 @@ export default async function TutorDashboardPage() {
           findable={findable}
           completion={percent}
           publicHref={publicHref}
+          paymentUnderReview={feeUnderReview}
         />
+
+        {feeReceipt && <PaymentReviewNotice receipt={feeReceipt} href="/pay/choose?plan=verified" />}
 
         {/* PR106-G4b §5: value-first card for owner/staff; §6: everyone else keeps
             today's "Complete your payment" prompt. Both are hidden once the fee
             is paid (ent.verified). */}
-        {showValueCard && <GetVerifiedValueCard count={boardCount} city={city} />}
+        {showValueCard && <GetVerifiedValueCard count={boardCount} city={city} underReview={feeUnderReview} />}
         {pendingInvoice && <CompletePaymentPrompt url={pendingInvoice.url} />}
 
         {/* PR106-H4 §2: a required document was rejected — the badge is paused and

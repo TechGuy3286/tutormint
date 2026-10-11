@@ -111,14 +111,12 @@ test('the applications quota counter: Basic/Premium show the number, Featured ne
 test('the payment screens have Back / Pay later and a manual option', () => {
   const manual = read('app/(site)/pay/manual/[ref]/OrderPageNav.tsx')
   assert.ok(manual.includes('Back') && manual.includes('Pay later'), 'the order page has Back + Pay later')
+  // Repointed (owner, 11 Oct 2026): the manual option and its account details
+  // live on the payment choice screen, which the fee screen opens.
   const gate = read('components/upgrade/TutorVerifyGate.tsx')
-  assert.ok(gate.includes('Pay by bank transfer'), 'the fee screen offers the manual option')
-  // PR106-E consolidated the inline account details + the plain activation line
-  // into the one ManualPayDetails component (single source); the gate renders it.
-  assert.ok(gate.includes('ManualPayDetails'), 'the fee screen renders the shared manual-details block')
-  const details = read('components/payments/ManualPayDetails.tsx')
-  assert.ok(
-    details.includes('Bank transfer is activated after our team checks your payment'),
-    'the plain manual line (EN) lives in the shared block',
-  )
+  assert.ok(gate.includes('/pay/choose?plan=verified'), 'the fee screen opens the choice screen')
+  const choice = read('app/(site)/pay/choose/PayChoice.tsx')
+  assert.ok(choice.includes('Other method: bank transfer'), 'the choice screen offers the manual option')
+  assert.ok(choice.includes('activated after we check your receipt'), 'the plain manual line (EN)')
+  assert.ok(read('app/(site)/pay/choose/page.tsx').includes('<OrderPageNav'), 'the choice screen has Back + Pay later')
 })

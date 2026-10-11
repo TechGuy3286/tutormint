@@ -13,7 +13,8 @@ import { parseBody, z, uuid } from '@/lib/validate'
 // writes an admin_audit_log 'payment.approve' row; a manual transfer therefore
 // cannot reach an active subscription without a recorded human approval.
 //
-// owner + admin only (SCREEN_ACCESS.paymentsApprove), and — because approving a
+// owner, admin and operations (SCREEN_ACCESS.paymentsApprove — owner, 11 Oct
+// 2026); the view-only Partner is refused by checkAdminRole. Because approving a
 // payment grants money's worth of value — it requires a fresh password (reauth),
 // the same gate as a plan grant or a suspension.
 

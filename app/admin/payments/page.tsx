@@ -11,8 +11,9 @@ import PaymentQueue from './PaymentQueue'
 // Owner, Partner (view-only), admin and operations (owner, 8 Oct 2026, item 3).
 // Admin and operations see each payment's STATUS to help tutors, never an
 // amount or a total: withoutAmounts() strips the rupees on the server, here and
-// in the load-more route. Approving stays admin; marking refunded is owner
-// only. Approving a transfer additionally requires a fresh password (PR98 §4).
+// in the load-more route. Marking refunded is owner
+// only. Owner, admin and operations approve or reject a bank-transfer receipt
+// (owner, 11 Oct 2026); it additionally requires a fresh password (PR98 §4).
 //
 // Both lists page independently through lib/adminQueues.ts, which is also what
 // the load-more route calls -- one definition of the query, so the first
@@ -27,7 +28,7 @@ export default async function AdminPaymentsPage({
 }) {
   const actor = await requireAdminRole(...SCREEN_ACCESS.payments)
   const canApprove = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsApprove)
-  const canSettings = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsSettings)
+  const canGateways = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentGateways)
   const canSwitches = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsSwitches)
   const canReconcile = roleSatisfies(actor.adminRole, SCREEN_ACCESS.finance)
   const canRefund = roleSatisfies(actor.adminRole, SCREEN_ACCESS.paymentsRefund)
@@ -56,9 +57,9 @@ export default async function AdminPaymentsPage({
           Bank and wallet transfers wait here for approval; card payments confirm on their own.
         </p>
         <div className="flex flex-wrap gap-2">
-          {canSettings && (
+          {canGateways && (
             <Link
-              href="/admin/payments/bank-details"
+              href="/admin/payments/settings/gateways#bank-details"
               className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700"
             >
               <Landmark aria-hidden size={14} />
@@ -94,7 +95,7 @@ export default async function AdminPaymentsPage({
       </header>
 
       <PaymentQueue
-        payments={seesAmounts ? payments.rows : withoutAmounts(payments.rows)}
+        payments={seesAmounts ? payments.rows : withoutAmounts(payments.rows, { keepAwaiting: canApprove })}
         canRefund={canRefund}
         subscriptions={subscriptions.rows}
         filter={filter}

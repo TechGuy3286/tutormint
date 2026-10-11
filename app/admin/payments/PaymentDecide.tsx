@@ -29,8 +29,8 @@ export default function PaymentDecide({
 
   const approve = async () => {
     const ok = await confirm({
-      title: 'Approve this transfer?',
-      body: `This activates the plan for ${payerName} and notifies them. It cannot be undone.`,
+      title: 'Approve this bank transfer?',
+      body: `Check the receipt shows the amount expected, paid into our account. Approving activates it for ${payerName} and notifies them. It cannot be undone.`,
       confirmLabel: 'Approve',
     })
     if (!ok) return
@@ -42,7 +42,7 @@ export default function PaymentDecide({
     })
     setBusy(false)
     if (done) {
-      toast.success('Transfer approved — the plan is now active.')
+      toast.success('Bank transfer approved. It is active and the member has been told.')
       router.refresh()
     } else {
       toast.error(data?.error ?? 'Could not approve this transfer.')
@@ -50,7 +50,7 @@ export default function PaymentDecide({
   }
 
   const reject = async () => {
-    const reason = window.prompt('Why are you rejecting this transfer? The member will see this.')
+    const reason = window.prompt('Why are you rejecting this receipt? The member will see this and can upload a new one.')
     if (reason == null) return
     if (reason.trim().length < 3) {
       toast.error('Give a short reason the member can read.')
@@ -64,7 +64,7 @@ export default function PaymentDecide({
     })
     setBusy(false)
     if (done) {
-      toast.success('Transfer rejected — the member has been told.')
+      toast.success('Receipt rejected. The member has been told and can upload a new one. The old receipt stays on record.')
       router.refresh()
     } else {
       toast.error(data?.error ?? 'Could not reject this transfer.')

@@ -6,12 +6,7 @@ import { Loader2, RefreshCw } from 'lucide-react'
 
 import CnicCapture, { cnicChecklistItems, type CnicCaptureState } from '@/components/identity/CnicCapture'
 import { ChecklistStatus } from '@/components/forms/FormChecklist'
-import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
-import SubmitEscape from '@/components/SubmitEscape'
-import FriendlyPaymentError from '@/components/ui/FriendlyPaymentError'
-import CheckoutClosedNotice from '@/components/ui/CheckoutClosedNotice'
 import Link from 'next/link'
-import ManualPayDetails from '@/components/payments/ManualPayDetails'
 import type { ManualInstructions } from '@/lib/payments/provider'
 import type { IdentityState } from '@/lib/identity'
 import { DEFAULT_CHECKOUT_METHODS, type CheckoutMethods } from '@/lib/payments/gatewaySettingsCore'
@@ -28,11 +23,16 @@ import { DEFAULT_CHECKOUT_METHODS, type CheckoutMethods } from '@/lib/payments/g
 //     BACK tiles + checklist, PR81), then Verify (enabled once it is complete),
 //   * CNIC submitted / approved → a status line and a single Verify button
 //     straight to the payment page,
-//   * "Verify" routes to the payment page and does nothing else — NO price here.
+//   * "Verify" opens the payment CHOICE screen (owner, 11 Oct 2026 —
+//     /pay/choose?plan=verified) and does nothing else: no order is created and
+//     nothing is charged here. JazzCash (PayPro) or bank transfer is chosen
+//     there, and that screen alone shows the amount — NO price here.
 //
 // The images save to the tutor's profile automatically (kind 'cnic' — the private
 // identity-docs bucket; never re-uploaded elsewhere, never shown publicly).
 
+
+const PAY_CHOICE_HREF = '/pay/choose?plan=verified'
 
 export default function TutorVerifyGate({
   onClose,
@@ -40,19 +40,13 @@ export default function TutorVerifyGate({
   // is the last step and stays until paid; the tutor leaves via the site nav). In
   // the upgrade-sheet MODAL the dismiss is needed, so it defaults on.
   showDismiss = true,
-  // PR106-E §1/§2 — the manual account details (from app_settings, one source) and
-  // a "Pay later" link to the dashboard. Passed by the onboarding flow; absent in
-  // the upgrade sheet (then the bank line links to /pay/manual without numbers).
-  manual = null,
+  // Kept for the callers that still pass them; the bank details now live on the
+  // choice screen, so nothing here reads `manual`.
   payLaterHref,
-  // PR106-G4b §3 — owner/staff (switch "Staff only") hide the bank/manual
-  // transfer and the "Pay later" link on every payment surface. Default false
-  // keeps today's screen unchanged for everyone else.
+  // PR106-G4b §3 — owner/staff (switch "Staff only") hide the "Pay later" link.
   hideManual = false,
-  // Payment gateways (owner, 6 Oct 2026, item 19): which options the owner has
-  // switched on. Bank transfer and "Pay later" show ONLY when on; with online
-  // payment off, Verify goes to bank transfer. The checkout route enforces the
-  // same switches on the server.
+  // Payment gateways (owner, 6 Oct 2026, item 19): "Pay later" shows only while
+  // the owner has it switched on.
   methods = DEFAULT_CHECKOUT_METHODS,
 }: {
   onClose: () => void
@@ -62,16 +56,10 @@ export default function TutorVerifyGate({
   hideManual?: boolean
   methods?: CheckoutMethods
 }) {
-  // `hideManual` (owner/staff) can still hide the transfer; the owner's switch
-  // decides it for everyone else.
-  const showTransfer = methods.bankTransfer && !hideManual
   const showPayLater = methods.payLater && !hideManual
   const router = useRouter()
   const [cap, setCap] = useState<CnicCaptureState | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [closed, setClosed] = useState(false)
   const [starting, setStarting] = useState(false)
-  const [stuck, setStuck] = useState<string | null>(null)
   // The CNIC review state, loaded before anything renders, so a submitted card
   // is never asked for again (§2.1). null = still loading; loadError = the read
   // failed or timed out, so the step shows Retry rather than spinning forever
@@ -102,51 +90,11 @@ export default function TutorVerifyGate({
   }, [loadIdentityState])
 
 
-  async function start(method?: 'transfer') {
+  // The choice screen does the rest: it reads the amount from the plan, offers
+  // JazzCash (PayPro) or bank transfer, and refuses a paid or unavailable one.
+  function start() {
     setStarting(true)
-    setError(null)
-    setClosed(false)
-    // The one-time fee is a checkout for the 'verified' fee marker (Rs 199).
-    // No method → the normal online (PayPro) option; 'transfer' → bank transfer
-    // (the second option, activated after staff approval). PR106-C0 §2.
-    const { ok, data, error: failed } = await submitJson<{ mode?: string; url?: string; next?: string; code?: string }>(
-      '/api/payments/checkout',
-      { planCode: 'verified', ...(method ? { method } : {}) },
-    )
-    if (!ok || !data) {
-      // Online card isn't open for this account yet (PR106-G2 §0) → go straight
-      // to the always-available bank transfer rather than showing an error.
-      if (data?.code === 'use_transfer' && method !== 'transfer' && showTransfer) {
-        setStarting(false)
-        void start('transfer')
-        return
-      }
-      // Checkout not open to this account yet (403) → its own plain notice.
-      if (data?.code === 'checkout_closed') {
-        setClosed(true)
-        setStarting(false)
-        return
-      }
-      setError(failed ?? 'Could not start the payment.')
-      setStarting(false)
-      return
-    }
-    const target = data.mode === 'redirect' ? (data.url ?? '') : (data.next ?? '')
-    if (!target) {
-      setError('Could not start the payment.')
-      setStarting(false)
-      return
-    }
-    armEscape(() => {
-      setStarting(false)
-      setStuck(target)
-      setError(STUCK_MESSAGE)
-    })
-    if (data.mode === 'redirect') {
-      window.location.assign(target)
-      return
-    }
-    router.push(target)
+    router.push(PAY_CHOICE_HREF)
   }
 
   if (loadError) {
@@ -180,17 +128,10 @@ export default function TutorVerifyGate({
 
   const buttons = (
     <>
-      {closed && <CheckoutClosedNotice />}
-      {error && (
-        <div className="space-y-2">
-          {/* Never show raw error text on the payment/verify flow (PR66 §2). */}
-          {stuck ? <SubmitEscape href={stuck} /> : <FriendlyPaymentError />}
-        </div>
-      )}
       <div className="flex flex-col gap-2 sm:flex-row-reverse">
         <button
           type="button"
-          onClick={() => void start(methods.online ? undefined : 'transfer')}
+          onClick={start}
           disabled={starting || (!hasCnic && !cap?.ready)}
           className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-tm-red px-4 text-xs font-bold text-white hover:bg-tm-red-hover disabled:opacity-60"
         >
@@ -206,24 +147,6 @@ export default function TutorVerifyGate({
           </button>
         )}
       </div>
-      {/* Manual payment — the account details (one source: app_settings) directly
-          below the PayPro button, with "Pay by bank transfer" to submit proof and
-          the plain activation line (PR106-E §2). The online option above is
-          instant; a transfer is checked by staff first. PR106-G4b §3: hidden for
-          owner/staff, who go straight to PayPro. */}
-      {showTransfer && methods.online && (manual ? (
-        <ManualPayDetails instructions={manual} onTransfer={() => void start('transfer')} />
-      ) : (
-        <button
-          type="button"
-          onClick={() => void start('transfer')}
-          disabled={starting || (!hasCnic && !cap?.ready)}
-          className="min-h-[40px] w-full text-center text-[11px] font-bold text-tm-navy underline-offset-2 hover:underline disabled:opacity-60"
-        >
-          Or pay by bank transfer
-          <span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">یا بینک ٹرانسفر سے ادائیگی کریں</span>
-        </button>
-      ))}
 
       {/* PR106-E §1 — Pay later returns to the dashboard with nothing lost.
           PR106-G4b §3: hidden for owner/staff. */}

@@ -6,8 +6,6 @@ import { getViewerEntitlements } from '@/lib/entitlements'
 import { getProvider } from '@/lib/payments'
 import { checkoutVisibleFor, onlinePaymentOpen } from '@/lib/payments/paypro'
 import { checkoutMethodsOf, getGatewaySettings } from '@/lib/payments/gatewaySettings'
-import { manualInstructions } from '@/lib/payments/manual'
-import ManualPayDetails from '@/components/payments/ManualPayDetails'
 import PackagesTable, { type PlanRow } from '@/components/PackagesTable'
 import PackagesTabs from '@/components/membership-plans/PackagesTabs'
 import VerifiedPreview from '@/components/membership-plans/VerifiedPreview'
@@ -68,7 +66,7 @@ export default async function PackagesPage({
     checkoutOpen = checkoutOpen || (!!me && checkoutVisibleFor(me))
     const { data: pending } = await supabase
       .from('payments')
-      .select('provider_ref, provider')
+      .select('provider_ref, provider, plan_code')
       .eq('user_id', ent.userId)
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
@@ -77,7 +75,7 @@ export default async function PackagesPage({
     if (pending?.provider_ref) {
       resumeHref =
         pending.provider === 'manual'
-          ? `/pay/manual/${encodeURIComponent(pending.provider_ref as string)}`
+          ? `/pay/choose?plan=${encodeURIComponent((pending.plan_code as string) ?? '')}`
           : `/pay/return?ref=${encodeURIComponent(pending.provider_ref as string)}`
     }
   }
@@ -93,18 +91,17 @@ export default async function PackagesPage({
           ? 'parents'
           : 'tutors'
 
-  // PR106-E §1/§2 — the payment screen's exits + the manual account details
-  // (one source: app_settings), shown to a signed-in member who can check out.
+  // PR106-E §1 — the payment screen's exits. The bank details moved to the
+  // payment choice screen (owner, 11 Oct 2026 — /pay/choose), the one place a
+  // member picks how to pay.
   const dashHref = ent?.audience === 'parent' ? '/parent/dashboard' : '/tutor/dashboard'
   // Payment gateways (owner, 6 Oct 2026, item 19): bank transfer and "Pay later"
   // appear only while the owner has them switched on; Back always stays. The
   // checkout route refuses a switched-off method on the server too.
   const methods = checkoutMethodsOf(await getGatewaySettings())
-  const manual = checkoutOpen && ent && methods.bankTransfer ? await manualInstructions() : null
   const payFooter =
     checkoutOpen && ent ? (
       <div className="space-y-3">
-        {manual && <ManualPayDetails instructions={manual} />}
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link href={dashHref} className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-bold text-slate-700">
             Back<span lang="ur" dir="rtl" className="ms-1.5 font-semibold text-gray-500">واپس</span>

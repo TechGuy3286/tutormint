@@ -46,12 +46,15 @@ test('the payment-alert setting is OWNER-only', () => {
   assert.match(route, /checkAdminRole\(\.\.\.SCREEN_ACCESS\.paymentsSwitches\)/, 'owner-only screen (paymentsSwitches = [])')
   assert.match(route, /requireFreshAuth/, 'fresh password required')
   assert.match(route, /detail: \{ count: list\.length \}/, 'audit logs the count, not the addresses')
-  const page = read('app/admin/payments/bank-details/page.tsx')
-  assert.match(page, /isOwner && <AlertEmailsForm/, 'the form shows only to the owner')
+  // Moved with the bank details to the owner-only Payment gateways page (11 Oct 2026).
+  const page = read('app/admin/payments/settings/gateways/page.tsx')
+  assert.match(page, /requireAdminRole\(\.\.\.SCREEN_ACCESS\.paymentGateways\)/, 'an owner-only page')
+  assert.match(page, /<AlertEmailsForm/, 'the form shows only to the owner')
 })
 
 test('a bank transfer submitted alerts staff', () => {
-  const manual = read('app/api/payments/manual/route.ts')
+  // The receipt upload replaced the old transfer-submit route (owner, 11 Oct 2026).
+  const manual = read('app/api/payments/receipt/route.ts')
   assert.match(manual, /sendBankTransferPending\(/, 'bank transfer submit sends the waiting-for-approval alert')
 })
 

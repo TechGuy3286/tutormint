@@ -1,4 +1,5 @@
 import 'server-only'
+import { receiptIsPdf, receiptUnderReview } from '@/lib/payments/receiptCore'
 import { pageAll } from '@/lib/pageAll'
 import { parentsAwaitingReview } from '@/lib/parentDocuments'
 import {
@@ -589,6 +590,8 @@ export type QueuePaymentRow = {
   payerReference: string | null
   cameFrom: string | null
   hasScreenshot: boolean
+  /** The receipt is a PDF (opened in a new tab; the viewer shows images). */
+  receiptPdf: boolean
   status: 'pending' | 'approved' | 'rejected'
   rejectionReason: string | null
   createdAt: string
@@ -639,7 +642,11 @@ export async function loadPaymentQueue({
         'id, user_id, plan_code, amount_pkr, method, provider, provider_ref, reference, screenshot_path, status, rejection_reason, reviewed_at, created_at, utm_source, utm_medium, utm_campaign, refunded_amount_pkr, refund_method, refunded_at, note',
         { count: 'exact' },
       )
-    if (filter !== 'all') q = q.eq('status', filter)
+    // "Bank transfer receipts" (owner, 11 Oct 2026): transfers a member has sent
+    // proof of that still wait for a decision — the sidebar badge's own list.
+    if (filter === 'receipts') {
+      q = q.eq('status', 'pending').eq('provider', 'manual').or('screenshot_path.not.is.null,reference.not.is.null')
+    } else if (filter !== 'all') q = q.eq('status', filter)
     if (term) {
       // A PostgREST OR spanning a name match (via resolved ids) and the
       // references on the row. An empty payer list still lets a reference match
@@ -692,6 +699,7 @@ export async function loadPaymentQueue({
     payerReference: (p.reference as string) ?? null,
     cameFrom: describeUtm(p as Parameters<typeof describeUtm>[0]),
     hasScreenshot: !!p.screenshot_path,
+    receiptPdf: receiptIsPdf(p.screenshot_path as string | null),
     status: p.status as QueuePaymentRow['status'],
     rejectionReason: (p.rejection_reason as string) ?? null,
     createdAt: p.created_at as string,
@@ -1181,6 +1189,13 @@ export async function loadMemberTimeline({
  * load-more route both call it — so an amount never reaches that browser.
  * The status and the refund state stay: staff use them to help tutors.
  */
-export function withoutAmounts(rows: QueuePaymentRow[]): QueuePaymentRow[] {
-  return rows.map((r) => ({ ...r, amountPkr: null, refundedAmountPkr: null }))
+export function withoutAmounts(rows: QueuePaymentRow[], opts: { keepAwaiting?: boolean } = {}): QueuePaymentRow[] {
+  // ONE exception (owner, 11 Oct 2026): staff who may approve a bank-transfer
+  // receipt see the amount EXPECTED on a receipt that is waiting — they cannot
+  // check a receipt against a figure they are not shown. Nothing else.
+  return rows.map((r) =>
+    opts.keepAwaiting && receiptUnderReview({ status: r.status, provider: r.provider, screenshot_path: r.hasScreenshot ? 'y' : null, reference: r.payerReference })
+      ? { ...r, refundedAmountPkr: null }
+      : { ...r, amountPkr: null, refundedAmountPkr: null },
+  )
 }

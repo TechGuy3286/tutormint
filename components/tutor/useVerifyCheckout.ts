@@ -26,7 +26,10 @@ export const CHECKOUT_FAIL_MESSAGES: Record<CheckoutFailReason, string> = {
   ours: 'We couldn’t start the payment. Please try again, or message us on WhatsApp 0321 5872222.',
 }
 
-export function useVerifyCheckout() {
+// The payment choice screen (owner, 11 Oct 2026) is now the ONE caller: its
+// "Continue to JazzCash" button starts PayPro for whichever package is on the
+// screen, so the hook takes the plan code (default: the Verification Fee).
+export function useVerifyCheckout(planCode: string = 'verified') {
   const [busy, setBusy] = useState(false)
   const [reason, setReason] = useState<CheckoutFailReason | null>(null)
 
@@ -41,7 +44,7 @@ export function useVerifyCheckout() {
       const res = await fetch('/api/payments/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planCode: 'verified' }),
+        body: JSON.stringify({ planCode }),
         signal: controller.signal,
       })
       const data = (await res.json().catch(() => null)) as { mode?: string; url?: string; code?: string; error?: string } | null
@@ -66,7 +69,7 @@ export function useVerifyCheckout() {
     } finally {
       clearTimeout(timer)
     }
-  }, [])
+  }, [planCode])
 
   return { start, busy, reason }
 }

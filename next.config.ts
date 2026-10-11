@@ -1,4 +1,6 @@
 import type { NextConfig } from 'next'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 
 // Security headers, and the apex-to-www redirect.
 //
@@ -107,7 +109,16 @@ function supabaseHostname(): string {
   }
 }
 
+// Payment-method logos (owner, 11 Oct 2026). The choice screen shows a small
+// official logo beside each way to pay WHEN its file is in public/payments/ —
+// decided here at build time (public/ is not on the serverless filesystem), so
+// a missing file is a plain text label, never a broken image or a 404 request.
+const PAY_LOGO_FILES = ['jazzcash.svg', 'jazzcash.png', 'faysal-bank.svg', 'faysal-bank.png'].filter((f) =>
+  existsSync(join(process.cwd(), 'public', 'payments', f)),
+)
+
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_PAY_LOGOS: PAY_LOGO_FILES.join(',') },
   // Images (owner, 6 Oct 2026 — site speed). Every member photo and blog cover
   // lives in the Supabase PUBLIC buckets (avatars, blog, tutor-media, ads) and
   // was served raw: a 180–300 KB JPEG per avatar at full resolution, drawn at

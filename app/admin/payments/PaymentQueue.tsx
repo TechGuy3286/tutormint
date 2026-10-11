@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { Receipt } from 'lucide-react'
 
 import Link from 'next/link'
@@ -6,6 +7,8 @@ import InfiniteFooter from '@/components/InfiniteFooter'
 import QueueSearch from '@/components/admin/QueueSearch'
 import StatusChip from '@/components/admin/StatusChip'
 import PaymentDecide from './PaymentDecide'
+import DocumentViewer from '@/components/admin/DocumentViewer'
+import { channelLabel, receiptUnderReview } from '@/lib/payments/receiptCore'
 import RefundControl from './RefundControl'
 import { refundLabel } from '@/lib/payments/refundCore'
 import { formatDate, formatDateTime } from '@/lib/datetime'
@@ -33,15 +36,17 @@ export type SubscriptionRow = QueueSubscriptionRow
 
 const FILTERS = [
   { key: 'all', label: 'All' },
+  { key: 'receipts', label: 'Bank transfer receipts' },
   { key: 'pending', label: 'Waiting' },
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
 ]
 
-// A manual transfer the member has actually submitted (has their transaction
-// reference) and that is still pending — i.e. waiting for a person to approve it.
+// A bank transfer the member has actually sent proof of (a receipt, or on older
+// rows a transaction reference) and that is still pending — i.e. waiting for a
+// person to approve it. One rule with the badge and the member's own screen.
 function awaitingApproval(p: QueuePayment): boolean {
-  return p.status === 'pending' && p.provider === 'manual' && !!p.payerReference
+  return receiptUnderReview({ status: p.status, provider: p.provider, screenshot_path: p.hasScreenshot ? 'y' : null, reference: p.payerReference })
 }
 
 export default function PaymentQueue({
@@ -92,6 +97,8 @@ export default function PaymentQueue({
   // first occurrence (the fresh server row) wins — so each payment shows once.
   const allPayments = dedupeById([...payments, ...morePayments.items])
   const allSubs = dedupeById([...subscriptions, ...moreSubs.items])
+  // The receipt open in the shared viewer (one at a time), by payment id.
+  const [viewing, setViewing] = useState<{ id: string; name: string } | null>(null)
 
   return (
     <div className="space-y-5">
@@ -163,20 +170,20 @@ export default function PaymentQueue({
                 </div>
 
                 <dl className="grid grid-cols-2 gap-2 text-[11px]">
-                  <Cell label="Plan" value={p.planName} />
+                  <Cell label="Package" value={p.planName} />
                   {/* Amounts reach only the owner and the Partner; for other
                       staff the server sends null and the cell is left out. */}
                   {p.amountPkr !== null && (
-                    <Cell label="Amount" value={`Rs. ${p.amountPkr.toLocaleString('en-PK')}`} />
+                    <Cell
+                      label={awaitingApproval(p) ? 'Amount expected' : 'Amount'}
+                      value={`Rs. ${p.amountPkr.toLocaleString('en-PK')}`}
+                    />
                   )}
-                  {/* One consistent value for every manual transfer — "transfer"
-                      — regardless of the stored method (bank/easypaisa/null on
-                      older rows). Display mapping; the rows are not rewritten. */}
-                  <Cell
-                    label="Channel"
-                    value={p.provider === 'manual' ? 'transfer' : p.provider}
-                  />
-                  <Cell label="Submitted" value={formatDateTime(p.createdAt)} />
+                  {/* How it was paid, labelled the way Finance labels it — every
+                      bank transfer reads "Bank transfer", whatever the stored
+                      method on older rows, so it can be matched to a bank credit. */}
+                  <Cell label="Method" value={channelLabel(p.provider, p.method)} />
+                  <Cell label={awaitingApproval(p) ? 'Uploaded' : 'Submitted'} value={formatDateTime(p.createdAt)} />
                   <Cell label="Our reference" value={p.ourReference ?? '—'} mono />
                   <Cell label="Their transaction" value={p.payerReference ?? '—'} mono />
                   {/* Which ad produced a payment. This is the whole reason
@@ -191,17 +198,29 @@ export default function PaymentQueue({
                   </p>
                 )}
 
-                {p.hasScreenshot && (
-                  <a
-                    href={`/api/payments/proof/${p.id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
-                  >
-                    <Receipt aria-hidden size={14} />
-                    Open receipt
-                  </a>
-                )}
+                {/* The receipt: an image opens in the shared viewer (zoom, rotate);
+                    a PDF opens in a new tab. Served only through the gated route. */}
+                {p.hasScreenshot &&
+                  (p.receiptPdf ? (
+                    <a
+                      href={`/api/payments/proof/${p.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+                    >
+                      <Receipt aria-hidden size={14} />
+                      Open receipt (PDF)
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setViewing({ id: p.id, name: p.name })}
+                      className="gap-1.5 inline-flex min-h-[44px] items-center rounded-xl border border-gray-200 px-4 text-xs font-bold text-slate-700"
+                    >
+                      <Receipt aria-hidden size={14} />
+                      Open receipt
+                    </button>
+                  ))}
 
                 {canApprove && awaitingApproval(p) && (
                   <PaymentDecide paymentId={p.id} payerName={p.name} />
@@ -241,6 +260,13 @@ export default function PaymentQueue({
           />
         )}
       </section>
+
+      <DocumentViewer
+        images={viewing ? [{ src: `/api/payments/proof/${viewing.id}`, alt: `Bank transfer receipt — ${viewing.name}`, turnOnly: true }] : []}
+        index={viewing ? 0 : null}
+        onIndex={() => {}}
+        onClose={() => setViewing(null)}
+      />
 
       {/* ------------------------------------------------- subscriptions --- */}
       <section className="space-y-3">

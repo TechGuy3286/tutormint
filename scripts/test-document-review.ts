@@ -113,6 +113,8 @@ test('one shared viewer for every admin document image; the old one is gone', ()
   walk('components')
   walk('app')
   assert.deepEqual(users.sort(), [
+    // Bank-transfer receipts open in the same viewer (owner, 11 Oct 2026).
+    'app/admin/payments/PaymentQueue.tsx',
     'app/admin/tutors/TutorModerationClient.tsx',
     'components/admin/DocumentThumb.tsx',
     'components/admin/ParentDocumentReview.tsx',

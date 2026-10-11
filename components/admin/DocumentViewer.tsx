@@ -55,6 +55,10 @@ export type ViewerImage = {
   documentId?: string
   /** The member's id, when the image is their PROFILE PHOTO (rotatable). */
   profileId?: string
+  /** A picture with no saved rotation of its own (a bank-transfer receipt):
+   *  Rotate left / right turn it on screen for whoever is looking — a Partner
+   *  too — and nothing is stored, so there is no "Save rotation". */
+  turnOnly?: boolean
 }
 
 const subscribeNoop = () => () => {}
@@ -146,6 +150,8 @@ export default function DocumentViewer({
   if (!open || !inBrowser) return null
   const img = images[index as number]
   const canRotate = (!!img.documentId || !!img.profileId) && !readOnly
+  // A turn-only picture (a receipt) can be turned on screen, never saved.
+  const canTurn = canRotate || !!img.turnOnly
 
   const saveRotation = async () => {
     if (turns === 0 || saving) return
@@ -199,7 +205,8 @@ export default function DocumentViewer({
       zoom={zoom}
       pan={pan}
       turns={turns}
-      canRotate={canRotate}
+      canRotate={canTurn}
+      canSave={canRotate}
       saving={saving}
       onZoom={setZoom}
       onPan={setPan}
@@ -228,6 +235,7 @@ export function ViewerFrame({
   pan,
   turns,
   canRotate,
+  canSave = true,
   saving,
   onZoom,
   onPan,
@@ -242,6 +250,8 @@ export function ViewerFrame({
   pan: { x: number; y: number }
   turns: number
   canRotate: boolean
+  /** False for a turn-only picture: the rotate buttons show, "Save rotation" does not. */
+  canSave?: boolean
   saving: boolean
   onZoom: (next: number | ((z: number) => number)) => void
   onPan: (p: { x: number; y: number }) => void
@@ -406,14 +416,16 @@ export function ViewerFrame({
           <button type="button" onClick={() => onTurn(90)} className={TOOL_BTN}>
             <RotateCw size={16} aria-hidden /> Rotate right
           </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={turns === 0 || saving}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-white px-3 text-xs font-bold text-tm-navy disabled:opacity-40"
-          >
-            {saving ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Save size={16} aria-hidden />} Save rotation
-          </button>
+          {canSave && (
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={turns === 0 || saving}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-white px-3 text-xs font-bold text-tm-navy disabled:opacity-40"
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Save size={16} aria-hidden />} Save rotation
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -3,18 +3,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-import SubmitEscape from '@/components/SubmitEscape'
-import FriendlyPaymentError from '@/components/ui/FriendlyPaymentError'
-import CheckoutClosedNotice from '@/components/ui/CheckoutClosedNotice'
-import { armEscape, STUCK_MESSAGE, submitJson } from '@/lib/submit'
 import { usePathname } from 'next/navigation'
 
 // "Buy" on a plan card.
 //
-// It asks the server to start a checkout and then does whatever it is told:
-// redirect to a gateway, or go to the transfer-instructions page. The client
-// never decides which provider is in play, never sees the price it is paying
-// (the server reads that from the plans table), and never marks anything paid.
+// It opens the payment CHOICE screen (owner, 11 Oct 2026 — /pay/choose), which
+// shows the package with its price and the two ways to pay: JazzCash (PayPro)
+// or a bank transfer with a receipt. Nothing is created or charged here; that
+// screen sends an unverified tutor to get verified first, as checkout always did.
 //
 // A signed-out visitor is sent to /login?next=<this page> rather than being
 // hidden the button: the packages pages are a public sales surface, and the
@@ -27,102 +23,39 @@ export default function BuyButton({
   signedIn,
   upgrading,
   emphasis,
-  showTransfer,
-  onlineOff = false,
 }: {
   planCode: string
   planName: string
   signedIn: boolean
   upgrading: boolean
   emphasis?: boolean
-  /** Also offer "Pay by bank transfer" (gated accounts only, PR98 §4). */
+  /** Unused since the choice screen (11 Oct 2026) — both ways to pay are offered there. */
   showTransfer?: boolean
-  /** Item 19: online payment is switched off — the main button pays by bank transfer. */
+  /** Unused since the choice screen (11 Oct 2026). */
   onlineOff?: boolean
 }) {
   const router = useRouter()
   const pathname = usePathname()
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [stuck, setStuck] = useState<string | null>(null)
-  const [closed, setClosed] = useState(false)
 
   // "Upgrade" when the member holds a lower plan (PackagesTable only renders
   // this button on the held plan's higher tiers); "Get X" for a first purchase.
   const label = upgrading ? `Upgrade to ${planName}` : `Get ${planName}`
 
-  const start = async (method: 'card' | 'transfer' = 'card') => {
+  const start = () => {
     if (!signedIn) {
       router.push(`/login?next=${encodeURIComponent(`${pathname}?plan=${planCode}`)}`)
       return
     }
-
     setBusy(true)
-    setError(null)
-    setClosed(false)
-    const { ok, data, error: failed } = await submitJson<{
-      mode?: string
-      url?: string
-      next?: string
-      needsVerify?: boolean
-      verifyHref?: string
-      code?: string
-    }>('/api/payments/checkout', { planCode, method })
-
-    // Verification before plan (PR32 §3): an unverified tutor tapping Premium or
-    // Featured is sent to get verified FIRST, carrying a return to the plan they
-    // chose, rather than shown a dead error.
-    if (data?.needsVerify && data.verifyHref) {
-      const back = `${pathname}?plan=${planCode}`
-      const sep = data.verifyHref.includes('?') ? '&' : '?'
-      router.push(`${data.verifyHref}${sep}next=${encodeURIComponent(back)}`)
-      return
-    }
-
-    if (!ok || !data) {
-      // Checkout not open to this account yet (403) → its own plain notice, not
-      // the generic error box (PR104 §5).
-      if (data?.code === 'checkout_closed') {
-        setClosed(true)
-        setBusy(false)
-        return
-      }
-      setError(failed ?? 'Could not start the payment.')
-      setBusy(false)
-      return
-    }
-
-    // Either destination is a hand-off, so the spinner is meant to end with
-    // the page — but a checkout button that spins forever is the worst one on
-    // the platform to get wrong, because the member's next move is to press it
-    // again. The deadline hands them the link instead.
-    const target = data.mode === 'redirect' ? (data.url ?? '') : (data.next ?? '')
-    if (!target) {
-      setError('Could not start the payment.')
-      setBusy(false)
-      return
-    }
-
-    armEscape(() => {
-      setBusy(false)
-      setStuck(target)
-      setError(STUCK_MESSAGE)
-    })
-
-    if (data.mode === 'redirect') {
-      // A real gateway is off-origin, so this is a full navigation, not a
-      // client-side route change.
-      window.location.assign(target)
-      return
-    }
-    router.push(target)
+    router.push(`/pay/choose?plan=${encodeURIComponent(planCode)}`)
   }
 
   return (
     <div className="space-y-1.5">
       <button
         type="button"
-        onClick={() => start(onlineOff ? 'transfer' : 'card')}
+        onClick={start}
         disabled={busy}
         className={`min-h-[44px] w-full rounded-xl px-4 text-xs font-bold text-white transition-colors disabled:opacity-60 ${
           emphasis ? 'bg-tm-red hover:bg-tm-red-hover' : 'bg-tm-black hover:bg-slate-800'
@@ -130,25 +63,6 @@ export default function BuyButton({
       >
         {busy ? 'Starting…' : label}
       </button>
-      {showTransfer && !onlineOff && (
-        <button
-          type="button"
-          onClick={() => start('transfer')}
-          disabled={busy}
-          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white px-4 text-[11px] font-bold text-slate-700 hover:border-tm-navy disabled:opacity-60"
-        >
-          Pay by bank transfer
-          <span lang="ur" dir="rtl" className="ml-1 text-gray-500">بینک ٹرانسفر</span>
-        </button>
-      )}
-      {closed && <CheckoutClosedNotice />}
-      {error && (
-        <div className="space-y-2">
-          {/* The "stuck" case has a real link to continue (PR66 §2: never show raw
-              error text — the friendly message covers a genuine failure). */}
-          {stuck ? <SubmitEscape href={stuck} /> : <FriendlyPaymentError />}
-        </div>
-      )}
     </div>
   )
 }

@@ -22,25 +22,26 @@ const read = (p: string) => readFileSync(join(ROOT, p), 'utf8')
 
 // ---------------------------------------------- STEP 1: payment exits ----------
 
-test('ManualPayDetails exists and reads every number from the instructions prop — no hardcoded account/number', () => {
-  const p = 'components/payments/ManualPayDetails.tsx'
+// Repointed (owner, 11 Oct 2026): the bank details moved from the inline
+// ManualPayDetails block to the bank panel of the payment choice screen.
+test('the bank panel reads every value from the owner’s settings — no hardcoded account/number', () => {
+  const p = 'app/(site)/pay/choose/PayChoice.tsx'
   assert.ok(existsSync(join(ROOT, p)), 'component present')
   const src = read(p)
-  // Values come only from the `instructions` prop (one source: manualInstructions()).
-  assert.ok(/const i = instructions/.test(src), 'aliases the instructions prop')
-  assert.ok(/i\.jazzcash/.test(src) && /i\.iban/.test(src), 'renders fields from the prop')
-  // No literal Pakistani account/phone numbers baked in (JazzCash/Easypaisa/IBAN).
-  assert.ok(!/\b0\d{3}[- ]?\d{7}\b/.test(src), 'no hardcoded mobile-wallet number')
+  assert.ok(/bank\.accountNumber/.test(src) && /bank\.iban/.test(src), 'renders fields from the prop')
+  assert.ok(read('lib/payments/receipt.ts').includes('manualInstructions()'), 'the one source: manualInstructions()')
+  // No literal Pakistani account/phone numbers baked in (the support line aside).
+  assert.ok(!/\b03\d{2}[- ]?\d{7}\b/.test(src.replace(/0321 5872222/g, '')), 'no hardcoded mobile-wallet number')
   assert.ok(!/PK\d{2}[A-Z0-9]/.test(src), 'no hardcoded IBAN')
-  assert.ok(/activated after our team checks/i.test(src), 'plain activation line (EN)')
-  assert.ok(/lang="ur"/.test(src) && /dir="rtl"/.test(src), 'Urdu activation line')
+  assert.ok(/activated after we check your receipt/i.test(src), 'plain activation line (EN)')
+  assert.ok(/lang="ur"/.test(src) && /dir="rtl"/.test(src), 'Urdu lines')
 })
 
-test('the fee step (TutorVerifyGate) offers inline bank details and a pay-later exit', () => {
+test('the fee step (TutorVerifyGate) opens the choice screen and keeps a pay-later exit', () => {
   const src = read('components/upgrade/TutorVerifyGate.tsx')
-  assert.ok(src.includes('ManualPayDetails'), 'inline manual details')
+  assert.ok(src.includes('/pay/choose?plan=verified'), 'opens the choice screen')
   assert.ok(/payLaterHref/.test(src), 'a pay-later href prop')
-  assert.ok(/manual/.test(src), 'takes the manual instructions')
+  assert.ok(/manual/.test(src), 'still accepts the manual instructions its callers pass')
 })
 
 test('CompleteProfileFlow passes manual details + a pay-later href to the fee step', () => {
@@ -61,10 +62,9 @@ test('both entry pages load the ONE manualInstructions() source and pass it in',
   }
 })
 
-test('Membership Plans checkout shows inline details + Back + Pay later to the right dashboard', () => {
+test('Membership Plans checkout shows Back + Pay later to the right dashboard; the details are on the choice screen', () => {
   const src = read('app/(site)/membership-plans/page.tsx')
-  assert.ok(src.includes('ManualPayDetails'), 'inline manual details on checkout')
-  assert.ok(/manualInstructions\(\)/.test(src), 'the one source')
+  assert.ok(read('components/membership-plans/BuyButton.tsx').includes('/pay/choose?plan='), 'Buy opens the choice screen')
   assert.ok(/parent\/dashboard/.test(src) && /tutor\/dashboard/.test(src), 'dashboard by audience')
   assert.ok(/checkoutOpen/.test(src), 'details only while a plan is being bought')
 })
