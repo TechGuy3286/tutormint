@@ -189,7 +189,7 @@ test('a duplicate bank reference is refused; a credit needs a date, an amount an
   assert.match(creditProblem({ ...ok, date: '9 Oct' }, []) ?? '', /date/)
   const sql = read('supabase', 'migrations', '162_settlements_matching.sql')
   assert.ok(sql.includes('bank_transfers_manual_reference_uidx'), 'the database refuses it too')
-  assert.ok(read('app', 'api', 'admin', 'payments', 'settlement', 'credits', 'route.ts').includes('result.duplicate ? 409 : 400'))
+  assert.ok(read('app', 'api', 'admin', 'payments', 'settlement', 'credits', 'route.ts').includes('only.duplicate ? 409 : 400'))
 })
 
 test('the email-text parser reads amount, date, time, sender, sender bank and reference', () => {

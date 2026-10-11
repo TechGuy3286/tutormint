@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState, type FormEvent } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Download, Link2, Plus, Upload } from 'lucide-react'
 
@@ -9,13 +9,16 @@ import { useToast } from '@/components/ui/Toast'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDate, formatDateTime } from '@/lib/datetime'
 import { pkr } from '@/lib/reconciliationCore'
-import { isPayproSender, parseBankAlert, type CreditView, type OrderView } from '@/lib/settlementMatchCore'
+import type { CreditView, OrderView } from '@/lib/settlementMatchCore'
 import type { SettlementsBoard as BoardData } from '@/lib/settlementMatch'
+
+import AddBankCredits from './AddBankCredits'
 
 // Settlements (owner, 11 Oct 2026): what customers paid against what reached the
 // bank, for one month. Everything shown is worked out on the server
 // (lib/settlementMatchCore). The owner uploads the PayPro export, adds bank
-// credits, and may link or unlink a credit by hand; the Partner sees the same
+// credits by pasting the bank's alerts (AddBankCredits), and may link, unlink or
+// ignore ("not a sale") a credit by hand — a credit is never deleted; the Partner sees the same
 // page with no buttons, and the server refuses their writes anyway. Nothing here
 // changes a payment.
 
@@ -31,7 +34,7 @@ const CHIP = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font
 
 type Tab = 'attention' | 'matched' | 'orders' | 'receipts' | 'credits'
 
-const EMPTY_CREDIT = { date: '', time: '', amountPkr: '', senderName: '', senderBank: '', reference: '', note: '', isPaypro: true }
+type LinkMode = 'link' | 'unlink' | 'ignore'
 
 function monthName(ym: string): string {
   const [y, m] = ym.split('-').map(Number)
@@ -57,10 +60,8 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
   const [tab, setTab] = useState<Tab>('attention')
   const [busy, setBusy] = useState<string | null>(null)
   const [showCredit, setShowCredit] = useState(false)
-  const [credit, setCredit] = useState(EMPTY_CREDIT)
-  const [alertText, setAlertText] = useState('')
   const [uploaded, setUploaded] = useState<{ newCount: number; updatedCount: number; unknownOrders: string[] } | null>(null)
-  const [linking, setLinking] = useState<{ id: string; mode: 'link' | 'unlink' } | null>(null)
+  const [linking, setLinking] = useState<{ id: string; mode: LinkMode } | null>(null)
   const [pickOrders, setPickOrders] = useState<string[]>([])
   const [pickReceipts, setPickReceipts] = useState<string[]>([])
   const [note, setNote] = useState('')
@@ -96,53 +97,14 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
     }
   }
 
-  const readAlert = () => {
-    const p = parseBankAlert(alertText)
-    if (p.amountPkr === null && !p.date && !p.reference) {
-      toast.error('We could not read that text. Type the details in the boxes below.')
-      return
-    }
-    setCredit((c) => ({
-      ...c,
-      date: p.date ?? c.date,
-      time: p.time ?? c.time,
-      amountPkr: p.amountPkr !== null ? String(p.amountPkr) : c.amountPkr,
-      senderName: p.senderName ?? c.senderName,
-      senderBank: p.senderBank ?? c.senderBank,
-      reference: p.reference ?? c.reference,
-      isPaypro: p.senderName ? isPayproSender(p.senderName) : c.isPaypro,
-    }))
-    toast.success('Details filled in. Check each box, then save.')
-  }
-
-  const saveCredit = async (e: FormEvent) => {
-    e.preventDefault()
-    setBusy('credit')
-    const { ok, data: d } = await adminFetch<{ error?: string }>('/api/admin/payments/settlement/credits', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...credit, time: credit.time || null }),
-    })
-    setBusy(null)
-    if (!ok) {
-      toast.error(d?.error ?? 'That did not save. Please try again.')
-      return
-    }
-    toast.success('Bank credit added.')
-    setCredit(EMPTY_CREDIT)
-    setAlertText('')
-    setShowCredit(false)
-    router.refresh()
-  }
-
-  const openLink = (c: CreditView, mode: 'link' | 'unlink') => {
+  const openLink = (c: CreditView, mode: LinkMode) => {
     setLinking({ id: c.id, mode })
     setPickOrders(c.match?.orders ?? [])
     setPickReceipts(c.match?.receipts ?? [])
     setNote('')
   }
 
-  const sendLink = async (transferId: string, action: 'link' | 'unlink' | 'auto') => {
+  const sendLink = async (transferId: string, action: LinkMode | 'auto') => {
     setBusy(`link-${transferId}`)
     const { ok, data: d } = await adminFetch<{ error?: string }>('/api/admin/payments/settlement/links', {
       method: 'POST',
@@ -154,7 +116,7 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
       toast.error(d?.error ?? 'That did not save. Please try again.')
       return
     }
-    toast.success(action === 'link' ? 'Linked.' : action === 'unlink' ? 'Unlinked.' : 'Back to automatic matching.')
+    toast.success(action === 'link' ? 'Linked.' : action === 'unlink' ? 'Unlinked.' : action === 'ignore' ? 'Marked as ignored (not a sale).' : 'Back to automatic matching.')
     setLinking(null)
     router.refresh()
   }
@@ -163,7 +125,7 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
 
   const creditCard = (c: CreditView) => {
     const m = c.match
-    const manual = m?.status === 'manual' || c.state === 'held'
+    const manual = m?.status === 'manual' || c.state === 'held' || c.state === 'ignored'
     const open = linking?.id === c.id
     // Already-linked orders stay tickable while re-linking this credit.
     const orderOptions = [
@@ -192,6 +154,8 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
             ) : (
               <span className={`${CHIP} bg-tm-tint-green text-tm-green-deep`}>✅ Matched{m!.status === 'manual' ? ' by hand' : ''}</span>
             )
+          ) : c.state === 'ignored' ? (
+            <span className={`${CHIP} bg-tm-bg text-gray-600`}>Ignored (not a sale)</span>
           ) : (
             <span className={`${CHIP} bg-tm-tint-red text-tm-red`}>❓ Not matched</span>
           )}
@@ -221,6 +185,11 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
           </div>
         )}
         {c.state === 'held' && <p className="text-[11px] text-slate-700">Unlinked by hand — it is not matched automatically.</p>}
+        {c.state === 'ignored' && (
+          <p className="text-[11px] text-slate-700">
+            Ignored (not a sale) — it is not matched and not counted as unmatched.{c.ignoreNote ? ` Note: ${c.ignoreNote}` : ''}
+          </p>
+        )}
         {!readOnly && !open && (
           <div className="flex flex-wrap gap-2 pt-1">
             <button type="button" onClick={() => openLink(c, 'link')} className={GHOST}>
@@ -229,6 +198,11 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
             {c.state === 'matched' && (
               <button type="button" onClick={() => openLink(c, 'unlink')} className={GHOST}>
                 Unlink
+              </button>
+            )}
+            {c.state !== 'ignored' && (
+              <button type="button" onClick={() => openLink(c, 'ignore')} className={GHOST}>
+                Ignore (not a sale)
               </button>
             )}
             {manual && (
@@ -266,8 +240,12 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
                   </p>
                 )}
               </>
-            ) : (
+            ) : linking!.mode === 'unlink' ? (
               <p className="text-xs font-bold text-tm-navy">Unlink this credit? It will show as not matched.</p>
+            ) : (
+              <p className="text-xs font-bold text-tm-navy">
+                Ignore this credit (not a sale)? It is unlinked and no longer counts as unmatched. It stays on record; &ldquo;Back to automatic&rdquo; undoes this.
+              </p>
             )}
             <label className="block">
               <span className={LABEL}>Note (why)</span>
@@ -275,7 +253,7 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
             </label>
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled={busy !== null} onClick={() => void sendLink(c.id, linking!.mode)} className={BUTTON}>
-                {busy === `link-${c.id}` ? 'Saving…' : linking!.mode === 'link' ? 'Save link' : 'Unlink'}
+                {busy === `link-${c.id}` ? 'Saving…' : linking!.mode === 'link' ? 'Save link' : linking!.mode === 'unlink' ? 'Unlink' : 'Ignore (not a sale)'}
               </button>
               <button type="button" onClick={() => setLinking(null)} className={GHOST}>
                 Cancel
@@ -362,62 +340,7 @@ export default function SettlementsBoard({ data }: { data: BoardData }) {
                 <Plus aria-hidden size={14} /> Add bank credit
               </button>
             ) : (
-              <form onSubmit={saveCredit} className="space-y-2">
-                <p className="text-xs font-black text-tm-navy">Add bank credit</p>
-                <label className="block">
-                  <span className={LABEL}>Paste the bank alert email (optional)</span>
-                  <textarea value={alertText} onChange={(e) => setAlertText(e.target.value)} rows={4} className={`${INPUT} py-2`} />
-                </label>
-                <button type="button" onClick={readAlert} disabled={!alertText.trim()} className={GHOST}>
-                  Fill in from this text
-                </button>
-                <div className="grid grid-cols-2 gap-2">
-                  <label>
-                    <span className={LABEL}>Date</span>
-                    <input type="date" required value={credit.date} onChange={(e) => setCredit({ ...credit, date: e.target.value })} className={INPUT} />
-                  </label>
-                  <label>
-                    <span className={LABEL}>Time</span>
-                    <input type="time" value={credit.time} onChange={(e) => setCredit({ ...credit, time: e.target.value })} className={INPUT} />
-                  </label>
-                  <label>
-                    <span className={LABEL}>Amount (Rs)</span>
-                    <input required inputMode="decimal" value={credit.amountPkr} onChange={(e) => setCredit({ ...credit, amountPkr: e.target.value })} className={INPUT} />
-                  </label>
-                  <label>
-                    <span className={LABEL}>Transaction reference</span>
-                    <input required value={credit.reference} onChange={(e) => setCredit({ ...credit, reference: e.target.value })} className={INPUT} />
-                  </label>
-                  <label>
-                    <span className={LABEL}>Sender name</span>
-                    <input
-                      value={credit.senderName}
-                      onChange={(e) => setCredit({ ...credit, senderName: e.target.value, isPaypro: e.target.value.trim() ? isPayproSender(e.target.value) : credit.isPaypro })}
-                      className={INPUT}
-                    />
-                  </label>
-                  <label>
-                    <span className={LABEL}>Sender bank (optional)</span>
-                    <input value={credit.senderBank} onChange={(e) => setCredit({ ...credit, senderBank: e.target.value })} className={INPUT} />
-                  </label>
-                  <label className="col-span-2">
-                    <span className={LABEL}>Note (optional)</span>
-                    <input value={credit.note} onChange={(e) => setCredit({ ...credit, note: e.target.value })} className={INPUT} maxLength={500} />
-                  </label>
-                </div>
-                <label className="flex min-h-[44px] items-center gap-2 text-xs text-slate-700">
-                  <input type="checkbox" checked={credit.isPaypro} onChange={(e) => setCredit({ ...credit, isPaypro: e.target.checked })} />
-                  This is a PayPro payout (untick for a member&rsquo;s own bank transfer)
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <button type="submit" disabled={busy !== null} className={BUTTON}>
-                    {busy === 'credit' ? 'Saving…' : 'Save bank credit'}
-                  </button>
-                  <button type="button" onClick={() => setShowCredit(false)} className={GHOST}>
-                    Cancel
-                  </button>
-                </div>
-              </form>
+              <AddBankCredits onClose={() => setShowCredit(false)} />
             )}
           </div>
         </section>

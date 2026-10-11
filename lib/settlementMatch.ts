@@ -24,7 +24,10 @@ import { pkDay } from '@/lib/settlementCore'
 import {
   buildBoard,
   creditProblem,
+  matchSummary,
   monthView,
+  NOT_A_SALE,
+  refKey,
   type Credit,
   type ManualLink,
   type MonthView,
@@ -236,6 +239,50 @@ export async function addBankCredit(input: CreditInput, actor: Actor): Promise<{
   return { ok: true, id: data.id }
 }
 
+export type CreditSaveResult =
+  | { reference: string; ok: true; id: string; matched: boolean; match: string }
+  | { reference: string; ok: false; duplicate: boolean; error: string }
+
+/**
+ * Save several bank credits (a paste of one or more bank alerts), then run the
+ * automatic matching and say what each saved credit matched. A credit whose
+ * reference is already recorded is skipped, never saved twice; the others are
+ * still saved.
+ */
+export async function addBankCredits(inputs: CreditInput[], actor: Actor): Promise<CreditSaveResult[]> {
+  const results: CreditSaveResult[] = []
+  for (const input of inputs) {
+    const r = await addBankCredit(input, actor)
+    results.push(
+      r.ok
+        ? { reference: input.reference, ok: true, id: r.id, matched: false, match: 'No match yet' }
+        : { reference: input.reference, ok: false, duplicate: !!r.duplicate, error: r.error },
+    )
+  }
+  if (results.some((r) => r.ok)) {
+    const all = await loadAll()
+    if (all) {
+      const board = buildBoard({ ...all, nowIso: new Date().toISOString() })
+      for (const r of results) {
+        if (!r.ok) continue
+        const m = matchSummary(board, r.id)
+        r.matched = m.matched
+        r.match = m.text
+      }
+    }
+  }
+  return results
+}
+
+/** Which of these references are already recorded as a bank credit. */
+export async function recordedReferences(references: string[]): Promise<string[]> {
+  const admin = createAdminClient()
+  if (!admin) return []
+  const existing = await pageAll((from, to) => admin.from('bank_transfers').select('id, reference').not('reference', 'is', null).order('id').range(from, to))
+  const have = new Set(((existing ?? []) as { reference: string | null }[]).map((r) => refKey(r.reference)))
+  return references.filter((r) => refKey(r) !== '' && have.has(refKey(r)))
+}
+
 // ---------------------------------------------------------------------------
 // Manual links
 // ---------------------------------------------------------------------------
@@ -257,11 +304,13 @@ async function clearLinks(transferId: string, actor: Actor): Promise<boolean> {
  * The owner's decision for one bank credit:
  *   link    this credit pays exactly these orders and receipts
  *   unlink  leave this credit unmatched (no automatic match either)
+ *   ignore  "Ignore (not a sale)": unlinked, and no longer counted as unmatched.
+ *           A credit can never be deleted; this is how a wrong one is set aside.
  *   auto    forget the manual decision and match automatically again
  * Earlier decisions for the credit are kept, marked removed.
  */
 export async function setCreditLinks(
-  input: { transferId: string; action: 'link' | 'unlink' | 'auto'; orders?: string[]; receipts?: string[]; note?: string | null },
+  input: { transferId: string; action: 'link' | 'unlink' | 'ignore' | 'auto'; orders?: string[]; receipts?: string[]; note?: string | null },
   actor: Actor,
 ): Promise<LinkResult> {
   const admin = createAdminClient()
@@ -301,6 +350,8 @@ export async function setCreditLinks(
     const rows: { transfer_id: string; note: string | null; linked_by: string; linked_by_email: string | null; kind: string; target: string | null }[] =
       input.action === 'unlink'
         ? [{ ...base, kind: 'none', target: null }]
+        : input.action === 'ignore'
+          ? [{ ...base, kind: 'none', target: NOT_A_SALE }]
         : [...orders.map((o) => ({ ...base, kind: 'order', target: o })), ...receipts.map((r) => ({ ...base, kind: 'receipt', target: r }))]
     const { error } = await admin.from('settlement_links').insert(rows)
     if (error) return { ok: false, error: 'That did not save. Please try again.' }
@@ -310,10 +361,11 @@ export async function setCreditLinks(
     actorId: actor.id,
     actorRole: actor.adminRole,
     actorEmail: actor.email ?? null,
-    action: input.action === 'link' ? 'settlement.link' : input.action === 'unlink' ? 'settlement.unlink' : 'settlement.link_reset',
+    action:
+      input.action === 'link' ? 'settlement.link' : input.action === 'unlink' ? 'settlement.unlink' : input.action === 'ignore' ? 'settlement.ignore' : 'settlement.link_reset',
     targetType: 'bank_transfer',
     targetId: input.transferId,
-    detail: { amountPkr: num(transfer.amount_pkr), reference: transfer.reference, orders, receipts, note },
+    detail: { amountPkr: num(transfer.amount_pkr), reference: transfer.reference, orders: input.action === 'link' ? orders : [], receipts: input.action === 'link' ? receipts : [], note },
   })
   return { ok: true }
 }

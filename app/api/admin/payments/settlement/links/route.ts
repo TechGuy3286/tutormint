@@ -9,14 +9,15 @@ import { parseBody, z } from '@/lib/validate'
 // checkAdminRole.
 //   link    this credit pays exactly these orders / approved bank transfers
 //   unlink  leave this credit unmatched
+//   ignore  "Ignore (not a sale)": unlinked and no longer counted as unmatched
 //   auto    forget the manual decision; match automatically again
-// A note is required for link and unlink. Audit-logged in lib/settlementMatch.
+// A note is required for link, unlink and ignore. Audit-logged in lib/settlementMatch.
 
 export const runtime = 'nodejs'
 
 const Body = z.object({
   transferId: z.guid(),
-  action: z.enum(['link', 'unlink', 'auto']),
+  action: z.enum(['link', 'unlink', 'ignore', 'auto']),
   orders: z.array(z.string().max(120)).max(200).optional(),
   receipts: z.array(z.guid()).max(200).optional(),
   note: z.string().max(500, 'Keep the note under 500 characters.').optional().nullable(),

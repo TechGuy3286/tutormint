@@ -125,6 +125,11 @@ export type Receipt = {
   payerName: string | null
 }
 
+/** `target` of a 'none' link that means "Ignore (not a sale)" rather than a plain
+ *  hold. Stored this way so no schema change is needed (settlement_links.kind is
+ *  CHECKed to order | receipt | none; target is free text). */
+export const NOT_A_SALE = 'not_a_sale'
+
 export type ManualLink = { transferId: string; kind: 'order' | 'receipt' | 'none'; target: string | null; note: string | null }
 
 // ---------------------------------------------------------------------------
@@ -173,7 +178,9 @@ export type OrderView = {
 
 export type ReceiptView = Receipt & { state: 'matched' | 'waiting'; creditId: string | null; ageDays: number; overdue: boolean }
 
-export type CreditView = Credit & { state: 'matched' | 'unmatched' | 'held'; match: CreditMatch | null }
+/** 'ignored' = the owner marked it "Ignore (not a sale)": never matched, and not
+ *  counted as unmatched. */
+export type CreditView = Credit & { state: 'matched' | 'unmatched' | 'held' | 'ignored'; match: CreditMatch | null; ignoreNote: string | null }
 
 export type Board = {
   hasExport: boolean
@@ -230,6 +237,9 @@ export function isPayproSender(name: string | null | undefined): boolean {
 }
 
 const alnum = (s: string | null | undefined) => (s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+/** A reference with case, spaces and punctuation removed — how two are compared. */
+export const refKey = alnum
 
 function referenceMatches(credit: Credit, receipt: Receipt): boolean {
   const a = alnum(receipt.transactionId)
@@ -293,6 +303,7 @@ export function buildBoard(input: {
 
   const matches = new Map<string, CreditMatch>()
   const held = new Set<string>()
+  const ignored = new Map<string, string | null>()
   const share = (list: Order[]) => round2(list.reduce((s, o) => s + (o.merchantShare ?? 0), 0))
 
   const take = (credit: Credit, picked: Order[], recs: ReceiptView[], status: MatchStatus, how: string, note: string | null = null) => {
@@ -323,8 +334,10 @@ export function buildBoard(input: {
   for (const c of credits) {
     const ls = linksBy.get(c.id)
     if (!ls || ls.length === 0) continue
-    if (ls.some((l) => l.kind === 'none')) {
+    const none = ls.find((l) => l.kind === 'none')
+    if (none) {
       held.add(c.id)
+      if (none.target === NOT_A_SALE) ignored.set(c.id, none.note)
       continue
     }
     const picked = ls
@@ -483,7 +496,12 @@ export function buildBoard(input: {
     receipts,
     credits: credits.map((c) => {
       const match = matches.get(c.id) ?? null
-      return { ...c, state: match ? 'matched' : held.has(c.id) ? 'held' : 'unmatched', match }
+      return {
+        ...c,
+        state: match ? 'matched' : ignored.has(c.id) ? 'ignored' : held.has(c.id) ? 'held' : 'unmatched',
+        match,
+        ignoreNote: ignored.get(c.id) ?? null,
+      }
     }),
     matches: [...matches.values()],
     missingFromExport,
@@ -546,6 +564,7 @@ export function monthView(board: Board, ourPaypro: OurPaypro[], month: string): 
       }
       continue
     }
+    if (c.state === 'ignored') continue
     attention.push({
       kind: 'credit_unmatched',
       icon: '❓',
@@ -685,7 +704,7 @@ export function monthCsv(view: MonthView): string {
     lines.push(['Bank transfer', r.approvedDay, r.ref, 'Bank transfer', r.amountPkr, r.amountPkr, 0, '', r.state === 'matched' ? 'Matched' : 'No bank credit yet' + (r.overdue ? ' (overdue)' : ''), ...credit(r.creditId)])
   }
   for (const c of view.credits) {
-    const status = c.state === 'matched' ? (c.match!.status === 'amount_mismatch' ? 'Amount mismatch' : c.match!.status === 'manual' ? 'Matched by hand' : 'Matched') : 'Not matched'
+    const status = c.state === 'matched' ? (c.match!.status === 'amount_mismatch' ? 'Amount mismatch' : c.match!.status === 'manual' ? 'Matched by hand' : 'Matched') : c.state === 'ignored' ? 'Ignored (not a sale)' : 'Not matched'
     lines.push(['Bank credit', c.date, c.reference, c.isPaypro ? 'PayPro payout' : 'Bank transfer', c.amountPkr, '', '', '', status, c.date, c.reference, c.amountPkr])
   }
   return lines.map((l) => l.map(csvCell).join(',')).join('\r\n') + '\r\n'
@@ -706,7 +725,7 @@ export type ParsedAlert = {
 
 const MON: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 }
 
-function findDate(text: string): string | null {
+export function findDate(text: string): string | null {
   const patterns = [
     /\b\d{4}-\d{1,2}-\d{1,2}\b/,
     /\b\d{1,2}[/-]\d{1,2}[/-]\d{4}\b/,
@@ -724,7 +743,7 @@ function findDate(text: string): string | null {
   return null
 }
 
-function findTime(text: string): string | null {
+export function findTime(text: string): string | null {
   const m = text.match(/\b(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp]\.?[Mm]\.?)?/)
   if (!m) return null
   let h = Number(m[1])
@@ -805,4 +824,30 @@ export function creditProblem(c: { date: string; time: string | null; amountPkr:
   if (ref === '') return 'Enter the transaction reference from the bank alert.'
   if (existingReferences.some((r) => alnum(r) === ref)) return 'A bank credit with this reference is already recorded. It was not added again.'
   return null
+}
+
+// ---------------------------------------------------------------------------
+// What a saved credit matched, in one line
+// ---------------------------------------------------------------------------
+
+const SHORT_MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const shortDay = (d: string) => `${Number(d.slice(8, 10))} ${SHORT_MONTH[Number(d.slice(5, 7)) - 1] ?? ''}`.trim()
+
+/** "Matched to 2 JazzCash orders settled 9 Oct", or "No match yet". */
+export function matchSummary(board: Board, creditId: string): { matched: boolean; text: string } {
+  const c = board.credits.find((x) => x.id === creditId)
+  const m = c?.match
+  if (!c || !m) return { matched: false, text: 'No match yet' }
+  const parts: string[] = []
+  if (m.orders.length > 0) {
+    const picked = m.orders.map((n) => board.orders.find((o) => orderKey(o.orderNumber) === orderKey(n))).filter((o): o is OrderView => !!o)
+    const methods = [...new Set(picked.map((o) => o.method))]
+    const settled = [...new Set(picked.map((o) => o.settleDate).filter((d): d is string => !!d))].sort()
+    const method = methods.length === 1 && methods[0] !== 'Other' ? methods[0] : 'PayPro'
+    parts.push(`${m.orders.length} ${method} order${m.orders.length === 1 ? '' : 's'}${settled.length > 0 ? ` settled ${settled.map(shortDay).join(', ')}` : ''}`)
+  }
+  if (m.receipts.length > 0) parts.push(`${m.receipts.length} bank transfer receipt${m.receipts.length === 1 ? '' : 's'}`)
+  const tail =
+    m.status === 'amount_mismatch' ? ` — amount mismatch, expected ${rs(m.expected)}` : m.status === 'bank_charge' ? ` (${rs(-m.difference)} bank charge)` : ''
+  return { matched: true, text: `Matched to ${parts.join(' and ')}${tail}` }
 }
