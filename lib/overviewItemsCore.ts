@@ -14,6 +14,9 @@ export const OVERVIEW_ITEM_KEYS = [
   // top cards
   'revenue',
   'paid-today',
+  // "Signed up today, not paid" (owner, 12 Oct 2026) — its list is the Unpaid
+  // signups screen's Today filter, so the number and the rows cannot disagree.
+  'signups-today',
   'tutors',
   'parents',
   'open-tuitions',
@@ -60,6 +63,7 @@ export type OverviewItemMeta = {
 export const OVERVIEW_ITEMS: Record<OverviewItemKey, OverviewItemMeta> = {
   revenue: { title: 'Revenue this month', screen: 'revenue', noun: ['payment', 'payments'] },
   'paid-today': { title: 'Paid today', screen: 'payments', noun: ['tutor', 'tutors'] },
+  'signups-today': { title: 'Signed up today, not paid', screen: 'unpaidSignups', noun: ['tutor', 'tutors'] },
   tutors: { title: 'Tutors', screen: 'users', noun: ['tutor', 'tutors'] },
   parents: { title: 'Parents', screen: 'users', noun: ['parent', 'parents'] },
   'open-tuitions': { title: 'Open tuitions', screen: 'jobs', noun: ['tuition', 'tuitions'] },
@@ -191,3 +195,7 @@ export function feePayersSince<T extends FeePayment>(
   const today = [...latest.values()].sort((a, b) => b.at.localeCompare(a.at))
   return { today, month: month.size, week: week.size }
 }
+
+/** Where the "Signed up today, not paid" card opens: the existing Unpaid signups
+ *  list on its Today filter (WhatsApp, Call and Follow-up sent already live there). */
+export const SIGNUPS_TODAY_HREF = '/admin/users/unpaid-signups?filter=today'

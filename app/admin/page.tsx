@@ -1,11 +1,11 @@
 import Link from 'next/link'
-import { ArrowRight, BadgeCheck, Briefcase, GraduationCap, Users, Wallet } from 'lucide-react'
+import { ArrowRight, BadgeCheck, Briefcase, GraduationCap, UserPlus, Users, Wallet } from 'lucide-react'
 import type { ComponentType } from 'react'
 
 import AccessDeniedNotice from '@/components/admin/AccessDeniedNotice'
 import { requireAdminRole, roleBadge, roleSatisfies, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { loadOverviewList, type OverviewList } from '@/lib/overviewItems'
-import { OVERVIEW_ITEMS, type OverviewItemKey } from '@/lib/overviewItemsCore'
+import { OVERVIEW_ITEMS, SIGNUPS_TODAY_HREF, type OverviewItemKey } from '@/lib/overviewItemsCore'
 import { funnelSteps } from '@/lib/staffOutreachCore'
 import { TILE_TONE, type TileTone } from '@/lib/tileTones'
 import { smsProviderLabel } from '@/lib/sms'
@@ -15,12 +15,14 @@ import { pkr } from '@/lib/reconciliationCore'
 const TILE_STYLE: Record<string, { tone: TileTone; icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>; meaning: string }> = {
   revenue: { tone: 'green', icon: Wallet, meaning: 'Approved this month, not refunded' },
   'paid-today': { tone: 'teal', icon: BadgeCheck, meaning: '' },
+  // Signed up today, not paid (owner, 12 Oct 2026): pink — a tone no other card uses.
+  'signups-today': { tone: 'pink', icon: UserPlus, meaning: '' },
   tutors: { tone: 'navy', icon: GraduationCap, meaning: 'Registered accounts' },
   parents: { tone: 'violet', icon: Users, meaning: 'Registered accounts' },
   'open-tuitions': { tone: 'gold', icon: Briefcase, meaning: 'Live on the board for tutors to apply to' },
 }
 
-const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-today', 'tutors', 'parents', 'open-tuitions']
+const CARD_KEYS: OverviewItemKey[] = ['revenue', 'paid-today', 'tutors', 'parents', 'open-tuitions', 'signups-today']
 const TODO_KEYS: OverviewItemKey[] = [
   'todo-docs',
   'todo-uncontacted',
@@ -62,8 +64,10 @@ export default async function AdminHome({
   const lists = new Map<OverviewItemKey, OverviewList>(
     await Promise.all(keys.map(async (k) => [k, await loadOverviewList(k, { days: funnelDays })] as const)),
   )
+  // "Signed up today, not paid" opens the existing Unpaid signups list on its
+  // Today filter (the same rows), not a second list.
   const href = (k: OverviewItemKey) =>
-    `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
+    k === 'signups-today' ? SIGNUPS_TODAY_HREF : `/admin/overview/${k}${OVERVIEW_ITEMS[k].funnel ? `?days=${funnelDays}` : ''}`
 
   const tiles = CARD_KEYS.filter((k) => lists.has(k)).map((k) => {
     const l = lists.get(k)!
@@ -111,7 +115,7 @@ export default async function AdminHome({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {tiles.map((t) => {
             const style = TILE_STYLE[t.key] ?? { tone: 'navy' as TileTone, icon: Wallet }
             const tone = TILE_TONE[style.tone]

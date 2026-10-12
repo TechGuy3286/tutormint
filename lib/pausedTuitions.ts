@@ -19,8 +19,18 @@ import { revalidateLanding } from '@/lib/landingRevalidate'
 import { logAdminAction } from '@/lib/auditLog'
 import { notify } from '@/lib/notifications'
 import type { AdminActor } from '@/lib/adminAuth'
+import { jobsWithoutContactNumber } from '@/lib/tuitionContact'
+import { NO_CONTACT_REASON, NO_CONTACT_SOURCE } from '@/lib/tuitionContactCore'
 
-export type PausedFilters = { city?: string; age?: 'week' | 'older' | ''; apps?: 'with' | 'without' | '' }
+export type PausedFilters = { city?: string; age?: 'week' | 'older' | ''; apps?: 'with' | 'without' | ''; reason?: 'no_contact' | '' }
+
+/** The pause sources this screen lists: the 7-day rule, and "No contact number". */
+export const PAUSED_SOURCES = ['auto', 'backlog', NO_CONTACT_SOURCE] as const
+
+/** The reason staff see for a paused tuition. */
+export function pauseReasonLabel(source: string | null | undefined): string {
+  return source === NO_CONTACT_SOURCE ? NO_CONTACT_REASON : 'Paused after 7 days'
+}
 
 export type PausedRow = {
   id: string
@@ -34,6 +44,12 @@ export type PausedRow = {
   source: string
   applications: number
   href: string | null
+  /** "Paused after 7 days" or "No contact number". */
+  reason: string
+  /** Posted by the TutorMint team — a number can be added by staff. */
+  teamPosted: boolean
+  /** No valid parent contact number: Resume asks for it first. */
+  needsNumber: boolean
 }
 
 const WEEK_MS = 7 * 86_400_000
@@ -46,13 +62,14 @@ export async function loadPausedTuitions(filters: PausedFilters = {}, now = Date
       .from('jobs')
       .select('id, ref_id, title, city, area, class_level, parent_id, paused_at, pause_source, public_slug')
       .eq('status', 'paused')
-      .in('pause_source', ['auto', 'backlog'])
+      .in('pause_source', [...PAUSED_SOURCES])
       .order('paused_at', { ascending: false })
       .order('id')
       .range(from, to),
   )
   const ids = jobs.map((j) => j.id as string)
   const parentIds = [...new Set(jobs.map((j) => j.parent_id as string).filter(Boolean))]
+  const noNumber = await jobsWithoutContactNumber(admin, jobs.map((j) => ({ id: j.id as string, parent_id: (j.parent_id as string | null) ?? null })))
   const [apps, parents] = await Promise.all([
     pageAllIn(ids, (part, from, to) =>
       admin.from('applications').select('id, job_id').in('job_id', part).is('withdrawn_at', null).order('id').range(from, to),
@@ -64,6 +81,7 @@ export async function loadPausedTuitions(filters: PausedFilters = {}, now = Date
   const appCount = new Map<string, number>()
   for (const a of apps) appCount.set(a.job_id as string, (appCount.get(a.job_id as string) ?? 0) + 1)
   const posterBy = new Map(parents.map((p) => [p.id as string, p.is_team_account ? 'TutorMint team' : formatName(p.full_name as string | null) || '—']))
+  const teamIds = new Set(parents.filter((p) => p.is_team_account).map((p) => p.id as string))
 
   const all: PausedRow[] = jobs.map((j) => ({
     id: j.id as string,
@@ -77,6 +95,9 @@ export async function loadPausedTuitions(filters: PausedFilters = {}, now = Date
     source: j.pause_source as string,
     applications: appCount.get(j.id as string) ?? 0,
     href: j.public_slug ? `/tuitions/${citySegment(j.city as string | null)}/${j.public_slug as string}` : null,
+    reason: pauseReasonLabel(j.pause_source as string | null),
+    teamPosted: teamIds.has(j.parent_id as string),
+    needsNumber: noNumber.has(j.id as string),
   }))
   const cities = [...new Set(all.map((r) => r.city).filter((c): c is string => !!c))].sort()
   const city = (filters.city ?? '').trim().toLowerCase()
@@ -87,19 +108,28 @@ export async function loadPausedTuitions(filters: PausedFilters = {}, now = Date
     if (filters.age === 'older' && age <= WEEK_MS) return false
     if (filters.apps === 'with' && r.applications === 0) return false
     if (filters.apps === 'without' && r.applications > 0) return false
+    if (filters.reason === 'no_contact' && r.source !== NO_CONTACT_SOURCE) return false
     return true
   })
   return { rows, cities }
 }
 
 /** Resume paused tuitions as staff. Returns how many came back. */
-export async function resumeTuitionsAsStaff(actor: AdminActor, ids: string[]): Promise<{ resumed: string[]; skipped: string[] }> {
+export async function resumeTuitionsAsStaff(actor: AdminActor, ids: string[]): Promise<{ resumed: string[]; skipped: string[]; needNumber: string[] }> {
   const admin = createAdminClient()
-  if (!admin) return { resumed: [], skipped: ids }
+  if (!admin) return { resumed: [], skipped: ids, needNumber: [] }
   const resumed: string[] = []
   const skipped: string[] = []
   const bulk = ids.length > 1
+  // A tuition cannot go live without a contact number (owner, 12 Oct 2026): those
+  // are left paused and named, so staff add the number first.
+  const targets = await pageAllIn<{ id: string; parent_id: string | null }, string>(ids, (part, from, to) =>
+    admin.from('jobs').select('id, parent_id').in('id', part).order('id').range(from, to),
+  )
+  const noNumber = await jobsWithoutContactNumber(admin, targets)
+  const needNumber = ids.filter((id) => noNumber.has(id))
   for (const id of ids) {
+    if (noNumber.has(id)) continue
     const now = new Date().toISOString()
     const { data } = await admin
       .from('jobs')
@@ -134,5 +164,5 @@ export async function resumeTuitionsAsStaff(actor: AdminActor, ids: string[]): P
     }
   }
   if (resumed.length > 0) revalidateLanding()
-  return { resumed, skipped }
+  return { resumed, skipped, needNumber }
 }

@@ -14,6 +14,7 @@
 //
 // Staff only. Nothing here is read by a tutor's or a parent's dashboard.
 
+import { NO_CONTACT_SOURCE } from '@/lib/tuitionContactCore'
 import 'server-only'
 
 import { cache } from 'react'
@@ -74,6 +75,8 @@ export type ForwardCard = {
   status: string
   publicUrl: string | null
   parent: { name: string | null; msisdn: string | null; phoneLabel: string | null; teamPosted: boolean }
+  /** Paused for having no parent contact number (owner, 12 Oct 2026). */
+  pausedForNumber: boolean
   tutors: ForwardTutor[]
   state: Pick<ForwardState, 'tab' | 'newTutorIds' | 'newApplicant' | 'checkWithParent' | 'lastForward' | 'lastOutcome'>
 }
@@ -199,7 +202,7 @@ export async function loadForwardBoard(): Promise<ForwardBoard> {
 
   const [jobs, jobSubjects, contacts, tutors, tutorProfiles, tutorSubjects, subs, verifiedOk, tables, tpl] = await Promise.all([
     pageAllIn<Record<string, unknown>, string>(jobIds, (ids, from, to) =>
-      admin.from('jobs').select('id, ref_id, title, class_level, city, area, status, created_at, parent_id, public_slug').in('id', ids).order('id').range(from, to),
+      admin.from('jobs').select('id, ref_id, title, class_level, city, area, status, pause_source, created_at, parent_id, public_slug').in('id', ids).order('id').range(from, to),
     ),
     pageAllIn<{ job_id: string; master_id: number }, string>(jobIds, (ids, from, to) =>
       admin.from('job_subjects').select('job_id, master_id').in('job_id', ids).order('job_id').order('master_id').range(from, to),
@@ -309,9 +312,10 @@ export async function loadForwardBoard(): Promise<ForwardBoard> {
       parent: {
         name: teamPosted ? (contact?.contact_name ?? null) : formatName(parent?.full_name) || null,
         msisdn,
-        phoneLabel: rawPhone,
+        phoneLabel: msisdn ? rawPhone : null,
         teamPosted,
       },
+      pausedForNumber: job.status === 'paused' && job.pause_source === NO_CONTACT_SOURCE,
       tutors: cardTutors,
       state: {
         tab: s.tab,

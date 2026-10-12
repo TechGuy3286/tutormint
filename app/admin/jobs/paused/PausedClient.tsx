@@ -11,6 +11,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { formatDate } from '@/lib/datetime'
 import type { PausedFilters, PausedRow } from '@/lib/pausedTuitions'
+import AddParentNumber from '@/components/admin/AddParentNumber'
 
 export default function PausedClient({
   rows,
@@ -29,10 +30,12 @@ export default function PausedClient({
   const readOnly = useAdminReadOnly()
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
+  /** The row whose "Resume" is asking for the parent number first. */
+  const [numberFor, setNumberFor] = useState<string | null>(null)
 
-  const href = (patch: Partial<Record<'city' | 'age' | 'apps', string>>) => {
+  const href = (patch: Partial<Record<'city' | 'age' | 'apps' | 'reason', string>>) => {
     const p = new URLSearchParams()
-    const next = { city: filters.city ?? '', age: filters.age ?? '', apps: filters.apps ?? '', ...patch }
+    const next = { city: filters.city ?? '', age: filters.age ?? '', apps: filters.apps ?? '', reason: filters.reason ?? '', ...patch }
     for (const [k, v] of Object.entries(next)) if (v) p.set(k, v)
     return `/admin/jobs/paused${p.toString() ? `?${p}` : ''}`
   }
@@ -65,7 +68,8 @@ export default function PausedClient({
   const chip = (active: boolean) =>
     `rounded-full px-3 py-1.5 ring-1 ${active ? 'bg-tm-navy text-white ring-tm-navy' : 'bg-white text-tm-navy ring-gray-200'}`
 
-  const allPicked = rows.length > 0 && rows.every((r) => picked.has(r.id))
+  const pickable = rows.filter((r) => !r.needsNumber)
+  const allPicked = pickable.length > 0 && pickable.every((r) => picked.has(r.id))
 
   return (
     <div className="space-y-4">
@@ -91,11 +95,12 @@ export default function PausedClient({
         <Link href={href({ apps: '' })} className={chip(!filters.apps)}>All</Link>
         <Link href={href({ apps: 'with' })} className={chip(filters.apps === 'with')}>With applications</Link>
         <Link href={href({ apps: 'without' })} className={chip(filters.apps === 'without')}>Without applications</Link>
+        <Link href={href({ reason: filters.reason === 'no_contact' ? '' : 'no_contact' })} className={chip(filters.reason === 'no_contact')}>No contact number</Link>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-gray-500">
-          {rows.length} paused tuition{rows.length === 1 ? '' : 's'} (auto-paused after 7 days), newest first.
+          {rows.length} paused tuition{rows.length === 1 ? '' : 's'}, newest first. A tuition with no parent contact number asks for the number before it resumes.
         </p>
         {!readOnly && (
           <button
@@ -125,7 +130,7 @@ export default function PausedClient({
                       type="checkbox"
                       aria-label="Select all"
                       checked={allPicked}
-                      onChange={() => setPicked(allPicked ? new Set() : new Set(rows.map((r) => r.id)))}
+                      onChange={() => setPicked(allPicked ? new Set() : new Set(rows.filter((r) => !r.needsNumber).map((r) => r.id)))}
                     />
                   )}
                 </th>
@@ -134,6 +139,7 @@ export default function PausedClient({
                 <th className="p-2">Grade</th>
                 <th className="p-2">Poster</th>
                 <th className="p-2">Paused</th>
+                <th className="p-2">Reason</th>
                 <th className="p-2">Applications</th>
                 <th className="p-2" />
               </tr>
@@ -142,7 +148,7 @@ export default function PausedClient({
               {rows.map((r) => (
                 <tr key={r.id} className="border-t border-gray-100 align-top">
                   <td className="p-2">
-                    {!readOnly && (
+                    {!readOnly && !r.needsNumber && (
                       <input
                         type="checkbox"
                         aria-label={`Select ${r.refId ?? r.title}`}
@@ -166,9 +172,14 @@ export default function PausedClient({
                   <td className="p-2 text-gray-700">{r.grade ?? '—'}</td>
                   <td className="p-2 text-gray-700">{r.poster}</td>
                   <td className="p-2 text-gray-700">{formatDate(r.pausedAt)}</td>
+                  <td className="p-2">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${r.needsNumber ? 'bg-tm-tint-red text-tm-red' : 'bg-tm-tint-navy text-tm-navy'}`}>
+                      {r.needsNumber && r.reason !== 'No contact number' ? `${r.reason} · no contact number` : r.reason}
+                    </span>
+                  </td>
                   <td className="p-2 text-gray-700">{r.applications}</td>
                   <td className="p-2">
-                    {!readOnly && (
+                    {!readOnly && !r.needsNumber && (
                       <button
                         type="button"
                         disabled={busy}
@@ -177,6 +188,25 @@ export default function PausedClient({
                       >
                         Resume
                       </button>
+                    )}
+                    {/* No contact number: Resume asks for the number first. */}
+                    {!readOnly && r.needsNumber && r.teamPosted && numberFor !== r.id && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setNumberFor(r.id)}
+                        className="min-h-[36px] rounded-lg border border-tm-green-deep px-3 font-bold text-tm-green-deep hover:bg-tm-tint-green disabled:opacity-50"
+                      >
+                        Resume
+                      </button>
+                    )}
+                    {!readOnly && r.needsNumber && r.teamPosted && numberFor === r.id && (
+                      <div className="min-w-[220px]">
+                        <AddParentNumber jobId={r.id} resumeOnSave onCancel={() => setNumberFor(null)} />
+                      </div>
+                    )}
+                    {!readOnly && r.needsNumber && !r.teamPosted && (
+                      <span className="text-[11px] text-gray-600">The parent must verify their mobile first.</span>
                     )}
                   </td>
                 </tr>

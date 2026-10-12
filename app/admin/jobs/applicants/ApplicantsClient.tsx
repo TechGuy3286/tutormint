@@ -13,6 +13,7 @@ import { useAdminReadOnly } from '@/components/admin/ReadOnly'
 import { useToast } from '@/components/ui/Toast'
 import { formatDate } from '@/lib/datetime'
 import TimeAgo from '@/components/TimeAgo'
+import AddParentNumber from '@/components/admin/AddParentNumber'
 import type { ForwardCard, ForwardTutor } from '@/lib/applicantForwards'
 import {
   OUTCOME_LABEL,
@@ -239,6 +240,7 @@ function ForwardCardView({ card, template, canOpenMembers, nowMs }: { card: Forw
         <p className="text-[10px] font-bold uppercase tracking-wide text-gray-600">Parent</p>
         <p className="text-xs font-bold text-slate-800">{card.parent.name ?? 'No name on the tuition'}</p>
         <p className="font-mono text-[11px] text-slate-700">{card.parent.phoneLabel ?? 'No contact number on the tuition'}</p>
+        {card.pausedForNumber && <p className="text-[11px] font-bold text-tm-red">Paused: no contact number</p>}
       </div>
 
       {/* The paid tutors, newest first */}
@@ -258,7 +260,18 @@ function ForwardCardView({ card, template, canOpenMembers, nowMs }: { card: Forw
         </p>
       )}
 
-      {!readOnly && (
+      {/* No number on the tuition: "Add parent number" replaces WhatsApp / Call. */}
+      {!readOnly && !card.parent.msisdn && card.parent.teamPosted && (
+        <div className="mt-auto space-y-1">
+          <p className="text-[11px] font-bold text-slate-700">Add parent number</p>
+          <AddParentNumber jobId={card.jobId} offerResume />
+        </div>
+      )}
+      {!readOnly && !card.parent.msisdn && !card.parent.teamPosted && (
+        <p className="mt-auto text-[11px] text-gray-600">This parent has no verified mobile yet, so there is nobody to forward to.</p>
+      )}
+
+      {!readOnly && !!card.parent.msisdn && (
         <div className="mt-auto space-y-2">
           <div className="flex gap-2">
             {waHref ? (

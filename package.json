@@ -103,6 +103,7 @@
     "test:payproexport": "tsx --test scripts/test-paypro-export.ts",
     "test:bankalerts": "tsx --test scripts/test-bankalerts.ts",
     "test:photocrop": "tsx --test scripts/test-photo-crop.ts",
+    "test:tuitioncontact": "tsx --test scripts/test-tuition-contact.ts",
     "test:unmetsearches": "tsx --test scripts/test-unmet-searches.ts",
     "test:smartsearch": "tsx --test scripts/test-smart-search.ts",
     "test:pagecap": "tsx --test scripts/test-page-cap.ts",

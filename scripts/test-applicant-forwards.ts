@@ -187,9 +187,10 @@ test('who can act: owner, admin, operations and tuitions staff; the Partner cann
   assert.match(code('lib/adminAuth.ts'), /Partner accounts are view-only|PARTNER_VIEW_ONLY/)
   // The UI offers a Partner no action: buttons, tick boxes and the outcome form sit behind !readOnly.
   const ui = code('app/admin/jobs/applicants/ApplicantsClient.tsx')
-  assert.match(ui, /\{!readOnly && \(\s*<div className="mt-auto space-y-2">/)
+  // WhatsApp / Call need a number on the tuition (owner, 12 Oct 2026); without one the card offers "Add parent number".
+  assert.match(ui, /\{!readOnly && !!card\.parent\.msisdn && \(\s*<div className="mt-auto space-y-2">/)
   assert.match(ui, /canSelect=\{!readOnly\}/)
-  const actions = ui.slice(ui.indexOf('{!readOnly && ('))
+  const actions = ui.slice(ui.indexOf('{!readOnly && !!card.parent.msisdn && ('))
   for (const label of ['WhatsApp parent', 'Call parent', 'Mark as forwarded', 'Save outcome']) assert.ok(actions.includes(label), `${label} is inside the write-only block`)
   // Every action is audited on the tuition, so it shows in the tuition's admin page history.
   const lib = code('lib/applicantForwards.ts')

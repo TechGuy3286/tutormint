@@ -136,7 +136,7 @@ test('shared form: the admin-only extras are admin-only', () => {
   for (const label of [
     'Verified tuition',
     'Origin (for the audit trail)',
-    'Poster contact',
+    'Parent contact',
     // The four extra contact fields are admin-only too.
     'WhatsApp number',
     'Social handle',

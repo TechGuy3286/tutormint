@@ -20,6 +20,7 @@ import { takeDraft, saveDraft } from '@/components/AuthGateModal'
 import { loadFormDraft, saveFormDraft, clearFormDraft } from '@/lib/formDraft'
 import { TextLinesSkeleton } from '@/components/Skeletons'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { parseContactNumber } from '@/lib/tuitionContactCore'
 
 // THE ONE post-a-tuition form (owner, 11 Sep 2026). The parent's post-a-job form
 // and /admin/jobs/new were near-duplicate copies that had already drifted (two
@@ -366,6 +367,12 @@ export default function PostTuitionForm({
       if (!levelLeaf && gradesWithNone.length > 0) {
         throw new Error(`Choose at least one subject for ${gradesWithNone.join(', ')}.`)
       }
+      // Staff: the parent contact number is required (owner, 12 Oct 2026). The
+      // server refuses without it too; this only says so before the round trip.
+      if (adminExtras) {
+        const number = parseContactNumber(v.contactPhone)
+        if (!number.ok) throw new Error(number.error)
+      }
       // Per grade (owner, 7 Oct 2026): each grade's subjects resolve against that
       // grade only; the combined list (job_subjects) is their union.
       const perGrade = levelLeaf ? [] : await resolveGradeSubjectIds(v.category, v.gradeSubjects, v.levels)
@@ -673,10 +680,10 @@ export default function PostTuitionForm({
                 <p className="flex items-start gap-2 text-[11px] leading-relaxed text-slate-700">
                   <Phone size={13} className="mt-px shrink-0 text-tm-green-deep" aria-hidden />
                   <span>
-                    <strong>Poster contact (optional).</strong> Enter any of these and tutors can
-                    contact the poster directly from the job page — no application needed. Shown only
-                    to signed-in tutors; never to other parents, and never indexed. Leave blank what
-                    you do not have.
+                    <strong>Parent contact.</strong> The parent contact number is required — tutors
+                    use it to reach the parent, and staff use it to forward applicants. Shown only to
+                    signed-in tutors; never to other parents, and never indexed. The other fields are
+                    optional.
                   </span>
                 </p>
                 <label className="block space-y-1">
@@ -689,12 +696,15 @@ export default function PostTuitionForm({
                   />
                 </label>
                 <label className="block space-y-1">
-                  <span className={LABEL}>Contact number</span>
+                  <span className={LABEL}>Parent contact number (required)</span>
                   <input
                     value={v.contactPhone}
                     onChange={(e) => set('contactPhone', e.target.value)}
                     placeholder="0300 1234567"
                     inputMode="tel"
+                    autoComplete="off"
+                    required
+                    aria-required="true"
                     className={FIELD}
                   />
                 </label>

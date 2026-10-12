@@ -66,6 +66,8 @@ import { collapseLevels } from '@/lib/levelDisplay'
 import type { AdminRole } from '@/lib/adminAuth'
 import { formatName } from '@/lib/formatName'
 import { placeLabel } from '@/lib/place'
+import { parseContactNumber, resumeContactProblem } from '@/lib/tuitionContactCore'
+import { contactFactsForJobs } from '@/lib/tuitionContact'
 
 // Level is multi-select now (migration 79): jobs.class_levels is the array, and
 // jobs.class_level (+ the legacy `grade` mirror) hold the collapsed display run.
@@ -447,6 +449,11 @@ export async function createTeamJob(
     social: input.contactSocial,
   })
   if (!contact.ok) return { ok: false, status: 400, error: contact.error }
+  // The parent contact number is REQUIRED on a staff-posted tuition (owner,
+  // 12 Oct 2026): without it a tutor's "View number" shows nothing and staff
+  // cannot forward applicants. Checked before anything is created.
+  const number = parseContactNumber(input.contactPhone)
+  if (!number.ok) return { ok: false, status: 400, error: number.error }
 
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
@@ -632,6 +639,10 @@ export async function updateTeamJob(
     social: input.contactSocial,
   })
   if (!contact.ok) return { ok: false, status: 400, error: contact.error }
+  // Required on an edit too (owner, 12 Oct 2026): an edit cannot be saved
+  // without the parent contact number.
+  const number = parseContactNumber(input.contactPhone)
+  if (!number.ok) return { ok: false, status: 400, error: number.error }
 
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
@@ -898,6 +909,17 @@ export async function resumeJob(parentId: string, jobId: string): Promise<{ ok: 
   // the service role, after the ownership check and re-scoped to this parent.
   const admin = createAdminClient()
   if (!admin) return { ok: false, status: 503, error: 'This is not working right now. Please try again in a few minutes, or message us on WhatsApp 0321 5872222.\nیہ ابھی کام نہیں کر رہا۔ کچھ منٹ بعد کوشش کریں یا واٹس ایپ پر پیغام کریں۔' }
+
+  // A tuition cannot go live without a contact number (owner, 12 Oct 2026). A
+  // parent's own tuition uses their verified mobile.
+  const facts = (await contactFactsForJobs(admin, [{ id: jobId, parent_id: parentId }])).get(jobId)
+  if (!facts || resumeContactProblem(facts)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Verify your mobile number first, then reopen this tuition. Tutors need a number to reach you.\nپہلے اپنا موبائل نمبر تصدیق کریں، پھر یہ ٹیوشن دوبارہ کھولیں۔',
+    }
+  }
 
   const { error } = await admin
     .from('jobs')

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { checkAdminRole, SCREEN_ACCESS } from '@/lib/adminAuth'
 import { resumeTuitionsAsStaff } from '@/lib/pausedTuitions'
 import { parseBody, z } from '@/lib/validate'
+import { CONTACT_NUMBER_MESSAGE } from '@/lib/tuitionContactCore'
 
 // POST /api/admin/jobs/paused — Resume one or many auto-paused tuitions
 // (owner, 8 Oct 2026). Every role that can post tuitions; the Partner is refused
@@ -14,6 +15,10 @@ export async function POST(request: Request) {
   if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
   const parsed = await parseBody(request, Body)
   if (!parsed.ok) return parsed.response
-  const { resumed, skipped } = await resumeTuitionsAsStaff(gate.actor, parsed.data.ids)
-  return NextResponse.json({ success: true, resumed: resumed.length, skipped: skipped.length })
+  const { resumed, skipped, needNumber } = await resumeTuitionsAsStaff(gate.actor, parsed.data.ids)
+  // A tuition with no parent contact number is never resumed (owner, 12 Oct 2026).
+  if (resumed.length === 0 && needNumber.length > 0) {
+    return NextResponse.json({ error: `Add the parent's mobile number first. ${CONTACT_NUMBER_MESSAGE}`, needNumber: needNumber.length }, { status: 400 })
+  }
+  return NextResponse.json({ success: true, resumed: resumed.length, skipped: skipped.length, needNumber: needNumber.length })
 }

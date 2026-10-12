@@ -10,7 +10,7 @@ import PausedClient from './PausedClient'
 
 export const dynamic = 'force-dynamic'
 
-type SP = { city?: string; age?: string; apps?: string }
+type SP = { city?: string; age?: string; apps?: string; reason?: string }
 
 export default async function PausedTuitionsPage({ searchParams }: { searchParams: Promise<SP> }) {
   await requireAdminRole(...SCREEN_ACCESS.pausedTuitions)
@@ -19,6 +19,8 @@ export default async function PausedTuitionsPage({ searchParams }: { searchParam
     city: sp.city ?? '',
     age: sp.age === 'week' || sp.age === 'older' ? sp.age : '',
     apps: sp.apps === 'with' || sp.apps === 'without' ? sp.apps : '',
+    // "No contact number" (owner, 12 Oct 2026): tuitions paused for having no parent number.
+    reason: sp.reason === 'no_contact' ? 'no_contact' : '',
   }
   const [{ rows, cities }, backlog] = await Promise.all([loadPausedTuitions(filters), pauseBacklogStatus()])
   const next = new Date(backlog.nextBatch)

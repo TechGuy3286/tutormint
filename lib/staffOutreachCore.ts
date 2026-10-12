@@ -36,18 +36,58 @@ export const OUTCOME_LABEL: Record<ContactOutcome, string> = {
 /** The onboarding step label the fee step carries (lib/onboardingStopCore). */
 export const PAYMENT_STEP_LABEL = 'Verification fee'
 
-export type UnpaidFilter = 'all' | 'payment' | 'onboarding' | 'uncontacted' | 'followed'
+export type UnpaidFilter = 'all' | 'payment' | 'onboarding' | 'uncontacted' | 'followed' | SignupWindow
 
 export function parseUnpaidFilter(v: string | null | undefined): UnpaidFilter {
-  return v === 'payment' || v === 'onboarding' || v === 'uncontacted' || v === 'followed' ? v : 'all'
+  return v === 'payment' || v === 'onboarding' || v === 'uncontacted' || v === 'followed' || isSignupWindow(v) ? v : 'all'
+}
+
+// "Signed up today, not paid" (owner, 12 Oct 2026) — the Overview card and the
+// quick filters Today / Yesterday / Last 7 days on this list. A day is a
+// Pakistan-time day (UTC+5, no daylight saving). The card's number is the
+// length of the Today filter, by construction: both call signedUpIn().
+export const SIGNUP_WINDOWS = ['today', 'yesterday', 'week'] as const
+export type SignupWindow = (typeof SIGNUP_WINDOWS)[number]
+
+export function isSignupWindow(v: unknown): v is SignupWindow {
+  return typeof v === 'string' && (SIGNUP_WINDOWS as readonly string[]).includes(v)
+}
+
+const PK_OFFSET_MS = 5 * 3600_000
+const DAY_MS = 86_400_000
+
+/** 00:00 Pakistan time of the day `nowMs` falls in, as a UTC instant. */
+export function pkDayStart(nowMs: number): number {
+  return Math.floor((nowMs + PK_OFFSET_MS) / DAY_MS) * DAY_MS - PK_OFFSET_MS
+}
+
+/** Did this account sign up in the window? Today and Yesterday are Pakistan-time
+ *  days; "Last 7 days" is the 7 × 24 hours up to now (so it includes today). */
+export function signedUpIn(joinedAt: string | null | undefined, window: SignupWindow, nowMs: number): boolean {
+  const t = Date.parse(joinedAt ?? '')
+  if (!Number.isFinite(t) || t > nowMs) return false
+  const today = pkDayStart(nowMs)
+  if (window === 'today') return t >= today
+  if (window === 'yesterday') return t >= today - DAY_MS && t < today
+  return t >= nowMs - 7 * DAY_MS
+}
+
+/** The card's three numbers, from the SAME rows the list shows. */
+export function signupCounts(rows: { joinedAt: string }[], nowMs: number): Record<SignupWindow, number> {
+  const n = (w: SignupWindow) => rows.filter((r) => signedUpIn(r.joinedAt, w, nowMs)).length
+  return { today: n('today'), yesterday: n('yesterday'), week: n('week') }
 }
 
 /** Does a row pass the chosen filter? `stoppedAt` is null when every onboarding
  *  step is done (only the fee is left would read 'Verification fee'). */
 export function unpaidRowMatches(
-  row: { stoppedAt: string | null; lastContactAt: string | null; followUpSent?: boolean },
+  row: { stoppedAt: string | null; lastContactAt: string | null; followUpSent?: boolean; joinedAt?: string | null },
   filter: UnpaidFilter,
+  nowMs: number = Date.now(),
 ): boolean {
+  // The signed-up filters list EVERY unpaid tutor of the window, followed up or
+  // not, so the Overview card's number equals the rows of "Today".
+  if (isSignupWindow(filter)) return signedUpIn(row.joinedAt, filter, nowMs)
   // Followed up in the last 7 days → only the "Follow-up sent" tab (owner,
   // 9 Oct 2026, the shared lib/followUpCore rule).
   if (filter === 'followed') return !!row.followUpSent

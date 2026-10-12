@@ -23,6 +23,14 @@ const FILTERS: { key: UnpaidFilter; label: string }[] = [
   { key: 'followed', label: 'Follow-up sent' },
 ]
 
+// Quick filters by sign-up day (owner, 12 Oct 2026) — where the Overview card
+// "Signed up today, not paid" lands. Pakistan-time days.
+const SIGNED_UP: { key: UnpaidFilter; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: 'week', label: 'Last 7 days' },
+]
+
 export default async function UnpaidSignupsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   await requireAdminRole(...SCREEN_ACCESS.unpaidSignups)
   const filter = parseUnpaidFilter((await searchParams).filter)
@@ -35,9 +43,10 @@ export default async function UnpaidSignupsPage({ searchParams }: { searchParams
     stoppedAt: r.stoppedAt,
     lastContactAt: r.lastContact?.at ?? null,
     followUpSent: !!states.get(r.id)?.sent,
+    joinedAt: r.joinedAt,
   })
-  const rows = all.filter((r) => unpaidRowMatches(facts(r), filter))
-  const count = (f: UnpaidFilter) => all.filter((r) => unpaidRowMatches(facts(r), f)).length
+  const rows = all.filter((r) => unpaidRowMatches(facts(r), filter, now))
+  const count = (f: UnpaidFilter) => all.filter((r) => unpaidRowMatches(facts(r), f, now)).length
 
   return (
     <div className="space-y-4">
@@ -56,6 +65,25 @@ export default async function UnpaidSignupsPage({ searchParams }: { searchParams
             <Link
               key={f.key}
               href={f.key === 'all' ? '/admin/users/unpaid-signups' : `/admin/users/unpaid-signups?filter=${f.key}`}
+              aria-current={on ? 'page' : undefined}
+              className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
+                on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'
+              }`}
+            >
+              {f.label} <span className={on ? 'text-white' : 'text-gray-500'}>{count(f.key)}</span>
+            </Link>
+          )
+        })}
+      </nav>
+
+      <nav aria-label="Signed up" className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-bold text-gray-600">Signed up:</span>
+        {SIGNED_UP.map((f) => {
+          const on = f.key === filter
+          return (
+            <Link
+              key={f.key}
+              href={`/admin/users/unpaid-signups?filter=${f.key}`}
               aria-current={on ? 'page' : undefined}
               className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-4 text-xs font-bold ${
                 on ? 'border-tm-navy bg-tm-navy text-white' : 'border-gray-200 bg-white text-tm-navy hover:border-tm-navy'

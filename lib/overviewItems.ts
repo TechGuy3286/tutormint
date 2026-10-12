@@ -8,6 +8,8 @@
 // Every caller checks the item's SCREEN_ACCESS key first (OVERVIEW_ITEMS[key]
 // .screen) — the same key the Overview filters its cards and rows by.
 
+import { signedUpIn, signupCounts } from '@/lib/staffOutreachCore'
+import { SIGNUPS_TODAY_HREF } from '@/lib/overviewItemsCore'
 import { loadUnmetBoard } from '@/lib/unmetSearches'
 import { testAccountIds } from '@/lib/testAccounts'
 import { pageAll } from '@/lib/pageAll'
@@ -280,6 +282,24 @@ export async function loadOverviewList(key: OverviewItemKey, opts: { days?: 7 | 
         filter: `paid the ${FEE_LABEL} today (since 00:00 Pakistan time)`,
         extra: `${month} this month · ${week} in the last 7 days`,
         workHref: '/admin/payments/payers',
+      }
+    }
+
+    case 'signups-today': {
+      // The SAME rows and the SAME rule as Unpaid signups → Today
+      // (loadUnpaidSignups + signedUpIn): tutors who created their account today
+      // (Pakistan time) and have not paid the Verification Fee; staff, test,
+      // paused and banned accounts are already left out of that list.
+      const nowMs = now.getTime()
+      const all = await unpaid()
+      const counts = signupCounts(all, nowMs)
+      const rows = all.filter((r) => signedUpIn(r.joinedAt, 'today', nowMs))
+      return {
+        key,
+        rows: rows.map((r) => ({ id: r.id, title: r.name, detail: `Joined ${formatDateTime(r.joinedAt)} · stopped at ${r.stoppedAt ?? 'payment'}`, href: `/admin/users/${r.id}`, memberId: r.id })),
+        filter: `who signed up today (since 00:00 Pakistan time) and have not paid the ${FEE_LABEL}`,
+        extra: `${counts.yesterday} yesterday · ${counts.week} in the last 7 days`,
+        workHref: SIGNUPS_TODAY_HREF,
       }
     }
 

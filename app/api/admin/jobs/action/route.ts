@@ -8,6 +8,8 @@ import { notify } from '@/lib/notifications'
 import { queueIndexingUpdate } from '@/lib/googleIndexing'
 import { mergeTuition, refreshTuition } from '@/lib/tuitionMerge'
 import { parseBody, z, uuid, text } from '@/lib/validate'
+import { contactFactsForJobs } from '@/lib/tuitionContact'
+import { resumeContactProblem } from '@/lib/tuitionContactCore'
 
 // Close, pause/resume, or un-feature a tuition.
 //
@@ -131,6 +133,10 @@ export async function POST(request: Request) {
     if (job.status !== 'paused') {
       return NextResponse.json({ error: 'That tuition is not paused.' }, { status: 400 })
     }
+    // A tuition cannot go live without a contact number (owner, 12 Oct 2026).
+    const facts = (await contactFactsForJobs(admin, [{ id: jobId, parent_id: (job.parent_id as string | null) ?? null }])).get(jobId)
+    const problem = facts ? resumeContactProblem(facts) : 'That tuition was not found.'
+    if (problem) return NextResponse.json({ error: problem, needNumber: true }, { status: 400 })
     patch.status = 'open'
     patch.resumed_at = new Date().toISOString()
     patch.bumped_at = patch.resumed_at
